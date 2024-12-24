@@ -1,0 +1,7 @@
+__pycache__/
+*.py[cod]
+*.class
+.env
+QubeAgent_env/
+*.log
+.DS_Store
