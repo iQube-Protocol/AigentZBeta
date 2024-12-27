@@ -34,15 +34,25 @@ python setup.py
 - Dynamic context generation
 - Secure wallet interactions
 - Tokenized information access
+- Enhanced error handling and logging
+
+## Recent Updates (v0.2.1)
+- Improved error handling in agent processing
+- More robust test suite
+- Enhanced mock dependency configuration
+- Prepared for future LangChain deprecations
 
 ## Documentation
 For a comprehensive overview of the architecture and development strategy, please refer to [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Development Status
-🚧 Active Development: Expect frequent updates and improvements
+ Active Development: Expect frequent updates and improvements
 
 ## Contributing
 We welcome contributions! Please see our contribution guidelines in [ARCHITECTURE.md](ARCHITECTURE.md).
+
+## Version
+Current version: 0.2.1
 
 ## License
 [Specify your license]
