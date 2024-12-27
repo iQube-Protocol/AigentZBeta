@@ -18,7 +18,7 @@ NC='\033[0m' # No Color
 
 # Project Configuration
 PROJECT_NAME="QubeAgent"
-PYTHON_VERSION="3.10"
+PYTHON_VERSION="3.13"
 VENV_NAME="${PROJECT_NAME}_env"
 
 # Dependency Versions
@@ -207,8 +207,17 @@ setup_virtual_environment() {
 install_dependencies() {
     log "Installing project dependencies..."
     
-    pip install --upgrade pip
-    pip install -r requirements.txt
+    # Upgrade pip and setuptools to latest versions
+    pip install --upgrade pip setuptools wheel
+    
+    # Install requirements with no cache to avoid previous build issues
+    pip install --no-cache-dir -r requirements.txt
+    
+    # Optional: Install development dependencies
+    pip install pytest mypy black flake8
+    
+    # Verify installations
+    pip list | grep -E "web3|langchain|cryptography"
     
     log "Dependencies installed successfully"
 }
