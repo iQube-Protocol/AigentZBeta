@@ -13,7 +13,7 @@ setup(
     long_description_content_type='text/markdown',
     author='Your Name',
     author_email='your.email@example.com',
-    url='https://github.com/your-org/qubeagent',
+    url='https://github.com/Kn0w-1/QubeAgent',
     packages=find_packages(exclude=['tests*']),
     install_requires=read_requirements(),
     extras_require={

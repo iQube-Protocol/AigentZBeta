@@ -19,48 +19,68 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-MANIFEST
 
 # Virtual Environment
 venv/
+ENV/
 env/
 .env
-.venv
-qubeagent-env/
-QubeAgent_env/
 
 # IDE
 .idea/
 .vscode/
 *.swp
 *.swo
+.project
+.pydevproject
+.settings/
 
-# Logs
+# Logs and databases
 *.log
 logs/
+*.sqlite
+*.db
 
-# OS
+# Local development
+instance/
+.webassets-cache
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# Blockchain
+.infura
+.web3
+node_modules/
+
+# OS generated files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
 
-# Blockchain and Wallet
-*.keystore
-*.wallet
-
-# Sensitive Configuration
-config.ini
-secrets.yml
-
-# Jupyter Notebooks
-.ipynb_checkpoints
-
-# Testing
-.pytest_cache/
-htmlcov/
-.coverage
-coverage.xml
-
-# Blockchain Specific
-node_modules/
-.truffle-v5.log
-.openzeppelin/
+# Security
+*.pem
+*.key
+*.crt
+*.cer
+secrets/
+.env
+.flaskenv
+*.p12
+*.pfx

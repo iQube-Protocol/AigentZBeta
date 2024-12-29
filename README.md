@@ -1,58 +1,108 @@
-# QubeAgent: Decentralized AI Agent Framework
+# QubeAgent
+
+QubeAgent is an intelligent agent designed to interact with iQubes, providing secure data handling and blockchain integration capabilities.
+
+## Features
+
+- Ethereum wallet integration for secure authentication
+- Real-time TokenQube data retrieval from blockchain
+- Secure BlakQube data encryption/decryption
+- Interactive UI for iQube management
+- MetaQube data visualization
+- Secure data sharing capabilities
+
+## Prerequisites
+
+- Python 3.8+
+- Web3.py
+- Flask
+- Cryptography
+- Modern web browser with MetaMask installed
+
+## Installation
+
+1. Clone the repository:
+```bash
+git clone https://github.com/yourusername/QubeAgent.git
+cd QubeAgent
+```
+
+2. Install required Python packages:
+```bash
+pip install -r requirements.txt
+```
+
+3. Set up your environment variables:
+```bash
+cp .env.example .env
+# Edit .env with your configuration
+```
 
 ## Quick Start
 
-### Prerequisites
-- Python 3.8+
-- Web3-compatible wallet
-- Blockchain network access
-
-### Installation
+1. Start the Flask server:
 ```bash
-# Clone the repository
-git clone https://github.com/your-org/qubeagent.git
-cd qubeagent
-
-# Create virtual environment
-python -m venv qubeagent-env
-source qubeagent-env/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Set up environment variables
-cp .env.example .env
-# Edit .env with your specific configurations
-
-# Run initial setup
-python setup.py
+python app.py
 ```
 
-## Core Features
-- Blockchain-backed AI agent
-- iQube and blakQube content integration
-- Dynamic context generation
-- Secure wallet interactions
-- Tokenized information access
-- Enhanced error handling and logging
+2. Open your browser and navigate to:
+```
+http://localhost:5000
+```
 
-## Recent Updates (v0.2.1)
-- Improved error handling in agent processing
-- More robust test suite
-- Enhanced mock dependency configuration
-- Prepared for future LangChain deprecations
+3. Connect your MetaMask wallet
+4. Enter a TokenQube ID to retrieve data
+5. Use the "Share iQube" feature to decrypt and view BlakQube data
 
-## Documentation
-For a comprehensive overview of the architecture and development strategy, please refer to [ARCHITECTURE.md](ARCHITECTURE.md).
+## Project Structure
+
+```
+QubeAgent/
+├── agents/                 # Agent implementation
+├── qube_agent/            # Core QubeAgent modules
+│   ├── models/            # Data models
+│   └── reasoning/         # Reasoning engines
+├── templates/             # HTML templates
+├── static/                # Static assets
+├── tests/                 # Test suites
+└── app.py                # Main application
+```
 
 ## Development Status
- Active Development: Expect frequent updates and improvements
+
+Current Version: 1.0.0-beta
+
+The application currently supports:
+- Wallet connection and authentication
+- TokenQube data retrieval (mock data for development)
+- BlakQube data encryption/decryption
+- Basic agent reasoning capabilities
+
+Upcoming features:
+- Full blockchain integration
+- Advanced reasoning capabilities
+- Enhanced security features
+- Multi-wallet support
+
+## Security
+
+- All sensitive data is encrypted using industry-standard encryption
+- No private keys or sensitive data are stored on the server
+- All blockchain interactions require explicit user approval
 
 ## Contributing
-We welcome contributions! Please see our contribution guidelines in [ARCHITECTURE.md](ARCHITECTURE.md).
 
-## Version
-Current version: 0.2.1
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
 ## License
-[Specify your license]
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Contact
+
+Your Name - [@yourusername](https://twitter.com/yourusername)
+Project Link: [https://github.com/yourusername/QubeAgent](https://github.com/yourusername/QubeAgent)

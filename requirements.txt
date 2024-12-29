@@ -1,40 +1,49 @@
 # Core AI and Agent Framework
-langchain==0.1.0
-langgraph==0.0.1
-transformers>=4.30.0
+transformers
+click
+pyyaml
+
+# AI and Reasoning Dependencies
+langchain>=0.1.0,<0.2.0
+langchain-openai>=0.0.2
+langchain-core>=0.1.0,<0.4.0
+openai>=1.58.1
+tiktoken>=0.8.0
 
 # Blockchain and Web3 Interactions
-web3==6.11.0
-eth-account==0.10.0
+# Web3 and Blockchain Integration
+web3==7.6.1
+eth-account>=0.8.0
+eth-typing
+eth-utils
 
-# Database and Storage
-sqlalchemy==2.0.23
-pinecone-client==2.2.4
-chromadb==0.4.18
+# Cryptography and Security
+cryptography==44.0.0
+python-jose
+pycryptodome>=3.19.0
+
+# Storage and Content Management
+ipfshttpclient
+python-magic
 
 # Utility and Helper Libraries
 python-dotenv==1.0.0
-requests>=2.31.0
-aiohttp>=3.9.1
-
-# Cryptography and Security
-cryptography==41.0.7
-python-jose==3.3.0
+requests==2.32.3
+aiohttp
+Flask==2.0.1
+gunicorn==21.2.0
+Pillow==10.1.0
 
 # Development and Testing
-pytest==7.4.4
-mypy==1.7.1
-black==23.12.1
-flake8==6.1.0
-
-# Optional: Advanced RAG and NLP
-sentence-transformers>=2.2.2
-openai>=1.6.1
-anthropic>=0.7.0
-
-# Blockchain Specific
-eth-typing==3.5.2
-eth-utils==2.3.1
+pytest==7.4.3
+pytest-mock
+mypy
+black
+flake8
+coverage
 
 # Logging and Monitoring
-structlog==24.1.0
+structlog
+
+# Machine Learning Dependencies
+numpy
