@@ -1,96 +1,121 @@
-# QubeAgent
+# QubeAgent: Intelligent Contextual AI Agent Framework
 
-QubeAgent is an intelligent agent designed to interact with iQubes, providing secure data handling and blockchain integration capabilities.
+## Project Overview
 
-## Features
+QubeAgent is an advanced AI agent framework designed to revolutionize contextual intelligence, data integrity, and risk management through innovative technological integrations.
 
-- Ethereum wallet integration for secure authentication
-- Real-time TokenQube data retrieval from blockchain
-- Secure BlakQube data encryption/decryption
-- Interactive UI for iQube management
-- MetaQube data visualization
-- Secure data sharing capabilities
+### Core Vision
 
-## Prerequisites
+Our mission is to create a robust, secure, and intelligent agent ecosystem that prioritizes:
+- Comprehensive risk and value analysis
+- Semantic context generation
+- Secure and auditable data interactions
 
-- Python 3.8+
-- Web3.py
-- Flask
-- Cryptography
-- Modern web browser with MetaMask installed
+## Technological Stack
 
-## Installation
+### Key Integrations
 
-1. Clone the repository:
+1. **Smart Agents**
+   - Adaptive intelligence framework
+   - Dynamic reasoning capabilities
+   - Context-aware decision making
+
+2. **LangChain**
+   - Advanced natural language processing
+   - Modular language model integration
+   - Contextual understanding enhancement
+
+3. **DB-GPT**
+   - Semantic context vectorization
+   - Advanced database interaction
+   - Natural language query processing
+
+4. **AWEL (Agentic Workflow Execution Layer)**
+   - Workflow orchestration
+   - Dynamic service composition
+   - Granular task management
+
+## Architecture Overview
+
+### Layered Architecture
+
+1. **Context Layer**
+   - Semantic intelligence generation
+   - Risk and value vectorization
+   - Contextual information mapping
+
+2. **Service Layer**
+   - Dynamic service discovery
+   - Computational resource management
+   - Execution pathway optimization
+
+3. **State Layer**
+   - Comprehensive transaction logging
+   - Audit trail generation
+   - Compliance tracking
+
+## Development Tactics
+
+### Technical Innovations
+
+1. **Web3.js Migration**
+   - Replaced Ethers.js with Web3.js
+   - Enhanced wallet connection reliability
+   - Improved blockchain interaction mechanisms
+
+2. **Favicon and Frontend Optimization**
+   - Implemented robust favicon loading
+   - Optimized static asset management
+   - Improved cross-browser compatibility
+
+3. **Security Enhancements**
+   - Implemented network switching capabilities
+   - Added comprehensive error handling
+   - Enhanced logging and debugging mechanisms
+
+## Integration Rationale
+
+### Why These Technologies?
+
+- **Smart Agents**: Provide adaptive intelligence and context-aware reasoning
+- **LangChain**: Enable sophisticated natural language understanding
+- **DB-GPT**: Facilitate semantic context generation and database interactions
+- **AWEL**: Support complex workflow orchestration and service composition
+
+## Getting Started
+
+### Prerequisites
+- Python 3.13+
+- Web3.js
+- DB-GPT
+- AWEL Framework
+
+### Installation
+
 ```bash
-git clone https://github.com/yourusername/QubeAgent.git
+git clone https://github.com/your-org/QubeAgent.git
 cd QubeAgent
-```
-
-2. Install required Python packages:
-```bash
+python3 -m venv qubeagent_env
+source qubeagent_env/bin/activate
 pip install -r requirements.txt
 ```
 
-3. Set up your environment variables:
-```bash
-cp .env.example .env
-# Edit .env with your configuration
+### Quick Start
+
+```python
+from qubeagent import QubeAgent
+
+# Initialize QubeAgent
+agent = QubeAgent()
+
+# Generate contextual intelligence
+context = agent.generate_context(user_request)
+
+# Execute intelligent workflow
+response = agent.process_request(context)
 ```
 
-## Quick Start
-
-1. Start the Flask server:
-```bash
-python app.py
-```
-
-2. Open your browser and navigate to:
-```
-http://localhost:5000
-```
-
-3. Connect your MetaMask wallet
-4. Enter a TokenQube ID to retrieve data
-5. Use the "Share iQube" feature to decrypt and view BlakQube data
-
-## Project Structure
-
-```
-QubeAgent/
-├── agents/                 # Agent implementation
-├── qube_agent/            # Core QubeAgent modules
-│   ├── models/            # Data models
-│   └── reasoning/         # Reasoning engines
-├── templates/             # HTML templates
-├── static/                # Static assets
-├── tests/                 # Test suites
-└── app.py                # Main application
-```
-
-## Development Status
-
-Current Version: 1.0.0-beta
-
-The application currently supports:
-- Wallet connection and authentication
-- TokenQube data retrieval (mock data for development)
-- BlakQube data encryption/decryption
-- Basic agent reasoning capabilities
-
-Upcoming features:
-- Full blockchain integration
-- Advanced reasoning capabilities
-- Enhanced security features
-- Multi-wallet support
-
-## Security
-
-- All sensitive data is encrypted using industry-standard encryption
-- No private keys or sensitive data are stored on the server
-- All blockchain interactions require explicit user approval
-
-## Contributing
+## Contribution Guidelines
 
 1. Fork the repository
 2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
@@ -100,9 +125,15 @@ Upcoming features:
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+Distributed under the MIT License. See `LICENSE` for more information.
 
 ## Contact
 
-Your Name - [@yourusername](https://twitter.com/yourusername)
-Project Link: [https://github.com/yourusername/QubeAgent](https://github.com/yourusername/QubeAgent)
+Project Lead: [Your Name]
+Email: [your.email@qubeagent.com]
+
+## Acknowledgments
+
+- DB-GPT Team
+- AWEL Framework Contributors
+- LangChain Community

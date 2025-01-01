@@ -1,4 +1,5 @@
-from flask import Flask, render_template, jsonify, request, send_from_directory, make_response, session
+from flask import Flask, request, jsonify, render_template, session, send_from_directory, make_response
+from flask_cors import CORS
 from agents.qube_agent import QubeAgent
 import os
 import json
@@ -26,6 +27,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
+CORS(app, resources={r"/*": {"origins": ["https://qubeagent.iqube-staging.surge.sh", "http://localhost:5000"]}})
 app.secret_key = os.urandom(24)  # for session management
 
 # Initialize QubeAgent
@@ -174,6 +176,10 @@ def update_agent_context(context_data):
     except Exception as e:
         logger.error(f"Error updating agent context: {str(e)}")
         return False
+
+@app.route('/static/<path:path>')
+def send_static(path):
+    return send_from_directory('static', path)
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

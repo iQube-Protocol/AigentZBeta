@@ -57,6 +57,174 @@ QubeAgent is a revolutionary decentralized AI agent framework that integrates ad
   - State reconstruction capabilities
   - Secure, decentralized memory storage
 
+## QubeAgent Architecture Specification
+
+### 1. System Overview
+
+#### 1.1 Purpose
+QubeAgent is an advanced AI agent framework designed to provide intelligent, secure, and contextually aware data processing and interaction capabilities.
+
+### 2. Architectural Layers
+
+#### 2.1 Context Layer
+**Responsibility**: Semantic intelligence generation and contextual understanding
+
+##### Key Components
+- Semantic vectorization
+- Risk and value mapping
+- Contextual intelligence generation
+
+##### Technologies
+- DB-GPT for semantic processing
+- LangChain for natural language understanding
+- Custom risk vectorization algorithms
+
+##### Workflow
+1. Receive raw input
+2. Generate semantic context
+3. Perform risk and value assessment
+4. Prepare contextual vector
+
+#### 2.2 Service Layer
+**Responsibility**: Dynamic service discovery and execution
+
+##### Key Components
+- Service registry
+- Workflow orchestration
+- Resource allocation
+
+##### Technologies
+- AWEL (Agentic Workflow Execution Layer)
+- Dynamic service composition
+- Computational resource management
+
+##### Workflow
+1. Analyze context requirements
+2. Discover compatible services
+3. Compose execution pathway
+4. Allocate computational resources
+5. Execute services
+
+#### 2.3 State Layer
+**Responsibility**: Transaction logging and audit trail generation
+
+##### Key Components
+- Immutable transaction recording
+- Compliance tracking
+- Forensic evidence preservation
+
+##### Technologies
+- Blockchain-inspired logging
+- Cryptographic verification
+- Comprehensive state management
+
+##### Workflow
+1. Capture transaction details
+2. Generate cryptographic signatures
+3. Log transaction in immutable store
+4. Prepare audit trail
+5. Enable compliance verification
+
+### 3. Integration Strategies
+
+#### 3.1 Smart Agents Integration
+- Adaptive reasoning capabilities
+- Context-aware decision making
+- Dynamic intelligence generation
+
+#### 3.2 LangChain Integration
+- Advanced natural language processing
+- Modular language model integration
+- Contextual understanding enhancement
+
+#### 3.3 DB-GPT Integration
+- Semantic context vectorization
+- Advanced database interaction
+- Natural language query processing
+
+#### 3.4 AWEL Integration
+- Workflow orchestration
+- Dynamic service composition
+- Granular task management
+
+### 4. Technical Innovations
+
+#### 4.1 Web3.js Migration
+- Replaced Ethers.js for improved wallet interactions
+- Enhanced blockchain connection reliability
+- Improved network switching capabilities
+
+#### 4.2 Frontend Optimization
+- Robust favicon implementation
+- Cross-browser compatibility
+- Optimized static asset management
+
+#### 4.3 Security Enhancements
+- Comprehensive error handling
+- Enhanced logging mechanisms
+- Secure network interaction protocols
+
+### 5. Performance Considerations
+
+#### 5.1 Scalability
+- Modular architecture
+- Horizontal scaling support
+- Dynamic resource allocation
+
+#### 5.2 Performance Monitoring
+- Comprehensive metrics tracking
+- Adaptive optimization
+- Real-time performance analysis
+
+### 6. Compliance and Security
+
+#### 6.1 Data Integrity
+- End-to-end encryption
+- Immutable transaction logging
+- Comprehensive audit trails
+
+#### 6.2 Risk Management
+- Dynamic risk scoring
+- Contextual risk assessment
+- Proactive security measures
+
+### 7. Future Roadmap
+
+#### 7.1 Planned Enhancements
+- Advanced multi-agent reasoning
+- Expanded blockchain integration
+- Enhanced natural language capabilities
+
+#### 7.2 Research Directions
+- Quantum computing integration
+- Advanced semantic intelligence
+- Predictive risk modeling
+
+### 8. Deployment Considerations
+
+#### 8.1 Environment Requirements
+- Python 3.13+
+- Web3.js
+- DB-GPT
+- AWEL Framework
+
+#### 8.2 Recommended Infrastructure
+- Containerized deployment
+- Kubernetes orchestration
+- Cloud-native architecture
+
+### 9. Appendices
+
+#### 9.1 Glossary of Terms
+- iQube: Intelligent quantum information unit
+- Semantic Vectorization: Process of converting contextual information into mathematical representations
+- Risk Vector: Multidimensional representation of potential risks
+
+#### 9.2 Reference Implementations
+- Detailed code examples
+- Integration patterns
+- Best practice guidelines
+
 ## Development Strategy
 
 ### Technology Stack
