@@ -196,7 +196,7 @@ QubeAgent is an advanced AI agent framework designed to provide intelligent, sec
 - Enhanced natural language capabilities
 
 #### 7.2 Research Directions
-- Quantum computing integration
+- Machine reasoning model development
 - Advanced semantic intelligence
 - Predictive risk modeling
 
