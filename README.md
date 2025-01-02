@@ -1,139 +1,174 @@
-# QubeAgent: Intelligent Contextual AI Agent Framework
+# QubeAgent: Contextual Intelligence Agent Framework
 
-## Project Overview
+## Technical Foundation: iQube Protocol
 
-QubeAgent is an advanced AI agent framework designed to revolutionize contextual intelligence, data integrity, and risk management through innovative technological integrations.
+QubeAgent introduces a new class of context and risk intelligent agents underpinned by the iQube protocol.
 
 ### Core Vision
 
-Our mission is to create a robust, secure, and intelligent agent ecosystem that prioritizes:
+To create a unified, secure, and adaptive framework that revolutionizes how intelligence systems understand, process, and interact with complex information landscapes. Our mission is to create an agent ecosystem that prioritizes:
 - Comprehensive risk and value analysis
-- Semantic context generation
-- Secure and auditable data interactions
+- Dynamic semantic context generation
+- Secure and verifiable data interactions
 
-## Technological Stack
 
-### Key Integrations
+### Key Technologies
 
-1. **Smart Agents**
-   - Adaptive intelligence framework
-   - Dynamic reasoning capabilities
-   - Context-aware decision making
+- **iQubes**: Reliable and verifiable decentralized information assets
+- **Smart Agents**: Intelligent, context-aware autonomous agents
+- **LangChain**: Advanced natural language understanding
+- **DB-GPT**: Semantic database querying and analysis
+- **AWEL**: Adaptive Workflow Execution Layer
 
-2. **LangChain**
-   - Advanced natural language processing
-   - Modular language model integration
-   - Contextual understanding enhancement
-
-3. **DB-GPT**
-   - Semantic context vectorization
-   - Advanced database interaction
-   - Natural language query processing
-
-4. **AWEL (Agentic Workflow Execution Layer)**
-   - Workflow orchestration
-   - Dynamic service composition
-   - Granular task management
-
-## Architecture Overview
-
-### Layered Architecture
+### Architectural Model
 
 1. **Context Layer**
-   - Semantic intelligence generation
-   - Risk and value vectorization
-   - Contextual information mapping
+   - Driven by iQube and blakQube content
+   - Dynamic context generation
+   - Retrieval Augmented Generation (RAG)
+   - Web search and information aggregation
 
 2. **Service Layer**
-   - Dynamic service discovery
-   - Computational resource management
-   - Execution pathway optimization
+   - API integration and service discovery
+   - Wallet and blockchain interactions
+   - CRUD operations management
 
 3. **State Layer**
-   - Comprehensive transaction logging
-   - Audit trail generation
-   - Compliance tracking
+   - Blockchain-backed state persistence
+   - Immutable transaction logging
+   - Agent memory management
+  
+## Technologies:
 
-## Development Tactics
+### 1. Blockchains
+- Robust data encapsulation
+- Cryptographic information management
+- Decentralized governance
+- Verifiable risk assessment
+- Immutavle programmability 
 
-### Technical Innovations
+### 2. Smart Agents
+- Context-aware decision making
+- Dynamic intelligence generation
+- Adaptive reasoning capabilities
 
-1. **Web3.js Migration**
-   - Replaced Ethers.js with Web3.js
-   - Enhanced wallet connection reliability
-   - Improved blockchain interaction mechanisms
+### 3. Machine Reasoning
+- Multi-model and multi-modal inference and automation
+- Complex prompt engineering
+- Advanced natural language and non-linguistic processing
 
-2. **Favicon and Frontend Optimization**
-   - Implemented robust favicon loading
-   - Optimized static asset management
-   - Improved cross-browser compatibility
+### 4. Semantic Intelligence
+- Semantic context vectorization
+- Natural language query processing
+- Advanced database interaction
 
-3. **Security Enhancements**
-   - Implemented network switching capabilities
-   - Added comprehensive error handling
-   - Enhanced logging and debugging mechanisms
+### 5. Workflow Orchestration
+- Dynamic service composition
+- Granular task management
+- Fault-tolerant execution
 
-## Integration Rationale
+## iQube Components
 
-### Why These Technologies?
+## Primitives
+1. **MetaQube**: Public, verifiable metadata
+2. **BlakQube**: Private, encrypted data
+3. **TokenQube**: Token-gated data decryption and access
 
-- **Smart Agents**: Provide adaptive intelligence and context-aware reasoning
-- **LangChain**: Enable sophisticated natural language understanding
-- **DB-GPT**: Facilitate semantic context generation and database interactions
-- **AWEL**: Support complex workflow orchestration and service composition
+## Types
+1. **DataQube**: Alpha-numeric data representation
+2. **ContentQube**: Multi-modal content (blob) representation
+3. **AgentQube**: AI agent performance and complaince tracking
 
-## Getting Started
+## Quick Start
 
 ### Prerequisites
-- Python 3.13+
-- Web3.js
-- DB-GPT
-- AWEL Framework
+- Python 3.9+
+- Web3-compatible wallet
+- Ethereum-compatible blockchain access
 
 ### Installation
 
 ```bash
-git clone https://github.com/your-org/QubeAgent.git
+# Clone the repository
+git clone https://github.com/your-organization/QubeAgent.git
 cd QubeAgent
+
+# Create virtual environment
 python3 -m venv qubeagent_env
 source qubeagent_env/bin/activate
+
+# Install dependencies
 pip install -r requirements.txt
 ```
 
-### Quick Start
+### Configuration
 
-```python
-from qubeagent import QubeAgent
+```bash
+# Copy example configuration
+cp config.example.yml config.yml
 
-# Initialize QubeAgent
-agent = QubeAgent()
-
-# Generate contextual intelligence
-context = agent.generate_context(user_request)
-
-# Execute intelligent workflow
-response = agent.process_request(context)
+# Edit configuration with your settings
+vim config.yml
 ```
 
-## Contribution Guidelines
+### Running the Application
+
+```bash
+# Start web interface
+python run_web_interface.py
+
+# Run tests
+pytest tests/
+```
+
+## Security Principles
+
+- Minimum disclosure by default
+- Network level anonymity with contextually dynamic application level identifiability
+- Contextually dynamic encryption and access control
+- Risk driven rules and context assessment
+- Quantum readiness
+
+## Security Tools
+
+- Zero-knowledge encryption
+- Homomorphic encryption support
+- Multi-party computation
+- Differential Privacy
+- Comprehensive risk assessment
+
+## Performance Characteristics
+
+- Microservices architecture
+- Horizontal scaling
+- Event-driven design
+- Adaptive resource allocation
+
+## Future Roadmap
+
+- Expanded multi-modal support
+- Enhanced cross-agent collaboration
+- Advanced predictive intelligence
+- Decentralized AI governance models
+
+## Contributing
 
 1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+2. Create a feature branch
+3. Implement changes
+4. Write comprehensive tests
+5. Submit pull request
 
 ## License
 
-Distributed under the MIT License. See `LICENSE` for more information.
+[Specify your licensing model]
 
 ## Contact
 
-Project Lead: [Your Name]
-Email: [your.email@qubeagent.com]
+- Project Lead: [Your Name]
+- Community: [Discord/Slack Link]
+- Support: [Email/Support Channel]
 
-## Acknowledgments
+---
 
-- DB-GPT Team
-- AWEL Framework Contributors
-- LangChain Community
+**Note**: This is a living project. We encourage collaborative improvement and innovation.
