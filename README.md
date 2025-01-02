@@ -1,6 +1,6 @@
 # QubeAgent: Contextual Intelligence Agent Framework
 
-## Technical Foundation: iQube
+## Technical Foundation: iQube Protocol
 
 QubeAgent introduces a new class of context and risk intelligent agents underpinned by the iQube protocol.
 
@@ -38,15 +38,15 @@ To create a unified, secure, and adaptive framework that revolutionizes how inte
    - Immutable transaction logging
    - Agent memory management
   
-## Technology Domains
+## Technologies:
 
-### 1. Blockchain (iQube Protocol)
+### 1. Blockchains
 - Robust data encapsulation
 - Secure, granular information management
 - Contextual intelligence primitives
 - Advanced risk assessment mechanisms
 
-### 2. Smart Agent
+### 2. Smart Agents
 - Context-aware decision making
 - Dynamic intelligence generation
 - Adaptive reasoning capabilities
