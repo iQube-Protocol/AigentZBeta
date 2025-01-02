@@ -70,9 +70,9 @@ To create a unified, secure, and adaptive framework that revolutionizes how inte
 ## iQube Components
 
 ## Primitives
-1. **MetaQube**: Public, verifiable metadata layer
-2. **BlakQube**: Private, encrypted data layer
-3. **TokenQube**: Token-gated decryption and access
+1. **MetaQube**: Public, verifiable metadata
+2. **BlakQube**: Private, encrypted data
+3. **TokenQube**: Token-gated data decryption and access
 
 ## Types
 1. **DataQube**: Alpha-numeric data representation
