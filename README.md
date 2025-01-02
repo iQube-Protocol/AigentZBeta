@@ -123,11 +123,11 @@ pytest tests/
 
 ## Security Principles
 
-- Minimum disclosure 
+- Minimum disclosure by default
 - Network level anonymity with contextually dynamic application level identifiability
 - Contextually dynamic encryption and access control
-- Quantum readiness
 - Risk driven rules and context assessment
+- Quantum readiness
 
 ## Security Tools
 
