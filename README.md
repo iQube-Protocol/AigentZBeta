@@ -72,7 +72,7 @@ To create a unified, secure, and adaptive framework that revolutionizes how inte
 ## Primitives
 1. **MetaQube**: Public, verifiable metadata layer
 2. **BlakQube**: Private, encrypted data layer
-3. **TokenQube**: Blockchain-backed data verification
+3. **TokenQube**: Token-gated decryption and access
 
 ## Types
 1. **DataQube**: Alpha-numeric data representation
