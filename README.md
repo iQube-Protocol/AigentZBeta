@@ -2,7 +2,7 @@
 
 ## Technical Foundation: iQube Protocol
 
-QubeAgent is designed to introduce a new class of context and risk intelligent agents underpinned by the iQube protocol.
+QubeAgent introduces a new class of context and risk intelligent agents underpinned by the iQube protocol.
 
 ### Core Vision
 
