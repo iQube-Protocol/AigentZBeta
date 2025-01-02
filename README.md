@@ -76,7 +76,7 @@ To create a unified, secure, and adaptive framework that revolutionizes how inte
 
 ## Types
 1. **DataQube**: Alpha-numeric data representation
-2. **ContentQube**: Multi-modal content representation
+2. **ContentQube**: Multi-modal content (blob) representation
 3. **AgentQube**: AI agent performance and complaince tracking
 
 ## Quick Start
