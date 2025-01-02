@@ -3,14 +3,14 @@
 ## Project Overview
 
 ### Vision
-QubeAgent is a revolutionary decentralized AI agent framework that integrates advanced contextual intelligence, blockchain-backed state management, and tokenized information access through iQubes and blakQube content.
+QubeAgent is a revolutionary decentralized AI agent framework that integrates advanced contextual intelligence, blockchain-backed state management, and tokenized information access through iQubed data and content.
 
 ## Architecture Overview
 
 ### Core Architectural Layers
 
 1. **Context Layer**
-   - Driven by iQube and blakQube content
+   - Driven by iQube content
    - Dynamic context generation
    - Retrieval Augmented Generation (RAG)
    - Web search and information aggregation
