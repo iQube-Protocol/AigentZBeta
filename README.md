@@ -1,6 +1,6 @@
 # QubeAgent: Contextually Intelligent Agent Framework
 
-## Technical Foundation: iQube Protocol
+## Technical Foundation: iQube
 
 QubeAgent introduces a new class of context and risk intelligent agents underpinned by the iQube protocol.
 
