@@ -1,4 +1,4 @@
-# QubeAgent: Contextually Intelligent Agent Framework
+# QubeAgent: Contextual Intelligence Agent Framework
 
 ## Technical Foundation: iQube
 
