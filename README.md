@@ -38,21 +38,21 @@ To create a unified, secure, and adaptive framework that revolutionizes how inte
    - Immutable transaction logging
    - Agent memory management
   
-## Technology Layers
+## Technology Domains
 
-### 1. Blockchain Layer (iQube Protocol)
+### 1. Blockchain (iQube Protocol)
 - Robust data encapsulation
 - Secure, granular information management
 - Contextual intelligence primitives
 - Advanced risk assessment mechanisms
 
-### 2. Smart Agent Layer
+### 2. Smart Agent
 - Context-aware decision making
 - Dynamic intelligence generation
 - Adaptive reasoning capabilities
 
-### 3. Language Model Integration
-- Multi-model interaction
+### 3. Machine Reasoning
+- Multi-model and multi-modal interaction
 - Complex prompt engineering
 - Advanced natural language processing
 
