@@ -20,7 +20,25 @@ To create a unified, secure, and adaptive framework that revolutionizes how inte
 - **DB-GPT**: Semantic database querying and analysis
 - **AWEL**: Adaptive Workflow Execution Layer
 
-## Architectural Layers
+### Architectural Model
+
+1. **Context Layer**
+   - Driven by iQube and blakQube content
+   - Dynamic context generation
+   - Retrieval Augmented Generation (RAG)
+   - Web search and information aggregation
+
+2. **Service Layer**
+   - API integration and service discovery
+   - Wallet and blockchain interactions
+   - CRUD operations management
+
+3. **State Layer**
+   - Blockchain-backed state persistence
+   - Immutable transaction logging
+   - Agent memory management
+  
+## Technology Layers
 
 ### 1. Blockchain Layer (iQube Protocol)
 - Robust data encapsulation
