@@ -45,6 +45,7 @@ To create a unified, secure, and adaptive framework that revolutionizes how inte
 - Cryptographic information management
 - Decentralized governance
 - Verifiable risk assessment
+- Immutavle programmability 
 
 ### 2. Smart Agents
 - Context-aware decision making
