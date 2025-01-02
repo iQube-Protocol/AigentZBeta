@@ -1,6 +1,6 @@
 # QubeAgent: Contextually Intelligent Agent Framework
 
-## Architectural Foundation: iQube Protocol
+## Technical Foundation: iQube Protocol
 
 QubeAgent is designed to introduce a new class of context and risk intelligent agents underpinned by the iQube protocol.
 
@@ -38,7 +38,7 @@ To create a unified, secure, and adaptive framework that revolutionizes how inte
 - Complex prompt engineering
 - Advanced natural language processing
 
-### 4. Swmantic Intelligence
+### 4. Semantic Intelligence
 - Semantic context vectorization
 - Natural language query processing
 - Advanced database interaction
