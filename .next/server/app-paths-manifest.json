@@ -1,0 +1,6 @@
+{
+  "/aigents/[agentKey]/page": "app/aigents/[agentKey]/page.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/registry/page": "app/registry/page.js",
+  "/aigents/generic-ai/page": "app/aigents/generic-ai/page.js"
+}

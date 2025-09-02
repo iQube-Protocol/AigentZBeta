@@ -27,8 +27,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": ["https://qubeagent.iqube-staging.surge.sh", "http://localhost:5000"]}})
-app.secret_key = os.urandom(24)  # for session management
+CORS(app, resources={r"/*": {"origins": ["https://qubeagent.iqube-staging.surge.sh", "http://localhost:5000", "http://localhost:3000"]}})
+# Use a consistent secret key for development or load from environment
+app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24))  # for session management
 
 # Initialize QubeAgent
 qube_agent = QubeAgent()
