@@ -24,6 +24,7 @@ import {
   Package,
   Bot
 } from "lucide-react";
+import { SubmenuDrawer } from "./SubmenuDrawer";
 
 interface SidebarItem {
   href: string;
@@ -31,6 +32,8 @@ interface SidebarItem {
   icon: ReactNode;
   toggleable?: boolean;
   active?: boolean;
+  isTextInput?: boolean;
+  drawerAction?: 'view' | 'decrypt' | 'mint' | 'activate';
 }
 
 interface SidebarSection {
@@ -101,11 +104,11 @@ const sections = [
       </svg>
     ),
     items: [
-      { href: "/iqube/enter-id", label: "Enter iQube ID", icon: <Key size={14} /> },
-      { href: "/iqube/activate", label: "Activate", icon: <ToggleRight size={14} /> },
-      { href: "/iqube/view", label: "View", icon: <Eye size={14} /> },
-      { href: "/iqube/decrypt", label: "Decrypt", icon: <Lock size={14} /> },
-      { href: "/iqube/mint", label: "Mint", icon: <CreditCard size={14} /> },
+      { href: "/iqube/enter-id", label: "Enter iQube ID", icon: <Key size={14} />, isTextInput: true },
+      { href: "/iqube/view", label: "View", icon: <Eye size={14} />, drawerAction: "view" },
+      { href: "/iqube/decrypt", label: "Decrypt", icon: <Lock size={14} />, drawerAction: "decrypt" },
+      { href: "/iqube/mint", label: "Mint", icon: <CreditCard size={14} />, drawerAction: "mint" },
+      { href: "/iqube/activate", label: "Activate", icon: <ToggleRight size={14} />, drawerAction: "activate" },
     ],
   },
   {
@@ -163,6 +166,9 @@ export const Sidebar = () => {
   const [showOnlyActive, setShowOnlyActive] = useState<Record<string, boolean>>({});
   const [initialized, setInitialized] = useState(false);
   const [isClient, setIsClient] = useState(false);
+  const [iQubeId, setIQubeId] = useState("");
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerType, setDrawerType] = useState<"view" | "decrypt" | "mint" | "activate">("view");
   
   // Track the current path to detect navigation changes
   const [previousPath, setPreviousPath] = useState("");
@@ -176,12 +182,15 @@ export const Sidebar = () => {
   useEffect(() => {
     if (!isClient) return;
     
+    console.log('Checking storage availability...');
+    
     // Check if storage is available
     try {
       // Try a test operation
       const testKey = '__test_storage__';
       safeLocalStorage.setItem(testKey, 'test');
       safeLocalStorage.getItem(testKey);
+      console.log('Storage is available');
       setStorageAvailable(true);
     } catch (e) {
       console.error('localStorage is not available:', e);
@@ -193,6 +202,14 @@ export const Sidebar = () => {
   useEffect(() => {
     // Only proceed if we've determined if storage is available or not
     if (storageAvailable === null) return;
+    
+    console.log('Loading sidebar state, storageAvailable:', storageAvailable);
+    
+    // Load saved iQube ID if available
+    const savedIQubeId = safeLocalStorage.getItem('iQubeId');
+    if (savedIQubeId) {
+      setIQubeId(savedIQubeId);
+    }
     
     try {
       console.log('=== LOADING SIDEBAR STATE ===');
@@ -834,16 +851,20 @@ export const Sidebar = () => {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // Debug logging
+  console.log('Sidebar render state:', { initialized, isClient, storageAvailable });
+  
   // Show a minimal placeholder during initialization to prevent UI jumping
   if (!initialized || !isClient) {
     return <aside className="w-16 transition-all duration-200 bg-black/30 ring-1 ring-white/10 backdrop-blur-xl p-4 md:p-6 flex-shrink-0 min-h-screen"></aside>;
   }
   
   return (
-    <aside className={`${collapsed ? "w-16" : "w-72"} transition-all duration-200 bg-black/30 ring-1 ring-white/10 backdrop-blur-xl p-4 md:p-6 flex-shrink-0 min-h-screen`}>
-      <button className="mb-4 text-xs text-slate-300 hover:text-white" onClick={toggleSidebar}>
-        {collapsed ? "»" : "« Collapse"}
-      </button>
+    <>
+      <aside className={`${collapsed ? "w-16" : "w-72"} transition-all duration-200 bg-black/30 ring-1 ring-white/10 backdrop-blur-xl p-4 md:p-6 flex-shrink-0 min-h-screen`}>
+        <button className="mb-4 text-xs text-slate-300 hover:text-white" onClick={toggleSidebar}>
+          {collapsed ? "»" : "« Collapse"}
+        </button>
       <nav className="space-y-6">
         {sections.map((section) => {
           const isDashboard = section.label === "Dashboard";
@@ -896,30 +917,57 @@ export const Sidebar = () => {
                       return (
                         <li key={item.href} className="flex items-center justify-between">
                           <div className={`flex items-center justify-between w-full ${active || isItemActive ? 'bg-slate-700/50 text-slate-100 rounded-xl' : 'text-slate-500 hover:text-slate-300'}`}>
-                            <Link
-                              href={item.href}
-                              className="flex items-center w-full px-3 py-2"
-                              onClick={(e) => {
-                                if (isToggleable) {
-                                  const sectionLabel = sections.find(section => 
-                                    section.items.some(i => i.href === item.href)
-                                  )?.label;
-                                  
-                                  if (sectionLabel === "Persona") {
-                                    // Prevent navigation for personas
-                                    e.preventDefault();
-                                    handlePersonaClick(item.href);
-                                  } else if (sectionLabel === "iQubes") {
-                                    handleModelQubeClick(item.href);
-                                  }
-                                }
-                              }}
-                            >
-                              <div className="flex items-center gap-2">
-                                <span>{item.icon}</span>
-                                <span className="text-[13px]">{item.label}</span>
+                            {item.isTextInput ? (
+                              <div className="flex items-center w-full px-3 py-2">
+                                <div className="flex items-center gap-2 w-full">
+                                  <span>{item.icon}</span>
+                                  <input
+                                    type="text"
+                                    value={iQubeId}
+                                    onChange={(e) => {
+                                      const newValue = e.target.value;
+                                      setIQubeId(newValue);
+                                      if (storageAvailable) {
+                                        safeLocalStorage.setItem('iQubeId', newValue);
+                                      }
+                                    }}
+                                    onFocus={(e) => e.stopPropagation()}
+                                    onKeyDown={(e) => e.stopPropagation()}
+                                    placeholder="Enter iQube ID"
+                                    className="text-[13px] bg-black/40 border border-gray-700 rounded px-2 py-1 text-white w-full"
+                                  />
+                                </div>
                               </div>
-                            </Link>
+                            ) : (
+                              <Link
+                                href={item.href}
+                                className="flex items-center w-full px-3 py-2"
+                                onClick={(e) => {
+                                  if (isToggleable) {
+                                    const sectionLabel = sections.find(section => 
+                                      section.items.some(i => i.href === item.href)
+                                    )?.label;
+                                    
+                                    if (sectionLabel === "Persona") {
+                                      // Prevent navigation for personas
+                                      e.preventDefault();
+                                      handlePersonaClick(item.href);
+                                    } else if (sectionLabel === "iQubes") {
+                                      handleModelQubeClick(item.href);
+                                    }
+                                  } else if (item.drawerAction) {
+                                    e.preventDefault();
+                                    setDrawerType(item.drawerAction);
+                                    setDrawerOpen(true);
+                                  }
+                                }}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span>{item.icon}</span>
+                                  <span className="text-[13px]">{item.label}</span>
+                                </div>
+                              </Link>
+                            )}
                             {isToggleable && (
                             <button 
                               className="p-2"
@@ -990,6 +1038,10 @@ export const Sidebar = () => {
                                 } else if (sectionLabel === "iQubes") {
                                   handleModelQubeClick(item.href);
                                 }
+                              } else if (item.drawerAction) {
+                                e.preventDefault();
+                                setDrawerType(item.drawerAction);
+                                setDrawerOpen(true);
                               }
                             }}
                           >
@@ -1007,6 +1059,13 @@ export const Sidebar = () => {
           );
         })}
       </nav>
-    </aside>
+      </aside>
+      <SubmenuDrawer 
+        isOpen={drawerOpen} 
+        onClose={() => setDrawerOpen(false)} 
+        iQubeId={iQubeId} 
+        drawerType={drawerType} 
+      />
+    </>
   );
 }

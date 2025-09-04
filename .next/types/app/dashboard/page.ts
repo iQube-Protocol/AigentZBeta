@@ -1,4 +1,4 @@
-// File: /Users/hal1/CascadeProjects/QubeAgent/app/dashboard/page.tsx
+// File: /Users/hal1/CascadeProjects/AigentZBeta/app/dashboard/page.tsx
 import * as entry from '../../../../app/dashboard/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

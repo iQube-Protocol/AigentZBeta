@@ -233,10 +233,27 @@ npm test
 
 ### iQube Operations
 
-- Lookup iQube metadata by ID
-- Activate iQubes with secure activation codes
-- Decrypt BlakQube data with proper authorization
-- Mint TokenQubes on various blockchain networks
+#### Core Operations
+- **View Mode**: Browse and inspect iQube metadata and structure
+- **Use Mode**: Populate iQube instances from templates with controlled editing
+- **Edit Mode**: Full template editing with dynamic field management
+- **Decrypt Mode**: Secure BlakQube data decryption with proper authorization
+- **Mint Mode**: Convert completed templates to blockchain-backed instances
+- **Activate Mode**: Activate existing iQube instances with secure codes
+
+#### Enhanced UI Features
+- **Multi-Mode Tab Navigation**: Color-coded tabs with ARIA accessibility compliance
+- **Dynamic Template Management**: Instance counting and version control
+- **Smart Field Validation**: Real-time validation with visual feedback
+- **Source Icon Integration**: Visual indicators for data source types
+- **Responsive Design**: Optimized for various screen sizes with dark theme
+
+#### Template & Instance Management
+- **Template Creation**: Build reusable iQube templates with custom fields
+- **Instance Generation**: Create numbered instances from templates (e.g., "3 of 21")
+- **Version Control**: Automatic version incrementing for template updates
+- **Provenance Tracking**: Complete audit trail of template modifications
+- **Validation System**: Comprehensive field validation before minting/saving
 
 ### Registry Integration
 

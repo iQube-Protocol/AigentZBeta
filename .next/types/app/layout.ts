@@ -1,4 +1,4 @@
-// File: /Users/hal1/CascadeProjects/QubeAgent/app/layout.tsx
+// File: /Users/hal1/CascadeProjects/AigentZBeta/app/layout.tsx
 import * as entry from '../../../app/layout.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 
