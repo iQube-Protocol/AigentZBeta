@@ -21,7 +21,7 @@ import {
   PlusCircle,
   UserCircle,
   Brain,
-  Package,
+  Wrench,
   Bot
 } from "lucide-react";
 import { SubmenuDrawer } from "./SubmenuDrawer";
@@ -62,19 +62,19 @@ const sections = [
     label: "Orchestrator Aigent",
     icon: <Bot size={16} />,
     items: [
-      { href: "/aigents/generic-ai", label: "Generic AI (Default)", icon: <Bot size={14} className="text-blue-400" /> },
-      { href: "/aigents/bitcoin-advisor", label: "Bitcoin Advisor", icon: <Bot size={14} className="text-orange-400" /> },
-      { href: "/aigents/guardian-agent", label: "Guardian Agent", icon: <Bot size={14} className="text-green-400" /> },
-      { href: "/aigents/crypto-analyst", label: "Crypto Analyst", icon: <Bot size={14} className="text-purple-400" /> },
-      { href: "/aigents/agentic-coach", label: "Agentic Coach", icon: <Bot size={14} className="text-red-400" /> },
+      { href: "/aigents/aigent-z", label: "Aigent Z (System AI)", icon: <Bot size={14} className="text-blue-400" /> },
+      { href: "/aigents/aigent-nakamoto", label: "Aigent Nakamoto", icon: <Bot size={14} className="text-orange-400" /> },
+      { href: "/aigents/aigent-kn0w1", label: "Aigent Kn0w1", icon: <Bot size={14} className="text-green-400" /> },
     ],
   },
   {
     label: "iQubes",
     icon: <Box size={16} />,
     items: [
-      { href: "/aigents/generic-ai?iqube=openai", label: "OpenAI", icon: <Brain size={14} className="text-emerald-400" />, toggleable: true, active: false },
-      { href: "/aigents/generic-ai?iqube=venice", label: "Venice", icon: <Brain size={14} className="text-indigo-400" />, toggleable: true, active: false },
+      { href: "#openai", label: "OpenAI", icon: <Brain size={14} className="text-emerald-400" />, toggleable: true, active: false },
+      { href: "#venice", label: "Venice AI", icon: <Brain size={14} className="text-indigo-400" />, toggleable: true, active: false },
+      { href: "#chaingpt", label: "ChainGPT", icon: <Brain size={14} className="text-purple-400" />, toggleable: true, active: false },
+      { href: "#google-workspace", label: "Google Workspace", icon: <Wrench size={14} className="text-blue-500" />, toggleable: true, active: false },
     ],
   },
   {
@@ -104,11 +104,9 @@ const sections = [
       </svg>
     ),
     items: [
+      { href: "#iqube-template", label: "iQube Template", icon: <Box size={14} className="text-blue-400" />, toggleable: true, active: true, mutualExclusive: "iqube-mode" },
+      { href: "#iqube-instance", label: "iQube Instance", icon: <Box size={14} className="text-green-400" />, toggleable: true, active: false, mutualExclusive: "iqube-mode" },
       { href: "/iqube/enter-id", label: "Enter iQube ID", icon: <Key size={14} />, isTextInput: true },
-      { href: "/iqube/view", label: "View", icon: <Eye size={14} />, drawerAction: "view" },
-      { href: "/iqube/decrypt", label: "Decrypt", icon: <Lock size={14} />, drawerAction: "decrypt" },
-      { href: "/iqube/mint", label: "Mint", icon: <CreditCard size={14} />, drawerAction: "mint" },
-      { href: "/iqube/activate", label: "Activate", icon: <ToggleRight size={14} />, drawerAction: "activate" },
     ],
   },
   {
@@ -346,6 +344,7 @@ export const Sidebar = () => {
   
   // Helper function to initialize default toggle states
   const initDefaultToggleStates = () => {
+    // Initialize toggle states for items marked as toggleable
     const initialToggles: Record<string, boolean> = {};
     sections.forEach(section => {
       section.items.forEach(item => {
@@ -355,6 +354,12 @@ export const Sidebar = () => {
         }
       });
     });
+    
+    // Ensure iQube Template/Instance have proper initial states
+    initialToggles['#iqube-template'] = true;
+    initialToggles['#iqube-instance'] = false;
+    
+    console.log('Initial toggle states:', initialToggles);
     setToggleStates(initialToggles);
   };
   
@@ -435,18 +440,22 @@ export const Sidebar = () => {
       console.log('Previous path:', previousPath);
       console.log('New path:', pathname);
       
-      setPreviousPath(pathname);
+      if (pathname) {
+        setPreviousPath(pathname);
+      }
       
       // Find which section the current path belongs to
       let currentSection = '';
-      for (const section of sections) {
-        for (const item of section.items) {
-          if (pathname.startsWith(item.href)) {
-            currentSection = section.label;
-            break;
+      if (pathname) {
+        for (const section of sections) {
+          for (const item of section.items) {
+            if (pathname.startsWith(item.href)) {
+              currentSection = section.label;
+              break;
+            }
           }
+          if (currentSection) break;
         }
-        if (currentSection) break;
       }
       
       // If we found a section for this path, ensure it's open
@@ -517,14 +526,16 @@ export const Sidebar = () => {
     let currentPathSection = "";
     
     // First determine which section contains the current path
-    for (const section of sections) {
-      for (const item of section.items) {
-        if (pathname.startsWith(item.href)) {
-          currentPathSection = section.label;
-          break;
+    if (pathname) {
+      for (const section of sections) {
+        for (const item of section.items) {
+          if (pathname.startsWith(item.href)) {
+            currentPathSection = section.label;
+            break;
+          }
         }
+        if (currentPathSection) break;
       }
-      if (currentPathSection) break;
     }
     
     // Find sections with active toggle items
@@ -580,10 +591,44 @@ export const Sidebar = () => {
   };
 
   const toggleItemState = (href: string) => {
-    setToggleStates(prev => ({
-      ...prev,
-      [href]: !prev[href]
-    }));
+    setToggleStates(prev => {
+      // Special handling for iQube Template/Instance toggles
+      if (href === '#iqube-template' || href === '#iqube-instance') {
+        const isTemplate = href === '#iqube-template';
+        const templateHref = '#iqube-template';
+        const instanceHref = '#iqube-instance';
+        
+        // Force mutual exclusivity - if turning on one, turn off the other
+        // If turning off one, don't allow both to be off (one must always be selected)
+        if (!prev[href]) {
+          // User is turning this toggle ON
+          return {
+            ...prev,
+            [templateHref]: isTemplate,
+            [instanceHref]: !isTemplate
+          };
+        } else {
+          // User is trying to turn this toggle OFF
+          // Don't allow - one must always be selected
+          return prev;
+        }
+      } else {
+        // Normal toggle behavior for other items
+        const newState = {
+          ...prev,
+          [href]: !prev[href]
+        };
+        
+        // Emit custom event for iQube toggles to update ContextPanel
+        if (href.startsWith('#')) {
+          setTimeout(() => {
+            window.dispatchEvent(new CustomEvent('iQubeToggleChanged'));
+          }, 100);
+        }
+        
+        return newState;
+      }
+    });
   };
 
   const handlePersonaClick = (href: string) => {
@@ -778,38 +823,58 @@ export const Sidebar = () => {
 
   
   const handleModelQubeClick = (href: string) => {
-    // Get all iQube hrefs
-    const iQubeHrefs = sections
-      .find(section => section.label === "iQubes")
-      ?.items.map(item => item.href) || [];
-    
     // Check if the current iQube is already active
     const isCurrentQubeActive = toggleStates[href];
     
-    // Create an object with all iQube items set to false
-    const resetIQubes = iQubeHrefs.reduce((acc, iQubeHref) => {
-      acc[iQubeHref] = false;
-      return acc;
-    }, {} as Record<string, boolean>);
-    
-    // If we're clicking an already active iQube, deactivate it
-    // Otherwise, activate the clicked iQube
+    // For iQubes, we allow multiple to be active simultaneously
+    // Just toggle the clicked iQube without affecting others
     setToggleStates(prev => {
-      if (isCurrentQubeActive) {
-        // Deactivate the clicked iQube
-        return {
-          ...prev,
-          [href]: false
-        };
-      } else {
-        // Activate the clicked iQube
-        return {
-          ...prev,
-          ...resetIQubes,
-          [href]: true
-        };
-      }
+      const newState = {
+        ...prev,
+        [href]: !prev[href]
+      };
+      
+      // Emit custom event for iQube toggles to update ContextPanel
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('iQubeToggleChanged'));
+      }, 100);
+      
+      return newState;
     });
+  };
+
+  const handleIQubeOperationsClick = (href: string) => {
+    console.log('handleIQubeOperationsClick called with href:', href);
+    
+    // Handle Template/Instance mutual exclusivity
+    if (href === '#iqube-template' || href === '#iqube-instance') {
+      setToggleStates(prev => {
+        console.log('Current toggle states before update:', prev);
+        const templateHref = '#iqube-template';
+        const instanceHref = '#iqube-instance';
+        const isTemplate = href === '#iqube-template';
+        
+        // Always ensure one is active - if clicking inactive one, activate it and deactivate the other
+        // If clicking active one, keep it active (don't allow both to be off)
+        if (!prev[href]) {
+          // Clicking inactive toggle - activate it and deactivate the other
+          const newState = {
+            ...prev,
+            [templateHref]: isTemplate,
+            [instanceHref]: !isTemplate
+          };
+          console.log('New toggle states after update:', newState);
+          return newState;
+        } else {
+          // Clicking active toggle - keep current state (don't allow deactivation)
+          console.log('Preventing deactivation of active toggle');
+          return prev;
+        }
+      });
+    } else {
+      // For other iQube Operations items, use normal toggle behavior
+      toggleItemState(href);
+    }
   };
   
   const toggleSidebar = () => {
@@ -910,7 +975,7 @@ export const Sidebar = () => {
                 <ul className="space-y-1 mb-4">
                   {section.items
                     .map((item: SidebarItem) => {
-                      const active = pathname.startsWith(item.href);
+                      const active = pathname ? pathname.startsWith(item.href) : false;
                       const isToggleable = 'toggleable' in item && item.toggleable;
                       const isItemActive = isToggleable ? toggleStates[item.href] : false;
                       
@@ -921,21 +986,60 @@ export const Sidebar = () => {
                               <div className="flex items-center w-full px-3 py-2">
                                 <div className="flex items-center gap-2 w-full">
                                   <span>{item.icon}</span>
-                                  <input
-                                    type="text"
-                                    value={iQubeId}
-                                    onChange={(e) => {
-                                      const newValue = e.target.value;
-                                      setIQubeId(newValue);
-                                      if (storageAvailable) {
-                                        safeLocalStorage.setItem('iQubeId', newValue);
-                                      }
-                                    }}
-                                    onFocus={(e) => e.stopPropagation()}
-                                    onKeyDown={(e) => e.stopPropagation()}
-                                    placeholder="Enter iQube ID"
-                                    className="text-[13px] bg-black/40 border border-gray-700 rounded px-2 py-1 text-white w-full"
-                                  />
+                                  <div className="flex w-full relative">
+                                    <input
+                                      type="text"
+                                      value={iQubeId}
+                                      onChange={(e) => {
+                                        const newValue = e.target.value;
+                                        setIQubeId(newValue);
+                                        
+                                        // Auto-activate Template/Instance based on ID
+                                        if (newValue.toLowerCase().includes('template')) {
+                                          setToggleStates(prev => ({
+                                            ...prev,
+                                            '#iqube-template': true,
+                                            '#iqube-instance': false
+                                          }));
+                                        } else if (newValue.trim() !== '') {
+                                          // If not a template and not empty, assume it's an instance
+                                          setToggleStates(prev => ({
+                                            ...prev,
+                                            '#iqube-template': false,
+                                            '#iqube-instance': true
+                                          }));
+                                        }
+                                        
+                                        if (storageAvailable) {
+                                          safeLocalStorage.setItem('iQubeId', newValue);
+                                        }
+                                      }}
+                                      onFocus={(e) => e.stopPropagation()}
+                                      onKeyDown={(e) => {
+                                        e.stopPropagation();
+                                        // Handle Enter key press
+                                        if (e.key === 'Enter' && iQubeId.trim() !== '') {
+                                          setDrawerType('view');
+                                          setDrawerOpen(true);
+                                        }
+                                      }}
+                                      placeholder="Enter iQube ID"
+                                      className="text-[13px] bg-black/40 border border-gray-700 rounded px-2 py-1 text-white w-full pr-8"
+                                    />
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (iQubeId.trim() !== '') {
+                                          setDrawerType('view');
+                                          setDrawerOpen(true);
+                                        }
+                                      }}
+                                      className="absolute right-0 top-0 bottom-0 text-blue-400 hover:text-blue-300 px-2 flex items-center justify-center"
+                                      title="View iQube"
+                                    >
+                                      <Eye size={14} />
+                                    </button>
+                                  </div>
                                 </div>
                               </div>
                             ) : (
@@ -953,7 +1057,11 @@ export const Sidebar = () => {
                                       e.preventDefault();
                                       handlePersonaClick(item.href);
                                     } else if (sectionLabel === "iQubes") {
+                                      e.preventDefault();
                                       handleModelQubeClick(item.href);
+                                    } else if (sectionLabel === "iQube Operations") {
+                                      e.preventDefault();
+                                      handleIQubeOperationsClick(item.href);
                                     }
                                   } else if (item.drawerAction) {
                                     e.preventDefault();
@@ -980,6 +1088,9 @@ export const Sidebar = () => {
                                   handlePersonaClick(item.href);
                                 } else if (sectionLabel === "iQubes") {
                                   handleModelQubeClick(item.href);
+                                } else if (sectionLabel === "iQube Operations") {
+                                  console.log('Toggle button clicked for:', item.href);
+                                  handleIQubeOperationsClick(item.href);
                                 } else {
                                   setToggleStates(prev => ({
                                     ...prev,
@@ -1010,12 +1121,12 @@ export const Sidebar = () => {
                       // Otherwise show all items
                       const isToggleable = 'toggleable' in item && item.toggleable;
                       const isItemActive = isToggleable ? toggleStates[item.href] : false;
-                      const active = pathname.startsWith(item.href);
+                      const active = pathname ? pathname.startsWith(item.href) : false;
                       
                       return !showOnlyActive[section.label] || isItemActive || active;
                     })
                     .map((item: SidebarItem) => {
-                      const active = pathname.startsWith(item.href);
+                      const active = pathname ? pathname.startsWith(item.href) : false;
                       const isToggleable = 'toggleable' in item && item.toggleable;
                       const isItemActive = isToggleable ? toggleStates[item.href] : false;
                       
@@ -1037,6 +1148,10 @@ export const Sidebar = () => {
                                   handlePersonaClick(item.href);
                                 } else if (sectionLabel === "iQubes") {
                                   handleModelQubeClick(item.href);
+                                } else if (sectionLabel === "iQube Operations") {
+                                  e.preventDefault();
+                                  console.log('Collapsed view clicked for:', item.href);
+                                  handleIQubeOperationsClick(item.href);
                                 }
                               } else if (item.drawerAction) {
                                 e.preventDefault();

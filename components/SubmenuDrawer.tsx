@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { X, Loader2, Info, ChevronRight, ChevronLeft, PlusCircle } from "lucide-react";
+import { X, Loader2, Info, ChevronRight, ChevronLeft, PlusCircle, Lock } from "lucide-react";
 
 import {
   fetchTemplateData, 
@@ -40,6 +40,9 @@ type IQubeInstanceType = 'template' | 'instance';
 
 // BlakQube schema type
 type BlakQubeSchemaType = 'Structured' | 'Unstructured' | 'Access Keys';
+
+// Data source type
+type DataSource = 'manual' | 'api' | 'csv' | 'database' | 'realtime' | 'wallet' | 'social' | 'verified' | 'self-declared' | 'linked' | 'system';
 
 interface MetaQubeData {
   key: string;
@@ -100,6 +103,8 @@ export const SubmenuDrawer = ({
   const [instanceNumber, setInstanceNumber] = useState<string>("AA001");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Add state for editable iQubeId
+  const [editableIQubeId, setIQubeId] = useState<string>("");
   
   // Enhanced state for redesigned drawer with protocol alignment
   const [formattedMetaQubeData, setFormattedMetaQubeData] = useState<MetaQubeData[]>([]);
@@ -107,6 +112,7 @@ export const SubmenuDrawer = ({
   const [tokenQubeData, setTokenQubeData] = useState<TokenQubeData[]>([]);
   const [iQubeType, setIQubeType] = useState<IQubeType>('DataQube');
   const [businessModel, setBusinessModel] = useState<BusinessModelType>('Buy');
+  const [price, setPrice] = useState<number>(100); // Price in Sats
   const [ownerType, setOwnerType] = useState<OwnerType>('Individual');
   const [identifiabilityLevel, setIdentifiabilityLevel] = useState<IdentifiabilityLevel>('Anonymous');
   const [compositeScores, setCompositeScores] = useState({
@@ -393,6 +399,17 @@ export const SubmenuDrawer = ({
   // Currently selected example index
   const [currentExampleIndex, setCurrentExampleIndex] = useState<number>(0);
   
+  // Helper function to convert Sats to USD (10 Sats = $0.01)
+  const satsToUSD = (sats: number): string => {
+    const usd = sats / 1000; // 10 sats = $0.01, so 1000 sats = $1
+    return usd.toFixed(2);
+  };
+
+  // Helper function to format price display
+  const formatPrice = (sats: number): string => {
+    return `${sats} Sats ($${satsToUSD(sats)})`;
+  };
+
   // Helper function to generate next instance number
   const generateNextInstanceNumber = () => {
     // For a real implementation, this would fetch the latest instance number from backend
@@ -418,6 +435,17 @@ export const SubmenuDrawer = ({
     if (!instanceNumber) return '0 of 0';
     const currentInstance = parseInt(instanceNumber.substring(2));
     return `${currentInstance} of ${totalInstances}`;
+  };
+  
+  // Helper function to get instance name with template name and unique ID
+  const getInstanceName = () => {
+    if (!iQubeId) return '';
+    // Extract template name without "template" suffix
+    const templateName = iQubeId.toLowerCase().includes('template') 
+      ? iQubeId.replace(/template/i, '').trim() 
+      : iQubeId;
+    
+    return `${templateName} ${instanceNumber}`;
   };
   
   // Helper to calculate version increment based on changes
@@ -536,19 +564,19 @@ export const SubmenuDrawer = ({
     };
   };
 
-  // Get color based on score type and value
+  // Get color based on score type and value according to iQube Protocol 1-10 scale
   const getScoreColor = (score: number, type: string) => {
     // For risk and sensitivity - green (low) to red (high)
     if (type === 'risk' || type === 'sensitivity') {
-      if (score >= 1 && score <= 4) return 'bg-green-500';
-      if (score >= 5 && score <= 7) return 'bg-yellow-500';
-      return 'bg-red-500';
+      if (score >= 1 && score <= 4) return 'bg-green-500'; // Low sensitivity/risk (good)
+      if (score >= 5 && score <= 7) return 'bg-yellow-500'; // Medium sensitivity/risk (caution)
+      return 'bg-red-500'; // High sensitivity/risk (concern)
     }
     
-    // For accuracy, verifiability, trust, reliability - red (low) to green (high)
-    if (score >= 1 && score <= 3) return 'bg-red-500';
-    if (score >= 4 && score <= 6) return 'bg-yellow-500';
-    return 'bg-green-500';
+    // For accuracy and verifiability - red (low) to green (high)
+    if (score >= 1 && score <= 3) return 'bg-red-500'; // Poor accuracy/verifiability (concern)
+    if (score >= 4 && score <= 6) return 'bg-yellow-500'; // Moderate accuracy/verifiability (caution)
+    return 'bg-green-500'; // High accuracy/verifiability (good)
   };
 
   // Function to generate token qube data
@@ -662,20 +690,15 @@ export const SubmenuDrawer = ({
     // Convert to 5-dot scale
     const dotCount = Math.ceil((normalizedValue / maxValue) * 5);
     
-    // Get appropriate color based on score type and value
-    const scoreColor = getScoreColor(normalizedValue, type);
-    
     return (
       <div className={`flex items-center gap-1 relative group ${size === 'small' ? 'scale-90' : size === 'large' ? 'scale-110' : ''}`}>
-        {[...Array(5)].map((_, i) => (
-          <div key={`dot-${i}`} className={`w-2.5 h-2.5 rounded-full ${i < dotCount ? scoreColor : 'bg-gray-600'}`} />
-        ))}
-        <div className="text-yellow-500" title="File Source">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-            <polyline points="14 2 14 8 20 8" />
-          </svg>
-        </div>
+        {[...Array(5)].map((_, i) => {
+          // Get appropriate color for each dot based on score type and position
+          const dotColor = i < dotCount ? getScoreColor(normalizedValue, type) : 'bg-gray-600';
+          return (
+            <div key={`dot-${i}`} className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />
+          );
+        })}
       </div>
     );
   };
@@ -813,16 +836,76 @@ export const SubmenuDrawer = ({
     setDecryptLoading(true);
     setError(null);
     try {
+      // First check if user owns the required token for decryption
+      const hasDecryptToken = await checkTokenOwnership(iQubeId, 'decrypt');
+      
+      if (!hasDecryptToken) {
+        setError('You do not own the required token to decrypt this iQube. Please acquire the token first.');
+        return;
+      }
+      
       // Create a BlakQubeData object with the iQubeId
       const encryptedData: BlakQubeData = { id: iQubeId };
       const decrypted = await decryptData(encryptedData);
       setDecryptedData(decrypted as Record<string, string>);
       setIsDecrypted(true);
+      
+      // Update the BlakQube profile data with decrypted values
+      if (decrypted) {
+        const updatedProfileData = [...blakQubeProfileData];
+        Object.entries(decrypted).forEach(([key, value]) => {
+          const fieldIndex = updatedProfileData.findIndex(field => field.key === key);
+          if (fieldIndex !== -1) {
+            updatedProfileData[fieldIndex] = {
+              ...updatedProfileData[fieldIndex],
+              instanceValue: value
+            };
+          }
+        });
+        setBlakQubeProfileData(updatedProfileData);
+      }
     } catch (err) {
       console.error('Error decrypting data:', err);
       setError('Failed to decrypt data');
     } finally {
       setDecryptLoading(false);
+    }
+  };
+  
+  // Function to check if user owns the required token
+  const checkTokenOwnership = async (iQubeId: string, accessType: 'decrypt' | 'view' | 'transfer' | 'use'): Promise<boolean> => {
+    // In a real implementation, this would check against a blockchain or token registry
+    // For demo purposes, we'll simulate a check based on the tokenQubeData
+    
+    try {
+      // Find a token with the required access type that is active
+      const token = tokenQubeData.find(token => 
+        token.accessType === accessType && 
+        token.keyStatus === 'active'
+      );
+      
+      if (!token) {
+        return false;
+      }
+      
+      // Check if token has usage limits and if they've been exceeded
+      if (token.maxUsage !== undefined && token.usageCount !== undefined && token.usageCount >= token.maxUsage) {
+        return false;
+      }
+      
+      // Check if token has expired
+      if (token.expiresAt) {
+        const expiryDate = new Date(token.expiresAt);
+        if (expiryDate < new Date()) {
+          return false;
+        }
+      }
+      
+      // If we get here, the token is valid
+      return true;
+    } catch (error) {
+      console.error('Error checking token ownership:', error);
+      return false;
     }
   };
   
@@ -1107,6 +1190,13 @@ export const SubmenuDrawer = ({
 
                     <div className="flex justify-between items-center group relative">
                       <div className="flex items-center gap-1 group relative">
+                        <span className="text-[13px] text-slate-400 cursor-help">Price:</span>
+                      </div>
+                      <span className="text-gray-300 text-[12px]">{formatPrice(price)}</span>
+                    </div>
+
+                    <div className="flex justify-between items-center group relative">
+                      <div className="flex items-center gap-1 group relative">
                         <span className="text-[13px] text-slate-400 cursor-help">Instance:</span>
                       </div>
                       <span className="text-gray-300 text-[12px]">{`1 of 100`}</span>
@@ -1336,604 +1426,503 @@ export const SubmenuDrawer = ({
             </div>
           </div>
         );
-        
+
       case "edit":
         return (
           <div id="edit-panel" role="tabpanel" aria-labelledby="edit-tab">
             <div className="space-y-6">
-              <div className="uppercase text-[11px] tracking-wider text-slate-400 mb-3">Edit Template: {iQubeId}</div>
+              <div className="uppercase text-[11px] tracking-wider text-slate-400 mb-3">
+                {isTemplate ? `Edit Template: ${iQubeId}` : `Edit Instance: ${getInstanceName()}`}
+              </div>
               
-              {/* MetaQube Card - Edit Mode */}
-              <div className="bg-gradient-to-br from-blue-900/20 to-black/40 border border-blue-500/20 rounded-xl p-6 shadow-xl">
-                <div className="uppercase text-[11px] tracking-wider text-blue-400 mb-4 flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-blue-400"></div>
-                  MetaQube Template
+              {/* Warning for non-decrypted instance */}
+              {!isTemplate && !isDecrypted && (
+                <div className="bg-amber-900/20 border border-amber-600/30 rounded-lg p-4 text-amber-200 mb-4">
+                  <p className="mb-2 font-medium">Decryption Required</p>
+                  <p className="text-sm">You need to decrypt this iQube instance before you can edit it. Please go to the Decrypt tab first.</p>
                 </div>
-
-                {/* iQube Section - Fully Editable */}
-                <div className="space-y-5">
-                  <div className="bg-black/30 border border-blue-500/10 rounded-lg p-4 space-y-3">
-                    <div className="flex justify-between items-center group relative">
-                      <div className="flex items-center gap-1 group relative">
-                        <span className="text-[13px] text-slate-400 cursor-help">iQube ID:</span>
-                      </div>
-                      <input 
-                        type="text" 
-                        value={iQubeId || ''}
-                        onChange={(e) => setIQubeId(e.target.value)}
-                        className="bg-black/50 border border-blue-500/30 rounded px-2 py-1 text-[12px] text-blue-400 focus:outline-none focus:border-blue-400"
-                        placeholder="Template ID"
-                      />
-                    </div>
-
-                    <div className="flex justify-between items-center group relative">
-                      <div className="flex items-center gap-1 group relative">
-                        <span className="text-[13px] text-slate-400 cursor-help">Type:</span>
-                      </div>
-                      <select 
-                        id="iqube-type-select-edit"
-                        value={iQubeType} 
-                        onChange={(e) => setIQubeType(e.target.value as IQubeType)}
-                        className="bg-black/50 border border-blue-500/30 rounded px-2 py-1 text-[12px] text-blue-400 focus:outline-none focus:border-blue-400"
-                        aria-label="iQube Type"
-                        title="Select the iQube type"
-                      >
-                        <option value="DataQube">DataQube</option>
-                        <option value="ContentQube">ContentQube</option>
-                        <option value="ToolQube">ToolQube</option>
-                        <option value="ModelQube">ModelQube</option>
-                        <option value="AigentQube">AigentQube</option>
-                      </select>
-                    </div>
-
-                    <div className="flex justify-between items-center group relative">
-                      <div className="flex items-center gap-1 group relative">
-                        <span className="text-[13px] text-slate-400 cursor-help">$$$ Model:</span>
-                      </div>
-                      <select 
-                        id="business-model-select-edit"
-                        value={businessModel} 
-                        onChange={(e) => setBusinessModel(e.target.value)}
-                        className="bg-black/50 border border-blue-500/30 rounded px-2 py-1 text-[12px] text-blue-400 focus:outline-none focus:border-blue-400"
-                        aria-label="Business Model"
-                        title="Select the business model"
-                      >
-                        <option value="Buy">Buy</option>
-                        <option value="Sell">Sell</option>
-                        <option value="Rent">Rent</option>
-                        <option value="Lease">Lease</option>
-                        <option value="Subscribe">Subscribe</option>
-                        <option value="Stake">Stake</option>
-                        <option value="License">License</option>
-                        <option value="Donate">Donate</option>
-                      </select>
-                    </div>
-
-                    <div className="flex justify-between items-center group relative">
-                      <div className="flex items-center gap-1 group relative">
-                        <span className="text-[13px] text-slate-400 cursor-help">Version:</span>
-                      </div>
-                      <div className="text-blue-400 text-[12px]">1.0</div>
-                    </div>
-                  </div>
-
-                  {/* Subject Section - Fully Editable */}
-                  <div className="bg-black/30 border border-blue-500/10 rounded-lg p-4 space-y-3">
-                    <div className="flex justify-between items-center group relative">
-                      <div className="flex items-center gap-1 group relative">
-                        <span className="text-[13px] text-slate-400 cursor-help">Type:</span>
-                        <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
-                          The category of subject that this iQube relates to
-                        </div>
-                      </div>
-                      <select 
-                        id="owner-type-select-edit"
-                        value={ownerType} 
-                        onChange={(e) => setOwnerType(e.target.value as OwnerType)}
-                        className="bg-black/50 border border-blue-500/30 rounded px-2 py-1 text-[12px] text-blue-400 focus:outline-none focus:border-blue-400"
-                        aria-label="Subject Type"
-                        title="Select the subject type"
-                      >
-                        <option value="Individual">Person</option>
-                        <option value="Organisation">Organization</option>
-                        <option value="Agent">Agent</option>
-                      </select>
-                    </div>
-                    <div className="flex justify-between items-center group relative">
-                      <div className="flex items-center gap-1 group relative">
-                        <span className="text-[13px] text-slate-400 cursor-help">Identifiability:</span>
-                        <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
-                          The level to which the subject can be personally identified from the iQube data
-                        </div>
-                      </div>
-                      <select 
-                        id="identifiability-select-edit"
-                        value={identifiabilityLevel} 
-                        onChange={(e) => setIdentifiabilityLevel(e.target.value as IdentifiabilityLevel)}
-                        className="bg-black/50 border border-blue-500/30 rounded px-2 py-1 text-[12px] text-blue-400 focus:outline-none focus:border-blue-400"
-                        aria-label="Identifiability Level"
-                        title="Select the identifiability level"
-                      >
-                        <option value="Identifiable">Identifiable</option>
-                        <option value="Semi-Identifiable">Semi-Identifiable</option>
-                        <option value="Anonymous">Anonymous</option>
-                        <option value="Semi-Anonymous">Semi-Anonymous</option>
-                      </select>
-                    </div>
-                  </div>
-                  
-                  {/* Additional Records Section - Can add and edit records */}
-                  <div className="bg-black/30 border border-blue-500/10 rounded-lg p-4">
-                    <div className="flex justify-between items-center mb-3">
-                      <div className="flex items-center gap-1">
-                        <span className="text-[13px] text-slate-400">Additional Records</span>
-                      </div>
-                      <button 
-                        onClick={() => setIsEditingMetaQube(true)}
-                        className="bg-blue-600/30 hover:bg-blue-600/40 text-blue-300 text-[11px] px-3 py-1 rounded flex items-center gap-1.5 transition-all duration-200"
-                        aria-label="Add New Record"
-                        title="Add a new record to the template"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M12 5v14"></path>
-                          <path d="M5 12h14"></path>
+              )}
+              
+              {/* MetaQube Card - Same as View Tab */}
+              <div className="bg-gradient-to-br from-blue-900/20 to-black/40 border border-blue-500/20 rounded-xl p-6 shadow-xl">
+                <div className="uppercase text-[11px] tracking-wider text-blue-400 mb-6 flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-blue-400"></div>
+                  MetaQube Data
+                </div>
+                
+                <div className="space-y-6">
+                  {/* iQube Section */}
+                  <div>
+                    <div className="text-white text-[13px] font-medium mb-3 flex items-center gap-2">
+                      <div className="text-blue-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M21 16V8"></path>
+                          <path d="m19 12-7-4-7 4"></path>
+                          <path d="m5 8 7-4 7 4"></path>
                         </svg>
-                        Add Record
-                      </button>
+                      </div>
+                      iQube
                     </div>
-                    
-                    {/* Additional Records List */}
-                    <div className="space-y-3 mt-3 max-h-[300px] overflow-y-auto pr-2">
-                      {formattedMetaQubeData.filter(item => 
-                        !['identifier', 'creator', 'type', 'ownerType', 'identifiability', 'created', 'businessModel', 'instance', 'version'].includes(item.key)
-                      ).map((item, index) => (
-                        <div key={`${item.key}-${index}`} className="bg-black/30 p-3 rounded border border-blue-500/10 hover:border-blue-500/30 transition-all duration-200">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <div className="text-blue-400 text-[13px] font-medium">{item.key}</div>
-                              <div className="text-[12px] text-slate-400 mt-0.5">
-                                {item.description || 'No description provided'}
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <input 
-                                type="text" 
-                                value={item.value || ''}
-                                onChange={(e) => {
-                                  // Update the value for this record
-                                  const updatedData = formattedMetaQubeData.map(record => 
-                                    record.key === item.key ? { ...record, value: e.target.value } : record
-                                  );
-                                  setFormattedMetaQubeData(updatedData);
-                                }}
-                                className="bg-black/50 border border-blue-500/30 rounded px-2 py-1 text-[12px] text-blue-300 w-[150px] focus:outline-none focus:border-blue-400"
-                                placeholder="Value"
-                              />
-                              <button 
-                                onClick={() => {
-                                  // Delete this record
-                                  const updatedData = formattedMetaQubeData.filter(record => record.key !== item.key);
-                                  setFormattedMetaQubeData(updatedData);
-                                }}
-                                className="text-red-400 hover:text-red-300 p-1 rounded transition-all duration-200"
-                                aria-label="Delete record"
-                                title="Delete this record"
-                              >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                  <path d="M3 6h18"></path>
-                                  <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
-                                  <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
-                                  <line x1="10" y1="11" x2="10" y2="17"></line>
-                                  <line x1="14" y1="11" x2="14" y2="17"></line>
-                                </svg>
-                              </button>
-                            </div>
-                          </div>
-                          <div className="text-[11px] text-gray-500 mt-1 flex items-center gap-1">
-                            <span>Source:</span>
-                            <input 
-                              type="text" 
-                              value={item.source || ''}
-                              onChange={(e) => {
-                                // Update the source for this record
-                                const updatedData = formattedMetaQubeData.map(record => 
-                                  record.key === item.key ? { ...record, source: e.target.value } : record
-                                );
-                                setFormattedMetaQubeData(updatedData);
-                              }}
-                              className="bg-black/50 border border-gray-700/50 rounded px-2 py-0.5 text-[11px] text-gray-400 w-[100px] focus:outline-none focus:border-gray-600"
-                              placeholder="Source"
-                            />
+                    <div className="bg-black/30 border border-blue-500/10 rounded-lg p-4 space-y-3">
+                      <div className="flex justify-between items-center group relative">
+                        <div className="flex items-center gap-1 group relative">
+                          <span className="text-[13px] text-slate-400 cursor-help">Identifier:</span>
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                            A unique identifier for the iQube that allows for tracking and referencing in the iQube Protocol
                           </div>
                         </div>
-                      ))}
-                      
-                      {/* Provenance Field (editable) */}
-                      <div className="bg-black/30 p-3 rounded border border-blue-500/10 hover:border-blue-500/30 transition-all duration-200">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <div className="text-blue-400 text-[13px] font-medium">Provenance</div>
-                            <div className="text-[12px] text-slate-400 mt-0.5">
-                              The origin path of this template
-                            </div>
+                        <span className="text-gray-300 text-[12px]">{isTemplate ? iQubeId : getInstanceName()}</span>
+                      </div>
+                      <div className="flex justify-between items-center group relative">
+                        <div className="flex items-center gap-1 group relative">
+                          <span className="text-[13px] text-slate-400 cursor-help">Creator:</span>
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                            The entity that created this iQube
                           </div>
-                          <input 
-                            type="text" 
-                            value="0" 
-                            readOnly
-                            className="bg-black/50 border border-blue-500/30 rounded px-2 py-1 text-[12px] text-blue-300 w-[50px] focus:outline-none focus:border-blue-400"
+                        </div>
+                        <span className="text-gray-300 text-[12px]">Creator ID</span>
+                      </div>
+                      <div className="flex justify-between items-center group relative">
+                        <div className="flex items-center gap-1 group relative">
+                          <span className="text-[13px] text-slate-400 cursor-help">Type:</span>
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                            The category of iQube defining its primary purpose and data structure
+                          </div>
+                        </div>
+                        <span className="text-gray-300 text-[12px]">{iQubeType}</span>
+                      </div>
+                      <div className="flex justify-between items-center group relative">
+                        <div className="flex items-center gap-1 group relative">
+                          <span className="text-[13px] text-slate-400 cursor-help">$$$ Model:</span>
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                            The economic model governing how this iQube can be monetized or accessed
+                          </div>
+                        </div>
+                        <span className="text-gray-300 text-[12px]">{businessModel}</span>
+                      </div>
+                      <div className="flex justify-between items-center group relative">
+                        <div className="flex items-center gap-1 group relative">
+                          <span className="text-[13px] text-slate-400 cursor-help">Price:</span>
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                            The price for accessing or using this iQube in Satoshis with USD equivalent
+                          </div>
+                        </div>
+                        <span className="text-gray-300 text-[12px]">{formatPrice(price)}</span>
+                      </div>
+                      <div className="flex justify-between items-center group relative">
+                        <div className="flex items-center gap-1 group relative">
+                          <span className="text-[13px] text-slate-400 cursor-help">Instance:</span>
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                            Whether this is a template or an instance, and instance count if applicable
+                          </div>
+                        </div>
+                        <span className="text-gray-300 text-[12px]">{isTemplate ? "Template" : getInstanceLabel()}</span>
+                      </div>
+                      <div className="flex justify-between items-center group relative">
+                        <div className="flex items-center gap-1 group relative">
+                          <span className="text-[13px] text-slate-400 cursor-help">Created:</span>
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                            The date when this iQube was created
+                          </div>
+                        </div>
+                        <span className="text-gray-300 text-[12px]">{new Date().toISOString().split('T')[0]}</span>
+                      </div>
+                      <div className="flex justify-between items-center group relative">
+                        <div className="flex items-center gap-1 group relative">
+                          <span className="text-[13px] text-slate-400 cursor-help">Version:</span>
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                            The version number of this iQube
+                          </div>
+                        </div>
+                        <span className="text-gray-300 text-[12px]">1.0</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Subject Section */}
+                  <div>
+                    <div className="text-white text-[13px] font-medium mb-3 flex items-center gap-2">
+                      <div className="text-blue-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                          <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                      </div>
+                      Subject
+                    </div>
+                    <div className="bg-black/30 border border-blue-500/10 rounded-lg p-4 space-y-3">
+                      <div className="flex justify-between items-center group relative">
+                        <div className="flex items-center gap-1 group relative">
+                          <span className="text-[13px] text-slate-400 cursor-help">Type:</span>
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                            The category of subject that this iQube relates to
+                          </div>
+                        </div>
+                        <span className="text-gray-300 text-[12px]">
+                          {ownerType === "Individual" ? "Person" : 
+                           ownerType === "Organisation" ? "Organization" : "Agent"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center group relative">
+                        <div className="flex items-center gap-1 group relative">
+                          <span className="text-[13px] text-slate-400 cursor-help">Identifiability:</span>
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                            The level to which the subject can be personally identified from the iQube data
+                          </div>
+                        </div>
+                        <span className="text-gray-300 text-[12px]">{identifiabilityLevel}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Scores Section */}
+                  <div>
+                    <div className="text-white text-[13px] font-medium mb-3 flex items-center gap-2">
+                      <div className="text-blue-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="12" cy="12" r="10"></circle>
+                          <path d="M12 6v6l4 2"></path>
+                        </svg>
+                      </div>
+                      Scores
+                    </div>
+                    <div className="bg-black/30 border border-blue-500/10 rounded-lg p-4">
+                      <div className="flex justify-between items-center gap-2">
+                        {/* Sensitivity */}
+                        <div className="flex flex-col items-center gap-1 group relative">
+                          <div className="text-[10px] text-slate-400 mb-1">Sensitivity</div>
+                          <EnhancedScoreIndicator 
+                            value={compositeScores.sensitivityScore}
+                            type="sensitivity"
+                            size="small"
                           />
+                          <div className="absolute z-50 hidden group-hover:block top-full mt-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap text-xs">
+                            Data sensitivity level
+                          </div>
+                        </div>
+                        
+                        {/* Risk */}
+                        <div className="flex flex-col items-center gap-1 group relative">
+                          <div className="text-[10px] text-slate-400 mb-1">Risk</div>
+                          <EnhancedScoreIndicator 
+                            value={compositeScores.riskScore}
+                            type="risk"
+                            size="small"
+                          />
+                          <div className="absolute z-50 hidden group-hover:block top-full mt-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap text-xs">
+                            Risk assessment level
+                          </div>
+                        </div>
+                        
+                        {/* Accuracy */}
+                        <div className="flex flex-col items-center gap-1 group relative">
+                          <div className="text-[10px] text-slate-400 mb-1">Accuracy</div>
+                          <EnhancedScoreIndicator 
+                            value={compositeScores.accuracyScore}
+                            type="accuracy"
+                            size="small"
+                          />
+                          <div className="absolute z-50 hidden group-hover:block top-full mt-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap text-xs">
+                            Data accuracy level
+                          </div>
+                        </div>
+                        
+                        {/* Verifiability */}
+                        <div className="flex flex-col items-center gap-1 group relative">
+                          <div className="text-[10px] text-slate-400 mb-1">Verifiability</div>
+                          <EnhancedScoreIndicator 
+                            value={compositeScores.verifiabilityScore}
+                            type="verifiability"
+                            size="small"
+                          />
+                          <div className="absolute z-50 hidden group-hover:block top-full mt-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap text-xs">
+                            Data verifiability level
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                  
-                  {/* Add New MetaQube Record Form */}
-                  {isEditingMetaQube && (
-                    <div className="bg-black/30 border border-blue-500/10 rounded-lg p-4 mt-3">
-                      <div className="uppercase text-[11px] tracking-wider text-blue-400 mb-3">Add New Record</div>
-                      <div className="space-y-3">
-                        <div className="flex gap-3">
-                          <div className="flex-1">
-                            <label htmlFor="new-key" className="block text-[11px] text-gray-400 mb-1">Key</label>
-                            <input 
-                              id="new-key"
-                              type="text" 
-                              value={newMetaRecord.key}
-                              onChange={(e) => setNewMetaRecord({...newMetaRecord, key: e.target.value})}
-                              className="bg-black/50 border border-blue-500/30 rounded px-2 py-1.5 text-[12px] text-blue-300 w-full focus:outline-none focus:border-blue-400"
-                              placeholder="Record Key"
-                            />
-                          </div>
-                          <div className="flex-1">
-                            <label htmlFor="new-value" className="block text-[11px] text-gray-400 mb-1">Value</label>
-                            <input 
-                              id="new-value"
-                              type="text" 
-                              value={newMetaRecord.value || ''}
-                              onChange={(e) => setNewMetaRecord({...newMetaRecord, value: e.target.value})}
-                              className="bg-black/50 border border-blue-500/30 rounded px-2 py-1.5 text-[12px] text-blue-300 w-full focus:outline-none focus:border-blue-400"
-                              placeholder="Record Value"
-                            />
+                </div>
+              </div>
+
+              
+              {/* BlakQube Data Panel - Qrypto Profile */}
+              <div className="bg-gradient-to-br from-purple-900/20 to-black/40 border border-purple-500/20 rounded-xl p-6 shadow-xl mt-6">
+                <div className="uppercase text-[11px] tracking-wider text-purple-400 mb-6 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-purple-400"></div>
+                    BLAKQUBE
+                    <span className="text-[10px] ml-2 bg-purple-500/20 px-2 py-0.5 rounded">
+                      {isTemplate ? 'Template' : getInstanceLabel()}
+                    </span>
+                  </div>
+                  {!isTemplate && !isDecrypted && (
+                    <div className="flex items-center gap-1 text-[10px] bg-purple-500/20 px-2 py-0.5 rounded">
+                      <Lock size={10} />
+                      <span>ENCRYPTED</span>
+                    </div>
+                  )}
+                  {!isTemplate && isDecrypted && (
+                    <div className="flex items-center gap-1 text-[10px] bg-green-500/20 px-2 py-0.5 rounded text-green-400">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                      </svg>
+                      <span>EDITABLE DATA</span>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Warning for non-decrypted instance */}
+                {!isTemplate && !isDecrypted && (
+                  <div className="mb-4">
+                    {error && (
+                      <div className="bg-red-900/20 border border-red-500/30 text-red-300 px-3 py-2 rounded-lg mb-3 text-[12px]">
+                        <div className="flex items-center gap-2 mb-1">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="12"></line>
+                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                          </svg>
+                          <span className="font-medium">Decryption Error</span>
+                        </div>
+                        {error}
+                      </div>
+                    )}
+                    <div className="bg-amber-900/20 border border-amber-600/30 rounded-lg p-4 text-amber-200 mb-4">
+                      <p className="mb-2 font-medium">Decryption Required</p>
+                      <p className="text-sm">You need to decrypt this iQube instance before you can edit the BlakQube data. Please go to the Decrypt tab first.</p>
+                    </div>
+                  </div>
+                )}
+                
+                {/* BlakQube Profile Fields */}
+                <div className="flex flex-col gap-3">
+                  {blakQubeProfileData.map((field, index) => (
+                    <div 
+                      key={`blakqube-field-${index}`} 
+                      className="bg-black/30 border border-purple-500/10 rounded-lg p-3"
+                    >
+                      <div className="flex justify-between items-center mb-2">
+                        <div className="flex items-center gap-1 group relative">
+                          <span className="text-[13px] text-white cursor-help">{field.key}</span>
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                            {field.description}
                           </div>
                         </div>
-                        <div>
-                          <label htmlFor="new-description" className="block text-[11px] text-gray-400 mb-1">Description</label>
+                        <SourceIcon source={field.source} />
+                      </div>
+                      <div className="text-gray-300 text-[12px] break-all bg-black/20 p-2 rounded border border-purple-500/10">
+                        {isTemplate ? (
                           <input 
-                            id="new-description"
                             type="text" 
-                            value={newMetaRecord.description || ''}
-                            onChange={(e) => setNewMetaRecord({...newMetaRecord, description: e.target.value})}
-                            className="bg-black/50 border border-blue-500/30 rounded px-2 py-1.5 text-[12px] text-blue-300 w-full focus:outline-none focus:border-blue-400"
-                            placeholder="Record Description"
+                            value={field.templateValue || ''} 
+                            onChange={(e) => {
+                              const updatedData = blakQubeProfileData.map((item, idx) => 
+                                idx === index ? { ...item, templateValue: e.target.value } : item
+                              );
+                              setBlakQubeProfileData(updatedData);
+                            }}
+                            placeholder="Enter template value..."
+                            className="w-full bg-transparent border-none text-purple-300 focus:outline-none"
+                          />
+                        ) : (
+                          !isDecrypted ? 
+                            <span className="text-purple-300 flex items-center gap-1">
+                              <Lock size={12} /> 
+                              <span className="opacity-60">••••••••••••••••</span>
+                            </span> : 
+                            <input 
+                              type="text" 
+                              value={field.instanceValue || ''} 
+                              onChange={(e) => {
+                                const updatedData = blakQubeProfileData.map((item, idx) => 
+                                  idx === index ? { ...item, instanceValue: e.target.value } : item
+                                );
+                                setBlakQubeProfileData(updatedData);
+                              }}
+                              placeholder="Enter value..."
+                              className="w-full bg-transparent border-none text-gray-300 focus:outline-none"
+                            />
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                
+                {/* Add BlakQube Profile Fields Option for Templates */}
+                {isTemplate && (
+                  <div className="mt-6 pt-3">
+                    <div className="text-white text-[13px] font-medium mb-3 flex items-center gap-2">
+                      <div className="text-purple-400">
+                        <PlusCircle size={14} />
+                      </div>
+                      Add New Record
+                    </div>
+                    {!isBlakEditMode ? (
+                      <div className="bg-black/30 border border-purple-500/10 rounded-lg p-4">
+                        <button 
+                          onClick={() => setIsBlakEditMode(true)}
+                          className="w-full bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 text-purple-400 px-4 py-3 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 text-[13px] font-medium"
+                        >
+                          <PlusCircle size={15} />
+                          Add New Record
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="bg-black/30 border border-purple-500/10 rounded-lg p-4 space-y-4">
+                        <div className="text-white text-[14px] font-medium mb-2 flex justify-between items-center">
+                          <span>Add New Record</span>
+                          <button onClick={() => setIsBlakEditMode(false)} className="text-slate-400 hover:text-white">
+                            <X size={16} />
+                          </button>
+                        </div>
+                        
+                        <div>
+                          <label className="block text-[13px] text-slate-400 mb-1">Record Name</label>
+                          <input 
+                            type="text" 
+                            placeholder="e.g. email, profession, address"
+                            className="w-full bg-black/40 border border-purple-500/30 rounded px-3 py-2 text-[13px] text-white focus:outline-none focus:border-purple-400"
+                            value={newBlakRecord.key}
+                            onChange={(e) => setNewBlakRecord({...newBlakRecord, key: e.target.value})}
                           />
                         </div>
+                        
                         <div>
-                          <label htmlFor="new-source" className="block text-[11px] text-gray-400 mb-1">Source</label>
+                          <label className="block text-[13px] text-slate-400 mb-1">Record Description</label>
+                          <textarea
+                            placeholder="This description describes the value of the record"
+                            className="w-full bg-black/40 border border-purple-500/30 rounded px-3 py-2 text-[13px] text-white focus:outline-none focus:border-purple-400 h-20 resize-none"
+                            value={newBlakRecord.description}
+                            onChange={(e) => setNewBlakRecord({...newBlakRecord, description: e.target.value})}
+                          ></textarea>
+                        </div>
+                        
+                        <div>
+                          <label htmlFor="blak-record-source-edit" className="block text-[13px] text-slate-400 mb-1">Source</label>
                           <select 
-                            id="new-source"
-                            value={newMetaRecord.source}
-                            onChange={(e) => setNewMetaRecord({...newMetaRecord, source: e.target.value})}
-                            className="bg-black/50 border border-blue-500/30 rounded px-2 py-1.5 text-[12px] text-blue-300 w-full focus:outline-none focus:border-blue-400"
+                            id="blak-record-source-edit"
+                            className="w-full bg-black/40 border border-purple-500/30 rounded px-3 py-2 text-[13px] text-white focus:outline-none focus:border-purple-400"
+                            value={newBlakRecord.source}
+                            onChange={(e) => setNewBlakRecord({...newBlakRecord, source: e.target.value as any})}
+                            aria-label="Record source type"
+                            title="Select the source type for this record"
                           >
-                            <option value="manual">Manual</option>
-                            <option value="system">System</option>
+                            <option value="self">Self-Reported</option>
                             <option value="verified">Verified</option>
+                            <option value="third-party">Third-Party</option>
+                            <option value="manual">Manual Entry</option>
                           </select>
                         </div>
-                        <div className="flex gap-2 mt-4">
+                        
+                        <div className="flex gap-2 pt-2">
                           <button 
+                            className="flex-1 bg-purple-600/30 hover:bg-purple-600/40 border border-purple-500/30 text-purple-400 px-4 py-2 rounded transition-all duration-200 text-[13px] font-medium"
                             onClick={() => {
-                              // Add the new record if key is not empty
-                              if (newMetaRecord.key) {
-                                setFormattedMetaQubeData([
-                                  ...formattedMetaQubeData,
+                              // Add the new record to the BlakQube profile data
+                              if (newBlakRecord.key && newBlakRecord.description) {
+                                setBlakQubeProfileData([
+                                  ...blakQubeProfileData,
                                   {
-                                    ...newMetaRecord,
-                                    description: newMetaRecord.description || 'No description provided',
+                                    key: newBlakRecord.key,
+                                    templateValue: '',
+                                    instanceValue: newBlakRecord.description, // Use description as instanceValue
+                                    source: newBlakRecord.source as any,
+                                    description: newBlakRecord.description
                                   }
                                 ]);
                                 // Reset the form
-                                setNewMetaRecord({
+                                setNewBlakRecord({
                                   key: '',
-                                  value: '',
+                                  templateValue: '',
+                                  instanceValue: '',
                                   source: 'manual',
                                   description: ''
                                 });
                                 // Collapse the form
-                                setIsEditingMetaQube(false);
+                                setIsBlakEditMode(false);
                               }
                             }}
-                            className="bg-blue-600/30 hover:bg-blue-600/40 text-blue-300 px-4 py-2 rounded transition-all duration-200 text-[13px]"
                           >
                             Save Record
                           </button>
                           <button 
-                            onClick={() => setIsEditingMetaQube(false)}
+                            onClick={() => setIsBlakEditMode(false)}
                             className="bg-black/40 hover:bg-black/50 border border-gray-700 text-gray-400 px-4 py-2 rounded transition-all duration-200 text-[13px]"
                           >
                             Cancel
                           </button>
                         </div>
                       </div>
-                    </div>
-                  )}
-                  
-                  {/* Scores Section at the bottom */}
-                  <div className="bg-black/30 border border-blue-500/10 rounded-lg p-4">
-                    <div className="flex justify-between items-center mb-3">
-                      <div className="flex items-center gap-1">
-                        <span className="text-[13px] text-slate-400">Scores</span>
+                    )}
+                  </div>
+                )}
+              </div>
+              
+              {/* Save/Mint Button - Conditional based on mode */}
+              <div className="mt-6">
+                {isTemplate ? (
+                  /* Save Template Button */
+                  <button 
+                    onClick={handleSaveTemplate}
+                    className="w-full bg-purple-600/30 hover:bg-purple-600/40 text-purple-300 px-6 py-3 rounded-lg transition-all duration-200 flex items-center justify-center gap-3 font-medium shadow-lg hover:shadow-purple-500/20 hover:scale-105"
+                    aria-label="Save Template Changes"
+                    title="Save changes to this template"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                      <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                      <polyline points="7 3 7 8 15 8"></polyline>
+                    </svg>
+                    Save Template
+                  </button>
+                ) : isDecrypted ? (
+                  /* Mint New Instance Button - Only for decrypted instances */
+                  <div className="space-y-4">
+                    <div className="bg-black/30 border border-green-500/10 rounded-lg p-4">
+                      <div className="flex justify-between items-center mb-3">
+                        <div className="text-[13px] text-slate-400">New Instance ID:</div>
+                        <div className="text-green-300 text-[13px] font-medium">
+                          {getInstanceName().replace(instanceNumber.toString(), generateNextInstanceNumber().toString())}
+                        </div>
                       </div>
+                      <p className="text-[12px] text-gray-400">
+                        This will create a new iQube instance with your edited data, using the next available ID in the sequence.
+                      </p>
                     </div>
                     
-                    {/* Score Indicators - Not editable */}
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <div className="text-[11px] text-slate-500 mb-1">Sensitivity</div>
-                        <EnhancedScoreIndicator 
-                          value={compositeScores.sensitivityScore} 
-                          maxValue={5} 
-                          type="sensitivity"
-                          size="small"
-                        />
-                      </div>
-                      <div>
-                        <div className="text-[11px] text-slate-500 mb-1">Verifiability</div>
-                        <EnhancedScoreIndicator 
-                          value={compositeScores.verifiabilityScore} 
-                          maxValue={5} 
-                          type="verifiability"
-                          size="small"
-                        />
-                      </div>
-                      <div>
-                        <div className="text-[11px] text-slate-500 mb-1">Accuracy</div>
-                        <EnhancedScoreIndicator 
-                          value={compositeScores.accuracyScore} 
-                          maxValue={5} 
-                          type="accuracy"
-                          size="small"
-                        />
-                      </div>
-                      <div>
-                        <div className="text-[11px] text-slate-500 mb-1">Risk</div>
-                        <EnhancedScoreIndicator 
-                          value={compositeScores.riskScore} 
-                          maxValue={5} 
-                          type="risk"
-                          size="small"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              {/* BlakQube Card - Edit Mode */}
-              <div className="bg-gradient-to-br from-purple-900/20 to-black/40 border border-purple-500/20 rounded-xl p-6 shadow-xl mt-6">
-                <div className="uppercase text-[11px] tracking-wider text-purple-400 mb-4 flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-purple-400"></div>
-                  BlakQube Template
-                </div>
-                
-                <div className="space-y-4">
-                  {/* BlakQube data list */}
-                  <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2">
-                    {formattedBlakQubeData.map((item, index) => (
-                      <div key={`blak-edit-${index}`} className="bg-black/30 p-3 rounded border border-purple-500/10 hover:border-purple-500/30 transition-all duration-200">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <input
-                              type="text" 
-                              value={item.key} 
-                              onChange={(e) => {
-                                const updatedData = [...formattedBlakQubeData];
-                                updatedData[index].key = e.target.value;
-                                setFormattedBlakQubeData(updatedData);
-                              }}
-                              className="bg-transparent border-b border-purple-500/30 text-purple-400 text-[13px] font-medium px-0 py-1 focus:outline-none focus:border-purple-400"
-                            />
-                            <div className="mt-1">
-                              <input
-                                type="text" 
-                                value={item.description || ''} 
-                                onChange={(e) => {
-                                  const updatedData = [...formattedBlakQubeData];
-                                  updatedData[index].description = e.target.value;
-                                  setFormattedBlakQubeData(updatedData);
-                                }}
-                                className="bg-transparent border-b border-gray-700/30 text-[12px] text-slate-400 w-full px-0 py-0.5 focus:outline-none focus:border-gray-700"
-                                placeholder="Description"
-                              />
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <input 
-                              type="text" 
-                              value={item.templateValue || ''} 
-                              onChange={(e) => {
-                                // Update template value for this BlakQube record
-                                const updatedData = formattedBlakQubeData.map((record, idx) => 
-                                  idx === index ? { ...record, templateValue: e.target.value } : record
-                                );
-                                setFormattedBlakQubeData(updatedData);
-                              }}
-                              placeholder="Value"
-                              className="bg-black/50 border border-purple-500/30 rounded px-2 py-1 text-[12px] text-purple-300 w-[150px] focus:outline-none focus:border-purple-400"
-                            />
-                            <button 
-                              onClick={() => {
-                                // Delete this BlakQube record
-                                const updatedData = formattedBlakQubeData.filter((_, idx) => idx !== index);
-                                setFormattedBlakQubeData(updatedData);
-                              }}
-                              className="text-red-400 hover:text-red-300 p-1 rounded transition-all duration-200"
-                              aria-label="Delete record"
-                              title="Delete this record"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M3 6h18"></path>
-                                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
-                                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
-                                <line x1="10" y1="11" x2="10" y2="17"></line>
-                                <line x1="14" y1="11" x2="14" y2="17"></line>
-                              </svg>
-                            </button>
-                          </div>
-                        </div>
-                        <div className="text-[11px] text-gray-500 mt-1 flex items-center gap-1">
-                          <span>Source:</span>
-                          <select 
-                            value={item.source || 'manual'}
-                            onChange={(e) => {
-                              // Update source for this BlakQube record
-                              const updatedData = formattedBlakQubeData.map((record, idx) => 
-                                idx === index ? { ...record, source: e.target.value } : record
-                              );
-                              setFormattedBlakQubeData(updatedData);
-                            }}
-                            className="bg-black/50 border border-gray-700/50 rounded px-2 py-0.5 text-[11px] text-gray-400 focus:outline-none focus:border-gray-600"
-                          >
-                            <option value="manual">Manual</option>
-                            <option value="system">System</option>
-                            <option value="verified">Verified</option>
-                          </select>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  
-                  {/* Add New BlakQube Record */}
-                  <div className="mt-2">
-                    <button 
-                      onClick={() => setIsBlakEditMode(true)}
-                      className="w-full bg-purple-600/30 hover:bg-purple-600/40 text-purple-300 px-4 py-2 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 text-[13px]"
-                      aria-label="Add BlakQube Record"
-                      title="Add a new BlakQube record"
+                    <button
+                      onClick={() => {
+                        // Generate next instance number
+                        const newInstanceNumber = generateNextInstanceNumber();
+                        setInstanceNumber(newInstanceNumber);
+                        
+                        // Call mint function with updated data
+                        handleMint();
+                      }}
+                      className="w-full bg-green-600/30 hover:bg-green-600/40 border border-green-500/30 text-green-300 px-6 py-3 rounded-lg transition-all duration-200 flex items-center justify-center gap-3 font-medium shadow-lg hover:shadow-green-500/20 hover:scale-105"
+                      aria-label="Mint New Instance"
+                      title="Create a new instance with your edited data"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M12 5v14"></path>
-                        <path d="M5 12h14"></path>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 2v20"/>
+                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
                       </svg>
-                      Add BlakQube Record
+                      Mint New Instance
                     </button>
                   </div>
-                </div>
-              </div>
-              
-              {/* Add New BlakQube Record Form */}
-              {isBlakEditMode && (
-                <div className="bg-black/30 border border-purple-500/10 rounded-lg p-4 mt-3">
-                  <div className="uppercase text-[11px] tracking-wider text-purple-400 mb-3">Add New BlakQube Record</div>
-                  <div className="space-y-3">
-                    <div className="flex gap-3">
-                      <div className="flex-1">
-                        <label htmlFor="new-blak-key" className="block text-[11px] text-gray-400 mb-1">Key</label>
-                        <input 
-                          id="new-blak-key"
-                          type="text" 
-                          value={newBlakRecord.key}
-                          onChange={(e) => setNewBlakRecord({...newBlakRecord, key: e.target.value})}
-                          className="bg-black/50 border border-purple-500/30 rounded px-2 py-1.5 text-[12px] text-purple-300 w-full focus:outline-none focus:border-purple-400"
-                          placeholder="Record Key"
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <label htmlFor="new-blak-value" className="block text-[11px] text-gray-400 mb-1">Template Value</label>
-                        <input 
-                          id="new-blak-value"
-                          type="text" 
-                          value={newBlakRecord.templateValue || ''}
-                          onChange={(e) => setNewBlakRecord({...newBlakRecord, templateValue: e.target.value})}
-                          className="bg-black/50 border border-purple-500/30 rounded px-2 py-1.5 text-[12px] text-purple-300 w-full focus:outline-none focus:border-purple-400"
-                          placeholder="Template Value"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label htmlFor="new-blak-description" className="block text-[11px] text-gray-400 mb-1">Description</label>
-                      <input 
-                        id="new-blak-description"
-                        type="text" 
-                        value={newBlakRecord.description || ''}
-                        onChange={(e) => setNewBlakRecord({...newBlakRecord, description: e.target.value})}
-                        className="bg-black/50 border border-purple-500/30 rounded px-2 py-1.5 text-[12px] text-purple-300 w-full focus:outline-none focus:border-purple-400"
-                        placeholder="Record Description"
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="new-blak-source" className="block text-[11px] text-gray-400 mb-1">Source</label>
-                      <select 
-                        id="new-blak-source"
-                        value={newBlakRecord.source}
-                        onChange={(e) => setNewBlakRecord({...newBlakRecord, source: e.target.value})}
-                        className="bg-black/50 border border-purple-500/30 rounded px-2 py-1.5 text-[12px] text-purple-300 w-full focus:outline-none focus:border-purple-400"
-                      >
-                        <option value="manual">Manual</option>
-                        <option value="system">System</option>
-                        <option value="verified">Verified</option>
-                      </select>
-                    </div>
-                    <div className="flex gap-2 mt-4">
-                      <button 
-                        onClick={() => {
-                          // Add the new record if key is not empty
-                          if (newBlakRecord.key) {
-                            setFormattedBlakQubeData([
-                              ...formattedBlakQubeData,
-                              {
-                                ...newBlakRecord,
-                                description: newBlakRecord.description || 'No description provided',
-                              }
-                            ]);
-                            // Reset the form
-                            setNewBlakRecord({
-                              key: '',
-                              templateValue: '',
-                              instanceValue: '',
-                              source: 'manual',
-                              description: ''
-                            });
-                            // Collapse the form
-                            setIsBlakEditMode(false);
-                          }
-                        }}
-                        className="bg-purple-600/30 hover:bg-purple-600/40 text-purple-300 px-4 py-2 rounded transition-all duration-200 text-[13px]"
-                      >
-                        Save Record
-                      </button>
-                      <button 
-                        onClick={() => setIsBlakEditMode(false)}
-                        className="bg-black/40 hover:bg-black/50 border border-gray-700 text-gray-400 px-4 py-2 rounded transition-all duration-200 text-[13px]"
-                      >
-                        Cancel
-                      </button>
-                    </div>
+                ) : (
+                  /* Decrypt Reminder - For non-decrypted instances */
+                  <div className="bg-amber-900/20 border border-amber-600/30 rounded-lg p-4 text-amber-200">
+                    <p className="mb-2 font-medium">Decryption Required</p>
+                    <p className="text-sm">You need to decrypt this iQube instance before you can mint a new instance from it.</p>
                   </div>
-                </div>
-              )}
-              
-              {/* Save Template Button */}
-              <div className="mt-6">
-                <button 
-                  onClick={handleSaveTemplate}
-                  className="w-full bg-purple-600/30 hover:bg-purple-600/40 text-purple-300 px-6 py-3 rounded-lg transition-all duration-200 flex items-center justify-center gap-3 font-medium shadow-lg hover:shadow-purple-500/20 hover:scale-105"
-                  aria-label="Save Template Changes"
-                  title="Save changes to this template"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-                    <polyline points="17 21 17 13 7 13 7 21"></polyline>
-                    <polyline points="7 3 7 8 15 8"></polyline>
-                  </svg>
-                  Save Template
-                </button>
+                )}
               </div>
             </div>
           </div>
         );
-      
+
       case "view":
         return (
           <div id="view-panel" role="tabpanel" aria-labelledby="view-tab">
@@ -1967,7 +1956,7 @@ export const SubmenuDrawer = ({
                   <div className="bg-black/30 border border-gray-500/10 rounded-lg p-3">
                     <div className="text-white text-[13px] font-medium mb-1">{exampleIQubes[currentExampleIndex].name}</div>
                     <div className="text-gray-400 text-[12px] mb-2">{exampleIQubes[currentExampleIndex].description}</div>
-                    <div className="grid grid-cols-3 gap-2 mt-2">
+                    <div className="grid grid-cols-4 gap-2 mt-2">
                       <div className="text-center bg-black/40 rounded p-1 text-[11px]">
                         <span className="text-gray-500">Type:</span>
                         <div className="text-blue-400">{exampleIQubes[currentExampleIndex].type}</div>
@@ -1977,6 +1966,10 @@ export const SubmenuDrawer = ({
                         <div className="text-purple-400">{exampleIQubes[currentExampleIndex].businessModel}</div>
                       </div>
                       <div className="text-center bg-black/40 rounded p-1 text-[11px]">
+                        <span className="text-gray-500">Price:</span>
+                        <div className="text-green-400">{formatPrice(price)}</div>
+                      </div>
+                      <div className="text-center bg-black/40 rounded p-1 text-[11px]">
                         <span className="text-gray-500">Subject:</span>
                         <div className="text-amber-400">{exampleIQubes[currentExampleIndex].ownerType}</div>
                       </div>
@@ -1984,23 +1977,23 @@ export const SubmenuDrawer = ({
                   </div>
                 </div>
               )}
-              {/* MetaQube Data Section - Consolidated */}
+
+              {/* MetaQube Data Section - Same as Edit Tab */}
               <div className="bg-gradient-to-br from-blue-900/20 to-black/40 border border-blue-500/20 rounded-xl p-6 shadow-xl">
                 <div className="uppercase text-[11px] tracking-wider text-blue-400 mb-6 flex items-center gap-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-blue-400"></div>
                   MetaQube Data
                 </div>
                 
-                {/* Grouped MetaQube Schema Fields */}
                 <div className="space-y-6">
                   {/* iQube Section */}
                   <div>
                     <div className="text-white text-[13px] font-medium mb-3 flex items-center gap-2">
                       <div className="text-blue-400">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M21 16V8"/>
-                          <path d="m19 12-7-4-7 4"/>
-                          <path d="m5 8 7-4 7 4"/>
+                          <path d="M21 16V8"></path>
+                          <path d="m19 12-7-4-7 4"></path>
+                          <path d="m5 8 7-4 7 4"></path>
                         </svg>
                       </div>
                       iQube
@@ -2013,13 +2006,13 @@ export const SubmenuDrawer = ({
                             A unique identifier for the iQube that allows for tracking and referencing in the iQube Protocol
                           </div>
                         </div>
-                        <span className="text-gray-300 text-[12px]">{iQubeId}</span>
+                        <span className="text-gray-300 text-[12px]">{isTemplate ? iQubeId : getInstanceName()}</span>
                       </div>
                       <div className="flex justify-between items-center group relative">
                         <div className="flex items-center gap-1 group relative">
                           <span className="text-[13px] text-slate-400 cursor-help">Creator:</span>
                           <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
-                            The entity (person, organization or agent) who created this iQube
+                            The entity that created this iQube
                           </div>
                         </div>
                         <span className="text-gray-300 text-[12px]">Creator ID</span>
@@ -2028,67 +2021,37 @@ export const SubmenuDrawer = ({
                         <div className="flex items-center gap-1 group relative">
                           <span className="text-[13px] text-slate-400 cursor-help">Type:</span>
                           <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
-                            The category of iQube that defines its primary purpose and functionality
+                            The category of iQube defining its primary purpose and data structure
                           </div>
                         </div>
-                        {isTemplate ? (
-                          <select 
-                            id="iqube-type-select"
-                            value={iQubeType} 
-                            onChange={(e) => setIQubeType(e.target.value as IQubeType)}
-                            className="bg-black/50 border border-blue-500/30 rounded px-2 py-1 text-[12px] text-blue-400 focus:outline-none focus:border-blue-400"
-                            aria-label="iQube Type"
-                            title="Select the type of iQube"
-                          >
-                            <option value="DataQube">DataQube</option>
-                            <option value="ContentQube">ContentQube</option>
-                            <option value="ToolQube">ToolQube</option>
-                            <option value="ModelQube">ModelQube</option>
-                            <option value="AgentQube">AigentQube</option>
-                          </select>
-                        ) : (
-                          <span className="text-gray-300 text-[12px]">{iQubeType}</span>
-                        )}
+                        <span className="text-gray-300 text-[12px]">{iQubeType}</span>
                       </div>
                       <div className="flex justify-between items-center group relative">
                         <div className="flex items-center gap-1 group relative">
                           <span className="text-[13px] text-slate-400 cursor-help">$$$ Model:</span>
                           <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
-                            The economic transaction model associated with this iQube
+                            The economic model governing how this iQube can be monetized or accessed
                           </div>
                         </div>
-                        {isTemplate ? (
-                          <select 
-                            id="business-model-select"
-                            value={businessModel} 
-                            onChange={(e) => setBusinessModel(e.target.value as BusinessModelType)}
-                            className="bg-black/50 border border-blue-500/30 rounded px-2 py-1 text-[12px] text-blue-400 focus:outline-none focus:border-blue-400"
-                            aria-label="Business Model"
-                            title="Select the business model"
-                          >
-                            <option value="Buy">Buy</option>
-                            <option value="Sell">Sell</option>
-                            <option value="Rent">Rent</option>
-                            <option value="Lease">Lease</option>
-                            <option value="Subscribe">Subscribe</option>
-                            <option value="Stake">Stake</option>
-                            <option value="License">License</option>
-                            <option value="Donate">Donate</option>
-                          </select>
-                        ) : (
-                          <span className="text-gray-300 text-[12px]">{businessModel}</span>
-                        )}
+                        <span className="text-gray-300 text-[12px]">{businessModel}</span>
+                      </div>
+                      <div className="flex justify-between items-center group relative">
+                        <div className="flex items-center gap-1 group relative">
+                          <span className="text-[13px] text-slate-400 cursor-help">Price:</span>
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                            The price for accessing or using this iQube in Satoshis with USD equivalent
+                          </div>
+                        </div>
+                        <span className="text-gray-300 text-[12px]">{formatPrice(price)}</span>
                       </div>
                       <div className="flex justify-between items-center group relative">
                         <div className="flex items-center gap-1 group relative">
                           <span className="text-[13px] text-slate-400 cursor-help">Instance:</span>
                           <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
-                            Indicates whether this is a template or an instance, and its position in the total instances
+                            Whether this is a template or an instance, and instance count if applicable
                           </div>
                         </div>
-                        <span className="text-gray-300 text-[12px]">
-                          {isTemplate ? 'Template' : '3 of 21'}
-                        </span>
+                        <span className="text-gray-300 text-[12px]">{isTemplate ? "Template" : getInstanceLabel()}</span>
                       </div>
                       <div className="flex justify-between items-center group relative">
                         <div className="flex items-center gap-1 group relative">
@@ -2103,7 +2066,7 @@ export const SubmenuDrawer = ({
                         <div className="flex items-center gap-1 group relative">
                           <span className="text-[13px] text-slate-400 cursor-help">Version:</span>
                           <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
-                            The version number of this iQube, indicating its iteration and update status
+                            The version number of this iQube
                           </div>
                         </div>
                         <span className="text-gray-300 text-[12px]">1.0</span>
@@ -2116,8 +2079,8 @@ export const SubmenuDrawer = ({
                     <div className="text-white text-[13px] font-medium mb-3 flex items-center gap-2">
                       <div className="text-blue-400">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                          <circle cx="12" cy="7" r="4" />
+                          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                          <circle cx="12" cy="7" r="4"></circle>
                         </svg>
                       </div>
                       Subject
@@ -2130,22 +2093,10 @@ export const SubmenuDrawer = ({
                             The category of subject that this iQube relates to
                           </div>
                         </div>
-                        {isTemplate ? (
-                          <select 
-                            id="owner-type-select"
-                            value={ownerType} 
-                            onChange={(e) => setOwnerType(e.target.value as OwnerType)}
-                            className="bg-black/50 border border-blue-500/30 rounded px-2 py-1 text-[12px] text-blue-400 focus:outline-none focus:border-blue-400"
-                            aria-label="Subject Type"
-                            title="Select the subject type"
-                          >
-                            <option value="Individual">Person</option>
-                            <option value="Organisation">Organization</option>
-                            <option value="Agent">Agent</option>
-                          </select>
-                        ) : (
-                          <span className="text-gray-300 text-[12px]">{ownerType === 'Individual' ? 'Person' : ownerType === 'Organisation' ? 'Organization' : 'Agent'}</span>
-                        )}
+                        <span className="text-gray-300 text-[12px]">
+                          {ownerType === "Individual" ? "Person" : 
+                           ownerType === "Organisation" ? "Organization" : "Agent"}
+                        </span>
                       </div>
                       <div className="flex justify-between items-center group relative">
                         <div className="flex items-center gap-1 group relative">
@@ -2154,257 +2105,76 @@ export const SubmenuDrawer = ({
                             The level to which the subject can be personally identified from the iQube data
                           </div>
                         </div>
-                        {isTemplate ? (
-                          <select 
-                            id="identifiability-select"
-                            value={identifiabilityLevel} 
-                            onChange={(e) => setIdentifiabilityLevel(e.target.value as IdentifiabilityLevel)}
-                            className="bg-black/50 border border-blue-500/30 rounded px-2 py-1 text-[12px] text-blue-400 focus:outline-none focus:border-blue-400"
-                            aria-label="Identifiability Level"
-                            title="Select the identifiability level"
-                          >
-                            <option value="Identifiable">Identifiable</option>
-                            <option value="Semi-Identifiable">Semi-Identifiable</option>
-                            <option value="Anonymous">Anonymous</option>
-                            <option value="Semi-Anonymous">Semi-Anonymous</option>
-                          </select>
-                        ) : (
-                          <span className="text-gray-300 text-[12px]">{identifiabilityLevel}</span>
-                        )}
+                        <span className="text-gray-300 text-[12px]">{identifiabilityLevel}</span>
                       </div>
-                    </div>
-                    <div className="mt-6 pt-6 border-t border-blue-500/20">
-                      {/* Additional MetaQube Records */}
-                      {isTemplate && exampleIQubes[currentExampleIndex].metaQubeData.length > 0 && (
-                        <div className="mt-2">
-                          <div className="text-white text-[13px] font-medium mb-3 flex items-center gap-2">
-                            <div className="text-blue-400">
-                              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <rect x="2" y="4" width="20" height="16" rx="2"/>
-                                <path d="M7 8h10"/>
-                                <path d="M7 12h10"/>
-                                <path d="M7 16h10"/>
-                              </svg>
-                            </div>
-                            Additional Records
-                          </div>
-                          <div className="bg-black/30 border border-blue-500/10 rounded-lg p-4 space-y-3">
-                            {exampleIQubes[currentExampleIndex].metaQubeData.map((record, index) => (
-                              <div key={`meta-record-${index}`} className="bg-black/30 border border-blue-500/10 rounded-lg p-3 group relative">
-                                <div className="flex justify-between items-center mb-2">
-                                  <div className="flex items-center gap-1 group relative">
-                                    <span className="text-[13px] text-slate-400 cursor-help">{record.key}:</span>
-                                    <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
-                                      {record.description}
-                                    </div>
-                                  </div>
-                                  <SourceIcon source={record.source} />
-                                </div>
-                                <div className="text-gray-300 text-[12px] break-all bg-black/20 p-2 rounded border border-blue-500/10">
-                                  {isTemplate ? '' : record.value}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Add Records Option for Templates */}
-                      {isTemplate && (
-                        <div className="mt-6">
-                          <div className="text-white text-[13px] font-medium mb-3 flex items-center gap-2">
-                            <div className="text-blue-400">
-                              <PlusCircle size={14} />
-                            </div>
-                            Add New Record
-                          </div>
-                          {!isMetaEditMode ? (
-                            <div className="bg-black/30 border border-blue-500/10 rounded-lg p-4">
-                              <button 
-                                onClick={() => setIsMetaEditMode(true)}
-                                className="w-full bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-400 px-4 py-3 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 text-[13px] font-medium"
-                              >
-                                <PlusCircle size={15} />
-                                Add New Record
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="bg-black/30 border border-blue-500/10 rounded-lg p-4 space-y-4">
-                              <div className="text-white text-[14px] font-medium mb-2 flex justify-between items-center">
-                                <span>Add New Record</span>
-                                <button 
-                                  onClick={() => setIsMetaEditMode(false)} 
-                                  className="text-slate-400 hover:text-white"
-                                  aria-label="Close form"
-                                  title="Close form"
-                                >
-                                  <X size={16} />
-                                </button>
-                              </div>
-                              
-                              <div>
-                                <label className="block text-[13px] text-slate-400 mb-1">Record Name</label>
-                                <input 
-                                  type="text" 
-                                  placeholder="e.g. supported_formats, processing_capacity"
-                                  className="w-full bg-black/40 border border-blue-500/30 rounded px-3 py-2 text-[13px] text-white focus:outline-none focus:border-blue-400"
-                                  value={newMetaRecord.key}
-                                  onChange={(e) => setNewMetaRecord({...newMetaRecord, key: e.target.value})}
-                                />
-                              </div>
-                              
-                              <div>
-                                <label className="block text-[13px] text-slate-400 mb-1">Record Description</label>
-                                <textarea
-                                  placeholder="This description describes the value of the record"
-                                  className="w-full bg-black/40 border border-blue-500/30 rounded px-3 py-2 text-[13px] text-white focus:outline-none focus:border-blue-400 h-20 resize-none"
-                                  value={newMetaRecord.description}
-                                  onChange={(e) => setNewMetaRecord({...newMetaRecord, description: e.target.value})}
-                                ></textarea>
-                              </div>
-                              
-                              <div>
-                                <label htmlFor="meta-record-source" className="block text-[13px] text-slate-400 mb-1">Source</label>
-                                <select 
-                                  id="meta-record-source"
-                                  className="w-full bg-black/40 border border-blue-500/30 rounded px-3 py-2 text-[13px] text-white focus:outline-none focus:border-blue-400"
-                                  value={newMetaRecord.source}
-                                  onChange={(e) => setNewMetaRecord({...newMetaRecord, source: e.target.value})}
-                                  aria-label="Record source type"
-                                  title="Select the source type for this record"
-                                >
-                                  <option value="verified">Verified</option>
-                                  <option value="self-declared">Self-Declared</option>
-                                  <option value="api">API Source</option>
-                                  <option value="third-party">Third-Party</option>
-                                  <option value="manual">Manual Entry</option>
-                                </select>
-                              </div>
-                              
-                              <div className="flex gap-2 pt-2">
-                                <button 
-                                  className="flex-1 bg-blue-600/30 hover:bg-blue-600/40 border border-blue-500/30 text-blue-400 px-4 py-2 rounded transition-all duration-200 text-[13px] font-medium"
-                                  onClick={() => {
-                                    // Add the new record to the current example's metaQubeData
-                                    if (newMetaRecord.key && newMetaRecord.description) {
-                                      const updatedExamples = [...exampleIQubes];
-                                      updatedExamples[currentExampleIndex].metaQubeData.push({
-                                        key: newMetaRecord.key,
-                                        value: newMetaRecord.description, // Use description as value
-                                        source: newMetaRecord.source || 'manual',
-                                        score: newMetaRecord.score || 5,
-                                        scoreType: newMetaRecord.scoreType || 'general',
-                                        description: newMetaRecord.description
-                                      });
-                                      setExampleIQubes(updatedExamples);
-                                      // Reset the form
-                                      setNewMetaRecord({
-                                        key: '',
-                                        value: '',
-                                        source: '',
-                                        score: 5,
-                                        scoreType: 'general',
-                                        description: ''
-                                      });
-                                      // Collapse the form
-                                      setIsMetaEditMode(false);
-                                    }
-                                  }}
-                                >
-                                  Save Record
-                                </button>
-                                <button 
-                                  onClick={() => setIsMetaEditMode(false)}
-                                  className="bg-black/40 hover:bg-black/50 border border-gray-700 text-gray-400 px-4 py-2 rounded transition-all duration-200 text-[13px]"
-                                  aria-label="Cancel adding record"
-                                  title="Cancel"
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
                     </div>
                   </div>
-                </div>
 
-                {/* Scores Section */}
-                <div className="mt-6 pt-6 border-t border-blue-500/20">
-                  <div className="text-white text-[13px] font-medium mb-3 flex items-center gap-2">
-                    <div className="text-blue-400">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M9 12l2 2 4-4" />
-                        <circle cx="12" cy="12" r="10" />
-                      </svg>
+                  {/* Scores Section */}
+                  <div>
+                    <div className="text-white text-[13px] font-medium mb-3 flex items-center gap-2">
+                      <div className="text-blue-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="12" cy="12" r="10"></circle>
+                          <path d="M12 6v6l4 2"></path>
+                        </svg>
+                      </div>
+                      Scores
                     </div>
-                    Scores
-                  </div>
-                  <div className="bg-black/30 border border-blue-500/10 rounded-lg p-4 space-y-3">
-                    <div className="flex justify-between items-center group relative">
-                      <div className="flex items-center gap-1">
-                        <span className="text-[13px] text-slate-400">Sensitivity:</span>
-                        <div className="text-blue-400 cursor-help">
-                          <Info size={12} />
+                    <div className="bg-black/30 border border-blue-500/10 rounded-lg p-4">
+                      <div className="flex justify-between items-center gap-2">
+                        {/* Sensitivity */}
+                        <div className="flex flex-col items-center gap-1 group relative">
+                          <div className="text-[10px] text-slate-400 mb-1">Sensitivity</div>
+                          <EnhancedScoreIndicator 
+                            value={compositeScores.sensitivityScore}
+                            type="sensitivity"
+                            size="small"
+                          />
+                          <div className="absolute z-50 hidden group-hover:block top-full mt-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap text-xs">
+                            Data sensitivity level
+                          </div>
                         </div>
-                        <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
-                          Measures how sensitive the data is - higher scores indicate more sensitive information
+                        
+                        {/* Risk */}
+                        <div className="flex flex-col items-center gap-1 group relative">
+                          <div className="text-[10px] text-slate-400 mb-1">Risk</div>
+                          <EnhancedScoreIndicator 
+                            value={compositeScores.riskScore}
+                            type="risk"
+                            size="small"
+                          />
+                          <div className="absolute z-50 hidden group-hover:block top-full mt-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap text-xs">
+                            Risk assessment level
+                          </div>
+                        </div>
+                        
+                        {/* Accuracy */}
+                        <div className="flex flex-col items-center gap-1 group relative">
+                          <div className="text-[10px] text-slate-400 mb-1">Accuracy</div>
+                          <EnhancedScoreIndicator 
+                            value={compositeScores.accuracyScore}
+                            type="accuracy"
+                            size="small"
+                          />
+                          <div className="absolute z-50 hidden group-hover:block top-full mt-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap text-xs">
+                            Data accuracy level
+                          </div>
+                        </div>
+                        
+                        {/* Verifiability */}
+                        <div className="flex flex-col items-center gap-1 group relative">
+                          <div className="text-[10px] text-slate-400 mb-1">Verifiability</div>
+                          <EnhancedScoreIndicator 
+                            value={compositeScores.verifiabilityScore}
+                            type="verifiability"
+                            size="small"
+                          />
+                          <div className="absolute z-50 hidden group-hover:block top-full mt-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap text-xs">
+                            Data verifiability level
+                          </div>
                         </div>
                       </div>
-                      <EnhancedScoreIndicator 
-                        score={compositeScores.sensitivityScore} 
-                        type="sensitivity"
-                        description="Sensitivity (higher is more sensitive)" 
-                      />
-                    </div>
-                    <div className="flex justify-between items-center group relative">
-                      <div className="flex items-center gap-1">
-                        <span className="text-[13px] text-slate-400">Verifiability:</span>
-                        <div className="text-blue-400 cursor-help">
-                          <Info size={12} />
-                        </div>
-                        <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
-                          Measures how easily the data can be verified - higher scores indicate more verifiable information
-                        </div>
-                      </div>
-                      <EnhancedScoreIndicator 
-                        score={compositeScores.verifiabilityScore} 
-                        type="verifiability"
-                        description="Verifiability (higher is better)" 
-                      />
-                    </div>
-                    <div className="flex justify-between items-center group relative">
-                      <div className="flex items-center gap-1">
-                        <span className="text-[13px] text-slate-400">Accuracy:</span>
-                        <div className="text-blue-400 cursor-help">
-                          <Info size={12} />
-                        </div>
-                        <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
-                          Measures how accurate the data is - higher scores indicate more accurate information
-                        </div>
-                      </div>
-                      <EnhancedScoreIndicator 
-                        score={compositeScores.accuracyScore} 
-                        type="accuracy"
-                        description="Accuracy (higher is better)" 
-                      />
-                    </div>
-                    <div className="flex justify-between items-center group relative">
-                      <div className="flex items-center gap-1">
-                        <span className="text-[13px] text-slate-400">Risk:</span>
-                        <div className="text-blue-400 cursor-help">
-                          <Info size={12} />
-                        </div>
-                        <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
-                          Measures the risk associated with the data - higher scores indicate riskier information
-                        </div>
-                      </div>
-                      <EnhancedScoreIndicator 
-                        score={compositeScores.riskScore} 
-                        type="risk"
-                        description="Risk (higher is riskier)" 
-                      />
                     </div>
                   </div>
                 </div>
@@ -2412,13 +2182,68 @@ export const SubmenuDrawer = ({
 
               {/* BlakQube Data Panel - Qrypto Profile */}
               <div className="bg-gradient-to-br from-purple-900/20 to-black/40 border border-purple-500/20 rounded-xl p-6 shadow-xl mt-6">
-                <div className="uppercase text-[11px] tracking-wider text-purple-400 mb-6 flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-purple-400"></div>
-                  BLAKQUBE
-                  <span className="text-[10px] ml-2 bg-purple-500/20 px-2 py-0.5 rounded">
-                    {isTemplate ? 'Template' : '3 of 21'}
-                  </span>
+                <div className="uppercase text-[11px] tracking-wider text-purple-400 mb-6 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-purple-400"></div>
+                    BLAKQUBE
+                    <span className="text-[10px] ml-2 bg-purple-500/20 px-2 py-0.5 rounded">
+                      {isTemplate ? 'Template' : getInstanceLabel()}
+                    </span>
+                  </div>
+                  {!isTemplate && !isDecrypted && (
+                    <div className="flex items-center gap-1 text-[10px] bg-purple-500/20 px-2 py-0.5 rounded">
+                      <Lock size={10} />
+                      <span>ENCRYPTED</span>
+                    </div>
+                  )}
+                  {!isTemplate && isDecrypted && (
+                    <div className="flex items-center gap-1 text-[10px] bg-green-500/20 px-2 py-0.5 rounded text-green-400">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                      </svg>
+                      <span>DECRYPTED</span>
+                    </div>
+                  )}
                 </div>
+                
+                {/* Decrypt Button for Instance Mode */}
+                {!isTemplate && !isDecrypted && (
+                  <div className="mb-4">
+                    {error && (
+                      <div className="bg-red-900/20 border border-red-500/30 text-red-300 px-3 py-2 rounded-lg mb-3 text-[12px]">
+                        <div className="flex items-center gap-2 mb-1">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="12"></line>
+                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                          </svg>
+                          <span className="font-medium">Decryption Error</span>
+                        </div>
+                        {error}
+                      </div>
+                    )}
+                    <button
+                      onClick={handleDecrypt}
+                      disabled={decryptLoading}
+                      className="w-full bg-purple-600/30 hover:bg-purple-600/40 border border-purple-500/30 text-purple-300 px-4 py-2 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 text-[13px] font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {decryptLoading ? (
+                        <>
+                          <Loader2 size={14} className="animate-spin" />
+                          Decrypting...
+                        </>
+                      ) : (
+                        <>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                          </svg>
+                          Decrypt with Token
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
                 
                 {/* BlakQube Profile Fields */}
                 <div className="flex flex-col gap-3">
@@ -2437,7 +2262,15 @@ export const SubmenuDrawer = ({
                         <SourceIcon source={field.source} />
                       </div>
                       <div className="text-gray-300 text-[12px] break-all bg-black/20 p-2 rounded border border-purple-500/10">
-                        {isTemplate ? field.templateValue || '—' : field.instanceValue}
+                        {isTemplate ? 
+                          (field.templateValue || '—') : 
+                          (!isDecrypted ? 
+                            <span className="text-purple-300 flex items-center gap-1">
+                              <Lock size={12} /> 
+                              <span className="opacity-60">••••••••••••••••</span>
+                            </span> : 
+                            field.instanceValue)
+                        }
                       </div>
                     </div>
                   ))}
@@ -2555,76 +2388,325 @@ export const SubmenuDrawer = ({
             </div>
           </div>
         );
+
       case "decrypt":
         return (
           <div id="decrypt-panel" role="tabpanel" aria-labelledby="decrypt-tab">
             <div className="space-y-6">
-              <div className="uppercase text-[11px] tracking-wider text-slate-400 mb-3">Decrypt: {iQubeId}</div>
-              <div className="bg-gradient-to-br from-blue-900/20 to-black/40 border border-blue-500/20 rounded-xl p-6 shadow-xl">
-                <div className="uppercase text-[11px] tracking-wider text-blue-400 mb-4 flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-blue-400"></div>
-                  Decrypt BlakQube Data
-                </div>
-                <div className="space-y-4">
-                  {error && (
-                    <div className="bg-red-900/20 border border-red-700/50 rounded-lg p-4 text-red-200 mb-4">
-                      {error}
-                    </div>
-                  )}
-                
-                  {isDecrypted && decryptedData ? (
-                    <div className="space-y-4">
-                      <div className="bg-green-900/20 border border-green-500/30 rounded-lg p-4 text-green-200 mb-4">
-                        Data decrypted successfully!
+              <div className="uppercase text-[11px] tracking-wider text-slate-400 mb-3">Decrypt: {isTemplate ? iQubeId : getInstanceName()}</div>
+              
+              {/* Decrypt Action Panel */}
+              {!isDecrypted && (
+                <div className="bg-gradient-to-br from-amber-900/20 to-black/40 border border-amber-500/20 rounded-xl p-6 shadow-xl mb-6">
+                  <div className="uppercase text-[11px] tracking-wider text-amber-400 mb-4 flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-amber-400"></div>
+                    Decrypt BlakQube Data
+                  </div>
+                  <div className="space-y-4">
+                    {error && (
+                      <div className="bg-red-900/20 border border-red-700/50 rounded-lg p-4 text-red-200 mb-4">
+                        {error}
                       </div>
-                      {Object.entries(decryptedData).map(([key, value], index) => (
-                        <div key={`decrypted-${index}`} className="bg-black/30 border border-blue-500/10 rounded-lg p-3">
-                          <div className="text-white text-[13px] font-medium mb-1">{key}</div>
-                          <div className="text-gray-400 text-[12px] break-all">{value}</div>
-                        </div>
-                      ))}
+                    )}
+                    
+                    <div className="bg-amber-900/20 border border-amber-600/30 rounded-lg p-4 text-amber-200 mb-4">
+                      <p className="mb-2 font-medium">Token Required</p>
+                      <p className="text-sm">You need to own the decryption token for this iQube instance to view the encrypted data.</p>
                     </div>
-                  ) : (
-                    <div className="bg-blue-900/20 border border-blue-600/30 rounded-lg p-4 text-blue-200 mb-4">
-                      This action will decrypt the BlakQube data using your personal access key.
-                    </div>
-                  )}
-                
+                  </div>
+                  <button 
+                    onClick={handleDecrypt}
+                    disabled={decryptLoading}
+                    className={`w-full bg-amber-600/30 hover:bg-amber-600/40 text-amber-300 px-6 py-3 rounded-lg transition-all duration-200 flex items-center justify-center gap-3 font-medium shadow-lg hover:shadow-amber-500/20 ${decryptLoading ? 'opacity-70 cursor-not-allowed' : 'hover:scale-105'}`}
+                    aria-label="Decrypt data"
+                    title="Decrypt BlakQube data"
+                  >
+                    {decryptLoading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Decrypting...
+                      </>
+                    ) : (
+                      <>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                        </svg>
+                        Decrypt with Token
+                      </>
+                    )}
+                  </button>
                 </div>
-                <button 
-                  onClick={handleDecrypt}
-                  disabled={decryptLoading || isDecrypted}
-                  className={`w-full bg-blue-600/30 hover:bg-blue-600/40 text-blue-300 px-6 py-3 rounded-lg transition-all duration-200 flex items-center justify-center gap-3 font-medium shadow-lg hover:shadow-blue-500/20 ${(decryptLoading || isDecrypted) ? 'opacity-70 cursor-not-allowed' : 'hover:scale-105'}`}
-                  aria-label="Decrypt data"
-                  title="Decrypt BlakQube data"
-                >
-                  {decryptLoading ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Decrypting...
-                    </>
-                  ) : isDecrypted ? (
-                    <>
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                        <polyline points="22 4 12 14.01 9 11.01" />
+              )}
+              
+              {/* Success Message when decrypted */}
+              {isDecrypted && (
+                <div className="bg-green-900/20 border border-green-500/30 rounded-lg p-4 text-green-200 mb-6">
+                  <div className="flex items-center gap-2 mb-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                      <polyline points="22 4 12 14.01 9 11.01" />
+                    </svg>
+                    <span className="font-medium">Data Decrypted Successfully</span>
+                  </div>
+                  <p className="text-sm">You now have access to view the decrypted BlakQube data.</p>
+                </div>
+              )}
+              
+              {/* MetaQube Data Section - Same as View Tab */}
+              <div className="bg-gradient-to-br from-blue-900/20 to-black/40 border border-blue-500/20 rounded-xl p-6 shadow-xl">
+                <div className="uppercase text-[11px] tracking-wider text-blue-400 mb-6 flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-blue-400"></div>
+                  MetaQube Data
+                </div>
+                
+                <div className="space-y-6">
+                  {/* iQube Section */}
+                  <div>
+                    <div className="text-white text-[13px] font-medium mb-3 flex items-center gap-2">
+                      <div className="text-blue-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M21 16V8"></path>
+                          <path d="m19 12-7-4-7 4"></path>
+                          <path d="m5 8 7-4 7 4"></path>
+                        </svg>
+                      </div>
+                      iQube
+                    </div>
+                    <div className="bg-black/30 border border-blue-500/10 rounded-lg p-4 space-y-3">
+                      <div className="flex justify-between items-center group relative">
+                        <div className="flex items-center gap-1 group relative">
+                          <span className="text-[13px] text-slate-400 cursor-help">Identifier:</span>
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                            A unique identifier for the iQube that allows for tracking and referencing in the iQube Protocol
+                          </div>
+                        </div>
+                        <span className="text-gray-300 text-[12px]">{isTemplate ? iQubeId : getInstanceName()}</span>
+                      </div>
+                      <div className="flex justify-between items-center group relative">
+                        <div className="flex items-center gap-1 group relative">
+                          <span className="text-[13px] text-slate-400 cursor-help">Creator:</span>
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                            The entity that created this iQube
+                          </div>
+                        </div>
+                        <span className="text-gray-300 text-[12px]">Creator ID</span>
+                      </div>
+                      <div className="flex justify-between items-center group relative">
+                        <div className="flex items-center gap-1 group relative">
+                          <span className="text-[13px] text-slate-400 cursor-help">Type:</span>
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                            The category of iQube defining its primary purpose and data structure
+                          </div>
+                        </div>
+                        <span className="text-gray-300 text-[12px]">{iQubeType}</span>
+                      </div>
+                      <div className="flex justify-between items-center group relative">
+                        <div className="flex items-center gap-1 group relative">
+                          <span className="text-[13px] text-slate-400 cursor-help">$$$ Model:</span>
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                            The economic model governing how this iQube can be monetized or accessed
+                          </div>
+                        </div>
+                        <span className="text-gray-300 text-[12px]">{businessModel}</span>
+                      </div>
+                      <div className="flex justify-between items-center group relative">
+                        <div className="flex items-center gap-1 group relative">
+                          <span className="text-[13px] text-slate-400 cursor-help">Price:</span>
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                            The price for accessing or using this iQube in Satoshis with USD equivalent
+                          </div>
+                        </div>
+                        <span className="text-gray-300 text-[12px]">{formatPrice(price)}</span>
+                      </div>
+                      <div className="flex justify-between items-center group relative">
+                        <div className="flex items-center gap-1 group relative">
+                          <span className="text-[13px] text-slate-400 cursor-help">Instance:</span>
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                            Whether this is a template or an instance, and instance count if applicable
+                          </div>
+                        </div>
+                        <span className="text-gray-300 text-[12px]">{isTemplate ? "Template" : getInstanceLabel()}</span>
+                      </div>
+                      <div className="flex justify-between items-center group relative">
+                        <div className="flex items-center gap-1 group relative">
+                          <span className="text-[13px] text-slate-400 cursor-help">Created:</span>
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                            The date when this iQube was created
+                          </div>
+                        </div>
+                        <span className="text-gray-300 text-[12px]">{new Date().toISOString().split('T')[0]}</span>
+                      </div>
+                      <div className="flex justify-between items-center group relative">
+                        <div className="flex items-center gap-1 group relative">
+                          <span className="text-[13px] text-slate-400 cursor-help">Version:</span>
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                            The version number of this iQube
+                          </div>
+                        </div>
+                        <span className="text-gray-300 text-[12px]">1.0</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Subject Section */}
+                  <div>
+                    <div className="text-white text-[13px] font-medium mb-3 flex items-center gap-2">
+                      <div className="text-blue-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                          <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                      </div>
+                      Subject
+                    </div>
+                    <div className="bg-black/30 border border-blue-500/10 rounded-lg p-4 space-y-3">
+                      <div className="flex justify-between items-center group relative">
+                        <div className="flex items-center gap-1 group relative">
+                          <span className="text-[13px] text-slate-400 cursor-help">Type:</span>
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                            The category of subject that this iQube relates to
+                          </div>
+                        </div>
+                        <span className="text-gray-300 text-[12px]">
+                          {ownerType === "Individual" ? "Person" : 
+                           ownerType === "Organisation" ? "Organization" : "Agent"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center group relative">
+                        <div className="flex items-center gap-1 group relative">
+                          <span className="text-[13px] text-slate-400 cursor-help">Identifiability:</span>
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                            The level to which the subject can be personally identified from the iQube data
+                          </div>
+                        </div>
+                        <span className="text-gray-300 text-[12px]">{identifiabilityLevel}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Scores Section */}
+                  <div>
+                    <div className="text-white text-[13px] font-medium mb-3 flex items-center gap-2">
+                      <div className="text-blue-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="12" cy="12" r="10"></circle>
+                          <path d="M12 6v6l4 2"></path>
+                        </svg>
+                      </div>
+                      Scores
+                    </div>
+                    <div className="bg-black/30 border border-blue-500/10 rounded-lg p-4">
+                      <div className="flex justify-between items-center gap-2">
+                        {/* Sensitivity */}
+                        <div className="flex flex-col items-center gap-1 group relative">
+                          <div className="text-[10px] text-slate-400 mb-1">Sensitivity</div>
+                          <EnhancedScoreIndicator 
+                            value={compositeScores.sensitivityScore}
+                            type="sensitivity"
+                            size="small"
+                          />
+                          <div className="absolute z-50 hidden group-hover:block top-full mt-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap text-xs">
+                            Data sensitivity level
+                          </div>
+                        </div>
+                        
+                        {/* Risk */}
+                        <div className="flex flex-col items-center gap-1 group relative">
+                          <div className="text-[10px] text-slate-400 mb-1">Risk</div>
+                          <EnhancedScoreIndicator 
+                            value={compositeScores.riskScore}
+                            type="risk"
+                            size="small"
+                          />
+                          <div className="absolute z-50 hidden group-hover:block top-full mt-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap text-xs">
+                            Risk assessment level
+                          </div>
+                        </div>
+                        
+                        {/* Accuracy */}
+                        <div className="flex flex-col items-center gap-1 group relative">
+                          <div className="text-[10px] text-slate-400 mb-1">Accuracy</div>
+                          <EnhancedScoreIndicator 
+                            value={compositeScores.accuracyScore}
+                            type="accuracy"
+                            size="small"
+                          />
+                          <div className="absolute z-50 hidden group-hover:block top-full mt-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap text-xs">
+                            Data accuracy level
+                          </div>
+                        </div>
+                        
+                        {/* Verifiability */}
+                        <div className="flex flex-col items-center gap-1 group relative">
+                          <div className="text-[10px] text-slate-400 mb-1">Verifiability</div>
+                          <EnhancedScoreIndicator 
+                            value={compositeScores.verifiabilityScore}
+                            type="verifiability"
+                            size="small"
+                          />
+                          <div className="absolute z-50 hidden group-hover:block top-full mt-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap text-xs">
+                            Data verifiability level
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* BlakQube Data Panel - With Decrypted Data */}
+              <div className="bg-gradient-to-br from-purple-900/20 to-black/40 border border-purple-500/20 rounded-xl p-6 shadow-xl mt-6">
+                <div className="uppercase text-[11px] tracking-wider text-purple-400 mb-6 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-purple-400"></div>
+                    BLAKQUBE
+                    <span className="text-[10px] ml-2 bg-purple-500/20 px-2 py-0.5 rounded">
+                      {isTemplate ? 'Template' : getInstanceLabel()}
+                    </span>
+                  </div>
+                  {!isTemplate && isDecrypted && (
+                    <div className="flex items-center gap-1 text-[10px] bg-green-500/20 px-2 py-0.5 rounded text-green-400">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
                       </svg>
-                      Decrypted
-                    </>
-                  ) : (
-                    <>
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                      </svg>
-                      Decrypt Data
-                    </>
+                      <span>DECRYPTED</span>
+                    </div>
                   )}
-                </button>
+                </div>
+                
+                {/* BlakQube Profile Fields - Decrypted in this tab */}
+                <div className="flex flex-col gap-3">
+                  {blakQubeProfileData.map((field, index) => (
+                    <div 
+                      key={`blakqube-field-${index}`} 
+                      className="bg-black/30 border border-purple-500/10 rounded-lg p-3"
+                    >
+                      <div className="flex justify-between items-center mb-2">
+                        <div className="flex items-center gap-1 group relative">
+                          <span className="text-[13px] text-white cursor-help">{field.key}</span>
+                        </div>
+                        <SourceIcon source={field.source} />
+                      </div>
+                      <div className="text-gray-300 text-[12px] break-all bg-black/20 p-2 rounded border border-purple-500/10">
+                        {isTemplate ? 
+                          (field.templateValue || '—') : 
+                          (isDecrypted ? field.instanceValue : 
+                            <span className="text-purple-300 flex items-center gap-1">
+                              <Lock size={12} /> 
+                              <span className="opacity-60">••••••••••••••••</span>
+                            </span>
+                          )
+                        }
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
         );
+
       case "mint":
         return (
           <div id="mint-panel" role="tabpanel" aria-labelledby="mint-tab">
@@ -2675,6 +2757,41 @@ export const SubmenuDrawer = ({
                       <option value="AgentQube">AgentQube</option>
                       <option value="ContentQube">ContentQube</option>
                     </select>
+                  </div>
+                  <div>
+                    <label className="block text-[13px] text-slate-400 mb-1">$$$ Model</label>
+                    <select
+                      className="w-full bg-black/40 border border-gray-700 rounded px-2 py-1 text-[13px] text-white"
+                      value={businessModel}
+                      onChange={(e) => setBusinessModel(e.target.value as BusinessModelType)}
+                      id="business-model"
+                      aria-label="Business model"
+                    >
+                      <option value="Buy">Buy</option>
+                      <option value="Sell">Sell</option>
+                      <option value="Rent">Rent</option>
+                      <option value="Lease">Lease</option>
+                      <option value="Subscribe">Subscribe</option>
+                      <option value="Stake">Stake</option>
+                      <option value="License">License</option>
+                      <option value="Donate">Donate</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[13px] text-slate-400 mb-1">Price (Sats)</label>
+                    <input
+                      type="number"
+                      className="w-full bg-black/40 border border-gray-700 rounded px-2 py-1 text-[13px] text-white"
+                      value={price}
+                      onChange={(e) => setPrice(parseInt(e.target.value) || 0)}
+                      placeholder="Enter price in Satoshis"
+                      min="0"
+                      id="price"
+                      aria-label="Price in Satoshis"
+                    />
+                    <div className="text-[11px] text-gray-400 mt-1">
+                      USD: ${satsToUSD(price)}
+                    </div>
                   </div>
                   <div>
                     <label className="block text-[13px] text-slate-400 mb-1">$$$ Model</label>
@@ -2870,6 +2987,7 @@ export const SubmenuDrawer = ({
           
           {/* Tabs */}
           <div className="flex items-center border-b border-white/10 mb-4" role="tablist" aria-label="iQube Operations">
+            {/* View tab - available in both modes */}
             <button
               onClick={() => setActiveTab("view")}
               className={`px-4 py-2 text-[13px] font-medium ${activeTab === "view" ? "text-white border-b-2 border-blue-400 bg-blue-600/20" : "text-gray-400 hover:text-white hover:bg-gray-800/30"}`}
@@ -2880,71 +2998,79 @@ export const SubmenuDrawer = ({
             >
               View
             </button>
-            <button
-              onClick={() => {
-                setActiveTab("use");
-                setIsUseMode(true);
-                setIsEditMode(false);
-                setIsMetaEditMode(false);
-                setIsBlakEditMode(false);
-              }}
-              className={`px-4 py-2 text-[13px] font-medium ${activeTab === "use" ? "text-white border-b-2 border-green-400 bg-green-600/20" : "text-gray-400 hover:text-white hover:bg-gray-800/30"}`}
-              role="tab"
-              aria-selected={activeTab === "use" ? "true" : "false"}
-              aria-controls="use-panel"
-              id="use-tab"
-            >
-              Use
-            </button>
-            <button
-              onClick={() => {
-                setActiveTab("edit");
-                setIsEditMode(true);
-                setIsUseMode(false);
-                setIsMetaEditMode(false);
-                setIsBlakEditMode(false);
-              }}
-              className={`px-4 py-2 text-[13px] font-medium ${activeTab === "edit" ? "text-white border-b-2 border-purple-400 bg-purple-600/20" : "text-gray-400 hover:text-white hover:bg-gray-800/30"}`}
-              role="tab"
-              aria-selected={activeTab === "edit" ? "true" : "false"}
-              aria-controls="edit-panel"
-              id="edit-tab"
-            >
-              Edit
-            </button>
-            <button
-              onClick={() => setActiveTab("decrypt")}
-              className={`px-4 py-2 text-[13px] font-medium ${activeTab === "decrypt" ? "text-white border-b-2 border-amber-400 bg-amber-600/20" : "text-gray-400 hover:text-white hover:bg-gray-800/30"}`}
-              role="tab"
-              aria-selected={activeTab === "decrypt" ? "true" : "false"}
-              aria-controls="decrypt-panel"
-              id="decrypt-tab"
-            >
-              Decrypt
-            </button>
+            
+            {/* Template mode tabs */}
             {isTemplate && (
-              <button
-                onClick={() => setActiveTab("mint")}
-                className={`px-4 py-2 text-[13px] font-medium ${activeTab === "mint" ? "text-white border-b-2 border-green-500 bg-green-600/20" : "text-gray-400 hover:text-white hover:bg-gray-800/30"}`}
-                role="tab"
-                aria-selected={activeTab === "mint" ? "true" : "false"}
-                aria-controls="mint-panel"
-                id="mint-tab"
-              >
-                Mint
-              </button>
+              <>
+                <button
+                  onClick={() => {
+                    setActiveTab("edit");
+                    setIsEditMode(true);
+                    setIsUseMode(false);
+                    setIsMetaEditMode(false);
+                    setIsBlakEditMode(false);
+                  }}
+                  className={`px-4 py-2 text-[13px] font-medium ${activeTab === "edit" ? "text-white border-b-2 border-purple-400 bg-purple-600/20" : "text-gray-400 hover:text-white hover:bg-gray-800/30"}`}
+                  role="tab"
+                  aria-selected={activeTab === "edit" ? "true" : "false"}
+                  aria-controls="edit-panel"
+                  id="edit-tab"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => setActiveTab("activate")}
+                  className={`px-4 py-2 text-[13px] font-medium ${activeTab === "activate" ? "text-white border-b-2 border-purple-500 bg-purple-600/20" : "text-gray-400 hover:text-white hover:bg-gray-800/30"}`}
+                  role="tab"
+                  aria-selected={activeTab === "activate" ? "true" : "false"}
+                  aria-controls="activate-panel"
+                  id="activate-tab"
+                >
+                  Activate
+                </button>
+              </>
             )}
+            
+            {/* Instance mode tabs */}
             {!isTemplate && (
-              <button
-                onClick={() => setActiveTab("activate")}
-                className={`px-4 py-2 text-[13px] font-medium ${activeTab === "activate" ? "text-white border-b-2 border-purple-500 bg-purple-600/20" : "text-gray-400 hover:text-white hover:bg-gray-800/30"}`}
-                role="tab"
-                aria-selected={activeTab === "activate" ? "true" : "false"}
-                aria-controls="activate-panel"
-                id="activate-tab"
-              >
-                Activate
-              </button>
+              <>
+                <button
+                  onClick={() => setActiveTab("decrypt")}
+                  className={`px-4 py-2 text-[13px] font-medium ${activeTab === "decrypt" ? "text-white border-b-2 border-amber-400 bg-amber-600/20" : "text-gray-400 hover:text-white hover:bg-gray-800/30"}`}
+                  role="tab"
+                  aria-selected={activeTab === "decrypt" ? "true" : "false"}
+                  aria-controls="decrypt-panel"
+                  id="decrypt-tab"
+                >
+                  Decrypt
+                </button>
+                <button
+                  onClick={() => {
+                    setActiveTab("edit");
+                    setIsEditMode(true);
+                    setIsUseMode(false);
+                    setIsMetaEditMode(false);
+                    setIsBlakEditMode(false);
+                  }}
+                  className={`px-4 py-2 text-[13px] font-medium ${activeTab === "edit" ? "text-white border-b-2 border-purple-400 bg-purple-600/20" : "text-gray-400 hover:text-white hover:bg-gray-800/30"}`}
+                  role="tab"
+                  aria-selected={activeTab === "edit" ? "true" : "false"}
+                  aria-controls="edit-panel"
+                  id="edit-tab"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => setActiveTab("activate")}
+                  className={`px-4 py-2 text-[13px] font-medium ${activeTab === "activate" ? "text-white border-b-2 border-purple-500 bg-purple-600/20" : "text-gray-400 hover:text-white hover:bg-gray-800/30"}`}
+                  role="tab"
+                  aria-selected={activeTab === "activate" ? "true" : "false"}
+                  aria-controls="activate-panel"
+                  id="activate-tab"
+                >
+                  Activate
+                </button>
+              </>
             )}
           </div>
           

@@ -1,16 +1,16 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import { personas } from "../../data/personas";
 import { ContextPanel } from "../../../components/ContextPanel";
 
-export default function GenericAIPage() {
+function GenericAIContent() {
   const searchParams = useSearchParams();
-  const iqube = searchParams.get("iqube");
+  const iqube = searchParams?.get("iqube");
   
-  // Use the generic-ai persona as default
-  const persona = personas["generic-ai"];
+  // Use the aigent-z persona as default
+  const persona = personas["aigent-z"];
   
   // Optionally handle iQube parameter for context
   useEffect(() => {
@@ -31,5 +31,13 @@ export default function GenericAIPage() {
       </p>
       <ContextPanel persona={persona} />
     </div>
+  );
+}
+
+export default function GenericAIPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <GenericAIContent />
+    </Suspense>
   );
 }
