@@ -42,9 +42,7 @@ interface SidebarSection {
   items: SidebarItem[];
 }
 
-type SectionData = typeof sections;
-
-const sections = [
+const sections: SidebarSection[] = [
   {
     label: "Dashboard",
     icon: <Home size={16} />,
@@ -540,8 +538,8 @@ export const Sidebar = () => {
     
     // Find sections with active toggle items
     for (const section of sections) {
-      // Skip Dashboard section
-      if (section.label === "Dashboard") continue;
+      // Skip Dashboard section and Persona section from auto-expansion
+      if (section.label === "Dashboard" || section.label === "Persona") continue;
       
       // Check if any item in this section is active
       const hasActiveItem = section.items.some(item => {

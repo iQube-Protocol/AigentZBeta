@@ -532,6 +532,10 @@ export const SubmenuDrawer = ({
       const isTemplateIQube = iQubeId.toLowerCase().includes('template');
       setIsTemplate(isTemplateIQube);
       
+      // Reset collapse states when switching between template/instance modes
+      setIsMetaQubeCollapsed(false);
+      setIsBlakQubeCollapsed(false);
+      
       // Determine iQube type based on ID pattern or other logic
       if (iQubeId.toLowerCase().includes('data')) {
         setIQubeType('DataQube');
@@ -1369,15 +1373,6 @@ export const SubmenuDrawer = ({
 
                 {/* Scores Section - Always Visible */}
                 <div className={!isMetaQubeCollapsed ? "mt-6" : ""}>
-                  <div className="text-white text-[13px] font-medium mb-3 flex items-center gap-2">
-                    <div className="text-blue-400">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <path d="M12 6v6l4 2"></path>
-                      </svg>
-                    </div>
-                    Scores
-                  </div>
                     <div className="bg-black/30 border border-blue-500/10 rounded-lg p-4">
                       <div className="flex justify-between items-center gap-2">
                         {/* Sensitivity */}
@@ -1530,13 +1525,11 @@ export const SubmenuDrawer = ({
         return (
           <div id="edit-panel" role="tabpanel" aria-labelledby="edit-tab">
             <div className="space-y-6">
-              <div className="uppercase text-[11px] tracking-wider text-slate-400 mb-3">
-                {isTemplate ? `Edit Template: ${iQubeId}` : `Edit Instance: ${getInstanceName()}`}
-              </div>
+              <div className="uppercase text-[11px] tracking-wider text-slate-400 mb-3">Edit {isTemplate ? 'Template' : 'Instance'}: {isTemplate ? iQubeId : getInstanceName()}</div>
               
-              {/* Warning for non-decrypted instance */}
+              {/* Decryption Required Warning for Non-Decrypted Instance */}
               {!isTemplate && !isDecrypted && (
-                <div className="bg-amber-900/20 border border-amber-600/30 rounded-lg p-4 text-amber-200 mb-4">
+                <div className="bg-amber-900/20 border border-amber-600/30 rounded-lg p-4 text-amber-200 mb-6">
                   <p className="mb-2 font-medium">Decryption Required</p>
                   <p className="text-sm">You need to decrypt this iQube instance before you can edit it. Please go to the Decrypt tab first.</p>
                 </div>
@@ -1572,6 +1565,66 @@ export const SubmenuDrawer = ({
                   </div>
                 </div>
                 
+                {/* Collapsed MetaQube - Show Scores */}
+                {isMetaQubeCollapsed && (
+                  <div className="bg-black/30 border border-blue-500/10 rounded-lg p-4">
+                    <div className="flex justify-between items-center gap-2">
+                      {/* Sensitivity */}
+                      <div className="flex flex-col items-center gap-1 group relative">
+                        <div className="text-[10px] text-slate-400 mb-1">Sensitivity</div>
+                        <EnhancedScoreIndicator 
+                          value={compositeScores.sensitivityScore}
+                          type="sensitivity"
+                          size="small"
+                        />
+                        <div className="absolute z-50 hidden group-hover:block top-full mt-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap text-xs">
+                          Data sensitivity level
+                        </div>
+                      </div>
+                      
+                      {/* Risk */}
+                      <div className="flex flex-col items-center gap-1 group relative">
+                        <div className="text-[10px] text-slate-400 mb-1">Risk</div>
+                        <EnhancedScoreIndicator 
+                          value={compositeScores.riskScore}
+                          type="risk"
+                          size="small"
+                        />
+                        <div className="absolute z-50 hidden group-hover:block top-full mt-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap text-xs">
+                          Risk assessment level
+                        </div>
+                      </div>
+                      
+                      {/* Accuracy */}
+                      <div className="flex flex-col items-center gap-1 group relative">
+                        <div className="text-[10px] text-slate-400 mb-1">Accuracy</div>
+                        <EnhancedScoreIndicator 
+                          value={compositeScores.accuracyScore}
+                          type="accuracy"
+                          size="small"
+                        />
+                        <div className="absolute z-50 hidden group-hover:block top-full mt-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap text-xs">
+                          Data accuracy level
+                        </div>
+                      </div>
+                      
+                      {/* Verifiability */}
+                      <div className="flex flex-col items-center gap-1 group relative">
+                        <div className="text-[10px] text-slate-400 mb-1">Verifiability</div>
+                        <EnhancedScoreIndicator 
+                          value={compositeScores.verifiabilityScore}
+                          type="verifiability"
+                          size="small"
+                        />
+                        <div className="absolute z-50 hidden group-hover:block top-full mt-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap text-xs">
+                          Data verifiability level
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {!isMetaQubeCollapsed && (
                 <div className="space-y-6">
                   {/* iQube Section */}
                   <div>
@@ -1926,6 +1979,7 @@ export const SubmenuDrawer = ({
                     </div>
                   </div>
                 </div>
+                )}
               </div>
 
               
@@ -1938,28 +1992,43 @@ export const SubmenuDrawer = ({
                     <span className="text-[10px] ml-2 bg-purple-500/20 px-2 py-0.5 rounded">
                       {isTemplate ? 'Template' : getInstanceLabel()}
                     </span>
+                    <span className="text-[10px] ml-1 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">
+                      {blakQubeProfileData.length} fields
+                    </span>
                   </div>
-                  {!isTemplate && !isDecrypted && (
-                    <div className="relative group">
-                      <Lock size={14} className="text-purple-400" />
-                      <div className="absolute z-50 hidden group-hover:block bottom-full right-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap text-xs">
-                        Encrypted
+                  <div className="flex items-center gap-2">
+                    {!isTemplate && !isDecrypted && (
+                      <div className="relative group">
+                        <Lock size={14} className="text-purple-400" />
+                        <div className="absolute z-50 hidden group-hover:block bottom-full right-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap text-xs">
+                          Encrypted
+                        </div>
                       </div>
-                    </div>
-                  )}
-                  {!isTemplate && isDecrypted && (
-                    <div className="relative group">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-400">
-                        <rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect>
-                        <path d="M7 11V7a5 5 0 0 1 5-5 5 5 0 0 1 5 5"></path>
-                      </svg>
-                      <div className="absolute z-50 hidden group-hover:block bottom-full right-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap text-xs">
-                        Decrypted
+                    )}
+                    {!isTemplate && isDecrypted && (
+                      <div className="relative group">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-400">
+                          <rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect>
+                          <path d="M7 11V7a5 5 0 0 1 5-5 5 5 0 0 1 5 5"></path>
+                        </svg>
+                        <div className="absolute z-50 hidden group-hover:block bottom-full right-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap text-xs">
+                          Decrypted
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                    <button
+                      onClick={() => setIsBlakQubeCollapsed(!isBlakQubeCollapsed)}
+                      className="p-1 rounded-full hover:bg-purple-500/20 transition-colors"
+                      aria-label={isBlakQubeCollapsed ? "Expand BlakQube" : "Collapse BlakQube"}
+                      title={isBlakQubeCollapsed ? "Expand BlakQube" : "Collapse BlakQube"}
+                    >
+                      {isBlakQubeCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                    </button>
+                  </div>
                 </div>
                 
+                {!isBlakQubeCollapsed && (
+                <div>
                 {/* Warning for non-decrypted instance */}
                 {!isTemplate && !isDecrypted && (
                   <div className="mb-4">
@@ -2144,6 +2213,8 @@ export const SubmenuDrawer = ({
                       </div>
                     )}
                   </div>
+                )}
+                </div>
                 )}
               </div>
               
@@ -2427,15 +2498,6 @@ export const SubmenuDrawer = ({
 
                 {/* Scores Section - Always Visible */}
                 <div className={!isMetaQubeCollapsed ? "mt-6" : ""}>
-                  <div className="text-white text-[13px] font-medium mb-3 flex items-center gap-2">
-                    <div className="text-blue-400">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <path d="M12 6v6l4 2"></path>
-                      </svg>
-                    </div>
-                    Scores
-                  </div>
                   <div className="bg-black/30 border border-blue-500/10 rounded-lg p-4">
                     <div className="flex justify-between items-center gap-2">
                       {/* Sensitivity */}
@@ -2650,7 +2712,7 @@ export const SubmenuDrawer = ({
                   >
                     {decryptLoading ? (
                       <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-amber-300 border-t-transparent"></div>
                         Decrypting...
                       </>
                     ) : (
@@ -2682,11 +2744,84 @@ export const SubmenuDrawer = ({
               
               {/* MetaQube Data Section - Same as View Tab */}
               <div className="bg-gradient-to-br from-blue-900/20 to-black/40 border border-blue-500/20 rounded-xl p-6 shadow-xl">
-                <div className="uppercase text-[11px] tracking-wider text-blue-400 mb-6 flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-blue-400"></div>
-                  MetaQube Data
+                <div className="uppercase text-[11px] tracking-wider text-blue-400 mb-6 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-blue-400"></div>
+                    MetaQube
+                    <span className="text-[10px] ml-2 bg-blue-500/20 px-2 py-0.5 rounded">
+                      {isTemplate ? 'Template' : getInstanceLabel()}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setIsMetaQubeCollapsed(!isMetaQubeCollapsed)}
+                    className="p-1 rounded-full hover:bg-blue-500/20 transition-colors"
+                    aria-label={isMetaQubeCollapsed ? "Expand MetaQube" : "Collapse MetaQube"}
+                    title={isMetaQubeCollapsed ? "Expand MetaQube" : "Collapse MetaQube"}
+                  >
+                    {isMetaQubeCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                  </button>
                 </div>
                 
+                {/* Collapsed MetaQube - Show Scores */}
+                {isMetaQubeCollapsed && !isTemplate && (
+                  <div className="bg-black/30 border border-blue-500/10 rounded-lg p-4">
+                    <div className="flex justify-between items-center gap-2">
+                      {/* Sensitivity */}
+                      <div className="flex flex-col items-center gap-1 group relative">
+                        <div className="text-[10px] text-slate-400 mb-1">Sensitivity</div>
+                        <EnhancedScoreIndicator 
+                          value={compositeScores.sensitivityScore}
+                          type="sensitivity"
+                          size="small"
+                        />
+                        <div className="absolute z-50 hidden group-hover:block top-full mt-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap text-xs">
+                          Data sensitivity level
+                        </div>
+                      </div>
+                      
+                      {/* Risk */}
+                      <div className="flex flex-col items-center gap-1 group relative">
+                        <div className="text-[10px] text-slate-400 mb-1">Risk</div>
+                        <EnhancedScoreIndicator 
+                          value={compositeScores.riskScore}
+                          type="risk"
+                          size="small"
+                        />
+                        <div className="absolute z-50 hidden group-hover:block top-full mt-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap text-xs">
+                          Risk assessment level
+                        </div>
+                      </div>
+                      
+                      {/* Accuracy */}
+                      <div className="flex flex-col items-center gap-1 group relative">
+                        <div className="text-[10px] text-slate-400 mb-1">Accuracy</div>
+                        <EnhancedScoreIndicator 
+                          value={compositeScores.accuracyScore}
+                          type="accuracy"
+                          size="small"
+                        />
+                        <div className="absolute z-50 hidden group-hover:block top-full mt-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap text-xs">
+                          Data accuracy level
+                        </div>
+                      </div>
+                      
+                      {/* Verifiability */}
+                      <div className="flex flex-col items-center gap-1 group relative">
+                        <div className="text-[10px] text-slate-400 mb-1">Verifiability</div>
+                        <EnhancedScoreIndicator 
+                          value={compositeScores.verifiabilityScore}
+                          type="verifiability"
+                          size="small"
+                        />
+                        <div className="absolute z-50 hidden group-hover:block top-full mt-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap text-xs">
+                          Data verifiability level
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {!isMetaQubeCollapsed && (
                 <div className="space-y-6">
                   {/* iQube Section */}
                   <div>
@@ -3042,6 +3177,7 @@ export const SubmenuDrawer = ({
                   </div>
 
                 </div>
+                )}
               </div>
               
               {/* BlakQube Data Panel - With Decrypted Data */}
@@ -3053,17 +3189,43 @@ export const SubmenuDrawer = ({
                     <span className="text-[10px] ml-2 bg-purple-500/20 px-2 py-0.5 rounded">
                       {isTemplate ? 'Template' : getInstanceLabel()}
                     </span>
+                    <span className="text-[10px] ml-1 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">
+                      {blakQubeProfileData.length} fields
+                    </span>
                   </div>
-                  {!isTemplate && isDecrypted && (
-                    <div className="flex items-center gap-1 text-[10px] bg-green-500/20 px-2 py-0.5 rounded text-green-400">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                      </svg>
-                      <span>DECRYPTED</span>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {!isTemplate && !isDecrypted && (
+                      <div className="relative group">
+                        <Lock size={14} className="text-purple-400" />
+                        <div className="absolute z-50 hidden group-hover:block bottom-full right-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap text-xs">
+                          Encrypted
+                        </div>
+                      </div>
+                    )}
+                    {!isTemplate && isDecrypted && (
+                      <div className="relative group">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-400">
+                          <rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect>
+                          <path d="M7 11V7a5 5 0 0 1 5-5 5 5 0 0 1 5 5"></path>
+                        </svg>
+                        <div className="absolute z-50 hidden group-hover:block bottom-full right-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap text-xs">
+                          Decrypted
+                        </div>
+                      </div>
+                    )}
+                    <button
+                      onClick={() => setIsBlakQubeCollapsed(!isBlakQubeCollapsed)}
+                      className="p-1 rounded-full hover:bg-purple-500/20 transition-colors"
+                      aria-label={isBlakQubeCollapsed ? "Expand BlakQube" : "Collapse BlakQube"}
+                      title={isBlakQubeCollapsed ? "Expand BlakQube" : "Collapse BlakQube"}
+                    >
+                      {isBlakQubeCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                    </button>
+                  </div>
                 </div>
                 
+                {!isBlakQubeCollapsed && (
+                <div>
                 {/* BlakQube Profile Fields - Decrypted in this tab */}
                 <div className="flex flex-col gap-3">
                   {blakQubeProfileData.map((field, index) => (
@@ -3091,6 +3253,8 @@ export const SubmenuDrawer = ({
                     </div>
                   ))}
                 </div>
+                </div>
+                )}
               </div>
             </div>
           </div>
@@ -3325,6 +3489,7 @@ export const SubmenuDrawer = ({
             </div>
           </div>
         );
+
       default:
         return <div role="tabpanel">Select an option</div>;
     }
