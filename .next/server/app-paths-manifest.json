@@ -1,3 +1,4 @@
 {
+  "/aigents/[agentKey]/page": "app/aigents/[agentKey]/page.js",
   "/dashboard/page": "app/dashboard/page.js"
 }

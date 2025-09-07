@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { X, Loader2, Info, ChevronRight, ChevronLeft, PlusCircle, Lock } from "lucide-react";
+import { X, Loader2, Info, ChevronRight, ChevronLeft, PlusCircle, Lock, ChevronDown, ChevronUp } from "lucide-react";
 
 import {
   fetchTemplateData, 
@@ -127,6 +127,11 @@ export const SubmenuDrawer = ({
   const [isMetaEditMode, setIsMetaEditMode] = useState(false);
   const [isEditingMetaQube, setIsEditingMetaQube] = useState(false);
   const [isBlakEditMode, setIsBlakEditMode] = useState(false);
+  
+  // Collapse state for MetaQube and BlakQube panels
+  const [isMetaQubeCollapsed, setIsMetaQubeCollapsed] = useState(false);
+  const [isBlakQubeCollapsed, setIsBlakQubeCollapsed] = useState(false);
+  const [isAddingMetaRecord, setIsAddingMetaRecord] = useState(false);
   const [newMetaRecord, setNewMetaRecord] = useState<Partial<MetaQubeData>>({
     key: '',
     value: '',
@@ -1077,6 +1082,68 @@ export const SubmenuDrawer = ({
     }
   };
 
+  // Function to handle minting template as instance
+  const handleMintTemplate = async () => {
+    setLoading(true);
+    setError(null);
+    
+    // Validate template data before minting
+    const validation = validateTemplateData();
+    if (!validation.isValid) {
+      setError(`Please fix the following errors before minting: ${validation.errors.join(', ')}`);
+      setLoading(false);
+      return;
+    }
+    
+    try {
+      // Generate next instance number
+      const nextInstanceNumber = generateNextInstanceNumber();
+      const newInstanceId = `${iQubeId.split('-')[0]}-${nextInstanceNumber}`;
+      
+      // Create instance data from template
+      const instanceData = {
+        id: newInstanceId,
+        templateId: iQubeId,
+        type: iQubeType,
+        businessModel,
+        ownerType,
+        identifiability: identifiabilityLevel,
+        instanceNumber: nextInstanceNumber,
+        // Convert template values to instance values
+        metaQubeFields: formattedMetaQubeData.map(item => ({
+          key: item.key,
+          value: item.value,
+          description: item.description,
+          source: item.source || 'template'
+        })),
+        // Convert BlakQube template values to actual values
+        blakQubeFields: formattedBlakQubeData.map(item => ({
+          key: item.key,
+          value: item.templateValue, // Use template value as actual value
+          description: item.description,
+          source: item.source || 'template'
+        })),
+        createdAt: new Date().toISOString(),
+        version: '1.0',
+        status: 'active'
+      };
+      
+      // In a real implementation, this would call an API to create the instance
+      console.log(`Minting new instance ${newInstanceId} from template ${iQubeId}`, instanceData);
+      
+      // Show success message
+      alert(`Successfully minted new instance: ${newInstanceId}\n\nThis instance is now available in your iQube Operations.`);
+      
+      // Close drawer
+      onClose();
+    } catch (err) {
+      console.error('Error minting template:', err);
+      setError('Failed to mint template as instance');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Function to navigate between example iQubes
   const navigateExamples = (direction: 'next' | 'prev') => {
     if (direction === 'next') {
@@ -1157,254 +1224,286 @@ export const SubmenuDrawer = ({
               
               {/* MetaQube Card - Use Mode */}
               <div className="bg-gradient-to-br from-blue-900/20 to-black/40 border border-blue-500/20 rounded-xl p-6 shadow-xl">
-                <div className="uppercase text-[11px] tracking-wider text-blue-400 mb-4 flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-blue-400"></div>
-                  MetaQube Instance
+                <div className="uppercase text-[11px] tracking-wider text-blue-400 mb-6 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-blue-400"></div>
+                    MetaQube
+                    <span className="text-[10px] ml-2 bg-blue-500/20 px-2 py-0.5 rounded">
+                      Instance
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setIsMetaQubeCollapsed(!isMetaQubeCollapsed)}
+                    className="p-1 rounded-full hover:bg-blue-500/20 transition-colors"
+                    aria-label={isMetaQubeCollapsed ? "Expand MetaQube" : "Collapse MetaQube"}
+                    title={isMetaQubeCollapsed ? "Expand MetaQube" : "Collapse MetaQube"}
+                  >
+                    {isMetaQubeCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                  </button>
                 </div>
-
-                {/* iQube Section - Modified for Use Mode */}
-                <div className="space-y-5">
-                  <div className="bg-black/30 border border-blue-500/10 rounded-lg p-4 space-y-3">
-                    <div className="flex justify-between items-center group relative">
-                      <div className="flex items-center gap-1 group relative">
-                        <span className="text-[13px] text-slate-400 cursor-help">iQube ID:</span>
+                
+                {!isMetaQubeCollapsed && (
+                <div className="space-y-6">
+                  {/* iQube Section */}
+                  <div>
+                    <div className="text-white text-[13px] font-medium mb-3 flex items-center gap-2">
+                      <div className="text-blue-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M21 16V8"></path>
+                          <path d="m19 12-7-4-7 4"></path>
+                          <path d="m5 8 7-4 7 4"></path>
+                        </svg>
                       </div>
-                      <span className="text-gray-300 text-[12px]">
-                        {iQubeId ? iQubeId.replace('Template', '') : ''} {instanceNumber}
-                      </span>
+                      iQube
                     </div>
-
-                    <div className="flex justify-between items-center group relative">
-                      <div className="flex items-center gap-1 group relative">
-                        <span className="text-[13px] text-slate-400 cursor-help">Type:</span>
-                      </div>
-                      <span className="text-gray-300 text-[12px]">{iQubeType}</span>
-                    </div>
-
-                    <div className="flex justify-between items-center group relative">
-                      <div className="flex items-center gap-1 group relative">
-                        <span className="text-[13px] text-slate-400 cursor-help">$$$ Model:</span>
-                      </div>
-                      <span className="text-gray-300 text-[12px]">{businessModel}</span>
-                    </div>
-
-                    <div className="flex justify-between items-center group relative">
-                      <div className="flex items-center gap-1 group relative">
-                        <span className="text-[13px] text-slate-400 cursor-help">Price:</span>
-                      </div>
-                      <span className="text-gray-300 text-[12px]">{formatPrice(price)}</span>
-                    </div>
-
-                    <div className="flex justify-between items-center group relative">
-                      <div className="flex items-center gap-1 group relative">
-                        <span className="text-[13px] text-slate-400 cursor-help">Instance:</span>
-                      </div>
-                      <span className="text-gray-300 text-[12px]">{`1 of 100`}</span>
-                    </div>
-                  </div>
-
-                  {/* Subject Section - Subject Type editable, Identifiability fixed */}
-                  <div className="bg-black/30 border border-blue-500/10 rounded-lg p-4 space-y-3">
-                    <div className="flex justify-between items-center group relative">
-                      <div className="flex items-center gap-1 group relative">
-                        <span className="text-[13px] text-slate-400 cursor-help">Type:</span>
-                        <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
-                          The category of subject that this iQube relates to
-                        </div>
-                      </div>
-                      <select 
-                        id="owner-type-select-use"
-                        value={ownerType} 
-                        onChange={(e) => setOwnerType(e.target.value as OwnerType)}
-                        className="bg-black/50 border border-blue-500/30 rounded px-2 py-1 text-[12px] text-blue-400 focus:outline-none focus:border-blue-400"
-                        aria-label="Subject Type"
-                        title="Select the subject type"
-                      >
-                        <option value="Individual">Person</option>
-                        <option value="Organisation">Organization</option>
-                        <option value="Agent">Agent</option>
-                      </select>
-                    </div>
-                    <div className="flex justify-between items-center group relative">
-                      <div className="flex items-center gap-1 group relative">
-                        <span className="text-[13px] text-slate-400 cursor-help">Identifiability:</span>
-                        <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
-                          The level to which the subject can be personally identified from the iQube data
-                        </div>
-                      </div>
-                      <span className="text-gray-300 text-[12px]">{identifiabilityLevel}</span>
-                    </div>
-                  </div>
-                  
-                  {/* Additional Records Section - Can populate values but not add new records */}
-                  <div className="bg-black/30 border border-blue-500/10 rounded-lg p-4">
-                    <div className="flex justify-between items-center mb-3">
-                      <div className="flex items-center gap-1">
-                        <span className="text-[13px] text-slate-400">Additional Records</span>
-                      </div>
-                    </div>
-                    
-                    {/* Additional Records List */}
-                    <div className="space-y-3 mt-3 max-h-[300px] overflow-y-auto pr-2">
-                      {formattedMetaQubeData.filter(item => 
-                        !['identifier', 'creator', 'type', 'ownerType', 'identifiability', 'created', 'businessModel', 'instance', 'version'].includes(item.key)
-                      ).map((item, index) => (
-                        <div key={`${item.key}-${index}`} className="bg-black/30 p-3 rounded border border-blue-500/10 hover:border-blue-500/30 transition-all duration-200">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <div className="text-blue-400 text-[13px] font-medium">{item.key}</div>
-                              <div className="text-[12px] text-slate-400 mt-0.5">
-                                {item.description || 'No description provided'}
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <input 
-                                type="text" 
-                                value={item.value || ''}
-                                onChange={(e) => {
-                                  // Update the value for this record
-                                  const updatedData = formattedMetaQubeData.map(record => 
-                                    record.key === item.key ? { ...record, value: e.target.value } : record
-                                  );
-                                  setFormattedMetaQubeData(updatedData);
-                                }}
-                                className="bg-black/50 border border-blue-500/30 rounded px-2 py-1 text-[12px] text-blue-300 w-[150px] focus:outline-none focus:border-blue-400"
-                                placeholder="Value"
-                              />
-                            </div>
-                          </div>
-                          <div className="text-[11px] text-gray-500 mt-1 flex items-center gap-1">
-                            <span>Source:</span>
-                            <span className="text-gray-400">{item.source}</span>
+                    <div className="bg-black/30 border border-blue-500/10 rounded-lg p-4 space-y-3">
+                      <div className="flex justify-between items-center group relative">
+                        <div className="flex items-center gap-1 group relative">
+                          <span className="text-[13px] text-slate-400 cursor-help">Identifier:</span>
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[400px]">
+                            A unique identifier for the iQube that allows for tracking and referencing in the iQube Protocol
                           </div>
                         </div>
-                      ))}
-                      
-                      {/* Provenance Field (new) */}
-                      <div className="bg-black/30 p-3 rounded border border-blue-500/10">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <div className="text-blue-400 text-[13px] font-medium">Provenance</div>
-                            <div className="text-[12px] text-slate-400 mt-0.5">
-                              The origin path of this template
-                            </div>
+                        <span className="text-gray-300 text-[12px]">{iQubeId ? iQubeId.replace('Template', '') : ''} {instanceNumber}</span>
+                      </div>
+                      <div className="flex justify-between items-center group relative">
+                        <div className="flex items-center gap-1 group relative">
+                          <span className="text-[13px] text-slate-400 cursor-help">Creator:</span>
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[400px]">
+                            The entity that created this iQube
                           </div>
-                          <div className="text-gray-300 text-[12px]">0</div>
+                        </div>
+                        <span className="text-gray-300 text-[12px]">Creator ID</span>
+                      </div>
+                      <div className="flex justify-between items-center group relative">
+                        <div className="flex items-center gap-1 group relative">
+                          <span className="text-[13px] text-slate-400 cursor-help">Type:</span>
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[400px]">
+                            The category of iQube defining its primary purpose and data structure
+                          </div>
+                        </div>
+                        <span className="text-gray-300 text-[12px]">{iQubeType}</span>
+                      </div>
+                      <div className="flex justify-between items-center group relative">
+                        <div className="flex items-center gap-1 group relative">
+                          <span className="text-[13px] text-slate-400 cursor-help">$ Model:</span>
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[400px]">
+                            The economic model governing how this iQube can be monetized or accessed
+                          </div>
+                        </div>
+                        <span className="text-gray-300 text-[12px]">{businessModel}</span>
+                      </div>
+                      <div className="flex justify-between items-center group relative">
+                        <div className="flex items-center gap-1 group relative">
+                          <span className="text-[13px] text-slate-400 cursor-help">Price:</span>
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[400px]">
+                            The price for accessing or using this iQube in Satoshis with USD equivalent
+                          </div>
+                        </div>
+                        <span className="text-gray-300 text-[12px]">{formatPrice(price)}</span>
+                      </div>
+                      <div className="flex justify-between items-center group relative">
+                        <div className="flex items-center gap-1 group relative">
+                          <span className="text-[13px] text-slate-400 cursor-help">Instance:</span>
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[400px]">
+                            Whether this is a template or an instance, and instance count if applicable
+                          </div>
+                        </div>
+                        <span className="text-gray-300 text-[12px]">{`1 of 100`}</span>
+                      </div>
+                      <div className="flex justify-between items-center group relative">
+                        <div className="flex items-center gap-1 group relative">
+                          <span className="text-[13px] text-slate-400 cursor-help">Created:</span>
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[400px]">
+                            The date when this iQube was created
+                          </div>
+                        </div>
+                        <span className="text-gray-300 text-[12px]">{new Date().toISOString().split('T')[0]}</span>
+                      </div>
+                      <div className="flex justify-between items-center group relative">
+                        <div className="flex items-center gap-1 group relative">
+                          <span className="text-[13px] text-slate-400 cursor-help">Version:</span>
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[400px]">
+                            The version number of this iQube
+                          </div>
+                        </div>
+                        <span className="text-gray-300 text-[12px]">1.0</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Subject Section */}
+                  <div>
+                    <div className="text-white text-[13px] font-medium mb-3 flex items-center gap-2">
+                      <div className="text-blue-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                          <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                      </div>
+                      Subject
+                    </div>
+                    <div className="bg-black/30 border border-blue-500/10 rounded-lg p-4 space-y-3">
+                      <div className="flex justify-between items-center group relative">
+                        <div className="flex items-center gap-1 group relative">
+                          <span className="text-[13px] text-slate-400 cursor-help">Type:</span>
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[400px]">
+                            The category of subject that this iQube relates to
+                          </div>
+                        </div>
+                        <span className="text-gray-300 text-[12px]">{ownerType === 'Individual' ? 'Person' : ownerType}</span>
+                      </div>
+                      <div className="flex justify-between items-center group relative">
+                        <div className="flex items-center gap-1 group relative">
+                          <span className="text-[13px] text-slate-400 cursor-help">Identifiability:</span>
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[400px]">
+                            The level to which the subject can be personally identified from the iQube data
+                          </div>
+                        </div>
+                        <span className="text-gray-300 text-[12px]">{identifiabilityLevel}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                )}
+
+                {/* Scores Section - Always Visible */}
+                <div className={!isMetaQubeCollapsed ? "mt-6" : ""}>
+                  <div className="text-white text-[13px] font-medium mb-3 flex items-center gap-2">
+                    <div className="text-blue-400">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <path d="M12 6v6l4 2"></path>
+                      </svg>
+                    </div>
+                    Scores
+                  </div>
+                    <div className="bg-black/30 border border-blue-500/10 rounded-lg p-4">
+                      <div className="flex justify-between items-center gap-2">
+                        {/* Sensitivity */}
+                        <div className="flex flex-col items-center gap-1 group relative">
+                          <div className="text-[10px] text-slate-400 mb-1">Sensitivity</div>
+                          <EnhancedScoreIndicator 
+                            value={compositeScores.sensitivityScore}
+                            type="sensitivity"
+                            size="small"
+                          />
+                        </div>
+                        
+                        {/* Risk */}
+                        <div className="flex flex-col items-center gap-1 group relative">
+                          <div className="text-[10px] text-slate-400 mb-1">Risk</div>
+                          <EnhancedScoreIndicator 
+                            value={compositeScores.riskScore}
+                            type="risk"
+                            size="small"
+                          />
+                        </div>
+                        
+                        {/* Accuracy */}
+                        <div className="flex flex-col items-center gap-1 group relative">
+                          <div className="text-[10px] text-slate-400 mb-1">Accuracy</div>
+                          <EnhancedScoreIndicator 
+                            value={compositeScores.accuracyScore}
+                            type="accuracy"
+                            size="small"
+                          />
+                        </div>
+                        
+                        {/* Verifiability */}
+                        <div className="flex flex-col items-center gap-1 group relative">
+                          <div className="text-[10px] text-slate-400 mb-1">Verifiability</div>
+                          <EnhancedScoreIndicator 
+                            value={compositeScores.verifiabilityScore}
+                            type="verifiability"
+                            size="small"
+                          />
                         </div>
                       </div>
                     </div>
-                  </div>
-                  
-                  {/* Scores Section at the bottom */}
-                  <div className="bg-black/30 border border-blue-500/10 rounded-lg p-4">
-                    <div className="flex justify-between items-center mb-3">
-                      <div className="flex items-center gap-1">
-                        <span className="text-[13px] text-slate-400">Scores</span>
-                      </div>
-                    </div>
-                    
-                    {/* Score Indicators */}
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <div className="text-[11px] text-slate-500 mb-1">Sensitivity</div>
-                        <EnhancedScoreIndicator 
-                          value={compositeScores.sensitivityScore} 
-                          maxValue={5} 
-                          type="sensitivity"
-                          size="small"
-                        />
-                      </div>
-                      <div>
-                        <div className="text-[11px] text-slate-500 mb-1">Verifiability</div>
-                        <EnhancedScoreIndicator 
-                          value={compositeScores.verifiabilityScore} 
-                          maxValue={5} 
-                          type="verifiability"
-                          size="small"
-                        />
-                      </div>
-                      <div>
-                        <div className="text-[11px] text-slate-500 mb-1">Accuracy</div>
-                        <EnhancedScoreIndicator 
-                          value={compositeScores.accuracyScore} 
-                          maxValue={5} 
-                          type="accuracy"
-                          size="small"
-                        />
-                      </div>
-                      <div>
-                        <div className="text-[11px] text-slate-500 mb-1">Risk</div>
-                        <EnhancedScoreIndicator 
-                          value={compositeScores.riskScore} 
-                          maxValue={5} 
-                          type="risk"
-                          size="small"
-                        />
-                      </div>
-                    </div>
-                  </div>
                 </div>
               </div>
 
-              {/* BlakQube Card - Use Mode */}
+              {/* BlakQube Data Panel - Qrypto Profile */}
               <div className="bg-gradient-to-br from-purple-900/20 to-black/40 border border-purple-500/20 rounded-xl p-6 shadow-xl mt-6">
-                <div className="uppercase text-[11px] tracking-wider text-purple-400 mb-4 flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-purple-400"></div>
-                  BlakQube Instance {instanceNumber && <span className="ml-1">({getInstanceLabel()})</span>}
+                <div className="uppercase text-[11px] tracking-wider text-purple-400 mb-6 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-purple-400"></div>
+                    BLAKQUBE
+                    <span className="text-[10px] ml-2 bg-purple-500/20 px-2 py-0.5 rounded">
+                      1 of 21
+                    </span>
+                    <span className="text-[10px] ml-1 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">
+                      {blakQubeProfileData.length} fields
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setIsBlakQubeCollapsed(!isBlakQubeCollapsed)}
+                    className="p-1 rounded-full hover:bg-purple-500/20 transition-colors"
+                    aria-label={isBlakQubeCollapsed ? "Expand BlakQube" : "Collapse BlakQube"}
+                    title={isBlakQubeCollapsed ? "Expand BlakQube" : "Collapse BlakQube"}
+                  >
+                    {isBlakQubeCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                  </button>
                 </div>
                 
-                <div className="space-y-4">
-                  {/* BlakQube data list */}
-                  <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2">
-                    {formattedBlakQubeData.map((item, index) => (
-                      <div key={`blak-${index}`} className="bg-black/30 p-3 rounded border border-purple-500/10 hover:border-purple-500/30 transition-all duration-200">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <div className="text-purple-400 text-[13px] font-medium">{item.key}</div>
-                            <div className="text-[12px] text-slate-400 mt-0.5">
-                              {item.description || 'No description'}
-                            </div>
+                {!isBlakQubeCollapsed && (
+                <div>
+                {/* BlakQube Profile Fields */}
+                <div className="flex flex-col gap-3">
+                  {blakQubeProfileData.map((field, index) => (
+                    <div 
+                      key={`blakqube-field-${index}`} 
+                      className="bg-black/30 border border-purple-500/10 rounded-lg p-3"
+                    >
+                      <div className="flex justify-between items-center mb-2">
+                        <div className="flex items-center gap-1 group relative">
+                          <span className="text-[13px] text-white cursor-help">{field.key}</span>
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[400px]">
+                            {field.description}
                           </div>
-                          <div className="flex items-center gap-2">
+                        </div>
+                        <SourceIcon source={field.source} />
+                      </div>
+                      <div className="text-gray-300 text-[12px] break-all bg-black/20 p-2 rounded border border-purple-500/10">
+                        {isTemplate ? (
+                          <input 
+                            type="text" 
+                            value={field.templateValue || ''} 
+                            onChange={(e) => {
+                              const updatedData = blakQubeProfileData.map((item, idx) => 
+                                idx === index ? { ...item, templateValue: e.target.value } : item
+                              );
+                              setBlakQubeProfileData(updatedData);
+                            }}
+                            placeholder="Enter template value..."
+                            className="w-full bg-transparent border-none text-purple-300 focus:outline-none"
+                          />
+                        ) : (
+                          !isDecrypted ? 
+                            <span className="text-purple-300 flex items-center gap-1">
+                              <Lock size={12} /> 
+                              <span className="opacity-60">••••••••••••••••</span>
+                            </span> : 
                             <input 
                               type="text" 
-                              value={item.instanceValue || ''} 
+                              value={field.instanceValue || ''} 
                               onChange={(e) => {
-                                // Update instance value for this BlakQube record
-                                const updatedData = formattedBlakQubeData.map(record => 
-                                  record.key === item.key ? { ...record, instanceValue: e.target.value } : record
+                                const updatedData = blakQubeProfileData.map((item, idx) => 
+                                  idx === index ? { ...item, instanceValue: e.target.value } : item
                                 );
-                                setFormattedBlakQubeData(updatedData);
+                                setBlakQubeProfileData(updatedData);
                               }}
-                              placeholder="Value"
-                              className="bg-black/50 border border-purple-500/30 rounded px-2 py-1 text-[12px] text-purple-300 w-[150px] focus:outline-none focus:border-purple-400"
+                              placeholder="Enter value..."
+                              className="w-full bg-transparent border-none text-gray-300 focus:outline-none"
                             />
-                            {/* Source icon button for auto-populating */}
-                            <button 
-                              onClick={() => {
-                                // Logic to auto-populate from source would go here
-                                console.log(`Auto-populate ${item.key} from ${item.source}`);
-                              }}
-                              className="hover:bg-purple-500/10 p-1 rounded transition-all duration-200"
-                              aria-label={`Auto-populate from ${item.source}`}
-                              title={`Auto-populate from ${item.source}`}
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-purple-400">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                                <polyline points="17 8 12 3 7 8" />
-                                <line x1="12" y1="3" x2="12" y2="15" />
-                              </svg>
-                            </button>
-                          </div>
-                        </div>
-                        <div className="text-[11px] text-gray-500 mt-1 flex items-center gap-1">
-                          <span>Source:</span>
-                          <span className="text-gray-400">{item.source}</span>
-                        </div>
+                        )}
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  ))}
                 </div>
+                </div>
+                )}
               </div>
               
               {/* Mint Button - Only available when in Use mode and fields are populated */}
@@ -1443,11 +1542,34 @@ export const SubmenuDrawer = ({
                 </div>
               )}
               
-              {/* MetaQube Card - Same as View Tab */}
+              {/* MetaQube Card - Edit Mode */}
               <div className="bg-gradient-to-br from-blue-900/20 to-black/40 border border-blue-500/20 rounded-xl p-6 shadow-xl">
-                <div className="uppercase text-[11px] tracking-wider text-blue-400 mb-6 flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-blue-400"></div>
-                  MetaQube Data
+                <div className="flex justify-between items-center mb-4">
+                  <div className="uppercase text-[11px] tracking-wider text-blue-400 flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-blue-400"></div>
+                    MetaQube
+                    <span className="text-[10px] ml-2 bg-blue-500/20 px-2 py-0.5 rounded">
+                      {isTemplate ? 'Template' : getInstanceLabel()}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {isTemplate && (
+                      <button 
+                        onClick={() => setIsMetaEditMode(!isMetaEditMode)}
+                        className={`text-xs px-2 py-1 rounded ${isMetaEditMode ? 'bg-blue-600/30 text-blue-300' : 'bg-blue-900/30 text-blue-400 hover:bg-blue-800/30'}`}
+                      >
+                        {isMetaEditMode ? 'Editing...' : 'Edit Fields'}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setIsMetaQubeCollapsed(!isMetaQubeCollapsed)}
+                      className="p-1 rounded-full hover:bg-blue-500/20 transition-colors"
+                      aria-label={isMetaQubeCollapsed ? "Expand MetaQube" : "Collapse MetaQube"}
+                      title={isMetaQubeCollapsed ? "Expand MetaQube" : "Collapse MetaQube"}
+                    >
+                      {isMetaQubeCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                    </button>
+                  </div>
                 </div>
                 
                 <div className="space-y-6">
@@ -1467,7 +1589,7 @@ export const SubmenuDrawer = ({
                       <div className="flex justify-between items-center group relative">
                         <div className="flex items-center gap-1 group relative">
                           <span className="text-[13px] text-slate-400 cursor-help">Identifier:</span>
-                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[400px]">
                             A unique identifier for the iQube that allows for tracking and referencing in the iQube Protocol
                           </div>
                         </div>
@@ -1476,7 +1598,7 @@ export const SubmenuDrawer = ({
                       <div className="flex justify-between items-center group relative">
                         <div className="flex items-center gap-1 group relative">
                           <span className="text-[13px] text-slate-400 cursor-help">Creator:</span>
-                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[400px]">
                             The entity that created this iQube
                           </div>
                         </div>
@@ -1485,34 +1607,74 @@ export const SubmenuDrawer = ({
                       <div className="flex justify-between items-center group relative">
                         <div className="flex items-center gap-1 group relative">
                           <span className="text-[13px] text-slate-400 cursor-help">Type:</span>
-                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[400px]">
                             The category of iQube defining its primary purpose and data structure
                           </div>
                         </div>
-                        <span className="text-gray-300 text-[12px]">{iQubeType}</span>
+{isTemplate && isMetaEditMode ? (
+                          <select
+                            value={iQubeType}
+                            onChange={(e) => setIQubeType(e.target.value as IQubeType)}
+                            className="bg-black/50 border border-blue-500/30 rounded px-2 py-1 text-[12px] text-blue-400 focus:outline-none focus:border-blue-400"
+                          >
+                            <option value="DataQube">DataQube</option>
+                            <option value="ContentQube">ContentQube</option>
+                            <option value="ToolQube">ToolQube</option>
+                            <option value="ModelQube">ModelQube</option>
+                            <option value="AigentQube">AigentQube</option>
+                          </select>
+                        ) : (
+                          <span className="text-gray-300 text-[12px]">{iQubeType}</span>
+                        )}
                       </div>
                       <div className="flex justify-between items-center group relative">
                         <div className="flex items-center gap-1 group relative">
-                          <span className="text-[13px] text-slate-400 cursor-help">$$$ Model:</span>
-                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                          <span className="text-[13px] text-slate-400 cursor-help">$ Model:</span>
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[400px]">
                             The economic model governing how this iQube can be monetized or accessed
                           </div>
                         </div>
-                        <span className="text-gray-300 text-[12px]">{businessModel}</span>
+{isTemplate && isMetaEditMode ? (
+                          <select
+                            value={businessModel}
+                            onChange={(e) => setBusinessModel(e.target.value as BusinessModelType)}
+                            className="bg-black/50 border border-blue-500/30 rounded px-2 py-1 text-[12px] text-blue-400 focus:outline-none focus:border-blue-400"
+                          >
+                            <option value="Buy">Buy</option>
+                            <option value="Sell">Sell</option>
+                            <option value="Rent">Rent</option>
+                            <option value="Lease">Lease</option>
+                            <option value="Subscribe">Subscribe</option>
+                            <option value="Stake">Stake</option>
+                            <option value="License">License</option>
+                            <option value="Donate">Donate</option>
+                          </select>
+                        ) : (
+                          <span className="text-gray-300 text-[12px]">{businessModel}</span>
+                        )}
                       </div>
                       <div className="flex justify-between items-center group relative">
                         <div className="flex items-center gap-1 group relative">
                           <span className="text-[13px] text-slate-400 cursor-help">Price:</span>
-                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[400px]">
                             The price for accessing or using this iQube in Satoshis with USD equivalent
                           </div>
                         </div>
-                        <span className="text-gray-300 text-[12px]">{formatPrice(price)}</span>
+{isTemplate && isMetaEditMode ? (
+                          <input
+                            type="number"
+                            value={price}
+                            onChange={(e) => setPrice(parseInt(e.target.value) || 0)}
+                            className="bg-black/50 border border-blue-500/30 rounded px-2 py-1 text-[12px] text-blue-400 focus:outline-none focus:border-blue-400 w-24"
+                          />
+                        ) : (
+                          <span className="text-gray-300 text-[12px]">{formatPrice(price)}</span>
+                        )}
                       </div>
                       <div className="flex justify-between items-center group relative">
                         <div className="flex items-center gap-1 group relative">
                           <span className="text-[13px] text-slate-400 cursor-help">Instance:</span>
-                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[400px]">
                             Whether this is a template or an instance, and instance count if applicable
                           </div>
                         </div>
@@ -1521,7 +1683,7 @@ export const SubmenuDrawer = ({
                       <div className="flex justify-between items-center group relative">
                         <div className="flex items-center gap-1 group relative">
                           <span className="text-[13px] text-slate-400 cursor-help">Created:</span>
-                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[400px]">
                             The date when this iQube was created
                           </div>
                         </div>
@@ -1530,7 +1692,7 @@ export const SubmenuDrawer = ({
                       <div className="flex justify-between items-center group relative">
                         <div className="flex items-center gap-1 group relative">
                           <span className="text-[13px] text-slate-400 cursor-help">Version:</span>
-                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[400px]">
                             The version number of this iQube
                           </div>
                         </div>
@@ -1554,26 +1716,147 @@ export const SubmenuDrawer = ({
                       <div className="flex justify-between items-center group relative">
                         <div className="flex items-center gap-1 group relative">
                           <span className="text-[13px] text-slate-400 cursor-help">Type:</span>
-                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[400px]">
                             The category of subject that this iQube relates to
                           </div>
                         </div>
-                        <span className="text-gray-300 text-[12px]">
-                          {ownerType === "Individual" ? "Person" : 
-                           ownerType === "Organisation" ? "Organization" : "Agent"}
-                        </span>
+{isTemplate && isMetaEditMode ? (
+                          <select
+                            value={ownerType}
+                            onChange={(e) => setOwnerType(e.target.value as OwnerType)}
+                            className="bg-black/50 border border-blue-500/30 rounded px-2 py-1 text-[12px] text-blue-400 focus:outline-none focus:border-blue-400"
+                          >
+                            <option value="Individual">Person</option>
+                            <option value="Organisation">Organization</option>
+                            <option value="Agent">Agent</option>
+                          </select>
+                        ) : (
+                          <span className="text-gray-300 text-[12px]">
+                            {ownerType === "Individual" ? "Person" : 
+                             ownerType === "Organisation" ? "Organization" : "Agent"}
+                          </span>
+                        )}
                       </div>
                       <div className="flex justify-between items-center group relative">
                         <div className="flex items-center gap-1 group relative">
                           <span className="text-[13px] text-slate-400 cursor-help">Identifiability:</span>
-                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[400px]">
                             The level to which the subject can be personally identified from the iQube data
                           </div>
                         </div>
-                        <span className="text-gray-300 text-[12px]">{identifiabilityLevel}</span>
+{isTemplate && isMetaEditMode ? (
+                          <select
+                            value={identifiabilityLevel}
+                            onChange={(e) => setIdentifiabilityLevel(e.target.value as IdentifiabilityLevel)}
+                            className="bg-black/50 border border-blue-500/30 rounded px-2 py-1 text-[12px] text-blue-400 focus:outline-none focus:border-blue-400"
+                          >
+                            <option value="Identifiable">Identifiable</option>
+                            <option value="Semi-Identifiable">Semi-Identifiable</option>
+                            <option value="Anonymous">Anonymous</option>
+                            <option value="Semi-Anonymous">Semi-Anonymous</option>
+                          </select>
+                        ) : (
+                          <span className="text-gray-300 text-[12px]">{identifiabilityLevel}</span>
+                        )}
                       </div>
                     </div>
                   </div>
+
+                  {/* Add MetaQube Records Option for Templates */}
+                  {isTemplate && (
+                    <div className="mt-6 pt-3">
+                      <div className="text-white text-[13px] font-medium mb-3 flex items-center gap-2">
+                        <div className="text-blue-400">
+                          <PlusCircle size={14} />
+                        </div>
+                        Add New Record
+                      </div>
+{!isAddingMetaRecord ? (
+                        <div className="bg-black/30 border border-blue-500/10 rounded-lg p-4">
+                          <button 
+                            onClick={() => setIsAddingMetaRecord(true)}
+                            className="w-full bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-400 px-4 py-3 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 text-[13px] font-medium"
+                          >
+                            <PlusCircle size={15} />
+                            Add New Record
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="bg-black/30 border border-blue-500/10 rounded-lg p-4 space-y-4">
+                          <div className="text-white text-[14px] font-medium mb-2 flex justify-between items-center">
+                            <span>Add New Record</span>
+                            <button onClick={() => setIsAddingMetaRecord(false)} className="text-slate-400 hover:text-white" title="Close add record form">
+                              <X size={16} />
+                            </button>
+                          </div>
+                          
+                          <div>
+                            <label className="block text-[13px] text-slate-400 mb-1">Record Name</label>
+                            <input 
+                              type="text" 
+                              placeholder="e.g. department, location, role"
+                              className="w-full bg-black/40 border border-blue-500/30 rounded px-3 py-2 text-[13px] text-white focus:outline-none focus:border-blue-400"
+                              value={newMetaRecord.key || ''}
+                              onChange={(e) => setNewMetaRecord({...newMetaRecord, key: e.target.value})}
+                            />
+                          </div>
+                          
+                          <div>
+                            <label className="block text-[13px] text-slate-400 mb-1">Record Description</label>
+                            <textarea
+                              placeholder="This description describes the value of the record"
+                              className="w-full bg-black/40 border border-blue-500/30 rounded px-3 py-2 text-[13px] text-white focus:outline-none focus:border-blue-400 h-20 resize-none"
+                              value={newMetaRecord.description || ''}
+                              onChange={(e) => setNewMetaRecord({...newMetaRecord, description: e.target.value})}
+                            ></textarea>
+                          </div>
+                          
+                          <div>
+                            <label htmlFor="meta-record-source-edit" className="block text-[13px] text-slate-400 mb-1">Source</label>
+                            <select 
+                              id="meta-record-source-edit"
+                              className="w-full bg-black/40 border border-blue-500/30 rounded px-3 py-2 text-[13px] text-white focus:outline-none focus:border-blue-400"
+                              value={newMetaRecord.source || 'self'}
+                              onChange={(e) => setNewMetaRecord({...newMetaRecord, source: e.target.value as any})}
+                              aria-label="Record source type"
+                              title="Select the source type for this record"
+                            >
+                              <option value="self">Self-Reported</option>
+                              <option value="verified">Verified</option>
+                              <option value="third-party">Third-Party</option>
+                              <option value="manual">Manual Entry</option>
+                            </select>
+                          </div>
+                          
+                          <div className="flex gap-2 pt-2">
+                            <button 
+                              className="flex-1 bg-blue-600/30 hover:bg-blue-600/40 border border-blue-500/30 text-blue-400 px-4 py-2 rounded transition-all duration-200 text-[13px] font-medium"
+                              onClick={() => {
+                                // Add the new record to the MetaQube data
+                                if (newMetaRecord.key && newMetaRecord.description) {
+                                  // This would add to a metaQubeData array similar to blakQubeProfileData
+                                  console.log('Adding new MetaQube record:', newMetaRecord);
+                                  setNewMetaRecord({});
+                                  setIsAddingMetaRecord(false);
+                                }
+                              }}
+                            >
+                              Save Record
+                            </button>
+                            <button 
+                              className="flex-1 bg-gray-600/30 hover:bg-gray-600/40 border border-gray-500/30 text-gray-400 px-4 py-2 rounded transition-all duration-200 text-[13px] font-medium"
+                              onClick={() => {
+                                setNewMetaRecord({});
+                                setIsAddingMetaRecord(false);
+                              }}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Scores Section */}
                   <div>
@@ -1657,17 +1940,22 @@ export const SubmenuDrawer = ({
                     </span>
                   </div>
                   {!isTemplate && !isDecrypted && (
-                    <div className="flex items-center gap-1 text-[10px] bg-purple-500/20 px-2 py-0.5 rounded">
-                      <Lock size={10} />
-                      <span>ENCRYPTED</span>
+                    <div className="relative group">
+                      <Lock size={14} className="text-purple-400" />
+                      <div className="absolute z-50 hidden group-hover:block bottom-full right-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap text-xs">
+                        Encrypted
+                      </div>
                     </div>
                   )}
                   {!isTemplate && isDecrypted && (
-                    <div className="flex items-center gap-1 text-[10px] bg-green-500/20 px-2 py-0.5 rounded text-green-400">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                    <div className="relative group">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-400">
+                        <rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect>
+                        <path d="M7 11V7a5 5 0 0 1 5-5 5 5 0 0 1 5 5"></path>
                       </svg>
-                      <span>EDITABLE DATA</span>
+                      <div className="absolute z-50 hidden group-hover:block bottom-full right-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap text-xs">
+                        Decrypted
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1705,7 +1993,7 @@ export const SubmenuDrawer = ({
                       <div className="flex justify-between items-center mb-2">
                         <div className="flex items-center gap-1 group relative">
                           <span className="text-[13px] text-white cursor-help">{field.key}</span>
-                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[400px]">
                             {field.description}
                           </div>
                         </div>
@@ -1862,20 +2150,34 @@ export const SubmenuDrawer = ({
               {/* Save/Mint Button - Conditional based on mode */}
               <div className="mt-6">
                 {isTemplate ? (
-                  /* Save Template Button */
-                  <button 
-                    onClick={handleSaveTemplate}
-                    className="w-full bg-purple-600/30 hover:bg-purple-600/40 text-purple-300 px-6 py-3 rounded-lg transition-all duration-200 flex items-center justify-center gap-3 font-medium shadow-lg hover:shadow-purple-500/20 hover:scale-105"
-                    aria-label="Save Template Changes"
-                    title="Save changes to this template"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-                      <polyline points="17 21 17 13 7 13 7 21"></polyline>
-                      <polyline points="7 3 7 8 15 8"></polyline>
-                    </svg>
-                    Save Template
-                  </button>
+                  /* Save Template and Mint Template Buttons */
+                  <div className="flex gap-3">
+                    <button 
+                      onClick={handleSaveTemplate}
+                      className="flex-1 bg-purple-600/30 hover:bg-purple-600/40 text-purple-300 px-4 py-3 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 font-medium shadow-lg hover:shadow-purple-500/20 hover:scale-105 text-sm"
+                      aria-label="Save Template Changes"
+                      title="Save changes to this template"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                        <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                        <polyline points="7 3 7 8 15 8"></polyline>
+                      </svg>
+                      Save Template
+                    </button>
+                    <button 
+                      onClick={handleMintTemplate}
+                      className="flex-1 bg-green-600/30 hover:bg-green-600/40 text-green-300 px-4 py-3 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 font-medium shadow-lg hover:shadow-green-500/20 hover:scale-105 text-sm"
+                      aria-label="Mint Template as Instance"
+                      title="Create a new instance from this template"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <path d="M12 6v6l4 2"></path>
+                      </svg>
+                      Mint Template
+                    </button>
+                  </div>
                 ) : isDecrypted ? (
                   /* Mint New Instance Button - Only for decrypted instances */
                   <div className="space-y-4">
@@ -1962,7 +2264,7 @@ export const SubmenuDrawer = ({
                         <div className="text-blue-400">{exampleIQubes[currentExampleIndex].type}</div>
                       </div>
                       <div className="text-center bg-black/40 rounded p-1 text-[11px]">
-                        <span className="text-gray-500">$$$ Model:</span>
+                        <span className="text-gray-500">$ Model:</span>
                         <div className="text-purple-400">{exampleIQubes[currentExampleIndex].businessModel}</div>
                       </div>
                       <div className="text-center bg-black/40 rounded p-1 text-[11px]">
@@ -1978,13 +2280,27 @@ export const SubmenuDrawer = ({
                 </div>
               )}
 
-              {/* MetaQube Data Section - Same as Edit Tab */}
+              {/* MetaQube Data Section - View Mode */}
               <div className="bg-gradient-to-br from-blue-900/20 to-black/40 border border-blue-500/20 rounded-xl p-6 shadow-xl">
-                <div className="uppercase text-[11px] tracking-wider text-blue-400 mb-6 flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-blue-400"></div>
-                  MetaQube Data
+                <div className="uppercase text-[11px] tracking-wider text-blue-400 mb-6 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-blue-400"></div>
+                    MetaQube
+                    <span className="text-[10px] ml-2 bg-blue-500/20 px-2 py-0.5 rounded">
+                      {isTemplate ? 'Template' : getInstanceLabel()}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setIsMetaQubeCollapsed(!isMetaQubeCollapsed)}
+                    className="p-1 rounded-full hover:bg-blue-500/20 transition-colors"
+                    aria-label={isMetaQubeCollapsed ? "Expand MetaQube" : "Collapse MetaQube"}
+                    title={isMetaQubeCollapsed ? "Expand MetaQube" : "Collapse MetaQube"}
+                  >
+                    {isMetaQubeCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                  </button>
                 </div>
                 
+                {!isMetaQubeCollapsed && (
                 <div className="space-y-6">
                   {/* iQube Section */}
                   <div>
@@ -2002,7 +2318,7 @@ export const SubmenuDrawer = ({
                       <div className="flex justify-between items-center group relative">
                         <div className="flex items-center gap-1 group relative">
                           <span className="text-[13px] text-slate-400 cursor-help">Identifier:</span>
-                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[400px]">
                             A unique identifier for the iQube that allows for tracking and referencing in the iQube Protocol
                           </div>
                         </div>
@@ -2011,7 +2327,7 @@ export const SubmenuDrawer = ({
                       <div className="flex justify-between items-center group relative">
                         <div className="flex items-center gap-1 group relative">
                           <span className="text-[13px] text-slate-400 cursor-help">Creator:</span>
-                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[400px]">
                             The entity that created this iQube
                           </div>
                         </div>
@@ -2020,7 +2336,7 @@ export const SubmenuDrawer = ({
                       <div className="flex justify-between items-center group relative">
                         <div className="flex items-center gap-1 group relative">
                           <span className="text-[13px] text-slate-400 cursor-help">Type:</span>
-                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[400px]">
                             The category of iQube defining its primary purpose and data structure
                           </div>
                         </div>
@@ -2028,8 +2344,8 @@ export const SubmenuDrawer = ({
                       </div>
                       <div className="flex justify-between items-center group relative">
                         <div className="flex items-center gap-1 group relative">
-                          <span className="text-[13px] text-slate-400 cursor-help">$$$ Model:</span>
-                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                          <span className="text-[13px] text-slate-400 cursor-help">$ Model:</span>
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[400px]">
                             The economic model governing how this iQube can be monetized or accessed
                           </div>
                         </div>
@@ -2038,7 +2354,7 @@ export const SubmenuDrawer = ({
                       <div className="flex justify-between items-center group relative">
                         <div className="flex items-center gap-1 group relative">
                           <span className="text-[13px] text-slate-400 cursor-help">Price:</span>
-                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[400px]">
                             The price for accessing or using this iQube in Satoshis with USD equivalent
                           </div>
                         </div>
@@ -2047,16 +2363,16 @@ export const SubmenuDrawer = ({
                       <div className="flex justify-between items-center group relative">
                         <div className="flex items-center gap-1 group relative">
                           <span className="text-[13px] text-slate-400 cursor-help">Instance:</span>
-                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[400px]">
                             Whether this is a template or an instance, and instance count if applicable
                           </div>
                         </div>
-                        <span className="text-gray-300 text-[12px]">{isTemplate ? "Template" : getInstanceLabel()}</span>
+                        <span className="text-gray-300 text-[12px]">{isTemplate ? "Template" : `1 of 100`}</span>
                       </div>
                       <div className="flex justify-between items-center group relative">
                         <div className="flex items-center gap-1 group relative">
                           <span className="text-[13px] text-slate-400 cursor-help">Created:</span>
-                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[400px]">
                             The date when this iQube was created
                           </div>
                         </div>
@@ -2065,7 +2381,7 @@ export const SubmenuDrawer = ({
                       <div className="flex justify-between items-center group relative">
                         <div className="flex items-center gap-1 group relative">
                           <span className="text-[13px] text-slate-400 cursor-help">Version:</span>
-                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[400px]">
                             The version number of this iQube
                           </div>
                         </div>
@@ -2089,19 +2405,16 @@ export const SubmenuDrawer = ({
                       <div className="flex justify-between items-center group relative">
                         <div className="flex items-center gap-1 group relative">
                           <span className="text-[13px] text-slate-400 cursor-help">Type:</span>
-                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[400px]">
                             The category of subject that this iQube relates to
                           </div>
                         </div>
-                        <span className="text-gray-300 text-[12px]">
-                          {ownerType === "Individual" ? "Person" : 
-                           ownerType === "Organisation" ? "Organization" : "Agent"}
-                        </span>
+                        <span className="text-gray-300 text-[12px]">{ownerType === 'Individual' ? 'Person' : ownerType}</span>
                       </div>
                       <div className="flex justify-between items-center group relative">
                         <div className="flex items-center gap-1 group relative">
                           <span className="text-[13px] text-slate-400 cursor-help">Identifiability:</span>
-                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[400px]">
                             The level to which the subject can be personally identified from the iQube data
                           </div>
                         </div>
@@ -2109,70 +2422,71 @@ export const SubmenuDrawer = ({
                       </div>
                     </div>
                   </div>
+                </div>
+                )}
 
-                  {/* Scores Section */}
-                  <div>
-                    <div className="text-white text-[13px] font-medium mb-3 flex items-center gap-2">
-                      <div className="text-blue-400">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <circle cx="12" cy="12" r="10"></circle>
-                          <path d="M12 6v6l4 2"></path>
-                        </svg>
-                      </div>
-                      Scores
+                {/* Scores Section - Always Visible */}
+                <div className={!isMetaQubeCollapsed ? "mt-6" : ""}>
+                  <div className="text-white text-[13px] font-medium mb-3 flex items-center gap-2">
+                    <div className="text-blue-400">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <path d="M12 6v6l4 2"></path>
+                      </svg>
                     </div>
-                    <div className="bg-black/30 border border-blue-500/10 rounded-lg p-4">
-                      <div className="flex justify-between items-center gap-2">
-                        {/* Sensitivity */}
-                        <div className="flex flex-col items-center gap-1 group relative">
-                          <div className="text-[10px] text-slate-400 mb-1">Sensitivity</div>
-                          <EnhancedScoreIndicator 
-                            value={compositeScores.sensitivityScore}
-                            type="sensitivity"
-                            size="small"
-                          />
-                          <div className="absolute z-50 hidden group-hover:block top-full mt-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap text-xs">
-                            Data sensitivity level
-                          </div>
+                    Scores
+                  </div>
+                  <div className="bg-black/30 border border-blue-500/10 rounded-lg p-4">
+                    <div className="flex justify-between items-center gap-2">
+                      {/* Sensitivity */}
+                      <div className="flex flex-col items-center gap-1 group relative">
+                        <div className="text-[10px] text-slate-400 mb-1">Sensitivity</div>
+                        <EnhancedScoreIndicator 
+                          value={compositeScores.sensitivityScore}
+                          type="sensitivity"
+                          size="small"
+                        />
+                        <div className="absolute z-50 hidden group-hover:block top-full mt-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap text-xs">
+                          Data sensitivity level
                         </div>
-                        
-                        {/* Risk */}
-                        <div className="flex flex-col items-center gap-1 group relative">
-                          <div className="text-[10px] text-slate-400 mb-1">Risk</div>
-                          <EnhancedScoreIndicator 
-                            value={compositeScores.riskScore}
-                            type="risk"
-                            size="small"
-                          />
-                          <div className="absolute z-50 hidden group-hover:block top-full mt-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap text-xs">
-                            Risk assessment level
-                          </div>
+                      </div>
+                      
+                      {/* Risk */}
+                      <div className="flex flex-col items-center gap-1 group relative">
+                        <div className="text-[10px] text-slate-400 mb-1">Risk</div>
+                        <EnhancedScoreIndicator 
+                          value={compositeScores.riskScore}
+                          type="risk"
+                          size="small"
+                        />
+                        <div className="absolute z-50 hidden group-hover:block top-full mt-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap text-xs">
+                          Risk assessment level
                         </div>
-                        
-                        {/* Accuracy */}
-                        <div className="flex flex-col items-center gap-1 group relative">
-                          <div className="text-[10px] text-slate-400 mb-1">Accuracy</div>
-                          <EnhancedScoreIndicator 
-                            value={compositeScores.accuracyScore}
-                            type="accuracy"
-                            size="small"
-                          />
-                          <div className="absolute z-50 hidden group-hover:block top-full mt-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap text-xs">
-                            Data accuracy level
-                          </div>
+                      </div>
+                      
+                      {/* Accuracy */}
+                      <div className="flex flex-col items-center gap-1 group relative">
+                        <div className="text-[10px] text-slate-400 mb-1">Accuracy</div>
+                        <EnhancedScoreIndicator 
+                          value={compositeScores.accuracyScore}
+                          type="accuracy"
+                          size="small"
+                        />
+                        <div className="absolute z-50 hidden group-hover:block top-full mt-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap text-xs">
+                          Data accuracy level
                         </div>
-                        
-                        {/* Verifiability */}
-                        <div className="flex flex-col items-center gap-1 group relative">
-                          <div className="text-[10px] text-slate-400 mb-1">Verifiability</div>
-                          <EnhancedScoreIndicator 
-                            value={compositeScores.verifiabilityScore}
-                            type="verifiability"
-                            size="small"
-                          />
-                          <div className="absolute z-50 hidden group-hover:block top-full mt-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap text-xs">
-                            Data verifiability level
-                          </div>
+                      </div>
+                      
+                      {/* Verifiability */}
+                      <div className="flex flex-col items-center gap-1 group relative">
+                        <div className="text-[10px] text-slate-400 mb-1">Verifiability</div>
+                        <EnhancedScoreIndicator 
+                          value={compositeScores.verifiabilityScore}
+                          type="verifiability"
+                          size="small"
+                        />
+                        <div className="absolute z-50 hidden group-hover:block top-full mt-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap text-xs">
+                          Data verifiability level
                         </div>
                       </div>
                     </div>
@@ -2189,21 +2503,39 @@ export const SubmenuDrawer = ({
                     <span className="text-[10px] ml-2 bg-purple-500/20 px-2 py-0.5 rounded">
                       {isTemplate ? 'Template' : getInstanceLabel()}
                     </span>
+                    <span className="text-[10px] ml-1 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">
+                      {blakQubeProfileData.length} fields
+                    </span>
                   </div>
-                  {!isTemplate && !isDecrypted && (
-                    <div className="flex items-center gap-1 text-[10px] bg-purple-500/20 px-2 py-0.5 rounded">
-                      <Lock size={10} />
-                      <span>ENCRYPTED</span>
-                    </div>
-                  )}
-                  {!isTemplate && isDecrypted && (
-                    <div className="flex items-center gap-1 text-[10px] bg-green-500/20 px-2 py-0.5 rounded text-green-400">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                      </svg>
-                      <span>DECRYPTED</span>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {!isTemplate && !isDecrypted && (
+                      <div className="relative group">
+                        <Lock size={14} className="text-purple-400" />
+                        <div className="absolute z-50 hidden group-hover:block bottom-full right-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap text-xs">
+                          Encrypted
+                        </div>
+                      </div>
+                    )}
+                    {!isTemplate && isDecrypted && (
+                      <div className="relative group">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-400">
+                          <rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect>
+                          <path d="M7 11V7a5 5 0 0 1 5-5 5 5 0 0 1 5 5"></path>
+                        </svg>
+                        <div className="absolute z-50 hidden group-hover:block bottom-full right-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap text-xs">
+                          Decrypted
+                        </div>
+                      </div>
+                    )}
+                    <button
+                      onClick={() => setIsBlakQubeCollapsed(!isBlakQubeCollapsed)}
+                      className="p-1 rounded-full hover:bg-purple-500/20 transition-colors"
+                      aria-label={isBlakQubeCollapsed ? "Expand BlakQube" : "Collapse BlakQube"}
+                      title={isBlakQubeCollapsed ? "Expand BlakQube" : "Collapse BlakQube"}
+                    >
+                      {isBlakQubeCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                    </button>
+                  </div>
                 </div>
                 
                 {/* Decrypt Button for Instance Mode */}
@@ -2245,6 +2577,8 @@ export const SubmenuDrawer = ({
                   </div>
                 )}
                 
+                {!isBlakQubeCollapsed && (
+                <div>
                 {/* BlakQube Profile Fields */}
                 <div className="flex flex-col gap-3">
                   {blakQubeProfileData.map((field, index) => (
@@ -2255,7 +2589,7 @@ export const SubmenuDrawer = ({
                       <div className="flex justify-between items-center mb-2">
                         <div className="flex items-center gap-1 group relative">
                           <span className="text-[13px] text-white cursor-help">{field.key}</span>
-                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[400px]">
                             {field.description}
                           </div>
                         </div>
@@ -2275,114 +2609,7 @@ export const SubmenuDrawer = ({
                     </div>
                   ))}
                 </div>
-                
-                {/* Add BlakQube Profile Fields Option for Templates */}
-                {isTemplate && (
-                  <div className="mt-6 pt-3">
-                    <div className="text-white text-[13px] font-medium mb-3 flex items-center gap-2">
-                      <div className="text-purple-400">
-                        <PlusCircle size={14} />
-                      </div>
-                      Add New Record
-                    </div>
-                    {!isBlakEditMode ? (
-                      <div className="bg-black/30 border border-purple-500/10 rounded-lg p-4">
-                        <button 
-                          onClick={() => setIsBlakEditMode(true)}
-                          className="w-full bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 text-purple-400 px-4 py-3 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 text-[13px] font-medium"
-                        >
-                          <PlusCircle size={15} />
-                          Add New Record
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="bg-black/30 border border-purple-500/10 rounded-lg p-4 space-y-4">
-                        <div className="text-white text-[14px] font-medium mb-2 flex justify-between items-center">
-                          <span>Add New Record</span>
-                          <button onClick={() => setIsBlakEditMode(false)} className="text-slate-400 hover:text-white">
-                            <X size={16} />
-                          </button>
-                        </div>
-                        
-                        <div>
-                          <label className="block text-[13px] text-slate-400 mb-1">Record Name</label>
-                          <input 
-                            type="text" 
-                            placeholder="e.g. email, profession, address"
-                            className="w-full bg-black/40 border border-purple-500/30 rounded px-3 py-2 text-[13px] text-white focus:outline-none focus:border-purple-400"
-                            value={newBlakRecord.key}
-                            onChange={(e) => setNewBlakRecord({...newBlakRecord, key: e.target.value})}
-                          />
-                        </div>
-                        
-                        <div>
-                          <label className="block text-[13px] text-slate-400 mb-1">Record Description</label>
-                          <textarea
-                            placeholder="This description describes the value of the record"
-                            className="w-full bg-black/40 border border-purple-500/30 rounded px-3 py-2 text-[13px] text-white focus:outline-none focus:border-purple-400 h-20 resize-none"
-                            value={newBlakRecord.description}
-                            onChange={(e) => setNewBlakRecord({...newBlakRecord, description: e.target.value})}
-                          ></textarea>
-                        </div>
-                        
-                        <div>
-                          <label htmlFor="blak-record-source" className="block text-[13px] text-slate-400 mb-1">Source</label>
-                          <select 
-                            id="blak-record-source"
-                            className="w-full bg-black/40 border border-purple-500/30 rounded px-3 py-2 text-[13px] text-white focus:outline-none focus:border-purple-400"
-                            value={newBlakRecord.source}
-                            onChange={(e) => setNewBlakRecord({...newBlakRecord, source: e.target.value as any})}
-                            aria-label="Record source type"
-                            title="Select the source type for this record"
-                          >
-                            <option value="self">Self-Reported</option>
-                            <option value="verified">Verified</option>
-                            <option value="third-party">Third-Party</option>
-                            <option value="manual">Manual Entry</option>
-                          </select>
-                        </div>
-                        
-                        <div className="flex gap-2 pt-2">
-                          <button 
-                            className="flex-1 bg-purple-600/30 hover:bg-purple-600/40 border border-purple-500/30 text-purple-400 px-4 py-2 rounded transition-all duration-200 text-[13px] font-medium"
-                            onClick={() => {
-                              // Add the new record to the BlakQube profile data
-                              if (newBlakRecord.key && newBlakRecord.description) {
-                                setBlakQubeProfileData([
-                                  ...blakQubeProfileData,
-                                  {
-                                    key: newBlakRecord.key,
-                                    templateValue: '',
-                                    instanceValue: newBlakRecord.description, // Use description as instanceValue
-                                    source: newBlakRecord.source as any,
-                                    description: newBlakRecord.description
-                                  }
-                                ]);
-                                // Reset the form
-                                setNewBlakRecord({
-                                  key: '',
-                                  templateValue: '',
-                                  instanceValue: '',
-                                  source: 'manual',
-                                  description: ''
-                                });
-                                // Collapse the form
-                                setIsBlakEditMode(false);
-                              }
-                            }}
-                          >
-                            Save Record
-                          </button>
-                          <button 
-                            onClick={() => setIsBlakEditMode(false)}
-                            className="bg-black/40 hover:bg-black/50 border border-gray-700 text-gray-400 px-4 py-2 rounded transition-all duration-200 text-[13px]"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                </div>
                 )}
               </div>
             </div>
@@ -2477,7 +2704,7 @@ export const SubmenuDrawer = ({
                       <div className="flex justify-between items-center group relative">
                         <div className="flex items-center gap-1 group relative">
                           <span className="text-[13px] text-slate-400 cursor-help">Identifier:</span>
-                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[400px]">
                             A unique identifier for the iQube that allows for tracking and referencing in the iQube Protocol
                           </div>
                         </div>
@@ -2486,7 +2713,7 @@ export const SubmenuDrawer = ({
                       <div className="flex justify-between items-center group relative">
                         <div className="flex items-center gap-1 group relative">
                           <span className="text-[13px] text-slate-400 cursor-help">Creator:</span>
-                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[400px]">
                             The entity that created this iQube
                           </div>
                         </div>
@@ -2495,34 +2722,74 @@ export const SubmenuDrawer = ({
                       <div className="flex justify-between items-center group relative">
                         <div className="flex items-center gap-1 group relative">
                           <span className="text-[13px] text-slate-400 cursor-help">Type:</span>
-                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[400px]">
                             The category of iQube defining its primary purpose and data structure
                           </div>
                         </div>
-                        <span className="text-gray-300 text-[12px]">{iQubeType}</span>
+{isTemplate && isMetaEditMode ? (
+                          <select
+                            value={iQubeType}
+                            onChange={(e) => setIQubeType(e.target.value as IQubeType)}
+                            className="bg-black/50 border border-blue-500/30 rounded px-2 py-1 text-[12px] text-blue-400 focus:outline-none focus:border-blue-400"
+                          >
+                            <option value="DataQube">DataQube</option>
+                            <option value="ContentQube">ContentQube</option>
+                            <option value="ToolQube">ToolQube</option>
+                            <option value="ModelQube">ModelQube</option>
+                            <option value="AigentQube">AigentQube</option>
+                          </select>
+                        ) : (
+                          <span className="text-gray-300 text-[12px]">{iQubeType}</span>
+                        )}
                       </div>
                       <div className="flex justify-between items-center group relative">
                         <div className="flex items-center gap-1 group relative">
-                          <span className="text-[13px] text-slate-400 cursor-help">$$$ Model:</span>
-                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                          <span className="text-[13px] text-slate-400 cursor-help">$ Model:</span>
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[400px]">
                             The economic model governing how this iQube can be monetized or accessed
                           </div>
                         </div>
-                        <span className="text-gray-300 text-[12px]">{businessModel}</span>
+{isTemplate && isMetaEditMode ? (
+                          <select
+                            value={businessModel}
+                            onChange={(e) => setBusinessModel(e.target.value as BusinessModelType)}
+                            className="bg-black/50 border border-blue-500/30 rounded px-2 py-1 text-[12px] text-blue-400 focus:outline-none focus:border-blue-400"
+                          >
+                            <option value="Buy">Buy</option>
+                            <option value="Sell">Sell</option>
+                            <option value="Rent">Rent</option>
+                            <option value="Lease">Lease</option>
+                            <option value="Subscribe">Subscribe</option>
+                            <option value="Stake">Stake</option>
+                            <option value="License">License</option>
+                            <option value="Donate">Donate</option>
+                          </select>
+                        ) : (
+                          <span className="text-gray-300 text-[12px]">{businessModel}</span>
+                        )}
                       </div>
                       <div className="flex justify-between items-center group relative">
                         <div className="flex items-center gap-1 group relative">
                           <span className="text-[13px] text-slate-400 cursor-help">Price:</span>
-                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[400px]">
                             The price for accessing or using this iQube in Satoshis with USD equivalent
                           </div>
                         </div>
-                        <span className="text-gray-300 text-[12px]">{formatPrice(price)}</span>
+{isTemplate && isMetaEditMode ? (
+                          <input
+                            type="number"
+                            value={price}
+                            onChange={(e) => setPrice(parseInt(e.target.value) || 0)}
+                            className="bg-black/50 border border-blue-500/30 rounded px-2 py-1 text-[12px] text-blue-400 focus:outline-none focus:border-blue-400 w-24"
+                          />
+                        ) : (
+                          <span className="text-gray-300 text-[12px]">{formatPrice(price)}</span>
+                        )}
                       </div>
                       <div className="flex justify-between items-center group relative">
                         <div className="flex items-center gap-1 group relative">
                           <span className="text-[13px] text-slate-400 cursor-help">Instance:</span>
-                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[400px]">
                             Whether this is a template or an instance, and instance count if applicable
                           </div>
                         </div>
@@ -2531,7 +2798,7 @@ export const SubmenuDrawer = ({
                       <div className="flex justify-between items-center group relative">
                         <div className="flex items-center gap-1 group relative">
                           <span className="text-[13px] text-slate-400 cursor-help">Created:</span>
-                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[400px]">
                             The date when this iQube was created
                           </div>
                         </div>
@@ -2540,7 +2807,7 @@ export const SubmenuDrawer = ({
                       <div className="flex justify-between items-center group relative">
                         <div className="flex items-center gap-1 group relative">
                           <span className="text-[13px] text-slate-400 cursor-help">Version:</span>
-                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[400px]">
                             The version number of this iQube
                           </div>
                         </div>
@@ -2564,26 +2831,147 @@ export const SubmenuDrawer = ({
                       <div className="flex justify-between items-center group relative">
                         <div className="flex items-center gap-1 group relative">
                           <span className="text-[13px] text-slate-400 cursor-help">Type:</span>
-                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[400px]">
                             The category of subject that this iQube relates to
                           </div>
                         </div>
-                        <span className="text-gray-300 text-[12px]">
-                          {ownerType === "Individual" ? "Person" : 
-                           ownerType === "Organisation" ? "Organization" : "Agent"}
-                        </span>
+{isTemplate && isMetaEditMode ? (
+                          <select
+                            value={ownerType}
+                            onChange={(e) => setOwnerType(e.target.value as OwnerType)}
+                            className="bg-black/50 border border-blue-500/30 rounded px-2 py-1 text-[12px] text-blue-400 focus:outline-none focus:border-blue-400"
+                          >
+                            <option value="Individual">Person</option>
+                            <option value="Organisation">Organization</option>
+                            <option value="Agent">Agent</option>
+                          </select>
+                        ) : (
+                          <span className="text-gray-300 text-[12px]">
+                            {ownerType === "Individual" ? "Person" : 
+                             ownerType === "Organisation" ? "Organization" : "Agent"}
+                          </span>
+                        )}
                       </div>
                       <div className="flex justify-between items-center group relative">
                         <div className="flex items-center gap-1 group relative">
                           <span className="text-[13px] text-slate-400 cursor-help">Identifiability:</span>
-                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[200px]">
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[400px]">
                             The level to which the subject can be personally identified from the iQube data
                           </div>
                         </div>
-                        <span className="text-gray-300 text-[12px]">{identifiabilityLevel}</span>
+{isTemplate && isMetaEditMode ? (
+                          <select
+                            value={identifiabilityLevel}
+                            onChange={(e) => setIdentifiabilityLevel(e.target.value as IdentifiabilityLevel)}
+                            className="bg-black/50 border border-blue-500/30 rounded px-2 py-1 text-[12px] text-blue-400 focus:outline-none focus:border-blue-400"
+                          >
+                            <option value="Identifiable">Identifiable</option>
+                            <option value="Semi-Identifiable">Semi-Identifiable</option>
+                            <option value="Anonymous">Anonymous</option>
+                            <option value="Semi-Anonymous">Semi-Anonymous</option>
+                          </select>
+                        ) : (
+                          <span className="text-gray-300 text-[12px]">{identifiabilityLevel}</span>
+                        )}
                       </div>
                     </div>
                   </div>
+
+                  {/* Add MetaQube Records Option for Templates */}
+                  {isTemplate && (
+                    <div className="mt-6 pt-3">
+                      <div className="text-white text-[13px] font-medium mb-3 flex items-center gap-2">
+                        <div className="text-blue-400">
+                          <PlusCircle size={14} />
+                        </div>
+                        Add New Record
+                      </div>
+{!isAddingMetaRecord ? (
+                        <div className="bg-black/30 border border-blue-500/10 rounded-lg p-4">
+                          <button 
+                            onClick={() => setIsAddingMetaRecord(true)}
+                            className="w-full bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-400 px-4 py-3 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 text-[13px] font-medium"
+                          >
+                            <PlusCircle size={15} />
+                            Add New Record
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="bg-black/30 border border-blue-500/10 rounded-lg p-4 space-y-4">
+                          <div className="text-white text-[14px] font-medium mb-2 flex justify-between items-center">
+                            <span>Add New Record</span>
+                            <button onClick={() => setIsAddingMetaRecord(false)} className="text-slate-400 hover:text-white" title="Close add record form">
+                              <X size={16} />
+                            </button>
+                          </div>
+                          
+                          <div>
+                            <label className="block text-[13px] text-slate-400 mb-1">Record Name</label>
+                            <input 
+                              type="text" 
+                              placeholder="e.g. department, location, role"
+                              className="w-full bg-black/40 border border-blue-500/30 rounded px-3 py-2 text-[13px] text-white focus:outline-none focus:border-blue-400"
+                              value={newMetaRecord.key || ''}
+                              onChange={(e) => setNewMetaRecord({...newMetaRecord, key: e.target.value})}
+                            />
+                          </div>
+                          
+                          <div>
+                            <label className="block text-[13px] text-slate-400 mb-1">Record Description</label>
+                            <textarea
+                              placeholder="This description describes the value of the record"
+                              className="w-full bg-black/40 border border-blue-500/30 rounded px-3 py-2 text-[13px] text-white focus:outline-none focus:border-blue-400 h-20 resize-none"
+                              value={newMetaRecord.description || ''}
+                              onChange={(e) => setNewMetaRecord({...newMetaRecord, description: e.target.value})}
+                            ></textarea>
+                          </div>
+                          
+                          <div>
+                            <label htmlFor="meta-record-source-edit" className="block text-[13px] text-slate-400 mb-1">Source</label>
+                            <select 
+                              id="meta-record-source-edit"
+                              className="w-full bg-black/40 border border-blue-500/30 rounded px-3 py-2 text-[13px] text-white focus:outline-none focus:border-blue-400"
+                              value={newMetaRecord.source || 'self'}
+                              onChange={(e) => setNewMetaRecord({...newMetaRecord, source: e.target.value as any})}
+                              aria-label="Record source type"
+                              title="Select the source type for this record"
+                            >
+                              <option value="self">Self-Reported</option>
+                              <option value="verified">Verified</option>
+                              <option value="third-party">Third-Party</option>
+                              <option value="manual">Manual Entry</option>
+                            </select>
+                          </div>
+                          
+                          <div className="flex gap-2 pt-2">
+                            <button 
+                              className="flex-1 bg-blue-600/30 hover:bg-blue-600/40 border border-blue-500/30 text-blue-400 px-4 py-2 rounded transition-all duration-200 text-[13px] font-medium"
+                              onClick={() => {
+                                // Add the new record to the MetaQube data
+                                if (newMetaRecord.key && newMetaRecord.description) {
+                                  // This would add to a metaQubeData array similar to blakQubeProfileData
+                                  console.log('Adding new MetaQube record:', newMetaRecord);
+                                  setNewMetaRecord({});
+                                  setIsAddingMetaRecord(false);
+                                }
+                              }}
+                            >
+                              Save Record
+                            </button>
+                            <button 
+                              className="flex-1 bg-gray-600/30 hover:bg-gray-600/40 border border-gray-500/30 text-gray-400 px-4 py-2 rounded transition-all duration-200 text-[13px] font-medium"
+                              onClick={() => {
+                                setNewMetaRecord({});
+                                setIsAddingMetaRecord(false);
+                              }}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Scores Section */}
                   <div>
@@ -2652,6 +3040,7 @@ export const SubmenuDrawer = ({
                       </div>
                     </div>
                   </div>
+
                 </div>
               </div>
               
@@ -3002,6 +3391,22 @@ export const SubmenuDrawer = ({
             {/* Template mode tabs */}
             {isTemplate && (
               <>
+                <button
+                  onClick={() => {
+                    setActiveTab("use");
+                    setIsUseMode(true);
+                    setIsEditMode(false);
+                    setIsMetaEditMode(false);
+                    setIsBlakEditMode(false);
+                  }}
+                  className={`px-4 py-2 text-[13px] font-medium ${activeTab === "use" ? "text-white border-b-2 border-green-400 bg-green-600/20" : "text-gray-400 hover:text-white hover:bg-gray-800/30"}`}
+                  role="tab"
+                  aria-selected={activeTab === "use" ? "true" : "false"}
+                  aria-controls="use-panel"
+                  id="use-tab"
+                >
+                  Use
+                </button>
                 <button
                   onClick={() => {
                     setActiveTab("edit");
