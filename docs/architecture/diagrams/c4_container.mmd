@@ -1,0 +1,50 @@
+%% C4-Container (simplified)
+flowchart TB
+  subgraph Orchestration
+    OR1[Agent Runner\n(session loop, tools)]
+    OR2[MCP Client\n(MCP servers)]
+    OR3[A2A Adapter\n(capability discovery, signed delegation)]
+  end
+
+  subgraph Context
+    CX1[iQube Resolver\n(meta/blak/token refs)]
+    CX2[Policy Engine\n(token-gates, consent, scopes)]
+    CX3[Memory Manager\n(mem_session, mem_customer,\nmem_behavioral, account_state)]
+    CX4[Vector/RAG Index\n(per-user namespace)]
+  end
+
+  subgraph Services
+    S1[API Gateway (FastAPI/Flask)\nOpenAPI, Auth, RLS claims]
+    S2[Payments/Wallet\n(Thirdweb)]
+    S3[Identity/Registry\n(ERC-8004 Identity)]
+    S4[CrossChain\n(LayerZero OApp)]
+    S5[FIO Adapter]
+    S6[ICP Bridge\n(IcpMint/Attest/Proof)]
+    S7[Webhooks & Jobs\n(reconciliation, retries)]
+  end
+
+  subgraph State
+    DB[(Supabase Postgres\nRLS, Row Encryption)]
+    OBJ[(Object Store\n(e.g., Supabase Storage))]
+    LOG[(Audit & Telemetry\n(OTel/Sentry))]
+  end
+
+  UI[External UI] --> S1
+  S1 <--> OR1
+  OR1 <--> CX1
+  OR1 <--> CX3
+  CX1 <--> DB
+  CX3 <--> DB
+  CX4 <--> DB
+  S1 --> DB
+  S2 <--> S1
+  S3 <--> S1
+  S4 <--> S1
+  S5 <--> S1
+  S6 <--> S1
+  S7 <--> DB
+  S2 --> EVM[EVM Chains]
+  S3 --> EVM
+  S4 <--> LZ[LayerZero]
+  S5 <--> FIO[FIO]
+  S6 <--> ICP[ICP/BTC module]
