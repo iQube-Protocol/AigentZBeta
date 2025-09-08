@@ -38,6 +38,67 @@ npm run dev
 
 ## Common Issues & Solutions
 
+### Sidebar Auto-Expansion Bug Resolution
+
+#### Issue: Infinite Update Loop and Unwanted Auto-Expansion
+**Problem:** Sidebar sections were auto-expanding unexpectedly when interacting with form inputs, causing infinite re-renders and application crashes.
+
+**Root Cause:**
+- Auto-expansion logic was triggered by toggle state changes
+- Circular dependency in useEffect hooks
+- State updates causing cascading effects between sections
+
+**Solution:**
+1. **Removed Auto-Expansion Logic**
+   ```typescript
+   // Before: Complex auto-expansion based on toggle states
+   useEffect(() => {
+     // Complex logic that caused infinite loops
+     const sectionsWithActiveItems = [];
+     // ... problematic auto-expansion code
+   }, [toggleStates, openSections]); // Circular dependency
+   
+   // After: Simple path-based opening only
+   useEffect(() => {
+     if (!initialized || !isClient || !pathname) return;
+     
+     // Only open sections based on navigation
+     let currentPathSection = "";
+     for (const section of sections) {
+       for (const item of section.items) {
+         if (pathname.startsWith(item.href)) {
+           currentPathSection = section.label;
+           break;
+         }
+       }
+       if (currentPathSection) break;
+     }
+     
+     if (currentPathSection && !openSections.includes(currentPathSection)) {
+       setOpenSections(prev => [...prev, currentPathSection]);
+     }
+   }, [pathname, initialized, isClient, sections]);
+   ```
+
+2. **Manual Section Control**
+   - Sections now only open/close via manual user clicks
+   - No automatic expansion based on form interactions
+   - Preserved user preferences in localStorage
+
+3. **Separated Toggle State Management**
+   ```typescript
+   // Separate effect for saving toggle states without affecting sections
+   useEffect(() => {
+     if (!initialized || !isClient || !storageAvailable) return;
+     safeLocalStorage.setItem('toggleStates', JSON.stringify(toggleStates));
+   }, [toggleStates, initialized, isClient, storageAvailable]);
+   ```
+
+**Prevention:**
+- Never include state variables in useEffect dependencies if the effect modifies those same variables
+- Use comparison checks before state updates to prevent unnecessary re-renders
+- Separate concerns: navigation-based opening vs. manual control vs. state persistence
+
 ### JSX Syntax Resolution
 
 #### Issue: Unexpected Token Errors
@@ -256,25 +317,68 @@ try {
    ```
 3. Or rollback deployment in Vercel
 
+## Recent Major Updates
+
+### Version 2.1.0 - UI Improvements and Stability Fixes
+
+#### New Features Added
+1. **metaMe Persona Integration**
+   - Added new `metaMe` persona to personas.ts
+   - Integrated with sidebar navigation and generic-ai page
+   - Full functionality matching existing personas
+
+2. **Enhanced MetaQube Headers**
+   - Added Sats price display for Instance mode only
+   - Dynamic price matching between header and data sections
+   - Green styling consistent with design system
+
+3. **Improved iQube Name Display**
+   - Added iQube names to View tab headers
+   - Consistent naming across Template and Instance modes
+   - Removed redundant "Template" and "Instance" text from headers
+
+#### Critical Bug Fixes
+1. **Sidebar Auto-Expansion Resolution**
+   - Fixed infinite update loop causing application crashes
+   - Removed problematic auto-expansion logic
+   - Implemented manual-only section control
+   - Separated navigation-based opening from form interactions
+
+2. **Price Consistency Fix**
+   - Fixed mismatch between MetaQube header (2,100 sats) and iQube data (100 sats)
+   - Implemented dynamic price display using state variables
+   - Ensured consistency across all tabs and sections
+
+#### Process Management Improvements
+- Enhanced PM2 configuration with log rotation
+- Added auto-start on boot functionality
+- Improved development server stability
+
 ## Lessons Learned
 
 ### What Went Well
 - TypeScript integration caught many potential runtime errors
 - Component composition allowed for flexible UI building
 - State management with Context API provided clean data flow
+- Comprehensive testing prevented regression issues
 
 ### Challenges Overcome
-1. **JSX Syntax Issues**
+1. **Sidebar Auto-Expansion Bug**
+   - Root cause: Circular dependencies in useEffect hooks
+   - Solution: Separated concerns and removed auto-expansion logic
+   - Prevention: Better state management patterns and dependency analysis
+
+2. **JSX Syntax Issues**
    - Implemented strict ESLint rules
    - Added Prettier for consistent formatting
    - Created custom ESLint rules for common patterns
 
-2. **State Management**
+3. **State Management**
    - Moved from prop drilling to Context API
    - Implemented proper TypeScript types
    - Added error boundaries for graceful failures
 
-3. **Performance**
+4. **Performance**
    - Optimized re-renders with useMemo/useCallback
    - Implemented code splitting
    - Added lazy loading for non-critical components

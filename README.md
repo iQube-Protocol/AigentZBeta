@@ -217,17 +217,38 @@ npm test
 - Event-driven design
 - Adaptive resource allocation
 
+## Recent Updates (v2.1.0)
+
+### Major Stability Improvements
+
+- **Fixed Critical Sidebar Bug**: Resolved infinite update loop that caused application crashes when interacting with form inputs
+- **Enhanced UI Consistency**: Added dynamic Sats price display in MetaQube headers for Instance mode
+- **Improved Navigation**: Added iQube names to View tab headers with consistent formatting across all modes
+
+### New Features
+
+- **metaMe Persona**: Added new AI persona with full integration into sidebar navigation and chat functionality
+- **Price Synchronization**: Fixed price mismatch between MetaQube headers and data sections
+- **Cleaner Headers**: Removed redundant "Template" and "Instance" text from operation headers
+
+### Technical Improvements
+
+- **Manual Sidebar Control**: Replaced problematic auto-expansion with user-controlled section management
+- **State Management**: Separated navigation-based opening from form interactions to prevent cascading effects
+- **Process Management**: Enhanced PM2 configuration with log rotation and auto-start capabilities
+
 ## Features
 
 ### Unified Interface
 
-- Persistent Nakamoto-style sidebar navigation
-- Global dark theme with modern UI
+- Persistent Nakamoto-style sidebar navigation with manual section control
+- Global dark theme with modern UI and enhanced stability
 - Keyboard shortcuts for quick navigation
+- Fixed auto-expansion issues for reliable user experience
 
 ### Aigent Personas
 
-- Multiple specialized AI agent personas
+- Multiple specialized AI agent personas including new metaMe persona
 - Context Transformation panel for each agent
 - Persistent chat history and context management
 
