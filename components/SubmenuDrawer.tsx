@@ -1224,7 +1224,7 @@ export const SubmenuDrawer = ({
         return (
           <div id="use-panel" role="tabpanel" aria-labelledby="use-tab">
             <div className="space-y-6">
-              <div className="uppercase text-[11px] tracking-wider text-slate-400 mb-3">Use Template: {iQubeId}</div>
+              <div className="uppercase text-[11px] tracking-wider text-slate-400 mb-3">Use: {iQubeId}</div>
               
               {/* MetaQube Card - Use Mode */}
               <div className="bg-gradient-to-br from-blue-900/20 to-black/40 border border-blue-500/20 rounded-xl p-6 shadow-xl">
@@ -1525,7 +1525,7 @@ export const SubmenuDrawer = ({
         return (
           <div id="edit-panel" role="tabpanel" aria-labelledby="edit-tab">
             <div className="space-y-6">
-              <div className="uppercase text-[11px] tracking-wider text-slate-400 mb-3">Edit {isTemplate ? 'Template' : 'Instance'}: {isTemplate ? iQubeId : getInstanceName()}</div>
+              <div className="uppercase text-[11px] tracking-wider text-slate-400 mb-3">Edit: {isTemplate ? iQubeId : getInstanceName()}</div>
               
               {/* Decryption Required Warning for Non-Decrypted Instance */}
               {!isTemplate && !isDecrypted && (
@@ -1544,6 +1544,11 @@ export const SubmenuDrawer = ({
                     <span className="text-[10px] ml-2 bg-blue-500/20 px-2 py-0.5 rounded">
                       {isTemplate ? 'Template' : getInstanceLabel()}
                     </span>
+                    {!isTemplate && (
+                      <span className="text-[10px] ml-1 bg-green-500/20 px-2 py-0.5 rounded border border-green-500/20 text-green-400">
+{price} sats
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     {isTemplate && (
@@ -2351,6 +2356,20 @@ export const SubmenuDrawer = ({
                 </div>
               )}
 
+              {/* iQube Name for Template Mode */}
+              {isTemplate && (
+                <div className="uppercase text-[11px] tracking-wider text-slate-400 mb-3">
+                  View: {iQubeId}
+                </div>
+              )}
+
+              {/* iQube Name for Instance Mode */}
+              {!isTemplate && (
+                <div className="uppercase text-[11px] tracking-wider text-slate-400 mb-3">
+                  View: {getInstanceName()}
+                </div>
+              )}
+
               {/* MetaQube Data Section - View Mode */}
               <div className="bg-gradient-to-br from-blue-900/20 to-black/40 border border-blue-500/20 rounded-xl p-6 shadow-xl">
                 <div className="uppercase text-[11px] tracking-wider text-blue-400 mb-6 flex items-center justify-between">
@@ -2360,6 +2379,11 @@ export const SubmenuDrawer = ({
                     <span className="text-[10px] ml-2 bg-blue-500/20 px-2 py-0.5 rounded">
                       {isTemplate ? 'Template' : getInstanceLabel()}
                     </span>
+                    {!isTemplate && (
+                      <span className="text-[10px] ml-1 bg-green-500/20 px-2 py-0.5 rounded border border-green-500/20 text-green-400">
+{price} sats
+                      </span>
+                    )}
                   </div>
                   <button
                     onClick={() => setIsMetaQubeCollapsed(!isMetaQubeCollapsed)}
@@ -2751,6 +2775,11 @@ export const SubmenuDrawer = ({
                     <span className="text-[10px] ml-2 bg-blue-500/20 px-2 py-0.5 rounded">
                       {isTemplate ? 'Template' : getInstanceLabel()}
                     </span>
+                    {!isTemplate && (
+                      <span className="text-[10px] ml-1 bg-green-500/20 px-2 py-0.5 rounded border border-green-500/20 text-green-400">
+{price} sats
+                      </span>
+                    )}
                   </div>
                   <button
                     onClick={() => setIsMetaQubeCollapsed(!isMetaQubeCollapsed)}

@@ -54,6 +54,7 @@ const sections: SidebarSection[] = [
     items: [
       { href: "/aigents/generic-ai?iqube=qrypto", label: "Qrypto Persona", icon: <Users size={14} className="text-cyan-400" />, toggleable: true, active: false },
       { href: "/aigents/generic-ai?iqube=knyt", label: "KNYT Persona", icon: <Users size={14} className="text-amber-400" />, toggleable: true, active: false },
+      { href: "/aigents/generic-ai?iqube=metaMe", label: "metaMe Persona", icon: <Users size={14} className="text-purple-400" />, toggleable: true, active: false },
     ],
   },
   {
@@ -514,60 +515,43 @@ export const Sidebar = () => {
     }
   }, [pathname, previousPath, openSections, toggleStates]);
   
-  // Effect to ensure ONLY sections with active toggle items are kept open
+  // Effect to handle path-based section opening (only for navigation)
   useEffect(() => {
-    // Don't modify sections if we're still in initialization
-    if (!initialized || !isClient) return;
+    if (!initialized || !isClient || !pathname) return;
     
-    // Check all sections for active toggle items
-    const sectionsWithActiveItems: string[] = [];
+    // Only open sections based on current path, not toggle states
     let currentPathSection = "";
     
-    // First determine which section contains the current path
-    if (pathname) {
-      for (const section of sections) {
-        for (const item of section.items) {
-          if (pathname.startsWith(item.href)) {
-            currentPathSection = section.label;
-            break;
-          }
-        }
-        if (currentPathSection) break;
-      }
-    }
-    
-    // Find sections with active toggle items
+    // Find which section contains the current path
     for (const section of sections) {
-      // Skip Dashboard section and Persona section from auto-expansion
-      if (section.label === "Dashboard" || section.label === "Persona") continue;
-      
-      // Check if any item in this section is active
-      const hasActiveItem = section.items.some(item => {
-        const isToggleable = 'toggleable' in item && item.toggleable;
-        return isToggleable && toggleStates[item.href];
-      });
-      
-      if (hasActiveItem) {
-        sectionsWithActiveItems.push(section.label);
+      for (const item of section.items) {
+        if (pathname.startsWith(item.href)) {
+          currentPathSection = section.label;
+          break;
+        }
       }
+      if (currentPathSection) break;
     }
     
-    // If we're in expanded view, only keep active sections open
-    if (!collapsed) {
-      // Include the section for current path if it exists
-      if (currentPathSection && !sectionsWithActiveItems.includes(currentPathSection)) {
-        sectionsWithActiveItems.push(currentPathSection);
-      }
-      
-      // Update open sections to ONLY include those with active items or current path
-      setOpenSections(sectionsWithActiveItems);
-      
-      // Save to localStorage
-      if (storageAvailable) {
-        safeLocalStorage.setItem('openSections', JSON.stringify(sectionsWithActiveItems));
-      }
+    // Only open the section for the current path if it's not already open
+    if (currentPathSection && !openSections.includes(currentPathSection)) {
+      setOpenSections(prev => {
+        const newSections = [...prev, currentPathSection];
+        if (storageAvailable) {
+          safeLocalStorage.setItem('openSections', JSON.stringify(newSections));
+        }
+        return newSections;
+      });
     }
-  }, [toggleStates, pathname, initialized, collapsed, sections, storageAvailable, isClient]);
+  }, [pathname, initialized, isClient, sections, storageAvailable]);
+  
+  // Separate effect to save toggle states without affecting section expansion
+  useEffect(() => {
+    if (!initialized || !isClient || !storageAvailable) return;
+    
+    // Only save toggle states, don't modify section expansion
+    safeLocalStorage.setItem('toggleStates', JSON.stringify(toggleStates));
+  }, [toggleStates, initialized, isClient, storageAvailable]);
   
   const toggleSection = (label: string) => {
     if (collapsed) {
@@ -579,12 +563,13 @@ export const Sidebar = () => {
       return;
     }
     
+    // Manually toggle the section regardless of auto-expansion rules
     if (openSections.includes(label)) {
       // Close the section
-      setOpenSections(openSections.filter(s => s !== label));
+      setOpenSections(prev => prev.filter(s => s !== label));
     } else {
       // Open the section
-      setOpenSections([...openSections, label]);
+      setOpenSections(prev => [...prev, label]);
     }
   };
 

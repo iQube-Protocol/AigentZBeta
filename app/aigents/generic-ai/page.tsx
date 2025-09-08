@@ -9,16 +9,23 @@ function GenericAIContent() {
   const searchParams = useSearchParams();
   const iqube = searchParams?.get("iqube");
   
-  // Use the aigent-z persona as default
-  const persona = personas["aigent-z"];
+  // Map iQube parameters to persona keys
+  const iqubeToPersona: Record<string, keyof typeof personas> = {
+    "qrypto": "aigent-z",
+    "knyt": "aigent-kn0w1",
+    "metaMe": "metaMe"
+  };
   
-  // Optionally handle iQube parameter for context
+  // Determine which persona to use based on iQube parameter
+  const personaKey = iqube && iqubeToPersona[iqube] ? iqubeToPersona[iqube] : "aigent-z";
+  const persona = personas[personaKey];
+  
+  // Log the detected iQube and selected persona
   useEffect(() => {
     if (iqube) {
-      console.log(`iQube parameter detected: ${iqube}`);
-      // Here you can add any iQube-specific logic if needed
+      console.log(`iQube parameter detected: ${iqube}, using persona: ${personaKey}`);
     }
-  }, [iqube]);
+  }, [iqube, personaKey]);
 
   return (
     <div className="space-y-6">
