@@ -14,41 +14,40 @@ See **C4-Context** and **C4-Container** diagrams below.
 
 ```mermaid
 
-%% C4-Context (simplified with Mermaid)
 flowchart LR
   subgraph Users
     U[End User]
     Admin[Operator/Admin]
   end
 
-  subgraph ExternalUI[External UI (Provided by Product Owner)]
+  subgraph ExternalUI["External UI<br/>(provided by product owner)"]
     UI[Web App / Chat UI]
   end
 
-  U -- uses --> UI
-  Admin -- operates --> UI
+  U --> UI
+  Admin --> UI
 
-  subgraph AigentZ[Aigent Z Beta Platform]
+  subgraph AigentZ["Aigent Z Beta Platform"]
     direction TB
-    OG[Orchestration Layer\n- Agent Runner\n- MCP Client\n- A2A Adapter]
-    CTX[Context Layer\n- iQube Resolver\n- Policy Engine\n- Memory Manager]
-    SRV[Services Layer\n- API Gateway\n- Identity/Payments\n- CrossChain (LZ)\n- Registry / ERC-8004\n- FIO Adapter]
-    ST[State Layer\n- Supabase (Postgres+RLS)\n- Object Store (blobs)\n- Audit/Telemetry]
+    OG["Orchestration Layer<br/>Agent Runner · MCP Client · A2A Adapter"]
+    CTX["Context Layer<br/>iQube Resolver · Policy Engine · Memory Manager"]
+    SRV["Services Layer<br/>API Gateway · Identity/Payments · CrossChain(LayerZero) · ERC-8004 · FIO"]
+    ST["State Layer<br/>Supabase(Postgres+RLS) · Object Store · Audit/Telemetry"]
   end
 
-  UI -- REST/WebSocket (OpenAPI/SDK) --> SRV
-  SRV -- "RLS-enforced SQL\n(App state)" --> ST
-  OG -- "Context/Actions" --> CTX
-  CTX -- "Read/Write\n(mem_*, iQube refs)" --> ST
-  OG -- "Tool/Action Calls" --> SRV
+  UI --> SRV
+  SRV --> ST
+  OG --> CTX
+  CTX --> ST
+  OG --> SRV
 
-  subgraph Chains[Blockchain & Registries]
+  subgraph Chains["Blockchains & Registries"]
     direction TB
-    EVM[EVM Chains\n(ERC-8004, Payments, TokenGates)]
-    LZ[LayerZero OApp/OFT]
-    FIO[FIO Protocol (Handles)]
-    REG[iQube Registry (metaQubes index)]
-    ICP[ICP / Bitcoin (21 Sats)\n(Chain-key BTC, Ordinals/Runes)]
+    EVM["EVM Chains<br/>(ERC-8004, payments, token-gates)"]
+    LZ["LayerZero OApp/OFT"]
+    FIO["FIO Protocol (handles)"]
+    REG["iQube Registry<br/>(metaQubes index)"]
+    ICP["ICP / Bitcoin<br/>(21 Sats)"]
   end
 
   SRV --- EVM
@@ -74,32 +73,32 @@ flowchart LR
 %% C4-Container (simplified)
 flowchart TB
   subgraph Orchestration
-    OR1[Agent Runner\n(session loop, tools)]
-    OR2[MCP Client\n(MCP servers)]
-    OR3[A2A Adapter\n(capability discovery, signed delegation)]
+    OR1["Agent Runner<br/>(session loop, tools)"]
+    OR2["MCP Client<br/>(MCP servers)"]
+    OR3["A2A Adapter<br/>(capability discovery, signed delegation)"]
   end
 
   subgraph Context
-    CX1[iQube Resolver\n(meta/blak/token refs)]
-    CX2[Policy Engine\n(token-gates, consent, scopes)]
-    CX3[Memory Manager\n(mem_session, mem_customer,\nmem_behavioral, account_state)]
-    CX4[Vector/RAG Index\n(per-user namespace)]
+    CX1["iQube Resolver<br/>(meta / blak / token refs)"]
+    CX2["Policy Engine<br/>(token-gates, consent, scopes)"]
+    CX3["Memory Manager<br/>(mem_session, mem_customer, mem_behavioral, account_state)"]
+    CX4["Vector / RAG Index<br/>(per-user namespace)"]
   end
 
   subgraph Services
-    S1[API Gateway (FastAPI/Flask)\nOpenAPI, Auth, RLS claims]
-    S2[Payments/Wallet\n(Thirdweb)]
-    S3[Identity/Registry\n(ERC-8004 Identity)]
-    S4[CrossChain\n(LayerZero OApp)]
-    S5[FIO Adapter]
-    S6[ICP Bridge\n(IcpMint/Attest/Proof)]
-    S7[Webhooks & Jobs\n(reconciliation, retries)]
+    S1["API Gateway (FastAPI/Flask)<br/>OpenAPI, Auth, RLS claims"]
+    S2["Payments / Wallet<br/>(Thirdweb)"]
+    S3["Identity / Registry<br/>(ERC-8004 Identity)"]
+    S4["CrossChain<br/>(LayerZero OApp)"]
+    S5["FIO Adapter"]
+    S6["ICP Bridge<br/>(IcpMint / Attest / Proof)"]
+    S7["Webhooks & Jobs<br/>(reconciliation, retries)"]
   end
 
   subgraph State
-    DB[(Supabase Postgres\nRLS, Row Encryption)]
-    OBJ[(Object Store\n(e.g., Supabase Storage))]
-    LOG[(Audit & Telemetry\n(OTel/Sentry))]
+    DB["Supabase Postgres<br/>(RLS, row encryption)"]
+    OBJ["Object Store<br/>(e.g., Supabase Storage)"]
+    LOG["Audit & Telemetry<br/>(OTel / Sentry)"]
   end
 
   UI[External UI] --> S1
