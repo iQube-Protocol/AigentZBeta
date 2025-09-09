@@ -1,0 +1,49 @@
+flowchart TB
+  subgraph Orchestration
+    OR1["Agent Runner<br/>(session loop, tools)"]
+    OR2["MCP Client<br/>(MCP servers)"]
+    OR3["A2A Adapter<br/>(capability discovery, signed delegation)"]
+  end
+
+  subgraph Context
+    CX1["iQube Resolver<br/>(meta / blak / token refs)"]
+    CX2["Policy Engine<br/>(token-gates, consent, scopes)"]
+    CX3["Memory Manager<br/>(mem_session, mem_customer, mem_behavioral, account_state)"]
+    CX4["Vector / RAG Index<br/>(per-user namespace)"]
+  end
+
+  subgraph Services
+    S1["API Gateway (FastAPI/Flask)<br/>OpenAPI, Auth, RLS claims"]
+    S2["Payments / Wallet<br/>(Thirdweb)"]
+    S3["Identity / Registry<br/>(ERC-8004 Identity)"]
+    S4["CrossChain<br/>(LayerZero Messenger)"]
+    S5["FIO Adapter"]
+    S6["Chain Clients<br/>EVM Contract Client · ICP Canister Client · Bitcoin Client<br/>(dual-lock mint)"]
+    S7["Webhooks & Jobs<br/>(reconciliation, indexers)"]
+  end
+
+  subgraph State
+    DB["Supabase Postgres<br/>(RLS, row encryption)"]
+    OBJ["Object Store<br/>(e.g., Supabase Storage)"]
+    LOG["Audit & Telemetry<br/>(OTel / Sentry)"]
+  end
+
+  UI[External UI] --> S1
+  S1 <--> OR1
+  OR1 <--> CX1
+  OR1 <--> CX3
+  CX1 <--> DB
+  CX3 <--> DB
+  CX4 <--> DB
+  S1 --> DB
+  S2 <--> S1
+  S3 <--> S1
+  S4 <--> S1
+  S5 <--> S1
+  S6 <--> S1
+  S7 <--> DB
+
+  S6 --> EVM[EVM Chains]
+  S4 <--> LZ[LayerZero]
+  S6 <--> ICP[ICP Canisters / BTC]
+  S3 --> EVM

@@ -1,0 +1,127 @@
+{
+  "info": {
+    "name": "Aigent Z Beta (Updated API)",
+    "_postman_id": "00000000-0000-0000-0000-000000000001",
+    "description": "Updated endpoints for direct chain writes and key capabilities",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Mint iQube (EVM + optional LZ)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"chain\": \"evm\", \"dstChainId\": 10161, \"type\": \"instance\", \"meta\": {\"name\": \"demo\"}}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/iqubes/mint",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "iqubes",
+            "mint"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Mint iQube (ICP/BTC dual-lock)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"chain\": \"icp-btc\", \"type\": \"instance\", \"meta\": {\"name\": \"btc-demo\"}}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/iqubes/mint",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "iqubes",
+            "mint"
+          ]
+        }
+      }
+    },
+    {
+      "name": "List metaQubes",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/metaqubes",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "metaqubes"
+          ]
+        }
+      }
+    },
+    {
+      "name": "List blakQube keys for an iQube",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/iqubes/{{id}}/blak/keys",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "iqubes",
+            ":id",
+            "blak",
+            "keys"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Grant capability token",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"granteeUserId\": \"<uuid>\", \"blakKeyRef\": \"blak:abc123\", \"scope\": \"decrypt:fieldA\", \"expiresAt\": \"2030-01-01T00:00:00Z\"}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/capabilities/grant",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "capabilities",
+            "grant"
+          ]
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000"
+    }
+  ]
+}

@@ -1,3 +1,9 @@
 {
-  "/dashboard/page": "app/dashboard/page.js"
+  "/dashboard/page": "app/dashboard/page.js",
+  "/aigents/[agentKey]/page": "app/aigents/[agentKey]/page.js",
+  "/registry/page": "app/registry/page.js",
+  "/api/registry/templates/route": "app/api/registry/templates/route.js",
+  "/registry/add/page": "app/registry/add/page.js",
+  "/registry/analytics/page": "app/registry/analytics/page.js",
+  "/api/registry/analytics/route": "app/api/registry/analytics/route.js"
 }
