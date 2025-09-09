@@ -1,0 +1,12 @@
+sequenceDiagram
+  participant UI as External UI
+  participant API as Aigent Z API
+  participant DB as Supabase
+  UI->>API: GET /iqubes/{id}/blak/schema
+  API->>DB: SELECT * FROM blak_schema WHERE blakSchemaRef=:ref
+  DB-->>API: keys/labels/types
+  API-->>UI: schema
+  UI->>API: GET /iqubes/{id}/blak/values?fields=email,plan (with capability)
+  API->>DB: validate capability token for fields
+  DB-->>API: values for allowed fields only
+  API-->>UI: values subset

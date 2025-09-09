@@ -4,11 +4,10 @@ sequenceDiagram
   participant ICP as ICP Canister Client
   participant BTC as Bitcoin Client
   participant DB as Supabase
-
   UI->>API: POST /iqubes/mint {chain:"icp-btc", meta, dualLock:true}
   API->>ICP: canister.mint(meta)
   ICP-->>API: { icpProofId }
   API->>BTC: createLockTx(meta, icpProofId)
   BTC-->>API: { btcTxId }
-  API->>DB: INSERT iqubes(..., chain="icp-btc", chain_tx=btcTxId, status="active")
+  API->>DB: INSERT iqubes(..., blakSchemaRef, chain:"icp-btc", chain_tx:btcTxId, status:"active")
   API-->>UI: { id, btcTxId, status:"active" }
