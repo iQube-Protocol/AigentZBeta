@@ -373,6 +373,44 @@ sequenceDiagram
 
 ```
 
+### 4.5 Schema discovery (public)
+```mermaid
+
+sequenceDiagram
+  participant API as Aigent Z API
+  participant IDX as MetaQube Indexer
+  participant DB as Supabase
+
+  IDX->>API: webhook: metaQube observed { metaQubeId, chain, blakSchemaRef, blakSchemaKeys }
+  API->>DB: UPSERT meta_index(...)
+  API-->>IDX: 204
+
+  API->>DB: SELECT blakSchemaKeys WHERE metaQubeId=:id
+  DB-->>API: ["email","plan","country"]
+
+```
+
+### 4.6 Values read (requires capability)
+```mermaid
+
+sequenceDiagram
+  participant UI as External UI
+  participant API as Aigent Z API
+  participant DB as Supabase
+
+  UI->>API: GET /iqubes/{id}/blak/schema
+  API->>DB: SELECT * FROM blak_schema WHERE blakSchemaRef=:ref
+  DB-->>API: keys/labels/types
+  API-->>UI: schema
+
+  UI->>API: GET /iqubes/{id}/blak/values?fields=email,plan (with capability)
+  API->>DB: validate capability token for fields
+  DB-->>API: values for allowed fields only
+  API-->>UI: values subset
+
+
+```
+
 ---
 
 ## 5) Multichain Architecture & Modularity
@@ -419,13 +457,29 @@ sequenceDiagram
 ---
 
 ## Appendix A — API Surfaces (excerpt)
-- Auth: `/auth/nonce`, `/auth/verify`  
-- Entitlements: `/entitlements`  
-- iQubes: `/iqubes`, `/iqubes/{id}`, `/iqubes/{id}/status`  
-- Payments: `/payments/intent`, `/payments/{id}`, `POST /webhooks/payments`  
-- MCP: `/mcp/context-bundle`, `/mcp/trigger-action`  
-- ERC‑8004: `/erc8004/identity`, `/erc8004/identity/{address}`  
-- FIO: `/fio/link`, `/fio/profile`  
-- Cross‑chain: `/xchain/message`, `/xchain/{msgId}/status`  
-- A2A: `/a2a/delegate`, `/a2a/submit-validation`  
-- ICP: `/icp/mint`, `/icp/attest`, `/icp/proofs/{id}`
+- - iQubes:
+  - POST /iqubes/mint            # direct chain write (EVM + optional LayerZero, or ICP/BTC dual-lock)
+  - GET  /iqubes                  # list user-visible iQubes
+  - GET  /iqubes/{id}             # iQube details
+  - GET  /iqubes/{id}/blak/schema # schema field keys/labels/types (public)
+  - GET  /iqubes/{id}/blak/values?fields=...  # values for allowed fields (requires capability)
+
+- MetaQubes:
+  - GET /metaqubes                # global metaQube list (templates + instances)
+  - GET /metaqubes/{id}           # metaQube by id
+
+- Chains:
+  - GET /chains/{chain}/tx/{txHash}/status  # tx status (evm | icp-btc)
+
+- Capabilities:
+  - POST   /capabilities/grant
+  - DELETE /capabilities/{id}
+
+- Cross-chain / LayerZero:
+  - POST /xchain/message
+  - GET  /xchain/{msgId}/status
+
+- ICP / 21 Sats:
+  - POST /icp/mint
+  - POST /icp/attest
+  - GET  /icp/proofs/{id}
