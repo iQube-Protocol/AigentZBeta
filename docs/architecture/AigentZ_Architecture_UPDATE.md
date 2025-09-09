@@ -126,54 +126,58 @@ classDiagram
     text fio_handle
     timestamptz created_at
   }
-  class agents {
-    uuid id PK
-    text name
-    uuid owner_user_id FK
-  }
+
   class iqubes {
     uuid id PK
     text name
     uuid owner_user_id FK
     text metaQubeRef
     text blakQubeRef
-    text blakKeyRef
+    text blakSchemaRef
     text tokenQubeRef
     text chain
     text chain_tx
     text status
     timestamptz created_at
   }
+
   class meta_index {
     uuid id PK
     text metaQubeId
     text chain
     text registry_txid
-    text blakKeyRef
+    text blakSchemaRef
+    jsonb blakSchemaKeys
     jsonb attributes
     timestamptz seen_at
   }
-  class blak_keys {
+
+  class blak_schema {
     uuid id PK
-    text blakKeyRef
-    text key_type
-    jsonb key_metadata
-    timestamptz created_at
+    text blakSchemaRef
+    text field_key
+    text field_label
+    text field_type
+    boolean is_public
+    text version
   }
+
   class capability_tokens {
     uuid id PK
     uuid grantee_user_id FK
-    text blakKeyRef
-    text scope
+    text blakSchemaRef
+    jsonb field_keys
     timestamptz expires_at
     text grant_proof
   }
+
   class access_grants {
     uuid id PK
     uuid user_id FK
     text scope
     timestamptz expires_at
   }
+
   class payments {
     uuid id PK
     uuid user_id FK
@@ -182,6 +186,7 @@ classDiagram
     text chain_id
     numeric amount
   }
+
   class audit_trail {
     uuid id PK
     uuid user_id
@@ -189,6 +194,7 @@ classDiagram
     jsonb details
     timestamptz at
   }
+
   class mem_session {
     uuid id PK
     uuid user_id FK
@@ -196,12 +202,14 @@ classDiagram
     jsonb chunks
     timestamptz created_at
   }
+
   class mem_customer {
     uuid id PK
     uuid user_id FK
     jsonb timeline
     timestamptz updated_at
   }
+
   class mem_behavioral {
     uuid id PK
     text subject_hash
@@ -209,6 +217,7 @@ classDiagram
     timestamptz window_start
     timestamptz window_end
   }
+
   class account_state {
     uuid id PK
     uuid user_id FK
@@ -217,7 +226,6 @@ classDiagram
     jsonb recent_activity
   }
 
-  users --> agents : owns
   users --> iqubes : owns
   users --> access_grants : has
   users --> payments : makes
@@ -225,9 +233,10 @@ classDiagram
   users --> mem_customer : owns
   users --> account_state : owns
   meta_index --> iqubes : references metaQubeRef
-  blak_keys --> iqubes : by blakKeyRef
-  capability_tokens --> blak_keys : grants access
+  blak_schema --> iqubes : by blakSchemaRef
+  capability_tokens --> blak_schema : grants field access
   capability_tokens --> users : to user
+
 
 ```
 
