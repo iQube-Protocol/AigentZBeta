@@ -22,7 +22,9 @@ import {
   UserCircle,
   Brain,
   Wrench,
-  Bot
+  Bot,
+  Grid3X3,
+  SlidersHorizontal
 } from "lucide-react";
 import { SubmenuDrawer } from "./SubmenuDrawer";
 
@@ -42,6 +44,26 @@ interface SidebarSection {
   items: SidebarItem[];
 }
 
+// Grouped iQubes items (render-only grouping will be applied below)
+const IQUBES_ACTIVE_ITEMS: SidebarItem[] = [
+  { href: "#openai", label: "OpenAI", icon: <Brain size={14} className="text-emerald-400" />, toggleable: true, active: false },
+  { href: "#venice", label: "Venice AI", icon: <Brain size={14} className="text-indigo-400" />, toggleable: true, active: false },
+  { href: "#chaingpt", label: "ChainGPT", icon: <Brain size={14} className="text-purple-400" />, toggleable: true, active: false },
+  { href: "#google-workspace", label: "Google Workspace", icon: <Wrench size={14} className="text-blue-500" />, toggleable: true, active: false },
+];
+
+const IQUBE_OPS_ITEMS: SidebarItem[] = [
+  { href: "#iqube-template", label: "iQube Template", icon: <Box size={14} className="text-blue-400" />, toggleable: true, active: true },
+  { href: "#iqube-instance", label: "iQube Instance", icon: <Box size={14} className="text-green-400" />, toggleable: true, active: false },
+  { href: "/iqube/enter-id", label: "Enter iQube ID", icon: <Key size={14} />, isTextInput: true },
+];
+
+const IQUBE_REGISTRY_ITEMS: SidebarItem[] = [
+  { href: "/registry", label: "Registry", icon: <FileText size={14} /> },
+  { href: "/registry/add", label: "Add iQube", icon: <PlusCircle size={14} /> },
+  { href: "/registry/analytics", label: "Analytics", icon: <BarChart size={14} /> },
+];
+
 const sections: SidebarSection[] = [
   {
     label: "Dashboard",
@@ -58,7 +80,7 @@ const sections: SidebarSection[] = [
     ],
   },
   {
-    label: "Orchestrator Aigent",
+    label: "Orchestrator",
     icon: <Bot size={16} />,
     items: [
       { href: "/aigents/aigent-z", label: "Aigent Z (System AI)", icon: <Bot size={14} className="text-blue-400" /> },
@@ -70,51 +92,9 @@ const sections: SidebarSection[] = [
     label: "iQubes",
     icon: <Box size={16} />,
     items: [
-      { href: "#openai", label: "OpenAI", icon: <Brain size={14} className="text-emerald-400" />, toggleable: true, active: false },
-      { href: "#venice", label: "Venice AI", icon: <Brain size={14} className="text-indigo-400" />, toggleable: true, active: false },
-      { href: "#chaingpt", label: "ChainGPT", icon: <Brain size={14} className="text-purple-400" />, toggleable: true, active: false },
-      { href: "#google-workspace", label: "Google Workspace", icon: <Wrench size={14} className="text-blue-500" />, toggleable: true, active: false },
-    ],
-  },
-  {
-    label: "iQube Operations",
-    // Custom SVG for integrations-style icon
-    icon: (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="16"
-        height="16"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        {/* Integrations-style icon with connected nodes */}
-        <rect x="3" y="3" width="5" height="5" rx="1" />
-        <rect x="16" y="3" width="5" height="5" rx="1" />
-        <rect x="3" y="16" width="5" height="5" rx="1" />
-        <rect x="16" y="16" width="5" height="5" rx="1" />
-        <path d="M8 6h8" />
-        <path d="M6 8v8" />
-        <path d="M18 8v8" />
-        <path d="M8 18h8" />
-      </svg>
-    ),
-    items: [
-      { href: "#iqube-template", label: "iQube Template", icon: <Box size={14} className="text-blue-400" />, toggleable: true, active: true, mutualExclusive: "iqube-mode" },
-      { href: "#iqube-instance", label: "iQube Instance", icon: <Box size={14} className="text-green-400" />, toggleable: true, active: false, mutualExclusive: "iqube-mode" },
-      { href: "/iqube/enter-id", label: "Enter iQube ID", icon: <Key size={14} />, isTextInput: true },
-    ],
-  },
-  {
-    label: "Registry",
-    icon: <FileText size={16} />,
-    items: [
-      { href: "/registry", label: "Registry", icon: <FileText size={14} /> },
-      { href: "/registry/add", label: "Add iQube", icon: <PlusCircle size={14} /> },
-      { href: "/registry/analytics", label: "Analytics", icon: <BarChart size={14} /> },
+      ...IQUBES_ACTIVE_ITEMS,
+      ...IQUBE_OPS_ITEMS,
+      ...IQUBE_REGISTRY_ITEMS,
     ],
   },
   {
@@ -166,6 +146,12 @@ export const Sidebar = () => {
   const [iQubeId, setIQubeId] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerType, setDrawerType] = useState<"view" | "decrypt" | "mint" | "activate">("view");
+  // Nested groups inside iQubes section
+  const [openIQubesGroups, setOpenIQubesGroups] = useState<Record<string, boolean>>({
+    "Active iQubes": true,
+    "iQube Operations": true,
+    "iQube Registry": true,
+  });
   
   // Track the current path to detect navigation changes
   const [previousPath, setPreviousPath] = useState("");
@@ -286,7 +272,7 @@ export const Sidebar = () => {
           
           // Get all agent hrefs
           const agentHrefs: string[] = sections
-            .find(section => section.label === "Orchestrator Aigent")
+            .find(section => section.label === "Orchestrator")
             ?.items.map(item => item.href) || [];
           
           console.log('Agent hrefs:', agentHrefs);
@@ -383,6 +369,13 @@ export const Sidebar = () => {
     }
   }, [openSections, storageAvailable]);
 
+  // Persist nested iQubes group open state
+  useEffect(() => {
+    if (storageAvailable) {
+      safeLocalStorage.setItem('openIQubesGroups', JSON.stringify(openIQubesGroups));
+    }
+  }, [openIQubesGroups, storageAvailable]);
+
   // Save toggle states when they change
   useEffect(() => {
     if (storageAvailable) {
@@ -396,7 +389,7 @@ export const Sidebar = () => {
       
       // Get all agent hrefs
       const agentHrefs: string[] = sections
-        .find(section => section.label === "Orchestrator Aigent")
+        .find(section => section.label === "Orchestrator")
         ?.items.map(item => item.href) || [];
       
       console.log('Persona hrefs:', personaHrefs);
@@ -471,7 +464,7 @@ export const Sidebar = () => {
           
           // Get all agent hrefs
           const agentHrefs: string[] = sections
-            .find(section => section.label === "Orchestrator Aigent")
+            .find(section => section.label === "Orchestrator")
             ?.items.map(item => item.href) || [];
           
           // Check if we need to update toggle states with preserved agent states
@@ -622,7 +615,7 @@ export const Sidebar = () => {
     if (storageAvailable) {
       // Get all agent hrefs
       const agentHrefs: string[] = sections
-        .find(section => section.label === "Orchestrator Aigent")
+        .find(section => section.label === "Orchestrator")
         ?.items.map(item => item.href) || [];
       
       const agentStates: Record<string, boolean> = {};
@@ -641,7 +634,7 @@ export const Sidebar = () => {
     
     // Get all agent hrefs
     const agentHrefs: string[] = sections
-      .find(section => section.label === "Orchestrator Aigent")
+      .find(section => section.label === "Orchestrator")
       ?.items.map(item => item.href) || [];
     
     console.log('All persona hrefs:', personaHrefs);
@@ -773,18 +766,6 @@ export const Sidebar = () => {
   
   // Function to handle navigation to agent page with persona as query parameter
   const navigateToAgentWithPersona = (personaHref: string) => {
-    // Extract persona name from href (e.g., "/aigents/generic-ai?iqube=qrypto" -> "qrypto")
-    const personaName = personaHref.split('=')[1];
-    
-    // Get all agent hrefs
-    const agentHrefs: string[] = sections
-      .find(section => section.label === "Orchestrator Aigent")
-      ?.items.map(item => item.href) || [];
-      
-    // Find the Generic AI href
-    const genericAiHref = agentHrefs.find(agentHref => 
-      agentHref.includes('/aigents/generic-ai'));
-    
     // Find active non-Generic AI agent (if any)
     const activeNonGenericAgent = agentHrefs.find(agentHref => 
       toggleStates[agentHref] && !agentHref.includes('/aigents/generic-ai'));
@@ -952,146 +933,295 @@ export const Sidebar = () => {
                   </div>
                 </div>
               )}
-              
+
               {/* Expanded view for non-Dashboard sections */}
               {openSections.includes(section.label) && !collapsed && !isDashboard && (
-                <ul className="space-y-1 mb-4">
-                  {section.items
-                    .map((item: SidebarItem) => {
-                      const active = pathname ? pathname.startsWith(item.href) : false;
-                      const isToggleable = 'toggleable' in item && item.toggleable;
-                      const isItemActive = isToggleable ? toggleStates[item.href] : false;
-                      
-                      return (
-                        <li key={item.href} className="flex items-center justify-between">
-                          <div className={`flex items-center justify-between w-full ${active || isItemActive ? 'bg-slate-700/50 text-slate-100 rounded-xl' : 'text-slate-500 hover:text-slate-300'}`}>
-                            {item.isTextInput ? (
-                              <div className="flex items-center w-full px-3 py-2">
-                                <div className="flex items-center gap-2 w-full">
-                                  <span>{item.icon}</span>
-                                  <div className="flex w-full relative">
-                                    <input
-                                      type="text"
-                                      value={iQubeId}
-                                      onChange={(e) => {
-                                        const newValue = e.target.value;
-                                        setIQubeId(newValue);
-                                        
-                                        // Auto-activate Template/Instance based on ID
-                                        if (newValue.toLowerCase().includes('template')) {
-                                          setToggleStates(prev => ({
-                                            ...prev,
-                                            '#iqube-template': true,
-                                            '#iqube-instance': false
-                                          }));
-                                        } else if (newValue.trim() !== '') {
-                                          // If not a template and not empty, assume it's an instance
-                                          setToggleStates(prev => ({
-                                            ...prev,
-                                            '#iqube-template': false,
-                                            '#iqube-instance': true
-                                          }));
-                                        }
-                                        
-                                        if (storageAvailable) {
-                                          safeLocalStorage.setItem('iQubeId', newValue);
-                                        }
-                                      }}
-                                      onFocus={(e) => e.stopPropagation()}
-                                      onKeyDown={(e) => {
-                                        e.stopPropagation();
-                                        // Handle Enter key press
-                                        if (e.key === 'Enter' && iQubeId.trim() !== '') {
-                                          setDrawerType('view');
-                                          setDrawerOpen(true);
-                                        }
-                                      }}
-                                      placeholder="Enter iQube ID"
-                                      className="text-[13px] bg-black/40 border border-gray-700 rounded px-2 py-1 text-white w-full pr-8"
-                                    />
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        if (iQubeId.trim() !== '') {
-                                          setDrawerType('view');
-                                          setDrawerOpen(true);
-                                        }
-                                      }}
-                                      className="absolute right-0 top-0 bottom-0 text-blue-400 hover:text-blue-300 px-2 flex items-center justify-center"
-                                      title="View iQube"
-                                    >
-                                      <Eye size={14} />
+                <div className="mb-4">
+                  {section.label === "iQubes" ? (
+                    <div className="space-y-3">
+                      {/* Active iQubes Group */}
+                      <div
+                        className="text-[11px] uppercase tracking-wider text-slate-400 px-1 flex items-center justify-between cursor-pointer"
+                        onClick={() => setOpenIQubesGroups(prev => ({ ...prev, ["Active iQubes"]: !prev["Active iQubes"] }))}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-500"><Grid3X3 size={12} /></span>
+                          <span>Active iQubes</span>
+                        </div>
+                        {openIQubesGroups["Active iQubes"] ? (
+                          <ChevronDown size={12} className="text-gray-500" />
+                        ) : (
+                          <ChevronRight size={12} className="text-gray-500" />
+                        )}
+                      </div>
+                      {openIQubesGroups["Active iQubes"] && (
+                        <ul className="space-y-1">
+                          {section.items.filter(i => IQUBES_ACTIVE_ITEMS.some(ai => ai.href === i.href)).map((item: SidebarItem) => {
+                            const active = pathname ? pathname.startsWith(item.href) : false;
+                            const isToggleable = 'toggleable' in item && item.toggleable;
+                            const isItemActive = isToggleable ? toggleStates[item.href] : false;
+                            return (
+                              <li key={item.href} className="flex items-center justify-between">
+                                <div className={`flex items-center justify-between w-full ${active || isItemActive ? 'bg-slate-700/50 text-slate-100 rounded-xl' : 'text-slate-500 hover:text-slate-300'}`}>
+                                  <Link
+                                    href={item.href}
+                                    className="flex items-center w-full px-3 py-2"
+                                    onClick={(e) => {
+                                      if (isToggleable) { e.preventDefault(); handleModelQubeClick(item.href); }
+                                    }}
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <span>{item.icon}</span>
+                                      <span className="text-[13px]">{item.label}</span>
+                                    </div>
+                                  </Link>
+                                  {isToggleable && (
+                                    <button className="p-2" onClick={(e) => { e.preventDefault(); handleModelQubeClick(item.href); }}>
+                                      <div className="mr-2 text-slate-400 hover:text-white transition-colors">
+                                        {isItemActive ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
+                                      </div>
                                     </button>
+                                  )}
+                                </div>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+
+                      {/* iQube Operations Group */}
+                      <div
+                        className="text-[11px] uppercase tracking-wider text-slate-400 px-1 mt-4 flex items-center justify-between cursor-pointer"
+                        onClick={() => setOpenIQubesGroups(prev => ({ ...prev, ["iQube Operations"]: !prev["iQube Operations"] }))}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-500"><SlidersHorizontal size={12} /></span>
+                          <span>iQube Operations</span>
+                        </div>
+                        {openIQubesGroups["iQube Operations"] ? (
+                          <ChevronDown size={12} className="text-gray-500" />
+                        ) : (
+                          <ChevronRight size={12} className="text-gray-500" />
+                        )}
+                      </div>
+                      {openIQubesGroups["iQube Operations"] && (
+                        <ul className="space-y-1">
+                          {section.items.filter(i => IQUBE_OPS_ITEMS.some(oi => oi.href === i.href)).map((item: SidebarItem) => {
+                            const active = pathname ? pathname.startsWith(item.href) : false;
+                            const isToggleable = 'toggleable' in item && item.toggleable;
+                            const isItemActive = isToggleable ? toggleStates[item.href] : false;
+                            return (
+                              <li key={item.href} className="flex items-center justify-between">
+                                <div className={`flex items-center justify-between w-full ${active || isItemActive ? 'bg-slate-700/50 text-slate-100 rounded-xl' : 'text-slate-500 hover:text-slate-300'}`}>
+                                  {item.isTextInput ? (
+                                    <div className="flex items-center w-full px-3 py-2">
+                                      <div className="flex items-center gap-2 w-full">
+                                        <span>{item.icon}</span>
+                                        <div className="flex w-full relative">
+                                          <input
+                                            type="text"
+                                            value={iQubeId}
+                                            onChange={(e) => {
+                                              const val = e.target.value;
+                                              setIQubeId(val);
+                                              if (val.toLowerCase().includes('template')) {
+                                                setToggleStates(prev => ({ ...prev, '#iqube-template': true, '#iqube-instance': false }));
+                                              } else if (val.trim() !== '') {
+                                                setToggleStates(prev => ({ ...prev, '#iqube-template': false, '#iqube-instance': true }));
+                                              }
+                                              if (storageAvailable) { safeLocalStorage.setItem('iQubeId', val); }
+                                            }}
+                                            onFocus={(e) => e.stopPropagation()}
+                                            onKeyDown={(e) => {
+                                              e.stopPropagation();
+                                              if (e.key === 'Enter' && iQubeId.trim() !== '') { setDrawerType('view'); setDrawerOpen(true); }
+                                            }}
+                                            placeholder="Enter iQube ID"
+                                            className="text-[13px] bg-black/40 border border-gray-700 rounded px-2 py-1 text-white w-full pr-8"
+                                          />
+                                          <button
+                                            onClick={(e) => { e.stopPropagation(); if (iQubeId.trim() !== '') { setDrawerType('view'); setDrawerOpen(true); } }}
+                                            className="absolute right-0 top-0 bottom-0 text-blue-400 hover:text-blue-300 px-2 flex items-center justify-center"
+                                            title="View iQube"
+                                          >
+                                            <Eye size={14} />
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <Link
+                                      href={item.href}
+                                      className="flex items-center w-full px-3 py-2"
+                                      onClick={(e) => {
+                                        if (isToggleable || item.href.startsWith('#iqube-')) { e.preventDefault(); handleIQubeOperationsClick(item.href); }
+                                      }}
+                                    >
+                                      <div className="flex items-center gap-2">
+                                        <span>{item.icon}</span>
+                                        <span className="text-[13px]">{item.label}</span>
+                                      </div>
+                                    </Link>
+                                  )}
+                                  {isToggleable && (
+                                    <button className="p-2" onClick={(e) => { e.preventDefault(); handleIQubeOperationsClick(item.href); }}>
+                                      <div className="mr-2 text-slate-400 hover:text-white transition-colors">
+                                        {isItemActive ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
+                                      </div>
+                                    </button>
+                                  )}
+                                </div>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+
+                      {/* iQube Registry Group */}
+                      <div
+                        className="text-[11px] uppercase tracking-wider text-slate-400 px-1 mt-4 flex items-center justify-between cursor-pointer"
+                        onClick={() => setOpenIQubesGroups(prev => ({ ...prev, ["iQube Registry"]: !prev["iQube Registry"] }))}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-500"><FileText size={12} /></span>
+                          <span>iQube Registry</span>
+                        </div>
+                        {openIQubesGroups["iQube Registry"] ? (
+                          <ChevronDown size={12} className="text-gray-500" />
+                        ) : (
+                          <ChevronRight size={12} className="text-gray-500" />
+                        )}
+                      </div>
+                      {openIQubesGroups["iQube Registry"] && (
+                        <ul className="space-y-1">
+                          {section.items.filter(i => IQUBE_REGISTRY_ITEMS.some(ri => ri.href === i.href)).map((item: SidebarItem) => {
+                            const active = pathname ? pathname.startsWith(item.href) : false;
+                            return (
+                              <li key={item.href} className="flex items-center justify-between">
+                                <div className={`flex items-center justify-between w-full ${active ? 'bg-slate-700/50 text-slate-100 rounded-xl' : 'text-slate-500 hover:text-slate-300'}`}>
+                                  <Link href={item.href} className="flex items-center w-full px-3 py-2">
+                                    <div className="flex items-center gap-2">
+                                      <span>{item.icon}</span>
+                                      <span className="text-[13px]">{item.label}</span>
+                                    </div>
+                                  </Link>
+                                </div>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+                    </div>
+                  ) : (
+                    <ul className="space-y-1">
+                      {section.items.map((item: SidebarItem) => {
+                        const active = pathname ? pathname.startsWith(item.href) : false;
+                        const isToggleable = 'toggleable' in item && item.toggleable;
+                        const isItemActive = isToggleable ? toggleStates[item.href] : false;
+                        
+                        return (
+                          <li key={item.href} className="flex items-center justify-between">
+                            <div className={`flex items-center justify-between w-full ${active || isItemActive ? 'bg-slate-700/50 text-slate-100 rounded-xl' : 'text-slate-500 hover:text-slate-300'}`}>
+                              {item.isTextInput ? (
+                                <div className="flex items-center w-full px-3 py-2">
+                                  <div className="flex items-center gap-2 w-full">
+                                    <span>{item.icon}</span>
+                                    <div className="flex w-full relative">
+                                      <input
+                                        type="text"
+                                        value={iQubeId}
+                                        onChange={(e) => {
+                                          const val = e.target.value;
+                                          setIQubeId(val);
+                                          if (val.toLowerCase().includes('template')) {
+                                            setToggleStates(prev => ({ ...prev, '#iqube-template': true, '#iqube-instance': false }));
+                                          } else if (val.trim() !== '') {
+                                            setToggleStates(prev => ({ ...prev, '#iqube-template': false, '#iqube-instance': true }));
+                                          }
+                                          if (storageAvailable) { safeLocalStorage.setItem('iQubeId', val); }
+                                        }}
+                                        onFocus={(e) => e.stopPropagation()}
+                                        onKeyDown={(e) => {
+                                          e.stopPropagation();
+                                          if (e.key === 'Enter' && iQubeId.trim() !== '') { setDrawerType('view'); setDrawerOpen(true); }
+                                        }}
+                                        placeholder="Enter iQube ID"
+                                        className="text-[13px] bg-black/40 border border-gray-700 rounded px-2 py-1 text-white w-full pr-8"
+                                      />
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); if (iQubeId.trim() !== '') { setDrawerType('view'); setDrawerOpen(true); } }}
+                                        className="absolute right-0 top-0 bottom-0 text-blue-400 hover:text-blue-300 px-2 flex items-center justify-center"
+                                        title="View iQube"
+                                      >
+                                        <Eye size={14} />
+                                      </button>
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                            ) : (
-                              <Link
-                                href={item.href}
-                                className="flex items-center w-full px-3 py-2"
-                                onClick={(e) => {
-                                  if (isToggleable) {
+                              ) : (
+                                <Link
+                                  href={item.href}
+                                  className="flex items-center w-full px-3 py-2"
+                                  onClick={(e) => {
+                                    if (isToggleable) {
+                                      const sectionLabel = sections.find(section => 
+                                        section.items.some(i => i.href === item.href)
+                                      )?.label;
+                                      
+                                      if (sectionLabel === "Persona") {
+                                        e.preventDefault();
+                                        handlePersonaClick(item.href);
+                                      } else if (sectionLabel === "iQubes") {
+                                        e.preventDefault();
+                                        handleModelQubeClick(item.href);
+                                      } else if (item.href.startsWith('#iqube-')) {
+                                        e.preventDefault();
+                                        handleIQubeOperationsClick(item.href);
+                                      }
+                                    } else if (item.drawerAction) {
+                                      e.preventDefault();
+                                      setDrawerType(item.drawerAction);
+                                      setDrawerOpen(true);
+                                    }
+                                  }}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <span>{item.icon}</span>
+                                    <span className="text-[13px]">{item.label}</span>
+                                  </div>
+                                </Link>
+                              )}
+                              {isToggleable && (
+                                <button 
+                                  className="p-2"
+                                  onClick={(e) => {
+                                    e.preventDefault();
                                     const sectionLabel = sections.find(section => 
                                       section.items.some(i => i.href === item.href)
                                     )?.label;
-                                    
                                     if (sectionLabel === "Persona") {
-                                      // Prevent navigation for personas
-                                      e.preventDefault();
                                       handlePersonaClick(item.href);
                                     } else if (sectionLabel === "iQubes") {
-                                      e.preventDefault();
                                       handleModelQubeClick(item.href);
-                                    } else if (sectionLabel === "iQube Operations") {
-                                      e.preventDefault();
+                                    } else if (item.href.startsWith('#iqube-')) {
                                       handleIQubeOperationsClick(item.href);
+                                    } else {
+                                      setToggleStates(prev => ({ ...prev, [item.href]: !prev[item.href] }));
                                     }
-                                  } else if (item.drawerAction) {
-                                    e.preventDefault();
-                                    setDrawerType(item.drawerAction);
-                                    setDrawerOpen(true);
-                                  }
-                                }}
-                              >
-                                <div className="flex items-center gap-2">
-                                  <span>{item.icon}</span>
-                                  <span className="text-[13px]">{item.label}</span>
-                                </div>
-                              </Link>
-                            )}
-                            {isToggleable && (
-                            <button 
-                              className="p-2"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                const sectionLabel = sections.find(section => 
-                                  section.items.some(i => i.href === item.href)
-                                )?.label;
-                                if (sectionLabel === "Persona") {
-                                  handlePersonaClick(item.href);
-                                } else if (sectionLabel === "iQubes") {
-                                  handleModelQubeClick(item.href);
-                                } else if (sectionLabel === "iQube Operations") {
-                                  console.log('Toggle button clicked for:', item.href);
-                                  handleIQubeOperationsClick(item.href);
-                                } else {
-                                  setToggleStates(prev => ({
-                                    ...prev,
-                                    [item.href]: !prev[item.href]
-                                  }));
-                                }
-                              }}
-                            >
-                              <div className="mr-2 text-slate-400 hover:text-white transition-colors">
-                                {isItemActive ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
-                              </div>
-                            </button>
-                          )}
-                          </div>
-                        </li>
-                      );
-                    })}
-                </ul>
+                                  }}
+                                >
+                                  <div className="mr-2 text-slate-400 hover:text-white transition-colors">
+                                    {isItemActive ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
+                                  </div>
+                                </button>
+                              )}
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
               )}
               
               {/* Collapsed view for non-Dashboard sections - only show filtered submenu items */}
@@ -1131,7 +1261,7 @@ export const Sidebar = () => {
                                   handlePersonaClick(item.href);
                                 } else if (sectionLabel === "iQubes") {
                                   handleModelQubeClick(item.href);
-                                } else if (sectionLabel === "iQube Operations") {
+                                } else if (item.href.startsWith('#iqube-')) {
                                   e.preventDefault();
                                   console.log('Collapsed view clicked for:', item.href);
                                   handleIQubeOperationsClick(item.href);
