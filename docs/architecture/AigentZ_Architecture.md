@@ -251,9 +251,9 @@ classDiagram
 
 ### 2.4 BlakQube schema vs values
 
-The app can see schema keys/labels (field names) for all metaQubes globally. These are stored in meta_index.blakSchemaKeys and, when available, normalized in blak_schema (labels/types/versions).
+The app can see schema keys/labels (field names) for all metaQubes and their associated blakQubes globally. These are stored in meta_index.blakSchemaKeys and, when available, normalized in blak_schema (labels/types/versions).
 
-Values are never stored in app tables. To read values for an iQube, the caller must present a capability token that names the allowed field_keys for the blakSchemaRef.
+BlakQube values are never stored in app tables. To read values for an iQube's blakQube, the caller must present a capability token that names the allowed field_keys for the blakSchemaRef.
 
 Schema reads are public to the app (for UX/policy). Value reads are scoped by RLS, validated against capability tokens, and audit-logged.
 
