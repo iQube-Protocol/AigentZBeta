@@ -1,0 +1,21 @@
+sequenceDiagram
+  participant UI as External UI
+  participant API as Aigent Z API
+  participant DB as Supabase (RLS)
+  participant TW as Thirdweb (EVM)
+
+  UI->>API: GET /auth/nonce?address=0x..
+  API-->>UI: { nonce }
+  UI->>API: POST /auth/verify {address, signature, nonce}
+  API->>DB: create session, set entitlements
+  API-->>UI: { token, expiresAt }
+
+  UI->>API: GET /entitlements (Bearer token)
+  API->>DB: check RLS policies
+  DB-->>API: scopes
+  API-->>UI: { entitlements }
+
+  UI->>API: GET /iqubes (Bearer token)
+  API->>DB: SELECT * FROM iqubes WHERE owner_user_id = user_id
+  DB-->>API: rows allowed by RLS
+  API-->>UI: user iQubes

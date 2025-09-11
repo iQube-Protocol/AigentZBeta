@@ -1,0 +1,12 @@
+sequenceDiagram
+  participant API as Aigent Z API
+  participant LZ as LayerZero OApp
+  participant EVM1 as EVM Chain A
+  participant EVM2 as EVM Chain B
+
+  API->>LZ: sendMessage(dstChainId, payload=tokenQube intent)
+  LZ->>EVM1: enqueue message
+  LZ-->>EVM2: deliver to destination OApp
+  EVM2-->>LZ: receipt/ack
+  LZ-->>API: status=delivered, txHash
+  API->>DB: UPDATE xchain_status

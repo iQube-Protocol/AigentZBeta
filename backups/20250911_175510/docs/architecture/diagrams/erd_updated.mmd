@@ -1,0 +1,16 @@
+classDiagram
+  class users { uuid id PK; text wallet_address; text fio_handle; timestamptz created_at }
+  class iqubes { uuid id PK; text name; uuid owner_user_id FK; text metaQubeRef; text blakQubeRef; text blakSchemaRef; text tokenQubeRef; text chain; text chain_tx; text status; timestamptz created_at }
+  class meta_index { uuid id PK; text metaQubeId; text chain; text registry_txid; text blakSchemaRef; jsonb blakSchemaKeys; jsonb attributes; timestamptz seen_at }
+  class blak_schema { uuid id PK; text blakSchemaRef; text field_key; text field_label; text field_type; boolean is_public; text version }
+  class capability_tokens { uuid id PK; uuid grantee_user_id FK; text blakSchemaRef; jsonb field_keys; timestamptz expires_at; text grant_proof }
+  class audit_trail { uuid id PK; uuid user_id; text action; jsonb details; timestamptz at }
+  class mem_session { uuid id PK; uuid user_id FK; uuid session_id; jsonb chunks; timestamptz created_at }
+  class mem_customer { uuid id PK; uuid user_id FK; jsonb timeline; timestamptz updated_at }
+  class mem_behavioral { uuid id PK; text subject_hash; jsonb metrics; timestamptz window_start; timestamptz window_end }
+  class account_state { uuid id PK; uuid user_id FK; jsonb subscriptions; jsonb features; jsonb recent_activity }
+  users --> iqubes : owns
+  meta_index --> iqubes : references metaQubeRef
+  blak_schema --> iqubes : by blakSchemaRef
+  capability_tokens --> blak_schema : field access
+  capability_tokens --> users : to user

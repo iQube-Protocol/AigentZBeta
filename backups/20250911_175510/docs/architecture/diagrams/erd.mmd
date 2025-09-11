@@ -1,0 +1,90 @@
+%% Data Model (ERD - simplified)
+classDiagram
+  class users {
+    uuid id PK
+    text wallet_address
+    text fio_handle
+    timestamptz created_at
+  }
+  class agents {
+    uuid id PK
+    text name
+    text owner_user_id FK
+  }
+  class iqubes {
+    uuid id PK
+    text name
+    text owner_user_id FK
+    text metaQubeRef
+    text blakQubeRef
+    text tokenQubeRef
+    text chain_tx
+    text status
+    timestamptz created_at
+  }
+  class access_grants {
+    uuid id PK
+    uuid user_id FK
+    text scope
+    timestamptz expires_at
+  }
+  class payments {
+    uuid id PK
+    uuid user_id FK
+    text status
+    text tx_hash
+    text chain_id
+    numeric amount
+  }
+  class audit_trail {
+    uuid id PK
+    uuid user_id
+    text action
+    jsonb details
+    timestamptz at
+  }
+  class mem_session {
+    uuid id PK
+    uuid user_id FK
+    uuid session_id
+    jsonb chunks
+    timestamptz created_at
+  }
+  class mem_customer {
+    uuid id PK
+    uuid user_id FK
+    jsonb timeline
+    timestamptz updated_at
+  }
+  class mem_behavioral {
+    uuid id PK
+    text subject_hash  // pseudonymous
+    jsonb metrics
+    timestamptz window_start
+    timestamptz window_end
+  }
+  class account_state {
+    uuid id PK
+    uuid user_id FK
+    jsonb subscriptions
+    jsonb features
+    jsonb recent_activity
+  }
+  class meta_index {
+    uuid id PK
+    text metaQubeId
+    text chain
+    text registry_txid
+    jsonb attributes  // public metadata
+    timestamptz seen_at
+  }
+
+  users --> agents : owns
+  users --> iqubes : owns
+  users --> access_grants : has
+  users --> payments : makes
+  users --> mem_session : writes
+  users --> mem_customer : owns
+  users --> account_state : owns
+  mem_behavioral --> users : (optionally link via split-key map)
+  meta_index --> iqubes : references metaQubeRef
