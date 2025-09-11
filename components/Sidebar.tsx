@@ -148,9 +148,9 @@ export const Sidebar = () => {
   const [drawerType, setDrawerType] = useState<"view" | "decrypt" | "mint" | "activate">("view");
   // Nested groups inside iQubes section
   const [openIQubesGroups, setOpenIQubesGroups] = useState<Record<string, boolean>>({
-    "Active iQubes": true,
-    "iQube Operations": true,
-    "iQube Registry": true,
+    "Active iQubes": false,
+    "iQube Operations": false,
+    "iQube Registry": false,
   });
   
   // Track the current path to detect navigation changes
@@ -311,7 +311,7 @@ export const Sidebar = () => {
       
       // Set all states at once to avoid multiple renders
       setCollapsed(sidebarCollapsed);
-      setOpenSections(initialOpenSections);
+      setOpenSections(initialOpenSections || []);
       setToggleStates(initialToggles);
       setShowOnlyActive(initialShowOnlyActive);
       
@@ -320,7 +320,7 @@ export const Sidebar = () => {
     } catch (error) {
       console.error('Error loading sidebar state:', error);
       // Set up defaults if anything goes wrong
-      setOpenSections(sections.map(s => s.label));
+      setOpenSections([]);
       initDefaultToggleStates();
       initDefaultShowOnlyActive();
       setInitialized(true);
@@ -508,34 +508,10 @@ export const Sidebar = () => {
     }
   }, [pathname, previousPath, openSections, toggleStates]);
   
-  // Effect to handle path-based section opening (only for navigation)
+  // Effect to handle path-based section opening (disabled to keep default collapsed)
   useEffect(() => {
     if (!initialized || !isClient || !pathname) return;
-    
-    // Only open sections based on current path, not toggle states
-    let currentPathSection = "";
-    
-    // Find which section contains the current path
-    for (const section of sections) {
-      for (const item of section.items) {
-        if (pathname.startsWith(item.href)) {
-          currentPathSection = section.label;
-          break;
-        }
-      }
-      if (currentPathSection) break;
-    }
-    
-    // Only open the section for the current path if it's not already open
-    if (currentPathSection && !openSections.includes(currentPathSection)) {
-      setOpenSections(prev => {
-        const newSections = [...prev, currentPathSection];
-        if (storageAvailable) {
-          safeLocalStorage.setItem('openSections', JSON.stringify(newSections));
-        }
-        return newSections;
-      });
-    }
+    // Intentionally do not auto-expand any sections on navigation to honor the default-collapsed requirement
   }, [pathname, initialized, isClient, sections, storageAvailable]);
   
   // Separate effect to save toggle states without affecting section expansion

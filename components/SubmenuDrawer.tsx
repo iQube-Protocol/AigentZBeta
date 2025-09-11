@@ -127,6 +127,9 @@ export const SubmenuDrawer = ({
   const [isMetaEditMode, setIsMetaEditMode] = useState(false);
   const [isEditingMetaQube, setIsEditingMetaQube] = useState(false);
   const [isBlakEditMode, setIsBlakEditMode] = useState(false);
+  // Registry-backed metadata
+  const [provenance, setProvenance] = useState<number>(0);
+  const [versionStr, setVersionStr] = useState<string>('1.0');
   
   // Collapse state for MetaQube and BlakQube panels
   const [isMetaQubeCollapsed, setIsMetaQubeCollapsed] = useState(false);
@@ -548,6 +551,22 @@ export const SubmenuDrawer = ({
       } else if (iQubeId.toLowerCase().includes('agent')) {
         setIQubeType('AgentQube');
       }
+
+      // Attempt to hydrate provenance/version from API when id looks like a UUID
+      const uuidLike = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(iQubeId);
+      if (uuidLike) {
+        fetch(`/api/registry/templates/${iQubeId}`)
+          .then(async (res) => {
+            if (!res.ok) return;
+            const data = await res.json();
+            if (typeof data?.provenance === 'number') setProvenance(data.provenance);
+            if (typeof data?.version === 'string') setVersionStr(data.version);
+          })
+          .catch(() => {});
+      } else {
+        setProvenance(0);
+        setVersionStr('1.0');
+      }
     }
   }, [isOpen, iQubeId]);
   
@@ -681,32 +700,25 @@ export const SubmenuDrawer = ({
     );
   };
   
-  // Enhanced Score indicator component with 1-10 scale
+  // Enhanced Score indicator component using 1-10 scale and 5-dot display
   const EnhancedScoreIndicator = ({ 
     value, 
-    maxValue = 5, 
     type, 
     size = 'medium'
   }: { 
     value: number; 
-    maxValue?: number; 
     type: string; 
     size?: 'small' | 'medium' | 'large'
   }) => {
-    // Ensure value is between 1 and maxValue
-    const normalizedValue = Math.max(1, Math.min(maxValue, value));
-  
-    // Convert to 5-dot scale
-    const dotCount = Math.ceil((normalizedValue / maxValue) * 5);
-    
+    // Clamp to 0-10 domain expected by the iQube Protocol
+    const v = Math.max(0, Math.min(10, Number(value) || 0));
+    // 5-dot display: each dot ~= 2 points
+    const dotCount = Math.round(v / 2);
     return (
       <div className={`flex items-center gap-1 relative group ${size === 'small' ? 'scale-90' : size === 'large' ? 'scale-110' : ''}`}>
         {[...Array(5)].map((_, i) => {
-          // Get appropriate color for each dot based on score type and position
-          const dotColor = i < dotCount ? getScoreColor(normalizedValue, type) : 'bg-gray-600';
-          return (
-            <div key={`dot-${i}`} className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />
-          );
+          const dotColor = i < dotCount ? getScoreColor(v, type) : 'bg-gray-600';
+          return <div key={`dot-${i}`} className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />;
         })}
       </div>
     );
@@ -1333,6 +1345,24 @@ export const SubmenuDrawer = ({
                         </div>
                         <span className="text-gray-300 text-[12px]">1.0</span>
                       </div>
+                      <div className="flex justify-between items-center group relative">
+                        <div className="flex items-center gap-1 group relative">
+                          <span className="text-[13px] text-slate-400 cursor-help">Provenance:</span>
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[400px]">
+                            Number of fork generations from the original template
+                          </div>
+                        </div>
+                        <span className="text-gray-300 text-[12px]">{provenance ?? 0}</span>
+                      </div>
+                      <div className="flex justify-between items-center group relative">
+                        <div className="flex items-center gap-1 group relative">
+                          <span className="text-[13px] text-slate-400 cursor-help">Provenance:</span>
+                          <div className="absolute z-50 hidden group-hover:block bottom-full left-0 mb-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-normal text-xs max-w-[400px]">
+                            Number of fork generations from the original template
+                          </div>
+                        </div>
+                        <span className="text-gray-300 text-[12px]">{provenance ?? 0}</span>
+                      </div>
                     </div>
                   </div>
 
@@ -1385,16 +1415,6 @@ export const SubmenuDrawer = ({
                           />
                         </div>
                         
-                        {/* Risk */}
-                        <div className="flex flex-col items-center gap-1 group relative">
-                          <div className="text-[10px] text-slate-400 mb-1">Risk</div>
-                          <EnhancedScoreIndicator 
-                            value={compositeScores.riskScore}
-                            type="risk"
-                            size="small"
-                          />
-                        </div>
-                        
                         {/* Accuracy */}
                         <div className="flex flex-col items-center gap-1 group relative">
                           <div className="text-[10px] text-slate-400 mb-1">Accuracy</div>
@@ -1411,6 +1431,16 @@ export const SubmenuDrawer = ({
                           <EnhancedScoreIndicator 
                             value={compositeScores.verifiabilityScore}
                             type="verifiability"
+                            size="small"
+                          />
+                        </div>
+                        
+                        {/* Risk */}
+                        <div className="flex flex-col items-center gap-1 group relative">
+                          <div className="text-[10px] text-slate-400 mb-1">Risk</div>
+                          <EnhancedScoreIndicator 
+                            value={compositeScores.riskScore}
+                            type="risk"
                             size="small"
                           />
                         </div>
@@ -1587,19 +1617,6 @@ export const SubmenuDrawer = ({
                         </div>
                       </div>
                       
-                      {/* Risk */}
-                      <div className="flex flex-col items-center gap-1 group relative">
-                        <div className="text-[10px] text-slate-400 mb-1">Risk</div>
-                        <EnhancedScoreIndicator 
-                          value={compositeScores.riskScore}
-                          type="risk"
-                          size="small"
-                        />
-                        <div className="absolute z-50 hidden group-hover:block top-full mt-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap text-xs">
-                          Risk assessment level
-                        </div>
-                      </div>
-                      
                       {/* Accuracy */}
                       <div className="flex flex-col items-center gap-1 group relative">
                         <div className="text-[10px] text-slate-400 mb-1">Accuracy</div>
@@ -1623,6 +1640,19 @@ export const SubmenuDrawer = ({
                         />
                         <div className="absolute z-50 hidden group-hover:block top-full mt-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap text-xs">
                           Data verifiability level
+                        </div>
+                      </div>
+                      
+                      {/* Risk */}
+                      <div className="flex flex-col items-center gap-1 group relative">
+                        <div className="text-[10px] text-slate-400 mb-1">Risk</div>
+                        <EnhancedScoreIndicator 
+                          value={compositeScores.riskScore}
+                          type="risk"
+                          size="small"
+                        />
+                        <div className="absolute z-50 hidden group-hover:block top-full mt-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap text-xs">
+                          Risk assessment level
                         </div>
                       </div>
                     </div>
@@ -1942,19 +1972,6 @@ export const SubmenuDrawer = ({
                           </div>
                         </div>
                         
-                        {/* Risk */}
-                        <div className="flex flex-col items-center gap-1 group relative">
-                          <div className="text-[10px] text-slate-400 mb-1">Risk</div>
-                          <EnhancedScoreIndicator 
-                            value={compositeScores.riskScore}
-                            type="risk"
-                            size="small"
-                          />
-                          <div className="absolute z-50 hidden group-hover:block top-full mt-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap text-xs">
-                            Risk assessment level
-                          </div>
-                        </div>
-                        
                         {/* Accuracy */}
                         <div className="flex flex-col items-center gap-1 group relative">
                           <div className="text-[10px] text-slate-400 mb-1">Accuracy</div>
@@ -1978,6 +1995,19 @@ export const SubmenuDrawer = ({
                           />
                           <div className="absolute z-50 hidden group-hover:block top-full mt-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap text-xs">
                             Data verifiability level
+                          </div>
+                        </div>
+                        
+                        {/* Risk */}
+                        <div className="flex flex-col items-center gap-1 group relative">
+                          <div className="text-[10px] text-slate-400 mb-1">Risk</div>
+                          <EnhancedScoreIndicator 
+                            value={compositeScores.riskScore}
+                            type="risk"
+                            size="small"
+                          />
+                          <div className="absolute z-50 hidden group-hover:block top-full mt-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap text-xs">
+                            Risk assessment level
                           </div>
                         </div>
                       </div>
@@ -2537,19 +2567,6 @@ export const SubmenuDrawer = ({
                         </div>
                       </div>
                       
-                      {/* Risk */}
-                      <div className="flex flex-col items-center gap-1 group relative">
-                        <div className="text-[10px] text-slate-400 mb-1">Risk</div>
-                        <EnhancedScoreIndicator 
-                          value={compositeScores.riskScore}
-                          type="risk"
-                          size="small"
-                        />
-                        <div className="absolute z-50 hidden group-hover:block top-full mt-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap text-xs">
-                          Risk assessment level
-                        </div>
-                      </div>
-                      
                       {/* Accuracy */}
                       <div className="flex flex-col items-center gap-1 group relative">
                         <div className="text-[10px] text-slate-400 mb-1">Accuracy</div>
@@ -2573,6 +2590,19 @@ export const SubmenuDrawer = ({
                         />
                         <div className="absolute z-50 hidden group-hover:block top-full mt-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap text-xs">
                           Data verifiability level
+                        </div>
+                      </div>
+                      
+                      {/* Risk */}
+                      <div className="flex flex-col items-center gap-1 group relative">
+                        <div className="text-[10px] text-slate-400 mb-1">Risk</div>
+                        <EnhancedScoreIndicator 
+                          value={compositeScores.riskScore}
+                          type="risk"
+                          size="small"
+                        />
+                        <div className="absolute z-50 hidden group-hover:block top-full mt-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap text-xs">
+                          Risk assessment level
                         </div>
                       </div>
                     </div>
@@ -2808,19 +2838,6 @@ export const SubmenuDrawer = ({
                         </div>
                       </div>
                       
-                      {/* Risk */}
-                      <div className="flex flex-col items-center gap-1 group relative">
-                        <div className="text-[10px] text-slate-400 mb-1">Risk</div>
-                        <EnhancedScoreIndicator 
-                          value={compositeScores.riskScore}
-                          type="risk"
-                          size="small"
-                        />
-                        <div className="absolute z-50 hidden group-hover:block top-full mt-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap text-xs">
-                          Risk assessment level
-                        </div>
-                      </div>
-                      
                       {/* Accuracy */}
                       <div className="flex flex-col items-center gap-1 group relative">
                         <div className="text-[10px] text-slate-400 mb-1">Accuracy</div>
@@ -2844,6 +2861,19 @@ export const SubmenuDrawer = ({
                         />
                         <div className="absolute z-50 hidden group-hover:block top-full mt-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap text-xs">
                           Data verifiability level
+                        </div>
+                      </div>
+                      
+                      {/* Risk */}
+                      <div className="flex flex-col items-center gap-1 group relative">
+                        <div className="text-[10px] text-slate-400 mb-1">Risk</div>
+                        <EnhancedScoreIndicator 
+                          value={compositeScores.riskScore}
+                          type="risk"
+                          size="small"
+                        />
+                        <div className="absolute z-50 hidden group-hover:block top-full mt-2 p-2 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap text-xs">
+                          Risk assessment level
                         </div>
                       </div>
                     </div>
