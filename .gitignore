@@ -87,3 +87,6 @@ secrets/
 
 # Next.js
 .next/
+
+# Ignore nested project copy if present
+AigentZBeta/
