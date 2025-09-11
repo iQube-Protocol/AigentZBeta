@@ -1,0 +1,113 @@
+{
+  "info": {
+    "name": "Aigent Z Beta (BlakSchema update)",
+    "_postman_id": "11111111-1111-1111-1111-111111111111",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Get blak schema (keys/labels)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/iqubes/{{id}}/blak/schema",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "iqubes",
+            ":id",
+            "blak",
+            "schema"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get blak values (with capability)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/iqubes/{{id}}/blak/values?fields=email&fields=plan",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "iqubes",
+            ":id",
+            "blak",
+            "values"
+          ],
+          "query": [
+            {
+              "key": "fields",
+              "value": "email"
+            },
+            {
+              "key": "fields",
+              "value": "plan"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Mint iQube (EVM/LZ or ICP/BTC)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"chain\": \"evm\", \"dstChainId\": 10161, \"type\": \"instance\", \"meta\": {\"name\": \"demo\"}}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/iqubes/mint",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "iqubes",
+            "mint"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Grant capability for fields",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"granteeUserId\": \"<uuid>\", \"blakSchemaRef\": \"blakschema:abc\", \"fieldKeys\": [\"email\", \"plan\"], \"expiresAt\": \"2030-01-01T00:00:00Z\"}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/capabilities/grant",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "capabilities",
+            "grant"
+          ]
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000"
+    }
+  ]
+}

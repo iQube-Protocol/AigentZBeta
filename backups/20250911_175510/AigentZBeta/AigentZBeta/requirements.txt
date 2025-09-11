@@ -1,0 +1,50 @@
+# Core AI and Agent Framework
+transformers
+click
+pyyaml
+
+# AI and Reasoning Dependencies
+langchain>=0.1.0,<0.2.0
+langchain-openai>=0.0.2
+langchain-core>=0.1.0,<0.4.0
+openai>=1.58.1
+tiktoken>=0.8.0
+
+# Blockchain and Web3 Interactions
+# Web3 and Blockchain Integration
+web3==7.6.1
+eth-account>=0.8.0
+eth-typing
+eth-utils
+
+# Cryptography and Security
+cryptography==44.0.0
+python-jose
+pycryptodome>=3.19.0
+
+# Storage and Content Management
+ipfshttpclient
+python-magic
+
+# Utility and Helper Libraries
+python-dotenv==1.0.0
+requests==2.32.3
+aiohttp
+Flask==2.0.1
+Werkzeug==2.0.1
+gunicorn==21.2.0
+Pillow==10.1.0
+
+# Development and Testing
+pytest==7.4.3
+pytest-mock
+mypy
+black
+flake8
+coverage
+
+# Logging and Monitoring
+structlog
+
+# Machine Learning Dependencies
+numpy

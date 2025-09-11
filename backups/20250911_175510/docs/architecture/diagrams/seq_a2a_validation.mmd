@@ -1,0 +1,13 @@
+sequenceDiagram
+  participant Ext as External Agent
+  participant API as Aigent Z API (A2A)
+  participant REG as ERC-8004 Identity
+  participant DB as Supabase (audit)
+
+  Ext->>API: POST /a2a/delegate { capability, params, sig }
+  API->>REG: verify agent identity on-chain
+  REG-->>API: identity metadata
+  API->>Ext: 202 Accepted (task id)
+  Ext->>API: POST /a2a/submit-validation { result, evidenceUri, sig }
+  API->>DB: INSERT audit_trail (validation event)
+  API-->>Ext: 201 Created

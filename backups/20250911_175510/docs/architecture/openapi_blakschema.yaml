@@ -1,0 +1,81 @@
+openapi: 3.0.3
+info:
+  title: Aigent Z Beta API
+  version: 1.1.1-alpha
+  description: >
+    Update: blakQube schema field keys/labels (not crypto keys). Direct chain writes preserved.
+servers: [{ url: http://localhost:8000, description: Local dev }]
+tags: [{name:iQubes},{name:BlakSchema},{name:Capabilities},{name:Chains}]
+paths:
+  /iqubes/mint:
+    post:
+      tags: [iQubes, Chains]
+      summary: Mint an iQube directly on chain (EVM/LayerZero or ICP/BTC dual-lock)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MintIqubeRequest' }
+      responses:
+        "202": { description: Mint accepted, content: { application/json: { schema: { $ref: '#/components/schemas/MintIqubeResponse' } } } }
+  /iqubes/{id}/blak/schema:
+    get:
+      tags: [BlakSchema]
+      summary: Get blakQube schema (field keys/labels/types) for an iQube
+      parameters: [{ in: path, name: id, required: true, schema: { type: string } }]
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/BlakField' } } } } }
+  /iqubes/{id}/blak/values:
+    get:
+      tags: [BlakSchema, Capabilities]
+      summary: Get blakQube field values for allowed fields
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+        - in: query
+          name: fields
+          required: true
+          schema: { type: array, items: { type: string }, example: ["email","plan"] }
+          style: form
+          explode: true
+      responses:
+        "200": { description: Values for allowed fields only, content: { application/json: { schema: { type: object, additionalProperties: true } } } }
+  /capabilities/grant:
+    post:
+      tags: [Capabilities]
+      summary: Grant a capability token for specific blakQube fields
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CapabilityGrantRequest' } } } }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/CapabilityGrant' } } } }
+components:
+  schemas:
+    MintIqubeRequest:
+      type: object
+      required: [chain, meta]
+      properties:
+        chain: { type: string, enum: [evm, icp-btc] }
+        meta: { type: object, additionalProperties: true }
+        dstChainId: { type: integer, description: Optional LayerZero destination chain id }
+        type: { type: string, enum: [template, instance], default: instance }
+    MintIqubeResponse:
+      type: object
+      properties: { id: {type:string}, chain: {type:string}, txHash: {type:string}, status: {type:string} }
+    BlakField:
+      type: object
+      properties: { fieldKey: {type:string}, fieldLabel: {type:string}, fieldType: {type:string}, version: {type:string} }
+    CapabilityGrantRequest:
+      type: object
+      required: [granteeUserId, blakSchemaRef, fieldKeys, expiresAt]
+      properties:
+        granteeUserId: { type: string }
+        blakSchemaRef: { type: string }
+        fieldKeys: { type: array, items: { type: string } }
+        expiresAt: { type: string, format: date-time }
+    CapabilityGrant:
+      type: object
+      properties:
+        id: { type: string }
+        granteeUserId: { type: string }
+        blakSchemaRef: { type: string }
+        fieldKeys: { type: array, items: { type: string } }
+        expiresAt: { type: string, format: date-time }
+        grantProof: { type: string }

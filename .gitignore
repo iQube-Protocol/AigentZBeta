@@ -84,3 +84,9 @@ secrets/
 .flaskenv
 *.p12
 *.pfx
+
+# Next.js
+.next/
+
+# Ignore nested project copy if present
+AigentZBeta/

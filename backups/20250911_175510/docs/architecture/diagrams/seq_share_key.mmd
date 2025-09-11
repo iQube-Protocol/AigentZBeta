@@ -1,0 +1,13 @@
+sequenceDiagram
+  participant Owner as Data Owner
+  participant API as Aigent Z API
+  participant DB as Supabase
+  participant Grantee as Another User/App
+
+  Owner->>API: POST /capabilities/grant { blakKeyRef, scope, expiresAt }
+  API->>DB: INSERT capability_tokens(grantee, blakKeyRef, scope, expiresAt, grant_proof)
+  API-->>Owner: 201 Created {capId}
+  Grantee->>API: GET /iqubes/{id}/blak/keys (with token)
+  API->>DB: validate capability token + RLS
+  DB-->>API: key metadata (no values)
+  API-->>Grantee: keys list

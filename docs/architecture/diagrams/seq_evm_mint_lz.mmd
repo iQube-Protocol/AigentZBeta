@@ -1,0 +1,18 @@
+sequenceDiagram
+  participant UI as External UI
+  participant API as Aigent Z API
+  participant EVM as EVM Contract Client
+  participant LZ as LayerZero
+  participant DB as Supabase
+  UI->>API: POST /iqubes/mint {chain:"evm", dstChainId, metadataUri, type:"instance"}
+  API->>EVM: call Registry.mint(metadataUri)
+  EVM-->>API: txHash
+  alt designated chain
+    API->>LZ: sendMessage(dstChainId, payload=attachTokenQube(txHash))
+    LZ-->>API: delivered {lzTx}
+  end
+  API->>DB: INSERT iqubes(metaQubeRef, blakQubeRef, blakSchemaRef, tokenQubeRef, chain, chain_tx, status:"minting")
+  API-->>UI: { id, txHash, status:"minting" }
+  EVM-->>API: event Confirmed(metaQubeId)
+  API->>DB: UPDATE iqubes SET status:"active", metaQubeRef:metaQubeId
+  API-->>UI: { id, status:"active" }
