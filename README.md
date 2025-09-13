@@ -327,6 +327,7 @@ For a deeper operator guide, see `docs/OPERATORS_MANUAL.md`.
 ### iQube Operations
 
 #### Core Operations
+
 - **View Mode**: Browse and inspect iQube metadata and structure
 - **Use Mode**: Populate iQube instances from templates with controlled editing
 - **Edit Mode**: Full template editing with dynamic field management
@@ -335,6 +336,7 @@ For a deeper operator guide, see `docs/OPERATORS_MANUAL.md`.
 - **Activate Mode**: Activate existing iQube instances with secure codes
 
 #### Enhanced UI Features
+
 - **Multi-Mode Tab Navigation**: Color-coded tabs with ARIA accessibility compliance
 - **Dynamic Template Management**: Instance counting and version control
 - **Smart Field Validation**: Real-time validation with visual feedback
@@ -342,6 +344,7 @@ For a deeper operator guide, see `docs/OPERATORS_MANUAL.md`.
 - **Responsive Design**: Optimized for various screen sizes with dark theme
 
 #### Template & Instance Management
+
 - **Template Creation**: Build reusable iQube templates with custom fields
 - **Instance Generation**: Create numbered instances from templates (e.g., "3 of 21")
 - **Version Control**: Automatic version incrementing for template updates
@@ -381,13 +384,15 @@ For a deeper operator guide, see `docs/OPERATORS_MANUAL.md`.
 
 **Problem**: Registry API returns "Supabase env not configured" despite environment variables being set.
 
-**Root Cause**: 
+**Root Cause**:
 - Next.js API routes (server-side) cannot access `NEXT_PUBLIC_` prefixed environment variables
 - Environment variable naming mismatch between client and server code
 - Corrupted `.env.local` file formatting
 
 **Solution**:
+
 1. Ensure both prefixed and non-prefixed Supabase variables are in `.env.local`:
+
    ```env
    # Server-side (for API routes)
    SUPABASE_URL=your_supabase_project_url
@@ -407,6 +412,7 @@ For a deeper operator guide, see `docs/OPERATORS_MANUAL.md`.
 **Problem**: Old application version loading or connection refused errors.
 
 **Solution**:
+
 1. Kill any processes on the target port: `lsof -ti tcp:3001 | xargs -r kill -9`
 2. Clean build artifacts: `rm -rf .next node_modules/.cache`
 3. Reinstall dependencies: `npm install`
@@ -415,9 +421,45 @@ For a deeper operator guide, see `docs/OPERATORS_MANUAL.md`.
 #### Environment Variable Debugging
 
 To verify environment variables are loaded correctly:
+
 ```bash
 node -e "console.log('SUPABASE_URL:', process.env.SUPABASE_URL ? 'SET' : 'NOT SET')"
 ```
+
+## Restore from Backup
+
+A full local backup system is included to prevent data loss and make restores easy.
+
+Backups live under `backups/` and include a compressed tarball of the entire working tree plus a snapshot directory. The `backups/` directory is ignored by git.
+
+Use the helper script to restore the latest or a specific backup without overwriting your current working tree.
+
+```bash
+# Restore latest backup, install deps, and start on port 3001
+./scripts/restore_from_backup.sh --install --start --port 3001
+
+# Restore a specific backup timestamp to a custom directory (no install/start)
+./scripts/restore_from_backup.sh --backup 20250912_203828 --dir /tmp/AigentZBeta_restore
+```
+
+Flags:
+
+- `--backup <YYYYmmdd_HHMMSS>`: choose a specific backup folder
+- `--dir <path>`: restore destination (defaults to `restore/<timestamp>`)
+- `--install`: run `npm install` after extraction
+- `--start`: run the dev server after extraction
+- `--port <PORT>`: dev server port (default 3001)
+
+Notes:
+
+- Tarballs include `.next/` and `node_modules/` for fast startup. Running `npm install` is still recommended for native modules.
+- The script extracts to a new directory and does not modify your current working tree.
+
+## Project Progress Report
+
+For a comprehensive, program-ready report covering inception to current status, completed work, issues encountered and resolutions, and the forward-looking backlog and two-week plan, see:
+
+- `docs/PROGRESS_REPORT.md`
 
 ## Contact
 

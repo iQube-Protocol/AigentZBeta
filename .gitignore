@@ -90,3 +90,6 @@ secrets/
 
 # Ignore nested project copy if present
 AigentZBeta/
+
+# Local backups (tarballs and snapshots)
+backups/
