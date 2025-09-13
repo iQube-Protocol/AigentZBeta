@@ -21,6 +21,7 @@ export interface IQubeTemplateCardProps {
   onEdit?: (id: string) => void;
   onAddToCart?: (id: string) => void;
   onDelete?: (id: string) => void;
+  visibility?: 'public' | 'private';
 }
 
 
@@ -42,6 +43,7 @@ export const IQubeCard: React.FC<IQubeTemplateCardProps> = ({
   onEdit,
   onAddToCart,
   onDelete,
+  visibility,
 }) => {
   const formatUSD = (v: number) => `$${v.toFixed(2)}`;
   // Fixed conversion: $0.01 = 10 sats => $1 = 1000 sats
@@ -63,44 +65,57 @@ export const IQubeCard: React.FC<IQubeTemplateCardProps> = ({
   return (
     <div className="text-left w-full rounded-2xl p-5 bg-white/5 ring-1 ring-white/10 hover:bg-white/10 transition focus-within:ring-2 focus-within:ring-indigo-500">
       <div className="flex items-center justify-between">
-        <div className="text-sm text-slate-400">{iQubeInstanceType ? (iQubeInstanceType === 'template' ? 'Template' : 'Instance') : 'Template'}</div>
+        {/* Top badges: Instance Type + State badge */}
+        <div className="flex items-center gap-2">
+          {iQubeInstanceType && (
+            <span title="Instance Type" className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] bg-sky-500/20 text-sky-300 ring-1 ring-sky-500/30 capitalize">{iQubeInstanceType}</span>
+          )}
+          {(() => {
+            // State badge logic: Library takes precedence over Registry state
+            const inLibrary = typeof window !== 'undefined' && localStorage.getItem(`library_${id}`) === '1';
+            if (inLibrary) {
+              return <span title="Saved to your Private Library (visible only to you)" className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] bg-blue-500/20 text-blue-300 ring-1 ring-blue-500/30">Library (Private)</span>;
+            }
+            if (visibility === 'public') {
+              return <span title="Publicly available on the Registry" className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/30">Registry (Public)</span>;
+            }
+            if (visibility === 'private') {
+              return <span title="Privately minted on the Registry" className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] bg-purple-500/20 text-purple-300 ring-1 ring-purple-500/30">Registry (Private)</span>;
+            }
+            // Fallbacks
+            if (minted) {
+              return <span title="Minted (assumed Public)" className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/30">Registry (Public)</span>;
+            }
+            return null;
+          })()}
+        </div>
         {instanceCount !== undefined && (
           <div className="text-[12px] text-slate-400">{instanceCount} instances</div>
         )}
       </div>
       <div className="text-lg font-medium">{name}</div>
-      {/* Badges + Price + Provenance + Status */}
+      {/* Badges + Provenance + Price */}
       <div className="mt-2 flex items-center justify-between gap-2">
         <div className="flex flex-wrap gap-2">
           {iQubeType && (
             <span title="iQube Type" className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] bg-indigo-500/20 text-indigo-300 ring-1 ring-indigo-500/30">{iQubeType}</span>
           )}
-          {iQubeInstanceType && (
-            <span title="Instance Type" className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] bg-sky-500/20 text-sky-300 ring-1 ring-sky-500/30 capitalize">{iQubeInstanceType}</span>
-          )}
           {businessModel && (
             <span title="Business Model" className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/30">{businessModel}</span>
           )}
           <span title="Provenance depth (fork generations from origin)" className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] bg-slate-500/20 text-slate-300 ring-1 ring-slate-500/30">Prov {(typeof provenance === 'number' && provenance >= 0) ? provenance : 0}</span>
-          {minted ? (
-            <span title="Minted (published to registry)" className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/30">Minted</span>
-          ) : (
-            <span title="Draft saved privately" className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] bg-slate-500/20 text-slate-300 ring-1 ring-slate-500/30">Private</span>
-          )}
-          {activeRegistry && (
-            <span title="Active in registry" className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] bg-purple-500/20 text-purple-300 ring-1 ring-purple-500/30">Active</span>
-          )}
-          {activePrivate && !activeRegistry && (
-            <span title="Active in your instance" className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] bg-blue-500/20 text-blue-300 ring-1 ring-blue-500/30">Active (Private)</span>
-          )}
+          {/* Price badge (USD) */}
+          {(() => {
+            const p = Number(price);
+            if (Number.isFinite(p)) {
+              return (
+                <span title="Price (USD)" className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/30">{formatUSD(p)}</span>
+              );
+            }
+            return null;
+          })()}
         </div>
-        {typeof price === 'number' && !Number.isNaN(price) && (
-          <div className="text-xs text-slate-200/90" title="Quoted using fixed rate: $1 = 1000 sats">
-            <span className="font-medium">{formatSats(toSats(price))}</span>
-            <span className="mx-1 text-slate-400">·</span>
-            <span>{formatUSD(price)}</span>
-          </div>
-        )}
+        {/* Right side price display removed in favor of price badge */}
       </div>
       <p className="mt-2 text-slate-300 text-sm line-clamp-2">{description}</p>
 

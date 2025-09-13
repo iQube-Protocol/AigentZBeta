@@ -742,6 +742,21 @@ export const Sidebar = () => {
   
   // Function to handle navigation to agent page with persona as query parameter
   const navigateToAgentWithPersona = (personaHref: string) => {
+    // Derive agent and persona context locally for this function scope
+    const agentHrefs: string[] = sections
+      .find(section => section.label === "Orchestrator")
+      ?.items.map(item => item.href) || [];
+
+    const genericAiHref = agentHrefs.find(h => h.includes('/aigents/generic-ai')) || '';
+
+    // Extract persona name if present as a query (e.g., /aigents/generic-ai?iqube=metaMe)
+    let personaName: string | null = null;
+    try {
+      const q = personaHref.split('?')[1] || '';
+      const params = new URLSearchParams(q);
+      personaName = params.get('iqube');
+    } catch {}
+
     // Find active non-Generic AI agent (if any)
     const activeNonGenericAgent = agentHrefs.find(agentHref => 
       toggleStates[agentHref] && !agentHref.includes('/aigents/generic-ai'));

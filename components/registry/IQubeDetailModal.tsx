@@ -18,6 +18,9 @@ export const IQubeDetailModal: React.FC<IQubeDetailModalProps> = ({ templateId, 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const router = useRouter();
   const { toast } = useToast();
+  // Mint notice state
+  const [mintPromptOpen, setMintPromptOpen] = useState(false);
+  const [mintChoice, setMintChoice] = useState<'public' | 'private'>('public');
   // Local helper flags until user accounts/backends are wired
   const isMinted = (tid: string) => {
     if (typeof window === 'undefined') return false;
@@ -41,6 +44,11 @@ export const IQubeDetailModal: React.FC<IQubeDetailModalProps> = ({ templateId, 
     if (typeof window === 'undefined') return;
     const key = scope === 'registry' ? `active_registry_${tid}` : `active_private_${tid}`;
     localStorage.setItem(key, '1');
+  };
+
+  const isActivePrivate = (tid: string) => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem(`active_private_${tid}`) === '1';
   };
 
   // ----- BlakQube mock schema helpers -----
@@ -104,6 +112,8 @@ export const IQubeDetailModal: React.FC<IQubeDetailModalProps> = ({ templateId, 
   }
   const [isDecrypted, setIsDecrypted] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
+  const [isMinting, setIsMinting] = useState(false);
+  const [canShowMint, setCanShowMint] = useState(false);
   const [bqEditFields, setBqEditFields] = useState<BQField[]>([]);
   const metaExtras = useMemo(() => getMetaExtras(), []);
   // Editable meta extras (Edit mode only; UI state for now)
@@ -201,6 +211,26 @@ export const IQubeDetailModal: React.FC<IQubeDetailModalProps> = ({ templateId, 
     return () => { mounted = false; };
   }, [templateId]);
 
+  // Compute Mint button visibility client-side only to avoid hydration mismatch
+  useEffect(() => {
+    try {
+      if (!template) { setCanShowMint(!!edit); return; }
+      const currentUserId = 'temp-user-id'; // TODO: wire real auth
+      const ownerByFlag = isOwner(templateId);
+      const ownerByRecord = !!template?.userId && template.userId === currentUserId;
+      const treatUnownedAsMine = !template?.userId; // temporary fallback
+      const mintedServer = template && (template.visibility === 'public' || template.visibility === 'private');
+      // IMPORTANT: Ignore local minted flag to avoid stale client-only state hiding Mint
+      const mintedEffective = !!mintedServer;
+      const inLibrary = typeof window !== 'undefined' && localStorage.getItem(`library_${templateId}`) === '1';
+      const canMintView = !edit && !mintedEffective && (ownerByFlag || ownerByRecord || treatUnownedAsMine || inLibrary);
+      const show = !!edit || canMintView;
+      setCanShowMint(show);
+    } catch {
+      setCanShowMint(!!edit);
+    }
+  }, [edit, template, templateId]);
+
   const Dots: React.FC<{ value: number; color: string; title: string }> = ({ value, color, title }) => {
     const v = Math.max(0, Math.min(10, Number(value) || 0));
     const filled = Math.round(v / 2);
@@ -226,6 +256,8 @@ export const IQubeDetailModal: React.FC<IQubeDetailModalProps> = ({ templateId, 
       return 'text-green-400';
     }
   }
+
+  // ... (rest of the code remains the same)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -570,7 +602,7 @@ export const IQubeDetailModal: React.FC<IQubeDetailModalProps> = ({ templateId, 
                   <div className="text-sm text-slate-400">Additional MetaQube Records</div>
                   <button
                     className="px-2.5 py-1 text-xs rounded-lg border border-white/20 text-slate-200 hover:text-white hover:bg-white/10"
-                    onClick={() => setMetaEditRows(prev => [...prev, { k: 'New Record', v: '' }])}
+                    onClick={() => setMetaEditRows(prev => prev.length ? [...prev, { k: 'New Record', v: '' }] : [...metaExtras, { k: 'New Record', v: '' }])}
                   >
                     + Add Row
                   </button>
@@ -618,6 +650,34 @@ export const IQubeDetailModal: React.FC<IQubeDetailModalProps> = ({ templateId, 
                       </button>
                     </div>
                   ))}
+                  
+                  {/* Public/Private Visibility Setting */}
+                  <div className="mt-4 p-3 bg-black/30 rounded-lg border border-white/10">
+                    <div className="text-sm text-slate-300 mb-2">Registry Visibility</div>
+                    <div className="flex gap-3">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="visibility"
+                          value="public"
+                          defaultChecked
+                          className="text-emerald-500 focus:ring-emerald-500"
+                        />
+                        <span className="text-sm text-slate-200">Public</span>
+                        <span className="text-xs text-slate-400">(Visible to all users)</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="visibility"
+                          value="private"
+                          className="text-purple-500 focus:ring-purple-500"
+                        />
+                        <span className="text-sm text-slate-200">Private</span>
+                        <span className="text-xs text-slate-400">(Only visible to you)</span>
+                      </label>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -690,12 +750,14 @@ export const IQubeDetailModal: React.FC<IQubeDetailModalProps> = ({ templateId, 
 
         {/* Footer (sticky at bottom of modal) */}
         <div className="mt-6 flex items-center justify-end gap-2">
+          {/* Close */}
           <button
             className="px-3 py-1.5 text-sm rounded-lg border border-white/10 text-slate-300 hover:text-white hover:bg-white/10"
             onClick={onClose}
           >
             Close
           </button>
+          {/* Fork Template (first action) */}
           <button
             className="px-3 py-1.5 text-sm rounded-lg border border-indigo-500/40 text-indigo-300 hover:text-white hover:bg-indigo-600/70"
             onClick={async () => {
@@ -724,10 +786,8 @@ export const IQubeDetailModal: React.FC<IQubeDetailModalProps> = ({ templateId, 
                 });
                 const { json: created, text } = await parseResponse(res);
                 if (!res.ok) throw new Error(created?.error || text || 'Fork failed');
-                // broadcast
                 window.dispatchEvent(new CustomEvent('registryTemplateUpdated', { detail: created }));
                 try { toast('Fork created', 'success'); } catch {}
-                // open new fork in edit mode
                 router.push(`/registry?template=${created.id}&edit=1`);
                 return;
               } catch (e) {
@@ -739,99 +799,83 @@ export const IQubeDetailModal: React.FC<IQubeDetailModalProps> = ({ templateId, 
           >
             Fork Template
           </button>
+
+          {/* Save (edit) */}
           {edit && (
+              <button
+                className="px-3 py-1.5 text-sm rounded-lg border border-indigo-500/40 text-indigo-300 hover:text-white hover:bg-indigo-600/70"
+                onClick={async () => {
+                  if (!template) return;
+                  try {
+                    // Update the template via PATCH first with current simple editable fields
+                    const root = containerRef.current!;
+                    const get = (sel: string) => (root.querySelector(sel) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null);
+                    const payload: any = {
+                      name: get('input[placeholder="Enter name"]')?.value || template.name,
+                      description: (root.querySelector('textarea[placeholder="Enter description"]') as HTMLTextAreaElement | null)?.value ?? template.description,
+                      iQubeType: (get('select[aria-label="iQube Type"]')?.value || template.iQubeType),
+                      iQubeInstanceType: (get('select[aria-label="Instance Type"]')?.value || template.iQubeInstanceType),
+                      businessModel: (get('select[aria-label="Business Model"]')?.value || template.businessModel),
+                      price: Number((get('input[aria-label="Price"]') as HTMLInputElement | null)?.value || template.price || 0),
+                      version: (get('input[placeholder="1.0"]') as HTMLInputElement | null)?.value || template.version || '1.0',
+                      sensitivityScore: Number((get('input[aria-label="Sensitivity Score"]') as HTMLInputElement | null)?.value ?? template.sensitivityScore ?? 0),
+                      accuracyScore: Number((get('input[aria-label="Accuracy Score"]') as HTMLInputElement | null)?.value ?? template.accuracyScore ?? 5),
+                      verifiabilityScore: Number((get('input[aria-label="Verifiability Score"]') as HTMLInputElement | null)?.value ?? template.verifiabilityScore ?? 5),
+                      riskScore: Number((get('input[aria-label="Risk Score"]') as HTMLInputElement | null)?.value ?? template.riskScore ?? 5),
+                      metaExtras: (metaEditRows.length ? metaEditRows : metaExtras),
+                      blakqubeLabels: bqEditFields,
+                    };
+                    const res = await fetch(`/api/registry/templates/${templateId}`, {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify(payload),
+                    });
+                    const { json: updated, text } = await parseResponse(res);
+                    if (!res.ok) throw new Error(updated?.error || text || 'Failed to save');
+                    window.dispatchEvent(new CustomEvent('registryTemplateUpdated', { detail: updated }));
+
+                    // Save to Library. Prefer explicit userId from /api/dev/user if valid
+                    let body: any = { templateId };
+                    try {
+                      const r = await fetch('/api/dev/user');
+                      if (r.ok) {
+                        const j = await r.json();
+                        if (j?.validUuid && j?.devUserId) body = { templateId, userId: j.devUserId };
+                      }
+                    } catch {}
+                    const lib = await fetch('/api/registry/library', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify(body),
+                    });
+                    if (lib.ok) {
+                      localStorage.setItem(`library_${templateId}`, '1');
+                      try { toast('Saved to your Private Library', 'success'); } catch {}
+                      onClose();
+                    } else {
+                      const t = await lib.text();
+                      try { const j = JSON.parse(t); toast(j?.error || j?.message || 'Failed to save to library', 'error'); } catch { toast(t || 'Failed to save to library', 'error'); }
+                    }
+                  } catch (e) {
+                    try { toast('Save failed', 'error'); } catch {}
+                  }
+                }}
+                title="Save this iQube to your Private Library"
+              >
+                Save to Library
+              </button>
+          )}
+          {/* Mint (edit or eligible view) - opens application notice */}
+          {canShowMint && (
             <button
-              className="px-3 py-1.5 text-sm rounded-lg bg-indigo-600 text-white hover:bg-indigo-500"
-              onClick={async () => {
-                const root = containerRef.current;
-                if (!root) return onClose();
-                const get = (sel: string) => (root.querySelector(sel) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null);
-                const payload: any = {
-                  name: get('input[placeholder="Enter name"]')?.value || template?.name,
-                  businessModel: (get('select[aria-label="Business Model"]') as HTMLSelectElement)?.value || template?.businessModel,
-                  iQubeType: (get('select[aria-label="iQube Type"]') as HTMLSelectElement)?.value || template?.iQubeType,
-                  iQubeInstanceType: (get('select[aria-label="Instance Type"]') as HTMLSelectElement)?.value || template?.iQubeInstanceType,
-                  description: (get('textarea[placeholder="Enter description"]') as HTMLTextAreaElement)?.value || template?.description,
-                  iQubeCreator: get('input[placeholder="Creator ID"]')?.value || template?.iQubeCreator,
-                  subjectType: (get('select[aria-label="Subject Type"]') as HTMLSelectElement)?.value || template?.subjectType,
-                  subjectIdentifiability: (get('select[aria-label="Subject Identifiability"]') as HTMLSelectElement)?.value || template?.subjectIdentifiability,
-                  ownerType: (get('select[aria-label="Owner Type"]') as HTMLSelectElement)?.value || template?.ownerType,
-                  ownerIdentifiability: (get('select[aria-label="Owner Identifiability"]') as HTMLSelectElement)?.value || template?.ownerIdentifiability,
-                  createdAt: (get('input[type="date"]') as HTMLInputElement)?.value || template?.createdAt,
-                  version: get('input[placeholder="1.0"]')?.value || template?.version,
-                  price: (() => { const v = get('input[aria-label="Price"]') as HTMLInputElement | null; return v && v.value !== '' ? Number(v.value) : undefined; })(),
-                  sensitivityScore: Number((get('input[name="sensitivityScore"]') as HTMLInputElement)?.value ?? template?.sensitivityScore ?? 0),
-                  riskScore: Number((get('input[name="riskScore"]') as HTMLInputElement)?.value ?? template?.riskScore ?? 0),
-                  accuracyScore: Number((get('input[name="accuracyScore"]') as HTMLInputElement)?.value ?? template?.accuracyScore ?? 0),
-                  verifiabilityScore: Number((get('input[name="verifiabilityScore"]') as HTMLInputElement)?.value ?? template?.verifiabilityScore ?? 0),
-                  blakqubeLabels: bqEditFields,
-                  metaExtras: (metaEditRows && metaEditRows.length ? metaEditRows : (template?.metaExtras || undefined)),
-                };
-                try {
-                  const res = await fetch(`/api/registry/templates/${templateId}`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload),
-                  });
-                  const { json: updated, text } = await parseResponse(res);
-                  if (!res.ok) throw new Error(updated?.error || text || 'Failed to save');
-                  window.dispatchEvent(new CustomEvent('registryTemplateUpdated', { detail: updated }));
-                  onClose();
-                  try { toast('Template saved', 'success'); } catch {}
-                } catch (e) {
-                  console.error('Save failed', e);
-                  try { toast(e instanceof Error ? e.message : 'Save failed', 'error'); } catch {}
-                }
-              }}
+              className={`px-3 py-1.5 text-sm rounded-lg ${isMinting ? 'opacity-60 pointer-events-none' : ''} bg-emerald-600 text-white hover:bg-emerald-500`}
+              disabled={isMinting}
+              onClick={() => setMintPromptOpen(true)}
+              title="Mint this iQube to the Registry"
             >
-              Save
+              Mint to Registry
             </button>
           )}
-          {edit && (
-            <button
-              className="px-3 py-1.5 text-sm rounded-lg bg-emerald-600 text-white hover:bg-emerald-500"
-              onClick={async () => {
-                try {
-                  // Placeholder mint flow: mark as minted locally
-                  setMinted(templateId, true);
-                  setOwner(templateId, true);
-                  try { toast('Minted: will be published to registry in the full flow', 'success'); } catch {}
-                } catch (e) {
-                  console.error('Mint failed', e);
-                  try { toast(e instanceof Error ? e.message : 'Mint failed', 'error'); } catch {}
-                }
-              }}
-              title="Mint this iQube (will publish to the public registry)"
-            >
-              Mint
-            </button>
-          )}
-          <button
-            className="px-3 py-1.5 text-sm rounded-lg bg-purple-600 text-white hover:bg-purple-500"
-            onClick={() => {
-              try {
-                const minted = isMinted(templateId);
-                const owner = isOwner(templateId);
-                const price = typeof template?.price === 'number' ? template.price : 0;
-                if (minted && owner) {
-                  activate(templateId, 'registry');
-                  try { toast('Activated in Registry', 'success'); } catch {}
-                } else if (!owner && price > 0) {
-                  // Payment required: open placeholder payment modal
-                  setShowPayment(true);
-                } else {
-                  activate(templateId, 'private');
-                  try { toast('Activated privately (your instance)', 'success'); } catch {}
-                }
-              } catch (e) {
-                console.error('Activate failed', e);
-                try { toast(e instanceof Error ? e.message : 'Activate failed', 'error'); } catch {}
-              }
-            }}
-            title="Activate this iQube (private if not minted; registry if minted)"
-          >
-            Activate
-          </button>
         </div>
 
         <ConfirmDialog
@@ -849,6 +893,61 @@ export const IQubeDetailModal: React.FC<IQubeDetailModalProps> = ({ templateId, 
           }}
           onCancel={() => setShowPayment(false)}
         />
+
+        {/* Mint Application Notice (uses ConfirmDialog) */}
+        <ConfirmDialog
+          open={mintPromptOpen}
+          title="Mint iQube"
+          onCancel={() => setMintPromptOpen(false)}
+          onConfirm={async () => {
+            if (!template) { setMintPromptOpen(false); return; }
+            setMintPromptOpen(false);
+            setIsMinting(true);
+            try {
+              // Include user id if available
+              let body: any = { visibility: mintChoice };
+              try {
+                const r = await fetch('/api/dev/user');
+                if (r.ok) { const j = await r.json(); if (j?.validUuid && j?.devUserId) body.userId = j.devUserId; }
+              } catch {}
+              const res = await fetch(`/api/registry/templates/${templateId}`, {
+                method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+              });
+              const { json, text } = await parseResponse(res);
+              if (!res.ok) throw new Error(json?.error || text || 'Mint failed');
+              setMinted(templateId, true);
+              setOwner(templateId, true);
+              // Clear library flag so Registry badge shows
+              try { localStorage.removeItem(`library_${templateId}`); } catch {}
+              try { toast(mintChoice==='public' ? 'Minted to the Public Registry' : 'Minted to the Registry Privately', 'success'); } catch {}
+              try { window.dispatchEvent(new CustomEvent('registryTemplateUpdated', { detail: json })); } catch {}
+              // Close the modal after successful mint
+              try { onClose(); } catch {}
+            } catch (e) {
+              try { toast(e instanceof Error ? e.message : 'Mint failed', 'error'); } catch {}
+            } finally {
+              setIsMinting(false);
+            }
+          }}
+          confirmText={mintChoice==='public' ? 'Proceed: Mint Public' : 'Proceed: Mint Private'}
+          confirmClassName={mintChoice==='public' ? 'bg-emerald-600 text-white hover:bg-emerald-500' : 'bg-purple-600 text-white hover:bg-purple-500'}
+        >
+          <div>
+            <div className="mb-2 text-slate-300 text-sm">
+              If you mint Public, others can view, fork, and mint new versions. This cannot be reverted.
+            </div>
+            <div className="flex gap-6">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="radio" name="mintVisibility" value="public" checked={mintChoice==='public'} onChange={()=>setMintChoice('public')} className="text-emerald-500 focus:ring-emerald-500" />
+                <span className="text-slate-200 text-sm">Public</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="radio" name="mintVisibility" value="private" checked={mintChoice==='private'} onChange={()=>setMintChoice('private')} className="text-purple-500 focus:ring-purple-500" />
+                <span className="text-slate-200 text-sm">Private</span>
+              </label>
+            </div>
+          </div>
+        </ConfirmDialog>
       </div>
     </div>
   );

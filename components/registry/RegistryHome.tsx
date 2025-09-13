@@ -23,6 +23,7 @@ interface IQubeTemplate {
   iQubeType?: 'DataQube' | 'ContentQube' | 'ToolQube' | 'ModelQube' | 'AigentQube';
   iQubeInstanceType?: 'template' | 'instance';
   businessModel?: 'Buy' | 'Sell' | 'Rent' | 'Lease' | 'Subscribe' | 'Stake' | 'License' | 'Donate';
+  visibility?: 'public' | 'private';
 }
 
 export function RegistryHome() {
@@ -36,6 +37,7 @@ export function RegistryHome() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const searchParams = useSearchParams();
   const { toast } = useToast();
+  const [devUser, setDevUser] = useState<{ masked?: string; valid?: boolean } | null>(null);
 
   // Clean legacy query param like ?template=template-003
   useEffect(() => {
@@ -49,6 +51,18 @@ export function RegistryHome() {
       router.replace(path);
     }
   }, [searchParams, router]);
+
+  // Fetch DEV_USER_ID helper
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`/api/dev/user?t=${Date.now()}`, { cache: 'no-store' });
+        if (!res.ok) return;
+        const data = await res.json();
+        setDevUser({ masked: data.maskedDevUserId, valid: data.validUuid });
+      } catch {}
+    })();
+  }, []);
 
   // Listen for updates from the modal and refetch via HTTP
   useEffect(() => {
@@ -169,21 +183,38 @@ export function RegistryHome() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-medium">iQube Templates</h2>
+        {devUser && devUser.masked && (
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                const res = await fetch(`/api/dev/user?t=${Date.now()}`, { cache: 'no-store' });
+                if (!res.ok) return;
+                const data = await res.json();
+                setDevUser({ masked: data.maskedDevUserId, valid: data.validUuid });
+              } catch {}
+            }}
+            className={`inline-flex items-center gap-2 px-2 py-1 rounded-lg text-xs ${devUser.valid ? 'bg-white/5 ring-1 ring-white/10 text-slate-300' : 'bg-red-500/20 ring-1 ring-red-500/30 text-red-200'}`}
+            title="Click to refresh DEV_USER_ID from server"
+          >
+            DEV_USER_ID: {devUser.masked}
+          </button>
+        )}
         <Link href="/registry/add" className="text-indigo-400 hover:text-indigo-300 text-sm">
           + Add New iQube
         </Link>
       </div>
 
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-start justify-between gap-3">
         <FilterSection value={filters} onChange={setFilters} />
-        <ViewModeToggle value={viewMode} onChange={setViewMode} />
-      </div>
-      {/* Cart indicator */}
-      <div className="flex items-center justify-end text-sm text-slate-300">
-        <span className="inline-flex items-center gap-2 px-2 py-1 rounded-lg bg-white/5 ring-1 ring-white/10" title="Items in cart">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-300"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 12.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
-          {cart.length}
-        </span>
+        <div className="flex items-center gap-2 mt-6">
+          <ViewModeToggle value={viewMode} onChange={setViewMode} />
+          {/* Cart indicator (kept as pill, aligned next to icons) */}
+          <span className="inline-flex items-center gap-2 px-2 py-1 rounded-lg bg-white/5 ring-1 ring-white/10 text-sm text-slate-300" title="Items in cart">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-300"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 12.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+            {cart.length}
+          </span>
+        </div>
       </div>
 
       {viewMode === 'grid' && (
@@ -203,6 +234,7 @@ export function RegistryHome() {
               iQubeType={template.iQubeType}
               iQubeInstanceType={template.iQubeInstanceType}
               businessModel={template.businessModel}
+              visibility={template.visibility}
               onClick={(id) => router.push(`/registry?template=${id}`)}
               onEdit={(id) => router.push(`/registry?template=${id}&edit=1`)}
               onAddToCart={handleAddToCart}

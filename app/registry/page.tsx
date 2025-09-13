@@ -1,10 +1,10 @@
 "use client";
-import { useMemo } from "react";
+import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { RegistryHome } from "../../components/registry/RegistryHome";
 import { IQubeDetailModal } from "../../components/registry/IQubeDetailModal";
 
-export default function RegistryPage() {
+function RegistryPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -30,5 +30,13 @@ export default function RegistryPage() {
         <IQubeDetailModal templateId={templateId} edit={edit} onClose={onClose} />
       )}
     </div>
+  );
+}
+
+export default function RegistryPage() {
+  return (
+    <Suspense fallback={null}>
+      <RegistryPageInner />
+    </Suspense>
   );
 }
