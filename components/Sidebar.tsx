@@ -64,6 +64,9 @@ const IQUBE_REGISTRY_ITEMS: SidebarItem[] = [
   { href: "/registry/analytics", label: "Analytics", icon: <BarChart size={14} /> },
 ];
 
+// Feature flags: default to true unless explicitly set to 'false'
+const FEATURE_OPS = process.env.NEXT_PUBLIC_FEATURE_OPS !== 'false';
+
 const sections: SidebarSection[] = [
   {
     label: "Dashboard",
@@ -102,6 +105,7 @@ const sections: SidebarSection[] = [
     icon: <Settings size={16} />,
     items: [
       { href: "/settings/profile", label: "Profile", icon: <UserCircle size={14} /> },
+      { href: "/ops", label: "Network Ops", icon: <Wrench size={14} className="text-blue-400" /> },
     ],
   },
 ];
