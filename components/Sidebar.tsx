@@ -55,13 +55,13 @@ const IQUBES_ACTIVE_ITEMS: SidebarItem[] = [
 const IQUBE_OPS_ITEMS: SidebarItem[] = [
   { href: "#iqube-template", label: "iQube Template", icon: <Box size={14} className="text-blue-400" />, toggleable: true, active: true },
   { href: "#iqube-instance", label: "iQube Instance", icon: <Box size={14} className="text-green-400" />, toggleable: true, active: false },
-  { href: "/iqube/enter-id", label: "Enter iQube ID", icon: <Key size={14} />, isTextInput: true },
+  { href: "/iqube/enter-id", label: "Enter iQube ID", icon: <Key size={14} className="text-amber-400" />, isTextInput: true },
 ];
 
 const IQUBE_REGISTRY_ITEMS: SidebarItem[] = [
-  { href: "/registry", label: "Registry", icon: <FileText size={14} /> },
-  { href: "/registry/add", label: "Add iQube", icon: <PlusCircle size={14} /> },
-  { href: "/registry/analytics", label: "Analytics", icon: <BarChart size={14} /> },
+  { href: "/registry", label: "Registry", icon: <FileText size={14} className="text-sky-400" /> },
+  { href: "/registry/add", label: "Add iQube", icon: <PlusCircle size={14} className="text-emerald-400" /> },
+  { href: "/registry/analytics", label: "Analytics", icon: <BarChart size={14} className="text-fuchsia-400" /> },
 ];
 
 // Feature flags: default to true unless explicitly set to 'false'
@@ -104,7 +104,7 @@ const sections: SidebarSection[] = [
     label: "Settings",
     icon: <Settings size={16} />,
     items: [
-      { href: "/settings/profile", label: "Profile", icon: <UserCircle size={14} /> },
+      { href: "/settings/profile", label: "Profile", icon: <UserCircle size={14} className="text-teal-400" /> },
       { href: "/ops", label: "Network Ops", icon: <Wrench size={14} className="text-blue-400" /> },
     ],
   },
@@ -940,7 +940,7 @@ export const Sidebar = () => {
                         onClick={() => setOpenIQubesGroups(prev => ({ ...prev, ["Active iQubes"]: !prev["Active iQubes"] }))}
                       >
                         <div className="flex items-center gap-2">
-                          <span className="text-gray-500"><Grid3X3 size={12} /></span>
+                          <span className="text-emerald-400"><Grid3X3 size={12} /></span>
                           <span>Active iQubes</span>
                         </div>
                         {openIQubesGroups["Active iQubes"] ? (
@@ -990,7 +990,7 @@ export const Sidebar = () => {
                         onClick={() => setOpenIQubesGroups(prev => ({ ...prev, ["iQube Operations"]: !prev["iQube Operations"] }))}
                       >
                         <div className="flex items-center gap-2">
-                          <span className="text-gray-500"><SlidersHorizontal size={12} /></span>
+                          <span className="text-fuchsia-400"><SlidersHorizontal size={12} /></span>
                           <span>iQube Operations</span>
                         </div>
                         {openIQubesGroups["iQube Operations"] ? (
@@ -1078,7 +1078,7 @@ export const Sidebar = () => {
                         onClick={() => setOpenIQubesGroups(prev => ({ ...prev, ["iQube Registry"]: !prev["iQube Registry"] }))}
                       >
                         <div className="flex items-center gap-2">
-                          <span className="text-gray-500"><FileText size={12} /></span>
+                          <span className="text-sky-400"><FileText size={12} /></span>
                           <span>iQube Registry</span>
                         </div>
                         {openIQubesGroups["iQube Registry"] ? (
