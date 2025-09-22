@@ -36,16 +36,29 @@ export async function GET() {
     const blockDetails = await blockDetailsResponse.json();
     const block = blockDetails.result;
     
-    // Get latest transaction from the block
-    const latestTx = block.transactions && block.transactions.length > 0 
-      ? block.transactions[block.transactions.length - 1].hash 
-      : null;
+    // Get gas price as additional info, but keep transaction display
+    const gasPriceResponse = await fetch(amoyRPC, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'eth_gasPrice',
+        params: [],
+        id: 3
+      })
+    });
     
+    const gasPriceData = await gasPriceResponse.json();
+    const gasPrice = parseInt(gasPriceData.result, 16);
+    
+    // Provide network stats without random transaction fetching
     return NextResponse.json({
       ok: true,
       chainId: '80002',
       blockNumber: latestBlockNumber.toLocaleString(),
-      latestTx: latestTx || 'No transactions in latest block',
+      latestTx: 'Network active - create transaction to see hash',
+      gasPrice: gasPrice.toLocaleString(),
+      transactionCount: block.transactions ? block.transactions.length : 0,
       rpcUrl: 'rpc-amoy.polygon.technology',
       at: new Date().toISOString()
     });
@@ -58,6 +71,8 @@ export async function GET() {
       chainId: '80002',
       blockNumber: '—',
       latestTx: '—',
+      gasPrice: '—',
+      transactionCount: 0,
       rpcUrl: '—',
       at: new Date().toISOString()
     });

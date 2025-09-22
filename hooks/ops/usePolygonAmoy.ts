@@ -5,6 +5,8 @@ interface PolygonAmoyData {
   chainId: string;
   blockNumber: string;
   latestTx: string;
+  gasPrice?: string;
+  transactionCount?: number;
   rpcUrl: string;
   at: string;
   error?: string;
