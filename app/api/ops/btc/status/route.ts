@@ -15,8 +15,8 @@ export async function GET() {
       if (POS_ID) {
         const pos = getActor<any>(POS_ID, posIdl);
         const [batches, pendingCount] = await Promise.all([
-          pos.get_batches(),
-          pos.get_pending_count(),
+          pos.get_batches().catch(() => []),
+          pos.get_pending_count().catch(() => 0n),
         ]);
         // Derive last anchor id from latest batch
         if (Array.isArray(batches) && batches.length > 0) {
@@ -24,12 +24,7 @@ export async function GET() {
           const lastAnchorId = latest?.root ?? undefined;
           const txidOpt = latest?.btc_anchor_txid as [] | [string];
           let txid = Array.isArray(txidOpt) && txidOpt.length === 1 ? txidOpt[0] : undefined;
-          
-          // Demo: Add mock txid if none exists (remove this in production)
-          if (!txid && process.env.NODE_ENV === 'development') {
-            txid = 'a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456';
-          }
-          
+
           anchor = {
             ok: true,
             lastAnchorId,
@@ -42,17 +37,40 @@ export async function GET() {
           anchor = {
             ok: true,
             lastAnchorId: undefined,
+            txid: undefined,
             pending: Number(pendingCount ?? 0n),
             at: new Date().toISOString(),
             details: 'no batches',
           };
         }
       }
-    } catch {}
+    } catch (e: any) {
+      console.error('Proof-of-state canister error:', e);
+      // Fallback when canister is unreachable
+      anchor = {
+        ok: false,
+        lastAnchorId: undefined,
+        txid: undefined,
+        pending: 0,
+        at: new Date().toISOString(),
+        details: 'canister unreachable',
+      };
+    }
 
     // If we have a txid and a testnet endpoint, enrich with explorer data
     try {
       const endpoint = process.env.NEXT_PUBLIC_RPC_BTC_TESTNET;
+      // Heuristic: if we don't have txid but we do have a lastAnchorId, try probing explorer with it
+      if (!anchor?.txid && anchor?.lastAnchorId && endpoint) {
+        try {
+          const base = endpoint.replace(/\/$/, '');
+          const probe = await fetch(`${base}/tx/${anchor.lastAnchorId}`, { cache: 'no-store' });
+          if (probe.ok) {
+            anchor = { ...anchor, txid: anchor.lastAnchorId };
+          }
+        } catch {}
+      }
+
       if (anchor?.txid && endpoint) {
         const base = endpoint.replace(/\/$/, '');
         const txRes = await fetch(`${base}/tx/${anchor.txid}`, { cache: 'no-store' });
@@ -75,14 +93,6 @@ export async function GET() {
             confirmations,
             blockHeight: typeof blockHeight === 'number' ? blockHeight : undefined,
             status: confirmed ? 'confirmed' : 'pending',
-          };
-        } else if (process.env.NODE_ENV === 'development') {
-          // Demo: Mock blockchain data for development
-          anchor = {
-            ...anchor,
-            confirmations: 6,
-            blockHeight: 2847392,
-            status: 'confirmed',
           };
         }
       }

@@ -195,8 +195,13 @@ export default function OpsPage() {
             const ok = btc.data?.ok ?? false;
             const at = btc.data?.at ?? "—";
             const rpcApi = process.env.NEXT_PUBLIC_RPC_BTC_TESTNET || '';
-            const rpcHost = rpcApi ? rpcApi.replace(/^https?:\/\//, '').replace(/\/api\/?$/, '') : '—';
-            const blockHeight = typeof btc.anchor?.blockHeight === 'number' ? btc.anchor?.blockHeight : '—';
+            // Show the actual API being used, not just the configured one
+            const actualEndpoint = (btc.data as any)?.details?.includes('blockstream.info') ? 'blockstream.info/testnet' : 
+                                  (btc.data as any)?.details?.includes('mempool.space') ? 'mempool.space/testnet' : 
+                                  rpcApi ? rpcApi.replace(/^https?:\/\//, '').replace(/\/api\/?$/, '') : '—';
+            const rpcHost = actualEndpoint;
+            // Get block height from testnet data, not anchor data
+            const blockHeight = typeof (btc.data as any)?.blockHeight === 'number' ? (btc.data as any).blockHeight : '—';
             const displayTx = btc.anchor?.txid;
             const explorerBase = (process.env.NEXT_PUBLIC_RPC_BTC_TESTNET?.replace(/\/$/, '') || 'https://mempool.space/testnet/api').replace('/api','');
             const txUrl = displayTx ? `${explorerBase}/tx/${displayTx}` : undefined;
@@ -333,22 +338,39 @@ export default function OpsPage() {
 
           // BTC Anchor Status card
           if (key === "btc_anchor") {
-            const ok = Boolean(process.env.NEXT_PUBLIC_BTC_SIGNER_CANISTER_ID);
-            const at = btc.data?.at ?? "—";
+            const ok = btc.anchor?.ok ?? false;
+            const at = btc.anchor?.at ?? "—";
             const lastAnchorId = btc.anchor?.lastAnchorId ?? '—';
             const pending = btc.anchor?.pending ?? 0;
             const txid = btc.anchor?.txid;
             const confirmations = btc.anchor?.confirmations;
             const blockHeight = btc.anchor?.blockHeight;
             const anchorStatus = btc.anchor?.status;
+            const details = btc.anchor?.details ?? '';
             const explorer = process.env.NEXT_PUBLIC_RPC_BTC_TESTNET?.replace(/\/$/, '') || 'https://mempool.space/testnet/api';
             const displayTx = txid || (lastAnchorId !== '—' ? String(lastAnchorId) : undefined);
             const txUrl = displayTx ? `${explorer.replace('/api','')}/tx/${displayTx}` : undefined;
             async function doAnchor() {
               try {
-                await fetch('/api/ops/btc/anchor', { method: 'POST' });
+                const response = await fetch('/api/ops/btc/anchor', { method: 'POST' });
+                const result = await response.json();
+                
+                if (!response.ok) {
+                  // Show detailed error message to user
+                  if (result.availableMethods) {
+                    alert(`Anchor functionality not yet implemented.\n\nAvailable methods: ${result.availableMethods.join(', ')}\n\nThe proof_of_state canister may need redeployment with full anchor functionality.`);
+                  } else {
+                    alert(`Failed to create anchor: ${result.error || 'Unknown error'}`);
+                  }
+                  return;
+                }
+                
+                // Success - refresh the data
+                alert('Anchor created successfully!');
                 await btc.refresh();
-              } catch {}
+              } catch (e: any) {
+                alert(`Network error: ${e.message || 'Failed to connect to anchor API'}`);
+              }
             }
             return (
               <Card key={key} title={title} actions={
@@ -438,9 +460,22 @@ export default function OpsPage() {
                   <span className="text-slate-400">Pending:</span>
                   <span className="text-xs text-slate-300">{pending}</span>
                 </div>
+                {details && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Details:</span>
+                    <span className="text-xs text-slate-300" title={details}>
+                      {details.length > 20 ? `${details.slice(0, 20)}...` : details}
+                    </span>
+                  </div>
+                )}
+                {details === 'no batches' && (
+                  <div className="mt-1 text-xs rounded-md bg-blue-500/10 ring-1 ring-blue-500/30 text-blue-200 px-2 py-1">
+                    No anchor batches created yet. Click "Anchor" to create one.
+                  </div>
+                )}
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400">Last Check:</span>
-                  <span className="text-xs text-slate-500">{at}</span>
+                  <span className="text-xs text-slate-500">{timeSince(at)}</span>
                 </div>
               </Card>
             );
@@ -509,7 +544,8 @@ export default function OpsPage() {
 
             async function createTestTx() {
               try {
-                const eth: any = (window as any).ethereum;
+                const ethAll: any = (window as any).ethereum;
+                const eth: any = ethAll?.providers?.find((p: any) => p && p.isMetaMask) ?? ethAll;
                 if (!eth) throw new Error('No injected wallet found');
                 // Ensure correct chain
                 const hexChain = dvnChainId === 80002 ? '0x13882' : '0xaa36a7'; // Amoy or Sepolia

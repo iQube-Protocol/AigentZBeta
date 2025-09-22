@@ -1,7 +1,16 @@
 /** @type {import('next').NextConfig} */
+const isDev = process.env.NODE_ENV !== 'production';
 const nextConfig = {
-  reactStrictMode: true,
+  // Disable double-invocation and extra checks in dev to speed up refresh
+  reactStrictMode: !isDev,
   swcMinify: true,
+  webpack(config, { dev }) {
+    if (dev) {
+      // Turn off heavy source maps in dev for faster rebuilds
+      config.devtool = false;
+    }
+    return config;
+  },
   // Important: do NOT rewrite /api/* so local Next.js API routes are used.
   // If you need to proxy to a separate backend, use a distinct prefix like /core/*.
   async rewrites() {
