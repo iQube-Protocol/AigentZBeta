@@ -10,7 +10,7 @@ function buildUrl(base: string, path: string, params?: Record<string, string>) {
 
 export async function GET(request: NextRequest) {
   try {
-    const url = process.env.SUPABASE_URL;
+    const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
     const anonKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (!url || !anonKey) {
       return NextResponse.json({ error: 'Supabase env not configured' }, { status: 500 });
@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const url = process.env.SUPABASE_URL;
+    const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
     if (!url || !serviceKey) {
       return NextResponse.json({ error: 'Supabase env not configured' }, { status: 500 });
