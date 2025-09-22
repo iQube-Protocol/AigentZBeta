@@ -8,6 +8,7 @@ export async function getCanisterHealth(): Promise<HealthSummary> {
     { key: 'btc_signer_psbt', env: process.env.NEXT_PUBLIC_BTC_SIGNER_CANISTER_ID },
     { key: 'cross_chain_service', env: process.env.NEXT_PUBLIC_CROSS_CHAIN_SERVICE_CANISTER_ID },
     { key: 'evm_rpc', env: process.env.NEXT_PUBLIC_EVM_RPC_CANISTER_ID },
+    { key: 'solana_signer_ed25519', env: process.env.NEXT_PUBLIC_SOLANA_SIGNER_CANISTER_ID },
   ];
 
   const items: HealthItem[] = names.map((n) => ({
