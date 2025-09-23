@@ -3,37 +3,9 @@ applications:
   - appRoot: docs/operating-manual
     branch: docs
     frontend:
-      phases:
-        preBuild:
-          commands:
-            - npm ci
-        build:
-          commands:
-            - npm run build
-      artifacts:
-        baseDirectory: build
-        files:
-          - '**/*'
-      cache:
-        paths:
-          - node_modules/**/*
   - appRoot: apps/aigent-z
     branch: main
     frontend:
-      phases:
-        preBuild:
-          commands:
-            - npm ci
-        build:
-          commands:
-            - npm run build
-      artifacts:
-        baseDirectory: .next
-        files:
-          - '**/*'
-      cache:
-        paths:
-          - node_modules/**/*
   - appRoot: apps/aigent-z
     branch: staging
     frontend:
@@ -43,6 +15,7 @@ applications:
             - npm ci
         build:
           commands:
+            - echo "--- Checking tsconfig.json ---" && cat tsconfig.json && echo "--- End tsconfig.json ---"
             - npm run build
       artifacts:
         baseDirectory: .next
@@ -50,4 +23,4 @@ applications:
           - '**/*'
       cache:
         paths:
-          - node_modules/**/*
+          - 'node_modules/**/*'
