@@ -28,6 +28,8 @@ import {
 } from "lucide-react";
 import { SubmenuDrawer } from "./SubmenuDrawer";
 
+
+
 interface SidebarItem {
   href: string;
   label: string;
@@ -742,8 +744,21 @@ export const Sidebar = () => {
   
   // Function to handle navigation to agent page with persona as query parameter
   const navigateToAgentWithPersona = (personaHref: string) => {
+    // Get all agent hrefs
+    const agentHrefs: string[] = sections
+      .find(section => section.label === "Orchestrator")
+      ?.items.map(item => item.href) || [];
+    // Find the Generic AI href
+    const genericAiHref = agentHrefs.find(agentHref =>
+      agentHref.includes('/aigents/generic-ai'));
+    // Extract persona name from the href (for Persona section, it's usually a query param)
+    let personaName = "";
+    const personaMatch = personaHref.match(/iqube=([^&]+)/);
+    if (personaMatch) {
+      personaName = personaMatch[1];
+    }
     // Find active non-Generic AI agent (if any)
-    const activeNonGenericAgent = agentHrefs.find(agentHref => 
+    const activeNonGenericAgent = agentHrefs.find(agentHref =>
       toggleStates[agentHref] && !agentHref.includes('/aigents/generic-ai'));
     
     // Find the active agent or use Generic AI as fallback

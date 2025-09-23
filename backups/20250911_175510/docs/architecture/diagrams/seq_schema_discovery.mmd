@@ -1,9 +1,0 @@
-sequenceDiagram
-  participant API as Aigent Z API
-  participant IDX as MetaQube Indexer
-  participant DB as Supabase
-  IDX->>API: webhook: metaQube observed { metaQubeId, chain, blakSchemaRef, blakSchemaKeys }
-  API->>DB: UPSERT meta_index(...)
-  API-->>IDX: 204
-  API->>DB: SELECT blakSchemaKeys WHERE metaQubeId=:id
-  DB-->>API: ["email","plan","country"]
