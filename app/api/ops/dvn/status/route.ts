@@ -20,7 +20,7 @@ export async function GET() {
     }
 
     // Get DVN actor and fetch live data
-    const dvn = getActor<any>(DVN_ID, dvnIdl);
+    const dvn = await getActor<any>(DVN_ID, dvnIdl);
     
     // Fetch DVN status data
     const [pendingMessages] = await Promise.all([
@@ -29,23 +29,49 @@ export async function GET() {
     // Optional connectivity probe (safe no-op)
     try { await dvn.get_ready_messages(); } catch {}
 
-    // Get latest message if available
+    // Get latest message if available and decode payload JSON we created during mint
     let evmTx = '—';
     let icpReceipt = '—';
     let lockStatus = 'Unlocked';
     let unlockHeight = '—';
 
-    if (Array.isArray(pendingMessages) && pendingMessages.length > 0) {
-      const latestMessage = pendingMessages[pendingMessages.length - 1];
-      if (latestMessage?.evm_tx_hash) evmTx = latestMessage.evm_tx_hash;
-      if (latestMessage?.icp_receipt) icpReceipt = latestMessage.icp_receipt;
-      lockStatus = latestMessage.status === 'locked' ? 'Locked' : 'Unlocked';
-      if (latestMessage?.unlock_height) unlockHeight = String(latestMessage.unlock_height);
+    // Check for locally tracked pending transactions (fallback for broken DVN)
+    let localPendingCount = 0;
+    try {
+      // This would be stored when monitor API is called but DVN canister fails
+      const localPending = typeof localStorage !== 'undefined' ? localStorage.getItem('dvn_local_pending') : null;
+      if (localPending) {
+        const parsed = JSON.parse(localPending);
+        localPendingCount = Array.isArray(parsed) ? parsed.length : 0;
+      }
+    } catch {}
+
+    // Use pending messages count as unlock height indicator
+    const totalPending = Array.isArray(pendingMessages) ? pendingMessages.length + localPendingCount : localPendingCount;
+    if (totalPending === 0) {
+      unlockHeight = 'No pending messages';
     } else {
-      // No messages - keep neutral placeholders
-      evmTx = '—';
-      icpReceipt = '—';
-      unlockHeight = '—';
+      unlockHeight = `${totalPending} pending`;
+    }
+
+    if (Array.isArray(pendingMessages) && pendingMessages.length > 0) {
+      const latestMessage: any = pendingMessages[pendingMessages.length - 1];
+      // Attempt to parse payload bytes as JSON
+      try {
+        const payloadField = latestMessage?.payload;
+        // payload can be an object like {"0":123,"1":34,...} or a number[]
+        const byteArray: number[] = Array.isArray(payloadField)
+          ? payloadField
+          : payloadField && typeof payloadField === 'object'
+            ? Object.values(payloadField).map((v: any) => Number(v))
+            : [];
+        if (byteArray.length) {
+          const json = new TextDecoder().decode(Uint8Array.from(byteArray));
+          const parsed = JSON.parse(json);
+          if (parsed?.txHash && typeof parsed.txHash === 'string') evmTx = parsed.txHash;
+          if (parsed?.receiptId && typeof parsed.receiptId === 'string') icpReceipt = parsed.receiptId;
+        }
+      } catch {}
     }
 
     return NextResponse.json({

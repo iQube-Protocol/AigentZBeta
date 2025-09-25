@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
     const CANISTER_ID = (process.env.CROSS_CHAIN_SERVICE_CANISTER_ID || process.env.NEXT_PUBLIC_CROSS_CHAIN_SERVICE_CANISTER_ID) as string;
     if (!CANISTER_ID) return NextResponse.json({ ok: false, error: 'CROSS_CHAIN_SERVICE_CANISTER_ID not configured' }, { status: 400 });
 
-    const dvn = getActor<any>(CANISTER_ID, dvnIdl);
+    const dvn = await getActor<any>(CANISTER_ID, dvnIdl);
     const res = await dvn.verify_layerzero_message(chainId, messageId, rpcUrl ?? '');
     if ('Ok' in res) return NextResponse.json({ ok: true, result: res.Ok, at: new Date().toISOString() });
     return NextResponse.json({ ok: false, error: res.Err || 'verify_layerzero_message failed' }, { status: 500 });

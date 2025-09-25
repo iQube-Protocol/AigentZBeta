@@ -7,6 +7,10 @@ import { useCanisterHealth } from "@/hooks/ops/useCanisterHealth";
 import { useBTC_Testnet } from "@/hooks/ops/useBTC_Testnet";
 import { useEthereumSepolia } from "@/hooks/ops/useEthereumSepolia";
 import { usePolygonAmoy } from "@/hooks/ops/usePolygonAmoy";
+import { useOptimismSepolia } from "@/hooks/ops/useOptimismSepolia";
+import { useArbitrumSepolia } from "@/hooks/ops/useArbitrumSepolia";
+import { useBaseSepolia } from "@/hooks/ops/useBaseSepolia";
+import { useSyncStatus } from "@/hooks/ops/useSyncStatus";
 import { useDVNStatus } from "@/hooks/ops/useDVNStatus";
 import { useDVNMonitor } from "@/hooks/ops/useDVNMonitor";
 import { useSolanaDevnet } from "@/hooks/ops/useSolanaDevnet";
@@ -67,32 +71,61 @@ function badgeClassFor(key: string): string {
       return "bg-indigo-500/20 text-indigo-300 ring-1 ring-indigo-500/30"; // Sepolia = Indigo
     case "polygon_amoy":
       return "bg-purple-500/20 text-purple-300 ring-1 ring-purple-500/30"; // Amoy = Purple
+    case "optimism_sepolia":
+      return "bg-red-500/20 text-red-300 ring-1 ring-red-500/30"; // Optimism = Red
+    case "arbitrum_sepolia":
+      return "bg-blue-500/20 text-blue-300 ring-1 ring-blue-500/30"; // Arbitrum = Blue
+    case "base_sepolia":
+      return "bg-cyan-500/20 text-cyan-300 ring-1 ring-cyan-500/30"; // Base = Cyan
     case "solana_devnet":
       return "bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/30"; // Solana = Emerald
+    case "sync_status":
+      return "bg-teal-500/20 text-teal-300 ring-1 ring-teal-500/30"; // Sync = Teal
     default:
-      return "bg-slate-500/20 text-slate-300 ring-1 ring-slate-500/30";
+      return "bg-slate-500/20 text-slate-300 ring-1 ring-slate-500/30"; // Default = Slate
   }
 }
 
 export default function OpsPage() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
+  const [icpHealth, setIcpHealth] = useState<{ ok: boolean; host?: string } | null>(null);
 
   // Hooks per card
   const icp = useCanisterHealth(30000);
   const btc = useBTC_Testnet(30000);
   const sepolia = useEthereumSepolia(30000);
-  // Polygon Amoy can reuse useSepolia with different service later; placeholder mirrors sepolia for now
   const amoy = usePolygonAmoy(30000);
+  const optimismSepolia = useOptimismSepolia(30000);
+  const arbitrumSepolia = useArbitrumSepolia(30000);
+  const baseSepolia = useBaseSepolia(30000);
+  const syncStatus = useSyncStatus(30000);
   const dvn = useDVNStatus(30000);
   const xchain = useCrossChain(30000);
   const sol = useSolanaDevnet(30000);
   const dvnMon = useDVNMonitor();
   const [dvnTxHash, setDvnTxHash] = useState("");
-  const [dvnChainId, setDvnChainId] = useState<number>(11155111); // default Sepolia
+  const [dvnChainId, setDvnChainId] = useState<number>(80002); // default Amoy
 
   useEffect(() => {
     setMounted(true);
+  }, []);
+
+  // Poll ICP health to show local connection indicator
+  useEffect(() => {
+    let timer: any;
+    const probe = async () => {
+      try {
+        const res = await fetch('/api/ops/icp/health', { cache: 'no-store' });
+        const json = await res.json();
+        setIcpHealth({ ok: !!json?.ok, host: json?.host });
+      } catch {
+        setIcpHealth({ ok: false });
+      }
+    };
+    probe();
+    timer = setInterval(probe, 30000);
+    return () => timer && clearInterval(timer);
   }, []);
 
   // Persist DVN/Amoy tx hash across refreshes without modifying createTestTx
@@ -118,10 +151,15 @@ export default function OpsPage() {
     { key: "icp_health", title: "ICP Canister Health" },
     { key: "btc_anchor", title: "BTC Anchor Status" },
     { key: "cross_chain", title: "Cross-Chain Status" },
+    { key: "sync_status", title: "Canister Sync Status" },
     { key: "icp_dvn", title: "ICP DVN" },
+    { key: "dvn_mint_tests", title: "DVN Mint Tests" },
     { key: "btc_testnet", title: "BTC Testnet" },
     { key: "eth_sepolia", title: "Ethereum Sepolia" },
     { key: "polygon_amoy", title: "Polygon Amoy" },
+    { key: "optimism_sepolia", title: "Optimism Sepolia" },
+    { key: "arbitrum_sepolia", title: "Arbitrum Sepolia" },
+    { key: "base_sepolia", title: "Base Sepolia" },
     ...(FEATURE_SOLANA_OPS ? [{ key: "solana_devnet", title: "Solana Devnet" } as const] : []),
   ], []);
 
@@ -154,7 +192,18 @@ export default function OpsPage() {
   return (
     <div className="max-w-7xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white">Network Operations</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold text-white">Network Operations</h1>
+          {icpHealth && (
+            <span
+              className={`inline-flex items-center gap-2 px-2 py-1 rounded-md text-xs ${icpHealth.ok ? 'bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-500/30' : 'bg-slate-500/10 text-slate-300 ring-1 ring-slate-500/30'}`}
+              title={icpHealth.host || ''}
+            >
+              <span className={icpHealth.ok ? 'text-emerald-400' : 'text-slate-400'}>●</span>
+              {icpHealth.ok && icpHealth.host?.includes('127.0.0.1:4943') ? 'Local ICP connected' : 'ICP status' }
+            </span>
+          )}
+        </div>
         <p className="text-sm text-slate-300 mt-1">Admin area for protocol health and cross-chain test flows.</p>
       </div>
 
@@ -336,6 +385,138 @@ export default function OpsPage() {
             );
           }
 
+          // Optimism Sepolia card
+          if (key === "optimism_sepolia") {
+            const ok = optimismSepolia.data?.ok ?? false;
+            const at = optimismSepolia.data?.at ?? "—";
+            const blockNumber = optimismSepolia.data?.blockNumber ?? "—";
+            const latestTx = optimismSepolia.data?.latestTx ?? "—";
+            return (
+              <Card key={key} title={
+                <span className="inline-flex items-center gap-2">
+                  {title}
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] ${badgeClassFor(key)}`}>Testnet</span>
+                </span>
+              } actions={<IconRefresh onClick={optimismSepolia.refresh} disabled={optimismSepolia.loading} />}>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Status:</span>
+                  <span className={ok ? "text-emerald-400" : "text-red-400"}>●</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Chain ID:</span>
+                  <span className="text-xs text-slate-300">11155420</span>
+                </div>
+                {latestTx && latestTx !== "—" && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Latest TX:</span>
+                    <span className="flex items-center gap-1 max-w-[60%] justify-end">
+                      <a href={`https://sepolia-optimism.etherscan.io/tx/${latestTx}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-indigo-300 hover:text-white truncate" title={latestTx}>
+                        <span className="truncate font-mono">{latestTx}</span>
+                        <ExternalLink size={12} className="flex-shrink-0" />
+                      </a>
+                    </span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Block:</span>
+                  <span className="text-xs text-slate-300">{blockNumber}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Last Check:</span>
+                  <span className="text-xs text-slate-500">{timeSince(at)}</span>
+                </div>
+              </Card>
+            );
+          }
+
+          // Arbitrum Sepolia card
+          if (key === "arbitrum_sepolia") {
+            const ok = arbitrumSepolia.data?.ok ?? false;
+            const at = arbitrumSepolia.data?.at ?? "—";
+            const blockNumber = arbitrumSepolia.data?.blockNumber ?? "—";
+            const latestTx = arbitrumSepolia.data?.latestTx ?? "—";
+            return (
+              <Card key={key} title={
+                <span className="inline-flex items-center gap-2">
+                  {title}
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] ${badgeClassFor(key)}`}>Testnet</span>
+                </span>
+              } actions={<IconRefresh onClick={arbitrumSepolia.refresh} disabled={arbitrumSepolia.loading} />}>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Status:</span>
+                  <span className={ok ? "text-emerald-400" : "text-red-400"}>●</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Chain ID:</span>
+                  <span className="text-xs text-slate-300">421614</span>
+                </div>
+                {latestTx && latestTx !== "—" && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Latest TX:</span>
+                    <span className="flex items-center gap-1 max-w-[60%] justify-end">
+                      <a href={`https://sepolia.arbiscan.io/tx/${latestTx}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-indigo-300 hover:text-white truncate" title={latestTx}>
+                        <span className="truncate font-mono">{latestTx}</span>
+                        <ExternalLink size={12} className="flex-shrink-0" />
+                      </a>
+                    </span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Block:</span>
+                  <span className="text-xs text-slate-300">{blockNumber}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Last Check:</span>
+                  <span className="text-xs text-slate-500">{timeSince(at)}</span>
+                </div>
+              </Card>
+            );
+          }
+
+          // Base Sepolia card
+          if (key === "base_sepolia") {
+            const ok = baseSepolia.data?.ok ?? false;
+            const at = baseSepolia.data?.at ?? "—";
+            const blockNumber = baseSepolia.data?.blockNumber ?? "—";
+            const latestTx = baseSepolia.data?.latestTx ?? "—";
+            return (
+              <Card key={key} title={
+                <span className="inline-flex items-center gap-2">
+                  {title}
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] ${badgeClassFor(key)}`}>Testnet</span>
+                </span>
+              } actions={<IconRefresh onClick={baseSepolia.refresh} disabled={baseSepolia.loading} />}>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Status:</span>
+                  <span className={ok ? "text-emerald-400" : "text-red-400"}>●</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Chain ID:</span>
+                  <span className="text-xs text-slate-300">84532</span>
+                </div>
+                {latestTx && latestTx !== "—" && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Latest TX:</span>
+                    <span className="flex items-center gap-1 max-w-[60%] justify-end">
+                      <a href={`https://sepolia.basescan.org/tx/${latestTx}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-indigo-300 hover:text-white truncate" title={latestTx}>
+                        <span className="truncate font-mono">{latestTx}</span>
+                        <ExternalLink size={12} className="flex-shrink-0" />
+                      </a>
+                    </span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Block:</span>
+                  <span className="text-xs text-slate-300">{blockNumber}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Last Check:</span>
+                  <span className="text-xs text-slate-500">{timeSince(at)}</span>
+                </div>
+              </Card>
+            );
+          }
+
           // BTC Anchor Status card
           if (key === "btc_anchor") {
             const ok = btc.anchor?.ok ?? false;
@@ -372,19 +553,36 @@ export default function OpsPage() {
                 alert(`Network error: ${e.message || 'Failed to connect to anchor API'}`);
               }
             }
+            async function doBatchNow() {
+              try {
+                const response = await fetch('/api/ops/btc/batch-now', { method: 'POST' });
+                const result = await response.json();
+                if (!response.ok) {
+                  alert(`Batch failed: ${result.error || 'Unknown error'}`);
+                  return;
+                }
+                alert(`Batch created: ${result.batchRoot}`);
+                await btc.refresh();
+              } catch (e: any) {
+                alert(`Network error: ${e.message || 'Failed to connect to batch API'}`);
+              }
+            }
+            async function doFastAnchor() {
+              try {
+                const response = await fetch('/api/ops/btc/fast-anchor', { method: 'POST' });
+                const result = await response.json();
+                if (!response.ok) {
+                  alert(`Fast anchor failed: ${result.error || 'Unknown error'}`);
+                  return;
+                }
+                alert('Fast anchor executed successfully!');
+                await btc.refresh();
+              } catch (e: any) {
+                alert(`Network error: ${e.message || 'Failed to connect to fast-anchor API'}`);
+              }
+            }
             return (
-              <Card key={key} title={title} actions={
-                <div className="flex items-center gap-2">
-                  <IconRefresh onClick={btc.refresh} disabled={btc.loading} />
-                  <button
-                    onClick={doAnchor}
-                    className="px-2 h-8 rounded-md bg-amber-500/10 text-amber-300 ring-1 ring-amber-500/30 text-xs hover:bg-amber-500/20"
-                    title="Create Anchor"
-                  >
-                    Anchor
-                  </button>
-                </div>
-              }>
+              <Card key={key} title={title} actions={<IconRefresh onClick={btc.refresh} disabled={btc.loading} />}>
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400">Status:</span>
                   <span className={ok ? "text-emerald-400" : "text-red-400"}>●</span>
@@ -460,6 +658,11 @@ export default function OpsPage() {
                   <span className="text-slate-400">Pending:</span>
                   <span className="text-xs text-slate-300">{pending}</span>
                 </div>
+                {pending >= 10 && (
+                  <div className="mt-1 text-xs rounded-md bg-emerald-500/10 ring-1 ring-emerald-500/30 text-emerald-200 px-2 py-1">
+                    Auto-batching threshold reached (10). A batch will be created automatically.
+                  </div>
+                )}
                 {details && (
                   <div className="flex items-center justify-between">
                     <span className="text-slate-400">Details:</span>
@@ -477,6 +680,33 @@ export default function OpsPage() {
                   <span className="text-slate-400">Last Check:</span>
                   <span className="text-xs text-slate-500">{timeSince(at)}</span>
                 </div>
+                
+                {/* Divider and Action Buttons */}
+                <div className="mt-4 pt-3 border-t border-slate-700/60">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      onClick={doBatchNow}
+                      className="px-3 py-2 rounded-md bg-blue-500/10 text-blue-300 ring-1 ring-blue-500/30 text-xs hover:bg-blue-500/20"
+                      title="Batch all pending receipts"
+                    >
+                      Batch Now
+                    </button>
+                    <button
+                      onClick={doAnchor}
+                      className="px-3 py-2 rounded-md bg-amber-500/10 text-amber-300 ring-1 ring-amber-500/30 text-xs hover:bg-amber-500/20"
+                      title="Create Anchor"
+                    >
+                      Anchor
+                    </button>
+                    <button
+                      onClick={doFastAnchor}
+                      className="px-3 py-2 rounded-md bg-pink-500/10 text-pink-300 ring-1 ring-pink-500/30 text-xs hover:bg-pink-500/20"
+                      title="Batch pending (if any) and anchor immediately"
+                    >
+                      Fast Track
+                    </button>
+                  </div>
+                </div>
               </Card>
             );
           }
@@ -486,6 +716,8 @@ export default function OpsPage() {
             const ok = xchain.data?.ok ?? false;
             const at = xchain.data?.at ?? "—";
             const supportedChains = (xchain.data as any)?.supportedChains ?? 0;
+            const evmChains = (xchain.data as any)?.evmChains ?? 0;
+            const nonEvmChains = (xchain.data as any)?.nonEvmChains ?? 0;
             return (
               <Card key={key} title={title} actions={<IconRefresh onClick={xchain.refresh} disabled={xchain.loading} />}>
                 <div className="flex items-center justify-between">
@@ -493,9 +725,124 @@ export default function OpsPage() {
                   <span className={ok ? "text-emerald-400" : "text-red-400"}>●</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Supported Chains:</span>
-                  <span className="text-xs text-slate-300">{supportedChains}</span>
+                  <span className="text-slate-400">Total Chains:</span>
+                  <span className="text-xs text-slate-300 font-semibold">{supportedChains}</span>
                 </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">EVM Chains:</span>
+                  <span className="text-xs text-slate-300">{evmChains}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Non-EVM:</span>
+                  <span className="text-xs text-slate-300">{nonEvmChains} (BTC, Solana)</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Last Check:</span>
+                  <span className="text-xs text-slate-500">{timeSince(at)}</span>
+                </div>
+              </Card>
+            );
+          }
+
+          // Canister Sync Status card
+          if (key === "sync_status") {
+            const ok = syncStatus.data?.ok ?? false;
+            const at = syncStatus.data?.at ?? "—";
+            const status = syncStatus.data?.syncStatus ?? "unknown";
+            const severity = syncStatus.data?.severity ?? "critical";
+            const drift = syncStatus.data?.drift ?? 0;
+            const isLegitimate = syncStatus.data?.isLegitimate ?? false;
+            const posCount = syncStatus.data?.canisters?.proofOfState?.pendingCount ?? 0;
+            const dvnCount = syncStatus.data?.canisters?.dvn?.pendingCount ?? 0;
+            
+            const getSeverityColor = (sev: string) => {
+              switch (sev) {
+                case 'info': return 'text-emerald-400';
+                case 'warning': return 'text-amber-400';
+                case 'critical': return 'text-red-400';
+                default: return 'text-slate-400';
+              }
+            };
+
+            const getSeverityIcon = (sev: string) => {
+              switch (sev) {
+                case 'info': return '●';
+                case 'warning': return '⚠';
+                case 'critical': return '⚠';
+                default: return '?';
+              }
+            };
+
+            async function handleRepair() {
+              try {
+                await syncStatus.repair('auto');
+              } catch (e: any) {
+                alert(`Sync repair failed: ${e.message}`);
+              }
+            }
+
+            async function handleLayerZeroProcess() {
+              try {
+                const result = await syncStatus.processLayerZero('process_pending');
+                alert(`LayerZero processing completed: ${result.message}\nProcessed: ${result.processed}/${result.total} messages`);
+                try { await dvn.refresh?.(); } catch {}
+                try { await syncStatus.refresh?.(); } catch {}
+                // Slight delayed refresh to catch eventual consistency
+                setTimeout(() => { dvn.refresh?.(); syncStatus.refresh?.(); }, 1200);
+              } catch (e: any) {
+                alert(`LayerZero processing failed: ${e.message}`);
+              }
+            }
+
+            return (
+              <Card key={key} title={
+                <span className="inline-flex items-center gap-2">
+                  {title}
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] ${badgeClassFor(key)}`}>System</span>
+                </span>
+              } actions={<IconRefresh onClick={syncStatus.refresh} disabled={syncStatus.loading} />}>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Status:</span>
+                  <span className={getSeverityColor(severity)}>
+                    {getSeverityIcon(severity)} {status.replace('-', ' ')}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Drift:</span>
+                  <span className={drift === 0 ? "text-emerald-400" : "text-amber-400"}>
+                    {drift} items {isLegitimate && drift > 0 ? "(legitimate)" : ""}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">PoS Pending:</span>
+                  <span className="text-xs text-slate-300">{posCount}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">DVN Pending:</span>
+                  <span className="text-xs text-slate-300">{dvnCount}</span>
+                </div>
+                {drift > 0 && !isLegitimate && (
+                  <div className="pt-2">
+                    <button
+                      onClick={handleRepair}
+                      className="w-full px-3 py-1.5 text-xs bg-amber-500/10 text-amber-300 rounded-md hover:bg-amber-500/20 border border-amber-500/30"
+                      disabled={syncStatus.loading}
+                    >
+                      Auto Repair
+                    </button>
+                  </div>
+                )}
+                {drift > 0 && isLegitimate && dvnCount > 0 && (
+                  <div className="pt-2">
+                    <button
+                      onClick={handleLayerZeroProcess}
+                      className="w-full px-3 py-1.5 text-xs bg-blue-500/10 text-blue-300 rounded-md hover:bg-blue-500/20 border border-blue-500/30"
+                      disabled={syncStatus.loading}
+                    >
+                      Process via LayerZero ({dvnCount})
+                    </button>
+                  </div>
+                )}
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400">Last Check:</span>
                   <span className="text-xs text-slate-500">{timeSince(at)}</span>
@@ -514,16 +861,94 @@ export default function OpsPage() {
             const unlockHeight = (dvn as any)?.data?.unlockHeight ?? "—";
             const evmExplorer = dvnChainId === 80002 ? 'https://www.oklink.com/amoy/tx/' : 'https://sepolia.etherscan.io/tx/';
 
+            return (
+              <Card key={key} title={title} actions={<IconRefresh onClick={dvn.refresh} disabled={dvn.loading} />} className="relative z-10 overflow-visible">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Status:</span>
+                  <span className={ok ? "text-emerald-400" : "text-red-400"}>●</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">EVM TX:</span>
+                  <span className="flex items-center gap-1 max-w-[60%] justify-end">
+                    {evmTx !== '—' ? (
+                      <a href={`${evmExplorer}${evmTx}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-indigo-300 hover:text-white truncate" title={evmTx}>
+                        <span className="truncate font-mono">{evmTx.slice(0, 10)}...</span>
+                        <ExternalLink size={12} className="flex-shrink-0" />
+                      </a>
+                    ) : (
+                      <span className="text-xs text-slate-300">{evmTx}</span>
+                    )}
+                    {evmTx !== '—' && (
+                      <button
+                        aria-label="Copy EVM TX"
+                        className="text-slate-400 hover:text-white flex-shrink-0"
+                        onClick={() => navigator.clipboard.writeText(evmTx)}
+                        title="Copy"
+                      >
+                        <Copy size={12} />
+                      </button>
+                    )}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">ICP Receipt:</span>
+                  <span className="flex items-center gap-1 max-w-[60%] justify-end">
+                    <span className="text-xs text-slate-300 truncate font-mono" title={icpReceipt}>
+                      {icpReceipt !== '—' ? `${icpReceipt.slice(0, 12)}...` : icpReceipt}
+                    </span>
+                    {icpReceipt !== '—' && (
+                      <button
+                        aria-label="Copy ICP Receipt"
+                        className="text-slate-400 hover:text-white flex-shrink-0"
+                        onClick={() => navigator.clipboard.writeText(icpReceipt)}
+                        title="Copy"
+                      >
+                        <Copy size={12} />
+                      </button>
+                    )}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Lock Status:</span>
+                  <span className="text-xs text-emerald-300">{lockStatus}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Unlock Height:</span>
+                  <span className="text-xs text-slate-300">{unlockHeight}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Last Check:</span>
+                  <span className="text-xs text-slate-500">{timeSince(at)}</span>
+                </div>
+              </Card>
+            );
+          }
+
+          // DVN Mint Tests card
+          if (key === "dvn_mint_tests") {
+            const getExplorerUrl = (chainId: number) => {
+              switch (chainId) {
+                case 11155111: return 'https://sepolia.etherscan.io/tx/';
+                case 80002: return 'https://www.oklink.com/amoy/tx/';
+                case 11155420: return 'https://sepolia-optimism.etherscan.io/tx/';
+                case 421614: return 'https://sepolia.arbiscan.io/tx/';
+                case 84532: return 'https://sepolia.basescan.org/tx/';
+                case 101: return 'https://explorer.solana.com/tx/';
+                case 0: return 'https://blockstream.info/testnet/tx/';
+                default: return 'https://sepolia.etherscan.io/tx/';
+              }
+            };
+            const evmExplorer = getExplorerUrl(dvnChainId);
+
             async function onMonitor() {
               if (!dvnTxHash) return;
               await dvnMon.monitor(dvnTxHash, dvnChainId);
             }
 
             async function onSubmitAttestation() {
-              if (!dvnMon.messageId) return;
-              const validator = (document.getElementById('dvn-validator') as HTMLInputElement)?.value?.trim();
-              const signatureHex = (document.getElementById('dvn-sighex') as HTMLInputElement)?.value?.trim();
-              if (!validator || !signatureHex) return;
+              const validator = (document.getElementById('dvn-validator-test') as HTMLInputElement)?.value;
+              const signatureHex = (document.getElementById('dvn-sighex-test') as HTMLInputElement)?.value;
+              if (!dvnMon.messageId || !validator || !signatureHex) return;
               await fetch('/api/ops/dvn/attest', {
                 method: 'POST',
                 headers: { 'content-type': 'application/json' },
@@ -544,22 +969,46 @@ export default function OpsPage() {
 
             async function createTestTx() {
               try {
+                // Non-EVM chains can't create MetaMask transactions
+                if (dvnChainId === 101 || dvnChainId === 0) {
+                  alert('MetaMask transactions are only supported for EVM chains. Please use Solana/Bitcoin wallets for non-EVM chains.');
+                  return;
+                }
+
                 const ethAll: any = (window as any).ethereum;
                 const eth: any = ethAll?.providers?.find((p: any) => p && p.isMetaMask) ?? ethAll;
                 if (!eth) throw new Error('No injected wallet found');
-                // Ensure correct chain
-                const hexChain = dvnChainId === 80002 ? '0x13882' : '0xaa36a7'; // Amoy or Sepolia
+                
+                // Get chain config
+                const getChainConfig = (chainId: number) => {
+                  switch (chainId) {
+                    case 11155111: return { hex: '0xaa36a7', name: 'Ethereum Sepolia', symbol: 'ETH', rpc: 'https://rpc.sepolia.org', explorer: 'https://sepolia.etherscan.io' };
+                    case 80002: return { hex: '0x13882', name: 'Polygon Amoy', symbol: 'MATIC', rpc: 'https://rpc-amoy.polygon.technology', explorer: 'https://www.oklink.com/amoy' };
+                    case 11155420: return { hex: '0xaa37dc', name: 'Optimism Sepolia', symbol: 'ETH', rpc: 'https://sepolia.optimism.io', explorer: 'https://sepolia-optimism.etherscan.io' };
+                    case 421614: return { hex: '0x66eee', name: 'Arbitrum Sepolia', symbol: 'ETH', rpc: 'https://sepolia-rollup.arbitrum.io/rpc', explorer: 'https://sepolia.arbiscan.io' };
+                    case 84532: return { hex: '0x14a34', name: 'Base Sepolia', symbol: 'ETH', rpc: 'https://sepolia.base.org', explorer: 'https://sepolia.basescan.org' };
+                    default: return { hex: '0xaa36a7', name: 'Ethereum Sepolia', symbol: 'ETH', rpc: 'https://rpc.sepolia.org', explorer: 'https://sepolia.etherscan.io' };
+                  }
+                };
+                
+                const chainConfig = getChainConfig(dvnChainId);
+                
                 try {
-                  await eth.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: hexChain }] });
+                  await eth.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: chainConfig.hex }] });
                 } catch (e: any) {
                   // Try to add then switch
                   try {
-                    if (dvnChainId === 80002) {
-                      await eth.request({ method: 'wallet_addEthereumChain', params: [{ chainId: '0x13882', chainName: 'Polygon Amoy', nativeCurrency: { name: 'MATIC', symbol: 'MATIC', decimals: 18 }, rpcUrls: ['https://rpc.ankr.com/polygon_amoy'], blockExplorerUrls: ['https://www.oklink.com/amoy'] }] });
-                    } else {
-                      await eth.request({ method: 'wallet_addEthereumChain', params: [{ chainId: '0xaa36a7', chainName: 'Ethereum Sepolia', nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 }, rpcUrls: ['https://rpc.sepolia.org'], blockExplorerUrls: ['https://sepolia.etherscan.io'] }] });
-                    }
-                    await eth.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: hexChain }] });
+                    await eth.request({ 
+                      method: 'wallet_addEthereumChain', 
+                      params: [{ 
+                        chainId: chainConfig.hex, 
+                        chainName: chainConfig.name, 
+                        nativeCurrency: { name: chainConfig.symbol, symbol: chainConfig.symbol, decimals: 18 }, 
+                        rpcUrls: [chainConfig.rpc], 
+                        blockExplorerUrls: [chainConfig.explorer] 
+                      }] 
+                    });
+                    await eth.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: chainConfig.hex }] });
                   } catch (e2) {
                     throw e2;
                   }
@@ -576,138 +1025,159 @@ export default function OpsPage() {
             }
 
             return (
-              <Card key={key} title={title} actions={<IconRefresh onClick={dvn.refresh} disabled={dvn.loading} />} className="relative z-10 overflow-visible">
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Status:</span>
-                  <span className={ok ? "text-emerald-400" : "text-red-400"}>●</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-400">EVM TX:</span>
-                  <span className="text-xs text-slate-300">{evmTx}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-400">ICP Receipt:</span>
-                  <span className="text-xs text-slate-300">{icpReceipt}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Lock Status:</span>
-                  <span className="text-xs text-emerald-300">{lockStatus}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Unlock Height:</span>
-                  <span className="text-xs text-slate-300">{unlockHeight}</span>
-                </div>
-
-                <div className="mt-4 pt-3 border-t border-slate-700/60">
-                  <div className="mb-2 text-xs text-slate-400">Monitor EVM TX via DVN</div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <select
-                      className="h-8 rounded-md bg-slate-800/70 border border-slate-700 text-slate-200 text-xs px-2"
-                      value={dvnChainId}
-                      onChange={(e) => setDvnChainId(Number(e.target.value))}
-                      title="Chain ID"
-                    >
-                      <option value={11155111}>Sepolia (11155111)</option>
-                      <option value={80002}>Amoy (80002)</option>
-                    </select>
-                    <input
-                      type="text"
-                      placeholder="0x... EVM tx hash"
-                      className="flex-1 h-8 rounded-md bg-slate-800/70 border border-slate-700 text-slate-200 text-xs px-2 font-mono"
-                      value={dvnTxHash}
-                      onChange={(e) => setDvnTxHash(e.target.value.trim())}
-                    />
-                    <button
-                      onClick={onMonitor}
-                      disabled={!dvnTxHash || dvnMon.loading}
-                      className="px-2 h-8 rounded-md bg-indigo-500/10 text-indigo-300 ring-1 ring-indigo-500/30 text-xs hover:bg-indigo-500/20 disabled:opacity-50"
-                    >
-                      Monitor
-                    </button>
-                    <button
-                      onClick={createTestTx}
-                      className="px-2 h-8 rounded-md bg-fuchsia-500/10 text-fuchsia-300 ring-1 ring-fuchsia-500/30 text-xs hover:bg-fuchsia-500/20"
-                      title="Use MetaMask to create a 0-value test transaction and auto-monitor it"
-                    >
-                      Create Test TX (MetaMask)
-                    </button>
+              <Card key={key} title={title} actions={
+                <button
+                  onClick={() => dvn.refresh?.()}
+                  className="inline-flex items-center justify-center h-8 px-2 rounded-md text-slate-300 hover:text-white hover:bg-white/10 text-xs"
+                  title="Re-check DVN"
+                >
+                  Re-check DVN
+                </button>
+              } className="relative z-10 overflow-visible">
+                <div className="space-y-4">
+                  <div className="text-xs text-slate-400">Monitor TX via DVN</div>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={dvnChainId}
+                        onChange={(e) => setDvnChainId(Number(e.target.value))}
+                        className="h-8 w-40 rounded-md bg-slate-800/70 border border-slate-700 text-slate-200 text-xs px-2"
+                        title="Chain ID"
+                      >
+                        <optgroup label="EVM">
+                          <option value={11155111}>ETH Sepolia (11155111)</option>
+                          <option value={80002}>POL Amoy (80002)</option>
+                          <option value={11155420}>OP Sepolia (11155420)</option>
+                          <option value={421614}>ARB Sepolia (421614)</option>
+                          <option value={84532}>BASE Sepolia (84532)</option>
+                        </optgroup>
+                        <optgroup label="Non-EVM">
+                          <option value={101}>SOL Devnet (101)</option>
+                          <option value={0}>BTC Testnet (0)</option>
+                        </optgroup>
+                      </select>
+                      <button
+                        onClick={createTestTx}
+                        className="px-2 h-8 rounded-md bg-fuchsia-500/10 text-fuchsia-300 ring-1 ring-fuchsia-500/30 text-xs hover:bg-fuchsia-500/20"
+                        title="Use MetaMask to create a 0-value test transaction and auto-monitor it"
+                      >
+                        Test TX
+                      </button>
+                      <button
+                        onClick={onMonitor}
+                        disabled={!dvnTxHash || dvnMon.loading}
+                        className="px-2 h-8 rounded-md bg-indigo-500/10 text-indigo-300 ring-1 ring-indigo-500/30 text-xs hover:bg-indigo-500/20 disabled:opacity-50"
+                      >
+                        Monitor
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        placeholder="0x... tx hash"
+                        className="flex-1 h-8 rounded-md bg-slate-800/70 border border-slate-700 text-slate-200 text-xs px-2 font-mono"
+                        value={dvnTxHash}
+                        onChange={(e) => setDvnTxHash(e.target.value.trim())}
+                      />
+                      <button
+                        onClick={() => { try { const v = localStorage.getItem('amoy_last_tx'); if (v) setDvnTxHash(v); } catch {} }}
+                        className="px-1.5 h-7 rounded bg-white/5 text-slate-300 ring-1 ring-white/10 text-[10px] hover:bg-white/10"
+                        title="Use last minted tx"
+                      >
+                        Use last
+                      </button>
+                      <button
+                        onClick={() => { setDvnTxHash(''); try { localStorage.removeItem('amoy_last_tx'); } catch {} }}
+                        className="px-1.5 h-7 rounded bg-white/5 text-slate-300 ring-1 ring-white/10 text-[10px] hover:bg-white/10"
+                        title="Clear"
+                      >
+                        Clear
+                      </button>
+                    </div>
                   </div>
+                  
                   {dvnMon.error && (
-                    <div className="mt-2 text-xs text-amber-300">{dvnMon.error}</div>
+                    <div className="text-xs text-amber-300">{dvnMon.error}</div>
                   )}
+                  
                   {(dvnMon.messageId || dvnMon.message) && (
-                    <div className="mt-3 space-y-1">
-                      {dvnMon.messageId && (
-                        <div className="flex items-center justify-between">
-                          <span className="text-slate-400">Message ID:</span>
-                          <span className="text-xs text-slate-300 font-mono">{dvnMon.messageId}</span>
-                        </div>
-                      )}
-                      {dvnMon.message?.id && (
-                        <div className="flex items-center justify-between">
-                          <span className="text-slate-400">Tracked ID:</span>
-                          <span className="text-xs text-slate-300 font-mono">{dvnMon.message.id}</span>
-                        </div>
-                      )}
-                      {dvnMon.attestations?.length ? (
-                        <div className="flex items-center justify-between">
-                          <span className="text-slate-400">Attestations:</span>
-                          <span className="text-xs text-slate-300">{dvnMon.attestations.length}</span>
-                        </div>
-                      ) : null}
-                      {dvnMon.txHash && (
-                        <div className="flex items-center justify-between">
-                          <span className="text-slate-400">TX Hash:</span>
-                          <span className="flex items-center gap-1 max-w-[60%] justify-end">
-                            <a href={`${evmExplorer}${dvnMon.txHash}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-indigo-300 hover:text-white truncate" title={dvnMon.txHash}>
-                              <span className="truncate font-mono">{dvnMon.txHash.slice(0, 10)}...</span>
-                              <ExternalLink size={12} className="flex-shrink-0" />
-                            </a>
-                          </span>
-                        </div>
-                      )}
+                    <div className="space-y-3">
+                      <div className="text-xs text-slate-400">Transaction Status</div>
+                      <div className="space-y-1">
+                        {dvnMon.messageId && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-400">Message ID:</span>
+                            <span className="flex items-center gap-1 max-w-[60%] justify-end">
+                              <span className="text-xs text-slate-300 font-mono truncate" title={dvnMon.messageId}>
+                                {dvnMon.messageId.slice(0, 12)}...
+                              </span>
+                              <button
+                                aria-label="Copy Message ID"
+                                className="text-slate-400 hover:text-white flex-shrink-0"
+                                onClick={() => dvnMon.messageId && navigator.clipboard.writeText(dvnMon.messageId)}
+                                title="Copy"
+                              >
+                                <Copy size={12} />
+                              </button>
+                            </span>
+                          </div>
+                        )}
+                        {dvnMon.attestations?.length ? (
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-400">Attestations:</span>
+                            <span className="text-xs text-slate-300">{dvnMon.attestations.length}</span>
+                          </div>
+                        ) : null}
+                        {dvnMon.txHash && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-400">TX Hash:</span>
+                            <span className="flex items-center gap-1 max-w-[60%] justify-end">
+                              <a href={`${evmExplorer}${dvnMon.txHash}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-indigo-300 hover:text-white truncate" title={dvnMon.txHash}>
+                                <span className="truncate font-mono">{dvnMon.txHash.slice(0, 10)}...</span>
+                                <ExternalLink size={12} className="flex-shrink-0" />
+                              </a>
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
 
                   {dvnMon.messageId && (
-                    <div className="mt-4 space-y-2">
-                      <div className="text-xs text-slate-400">Submit Attestation</div>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          placeholder="validator id"
-                          className="h-8 rounded-md bg-slate-800/70 border border-slate-700 text-slate-200 text-xs px-2"
-                          id="dvn-validator"
-                        />
-                        <input
-                          type="text"
-                          placeholder="0x signature hex"
-                          className="flex-1 h-8 rounded-md bg-slate-800/70 border border-slate-700 text-slate-200 text-xs px-2 font-mono"
-                          id="dvn-sighex"
-                        />
-                        <button
-                          onClick={onSubmitAttestation}
-                          className="px-2 h-8 rounded-md bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-500/30 text-xs hover:bg-emerald-500/20"
-                        >
-                          Submit
-                        </button>
-                      </div>
-
-                      <div className="text-xs text-slate-400 mt-3">Verify LayerZero Message</div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={onVerify}
-                          className="px-2 h-8 rounded-md bg-sky-500/10 text-sky-300 ring-1 ring-sky-500/30 text-xs hover:bg-sky-500/20"
-                        >
-                          Verify
-                        </button>
+                    <div className="space-y-2">
+                      <div className="text-xs text-slate-400">DVN Actions</div>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            placeholder="validator id"
+                            className="w-20 h-7 rounded-md bg-slate-800/70 border border-slate-700 text-slate-200 text-xs px-2"
+                            id="dvn-validator-test"
+                          />
+                          <input
+                            type="text"
+                            placeholder="0x signature hex"
+                            className="flex-1 h-7 rounded-md bg-slate-800/70 border border-slate-700 text-slate-200 text-xs px-2 font-mono"
+                            id="dvn-sighex-test"
+                          />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={onSubmitAttestation}
+                            className="px-2 h-7 rounded-md bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-500/30 text-xs hover:bg-emerald-500/20"
+                          >
+                            Submit
+                          </button>
+                          <button
+                            onClick={onVerify}
+                            className="px-2 h-7 rounded-md bg-sky-500/10 text-sky-300 ring-1 ring-sky-500/30 text-xs hover:bg-sky-500/20"
+                          >
+                            Verify LayerZero
+                          </button>
+                        </div>
                       </div>
                     </div>
                   )}
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Last Check:</span>
-                  <span className="text-xs text-slate-500">{timeSince(at)}</span>
                 </div>
               </Card>
             );
@@ -904,7 +1374,6 @@ export default function OpsPage() {
               </div>
             </div>
           </div>
-
           {/* System Status Summary */}
           <div className="bg-black/30 p-4 rounded-xl">
             <h4 className="font-medium mb-3 text-slate-200">System Status Summary</h4>
@@ -912,7 +1381,7 @@ export default function OpsPage() {
               <div className="text-center">
                 <div className={`w-3 h-3 rounded-full mx-auto mb-1 ${icp.data?.ok ? 'bg-green-400' : 'bg-red-400'}`}></div>
                 <p className="text-slate-300">ICP Canisters</p>
-                <p className="text-xs text-slate-500">{icp.data?.canisters?.items?.length || 0} services</p>
+                <p className="text-xs text-slate-500">{((icp.data as any)?.canisters?.items?.length) ?? 0} services</p>
               </div>
               <div className="text-center">
                 <div className={`w-3 h-3 rounded-full mx-auto mb-1 ${btc.data?.ok ? 'bg-green-400' : 'bg-red-400'}`}></div>

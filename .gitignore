@@ -80,7 +80,7 @@ Thumbs.db
 *.crt
 *.cer
 secrets/
-.env
+# .env
 .flaskenv
 *.p12
 *.pfx

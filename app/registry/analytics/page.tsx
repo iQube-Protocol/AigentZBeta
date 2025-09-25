@@ -59,23 +59,29 @@ export default function RegistryAnalytics() {
   }
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-semibold">Registry Analytics</h1>
-      
-      <div className="flex justify-between items-center">
-        <p className="text-slate-300">
-          View statistics and insights about iQubes in the registry.
-        </p>
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-slate-400">Time Range:</span>
-          <Select
-            options={["7d", "30d", "90d", "1y", "all"]}
-            value={timeRange}
-            onValueChange={setTimeRange}
-            className="w-24"
-          />
+    <div className="flex flex-col h-full">
+      {/* Sticky Header Section */}
+      <div className="sticky top-0 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 z-10 pb-6 space-y-6">
+        <h1 className="text-3xl font-semibold">Registry Analytics</h1>
+        
+        <div className="flex justify-between items-center">
+          <p className="text-slate-300">
+            View statistics and insights about iQubes in the registry.
+          </p>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-slate-400">Time Range:</span>
+            <Select
+              options={["7d", "30d", "90d", "1y", "all"]}
+              value={timeRange}
+              onValueChange={setTimeRange}
+              className="w-24"
+            />
+          </div>
         </div>
       </div>
+
+      {/* Scrollable Content Section */}
+      <div className="flex-1 overflow-y-auto space-y-6">
 
       <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="rounded-2xl p-5 bg-black/30 ring-1 ring-white/10">
@@ -194,6 +200,7 @@ export default function RegistryAnalytics() {
             </div>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

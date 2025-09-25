@@ -45,6 +45,7 @@ export async function getTestnetStatus(): Promise<ChainStatus & { blockHeight?: 
         if (response.ok) {
           const text = await response.text();
           const blockHeight = Number(text.trim());
+          console.log(`${api.name} API response: "${text.trim()}" -> blockHeight: ${blockHeight}`);
           if (Number.isFinite(blockHeight) && blockHeight > 0) {
             return {
               ok: true,
@@ -52,9 +53,12 @@ export async function getTestnetStatus(): Promise<ChainStatus & { blockHeight?: 
               details: `endpoint: ${api.name}`,
               at: new Date().toISOString(),
             };
+          } else {
+            console.warn(`${api.name} API returned invalid block height: "${text.trim()}"`);
           }
+        } else {
+          console.warn(`${api.name} API returned ${response.status}: ${response.statusText}`);
         }
-        console.warn(`${api.name} API returned ${response.status}: ${response.statusText}`);
       } catch (fetchError: any) {
         clearTimeout(timeoutId);
         if (fetchError.name === 'AbortError') {
@@ -68,9 +72,24 @@ export async function getTestnetStatus(): Promise<ChainStatus & { blockHeight?: 
     }
   }
 
+  // Try to get cached block height as fallback
+  let fallbackHeight: number | undefined;
+  try {
+    const cached = typeof localStorage !== 'undefined' ? localStorage.getItem('btc_testnet_last_good') : null;
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      const cacheAge = Date.now() - new Date(parsed.at).getTime();
+      // Use cached data if less than 1 hour old
+      if (cacheAge < 60 * 60 * 1000) {
+        fallbackHeight = parsed.blockHeight;
+      }
+    }
+  } catch {}
+
   return {
     ok: false,
-    details: `endpoint: ${endpoint.replace(/^https?:\/\//, '').replace(/\/api\/?$/, '')} (unreachable)`,
+    blockHeight: fallbackHeight, // Include cached block height if available
+    details: `endpoint: ${endpoint.replace(/^https?:\/\//, '').replace(/\/api\/?$/, '')} (unreachable)${fallbackHeight ? ` - cached: ${fallbackHeight}` : ''}`,
     at: new Date().toISOString(),
   };
 }

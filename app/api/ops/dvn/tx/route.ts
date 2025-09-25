@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
     const CANISTER_ID = (process.env.CROSS_CHAIN_SERVICE_CANISTER_ID || process.env.NEXT_PUBLIC_CROSS_CHAIN_SERVICE_CANISTER_ID) as string;
     if (!CANISTER_ID) return NextResponse.json({ ok: false, error: 'CROSS_CHAIN_SERVICE_CANISTER_ID not configured' }, { status: 400 });
 
-    const dvn = getActor<any>(CANISTER_ID, dvnIdl);
+    const dvn = await getActor<any>(CANISTER_ID, dvnIdl);
 
     // Try interpret as message id first
     const msgOpt = await dvn.get_dvn_message(idOrHash);
@@ -71,6 +71,21 @@ export async function GET(req: NextRequest) {
       try {
         attestations = await dvn.get_message_attestations(message.id);
       } catch {}
+    }
+
+    // Convert BigInt fields to strings for JSON serialization
+    if (message) {
+      if (message.timestamp) message.timestamp = Number(message.timestamp);
+      if (message.nonce) message.nonce = Number(message.nonce);
+      if (message.source_chain) message.source_chain = Number(message.source_chain);
+      if (message.destination_chain) message.destination_chain = Number(message.destination_chain);
+    }
+    
+    // Convert attestation timestamps
+    if (attestations && Array.isArray(attestations)) {
+      attestations.forEach(att => {
+        if (att.timestamp) att.timestamp = Number(att.timestamp);
+      });
     }
 
     return NextResponse.json({ ok: true, message, attestations, at: new Date().toISOString() });

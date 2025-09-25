@@ -7,22 +7,34 @@ export async function POST() {
     const POS_ID = (process.env.PROOF_OF_STATE_CANISTER_ID || process.env.NEXT_PUBLIC_PROOF_OF_STATE_CANISTER_ID) as string;
     if (!POS_ID) return NextResponse.json({ ok: false, error: 'PROOF_OF_STATE_CANISTER_ID not configured' }, { status: 400 });
 
-    const pos = getActor<any>(POS_ID, posIdl);
+    const pos = await getActor<any>(POS_ID, posIdl);
 
     // Check what methods are available on the canister
     const methods = Object.getOwnPropertyNames(pos).filter(name => typeof pos[name] === 'function');
     console.log('Available methods on proof_of_state:', methods);
 
-    // Try calling the methods directly even if not in IDL (they might exist)
+    // Try the full anchor flow: issue_receipt -> batch -> anchor
     try {
-      console.log('Attempting to call issue_receipt directly...');
-      const receiptResult = await pos.issue_receipt(`manual_test_${Date.now()}`);
-      console.log('Direct issue_receipt result:', receiptResult);
+      console.log('Starting anchor flow...');
+      
+      // Step 1: Issue a receipt
+      const receiptId = await pos.issue_receipt(`anchor_test_${Date.now()}`);
+      console.log('Receipt created:', receiptId);
+      
+      // Step 2: Batch the receipts
+      const batchRoot = await pos.batch();
+      console.log('Batch created:', batchRoot);
+      
+      // Step 3: Anchor the batch
+      const anchorResult = await pos.anchor();
+      console.log('Anchor result:', anchorResult);
       
       return NextResponse.json({ 
         ok: true, 
-        result: 'Receipt created successfully (method exists but not in IDL)', 
-        receiptResult,
+        result: 'Anchor created successfully', 
+        receiptId,
+        batchRoot,
+        anchorResult,
         at: new Date().toISOString() 
       });
     } catch (directError: any) {

@@ -22,14 +22,14 @@ export async function GET() {
 
     try {
       if (POS_ID) {
-        const pos = getActor<any>(POS_ID, posIdl);
+        const pos = await getActor<any>(POS_ID, posIdl);
         pendingCount = await pos.get_pending_count();
       }
     } catch {}
 
     try {
       if (EVM_ID) {
-        const evm = getActor<any>(EVM_ID, evmIdl);
+        const evm = await getActor<any>(EVM_ID, evmIdl);
         const chains = await evm.get_supported_chains();
         supportedChains = Array.isArray(chains) ? chains.length : 0;
       }
@@ -37,7 +37,7 @@ export async function GET() {
 
     try {
       if (DVN_ID) {
-        const dvn = getActor<any>(DVN_ID, dvnIdl);
+        const dvn = await getActor<any>(DVN_ID, dvnIdl);
         const msgs = await dvn.get_pending_messages();
         dvnPending = Array.isArray(msgs) ? msgs.length : 0;
       }
