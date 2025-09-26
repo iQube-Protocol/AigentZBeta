@@ -80,7 +80,7 @@ Thumbs.db
 *.crt
 *.cer
 secrets/
-.env
+# .env
 .flaskenv
 *.p12
 *.pfx
@@ -90,3 +90,6 @@ secrets/
 
 # Ignore nested project copy if present
 AigentZBeta/
+
+# Local backups (tarballs and snapshots)
+backups/

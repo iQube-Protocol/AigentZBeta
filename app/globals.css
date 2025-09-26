@@ -40,3 +40,13 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.2);
 }
+
+/* Badge styling - less rounded corners */
+.badge {
+  border-radius: 0.375rem; /* 6px - less rounded than full pills */
+}
+
+/* Override Tailwind's rounded-full for badges */
+.inline-flex.items-center.px-2.py-0\.5.rounded-full.text-\[11px\] {
+  border-radius: 0.375rem !important;
+}

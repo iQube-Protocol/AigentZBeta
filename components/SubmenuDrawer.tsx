@@ -3560,46 +3560,49 @@ export const SubmenuDrawer = ({
   return (
     <div className="fixed inset-0 z-50 flex">
       <div className="absolute inset-0 bg-black/50 drawer-backdrop" onClick={onClose}></div>
-      <div className="relative bg-black/30 ring-1 ring-white/10 backdrop-blur-xl w-96 h-full overflow-y-auto shadow-xl ml-72 animate-slide-in-right drawer-content">
-        <div className="p-4 md:p-6 space-y-6">
-          <div className="uppercase text-[11px] tracking-wider text-slate-400 mb-4 flex items-center justify-between pb-4 border-b border-white/10">
-            <div className="flex items-center gap-3">
-              <span className={`${getTypeColorScheme(iQubeType).text} bg-black/40 p-2 rounded-lg`}>
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <rect x="3" y="3" width="5" height="5" rx="1" />
-                  <rect x="16" y="3" width="5" height="5" rx="1" />
-                  <rect x="3" y="16" width="5" height="5" rx="1" />
-                  <rect x="16" y="16" width="5" height="5" rx="1" />
-                  <path d="M8 6h8" />
-                  <path d="M6 8v8" />
-                  <path d="M18 8v8" />
-                  <path d="M8 18h8" />
-                </svg>
-              </span>
-              <span className="font-semibold text-white">iQube Operations</span>
+      <div className="relative bg-black/30 ring-1 ring-white/10 backdrop-blur-xl w-96 h-full shadow-xl ml-72 animate-slide-in-right drawer-content flex flex-col">
+        {/* Sticky Header and Tabs */}
+        <div className="sticky top-0 bg-black/30 backdrop-blur-xl z-10 border-b border-white/10">
+          <div className="p-6 pb-0">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-2">
+                <span className="text-indigo-400">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <rect x="3" y="3" width="5" height="5" rx="1" />
+                    <rect x="16" y="3" width="5" height="5" rx="1" />
+                    <rect x="3" y="16" width="5" height="5" rx="1" />
+                    <rect x="16" y="16" width="5" height="5" rx="1" />
+                    <path d="M8 6h8" />
+                    <path d="M6 8v8" />
+                    <path d="M18 8v8" />
+                    <path d="M8 18h8" />
+                  </svg>
+                </span>
+                <span className="font-semibold text-white">iQube Operations</span>
+              </div>
+              <button 
+                onClick={onClose} 
+                className="text-slate-400 hover:text-white transition-colors"
+                aria-label="Close drawer"
+                title="Close drawer"
+              >
+                <X size={14} />
+              </button>
             </div>
-            <button 
-              onClick={onClose} 
-              className="text-slate-400 hover:text-white transition-colors"
-              aria-label="Close drawer"
-              title="Close drawer"
-            >
-              <X size={14} />
-            </button>
-          </div>
-          
-          {/* Tabs */}
-          <div className="flex items-center border-b border-white/10 mb-4" role="tablist" aria-label="iQube Operations">
+            
+            {/* Tabs */}
+            <div className="flex items-center border-b border-white/10 pb-4" role="tablist" aria-label="iQube Operations">
             {/* View tab - available in both modes */}
             <button
               onClick={() => setActiveTab("view")}
@@ -3702,8 +3705,14 @@ export const SubmenuDrawer = ({
               </>
             )}
           </div>
-          
-          {renderContent()}
+          </div>
+        </div>
+        
+        {/* Scrollable Content Area */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="p-6 pt-0">
+            {renderContent()}
+          </div>
         </div>
       </div>
     </div>

@@ -83,6 +83,15 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       if ('verifiabilityScore' in body && body.verifiabilityScore !== undefined) payload.verifiability_score = body.verifiabilityScore;
       if ('riskScore' in body && body.riskScore !== undefined) payload.risk_score = body.riskScore;
 
+      // Optional columns: visibility, user_id (validate UUID)
+      if ('visibility' in body && (body.visibility === 'public' || body.visibility === 'private')) {
+        payload.visibility = body.visibility;
+      }
+      if ('userId' in body && typeof body.userId === 'string') {
+        const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+        if (uuidRe.test(body.userId)) payload.user_id = body.userId;
+      }
+
       // If no valid fields provided, return current item (no-op) rather than erroring
       if (Object.keys(payload).length === 0) {
         const { data, error, status } = await supabase
@@ -118,7 +127,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         return NextResponse.json(mapped, { status: 200 });
       }
 
-      const { data, error, status } = await supabase
+      let { data, error, status } = await supabase
         .from('iqube_templates')
         .update(payload)
         .eq('id', id)
@@ -126,6 +135,29 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         .single();
       if (error) {
         console.error('Supabase UPDATE error for iqube_templates', { id, payloadKeys: Object.keys(payload), status, message: error.message });
+        // Retry without optional columns if missing
+        const msg = (error.message || '').toString();
+        const missingColumn = /column\s+\"?(visibility|user_id)\"?\s+does not exist/i.test(msg);
+        if (missingColumn) {
+          const fallback = { ...payload } as any;
+          delete fallback.visibility;
+          delete fallback.user_id;
+          const retry = await supabase
+            .from('iqube_templates')
+            .update(fallback)
+            .eq('id', id)
+            .select()
+            .single();
+          if (retry.error) {
+            console.error('Retry UPDATE error after removing optional columns', { message: retry.error.message });
+            if (status === 406) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+            return NextResponse.json({ error: retry.error.message }, { status: retry.status || 500 });
+          }
+          data = retry.data as any;
+        } else {
+          if (status === 406) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+          return NextResponse.json({ error: error.message }, { status: status || 500 });
+        }
         if (process.env.NEXT_PUBLIC_REGISTRY_DEV_FALLBACK === 'true') {
           console.warn('Falling back to in-memory store for PATCH due to Supabase error (dev fallback enabled)');
           const items = getStore();
@@ -138,8 +170,6 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
             return NextResponse.json({ ...updated, _devFallback: true }, { status: 200 });
           }
         }
-        if (status === 406) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-        return NextResponse.json({ error: error.message }, { status: status || 500 });
       }
       const mapped: IQubeTemplate = {
         id: data.id,
