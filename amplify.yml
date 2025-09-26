@@ -1,26 +1,23 @@
 version: 1
 applications:
-  - appRoot: docs/operating-manual
-    branch: docs
-    frontend:
-  - appRoot: apps/aigent-z
-    branch: main
-    frontend:
-  - appRoot: apps/aigent-z
-    branch: staging
+  - appRoot: .
     frontend:
       phases:
         preBuild:
           commands:
+            - echo "Installing dependencies..."
             - npm ci
         build:
           commands:
-            - echo "--- Checking tsconfig.json ---" && cat tsconfig.json && echo "--- End tsconfig.json ---"
+            - echo "Building Next.js app..."
             - npm run build
       artifacts:
+        # .next contains the SSR build output
         baseDirectory: .next
         files:
           - '**/*'
       cache:
         paths:
-          - 'node_modules/**/*'
+          - node_modules/**/*
+          - .next/cache/**/*
+    
