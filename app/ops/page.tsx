@@ -154,6 +154,7 @@ export default function OpsPage() {
     { key: "sync_status", title: "Canister Sync Status" },
     { key: "icp_dvn", title: "ICP DVN" },
     { key: "dvn_mint_tests", title: "DVN Mint Tests" },
+    { key: "qct_rekey", title: "QCT Rekey (Stage 1A)" },
     { key: "btc_testnet", title: "BTC Testnet" },
     { key: "eth_sepolia", title: "Ethereum Sepolia" },
     { key: "polygon_amoy", title: "Polygon Amoy" },
@@ -722,7 +723,7 @@ export default function OpsPage() {
               <Card key={key} title={title} actions={<IconRefresh onClick={xchain.refresh} disabled={xchain.loading} />}>
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400">Status:</span>
-                  <span className={ok ? "text-emerald-400" : "text-red-400"}>●</span>
+                  <span className={ok ? "text-emerald-400" : "text-red-400">●</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400">Total Chains:</span>
@@ -739,6 +740,134 @@ export default function OpsPage() {
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400">Last Check:</span>
                   <span className="text-xs text-slate-500">{timeSince(at)}</span>
+                </div>
+              </Card>
+            );
+          }
+
+          // QCT Rekey (Stage 1A) card
+          if (key === "qct_rekey") {
+            const [fromChain, setFromChain] = React.useState<string>('ethereum-sepolia');
+            const [toChain, setToChain] = React.useState<string>('polygon-amoy');
+            const [fromOwner, setFromOwner] = React.useState<string>('');
+            const [toOwner, setToOwner] = React.useState<string>('');
+            const [amount, setAmount] = React.useState<string>('100'); // cents
+            const [nonce, setNonce] = React.useState<string>('');
+            const [busy, setBusy] = React.useState<boolean>(false);
+            const [result, setResult] = React.useState<any>(null);
+
+            useEffect(() => {
+              if (!nonce) setNonce(crypto.randomUUID());
+            }, [nonce]);
+
+            async function autofillOwner(which: 'from' | 'to') {
+              try {
+                const ethAll: any = (window as any).ethereum;
+                const eth: any = ethAll?.providers?.find((p: any) => p && p.isMetaMask) ?? ethAll;
+                if (!eth) throw new Error('No injected wallet found');
+                const accounts: string[] = await eth.request({ method: 'eth_requestAccounts' });
+                const addr = accounts[0];
+                if (which === 'from') setFromOwner(addr);
+                else setToOwner(addr);
+              } catch (e: any) {
+                alert(e?.message || 'Failed to access wallet');
+              }
+            }
+
+            async function onSend() {
+              try {
+                setBusy(true);
+                setResult(null);
+                const res = await fetch('/api/qct/rekey', {
+                  method: 'POST',
+                  headers: { 'content-type': 'application/json' },
+                  body: JSON.stringify({
+                    asset: 'QCT',
+                    from: { chain: fromChain, owner: fromOwner },
+                    to: { chain: toChain, owner: toOwner },
+                    amount,
+                    identityState: 'semi-anonymous',
+                    nonce,
+                  }),
+                });
+                const json = await res.json();
+                if (!res.ok || !json?.ok) throw new Error(json?.error || 'Rekey failed');
+                setResult(json);
+                // Prepare a new nonce for the next send
+                setNonce(crypto.randomUUID());
+              } catch (e: any) {
+                alert(e?.message || 'Rekey failed');
+              } finally {
+                setBusy(false);
+              }
+            }
+
+            return (
+              <Card key={key} title={title}>
+                <div className="grid grid-cols-1 gap-3">
+                  <div className="text-xs text-slate-400">Canonical, DVN-ledger QCT rekey (EVM-only demo). Uses simulated LayerZero; PoS receipt issued.</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <div className="text-xs text-slate-400 mb-1">From Chain</div>
+                      <select value={fromChain} onChange={(e)=>setFromChain(e.target.value)} className="w-full h-8 rounded-md bg-slate-800/70 border border-slate-700 text-slate-200 text-xs px-2">
+                        <option value="ethereum-sepolia">Ethereum Sepolia</option>
+                        <option value="polygon-amoy">Polygon Amoy</option>
+                        <option value="optimism-sepolia">Optimism Sepolia</option>
+                        <option value="arbitrum-sepolia">Arbitrum Sepolia</option>
+                        <option value="base-sepolia">Base Sepolia</option>
+                      </select>
+                    </div>
+                    <div>
+                      <div className="text-xs text-slate-400 mb-1">To Chain</div>
+                      <select value={toChain} onChange={(e)=>setToChain(e.target.value)} className="w-full h-8 rounded-md bg-slate-800/70 border border-slate-700 text-slate-200 text-xs px-2">
+                        <option value="polygon-amoy">Polygon Amoy</option>
+                        <option value="ethereum-sepolia">Ethereum Sepolia</option>
+                        <option value="optimism-sepolia">Optimism Sepolia</option>
+                        <option value="arbitrum-sepolia">Arbitrum Sepolia</option>
+                        <option value="base-sepolia">Base Sepolia</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <div className="text-xs text-slate-400 mb-1">From Owner</div>
+                      <div className="flex gap-2">
+                        <input value={fromOwner} onChange={(e)=>setFromOwner(e.target.value)} placeholder="0x..." className="flex-1 h-8 rounded-md bg-slate-800/70 border border-slate-700 text-slate-200 text-xs px-2 font-mono" />
+                        <button onClick={()=>autofillOwner('from')} className="px-2 h-8 rounded-md bg-white/5 text-slate-300 ring-1 ring-white/10 text-[10px] hover:bg-white/10">Use wallet</button>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-slate-400 mb-1">To Owner</div>
+                      <div className="flex gap-2">
+                        <input value={toOwner} onChange={(e)=>setToOwner(e.target.value)} placeholder="0x..." className="flex-1 h-8 rounded-md bg-slate-800/70 border border-slate-700 text-slate-200 text-xs px-2 font-mono" />
+                        <button onClick={()=>autofillOwner('to')} className="px-2 h-8 rounded-md bg-white/5 text-slate-300 ring-1 ring-white/10 text-[10px] hover:bg-white/10">Use wallet</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <div className="text-xs text-slate-400 mb-1">Amount (cents)</div>
+                      <input value={amount} onChange={(e)=>setAmount(e.target.value)} placeholder="100" className="w-full h-8 rounded-md bg-slate-800/70 border border-slate-700 text-slate-200 text-xs px-2" />
+                    </div>
+                    <div>
+                      <div className="text-xs text-slate-400 mb-1">Nonce</div>
+                      <input value={nonce} onChange={(e)=>setNonce(e.target.value)} className="w-full h-8 rounded-md bg-slate-800/70 border border-slate-700 text-slate-200 text-xs px-2 font-mono" />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={onSend} disabled={busy || !fromOwner || !toOwner || !amount} className="px-3 py-2 rounded-md bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-500/30 text-xs hover:bg-emerald-500/20 disabled:opacity-50">
+                      {busy ? 'Sending...' : 'Send $QCT'}
+                    </button>
+                  </div>
+                  {result && (
+                    <div className="mt-2 space-y-1 text-xs">
+                      <div className="text-slate-400">Result</div>
+                      <div className="flex items-center justify-between"><span className="text-slate-400">Message ID:</span><span className="text-slate-300 font-mono truncate max-w-[60%] text-right" title={result.messageId || '—'}>{result.messageId || '—'}</span></div>
+                      <div className="flex items-center justify-between"><span className="text-slate-400">Attestation:</span><span className="text-slate-300 font-mono truncate max-w-[60%] text-right" title={result.attestationId || '—'}>{result.attestationId || '—'}</span></div>
+                      <div className="flex items-center justify-between"><span className="text-slate-400">At:</span><span className="text-slate-300">{result.at}</span></div>
+                      {result.notes && (<div className="text-slate-500">{result.notes}</div>)}
+                    </div>
+                  )}
                 </div>
               </Card>
             );
