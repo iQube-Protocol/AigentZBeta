@@ -21,10 +21,7 @@ wheels/
 *.egg
 
 # Virtual Environment
-venv/
-ENV/
-env/
-.env
+.env.*
 
 # IDE
 .idea/
@@ -44,15 +41,11 @@ logs/
 # Local development
 instance/
 .webassets-cache
-
-# Environment files - NEVER commit these
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-.env.development
-.env.production
-.env.staging
+# Temporarily allow env files for debugging
+# .env.local
+# .env.development.local
+# .env.test.local
+# .env.production.local
 
 # Coverage reports
 htmlcov/
@@ -85,7 +78,7 @@ Thumbs.db
 *.crt
 *.cer
 secrets/
-.env
+# .env
 .flaskenv
 *.p12
 *.pfx

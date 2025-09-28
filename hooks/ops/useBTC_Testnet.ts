@@ -6,6 +6,7 @@ export function useBTC_Testnet(refreshMs = 30000) {
   const [anchor, setAnchor] = useState<AnchorStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const[latestTx, setLatestTx] = useState<{ txid: string } | null>(null);
 
   async function load() {
     try {
@@ -60,5 +61,5 @@ export function useBTC_Testnet(refreshMs = 30000) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return { data, anchor, loading, error, refresh: load };
+  return { data, anchor, loading, error, refresh: load, latestTx};
 }

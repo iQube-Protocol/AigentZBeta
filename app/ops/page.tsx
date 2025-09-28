@@ -5,6 +5,15 @@ import { useRouter } from "next/navigation";
 import { RefreshCw, Copy, ExternalLink } from "lucide-react";
 import { useCanisterHealth } from "@/hooks/ops/useCanisterHealth";
 import { useBTC_Testnet } from "@/hooks/ops/useBTC_Testnet";
+
+// Extend ChainStatus type to include latestTx if not present
+type ChainStatus = {
+  ok?: boolean;
+  at?: string;
+  anchor?: any;
+  data?: any;
+  latestTx?: { txid: string }; // Ensure latestTx is present for BTC and other chains
+};
 import { useEthereumSepolia } from "@/hooks/ops/useEthereumSepolia";
 import { usePolygonAmoy } from "@/hooks/ops/usePolygonAmoy";
 import { useOptimismSepolia } from "@/hooks/ops/useOptimismSepolia";
@@ -917,7 +926,7 @@ export default function OpsPage() {
             const blockHeight = btc.anchor?.blockHeight;
             const anchorStatus = btc.anchor?.status;
             const details = btc.anchor?.details ?? '';
-            const latestTx = btc.data?.latestTx;
+            const latestTx = btc.latestTx;
             const explorer = process.env.NEXT_PUBLIC_RPC_BTC_TESTNET?.replace(/\/$/, '') || 'https://mempool.space/testnet/api';
             const displayTx = txid || (lastAnchorId !== '—' ? String(lastAnchorId) : undefined);
             const txUrl = displayTx ? `${explorer.replace('/api','')}/tx/${displayTx}` : undefined;
