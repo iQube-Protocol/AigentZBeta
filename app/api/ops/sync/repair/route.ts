@@ -49,7 +49,7 @@ export async function POST(request: Request) {
     // Repair strategy based on which canister has more items
     if (strategy === 'auto' || strategy === 'balance') {
       if (posCount > dvnCount) {
-        // More receipts than DVN messages - create DVN messages to match
+        // More receipts than DVN messages - this is unusual, create DVN messages to match
         const deficit = posCount - dvnCount;
         for (let i = 0; i < deficit; i++) {
           try {
@@ -57,11 +57,11 @@ export async function POST(request: Request) {
             await dvn.submit_dvn_message(
               80002, // Chain ID
               0,     // Destination chain (ICP)
-              new TextEncoder().encode(JSON.stringify({
+              Array.from(new TextEncoder().encode(JSON.stringify({
                 action: 'SYNC_REPAIR',
                 reason: 'balance_canisters',
                 timestamp: Date.now()
-              })),
+              }))),
               `sync_repair_${Date.now()}`
             );
             repairActions.push(`Created DVN message ${i + 1}/${deficit}`);
@@ -71,18 +71,39 @@ export async function POST(request: Request) {
         }
         newDvnCount = dvnCount + deficit;
       } else {
-        // More DVN messages than receipts - create receipts to match
+        // More DVN messages than receipts - this is NORMAL after transactions
+        // DVN messages should be processed via LayerZero, NOT by creating fake PoS receipts
         const deficit = dvnCount - posCount;
-        for (let i = 0; i < deficit; i++) {
-          try {
-            const syncData = `sync_repair_${Date.now()}_${i}`;
-            await pos.issue_receipt(syncData);
-            repairActions.push(`Created receipt ${i + 1}/${deficit}`);
-          } catch (e: any) {
-            repairActions.push(`Failed to create receipt ${i + 1}: ${e.message}`);
+        
+        // Only auto-repair if the drift is extreme (>10) - otherwise it's legitimate lifecycle drift
+        if (deficit > 10 && strategy === 'balance') {
+          // Only allow manual repair for extreme cases
+          for (let i = 0; i < deficit; i++) {
+            try {
+              const syncData = `sync_repair_${Date.now()}_${i}`;
+              await pos.issue_receipt(syncData);
+              repairActions.push(`Created receipt ${i + 1}/${deficit}`);
+            } catch (e: any) {
+              repairActions.push(`Failed to create receipt ${i + 1}: ${e.message}`);
+            }
           }
+          newPosCount = posCount + deficit;
+        } else {
+          // Normal case - don't create fake receipts
+          repairActions.push(`Detected ${deficit} more DVN messages than PoS receipts`);
+          repairActions.push('This is normal after transactions are minted');
+          repairActions.push('DVN messages should be processed via LayerZero verification');
+          repairActions.push('No auto-repair needed - this is legitimate lifecycle drift');
+          return NextResponse.json({
+            ok: true,
+            message: 'No repair needed - legitimate lifecycle drift detected',
+            strategy,
+            before: { posCount, dvnCount, drift: Math.abs(posCount - dvnCount) },
+            after: { posCount, dvnCount, drift: Math.abs(posCount - dvnCount) },
+            actions: repairActions,
+            at: new Date().toISOString()
+          });
         }
-        newPosCount = posCount + deficit;
       }
     }
 

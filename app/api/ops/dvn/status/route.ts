@@ -1,8 +1,8 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getActor } from '@/services/ops/icAgent';
 import { idlFactory as dvnIdl } from '@/services/ops/idl/cross_chain_service';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     // Get DVN canister ID from environment
     const DVN_ID = (process.env.CROSS_CHAIN_SERVICE_CANISTER_ID || process.env.NEXT_PUBLIC_CROSS_CHAIN_SERVICE_CANISTER_ID) as string;
@@ -35,19 +35,8 @@ export async function GET() {
     let lockStatus = 'Unlocked';
     let unlockHeight = '—';
 
-    // Check for locally tracked pending transactions (fallback for broken DVN)
-    let localPendingCount = 0;
-    try {
-      // This would be stored when monitor API is called but DVN canister fails
-      const localPending = typeof localStorage !== 'undefined' ? localStorage.getItem('dvn_local_pending') : null;
-      if (localPending) {
-        const parsed = JSON.parse(localPending);
-        localPendingCount = Array.isArray(parsed) ? parsed.length : 0;
-      }
-    } catch {}
-
-    // Use pending messages count as unlock height indicator
-    const totalPending = Array.isArray(pendingMessages) ? pendingMessages.length + localPendingCount : localPendingCount;
+    // Use pending messages count directly from canister (no cookies)
+    const totalPending = Array.isArray(pendingMessages) ? pendingMessages.length : 0;
     if (totalPending === 0) {
       unlockHeight = 'No pending messages';
     } else {
@@ -80,7 +69,7 @@ export async function GET() {
       icpReceipt,
       lockStatus,
       unlockHeight,
-      pendingMessages: pendingMessages.length,
+      pendingMessages: Array.isArray(pendingMessages) ? pendingMessages.length : 0,
       canisterId: DVN_ID,
       // attestations omitted from status; available via /api/ops/dvn/tx?id=...
       at: new Date().toISOString()

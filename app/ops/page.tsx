@@ -13,8 +13,10 @@ import { useBaseSepolia } from "@/hooks/ops/useBaseSepolia";
 import { useSyncStatus } from "@/hooks/ops/useSyncStatus";
 import { useDVNStatus } from "@/hooks/ops/useDVNStatus";
 import { useDVNMonitor } from "@/hooks/ops/useDVNMonitor";
-import { useSolanaDevnet } from "@/hooks/ops/useSolanaDevnet";
+import { useSolanaTestnet } from "@/hooks/ops/useSolanaTestnet";
 import { useCrossChain } from "@/hooks/ops/useCrossChain";
+import { useIqbLatest } from "@/hooks/ops/useIqbLatest";
+import { QCTTradingCard } from "@/components/ops/QCTTradingCard";
 
 // Feature flags (default Solana ON unless explicitly disabled)
 const FEATURE_SOLANA_OPS = process.env.NEXT_PUBLIC_FEATURE_SOLANA_OPS !== "false";
@@ -47,127 +49,337 @@ function IconRefresh({ onClick, disabled }: { onClick?: () => void; disabled?: b
   );
 }
 
-// QCT Rekey (Stage 1A) Card Component
+// QCT Rekey (Phase 2) Card Component - Multi-Chain Key Rotation
 function QCTRekeyCard({ title }: { title: string }) {
-  const [fromChain, setFromChain] = React.useState<string>('ethereum-sepolia');
-  const [toChain, setToChain] = React.useState<string>('polygon-amoy');
-  const [fromOwner, setFromOwner] = React.useState<string>('');
-  const [toOwner, setToOwner] = React.useState<string>('');
-  const [amount, setAmount] = React.useState<string>('100'); // cents
-  const [nonce, setNonce] = React.useState<string>('');
+  const [selectedChains, setSelectedChains] = React.useState<string[]>(['evm']);
+  const [selectedScopes, setSelectedScopes] = React.useState<string[]>(['wallet']);
+  const [dryRun, setDryRun] = React.useState<boolean>(true);
   const [busy, setBusy] = React.useState<boolean>(false);
   const [result, setResult] = React.useState<any>(null);
+  const [keyFingerprints, setKeyFingerprints] = React.useState<any>({});
+  const [showConfirmModal, setShowConfirmModal] = React.useState<boolean>(false);
 
-  useEffect(() => {
-    if (!nonce) setNonce(crypto.randomUUID());
-  }, [nonce]);
+  const chains = [
+    { id: 'evm', name: 'EVM Chains', icon: '🔗', status: 'active' },
+    { id: 'bitcoin', name: 'Bitcoin', icon: '₿', status: 'active' },
+    { id: 'solana', name: 'Solana', icon: '◎', status: 'pda_proxy' }, // or 'threshold' or 'unavailable'
+  ];
 
-  async function autofillOwner(which: 'from' | 'to') {
+  const scopes = [
+    { id: 'wallet', name: 'Wallet Keys', description: 'User wallet signing keys' },
+    { id: 'validator', name: 'DVN Validator', description: 'Cross-chain validator keys' },
+    { id: 'bridge', name: 'Bridge Keys', description: 'Cross-chain bridge signing keys' },
+  ];
+
+  // Load current key fingerprints on mount
+  React.useEffect(() => {
+    loadKeyFingerprints();
+  }, []);
+
+  async function loadKeyFingerprints() {
     try {
-      const ethAll: any = (window as any).ethereum;
-      const eth: any = ethAll?.providers?.find((p: any) => p && p.isMetaMask) ?? ethAll;
-      if (!eth) throw new Error('No injected wallet found');
-      const accounts: string[] = await eth.request({ method: 'eth_requestAccounts' });
-      const addr = accounts[0];
-      if (which === 'from') setFromOwner(addr);
-      else setToOwner(addr);
-    } catch (e: any) {
-      alert(e?.message || 'Failed to access wallet');
+      const response = await fetch('/api/qct/rekey?action=fingerprints');
+      const data = await response.json();
+      if (data.ok) {
+        setKeyFingerprints(data.fingerprints);
+      }
+    } catch (error) {
+      console.warn('Failed to load key fingerprints:', error);
     }
   }
 
-  async function onSend() {
+  function toggleChain(chainId: string) {
+    setSelectedChains(prev => 
+      prev.includes(chainId) 
+        ? prev.filter(id => id !== chainId)
+        : [...prev, chainId]
+    );
+  }
+
+  function toggleScope(scopeId: string) {
+    setSelectedScopes(prev => 
+      prev.includes(scopeId) 
+        ? prev.filter(id => id !== scopeId)
+        : [...prev, scopeId]
+    );
+  }
+
+  async function onInitiateRekey() {
+    if (selectedChains.length === 0 || selectedScopes.length === 0) {
+      alert('Please select at least one chain and one scope');
+      return;
+    }
+
+    if (!dryRun) {
+      setShowConfirmModal(true);
+      return;
+    }
+
+    await executeRekey();
+  }
+
+  async function executeRekey() {
     try {
       setBusy(true);
       setResult(null);
-      const res = await fetch('/api/qct/rekey', {
+      setShowConfirmModal(false);
+
+      const payload = {
+        chains: selectedChains,
+        scopes: selectedScopes,
+        dryRun,
+        timestamp: Date.now(),
+      };
+
+      const response = await fetch('/api/qct/rekey', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          asset: 'QCT',
-          from: { chain: fromChain, owner: fromOwner },
-          to: { chain: toChain, owner: toOwner },
-          amount,
-          identityState: 'semi-anonymous',
-          nonce,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
       });
-      const json = await res.json();
-      if (!res.ok || !json?.ok) throw new Error(json?.error || 'Rekey failed');
-      setResult(json);
-      // Prepare a new nonce for the next send
-      setNonce(crypto.randomUUID());
-    } catch (e: any) {
-      alert(e?.message || 'Rekey failed');
+
+      const data = await response.json();
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error || 'Rekey operation failed');
+      }
+
+      setResult(data);
+      
+      // Refresh key fingerprints after successful rekey
+      if (!dryRun) {
+        setTimeout(loadKeyFingerprints, 2000);
+      }
+
+    } catch (error: any) {
+      alert(error.message || 'Rekey operation failed');
     } finally {
       setBusy(false);
     }
   }
 
+  function getChainFingerprint(chainId: string): string {
+    const fp = keyFingerprints[chainId];
+    if (!fp) return '—';
+    
+    switch (chainId) {
+      case 'evm':
+        return fp.address ? `${fp.address.slice(0, 6)}...${fp.address.slice(-4)}` : '—';
+      case 'bitcoin':
+        return fp.address ? `${fp.address.slice(0, 8)}...${fp.address.slice(-6)}` : '—';
+      case 'solana':
+        return fp.pubkey ? `${fp.pubkey.slice(0, 8)}...${fp.pubkey.slice(-6)}` : '—';
+      default:
+        return '—';
+    }
+  }
+
+  function getChainStatus(chainId: string): string {
+    const chain = chains.find(c => c.id === chainId);
+    if (!chain) return 'unknown';
+    
+    if (chainId === 'solana') {
+      return chain.status === 'pda_proxy' ? 'PDA Proxy' : 
+             chain.status === 'threshold' ? 'Threshold' : 'Unavailable';
+    }
+    
+    return chain.status === 'active' ? 'Active' : 'Inactive';
+  }
+
   return (
     <Card title={title}>
-      <div className="grid grid-cols-1 gap-3">
-        <div className="text-xs text-slate-400">Canonical, DVN-ledger QCT rekey (EVM-only demo). Uses simulated LayerZero; PoS receipt issued.</div>
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <div className="text-xs text-slate-400 mb-1">From Chain</div>
-            <select value={fromChain} onChange={(e)=>setFromChain(e.target.value)} className="w-full h-8 rounded-md bg-slate-800/70 border border-slate-700 text-slate-200 text-xs px-2">
-              <option value="ethereum-sepolia">Ethereum Sepolia</option>
-              <option value="polygon-amoy">Polygon Amoy</option>
-              <option value="optimism-sepolia">Optimism Sepolia</option>
-              <option value="arbitrum-sepolia">Arbitrum Sepolia</option>
-              <option value="base-sepolia">Base Sepolia</option>
-            </select>
-          </div>
-          <div>
-            <div className="text-xs text-slate-400 mb-1">To Chain</div>
-            <select value={toChain} onChange={(e)=>setToChain(e.target.value)} className="w-full h-8 rounded-md bg-slate-800/70 border border-slate-700 text-slate-200 text-xs px-2">
-              <option value="polygon-amoy">Polygon Amoy</option>
-              <option value="ethereum-sepolia">Ethereum Sepolia</option>
-              <option value="optimism-sepolia">Optimism Sepolia</option>
-              <option value="arbitrum-sepolia">Arbitrum Sepolia</option>
-              <option value="base-sepolia">Base Sepolia</option>
-            </select>
+      <div className="space-y-4">
+        <div className="text-xs text-slate-400">
+          Cross-chain key rotation with DVN verification. Bitcoin + Solana integrated.
+        </div>
+
+        {/* Current Key Fingerprints */}
+        <div className="space-y-2">
+          <div className="text-xs font-medium text-slate-300">Current Key Fingerprints</div>
+          <div className="space-y-1">
+            {chains.map(chain => (
+              <div key={chain.id} className="flex items-center justify-between bg-slate-800/30 rounded px-2 py-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">{chain.icon}</span>
+                  <span className="text-xs text-slate-300">{chain.name}</span>
+                  <span className={`text-xs px-1 rounded ${
+                    getChainStatus(chain.id) === 'Active' ? 'bg-emerald-500/20 text-emerald-300' :
+                    getChainStatus(chain.id) === 'PDA Proxy' ? 'bg-purple-500/20 text-purple-300' :
+                    'bg-slate-500/20 text-slate-400'
+                  }`}>
+                    {getChainStatus(chain.id)}
+                  </span>
+                </div>
+                <span className="text-xs font-mono text-slate-400">
+                  {getChainFingerprint(chain.id)}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <div className="text-xs text-slate-400 mb-1">From Owner</div>
-            <div className="flex gap-2">
-              <input value={fromOwner} onChange={(e)=>setFromOwner(e.target.value)} placeholder="0x..." className="flex-1 h-8 rounded-md bg-slate-800/70 border border-slate-700 text-slate-200 text-xs px-2 font-mono" />
-              <button onClick={()=>autofillOwner('from')} className="px-2 h-8 rounded-md bg-white/5 text-slate-300 ring-1 ring-white/10 text-[10px] hover:bg-white/10">Use wallet</button>
+
+        {/* Chain Selection */}
+        <div className="space-y-2">
+          <div className="text-xs font-medium text-slate-300">Target Chains</div>
+          <div className="flex flex-wrap gap-2">
+            {chains.map(chain => (
+              <button
+                key={chain.id}
+                onClick={() => toggleChain(chain.id)}
+                disabled={chain.status === 'unavailable'}
+                className={`flex items-center gap-1 px-2 py-1 rounded text-xs ${
+                  selectedChains.includes(chain.id)
+                    ? 'bg-blue-500/20 text-blue-300 ring-1 ring-blue-500/30'
+                    : 'bg-slate-800/50 text-slate-400 hover:text-slate-300'
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
+                <span>{chain.icon}</span>
+                <span>{chain.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Scope Selection */}
+        <div className="space-y-2">
+          <div className="text-xs font-medium text-slate-300">Rekey Scope</div>
+          <div className="space-y-1">
+            {scopes.map(scope => (
+              <label key={scope.id} className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={selectedScopes.includes(scope.id)}
+                  onChange={() => toggleScope(scope.id)}
+                  className="w-3 h-3 rounded border-slate-600 bg-slate-800 text-blue-500 focus:ring-blue-500/20"
+                />
+                <div className="flex-1">
+                  <div className="text-xs text-slate-300">{scope.name}</div>
+                  <div className="text-xs text-slate-500">{scope.description}</div>
+                </div>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* Safety Controls */}
+        <div className="space-y-2 border-t border-slate-700 pt-3">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={dryRun}
+              onChange={(e) => setDryRun(e.target.checked)}
+              className="w-3 h-3 rounded border-slate-600 bg-slate-800 text-amber-500 focus:ring-amber-500/20"
+            />
+            <div className="text-xs text-slate-300">
+              Dry Run Mode <span className="text-slate-500">(plan only, no actual rotation)</span>
             </div>
-          </div>
-          <div>
-            <div className="text-xs text-slate-400 mb-1">To Owner</div>
-            <div className="flex gap-2">
-              <input value={toOwner} onChange={(e)=>setToOwner(e.target.value)} placeholder="0x..." className="flex-1 h-8 rounded-md bg-slate-800/70 border border-slate-700 text-slate-200 text-xs px-2 font-mono" />
-              <button onClick={()=>autofillOwner('to')} className="px-2 h-8 rounded-md bg-white/5 text-slate-300 ring-1 ring-white/10 text-[10px] hover:bg-white/10">Use wallet</button>
-            </div>
-          </div>
+          </label>
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <div className="text-xs text-slate-400 mb-1">Amount (cents)</div>
-            <input value={amount} onChange={(e)=>setAmount(e.target.value)} placeholder="100" className="w-full h-8 rounded-md bg-slate-800/70 border border-slate-700 text-slate-200 text-xs px-2" />
-          </div>
-          <div>
-            <div className="text-xs text-slate-400 mb-1">Nonce</div>
-            <input value={nonce} onChange={(e)=>setNonce(e.target.value)} className="w-full h-8 rounded-md bg-slate-800/70 border border-slate-700 text-slate-200 text-xs px-2 font-mono" />
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={onSend} disabled={busy || !fromOwner || !toOwner || !amount} className="px-3 py-2 rounded-md bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-500/30 text-xs hover:bg-emerald-500/20 disabled:opacity-50">
-            {busy ? 'Sending...' : 'Send $QCT'}
-          </button>
-        </div>
+
+        {/* Action Button */}
+        <button
+          onClick={onInitiateRekey}
+          disabled={busy || selectedChains.length === 0 || selectedScopes.length === 0}
+          className="w-full px-3 py-2 bg-amber-500/10 text-amber-300 rounded-md hover:bg-amber-500/20 border border-amber-500/30 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {busy ? 'Processing...' : dryRun ? 'Plan Rekey' : 'Execute Rekey'}
+        </button>
+
+        {/* Results */}
         {result && (
-          <div className="mt-2 space-y-1 text-xs">
-            <div className="text-slate-400">Result</div>
-            <div className="flex items-center justify-between"><span className="text-slate-400">Message ID:</span><span className="text-slate-300 font-mono truncate max-w-[60%] text-right" title={result.messageId || '—'}>{result.messageId || '—'}</span></div>
-            <div className="flex items-center justify-between"><span className="text-slate-400">Attestation:</span><span className="text-slate-300 font-mono truncate max-w-[60%] text-right" title={result.attestationId || '—'}>{result.attestationId || '—'}</span></div>
-            <div className="flex items-center justify-between"><span className="text-slate-400">At:</span><span className="text-slate-300">{result.at}</span></div>
-            {result.notes && (<div className="text-slate-500">{result.notes}</div>)}
+          <div className="space-y-2 border-t border-slate-700 pt-3">
+            <div className="text-xs font-medium text-slate-300">
+              {dryRun ? 'Rekey Plan' : 'Rekey Result'}
+            </div>
+            <div className="space-y-1 text-xs">
+              {result.messageId && (
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">DVN Message ID:</span>
+                  <span className="text-slate-300 font-mono truncate max-w-[60%]" title={result.messageId}>
+                    {result.messageId}
+                  </span>
+                </div>
+              )}
+              {result.receiptId && (
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">PoS Receipt ID:</span>
+                  <span className="text-slate-300 font-mono truncate max-w-[60%]" title={result.receiptId}>
+                    {result.receiptId}
+                  </span>
+                </div>
+              )}
+              {result.plan && (
+                <div className="bg-slate-800/30 rounded p-2 space-y-1">
+                  <div className="text-slate-400">Planned Actions:</div>
+                  {result.plan.map((action: string, i: number) => (
+                    <div key={i} className="text-slate-300">• {action}</div>
+                  ))}
+                </div>
+              )}
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400">Status:</span>
+                <span className={`text-xs ${result.status === 'completed' ? 'text-emerald-300' : 'text-amber-300'}`}>
+                  {result.status || 'pending'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400">At:</span>
+                <span className="text-slate-300">{result.at}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Confirmation Modal */}
+        {showConfirmModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-slate-800 rounded-lg p-6 max-w-md w-full mx-4 border border-slate-700">
+              <div className="space-y-4">
+                <div className="text-lg font-medium text-slate-100">Confirm Key Rotation</div>
+                <div className="text-sm text-slate-300">
+                  You are about to rotate keys for:
+                </div>
+                <div className="space-y-2">
+                  <div className="text-xs text-slate-400">Chains:</div>
+                  <div className="flex flex-wrap gap-1">
+                    {selectedChains.map(chainId => {
+                      const chain = chains.find(c => c.id === chainId);
+                      return chain ? (
+                        <span key={chainId} className="px-2 py-1 bg-blue-500/20 text-blue-300 rounded text-xs">
+                          {chain.icon} {chain.name}
+                        </span>
+                      ) : null;
+                    })}
+                  </div>
+                  <div className="text-xs text-slate-400">Scopes:</div>
+                  <div className="flex flex-wrap gap-1">
+                    {selectedScopes.map(scopeId => {
+                      const scope = scopes.find(s => s.id === scopeId);
+                      return scope ? (
+                        <span key={scopeId} className="px-2 py-1 bg-amber-500/20 text-amber-300 rounded text-xs">
+                          {scope.name}
+                        </span>
+                      ) : null;
+                    })}
+                  </div>
+                </div>
+                <div className="text-sm text-red-300 bg-red-500/10 rounded p-2 border border-red-500/30">
+                  ⚠️ This action cannot be undone. Ensure you have backup access to all affected systems.
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowConfirmModal(false)}
+                    className="flex-1 px-3 py-2 bg-slate-700 text-slate-300 rounded hover:bg-slate-600 text-sm"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={executeRekey}
+                    className="flex-1 px-3 py-2 bg-red-500/20 text-red-300 rounded hover:bg-red-500/30 border border-red-500/30 text-sm"
+                  >
+                    Confirm Rotation
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -205,7 +417,7 @@ function badgeClassFor(key: string): string {
       return "bg-blue-500/20 text-blue-300 ring-1 ring-blue-500/30"; // Arbitrum = Blue
     case "base_sepolia":
       return "bg-cyan-500/20 text-cyan-300 ring-1 ring-cyan-500/30"; // Base = Cyan
-    case "solana_devnet":
+    case "solana_testnet":
       return "bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/30"; // Solana = Emerald
     case "sync_status":
       return "bg-teal-500/20 text-teal-300 ring-1 ring-teal-500/30"; // Sync = Teal
@@ -230,14 +442,24 @@ export default function OpsPage() {
   const syncStatus = useSyncStatus(30000);
   const dvn = useDVNStatus(30000);
   const xchain = useCrossChain(30000);
-  const sol = useSolanaDevnet(30000);
+  const solTest = useSolanaTestnet(30000);
   const dvnMon = useDVNMonitor();
   const [dvnTxHash, setDvnTxHash] = useState("");
   const [dvnChainId, setDvnChainId] = useState<number>(80002); // default Amoy
+  const [testTxBusy, setTestTxBusy] = useState<boolean>(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // After DVN monitor/query changes, refresh dependent cards
+  useEffect(() => {
+    try {
+      dvn.refresh?.();
+      syncStatus.refresh?.();
+      xchain.refresh?.();
+    } catch {}
+  }, [dvnMon.messageId, dvnMon.txHash, dvnMon.attestations?.length]);
 
   // Poll ICP health to show local connection indicator
   useEffect(() => {
@@ -259,7 +481,8 @@ export default function OpsPage() {
   // Persist DVN/Amoy tx hash across refreshes without modifying createTestTx
   useEffect(() => {
     try {
-      const saved = localStorage.getItem('amoy_last_tx');
+      const key = `last_tx_${dvnChainId}`;
+      const saved = localStorage.getItem(key);
       if (saved && typeof saved === 'string' && saved.startsWith('0x')) {
         setDvnTxHash(saved);
       }
@@ -270,10 +493,31 @@ export default function OpsPage() {
   useEffect(() => {
     try {
       if (dvnTxHash && dvnTxHash.startsWith('0x')) {
-        localStorage.setItem('amoy_last_tx', dvnTxHash);
+        const key = `last_tx_${dvnChainId}`;
+        localStorage.setItem(key, dvnTxHash);
       }
     } catch {}
   }, [dvnTxHash]);
+
+  // When DVN monitor/query state changes, refresh dependent cards (DVN status, Sync, Cross-Chain)
+  useEffect(() => {
+    try {
+      // Refresh DVN Status
+      dvn.refresh?.();
+      // Refresh Sync Status
+      syncStatus.refresh?.();
+      // Refresh Cross-Chain aggregated status
+      xchain.refresh?.();
+    } catch {}
+    // Trigger on message id, attestations length, or tx hash changes
+  }, [dvnMon.messageId, dvnMon.attestations?.length, dvnMon.txHash]);
+
+  // IQB/DVN latest per EVM chain (prefer DVN, fallback to provided txHash)
+  const iqbSepolia = useIqbLatest(11155111, dvnChainId === 11155111 ? dvnTxHash : undefined, 30000);
+  const iqbAmoy = useIqbLatest(80002, dvnChainId === 80002 ? dvnTxHash : undefined, 30000);
+  const iqbOptimism = useIqbLatest(11155420, dvnChainId === 11155420 ? dvnTxHash : undefined, 30000);
+  const iqbArbitrum = useIqbLatest(421614, dvnChainId === 421614 ? dvnTxHash : undefined, 30000);
+  const iqbBase = useIqbLatest(84532, dvnChainId === 84532 ? dvnTxHash : undefined, 30000);
 
   const cards = useMemo(() => [
     { key: "icp_health", title: "ICP Canister Health" },
@@ -282,6 +526,7 @@ export default function OpsPage() {
     { key: "sync_status", title: "Canister Sync Status" },
     { key: "icp_dvn", title: "ICP DVN" },
     { key: "dvn_mint_tests", title: "DVN Mint Tests" },
+    { key: "qct_trading", title: "QCT Cross-Chain Trading" },
     { key: "qct_rekey", title: "QCT Rekey (Stage 1A)" },
     { key: "btc_testnet", title: "BTC Testnet" },
     { key: "eth_sepolia", title: "Ethereum Sepolia" },
@@ -289,7 +534,7 @@ export default function OpsPage() {
     { key: "optimism_sepolia", title: "Optimism Sepolia" },
     { key: "arbitrum_sepolia", title: "Arbitrum Sepolia" },
     { key: "base_sepolia", title: "Base Sepolia" },
-    ...(FEATURE_SOLANA_OPS ? [{ key: "solana_devnet", title: "Solana Devnet" } as const] : []),
+    ...(FEATURE_SOLANA_OPS ? [{ key: "solana_testnet", title: "Solana Testnet" } as const] : []),
   ], []);
 
   // Show loading state until mounted to prevent hydration mismatch
@@ -433,15 +678,20 @@ export default function OpsPage() {
             const ok = sepolia.data?.ok ?? false;
             const at = sepolia.data?.at ?? "—";
             const chainId = sepolia.data?.chainId ?? "11155111";
-            const latestTx = sepolia.data?.latestTx ?? "—";
-            const blockNumber = sepolia.data?.blockNumber ?? "—";
+            const latestTx = iqbSepolia.data?.txHash
+              || ((dvnChainId === 11155111 && dvnTxHash && dvnTxHash.startsWith('0x')) ? dvnTxHash : undefined)
+              || sepolia.data?.latestTx
+              || "—";
+            const blockNumber = (typeof iqbSepolia.data?.blockNumber === 'number')
+              ? iqbSepolia.data.blockNumber.toLocaleString()
+              : (sepolia.data?.blockNumber ?? "—");
             return (
               <Card key={key} title={
                 <span className="inline-flex items-center gap-2">
                   {title}
                   <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] ${badgeClassFor(key)}`}>Testnet</span>
                 </span>
-              } actions={<IconRefresh onClick={sepolia.refresh} disabled={sepolia.loading} />}>
+              } actions={<IconRefresh onClick={() => { sepolia.refresh(); iqbSepolia.refresh(); }} disabled={sepolia.loading || iqbSepolia.loading} />}>
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400">Status:</span>
                   <span className={ok ? "text-emerald-400" : "text-red-400"}>●</span>
@@ -475,16 +725,20 @@ export default function OpsPage() {
             const ok = amoy.data?.ok ?? false;
             const at = amoy.data?.at ?? "—";
             const chainId = amoy.data?.chainId ?? "80002";
-            // Prefer the locally persisted tx hash created via the button, fallback to API placeholder
-            const latestTx = (dvnTxHash && dvnTxHash.startsWith('0x')) ? dvnTxHash : (amoy.data?.latestTx ?? "—");
-            const blockNumber = amoy.data?.blockNumber ?? "—";
+            const latestTx = iqbAmoy.data?.txHash
+              || ((dvnChainId === 80002 && dvnTxHash && dvnTxHash.startsWith('0x')) ? dvnTxHash : undefined)
+              || amoy.data?.latestTx
+              || "—";
+            const blockNumber = (typeof iqbAmoy.data?.blockNumber === 'number')
+              ? iqbAmoy.data.blockNumber.toLocaleString()
+              : (amoy.data?.blockNumber ?? "—");
             return (
               <Card key={key} title={
                 <span className="inline-flex items-center gap-2">
                   {title}
                   <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] ${badgeClassFor(key)}`}>Testnet</span>
                 </span>
-              } actions={<IconRefresh onClick={amoy.refresh} disabled={amoy.loading} />}>
+              } actions={<IconRefresh onClick={() => { amoy.refresh(); iqbAmoy.refresh(); }} disabled={amoy.loading || iqbAmoy.loading} />}>
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400">Status:</span>
                   <span className={ok ? "text-emerald-400" : "text-red-400"}>●</span>
@@ -518,15 +772,17 @@ export default function OpsPage() {
           if (key === "optimism_sepolia") {
             const ok = optimismSepolia.data?.ok ?? false;
             const at = optimismSepolia.data?.at ?? "—";
-            const blockNumber = optimismSepolia.data?.blockNumber ?? "—";
-            const latestTx = optimismSepolia.data?.latestTx ?? "—";
+            const latestTx = iqbOptimism.data?.txHash || optimismSepolia.data?.latestTx || "—";
+            const blockNumber = (typeof iqbOptimism.data?.blockNumber === 'number')
+              ? iqbOptimism.data.blockNumber.toLocaleString()
+              : (optimismSepolia.data?.blockNumber ?? "—");
             return (
               <Card key={key} title={
                 <span className="inline-flex items-center gap-2">
                   {title}
                   <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] ${badgeClassFor(key)}`}>Testnet</span>
                 </span>
-              } actions={<IconRefresh onClick={optimismSepolia.refresh} disabled={optimismSepolia.loading} />}>
+              } actions={<IconRefresh onClick={() => { optimismSepolia.refresh(); iqbOptimism.refresh(); }} disabled={optimismSepolia.loading || iqbOptimism.loading} />}>
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400">Status:</span>
                   <span className={ok ? "text-emerald-400" : "text-red-400"}>●</span>
@@ -562,15 +818,17 @@ export default function OpsPage() {
           if (key === "arbitrum_sepolia") {
             const ok = arbitrumSepolia.data?.ok ?? false;
             const at = arbitrumSepolia.data?.at ?? "—";
-            const blockNumber = arbitrumSepolia.data?.blockNumber ?? "—";
-            const latestTx = arbitrumSepolia.data?.latestTx ?? "—";
+            const latestTx = iqbArbitrum.data?.txHash || arbitrumSepolia.data?.latestTx || "—";
+            const blockNumber = (typeof iqbArbitrum.data?.blockNumber === 'number')
+              ? iqbArbitrum.data.blockNumber.toLocaleString()
+              : (arbitrumSepolia.data?.blockNumber ?? "—");
             return (
               <Card key={key} title={
                 <span className="inline-flex items-center gap-2">
                   {title}
                   <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] ${badgeClassFor(key)}`}>Testnet</span>
                 </span>
-              } actions={<IconRefresh onClick={arbitrumSepolia.refresh} disabled={arbitrumSepolia.loading} />}>
+              } actions={<IconRefresh onClick={() => { arbitrumSepolia.refresh(); iqbArbitrum.refresh(); }} disabled={arbitrumSepolia.loading || iqbArbitrum.loading} />}>
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400">Status:</span>
                   <span className={ok ? "text-emerald-400" : "text-red-400"}>●</span>
@@ -606,15 +864,17 @@ export default function OpsPage() {
           if (key === "base_sepolia") {
             const ok = baseSepolia.data?.ok ?? false;
             const at = baseSepolia.data?.at ?? "—";
-            const blockNumber = baseSepolia.data?.blockNumber ?? "—";
-            const latestTx = baseSepolia.data?.latestTx ?? "—";
+            const latestTx = iqbBase.data?.txHash || baseSepolia.data?.latestTx || "—";
+            const blockNumber = (typeof iqbBase.data?.blockNumber === 'number')
+              ? iqbBase.data.blockNumber.toLocaleString()
+              : (baseSepolia.data?.blockNumber ?? "—");
             return (
               <Card key={key} title={
                 <span className="inline-flex items-center gap-2">
                   {title}
                   <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] ${badgeClassFor(key)}`}>Testnet</span>
                 </span>
-              } actions={<IconRefresh onClick={baseSepolia.refresh} disabled={baseSepolia.loading} />}>
+              } actions={<IconRefresh onClick={() => { baseSepolia.refresh(); iqbBase.refresh(); }} disabled={baseSepolia.loading || iqbBase.loading} />}>
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400">Status:</span>
                   <span className={ok ? "text-emerald-400" : "text-red-400"}>●</span>
@@ -657,9 +917,11 @@ export default function OpsPage() {
             const blockHeight = btc.anchor?.blockHeight;
             const anchorStatus = btc.anchor?.status;
             const details = btc.anchor?.details ?? '';
+            const latestTx = btc.data?.latestTx;
             const explorer = process.env.NEXT_PUBLIC_RPC_BTC_TESTNET?.replace(/\/$/, '') || 'https://mempool.space/testnet/api';
             const displayTx = txid || (lastAnchorId !== '—' ? String(lastAnchorId) : undefined);
             const txUrl = displayTx ? `${explorer.replace('/api','')}/tx/${displayTx}` : undefined;
+            const latestTxUrl = latestTx?.txid ? `${explorer.replace('/api','')}/tx/${latestTx.txid}` : undefined;
             async function doAnchor() {
               try {
                 const response = await fetch('/api/ops/btc/anchor', { method: 'POST' });
@@ -783,6 +1045,25 @@ export default function OpsPage() {
                     </span>
                   </div>
                 )}
+                {latestTx && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Latest Tx:</span>
+                    <span className="flex items-center gap-1 max-w-[60%] justify-end">
+                      <a href={latestTxUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-indigo-300 hover:text-white truncate" title={latestTx.txid}>
+                        <span className="truncate font-mono">{latestTx.txid.slice(0, 8)}...</span>
+                        <ExternalLink size={12} className="flex-shrink-0" />
+                      </a>
+                      <button
+                        aria-label="Copy Latest TX"
+                        className="text-slate-400 hover:text-white flex-shrink-0"
+                        onClick={() => navigator.clipboard.writeText(latestTx.txid)}
+                        title="Copy"
+                      >
+                        <Copy size={12} />
+                      </button>
+                    </span>
+                  </div>
+                )}
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400">Pending:</span>
                   <span className="text-xs text-slate-300">{pending}</span>
@@ -873,9 +1154,14 @@ export default function OpsPage() {
             );
           }
 
+          // QCT Cross-Chain Trading card
+          if (key === "qct_trading") {
+            return <QCTTradingCard key={key} title={title} />;
+          }
+
           // QCT Rekey (Stage 1A) card
           if (key === "qct_rekey") {
-            return <QCTRekeyCard title={title} />;
+            return <QCTRekeyCard key={key} title={title} />;
           }
 
           // Canister Sync Status card
@@ -1076,7 +1362,27 @@ export default function OpsPage() {
 
             async function onMonitor() {
               if (!dvnTxHash) return;
-              await dvnMon.monitor(dvnTxHash, dvnChainId);
+              try {
+                const result = await dvnMon.monitor(dvnTxHash, dvnChainId);
+                if (!result.ok) {
+                  alert(`DVN monitoring failed: ${result.error || 'Unknown error'}`);
+                  return false;
+                }
+                
+                if (result.duplicate) {
+                  console.log('Transaction already being monitored - no duplicate created');
+                  // Don't show alert for duplicates, just log it
+                } else if (result.fallback) {
+                  console.log('DVN monitor success via fallback method:', result);
+                } else {
+                  console.log('DVN monitor success with blockchain verification:', result);
+                }
+                return true;
+              } catch (e: any) {
+                console.error('DVN monitor error:', e);
+                alert(`DVN monitoring failed: ${e?.message || 'Network error'}`);
+                return false;
+              }
             }
 
             async function onSubmitAttestation() {
@@ -1093,11 +1399,24 @@ export default function OpsPage() {
 
             async function onVerify() {
               if (!dvnMon.messageId) return;
-              await fetch('/api/ops/dvn/verify', {
+              const response = await fetch('/api/ops/dvn/verify', {
                 method: 'POST',
                 headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ messageId: dvnMon.messageId, chainId: dvnChainId }),
+                body: JSON.stringify({ 
+                  messageId: dvnMon.messageId, 
+                  chainId: dvnChainId,
+                  txHash: dvnTxHash // Pass txHash for cookie cleanup
+                }),
               });
+              
+              if (response.ok) {
+                console.log('LayerZero verification successful - transaction processed');
+                // Refresh DVN status to show updated pending count
+                await dvn.refresh?.();
+              } else {
+                console.warn('LayerZero verification failed');
+              }
+              
               await dvnMon.query(dvnMon.messageId);
             }
 
@@ -1113,11 +1432,17 @@ export default function OpsPage() {
                 const eth: any = ethAll?.providers?.find((p: any) => p && p.isMetaMask) ?? ethAll;
                 if (!eth) throw new Error('No injected wallet found');
                 
-                // Get chain config
+                // Get chain config with multiple RPC fallbacks
                 const getChainConfig = (chainId: number) => {
                   switch (chainId) {
                     case 11155111: return { hex: '0xaa36a7', name: 'Ethereum Sepolia', symbol: 'ETH', rpc: 'https://rpc.sepolia.org', explorer: 'https://sepolia.etherscan.io' };
-                    case 80002: return { hex: '0x13882', name: 'Polygon Amoy', symbol: 'MATIC', rpc: 'https://rpc-amoy.polygon.technology', explorer: 'https://www.oklink.com/amoy' };
+                    case 80002: return { 
+                      hex: '0x13882', 
+                      name: 'Polygon Amoy', 
+                      symbol: 'MATIC', 
+                      rpc: 'https://rpc-amoy.polygon.technology', // Official Polygon RPC
+                      explorer: 'https://www.oklink.com/amoy' 
+                    };
                     case 11155420: return { hex: '0xaa37dc', name: 'Optimism Sepolia', symbol: 'ETH', rpc: 'https://sepolia.optimism.io', explorer: 'https://sepolia-optimism.etherscan.io' };
                     case 421614: return { hex: '0x66eee', name: 'Arbitrum Sepolia', symbol: 'ETH', rpc: 'https://sepolia-rollup.arbitrum.io/rpc', explorer: 'https://sepolia.arbiscan.io' };
                     case 84532: return { hex: '0x14a34', name: 'Base Sepolia', symbol: 'ETH', rpc: 'https://sepolia.base.org', explorer: 'https://sepolia.basescan.org' };
@@ -1151,9 +1476,38 @@ export default function OpsPage() {
                 const from = accounts[0];
                 // Send a 0-value self-transfer to produce a tx hash
                 const txHash: string = await eth.request({ method: 'eth_sendTransaction', params: [{ from, to: from, value: '0x0' }] });
+                console.log('MetaMask transaction created:', txHash);
                 setDvnTxHash(txHash);
-                await onMonitor();
+                
+                // Create PoS receipt for this transaction (simulating real mint flow)
+                try {
+                  const posResponse = await fetch('/api/ops/pos/issue-receipt', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                      dataHash: `test_tx_${dvnChainId}_${txHash}_${Date.now()}`,
+                      source: 'test_transaction'
+                    })
+                  });
+                  if (posResponse.ok) {
+                    const posResult = await posResponse.json();
+                    console.log('PoS receipt created:', posResult.receiptId);
+                  } else {
+                    console.warn('PoS receipt creation failed:', await posResponse.text());
+                  }
+                } catch (posErr) {
+                  console.warn('PoS receipt creation error:', posErr);
+                }
+                
+                // Automatically monitor the transaction
+                const monitorSuccess = await onMonitor();
+                if (monitorSuccess) {
+                  console.log('End-to-end DVN + PoS flow completed successfully');
+                } else {
+                  console.warn('MetaMask transaction created but DVN monitoring failed');
+                }
               } catch (e: any) {
+                console.error('createTestTx error:', e);
                 alert(e?.message || 'Failed to create test transaction. Ensure MetaMask is installed and unlocked.');
               }
             }
@@ -1161,9 +1515,9 @@ export default function OpsPage() {
             return (
               <Card key={key} title={title} actions={
                 <button
-                  onClick={() => dvn.refresh?.()}
+                  onClick={async () => { try { await dvn.refresh?.(); if (dvnMon.messageId) { await dvnMon.query(dvnMon.messageId); } } catch {} }}
                   className="inline-flex items-center justify-center h-8 px-2 rounded-md text-slate-300 hover:text-white hover:bg-white/10 text-xs"
-                  title="Re-check DVN"
+                  title="Re-check DVN and refresh message details"
                 >
                   Re-check DVN
                 </button>
@@ -1191,11 +1545,12 @@ export default function OpsPage() {
                         </optgroup>
                       </select>
                       <button
-                        onClick={createTestTx}
-                        className="px-2 h-8 rounded-md bg-fuchsia-500/10 text-fuchsia-300 ring-1 ring-fuchsia-500/30 text-xs hover:bg-fuchsia-500/20"
+                        onClick={async () => { if (testTxBusy) return; setTestTxBusy(true); try { await createTestTx(); } finally { setTestTxBusy(false); } }}
+                        disabled={testTxBusy}
+                        className="px-2 h-8 rounded-md bg-fuchsia-500/10 text-fuchsia-300 ring-1 ring-fuchsia-500/30 text-xs hover:bg-fuchsia-500/20 disabled:opacity-50"
                         title="Use MetaMask to create a 0-value test transaction and auto-monitor it"
                       >
-                        Test TX
+                        {testTxBusy ? 'Working…' : 'Test TX'}
                       </button>
                       <button
                         onClick={onMonitor}
@@ -1317,89 +1672,36 @@ export default function OpsPage() {
             );
           }
 
-          if (key === "solana_devnet") {
-            const ok = sol.data?.ok ?? false;
-            const at = sol.data?.at ?? "—";
-            const endpoint = sol.data?.endpoint ?? "https://api.devnet.solana.com";
-            const slot = sol.data?.slot ?? "—";
-            const blockHeight = sol.data?.blockHeight ?? "—";
-            const address = sol.data?.address ?? null;
-            const balanceLamports = sol.data?.balanceLamports ?? null;
-            const latestSig = sol.data?.latestSig ?? null;
-            const balanceSol = typeof balanceLamports === 'number' ? (balanceLamports / 1_000_000_000).toFixed(4) : null;
-            async function doAirdrop() {
-              try {
-                await fetch('/api/ops/solana/airdrop', { method: 'POST' });
-                await sol.refresh();
-              } catch {}
-            }
+          if (key === "solana_testnet") {
+            const ok = solTest.data?.ok ?? false;
+            const at = solTest.data?.at ?? "—";
+            const rpcUrl = solTest.data?.rpcUrl ?? "api.testnet.solana.com";
+            const blockHeight = solTest.data?.blockHeight ?? "—";
+            const latestBlockhash = solTest.data?.latestBlockhash ?? null;
             return (
               <Card key={key} title={
                 <span className="inline-flex items-center gap-2">
                   {title}
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] ${badgeClassFor(key)}`}>Devnet</span>
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] ${badgeClassFor(key)}`}>Testnet</span>
                 </span>
-              } actions={
-                <div className="flex items-center gap-2">
-                  <IconRefresh onClick={sol.refresh} disabled={sol.loading} />
-                  <button
-                    onClick={doAirdrop}
-                    className="px-2 h-8 rounded-md bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-500/30 text-xs hover:bg-emerald-500/20"
-                    title="Request 1 SOL airdrop"
-                  >
-                    Airdrop
-                  </button>
-                </div>
-              }>
+              } actions={<IconRefresh onClick={solTest.refresh} disabled={solTest.loading} />}>
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400">Status:</span>
                   <span className={ok ? "text-emerald-400" : "text-red-400"}>●</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Endpoint:</span>
-                  <span className="text-xs text-slate-300">{endpoint.replace('https://', '')}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Slot:</span>
-                  <span className="text-xs text-slate-300">{slot}</span>
+                  <span className="text-slate-400">RPC:</span>
+                  <span className="text-xs text-slate-300">{rpcUrl}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400">Block Height:</span>
                   <span className="text-xs text-slate-300">{blockHeight}</span>
                 </div>
-                {address && (
+                {latestBlockhash && (
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Address:</span>
+                    <span className="text-slate-400">Latest Blockhash:</span>
                     <span className="flex items-center gap-1 max-w-[60%] justify-end">
-                      <a href={`https://explorer.solana.com/address/${address}?cluster=devnet`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-indigo-300 hover:text-white truncate" title={address}>
-                        <span className="truncate font-mono">{address}</span>
-                        <ExternalLink size={12} className="flex-shrink-0" />
-                      </a>
-                      <button
-                        aria-label="Copy Address"
-                        className="text-slate-400 hover:text-white flex-shrink-0"
-                        onClick={() => address && navigator.clipboard.writeText(address)}
-                        title="Copy"
-                      >
-                        <Copy size={12} />
-                      </button>
-                    </span>
-                  </div>
-                )}
-                {typeof balanceSol === 'string' && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Balance:</span>
-                    <span className="text-xs text-slate-300">{balanceSol} SOL</span>
-                  </div>
-                )}
-                {latestSig && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Latest TX:</span>
-                    <span className="flex items-center gap-1 max-w-[60%] justify-end">
-                      <a href={`https://explorer.solana.com/tx/${latestSig}?cluster=devnet`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-indigo-300 hover:text-white truncate" title={latestSig}>
-                        <span className="truncate font-mono">{latestSig}</span>
-                        <ExternalLink size={12} className="flex-shrink-0" />
-                      </a>
+                      <span className="truncate font-mono" title={latestBlockhash}>{latestBlockhash}</span>
                     </span>
                   </div>
                 )}
@@ -1542,7 +1844,7 @@ export default function OpsPage() {
           <h3 className="text-lg font-semibold mb-3 text-slate-100">Notes</h3>
           <ul className="list-disc pl-5 text-sm text-slate-300 space-y-1">
             <li>These cards are wired to services/hooks and will surface health, balances, and statuses.</li>
-            <li>Solana Devnet appears only when <code>NEXT_PUBLIC_FEATURE_SOLANA_OPS=true</code>.</li>
+            <li>Solana Testnet appears only when <code>NEXT_PUBLIC_FEATURE_SOLANA_OPS=true</code>.</li>
             <li>BTC has a special relationship as the protocol anchor; other chains are treated as spokes.</li>
             <li>Use the diagnostic tools above for manual testing and system debugging.</li>
           </ul>

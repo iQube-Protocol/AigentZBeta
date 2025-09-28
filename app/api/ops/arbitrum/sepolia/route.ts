@@ -2,51 +2,52 @@ import { NextResponse } from 'next/server';
 
 export async function GET() {
   try {
-    const rpcUrl = 'https://sepolia-rollup.arbitrum.io/rpc';
-    
-    // Get latest block number
-    const blockResponse = await fetch(rpcUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        method: 'eth_blockNumber',
-        params: [],
-        id: 1
-      })
-    });
-    
-    if (!blockResponse.ok) {
-      throw new Error(`RPC request failed: ${blockResponse.status}`);
+    const endpoints = [
+      'https://sepolia-rollup.arbitrum.io/rpc',
+      'https://arbitrum-sepolia.blockpi.network/v1/rpc/public',
+      'https://arbitrum-sepolia.publicnode.com'
+    ];
+
+    const withTimeout = async (url: string, body: any, ms = 5000) => {
+      const ctrl = new AbortController();
+      const id = setTimeout(() => ctrl.abort(), ms);
+      try {
+        const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: ctrl.signal });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return await res.json();
+      } finally { clearTimeout(id); }
+    };
+
+    let used = '';
+    let latestBlockHex = '';
+    let block: any = null;
+    let lastErr: any = null;
+    for (const url of endpoints) {
+      try {
+        const bn = await withTimeout(url, { jsonrpc: '2.0', method: 'eth_blockNumber', params: [], id: 1 });
+        if (!bn?.result) throw new Error('No block number');
+        latestBlockHex = bn.result;
+        const bd = await withTimeout(url, { jsonrpc: '2.0', method: 'eth_getBlockByNumber', params: [latestBlockHex, false], id: 2 });
+        if (!bd?.result) throw new Error('No block details');
+        block = bd.result;
+        used = url;
+        break;
+      } catch (e) { lastErr = e; }
     }
-    
-    const blockData = await blockResponse.json();
-    const blockNumber = parseInt(blockData.result, 16);
-    
-    // Get latest block details
-    const blockDetailsResponse = await fetch(rpcUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        method: 'eth_getBlockByNumber',
-        params: ['latest', false],
-        id: 2
-      })
-    });
-    
-    const blockDetailsData = await blockDetailsResponse.json();
-    const block = blockDetailsData.result;
-    
+
+    if (!block || !latestBlockHex) throw lastErr || new Error('All Arbitrum Sepolia RPC endpoints failed');
+
+    const blockNumber = parseInt(latestBlockHex, 16);
     const txCount = block?.transactions?.length || 0;
     const latestTx = txCount > 0 ? block.transactions[0] : null;
-    
+    const rpcHost = used.replace(/^https?:\/\//, '');
+
     return NextResponse.json({
       ok: true,
       blockNumber,
       txCount,
       latestTx,
-      rpcUrl,
+      rpcUrl: rpcHost,
       explorerUrl: 'https://sepolia.arbiscan.io',
       at: new Date().toISOString()
     });

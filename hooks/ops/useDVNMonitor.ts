@@ -55,18 +55,42 @@ export function useDVNMonitor() {
     try {
       setLoading(true);
       setError(null);
+      console.log('Starting DVN monitoring - this may take up to 60 seconds for blockchain verification...');
+      
       const r = await fetch('/api/ops/dvn/monitor', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ txHash, chainId, rpcUrl }),
       });
       const j = await r.json();
-      if (!r.ok || !j.ok) throw new Error(j.error || `HTTP ${r.status}`);
+      if (!r.ok || !j.ok) {
+        if (j.canisterDown) {
+          throw new Error(`DVN canister unreachable: ${j.error}\n\nCheck that dfx is running and canisters are deployed.`);
+        }
+        throw new Error(j.error || `HTTP ${r.status}`);
+      }
+      
       const key = j.messageId as string;
       setMessageId(key);
       setTxHash(txHash);
       setChainId(chainId);
       lastKeyRef.current = key;
+      
+      // Handle duplicate detection
+      if (j.duplicate) {
+        console.log('Transaction already being monitored:', key);
+        // Still fetch status for existing message
+        await fetchStatus(key);
+        return { ok: true, messageId: key, duplicate: true };
+      }
+      
+      // Handle fallback method
+      if (j.fallback) {
+        console.log('Transaction tracked via fallback method:', key);
+      } else {
+        console.log('Transaction verified and tracked via blockchain:', key);
+      }
+      
       await fetchStatus(key);
       if (!pollRef.current) {
         pollRef.current = setInterval(() => {
@@ -79,7 +103,7 @@ export function useDVNMonitor() {
         localStorage.setItem('dvn.txHash', txHash);
         localStorage.setItem('dvn.chainId', String(chainId));
       } catch {}
-      return { ok: true, messageId: key };
+      return { ok: true, messageId: key, fallback: j.fallback };
     } catch (e: any) {
       setError(e?.message || 'Failed to start monitor');
       return { ok: false, error: e?.message };

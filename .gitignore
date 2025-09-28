@@ -44,10 +44,11 @@ logs/
 # Local development
 instance/
 .webassets-cache
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+# Temporarily allow env files for debugging
+# .env.local
+# .env.development.local
+# .env.test.local
+# .env.production.local
 
 # Coverage reports
 htmlcov/

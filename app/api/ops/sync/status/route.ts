@@ -1,9 +1,9 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getActor } from '@/services/ops/icAgent';
 import { idlFactory as posIdl } from '@/services/ops/idl/proof_of_state';
 import { idlFactory as dvnIdl } from '@/services/ops/idl/cross_chain_service';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     const POS_ID = (process.env.PROOF_OF_STATE_CANISTER_ID || process.env.NEXT_PUBLIC_PROOF_OF_STATE_CANISTER_ID) as string;
     const DVN_ID = (process.env.CROSS_CHAIN_SERVICE_CANISTER_ID || process.env.NEXT_PUBLIC_CROSS_CHAIN_SERVICE_CANISTER_ID) as string;
@@ -29,7 +29,16 @@ export async function GET() {
     ]);
 
     const posCount = Number(posPendingCount);
-    const dvnCount = Array.isArray(dvnPendingMessages) ? dvnPendingMessages.length : 0;
+    let dvnCount = Array.isArray(dvnPendingMessages) ? dvnPendingMessages.length : 0;
+    // Add locally tracked pending from cookie
+    try {
+      const cookie = req.headers.get('cookie') || '';
+      const match = cookie.match(/(?:^|; )dvn_local_pending=([^;]+)/);
+      if (match) {
+        const arr = JSON.parse(decodeURIComponent(match[1]));
+        if (Array.isArray(arr)) dvnCount += arr.length;
+      }
+    } catch {}
     const isSynchronized = posCount === dvnCount;
     const drift = Math.abs(posCount - dvnCount);
 
