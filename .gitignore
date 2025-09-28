@@ -44,11 +44,15 @@ logs/
 # Local development
 instance/
 .webassets-cache
-# Temporarily allow env files for debugging
-# .env.local
-# .env.development.local
-# .env.test.local
-# .env.production.local
+
+# Environment files - NEVER commit these
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.development
+.env.production
+.env.staging
 
 # Coverage reports
 htmlcov/
@@ -81,7 +85,7 @@ Thumbs.db
 *.crt
 *.cer
 secrets/
-# .env
+.env
 .flaskenv
 *.p12
 *.pfx
