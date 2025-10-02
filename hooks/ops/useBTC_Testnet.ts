@@ -47,6 +47,7 @@ export function useBTC_Testnet(refreshMs = 30000) {
       
       setData(json.testnet as ChainStatus);
       if (json.anchor) setAnchor(json.anchor as AnchorStatus);
+      if (json.latestTx) setLatestTx(json.latestTx as { txid: string });
     } catch (e: any) {
       setError(e?.message || 'Failed to load BTC testnet');
     } finally {

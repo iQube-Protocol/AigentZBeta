@@ -8,37 +8,64 @@ export async function GET(req: NextRequest) {
     const POS_ID = (process.env.PROOF_OF_STATE_CANISTER_ID || process.env.NEXT_PUBLIC_PROOF_OF_STATE_CANISTER_ID) as string;
     const DVN_ID = (process.env.CROSS_CHAIN_SERVICE_CANISTER_ID || process.env.NEXT_PUBLIC_CROSS_CHAIN_SERVICE_CANISTER_ID) as string;
     
+    // Read local DVN pending cookie
+    const cookieRaw = req.cookies.get('dvn_local_pending')?.value || '[]';
+    let localPending: string[] = [];
+    try { localPending = JSON.parse(cookieRaw); } catch { localPending = []; }
+    if (!Array.isArray(localPending)) localPending = [];
+
     if (!POS_ID || !DVN_ID) {
+      // Graceful output using only local cookie
+      const dvnCount = localPending.length;
       return NextResponse.json({
         ok: false,
         error: 'Canister IDs not configured',
-        syncStatus: 'error'
-      }, { status: 400 });
+        syncStatus: 'error',
+        severity: 'critical',
+        isSynchronized: false,
+        isLegitimate: false,
+        drift: dvnCount,
+        canisters: {
+          proofOfState: { id: POS_ID || '—', pendingCount: 0 },
+          dvn: { id: DVN_ID || '—', pendingCount: dvnCount },
+        },
+        recommendations: ['Configure canister IDs in env'],
+        at: new Date().toISOString(),
+      });
     }
 
     // Get actors for both canisters
-    const [pos, dvn] = await Promise.all([
-      getActor<any>(POS_ID, posIdl),
-      getActor<any>(DVN_ID, dvnIdl)
-    ]);
+    let pos: any | null = null;
+    let dvn: any | null = null;
+    try {
+      [pos, dvn] = await Promise.all([
+        getActor<any>(POS_ID, posIdl),
+        getActor<any>(DVN_ID, dvnIdl)
+      ]);
+    } catch {}
 
     // Get pending counts from both canisters
-    const [posPendingCount, dvnPendingMessages] = await Promise.all([
-      pos.get_pending_count().catch(() => BigInt(0)),
-      dvn.get_pending_messages().catch(() => [])
-    ]);
+    let posPendingCount: bigint = BigInt(0);
+    let dvnPendingMessages: any[] = [];
+    if (pos) {
+      try { posPendingCount = await pos.get_pending_count(); } catch { posPendingCount = BigInt(0); }
+    }
+    if (dvn) {
+      try { dvnPendingMessages = await dvn.get_pending_messages(); } catch { dvnPendingMessages = []; }
+    }
 
     const posCount = Number(posPendingCount);
-    let dvnCount = Array.isArray(dvnPendingMessages) ? dvnPendingMessages.length : 0;
-    // Add locally tracked pending from cookie
-    try {
-      const cookie = req.headers.get('cookie') || '';
-      const match = cookie.match(/(?:^|; )dvn_local_pending=([^;]+)/);
-      if (match) {
-        const arr = JSON.parse(decodeURIComponent(match[1]));
-        if (Array.isArray(arr)) dvnCount += arr.length;
+    const canisterPending = Array.isArray(dvnPendingMessages) ? dvnPendingMessages.length : 0;
+    const seen = new Set<string>();
+    if (Array.isArray(dvnPendingMessages)) {
+      for (const m of dvnPendingMessages) {
+        if (m?.id && typeof m.id === 'string') seen.add(m.id);
       }
-    } catch {}
+    }
+    let dvnCount = canisterPending;
+    for (const id of localPending) {
+      if (typeof id === 'string' && !seen.has(id)) dvnCount += 1;
+    }
     const isSynchronized = posCount === dvnCount;
     const drift = Math.abs(posCount - dvnCount);
 
@@ -88,13 +115,22 @@ export async function GET(req: NextRequest) {
     });
 
   } catch (error: any) {
-    console.error('Sync status API error:', error);
+    // Never 500: provide minimal structured error response
     return NextResponse.json({
       ok: false,
-      error: error.message,
+      error: error?.message || 'Unexpected error',
       syncStatus: 'error',
-      severity: 'critical'
-    }, { status: 500 });
+      severity: 'critical',
+      isSynchronized: false,
+      isLegitimate: false,
+      drift: 0,
+      canisters: {
+        proofOfState: { id: process.env.PROOF_OF_STATE_CANISTER_ID || process.env.NEXT_PUBLIC_PROOF_OF_STATE_CANISTER_ID || '—', pendingCount: 0 },
+        dvn: { id: process.env.CROSS_CHAIN_SERVICE_CANISTER_ID || process.env.NEXT_PUBLIC_CROSS_CHAIN_SERVICE_CANISTER_ID || '—', pendingCount: 0 },
+      },
+      recommendations: ['Investigate API connectivity'],
+      at: new Date().toISOString(),
+    });
   }
 }
 

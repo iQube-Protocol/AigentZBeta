@@ -34,6 +34,53 @@ export function useSyncStatus(refreshMs = 30000) {
       const r = await fetch('/api/ops/sync/status', { cache: 'no-store' });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const json = await r.json();
+      // Client-side augmentation: if a local DVN monitor is in progress but the
+      // server reports 0 DVN pending, reflect a pending=1 locally to avoid cookies.
+      try {
+        const localMsgId = typeof window !== 'undefined' ? localStorage.getItem('dvn.messageId') : null;
+        if (localMsgId && json?.canisters?.dvn) {
+          const serverDvn = Number(json.canisters.dvn.pendingCount || 0);
+          if (serverDvn === 0) {
+            const posCount = Number(json?.canisters?.proofOfState?.pendingCount || 0);
+            const dvnCount = 1; // reflect one local pending
+            const isSynchronized = posCount === dvnCount;
+            const drift = Math.abs(posCount - dvnCount);
+            let syncStatus: string;
+            let severity: 'info' | 'warning' | 'critical';
+            let isLegitimate = false;
+            if (isSynchronized) {
+              syncStatus = 'synced';
+              severity = 'info';
+            } else {
+              if (dvnCount > posCount && drift <= 5) {
+                syncStatus = 'lifecycle-drift';
+                severity = 'info';
+                isLegitimate = true;
+              } else if (drift <= 2) {
+                syncStatus = 'minor-drift';
+                severity = 'warning';
+              } else {
+                syncStatus = 'out-of-sync';
+                severity = 'critical';
+              }
+            }
+            const augmented: SyncStatusData = {
+              ...json,
+              isSynchronized,
+              drift,
+              syncStatus,
+              severity,
+              isLegitimate,
+              canisters: {
+                ...json.canisters,
+                dvn: { ...json.canisters.dvn, pendingCount: dvnCount },
+              },
+            };
+            setData(augmented);
+            return;
+          }
+        }
+      } catch {}
       setData(json);
     } catch (e: any) {
       setError(e?.message || 'Failed to load sync status');
