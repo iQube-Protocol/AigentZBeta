@@ -1,8 +1,8 @@
 "use client";
 import { useState } from "react";
-import { Button } from "../../../components/ui/Button";
-import { Input } from "../../../components/ui/Input";
-import { Select } from "../../../components/ui/Select";
+import { Button } from "../../../components/ui/button";
+import { Input } from "../../../components/ui/input";
+import Select from "../../../components/ui/select";
 
 export default function MintQube() {
   const [iQubeId, setIQubeId] = useState("");

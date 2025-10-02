@@ -1,291 +1,246 @@
-import React, { useState, useEffect } from 'react';
-import { ArrowUpDown, ExternalLink, Copy, RefreshCw } from 'lucide-react';
+'use client';
 
-interface QCTBalance {
-  chain: string;
-  balance: string;
-  decimals: number;
-  symbol: string;
-  contractAddress?: string;
-  runesId?: string;
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
+import { Button } from '../ui/button';
+import { Input } from '../ui/input';
+import { Label } from '../ui/label';
+import { Badge } from '../ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Switch } from '../ui/switch';
+import { Separator } from '../ui/separator';
+import { TrendingUp, TrendingDown, Wallet, Zap, Globe, AlertCircle } from 'lucide-react';
+
+interface TradingData {
+  price: number;
+  volume24h: number;
+  marketCap: number;
+  priceChange24h: number;
+  liquidity: number;
 }
 
 interface QCTTradingCardProps {
-  title: string;
+  className?: string;
+  title?: React.ReactNode;
 }
 
-// Simple Card wrapper to match the ops page style
-function Card({ title, children, actions, className }: { title: React.ReactNode; children?: React.ReactNode; actions?: React.ReactNode; className?: string }) {
-  return (
-    <div className={`rounded-lg border border-slate-700 bg-slate-900/60 shadow-sm backdrop-blur p-6 ${className || ''}`}>
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-semibold text-slate-100">{title}</h2>
-        <div className="flex items-center gap-2">{actions}</div>
-      </div>
-      <div className="space-y-2 text-sm text-slate-300">
-        {children}
-      </div>
-    </div>
-  );
-}
+export default function QCTTradingCard({ className, title }: QCTTradingCardProps) {
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [selectedChain, setSelectedChain] = useState('sepolia');
+  const [tradingAmount, setTradingAmount] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [tradingData, setTradingData] = useState<TradingData>({
+    price: 0.001,
+    volume24h: 125000,
+    marketCap: 500000,
+    priceChange24h: 5.2,
+    liquidity: 75000
+  });
 
-function IconRefresh({ onClick, disabled, className }: { onClick?: () => void; disabled?: boolean; className?: string }) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className={`p-1 text-slate-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed ${className || ''}`}
-      aria-label="Refresh"
-    >
-      <RefreshCw size={16} className={disabled ? 'animate-spin' : ''} />
-    </button>
-  );
-}
+  // Mock data for different chains
+  const chainData = {
+    sepolia: { name: 'Ethereum Sepolia', symbol: 'ETH', balance: '100.50' },
+    amoy: { name: 'Polygon Amoy', symbol: 'MATIC', balance: '250.75' },
+    arbitrum: { name: 'Arbitrum Sepolia', symbol: 'ETH', balance: '50.25' },
+    base: { name: 'Base Sepolia', symbol: 'ETH', balance: '75.00' },
+    optimism: { name: 'Optimism Sepolia', symbol: 'ETH', balance: '30.10' }
+  };
 
-export function QCTTradingCard({ title }: QCTTradingCardProps) {
-  const [balances, setBalances] = useState<QCTBalance[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [selectedFromChain, setSelectedFromChain] = useState('bitcoin');
-  const [selectedToChain, setSelectedToChain] = useState('ethereum');
-  const [amount, setAmount] = useState('');
-  const [tradeAction, setTradeAction] = useState<'buy' | 'sell' | 'bridge'>('bridge');
+  const handleTrade = async (type: 'buy' | 'sell') => {
+    if (!tradingAmount || parseFloat(tradingAmount) <= 0) return;
 
-  const chains = [
-    { id: 'bitcoin', name: 'Bitcoin', symbol: 'BTC' },
-    { id: 'ethereum', name: 'Ethereum', symbol: 'ETH' },
-    { id: 'polygon', name: 'Polygon', symbol: 'MATIC' },
-    { id: 'arbitrum', name: 'Arbitrum', symbol: 'ETH' },
-    { id: 'optimism', name: 'Optimism', symbol: 'ETH' },
-    { id: 'base', name: 'Base', symbol: 'ETH' },
-  ];
-
-  // Load QCT balances
-  const loadBalances = async () => {
+    setIsLoading(true);
     try {
-      setLoading(true);
-      setError(null);
-      
-      // Mock address for demo - in production, get from wallet
-      const mockAddress = 'tb1q03256641efc3dd9877560daf26e4d6bb46086a42';
-      
-      const response = await fetch(`/api/qct/trading?action=balances&address=${mockAddress}`);
-      const data = await response.json();
-      
-      if (data.ok) {
-        setBalances(data.balances);
-      } else {
-        setError(data.error);
-      }
-    } catch (err: any) {
-      setError(err.message || 'Failed to load balances');
+      // Here you would integrate with actual trading logic
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
+      console.log(`${type} ${tradingAmount} QCT on ${selectedChain}`);
+      setTradingAmount('');
+    } catch (error) {
+      console.error('Trading error:', error);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  // Execute QCT trade
-  const executeTrade = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const tradeRequest = {
-        action: tradeAction,
-        fromChain: selectedFromChain,
-        toChain: selectedToChain,
-        amount: amount,
-        fromAddress: 'tb1q03256641efc3dd9877560daf26e4d6bb46086a42', // Mock address
-        toAddress: '0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6', // Mock address
-        slippage: 1.0,
-        deadline: Date.now() + 3600000 // 1 hour
-      };
-
-      const response = await fetch('/api/qct/trading', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(tradeRequest)
-      });
-
-      const result = await response.json();
-      
-      if (result.ok) {
-        alert(`Trade successful!\nTransaction ID: ${result.transactionId}\nStatus: ${result.status}`);
-        await loadBalances(); // Refresh balances
-      } else {
-        alert(`Trade failed: ${result.error}`);
-      }
-    } catch (err: any) {
-      alert(`Trade error: ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Format balance for display
-  const formatBalance = (balance: QCTBalance) => {
-    const value = parseFloat(balance.balance) / Math.pow(10, balance.decimals);
-    return value.toFixed(4);
-  };
-
-  // Get balance for specific chain
-  const getChainBalance = (chainId: string) => {
-    const balance = balances.find(b => b.chain === chainId);
-    return balance ? formatBalance(balance) : '0.0000';
-  };
-
-  useEffect(() => {
-    loadBalances();
-  }, []);
-
   return (
-    <Card title={title} actions={
-      <IconRefresh 
-        onClick={loadBalances} 
-        disabled={loading} 
-        className={loading ? 'animate-spin' : ''} 
-      />
-    }>
-      <div className="space-y-4">
-        {/* QCT Balances */}
-        <div className="space-y-2">
-          <div className="text-xs font-medium text-slate-300">QCT Balances</div>
-          {error && (
-            <div className="text-xs text-red-400 bg-red-500/10 rounded px-2 py-1">
-              {error}
+    <Card className={className}>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-green-500" />
+              QCT Trading Interface
+            </CardTitle>
+            <CardDescription>
+              Trade QCT tokens across multiple EVM chains
+            </CardDescription>
+          </div>
+          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+            Live
+          </Badge>
+        </div>
+      </CardHeader>
+
+      <CardContent className="space-y-6">
+        {/* Market Data */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="text-center">
+            <p className="text-sm text-muted-foreground">Price</p>
+            <p className="text-lg font-semibold">${tradingData.price.toFixed(6)}</p>
+          </div>
+          <div className="text-center">
+            <p className="text-sm text-muted-foreground">24h Volume</p>
+            <p className="text-lg font-semibold">${tradingData.volume24h.toLocaleString()}</p>
+          </div>
+          <div className="text-center">
+            <p className="text-sm text-muted-foreground">Market Cap</p>
+            <p className="text-lg font-semibold">${tradingData.marketCap.toLocaleString()}</p>
+          </div>
+          <div className="text-center">
+            <p className="text-sm text-muted-foreground">24h Change</p>
+            <p className={`text-lg font-semibold ${tradingData.priceChange24h >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {tradingData.priceChange24h >= 0 ? '+' : ''}{tradingData.priceChange24h}%
+            </p>
+          </div>
+        </div>
+
+        <Separator />
+
+        {/* Chain Selection */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <Label>Trading Chain</Label>
+            <div className="flex items-center space-x-2">
+              <Switch
+                checked={showAdvanced}
+                onCheckedChange={setShowAdvanced}
+              />
+              <Label className="text-sm">Advanced</Label>
+            </div>
+          </div>
+
+          <Select value={selectedChain} onValueChange={setSelectedChain}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select chain" />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(chainData).map(([key, data]) => (
+                <SelectItem key={key} value={key}>
+                  <div className="flex items-center gap-2">
+                    <Globe className="h-4 w-4" />
+                    {data.name}
+                    <Badge variant="outline" className="ml-auto">
+                      {data.balance} {data.symbol}
+                    </Badge>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {showAdvanced && (
+            <div className="grid grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
+              <div>
+                <Label className="text-sm text-muted-foreground">Slippage Tolerance</Label>
+                <Select defaultValue="0.5">
+                  <SelectTrigger className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="0.1">0.1%</SelectItem>
+                    <SelectItem value="0.5">0.5%</SelectItem>
+                    <SelectItem value="1.0">1.0%</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-sm text-muted-foreground">Transaction Deadline</Label>
+                <Select defaultValue="20">
+                  <SelectTrigger className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="5">5 minutes</SelectItem>
+                    <SelectItem value="20">20 minutes</SelectItem>
+                    <SelectItem value="60">1 hour</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           )}
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            {chains.map(chain => (
-              <div key={chain.id} className="flex justify-between items-center bg-slate-800/50 rounded px-2 py-1">
-                <span className="text-slate-400">{chain.name}:</span>
-                <span className="text-slate-300 font-mono">
-                  {loading ? '...' : `${getChainBalance(chain.id)} QCT`}
-                </span>
-              </div>
-            ))}
-          </div>
         </div>
+
+        <Separator />
 
         {/* Trading Interface */}
-        <div className="space-y-3 border-t border-slate-700 pt-3">
-          <div className="text-xs font-medium text-slate-300">Cross-Chain Trading</div>
-          
-          {/* Trade Action */}
-          <div className="flex gap-1">
-            {(['buy', 'sell', 'bridge'] as const).map(action => (
-              <button
-                key={action}
-                onClick={() => setTradeAction(action)}
-                className={`px-2 py-1 text-xs rounded ${
-                  tradeAction === action
-                    ? 'bg-blue-500/20 text-blue-300 ring-1 ring-blue-500/30'
-                    : 'bg-slate-800/50 text-slate-400 hover:text-slate-300'
-                }`}
-              >
-                {action.charAt(0).toUpperCase() + action.slice(1)}
-              </button>
-            ))}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <Label>Trade Amount (QCT)</Label>
+            <Badge variant="outline">
+              Balance: {chainData[selectedChain as keyof typeof chainData]?.balance} QCT
+            </Badge>
           </div>
 
-          {/* Chain Selection */}
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="text-xs text-slate-400 block mb-1">From Chain</label>
-              <select
-                value={selectedFromChain}
-                onChange={(e) => setSelectedFromChain(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 text-xs text-slate-300"
-              >
-                {chains.map(chain => (
-                  <option key={chain.id} value={chain.id}>{chain.name}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-xs text-slate-400 block mb-1">To Chain</label>
-              <select
-                value={selectedToChain}
-                onChange={(e) => setSelectedToChain(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 text-xs text-slate-300"
-              >
-                {chains.map(chain => (
-                  <option key={chain.id} value={chain.id}>{chain.name}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Amount Input */}
-          <div>
-            <label className="text-xs text-slate-400 block mb-1">Amount (QCT)</label>
-            <div className="flex gap-2">
-              <input
-                type="number"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="0.0000"
-                className="flex-1 bg-slate-800 border border-slate-600 rounded px-2 py-1 text-xs text-slate-300"
-              />
-              <button
-                onClick={() => setAmount(getChainBalance(selectedFromChain))}
-                className="px-2 py-1 text-xs bg-slate-700 hover:bg-slate-600 rounded text-slate-300"
-              >
-                Max
-              </button>
-            </div>
-          </div>
-
-          {/* Trade Button */}
-          <button
-            onClick={executeTrade}
-            disabled={loading || !amount || parseFloat(amount) <= 0}
-            className="w-full px-3 py-2 bg-blue-500/10 text-blue-300 rounded-md hover:bg-blue-500/20 border border-blue-500/30 text-xs disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
-            {loading ? (
-              <div className="animate-spin w-3 h-3 border border-blue-300 border-t-transparent rounded-full" />
-            ) : (
-              <ArrowUpDown size={12} />
-            )}
-            {tradeAction === 'bridge' 
-              ? `Bridge ${selectedFromChain} → ${selectedToChain}`
-              : `${tradeAction.charAt(0).toUpperCase() + tradeAction.slice(1)} QCT`
-            }
-          </button>
-
-          {/* Quick Actions */}
-          <div className="flex gap-1 text-xs">
-            <button
-              onClick={() => {
-                setTradeAction('bridge');
-                setSelectedFromChain('bitcoin');
-                setSelectedToChain('ethereum');
-              }}
-              className="flex-1 px-2 py-1 bg-orange-500/10 text-orange-300 rounded hover:bg-orange-500/20 border border-orange-500/30"
+          <div className="flex gap-2">
+            <Input
+              type="number"
+              placeholder="0.00"
+              value={tradingAmount}
+              onChange={(e) => setTradingAmount(e.target.value)}
+              className="flex-1"
+            />
+            <Button
+              variant="outline"
+              onClick={() => setTradingAmount(chainData[selectedChain as keyof typeof chainData]?.balance || '0')}
             >
-              BTC → ETH
-            </button>
-            <button
-              onClick={() => {
-                setTradeAction('bridge');
-                setSelectedFromChain('ethereum');
-                setSelectedToChain('bitcoin');
-              }}
-              className="flex-1 px-2 py-1 bg-purple-500/10 text-purple-300 rounded hover:bg-purple-500/20 border border-purple-500/30"
-            >
-              ETH → BTC
-            </button>
+              Max
+            </Button>
           </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Button
+              onClick={() => handleTrade('buy')}
+              disabled={isLoading || !tradingAmount}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              <TrendingUp className="h-4 w-4 mr-2" />
+              {isLoading ? 'Processing...' : 'Buy QCT'}
+            </Button>
+            <Button
+              onClick={() => handleTrade('sell')}
+              disabled={isLoading || !tradingAmount}
+              variant="destructive"
+            >
+              <TrendingDown className="h-4 w-4 mr-2" />
+              {isLoading ? 'Processing...' : 'Sell QCT'}
+            </Button>
+          </div>
+
+          {tradingAmount && (
+            <div className="p-3 bg-muted/50 rounded-lg">
+              <div className="flex justify-between text-sm">
+                <span>Est. {tradingAmount} QCT</span>
+                <span>≈ ${(parseFloat(tradingAmount) * tradingData.price).toFixed(2)}</span>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Status */}
-        <div className="flex items-center justify-between text-xs border-t border-slate-700 pt-2">
-          <span className="text-slate-400">Status:</span>
-          <span className={loading ? "text-amber-400" : "text-emerald-400"}>
-            {loading ? "Loading..." : "Ready"}
-          </span>
+        <Separator />
+
+        {/* Trading Info */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <AlertCircle className="h-4 w-4" />
+            <span>Trades are executed on {chainData[selectedChain as keyof typeof chainData]?.name}</span>
+          </div>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Zap className="h-4 w-4" />
+            <span>Cross-chain bridging available for multi-chain trading</span>
+          </div>
         </div>
-      </div>
+      </CardContent>
     </Card>
   );
 }
