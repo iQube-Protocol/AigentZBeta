@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
-import { Button } from "../../../components/ui/Button";
-import { Input } from "../../../components/ui/Input";
+import { Button } from "../../../components/ui/button";
+import { Input } from "../../../components/ui/input";
 
 interface IQubeData {
   id: string;
