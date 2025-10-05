@@ -6,6 +6,7 @@ export async function GET(req: NextRequest) {
   try {
     // Get DVN canister ID from environment
     const DVN_ID = (process.env.CROSS_CHAIN_SERVICE_CANISTER_ID || process.env.NEXT_PUBLIC_CROSS_CHAIN_SERVICE_CANISTER_ID) as string;
+    const MOCK_MODE = process.env.DVN_MOCK_MODE === 'true' || process.env.NEXT_PUBLIC_DVN_MOCK_MODE === 'true';
     
     if (!DVN_ID) {
       return NextResponse.json({
@@ -15,6 +16,22 @@ export async function GET(req: NextRequest) {
         icpReceipt: '—',
         lockStatus: 'Unknown',
         unlockHeight: '—',
+        at: new Date().toISOString()
+      });
+    }
+
+    // Mock mode - return simulated data
+    if (MOCK_MODE) {
+      return NextResponse.json({
+        ok: true,
+        evmTx: '0x1234567890abcdef1234567890abcdef12345678',
+        icpReceipt: 'mock-receipt-id-12345',
+        lockStatus: 'Locked',
+        unlockHeight: '1 pending (mock)',
+        pendingMessages: 1,
+        canisterId: DVN_ID,
+        mockMode: true,
+        note: 'DVN canister deployment pending - using mock data',
         at: new Date().toISOString()
       });
     }
