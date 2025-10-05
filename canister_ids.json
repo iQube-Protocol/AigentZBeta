@@ -1,0 +1,14 @@
+{
+  "cross_chain_service": {
+    "ic": "sp5ye-2qaaa-aaaao-qkqla-cai"
+  },
+  "proof_of_state": {
+    "ic": "n2hhv-aaaaa-aaaas-qccza-cai"
+  },
+  "btc_signer_psbt": {
+    "ic": "uxrrr-q7777-77774-qaaaq-cai"
+  },
+  "evm_rpc": {
+    "ic": "uzt4z-lp777-77774-qaabq-cai"
+  }
+}
