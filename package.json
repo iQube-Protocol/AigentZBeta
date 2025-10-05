@@ -1,6 +1,6 @@
 {
   "name": "qubeagent-frontend",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "scripts": {
     "dev": "NEXT_TELEMETRY_DISABLED=1 next dev",
@@ -9,18 +9,27 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@dfinity/agent": "^3.2.5",
-    "@dfinity/candid": "^3.2.5",
+    "@dfinity/agent": "^3.2.6",
+    "@dfinity/candid": "^3.2.6",
+    "@dfinity/identity": "^3.2.7",
+    "@dfinity/principal": "^3.2.6",
+    "@radix-ui/react-label": "^2.1.7",
+    "@radix-ui/react-select": "^2.2.6",
+    "@radix-ui/react-separator": "^1.1.7",
+    "@radix-ui/react-slot": "^1.2.3",
+    "@radix-ui/react-switch": "^1.2.6",
+    "@radix-ui/react-tabs": "^1.1.13",
     "@radix-ui/react-toast": "^1.1.4",
     "@supabase/supabase-js": "^2.57.4",
     "class-variance-authority": "^0.7.0",
-    "clsx": "^2.0.0",
+    "clsx": "^2.1.1",
     "cross-fetch": "^4.1.0",
     "ethers": "^6.8.0",
     "lucide-react": "^0.542.0",
     "next": "^14.0.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "tailwind-merge": "^3.3.1",
     "tailwindcss": "^3.3.3",
     "tailwindcss-animate": "^1.0.7",
     "uuid": "^13.0.0"
