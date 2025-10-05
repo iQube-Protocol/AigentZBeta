@@ -105,6 +105,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+<<<<<<< HEAD
     // Check multiple environment variable patterns for Supabase configuration
     const url = process.env.SUPABASE_URL || 
                 process.env.NEXT_PUBLIC_SUPABASE_URL ||
@@ -115,6 +116,10 @@ export async function POST(request: NextRequest) {
                        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
                        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJzamhmdmN0bWR1eGhvaHRsbGx5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc1NDgyNTgsImV4cCI6MjA3MzEyNDI1OH0.JVDp4-F6EEXqVQ8sts2Z8KQg168aZ1YdtY53RRM_s7M'; // Fallback to known anon key
     
+=======
+    const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+>>>>>>> c23374612f2e95a5c9f9d562604224fc86b60221
     if (!url || !serviceKey) {
       // Enhanced error message with debugging info
       const envInfo = {

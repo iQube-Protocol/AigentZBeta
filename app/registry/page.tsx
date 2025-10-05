@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { RegistryHome } from "../../components/registry/RegistryHome";
 import { IQubeDetailModal } from "../../components/registry/IQubeDetailModal";
+import { RegistryClient } from "./RegistryClient";
 
 function RegistryPageInner() {
   const router = useRouter();
@@ -25,10 +26,9 @@ function RegistryPageInner() {
       <p className="text-slate-300 mb-4">
         Browse and manage iQube templates and instances in the registry.
       </p>
-      <RegistryHome />
-      {templateId && (
-        <IQubeDetailModal templateId={templateId} edit={edit} onClose={onClose} />
-      )}
+      <Suspense fallback={<div>Loading...</div>}>
+        <RegistryClient />
+      </Suspense>
     </div>
   );
 }

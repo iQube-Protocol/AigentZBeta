@@ -1,6 +1,6 @@
 # Aigent Z Progress Report (Inception → Current)
 
-Date: 2025-09-13
+Date: 2025-09-22 (Updated)
 
 ## Executive Summary
 
@@ -40,6 +40,16 @@ Aigent Z has evolved from an initial exploratory agent UX into a working Next.js
 5. Operations, Backup, and Restore
    - Local timestamped backups including build artifacts
    - Added `scripts/restore_from_backup.sh` and README restore guide
+6. **Cross-Chain Operations Console (September 2025)**
+   - Implemented comprehensive Ops Console at `/ops` for monitoring cross-chain infrastructure
+   - Built live monitoring for ICP canisters, EVM networks (Sepolia/Amoy), BTC testnet, and Solana devnet
+   - Created DVN (Decentralized Verifier Network) monitoring with LayerZero integration
+   - Established MetaMask transaction creation and monitoring workflows
+7. **EVM Transaction Monitoring & BTC Integration (September 2025)**
+   - Fixed DVN canister dependency issues with comprehensive fallback system
+   - Implemented reliable BTC testnet monitoring with dual-API approach
+   - Resolved anchor functionality diagnostics and error handling
+   - Enhanced cross-chain transaction monitoring with graceful degradation
 
 ## Completed Work (What and How)
 
@@ -68,6 +78,21 @@ Aigent Z has evolved from an initial exploratory agent UX into a working Next.js
 - Backups and Git Hygiene
   - Created full tarball backups in `backups/<timestamp>/AigentZBeta_full.tar.gz`
   - `.gitignore` updated to exclude `backups/` to avoid large file pushes
+- **Cross-Chain Operations Infrastructure**
+  - Built comprehensive Ops Console with real-time monitoring capabilities
+  - Implemented API routes for all supported networks: `/api/ops/{btc,ethereum,polygon,dvn,solana,crosschain}`
+  - Created React hooks for live data fetching with configurable refresh intervals
+  - Added MetaMask integration for transaction creation and chain switching
+- **DVN Transaction Monitoring System**
+  - Implemented DVN monitoring with fallback system for canister failures
+  - Created local transaction tracking when DVN canister is unavailable
+  - Built transaction receipt querying via public RPC endpoints
+  - Added comprehensive error handling and user feedback
+- **BTC Integration and Reliability**
+  - Implemented dual-API approach for BTC testnet (mempool.space + blockstream.info)
+  - Added client-side caching for block height persistence during API outages
+  - Fixed canister ID mismatches and environment configuration issues
+  - Enhanced anchor functionality diagnostics with detailed error reporting
 
 ## Key Problems Encountered and Resolutions
 
@@ -89,14 +114,28 @@ Aigent Z has evolved from an initial exploratory agent UX into a working Next.js
 - GitHub Push Blocked by Large Files
   - Cause: Attempted to push local tarball backups
   - Fix: `.gitignore` excludes `backups/`; amended commit and pushed cleanly
+- **DVN Canister Dependency Issues**
+  - Cause: DVN canister compiled with outdated dependency canister IDs, causing `canister_not_found` errors
+  - Fix: Implemented comprehensive fallback system using local RPC queries when canister calls fail
+- **BTC Testnet API Reliability Issues**
+  - Cause: Single API endpoint (mempool.space) experiencing timeouts and rate limiting
+  - Fix: Implemented dual-API approach with blockstream.info fallback and client-side caching
+- **Canister ID Mismatches**
+  - Cause: Environment variables contained outdated canister IDs from previous deployments
+  - Fix: Updated `.env.local` with correct live canister IDs and restarted development server
+- **Anchor Functionality Missing Methods**
+  - Cause: proof_of_state canister deployed with incomplete IDL (missing issue_receipt, batch, anchor methods)
+  - Fix: Enhanced error handling to show available methods and provide clear diagnostic information
 
 ## Current Architecture Snapshot
 
 - Frontend: Next.js 14 + TypeScript + Tailwind + shadcn-ui
 - UI Modules: `components/registry/*` (cards, filters, view toggles, modal)
-- API Routes: `app/api/registry/*`, `app/api/core/*`, `app/api/dev/user`
+- API Routes: `app/api/registry/*`, `app/api/core/*`, `app/api/dev/user`, `app/api/ops/*`
 - Persistence: Transitional; server visibility persists via API (Supabase-ready)
 - Client State: Local library and active flags in `localStorage` for responsiveness
+- **Cross-Chain Infrastructure**: ICP canisters, EVM networks, BTC testnet, DVN monitoring
+- **Operations Console**: Real-time monitoring at `/ops` with live data feeds and transaction creation
 
 ## Detailed Project TODO (Backlog)
 
@@ -120,6 +159,16 @@ Aigent Z has evolved from an initial exploratory agent UX into a working Next.js
 - Documentation & Developer Experience
   - Add Makefile targets: `backup`, `restore`, `dev`, `build`
   - Expand `OPERATORS_MANUAL.md` with screenshots/workflows
+- **Cross-Chain Infrastructure Improvements**
+  - Redeploy proof_of_state canister with full anchor functionality (issue_receipt, batch, anchor methods)
+  - Redeploy DVN canister with correct dependency canister IDs
+  - Add fallback implementations for DVN attestation and verification routes
+  - Implement end-to-end transaction flow from EVM → DVN → BTC anchoring
+- **Operations Console Enhancements**
+  - Add transaction history and audit trails
+  - Implement automated health checks and alerting
+  - Add performance metrics and monitoring dashboards
+  - Create operator guides for troubleshooting common issues
 
 ## Remaining Work (for Program Alignment)
 

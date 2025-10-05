@@ -1,6 +1,15 @@
 // This is a temporary file to hold the modified MetaQube section for the Edit tab
 // with proper collapse/expand functionality
+import {useState, useEffect} from 'react'
+import { ChevronUp, ChevronDown, PlusCircle } from 'lucide-react';
+const [isTemplate, setIsTemplate] = useState(true); // Assume it's a template for this example
+const [isMetaEditMode, setIsMetaEditMode] = useState(false);
+const [isMetaQubeCollapsed, setIsMetaQubeCollapsed] = useState(false);
 
+const getInstanceLabel = () => {
+  // Logic to determine if it's a "Draft" or "Instance"
+  return "Instance"; // Placeholder
+};
 {/* MetaQube Card - Edit Mode */}
 <div className="bg-gradient-to-br from-blue-900/20 to-black/40 border border-blue-500/20 rounded-xl p-6 shadow-xl">
   <div className="flex justify-between items-center mb-4">

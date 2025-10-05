@@ -180,42 +180,48 @@ export function RegistryHome() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-xl font-medium">iQube Templates</h2>
-        {devUser && devUser.masked && (
-          <button
-            type="button"
-            onClick={async () => {
-              try {
-                const res = await fetch(`/api/dev/user?t=${Date.now()}`, { cache: 'no-store' });
-                if (!res.ok) return;
-                const data = await res.json();
-                setDevUser({ masked: data.maskedDevUserId, valid: data.validUuid });
-              } catch {}
-            }}
-            className={`inline-flex items-center gap-2 px-2 py-1 rounded-lg text-xs ${devUser.valid ? 'bg-white/5 ring-1 ring-white/10 text-slate-300' : 'bg-red-500/20 ring-1 ring-red-500/30 text-red-200'}`}
-            title="Click to refresh DEV_USER_ID from server"
-          >
-            DEV_USER_ID: {devUser.masked}
-          </button>
-        )}
-        <Link href="/registry/add" className="text-indigo-400 hover:text-indigo-300 text-sm">
-          + Add New iQube
-        </Link>
-      </div>
+    <div className="flex flex-col h-full">
+      {/* Sticky Header Section */}
+      <div className="sticky top-0 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 z-10 pb-6 space-y-6">
+        <div className="flex justify-between items-center">
+          <h2 className="text-xl font-medium">iQube Templates</h2>
+          {devUser && devUser.masked && (
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  const res = await fetch(`/api/dev/user?t=${Date.now()}`, { cache: 'no-store' });
+                  if (!res.ok) return;
+                  const data = await res.json();
+                  setDevUser({ masked: data.maskedDevUserId, valid: data.validUuid });
+                } catch {}
+              }}
+              className={`inline-flex items-center gap-2 px-2 py-1 rounded-lg text-xs ${devUser.valid ? 'bg-white/5 ring-1 ring-white/10 text-slate-300' : 'bg-red-500/20 ring-1 ring-red-500/30 text-red-200'}`}
+              title="Click to refresh DEV_USER_ID from server"
+            >
+              DEV_USER_ID: {devUser.masked}
+            </button>
+          )}
+          <Link href="/registry/add" className="text-indigo-400 hover:text-indigo-300 text-sm">
+            + Add New iQube
+          </Link>
+        </div>
 
-      <div className="flex items-start justify-between gap-3">
-        <FilterSection value={filters} onChange={setFilters} />
-        <div className="flex items-center gap-2 mt-6">
-          <ViewModeToggle value={viewMode} onChange={setViewMode} />
-          {/* Cart indicator (kept as pill, aligned next to icons) */}
-          <span className="inline-flex items-center gap-2 px-2 py-1 rounded-lg bg-white/5 ring-1 ring-white/10 text-sm text-slate-300" title="Items in cart">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-300"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 12.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
-            {cart.length}
-          </span>
+        <div className="flex items-start justify-between gap-3">
+          <FilterSection value={filters} onChange={setFilters} />
+          <div className="flex items-center gap-2 mt-6">
+            <ViewModeToggle value={viewMode} onChange={setViewMode} />
+            {/* Cart indicator (kept as pill, aligned next to icons) */}
+            <span className="inline-flex items-center gap-2 px-2 py-1 rounded-md bg-white/5 ring-1 ring-white/10 text-sm text-slate-300" title="Items in cart">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-300"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 12.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+              {cart.length}
+            </span>
+          </div>
         </div>
       </div>
+
+      {/* Scrollable Content Section */}
+      <div className="flex-1 overflow-y-auto">
 
       {viewMode === 'grid' && (
         <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -251,11 +257,11 @@ export function RegistryHome() {
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <div className="text-sm text-slate-400">Template</div>
-                  <div className="text-lg font-medium">{t.name}</div>
+                  <div className="text-lg font-medium truncate" title={t.name}>{t.name}</div>
                   <div className="mt-1 flex flex-wrap gap-2">
-                    {t.iQubeType && <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] bg-indigo-500/20 text-indigo-300 ring-1 ring-indigo-500/30" title="Type">{t.iQubeType}</span>}
-                    {(t.iQubeInstanceType || 'template') && <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] bg-sky-500/20 text-sky-300 ring-1 ring-sky-500/30 capitalize" title="Instance">{t.iQubeInstanceType || 'template'}</span>}
-                    {t.businessModel && <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/30" title="Business Model">{t.businessModel}</span>}
+                    {t.iQubeType && <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] bg-indigo-500/20 text-indigo-300 ring-1 ring-indigo-500/30" title="Type">{t.iQubeType}</span>}
+                    {(t.iQubeInstanceType || 'template') && <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] bg-sky-500/20 text-sky-300 ring-1 ring-sky-500/30 capitalize" title="Instance">{t.iQubeInstanceType || 'template'}</span>}
+                    {t.businessModel && <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/30" title="Business Model">{t.businessModel}</span>}
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
@@ -308,7 +314,7 @@ export function RegistryHome() {
             <tbody>
               {filteredTemplates.map((t) => (
                 <tr key={t.id} className="border-t border-white/10 hover:bg-white/5">
-                  <td className="px-4 py-3 text-slate-200">{t.name}</td>
+                  <td className="px-4 py-3 text-slate-200 truncate max-w-xs" title={t.name}>{t.name}</td>
                   <td className="px-4 py-3 text-slate-300">{t.iQubeType || '—'}</td>
                   <td className="px-4 py-3 text-slate-300">{t.iQubeInstanceType || 'template'}</td>
                   <td className="px-4 py-3 text-slate-300">{t.businessModel || '—'}</td>
@@ -338,6 +344,7 @@ export function RegistryHome() {
         onConfirm={confirmDelete}
         onCancel={() => setDeleteId(null)}
       />
+      </div>
     </div>
   );
 }
