@@ -153,9 +153,17 @@ function QCTRekeyCard({ title }: { title: string }) {
 
       setResult(data);
       
-      // Refresh key fingerprints after successful rekey
+      // Refresh key fingerprints after successful rekey (Firefox-compatible)
       if (!dryRun) {
-        setTimeout(loadKeyFingerprints, 2000);
+        // Use Promise-based delay for better Firefox compatibility
+        Promise.resolve().then(async () => {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          try {
+            await loadKeyFingerprints();
+          } catch (error) {
+            console.warn('Key fingerprints refresh failed:', error);
+          }
+        });
       }
 
     } catch (error: any) {
@@ -1214,10 +1222,31 @@ export default function OpsPage() {
               try {
                 const result = await syncStatus.processLayerZero('process_pending');
                 alert(`LayerZero processing completed: ${result.message}\nProcessed: ${result.processed}/${result.total} messages`);
-                try { await dvn.refresh?.(); } catch {}
-                try { await syncStatus.refresh?.(); } catch {}
-                // Slight delayed refresh to catch eventual consistency
-                setTimeout(() => { dvn.refresh?.(); syncStatus.refresh?.(); }, 1200);
+                
+                // Firefox-compatible async refresh with proper error handling
+                const refreshWithDelay = async (refreshFn: (() => Promise<void>) | undefined, delay: number = 0) => {
+                  if (!refreshFn) return;
+                  try {
+                    if (delay > 0) {
+                      await new Promise(resolve => setTimeout(resolve, delay));
+                    }
+                    await refreshFn();
+                  } catch (error) {
+                    console.warn('Refresh failed:', error);
+                  }
+                };
+
+                // Immediate refresh
+                await Promise.allSettled([
+                  refreshWithDelay(dvn.refresh),
+                  refreshWithDelay(syncStatus.refresh)
+                ]);
+
+                // Delayed refresh for eventual consistency (Firefox-compatible)
+                await Promise.allSettled([
+                  refreshWithDelay(dvn.refresh, 1200),
+                  refreshWithDelay(syncStatus.refresh, 1200)
+                ]);
               } catch (e: any) {
                 alert(`LayerZero processing failed: ${e.message}`);
               }
