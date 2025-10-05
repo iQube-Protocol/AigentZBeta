@@ -23,7 +23,7 @@ export async function getActor<T = Record<string, any>>(canisterId: string, idlF
 
   // Optional server identity for authenticated updates
   let identity: any = undefined;
-  let pem: string | undefined = process.env.DFX_IDENTITY_PEM;
+  let pem: string | undefined = process.env.DFX_IDENTITY_PEM || process.env.NEXT_PUBLIC_DFX_IDENTITY_PEM;
   const pemPath = process.env.DFX_IDENTITY_PEM_PATH;
   if (!pem && pemPath) {
     try {
