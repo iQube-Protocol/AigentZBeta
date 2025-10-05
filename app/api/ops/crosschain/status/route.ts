@@ -150,7 +150,7 @@ export async function GET(req: NextRequest) {
           }
         }
       };
-    return NextResponse.json({ ok: (status as any).ok ?? true, status, at: new Date().toISOString() });
+    return NextResponse.json({ ...status, at: new Date().toISOString() });
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || 'Failed to load cross-chain status' }, { status: 500 });
   }
