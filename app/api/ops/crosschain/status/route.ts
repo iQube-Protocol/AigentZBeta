@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+export const fetchCache = 'force-no-store';
 import { getCrossChainStatus } from '@/services/ops/crossChainService';
 import { getActor } from '@/services/ops/icAgent';
 import { idlFactory as evmIdl } from '@/services/ops/idl/evm_rpc';
@@ -150,7 +154,11 @@ export async function GET(req: NextRequest) {
           }
         }
       };
-    return NextResponse.json({ ...status, at: new Date().toISOString() });
+    {
+      const res = NextResponse.json({ ok: (status as any).ok ?? true, status, at: new Date().toISOString() });
+      res.headers.set('Cache-Control', 'no-store, no-cache, max-age=0, must-revalidate');
+      return res;
+    }
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || 'Failed to load cross-chain status' }, { status: 500 });
   }
