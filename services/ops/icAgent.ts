@@ -3,12 +3,11 @@ import fetch from 'cross-fetch';
 
 // Generic actor factory using a provided idlFactory
 export async function getActor<T = Record<string, any>>(canisterId: string, idlFactory: any) {
-  const explicitHost = process.env.ICP_HOST || process.env.NEXT_PUBLIC_ICP_HOST;
   const isLocal = (process.env.DFX_NETWORK || '').toLowerCase() === 'local';
   const isMainnet = (process.env.DFX_NETWORK || 'ic').toLowerCase() === 'ic';
   
-  // Force ic0.app for mainnet to ensure query signatures are available
-  let host = explicitHost || (isLocal ? 'http://127.0.0.1:4943' : (isMainnet ? 'https://ic0.app' : 'https://icp-api.io'));
+  // Force ic0.app for mainnet to ensure query signatures are available (ignore env vars)
+  let host = isLocal ? 'http://127.0.0.1:4943' : (isMainnet ? 'https://ic0.app' : 'https://icp-api.io');
 
   // If attempting to use a local replica, probe reachability and fall back to mainnet gateway if unreachable
   if (host.includes('127.0.0.1') || host.includes('localhost')) {
