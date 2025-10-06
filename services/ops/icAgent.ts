@@ -5,7 +5,10 @@ import fetch from 'cross-fetch';
 export async function getActor<T = Record<string, any>>(canisterId: string, idlFactory: any) {
   const explicitHost = process.env.ICP_HOST || process.env.NEXT_PUBLIC_ICP_HOST;
   const isLocal = (process.env.DFX_NETWORK || '').toLowerCase() === 'local';
-  let host = explicitHost || (isLocal ? 'http://127.0.0.1:4943' : 'https://icp-api.io');
+  const isMainnet = (process.env.DFX_NETWORK || 'ic').toLowerCase() === 'ic';
+  
+  // Force ic0.app for mainnet to ensure query signatures are available
+  let host = explicitHost || (isLocal ? 'http://127.0.0.1:4943' : (isMainnet ? 'https://ic0.app' : 'https://icp-api.io'));
 
   // If attempting to use a local replica, probe reachability and fall back to mainnet gateway if unreachable
   if (host.includes('127.0.0.1') || host.includes('localhost')) {
@@ -16,8 +19,8 @@ export async function getActor<T = Record<string, any>>(canisterId: string, idlF
       clearTimeout(timeout);
       if (!resp?.ok) throw new Error('Local replica status not OK');
     } catch (_e) {
-      // Fall back to public gateway to avoid ECONNREFUSED in staging/prod
-      host = 'https://icp-api.io';
+      // Fall back to certificate-providing gateway to avoid ECONNREFUSED in staging/prod
+      host = isMainnet ? 'https://ic0.app' : 'https://icp-api.io';
     }
   }
 
