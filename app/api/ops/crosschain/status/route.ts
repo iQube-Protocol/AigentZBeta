@@ -112,7 +112,7 @@ export async function GET(req: NextRequest) {
     try {
       const EVM_ID = (process.env.EVM_RPC_CANISTER_ID || process.env.NEXT_PUBLIC_EVM_RPC_CANISTER_ID) as string;
       if (EVM_ID) {
-        const evm = await getActor<any>(EVM_ID, evmIdl);
+        const evm = await getAnonymousActor<any>(EVM_ID, evmIdl);
         const chains: any[] = await evm.get_supported_chains().catch(() => []);
         const cfg = Array.isArray(chains) ? chains.length : 0;
         if (cfg > evmChainCount) evmChainCount = cfg;
