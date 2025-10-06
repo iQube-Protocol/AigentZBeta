@@ -33,6 +33,7 @@ export async function GET(req: NextRequest) {
         mockMode: true,
         note: 'DVN canister deployment pending - using mock data',
         at: new Date().toISOString()
+      });
     }
 
     // Get DVN actor and fetch live data
