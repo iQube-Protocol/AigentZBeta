@@ -80,28 +80,36 @@ export async function GET(req: NextRequest) {
       } catch {}
     }
 
-    return NextResponse.json({
-      ok: true,
-      evmTx,
-      icpReceipt,
-      lockStatus,
-      unlockHeight,
-      pendingMessages: Array.isArray(pendingMessages) ? pendingMessages.length : 0,
-      canisterId: DVN_ID,
-      // attestations omitted from status; available via /api/ops/dvn/tx?id=...
-      at: new Date().toISOString()
-    });
+    {
+      const res = NextResponse.json({
+        ok: true,
+        evmTx,
+        icpReceipt,
+        lockStatus,
+        unlockHeight,
+        pendingMessages: Array.isArray(pendingMessages) ? pendingMessages.length : 0,
+        canisterId: DVN_ID,
+        // attestations omitted from status; available via /api/ops/dvn/tx?id=...
+        at: new Date().toISOString()
+      });
+      res.headers.set('Cache-Control', 'no-store, no-cache, max-age=0, must-revalidate');
+      return res;
+    }
 
   } catch (error: any) {
     console.error('DVN API error:', error);
-    return NextResponse.json({
-      ok: false,
-      error: error.message,
-      evmTx: '—',
-      icpReceipt: '—',
-      lockStatus: 'Error',
-      unlockHeight: '—',
-      at: new Date().toISOString()
-    });
+    {
+      const res = NextResponse.json({
+        ok: false,
+        error: error.message,
+        evmTx: '—',
+        icpReceipt: '—',
+        lockStatus: 'Error',
+        unlockHeight: '—',
+        at: new Date().toISOString()
+      });
+      res.headers.set('Cache-Control', 'no-store, no-cache, max-age=0, must-revalidate');
+      return res;
+    }
   }
 }
