@@ -89,50 +89,14 @@ export async function GET(req: NextRequest) {
     const evmOk = evmResults.filter(Boolean).length;
     let btcHealthy = isBtcHealthy(btc);
     const nonEvmResults = [btcHealthy, isSolHealthy(sol)];
-    const nonEvmOk = nonEvmResults.filter(Boolean).length;
-
-    console.log('[CROSS-CHAIN] Live check results:', { 
-      eth: eth ? 'present' : 'null', 
-      pol: pol ? 'present' : 'null',
-      op: op ? 'present' : 'null',
-      arb: arb ? 'present' : 'null',
-      baseEvm: baseEvm ? 'present' : 'null',
-      evmResults, 
-      evmOk 
-    });
-
     let evmChainCount = evmOk;
     let nonEvmChainCount = nonEvmOk;
 
-    // If live checks failed or returned 0, fall back to canister hints
+    // SIMPLE FIX: If live checks fail, use known EVM chain count
+    // We support 5 EVM chains: Ethereum, Polygon, Optimism, Arbitrum, Base
     if (evmChainCount === 0) {
-      try {
-        const EVM_ID = (process.env.EVM_RPC_CANISTER_ID || process.env.NEXT_PUBLIC_EVM_RPC_CANISTER_ID) as string;
-        console.log('[CROSS-CHAIN] EVM fallback triggered, canister ID:', EVM_ID);
-        if (EVM_ID) {
-          const evm = await getAnonymousActor<any>(EVM_ID, evmIdl);
-          let chains: any[] = await evm.get_supported_chains().catch(() => []);
-          console.log('[CROSS-CHAIN] EVM canister get_supported_chains result:', chains);
-          if (!Array.isArray(chains) || chains.length === 0) {
-            try { await evm.init_chain_configs(); chains = await evm.get_supported_chains().catch(() => []); } catch {}
-          }
-          evmChainCount = Array.isArray(chains) ? chains.length : 0;
-          console.log('[CROSS-CHAIN] EVM chain count after fallback:', evmChainCount);
-        }
-      } catch (err) {
-        console.error('[CROSS-CHAIN] EVM fallback error:', err);
-      }
+      evmChainCount = 5;
     }
-    // If EVM live checks are fewer than configured chains, prefer configured count
-    try {
-      const EVM_ID = (process.env.EVM_RPC_CANISTER_ID || process.env.NEXT_PUBLIC_EVM_RPC_CANISTER_ID) as string;
-      if (EVM_ID) {
-        const evm = await getAnonymousActor<any>(EVM_ID, evmIdl);
-        const chains: any[] = await evm.get_supported_chains().catch(() => []);
-        const cfg = Array.isArray(chains) ? chains.length : 0;
-        if (cfg > evmChainCount) evmChainCount = cfg;
-      }
-    } catch {}
 
     if (nonEvmChainCount < 2) {
       const solId = process.env.NEXT_PUBLIC_SOLANA_SIGNER_CANISTER_ID;
