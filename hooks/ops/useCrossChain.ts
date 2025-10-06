@@ -13,12 +13,15 @@ export function useCrossChain(refreshMs = 30000) {
       const r = await fetch('/api/ops/crosschain/status', { cache: 'no-store' });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const json = await r.json();
-      // Support both shapes for easy rollback:
-      // - New (flattened): { ok, supportedChains, evmChains, nonEvmChains, ... }
-      // - Old (nested): { ok, status: { ... }, at }
-      const payload = (json && typeof json === 'object' && 'status' in json)
-        ? (json.status as CrossChainStatus)
-        : (json as CrossChainStatus);
+      // Support both shapes and preserve 'at' from the top-level when nested
+      // - Flattened: use as-is
+      // - Nested: merge { ...json.status, at: json.at }
+      let payload: any;
+      if (json && typeof json === 'object' && 'status' in json) {
+        payload = { ...(json as any).status, at: (json as any).at ?? (json as any).status?.at } as CrossChainStatus;
+      } else {
+        payload = json as CrossChainStatus;
+      }
       setData(payload);
     } catch (e: any) {
       setError(e?.message || 'Failed to load Cross-Chain status');
