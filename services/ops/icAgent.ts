@@ -62,3 +62,40 @@ export async function getActor<T = Record<string, any>>(canisterId: string, idlF
 
   return Actor.createActor<T>(idlFactory, { agent, canisterId });
 }
+
+// Anonymous actor factory for testing access control issues
+export async function getAnonymousActor<T = Record<string, any>>(canisterId: string, idlFactory: any) {
+  const isLocal = (process.env.DFX_NETWORK || '').toLowerCase() === 'local';
+  const isMainnet = (process.env.DFX_NETWORK || 'ic').toLowerCase() === 'ic';
+  
+  // Force ic0.app for mainnet to ensure query signatures are available (ignore env vars)
+  let host = isLocal ? 'http://127.0.0.1:4943' : (isMainnet ? 'https://ic0.app' : 'https://icp-api.io');
+
+  // If attempting to use a local replica, probe reachability and fall back to mainnet gateway if unreachable
+  if (host.includes('127.0.0.1') || host.includes('localhost')) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 1500);
+      const resp = await (fetch as any)(`${host}/api/v2/status`, { method: 'GET', cache: 'no-store', signal: controller.signal });
+      clearTimeout(timeout);
+      if (!resp?.ok) throw new Error('Local replica status not OK');
+    } catch (_e) {
+      // Fall back to certificate-providing gateway to avoid ECONNREFUSED in staging/prod
+      host = isMainnet ? 'https://ic0.app' : 'https://icp-api.io';
+    }
+  }
+
+  // Create anonymous agent (no identity)
+  const agent = new HttpAgent({ host, fetch: fetch as any });
+
+  // Only fetch root key when talking to a local replica
+  if (host.includes('127.0.0.1') || host.includes('localhost')) {
+    try {
+      await agent.fetchRootKey();
+    } catch (e) {
+      console.warn('Failed to fetch root key:', e);
+    }
+  }
+
+  return Actor.createActor<T>(idlFactory, { agent, canisterId });
+}

@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export const fetchCache = 'force-no-store';
 import { getCrossChainStatus } from '@/services/ops/crossChainService';
-import { getActor } from '@/services/ops/icAgent';
+import { getActor, getAnonymousActor } from '@/services/ops/icAgent';
 import { idlFactory as evmIdl } from '@/services/ops/idl/evm_rpc';
 
 const withTimeout = async (url: string, ms = 6000) => {
@@ -99,7 +99,7 @@ export async function GET(req: NextRequest) {
       try {
         const EVM_ID = (process.env.EVM_RPC_CANISTER_ID || process.env.NEXT_PUBLIC_EVM_RPC_CANISTER_ID) as string;
         if (EVM_ID) {
-          const evm = await getActor<any>(EVM_ID, evmIdl);
+          const evm = await getAnonymousActor<any>(EVM_ID, evmIdl);
           let chains: any[] = await evm.get_supported_chains().catch(() => []);
           if (!Array.isArray(chains) || chains.length === 0) {
             try { await evm.init_chain_configs(); chains = await evm.get_supported_chains().catch(() => []); } catch {}
