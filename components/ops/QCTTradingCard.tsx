@@ -207,20 +207,35 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
           <div className="text-xs font-medium text-slate-300">Cross-Chain Trading</div>
           
           {/* Trade Action */}
-          <div className="flex gap-1">
-            {(['buy', 'sell', 'bridge'] as const).map(action => (
-              <button
-                key={action}
-                onClick={() => setTradeAction(action)}
-                className={`px-2 py-1 text-xs rounded ${
-                  tradeAction === action
-                    ? 'bg-blue-500/20 text-blue-300 ring-1 ring-blue-500/30'
-                    : 'bg-slate-800/50 text-slate-400 hover:text-slate-300'
-                }`}
-              >
-                {action.charAt(0).toUpperCase() + action.slice(1)}
-              </button>
-            ))}
+          <div className="flex gap-1 items-center justify-between">
+            <div className="flex gap-1">
+              {(['buy', 'sell', 'bridge'] as const).map(action => (
+                <button
+                  key={action}
+                  onClick={() => setTradeAction(action)}
+                  className={`px-2 py-1 text-xs rounded ${
+                    tradeAction === action
+                      ? 'bg-blue-500/20 text-blue-300 ring-1 ring-blue-500/30'
+                      : 'bg-slate-800/50 text-slate-400 hover:text-slate-300'
+                  }`}
+                >
+                  {action.charAt(0).toUpperCase() + action.slice(1)}
+                </button>
+              ))}
+            </div>
+            {/* Wallet Status Badge */}
+            <div className="flex gap-1 items-center">
+              {evmAddress && (
+                <span className="px-2 py-1 text-xs bg-emerald-500/10 text-emerald-300 rounded border border-emerald-500/30" title={`EVM: ${evmAddress}`}>
+                  🔗 EVM
+                </span>
+              )}
+              {solanaAddress && (
+                <span className="px-2 py-1 text-xs bg-purple-500/10 text-purple-300 rounded border border-purple-500/30" title={`Solana: ${solanaAddress}`}>
+                  ◎ SOL
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Chain Selection */}
