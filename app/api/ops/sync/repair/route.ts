@@ -71,13 +71,15 @@ export async function POST(request: Request) {
         }
         newDvnCount = dvnCount + deficit;
       } else {
-        // More DVN messages than receipts - this is NORMAL after transactions
-        // DVN messages should be processed via LayerZero, NOT by creating fake PoS receipts
+        // More DVN messages than receipts
         const deficit = dvnCount - posCount;
         
-        // Only auto-repair if the drift is extreme (>10) - otherwise it's legitimate lifecycle drift
-        if (deficit > 10 && strategy === 'balance') {
-          // Only allow manual repair for extreme cases
+        // Check if we should repair based on strategy and drift size
+        const shouldRepair = strategy === 'balance' || (strategy === 'auto' && deficit <= 10);
+        
+        if (shouldRepair) {
+          // Create receipts to match DVN messages
+          // This handles cases where transactions were batched but not yet anchored
           for (let i = 0; i < deficit; i++) {
             try {
               const syncData = `sync_repair_${Date.now()}_${i}`;
@@ -89,14 +91,14 @@ export async function POST(request: Request) {
           }
           newPosCount = posCount + deficit;
         } else {
-          // Normal case - don't create fake receipts
+          // Large drift (>10) with auto strategy - likely legitimate lifecycle drift
           repairActions.push(`Detected ${deficit} more DVN messages than PoS receipts`);
           repairActions.push('This is normal after transactions are minted');
           repairActions.push('DVN messages should be processed via LayerZero verification');
-          repairActions.push('No auto-repair needed - this is legitimate lifecycle drift');
+          repairActions.push('Use "balance" strategy to force repair if needed');
           return NextResponse.json({
             ok: true,
-            message: 'No repair needed - legitimate lifecycle drift detected',
+            message: 'No repair needed - use balance strategy to force repair',
             strategy,
             before: { posCount, dvnCount, drift: Math.abs(posCount - dvnCount) },
             after: { posCount, dvnCount, drift: Math.abs(posCount - dvnCount) },
