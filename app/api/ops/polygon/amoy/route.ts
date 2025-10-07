@@ -1,78 +1,43 @@
 import { NextResponse } from 'next/server';
-export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
-export const fetchCache = 'force-no-store';
+import { getAnonymousActor } from '@/services/ops/icAgent';
+import { evmRpcIdlFactory } from '@/services/ops/idl/evm_rpc_full';
+
+const EVM_RPC = '7hfb6-caaaa-aaaar-qadga-cai';
 
 export async function GET() {
   try {
-    // Multi-endpoint fallback with timeouts for Polygon Amoy
-    const endpoints = [
-      'https://rpc-amoy.polygon.technology',
-      'https://polygon-amoy.publicnode.com',
-      'https://polygon-amoy.gateway.tenderly.co'
-    ];
+    const evm = await getAnonymousActor(EVM_RPC, evmRpcIdlFactory);
+    const result: any = await evm.eth_getBlockByNumber({
+      rpcServices: { Custom: { chainId: BigInt(80002), services: [{ url: 'https://rpc-amoy.polygon.technology', headers: [] }] } },
+      blockTag: { Latest: null },
+    });
 
-    const withTimeout = async (url: string, body: any, ms = 5000) => {
-      const ctrl = new AbortController();
-      const id = setTimeout(() => ctrl.abort(), ms);
-      try {
-        const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: ctrl.signal });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return await res.json();
-      } finally { clearTimeout(id); }
-    };
-
-    let used = '';
-    let latestBlockHex = '';
     let block: any = null;
-    let gasPriceHex = '0x0';
-    let lastErr: any = null;
-    for (const url of endpoints) {
-      try {
-        const bn = await withTimeout(url, { jsonrpc: '2.0', method: 'eth_blockNumber', params: [], id: 1 });
-        if (!bn?.result) throw new Error('No block number');
-        latestBlockHex = bn.result;
-        const bd = await withTimeout(url, { jsonrpc: '2.0', method: 'eth_getBlockByNumber', params: [latestBlockHex, true], id: 2 });
-        if (!bd?.result) throw new Error('No block details');
-        block = bd.result;
-        const gp = await withTimeout(url, { jsonrpc: '2.0', method: 'eth_gasPrice', params: [], id: 3 });
-        gasPriceHex = gp?.result || '0x0';
-        used = url;
-        break;
-      } catch (e) { lastErr = e; }
+    if ('Consistent' in result && 'Ok' in result.Consistent) {
+      block = result.Consistent.Ok;
+    } else if ('Inconsistent' in result) {
+      for (const [_, res] of result.Inconsistent) {
+        if ('Ok' in res) { block = res.Ok; break; }
+      }
     }
 
-    if (!block || !latestBlockHex) {
-      throw lastErr || new Error('All Polygon Amoy RPC endpoints failed');
-    }
+    if (!block) throw new Error('No block data');
 
-    const latestBlockNumber = parseInt(latestBlockHex, 16);
-    const gasPrice = parseInt(gasPriceHex, 16);
-    const rpcHost = used.replace(/^https?:\/\//, '');
-    
-    // Provide network stats without random transaction fetching
     return NextResponse.json({
       ok: true,
       chainId: '80002',
-      blockNumber: Number.isFinite(latestBlockNumber) ? latestBlockNumber.toLocaleString() : '—',
-      latestTx: 'Network active - create transaction to see hash',
-      gasPrice: Number.isFinite(gasPrice) ? gasPrice.toLocaleString() : '—',
-      transactionCount: block.transactions ? block.transactions.length : 0,
-      rpcUrl: rpcHost,
+      blockNumber: Number(block.number).toLocaleString(),
+      latestTx: block.transactions[0] || 'No transactions',
+      rpcUrl: 'EVM RPC Canister',
       at: new Date().toISOString()
     });
-    
   } catch (error: any) {
-    console.error('Polygon Amoy API error:', error);
     return NextResponse.json({
       ok: false,
       error: error.message,
       chainId: '80002',
       blockNumber: '—',
       latestTx: '—',
-      gasPrice: '—',
-      transactionCount: 0,
       rpcUrl: '—',
       at: new Date().toISOString()
     });
