@@ -354,28 +354,54 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
             }
           </button>
 
-          {/* Quick Actions */}
+          {/* Quick Actions - Dynamic based on From Chain */}
           <div className="flex gap-1 text-xs">
-            <button
-              onClick={() => {
-                setTradeAction('bridge');
-                setSelectedFromChain('bitcoin');
-                setSelectedToChain('ethereum');
-              }}
-              className="flex-1 px-2 py-1 bg-orange-500/10 text-orange-300 rounded hover:bg-orange-500/20 border border-orange-500/30"
-            >
-              BTC → ETH
-            </button>
-            <button
-              onClick={() => {
-                setTradeAction('bridge');
-                setSelectedFromChain('ethereum');
-                setSelectedToChain('bitcoin');
-              }}
-              className="flex-1 px-2 py-1 bg-purple-500/10 text-purple-300 rounded hover:bg-purple-500/20 border border-purple-500/30"
-            >
-              ETH → BTC
-            </button>
+            {selectedFromChain !== 'bitcoin' ? (
+              <>
+                <button
+                  onClick={() => {
+                    setTradeAction('bridge');
+                    setSelectedToChain('bitcoin');
+                  }}
+                  className="flex-1 px-2 py-1 bg-orange-500/10 text-orange-300 rounded hover:bg-orange-500/20 border border-orange-500/30"
+                >
+                  {chains.find(c => c.id === selectedFromChain)?.symbol} → BTC
+                </button>
+                <button
+                  onClick={() => {
+                    setTradeAction('bridge');
+                    setSelectedFromChain('bitcoin');
+                    setSelectedToChain(selectedFromChain);
+                  }}
+                  className="flex-1 px-2 py-1 bg-purple-500/10 text-purple-300 rounded hover:bg-purple-500/20 border border-purple-500/30"
+                >
+                  BTC → {chains.find(c => c.id === selectedFromChain)?.symbol}
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => {
+                    setTradeAction('bridge');
+                    setSelectedFromChain('bitcoin');
+                    setSelectedToChain('ethereum');
+                  }}
+                  className="flex-1 px-2 py-1 bg-orange-500/10 text-orange-300 rounded hover:bg-orange-500/20 border border-orange-500/30"
+                >
+                  BTC → ETH
+                </button>
+                <button
+                  onClick={() => {
+                    setTradeAction('bridge');
+                    setSelectedFromChain('ethereum');
+                    setSelectedToChain('bitcoin');
+                  }}
+                  className="flex-1 px-2 py-1 bg-purple-500/10 text-purple-300 rounded hover:bg-purple-500/20 border border-purple-500/30"
+                >
+                  ETH → BTC
+                </button>
+              </>
+            )}
           </div>
         </div>
 
