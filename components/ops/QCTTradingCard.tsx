@@ -70,17 +70,30 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
   // Auto-check wallet connections on mount
   useEffect(() => {
     const checkWallets = async () => {
+      console.log('[QCT] Checking for wallet connections...');
+      
       // Check MetaMask
       const metamask = getMetaMaskWallet();
+      console.log('[QCT] MetaMask installed:', metamask.isInstalled());
       if (metamask.isInstalled()) {
         const accounts = await metamask.getAccounts();
-        if (accounts.length > 0) setEvmAddress(accounts[0]);
+        console.log('[QCT] MetaMask accounts:', accounts);
+        if (accounts.length > 0) {
+          setEvmAddress(accounts[0]);
+          console.log('[QCT] EVM address set:', accounts[0]);
+        }
       }
+      
       // Check Phantom
       const phantom = getPhantomWallet();
+      console.log('[QCT] Phantom installed:', phantom.isInstalled(), 'connected:', phantom.isConnected());
       if (phantom.isInstalled() && phantom.isConnected()) {
         const pk = phantom.getPublicKey();
-        if (pk) setSolanaAddress(pk);
+        console.log('[QCT] Phantom public key:', pk);
+        if (pk) {
+          setSolanaAddress(pk);
+          console.log('[QCT] Solana address set:', pk);
+        }
       }
     };
     checkWallets();
