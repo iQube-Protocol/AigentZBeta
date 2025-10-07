@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowUpDown, ExternalLink, Copy, RefreshCw } from 'lucide-react';
+import { getMetaMaskWallet } from '@/services/wallet/metamask';
+import { getPhantomWallet } from '@/services/wallet/phantom';
 
 interface QCTBalance {
   chain: string;
@@ -50,15 +52,48 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
   const [selectedToChain, setSelectedToChain] = useState('ethereum');
   const [amount, setAmount] = useState('');
   const [tradeAction, setTradeAction] = useState<'buy' | 'sell' | 'bridge'>('bridge');
+  
+  // Wallet states (hidden from UI, auto-connect)
+  const [evmAddress, setEvmAddress] = useState<string | null>(null);
+  const [solanaAddress, setSolanaAddress] = useState<string | null>(null);
 
   const chains = [
-    { id: 'bitcoin', name: 'Bitcoin', symbol: 'BTC' },
-    { id: 'ethereum', name: 'Ethereum', symbol: 'ETH' },
-    { id: 'polygon', name: 'Polygon', symbol: 'MATIC' },
-    { id: 'arbitrum', name: 'Arbitrum', symbol: 'ETH' },
-    { id: 'optimism', name: 'Optimism', symbol: 'ETH' },
-    { id: 'base', name: 'Base', symbol: 'ETH' },
+    { id: 'bitcoin', name: 'Bitcoin', symbol: 'BTC', type: 'btc' },
+    { id: 'ethereum', name: 'Ethereum', symbol: 'ETH', type: 'evm' },
+    { id: 'polygon', name: 'Polygon', symbol: 'MATIC', type: 'evm' },
+    { id: 'arbitrum', name: 'Arbitrum', symbol: 'ETH', type: 'evm' },
+    { id: 'optimism', name: 'Optimism', symbol: 'ETH', type: 'evm' },
+    { id: 'base', name: 'Base', symbol: 'ETH', type: 'evm' },
+    { id: 'solana', name: 'Solana', symbol: 'SOL', type: 'solana' },
   ];
+
+  // Auto-check wallet connections on mount
+  useEffect(() => {
+    const checkWallets = async () => {
+      // Check MetaMask
+      const metamask = getMetaMaskWallet();
+      if (metamask.isInstalled()) {
+        const accounts = await metamask.getAccounts();
+        if (accounts.length > 0) setEvmAddress(accounts[0]);
+      }
+      // Check Phantom
+      const phantom = getPhantomWallet();
+      if (phantom.isInstalled() && phantom.isConnected()) {
+        const pk = phantom.getPublicKey();
+        if (pk) setSolanaAddress(pk);
+      }
+    };
+    checkWallets();
+  }, []);
+
+  // Get address for chain type
+  const getAddress = (chainId: string): string => {
+    const chain = chains.find(c => c.id === chainId);
+    if (chain?.type === 'evm' && evmAddress) return evmAddress;
+    if (chain?.type === 'solana' && solanaAddress) return solanaAddress;
+    // Fallback to mock for Bitcoin or if wallet not connected
+    return 'tb1q03256641efc3dd9877560daf26e4d6bb46086a42';
+  };
 
   // Load QCT balances
   const loadBalances = async () => {
@@ -66,10 +101,10 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
       setLoading(true);
       setError(null);
       
-      // Mock address for demo - in production, get from wallet
-      const mockAddress = 'tb1q03256641efc3dd9877560daf26e4d6bb46086a42';
+      // Use connected wallet address or fallback
+      const address = evmAddress || solanaAddress || 'tb1q03256641efc3dd9877560daf26e4d6bb46086a42';
       
-      const response = await fetch(`/api/qct/trading?action=balances&address=${mockAddress}`);
+      const response = await fetch(`/api/qct/trading?action=balances&address=${address}`);
       const data = await response.json();
       
       if (data.ok) {
@@ -95,8 +130,8 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
         fromChain: selectedFromChain,
         toChain: selectedToChain,
         amount: amount,
-        fromAddress: 'tb1q03256641efc3dd9877560daf26e4d6bb46086a42', // Mock address
-        toAddress: '0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6', // Mock address
+        fromAddress: getAddress(selectedFromChain),
+        toAddress: getAddress(selectedToChain),
         slippage: 1.0,
         deadline: Date.now() + 3600000 // 1 hour
       };
