@@ -89,6 +89,8 @@ export async function GET(req: NextRequest) {
     const evmOk = evmResults.filter(Boolean).length;
     let btcHealthy = isBtcHealthy(btc);
     const nonEvmResults = [btcHealthy, isSolHealthy(sol)];
+    const nonEvmOk = nonEvmResults.filter(Boolean).length;
+
     let evmChainCount = evmOk;
     let nonEvmChainCount = nonEvmOk;
 
