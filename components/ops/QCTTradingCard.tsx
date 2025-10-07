@@ -60,10 +60,10 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
   const chains = [
     { id: 'bitcoin', name: 'Bitcoin', symbol: 'BTC', type: 'btc' },
     { id: 'ethereum', name: 'Ethereum', symbol: 'ETH', type: 'evm' },
-    { id: 'polygon', name: 'Polygon', symbol: 'MATIC', type: 'evm' },
-    { id: 'arbitrum', name: 'Arbitrum', symbol: 'ETH', type: 'evm' },
-    { id: 'optimism', name: 'Optimism', symbol: 'ETH', type: 'evm' },
-    { id: 'base', name: 'Base', symbol: 'ETH', type: 'evm' },
+    { id: 'polygon', name: 'Polygon', symbol: 'POL', type: 'evm' },
+    { id: 'arbitrum', name: 'Arbitrum', symbol: 'ARB', type: 'evm' },
+    { id: 'optimism', name: 'Optimism', symbol: 'OP', type: 'evm' },
+    { id: 'base', name: 'Base', symbol: 'BASE', type: 'evm' },
     { id: 'solana', name: 'Solana', symbol: 'SOL', type: 'solana' },
   ];
 
@@ -98,6 +98,32 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
     };
     checkWallets();
   }, []);
+
+  // Connect wallet based on selected From Chain
+  const connectWallet = async () => {
+    try {
+      setError(null);
+      const chain = chains.find(c => c.id === selectedFromChain);
+      
+      if (chain?.type === 'evm') {
+        const metamask = getMetaMaskWallet();
+        const accounts = await metamask.connect();
+        if (accounts.length > 0) {
+          setEvmAddress(accounts[0]);
+          await loadBalances();
+        }
+      } else if (chain?.type === 'solana') {
+        const phantom = getPhantomWallet();
+        const publicKey = await phantom.connect();
+        setSolanaAddress(publicKey);
+        await loadBalances();
+      } else if (chain?.type === 'btc') {
+        setError('Bitcoin wallet integration coming soon');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to connect wallet');
+    }
+  };
 
   // Get address for chain type
   const getAddress = (chainId: string): string => {
@@ -206,7 +232,7 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
           <div className="grid grid-cols-2 gap-2 text-xs">
             {chains.map(chain => (
               <div key={chain.id} className="flex justify-between items-center bg-slate-800/50 rounded px-2 py-1">
-                <span className="text-slate-400">{chain.name}:</span>
+                <span className="text-slate-400">{chain.symbol}:</span>
                 <span className="text-slate-300 font-mono">
                   {loading ? '...' : `${getChainBalance(chain.id)} QCT`}
                 </span>
@@ -236,17 +262,29 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
                 </button>
               ))}
             </div>
-            {/* Wallet Status Badge */}
+            {/* Wallet Connection */}
             <div className="flex gap-1 items-center">
-              {evmAddress && (
-                <span className="px-2 py-1 text-xs bg-emerald-500/10 text-emerald-300 rounded border border-emerald-500/30" title={`EVM: ${evmAddress}`}>
-                  🔗 EVM
-                </span>
-              )}
-              {solanaAddress && (
-                <span className="px-2 py-1 text-xs bg-purple-500/10 text-purple-300 rounded border border-purple-500/30" title={`Solana: ${solanaAddress}`}>
-                  ◎ SOL
-                </span>
+              {!evmAddress && !solanaAddress ? (
+                <button
+                  onClick={connectWallet}
+                  disabled={loading}
+                  className="px-2 py-1 text-xs bg-blue-500/10 text-blue-300 rounded border border-blue-500/30 hover:bg-blue-500/20 disabled:opacity-50"
+                >
+                  Connect Wallet
+                </button>
+              ) : (
+                <>
+                  {evmAddress && (
+                    <span className="px-2 py-1 text-xs bg-emerald-500/10 text-emerald-300 rounded border border-emerald-500/30" title={`EVM: ${evmAddress}`}>
+                      🔗 EVM
+                    </span>
+                  )}
+                  {solanaAddress && (
+                    <span className="px-2 py-1 text-xs bg-purple-500/10 text-purple-300 rounded border border-purple-500/30" title={`Solana: ${solanaAddress}`}>
+                      ◎ SOL
+                    </span>
+                  )}
+                </>
               )}
             </div>
           </div>
