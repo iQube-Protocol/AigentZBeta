@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowUpDown, ExternalLink, Copy, RefreshCw } from 'lucide-react';
+import { getMetaMaskWallet } from '@/services/wallet/metamask';
+import { getPhantomWallet } from '@/services/wallet/phantom';
 
 interface QCTBalance {
   chain: string;
@@ -50,15 +52,61 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
   const [selectedToChain, setSelectedToChain] = useState('ethereum');
   const [amount, setAmount] = useState('');
   const [tradeAction, setTradeAction] = useState<'buy' | 'sell' | 'bridge'>('bridge');
+  
+  // Wallet states (hidden from UI, auto-connect)
+  const [evmAddress, setEvmAddress] = useState<string | null>(null);
+  const [solanaAddress, setSolanaAddress] = useState<string | null>(null);
 
   const chains = [
-    { id: 'bitcoin', name: 'Bitcoin', symbol: 'BTC' },
-    { id: 'ethereum', name: 'Ethereum', symbol: 'ETH' },
-    { id: 'polygon', name: 'Polygon', symbol: 'MATIC' },
-    { id: 'arbitrum', name: 'Arbitrum', symbol: 'ETH' },
-    { id: 'optimism', name: 'Optimism', symbol: 'ETH' },
-    { id: 'base', name: 'Base', symbol: 'ETH' },
+    { id: 'bitcoin', name: 'Bitcoin', symbol: 'BTC', type: 'btc' },
+    { id: 'ethereum', name: 'Ethereum', symbol: 'ETH', type: 'evm' },
+    { id: 'polygon', name: 'Polygon', symbol: 'MATIC', type: 'evm' },
+    { id: 'arbitrum', name: 'Arbitrum', symbol: 'ETH', type: 'evm' },
+    { id: 'optimism', name: 'Optimism', symbol: 'ETH', type: 'evm' },
+    { id: 'base', name: 'Base', symbol: 'ETH', type: 'evm' },
+    { id: 'solana', name: 'Solana', symbol: 'SOL', type: 'solana' },
   ];
+
+  // Auto-check wallet connections on mount
+  useEffect(() => {
+    const checkWallets = async () => {
+      console.log('[QCT] Checking for wallet connections...');
+      
+      // Check MetaMask
+      const metamask = getMetaMaskWallet();
+      console.log('[QCT] MetaMask installed:', metamask.isInstalled());
+      if (metamask.isInstalled()) {
+        const accounts = await metamask.getAccounts();
+        console.log('[QCT] MetaMask accounts:', accounts);
+        if (accounts.length > 0) {
+          setEvmAddress(accounts[0]);
+          console.log('[QCT] EVM address set:', accounts[0]);
+        }
+      }
+      
+      // Check Phantom
+      const phantom = getPhantomWallet();
+      console.log('[QCT] Phantom installed:', phantom.isInstalled(), 'connected:', phantom.isConnected());
+      if (phantom.isInstalled() && phantom.isConnected()) {
+        const pk = phantom.getPublicKey();
+        console.log('[QCT] Phantom public key:', pk);
+        if (pk) {
+          setSolanaAddress(pk);
+          console.log('[QCT] Solana address set:', pk);
+        }
+      }
+    };
+    checkWallets();
+  }, []);
+
+  // Get address for chain type
+  const getAddress = (chainId: string): string => {
+    const chain = chains.find(c => c.id === chainId);
+    if (chain?.type === 'evm' && evmAddress) return evmAddress;
+    if (chain?.type === 'solana' && solanaAddress) return solanaAddress;
+    // Fallback to mock for Bitcoin or if wallet not connected
+    return 'tb1q03256641efc3dd9877560daf26e4d6bb46086a42';
+  };
 
   // Load QCT balances
   const loadBalances = async () => {
@@ -66,10 +114,10 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
       setLoading(true);
       setError(null);
       
-      // Mock address for demo - in production, get from wallet
-      const mockAddress = 'tb1q03256641efc3dd9877560daf26e4d6bb46086a42';
+      // Use connected wallet address or fallback
+      const address = evmAddress || solanaAddress || 'tb1q03256641efc3dd9877560daf26e4d6bb46086a42';
       
-      const response = await fetch(`/api/qct/trading?action=balances&address=${mockAddress}`);
+      const response = await fetch(`/api/qct/trading?action=balances&address=${address}`);
       const data = await response.json();
       
       if (data.ok) {
@@ -95,8 +143,8 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
         fromChain: selectedFromChain,
         toChain: selectedToChain,
         amount: amount,
-        fromAddress: 'tb1q03256641efc3dd9877560daf26e4d6bb46086a42', // Mock address
-        toAddress: '0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6', // Mock address
+        fromAddress: getAddress(selectedFromChain),
+        toAddress: getAddress(selectedToChain),
         slippage: 1.0,
         deadline: Date.now() + 3600000 // 1 hour
       };
@@ -172,20 +220,35 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
           <div className="text-xs font-medium text-slate-300">Cross-Chain Trading</div>
           
           {/* Trade Action */}
-          <div className="flex gap-1">
-            {(['buy', 'sell', 'bridge'] as const).map(action => (
-              <button
-                key={action}
-                onClick={() => setTradeAction(action)}
-                className={`px-2 py-1 text-xs rounded ${
-                  tradeAction === action
-                    ? 'bg-blue-500/20 text-blue-300 ring-1 ring-blue-500/30'
-                    : 'bg-slate-800/50 text-slate-400 hover:text-slate-300'
-                }`}
-              >
-                {action.charAt(0).toUpperCase() + action.slice(1)}
-              </button>
-            ))}
+          <div className="flex gap-1 items-center justify-between">
+            <div className="flex gap-1">
+              {(['buy', 'sell', 'bridge'] as const).map(action => (
+                <button
+                  key={action}
+                  onClick={() => setTradeAction(action)}
+                  className={`px-2 py-1 text-xs rounded ${
+                    tradeAction === action
+                      ? 'bg-blue-500/20 text-blue-300 ring-1 ring-blue-500/30'
+                      : 'bg-slate-800/50 text-slate-400 hover:text-slate-300'
+                  }`}
+                >
+                  {action.charAt(0).toUpperCase() + action.slice(1)}
+                </button>
+              ))}
+            </div>
+            {/* Wallet Status Badge */}
+            <div className="flex gap-1 items-center">
+              {evmAddress && (
+                <span className="px-2 py-1 text-xs bg-emerald-500/10 text-emerald-300 rounded border border-emerald-500/30" title={`EVM: ${evmAddress}`}>
+                  🔗 EVM
+                </span>
+              )}
+              {solanaAddress && (
+                <span className="px-2 py-1 text-xs bg-purple-500/10 text-purple-300 rounded border border-purple-500/30" title={`Solana: ${solanaAddress}`}>
+                  ◎ SOL
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Chain Selection */}
