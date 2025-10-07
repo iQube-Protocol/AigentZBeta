@@ -94,25 +94,39 @@ export async function GET(req: NextRequest) {
     let evmChainCount = evmOk;
     let nonEvmChainCount = nonEvmOk;
 
+    // DIAGNOSTIC MODE: Fallback disabled to test live EVM RPC canister data
     // If live checks failed or returned 0, fall back to canister hints
     if (evmChainCount === 0) {
+      console.log('[DIAGNOSTIC] Live EVM checks returned 0, attempting EVM canister query');
       try {
         const EVM_ID = (process.env.EVM_RPC_CANISTER_ID || process.env.NEXT_PUBLIC_EVM_RPC_CANISTER_ID) as string;
+        console.log('[DIAGNOSTIC] EVM_RPC_CANISTER_ID:', EVM_ID);
         if (EVM_ID) {
           const evm = await getAnonymousActor<any>(EVM_ID, evmIdl);
-          let chains: any[] = await evm.get_supported_chains().catch(() => []);
+          let chains: any[] = await evm.get_supported_chains().catch((err) => {
+            console.error('[DIAGNOSTIC] get_supported_chains error:', err);
+            return [];
+          });
+          console.log('[DIAGNOSTIC] EVM canister returned chains:', chains);
           if (!Array.isArray(chains) || chains.length === 0) {
-            try { await evm.init_chain_configs(); chains = await evm.get_supported_chains().catch(() => []); } catch {}
+            try { 
+              await evm.init_chain_configs(); 
+              chains = await evm.get_supported_chains().catch(() => []); 
+            } catch (e) {
+              console.error('[DIAGNOSTIC] init_chain_configs error:', e);
+            }
           }
           evmChainCount = Array.isArray(chains) ? chains.length : 0;
+          console.log('[DIAGNOSTIC] Final evmChainCount from canister:', evmChainCount);
         }
-      } catch {}
-      
-      // Final fallback: If canister query failed, use simulated canister response
-      // This simulates what the EVM canister would return: 5 supported chains
-      if (evmChainCount === 0) {
-        evmChainCount = 5; // Ethereum, Polygon, Optimism, Arbitrum, Base
+      } catch (err) {
+        console.error('[DIAGNOSTIC] EVM canister query failed:', err);
       }
+      
+      // FALLBACK DISABLED FOR DIAGNOSTICS
+      // if (evmChainCount === 0) {
+      //   evmChainCount = 5;
+      // }
     }
 
     if (nonEvmChainCount < 2) {
