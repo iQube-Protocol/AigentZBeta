@@ -95,7 +95,9 @@ export class PhantomWallet {
 
     try {
       const { signature } = await this.solana.signAndSendTransaction(transaction);
-      return { signature };
+      // Phantom returns signature as base58 string or PublicKey object
+      const signatureStr = typeof signature === 'string' ? signature : signature.toString();
+      return { signature: signatureStr };
     } catch (error: any) {
       throw new Error(`Transaction failed: ${error.message}`);
     }
