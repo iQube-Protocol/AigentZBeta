@@ -1508,13 +1508,23 @@ export default function OpsPage() {
                 
                 // Get balance
                 const balance = await unisat.getBalance();
+                console.log('Bitcoin balance:', balance);
+                
                 if (balance.total === 0) {
                   throw new Error('Insufficient testnet BTC. Get testnet BTC from:\nhttps://testnet-faucet.mempool.co/\nor\nhttps://bitcoinfaucet.uo1.net/');
                 }
                 
-                // Send 0 BTC self-transfer (just fees)
-                // Note: Unisat's sendBitcoin expects satoshis
-                const txid = await unisat.sendBitcoin(address, 0);
+                // Check if we have enough for dust limit + fees (minimum ~1000 sats)
+                const minRequired = 1000; // 546 dust + ~454 for fees
+                if (balance.total < minRequired) {
+                  throw new Error(`Insufficient testnet BTC for transaction.\n\nYou have: ${balance.total} sats\nNeed at least: ${minRequired} sats (dust limit + fees)\n\nGet more testnet BTC from:\n• https://testnet-faucet.mempool.co/\n• https://bitcoinfaucet.uo1.net/\n• https://coinfaucet.eu/en/btc-testnet/`);
+                }
+                
+                // Send dust limit (546 sats) self-transfer
+                // This is the minimum Bitcoin transaction amount
+                const dustLimit = 546;
+                console.log(`Sending ${dustLimit} sats to self (${address})`);
+                const txid = await unisat.sendBitcoin(address, dustLimit);
                 console.log('Bitcoin transaction created:', txid);
                 setDvnTxHash(txid);
                 
