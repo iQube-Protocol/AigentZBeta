@@ -262,14 +262,21 @@ export class UnisatWallet {
 
   /**
    * Send Bitcoin
+   * @param to - Recipient address
+   * @param satoshis - Amount in satoshis
    */
-  async sendBitcoin(to: string, amount: number): Promise<string> {
+  async sendBitcoin(to: string, satoshis: number): Promise<string> {
     if (!this.isInstalled()) {
       throw new Error('Unisat wallet is not installed');
     }
 
     try {
-      const txid = await this.unisat.sendBitcoin(to, amount);
+      // Unisat API expects: sendBitcoin(address, satoshis, options?)
+      // The error "satoshis is required" suggests the second parameter must be explicitly named
+      const options = {
+        feeRate: 1 // 1 sat/vB - let wallet optimize
+      };
+      const txid = await this.unisat.sendBitcoin(to, satoshis, options);
       return txid;
     } catch (error: any) {
       if (error.code === 4001) {
