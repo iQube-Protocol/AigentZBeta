@@ -26,6 +26,8 @@ import { useSolanaTestnet } from "@/hooks/ops/useSolanaTestnet";
 import { useCrossChain } from "@/hooks/ops/useCrossChain";
 import { useIqbLatest } from "@/hooks/ops/useIqbLatest";
 import { QCTTradingCard } from "@/components/ops/QCTTradingCard";
+import { Connection, Transaction, SystemProgram, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { getPhantomWallet } from '@/services/wallet/phantom';
 
 // Feature flags (default Solana ON unless explicitly disabled)
 const FEATURE_SOLANA_OPS = process.env.NEXT_PUBLIC_FEATURE_SOLANA_OPS !== "false";
@@ -1476,11 +1478,89 @@ export default function OpsPage() {
               }
             };
 
+            async function createSolanaTestTx() {
+              try {
+                const phantom = getPhantomWallet();
+                
+                if (!phantom.isInstalled()) {
+                  throw new Error('Phantom wallet is not installed. Please install Phantom to continue.');
+                }
+                
+                // Connect if not connected
+                let publicKeyStr: string;
+                if (!phantom.isConnected()) {
+                  publicKeyStr = await phantom.connect();
+                } else {
+                  publicKeyStr = phantom.getPublicKey() || '';
+                }
+                
+                if (!publicKeyStr) {
+                  throw new Error('Failed to get Phantom wallet address');
+                }
+                
+                // Create connection to Solana Devnet
+                const connection = new Connection('https://api.devnet.solana.com', 'confirmed');
+                const publicKey = new PublicKey(publicKeyStr);
+                
+                // Create self-transfer transaction (0 SOL + fees)
+                const transaction = new Transaction().add(
+                  SystemProgram.transfer({
+                    fromPubkey: publicKey,
+                    toPubkey: publicKey,
+                    lamports: 0, // 0 SOL transfer (just fees)
+                  })
+                );
+                
+                // Get recent blockhash
+                const { blockhash } = await connection.getLatestBlockhash();
+                transaction.recentBlockhash = blockhash;
+                transaction.feePayer = publicKey;
+                
+                // Sign and send via Phantom
+                const { signature } = await phantom.signAndSendTransaction(transaction);
+                console.log('Phantom transaction created:', signature);
+                setDvnTxHash(signature);
+                
+                // Create PoS receipt
+                try {
+                  const posResponse = await fetch('/api/ops/pos/issue-receipt', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                      dataHash: `solana_tx_${signature}_${Date.now()}`,
+                      source: 'solana_test_transaction'
+                    })
+                  });
+                  if (posResponse.ok) {
+                    const posResult = await posResponse.json();
+                    console.log('PoS receipt created:', posResult.receiptId);
+                  }
+                } catch (posErr) {
+                  console.warn('PoS receipt creation error:', posErr);
+                }
+                
+                // Monitor via DVN
+                const monitorSuccess = await onMonitor();
+                if (monitorSuccess) {
+                  console.log('End-to-end Solana DVN + PoS flow completed');
+                } else {
+                  console.warn('Solana transaction created but DVN monitoring failed');
+                }
+              } catch (e: any) {
+                console.error('createSolanaTestTx error:', e);
+                alert(e?.message || 'Failed to create Solana test transaction. Ensure Phantom is installed and you have devnet SOL.');
+              }
+            }
+
             async function createTestTx() {
               try {
-                // Non-EVM chains can't create MetaMask transactions
-                if (dvnChainId === 101 || dvnChainId === 0) {
-                  alert('MetaMask transactions are only supported for EVM chains. Please use Solana/Bitcoin wallets for non-EVM chains.');
+                // Route to appropriate wallet based on chain
+                if (dvnChainId === 101) {
+                  // SOLANA - Use Phantom
+                  return await createSolanaTestTx();
+                } else if (dvnChainId === 0) {
+                  // BITCOIN - Coming soon
+                  alert('Bitcoin test transactions coming soon. Use EVM or Solana chains for now.');
                   return;
                 }
 
