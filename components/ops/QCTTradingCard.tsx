@@ -125,6 +125,25 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
     }
   };
 
+  // Disconnect EVM wallet
+  const disconnectEVM = () => {
+    setEvmAddress(null);
+    setError(null);
+  };
+
+  // Disconnect Solana wallet
+  const disconnectSolana = async () => {
+    try {
+      const phantom = getPhantomWallet();
+      await phantom.disconnect();
+      setSolanaAddress(null);
+      setError(null);
+    } catch (err: any) {
+      // Phantom might not support disconnect, just clear state
+      setSolanaAddress(null);
+    }
+  };
+
   // Get address for chain type
   const getAddress = (chainId: string): string => {
     const chain = chains.find(c => c.id === chainId);
@@ -275,14 +294,22 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
               ) : (
                 <>
                   {evmAddress && (
-                    <span className="px-2 py-1 text-xs bg-emerald-500/10 text-emerald-300 rounded border border-emerald-500/30" title={`EVM: ${evmAddress}`}>
+                    <button
+                      onClick={disconnectEVM}
+                      className="px-2 py-1 text-xs bg-emerald-500/10 text-emerald-300 rounded border border-emerald-500/30 hover:bg-red-500/20 hover:text-red-300 hover:border-red-500/30 transition-colors cursor-pointer"
+                      title={`${evmAddress}\n\nClick to disconnect`}
+                    >
                       🔗 EVM
-                    </span>
+                    </button>
                   )}
                   {solanaAddress && (
-                    <span className="px-2 py-1 text-xs bg-purple-500/10 text-purple-300 rounded border border-purple-500/30" title={`Solana: ${solanaAddress}`}>
+                    <button
+                      onClick={disconnectSolana}
+                      className="px-2 py-1 text-xs bg-purple-500/10 text-purple-300 rounded border border-purple-500/30 hover:bg-red-500/20 hover:text-red-300 hover:border-red-500/30 transition-colors cursor-pointer"
+                      title={`${solanaAddress}\n\nClick to disconnect`}
+                    >
                       ◎ SOL
-                    </span>
+                    </button>
                   )}
                 </>
               )}
