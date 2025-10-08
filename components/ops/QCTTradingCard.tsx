@@ -124,13 +124,13 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
         const accounts = await metamask.connect();
         if (accounts.length > 0) {
           setEvmAddress(accounts[0]);
-          await loadBalances();
+          // loadBalances() will be called by useEffect when evmAddress changes
         }
       } else if (chain?.type === 'solana') {
         const phantom = getPhantomWallet();
         const publicKey = await phantom.connect();
         setSolanaAddress(publicKey);
-        await loadBalances();
+        // loadBalances() will be called by useEffect when solanaAddress changes
       } else if (chain?.type === 'btc') {
         const unisat = getUnisatWallet();
         if (!unisat.isInstalled()) {
@@ -138,8 +138,9 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
           return;
         }
         const address = await unisat.connect();
+        console.log('[QCT] Bitcoin address connected:', address);
         setBitcoinAddress(address);
-        await loadBalances();
+        // loadBalances() will be called by useEffect when bitcoinAddress changes
       }
     } catch (err: any) {
       setError(err.message || 'Failed to connect wallet');
@@ -194,8 +195,15 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
       setLoading(true);
       setError(null);
       
-      // Use connected wallet address or fallback
-      const address = evmAddress || solanaAddress || bitcoinAddress || '';
+      // Use connected wallet address or skip if no wallet connected
+      const address = evmAddress || solanaAddress || bitcoinAddress;
+      
+      if (!address) {
+        // No wallet connected, skip loading balances
+        setBalances([]);
+        setLoading(false);
+        return;
+      }
       
       const response = await fetch(`/api/qct/trading?action=balances&address=${address}`);
       const data = await response.json();
@@ -262,9 +270,10 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
     return balance ? formatBalance(balance) : '0.0000';
   };
 
+  // Load balances when wallets connect/disconnect
   useEffect(() => {
     loadBalances();
-  }, []);
+  }, [evmAddress, solanaAddress, bitcoinAddress]);
 
   return (
     <Card title={title} actions={
