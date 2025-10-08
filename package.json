@@ -22,6 +22,7 @@
     "@radix-ui/react-toast": "^1.1.4",
     "@solana/web3.js": "1.95.2",
     "@supabase/supabase-js": "^2.57.4",
+    "@unisat/wallet-utils": "^1.0.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "cross-fetch": "^4.1.0",
