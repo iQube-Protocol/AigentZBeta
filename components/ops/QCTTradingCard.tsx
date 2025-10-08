@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ArrowUpDown, ExternalLink, Copy, RefreshCw } from 'lucide-react';
 import { getMetaMaskWallet } from '@/services/wallet/metamask';
 import { getPhantomWallet } from '@/services/wallet/phantom';
+import { getUnisatWallet } from '@/services/wallet/unisat';
 
 interface QCTBalance {
   chain: string;
@@ -56,6 +57,7 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
   // Wallet states (hidden from UI, auto-connect)
   const [evmAddress, setEvmAddress] = useState<string | null>(null);
   const [solanaAddress, setSolanaAddress] = useState<string | null>(null);
+  const [bitcoinAddress, setBitcoinAddress] = useState<string | null>(null);
 
   const chains = [
     { id: 'bitcoin', name: 'Bitcoin', symbol: 'BTC', type: 'btc' },
@@ -95,6 +97,18 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
           console.log('[QCT] Solana address set:', pk);
         }
       }
+      
+      // Check Unisat
+      const unisat = getUnisatWallet();
+      console.log('[QCT] Unisat installed:', unisat.isInstalled(), 'connected:', unisat.isConnected());
+      if (unisat.isInstalled() && unisat.isConnected()) {
+        const addr = unisat.getAddress();
+        console.log('[QCT] Unisat address:', addr);
+        if (addr) {
+          setBitcoinAddress(addr);
+          console.log('[QCT] Bitcoin address set:', addr);
+        }
+      }
     };
     checkWallets();
   }, []);
@@ -118,7 +132,14 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
         setSolanaAddress(publicKey);
         await loadBalances();
       } else if (chain?.type === 'btc') {
-        setError('Bitcoin wallet integration coming soon');
+        const unisat = getUnisatWallet();
+        if (!unisat.isInstalled()) {
+          setError('Unisat wallet not installed. Please install from https://unisat.io');
+          return;
+        }
+        const address = await unisat.connect();
+        setBitcoinAddress(address);
+        await loadBalances();
       }
     } catch (err: any) {
       setError(err.message || 'Failed to connect wallet');
@@ -144,13 +165,27 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
     }
   };
 
+  // Disconnect Bitcoin wallet
+  const disconnectBitcoin = async () => {
+    try {
+      const unisat = getUnisatWallet();
+      await unisat.disconnect();
+      setBitcoinAddress(null);
+      setError(null);
+    } catch (err: any) {
+      // Just clear state
+      setBitcoinAddress(null);
+    }
+  };
+
   // Get address for chain type
   const getAddress = (chainId: string): string => {
     const chain = chains.find(c => c.id === chainId);
     if (chain?.type === 'evm' && evmAddress) return evmAddress;
     if (chain?.type === 'solana' && solanaAddress) return solanaAddress;
-    // Fallback to mock for Bitcoin or if wallet not connected
-    return 'tb1q03256641efc3dd9877560daf26e4d6bb46086a42';
+    if (chain?.type === 'btc' && bitcoinAddress) return bitcoinAddress;
+    // Fallback to mock if wallet not connected
+    return '';
   };
 
   // Load QCT balances
@@ -160,7 +195,7 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
       setError(null);
       
       // Use connected wallet address or fallback
-      const address = evmAddress || solanaAddress || 'tb1q03256641efc3dd9877560daf26e4d6bb46086a42';
+      const address = evmAddress || solanaAddress || bitcoinAddress || '';
       
       const response = await fetch(`/api/qct/trading?action=balances&address=${address}`);
       const data = await response.json();
@@ -283,7 +318,7 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
             </div>
             {/* Wallet Connection */}
             <div className="flex gap-1 items-center">
-              {!evmAddress && !solanaAddress ? (
+              {!evmAddress && !solanaAddress && !bitcoinAddress ? (
                 <button
                   onClick={connectWallet}
                   disabled={loading}
@@ -309,6 +344,15 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
                       title={`${solanaAddress}\n\nClick to disconnect`}
                     >
                       ◎ SOL
+                    </button>
+                  )}
+                  {bitcoinAddress && (
+                    <button
+                      onClick={disconnectBitcoin}
+                      className="px-2 py-1 text-xs bg-orange-500/10 text-orange-300 rounded border border-orange-500/30 hover:bg-red-500/20 hover:text-red-300 hover:border-red-500/30 transition-colors cursor-pointer"
+                      title={`${bitcoinAddress}\n\nClick to disconnect`}
+                    >
+                      ₿ BTC
                     </button>
                   )}
                 </>
