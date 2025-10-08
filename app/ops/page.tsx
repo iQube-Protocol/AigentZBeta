@@ -1498,8 +1498,8 @@ export default function OpsPage() {
                   throw new Error('Failed to get Phantom wallet address');
                 }
                 
-                // Create connection to Solana Devnet
-                const connection = new Connection('https://api.devnet.solana.com', 'confirmed');
+                // Create connection to Solana Testnet
+                const connection = new Connection('https://api.testnet.solana.com', 'confirmed');
                 const publicKey = new PublicKey(publicKeyStr);
                 
                 // Create self-transfer transaction (0 SOL + fees)
@@ -1527,8 +1527,8 @@ export default function OpsPage() {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
-                      dataHash: `solana_tx_${signature}_${Date.now()}`,
-                      source: 'solana_test_transaction'
+                      dataHash: `solana_testnet_tx_${signature}_${Date.now()}`,
+                      source: 'solana_testnet_transaction'
                     })
                   });
                   if (posResponse.ok) {
@@ -1556,13 +1556,13 @@ export default function OpsPage() {
                 if (errorMsg.includes('User rejected')) {
                   errorMsg = 'Transaction rejected by user in Phantom wallet';
                 } else if (errorMsg.includes('insufficient funds') || errorMsg.includes('Attempt to debit')) {
-                  errorMsg = 'Insufficient SOL for transaction fees. Get devnet SOL from:\nhttps://faucet.solana.com/';
+                  errorMsg = 'Insufficient SOL for transaction fees. Get testnet SOL from:\nhttps://faucet.solana.com/';
                 } else if (errorMsg.includes('Unexpected error')) {
                   errorMsg = 'Phantom wallet error. Please ensure:\n\n' +
-                    '• Phantom is connected to Solana Devnet\n' +
-                    '• You have devnet SOL for fees\n' +
+                    '• Phantom is connected to Solana Testnet\n' +
+                    '• You have testnet SOL for fees\n' +
                     '• Wallet is unlocked\n\n' +
-                    'Get devnet SOL: https://faucet.solana.com/';
+                    'Get testnet SOL: https://faucet.solana.com/';
                 }
                 
                 alert(errorMsg);
