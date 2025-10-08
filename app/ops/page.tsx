@@ -1548,7 +1548,24 @@ export default function OpsPage() {
                 }
               } catch (e: any) {
                 console.error('createSolanaTestTx error:', e);
-                alert(e?.message || 'Failed to create Solana test transaction. Ensure Phantom is installed and you have devnet SOL.');
+                console.error('Error details:', JSON.stringify(e, null, 2));
+                
+                let errorMsg = e?.message || 'Failed to create Solana test transaction';
+                
+                // Provide helpful error messages
+                if (errorMsg.includes('User rejected')) {
+                  errorMsg = 'Transaction rejected by user in Phantom wallet';
+                } else if (errorMsg.includes('insufficient funds') || errorMsg.includes('Attempt to debit')) {
+                  errorMsg = 'Insufficient SOL for transaction fees. Get devnet SOL from:\nhttps://faucet.solana.com/';
+                } else if (errorMsg.includes('Unexpected error')) {
+                  errorMsg = 'Phantom wallet error. Please ensure:\n\n' +
+                    '• Phantom is connected to Solana Devnet\n' +
+                    '• You have devnet SOL for fees\n' +
+                    '• Wallet is unlocked\n\n' +
+                    'Get devnet SOL: https://faucet.solana.com/';
+                }
+                
+                alert(errorMsg);
               }
             }
 
