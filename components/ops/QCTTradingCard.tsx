@@ -3,6 +3,7 @@ import { ArrowUpDown, ExternalLink, Copy, RefreshCw } from 'lucide-react';
 import { getMetaMaskWallet } from '@/services/wallet/metamask';
 import { getPhantomWallet } from '@/services/wallet/phantom';
 import { getUnisatWallet } from '@/services/wallet/unisat';
+import QCTMintBurnModal from './QCTMintBurnModal';
 
 interface QCTBalance {
   chain: string;
@@ -58,6 +59,10 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
   const [evmAddress, setEvmAddress] = useState<string | null>(null);
   const [solanaAddress, setSolanaAddress] = useState<string | null>(null);
   const [bitcoinAddress, setBitcoinAddress] = useState<string | null>(null);
+  
+  // Mint/Burn modal state
+  const [showMintBurnModal, setShowMintBurnModal] = useState(false);
+  const [mintBurnMode, setMintBurnMode] = useState<'mint' | 'burn'>('mint');
 
   const chains = [
     { id: 'bitcoin', name: 'Bitcoin', symbol: 'BTC', type: 'btc' },
@@ -485,6 +490,30 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
           </div>
         </div>
 
+        {/* Mint/Burn Actions */}
+        <div className="flex gap-2 text-xs border-t border-slate-700 pt-3">
+          <button
+            onClick={() => {
+              setMintBurnMode('mint');
+              setShowMintBurnModal(true);
+            }}
+            disabled={!evmAddress}
+            className="flex-1 px-3 py-2 bg-green-500/10 text-green-300 rounded hover:bg-green-500/20 border border-green-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            🪙 Mint QCT
+          </button>
+          <button
+            onClick={() => {
+              setMintBurnMode('burn');
+              setShowMintBurnModal(true);
+            }}
+            disabled={!evmAddress}
+            className="flex-1 px-3 py-2 bg-red-500/10 text-red-300 rounded hover:bg-red-500/20 border border-red-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            🔥 Burn QCT
+          </button>
+        </div>
+
         {/* Status */}
         <div className="flex items-center justify-between text-xs border-t border-slate-700 pt-2">
           <span className="text-slate-400">Status:</span>
@@ -493,6 +522,15 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
           </span>
         </div>
       </div>
+      
+      {/* Mint/Burn Modal */}
+      <QCTMintBurnModal
+        isOpen={showMintBurnModal}
+        onClose={() => setShowMintBurnModal(false)}
+        mode={mintBurnMode}
+        chainId={chains.find(c => c.id === selectedFromChain)?.id === 'ethereum' ? 11155111 : 80002}
+        walletAddress={evmAddress}
+      />
     </Card>
   );
 }
