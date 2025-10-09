@@ -15,11 +15,15 @@ contract QriptoCENT is ERC20, ERC20Burnable, Ownable {
     // Bridge address that can mint tokens (for cross-chain transfers)
     address public bridge;
     
+    // Reserve address that can mint tokens (for USDC backing)
+    address public reserve;
+    
     // Total supply cap (1 billion QCT)
     uint256 public constant MAX_SUPPLY = 1_000_000_000 * 10**18;
     
     // Events
     event BridgeUpdated(address indexed oldBridge, address indexed newBridge);
+    event ReserveUpdated(address indexed oldReserve, address indexed newReserve);
     event TokensMinted(address indexed to, uint256 amount, string sourceChain, string sourceTxHash);
     event TokensBurned(address indexed from, uint256 amount, string targetChain, string targetAddress);
     
@@ -41,6 +45,30 @@ contract QriptoCENT is ERC20, ERC20Burnable, Ownable {
         address oldBridge = bridge;
         bridge = _bridge;
         emit BridgeUpdated(oldBridge, _bridge);
+    }
+    
+    /**
+     * @notice Set the reserve contract address
+     * @param _reserve Address of the reserve contract
+     */
+    function setReserve(address _reserve) external onlyOwner {
+        require(_reserve != address(0), "QCT: Reserve cannot be zero address");
+        address oldReserve = reserve;
+        reserve = _reserve;
+        emit ReserveUpdated(oldReserve, _reserve);
+    }
+    
+    /**
+     * @notice Mint tokens (callable by reserve for USDC backing)
+     * @param to Address to mint tokens to
+     * @param amount Amount of tokens to mint
+     */
+    function mint(address to, uint256 amount) external {
+        require(msg.sender == reserve, "QCT: Only reserve can mint");
+        require(to != address(0), "QCT: Mint to zero address");
+        require(totalSupply() + amount <= MAX_SUPPLY, "QCT: Max supply exceeded");
+        
+        _mint(to, amount);
     }
     
     /**

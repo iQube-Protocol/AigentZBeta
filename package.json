@@ -9,7 +9,8 @@
     "lint": "next lint",
     "deploy:qct-runes": "node scripts/deploy-qct-runes.js",
     "deploy:qct-erc20": "hardhat run scripts/deploy-qct-erc20.js",
-    "deploy:qct-spl": "node scripts/deploy-qct-spl.js"
+    "deploy:qct-spl": "node scripts/deploy-qct-spl.js",
+    "deploy:qct-reserve": "hardhat run scripts/deploy-qct-reserve.js"
   },
   "dependencies": {
     "@dfinity/agent": "^3.2.6",
