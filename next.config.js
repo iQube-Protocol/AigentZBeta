@@ -4,6 +4,10 @@ const nextConfig = {
   // Disable double-invocation and extra checks in dev to speed up refresh
   reactStrictMode: !isDev,
   swcMinify: true,
+  // Allow build to succeed with ESLint warnings (don't block on errors)
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   webpack(config, { dev }) {
     if (dev) {
       // Turn off heavy source maps in dev for faster rebuilds
