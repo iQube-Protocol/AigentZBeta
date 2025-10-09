@@ -46,21 +46,77 @@ async function deployQCTSPL() {
     throw new Error('SOLANA_DEPLOYER_KEY environment variable not set');
   }
 
-  // Parse private key (array of numbers)
-  const privateKey = Uint8Array.from(JSON.parse(privateKeyString));
-  const payer = Keypair.fromSecretKey(privateKey);
+  let payer;
+  
+  // Try multiple formats
+  try {
+    // Format 1: Mnemonic phrase (12 or 24 words)
+    if (privateKeyString.includes(' ')) {
+      const bip39 = require('bip39');
+      const { derivePath } = require('ed25519-hd-key');
+      
+      const seed = await bip39.mnemonicToSeed(privateKeyString);
+      const path = "m/44'/501'/0'/0'"; // Solana derivation path
+      const derivedSeed = derivePath(path, seed.toString('hex')).key;
+      payer = Keypair.fromSeed(derivedSeed);
+      console.log('✅ Loaded keypair from mnemonic phrase');
+    } else {
+      throw new Error('Not a mnemonic');
+    }
+  } catch (e1) {
+    try {
+      // Format 2: Base58 secret key
+      const bs58 = require('bs58');
+      const privateKey = bs58.decode(privateKeyString);
+      if (privateKey.length === 64) {
+        payer = Keypair.fromSecretKey(privateKey);
+        console.log('✅ Loaded keypair from base58 secret key');
+      } else {
+        throw new Error('Invalid length');
+      }
+    } catch (e2) {
+      try {
+        // Format 3: JSON array [1,2,3,...]
+        const privateKey = Uint8Array.from(JSON.parse(privateKeyString));
+        payer = Keypair.fromSecretKey(privateKey);
+        console.log('✅ Loaded keypair from JSON array');
+      } catch (e3) {
+        try {
+          // Format 4: Hex string
+          const privateKey = Uint8Array.from(Buffer.from(privateKeyString, 'hex'));
+          if (privateKey.length === 64) {
+            payer = Keypair.fromSecretKey(privateKey);
+            console.log('✅ Loaded keypair from hex string');
+          } else {
+            throw new Error('Invalid length');
+          }
+        } catch (e4) {
+          throw new Error(
+            'Invalid private key format.\n\n' +
+            'Supported formats:\n' +
+            '1. Mnemonic phrase (12 or 24 words)\n' +
+            '2. Base58 secret key (from Phantom export)\n' +
+            '3. JSON array: [1,2,3,...]\n' +
+            '4. Hex string\n\n' +
+            'To export from Phantom:\n' +
+            'Settings → Security & Privacy → Show Secret Recovery Phrase OR Export Private Key'
+          );
+        }
+      }
+    }
+  }
 
   console.log('📍 Deployer Address:', payer.publicKey.toBase58());
 
-  // Connect to Solana Devnet
-  const connection = new Connection('https://api.devnet.solana.com', 'confirmed');
+  // Connect to Solana Testnet
+  const connection = new Connection('https://api.testnet.solana.com', 'confirmed');
   
   // Check balance
   const balance = await connection.getBalance(payer.publicKey);
   console.log('💰 Balance:', balance / LAMPORTS_PER_SOL, 'SOL\n');
 
   if (balance === 0) {
-    throw new Error('Insufficient SOL. Get devnet SOL from: https://faucet.solana.com/');
+    throw new Error('Insufficient SOL. Get testnet SOL from: https://faucet.solana.com/');
   }
 
   // Generate mint keypair
@@ -129,8 +185,8 @@ async function deployQCTSPL() {
   console.log('  Transaction:', signature);
   console.log('  Mint Address:', mintKeypair.publicKey.toBase58());
   console.log('  Token Account:', associatedTokenAccount.toBase58());
-  console.log('  Explorer:', `https://explorer.solana.com/tx/${signature}?cluster=devnet`);
-  console.log('  Mint Explorer:', `https://explorer.solana.com/address/${mintKeypair.publicKey.toBase58()}?cluster=devnet`);
+  console.log('  Explorer:', `https://explorer.solana.com/tx/${signature}?cluster=testnet`);
+  console.log('  Mint Explorer:', `https://explorer.solana.com/address/${mintKeypair.publicKey.toBase58()}?cluster=testnet`);
   console.log('\n  Initial Supply Minted:', QCT_CONFIG.initialMint.toLocaleString(), 'QCT');
   console.log('  Remaining Supply:', (QCT_CONFIG.totalSupply - QCT_CONFIG.initialMint).toLocaleString(), 'QCT (for bridge minting)');
 
