@@ -8,7 +8,14 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  // Exclude nested AigentZBeta submodule from compilation
+  pageExtensions: ['tsx', 'ts', 'jsx', 'js'],
   webpack(config, { dev }) {
+    // Exclude the AigentZBeta submodule directory
+    config.module.rules.push({
+      test: /\.(tsx|ts|jsx|js)$/,
+      exclude: /AigentZBeta\//,
+    });
     if (dev) {
       // Turn off heavy source maps in dev for faster rebuilds
       config.devtool = false;
