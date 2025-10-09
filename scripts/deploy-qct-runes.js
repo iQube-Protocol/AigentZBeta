@@ -1,46 +1,40 @@
 /**
- * QCT Runes Token Deployment Script
+ * QCT Runes Token Deployment Script (JavaScript)
  * Deploys QriptoCENT (QCT) as a Bitcoin Runes token
  */
 
-import { Runestone, Etching, Rune, Terms, Range, none, some } from 'runelib';
-import { networks, Psbt, payments, initEccLib } from 'bitcoinjs-lib';
-import * as ecc from 'tiny-secp256k1';
-import { ECPairFactory } from 'ecpair';
+const { Runestone, Etching, Rune, Terms, Range, none, some } = require('runelib');
+const { networks, Psbt, payments, initEccLib } = require('bitcoinjs-lib');
+const ecc = require('tiny-secp256k1');
+const { ECPairFactory } = require('ecpair');
 
 // Initialize ECC library
 initEccLib(ecc);
 
 const ECPair = ECPairFactory(ecc);
-const network = networks.testnet; // Use testnet for deployment
+const network = networks.testnet;
 
 // QCT Token Specification
 const QCT_CONFIG = {
   name: 'QRIPTOCENT',
   symbol: 'Q¢',
-  decimals: 8, // Match Bitcoin's precision
-  totalSupply: 1_000_000_000, // 1 billion QCT
-  cap: 21_000, // Maximum number of mints
-  amountPerMint: 47_619, // ~1B / 21k = 47,619 QCT per mint
-  premine: 400_000_000, // 40% premined for liquidity pools
+  decimals: 8,
+  totalSupply: 1_000_000_000,
+  cap: 21_000,
+  amountPerMint: 47_619,
+  premine: 400_000_000,
 };
 
-/**
- * Convert public key to x-only format for Taproot
- */
-function toXOnly(pubkey: Buffer): Buffer {
+function toXOnly(pubkey) {
   return pubkey.subarray(1, 33);
 }
 
-/**
- * Wait for UTXO to be available
- */
-async function waitUntilUTXO(address: string): Promise<any[]> {
+async function waitUntilUTXO(address) {
   const url = `https://blockstream.info/testnet/api/address/${address}/utxo`;
   
   console.log(`Waiting for UTXO at ${address}...`);
   
-  let utxos: any[] = [];
+  let utxos = [];
   while (utxos.length === 0) {
     try {
       const response = await fetch(url);
@@ -61,10 +55,7 @@ async function waitUntilUTXO(address: string): Promise<any[]> {
   return utxos;
 }
 
-/**
- * Sign and broadcast PSBT
- */
-async function signAndSend(keyPair: any, psbt: Psbt, address: string): Promise<string> {
+async function signAndSend(keyPair, psbt) {
   psbt.signAllInputs(keyPair);
   psbt.finalizeAllInputs();
   
@@ -74,7 +65,6 @@ async function signAndSend(keyPair: any, psbt: Psbt, address: string): Promise<s
   console.log('Transaction hex:', txHex);
   console.log('Transaction size:', txHex.length / 2, 'bytes');
   
-  // Broadcast transaction
   const url = 'https://blockstream.info/testnet/api/tx';
   
   try {
@@ -95,15 +85,12 @@ async function signAndSend(keyPair: any, psbt: Psbt, address: string): Promise<s
     console.log('Explorer:', `https://mempool.space/testnet/tx/${txid}`);
     
     return txid;
-  } catch (error: any) {
+  } catch (error) {
     console.error('Broadcast error:', error.message);
     throw error;
   }
 }
 
-/**
- * Deploy QCT Runes Token
- */
 async function deployQCTRunes() {
   console.log('🚀 Deploying QCT Runes Token...\n');
   console.log('Token Configuration:');
@@ -115,7 +102,6 @@ async function deployQCTRunes() {
   console.log('  Cap:', QCT_CONFIG.cap.toLocaleString(), 'mints');
   console.log('  Amount per Mint:', QCT_CONFIG.amountPerMint.toLocaleString(), 'QCT\n');
   
-  // Check for private key in environment
   const privateKeyWIF = process.env.BTC_DEPLOYER_KEY;
   if (!privateKeyWIF) {
     throw new Error('BTC_DEPLOYER_KEY environment variable not set');
@@ -123,9 +109,9 @@ async function deployQCTRunes() {
   
   const keyPair = ECPair.fromWIF(privateKeyWIF, network);
   
-  // Create Taproot script for etching
   const etching_script_asm = `${toXOnly(keyPair.publicKey).toString('hex')} OP_CHECKSIG`;
-  const etching_script = Buffer.from(etching_script_asm, 'hex');
+  const script = require('bitcoinjs-lib').script;
+  const etching_script = script.fromASM(etching_script_asm);
   
   const scriptTree = {
     output: etching_script,
@@ -149,98 +135,84 @@ async function deployQCTRunes() {
     network
   });
   
-  const address = script_p2tr.address ?? '';
+  const address = script_p2tr.address;
   console.log('📍 Deployment Address:', address);
   console.log('⚠️  Send testnet BTC to this address and wait for 6 confirmations\n');
   
-  // Wait for UTXO
   const utxos = await waitUntilUTXO(address);
   console.log(`Using UTXO ${utxos[0].txid}:${utxos[0].vout}`);
   console.log(`UTXO Value: ${utxos[0].value} sats\n`);
   
-  // Create PSBT
   const psbt = new Psbt({ network });
   
   psbt.addInput({
     hash: utxos[0].txid,
     index: utxos[0].vout,
     witnessUtxo: {
-      value: utxos[0].value,
-      script: script_p2tr.output!
+      value: BigInt(utxos[0].value),
+      script: script_p2tr.output
     },
     tapLeafScript: [{
       leafVersion: etching_redeem.redeemVersion,
       script: etching_redeem.output,
-      controlBlock: etching_p2tr.witness![etching_p2tr.witness!.length - 1]
+      controlBlock: etching_p2tr.witness[etching_p2tr.witness.length - 1]
     }]
   });
   
-  // Create Rune from name
   const rune = Rune.fromName(QCT_CONFIG.name);
   
-  // Define terms (minting rules)
   const terms = new Terms(
-    QCT_CONFIG.amountPerMint * 10**QCT_CONFIG.decimals, // amount per mint (in smallest units)
-    QCT_CONFIG.cap, // cap (max mints)
-    new Range(none(), none()), // height range (no restriction)
-    new Range(none(), none())  // offset range (no restriction)
+    QCT_CONFIG.amountPerMint * Math.pow(10, QCT_CONFIG.decimals),
+    QCT_CONFIG.cap,
+    new Range(none(), none()),
+    new Range(none(), none())
   );
   
-  // Create etching with premine
   const etching = new Etching(
-    some(QCT_CONFIG.decimals), // divisibility
-    some(QCT_CONFIG.premine * 10**QCT_CONFIG.decimals), // premine amount
-    some(rune), // rune
-    none(), // spacers
-    some(QCT_CONFIG.symbol), // symbol
-    some(terms), // terms
-    true // turbo (allow immediate minting)
+    some(QCT_CONFIG.decimals),
+    some(QCT_CONFIG.premine * Math.pow(10, QCT_CONFIG.decimals)),
+    some(rune),
+    none(),
+    some(QCT_CONFIG.symbol),
+    some(terms),
+    true
   );
   
-  // Create runestone
   const stone = new Runestone(
-    [], // edicts (none for etching)
-    some(etching), // etching
-    none(), // mint
-    none()  // pointer
+    [],
+    some(etching),
+    none(),
+    none()
   );
   
-  // Add OP_RETURN output with runestone
   psbt.addOutput({
     script: stone.encipher(),
     value: BigInt(0)
   });
   
-  // Add output to receive premined runes
   const { address: ordAddress } = payments.p2wpkh({
     pubkey: keyPair.publicKey,
     network
   });
   
-  if (!ordAddress) {
-    throw new Error('Failed to generate ordinals address');
-  }
-  
   psbt.addOutput({
     address: ordAddress,
-    value: BigInt(546) // Dust limit
+    value: BigInt(546)
   });
   
-  // Calculate change
-  const fee = 10000; // 10k sats fee
+  const fee = 10000;
   const change = utxos[0].value - 546 - fee;
   
   if (change > 546) {
     psbt.addOutput({
-      address: ordAddress, // Send change back to same address
+      address: ordAddress,
       value: BigInt(change)
     });
   }
   
   console.log('📝 Signing and broadcasting transaction...\n');
   
-  // Sign and broadcast
-  const txid = await signAndSend(keyPair, psbt, address);
+  const txid = await signAndSend(keyPair, psbt);
   
   console.log('\n✅ QCT Runes Token Deployed Successfully!');
   console.log('\n📊 Deployment Summary:');
@@ -249,31 +221,16 @@ async function deployQCTRunes() {
   console.log('  Rune ID: Will be assigned after confirmation');
   console.log('  Explorer:', `https://mempool.space/testnet/tx/${txid}`);
   console.log('\n⏳ Wait for 6 confirmations, then the Rune ID will be available');
-  console.log('   Format: <block_height>:<tx_index>');
   
-  return {
-    txid,
-    name: QCT_CONFIG.name,
-    symbol: QCT_CONFIG.symbol,
-    decimals: QCT_CONFIG.decimals,
-    totalSupply: QCT_CONFIG.totalSupply,
-    premine: QCT_CONFIG.premine,
-    cap: QCT_CONFIG.cap,
-    amountPerMint: QCT_CONFIG.amountPerMint
-  };
+  return { txid, name: QCT_CONFIG.name };
 }
 
-// Run deployment
-if (require.main === module) {
-  deployQCTRunes()
-    .then((result) => {
-      console.log('\n✨ Deployment complete!');
-      process.exit(0);
-    })
-    .catch((error) => {
-      console.error('\n❌ Deployment failed:', error.message);
-      process.exit(1);
-    });
-}
-
-export { deployQCTRunes, QCT_CONFIG };
+deployQCTRunes()
+  .then(() => {
+    console.log('\n✨ Deployment complete!');
+    process.exit(0);
+  })
+  .catch((error) => {
+    console.error('\n❌ Deployment failed:', error.message);
+    process.exit(1);
+  });

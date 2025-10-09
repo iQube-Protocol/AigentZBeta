@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "deploy:qct-runes": "ts-node scripts/deploy-qct-runes.ts"
+    "deploy:qct-runes": "node scripts/deploy-qct-runes.js",
+    "deploy:qct-erc20": "hardhat run scripts/deploy-qct-erc20.js"
   },
   "dependencies": {
     "@dfinity/agent": "^3.2.6",
@@ -42,14 +43,18 @@
     "uuid": "^13.0.0"
   },
   "devDependencies": {
-    "@types/node": "^20.8.0",
+    "@nomicfoundation/hardhat-toolbox": "^6.1.0",
+    "@openzeppelin/contracts": "^5.4.0",
+    "@types/node": "^20.19.19",
     "@types/react": "^18.2.24",
     "@types/react-dom": "^18.2.8",
     "autoprefixer": "^10.4.16",
     "eslint": "^8.50.0",
     "eslint-config-next": "^14.0.0",
+    "hardhat": "^3.0.7",
     "pm2": "^6.0.10",
     "postcss": "^8.4.31",
+    "ts-node": "^10.9.2",
     "typescript": "^5.2.2"
   }
 }
