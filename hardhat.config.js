@@ -1,5 +1,12 @@
 require("@nomicfoundation/hardhat-toolbox");
-require("dotenv").config({ path: '.env.local' });
+const path = require("path");
+const fs = require("fs");
+
+// Load environment variables from .env.local
+const envPath = path.join(__dirname, '.env.local');
+if (fs.existsSync(envPath)) {
+  require("dotenv").config({ path: envPath });
+}
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {

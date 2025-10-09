@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "deploy:qct-runes": "node scripts/deploy-qct-runes.js",
-    "deploy:qct-erc20": "hardhat run scripts/deploy-qct-erc20.js"
+    "deploy:qct-erc20": "hardhat run scripts/deploy-qct-erc20.js",
+    "deploy:qct-spl": "node scripts/deploy-qct-spl.js"
   },
   "dependencies": {
     "@dfinity/agent": "^3.2.6",
@@ -29,6 +30,7 @@
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "cross-fetch": "^4.1.0",
+    "dotenv": "^17.2.3",
     "ecpair": "^2.1.0",
     "ethers": "^6.8.0",
     "lucide-react": "^0.542.0",
@@ -43,18 +45,33 @@
     "uuid": "^13.0.0"
   },
   "devDependencies": {
+    "@nomicfoundation/hardhat-chai-matchers": "^2.1.0",
+    "@nomicfoundation/hardhat-ethers": "^3.1.0",
+    "@nomicfoundation/hardhat-ignition": "^0.15.13",
+    "@nomicfoundation/hardhat-ignition-ethers": "^0.15.14",
+    "@nomicfoundation/hardhat-network-helpers": "^1.1.0",
     "@nomicfoundation/hardhat-toolbox": "^6.1.0",
+    "@nomicfoundation/hardhat-verify": "^2.1.1",
+    "@nomicfoundation/ignition-core": "^0.15.13",
     "@openzeppelin/contracts": "^5.4.0",
+    "@typechain/ethers-v6": "^0.5.1",
+    "@typechain/hardhat": "^9.1.0",
+    "@types/chai": "^4.3.20",
+    "@types/mocha": "^10.0.10",
     "@types/node": "^20.19.19",
     "@types/react": "^18.2.24",
     "@types/react-dom": "^18.2.8",
     "autoprefixer": "^10.4.16",
+    "chai": "^4.5.0",
     "eslint": "^8.50.0",
     "eslint-config-next": "^14.0.0",
-    "hardhat": "^3.0.7",
+    "hardhat": "^2.26.3",
+    "hardhat-gas-reporter": "^2.3.0",
     "pm2": "^6.0.10",
     "postcss": "^8.4.31",
+    "solidity-coverage": "^0.8.16",
     "ts-node": "^10.9.2",
+    "typechain": "^8.3.2",
     "typescript": "^5.2.2"
   }
 }
