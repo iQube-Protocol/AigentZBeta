@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowUpDown, ExternalLink, Copy, RefreshCw } from 'lucide-react';
+import { ArrowUpDown, RefreshCw } from 'lucide-react';
 import { getMetaMaskWallet } from '@/services/wallet/metamask';
 import { getPhantomWallet } from '@/services/wallet/phantom';
 import { getUnisatWallet } from '@/services/wallet/unisat';
@@ -147,8 +147,8 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
         setBitcoinAddress(address);
         // loadBalances() will be called by useEffect when bitcoinAddress changes
       }
-    } catch (err: any) {
-      setError(err.message || 'Failed to connect wallet');
+    } catch (err) {
+      setError((err as Error).message || 'Failed to connect wallet');
     }
   };
 
@@ -165,7 +165,7 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
       await phantom.disconnect();
       setSolanaAddress(null);
       setError(null);
-    } catch (err: any) {
+    } catch {
       // Phantom might not support disconnect, just clear state
       setSolanaAddress(null);
     }
@@ -178,7 +178,7 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
       await unisat.disconnect();
       setBitcoinAddress(null);
       setError(null);
-    } catch (err: any) {
+    } catch {
       // Just clear state
       setBitcoinAddress(null);
     }
@@ -218,8 +218,8 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
       } else {
         setError(data.error);
       }
-    } catch (err: any) {
-      setError(err.message || 'Failed to load balances');
+    } catch (err) {
+      setError((err as Error).message || 'Failed to load balances');
     } finally {
       setLoading(false);
     }
@@ -256,8 +256,8 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
       } else {
         alert(`Trade failed: ${result.error}`);
       }
-    } catch (err: any) {
-      alert(`Trade error: ${err.message}`);
+    } catch (err) {
+      alert(`Trade error: ${(err as Error).message}`);
     } finally {
       setLoading(false);
     }
@@ -278,6 +278,7 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
   // Load balances when wallets connect/disconnect
   useEffect(() => {
     loadBalances();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [evmAddress, solanaAddress, bitcoinAddress]);
 
   return (

@@ -135,9 +135,9 @@ export default function QCTMintBurnModal({
       // Show success (you can add a toast notification here)
       alert(`Successfully ${mode === 'mint' ? 'minted' : 'burned'} QCT!`);
       
-    } catch (err: any) {
+    } catch (err) {
       console.error(`Error ${mode}ing QCT:`, err);
-      setError(err.message || `Failed to ${mode} QCT`);
+      setError((err as Error).message || `Failed to ${mode} QCT`);
     } finally {
       setIsLoading(false);
     }
