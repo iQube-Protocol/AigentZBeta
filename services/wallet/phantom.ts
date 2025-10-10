@@ -39,13 +39,24 @@ export class PhantomWallet {
 
   // Check if Phantom is installed
   isInstalled(): boolean {
+    // Firefox sometimes needs a delay for wallet detection
+    if (!this.solana) {
+      // Try to get it again (Firefox timing issue)
+      this.solana = (window as any).solana;
+    }
     return !!this.solana && this.solana.isPhantom;
   }
 
   // Connect wallet
   async connect(): Promise<string> {
     if (!this.isInstalled()) {
-      throw new Error('Phantom wallet is not installed. Please install Phantom to continue.');
+      // Firefox: Try one more time after a short delay
+      await new Promise(resolve => setTimeout(resolve, 100));
+      this.solana = (window as any).solana;
+      
+      if (!this.isInstalled()) {
+        throw new Error('Phantom wallet is not installed. Please install Phantom to continue.');
+      }
     }
 
     try {
