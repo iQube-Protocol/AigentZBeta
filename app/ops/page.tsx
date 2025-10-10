@@ -26,6 +26,7 @@ import { useSolanaTestnet } from "@/hooks/ops/useSolanaTestnet";
 import { useCrossChain } from "@/hooks/ops/useCrossChain";
 import { useIqbLatest } from "@/hooks/ops/useIqbLatest";
 import { QCTTradingCard } from "@/components/ops/QCTTradingCard";
+import { QCTEventMonitor } from "@/components/ops/QCTEventMonitor";
 import { Connection, Transaction, SystemProgram, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { getPhantomWallet } from '@/services/wallet/phantom';
 import { getUnisatWallet } from '@/services/wallet/unisat';
@@ -547,6 +548,7 @@ export default function OpsPage() {
     { key: "icp_dvn", title: "ICP DVN" },
     { key: "dvn_mint_tests", title: "DVN Mint Tests" },
     { key: "qct_trading", title: "QCT Cross-Chain Trading" },
+    { key: "qct_event_monitor", title: "QCT Event Listener" },
     { key: "qct_rekey", title: "QCT Rekey (Stage 1A)" },
     { key: "btc_testnet", title: "BTC Testnet" },
     { key: "eth_sepolia", title: "Ethereum Sepolia" },
@@ -1177,6 +1179,11 @@ export default function OpsPage() {
           // QCT Cross-Chain Trading card
           if (key === "qct_trading") {
             return <QCTTradingCard key={key} title={title} />;
+          }
+
+          // QCT Event Listener Monitor
+          if (key === "qct_event_monitor") {
+            return <QCTEventMonitor key={key} className="md:col-span-2 lg:col-span-3" />;
           }
 
           // QCT Rekey (Stage 1A) card
