@@ -166,10 +166,10 @@ export default function QCTMintBurnModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-900 rounded-lg max-w-md w-full p-6 border border-gray-700">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-6">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+      <div className="bg-gray-900 rounded-lg max-w-md w-full max-h-[85vh] border border-gray-700 overflow-hidden">
+        {/* Header - Fixed */}
+        <div className="flex justify-between items-center p-6 pb-4 border-b border-gray-700">
           <h2 className="text-xl font-bold text-white">
             {mode === 'mint' ? '🪙 Mint QCT' : '🔥 Burn QCT'}
           </h2>
@@ -182,7 +182,9 @@ export default function QCTMintBurnModal({
           </button>
         </div>
 
-        {/* Reserve Status */}
+        {/* Scrollable Content */}
+        <div className="overflow-y-auto max-h-[calc(85vh-80px)] p-6">
+          {/* Reserve Status */}
         <div className="bg-gray-800 rounded-lg p-4 mb-6">
           <div className="flex justify-between items-center mb-2">
             <span className="text-gray-400 text-sm">Reserve Ratio</span>
@@ -233,10 +235,10 @@ export default function QCTMintBurnModal({
                 value={usdcAmount}
                 onChange={(e) => handleUsdcChange(e.target.value)}
                 placeholder="0.00"
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white text-lg focus:outline-none focus:border-blue-500"
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 pr-16 text-white text-lg focus:outline-none focus:border-blue-500"
                 disabled={isLoading}
               />
-              <div className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
                 USDC
               </div>
             </div>
@@ -270,10 +272,10 @@ export default function QCTMintBurnModal({
                 value={qctAmount}
                 onChange={(e) => handleQctChange(e.target.value)}
                 placeholder="0.00"
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white text-lg focus:outline-none focus:border-blue-500"
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 pr-16 text-white text-lg focus:outline-none focus:border-blue-500"
                 disabled={isLoading}
               />
-              <div className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
                 QCT
               </div>
             </div>
@@ -326,12 +328,13 @@ export default function QCTMintBurnModal({
             : '🔥 Burn QCT'}
         </button>
 
-        {/* Info Text */}
-        <p className="text-gray-400 text-xs text-center mt-4">
-          {mode === 'mint'
-            ? 'Deposit USDC to mint QCT at a fixed rate of 100 QCT per 1 USDC'
-            : 'Burn QCT to redeem USDC at a fixed rate of 1 USDC per 100 QCT'}
-        </p>
+          {/* Info Text */}
+          <p className="text-gray-400 text-xs text-center mt-4">
+            {mode === 'mint'
+              ? 'Deposit USDC to mint QCT at a fixed rate of 100 QCT per 1 USDC'
+              : 'Burn QCT to redeem USDC at a fixed rate of 1 USDC per 100 QCT'}
+          </p>
+        </div>
       </div>
     </div>
   );
