@@ -363,7 +363,7 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
                 {chains.find(c => c.id === selectedFromChain)?.type === 'evm' && evmAddress && (
                   <button
                     onClick={disconnectEVM}
-                    className="px-2 py-0.5 text-xs bg-emerald-500/10 text-emerald-300 rounded border border-emerald-500/30 hover:bg-red-500/20 hover:text-red-300 hover:border-red-500/30 transition-colors"
+                    className="w-full px-2 py-0.5 text-xs bg-emerald-500/10 text-emerald-300 rounded border border-emerald-500/30 hover:bg-red-500/20 hover:text-red-300 hover:border-red-500/30 transition-colors"
                     title={`${evmAddress}\n\nClick to disconnect`}
                   >
                     🔗 {evmAddress.slice(0, 6)}...{evmAddress.slice(-4)}
@@ -372,7 +372,7 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
                 {chains.find(c => c.id === selectedFromChain)?.type === 'solana' && solanaAddress && (
                   <button
                     onClick={disconnectSolana}
-                    className="px-2 py-0.5 text-xs bg-purple-500/10 text-purple-300 rounded border border-purple-500/30 hover:bg-red-500/20 hover:text-red-300 hover:border-red-500/30 transition-colors"
+                    className="w-full px-2 py-0.5 text-xs bg-purple-500/10 text-purple-300 rounded border border-purple-500/30 hover:bg-red-500/20 hover:text-red-300 hover:border-red-500/30 transition-colors"
                     title={`${solanaAddress}\n\nClick to disconnect`}
                   >
                     ◎ {solanaAddress.slice(0, 6)}...{solanaAddress.slice(-4)}
@@ -381,7 +381,7 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
                 {chains.find(c => c.id === selectedFromChain)?.type === 'btc' && bitcoinAddress && (
                   <button
                     onClick={disconnectBitcoin}
-                    className="px-2 py-0.5 text-xs bg-orange-500/10 text-orange-300 rounded border border-orange-500/30 hover:bg-red-500/20 hover:text-red-300 hover:border-red-500/30 transition-colors"
+                    className="w-full px-2 py-0.5 text-xs bg-orange-500/10 text-orange-300 rounded border border-orange-500/30 hover:bg-red-500/20 hover:text-red-300 hover:border-red-500/30 transition-colors"
                     title={`${bitcoinAddress}\n\nClick to disconnect`}
                   >
                     ₿ {bitcoinAddress.slice(0, 6)}...{bitcoinAddress.slice(-4)}
@@ -391,7 +391,7 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
                   <button
                     onClick={connectWallet}
                     disabled={loading}
-                    className="px-2 py-0.5 text-xs bg-blue-500/10 text-blue-300 rounded border border-blue-500/30 hover:bg-blue-500/20 disabled:opacity-50"
+                    className="w-full px-2 py-0.5 text-xs bg-blue-500/10 text-blue-300 rounded border border-blue-500/30 hover:bg-blue-500/20 disabled:opacity-50"
                   >
                     Connect Wallet
                   </button>
@@ -507,8 +507,9 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
               setMintBurnMode('mint');
               setShowMintBurnModal(true);
             }}
-            disabled={!evmAddress}
+            disabled={!evmAddress && !solanaAddress && !bitcoinAddress}
             className="flex-1 px-3 py-2 bg-green-500/10 text-green-300 rounded hover:bg-green-500/20 border border-green-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+            title={!evmAddress && !solanaAddress && !bitcoinAddress ? 'Connect a wallet to mint QCT' : 'Mint QCT tokens'}
           >
             🪙 Mint QCT
           </button>
@@ -517,8 +518,9 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
               setMintBurnMode('burn');
               setShowMintBurnModal(true);
             }}
-            disabled={!evmAddress}
+            disabled={!evmAddress && !solanaAddress && !bitcoinAddress}
             className="flex-1 px-3 py-2 bg-red-500/10 text-red-300 rounded hover:bg-red-500/20 border border-red-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+            title={!evmAddress && !solanaAddress && !bitcoinAddress ? 'Connect a wallet to burn QCT' : 'Burn QCT tokens'}
           >
             🔥 Burn QCT
           </button>
@@ -539,7 +541,7 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
         onClose={() => setShowMintBurnModal(false)}
         mode={mintBurnMode}
         chainId={chains.find(c => c.id === selectedFromChain)?.id === 'ethereum' ? 11155111 : 80002}
-        walletAddress={evmAddress}
+        walletAddress={getAddress(selectedFromChain) || evmAddress}
       />
       
       {/* Send Modal */}
