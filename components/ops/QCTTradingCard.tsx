@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowUpDown, RefreshCw } from 'lucide-react';
+import { ArrowUpDown, RefreshCw, Send } from 'lucide-react';
 import { getMetaMaskWallet } from '@/services/wallet/metamask';
 import { getPhantomWallet } from '@/services/wallet/phantom';
 import { getUnisatWallet } from '@/services/wallet/unisat';
 import QCTMintBurnModal from './QCTMintBurnModal';
+import QCTSendModal from './QCTSendModal';
 
 interface QCTBalance {
   chain: string;
@@ -63,6 +64,9 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
   // Mint/Burn modal state
   const [showMintBurnModal, setShowMintBurnModal] = useState(false);
   const [mintBurnMode, setMintBurnMode] = useState<'mint' | 'burn'>('mint');
+  
+  // Send modal state
+  const [showSendModal, setShowSendModal] = useState(false);
 
   const chains = [
     { id: 'bitcoin', name: 'Bitcoin', symbol: 'BTC', type: 'btc' },
@@ -314,68 +318,34 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
         <div className="space-y-3 border-t border-slate-700 pt-3">
           <div className="text-xs font-medium text-slate-300">Cross-Chain Trading</div>
           
-          {/* Trade Action */}
-          <div className="flex gap-1 items-center justify-between">
-            <div className="flex gap-1">
-              {(['buy', 'sell', 'bridge'] as const).map(action => (
-                <button
-                  key={action}
-                  onClick={() => setTradeAction(action)}
-                  className={`px-2 py-1 text-xs rounded ${
-                    tradeAction === action
-                      ? 'bg-blue-500/20 text-blue-300 ring-1 ring-blue-500/30'
-                      : 'bg-slate-800/50 text-slate-400 hover:text-slate-300'
-                  }`}
-                >
-                  {action.charAt(0).toUpperCase() + action.slice(1)}
-                </button>
-              ))}
-            </div>
-            {/* Wallet Connection */}
-            <div className="flex gap-1 items-center">
-              {!evmAddress && !solanaAddress && !bitcoinAddress ? (
-                <button
-                  onClick={connectWallet}
-                  disabled={loading}
-                  className="px-2 py-1 text-xs bg-blue-500/10 text-blue-300 rounded border border-blue-500/30 hover:bg-blue-500/20 disabled:opacity-50"
-                >
-                  Connect Wallet
-                </button>
-              ) : (
-                <>
-                  {evmAddress && (
-                    <button
-                      onClick={disconnectEVM}
-                      className="px-2 py-1 text-xs bg-emerald-500/10 text-emerald-300 rounded border border-emerald-500/30 hover:bg-red-500/20 hover:text-red-300 hover:border-red-500/30 transition-colors cursor-pointer"
-                      title={`${evmAddress}\n\nClick to disconnect`}
-                    >
-                      🔗 EVM
-                    </button>
-                  )}
-                  {solanaAddress && (
-                    <button
-                      onClick={disconnectSolana}
-                      className="px-2 py-1 text-xs bg-purple-500/10 text-purple-300 rounded border border-purple-500/30 hover:bg-red-500/20 hover:text-red-300 hover:border-red-500/30 transition-colors cursor-pointer"
-                      title={`${solanaAddress}\n\nClick to disconnect`}
-                    >
-                      ◎ SOL
-                    </button>
-                  )}
-                  {bitcoinAddress && (
-                    <button
-                      onClick={disconnectBitcoin}
-                      className="px-2 py-1 text-xs bg-orange-500/10 text-orange-300 rounded border border-orange-500/30 hover:bg-red-500/20 hover:text-red-300 hover:border-red-500/30 transition-colors cursor-pointer"
-                      title={`${bitcoinAddress}\n\nClick to disconnect`}
-                    >
-                      ₿ BTC
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
+          {/* Trade Action Buttons */}
+          <div className="flex gap-1">
+            {(['buy', 'sell', 'bridge', 'send'] as const).map(action => (
+              <button
+                key={action}
+                onClick={() => {
+                  if (action === 'send') {
+                    setShowSendModal(true);
+                  } else {
+                    setTradeAction(action as 'buy' | 'sell' | 'bridge');
+                  }
+                }}
+                disabled={action === 'send' && !evmAddress && !solanaAddress && !bitcoinAddress}
+                className={`flex-1 px-2 py-1 text-xs rounded ${
+                  action === 'send'
+                    ? 'bg-purple-500/10 text-purple-300 border border-purple-500/30 hover:bg-purple-500/20'
+                    : tradeAction === action
+                    ? 'bg-blue-500/20 text-blue-300 ring-1 ring-blue-500/30'
+                    : 'bg-slate-800/50 text-slate-400 hover:text-slate-300'
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
+                {action === 'send' && <Send className="inline w-3 h-3 mr-1" />}
+                {action.charAt(0).toUpperCase() + action.slice(1)}
+              </button>
+            ))}
           </div>
 
-          {/* Chain Selection */}
+          {/* Chain Selection with Wallet Badges */}
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="text-xs text-slate-400 block mb-1">From Chain</label>
@@ -388,6 +358,45 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
                   <option key={chain.id} value={chain.id}>{chain.name}</option>
                 ))}
               </select>
+              {/* Show wallet badge for From chain */}
+              <div className="mt-1">
+                {chains.find(c => c.id === selectedFromChain)?.type === 'evm' && evmAddress && (
+                  <button
+                    onClick={disconnectEVM}
+                    className="px-2 py-0.5 text-xs bg-emerald-500/10 text-emerald-300 rounded border border-emerald-500/30 hover:bg-red-500/20 hover:text-red-300 hover:border-red-500/30 transition-colors"
+                    title={`${evmAddress}\n\nClick to disconnect`}
+                  >
+                    🔗 {evmAddress.slice(0, 6)}...{evmAddress.slice(-4)}
+                  </button>
+                )}
+                {chains.find(c => c.id === selectedFromChain)?.type === 'solana' && solanaAddress && (
+                  <button
+                    onClick={disconnectSolana}
+                    className="px-2 py-0.5 text-xs bg-purple-500/10 text-purple-300 rounded border border-purple-500/30 hover:bg-red-500/20 hover:text-red-300 hover:border-red-500/30 transition-colors"
+                    title={`${solanaAddress}\n\nClick to disconnect`}
+                  >
+                    ◎ {solanaAddress.slice(0, 6)}...{solanaAddress.slice(-4)}
+                  </button>
+                )}
+                {chains.find(c => c.id === selectedFromChain)?.type === 'btc' && bitcoinAddress && (
+                  <button
+                    onClick={disconnectBitcoin}
+                    className="px-2 py-0.5 text-xs bg-orange-500/10 text-orange-300 rounded border border-orange-500/30 hover:bg-red-500/20 hover:text-red-300 hover:border-red-500/30 transition-colors"
+                    title={`${bitcoinAddress}\n\nClick to disconnect`}
+                  >
+                    ₿ {bitcoinAddress.slice(0, 6)}...{bitcoinAddress.slice(-4)}
+                  </button>
+                )}
+                {!getAddress(selectedFromChain) && (
+                  <button
+                    onClick={connectWallet}
+                    disabled={loading}
+                    className="px-2 py-0.5 text-xs bg-blue-500/10 text-blue-300 rounded border border-blue-500/30 hover:bg-blue-500/20 disabled:opacity-50"
+                  >
+                    Connect Wallet
+                  </button>
+                )}
+              </div>
             </div>
             <div>
               <label className="text-xs text-slate-400 block mb-1">To Chain</label>
@@ -531,6 +540,16 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
         mode={mintBurnMode}
         chainId={chains.find(c => c.id === selectedFromChain)?.id === 'ethereum' ? 11155111 : 80002}
         walletAddress={evmAddress}
+      />
+      
+      {/* Send Modal */}
+      <QCTSendModal
+        isOpen={showSendModal}
+        onClose={() => setShowSendModal(false)}
+        fromChain={selectedFromChain}
+        fromChainType={(chains.find(c => c.id === selectedFromChain)?.type || 'evm') as 'evm' | 'solana' | 'btc'}
+        walletAddress={getAddress(selectedFromChain)}
+        balance={getChainBalance(selectedFromChain)}
       />
     </Card>
   );
