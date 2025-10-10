@@ -10,17 +10,25 @@ export async function GET() {
     let ok = false;
     try {
       const url = host.replace(/\/$/, '') + '/api/v2/status';
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      
       const res = await fetch(url, { 
         cache: 'no-store',
-        signal: AbortSignal.timeout(5000) // 5 second timeout
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
       ok = res.ok;
     } catch {
       try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000);
+        
         const res = await fetch(host, { 
           cache: 'no-store',
-          signal: AbortSignal.timeout(3000) // 3 second timeout for fallback
+          signal: controller.signal
         });
+        clearTimeout(timeoutId);
         ok = res.ok;
       } catch {
         // If both fail, assume local development and mark as ok
