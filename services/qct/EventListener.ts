@@ -1,7 +1,12 @@
 // QCT Event Listener Service - Core Architecture
-// Listens to QCT transactions across all 7 chains and submits to DVN queue
-
+// Listens to QCT token events across all supported chains
 import { EventEmitter } from 'events';
+import { QCT_CONTRACTS } from '@/config/qct-contracts';
+
+// Global storage for server-side persistence
+declare global {
+  var __qct_event_history: Record<string, QCTEvent[]> | undefined;
+}
 
 export interface QCTEvent {
   id: string;
@@ -51,10 +56,15 @@ export class QCTEventListener extends EventEmitter {
   private stats: Map<string, ListenerStats> = new Map();
   private isRunning = false;
   private startTime = 0;
+  private dvnPollingInterval: NodeJS.Timeout | null = null;
+  private processedDvnMessages: Set<string> = new Set(); // Track processed messages to avoid duplicates
+  private transactionHistory: Map<string, QCTEvent[]> = new Map(); // Store last 100 transactions per chain
+  private readonly MAX_HISTORY_PER_CHAIN = 100;
 
   constructor() {
     super();
     this.setupChains();
+    this.loadHistoryFromStorage();
   }
 
   // Initialize chain configurations
@@ -66,7 +76,7 @@ export class QCTEventListener extends EventEmitter {
         name: 'Ethereum Sepolia',
         type: 'evm',
         rpcUrl: process.env.NEXT_PUBLIC_RPC_ETH_SEPOLIA || 'https://sepolia.infura.io/v3/YOUR_KEY',
-        contractAddress: process.env.QCT_CONTRACT_ETH || '0x...', // TODO: Load from config
+        contractAddress: QCT_CONTRACTS.evm.sepolia.address,
         startBlock: 0,
         confirmations: 3,
         enabled: true,
@@ -76,7 +86,7 @@ export class QCTEventListener extends EventEmitter {
         name: 'Polygon Amoy',
         type: 'evm',
         rpcUrl: process.env.NEXT_PUBLIC_RPC_POLYGON_AMOY || 'https://rpc-amoy.polygon.technology',
-        contractAddress: process.env.QCT_CONTRACT_POLYGON || '0x...',
+        contractAddress: QCT_CONTRACTS.evm.amoy.address,
         startBlock: 0,
         confirmations: 5,
         enabled: true,
@@ -86,7 +96,7 @@ export class QCTEventListener extends EventEmitter {
         name: 'Arbitrum Sepolia',
         type: 'evm',
         rpcUrl: process.env.NEXT_PUBLIC_RPC_ARBITRUM_SEPOLIA || 'https://sepolia-rollup.arbitrum.io/rpc',
-        contractAddress: process.env.QCT_CONTRACT_ARBITRUM || '0x...',
+        contractAddress: QCT_CONTRACTS.evm.arbitrumSepolia.address,
         startBlock: 0,
         confirmations: 1,
         enabled: true,
@@ -96,7 +106,7 @@ export class QCTEventListener extends EventEmitter {
         name: 'Optimism Sepolia',
         type: 'evm',
         rpcUrl: process.env.NEXT_PUBLIC_RPC_OPTIMISM_SEPOLIA || 'https://sepolia.optimism.io',
-        contractAddress: process.env.QCT_CONTRACT_OPTIMISM || '0x...',
+        contractAddress: QCT_CONTRACTS.evm.optimismSepolia.address,
         startBlock: 0,
         confirmations: 1,
         enabled: true,
@@ -106,7 +116,7 @@ export class QCTEventListener extends EventEmitter {
         name: 'Base Sepolia',
         type: 'evm',
         rpcUrl: process.env.NEXT_PUBLIC_RPC_BASE_SEPOLIA || 'https://sepolia.base.org',
-        contractAddress: process.env.QCT_CONTRACT_BASE || '0x...',
+        contractAddress: QCT_CONTRACTS.evm.baseSepolia.address,
         startBlock: 0,
         confirmations: 1,
         enabled: true,
@@ -117,7 +127,7 @@ export class QCTEventListener extends EventEmitter {
         name: 'Solana Testnet',
         type: 'solana',
         rpcUrl: process.env.NEXT_PUBLIC_RPC_SOLANA_TESTNET || 'https://api.testnet.solana.com',
-        programId: process.env.QCT_PROGRAM_SOLANA || 'QCT...', // TODO: Load from config
+        programId: QCT_CONTRACTS.solana.mintAddress || 'PENDING',
         startBlock: 0,
         confirmations: 1,
         enabled: true,
@@ -128,7 +138,7 @@ export class QCTEventListener extends EventEmitter {
         name: 'Bitcoin Testnet',
         type: 'bitcoin',
         rpcUrl: process.env.NEXT_PUBLIC_RPC_BTC_TESTNET || 'https://mempool.space/testnet/api',
-        runesId: process.env.QCT_RUNES_ID || 'QCT•MICRO•STABLECOIN',
+        runesId: QCT_CONTRACTS.bitcoin.runeId || QCT_CONTRACTS.bitcoin.runeName,
         startBlock: 0,
         confirmations: 3,
         enabled: true,
@@ -181,6 +191,9 @@ export class QCTEventListener extends EventEmitter {
     // Wait for all listeners to initialize
     await Promise.allSettled(promises);
     
+    // TODO: Re-enable DVN queue polling once async issues are resolved
+    // this.startDVNPolling();
+    
     console.log('[QCT Listener] All listeners started');
     this.emit('started', this.getStats());
   }
@@ -208,7 +221,14 @@ export class QCTEventListener extends EventEmitter {
     }
 
     this.chainListeners.clear();
-    console.log('[QCT Listener] All listeners stopped');
+    
+    // Stop DVN polling
+    if (this.dvnPollingInterval) {
+      clearInterval(this.dvnPollingInterval);
+      this.dvnPollingInterval = null;
+    }
+    
+    console.log('[QCT Listener] All listeners stopped (including DVN queue polling)');
     this.emit('stopped');
   }
 
@@ -377,8 +397,25 @@ export class QCTEventListener extends EventEmitter {
   // Submit event to DVN monitoring queue
   private async submitToDVN(event: QCTEvent): Promise<void> {
     try {
+      // Map chain names to numeric IDs that DVN expects
+      const chainIdMap: Record<string, number> = {
+        'ethereum': 11155111,
+        'polygon': 80002,
+        'arbitrum': 421614,
+        'optimism': 11155420,
+        'base': 84532,
+        'solana': 101,
+        'bitcoin': 0,
+      };
+
+      const numericChainId = chainIdMap[event.chainId];
+      if (!numericChainId && numericChainId !== 0) {
+        throw new Error(`Unknown chain ID: ${event.chainId}`);
+      }
+
       const dvnPayload = {
         txHash: event.txHash,
+        chainId: numericChainId, // DVN monitor expects numeric chainId
         sourceChain: event.chainId,
         targetChain: event.chainId, // Same chain for mint/burn/transfer
         amount: event.amount,
@@ -437,12 +474,29 @@ export class QCTEventListener extends EventEmitter {
 
   // Get current statistics
   getStats(): ListenerStats[] {
-    return Array.from(this.stats.values());
+    const stats = Array.from(this.stats.values());
+    // Enrich with transaction counts from history
+    return stats.map(stat => {
+      const txCount = this.getTransactionCount(stat.chainId);
+      return {
+        ...stat,
+        eventsProcessed: txCount > 0 ? txCount : stat.eventsProcessed,
+      };
+    });
   }
 
   // Get stats for specific chain
   getChainStats(chainId: string): ListenerStats | undefined {
-    return this.stats.get(chainId);
+    const stats = this.stats.get(chainId);
+    if (stats) {
+      // Include transaction count from history
+      const txCount = this.getTransactionCount(chainId);
+      return {
+        ...stats,
+        eventsProcessed: txCount > 0 ? txCount : stats.eventsProcessed,
+      };
+    }
+    return stats;
   }
 
   // Check if listener is running
@@ -453,6 +507,281 @@ export class QCTEventListener extends EventEmitter {
   // Get supported chains
   getSupportedChains(): ChainConfig[] {
     return Array.from(this.chains.values());
+  }
+
+  // Record DVN transaction (called by LayerZero processing)
+  recordDVNTransaction(tx: {
+    messageId: string;
+    sourceChain: number;
+    txHash: string;
+    timestamp: number;
+    from: string;
+    to: string;
+    amount: string;
+    operation: string;
+    metadata: any;
+  }) {
+    try {
+      // Map numeric chain ID to chain name
+      const chainId = this.mapChainIdToName(tx.sourceChain);
+      
+      console.log(`[QCT Listener] Recording transaction - sourceChain: ${tx.sourceChain}, mapped to: ${chainId}`);
+      
+      // Create event from DVN transaction
+      const event: QCTEvent = {
+        id: tx.messageId,
+        chainId,
+        chainType: this.getChainType(tx.sourceChain),
+        eventType: this.detectEventTypeFromOperation(tx.operation),
+        txHash: tx.txHash,
+        timestamp: tx.timestamp,
+        from: tx.from,
+        to: tx.to,
+        amount: tx.amount,
+        raw: tx,
+      };
+      
+      // Emit event
+      this.emit('qct_event', event);
+      console.log(`[QCT Listener] iQube DVN transaction recorded: ${event.eventType} on ${event.chainId}`);
+      
+      // Store in transaction history
+      this.addToHistory(chainId, event);
+      
+      // Update stats for the chain
+      this.updateStats(chainId, {
+        eventsProcessed: 1,
+        lastEventAt: event.timestamp,
+      });
+    } catch (error) {
+      console.error('[QCT Listener] Failed to record DVN transaction:', error);
+    }
+  }
+
+  // Add transaction to history
+  private addToHistory(chainId: string, event: QCTEvent) {
+    if (!this.transactionHistory.has(chainId)) {
+      this.transactionHistory.set(chainId, []);
+    }
+    
+    const history = this.transactionHistory.get(chainId)!;
+    
+    // Check if transaction already exists (avoid duplicates)
+    const exists = history.some(tx => tx.id === event.id || tx.txHash === event.txHash);
+    if (exists) {
+      console.log(`[QCT Listener] Transaction ${event.id} already in history, skipping`);
+      return;
+    }
+    
+    // Add to beginning (most recent first)
+    history.unshift(event);
+    
+    console.log(`[QCT Listener] Added transaction to history - chainId: ${chainId}, total: ${history.length}`);
+    
+    // Keep only last MAX_HISTORY_PER_CHAIN transactions
+    if (history.length > this.MAX_HISTORY_PER_CHAIN) {
+      history.pop();
+    }
+    
+    // Persist to localStorage
+    this.saveHistoryToStorage();
+    console.log(`[QCT Listener] Saved history to localStorage`);
+  }
+
+  // Load transaction history from localStorage (client) or file system (server)
+  private loadHistoryFromStorage() {
+    try {
+      if (typeof window !== 'undefined') {
+        // Client-side: use localStorage
+        const stored = localStorage.getItem('qct_event_history');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          // Convert plain object back to Map
+          for (const [chainId, events] of Object.entries(parsed)) {
+            this.transactionHistory.set(chainId, events as QCTEvent[]);
+          }
+          console.log('[QCT Listener] Loaded transaction history from localStorage');
+        }
+      } else {
+        // Server-side: load from global singleton storage
+        if (globalThis.__qct_event_history) {
+          const parsed = globalThis.__qct_event_history;
+          for (const [chainId, events] of Object.entries(parsed)) {
+            this.transactionHistory.set(chainId, events as QCTEvent[]);
+          }
+          console.log('[QCT Listener] Loaded transaction history from global storage');
+        }
+      }
+    } catch (e) {
+      console.error('[QCT Listener] Failed to load history from storage:', e);
+    }
+  }
+
+  // Save transaction history to localStorage (client) or global storage (server)
+  private saveHistoryToStorage() {
+    try {
+      // Convert Map to plain object for JSON serialization
+      const obj: Record<string, QCTEvent[]> = {};
+      for (const [chainId, events] of this.transactionHistory.entries()) {
+        obj[chainId] = events;
+      }
+      
+      if (typeof window !== 'undefined') {
+        // Client-side: use localStorage
+        localStorage.setItem('qct_event_history', JSON.stringify(obj));
+      } else {
+        // Server-side: use global singleton storage
+        globalThis.__qct_event_history = obj;
+        console.log('[QCT Listener] Saved history to global storage');
+      }
+    } catch (e) {
+      console.error('[QCT Listener] Failed to save history to storage:', e);
+    }
+  }
+
+  // Get transaction history for a chain
+  getTransactionHistory(chainId: string, limit: number = 10, offset: number = 0): QCTEvent[] {
+    const history = this.transactionHistory.get(chainId) || [];
+    return history.slice(offset, offset + limit);
+  }
+
+  // Get total transaction count for a chain
+  getTransactionCount(chainId: string): number {
+    return this.transactionHistory.get(chainId)?.length || 0;
+  }
+
+  // Get the most recent transaction for a chain
+  getLatestTransaction(chainId: string): QCTEvent | null {
+    const history = this.transactionHistory.get(chainId);
+    return history && history.length > 0 ? history[0] : null;
+  }
+
+  // Get all latest transactions (one per chain)
+  getAllLatestTransactions(): Record<string, QCTEvent | null> {
+    const result: Record<string, QCTEvent | null> = {};
+    for (const [chainId] of this.chains) {
+      result[chainId] = this.getLatestTransaction(chainId);
+    }
+    return result;
+  }
+
+  // Start DVN queue polling to capture all system transactions
+  private startDVNPolling() {
+    console.log('[QCT Listener] Starting DVN queue polling...');
+    
+    // Poll DVN queue every 30 seconds
+    this.dvnPollingInterval = setInterval(async () => {
+      try {
+        await this.pollDVNQueue();
+      } catch (error) {
+        console.error('[QCT Listener] DVN polling error:', error);
+      }
+    }, 30000); // 30 seconds
+    
+    // Do initial poll immediately
+    this.pollDVNQueue().catch(err => {
+      console.error('[QCT Listener] Initial DVN poll failed:', err);
+    });
+  }
+
+  // Poll DVN queue for new messages
+  private async pollDVNQueue() {
+    try {
+      // Import dynamically to avoid circular dependencies
+      const { getActor } = await import('@/services/ops/icAgent');
+      const { idlFactory: dvnIdl } = await import('@/services/ops/idl/cross_chain_service');
+      
+      const DVN_ID = (process.env.CROSS_CHAIN_SERVICE_CANISTER_ID || process.env.NEXT_PUBLIC_CROSS_CHAIN_SERVICE_CANISTER_ID) as string;
+      if (!DVN_ID) return;
+      
+      const dvn = await getActor<any>(DVN_ID, dvnIdl);
+      const pendingMessages = await dvn.get_pending_messages();
+      
+      if (!Array.isArray(pendingMessages)) return;
+      const data = { ok: true, messages: pendingMessages };
+      
+      // Process each DVN message
+      for (const message of data.messages) {
+        const messageId = message.message_id || message.id;
+        
+        // Skip if already processed
+        if (this.processedDvnMessages.has(messageId)) continue;
+        
+        // Mark as processed
+        this.processedDvnMessages.add(messageId);
+        
+        // Create event from DVN message
+        const event: QCTEvent = {
+          id: messageId,
+          chainId: this.mapChainIdToName(message.source_chain || 0),
+          chainType: this.getChainType(message.source_chain || 0),
+          eventType: this.detectEventType(message),
+          txHash: message.tx_hash || messageId,
+          timestamp: message.timestamp || Date.now(),
+          from: message.from || 'unknown',
+          to: message.to || 'unknown',
+          amount: message.amount || '0',
+          raw: message,
+        };
+        
+        // Emit event
+        this.emit('qct_event', event);
+        console.log(`[QCT Listener] DVN event captured: ${event.eventType} on ${event.chainId}`);
+        
+        // Update stats for the chain
+        this.updateStats(event.chainId, {
+          eventsProcessed: 1,
+          lastEventAt: event.timestamp,
+        });
+      }
+      
+      // Clean up old processed messages (keep last 1000)
+      if (this.processedDvnMessages.size > 1000) {
+        const toDelete = Array.from(this.processedDvnMessages).slice(0, this.processedDvnMessages.size - 1000);
+        toDelete.forEach(id => this.processedDvnMessages.delete(id));
+      }
+    } catch (error) {
+      console.error('[QCT Listener] DVN queue poll error:', error);
+    }
+  }
+
+  // Helper: Map numeric chain ID to chain name
+  private mapChainIdToName(chainId: number): string {
+    const chainMap: Record<number, string> = {
+      11155111: 'ethereum',
+      80002: 'polygon',
+      421614: 'arbitrum',
+      11155420: 'optimism',
+      84532: 'base',
+      101: 'solana',
+      0: 'bitcoin',
+    };
+    return chainMap[chainId] || 'unknown';
+  }
+
+  // Helper: Get chain type from numeric ID
+  private getChainType(chainId: number): 'evm' | 'solana' | 'bitcoin' {
+    if (chainId === 101) return 'solana';
+    if (chainId === 0) return 'bitcoin';
+    return 'evm';
+  }
+
+  // Helper: Detect event type from DVN message
+  private detectEventType(message: any): 'mint' | 'burn' | 'transfer' {
+    const payload = message.payload || message.data || '';
+    if (typeof payload === 'string') {
+      if (payload.includes('mint') || payload.includes('MINT')) return 'mint';
+      if (payload.includes('burn') || payload.includes('BURN')) return 'burn';
+    }
+    return 'transfer';
+  }
+
+  // Helper: Detect event type from operation string
+  private detectEventTypeFromOperation(operation: string): 'mint' | 'burn' | 'transfer' {
+    const op = operation.toLowerCase();
+    if (op.includes('mint')) return 'mint';
+    if (op.includes('burn')) return 'burn';
+    return 'transfer';
   }
 }
 

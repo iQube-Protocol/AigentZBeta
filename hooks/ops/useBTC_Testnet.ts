@@ -12,6 +12,20 @@ export function useBTC_Testnet(refreshMs = 30000) {
     try {
       setLoading(true);
       setError(null);
+      
+      // First, try to get latest BTC transaction from Event Register
+      try {
+        const registerRes = await fetch('/api/qct/events/latest?chainId=bitcoin', { cache: 'no-store' });
+        if (registerRes.ok) {
+          const registerData = await registerRes.json();
+          if (registerData.ok && registerData.transaction?.txHash) {
+            setLatestTx({ txid: registerData.transaction.txHash });
+          }
+        }
+      } catch (e) {
+        console.warn('Event Register unavailable for BTC:', e);
+      }
+      
       const r = await fetch('/api/ops/btc/status', { cache: 'no-store' });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const json = await r.json();

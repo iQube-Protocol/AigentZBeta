@@ -2,8 +2,9 @@
 "use client";
 
 import { useState } from 'react';
-import { Play, Square, RotateCcw, RefreshCw, Activity, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Play, Square, RotateCcw, RefreshCw, Activity, AlertTriangle, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { useEventListener } from '@/hooks/qct/useEventListener';
+import ChainTransactionHistoryModal from './ChainTransactionHistoryModal';
 
 interface QCTEventMonitorProps {
   className?: string;
@@ -28,6 +29,8 @@ export function QCTEventMonitor({ className = '' }: QCTEventMonitorProps) {
   } = useEventListener(10000); // Refresh every 10 seconds
 
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [showChainDetails, setShowChainDetails] = useState(false);
+  const [selectedChain, setSelectedChain] = useState<{ id: string; name: string } | null>(null);
 
   const handleStart = async () => {
     try {
@@ -106,20 +109,19 @@ export function QCTEventMonitor({ className = '' }: QCTEventMonitorProps) {
   };
 
   return (
-    <div className={`bg-slate-900/60 rounded-lg border border-slate-700 p-6 ${className}`}>
+    <div className={className}>
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <Activity className="w-6 h-6 text-blue-400" />
           <div>
-            <h2 className="text-xl font-semibold text-slate-100">QCT Event Listener</h2>
-            <p className="text-sm text-slate-400">Real-time transaction monitoring across 7 chains</p>
+            <h2 className="text-xl font-semibold text-slate-100">iQube & QCT Event Register</h2>
+            <p className="text-sm text-slate-400">Comprehensive registry of all iQube and QCT transactions across 7 chains</p>
           </div>
         </div>
         
         <div className="flex items-center gap-2">
           <button
-            onClick={refresh}
             disabled={loading}
             className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors disabled:opacity-50"
             title="Refresh"
@@ -207,14 +209,58 @@ export function QCTEventMonitor({ className = '' }: QCTEventMonitorProps) {
       {/* Chain Status Details */}
       {status && (
         <div className="space-y-3">
-          <h3 className="text-sm font-medium text-slate-300 mb-3">Chain Status</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-medium text-slate-300">Chain Status</h3>
+            <button
+              onClick={() => setShowChainDetails(!showChainDetails)}
+              className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-300 transition-colors"
+            >
+              {showChainDetails ? (
+                <>
+                  <ChevronUp className="w-4 h-4" />
+                  Hide Details
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="w-4 h-4" />
+                  Show Details
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Collapsed Summary */}
+          {!showChainDetails && (
+            <div className="bg-slate-800/30 rounded-lg p-3">
+              <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center gap-4">
+                  <span className="text-slate-400">
+                    {getRunningChains()}/{enabledChains} chains running
+                  </span>
+                  {getErrorChains() > 0 && (
+                    <span className="text-red-400">
+                      {getErrorChains()} errors
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-4 text-xs text-slate-400">
+                  <span>{getTotalEvents().toLocaleString()} events</span>
+                  <span>Click "Show Details" for per-chain stats • Click any chain to view transaction history</span>
+                </div>
+              </div>
+            </div>
+          )}
           
-          {status.stats.map((stat) => {
+          {showChainDetails && status.stats.map((stat) => {
             const chain = status.chains.find(c => c.chainId === stat.chainId);
             if (!chain) return null;
 
             return (
-              <div key={stat.chainId} className="bg-slate-800/30 rounded-lg p-3">
+              <button
+                key={stat.chainId}
+                onClick={() => setSelectedChain({ id: stat.chainId, name: chain.name })}
+                className="w-full bg-slate-800/30 hover:bg-slate-800/50 rounded-lg p-3 transition-colors cursor-pointer text-left"
+              >
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <span className="text-lg">{getChainIcon(chain.type)}</span>
@@ -252,18 +298,30 @@ export function QCTEventMonitor({ className = '' }: QCTEventMonitorProps) {
                     <span className="text-slate-300 ml-1">{formatTimestamp(stat.lastEventAt)}</span>
                   </div>
                 </div>
-              </div>
+              </button>
             );
           })}
+
+          {/* Info - Only show in expanded view */}
+          {showChainDetails && (
+            <div className="mt-3 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+              <div className="text-blue-300 text-sm">
+                <strong>P2P Transfer Infrastructure:</strong> This listener monitors all iQube and QCT transactions (mint, burn, transfer) across your 7-chain ecosystem. Events are automatically submitted to the DVN queue for cross-chain synchronization, enabling direct peer-to-peer transfers without exchanges or intermediaries.
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Info */}
-      <div className="mt-6 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-        <div className="text-blue-300 text-sm">
-          <strong>P2P QCT Transfer Infrastructure:</strong> This listener monitors all QCT mint, burn, and transfer events across your 7-chain ecosystem. Events are automatically submitted to the DVN queue for cross-chain synchronization, enabling direct peer-to-peer transfers without exchanges.
-        </div>
-      </div>
+      {/* Transaction History Modal */}
+      {selectedChain && (
+        <ChainTransactionHistoryModal
+          chainId={selectedChain.id}
+          chainName={selectedChain.name}
+          isOpen={!!selectedChain}
+          onClose={() => setSelectedChain(null)}
+        />
+      )}
     </div>
   );
 }

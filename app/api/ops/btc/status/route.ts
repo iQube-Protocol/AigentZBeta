@@ -148,23 +148,11 @@ export async function GET(req: NextRequest) {
           }
         }
         
-        // Fallback: If no recent activity found, use a mock transaction for demo
-        if (!latestTx) {
-          latestTx = {
-            txid: 'f4184fc596403b9d638783cf57adfe4c75c605f6356fbc91338530e9831e9e16', // Famous pizza transaction
-            timestamp: Date.now() / 1000 - 3600, // 1 hour ago
-            type: 'qct_demo'
-          };
-        }
+        // No fallback - only show real transactions
       }
     } catch (e) {
       console.warn('Failed to fetch latest BTC transaction:', e);
-      // Fallback with demo transaction
-      latestTx = {
-        txid: 'f4184fc596403b9d638783cf57adfe4c75c605f6356fbc91338530e9831e9e16',
-        timestamp: Date.now() / 1000 - 3600,
-        type: 'qct_demo'
-      };
+      // No fallback - latestTx remains null if no real transaction found
     }
 
     // If we have a txid and a testnet endpoint, enrich with explorer data

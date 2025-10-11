@@ -8,14 +8,25 @@ export async function GET(request: NextRequest) {
     const action = searchParams.get('action') || 'status';
 
     const listener = getQCTEventListener();
+    
+    // Note: Auto-start disabled to prevent hanging
+    // User must manually start the listener via the UI
 
     switch (action) {
       case 'status':
+        const stats = listener.getStats();
+        const chains = listener.getSupportedChains();
+        
+        // Serialize to handle BigInt values
+        const serializedStats = JSON.parse(JSON.stringify(stats, (key, value) =>
+          typeof value === 'bigint' ? value.toString() : value
+        ));
+        
         return NextResponse.json({
           ok: true,
           running: listener.isListening(),
-          stats: listener.getStats(),
-          chains: listener.getSupportedChains().map(chain => ({
+          stats: serializedStats,
+          chains: chains.map(chain => ({
             chainId: chain.chainId,
             name: chain.name,
             type: chain.type,
@@ -34,9 +45,18 @@ export async function GET(request: NextRequest) {
               { status: 404 }
             );
           }
-          return NextResponse.json({ ok: true, stats: chainStats });
+          // Serialize chainStats
+          const serializedChainStats = JSON.parse(JSON.stringify(chainStats, (key, value) =>
+            typeof value === 'bigint' ? value.toString() : value
+          ));
+          return NextResponse.json({ ok: true, stats: serializedChainStats });
         }
-        return NextResponse.json({ ok: true, stats: listener.getStats() });
+        // Serialize all stats
+        const allStats = listener.getStats();
+        const serializedAllStats = JSON.parse(JSON.stringify(allStats, (key, value) =>
+          typeof value === 'bigint' ? value.toString() : value
+        ));
+        return NextResponse.json({ ok: true, stats: serializedAllStats });
 
       default:
         return NextResponse.json(
@@ -63,34 +83,50 @@ export async function POST(request: NextRequest) {
     switch (action) {
       case 'start':
         if (listener.isListening()) {
+          const startStats = listener.getStats();
+          const serializedStartStats = JSON.parse(JSON.stringify(startStats, (key, value) =>
+            typeof value === 'bigint' ? value.toString() : value
+          ));
           return NextResponse.json({
             ok: true,
             message: 'Event listener is already running',
-            stats: listener.getStats(),
+            stats: serializedStartStats,
           });
         }
 
         await listener.start();
+        const afterStartStats = listener.getStats();
+        const serializedAfterStartStats = JSON.parse(JSON.stringify(afterStartStats, (key, value) =>
+          typeof value === 'bigint' ? value.toString() : value
+        ));
         return NextResponse.json({
           ok: true,
           message: 'Event listener started successfully',
-          stats: listener.getStats(),
+          stats: serializedAfterStartStats,
         });
 
       case 'stop':
         if (!listener.isListening()) {
+          const stopStats = listener.getStats();
+          const serializedStopStats = JSON.parse(JSON.stringify(stopStats, (key, value) =>
+            typeof value === 'bigint' ? value.toString() : value
+          ));
           return NextResponse.json({
             ok: true,
             message: 'Event listener is already stopped',
-            stats: listener.getStats(),
+            stats: serializedStopStats,
           });
         }
 
         await listener.stop();
+        const afterStopStats = listener.getStats();
+        const serializedAfterStopStats = JSON.parse(JSON.stringify(afterStopStats, (key, value) =>
+          typeof value === 'bigint' ? value.toString() : value
+        ));
         return NextResponse.json({
           ok: true,
           message: 'Event listener stopped successfully',
-          stats: listener.getStats(),
+          stats: serializedAfterStopStats,
         });
 
       case 'restart':
@@ -98,10 +134,14 @@ export async function POST(request: NextRequest) {
           await listener.stop();
         }
         await listener.start();
+        const restartStats = listener.getStats();
+        const serializedRestartStats = JSON.parse(JSON.stringify(restartStats, (key, value) =>
+          typeof value === 'bigint' ? value.toString() : value
+        ));
         return NextResponse.json({
           ok: true,
           message: 'Event listener restarted successfully',
-          stats: listener.getStats(),
+          stats: serializedRestartStats,
         });
 
       default:

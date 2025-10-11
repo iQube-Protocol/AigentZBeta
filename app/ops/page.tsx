@@ -547,8 +547,8 @@ export default function OpsPage() {
     { key: "sync_status", title: "Canister Sync Status" },
     { key: "icp_dvn", title: "ICP DVN" },
     { key: "dvn_mint_tests", title: "DVN Mint Tests" },
+    { key: "qct_event_monitor", title: "iQube & QCT Event Register" },
     { key: "qct_trading", title: "QCT Cross-Chain Trading" },
-    { key: "qct_event_monitor", title: "QCT Event Listener" },
     { key: "qct_rekey", title: "QCT Rekey (Stage 1A)" },
     { key: "btc_testnet", title: "BTC Testnet" },
     { key: "eth_sepolia", title: "Ethereum Sepolia" },
@@ -1176,14 +1176,14 @@ export default function OpsPage() {
             );
           }
 
+          // iQube & QCT Event Listener Monitor
+          if (key === "qct_event_monitor") {
+            return <QCTEventMonitor key={key} className="md:col-span-2 lg:col-span-3" />;
+          }
+
           // QCT Cross-Chain Trading card
           if (key === "qct_trading") {
             return <QCTTradingCard key={key} title={title} />;
-          }
-
-          // QCT Event Listener Monitor
-          if (key === "qct_event_monitor") {
-            return <QCTEventMonitor key={key} className="md:col-span-2 lg:col-span-3" />;
           }
 
           // QCT Rekey (Stage 1A) card
