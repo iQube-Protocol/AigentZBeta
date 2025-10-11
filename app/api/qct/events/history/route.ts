@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getQCTEventListener } from '@/services/qct/EventListener';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
