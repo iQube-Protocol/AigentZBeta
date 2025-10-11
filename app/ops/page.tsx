@@ -26,6 +26,7 @@ import { useSolanaTestnet } from "@/hooks/ops/useSolanaTestnet";
 import { useCrossChain } from "@/hooks/ops/useCrossChain";
 import { useIqbLatest } from "@/hooks/ops/useIqbLatest";
 import { QCTTradingCard } from "@/components/ops/QCTTradingCard";
+import { QCTEventMonitor } from "@/components/ops/QCTEventMonitor";
 import { Connection, Transaction, SystemProgram, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { getPhantomWallet } from '@/services/wallet/phantom';
 import { getUnisatWallet } from '@/services/wallet/unisat';
@@ -546,6 +547,7 @@ export default function OpsPage() {
     { key: "sync_status", title: "Canister Sync Status" },
     { key: "icp_dvn", title: "ICP DVN" },
     { key: "dvn_mint_tests", title: "DVN Mint Tests" },
+    { key: "qct_event_monitor", title: "iQube & QCT Event Register" },
     { key: "qct_trading", title: "QCT Cross-Chain Trading" },
     { key: "qct_rekey", title: "QCT Rekey (Stage 1A)" },
     { key: "btc_testnet", title: "BTC Testnet" },
@@ -1172,6 +1174,11 @@ export default function OpsPage() {
                 </div>
               </Card>
             );
+          }
+
+          // iQube & QCT Event Listener Monitor
+          if (key === "qct_event_monitor") {
+            return <QCTEventMonitor key={key} className="md:col-span-2 lg:col-span-3" />;
           }
 
           // QCT Cross-Chain Trading card

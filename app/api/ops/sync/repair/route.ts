@@ -74,12 +74,54 @@ export async function POST(request: Request) {
         // More DVN messages than receipts
         const deficit = dvnCount - posCount;
         
-        // Check if we should repair based on strategy and drift size
-        const shouldRepair = strategy === 'balance' || (strategy === 'auto' && deficit <= 10);
+        // When DVN has more messages than PoS, it means transactions are pending processing
+        // Auto-repair should trigger the proper flow: batch → anchor → LayerZero
+        const shouldAutoProcess = strategy === 'auto' && deficit >= 10;
         
-        if (shouldRepair) {
-          // Create receipts to match DVN messages
-          // This handles cases where transactions were batched but not yet anchored
+        if (shouldAutoProcess) {
+          // Execute the proper transaction processing flow
+          repairActions.push(`Detected ${deficit} DVN messages awaiting processing`);
+          repairActions.push('Drift has reached batching threshold (10+ items)');
+          repairActions.push('Executing proper transaction flow: batch → anchor → LayerZero');
+          
+          try {
+            // Step 1: Batch pending receipts
+            const batchResult = await pos.batch_now();
+            repairActions.push(`✓ Batched receipts: ${batchResult}`);
+            
+            // Step 2: Anchor to Bitcoin
+            const anchorResult = await pos.anchor();
+            repairActions.push(`✓ Anchored to Bitcoin: ${anchorResult}`);
+            
+            // Step 3: Process via LayerZero (return instruction for UI to handle)
+            repairActions.push(`✓ Ready for LayerZero processing`);
+            
+            return NextResponse.json({
+              ok: true,
+              message: 'Auto-processing completed - batch and anchor successful',
+              strategy,
+              before: { posCount, dvnCount, drift: Math.abs(posCount - dvnCount) },
+              after: { posCount, dvnCount, drift: Math.abs(posCount - dvnCount) },
+              actions: repairActions,
+              requiresLayerZero: true,
+              batchId: batchResult,
+              anchorId: anchorResult,
+              at: new Date().toISOString()
+            });
+          } catch (e: any) {
+            repairActions.push(`✗ Processing failed: ${e.message}`);
+            return NextResponse.json({
+              ok: false,
+              message: 'Auto-processing failed',
+              strategy,
+              before: { posCount, dvnCount, drift: Math.abs(posCount - dvnCount) },
+              actions: repairActions,
+              error: e.message,
+              at: new Date().toISOString()
+            }, { status: 500 });
+          }
+        } else if (strategy === 'balance') {
+          // Force balance by creating sync receipts (manual override)
           for (let i = 0; i < deficit; i++) {
             try {
               const syncData = `sync_repair_${Date.now()}_${i}`;
@@ -91,18 +133,21 @@ export async function POST(request: Request) {
           }
           newPosCount = posCount + deficit;
         } else {
-          // Large drift (>10) with auto strategy - likely legitimate lifecycle drift
-          repairActions.push(`Detected ${deficit} more DVN messages than PoS receipts`);
-          repairActions.push('This is normal after transactions are minted');
-          repairActions.push('DVN messages should be processed via LayerZero verification');
-          repairActions.push('Use "balance" strategy to force repair if needed');
+          // Small drift (<10) - process via LayerZero without batching
+          repairActions.push(`Detected ${deficit} DVN messages awaiting processing`);
+          repairActions.push('Drift is below batching threshold (10 items)');
+          repairActions.push('Processing via LayerZero without batching');
+          
+          // For small drifts, just trigger LayerZero processing
           return NextResponse.json({
             ok: true,
-            message: 'No repair needed - use balance strategy to force repair',
+            message: 'Processing via LayerZero (no batching required)',
             strategy,
             before: { posCount, dvnCount, drift: Math.abs(posCount - dvnCount) },
             after: { posCount, dvnCount, drift: Math.abs(posCount - dvnCount) },
             actions: repairActions,
+            requiresLayerZero: true,
+            skipBatch: true,
             at: new Date().toISOString()
           });
         }
