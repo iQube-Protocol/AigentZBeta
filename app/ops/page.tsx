@@ -25,7 +25,7 @@ import { useDVNMonitor } from "@/hooks/ops/useDVNMonitor";
 import { useSolanaTestnet } from "@/hooks/ops/useSolanaTestnet";
 import { useCrossChain } from "@/hooks/ops/useCrossChain";
 import { useIqbLatest } from "@/hooks/ops/useIqbLatest";
-import QCTTradingCard from "@/components/ops/QCTTradingCard";
+import { QCTTradingCard } from "@/components/ops/QCTTradingCard";
 import QCTCrossTradingCard from "@/components/ops/QCTCrossTradingCard";
 
 // Feature flags (default Solana ON unless explicitly disabled)
