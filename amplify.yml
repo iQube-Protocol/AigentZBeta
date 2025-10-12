@@ -5,8 +5,16 @@ applications:
       phases:
         preBuild:
           commands:
+<<<<<<< HEAD
             - echo "Setting Node.js version to 20.18.0..."
             - nvm use 20.18.0
+=======
+            - echo "Installing Node.js 20.18.0..."
+            - nvm install 20.18.0
+            - nvm use 20.18.0
+            - echo "Node.js version:"
+            - node --version
+>>>>>>> fix/qct-card-layout-and-balances
             - echo "Installing dependencies..."
             - npm ci
         build:
