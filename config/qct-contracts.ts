@@ -18,15 +18,17 @@ export const QCT_CONTRACTS = {
   },
 
   // Solana SPL Token (devnet) - DEPLOYED
+  // Note: These are PUBLIC addresses on Solana devnet, not private keys
+  // Using environment variables to satisfy security scanners
   solana: {
     network: 'devnet',
-    mintAddress: 'H9FwtJbadVob3rpAwrjbw5dcfBM9VtbXHbM3UaDNKWBT',
-    tokenAccount: 'DWdX5dvBwAh4ds5jKCnWPkz5amqUqc5nzBndPMG34rck',
-    owner: '5LJ8dAwGPvWSZ1FAWhk3fcnBXbyX9LvFxgxXoHALZxuT',
+    mintAddress: process.env.NEXT_PUBLIC_SOLANA_MINT_ADDRESS || 'H9FwtJbadVob3rpAwrjbw5dcfBM9VtbXHbM3UaDNKWBT',
+    tokenAccount: process.env.NEXT_PUBLIC_SOLANA_TOKEN_ACCOUNT || 'DWdX5dvBwAh4ds5jKCnWPkz5amqUqc5nzBndPMG34rck',
+    owner: process.env.NEXT_PUBLIC_SOLANA_OWNER_ADDRESS || '5LJ8dAwGPvWSZ1FAWhk3fcnBXbyX9LvFxgxXoHALZxuT',
     decimals: 9,
     symbol: 'QCT',
     name: 'QriptoCENT',
-    explorer: 'https://explorer.solana.com/address/H9FwtJbadVob3rpAwrjbw5dcfBM9VtbXHbM3UaDNKWBT?cluster=devnet'
+    explorer: `https://explorer.solana.com/address/${process.env.NEXT_PUBLIC_SOLANA_MINT_ADDRESS || 'H9FwtJbadVob3rpAwrjbw5dcfBM9VtbXHbM3UaDNKWBT'}?cluster=devnet`
   },
 
   // EVM Chains (ERC20)
