@@ -4,63 +4,69 @@
  */
 
 export const QCT_CONTRACTS = {
-  // Bitcoin Runes
+  // Bitcoin (testnet) - DEPLOYED
   bitcoin: {
     network: 'testnet',
-    runeName: 'QRIPTOCENT',
-    runeId: 'PENDING', // Update after 6 confirmations
-    deploymentTx: '61f7b8e6682f29235ee2f3096132ef9fce0cf094bc22c8d2fbb067aef6ee29f2',
-    explorer: 'https://mempool.space/testnet/tx/61f7b8e6682f29235ee2f3096132ef9fce0cf094bc22c8d2fbb067aef6ee29f2',
+    establishmentTx: 'caaabee2695d173d718f012b065514f1b313fcad767dc3d836056cdb74de1903',
+    address: 'tb1qywewf6kshzgvq9awzr46awhylu40v68tr8acm2',
+    blockHeight: 4736703,
     decimals: 8,
-    symbol: 'Q¢'
+    symbol: 'QCT',
+    name: 'QriptoCENT',
+    totalSupply: '1000000000',
+    explorer: 'https://mempool.space/testnet/tx/caaabee2695d173d718f012b065514f1b313fcad767dc3d836056cdb74de1903'
   },
 
-  // Solana SPL
+  // Solana SPL Token (devnet) - DEPLOYED
   solana: {
     network: 'devnet',
-    mintAddress: 'PENDING', // Deploy with deploy:qct-spl
+    mintAddress: 'H9FwtJbadVob3rpAwrjbw5dcfBM9VtbXHbM3UaDNKWBT',
+    tokenAccount: 'DWdX5dvBwAh4ds5jKCnWPkz5amqUqc5nzBndPMG34rck',
+    owner: '5LJ8dAwGPvWSZ1FAWhk3fcnBXbyX9LvFxgxXoHALZxuT',
     decimals: 9,
-    symbol: 'QCT'
+    symbol: 'QCT',
+    name: 'QriptoCENT',
+    explorer: 'https://explorer.solana.com/address/H9FwtJbadVob3rpAwrjbw5dcfBM9VtbXHbM3UaDNKWBT?cluster=devnet'
   },
 
   // EVM Chains (ERC20)
   evm: {
     sepolia: {
       chainId: 11155111,
-      address: '0x5FbDB2315678afecb367f032d93F642f64180aa3',
-      explorer: 'https://sepolia.etherscan.io/address/0x5FbDB2315678afecb367f032d93F642f64180aa3',
+      address: '0x4C4f1aD931589449962bB675bcb8e95672349d09',
+      explorer: 'https://sepolia.etherscan.io/address/0x4C4f1aD931589449962bB675bcb8e95672349d09',
       decimals: 18,
       symbol: 'QCT',
       name: 'QriptoCENT'
     },
     amoy: {
       chainId: 80002,
-      address: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
-      explorer: 'https://amoy.polygonscan.com/address/0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
+      address: '0x4C4f1aD931589449962bB675bcb8e95672349d09',
+      explorer: 'https://amoy.polygonscan.com/address/0x4C4f1aD931589449962bB675bcb8e95672349d09',
       decimals: 18,
       symbol: 'QCT',
       name: 'QriptoCENT'
     },
     arbitrumSepolia: {
       chainId: 421614,
-      address: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
-      explorer: 'https://sepolia.arbiscan.io/address/0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
+      address: '0x4C4f1aD931589449962bB675bcb8e95672349d09',
+      explorer: 'https://sepolia.arbiscan.io/address/0x4C4f1aD931589449962bB675bcb8e95672349d09',
       decimals: 18,
       symbol: 'QCT',
       name: 'QriptoCENT'
     },
     optimismSepolia: {
       chainId: 11155420,
-      address: '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9',
-      explorer: 'https://sepolia-optimism.etherscan.io/address/0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9',
+      address: '0x4C4f1aD931589449962bB675bcb8e95672349d09',
+      explorer: 'https://sepolia-optimism.etherscan.io/address/0x4C4f1aD931589449962bB675bcb8e95672349d09',
       decimals: 18,
       symbol: 'QCT',
       name: 'QriptoCENT'
     },
     baseSepolia: {
       chainId: 84532,
-      address: '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9',
-      explorer: 'https://sepolia.basescan.org/address/0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9',
+      address: '0x4C4f1aD931589449962bB675bcb8e95672349d09',
+      explorer: 'https://sepolia.basescan.org/address/0x4C4f1aD931589449962bB675bcb8e95672349d09',
       decimals: 18,
       symbol: 'QCT',
       name: 'QriptoCENT'

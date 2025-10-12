@@ -109,7 +109,7 @@ export function QCTEventMonitor({ className = '' }: QCTEventMonitorProps) {
   };
 
   return (
-    <div className={className}>
+    <div className={`rounded-lg border border-slate-700 bg-slate-900/60 shadow-sm backdrop-blur p-6 ${className}`}>
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
@@ -176,41 +176,42 @@ export function QCTEventMonitor({ className = '' }: QCTEventMonitorProps) {
         </div>
       </div>
 
-      {/* Control Buttons */}
-      <div className="flex gap-2 mb-6">
-        <button
-          onClick={handleStart}
-          disabled={isRunning || actionLoading === 'start'}
-          className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 text-emerald-300 rounded-lg hover:bg-emerald-500/20 border border-emerald-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          <Play className="w-4 h-4" />
-          {actionLoading === 'start' ? 'Starting...' : 'Start Listener'}
-        </button>
+      {/* Control Buttons & Chain Status Summary */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex gap-2">
+          <button
+            onClick={handleStart}
+            disabled={isRunning || actionLoading === 'start'}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 text-emerald-300 rounded-lg hover:bg-emerald-500/20 border border-emerald-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <Play className="w-4 h-4" />
+            {actionLoading === 'start' ? 'Starting...' : 'Start'}
+          </button>
 
-        <button
-          onClick={handleStop}
-          disabled={!isRunning || actionLoading === 'stop'}
-          className="flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-300 rounded-lg hover:bg-red-500/20 border border-red-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          <Square className="w-4 h-4" />
-          {actionLoading === 'stop' ? 'Stopping...' : 'Stop Listener'}
-        </button>
+          <button
+            onClick={handleStop}
+            disabled={!isRunning || actionLoading === 'stop'}
+            className="flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-300 rounded-lg hover:bg-red-500/20 border border-red-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <Square className="w-4 h-4" />
+            {actionLoading === 'stop' ? 'Stopping...' : 'Stop'}
+          </button>
 
-        <button
-          onClick={handleRestart}
-          disabled={actionLoading === 'restart'}
-          className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 text-amber-300 rounded-lg hover:bg-amber-500/20 border border-amber-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          <RotateCcw className="w-4 h-4" />
-          {actionLoading === 'restart' ? 'Restarting...' : 'Restart'}
-        </button>
-      </div>
+          <button
+            onClick={handleRestart}
+            disabled={actionLoading === 'restart'}
+            className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 text-amber-300 rounded-lg hover:bg-amber-500/20 border border-amber-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <RotateCcw className="w-4 h-4" />
+            {actionLoading === 'restart' ? 'Restarting...' : 'Restart'}
+          </button>
+        </div>
 
-      {/* Chain Status Details */}
-      {status && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-medium text-slate-300">Chain Status</h3>
+        {status && (
+          <div className="flex items-center gap-4">
+            <div className="text-sm text-slate-300">
+              {getRunningChains()}/{enabledChains} chains • {getTotalEvents().toLocaleString()} events
+            </div>
             <button
               onClick={() => setShowChainDetails(!showChainDetails)}
               className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-300 transition-colors"
@@ -228,9 +229,13 @@ export function QCTEventMonitor({ className = '' }: QCTEventMonitorProps) {
               )}
             </button>
           </div>
+        )}
+      </div>
 
-          {/* Collapsed Summary */}
-          {!showChainDetails && (
+      {/* Chain Status Details */}
+      {status && showChainDetails && (
+        <div className="space-y-3 mb-6">
+          <h3 className="text-sm font-medium text-slate-300">Per-Chain Status</h3>
             <div className="bg-slate-800/30 rounded-lg p-3">
               <div className="flex items-center justify-between text-sm">
                 <div className="flex items-center gap-4">
