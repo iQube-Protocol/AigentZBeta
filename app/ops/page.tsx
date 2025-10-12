@@ -27,6 +27,13 @@ import { useCrossChain } from "@/hooks/ops/useCrossChain";
 import { useIqbLatest } from "@/hooks/ops/useIqbLatest";
 import { QCTTradingCard } from "@/components/ops/QCTTradingCard";
 import QCTCrossTradingCard from "@/components/ops/QCTCrossTradingCard";
+import { QCTDashboard } from "@/components/ops/QCTDashboard";
+import { QCTEventMonitor } from "@/components/ops/QCTEventMonitor";
+import { getPhantomWallet } from "@/services/wallet/phantom";
+import { getUnisatWallet } from "@/services/wallet/unisat";
+import { QCTAnalyticsCard } from "@/components/ops/QCTAnalyticsCard";
+import { QCTTreasuryCard } from "@/components/ops/QCTTreasuryCard";
+import { Connection, PublicKey, SystemProgram, Transaction } from "@solana/web3.js";
 
 // Feature flags (default Solana ON unless explicitly disabled)
 const FEATURE_SOLANA_OPS = process.env.NEXT_PUBLIC_FEATURE_SOLANA_OPS !== "false";
