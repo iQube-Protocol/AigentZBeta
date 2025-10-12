@@ -92,20 +92,6 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
     return chainIdMap[chainId] || 80002;
   };
 
-  // Get chain decimals for amount conversion
-  const getChainDecimals = (chainId: string): number => {
-    const decimalsMap: Record<string, number> = {
-      bitcoin: 8,
-      ethereum: 18,
-      polygon: 18,
-      arbitrum: 18,
-      optimism: 18,
-      base: 18,
-      solana: 9,
-    };
-    return decimalsMap[chainId] || 18;
-  };
-
   // Auto-check wallet connections on mount
   useEffect(() => {
     const checkWallets = async () => {
