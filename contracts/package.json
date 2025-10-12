@@ -1,0 +1,22 @@
+{
+  "name": "qct-contracts",
+  "version": "1.0.0",
+  "description": "QCT Token smart contracts",
+  "scripts": {
+    "compile": "hardhat compile",
+    "deploy:sepolia": "hardhat run scripts/deploy-qct.js --network sepolia",
+    "deploy:amoy": "hardhat run scripts/deploy-qct.js --network amoy",
+    "deploy:arbitrum": "hardhat run scripts/deploy-qct.js --network arbitrumSepolia",
+    "deploy:optimism": "hardhat run scripts/deploy-qct.js --network optimismSepolia",
+    "deploy:base": "hardhat run scripts/deploy-qct.js --network baseSepolia",
+    "deploy:all": "npm run deploy:sepolia && npm run deploy:amoy && npm run deploy:arbitrum && npm run deploy:optimism && npm run deploy:base"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^4.9.3"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^3.0.2",
+    "hardhat": "^2.17.1",
+    "dotenv": "^16.3.1"
+  }
+}
