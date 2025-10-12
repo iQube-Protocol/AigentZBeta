@@ -461,6 +461,21 @@ For a comprehensive, program-ready report covering inception to current status, 
 
 - `docs/PROGRESS_REPORT.md`
 
+## 🚨 DVN Deployment Configuration
+
+**CRITICAL**: The DVN (cross_chain_service) canister requires updated environment variables for AWS Amplify deployment.
+
+### Required Environment Variables
+
+```bash
+CROSS_CHAIN_SERVICE_CANISTER_ID=sp5ye-2qaaa-aaaao-qkqla-cai
+NEXT_PUBLIC_CROSS_CHAIN_SERVICE_CANISTER_ID=sp5ye-2qaaa-aaaao-qkqla-cai
+```
+
+See `DEPLOYMENT_CONFIG.md` for complete configuration details.
+
+**Without these environment variables, the DVN functionality will not work correctly.**
+
 ## Contact
 
 - Project Lead: [Your Name]

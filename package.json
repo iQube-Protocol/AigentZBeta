@@ -1,6 +1,6 @@
 {
   "name": "qubeagent-frontend",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "scripts": {
     "dev": "NEXT_TELEMETRY_DISABLED=1 next dev",
@@ -11,6 +11,7 @@
   "dependencies": {
     "@dfinity/agent": "^3.2.6",
     "@dfinity/candid": "^3.2.6",
+    "@dfinity/identity": "^3.2.7",
     "@dfinity/principal": "^3.2.6",
     "@radix-ui/react-label": "^2.1.7",
     "@radix-ui/react-select": "^2.2.6",

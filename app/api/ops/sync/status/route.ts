@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+export const fetchCache = 'force-no-store';
 import { getActor } from '@/services/ops/icAgent';
 import { idlFactory as posIdl } from '@/services/ops/idl/proof_of_state';
 import { idlFactory as dvnIdl } from '@/services/ops/idl/cross_chain_service';
@@ -29,16 +33,7 @@ export async function GET(req: NextRequest) {
     ]);
 
     const posCount = Number(posPendingCount);
-    let dvnCount = Array.isArray(dvnPendingMessages) ? dvnPendingMessages.length : 0;
-    // Add locally tracked pending from cookie
-    try {
-      const cookie = req.headers.get('cookie') || '';
-      const match = cookie.match(/(?:^|; )dvn_local_pending=([^;]+)/);
-      if (match) {
-        const arr = JSON.parse(decodeURIComponent(match[1]));
-        if (Array.isArray(arr)) dvnCount += arr.length;
-      }
-    } catch {}
+    const dvnCount = Array.isArray(dvnPendingMessages) ? dvnPendingMessages.length : 0;
     const isSynchronized = posCount === dvnCount;
     const drift = Math.abs(posCount - dvnCount);
 
@@ -66,35 +61,43 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({
-      ok: true,
-      syncStatus,
-      severity,
-      isSynchronized,
-      isLegitimate,
-      drift,
-      canisters: {
-        proofOfState: {
-          id: POS_ID,
-          pendingCount: posCount
+    {
+      const res = NextResponse.json({
+        ok: true,
+        syncStatus,
+        severity,
+        isSynchronized,
+        isLegitimate,
+        drift,
+        canisters: {
+          proofOfState: {
+            id: POS_ID,
+            pendingCount: posCount
+          },
+          dvn: {
+            id: DVN_ID,
+            pendingCount: dvnCount
+          }
         },
-        dvn: {
-          id: DVN_ID,
-          pendingCount: dvnCount
-        }
-      },
-      recommendations: getSyncRecommendations(syncStatus, drift),
-      at: new Date().toISOString()
-    });
+        recommendations: getSyncRecommendations(syncStatus, drift),
+        at: new Date().toISOString()
+      });
+      res.headers.set('Cache-Control', 'no-store, no-cache, max-age=0, must-revalidate');
+      return res;
+    }
 
   } catch (error: any) {
     console.error('Sync status API error:', error);
-    return NextResponse.json({
-      ok: false,
-      error: error.message,
-      syncStatus: 'error',
-      severity: 'critical'
-    }, { status: 500 });
+    {
+      const res = NextResponse.json({
+        ok: false,
+        error: error.message,
+        syncStatus: 'error',
+        severity: 'critical'
+      }, { status: 500 });
+      res.headers.set('Cache-Control', 'no-store, no-cache, max-age=0, must-revalidate');
+      return res;
+    }
   }
 }
 
