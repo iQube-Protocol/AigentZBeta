@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+export const fetchCache = 'force-no-store';
 import { getActor } from '@/services/ops/icAgent';
 import { idlFactory as dvnIdl } from '@/services/ops/idl/cross_chain_service';
 
@@ -6,6 +10,7 @@ export async function GET(req: NextRequest) {
   try {
     // Get DVN canister ID from environment
     const DVN_ID = (process.env.CROSS_CHAIN_SERVICE_CANISTER_ID || process.env.NEXT_PUBLIC_CROSS_CHAIN_SERVICE_CANISTER_ID) as string;
+    const MOCK_MODE = process.env.DVN_MOCK_MODE === 'true' || process.env.NEXT_PUBLIC_DVN_MOCK_MODE === 'true';
     
     if (!DVN_ID) {
       return NextResponse.json({
@@ -15,6 +20,22 @@ export async function GET(req: NextRequest) {
         icpReceipt: '—',
         lockStatus: 'Unknown',
         unlockHeight: '—',
+        at: new Date().toISOString()
+      });
+    }
+
+    // Mock mode - return simulated data
+    if (MOCK_MODE) {
+      return NextResponse.json({
+        ok: true,
+        evmTx: '0x1234567890abcdef1234567890abcdef12345678',
+        icpReceipt: 'mock-receipt-id-12345',
+        lockStatus: 'Locked',
+        unlockHeight: '1 pending (mock)',
+        pendingMessages: 1,
+        canisterId: DVN_ID,
+        mockMode: true,
+        note: 'DVN canister deployment pending - using mock data',
         at: new Date().toISOString()
       });
     }
@@ -63,28 +84,36 @@ export async function GET(req: NextRequest) {
       } catch {}
     }
 
-    return NextResponse.json({
-      ok: true,
-      evmTx,
-      icpReceipt,
-      lockStatus,
-      unlockHeight,
-      pendingMessages: Array.isArray(pendingMessages) ? pendingMessages.length : 0,
-      canisterId: DVN_ID,
-      // attestations omitted from status; available via /api/ops/dvn/tx?id=...
-      at: new Date().toISOString()
-    });
+    {
+      const res = NextResponse.json({
+        ok: true,
+        evmTx,
+        icpReceipt,
+        lockStatus,
+        unlockHeight,
+        pendingMessages: Array.isArray(pendingMessages) ? pendingMessages.length : 0,
+        canisterId: DVN_ID,
+        // attestations omitted from status; available via /api/ops/dvn/tx?id=...
+        at: new Date().toISOString()
+      });
+      res.headers.set('Cache-Control', 'no-store, no-cache, max-age=0, must-revalidate');
+      return res;
+    }
 
   } catch (error: any) {
     console.error('DVN API error:', error);
-    return NextResponse.json({
-      ok: false,
-      error: error.message,
-      evmTx: '—',
-      icpReceipt: '—',
-      lockStatus: 'Error',
-      unlockHeight: '—',
-      at: new Date().toISOString()
-    });
+    {
+      const res = NextResponse.json({
+        ok: false,
+        error: error.message,
+        evmTx: '—',
+        icpReceipt: '—',
+        lockStatus: 'Error',
+        unlockHeight: '—',
+        at: new Date().toISOString()
+      });
+      res.headers.set('Cache-Control', 'no-store, no-cache, max-age=0, must-revalidate');
+      return res;
+    }
   }
 }

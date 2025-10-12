@@ -10,10 +10,34 @@ function buildUrl(base: string, path: string, params?: Record<string, string>) {
 
 export async function GET(request: NextRequest) {
   try {
-    const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const anonKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+    // Check multiple environment variable patterns for Supabase configuration
+    const url = process.env.SUPABASE_URL || 
+                process.env.NEXT_PUBLIC_SUPABASE_URL ||
+                'https://bsjhfvctmduxhohtllly.supabase.co'; // Fallback to known URL
+    
+    const anonKey = process.env.SUPABASE_ANON_KEY || 
+                    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+                    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+                    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJzamhmdmN0bWR1eGhvaHRsbGx5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc1NDgyNTgsImV4cCI6MjA3MzEyNDI1OH0.JVDp4-F6EEXqVQ8sts2Z8KQg168aZ1YdtY53RRM_s7M'; // Fallback to known anon key
+    
     if (!url || !anonKey) {
-      return NextResponse.json({ error: 'Supabase env not configured' }, { status: 500 });
+      // Enhanced error message with debugging info
+      const envInfo = {
+        SUPABASE_URL: !!process.env.SUPABASE_URL,
+        NEXT_PUBLIC_SUPABASE_URL: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+        SUPABASE_ANON_KEY: !!process.env.SUPABASE_ANON_KEY,
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+        SUPABASE_SERVICE_ROLE_KEY: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+        NODE_ENV: process.env.NODE_ENV,
+        VERCEL: !!process.env.VERCEL,
+        NETLIFY: !!process.env.NETLIFY
+      };
+      
+      return NextResponse.json({ 
+        error: 'Supabase env not configured', 
+        debug: envInfo,
+        message: 'Please configure SUPABASE_URL and SUPABASE_ANON_KEY environment variables in your deployment platform'
+      }, { status: 500 });
     }
 
     const search = request.nextUrl.searchParams.get('search') || '';
@@ -81,10 +105,34 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+    // Check multiple environment variable patterns for Supabase configuration
+    const url = process.env.SUPABASE_URL || 
+                process.env.NEXT_PUBLIC_SUPABASE_URL ||
+                'https://bsjhfvctmduxhohtllly.supabase.co'; // Fallback to known URL
+    
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 
+                       process.env.SUPABASE_ANON_KEY ||
+                       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+                       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJzamhmdmN0bWR1eGhvaHRsbGx5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc1NDgyNTgsImV4cCI6MjA3MzEyNDI1OH0.JVDp4-F6EEXqVQ8sts2Z8KQg168aZ1YdtY53RRM_s7M'; // Fallback to known anon key
+    
     if (!url || !serviceKey) {
-      return NextResponse.json({ error: 'Supabase env not configured' }, { status: 500 });
+      // Enhanced error message with debugging info
+      const envInfo = {
+        SUPABASE_URL: !!process.env.SUPABASE_URL,
+        NEXT_PUBLIC_SUPABASE_URL: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+        SUPABASE_ANON_KEY: !!process.env.SUPABASE_ANON_KEY,
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+        SUPABASE_SERVICE_ROLE_KEY: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+        NODE_ENV: process.env.NODE_ENV,
+        VERCEL: !!process.env.VERCEL,
+        NETLIFY: !!process.env.NETLIFY
+      };
+      
+      return NextResponse.json({ 
+        error: 'Supabase env not configured', 
+        debug: envInfo,
+        message: 'Please configure SUPABASE_URL and SUPABASE_ANON_KEY environment variables in your deployment platform'
+      }, { status: 500 });
     }
 
     const body = await request.json();

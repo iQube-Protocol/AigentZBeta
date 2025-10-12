@@ -154,9 +154,17 @@ function QCTRekeyCard({ title }: { title: string }) {
 
       setResult(data);
       
-      // Refresh key fingerprints after successful rekey
+      // Refresh key fingerprints after successful rekey (Firefox-compatible)
       if (!dryRun) {
-        setTimeout(loadKeyFingerprints, 2000);
+        // Use Promise-based delay for better Firefox compatibility
+        Promise.resolve().then(async () => {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          try {
+            await loadKeyFingerprints();
+          } catch (error) {
+            console.warn('Key fingerprints refresh failed:', error);
+          }
+        });
       }
 
     } catch (error: any) {
@@ -1218,10 +1226,31 @@ export default function OpsPage() {
               try {
                 const result = await syncStatus.processLayerZero('process_pending');
                 alert(`LayerZero processing completed: ${result.message}\nProcessed: ${result.processed}/${result.total} messages`);
-                try { await dvn.refresh?.(); } catch {}
-                try { await syncStatus.refresh?.(); } catch {}
-                // Slight delayed refresh to catch eventual consistency
-                setTimeout(() => { dvn.refresh?.(); syncStatus.refresh?.(); }, 1200);
+                
+                // Firefox-compatible async refresh with proper error handling
+                const refreshWithDelay = async (refreshFn: (() => Promise<void>) | undefined, delay: number = 0) => {
+                  if (!refreshFn) return;
+                  try {
+                    if (delay > 0) {
+                      await new Promise(resolve => setTimeout(resolve, delay));
+                    }
+                    await refreshFn();
+                  } catch (error) {
+                    console.warn('Refresh failed:', error);
+                  }
+                };
+
+                // Immediate refresh
+                await Promise.allSettled([
+                  refreshWithDelay(dvn.refresh),
+                  refreshWithDelay(syncStatus.refresh)
+                ]);
+
+                // Delayed refresh for eventual consistency (Firefox-compatible)
+                await Promise.allSettled([
+                  refreshWithDelay(dvn.refresh, 1200),
+                  refreshWithDelay(syncStatus.refresh, 1200)
+                ]);
               } catch (e: any) {
                 alert(`LayerZero processing failed: ${e.message}`);
               }
@@ -1433,6 +1462,24 @@ export default function OpsPage() {
               await dvnMon.query(dvnMon.messageId);
             }
 
+            // Get chain config with multiple RPC fallbacks
+            const getChainConfig = (chainId: number) => {
+              switch (chainId) {
+                case 11155111: return { hex: '0xaa36a7', name: 'Ethereum Sepolia', symbol: 'ETH', rpc: 'https://rpc.sepolia.org', explorer: 'https://sepolia.etherscan.io' };
+                case 80002: return { 
+                  hex: '0x13882', 
+                  name: 'Polygon Amoy', 
+                  symbol: 'POL', 
+                  rpc: 'https://rpc-amoy.polygon.technology', // Official Polygon RPC
+                  explorer: 'https://www.oklink.com/amoy' 
+                };
+                case 11155420: return { hex: '0xaa37dc', name: 'Optimism Sepolia', symbol: 'ETH', rpc: 'https://sepolia.optimism.io', explorer: 'https://sepolia-optimism.etherscan.io' };
+                case 421614: return { hex: '0x66eee', name: 'Arbitrum Sepolia', symbol: 'ETH', rpc: 'https://sepolia-rollup.arbitrum.io/rpc', explorer: 'https://sepolia.arbiscan.io' };
+                case 84532: return { hex: '0x14a34', name: 'Base Sepolia', symbol: 'ETH', rpc: 'https://sepolia.base.org', explorer: 'https://sepolia.basescan.org' };
+                default: return { hex: '0xaa36a7', name: 'Ethereum Sepolia', symbol: 'ETH', rpc: 'https://rpc.sepolia.org', explorer: 'https://sepolia.etherscan.io' };
+              }
+            };
+
             async function createTestTx() {
               try {
                 // Non-EVM chains can't create MetaMask transactions
@@ -1444,24 +1491,6 @@ export default function OpsPage() {
                 const ethAll: any = (window as any).ethereum;
                 const eth: any = ethAll?.providers?.find((p: any) => p && p.isMetaMask) ?? ethAll;
                 if (!eth) throw new Error('No injected wallet found');
-                
-                // Get chain config with multiple RPC fallbacks
-                const getChainConfig = (chainId: number) => {
-                  switch (chainId) {
-                    case 11155111: return { hex: '0xaa36a7', name: 'Ethereum Sepolia', symbol: 'ETH', rpc: 'https://rpc.sepolia.org', explorer: 'https://sepolia.etherscan.io' };
-                    case 80002: return { 
-                      hex: '0x13882', 
-                      name: 'Polygon Amoy', 
-                      symbol: 'MATIC', 
-                      rpc: 'https://rpc-amoy.polygon.technology', // Official Polygon RPC
-                      explorer: 'https://www.oklink.com/amoy' 
-                    };
-                    case 11155420: return { hex: '0xaa37dc', name: 'Optimism Sepolia', symbol: 'ETH', rpc: 'https://sepolia.optimism.io', explorer: 'https://sepolia-optimism.etherscan.io' };
-                    case 421614: return { hex: '0x66eee', name: 'Arbitrum Sepolia', symbol: 'ETH', rpc: 'https://sepolia-rollup.arbitrum.io/rpc', explorer: 'https://sepolia.arbiscan.io' };
-                    case 84532: return { hex: '0x14a34', name: 'Base Sepolia', symbol: 'ETH', rpc: 'https://sepolia.base.org', explorer: 'https://sepolia.basescan.org' };
-                    default: return { hex: '0xaa36a7', name: 'Ethereum Sepolia', symbol: 'ETH', rpc: 'https://rpc.sepolia.org', explorer: 'https://sepolia.etherscan.io' };
-                  }
-                };
                 
                 const chainConfig = getChainConfig(dvnChainId);
                 
@@ -1521,7 +1550,28 @@ export default function OpsPage() {
                 }
               } catch (e: any) {
                 console.error('createTestTx error:', e);
-                alert(e?.message || 'Failed to create test transaction. Ensure MetaMask is installed and unlocked.');
+                let errorMsg = e?.message || 'Failed to create test transaction';
+                
+                // Provide helpful error messages
+                if (e?.code === -32603 || errorMsg.includes('Internal JSON-RPC error')) {
+                  const faucetLinks: Record<number, string> = {
+                    11155111: 'Ethereum Sepolia: https://sepoliafaucet.com/',
+                    80002: 'Polygon Amoy: https://faucet.polygon.technology/',
+                    11155420: 'Optimism Sepolia: https://app.optimism.io/faucet',
+                    421614: 'Arbitrum Sepolia: https://faucet.quicknode.com/arbitrum/sepolia',
+                    84532: 'Base Sepolia: https://www.coinbase.com/faucets/base-ethereum-goerli-faucet'
+                  };
+                  
+                  errorMsg = `Transaction failed. Common causes:\n\n` +
+                    `• Insufficient gas funds (need testnet ${getChainConfig(dvnChainId).symbol})\n` +
+                    `• Network congestion\n` +
+                    `• RPC endpoint issue\n\n` +
+                    `Get testnet tokens:\n${faucetLinks[dvnChainId] || 'Check network documentation'}`;
+                } else if (e?.code === 4001) {
+                  errorMsg = 'Transaction rejected by user';
+                }
+                
+                alert(errorMsg);
               }
             }
 
