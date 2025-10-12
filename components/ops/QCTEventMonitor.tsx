@@ -236,27 +236,26 @@ export function QCTEventMonitor({ className = '' }: QCTEventMonitorProps) {
       {status && showChainDetails && (
         <div className="space-y-3 mb-6">
           <h3 className="text-sm font-medium text-slate-300">Per-Chain Status</h3>
-            <div className="bg-slate-800/30 rounded-lg p-3">
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-4">
-                  <span className="text-slate-400">
-                    {getRunningChains()}/{enabledChains} chains running
+          <div className="bg-slate-800/30 rounded-lg p-3">
+            <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center gap-4">
+                <span className="text-slate-400">
+                  {getRunningChains()}/{enabledChains} chains running
+                </span>
+                {getErrorChains() > 0 && (
+                  <span className="text-red-400">
+                    {getErrorChains()} errors
                   </span>
-                  {getErrorChains() > 0 && (
-                    <span className="text-red-400">
-                      {getErrorChains()} errors
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-4 text-xs text-slate-400">
-                  <span>{getTotalEvents().toLocaleString()} events</span>
-                  <span>Click "Show Details" for per-chain stats • Click any chain to view transaction history</span>
-                </div>
+                )}
+              </div>
+              <div className="flex items-center gap-4 text-xs text-slate-400">
+                <span>{getTotalEvents().toLocaleString()} events</span>
+                <span>Click "Show Details" for per-chain stats • Click any chain to view transaction history</span>
               </div>
             </div>
-          )}
+          </div>
           
-          {showChainDetails && status.stats.map((stat) => {
+          {status.stats.map((stat) => {
             const chain = status.chains.find(c => c.chainId === stat.chainId);
             if (!chain) return null;
 
