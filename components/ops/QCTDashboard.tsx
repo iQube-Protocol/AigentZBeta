@@ -22,7 +22,7 @@ function Card({ title, children, actions, className }: { title: React.ReactNode;
 
 export function QCTDashboard({ title, className }: QCTDashboardProps) {
   const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
 
   // Qc Contract addresses from our deployment
   const contracts = {
@@ -117,65 +117,79 @@ export function QCTDashboard({ title, className }: QCTDashboardProps) {
   return (
     <Card 
       title={
-        <div className="flex items-center justify-between w-full">
-          <div className="flex items-center gap-3">
-            <Coins className="w-6 h-6 text-blue-400" />
-            <span>{title}</span>
-          </div>
+        <div className="flex items-center gap-3">
+          <Coins className="w-6 h-6 text-blue-400" />
+          <span>{title}</span>
+        </div>
+      }
+      actions={
+        <div className="flex items-center gap-4">
+          <span className="text-sm text-slate-300 font-normal">
+            7 chains • {(totalSupply / 1000000000).toFixed(1)}B Q¢ total supply • All chains live
+          </span>
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="p-1 text-slate-400 hover:text-slate-200 transition-colors"
-            title={isCollapsed ? 'Expand' : 'Collapse'}
+            className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-300 transition-colors"
           >
-            {isCollapsed ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
+            {isCollapsed ? (
+              <>
+                <ChevronDown className="w-4 h-4" />
+                Show Details
+              </>
+            ) : (
+              <>
+                <ChevronUp className="w-4 h-4" />
+                Hide Details
+              </>
+            )}
           </button>
         </div>
       }
       className={className}
     >
-      {isCollapsed && (
-        <div className="text-sm text-slate-400 mt-2">
-          7 chains • {(totalSupply / 1000000000).toFixed(1)}B Q¢ total supply • All chains live
+      {/* Description row */}
+      <div className="text-sm text-slate-400 -mt-2 mb-4">
+        Comprehensive overview of QCT token deployment across 7 blockchain networks
+      </div>
+
+      {/* Summary boxes - always visible */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+        <div className="bg-slate-800/50 rounded-lg p-3">
+          <div className="flex items-center gap-2 mb-1">
+            <Globe className="w-4 h-4 text-blue-400" />
+            <span className="text-xs text-slate-400">Total Chains</span>
+          </div>
+          <div className="text-lg font-semibold text-blue-300">7</div>
         </div>
-      )}
+        
+        <div className="bg-slate-800/50 rounded-lg p-3">
+          <div className="flex items-center gap-2 mb-1">
+            <Coins className="w-4 h-4 text-emerald-400" />
+            <span className="text-xs text-slate-400">Total Supply</span>
+          </div>
+          <div className="text-lg font-semibold text-emerald-300">
+            {(totalSupply / 1000000000).toFixed(1)}B
+          </div>
+        </div>
+        
+        <div className="bg-slate-800/50 rounded-lg p-3">
+          <div className="flex items-center gap-2 mb-1">
+            <TrendingUp className="w-4 h-4 text-amber-400" />
+            <span className="text-xs text-slate-400">QCT Rate</span>
+          </div>
+          <div className="text-lg font-semibold text-amber-300">$0.01</div>
+        </div>
+        
+        <div className="bg-slate-800/50 rounded-lg p-3">
+          <div className="flex items-center gap-2 mb-1">
+            <Activity className="w-4 h-4 text-purple-400" />
+            <span className="text-xs text-slate-400">Status</span>
+          </div>
+          <div className="text-lg font-semibold text-emerald-300">Live</div>
+        </div>
+      </div>
       {!isCollapsed && (
         <div className="space-y-6">
-        {/* Overview Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="bg-slate-800/50 rounded-lg p-3">
-            <div className="flex items-center gap-2 mb-1">
-              <Globe className="w-4 h-4 text-blue-400" />
-              <span className="text-xs text-slate-400">Total Chains</span>
-            </div>
-            <div className="text-lg font-semibold text-blue-300">7</div>
-          </div>
-          
-          <div className="bg-slate-800/50 rounded-lg p-3">
-            <div className="flex items-center gap-2 mb-1">
-              <Coins className="w-4 h-4 text-emerald-400" />
-              <span className="text-xs text-slate-400">Total Supply</span>
-            </div>
-            <div className="text-lg font-semibold text-emerald-300">
-              {(totalSupply / 1000000000).toFixed(1)}B
-            </div>
-          </div>
-          
-          <div className="bg-slate-800/50 rounded-lg p-3">
-            <div className="flex items-center gap-2 mb-1">
-              <TrendingUp className="w-4 h-4 text-amber-400" />
-              <span className="text-xs text-slate-400">QCT Rate</span>
-            </div>
-            <div className="text-lg font-semibold text-amber-300">$0.01</div>
-          </div>
-          
-          <div className="bg-slate-800/50 rounded-lg p-3">
-            <div className="flex items-center gap-2 mb-1">
-              <Activity className="w-4 h-4 text-purple-400" />
-              <span className="text-xs text-slate-400">Status</span>
-            </div>
-            <div className="text-lg font-semibold text-emerald-300">Live</div>
-          </div>
-        </div>
 
         {/* Contract Addresses */}
         <div className="space-y-3">

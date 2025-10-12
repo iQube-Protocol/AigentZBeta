@@ -266,7 +266,7 @@ export function QCTTreasuryCard({ title }: QCTTreasuryCardProps) {
               {['10', '50', '100'].map(amount => (
                 <button
                   key={amount}
-                  onClick={() => setTradeAmount(amount)}
+                  onClick={() => setTradeAmount(parseFloat(amount).toFixed(2))}
                   className="px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-slate-300"
                 >
                   {tradeType === 'buy' ? `$${amount}` : `${parseInt(amount) * 10}K Qc`}
@@ -277,7 +277,7 @@ export function QCTTreasuryCard({ title }: QCTTreasuryCardProps) {
               {['1000', '10000', '100000'].map(amount => (
                 <button
                   key={amount}
-                  onClick={() => setTradeAmount(amount)}
+                  onClick={() => setTradeAmount(parseFloat(amount).toFixed(2))}
                   className="px-2 py-1 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 rounded text-blue-300"
                 >
                   {tradeType === 'buy' ? `$${parseInt(amount).toLocaleString()}` : `${parseInt(amount) / 100}M Qc`}

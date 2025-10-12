@@ -92,6 +92,20 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
     return chainIdMap[chainId] || 80002;
   };
 
+  // Get chain decimals for amount conversion
+  const getChainDecimals = (chainId: string): number => {
+    const decimalsMap: Record<string, number> = {
+      bitcoin: 8,
+      ethereum: 18,
+      polygon: 18,
+      arbitrum: 18,
+      optimism: 18,
+      base: 18,
+      solana: 9,
+    };
+    return decimalsMap[chainId] || 18;
+  };
+
   // Auto-check wallet connections on mount
   useEffect(() => {
     const checkWallets = async () => {
@@ -369,7 +383,7 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
           </div>
 
           {/* Chain Selection with Wallet Badges */}
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-2 mt-4">
             <div>
               <label className="text-xs text-slate-400 block mb-1">From Chain</label>
               <select
@@ -382,7 +396,7 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
                 ))}
               </select>
               {/* Show wallet badge for From chain */}
-              <div className="mt-1">
+              <div className="mt-3">
                 {chains.find(c => c.id === selectedFromChain)?.type === 'evm' && evmAddress && (
                   <button
                     onClick={disconnectEVM}
@@ -436,6 +450,9 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
           </div>
         </div>
 
+        {/* Divider */}
+        <div className="border-t border-slate-700 my-4"></div>
+
         {/* Amount Input */}
         <div>
           <label className="text-xs text-slate-400 block mb-1">Amount (QCT)</label>
@@ -473,8 +490,37 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
           }
         </button>
 
+        {/* Quick Amount Buttons */}
+        <div className="space-y-1 pt-3 pb-6">
+          <div className="text-xs text-slate-400 mb-2">Quick Amounts</div>
+          <div className="grid grid-cols-3 gap-1 text-xs">
+            {['1000', '5000', '10000'].map(qctAmount => (
+              <button
+                key={qctAmount}
+                onClick={() => setAmount(parseInt(qctAmount).toFixed(2))}
+                className="px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-slate-300 truncate"
+                title={`Set amount to ${parseInt(qctAmount).toLocaleString()} Q¢`}
+              >
+                {parseInt(qctAmount).toLocaleString()} Q¢
+              </button>
+            ))}
+          </div>
+          <div className="grid grid-cols-3 gap-1 text-xs">
+            {['100000', '1000000', '10000000'].map(qctAmount => (
+              <button
+                key={qctAmount}
+                onClick={() => setAmount(parseInt(qctAmount).toFixed(2))}
+                className="px-2 py-1 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 rounded text-blue-300 truncate"
+                title={`Set amount to ${parseInt(qctAmount).toLocaleString()} Q¢`}
+              >
+                {parseInt(qctAmount) >= 1000000 ? `${parseInt(qctAmount) / 1000000}M` : `${parseInt(qctAmount) / 1000}K`} Q¢
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Mint/Burn Actions */}
-        <div className="flex gap-2 text-xs border-t border-slate-700 pt-3">
+        <div className="flex gap-2 text-xs border-t border-slate-700 pt-4 mt-8">
           <button
             onClick={() => {
               setMintBurnMode('mint');
@@ -500,7 +546,7 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
         </div>
 
         {/* Status */}
-        <div className="flex items-center justify-between text-xs border-t border-slate-700 pt-2">
+        <div className="flex items-center justify-between text-xs border-t border-slate-700 pt-4 mt-8">
           <span className="text-slate-400">Status:</span>
           <span className={loading ? "text-amber-400" : "text-emerald-400"}>
             {loading ? "Loading..." : "Ready"}

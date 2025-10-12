@@ -100,16 +100,25 @@ export function QCTAnalyticsCard({ title }: QCTAnalyticsCardProps) {
     }, 0);
   };
 
-  // Get chain distribution percentages
+  // Get chain distribution percentages with proper ordering
   const getChainDistribution = () => {
     const total = getTotalSupply();
-    return analytics.map(balance => {
+    const chainOrder = ['bitcoin', 'ethereum', 'polygon', 'arbitrum', 'optimism', 'base', 'solana'];
+    
+    const distributionData = analytics.map(balance => {
       const qctAmount = parseFloat(balance.balance) / Math.pow(10, balance.decimals);
       const percentage = total > 0 ? (qctAmount / total) * 100 : 0;
       return {
         ...balance,
         percentage: percentage.toFixed(1)
       };
+    });
+    
+    // Sort according to the desired order
+    return distributionData.sort((a, b) => {
+      const aIndex = chainOrder.indexOf(a.chain);
+      const bIndex = chainOrder.indexOf(b.chain);
+      return aIndex - bIndex;
     });
   };
 
