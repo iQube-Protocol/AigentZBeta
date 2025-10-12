@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
     if (!txHash || typeof txHash !== 'string') {
       return NextResponse.json({ ok: false, error: 'txHash is required' }, { status: 400 });
     }
-    if (!chainId || typeof chainId !== 'number') {
+    if (typeof chainId !== 'number') {
       return NextResponse.json({ ok: false, error: 'chainId is required' }, { status: 400 });
     }
 
@@ -22,6 +22,54 @@ export async function POST(req: NextRequest) {
     if (!CANISTER_ID) return NextResponse.json({ ok: false, error: 'CROSS_CHAIN_SERVICE_CANISTER_ID not configured' }, { status: 400 });
 
     const dvn = await getActor<any>(CANISTER_ID, dvnIdl);
+    
+    // Handle Bitcoin (chainId 0) and Solana (chainId 101) separately
+    if (chainId === 0) {
+      // Bitcoin transaction monitoring
+      console.log(`Monitoring Bitcoin transaction: ${txHash}`);
+      try {
+        const fallbackPayload = JSON.stringify({
+          action: 'MONITOR',
+          txHash,
+          chainId: 0,
+          chainName: 'Bitcoin',
+          status: 'pending',
+          timestamp: Date.now(),
+          receiptId: `receipt_btc_${Date.now()}`
+        });
+        
+        const messageId = `monitor_btc_${Date.now()}`;
+        const submitRes = await dvn.submit_dvn_message(
+          0, // source_chain (Bitcoin)
+          0, // destination_chain  
+          Array.from(new TextEncoder().encode(fallbackPayload)), // payload as bytes
+          messageId // message_id
+        );
+        
+        if (typeof submitRes === 'string') {
+          console.log('Bitcoin transaction tracked:', submitRes);
+          return NextResponse.json({ 
+            ok: true, 
+            messageId: submitRes, 
+            fallback: true,
+            note: 'Bitcoin transaction tracked via DVN',
+            at: new Date().toISOString() 
+          });
+        }
+      } catch (btcErr: any) {
+        console.error('Bitcoin DVN submission failed:', btcErr);
+        return NextResponse.json({ 
+          ok: false, 
+          error: `Bitcoin monitoring failed: ${btcErr?.message || 'Unknown error'}`,
+          canisterDown: true
+        }, { status: 500 });
+      }
+    }
+    
+    if (chainId === 101) {
+      // Solana transaction monitoring (already handled below)
+      console.log(`Monitoring Solana transaction: ${txHash}`);
+    }
 
     // Provide a safe default RPC if none provided
     const effectiveRpc = (rpcUrl && typeof rpcUrl === 'string' && rpcUrl.length)

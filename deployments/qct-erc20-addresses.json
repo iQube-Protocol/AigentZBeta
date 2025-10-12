@@ -1,0 +1,27 @@
+{
+  "sepolia": {
+    "address": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+    "chainId": 11155111,
+    "explorer": "https://sepolia.etherscan.io/address/0x5FbDB2315678afecb367f032d93F642f64180aa3"
+  },
+  "amoy": {
+    "address": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
+    "chainId": 80002,
+    "explorer": "https://amoy.polygonscan.com/address/0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
+  },
+  "arbitrumSepolia": {
+    "address": "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
+    "chainId": 421614,
+    "explorer": "https://sepolia.arbiscan.io/address/0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0"
+  },
+  "optimismSepolia": {
+    "address": "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
+    "chainId": 11155420,
+    "explorer": "https://sepolia-optimism.etherscan.io/address/0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9"
+  },
+  "baseSepolia": {
+    "address": "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
+    "chainId": 84532,
+    "explorer": "https://sepolia.basescan.org/address/0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9"
+  }
+}

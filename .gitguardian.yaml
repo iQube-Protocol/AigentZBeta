@@ -1,0 +1,18 @@
+# GitGuardian configuration
+# Ignore false positives for blockchain-related code
+
+version: 2
+
+paths-ignore:
+  - deployments/**/*.json  # Deployment artifacts contain public addresses/signatures
+  - scripts/deploy-*.js    # Deployment scripts read keys from env vars (not hardcoded)
+  - scripts/test-*.js      # Test scripts with example/mock data
+
+# Specific patterns to ignore
+matches-ignore:
+  - name: Solana transaction signatures
+    match: signature
+  - name: Public blockchain addresses
+    match: mintAddress|tokenAccount
+  - name: Environment variable usage
+    match: process\.env\.(SOLANA_DEPLOYER_KEY|PRIVATE_KEY)

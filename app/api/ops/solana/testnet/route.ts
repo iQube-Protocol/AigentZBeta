@@ -1,43 +1,59 @@
 import { NextResponse } from 'next/server';
-import { getAnonymousActor } from '@/services/ops/icAgent';
-import { solRpcIdlFactory } from '@/services/ops/idl/sol_rpc';
+
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export const fetchCache = 'force-no-store';
 
-const SOL_RPC = 'tghme-zyaaa-aaaar-qarca-cai';
+const RPC_URLS = [
+  'https://api.testnet.solana.com',
+  'https://solana-testnet-rpc.publicnode.com',
+];
+
+async function withTimeout(url: string, body: any, ms = 5000) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), ms);
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    clearTimeout(id);
+    return await res.json();
+  } catch (e) {
+    clearTimeout(id);
+    throw e;
+  }
+}
 
 export async function GET() {
-  try {
-    // Use SOL RPC canister for Solana Testnet
-    const sol = await getAnonymousActor(SOL_RPC, solRpcIdlFactory);
-    
-    const slotResult: any = await sol.sol_getSlot({
-      rpcSources: { Testnet: [[]] },
-      config: [],
-    });
+  let blockHeight: number = 0;
+  let latestBlockhash: string = '';
+  let used: string = '';
 
-    if ('Err' in slotResult) {
-      throw new Error(slotResult.Err);
+  for (const url of RPC_URLS) {
+    try {
+      const slotRes = await withTimeout(url, { jsonrpc: '2.0', method: 'getSlot', params: [], id: 1 });
+      if (!slotRes?.result) throw new Error('No slot');
+      blockHeight = slotRes.result;
+      
+      const hashRes = await withTimeout(url, { jsonrpc: '2.0', method: 'getLatestBlockhash', params: [], id: 2 });
+      if (!hashRes?.result?.value?.blockhash) throw new Error('No blockhash');
+      latestBlockhash = hashRes.result.value.blockhash;
+      
+      used = url;
+      break;
+    } catch (e) {
+      continue;
     }
+  }
 
-    const blockHeight = Number(slotResult.Ok);
-
-    return NextResponse.json({
-      ok: true,
-      cluster: 'testnet',
-      blockHeight,
-      latestBlockhash: 'Via SOL RPC Canister',
-      rpcUrl: 'SOL RPC Canister',
-      at: new Date().toISOString(),
-    });
-
-  } catch (error: any) {
-    console.error('Solana Testnet API error:', error);
+  if (!blockHeight) {
     return NextResponse.json({
       ok: false,
-      error: error.message || 'Failed to fetch Solana Testnet data',
+      error: 'All RPC endpoints failed',
       cluster: 'testnet',
       blockHeight: '—',
       latestBlockhash: '—',
@@ -45,4 +61,13 @@ export async function GET() {
       at: new Date().toISOString(),
     }, { status: 500 });
   }
+
+  return NextResponse.json({
+    ok: true,
+    cluster: 'testnet',
+    blockHeight: blockHeight.toLocaleString(),
+    latestBlockhash: latestBlockhash.substring(0, 8) + '...',
+    rpcUrl: used,
+    at: new Date().toISOString(),
+  });
 }

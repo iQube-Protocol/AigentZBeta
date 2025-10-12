@@ -27,6 +27,13 @@ import { useCrossChain } from "@/hooks/ops/useCrossChain";
 import { useIqbLatest } from "@/hooks/ops/useIqbLatest";
 import { QCTTradingCard } from "@/components/ops/QCTTradingCard";
 import QCTCrossTradingCard from "@/components/ops/QCTCrossTradingCard";
+import { QCTDashboard } from "@/components/ops/QCTDashboard";
+import { QCTEventMonitor } from "@/components/ops/QCTEventMonitor";
+import { getPhantomWallet } from "@/services/wallet/phantom";
+import { getUnisatWallet } from "@/services/wallet/unisat";
+import { QCTAnalyticsCard } from "@/components/ops/QCTAnalyticsCard";
+import { QCTTreasuryCard } from "@/components/ops/QCTTreasuryCard";
+import { Connection, PublicKey, SystemProgram, Transaction } from "@solana/web3.js";
 
 // Feature flags (default Solana ON unless explicitly disabled)
 const FEATURE_SOLANA_OPS = process.env.NEXT_PUBLIC_FEATURE_SOLANA_OPS !== "false";
@@ -544,7 +551,11 @@ export default function OpsPage() {
     { key: "sync_status", title: "Canister Sync Status" },
     { key: "icp_dvn", title: "ICP DVN" },
     { key: "dvn_mint_tests", title: "DVN Mint Tests" },
+    { key: "qct_event_monitor", title: "iQube & QCT Event Register" },
+    { key: "qct_dashboard", title: "QCT Multi-Chain Overview" },
     { key: "qct_trading", title: "QCT Cross-Chain Trading" },
+    { key: "qct_treasury", title: "QCT Treasury & USDC Trading" },
+    { key: "qct_analytics", title: "QCT Multi-Chain Analytics" },
     { key: "qct_rekey", title: "QCT Rekey (Stage 1A)" },
     { key: "btc_testnet", title: "BTC Testnet" },
     { key: "eth_sepolia", title: "Ethereum Sepolia" },
@@ -1172,12 +1183,32 @@ export default function OpsPage() {
             );
           }
 
+          // QCT Multi-Chain Overview Dashboard
+          if (key === "qct_dashboard") {
+            return <QCTDashboard key={key} title={title} className="md:col-span-2 lg:col-span-3" />;
+          }
+
+          // iQube & QCT Event Listener Monitor
+          if (key === "qct_event_monitor") {
+            return <QCTEventMonitor key={key} className="md:col-span-2 lg:col-span-3" />;
+          }
+
           // QCT Cross-Chain Trading card
           if (key === "qct_trading") {
             const useCross = process.env.NEXT_PUBLIC_FEATURE_QCT_CROSS_TRADE_CARD === "true";
             return useCross
               ? <QCTCrossTradingCard key={key} title={title} />
               : <QCTTradingCard key={key} title={title} />;
+          }
+
+          // QCT Treasury & USDC Trading card
+          if (key === "qct_treasury") {
+            return <QCTTreasuryCard key={key} title={title} />;
+          }
+
+          // QCT Multi-Chain Analytics card
+          if (key === "qct_analytics") {
+            return <QCTAnalyticsCard key={key} title={title} />;
           }
 
           // QCT Rekey (Stage 1A) card
@@ -1480,12 +1511,204 @@ export default function OpsPage() {
               }
             };
 
+            async function createBitcoinTestTx() {
+              try {
+                const unisat = getUnisatWallet();
+                
+                if (!unisat.isInstalled()) {
+                  throw new Error('Unisat wallet is not installed. Please install Unisat from https://unisat.io');
+                }
+                
+                // Connect wallet
+                let address: string;
+                if (!unisat.isConnected()) {
+                  address = await unisat.connect();
+                } else {
+                  address = unisat.getAddress() || '';
+                }
+                
+                if (!address) {
+                  throw new Error('Failed to get Unisat wallet address');
+                }
+                
+                // Check network
+                const network = await unisat.getNetwork();
+                if (network !== 'testnet') {
+                  alert('Please switch to Bitcoin Testnet in Unisat wallet');
+                  await unisat.switchNetwork('testnet');
+                }
+                
+                // Get balance
+                const balance = await unisat.getBalance();
+                console.log('Bitcoin balance:', balance);
+                
+                if (balance.total === 0) {
+                  throw new Error('Insufficient testnet BTC. Get testnet BTC from:\nhttps://testnet-faucet.mempool.co/\nor\nhttps://bitcoinfaucet.uo1.net/');
+                }
+                
+                // Check if we have enough for dust limit + fees (minimum ~1000 sats)
+                const minRequired = 1000; // 546 dust + ~454 for fees
+                if (balance.total < minRequired) {
+                  throw new Error(`Insufficient testnet BTC for transaction.\n\nYou have: ${balance.total} sats\nNeed at least: ${minRequired} sats (dust limit + fees)\n\nGet more testnet BTC from:\n• https://testnet-faucet.mempool.co/\n• https://bitcoinfaucet.uo1.net/\n• https://coinfaucet.eu/en/btc-testnet/`);
+                }
+                
+                // Send dust limit (546 sats) self-transfer
+                // This is the minimum Bitcoin transaction amount
+                const dustLimit = 546;
+                console.log(`Sending ${dustLimit} sats to self (${address})`);
+                const txid = await unisat.sendBitcoin(address, dustLimit);
+                console.log('Bitcoin transaction created:', txid);
+                setDvnTxHash(txid);
+                
+                // Create PoS receipt
+                try {
+                  const posResponse = await fetch('/api/ops/pos/issue-receipt', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                      dataHash: `bitcoin_testnet_tx_${txid}_${Date.now()}`,
+                      source: 'bitcoin_testnet_transaction'
+                    })
+                  });
+                  if (posResponse.ok) {
+                    const posResult = await posResponse.json();
+                    console.log('PoS receipt created:', posResult.receiptId);
+                  }
+                } catch (posErr) {
+                  console.warn('PoS receipt creation error:', posErr);
+                }
+                
+                // Monitor via DVN
+                const monitorSuccess = await onMonitor();
+                if (monitorSuccess) {
+                  console.log('End-to-end Bitcoin DVN + PoS flow completed');
+                } else {
+                  console.warn('Bitcoin transaction created but DVN monitoring failed');
+                }
+              } catch (e: any) {
+                console.error('createBitcoinTestTx error:', e);
+                console.error('Error details:', JSON.stringify(e, null, 2));
+                
+                let errorMsg = e?.message || 'Failed to create Bitcoin test transaction';
+                
+                // Provide helpful error messages
+                if (errorMsg.includes('User rejected')) {
+                  errorMsg = 'Transaction rejected by user in Unisat wallet';
+                } else if (errorMsg.includes('Insufficient')) {
+                  errorMsg = 'Insufficient testnet BTC for transaction fees. Get testnet BTC from:\n\n' +
+                    '• https://testnet-faucet.mempool.co/\n' +
+                    '• https://bitcoinfaucet.uo1.net/\n' +
+                    '• https://coinfaucet.eu/en/btc-testnet/';
+                } else if (errorMsg.includes('not installed')) {
+                  errorMsg = 'Unisat wallet not installed. Please install from:\n\nhttps://unisat.io';
+                } else if (errorMsg.includes('network')) {
+                  errorMsg = 'Please switch to Bitcoin Testnet in Unisat wallet settings';
+                }
+                
+                alert(errorMsg);
+              }
+            }
+
+            async function createSolanaTestTx() {
+              try {
+                const phantom = getPhantomWallet();
+                
+                if (!phantom.isInstalled()) {
+                  throw new Error('Phantom wallet is not installed. Please install Phantom to continue.');
+                }
+                
+                // Connect if not connected
+                let publicKeyStr: string;
+                if (!phantom.isConnected()) {
+                  publicKeyStr = await phantom.connect();
+                } else {
+                  publicKeyStr = phantom.getPublicKey() || '';
+                }
+                
+                if (!publicKeyStr) {
+                  throw new Error('Failed to get Phantom wallet address');
+                }
+                
+                // Create connection to Solana Testnet
+                const connection = new Connection('https://api.testnet.solana.com', 'confirmed');
+                const publicKey = new PublicKey(publicKeyStr);
+                
+                // Create self-transfer transaction (0 SOL + fees)
+                const transaction = new Transaction().add(
+                  SystemProgram.transfer({
+                    fromPubkey: publicKey,
+                    toPubkey: publicKey,
+                    lamports: 0, // 0 SOL transfer (just fees)
+                  })
+                );
+                
+                // Get recent blockhash
+                const { blockhash } = await connection.getLatestBlockhash();
+                transaction.recentBlockhash = blockhash;
+                transaction.feePayer = publicKey;
+                
+                // Sign and send via Phantom
+                const { signature } = await phantom.signAndSendTransaction(transaction);
+                console.log('Phantom transaction created:', signature);
+                setDvnTxHash(signature);
+                
+                // Create PoS receipt
+                try {
+                  const posResponse = await fetch('/api/ops/pos/issue-receipt', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                      dataHash: `solana_testnet_tx_${signature}_${Date.now()}`,
+                      source: 'solana_testnet_transaction'
+                    })
+                  });
+                  if (posResponse.ok) {
+                    const posResult = await posResponse.json();
+                    console.log('PoS receipt created:', posResult.receiptId);
+                  }
+                } catch (posErr) {
+                  console.warn('PoS receipt creation error:', posErr);
+                }
+                
+                // Monitor via DVN
+                const monitorSuccess = await onMonitor();
+                if (monitorSuccess) {
+                  console.log('End-to-end Solana DVN + PoS flow completed');
+                } else {
+                  console.warn('Solana transaction created but DVN monitoring failed');
+                }
+              } catch (e: any) {
+                console.error('createSolanaTestTx error:', e);
+                console.error('Error details:', JSON.stringify(e, null, 2));
+                
+                let errorMsg = e?.message || 'Failed to create Solana test transaction';
+                
+                // Provide helpful error messages
+                if (errorMsg.includes('User rejected')) {
+                  errorMsg = 'Transaction rejected by user in Phantom wallet';
+                } else if (errorMsg.includes('insufficient funds') || errorMsg.includes('Attempt to debit')) {
+                  errorMsg = 'Insufficient SOL for transaction fees. Get testnet SOL from:\nhttps://faucet.solana.com/';
+                } else if (errorMsg.includes('Unexpected error')) {
+                  errorMsg = 'Phantom wallet error. Please ensure:\n\n' +
+                    '• Phantom is connected to Solana Testnet\n' +
+                    '• You have testnet SOL for fees\n' +
+                    '• Wallet is unlocked\n\n' +
+                    'Get testnet SOL: https://faucet.solana.com/';
+                }
+                
+                alert(errorMsg);
+              }
+            }
+
             async function createTestTx() {
               try {
-                // Non-EVM chains can't create MetaMask transactions
-                if (dvnChainId === 101 || dvnChainId === 0) {
-                  alert('MetaMask transactions are only supported for EVM chains. Please use Solana/Bitcoin wallets for non-EVM chains.');
-                  return;
+                // Route to appropriate wallet based on chain
+                if (dvnChainId === 101) {
+                  // SOLANA - Use Phantom
+                  return await createSolanaTestTx();
+                } else if (dvnChainId === 0) {
+                  // BITCOIN - Use Unisat
+                  return await createBitcoinTestTx();
                 }
 
                 const ethAll: any = (window as any).ethereum;
@@ -1550,10 +1773,16 @@ export default function OpsPage() {
                 }
               } catch (e: any) {
                 console.error('createTestTx error:', e);
+                console.error('Error code:', e?.code);
+                console.error('Error data:', e?.data);
+                console.error('Full error:', JSON.stringify(e, null, 2));
+                
                 let errorMsg = e?.message || 'Failed to create test transaction';
                 
                 // Provide helpful error messages
-                if (e?.code === -32603 || errorMsg.includes('Internal JSON-RPC error')) {
+                if (e?.code === 4001) {
+                  errorMsg = 'Transaction rejected by user';
+                } else if (e?.code === -32603 || errorMsg.includes('Internal JSON-RPC error')) {
                   const faucetLinks: Record<number, string> = {
                     11155111: 'Ethereum Sepolia: https://sepoliafaucet.com/',
                     80002: 'Polygon Amoy: https://faucet.polygon.technology/',
@@ -1562,13 +1791,16 @@ export default function OpsPage() {
                     84532: 'Base Sepolia: https://www.coinbase.com/faucets/base-ethereum-goerli-faucet'
                   };
                   
-                  errorMsg = `Transaction failed. Common causes:\n\n` +
+                  errorMsg = `Transaction failed (Code: ${e?.code}).\n\n` +
+                    `Error: ${e?.message}\n\n` +
+                    `Common causes:\n` +
                     `• Insufficient gas funds (need testnet ${getChainConfig(dvnChainId).symbol})\n` +
                     `• Network congestion\n` +
                     `• RPC endpoint issue\n\n` +
-                    `Get testnet tokens:\n${faucetLinks[dvnChainId] || 'Check network documentation'}`;
-                } else if (e?.code === 4001) {
-                  errorMsg = 'Transaction rejected by user';
+                    `Get testnet tokens:\n${faucetLinks[dvnChainId] || 'Check network documentation'}\n\n` +
+                    `Check browser console for detailed error.`;
+                } else {
+                  errorMsg = `Transaction failed: ${errorMsg}\n\nError code: ${e?.code || 'unknown'}\n\nCheck browser console for details.`;
                 }
                 
                 alert(errorMsg);

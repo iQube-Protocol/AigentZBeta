@@ -1,45 +1,67 @@
 import { NextResponse } from 'next/server';
-import { getAnonymousActor } from '@/services/ops/icAgent';
-import { evmRpcIdlFactory } from '@/services/ops/idl/evm_rpc_full';
 
-const EVM_RPC = '7hfb6-caaaa-aaaar-qadga-cai';
+const RPC_URLS = [
+  'https://ethereum-sepolia-rpc.publicnode.com',
+  'https://rpc.sepolia.org',
+  'https://eth-sepolia.public.blastapi.io',
+];
+
+async function withTimeout(url: string, body: any, ms = 5000) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), ms);
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    clearTimeout(id);
+    return await res.json();
+  } catch (e) {
+    clearTimeout(id);
+    throw e;
+  }
+}
 
 export async function GET() {
-  try {
-    const evm = await getAnonymousActor(EVM_RPC, evmRpcIdlFactory);
-    const result: any = await evm.eth_getBlockByNumber({
-      rpcServices: { EthSepolia: [[{ PublicNode: null }]] },
-      blockTag: { Latest: null },
-    });
+  let block: any = null;
+  let latestBlockHex: string = '';
+  let used: string = '';
 
-    let block: any = null;
-    if ('Consistent' in result && 'Ok' in result.Consistent) {
-      block = result.Consistent.Ok;
-    } else if ('Inconsistent' in result) {
-      for (const [_, res] of result.Inconsistent) {
-        if ('Ok' in res) { block = res.Ok; break; }
-      }
+  for (const url of RPC_URLS) {
+    try {
+      const bn = await withTimeout(url, { jsonrpc: '2.0', method: 'eth_blockNumber', params: [], id: 1 });
+      if (!bn?.result) throw new Error('No block number');
+      latestBlockHex = bn.result;
+      const bd = await withTimeout(url, { jsonrpc: '2.0', method: 'eth_getBlockByNumber', params: [latestBlockHex, false], id: 2 });
+      if (!bd?.result) throw new Error('No block details');
+      block = bd.result;
+      used = url;
+      break;
+    } catch (e) {
+      continue;
     }
+  }
 
-    if (!block) throw new Error('No block data');
-
-    return NextResponse.json({
-      ok: true,
-      chainId: '11155111',
-      blockNumber: Number(block.number).toLocaleString(),
-      latestTx: block.transactions[0] || 'No transactions',
-      rpcUrl: 'EVM RPC Canister',
-      at: new Date().toISOString()
-    });
-  } catch (error: any) {
+  if (!block) {
     return NextResponse.json({
       ok: false,
-      error: error.message,
+      error: 'All RPC endpoints failed',
       chainId: '11155111',
       blockNumber: '—',
       latestTx: '—',
       rpcUrl: '—',
       at: new Date().toISOString()
-    });
+    }, { status: 500 });
   }
+
+  return NextResponse.json({
+    ok: true,
+    chainId: '11155111',
+    blockNumber: parseInt(block.number, 16).toLocaleString(),
+    latestTx: block.transactions?.[0] || 'No transactions',
+    rpcUrl: used,
+    at: new Date().toISOString()
+  });
 }

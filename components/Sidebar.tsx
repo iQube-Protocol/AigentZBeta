@@ -888,8 +888,10 @@ export const Sidebar = () => {
   return (
     <>
       <aside className={`${collapsed ? "w-16" : "w-72"} transition-all duration-200 bg-black/30 ring-1 ring-white/10 backdrop-blur-xl p-4 md:p-6 flex-shrink-0 min-h-screen`}>
-        <button className="mb-4 text-xs text-slate-300 hover:text-white" onClick={toggleSidebar}>
-          {collapsed ? "»" : "« Collapse"}
+        <button className="mb-6 text-sm font-semibold text-slate-200 hover:text-white flex items-center gap-2 uppercase tracking-wider" onClick={toggleSidebar}>
+          <Bot size={18} className="text-blue-400" />
+          {!collapsed && <span>QRIPTO: AGENTIQ</span>}
+          {!collapsed && <span className="ml-auto">«</span>}
         </button>
       <nav className="space-y-6">
         {sections.map((section) => {

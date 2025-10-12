@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getActor } from '@/services/ops/icAgent';
 import { idlFactory as dvnIdl } from '@/services/ops/idl/cross_chain_service';
+import { getQCTEventListener } from '@/services/qct/EventListener';
 
 export async function POST(request: Request) {
   try {
@@ -32,6 +33,7 @@ export async function POST(request: Request) {
 
       const results = [];
       let processed = 0;
+      const listener = getQCTEventListener();
 
       for (const message of pendingMessages) {
         try {
@@ -41,6 +43,7 @@ export async function POST(request: Request) {
           
           // Decode payload to get transaction details
           let txHash = 'unknown';
+          let txDetails: any = {};
           try {
             const payloadBytes = Array.isArray(message.payload) 
               ? message.payload 
@@ -48,6 +51,7 @@ export async function POST(request: Request) {
             const payloadStr = new TextDecoder().decode(Uint8Array.from(payloadBytes));
             const payloadJson = JSON.parse(payloadStr);
             txHash = payloadJson.txHash || 'unknown';
+            txDetails = payloadJson;
           } catch {}
 
           // Submit attestation for LayerZero processing
@@ -71,6 +75,20 @@ export async function POST(request: Request) {
           });
           
           processed++;
+          
+          // Notify Event Listener of processed iQube transaction
+          listener.recordDVNTransaction({
+            messageId,
+            sourceChain,
+            txHash,
+            timestamp: Number(message.timestamp) || Date.now(),
+            from: txDetails.fromAddress || message.sender || 'unknown',
+            to: txDetails.toAddress || 'unknown',
+            amount: txDetails.amount || '0',
+            operation: txDetails.operation || 'transfer',
+            metadata: txDetails.metadata || {}
+          });
+          
         } catch (error: any) {
           results.push({
             messageId: message.id,

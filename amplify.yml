@@ -5,6 +5,11 @@ applications:
       phases:
         preBuild:
           commands:
+            - echo "Installing Node.js 20.18.0..."
+            - nvm install 20.18.0
+            - nvm use 20.18.0
+            - echo "Node.js version:"
+            - node --version
             - echo "Installing dependencies..."
             - npm ci
         build:
