@@ -138,7 +138,7 @@ export class QCTEventListener extends EventEmitter {
         name: 'Bitcoin Testnet',
         type: 'bitcoin',
         rpcUrl: process.env.NEXT_PUBLIC_RPC_BTC_TESTNET || 'https://mempool.space/testnet/api',
-        runesId: QCT_CONTRACTS.bitcoin.runeId || QCT_CONTRACTS.bitcoin.runeName,
+        runesId: QCT_CONTRACTS.bitcoin.establishmentTx,
         startBlock: 0,
         confirmations: 3,
         enabled: true,
