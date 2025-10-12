@@ -8,9 +8,13 @@ async function deployQCTBitcoinFinal() {
 
   // Our funded Bitcoin wallet
   const address = 'tb1qywewf6kshzgvq9awzr46awhylu40v68tr8acm2';
-  const privateKeyWIF = 'cMnrk5hz22jhu2NEytoBxgXPCR21kThfjje2k4NjKMuPTCXzDFWS';
+  const privateKeyWIF = process.env.BITCOIN_PRIVATE_KEY || '';
 
   console.log('🔑 Bitcoin Wallet Address:', address);
+
+  if (!privateKeyWIF) {
+    throw new Error('BITCOIN_PRIVATE_KEY environment variable is required');
+  }
 
   try {
     // Check wallet balance
@@ -56,7 +60,6 @@ async function deployQCTBitcoinFinal() {
       explorer: `https://mempool.space/testnet/tx/${txid}`,
       blockstreamApi: `${BLOCKSTREAM_API}/tx/${txid}`,
       description: 'QCT Cross-Chain Token established on Bitcoin testnet',
-      privateKey: privateKeyWIF,
       features: [
         'Cross-chain compatibility',
         'Bitcoin-anchored token registry',
