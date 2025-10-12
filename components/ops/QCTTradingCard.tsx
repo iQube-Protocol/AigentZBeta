@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { ArrowUpDown, ExternalLink, Copy, RefreshCw } from "lucide-react";
+import { ArrowUpDown, Send } from "lucide-react";
 import { getMetaMaskWallet } from "@/services/wallet/metamask";
 import { getPhantomWallet } from "@/services/wallet/phantom";
 import {
@@ -10,8 +10,6 @@ import {
   CardHeader,
   CardTitle,
 } from "../ui/card";
-import { Button } from "../ui/button";
-import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Badge } from "../ui/badge";
 import {
@@ -25,12 +23,11 @@ import { Switch } from "../ui/switch";
 import { Separator } from "../ui/separator";
 import {
   TrendingUp,
-  TrendingDown,
-  Wallet,
-  Zap,
   Globe,
-  AlertCircle,
 } from "lucide-react";
+import { getUnisatWallet } from "@/services/wallet/unisat";
+import QCTMintBurnModal from "./QCTMintBurnModal";
+import QCTSendModal from "./QCTSendModal";
 
 interface TradingData {
   price: number;
@@ -54,8 +51,7 @@ interface QCTBalance {
 export function QCTTradingCard({ className}: QCTTradingCardProps) {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [selectedChain, setSelectedChain] = useState("sepolia");
-  const [tradingAmount, setTradingAmount] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  //eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [tradingData, setTradingData] = useState<TradingData>({
     price: 0.001,
     volume24h: 125000,
@@ -73,7 +69,8 @@ export function QCTTradingCard({ className}: QCTTradingCardProps) {
     optimism: { name: "Optimism Sepolia", symbol: "ETH", balance: "30.10" },
   };
   const [balances, setBalances] = useState<QCTBalance[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState<boolean>(false);
+  //eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [error, setError] = useState<string | null>(null);
   const [selectedFromChain, setSelectedFromChain] = useState("bitcoin");
   const [selectedToChain, setSelectedToChain] = useState("ethereum");
@@ -199,12 +196,7 @@ export function QCTTradingCard({ className}: QCTTradingCardProps) {
     } catch (err) {
       setError((err as Error).message || 'Failed to connect wallet');
         await loadBalances();
-      } else if (chain?.type === "btc") {
-        setError("Bitcoin wallet integration coming soon");
-      }
-    } catch (err: any) {
-      setError(err.message || "Failed to connect wallet");
-    }
+      } 
   };
 
   // Disconnect EVM wallet
@@ -247,11 +239,6 @@ export function QCTTradingCard({ className}: QCTTradingCardProps) {
     if (chain?.type === 'btc' && bitcoinAddress) return bitcoinAddress;
     // Fallback to mock if wallet not connected
     return '';
-    const chain = chains.find((c) => c.id === chainId);
-    if (chain?.type === "evm" && evmAddress) return evmAddress;
-    if (chain?.type === "solana" && solanaAddress) return solanaAddress;
-    // Fallback to mock for Bitcoin or if wallet not connected
-    return "tb1q03256641efc3dd9877560daf26e4d6bb46086a42";
   };
 
   // Load QCT balances - Show actual wallet balances (typically 0.0000)
@@ -305,10 +292,8 @@ export function QCTTradingCard({ className}: QCTTradingCardProps) {
       } else {
         setError(data.error);
       }
-    } catch (err: any) {
-      setError(err.message || "Failed to load balances");
-    } finally {
-      setIsLoading(false);
+    }  finally {
+      setLoading(false);
     }
   };
 
@@ -371,25 +356,6 @@ export function QCTTradingCard({ className}: QCTTradingCardProps) {
   }, [evmAddress, solanaAddress, bitcoinAddress]);
 
   return (
-    <Card title={title} actions={
-      <IconRefresh 
-        onClick={loadBalances} 
-        disabled={loading}
-      />
-    }>
-      {/* Balance Overview */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <div className="text-xs font-medium text-slate-300">Wallet Q¢ Balances</div>
-        </div>
-        {error && (
-          <div className="text-xs text-red-400 bg-red-500/10 rounded px-2 py-1">
-            {error}
-          </div>
-        )}
-
-        {/* Q¢ Balances */}
-        <div className="border-t border-slate-700 pt-3">
     <Card className={className}>
       <CardHeader>
         <div className="flex items-center justify-between">
@@ -523,8 +489,7 @@ export function QCTTradingCard({ className}: QCTTradingCardProps) {
               >
                 <span className="text-slate-400">{chain.symbol}:</span>
                 <span className="text-slate-300 font-mono">
-                  {loading ? '...' : `${getChainBalance(chain.id)} Q¢`}
-                  {loading ? "..." : `${getChainBalance(chain.id)} QCT`}
+                  {loading ? '...' : `${getChainBalance(chain.id)} QCT`}
                 </span>
               </div>
             ))}
@@ -562,8 +527,6 @@ export function QCTTradingCard({ className}: QCTTradingCardProps) {
                 {action.charAt(0).toUpperCase() + action.slice(1)}
               </button>
             ))}
-          <div className="text-xs font-medium text-slate-300">
-            Cross-Chain Trading
           </div>
 
           {/* Trade Action */}
@@ -585,7 +548,7 @@ export function QCTTradingCard({ className}: QCTTradingCardProps) {
             </div>
             {/* Wallet Connection */}
             <div className="flex gap-1 items-center">
-              {!evmAddress && !solanaAddress ? (
+              {!evmAddress && !solanaAddress && !bitcoinAddress ? (
                 <button
                   onClick={connectWallet}
                   disabled={loading}
@@ -611,6 +574,15 @@ export function QCTTradingCard({ className}: QCTTradingCardProps) {
                       title={`${solanaAddress}\n\nClick to disconnect`}
                     >
                       ◎ SOL
+                    </button>
+                  )}
+                  {bitcoinAddress && (
+                    <button
+                      onClick={disconnectBitcoin}
+                      className="px-2 py-1 text-xs bg-orange-500/10 text-orange-300 rounded border border-orange-500/30 hover:bg-red-500/20 hover:text-red-300 hover:border-red-500/30 transition-colors cursor-pointer"
+                      title={`${bitcoinAddress}\n\nClick to disconnect`}
+                    >
+                      ₿ BTC
                     </button>
                   )}
                 </>
@@ -738,20 +710,7 @@ export function QCTTradingCard({ className}: QCTTradingCardProps) {
         <div className="space-y-1 pt-3 pb-6">
           <div className="text-xs text-slate-400 mb-2">Quick Amounts</div>
           <div className="grid grid-cols-3 gap-1 text-xs">
-            {['1000', '5000', '10000'].map(qctAmount => (
-          {/* Amount Input */}
-          <div>
-            <label className="text-xs text-slate-400 block mb-1">
-              Amount (QCT)
-            </label>
-            <div className="flex gap-2">
-              <input
-                type="number"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="0.0000"
-                className="flex-1 bg-slate-800 border border-slate-600 rounded px-2 py-1 text-xs text-slate-300"
-              />
+            {["1000", "5000", "10000"].map((qctAmount) => (
               <button
                 key={qctAmount}
                 onClick={() => setAmount(parseInt(qctAmount).toFixed(2))}
@@ -763,14 +722,16 @@ export function QCTTradingCard({ className}: QCTTradingCardProps) {
             ))}
           </div>
           <div className="grid grid-cols-3 gap-1 text-xs">
-            {['100000', '1000000', '10000000'].map(qctAmount => (
+            {["100000", "1000000", "10000000"].map((qctAmount) => (
               <button
                 key={qctAmount}
                 onClick={() => setAmount(parseInt(qctAmount).toFixed(2))}
                 className="px-2 py-1 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 rounded text-blue-300 truncate"
                 title={`Set amount to ${parseInt(qctAmount).toLocaleString()} Q¢`}
               >
-                {parseInt(qctAmount) >= 1000000 ? `${parseInt(qctAmount) / 1000000}M` : `${parseInt(qctAmount) / 1000}K`} Q¢
+                {parseInt(qctAmount) >= 1000000
+                  ? `${parseInt(qctAmount) / 1000000}M`
+                  : `${parseInt(qctAmount) / 1000}K`} Q¢
               </button>
             ))}
           </div>
@@ -809,7 +770,7 @@ export function QCTTradingCard({ className}: QCTTradingCardProps) {
             {loading ? "Loading..." : "Ready"}
           </span>
         </div>
-      </div>
+      </CardContent>
 
       {/* Mint/Burn Modal */}
       <QCTMintBurnModal
@@ -829,115 +790,5 @@ export function QCTTradingCard({ className}: QCTTradingCardProps) {
         walletAddress={getAddress(selectedFromChain)}
         balance={getChainBalance(selectedFromChain)}
       />
-            {loading ? (
-              <div className="animate-spin w-3 h-3 border border-blue-300 border-t-transparent rounded-full" />
-            ) : (
-              <ArrowUpDown size={12} />
-            )}
-            {tradeAction === "bridge"
-              ? `Bridge ${selectedFromChain} → ${selectedToChain}`
-              : `${
-                  tradeAction.charAt(0).toUpperCase() + tradeAction.slice(1)
-                } QCT`}
-          </button>
-
-          {/* Quick Actions - Dynamic based on From Chain */}
-          <div className="flex gap-1 text-xs">
-            {selectedFromChain !== "bitcoin" ? (
-              <>
-                <button
-                  onClick={() => {
-                    setTradeAction("bridge");
-                    setSelectedToChain("bitcoin");
-                  }}
-                  className="flex-1 px-2 py-1 bg-orange-500/10 text-orange-300 rounded hover:bg-orange-500/20 border border-orange-500/30"
-                >
-                  {chains.find((c) => c.id === selectedFromChain)?.symbol} → BTC
-                </button>
-                <button
-                  onClick={() => {
-                    setTradeAction("bridge");
-                    setSelectedFromChain("bitcoin");
-                    setSelectedToChain(selectedFromChain);
-                  }}
-                  className="flex-1 px-2 py-1 bg-purple-500/10 text-purple-300 rounded hover:bg-purple-500/20 border border-purple-500/30"
-                >
-                  BTC → {chains.find((c) => c.id === selectedFromChain)?.symbol}
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  onClick={() => {
-                    setTradeAction("bridge");
-                    setSelectedFromChain("bitcoin");
-                    setSelectedToChain("ethereum");
-                  }}
-                  className="flex-1 px-2 py-1 bg-orange-500/10 text-orange-300 rounded hover:bg-orange-500/20 border border-orange-500/30"
-                >
-                  BTC → ETH
-                </button>
-                <button
-                  onClick={() => {
-                    setTradeAction("bridge");
-                    setSelectedFromChain("ethereum");
-                    setSelectedToChain("bitcoin");
-                  }}
-                  className="flex-1 px-2 py-1 bg-purple-500/10 text-purple-300 rounded hover:bg-purple-500/20 border border-purple-500/30"
-                >
-                  ETH → BTC
-                </button>
-              </>
-            )}
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <Button
-              disabled={isLoading || !tradingAmount}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              <TrendingUp className="h-4 w-4 mr-2" />
-              {isLoading ? "Processing..." : "Buy QCT"}
-            </Button>
-            <Button
-              disabled={isLoading || !tradingAmount}
-              variant="destructive"
-            >
-              <TrendingDown className="h-4 w-4 mr-2" />
-              {isLoading ? "Processing..." : "Sell QCT"}
-            </Button>
-          </div>
-
-          {tradingAmount && (
-            <div className="p-3 bg-muted/50 rounded-lg">
-              <div className="flex justify-between text-sm">
-                <span>Est. {tradingAmount} QCT</span>
-                <span>
-                  ≈ $
-                  {(parseFloat(tradingAmount) * tradingData.price).toFixed(2)}
-                </span>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <Separator />
-
-        {/* Trading Info */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <AlertCircle className="h-4 w-4" />
-            <span>
-              Trades are executed on{" "}
-              {chainData[selectedChain as keyof typeof chainData]?.name}
-            </span>
-          </div>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Zap className="h-4 w-4" />
-            <span>Cross-chain bridging available for multi-chain trading</span>
-          </div>
-        </div>
-      </CardContent>
     </Card>
-  );
-}
+  )}
