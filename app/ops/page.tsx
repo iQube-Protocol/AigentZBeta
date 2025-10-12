@@ -26,13 +26,7 @@ import { useSolanaTestnet } from "@/hooks/ops/useSolanaTestnet";
 import { useCrossChain } from "@/hooks/ops/useCrossChain";
 import { useIqbLatest } from "@/hooks/ops/useIqbLatest";
 import { QCTTradingCard } from "@/components/ops/QCTTradingCard";
-import { QCTEventMonitor } from "@/components/ops/QCTEventMonitor";
-import { QCTTreasuryCard } from "@/components/ops/QCTTreasuryCard";
-import { QCTAnalyticsCard } from "@/components/ops/QCTAnalyticsCard";
-import { QCTDashboard } from "@/components/ops/QCTDashboard";
-import { Connection, Transaction, SystemProgram, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
-import { getPhantomWallet } from '@/services/wallet/phantom';
-import { getUnisatWallet } from '@/services/wallet/unisat';
+import QCTCrossTradingCard from "@/components/ops/QCTCrossTradingCard";
 
 // Feature flags (default Solana ON unless explicitly disabled)
 const FEATURE_SOLANA_OPS = process.env.NEXT_PUBLIC_FEATURE_SOLANA_OPS !== "false";
@@ -653,7 +647,7 @@ export default function OpsPage() {
             const rpcHost = actualEndpoint;
             // Get block height from testnet data, not anchor data
             const blockHeight = typeof (btc.data as any)?.blockHeight === 'number' ? (btc.data as any).blockHeight : '—';
-            const displayTx = btc.anchor?.txid;
+            const displayTx = btc.latestTx?.txid || btc.anchor?.txid;
             const explorerBase = (process.env.NEXT_PUBLIC_RPC_BTC_TESTNET?.replace(/\/$/, '') || 'https://mempool.space/testnet/api').replace('/api','');
             const txUrl = displayTx ? `${explorerBase}/tx/${displayTx}` : undefined;
             return (
@@ -1194,7 +1188,10 @@ export default function OpsPage() {
 
           // QCT Cross-Chain Trading card
           if (key === "qct_trading") {
-            return <QCTTradingCard key={key} title={title} />;
+            const useCross = process.env.NEXT_PUBLIC_FEATURE_QCT_CROSS_TRADE_CARD === "true";
+            return useCross
+              ? <QCTCrossTradingCard key={key} title={title} />
+              : <QCTTradingCard key={key} title={title} />;
           }
 
           // QCT Treasury & USDC Trading card

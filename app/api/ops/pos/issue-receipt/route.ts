@@ -21,9 +21,26 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
+    // Probe ICP reachability (avoid ECONNREFUSED in staging/prod when local replica is down)
+    const icHost = process.env.ICP_HOST || (process.env.DFX_NETWORK === 'local' ? 'http://127.0.0.1:4943' : undefined);
+    if (icHost) {
+      try {
+        const probe = await fetch(`${icHost}/api/v2/status`, { method: 'GET', cache: 'no-store' });
+        if (!probe.ok) throw new Error('IC status not OK');
+      } catch {
+        // Graceful fallback so UI can continue to show pending state
+        return NextResponse.json({ ok: true, receiptId: null, fallback: true, pending: true, at: new Date().toISOString() });
+      }
+    }
+
     console.log(`Creating PoS receipt for ${source}: ${dataHash}`);
-    
-    const pos = await getActor<any>(POS_ID, posIdl);
+    // Initialize actor with resilience: if actor init fails, fallback gracefully
+    let pos: any;
+    try {
+      pos = await getActor<any>(POS_ID, posIdl);
+    } catch {
+      return NextResponse.json({ ok: true, receiptId: null, fallback: true, pending: true, at: new Date().toISOString() });
+    }
     const receiptId = await pos.issue_receipt(dataHash);
     
     console.log(`PoS receipt created: ${receiptId}`);
@@ -46,3 +63,4 @@ export async function POST(req: NextRequest) {
     }, { status: 500 });
   }
 }
+
