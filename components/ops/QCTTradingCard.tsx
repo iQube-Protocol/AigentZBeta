@@ -78,6 +78,20 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
     { id: 'solana', name: 'Solana', symbol: 'SOL', type: 'solana' },
   ];
 
+  // Map chain IDs to numeric chainIds
+  const getChainId = (chainId: string): number => {
+    const chainIdMap: Record<string, number> = {
+      bitcoin: 1, // Bitcoin (custom)
+      ethereum: 11155111, // Sepolia
+      polygon: 80002, // Amoy
+      arbitrum: 421614, // Arbitrum Sepolia
+      optimism: 11155420, // Optimism Sepolia
+      base: 84532, // Base Sepolia
+      solana: 103, // Solana Devnet
+    };
+    return chainIdMap[chainId] || 80002;
+  };
+
   // Auto-check wallet connections on mount
   useEffect(() => {
     const checkWallets = async () => {
@@ -499,7 +513,7 @@ export function QCTTradingCard({ title }: QCTTradingCardProps) {
         isOpen={showMintBurnModal}
         onClose={() => setShowMintBurnModal(false)}
         mode={mintBurnMode}
-        chainId={chains.find(c => c.id === selectedFromChain)?.chainId || 80002}
+        chainId={getChainId(selectedFromChain)}
         walletAddress={getAddress(selectedFromChain) || ''}
       />
 
