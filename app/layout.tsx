@@ -1,6 +1,7 @@
 import "./globals.css";
 import { Sidebar } from "../components/Sidebar";
 import { ToastProvider } from "../components/ui/Toaster";
+import AgentiQBootstrap from "./providers/AgentiQBootstrap";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -19,6 +20,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </div>
             </main>
           </div>
+          <AgentiQBootstrap />
         </ToastProvider>
       </body>
     </html>

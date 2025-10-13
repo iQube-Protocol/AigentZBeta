@@ -27,6 +27,8 @@
     "@solana/spl-token": "^0.3.11",
     "@solana/web3.js": "^1.95.0",
     "@supabase/supabase-js": "^2.57.4",
+    "@qriptoagentiq/core-client": "^0.1.1",
+    "@qriptoagentiq/a2a-client": "^0.1.1",
     "@unisat/wallet-utils": "^1.0.0",
     "axios": "^1.12.2",
     "bip39": "^3.1.0",
