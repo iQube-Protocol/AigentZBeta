@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { initAgentiqClient } from "@qriptoagentiq/core-client";
 
 function getEnv(name: string): string | undefined {
   if (typeof process !== "undefined" && process.env) {
@@ -27,15 +26,19 @@ export default function AgentiQBootstrap() {
       getEnv("VITE_SUPABASE_ANON_KEY") ||
       (typeof window !== "undefined" && (window as any).VITE_SUPABASE_ANON_KEY);
 
-    try {
-      const core = initAgentiqClient({
-        supabaseUrl: supabaseUrl as string,
-        supabaseAnonKey: supabaseAnonKey as string,
-      });
-      core.ensureIamUser().catch(() => {});
-    } catch (e) {
-      // silent: envs may be missing in some environments
-    }
+    (async () => {
+      try {
+        const mod: any = await import("@qriptoagentiq/core-client");
+        const { initAgentiqClient } = mod;
+        const core = initAgentiqClient({
+          supabaseUrl: supabaseUrl as string,
+          supabaseAnonKey: supabaseAnonKey as string,
+        });
+        core.ensureIamUser().catch(() => {});
+      } catch (e) {
+        // silent: envs may be missing or package not ready
+      }
+    })();
   }, []);
 
   return null;
