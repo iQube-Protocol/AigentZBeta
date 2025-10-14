@@ -42,7 +42,10 @@ export async function POST(req: NextRequest) {
     const chainIds = [11155111, 421614]; // Ethereum Sepolia, Arbitrum Sepolia
 
     for (const address of addresses) {
-      const addressResults = { address, chains: {} };
+      const addressResults: {
+        address: string;
+        chains: Record<string, any>;
+      } = { address, chains: {} };
       
       for (const chainId of chainIds) {
         const config = getChainConfig(chainId);
