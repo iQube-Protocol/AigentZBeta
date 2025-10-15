@@ -15,7 +15,13 @@ export type PayIntentRes = {
 export type VerifyReq = { assetKey: string; txHashOrId: string; amount: string };
 export type VerifyRes = { ok: boolean; proof?: any; reason?: string };
 
-export type PayAndProofResult = { ok: boolean; txId?: string; proof?: any; reason?: string };
+export type PayAndProofResult = { 
+  ok: boolean; 
+  txId?: string; 
+  proof?: any; 
+  reason?: string;
+  instructions?: any;
+};
 
 async function postJson(url: string, body: any): Promise<Response> {
   return fetch(url, {
