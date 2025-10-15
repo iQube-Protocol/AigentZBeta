@@ -124,11 +124,14 @@ export class AgentKeyService {
 
     if (error || !data) return null;
 
+    // Type assertion for RPC result
+    const result = data as any;
+    
     return {
-      agentId: data.agent_id,
-      evmAddress: data.evm_address,
-      btcAddress: data.btc_address,
-      solanaAddress: data.solana_address
+      agentId: result.agent_id,
+      evmAddress: result.evm_address,
+      btcAddress: result.btc_address,
+      solanaAddress: result.solana_address
     };
   }
 
