@@ -32,6 +32,8 @@ import { QCTAnalyticsCard } from "@/components/ops/QCTAnalyticsCard";
 import { QCTDashboard } from "@/components/ops/QCTDashboard";
 import { A2ATestCard } from "@/components/ops/A2ATestCard";
 import { A2ADVNCard } from "@/components/ops/A2ADVNCard";
+import { DiDQubeIdentityCard } from "@/components/ops/DiDQubeIdentityCard";
+import { DiDQubeReputationCard } from "@/components/ops/DiDQubeReputationCard";
 import { Connection, Transaction, SystemProgram, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { getPhantomWallet } from '@/services/wallet/phantom';
 import { getUnisatWallet } from '@/services/wallet/unisat';
@@ -552,6 +554,8 @@ export default function OpsPage() {
     { key: "sync_status", title: "Canister Sync Status" },
     { key: "icp_dvn", title: "ICP DVN" },
     { key: "dvn_mint_tests", title: "DVN Mint Tests" },
+    { key: "didqube_identity", title: "DiDQube Identity" },
+    { key: "didqube_reputation", title: "DiDQube Reputation" },
     { key: "qct_event_monitor", title: "iQube & QCT Event Register" },
     { key: "qct_dashboard", title: "QCT Multi-Chain Overview" },
     { key: "qct_trading", title: "QCT Cross-Chain Trading" },
@@ -622,6 +626,12 @@ export default function OpsPage() {
           }
           if (key === "a2a_dvn") {
             return <A2ADVNCard key={key} title={title} />;
+          }
+          if (key === "didqube_identity") {
+            return <DiDQubeIdentityCard key={key} />;
+          }
+          if (key === "didqube_reputation") {
+            return <DiDQubeReputationCard key={key} />;
           }
           if (key === "icp_health") {
             const ok = icp.data?.ok ?? false;

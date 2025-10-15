@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { IQubeCard } from "./IQubeCard";
 import { FilterSection, type FilterState } from "./FilterSection";
+import { IdentityFilterSection } from "./IdentityFilterSection";
 import { ViewModeToggle, type ViewMode } from "./ViewModeToggle";
 import { DotsInline } from "./scoreUtils";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
@@ -38,6 +39,8 @@ export function RegistryHome() {
   const searchParams = useSearchParams();
   const { toast } = useToast();
   const [devUser, setDevUser] = useState<{ masked?: string; valid?: boolean } | null>(null);
+  const [selectedPersona, setSelectedPersona] = useState<string>("");
+  const [minReputationBucket, setMinReputationBucket] = useState<number>(0);
 
   // Clean legacy query param like ?template=template-003
   useEffect(() => {
@@ -218,6 +221,14 @@ export function RegistryHome() {
             </span>
           </div>
         </div>
+
+        {/* DiDQube Identity Filters */}
+        <IdentityFilterSection
+          selectedPersona={selectedPersona}
+          onPersonaChange={setSelectedPersona}
+          minReputationBucket={minReputationBucket}
+          onReputationChange={setMinReputationBucket}
+        />
       </div>
 
       {/* Scrollable Content Section */}

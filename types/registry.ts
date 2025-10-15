@@ -20,6 +20,11 @@ export interface IQubeTemplate {
   accuracyScore: number;
   verifiabilityScore: number;
   riskScore: number;
+  // DiDQube identity & reputation policy hints (optional, non-breaking)
+  identity_state?: 'anonymous' | 'semi_anonymous' | 'semi_identifiable' | 'identifiable';
+  min_reputation_bucket?: number;
+  require_human_proof?: boolean;
+  require_agent_declare?: boolean;
 }
 
 export interface RegistryFilter {
