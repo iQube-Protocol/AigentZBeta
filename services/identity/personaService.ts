@@ -14,8 +14,16 @@ export class PersonaService {
   private supabase: SupabaseClient;
 
   constructor() {
-    const url = process.env.SUPABASE_URL;
-    const key = process.env.SUPABASE_ANON_KEY;
+    // Check multiple environment variable patterns for Supabase configuration
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL || 
+                process.env.SUPABASE_URL ||
+                'https://bsjhfvctmduxhohtllly.supabase.co'; // Fallback to Aigent Z
+    
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || 
+                process.env.SUPABASE_ANON_KEY ||
+                process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+                'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJzamhmdmN0bWR1eGhvaHRsbGx5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc1NDgyNTgsImV4cCI6MjA3MzEyNDI1OH0.JVDp4-F6EEXqVQ8sts2Z8KQg168aZ1YdtY53RRM_s7M'; // Fallback to Aigent Z anon key
+    
     if (!url || !key) throw new Error('Supabase env not configured');
     this.supabase = createClient(url, key);
   }
