@@ -3,15 +3,11 @@ export interface AgentConfig {
   name: string;
   fioId: string;
   color: string;
-  walletKeys: {
-    // EVM chains use same private key across chains
-    evmPrivateKey: string;
+  // Wallet keys removed - use AgentKeyService to retrieve from Supabase
+  // Public addresses only (safe to expose)
+  walletAddresses: {
     evmAddress: string;
-    // Bitcoin uses separate key pair
-    btcPrivateKey?: string;
     btcAddress?: string;
-    // Solana uses separate key pair  
-    solanaPrivateKey?: string;
     solanaAddress?: string;
   };
   supportedChains: {
@@ -25,21 +21,17 @@ export interface AgentConfig {
   };
 }
 
-// Agent wallet configurations
-// NOTE: In production, these private keys should be stored securely (env vars, HSM, etc.)
+// Agent configurations
+// NOTE: Private keys are stored encrypted in Supabase. Use AgentKeyService to retrieve.
 export const agentConfigs: Record<string, AgentConfig> = {
   "aigent-z": {
     id: "aigent-z",
     name: "Aigent Z",
     fioId: "z@aigent",
     color: "blue",
-    walletKeys: {
-      // Using the existing A2A signer key for Aigent Z
-      evmPrivateKey: process.env.SIGNER_PRIVATE_KEY || "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
-      evmAddress: "0x0e3a4FDbE83F7e206380E6C61CA016F2127FF844", // Updated signer address
-      btcPrivateKey: "cVN4VvHzRK31VOEMS6BwlWVNMuBDMq8SDWG5B3YyvMacLyK8dJw8",
+    walletAddresses: {
+      evmAddress: "0x0e3a4FDbE83F7e206380E6C61CA016F2127FF844",
       btcAddress: "tb1q03256641efc3dd9877560daf26e4d6bb46086a42",
-      solanaPrivateKey: "5J8QhkrwTZHCQYjLKV2T3JNJKqNxvQfgKjSHJHJHJHJHJHJHJHJHJHJHJHJHJHJH",
       solanaAddress: "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM"
     },
     supportedChains: {
@@ -57,13 +49,9 @@ export const agentConfigs: Record<string, AgentConfig> = {
     name: "Aigent MoneyPenny",
     fioId: "moneypenny@aigent",
     color: "purple",
-    walletKeys: {
-      // Generated unique keys for MoneyPenny
-      evmPrivateKey: "0xa7e4c2d8f9b3e6a1c5d8f2b9e6a3c7d0f4b8e1a5c9d2f6b0e3a7c4d8f1b5e9a2",
+    walletAddresses: {
       evmAddress: "0x8D286CcECf7B838172A45c26a11F019C4303E742",
-      btcPrivateKey: "cVhJ8QhkrwTZHCQYjLKV2T3JNJKqNxvQfgKjSHJHJHJHJHJHJHJHJHJHJHJHJHJH",
       btcAddress: "tb1qmp0neypenny1234567890abcdef1234567890ab",
-      solanaPrivateKey: "2x8QhkrwTZHCQYjLKV2T3JNJKqNxvQfgKjSHJHJHJHJHJHJHJHJHJHJHJHJHJHJH",
       solanaAddress: "MoneyPennyWallet123456789ABCDEFGHIJKLMNOP"
     },
     supportedChains: {
@@ -81,13 +69,9 @@ export const agentConfigs: Record<string, AgentConfig> = {
     name: "Aigent Nakamoto",
     fioId: "nakamoto@aigent",
     color: "orange",
-    walletKeys: {
-      // Generated unique keys for Nakamoto (Bitcoin focused)
-      evmPrivateKey: "0xb8f5d3e0a2c6f9b4e7a0d3f6c9b2e5a8d1f4c7b0e3a6d9f2c5b8e1a4d7f0c3b6",
+    walletAddresses: {
       evmAddress: "0x24BBB9C7aAcB33556D1429a3e1B33f05fAf7D4B9",
-      btcPrivateKey: "cSatoshiNakamotoPrivateKeyForBitcoinTestnetWalletAddress12345678901234567890",
       btcAddress: "tb1qnakamoto1234567890abcdef1234567890abcdef",
-      solanaPrivateKey: "3x8QhkrwTZHCQYjLKV2T3JNJKqNxvQfgKjSHJHJHJHJHJHJHJHJHJHJHJHJHJHJH",
       solanaAddress: "NakamotoWallet123456789ABCDEFGHIJKLMNOPQR"
     },
     supportedChains: {
@@ -105,13 +89,9 @@ export const agentConfigs: Record<string, AgentConfig> = {
     name: "Aigent Kn0w1",
     fioId: "kn0w1@aigent",
     color: "green",
-    walletKeys: {
-      // Generated unique keys for Kn0w1 (Data focused)
-      evmPrivateKey: "0xc9g6e4f1b3d7a0c4f7b0e3d6a9c2f5b8e1d4a7c0f3b6e9d2a5c8f1b4e7a0d3c6",
+    walletAddresses: {
       evmAddress: "0x875E825E0341b330065152ddaE37CBb843FC8D84",
-      btcPrivateKey: "cKn0w1DataSovereigntyPrivateKeyForBitcoinTestnetWallet1234567890123456789",
       btcAddress: "tb1qkn0w1data1234567890abcdef1234567890abcd",
-      solanaPrivateKey: "4x8QhkrwTZHCQYjLKV2T3JNJKqNxvQfgKjSHJHJHJHJHJHJHJHJHJHJHJHJHJHJH",
       solanaAddress: "Kn0w1DataWallet123456789ABCDEFGHIJKLMNOPQ"
     },
     supportedChains: {
