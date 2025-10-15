@@ -157,7 +157,8 @@ export default function AgentWalletDrawer({ open, onClose, agent }: AgentWalletD
               tokenAddress: txState.asset === "QCT" ? chainConfig.qctTokenAddress : chainConfig.usdcTokenAddress,
               to: recipientAddress,
               amount: (parseFloat(txState.amount) * 1e18).toString(), // QCT has 18 decimals
-              asset: txState.asset
+              asset: txState.asset,
+              agentId: agent.id // Pass agent ID to retrieve correct private key
             })
           });
           

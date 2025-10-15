@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { NextRequest } from "next/server";
+import { AgentKeyService } from "@/services/identity/agentKeyService";
 
 const ERC20_ABI = [
   "function transfer(address to, uint256 value) returns (bool)",
@@ -9,7 +10,7 @@ const ERC20_ABI = [
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { chainId, tokenAddress, to, amount, asset } = body || {};
+  const { chainId, tokenAddress, to, amount, asset, agentId } = body || {};
   
   try {
     const SIGNER_URL = process.env.SIGNER_URL || process.env.NEXT_PUBLIC_SIGNER_URL;
@@ -55,8 +56,15 @@ export async function POST(req: NextRequest) {
       return new Response(JSON.stringify({ ok: false, error: "chainId, tokenAddress, to, amount required" }), { status: 400 });
     }
 
-    const PK = process.env.SIGNER_PRIVATE_KEY;
-    if (!PK) return new Response(JSON.stringify({ ok: false, error: "SIGNER_PRIVATE_KEY not set" }), { status: 500 });
+    // Get agent private key from Supabase (server-side only)
+    const keyService = new AgentKeyService();
+    const agentKeys = await keyService.getAgentKeys(agentId || 'aigent-z');
+    
+    if (!agentKeys?.evmPrivateKey) {
+      return new Response(JSON.stringify({ ok: false, error: "Agent private key not found" }), { status: 500 });
+    }
+    
+    const PK = agentKeys.evmPrivateKey;
 
     const { ethers } = await import("ethers");
     const rpc = (cid: number) => {
