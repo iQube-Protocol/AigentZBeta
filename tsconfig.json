@@ -26,5 +26,5 @@
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "**/*.d.ts", ".next/types/**/*.ts"],
-  "exclude": ["node_modules", "AigentZBeta/**/*"]
+  "exclude": ["node_modules", "AigentZBeta/**/*", "scripts/**/*"]
 }
