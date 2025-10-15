@@ -38,9 +38,9 @@ export default function AgentWalletDrawer({ open, onClose, agent }: AgentWalletD
 
   // Fetch real balances using agent's actual wallet addresses
   const balanceAddresses = agentConfig ? {
-    sepolia: agentConfig.walletKeys.evmAddress as `0x${string}`,
-    arb: agentConfig.walletKeys.evmAddress as `0x${string}`,
-    btc: agentConfig.walletKeys.btcAddress
+    sepolia: agentConfig.walletAddresses.evmAddress as `0x${string}`,
+    arb: agentConfig.walletAddresses.evmAddress as `0x${string}`,
+    btc: agentConfig.walletAddresses.btcAddress
   } : {};
 
   // Multi-chain balance fetching
@@ -48,15 +48,15 @@ export default function AgentWalletDrawer({ open, onClose, agent }: AgentWalletD
   const [chainBalances, setChainBalances] = useState<Record<string, string>>({});
   
   useEffect(() => {
-    if (agentConfig?.walletKeys.evmAddress) {
+    if (agentConfig?.walletAddresses.evmAddress) {
       import('../app/utils/balanceUtils').then(({ getQCTBalance, getQCTBalancesByChain }) => {
         // Get total balance
-        getQCTBalance(agentConfig.walletKeys.evmAddress).then(setQctBalance);
+        getQCTBalance(agentConfig.walletAddresses.evmAddress).then(setQctBalance);
         // Get individual chain balances
-        getQCTBalancesByChain(agentConfig.walletKeys.evmAddress).then(setChainBalances);
+        getQCTBalancesByChain(agentConfig.walletAddresses.evmAddress).then(setChainBalances);
       });
     }
-  }, [agentConfig?.walletKeys.evmAddress]);
+  }, [agentConfig?.walletAddresses.evmAddress]);
 
   const calculateQCTEquivalent = (usdcAmount: string) => {
     // Mock conversion rate: 1 USDC = 1250 Q¢
@@ -118,7 +118,7 @@ export default function AgentWalletDrawer({ open, onClose, agent }: AgentWalletD
       const agentId = recipient.replace('@', '');
       const recipientConfig = getAgentConfig(agentId);
       if (recipientConfig) {
-        return recipientConfig.walletKeys.evmAddress;
+        return recipientConfig.walletAddresses.evmAddress;
       }
       throw new Error(`Agent ${recipient} not found`);
     }
@@ -169,10 +169,10 @@ export default function AgentWalletDrawer({ open, onClose, agent }: AgentWalletD
             
             // Refresh balances after successful transaction
             setTimeout(() => {
-              if (agentConfig?.walletKeys.evmAddress) {
+              if (agentConfig?.walletAddresses.evmAddress) {
                 import('../app/utils/balanceUtils').then(({ getQCTBalance, getQCTBalancesByChain }) => {
-                  getQCTBalance(agentConfig.walletKeys.evmAddress).then(setQctBalance);
-                  getQCTBalancesByChain(agentConfig.walletKeys.evmAddress).then(setChainBalances);
+                  getQCTBalance(agentConfig.walletAddresses.evmAddress).then(setQctBalance);
+                  getQCTBalancesByChain(agentConfig.walletAddresses.evmAddress).then(setChainBalances);
                 });
               }
             }, 2000);

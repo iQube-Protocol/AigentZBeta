@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
           }
 
           // Fund the agent's address directly
-          console.log(`Funding ${agentId} on chain ${chainId} at address ${agentConfig.walletKeys.evmAddress}`);
+          console.log(`Funding ${agentId} on chain ${chainId} at address ${agentConfig.walletAddresses.evmAddress}`);
           
           const response = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/admin/fund-signer`, {
             method: 'POST',
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
             body: JSON.stringify({
               chainIds: [chainId],
               amountQct,
-              targetAddress: agentConfig.walletKeys.evmAddress // Fund agent instead of signer
+              targetAddress: agentConfig.walletAddresses.evmAddress // Fund agent instead of signer
             })
           });
 
