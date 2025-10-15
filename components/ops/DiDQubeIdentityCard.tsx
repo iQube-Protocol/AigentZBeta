@@ -89,7 +89,7 @@ export function DiDQubeIdentityCard() {
                         {p.fio_handle || p.id.slice(0, 8)}
                       </span>
                       {p.world_id_status === 'verified_human' && (
-                        <Shield size={12} className="text-green-400" title="Verified Human" />
+                        <Shield size={12} className="text-green-400" aria-label="Verified Human" />
                       )}
                     </div>
                     <div className="flex items-center gap-2 mt-1">

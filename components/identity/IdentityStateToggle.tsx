@@ -16,7 +16,7 @@ export function IdentityStateToggle({ value, onChange }: IdentityStateToggleProp
     <Tabs value={value} onValueChange={(v) => onChange(v as IdentityState)}>
       <TabsList className="grid w-full grid-cols-4">
         {states.map(state => (
-          <TabsTrigger key={state} value={state} _value={value} _onValueChange={onChange} className="text-xs">
+          <TabsTrigger key={state} value={state} className="text-xs">
             {state.replace(/_/g, ' ')}
           </TabsTrigger>
         ))}
