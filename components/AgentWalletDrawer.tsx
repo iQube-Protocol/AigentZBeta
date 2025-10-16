@@ -59,15 +59,15 @@ export default function AgentWalletDrawer({ open, onClose, agent }: AgentWalletD
   }, [agentConfig?.walletAddresses.evmAddress]);
 
   const calculateQCTEquivalent = (usdcAmount: string) => {
-    // Mock conversion rate: 1 USDC = 1250 Q¢
+    // Conversion rate: 1 USDC = 100 Q¢
     const usdc = parseFloat(usdcAmount.replace(/,/g, ""));
-    return Math.round(usdc * 1250).toLocaleString();
+    return Math.round(usdc * 100).toLocaleString();
   };
 
   const calculateUSDCEquivalent = (qctAmount: string) => {
-    // Mock conversion rate: 1250 Q¢ = 1 USDC
+    // Conversion rate: 100 Q¢ = 1 USDC
     const qct = parseFloat(qctAmount.replace(/,/g, ""));
-    return (qct / 1250).toFixed(2);
+    return (qct / 100).toFixed(2);
   };
 
   const formatToken = (raw?: string, decimals?: number, fractionDigits: number = 0) => {
@@ -320,7 +320,7 @@ export default function AgentWalletDrawer({ open, onClose, agent }: AgentWalletD
 
           {/* Transaction Interface */}
           <div className="bg-white/5 ring-1 ring-white/10 rounded p-3">
-            <h4 className="text-xs font-medium text-slate-200 mb-3 tracking-wide">Transaction Center</h4>
+            <h4 className="text-xs font-medium text-slate-200 mb-3 tracking-wide">Send Q¢ (QCT) Payment</h4>
             
             {/* Action Buttons */}
             {!txState.type && (
@@ -353,7 +353,7 @@ export default function AgentWalletDrawer({ open, onClose, agent }: AgentWalletD
             {txState.type && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <h5 className="text-xs font-medium text-slate-200 capitalize tracking-wide">{txState.type} Payment</h5>
+                  <h5 className="text-xs font-medium text-slate-200 capitalize tracking-wide">{txState.type} Q¢ (QCT) Payment</h5>
                   <div className="flex gap-2">
                     <button
                       onClick={resetTransaction}
@@ -388,15 +388,6 @@ export default function AgentWalletDrawer({ open, onClose, agent }: AgentWalletD
                   </select>
                 </div>
 
-                {/* Asset - Fixed to QCT only */}
-                <div>
-                  <label className="block text-xs text-slate-300 mb-1">Asset</label>
-                  <div className="w-full bg-white/5 ring-1 ring-white/10 rounded px-2 py-1 text-xs text-slate-200 flex items-center">
-                    <span className="text-cyan-400 font-medium">Q¢ (QCT)</span>
-                    <span className="ml-auto text-slate-400 text-xs">Primary Token</span>
-                  </div>
-                </div>
-
                 {/* Amount */}
                 <div>
                   <label className="block text-xs text-slate-300 mb-1">Amount</label>
@@ -407,6 +398,33 @@ export default function AgentWalletDrawer({ open, onClose, agent }: AgentWalletD
                     placeholder="0.00"
                     className="w-full bg-white/5 ring-1 ring-white/10 rounded px-2 py-1 text-xs text-slate-200"
                   />
+                  
+                  {/* Quick Payment Amounts */}
+                  {txState.type === "send" && (
+                    <div className="mt-2">
+                      <div className="text-xs text-slate-400 mb-1">Quick amounts:</div>
+                      <div className="grid grid-cols-3 gap-1">
+                        <button
+                          onClick={() => setTxState(prev => ({ ...prev, amount: "10" }))}
+                          className="px-2 py-1 text-xs bg-green-500/10 hover:bg-green-500/20 ring-1 ring-green-500/20 rounded text-green-200"
+                        >
+                          10 Q¢
+                        </button>
+                        <button
+                          onClick={() => setTxState(prev => ({ ...prev, amount: "100" }))}
+                          className="px-2 py-1 text-xs bg-green-500/10 hover:bg-green-500/20 ring-1 ring-green-500/20 rounded text-green-200"
+                        >
+                          100 Q¢
+                        </button>
+                        <button
+                          onClick={() => setTxState(prev => ({ ...prev, amount: "1000" }))}
+                          className="px-2 py-1 text-xs bg-green-500/10 hover:bg-green-500/20 ring-1 ring-green-500/20 rounded text-green-200"
+                        >
+                          1,000 Q¢
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Recipient/Sender or TX Hash */}
@@ -436,18 +454,25 @@ export default function AgentWalletDrawer({ open, onClose, agent }: AgentWalletD
                     )}
                   </div>
                   {txState.type !== "verify" && (
-                    <div className="mt-1 text-xs text-slate-400">
-                      Quick select: {['@aigent-z', '@aigent-moneypenny', '@aigent-nakamoto', '@aigent-kn0w1']
-                        .filter(id => id !== `@${agent.id}`)
-                        .map(agentId => (
-                          <button
-                            key={agentId}
-                            onClick={() => setTxState(prev => ({ ...prev, recipient: agentId }))}
-                            className="ml-1 text-cyan-400 hover:text-cyan-300 underline"
-                          >
-                            {agentId}
-                          </button>
-                        ))}
+                    <div className="mt-2">
+                      <div className="text-xs text-slate-400 mb-1">Quick select agents:</div>
+                      <div className="grid grid-cols-4 gap-1">
+                        {['aigent-z', 'aigent-moneypenny', 'aigent-nakamoto', 'aigent-kn0w1']
+                          .filter(id => id !== agent.id)
+                          .map(agentId => {
+                            const displayName = agentId.replace('aigent-', '').replace('moneypenny', 'MoneyPenny').replace(/^\w/, c => c.toUpperCase());
+                            return (
+                              <button
+                                key={agentId}
+                                onClick={() => setTxState(prev => ({ ...prev, recipient: `@${agentId}` }))}
+                                className="flex flex-col items-center gap-1 p-2 bg-cyan-500/10 hover:bg-cyan-500/20 ring-1 ring-cyan-500/20 rounded text-cyan-200 text-xs"
+                              >
+                                <Circle size={10} className="fill-current" />
+                                <span className="text-xs leading-tight">{displayName}</span>
+                              </button>
+                            );
+                          })}
+                      </div>
                     </div>
                   )}
                 </div>
