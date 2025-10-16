@@ -64,6 +64,12 @@ export default function AgentWalletDrawer({ open, onClose, agent }: AgentWalletD
     return Math.round(usdc * 1250).toLocaleString();
   };
 
+  const calculateUSDCEquivalent = (qctAmount: string) => {
+    // Mock conversion rate: 1250 Q¢ = 1 USDC
+    const qct = parseFloat(qctAmount.replace(/,/g, ""));
+    return (qct / 1250).toFixed(2);
+  };
+
   const formatToken = (raw?: string, decimals?: number, fractionDigits: number = 0) => {
     try {
       if (!raw || raw === "0") return "0";
@@ -290,7 +296,10 @@ export default function AgentWalletDrawer({ open, onClose, agent }: AgentWalletD
             <div className="mb-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs text-slate-300">Q¢ Balance</span>
-                <span className="text-lg font-semibold text-green-300">{totalBalances.qct} Q¢</span>
+                <div className="text-right">
+                  <div className="text-lg font-semibold text-green-300">{totalBalances.qct} Q¢</div>
+                  <div className="text-xs text-slate-400">(${calculateUSDCEquivalent(totalBalances.qct)} USDC)</div>
+                </div>
               </div>
             </div>
 
@@ -308,14 +317,58 @@ export default function AgentWalletDrawer({ open, onClose, agent }: AgentWalletD
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Transaction Interface */}
-          <div className="bg-white/5 ring-1 ring-white/10 rounded p-3">
-            <h4 className="text-xs font-medium text-slate-200 mb-3 tracking-wide">Transaction Center</h4>
-            
-            {/* Action Buttons */}
-            {!txState.type && (
-              <div className="grid grid-cols-3 gap-1 mb-3">
+        {/* Quick Links */}
+        <div className="bg-white/5 ring-1 ring-white/10 rounded p-3">
+          <h4 className="text-xs font-medium text-slate-200 mb-3 tracking-wide">Quick Links</h4>
+          <div className="grid grid-cols-4 gap-1">
+            {['aigent-z', 'aigent-moneypenny', 'aigent-nakamoto', 'aigent-kn0w1']
+              .filter(id => id !== agent.id)
+              .map(agentId => {
+                const displayName = agentId.replace('aigent-', '').replace('moneypenny', 'MoneyPenny').replace(/^\w/, c => c.toUpperCase());
+                return (
+                  <button
+                    key={agentId}
+                    onClick={() => setTxState(prev => ({ ...prev, recipient: `@${agentId}`, type: 'send', asset: 'QCT' }))}
+                    className="flex flex-col items-center gap-1 p-2 bg-cyan-500/10 hover:bg-cyan-500/20 ring-1 ring-cyan-500/20 rounded text-cyan-200 text-xs"
+                  >
+                    <Circle size={12} className="fill-current" />
+                    <span className="text-xs leading-tight">{displayName}</span>
+                  </button>
+                );
+              })}
+          </div>
+        </div>
+
+        {/* Transaction Interface */}
+        <div className="bg-white/5 ring-1 ring-white/10 rounded p-3">
+          <h4 className="text-xs font-medium text-slate-200 mb-3 tracking-wide">Send Q¢ (QCT) Payment</h4>
+          
+          {/* Quick Payment Buttons */}
+          {!txState.type && (
+            <div className="space-y-2 mb-3">
+              <div className="grid grid-cols-3 gap-1">
+                <button
+                  onClick={() => setTxState(prev => ({ ...prev, type: "send", asset: "QCT", amount: "10" }))}
+                  className="flex flex-col items-center gap-1 p-2 bg-green-500/10 hover:bg-green-500/20 ring-1 ring-green-500/20 rounded text-green-200"
+                >
+                  <span className="text-xs font-medium">10 Q¢</span>
+                </button>
+                <button
+                  onClick={() => setTxState(prev => ({ ...prev, type: "send", asset: "QCT", amount: "100" }))}
+                  className="flex flex-col items-center gap-1 p-2 bg-green-500/10 hover:bg-green-500/20 ring-1 ring-green-500/20 rounded text-green-200"
+                >
+                  <span className="text-xs font-medium">100 Q¢</span>
+                </button>
+                <button
+                  onClick={() => setTxState(prev => ({ ...prev, type: "send", asset: "QCT", amount: "1000" }))}
+                  className="flex flex-col items-center gap-1 p-2 bg-green-500/10 hover:bg-green-500/20 ring-1 ring-green-500/20 rounded text-green-200"
+                >
+                  <span className="text-xs font-medium">1,000 Q¢</span>
+                </button>
+              </div>
+              <div className="grid grid-cols-3 gap-1">
                 <button
                   onClick={() => setTxState(prev => ({ ...prev, type: "request", asset: "QCT" }))}
                   className="flex flex-col items-center gap-1 p-2 bg-blue-500/10 hover:bg-blue-500/20 ring-1 ring-blue-500/20 rounded text-blue-200"
@@ -328,7 +381,7 @@ export default function AgentWalletDrawer({ open, onClose, agent }: AgentWalletD
                   className="flex flex-col items-center gap-1 p-2 bg-green-500/10 hover:bg-green-500/20 ring-1 ring-green-500/20 rounded text-green-200"
                 >
                   <ArrowUpRight size={14} />
-                  <span className="text-xs">Send</span>
+                  <span className="text-xs">Custom</span>
                 </button>
                 <button
                   onClick={() => setTxState(prev => ({ ...prev, type: "verify", asset: "QCT" }))}
@@ -338,13 +391,14 @@ export default function AgentWalletDrawer({ open, onClose, agent }: AgentWalletD
                   <span className="text-xs">Verify</span>
                 </button>
               </div>
-            )}
+            </div>
+          )}
 
             {/* Transaction Form */}
             {txState.type && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <h5 className="text-xs font-medium text-slate-200 capitalize tracking-wide">{txState.type} Payment</h5>
+                  <h5 className="text-xs font-medium text-slate-200 capitalize tracking-wide">{txState.type} Q¢ (QCT) Payment</h5>
                   <div className="flex gap-2">
                     <button
                       onClick={resetTransaction}
@@ -379,14 +433,6 @@ export default function AgentWalletDrawer({ open, onClose, agent }: AgentWalletD
                   </select>
                 </div>
 
-                {/* Asset - Fixed to QCT only */}
-                <div>
-                  <label className="block text-xs text-slate-300 mb-1">Asset</label>
-                  <div className="w-full bg-white/5 ring-1 ring-white/10 rounded px-2 py-1 text-xs text-slate-200 flex items-center">
-                    <span className="text-cyan-400 font-medium">Q¢ (QCT)</span>
-                    <span className="ml-auto text-slate-400 text-xs">Primary Token</span>
-                  </div>
-                </div>
 
                 {/* Amount */}
                 <div>
@@ -426,21 +472,6 @@ export default function AgentWalletDrawer({ open, onClose, agent }: AgentWalletD
                       </button>
                     )}
                   </div>
-                  {txState.type !== "verify" && (
-                    <div className="mt-1 text-xs text-slate-400">
-                      Quick select: {['@aigent-z', '@aigent-moneypenny', '@aigent-nakamoto', '@aigent-kn0w1']
-                        .filter(id => id !== `@${agent.id}`)
-                        .map(agentId => (
-                          <button
-                            key={agentId}
-                            onClick={() => setTxState(prev => ({ ...prev, recipient: agentId }))}
-                            className="ml-1 text-cyan-400 hover:text-cyan-300 underline"
-                          >
-                            {agentId}
-                          </button>
-                        ))}
-                    </div>
-                  )}
                 </div>
 
                 {/* Transaction Hash Display (after completion) */}
