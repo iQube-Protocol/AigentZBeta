@@ -35,13 +35,18 @@ export class AgentKeyService {
     const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     
+    console.log('[AgentKeyService] Initializing with env vars:', {
+      SUPABASE_URL: !!process.env.SUPABASE_URL,
+      NEXT_PUBLIC_SUPABASE_URL: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+      SUPABASE_SERVICE_ROLE_KEY: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+      SUPABASE_ANON_KEY: !!process.env.SUPABASE_ANON_KEY,
+      AGENT_KEY_ENCRYPTION_SECRET: !!process.env.AGENT_KEY_ENCRYPTION_SECRET,
+      supabaseUrlResolved: !!supabaseUrl,
+      supabaseKeyResolved: !!supabaseKey
+    });
+    
     if (!supabaseUrl || !supabaseKey) {
-      console.error('Supabase env vars:', {
-        SUPABASE_URL: !!process.env.SUPABASE_URL,
-        NEXT_PUBLIC_SUPABASE_URL: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
-        SUPABASE_SERVICE_ROLE_KEY: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
-        SUPABASE_ANON_KEY: !!process.env.SUPABASE_ANON_KEY
-      });
+      console.error('[AgentKeyService] Missing Supabase credentials');
       throw new Error('Missing Supabase credentials. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.');
     }
     
@@ -55,6 +60,12 @@ export class AgentKeyService {
     
     // Encryption key from environment (32 bytes for AES-256)
     this.encryptionKey = process.env.AGENT_KEY_ENCRYPTION_SECRET || 'default-insecure-key-change-in-production-32bytes';
+    
+    if (!process.env.AGENT_KEY_ENCRYPTION_SECRET) {
+      console.warn('[AgentKeyService] WARNING: Using default encryption key. Set AGENT_KEY_ENCRYPTION_SECRET in production!');
+    }
+    
+    console.log('[AgentKeyService] Initialized successfully');
   }
 
   /**

@@ -57,14 +57,38 @@ export async function POST(req: NextRequest) {
     }
 
     // Get agent private key from Supabase (server-side only)
-    const keyService = new AgentKeyService();
-    const agentKeys = await keyService.getAgentKeys(agentId || 'aigent-z');
+    console.log(`[Transfer] Retrieving keys for agent: ${agentId || 'aigent-z'}`);
+    
+    let keyService;
+    let agentKeys;
+    
+    try {
+      keyService = new AgentKeyService();
+      agentKeys = await keyService.getAgentKeys(agentId || 'aigent-z');
+      console.log(`[Transfer] Keys retrieved:`, {
+        agentId: agentId || 'aigent-z',
+        keysFound: !!agentKeys,
+        hasEvmKey: !!agentKeys?.evmPrivateKey,
+        evmAddress: agentKeys?.evmAddress
+      });
+    } catch (error) {
+      console.error(`[Transfer] Error retrieving keys:`, error);
+      return new Response(JSON.stringify({ 
+        ok: false, 
+        error: `Failed to retrieve agent keys: ${error instanceof Error ? error.message : 'Unknown error'}` 
+      }), { status: 500 });
+    }
     
     if (!agentKeys?.evmPrivateKey) {
-      return new Response(JSON.stringify({ ok: false, error: "Agent private key not found" }), { status: 500 });
+      console.error(`[Transfer] No private key found for agent: ${agentId || 'aigent-z'}`);
+      return new Response(JSON.stringify({ 
+        ok: false, 
+        error: `Agent private key not found for ${agentId || 'aigent-z'}. Check Supabase agent_keys table.` 
+      }), { status: 500 });
     }
     
     const PK = agentKeys.evmPrivateKey;
+    console.log(`[Transfer] Using private key for address: ${agentKeys.evmAddress}`);
 
     const { ethers } = await import("ethers");
     const rpc = (cid: number) => {
