@@ -33,16 +33,22 @@ export class AgentKeyService {
   constructor() {
     // Support both NEXT_PUBLIC_ and regular env vars for flexibility
     const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 
+                        process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY ||
+                        process.env.SUPABASE_ANON_KEY || 
+                        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     
     console.log('[AgentKeyService] Initializing with env vars:', {
       SUPABASE_URL: !!process.env.SUPABASE_URL,
       NEXT_PUBLIC_SUPABASE_URL: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
       SUPABASE_SERVICE_ROLE_KEY: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+      NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY: !!process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY,
       SUPABASE_ANON_KEY: !!process.env.SUPABASE_ANON_KEY,
       AGENT_KEY_ENCRYPTION_SECRET: !!process.env.AGENT_KEY_ENCRYPTION_SECRET,
+      NEXT_PUBLIC_AGENT_KEY_ENCRYPTION_SECRET: !!process.env.NEXT_PUBLIC_AGENT_KEY_ENCRYPTION_SECRET,
       supabaseUrlResolved: !!supabaseUrl,
-      supabaseKeyResolved: !!supabaseKey
+      supabaseKeyResolved: !!supabaseKey,
+      usingServiceRoleKey: !!(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY)
     });
     
     if (!supabaseUrl || !supabaseKey) {
@@ -59,13 +65,20 @@ export class AgentKeyService {
     });
     
     // Encryption key from environment (32 bytes for AES-256)
-    this.encryptionKey = process.env.AGENT_KEY_ENCRYPTION_SECRET || 'default-insecure-key-change-in-production-32bytes';
+    // Support both regular and NEXT_PUBLIC_ prefixed versions
+    this.encryptionKey = process.env.AGENT_KEY_ENCRYPTION_SECRET || 
+                         process.env.NEXT_PUBLIC_AGENT_KEY_ENCRYPTION_SECRET || 
+                         'default-insecure-key-change-in-production-32bytes';
     
-    if (!process.env.AGENT_KEY_ENCRYPTION_SECRET) {
+    if (!process.env.AGENT_KEY_ENCRYPTION_SECRET && !process.env.NEXT_PUBLIC_AGENT_KEY_ENCRYPTION_SECRET) {
       console.warn('[AgentKeyService] WARNING: Using default encryption key. Set AGENT_KEY_ENCRYPTION_SECRET in production!');
     }
     
-    console.log('[AgentKeyService] Initialized successfully');
+    console.log('[AgentKeyService] Initialized successfully with encryption key:', {
+      hasEncryptionKey: this.encryptionKey !== 'default-insecure-key-change-in-production-32bytes',
+      keyLength: this.encryptionKey.length,
+      keyPrefix: this.encryptionKey.substring(0, 16)
+    });
   }
 
   /**
