@@ -320,7 +320,7 @@ export default function AgentWalletDrawer({ open, onClose, agent }: AgentWalletD
 
           {/* Transaction Interface */}
           <div className="bg-white/5 ring-1 ring-white/10 rounded p-3">
-            <h4 className="text-xs font-medium text-slate-200 mb-3 tracking-wide">Send Q¢ (QCT) Payment</h4>
+            <h4 className="text-xs font-medium text-slate-200 mb-3 tracking-wide">Transaction Center</h4>
             
             {/* Action Buttons */}
             {!txState.type && (
@@ -353,7 +353,7 @@ export default function AgentWalletDrawer({ open, onClose, agent }: AgentWalletD
             {txState.type && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <h5 className="text-xs font-medium text-slate-200 capitalize tracking-wide">{txState.type} Q¢ (QCT) Payment</h5>
+                  <h5 className="text-xs font-medium text-slate-200 capitalize tracking-wide">{txState.type} Payment <span className="text-cyan-400">Q¢ (QCT)</span></h5>
                   <div className="flex gap-2">
                     <button
                       onClick={resetTransaction}
@@ -456,19 +456,19 @@ export default function AgentWalletDrawer({ open, onClose, agent }: AgentWalletD
                   {txState.type !== "verify" && (
                     <div className="mt-2">
                       <div className="text-xs text-slate-400 mb-1">Quick select agents:</div>
-                      <div className="grid grid-cols-4 gap-1">
+                      <div className="grid grid-cols-3 gap-1">
                         {['aigent-z', 'aigent-moneypenny', 'aigent-nakamoto', 'aigent-kn0w1']
                           .filter(id => id !== agent.id)
+                          .slice(0, 3)
                           .map(agentId => {
                             const displayName = agentId.replace('aigent-', '').replace('moneypenny', 'MoneyPenny').replace(/^\w/, c => c.toUpperCase());
                             return (
                               <button
                                 key={agentId}
                                 onClick={() => setTxState(prev => ({ ...prev, recipient: `@${agentId}` }))}
-                                className="flex flex-col items-center gap-1 p-2 bg-cyan-500/10 hover:bg-cyan-500/20 ring-1 ring-cyan-500/20 rounded text-cyan-200 text-xs"
+                                className="px-2 py-1 text-xs bg-cyan-500/10 hover:bg-cyan-500/20 ring-1 ring-cyan-500/20 rounded text-cyan-200"
                               >
-                                <Circle size={10} className="fill-current" />
-                                <span className="text-xs leading-tight">{displayName}</span>
+                                {displayName}
                               </button>
                             );
                           })}
