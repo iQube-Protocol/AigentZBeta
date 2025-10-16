@@ -1,4 +1,4 @@
-import { initAgentiqClient } from '@qriptoagentiq/core-client';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
 
 /**
@@ -27,7 +27,7 @@ export interface AgentAddresses {
 }
 
 export class AgentKeyService {
-  private supabase;
+  private supabase: SupabaseClient;
   private encryptionKey: string;
 
   constructor() {
@@ -36,15 +36,22 @@ export class AgentKeyService {
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     
     if (!supabaseUrl || !supabaseKey) {
+      console.error('Supabase env vars:', {
+        SUPABASE_URL: !!process.env.SUPABASE_URL,
+        NEXT_PUBLIC_SUPABASE_URL: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+        SUPABASE_SERVICE_ROLE_KEY: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+        SUPABASE_ANON_KEY: !!process.env.SUPABASE_ANON_KEY
+      });
       throw new Error('Missing Supabase credentials. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.');
     }
     
-    const client = initAgentiqClient({
-      supabaseUrl,
-      supabaseAnonKey: supabaseKey
+    // Use Supabase client directly to avoid SDK env var issues
+    this.supabase = createClient(supabaseUrl, supabaseKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false
+      }
     });
-    
-    this.supabase = client.supabase;
     
     // Encryption key from environment (32 bytes for AES-256)
     this.encryptionKey = process.env.AGENT_KEY_ENCRYPTION_SECRET || 'default-insecure-key-change-in-production-32bytes';
