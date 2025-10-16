@@ -31,9 +31,17 @@ export class AgentKeyService {
   private encryptionKey: string;
 
   constructor() {
+    // Support both NEXT_PUBLIC_ and regular env vars for flexibility
+    const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    
+    if (!supabaseUrl || !supabaseKey) {
+      throw new Error('Missing Supabase credentials. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.');
+    }
+    
     const client = initAgentiqClient({
-      supabaseUrl: process.env.SUPABASE_URL,
-      supabaseAnonKey: process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY
+      supabaseUrl,
+      supabaseAnonKey: supabaseKey
     });
     
     this.supabase = client.supabase;
