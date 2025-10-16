@@ -115,28 +115,60 @@ export class AgentKeyService {
   }
 
   /**
-   * Get agent private keys (decrypted)
-   * SERVER-SIDE ONLY - NEVER expose to client
+   * Get agent keys from Supabase
    */
   async getAgentKeys(agentId: string): Promise<AgentKeys | null> {
-    const { data, error } = await this.supabase
-      .from('agent_keys')
-      .select('*')
-      .eq('agent_id', agentId)
-      .single();
+    try {
+      console.log(`[AgentKeyService] Querying Supabase for agent: ${agentId}`);
+      
+      const { data, error } = await this.supabase
+        .from('agent_keys')
+        .select('*')
+        .eq('agent_id', agentId)
+        .single();
 
-    if (error || !data) return null;
+      if (error) {
+        console.error(`[AgentKeyService] Supabase error for ${agentId}:`, error);
+        return null;
+      }
 
-    return {
-      agentId: data.agent_id,
-      agentName: data.agent_name,
-      evmPrivateKey: data.evm_private_key_encrypted ? this.decrypt(data.evm_private_key_encrypted) : undefined,
-      btcPrivateKey: data.btc_private_key_encrypted ? this.decrypt(data.btc_private_key_encrypted) : undefined,
-      solanaPrivateKey: data.solana_private_key_encrypted ? this.decrypt(data.solana_private_key_encrypted) : undefined,
-      evmAddress: data.evm_address,
-      btcAddress: data.btc_address,
-      solanaAddress: data.solana_address
-    };
+      if (!data) {
+        console.error(`[AgentKeyService] No data returned for ${agentId}`);
+        return null;
+      }
+
+      console.log(`[AgentKeyService] Data found for ${agentId}:`, {
+        hasEvmEncrypted: !!data.evm_private_key_encrypted,
+        evmEncryptedLength: data.evm_private_key_encrypted?.length,
+        evmAddress: data.evm_address
+      });
+
+      // Decrypt the private keys
+      try {
+        const decryptedEvmKey = this.decrypt(data.evm_private_key_encrypted);
+        console.log(`[AgentKeyService] Decryption successful for ${agentId}`, {
+          decryptedKeyLength: decryptedEvmKey?.length,
+          startsWithOx: decryptedEvmKey?.startsWith('0x')
+        });
+        
+        return {
+          agentId: data.agent_id,
+          agentName: data.agent_name,
+          evmPrivateKey: decryptedEvmKey,
+          btcPrivateKey: data.btc_private_key_encrypted ? this.decrypt(data.btc_private_key_encrypted) : undefined,
+          solanaPrivateKey: data.solana_private_key_encrypted ? this.decrypt(data.solana_private_key_encrypted) : undefined,
+          evmAddress: data.evm_address,
+          btcAddress: data.btc_address,
+          solanaAddress: data.solana_address
+        };
+      } catch (decryptError) {
+        console.error(`[AgentKeyService] Decryption failed for ${agentId}:`, decryptError);
+        return null;
+      }
+    } catch (error) {
+      console.error(`[AgentKeyService] Exception getting keys for ${agentId}:`, error);
+      return null;
+    }
   }
 
   /**
