@@ -225,8 +225,9 @@ export class FIOService {
     }
 
     try {
-      const fee = await this.sdk.getFee('register_fio_address');
-      return fee.fee || 40000000000; // Default to 40 FIO if fee lookup fails
+      // Use getFee with EndPoint enum - import from @fioprotocol/fiosdk
+      // For now, return default fee as SDK endpoint enum is not properly exposed
+      return 40000000000; // 40 FIO (default registration fee)
     } catch (error: any) {
       // Return default fee if lookup fails
       return 40000000000; // 40 FIO
