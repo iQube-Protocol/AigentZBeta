@@ -2,7 +2,7 @@ use candid::{CandidType, Deserialize};
 use ic_cdk::api::time;
 use ic_cdk_macros::*;
 use ic_stable_structures::memory_manager::{MemoryId, MemoryManager, VirtualMemory};
-use ic_stable_structures::{BoundedStorable, DefaultMemoryImpl, StableBTreeMap, Storable};
+use ic_stable_structures::{DefaultMemoryImpl, StableBTreeMap, Storable, storable::Bound};
 use serde::Serialize;
 use std::borrow::Cow;
 use std::cell::RefCell;
@@ -24,6 +24,11 @@ pub struct ReputationBucket {
 }
 
 impl Storable for ReputationBucket {
+    const BOUND: Bound = Bound::Bounded {
+        max_size: 1024, // 1KB max per reputation entry
+        is_fixed_size: false,
+    };
+
     fn to_bytes(&self) -> Cow<[u8]> {
         Cow::Owned(serde_json::to_vec(self).unwrap())
     }
@@ -31,11 +36,6 @@ impl Storable for ReputationBucket {
     fn from_bytes(bytes: Cow<[u8]>) -> Self {
         serde_json::from_slice(&bytes).unwrap()
     }
-}
-
-impl BoundedStorable for ReputationBucket {
-    const MAX_SIZE: u32 = 1024; // 1KB max per reputation entry
-    const IS_FIXED_SIZE: bool = false;
 }
 
 // Reputation evidence structure
@@ -51,6 +51,11 @@ pub struct ReputationEvidence {
 }
 
 impl Storable for ReputationEvidence {
+    const BOUND: Bound = Bound::Bounded {
+        max_size: 2048, // 2KB max per evidence entry
+        is_fixed_size: false,
+    };
+
     fn to_bytes(&self) -> Cow<[u8]> {
         Cow::Owned(serde_json::to_vec(self).unwrap())
     }
@@ -58,11 +63,6 @@ impl Storable for ReputationEvidence {
     fn from_bytes(bytes: Cow<[u8]>) -> Self {
         serde_json::from_slice(&bytes).unwrap()
     }
-}
-
-impl BoundedStorable for ReputationEvidence {
-    const MAX_SIZE: u32 = 2048; // 2KB max per evidence entry
-    const IS_FIXED_SIZE: bool = false;
 }
 
 // API response structures
@@ -202,7 +202,7 @@ fn add_reputation_evidence(request: AddEvidenceRequest) -> ReputationResponse {
     });
     
     // Update reputation bucket
-    REPUTATION_STORAGE.with(|storage| {
+    let result = REPUTATION_STORAGE.with(|storage| {
         let mut storage = storage.borrow_mut();
         if let Some(mut bucket) = storage.get(&request.bucket_id) {
             bucket.evidence_count += 1;
@@ -214,18 +214,23 @@ fn add_reputation_evidence(request: AddEvidenceRequest) -> ReputationResponse {
             
             storage.insert(request.bucket_id, bucket.clone());
             
-            return ReputationResponse {
-                ok: true,
-                data: Some(bucket),
-                error: None,
-            };
+            Some(bucket)
+        } else {
+            None
         }
     });
     
-    ReputationResponse {
-        ok: false,
-        data: None,
-        error: Some("Reputation bucket not found".to_string()),
+    match result {
+        Some(bucket) => ReputationResponse {
+            ok: true,
+            data: Some(bucket),
+            error: None,
+        },
+        None => ReputationResponse {
+            ok: false,
+            data: None,
+            error: Some("Reputation bucket not found".to_string()),
+        },
     }
 }
 

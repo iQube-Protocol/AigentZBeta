@@ -17,6 +17,7 @@
     "@dfinity/candid": "^3.2.6",
     "@dfinity/identity": "^3.2.7",
     "@dfinity/principal": "^3.2.6",
+    "@fioprotocol/fiosdk": "^1.10.2",
     "@qriptoagentiq/a2a-client": "^0.1.5",
     "@qriptoagentiq/core-client": "^0.1.5",
     "@radix-ui/react-label": "^2.1.7",

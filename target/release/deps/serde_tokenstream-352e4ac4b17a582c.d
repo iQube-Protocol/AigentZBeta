@@ -1,0 +1,10 @@
+/Users/hal1/CascadeProjects/AigentZBeta/target/release/deps/serde_tokenstream-352e4ac4b17a582c.d: /Users/hal1/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_tokenstream-0.1.7/src/lib.rs /Users/hal1/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_tokenstream-0.1.7/src/ibidem.rs /Users/hal1/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_tokenstream-0.1.7/src/ordered_map.rs /Users/hal1/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_tokenstream-0.1.7/src/serde_tokenstream.rs
+
+/Users/hal1/CascadeProjects/AigentZBeta/target/release/deps/libserde_tokenstream-352e4ac4b17a582c.rlib: /Users/hal1/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_tokenstream-0.1.7/src/lib.rs /Users/hal1/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_tokenstream-0.1.7/src/ibidem.rs /Users/hal1/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_tokenstream-0.1.7/src/ordered_map.rs /Users/hal1/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_tokenstream-0.1.7/src/serde_tokenstream.rs
+
+/Users/hal1/CascadeProjects/AigentZBeta/target/release/deps/libserde_tokenstream-352e4ac4b17a582c.rmeta: /Users/hal1/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_tokenstream-0.1.7/src/lib.rs /Users/hal1/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_tokenstream-0.1.7/src/ibidem.rs /Users/hal1/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_tokenstream-0.1.7/src/ordered_map.rs /Users/hal1/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_tokenstream-0.1.7/src/serde_tokenstream.rs
+
+/Users/hal1/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_tokenstream-0.1.7/src/lib.rs:
+/Users/hal1/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_tokenstream-0.1.7/src/ibidem.rs:
+/Users/hal1/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_tokenstream-0.1.7/src/ordered_map.rs:
+/Users/hal1/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_tokenstream-0.1.7/src/serde_tokenstream.rs:
