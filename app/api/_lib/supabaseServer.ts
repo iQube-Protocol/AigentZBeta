@@ -1,29 +1,22 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { initAgentiqClient } from '@qriptoagentiq/core-client';
+import { SupabaseClient } from '@supabase/supabase-js';
 
 // Server-only client factory. Do NOT import this in client components.
 export function getSupabaseServer(): SupabaseClient | null {
-  // Check multiple environment variable patterns for Supabase configuration
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || 
-              process.env.SUPABASE_URL ||
-              'https://bsjhfvctmduxhohtllly.supabase.co'; // Fallback to known URL
-  
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 
-                         process.env.SUPABASE_ANON_KEY ||
-                         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-                         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJzamhmdmN0bWR1eGhvaHRsbGx5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc1NDgyNTgsImV4cCI6MjA3MzEyNDI1OH0.JVDp4-F6EEXqVQ8sts2Z8KQg168aZ1YdtY53RRM_s7M'; // Fallback to known anon key
-  
-  if (!url || !serviceRoleKey) {
-    console.warn('Supabase configuration missing:', {
-      url: !!url,
-      serviceRoleKey: !!serviceRoleKey,
+  try {
+    // Use QubeBase SDK for proper connection management
+    const client = initAgentiqClient({
+      supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL,
+      supabaseAnonKey: process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    });
+    
+    return client.supabase;
+  } catch (error) {
+    console.warn('Supabase configuration missing. Set SUPABASE_URL and SUPABASE_ANON_KEY environment variables.', {
+      error: error instanceof Error ? error.message : 'Unknown error',
       env: process.env.NODE_ENV,
-      platform: process.env.VERCEL ? 'Vercel' : process.env.NETLIFY ? 'Netlify' : 'Unknown'
+      platform: process.env.VERCEL ? 'Vercel' : process.env.NETLIFY ? 'Netlify' : process.env.AWS_AMPLIFY ? 'Amplify' : 'Unknown'
     });
     return null;
   }
-  
-  return createClient(url, serviceRoleKey, {
-    auth: { persistSession: false },
-    global: { headers: { 'X-Client-Info': 'AigentZBeta-Registry-API' } },
-  });
 }

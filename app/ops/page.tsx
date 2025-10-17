@@ -30,6 +30,10 @@ import { QCTEventMonitor } from "@/components/ops/QCTEventMonitor";
 import { QCTTreasuryCard } from "@/components/ops/QCTTreasuryCard";
 import { QCTAnalyticsCard } from "@/components/ops/QCTAnalyticsCard";
 import { QCTDashboard } from "@/components/ops/QCTDashboard";
+import { A2ATestCard } from "@/components/ops/A2ATestCard";
+import { A2ADVNCard } from "@/components/ops/A2ADVNCard";
+import { DiDQubeIdentityCard } from "@/components/ops/DiDQubeIdentityCard";
+import { DiDQubeReputationCard } from "@/components/ops/DiDQubeReputationCard";
 import { Connection, Transaction, SystemProgram, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { getPhantomWallet } from '@/services/wallet/phantom';
 import { getUnisatWallet } from '@/services/wallet/unisat';
@@ -550,12 +554,16 @@ export default function OpsPage() {
     { key: "sync_status", title: "Canister Sync Status" },
     { key: "icp_dvn", title: "ICP DVN" },
     { key: "dvn_mint_tests", title: "DVN Mint Tests" },
+    { key: "didqube_identity", title: "DiDQube Identity" },
+    { key: "didqube_reputation", title: "DiDQube Reputation" },
     { key: "qct_event_monitor", title: "iQube & QCT Event Register" },
     { key: "qct_dashboard", title: "QCT Multi-Chain Overview" },
     { key: "qct_trading", title: "QCT Cross-Chain Trading" },
     { key: "qct_treasury", title: "QCT Treasury & USDC Trading" },
     { key: "qct_analytics", title: "QCT Multi-Chain Analytics" },
     { key: "qct_rekey", title: "QCT Rekey (Stage 1A)" },
+    { key: "a2a_tests", title: "A2A Tx Tests" },
+    { key: "a2a_dvn", title: "A2A DVN Integration" },
     { key: "btc_testnet", title: "BTC Testnet" },
     { key: "eth_sepolia", title: "Ethereum Sepolia" },
     { key: "polygon_amoy", title: "Polygon Amoy" },
@@ -596,6 +604,7 @@ export default function OpsPage() {
       <div className="mb-8">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold text-white">Network Operations</h1>
+          <div className="flex items-center gap-2">
           {icpHealth && (
             <span
               className={`inline-flex items-center gap-2 px-2 py-1 rounded-md text-xs ${icpHealth.ok ? 'bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-500/30' : 'bg-slate-500/10 text-slate-300 ring-1 ring-slate-500/30'}`}
@@ -605,12 +614,25 @@ export default function OpsPage() {
               {icpHealth.ok && icpHealth.host?.includes('127.0.0.1:4943') ? 'Local ICP connected' : 'ICP status' }
             </span>
           )}
+          </div>
         </div>
         <p className="text-sm text-slate-300 mt-1">Admin area for protocol health and cross-chain test flows.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
         {cards.map(({ key, title }) => {
+          if (key === "a2a_tests") {
+            return <A2ATestCard key={key} title={title} />;
+          }
+          if (key === "a2a_dvn") {
+            return <A2ADVNCard key={key} title={title} />;
+          }
+          if (key === "didqube_identity") {
+            return <DiDQubeIdentityCard key={key} />;
+          }
+          if (key === "didqube_reputation") {
+            return <DiDQubeReputationCard key={key} />;
+          }
           if (key === "icp_health") {
             const ok = icp.data?.ok ?? false;
             const at = icp.data?.at ?? "—";
@@ -1422,7 +1444,7 @@ export default function OpsPage() {
                 case 11155420: return 'https://sepolia-optimism.etherscan.io/tx/';
                 case 421614: return 'https://sepolia.arbiscan.io/tx/';
                 case 84532: return 'https://sepolia.basescan.org/tx/';
-                case 101: return 'https://explorer.solana.com/tx/';
+                case 101: return 'https://explorer.solana.com/tx/?cluster=testnet';
                 case 0: return 'https://blockstream.info/testnet/tx/';
                 default: return 'https://sepolia.etherscan.io/tx/';
               }
@@ -1831,7 +1853,7 @@ export default function OpsPage() {
                           <option value={84532}>BASE Sepolia (84532)</option>
                         </optgroup>
                         <optgroup label="Non-EVM">
-                          <option value={101}>SOL Devnet (101)</option>
+                          <option value={101}>SOL Testnet (101)</option>
                           <option value={0}>BTC Testnet (0)</option>
                         </optgroup>
                       </select>

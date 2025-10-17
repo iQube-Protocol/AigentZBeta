@@ -154,7 +154,7 @@ async function getQCTBalances(address: string): Promise<QCTBalance[]> {
     const evmChains = [
       { 
         name: 'ethereum', 
-        rpc: process.env.NEXT_PUBLIC_RPC_ETHEREUM_SEPOLIA, 
+        rpc: process.env.NEXT_PUBLIC_RPC_ETHEREUM_SEPOLIA || process.env.NEXT_PUBLIC_RPC_SEPOLIA, 
         contractAddress: QCT_CONTRACTS.evm.sepolia.address 
       },
       { 
@@ -164,7 +164,7 @@ async function getQCTBalances(address: string): Promise<QCTBalance[]> {
       },
       { 
         name: 'arbitrum', 
-        rpc: process.env.NEXT_PUBLIC_RPC_ARBITRUM_SEPOLIA, 
+        rpc: process.env.NEXT_PUBLIC_RPC_ARBITRUM_SEPOLIA || process.env.NEXT_PUBLIC_RPC_ARB_SEPOLIA, 
         contractAddress: QCT_CONTRACTS.evm.arbitrumSepolia.address 
       },
       { 
@@ -180,17 +180,15 @@ async function getQCTBalances(address: string): Promise<QCTBalance[]> {
     ];
 
     for (const chain of evmChains) {
-      if (chain.rpc) {
-        const evmBalance = await getEVMQCTBalance(address, chain.rpc, chain.contractAddress);
-        if (evmBalance) {
-          balances.push({
-            chain: chain.name,
-            balance: evmBalance.balance,
-            decimals: 18,
-            symbol: 'QCT',
-            contractAddress: chain.contractAddress
-          });
-        }
+      const evmBalance = await getEVMQCTBalance(address, chain.rpc || '', chain.contractAddress);
+      if (evmBalance) {
+        balances.push({
+          chain: chain.name,
+          balance: evmBalance.balance,
+          decimals: 18,
+          symbol: 'QCT',
+          contractAddress: chain.contractAddress
+        });
       }
     }
 

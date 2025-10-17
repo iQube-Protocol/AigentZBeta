@@ -1,0 +1,184 @@
+name: 'Deploy IC Canisters'
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      canisters:
+        description: 'Canisters to deploy (comma-separated: escrow,rqh,fbc,dbc or "all")'
+        required: true
+        default: 'all'
+
+jobs:
+  deploy:
+    name: 'Deploy DiDQube Canisters to IC Mainnet'
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+
+    steps:
+      # Step 1: Checkout code
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # Step 2: Install dfx
+      - name: Install dfx
+        run: |
+          echo "Installing dfx..."
+          DFX_VERSION=0.29.1
+          wget https://github.com/dfinity/sdk/releases/download/${DFX_VERSION}/dfx-${DFX_VERSION}-x86_64-linux.tar.gz
+          tar -xzf dfx-${DFX_VERSION}-x86_64-linux.tar.gz
+          sudo mv dfx /usr/local/bin/
+          dfx --version
+
+      # Step 3: Setup Rust (for canister builds)
+      - name: Setup Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          target: wasm32-unknown-unknown
+
+      # Step 4: Configure dfx identity from secrets
+      - name: Configure dfx Identity
+        run: |
+          echo "Setting up dfx identity..."
+          mkdir -p ~/.config/dfx/identity/staging
+          echo "${{ secrets.DFX_IDENTITY_PEM }}" > ~/.config/dfx/identity/staging/identity.pem
+          dfx identity use staging
+          echo "Principal: $(dfx identity get-principal)"
+
+      # Step 5: Create dfx.json for DiDQube canisters
+      - name: Create dfx.json
+        run: |
+          cat > dfx.json << 'EOF'
+          {
+            "version": 1,
+            "canisters": {
+              "escrow": {
+                "type": "rust",
+                "candid": "src/escrow/escrow.did",
+                "package": "escrow"
+              },
+              "rqh": {
+                "type": "rust",
+                "candid": "src/rqh/rqh.did",
+                "package": "rqh"
+              },
+              "fbc": {
+                "type": "rust",
+                "candid": "src/fbc/fbc.did",
+                "package": "fbc"
+              },
+              "dbc": {
+                "type": "rust",
+                "candid": "src/dbc/dbc.did",
+                "package": "dbc"
+              }
+            },
+            "defaults": {
+              "build": {
+                "packtool": ""
+              }
+            },
+            "networks": {
+              "ic": {
+                "providers": ["https://icp-api.io"],
+                "type": "persistent"
+              }
+            }
+          }
+          EOF
+
+      # Step 6: Determine which canisters to deploy
+      - name: Parse Canister List
+        id: parse_canisters
+        run: |
+          INPUT="${{ github.event.inputs.canisters }}"
+          if [ "$INPUT" = "all" ]; then
+            echo "canisters=escrow,rqh,fbc,dbc" >> $GITHUB_OUTPUT
+          else
+            echo "canisters=$INPUT" >> $GITHUB_OUTPUT
+          fi
+
+      # Step 7: Deploy canisters to IC mainnet
+      - name: Deploy Canisters
+        id: deploy
+        run: |
+          echo "Deploying canisters: ${{ steps.parse_canisters.outputs.canisters }}"
+          IFS=',' read -ra CANISTERS <<< "${{ steps.parse_canisters.outputs.canisters }}"
+          
+          for canister in "${CANISTERS[@]}"; do
+            echo "Deploying $canister..."
+            # Note: This assumes canister source exists in src/$canister/
+            # Adjust paths based on actual canister structure
+            dfx deploy $canister --network ic --no-wallet || echo "Warning: $canister deployment failed or already exists"
+          done
+
+      # Step 8: Capture canister IDs
+      - name: Get Canister IDs
+        id: canister_ids
+        run: |
+          echo "Fetching canister IDs..."
+          IFS=',' read -ra CANISTERS <<< "${{ steps.parse_canisters.outputs.canisters }}"
+          
+          for canister in "${CANISTERS[@]}"; do
+            CANISTER_ID=$(dfx canister id $canister --network ic 2>/dev/null || echo "not_deployed")
+            echo "${canister}_id=$CANISTER_ID" >> $GITHUB_OUTPUT
+            echo "$canister: $CANISTER_ID"
+          done
+
+      # Step 9: Update canister_ids.json
+      - name: Update canister_ids.json
+        run: |
+          echo "Updating canister_ids.json..."
+          cat > canister_ids.json << EOF
+          {
+            "escrow": {
+              "ic": "${{ steps.canister_ids.outputs.escrow_id }}"
+            },
+            "rqh": {
+              "ic": "${{ steps.canister_ids.outputs.rqh_id }}"
+            },
+            "fbc": {
+              "ic": "${{ steps.canister_ids.outputs.fbc_id }}"
+            },
+            "dbc": {
+              "ic": "${{ steps.canister_ids.outputs.dbc_id }}"
+            }
+          }
+          EOF
+          cat canister_ids.json
+
+      # Step 10: Commit canister IDs back to repo
+      - name: Commit Canister IDs
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add canister_ids.json
+          git diff --staged --quiet || git commit -m "chore: Update DiDQube canister IDs for ${{ github.event.inputs.environment }}"
+          git push || echo "No changes to push"
+
+      # Step 11: Output deployment summary
+      - name: Deployment Summary
+        run: |
+          echo "## DiDQube Canister Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment**: ${{ github.event.inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Canisters Deployed**: ${{ steps.parse_canisters.outputs.canisters }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Canister IDs" >> $GITHUB_STEP_SUMMARY
+          echo "- **Escrow**: \`${{ steps.canister_ids.outputs.escrow_id }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **RQH**: \`${{ steps.canister_ids.outputs.rqh_id }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **FBC**: \`${{ steps.canister_ids.outputs.fbc_id }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **DBC**: \`${{ steps.canister_ids.outputs.dbc_id }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "1. Set environment variables in AWS Amplify/Vercel" >> $GITHUB_STEP_SUMMARY
+          echo "2. Update \`.env.local\` for local development" >> $GITHUB_STEP_SUMMARY
+          echo "3. Test API routes with deployed canisters" >> $GITHUB_STEP_SUMMARY
