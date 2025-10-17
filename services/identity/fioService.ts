@@ -1,4 +1,5 @@
 import { FIOSDK } from '@fioprotocol/fiosdk';
+import fetch from 'cross-fetch';
 
 /**
  * FIO Protocol Service
@@ -71,17 +72,25 @@ export class FIOService {
       throw new Error('FIO SDK not initialized');
     }
 
-    try {
-      // Validate handle format
-      if (!this.validateHandleFormat(handle)) {
-        throw new Error('Invalid FIO handle format. Must be username@domain');
-      }
+    // Validate handle format
+    if (!this.validateHandleFormat(handle)) {
+      throw new Error('Invalid FIO handle format. Must be username@domain');
+    }
 
+    try {
       const availability = await this.sdk.isAvailable(handle);
       return availability.is_registered === 0;
     } catch (error: any) {
+      // Log the full error for debugging
+      console.error('FIO SDK isAvailable error:', {
+        message: error.message,
+        stack: error.stack,
+        json: error.json,
+        cause: error.cause
+      });
+      
       // Handle network errors gracefully
-      if (error.message?.includes('fetch failed') || error.message?.includes('ECONNREFUSED')) {
+      if (error.message?.includes('fetch failed') || error.message?.includes('ECONNREFUSED') || error.cause?.code === 'ECONNREFUSED') {
         throw new Error('Unable to connect to FIO network. Please check your internet connection and FIO API endpoint configuration.');
       }
       
