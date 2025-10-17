@@ -1,5 +1,6 @@
 import { FIOSDK } from '@fioprotocol/fiosdk';
 import fetch from 'cross-fetch';
+import { randomBytes } from 'crypto';
 
 /**
  * FIO Protocol Service
@@ -252,12 +253,60 @@ export class FIOService {
   }
 
   /**
-   * Generate FIO key pair
-   * Note: This is a placeholder. In production, use a proper key generation library
-   * or let users import their existing FIO keys.
+   * Generate FIO key pair using FIO SDK
+   * Creates a new 12-word mnemonic and derives keys from it
    */
-  static async generateKeyPair(): Promise<{ publicKey: string; privateKey: string }> {
-    throw new Error('Key generation not yet implemented. Please provide existing FIO keys or use the FIO wallet to generate keys.');
+  static async generateKeyPair(): Promise<{ publicKey: string; privateKey: string; mnemonic: string }> {
+    try {
+      // Generate a 12-word BIP39 mnemonic
+      const bip39 = require('bip39');
+      const mnemonic = bip39.generateMnemonic();
+      
+      // Derive private key from mnemonic using FIO SDK
+      // @ts-ignore - FIO SDK types are incorrect
+      const privateKeyResult = await FIOSDK.createPrivateKeyMnemonic(mnemonic);
+      const privateKey = privateKeyResult.fioKey;
+      
+      // Derive public key from private key
+      // @ts-ignore - FIO SDK types are incorrect
+      const publicKeyResult = FIOSDK.derivedPublicKey(privateKey);
+      const publicKey = publicKeyResult.publicKey;
+
+      return {
+        publicKey,
+        privateKey,
+        mnemonic
+      };
+    } catch (error: any) {
+      console.error('FIO key generation error:', error);
+      throw new Error(`Failed to generate FIO key pair: ${error.message}`);
+    }
+  }
+
+  /**
+   * Generate FIO key pair from existing mnemonic phrase
+   * Derives keys from a provided mnemonic
+   */
+  static async generateKeyPairFromMnemonic(mnemonic: string): Promise<{ publicKey: string; privateKey: string }> {
+    try {
+      // Derive private key from mnemonic using FIO SDK
+      // @ts-ignore - FIO SDK types are incorrect
+      const privateKeyResult = await FIOSDK.createPrivateKeyMnemonic(mnemonic);
+      const privateKey = privateKeyResult.fioKey;
+      
+      // Derive public key from private key
+      // @ts-ignore - FIO SDK types are incorrect
+      const publicKeyResult = FIOSDK.derivedPublicKey(privateKey);
+      const publicKey = publicKeyResult.publicKey;
+
+      return {
+        publicKey,
+        privateKey
+      };
+    } catch (error: any) {
+      console.error('FIO key generation from mnemonic error:', error);
+      throw new Error(`Failed to generate FIO key pair from mnemonic: ${error.message}`);
+    }
   }
 
   /**
