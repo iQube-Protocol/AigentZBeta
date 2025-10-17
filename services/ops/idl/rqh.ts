@@ -1,63 +1,65 @@
 import { IDL } from '@dfinity/candid';
 
-export const rqhIDL = ({ IDL: I = IDL }) => {
-  const ReputationBucket = I.Record({
-    id: I.Text,
-    partition_id: I.Text,
-    bucket: I.Nat32,
-    skill_category: I.Text,
-    score: I.Float64,
-    evidence_count: I.Nat32,
-    last_updated: I.Nat64,
-    created_at: I.Nat64,
+export const idlFactory = ({ IDL }: { IDL: any }) => {
+  const ReputationBucket = IDL.Record({
+    id: IDL.Text,
+    partition_id: IDL.Text,
+    bucket: IDL.Nat32,
+    skill_category: IDL.Text,
+    score: IDL.Float64,
+    evidence_count: IDL.Nat32,
+    last_updated: IDL.Nat64,
+    created_at: IDL.Nat64,
   });
 
-  const ReputationEvidence = I.Record({
-    id: I.Text,
-    bucket_id: I.Text,
-    evidence_type: I.Text,
-    evidence_data: I.Text,
-    weight: I.Float64,
-    verified: I.Bool,
-    created_at: I.Nat64,
+  const ReputationEvidence = IDL.Record({
+    id: IDL.Text,
+    bucket_id: IDL.Text,
+    evidence_type: IDL.Text,
+    evidence_data: IDL.Text,
+    weight: IDL.Float64,
+    verified: IDL.Bool,
+    created_at: IDL.Nat64,
   });
 
-  const CreateReputationRequest = I.Record({
-    partition_id: I.Text,
-    skill_category: I.Text,
-    initial_score: I.Opt(I.Float64),
+  const CreateReputationRequest = IDL.Record({
+    partition_id: IDL.Text,
+    skill_category: IDL.Text,
+    initial_score: IDL.Opt(IDL.Float64),
   });
 
-  const AddEvidenceRequest = I.Record({
-    bucket_id: I.Text,
-    evidence_type: I.Text,
-    evidence_data: I.Text,
-    weight: I.Float64,
+  const AddEvidenceRequest = IDL.Record({
+    bucket_id: IDL.Text,
+    evidence_type: IDL.Text,
+    evidence_data: IDL.Text,
+    weight: IDL.Float64,
   });
 
-  const ReputationResponse = I.Record({
-    ok: I.Bool,
-    data: I.Opt(ReputationBucket),
-    error: I.Opt(I.Text),
+  const ReputationResponse = IDL.Record({
+    ok: IDL.Bool,
+    data: IDL.Opt(ReputationBucket),
+    error: IDL.Opt(IDL.Text),
   });
 
-  const EvidenceResponse = I.Record({
-    ok: I.Bool,
-    data: I.Opt(I.Vec(ReputationEvidence)),
-    error: I.Opt(I.Text),
+  const EvidenceResponse = IDL.Record({
+    ok: IDL.Bool,
+    data: IDL.Opt(IDL.Vec(ReputationEvidence)),
+    error: IDL.Opt(IDL.Text),
   });
 
-  return I.Service({
+  return IDL.Service({
     // Query methods
-    get_reputation_bucket: I.Func([I.Text], [ReputationResponse], ['query']),
-    get_reputation_evidence: I.Func([I.Text], [EvidenceResponse], ['query']),
-    get_partition_reputation: I.Func([I.Text], [I.Vec(ReputationBucket)], ['query']),
-    health: I.Func([], [I.Text], ['query']),
+    get_reputation_bucket: IDL.Func([IDL.Text], [ReputationResponse], ['query']),
+    get_reputation_evidence: IDL.Func([IDL.Text], [EvidenceResponse], ['query']),
+    get_partition_reputation: IDL.Func([IDL.Text], [IDL.Vec(ReputationBucket)], ['query']),
+    health: IDL.Func([], [IDL.Text], ['query']),
     
     // Update methods
-    create_reputation_bucket: I.Func([CreateReputationRequest], [ReputationResponse], []),
-    add_reputation_evidence: I.Func([AddEvidenceRequest], [ReputationResponse], []),
+    create_reputation_bucket: IDL.Func([CreateReputationRequest], [ReputationResponse], []),
+    add_reputation_evidence: IDL.Func([AddEvidenceRequest], [ReputationResponse], []),
   });
 };
 
-export type RQHIDL = ReturnType<typeof rqhIDL>;
+// Keep backward compatibility
+export const rqhIDL = idlFactory;
+export type RQHIDL = ReturnType<typeof idlFactory>;
