@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { RefreshCw, Users, TrendingUp, FileText, CheckCircle, XCircle, AlertTriangle, Bot, UserCircle, Shield } from 'lucide-react';
 import { EvidenceSubmissionForm } from '@/components/identity/EvidenceSubmissionForm';
+import { FIOVerificationIcon } from '@/components/identity/FIOVerificationBadge';
 
 interface Persona {
   id: string;
@@ -13,6 +14,8 @@ interface Persona {
   reputation_score?: number | null;
   reputation_partition_id?: string | null;
   reputation_evidence_count?: number | null;
+  fio_status?: 'verified' | 'unverified' | 'pending' | 'expired' | 'expiring_soon' | 'no_handle' | 'failed';
+  fio_days_until_expiration?: number | null;
 }
 
 interface ReputationBucket {
@@ -201,6 +204,11 @@ export default function ReputationAdminPage() {
                               </span>
                             </div>
                           ) : null}
+                          
+                          {/* FIO Verification Icon */}
+                          {persona.fio_status && persona.fio_status !== 'no_handle' && (
+                            <FIOVerificationIcon status={persona.fio_status} size={12} />
+                          )}
                           
                           {/* Handle */}
                           <p className="font-mono text-xs text-slate-300 truncate">

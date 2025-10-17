@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { RefreshCw, User, Shield, TrendingUp, Bot, UserCircle } from 'lucide-react';
 import Link from 'next/link';
+import { FIOVerificationIcon } from '@/components/identity/FIOVerificationBadge';
 
 interface Persona {
   id: string;
@@ -13,6 +14,8 @@ interface Persona {
   reputation_bucket?: number | null;
   reputation_score?: number | null;
   reputation_category?: string | null;
+  fio_status?: 'verified' | 'unverified' | 'pending' | 'expired' | 'expiring_soon' | 'no_handle' | 'failed';
+  fio_days_until_expiration?: number | null;
 }
 
 interface DiDQubeIdentityCardProps {
@@ -129,6 +132,11 @@ export function DiDQubeIdentityCard({ onPersonaClick }: DiDQubeIdentityCardProps
                             {p.reputation_bucket}
                           </span>
                         </div>
+                      )}
+                      
+                      {/* FIO Verification Icon */}
+                      {p.fio_status && p.fio_status !== 'no_handle' && (
+                        <FIOVerificationIcon status={p.fio_status} size={12} />
                       )}
                       
                       {/* Handle */}
