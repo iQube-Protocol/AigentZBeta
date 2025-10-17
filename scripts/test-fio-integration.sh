@@ -43,8 +43,8 @@ test_endpoint() {
             "$BASE_URL$endpoint")
     fi
     
-    status_code=$(echo "$response" | tail -n1)
-    body=$(echo "$response" | head -n-1)
+    status_code=$(echo "$response" | tail -n 1)
+    body=$(echo "$response" | sed '$d')
     
     if [ "$status_code" = "$expected_status" ]; then
         echo -e "${GREEN}✓ PASS${NC} (HTTP $status_code)"
@@ -88,7 +88,7 @@ test_endpoint \
 # Test 4: FIO lookup (may return 404 for non-existent)
 echo -n "Testing: FIO Handle Lookup... "
 response=$(curl -s -w "\n%{http_code}" "$BASE_URL/api/identity/fio/lookup?handle=test@fio")
-status_code=$(echo "$response" | tail -n1)
+status_code=$(echo "$response" | tail -n 1)
 if [ "$status_code" = "200" ] || [ "$status_code" = "404" ]; then
     echo -e "${GREEN}✓ PASS${NC} (HTTP $status_code)"
     TESTS_PASSED=$((TESTS_PASSED + 1))
@@ -124,8 +124,8 @@ echo "--------------------------------"
 # Test 7: Identity page loads
 echo -n "Testing: Identity Page Load... "
 response=$(curl -s -w "\n%{http_code}" "$BASE_URL/identity")
-status_code=$(echo "$response" | tail -n1)
-body=$(echo "$response" | head -n-1)
+status_code=$(echo "$response" | tail -n 1)
+body=$(echo "$response" | sed '$d')
 
 if [ "$status_code" = "200" ] && echo "$body" | grep -q "DiDQube Identity System"; then
     echo -e "${GREEN}✓ PASS${NC}"
@@ -138,7 +138,7 @@ fi
 # Test 8: Admin reputation page loads
 echo -n "Testing: Admin Reputation Page Load... "
 response=$(curl -s -w "\n%{http_code}" "$BASE_URL/admin/reputation")
-status_code=$(echo "$response" | tail -n1)
+status_code=$(echo "$response" | tail -n 1)
 
 if [ "$status_code" = "200" ]; then
     echo -e "${GREEN}✓ PASS${NC}"
@@ -151,7 +151,7 @@ fi
 # Test 9: Ops page loads
 echo -n "Testing: Ops Console Page Load... "
 response=$(curl -s -w "\n%{http_code}" "$BASE_URL/ops")
-status_code=$(echo "$response" | tail -n1)
+status_code=$(echo "$response" | tail -n 1)
 
 if [ "$status_code" = "200" ]; then
     echo -e "${GREEN}✓ PASS${NC}"
