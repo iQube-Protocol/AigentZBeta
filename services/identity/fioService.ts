@@ -121,9 +121,9 @@ export class FIOService {
       const feeToUse = maxFee || fee;
 
       // Register the handle
+      // Note: SDK uses the public key from initialization, not passed as parameter
       const result = await this.sdk.registerFioAddress(
         handle,
-        ownerPublicKey,
         feeToUse
       );
 
