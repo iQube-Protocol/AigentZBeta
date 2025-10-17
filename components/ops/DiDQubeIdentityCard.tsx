@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { RefreshCw, User, Shield } from 'lucide-react';
+import { RefreshCw, User, Shield, TrendingUp, Bot, UserCircle } from 'lucide-react';
+import Link from 'next/link';
 
 interface Persona {
   id: string;
@@ -9,9 +10,16 @@ interface Persona {
   default_identity_state: string;
   world_id_status: string;
   created_at: string;
+  reputation_bucket?: number | null;
+  reputation_score?: number | null;
+  reputation_category?: string | null;
 }
 
-export function DiDQubeIdentityCard() {
+interface DiDQubeIdentityCardProps {
+  onPersonaClick?: (personaId: string) => void;
+}
+
+export function DiDQubeIdentityCard({ onPersonaClick }: DiDQubeIdentityCardProps = {}) {
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -43,6 +51,18 @@ export function DiDQubeIdentityCard() {
     semi_anonymous: 'text-blue-400',
     semi_identifiable: 'text-yellow-400',
     identifiable: 'text-green-400'
+  };
+
+  const getBucketColor = (bucket: number) => {
+    if (bucket >= 4) return 'text-emerald-400';
+    if (bucket >= 3) return 'text-green-400';
+    if (bucket >= 2) return 'text-yellow-400';
+    if (bucket >= 1) return 'text-orange-400';
+    return 'text-red-400';
+  };
+
+  const isAgent = (worldIdStatus: string) => {
+    return worldIdStatus === 'agent_declared';
   };
 
   return (
@@ -77,28 +97,57 @@ export function DiDQubeIdentityCard() {
           <>
             <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
               <span>Total Personas: {personas.length}</span>
-              <a href="/identity" className="text-indigo-400 hover:text-indigo-300">View All →</a>
+              <Link href="/identity" className="text-indigo-400 hover:text-indigo-300">View →</Link>
             </div>
             
             <div className="space-y-2">
               {personas.slice(0, 3).map(p => (
-                <div key={p.id} className="flex items-center justify-between p-3 rounded-md bg-slate-800/50 border border-slate-700/50">
+                <button
+                  key={p.id}
+                  onClick={() => onPersonaClick?.(p.id)}
+                  className="w-full flex items-center justify-between p-3 rounded-md bg-slate-800/50 border border-slate-700/50 hover:bg-slate-800 hover:border-indigo-500/50 transition-colors cursor-pointer text-left"
+                >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs text-slate-400">
+                      {/* Person vs Agent Icon */}
+                      {isAgent(p.world_id_status) ? (
+                        <Bot size={14} className="text-purple-400" aria-label="Agent" />
+                      ) : (
+                        <UserCircle size={14} className="text-blue-400" aria-label="Person" />
+                      )}
+                      
+                      {/* Reputation Score and Badge */}
+                      {p.reputation_score !== undefined && p.reputation_score !== null && (
+                        <span className={`text-xs font-medium ${getBucketColor(p.reputation_bucket || 0)}`}>
+                          {p.reputation_score}
+                        </span>
+                      )}
+                      {p.reputation_bucket !== undefined && p.reputation_bucket !== null && (
+                        <div className="flex items-center gap-1">
+                          <TrendingUp size={10} className={getBucketColor(p.reputation_bucket)} />
+                          <span className={`text-xs font-medium ${getBucketColor(p.reputation_bucket)}`}>
+                            {p.reputation_bucket}
+                          </span>
+                        </div>
+                      )}
+                      
+                      {/* Handle */}
+                      <span className="font-mono text-xs text-slate-300">
                         {p.fio_handle || p.id.slice(0, 8)}
                       </span>
+                      
+                      {/* Verified Badge */}
                       {p.world_id_status === 'verified_human' && (
                         <Shield size={12} className="text-green-400" aria-label="Verified Human" />
                       )}
                     </div>
-                    <div className="flex items-center gap-2 mt-1">
+                    <div className="flex items-center gap-2 mt-1 ml-6">
                       <span className={`text-xs ${stateColors[p.default_identity_state] || 'text-slate-400'}`}>
                         {p.default_identity_state.replace(/_/g, ' ')}
                       </span>
                     </div>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
 

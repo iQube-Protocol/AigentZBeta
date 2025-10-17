@@ -1,16 +1,30 @@
 "use client";
 
-import React, { useState } from 'react';
-import { RefreshCw, TrendingUp, AlertTriangle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { RefreshCw, TrendingUp, AlertTriangle, ExternalLink } from 'lucide-react';
+import Link from 'next/link';
 
-export function DiDQubeReputationCard() {
+interface DiDQubeReputationCardProps {
+  selectedPersonaId?: string;
+}
+
+export function DiDQubeReputationCard({ selectedPersonaId }: DiDQubeReputationCardProps = {}) {
   const [partitionId, setPartitionId] = useState('');
   const [bucket, setBucket] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const checkReputation = async () => {
-    if (!partitionId.trim()) {
+  // Auto-populate when persona is selected
+  useEffect(() => {
+    if (selectedPersonaId) {
+      setPartitionId(selectedPersonaId);
+      // Auto-check reputation when persona is clicked
+      checkReputationForId(selectedPersonaId);
+    }
+  }, [selectedPersonaId]);
+
+  const checkReputationForId = async (id: string) => {
+    if (!id.trim()) {
       setError('Partition ID required');
       return;
     }
@@ -20,7 +34,7 @@ export function DiDQubeReputationCard() {
     setBucket(null);
 
     try {
-      const res = await fetch(`/api/identity/reputation/bucket?partitionId=${encodeURIComponent(partitionId)}`);
+      const res = await fetch(`/api/identity/reputation/bucket?partitionId=${encodeURIComponent(id)}`);
       const data = await res.json();
       
       if (data.ok) {
@@ -34,6 +48,8 @@ export function DiDQubeReputationCard() {
       setLoading(false);
     }
   };
+
+  const checkReputation = () => checkReputationForId(partitionId);
 
   const getBucketColor = (b: number) => {
     if (b >= 3) return 'text-green-400';
@@ -49,11 +65,9 @@ export function DiDQubeReputationCard() {
 
   return (
     <div className="rounded-lg border border-slate-700 bg-slate-900/60 shadow-sm backdrop-blur p-6">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <TrendingUp size={20} className="text-emerald-400" />
-          <h2 className="text-xl font-semibold text-slate-100">ReputationQube (RQH)</h2>
-        </div>
+      <div className="flex items-center gap-2 mb-4">
+        <TrendingUp size={20} className="text-emerald-400" />
+        <h2 className="text-xl font-semibold text-slate-100">ReputationQube (RQH)</h2>
       </div>
 
       <div className="space-y-4 text-sm text-slate-300">
@@ -110,10 +124,17 @@ export function DiDQubeReputationCard() {
           </div>
         )}
 
-        <div className="pt-3 border-t border-slate-700/50">
+        <div className="pt-3 border-t border-slate-700/50 space-y-3">
           <p className="text-xs text-slate-500">
             <strong>Note:</strong> RQH canister must be deployed and RQH_CANISTER_ID configured for live data.
           </p>
+          <Link 
+            href="/admin/reputation"
+            className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
+          >
+            <ExternalLink size={14} />
+            Manage Reputation
+          </Link>
         </div>
       </div>
     </div>
