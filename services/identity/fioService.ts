@@ -80,11 +80,19 @@ export class FIOService {
       const availability = await this.sdk.isAvailable(handle);
       return availability.is_registered === 0;
     } catch (error: any) {
+      // Handle network errors gracefully
+      if (error.message?.includes('fetch failed') || error.message?.includes('ECONNREFUSED')) {
+        throw new Error('Unable to connect to FIO network. Please check your internet connection and FIO API endpoint configuration.');
+      }
+      
       // If error is "FIO Address not found", handle is available
       if (error.message?.includes('not found') || error.message?.includes('not registered')) {
         return true;
       }
-      throw new Error(`Failed to check handle availability: ${error.message}`);
+      
+      // Provide more detailed error information
+      const errorDetails = error.json?.message || error.message || 'Unknown error';
+      throw new Error(`Failed to check handle availability: ${errorDetails}`);
     }
   }
 
@@ -239,14 +247,20 @@ export class FIOService {
    */
   static async generateKeyPair(): Promise<{ publicKey: string; privateKey: string }> {
     try {
-      // Create a 12-word mnemonic phrase
-      const mnemonic = await FIOSDK.createPrivateKeyMnemonic(12);
-      const privateKey = await FIOSDK.derivedPrivateKey(mnemonic);
-      const publicKey = FIOSDK.derivedPublicKey(privateKey);
+      // Create a 12-word mnemonic phrase (pass as string)
+      const mnemonic = await FIOSDK.createPrivateKeyMnemonic('12');
+      
+      // Derive private key from mnemonic
+      const privateKeyResult = FIOSDK.derivedPrivateKey(mnemonic);
+      const privateKey = typeof privateKeyResult === 'string' ? privateKeyResult : privateKeyResult.fioKey;
+      
+      // Derive public key from private key
+      const publicKeyResult = FIOSDK.derivedPublicKey(privateKey);
+      const publicKey = typeof publicKeyResult === 'string' ? publicKeyResult : publicKeyResult.publicKey;
 
       return {
-        publicKey: publicKey.publicKey,
-        privateKey: privateKey.fioKey
+        publicKey,
+        privateKey
       };
     } catch (error: any) {
       throw new Error(`Failed to generate key pair: ${error.message}`);
