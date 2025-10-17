@@ -22,14 +22,21 @@
 Add to your `.env.local`:
 
 ```bash
-# FIO Protocol Configuration
-FIO_API_ENDPOINT=https://fio.greymass.com
+# FIO Protocol Configuration - Mainnet
+FIO_API_ENDPOINT=https://fio.eosusa.io
 FIO_CHAIN_ID=21dcae42c0182200e93f954a074011f9048a7624c6fe81d3c9541a614a88bd1c
 
+# Alternative Mainnet Endpoints (if primary fails):
+# FIO_API_ENDPOINT=https://fio.greymass.com
+# FIO_API_ENDPOINT=https://fio.eosphere.io
+# FIO_API_ENDPOINT=https://fio.acherontrading.com
+
 # For testing on FIO Testnet (optional)
-# FIO_API_ENDPOINT=https://fiotestnet.greymass.com
+# FIO_API_ENDPOINT=https://testnet.fioprotocol.io/v1
 # FIO_CHAIN_ID=b20901380af44ef59c5918439a1f9a41d83669020319a80574b804a5f95cbd7e
 ```
+
+**Note**: The default endpoint is now `https://fio.eosusa.io` which is verified and maintained by the FIO community. See [FIO API endpoints](https://github.com/fioprotocol/fio.chain#api) for more options.
 
 ### Known Limitations:
 1. **Key Generation**: Currently disabled. Users need to:
