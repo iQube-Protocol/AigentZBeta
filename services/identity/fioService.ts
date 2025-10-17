@@ -244,27 +244,11 @@ export class FIOService {
 
   /**
    * Generate FIO key pair
+   * Note: This is a placeholder. In production, use a proper key generation library
+   * or let users import their existing FIO keys.
    */
   static async generateKeyPair(): Promise<{ publicKey: string; privateKey: string }> {
-    try {
-      // Create a 12-word mnemonic phrase (pass as string)
-      const mnemonic = await FIOSDK.createPrivateKeyMnemonic('12');
-      
-      // Derive private key from mnemonic
-      const privateKeyResult = FIOSDK.derivedPrivateKey(mnemonic);
-      const privateKey = typeof privateKeyResult === 'string' ? privateKeyResult : privateKeyResult.fioKey;
-      
-      // Derive public key from private key
-      const publicKeyResult = FIOSDK.derivedPublicKey(privateKey);
-      const publicKey = typeof publicKeyResult === 'string' ? publicKeyResult : publicKeyResult.publicKey;
-
-      return {
-        publicKey,
-        privateKey
-      };
-    } catch (error: any) {
-      throw new Error(`Failed to generate key pair: ${error.message}`);
-    }
+    throw new Error('Key generation not yet implemented. Please provide existing FIO keys or use the FIO wallet to generate keys.');
   }
 
   /**
