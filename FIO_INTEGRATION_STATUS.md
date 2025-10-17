@@ -23,16 +23,17 @@ Add to your `.env.local`:
 
 ```bash
 # FIO Protocol Configuration - Mainnet
-FIO_API_ENDPOINT=https://fio.eosusa.io
+# IMPORTANT: URL must end with /v1/ for FIO SDK
+FIO_API_ENDPOINT=https://fio.eosusa.io/v1/
 FIO_CHAIN_ID=21dcae42c0182200e93f954a074011f9048a7624c6fe81d3c9541a614a88bd1c
 
 # Alternative Mainnet Endpoints (if primary fails):
-# FIO_API_ENDPOINT=https://fio.greymass.com
-# FIO_API_ENDPOINT=https://fio.eosphere.io
-# FIO_API_ENDPOINT=https://fio.acherontrading.com
+# FIO_API_ENDPOINT=https://fio.greymass.com/v1/
+# FIO_API_ENDPOINT=https://fio.eosphere.io/v1/
+# FIO_API_ENDPOINT=https://fio.acherontrading.com/v1/
 
 # For testing on FIO Testnet (optional)
-# FIO_API_ENDPOINT=https://testnet.fioprotocol.io/v1
+# FIO_API_ENDPOINT=https://testnet.fioprotocol.io/v1/
 # FIO_CHAIN_ID=b20901380af44ef59c5918439a1f9a41d83669020319a80574b804a5f95cbd7e
 ```
 

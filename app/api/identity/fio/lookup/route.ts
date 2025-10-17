@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
     // Initialize FIO service
     const fioService = getFIOService();
     await fioService.initialize({
-      endpoint: process.env.FIO_API_ENDPOINT || 'https://fio.eosusa.io',
+      endpoint: process.env.FIO_API_ENDPOINT || 'https://fio.eosusa.io/v1/',
       chainId: process.env.FIO_CHAIN_ID || '21dcae42c0182200e93f954a074011f9048a7624c6fe81d3c9541a614a88bd1c'
     });
 
