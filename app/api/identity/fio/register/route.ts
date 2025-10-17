@@ -10,8 +10,9 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PU
  * POST /api/identity/fio/register
  */
 export async function POST(req: NextRequest) {
+  let body: any;
   try {
-    const body = await req.json();
+    body = await req.json();
     const { handle, publicKey, personaId, privateKey } = body;
 
     if (!handle || !publicKey || !personaId) {
