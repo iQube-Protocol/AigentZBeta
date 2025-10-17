@@ -239,7 +239,8 @@ export class FIOService {
    */
   static async generateKeyPair(): Promise<{ publicKey: string; privateKey: string }> {
     try {
-      const mnemonic = await FIOSDK.createPrivateKeyMnemonic();
+      // Create a 12-word mnemonic phrase
+      const mnemonic = await FIOSDK.createPrivateKeyMnemonic(12);
       const privateKey = await FIOSDK.derivedPrivateKey(mnemonic);
       const publicKey = FIOSDK.derivedPublicKey(privateKey);
 
