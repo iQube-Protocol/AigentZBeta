@@ -21,6 +21,11 @@ export function FIORegistrationModal({
   onSuccess
 }: FIORegistrationModalProps) {
   const [step, setStep] = useState<Step>('handle');
+  
+  // Debug logging for step changes
+  React.useEffect(() => {
+    console.log('FIO Modal step changed to:', step);
+  }, [step]);
   const [handle, setHandle] = useState('');
   const [handleAvailable, setHandleAvailable] = useState(false);
   const [publicKey, setPublicKey] = useState('');
@@ -83,6 +88,7 @@ export function FIORegistrationModal({
       return;
     }
 
+    console.log('Starting FIO registration...', { handle, personaId });
     setStep('registering');
     setErrorMessage('');
 
@@ -99,16 +105,20 @@ export function FIORegistrationModal({
       });
 
       const data = await response.json();
+      console.log('FIO registration response:', data);
 
       if (data.ok) {
+        console.log('Registration successful, setting step to success');
         setTxId(data.data.txId);
         setStep('success');
         onSuccess?.({ handle, txId: data.data.txId });
       } else {
+        console.log('Registration failed:', data.error);
         setErrorMessage(data.error || 'Registration failed');
         setStep('error');
       }
     } catch (error: any) {
+      console.log('Registration error:', error);
       setErrorMessage(error.message || 'Network error');
       setStep('error');
     }
