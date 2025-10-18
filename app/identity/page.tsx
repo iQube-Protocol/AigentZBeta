@@ -6,6 +6,7 @@ import { IdentityStateToggle } from '@/components/identity/IdentityStateToggle';
 import { ReputationBadge } from '@/components/identity/ReputationBadge';
 import { PersonaCreationForm } from '@/components/identity/PersonaCreationForm';
 import { FIOVerificationBadge } from '@/components/identity/FIOVerificationBadge';
+import { FIOInfoCard } from '@/components/identity/FIOInfoCard';
 import { Plus, Key } from 'lucide-react';
 
 export default function IdentityPage() {
@@ -89,6 +90,13 @@ export default function IdentityPage() {
           </div>
         </div>
       </div>
+
+      {/* FIO Info Card - Shows when persona is selected */}
+      {selectedPersona && (
+        <div className="mb-8">
+          <FIOInfoCard key={refreshKey} personaId={selectedPersona} />
+        </div>
+      )}
 
       {/* Persona Creation Form */}
       {showCreateForm && (

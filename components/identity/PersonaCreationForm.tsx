@@ -185,7 +185,7 @@ export function PersonaCreationForm({ onSuccess, onCancel }: PersonaCreationForm
           isOpen={showFIORegistration}
           onClose={() => {
             setShowFIORegistration(false);
-            onSuccess?.(createdPersonaId);
+            // Don't call onSuccess here - let the user see the success modal first
           }}
           personaId={createdPersonaId}
           onSuccess={handleFIORegistrationSuccess}
