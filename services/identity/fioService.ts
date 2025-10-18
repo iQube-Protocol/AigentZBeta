@@ -140,10 +140,18 @@ export class FIOService {
 
       // Register the handle
       // Note: SDK uses the public key from initialization, not passed as parameter
+      console.log('Attempting FIO registration:', {
+        handle,
+        fee: feeToUse,
+        publicKey: ownerPublicKey
+      });
+      
       const result = await this.sdk.registerFioAddress(
         handle,
         feeToUse
       );
+
+      console.log('FIO registration result:', result);
 
       if (result.status !== 'OK' && result.status !== 'sent_to_blockchain') {
         throw new Error(`Registration failed: ${result.status}`);
@@ -160,7 +168,24 @@ export class FIOService {
         fee: feeToUse
       };
     } catch (error: any) {
-      throw new Error(`Failed to register FIO handle: ${error.message}`);
+      console.error('FIO registration error details:', {
+        message: error.message,
+        json: error.json,
+        errorCode: error.errorCode,
+        list: error.list,
+        stack: error.stack
+      });
+      
+      // Extract more detailed error information
+      let errorMessage = error.message || 'Unknown error';
+      if (error.json?.fields) {
+        const fieldErrors = error.json.fields.map((f: any) => `${f.name}: ${f.error}`).join(', ');
+        errorMessage = `Validation error: ${fieldErrors}`;
+      } else if (error.list && error.list.length > 0) {
+        errorMessage = `Validation error: ${error.list.map((e: any) => e.message).join(', ')}`;
+      }
+      
+      throw new Error(`Failed to register FIO handle: ${errorMessage}`);
     }
   }
 
