@@ -61,7 +61,6 @@ export function PersonaCreationForm({ onSuccess, onCancel }: PersonaCreationForm
   };
 
   const handleFIORegistrationSuccess = () => {
-    console.log('FIO registration success handler called');
     setShowFIORegistration(false);
     if (createdPersonaId) {
       onSuccess?.(createdPersonaId);

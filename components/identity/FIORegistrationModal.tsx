@@ -22,10 +22,6 @@ export function FIORegistrationModal({
 }: FIORegistrationModalProps) {
   const [step, setStep] = useState<Step>('handle');
   
-  // Debug logging for step changes
-  React.useEffect(() => {
-    console.log('FIO Modal step changed to:', step);
-  }, [step]);
   const [handle, setHandle] = useState('');
   const [handleAvailable, setHandleAvailable] = useState(false);
   const [publicKey, setPublicKey] = useState('');
@@ -88,7 +84,6 @@ export function FIORegistrationModal({
       return;
     }
 
-    console.log('Starting FIO registration...', { handle, personaId });
     setStep('registering');
     setErrorMessage('');
 
@@ -105,21 +100,17 @@ export function FIORegistrationModal({
       });
 
       const data = await response.json();
-      console.log('FIO registration response:', data);
 
       if (data.ok) {
-        console.log('Registration successful, setting step to success');
         setTxId(data.data.txId);
         setStep('success');
         // Don't call onSuccess immediately - let user see the success screen first
         // onSuccess will be called when they click "Continue to Dashboard"
       } else {
-        console.log('Registration failed:', data.error);
         setErrorMessage(data.error || 'Registration failed');
         setStep('error');
       }
     } catch (error: any) {
-      console.log('Registration error:', error);
       setErrorMessage(error.message || 'Network error');
       setStep('error');
     }
@@ -449,7 +440,6 @@ export function FIORegistrationModal({
                 <button
                   onClick={() => {
                     // Call onSuccess when user clicks Continue
-                    console.log('Continue to Dashboard clicked, calling onSuccess');
                     onSuccess?.({ handle, txId });
                     handleClose();
                   }}
