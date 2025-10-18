@@ -111,7 +111,8 @@ export function FIORegistrationModal({
         console.log('Registration successful, setting step to success');
         setTxId(data.data.txId);
         setStep('success');
-        onSuccess?.({ handle, txId: data.data.txId });
+        // Don't call onSuccess immediately - let user see the success screen first
+        // onSuccess will be called when they click "Continue to Dashboard"
       } else {
         console.log('Registration failed:', data.error);
         setErrorMessage(data.error || 'Registration failed');
@@ -446,7 +447,11 @@ export function FIORegistrationModal({
 
               <div className="flex justify-center">
                 <button
-                  onClick={handleClose}
+                  onClick={() => {
+                    // Call onSuccess when user clicks Continue
+                    onSuccess?.({ handle, txId });
+                    handleClose();
+                  }}
                   className="px-8 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all font-medium shadow-lg"
                 >
                   Continue to Dashboard
