@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { PersonaSelector } from '@/components/identity/PersonaSelector';
 import { IdentityStateToggle } from '@/components/identity/IdentityStateToggle';
-import { ReputationBadge } from '@/components/identity/ReputationBadge';
+import { ReputationManager } from '@/components/identity/ReputationManager';
 import { PersonaCreationForm } from '@/components/identity/PersonaCreationForm';
 import { FIOVerificationBadge } from '@/components/identity/FIOVerificationBadge';
 import { FIOInfoCard } from '@/components/identity/FIOInfoCard';
@@ -53,19 +53,19 @@ export default function IdentityPage() {
           </div>
         </div>
 
-        <div className="rounded-lg border border-slate-700 bg-slate-900/60 shadow-sm backdrop-blur p-6">
-          <div className="mb-4">
-            <h3 className="text-xl font-semibold text-slate-100">Reputation</h3>
-            <p className="text-sm text-slate-400">Your current reputation bucket</p>
-          </div>
-          <div>
-            {selectedPersona ? (
-              <ReputationBadge partitionId={selectedPersona} />
-            ) : (
+        {selectedPersona ? (
+          <ReputationManager personaId={selectedPersona} />
+        ) : (
+          <div className="rounded-lg border border-slate-700 bg-slate-900/60 shadow-sm backdrop-blur p-6">
+            <div className="mb-4">
+              <h3 className="text-xl font-semibold text-slate-100">Reputation</h3>
+              <p className="text-sm text-slate-400">Your current reputation bucket</p>
+            </div>
+            <div>
               <p className="text-sm text-slate-500">Select a persona to view reputation</p>
-            )}
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="rounded-lg border border-slate-700 bg-slate-900/60 shadow-sm backdrop-blur p-6">
           <div className="mb-4">
