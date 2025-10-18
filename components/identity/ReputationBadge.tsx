@@ -26,7 +26,7 @@ export function ReputationBadge({ partitionId }: ReputationBadgeProps) {
   }, [partitionId]);
 
   if (loading) return <Badge variant="outline">Loading...</Badge>;
-  if (bucket === null) return <Badge variant="outline">No reputation</Badge>;
+  if (bucket === null) return <Badge variant="secondary">New Persona</Badge>;
 
   const color = bucket >= 3 ? 'default' : bucket >= 1 ? 'secondary' : 'destructive';
   return <Badge variant={color}>Bucket {bucket}</Badge>;

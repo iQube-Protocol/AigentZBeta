@@ -78,6 +78,24 @@ export class FIOService {
       throw new Error('Invalid FIO handle format. Must be username@domain');
     }
 
+    // In mock mode, check our database first to prevent duplicates
+    if (typeof window !== 'undefined' && process.env.FIO_MOCK_MODE === 'true') {
+      try {
+        const response = await fetch('/api/identity/fio/check-database', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ handle })
+        });
+        const data = await response.json();
+        if (!data.available) {
+          return false; // Handle already exists in our database
+        }
+      } catch (error) {
+        console.warn('Failed to check database for handle:', error);
+        // Continue to FIO SDK check as fallback
+      }
+    }
+
     try {
       const availability = await this.sdk.isAvailable(handle);
       return availability.is_registered === 0;
