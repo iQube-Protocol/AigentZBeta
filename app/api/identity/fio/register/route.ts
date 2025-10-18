@@ -29,17 +29,33 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Initialize FIO service with private key for registration
-    const fioService = getFIOService();
-    await fioService.initialize({
-      endpoint: process.env.FIO_API_ENDPOINT || 'https://fio.eosusa.io/v1/',
-      chainId: process.env.FIO_CHAIN_ID || '21dcae42c0182200e93f954a074011f9048a7624c6fe81d3c9541a614a88bd1c',
-      privateKey,
-      publicKey
-    });
+    // Check if mock mode is enabled (for development when testnet is unavailable)
+    const mockMode = process.env.FIO_MOCK_MODE === 'true';
+    
+    let result;
+    
+    if (mockMode) {
+      // Mock registration for development
+      console.log('FIO Mock Mode: Simulating registration for', handle);
+      result = {
+        txId: `mock_tx_${Date.now()}`,
+        fioAddress: handle,
+        expiration: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year from now
+        fee: 40000000000
+      };
+    } else {
+      // Real FIO registration
+      const fioService = getFIOService();
+      await fioService.initialize({
+        endpoint: process.env.FIO_API_ENDPOINT || 'https://fio.eosusa.io/v1/',
+        chainId: process.env.FIO_CHAIN_ID || '21dcae42c0182200e93f954a074011f9048a7624c6fe81d3c9541a614a88bd1c',
+        privateKey,
+        publicKey
+      });
 
-    // Register the handle
-    const result = await fioService.registerHandle(handle, publicKey);
+      // Register the handle
+      result = await fioService.registerHandle(handle, publicKey);
+    }
 
     // Update persona in Supabase
     const supabase = createClient(supabaseUrl, supabaseKey);
