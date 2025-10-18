@@ -351,42 +351,97 @@ export function FIORegistrationModal({
 
           {/* Step 5: Success */}
           {step === 'success' && (
-            <div className="text-center py-8">
-              <CheckCircle size={64} className="mx-auto text-green-400 mb-4" />
-              <h3 className="text-xl font-medium text-slate-200 mb-2">
-                Registration Successful!
-              </h3>
-              <p className="text-sm text-slate-400 mb-6">
-                Your FIO handle has been registered on the blockchain.
-              </p>
+            <div className="py-8">
+              <div className="text-center mb-6">
+                <CheckCircle size={64} className="mx-auto text-green-400 mb-4" />
+                <h3 className="text-2xl font-bold text-slate-100 mb-2">
+                  🎉 Persona Created Successfully!
+                </h3>
+                <p className="text-sm text-slate-400">
+                  Your FIO handle has been registered and your persona is ready to use.
+                </p>
+              </div>
 
-              <div className="space-y-4 p-4 bg-slate-800/50 border border-slate-700 rounded-md text-left mb-6">
-                <div>
-                  <p className="text-xs text-slate-500 mb-1">FIO Handle</p>
-                  <p className="text-sm text-slate-200 font-medium">{handle}</p>
+              <div className="space-y-4 p-6 bg-gradient-to-br from-slate-800/80 to-slate-900/80 border border-slate-700 rounded-lg mb-6">
+                <div className="pb-3 border-b border-slate-700">
+                  <p className="text-xs font-medium text-slate-500 mb-2">YOUR FIO HANDLE</p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xl font-bold text-green-400">{handle}</p>
+                    <button
+                      onClick={() => copyToClipboard(handle)}
+                      className="px-3 py-1 bg-slate-700 text-slate-200 rounded text-xs hover:bg-slate-600 transition-colors"
+                    >
+                      Copy
+                    </button>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs text-slate-500 mb-1">Transaction ID</p>
+
+                <div className="pb-3 border-b border-slate-700">
+                  <p className="text-xs font-medium text-slate-500 mb-2">PUBLIC KEY</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs text-slate-300 font-mono break-all flex-1">{publicKey}</p>
+                    <button
+                      onClick={() => copyToClipboard(publicKey)}
+                      className="px-3 py-1 bg-slate-700 text-slate-200 rounded text-xs hover:bg-slate-600 transition-colors flex-shrink-0"
+                    >
+                      Copy
+                    </button>
+                  </div>
+                </div>
+
+                <div className="pb-3 border-b border-slate-700">
+                  <p className="text-xs font-medium text-slate-500 mb-2">TRANSACTION ID</p>
                   <div className="flex items-center gap-2">
                     <p className="text-xs text-slate-300 font-mono break-all flex-1">{txId}</p>
-                    <a
-                      href={`https://fio.bloks.io/transaction/${txId}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-indigo-400 hover:text-indigo-300"
-                    >
-                      <ExternalLink size={14} />
-                    </a>
+                    <div className="flex gap-1 flex-shrink-0">
+                      <button
+                        onClick={() => copyToClipboard(txId)}
+                        className="px-3 py-1 bg-slate-700 text-slate-200 rounded text-xs hover:bg-slate-600 transition-colors"
+                      >
+                        Copy
+                      </button>
+                      {!txId.startsWith('mock_') && (
+                        <a
+                          href={`https://fio.bloks.io/transaction/${txId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-3 py-1 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700 transition-colors inline-flex items-center gap-1"
+                        >
+                          View <ExternalLink size={12} />
+                        </a>
+                      )}
+                    </div>
                   </div>
+                </div>
+
+                <div>
+                  <p className="text-xs font-medium text-slate-500 mb-2">STATUS</p>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                    <p className="text-sm text-green-400 font-medium">Active & Ready</p>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">Expires: 1 year from registration</p>
                 </div>
               </div>
 
-              <button
-                onClick={handleClose}
-                className="px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
-              >
-                Done
-              </button>
+              <div className="bg-blue-900/20 border border-blue-700 rounded-lg p-4 mb-6">
+                <p className="text-sm text-blue-300 mb-2">
+                  <strong>💡 Important:</strong> Save your private key securely!
+                </p>
+                <p className="text-xs text-slate-400">
+                  You'll need your private key to manage your FIO handle and verify your identity. 
+                  Store it in a secure password manager or hardware wallet.
+                </p>
+              </div>
+
+              <div className="flex justify-center">
+                <button
+                  onClick={handleClose}
+                  className="px-8 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all font-medium shadow-lg"
+                >
+                  Continue to Dashboard
+                </button>
+              </div>
             </div>
           )}
 
