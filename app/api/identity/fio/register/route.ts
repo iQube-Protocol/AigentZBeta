@@ -59,22 +59,40 @@ export async function POST(req: NextRequest) {
 
     // Update persona in Supabase
     const supabase = createClient(supabaseUrl, supabaseKey);
-    const { error: updateError } = await supabase
+    console.log('Updating persona in Supabase:', {
+      personaId,
+      handle,
+      publicKey: publicKey.substring(0, 20) + '...',
+      txId: result.txId
+    });
+    
+    const { data: updateData, error: updateError } = await supabase
       .from('persona')
       .update({
         fio_handle: handle,
         fio_public_key: publicKey,
         fio_tx_id: result.txId,
         fio_handle_expiration: result.expiration.toISOString(),
-        fio_registration_status: 'pending',
+        fio_registration_status: 'active',
         fio_registered_at: new Date().toISOString()
       })
-      .eq('id', personaId);
+      .eq('id', personaId)
+      .select();
 
     if (updateError) {
-      console.error('Failed to update persona:', updateError);
-      // Registration succeeded but DB update failed - log but don't fail
+      console.error('Failed to update persona in Supabase:', {
+        error: updateError,
+        personaId,
+        handle
+      });
+      // Return error to client so they know what happened
+      return NextResponse.json({
+        ok: false,
+        error: `Registration succeeded but failed to save to database: ${updateError.message}`
+      }, { status: 500 });
     }
+
+    console.log('Persona updated successfully:', updateData);
 
     return NextResponse.json({
       ok: true,
