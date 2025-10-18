@@ -449,6 +449,7 @@ export function FIORegistrationModal({
                 <button
                   onClick={() => {
                     // Call onSuccess when user clicks Continue
+                    console.log('Continue to Dashboard clicked, calling onSuccess');
                     onSuccess?.({ handle, txId });
                     handleClose();
                   }}
