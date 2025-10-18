@@ -11,6 +11,7 @@ interface ReputationManagerProps {
 
 export function ReputationManager({ personaId }: ReputationManagerProps) {
   const [hasReputation, setHasReputation] = useState<boolean | null>(null);
+  const [bucketId, setBucketId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showEvidenceForm, setShowEvidenceForm] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -27,7 +28,11 @@ export function ReputationManager({ personaId }: ReputationManagerProps) {
       const data = await response.json();
       
       if (data.ok) {
-        setHasReputation(!!data.data?.reputation);
+        const hasRep = !!data.data?.reputation;
+        setHasReputation(hasRep);
+        if (hasRep && data.data?.reputation?.id) {
+          setBucketId(data.data.reputation.id);
+        }
       } else {
         setHasReputation(false);
       }
@@ -55,6 +60,7 @@ export function ReputationManager({ personaId }: ReputationManagerProps) {
       
       if (data.ok) {
         setHasReputation(true);
+        setBucketId(data.data?.id || null);
         setError(null);
       } else {
         setError(data.error || 'Failed to initialize reputation');
@@ -134,14 +140,24 @@ export function ReputationManager({ personaId }: ReputationManagerProps) {
       {showEvidenceForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="bg-slate-900 border border-slate-700 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <EvidenceSubmissionForm
-              partitionId={personaId}
-              onClose={() => setShowEvidenceForm(false)}
-              onSuccess={() => {
-                setShowEvidenceForm(false);
-                checkReputationStatus(); // Refresh reputation status
-              }}
-            />
+            <div className="p-4 border-b border-slate-700 flex justify-between items-center">
+              <h3 className="text-lg font-semibold text-slate-100">Submit Evidence</h3>
+              <button
+                onClick={() => setShowEvidenceForm(false)}
+                className="text-slate-400 hover:text-slate-200 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+            {bucketId && (
+              <EvidenceSubmissionForm
+                bucketId={bucketId}
+                onSuccess={() => {
+                  setShowEvidenceForm(false);
+                  checkReputationStatus(); // Refresh reputation status
+                }}
+              />
+            )}
           </div>
         </div>
       )}
