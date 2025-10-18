@@ -22,14 +22,20 @@ export function FIOInfoCard({ personaId }: FIOInfoCardProps) {
   const [copied, setCopied] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!personaId) return;
+    if (!personaId) {
+      console.log('FIOInfoCard: No personaId provided');
+      return;
+    }
 
+    console.log('FIOInfoCard: Fetching FIO info for persona:', personaId);
     const fetchFIOInfo = async () => {
       try {
         const response = await fetch(`/api/identity/persona?id=${personaId}`);
         const data = await response.json();
+        console.log('FIOInfoCard: Persona API response:', data);
         
         if (data.ok && data.data?.fio_handle) {
+          console.log('FIOInfoCard: Setting FIO info:', data.data.fio_handle);
           setFioInfo({
             fio_handle: data.data.fio_handle,
             fio_public_key: data.data.fio_public_key,
@@ -38,9 +44,11 @@ export function FIOInfoCard({ personaId }: FIOInfoCardProps) {
             fio_registration_status: data.data.fio_registration_status,
             fio_registered_at: data.data.fio_registered_at
           });
+        } else {
+          console.log('FIOInfoCard: No FIO handle found in response');
         }
       } catch (error) {
-        console.error('Failed to fetch FIO info:', error);
+        console.error('FIOInfoCard: Failed to fetch FIO info:', error);
       } finally {
         setLoading(false);
       }
