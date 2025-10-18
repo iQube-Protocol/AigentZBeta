@@ -140,15 +140,20 @@ export class FIOService {
 
       // Register the handle
       // Note: SDK uses the public key from initialization, not passed as parameter
+      // tpid (Technology Provider ID) is optional but recommended - use empty string for now
+      const tpid = ''; // Empty string is valid for tpid
+      
       console.log('Attempting FIO registration:', {
         handle,
         fee: feeToUse,
-        publicKey: ownerPublicKey
+        publicKey: ownerPublicKey,
+        tpid
       });
       
       const result = await this.sdk.registerFioAddress(
         handle,
-        feeToUse
+        feeToUse,
+        tpid
       );
 
       console.log('FIO registration result:', result);
