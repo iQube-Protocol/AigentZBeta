@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
         fio_public_key: publicKey,
         fio_tx_id: result.txId,
         fio_handle_expiration: result.expiration.toISOString(),
-        fio_registration_status: 'active',
+        fio_registration_status: 'confirmed',
         fio_registered_at: new Date().toISOString()
       })
       .eq('id', personaId)

@@ -65,13 +65,31 @@ export function FIOInfoCard({ personaId }: FIOInfoCardProps) {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'active':
-      case 'pending':
+      case 'confirmed':
         return 'text-green-400';
+      case 'pending':
+        return 'text-yellow-400';
       case 'failed':
         return 'text-red-400';
+      case 'expired':
+        return 'text-orange-400';
       default:
         return 'text-slate-400';
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'confirmed':
+        return 'Active';
+      case 'pending':
+        return 'Pending';
+      case 'failed':
+        return 'Failed';
+      case 'expired':
+        return 'Expired';
+      default:
+        return status;
     }
   };
 
@@ -111,9 +129,9 @@ export function FIOInfoCard({ personaId }: FIOInfoCardProps) {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+          <div className={`w-2 h-2 rounded-full ${fioInfo.fio_registration_status === 'confirmed' ? 'bg-green-400 animate-pulse' : 'bg-slate-500'}`}></div>
           <span className={`text-xs font-medium ${getStatusColor(fioInfo.fio_registration_status)}`}>
-            {fioInfo.fio_registration_status}
+            {getStatusLabel(fioInfo.fio_registration_status)}
           </span>
         </div>
       </div>
