@@ -254,7 +254,7 @@ export function A2ATestCard({ title }: { title: string }) {
 
   return (
     <Card title={title} actions={
-      <button onClick={() => setLog([])} className="px-3 py-1 text-xs rounded border border-slate-600 bg-slate-800 text-slate-200 hover:bg-slate-700 flex items-center gap-1">
+      <button onClick={() => setLog("")} className="px-3 py-1 text-xs rounded border border-slate-600 bg-slate-800 text-slate-200 hover:bg-slate-700 flex items-center gap-1">
         <RefreshCw size={12} />
         Clear Log
       </button>
