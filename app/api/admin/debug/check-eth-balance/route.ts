@@ -1,8 +1,18 @@
 export const dynamic = "force-dynamic";
 
 import { NextRequest } from "next/server";
-import { AgentKeyServiceV2 } from "@/services/identity/agentKeyService.v2";
+import { createClient } from '@supabase/supabase-js';
+import { createDecipheriv } from 'crypto';
 
+// Decrypt function for encrypted private keys
+function decrypt(encryptedText: string, encryptionKey: string): string {
+  const [ivHex, encrypted] = encryptedText.split(':');
+  const iv = Buffer.from(ivHex, 'hex');
+  const decipher = createDecipheriv('aes-256-cbc', Buffer.from(encryptionKey.slice(0, 32)), iv);
+  let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+  decrypted += decipher.final('utf8');
+  return decrypted;
+}
 
 /**
  * Debug endpoint to check ETH balance for gas fees
@@ -14,10 +24,49 @@ export async function GET(req: NextRequest) {
   try {
     console.log(`[Debug] Checking ETH balance for agent: ${agentId} on chain: ${chainId}`);
     
-    const keyService = new AgentKeyServiceV2();
-    const agentKeys = await keyService.getAgentKeys(agentId);
+    // Get agent keys directly from Supabase with correct priority order
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+    const supabaseServiceKey = process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const encryptionKey = process.env.NEXT_PUBLIC_AGENT_KEY_ENCRYPTION_SECRET || process.env.AGENT_KEY_ENCRYPTION_SECRET;
     
-    if (!agentKeys?.evmPrivateKey) {
+    if (!supabaseUrl || !supabaseServiceKey) {
+      return new Response(JSON.stringify({
+        ok: false,
+        error: 'Missing Supabase environment variables'
+      }), { status: 500 });
+    }
+    
+    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: { persistSession: false }
+    });
+    
+    const { data: agentKeys, error } = await supabase
+      .from('agent_keys')
+      .select('*')
+      .eq('agent_id', agentId)
+      .single();
+    
+    if (error || !agentKeys) {
+      return new Response(JSON.stringify({
+        ok: false,
+        error: `No agent keys found for ${agentId}: ${error?.message || 'Not found'}`
+      }), { status: 404 });
+    }
+    
+    // Decrypt private key if encrypted
+    let privateKey = agentKeys.evm_private_key;
+    if (!privateKey && agentKeys.evm_private_key_encrypted && encryptionKey) {
+      try {
+        privateKey = decrypt(agentKeys.evm_private_key_encrypted, encryptionKey);
+      } catch (decryptError) {
+        return new Response(JSON.stringify({
+          ok: false,
+          error: `Failed to decrypt private key: ${decryptError instanceof Error ? decryptError.message : 'Unknown error'}`
+        }), { status: 500 });
+      }
+    }
+    
+    if (!privateKey) {
       return new Response(JSON.stringify({
         ok: false,
         error: `No EVM private key found for ${agentId}`
@@ -46,7 +95,7 @@ export async function GET(req: NextRequest) {
 
     const { ethers } = await import("ethers");
     const provider = new ethers.JsonRpcProvider(url);
-    const wallet = new ethers.Wallet(agentKeys.evmPrivateKey, provider);
+    const wallet = new ethers.Wallet(privateKey, provider);
     
     // Get ETH balance
     const ethBalance = await provider.getBalance(wallet.address);
