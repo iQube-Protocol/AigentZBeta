@@ -25,9 +25,9 @@ export async function GET(req: NextRequest) {
     console.log(`[Debug] Checking ETH balance for agent: ${agentId} on chain: ${chainId}`);
     
     // Get agent keys directly from Supabase to avoid client conflicts
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const encryptionKey = process.env.AGENT_KEY_ENCRYPTION_SECRET;
+    const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY;
+    const encryptionKey = process.env.AGENT_KEY_ENCRYPTION_SECRET || process.env.NEXT_PUBLIC_AGENT_KEY_ENCRYPTION_SECRET;
     
     if (!supabaseUrl || !supabaseServiceKey) {
       return new Response(JSON.stringify({
