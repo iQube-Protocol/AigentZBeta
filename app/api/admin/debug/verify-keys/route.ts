@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
     
     // Compare with stored address
     const storedAddress = agentKeys.evmAddress;
-    const addressMatch = derivedAddress.toLowerCase() === storedAddress.toLowerCase();
+    const addressMatch = storedAddress ? derivedAddress.toLowerCase() === storedAddress.toLowerCase() : false;
     
     const result = {
       agentId,
