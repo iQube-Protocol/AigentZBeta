@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { NextRequest } from "next/server";
-import { AgentKeyService } from "@/services/identity/agentKeyService";
+import { createClient } from '@supabase/supabase-js';
 
 const ERC20_ABI = [
   "function transfer(address to, uint256 value) returns (bool)",
@@ -57,20 +57,40 @@ export async function POST(req: NextRequest) {
       return new Response(JSON.stringify({ ok: false, error: "chainId, tokenAddress, to, amount required" }), { status: 400 });
     }
 
-    // Get agent private key from Supabase (server-side only)
+    // Get agent private key from Supabase (server-side only) - Direct client to avoid conflicts
     console.log(`[Transfer] Retrieving keys for agent: ${agentId || 'aigent-z'}`);
     
-    let keyService;
     let agentKeys;
     
     try {
-      keyService = new AgentKeyService();
-      agentKeys = await keyService.getAgentKeys(agentId || 'aigent-z');
+      // Create isolated Supabase client to avoid AgentiQBootstrap conflicts
+      const supabaseUrl = process.env.SUPABASE_URL;
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      
+      if (!supabaseUrl || !supabaseServiceKey) {
+        throw new Error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variables');
+      }
+      
+      const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+        auth: { persistSession: false }
+      });
+      
+      const { data, error } = await supabase
+        .from('agent_keys')
+        .select('*')
+        .eq('agent_id', agentId || 'aigent-z')
+        .single();
+      
+      if (error) {
+        throw new Error(`Supabase query failed: ${error.message}`);
+      }
+      
+      agentKeys = data;
       console.log(`[Transfer] Keys retrieved:`, {
         agentId: agentId || 'aigent-z',
         keysFound: !!agentKeys,
-        hasEvmKey: !!agentKeys?.evmPrivateKey,
-        evmAddress: agentKeys?.evmAddress
+        hasEvmKey: !!agentKeys?.evm_private_key,
+        evmAddress: agentKeys?.evm_address
       });
     } catch (error) {
       console.error(`[Transfer] Error retrieving keys:`, error);
@@ -80,7 +100,7 @@ export async function POST(req: NextRequest) {
       }), { status: 500 });
     }
     
-    if (!agentKeys?.evmPrivateKey) {
+    if (!agentKeys?.evm_private_key) {
       console.error(`[Transfer] No private key found for agent: ${agentId || 'aigent-z'}`);
       return new Response(JSON.stringify({ 
         ok: false, 
@@ -88,8 +108,8 @@ export async function POST(req: NextRequest) {
       }), { status: 500 });
     }
     
-    const PK = agentKeys.evmPrivateKey;
-    console.log(`[Transfer] Using private key for address: ${agentKeys.evmAddress}`);
+    const PK = agentKeys.evm_private_key;
+    console.log(`[Transfer] Using private key for address: ${agentKeys.evm_address}`);
 
     const { ethers } = await import("ethers");
     const rpc = (cid: number) => {
