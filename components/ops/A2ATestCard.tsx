@@ -51,6 +51,7 @@ export function A2ATestCard({ title }: { title: string }) {
           tokenAddress: intent.payParams.tokenAddress,
           to: intent.payParams.payTo,
           amount: intent.payParams.amount,
+          asset: which, // CRITICAL: Required for DVN flow and proper RPC routing
         })
       });
       const trj = await tr.json();
