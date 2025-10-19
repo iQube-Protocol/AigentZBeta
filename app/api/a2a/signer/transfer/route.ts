@@ -1,13 +1,24 @@
 export const dynamic = "force-dynamic";
 
 import { NextRequest } from "next/server";
-import { AgentKeyServiceV2 } from "@/services/identity/agentKeyService.v2";
+import { createClient } from '@supabase/supabase-js';
+import { createDecipheriv } from 'crypto';
 
 const ERC20_ABI = [
   "function transfer(address to, uint256 value) returns (bool)",
   "function balanceOf(address account) view returns (uint256)",
   "function decimals() view returns (uint8)",
 ];
+
+// Decrypt function for encrypted private keys
+function decrypt(encryptedText: string, encryptionKey: string): string {
+  const [ivHex, encrypted] = encryptedText.split(':');
+  const iv = Buffer.from(ivHex, 'hex');
+  const decipher = createDecipheriv('aes-256-cbc', Buffer.from(encryptionKey.slice(0, 32)), iv);
+  let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+  decrypted += decipher.final('utf8');
+  return decrypted;
+}
 
 
 export async function POST(req: NextRequest) {
@@ -58,22 +69,60 @@ export async function POST(req: NextRequest) {
       return new Response(JSON.stringify({ ok: false, error: "chainId, tokenAddress, to, amount required" }), { status: 400 });
     }
 
-    // Get agent private key using proper SDK pattern
+    // Get agent private key using working direct pattern
     console.log(`[Transfer] Retrieving keys for agent: ${agentId || 'aigent-z'}`);
     
-    const keyService = new AgentKeyServiceV2();
-    const agentKeys = await keyService.getAgentKeys(agentId || 'aigent-z');
+    // Get agent keys directly from Supabase with correct priority order
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+    const supabaseServiceKey = process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const encryptionKey = process.env.NEXT_PUBLIC_AGENT_KEY_ENCRYPTION_SECRET || process.env.AGENT_KEY_ENCRYPTION_SECRET;
     
-    if (!agentKeys?.evmPrivateKey) {
-      console.error(`[Transfer] No private key found for agent: ${agentId || 'aigent-z'}`);
-      return new Response(JSON.stringify({ 
-        ok: false, 
-        error: `Agent private key not found for ${agentId || 'aigent-z'}. Check agent keys configuration.` 
+    if (!supabaseUrl || !supabaseServiceKey) {
+      return new Response(JSON.stringify({
+        ok: false,
+        error: 'Missing Supabase environment variables'
       }), { status: 500 });
     }
     
-    const PK = agentKeys.evmPrivateKey;
-    console.log(`[Transfer] Using private key for address: ${agentKeys.evmAddress}`);
+    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: { persistSession: false }
+    });
+    
+    const { data: agentKeys, error } = await supabase
+      .from('agent_keys')
+      .select('*')
+      .eq('agent_id', agentId || 'aigent-z')
+      .single();
+    
+    if (error || !agentKeys) {
+      return new Response(JSON.stringify({
+        ok: false,
+        error: `No agent keys found for ${agentId || 'aigent-z'}: ${error?.message || 'Not found'}`
+      }), { status: 404 });
+    }
+    
+    // Decrypt private key if encrypted
+    let privateKey = agentKeys.evm_private_key;
+    if (!privateKey && agentKeys.evm_private_key_encrypted && encryptionKey) {
+      try {
+        privateKey = decrypt(agentKeys.evm_private_key_encrypted, encryptionKey);
+      } catch (decryptError) {
+        return new Response(JSON.stringify({
+          ok: false,
+          error: `Failed to decrypt private key: ${decryptError instanceof Error ? decryptError.message : 'Unknown error'}`
+        }), { status: 500 });
+      }
+    }
+    
+    if (!privateKey) {
+      return new Response(JSON.stringify({
+        ok: false,
+        error: `No EVM private key found for ${agentId || 'aigent-z'}`
+      }), { status: 404 });
+    }
+    
+    const PK = privateKey;
+    console.log(`[Transfer] Using private key for address: ${agentKeys.evm_address}`);
 
     const { ethers } = await import("ethers");
     const rpc = (cid: number) => {
