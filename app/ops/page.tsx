@@ -34,6 +34,7 @@ import { A2ATestCard } from "@/components/ops/A2ATestCard";
 import { A2ADVNCard } from "@/components/ops/A2ADVNCard";
 import { DiDQubeIdentityCard } from "@/components/ops/DiDQubeIdentityCard";
 import { DiDQubeReputationCard } from "@/components/ops/DiDQubeReputationCard";
+import { FundingStatusCard } from "@/components/ops/FundingStatusCard";
 import { Connection, Transaction, SystemProgram, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { getPhantomWallet } from '@/services/wallet/phantom';
 import { getUnisatWallet } from '@/services/wallet/unisat';
@@ -550,8 +551,9 @@ export default function OpsPage() {
 
   const cards = useMemo(() => [
     { key: "icp_health", title: "ICP Canister Health" },
-    { key: "btc_anchor", title: "BTC Anchor Status" },
     { key: "cross_chain", title: "Cross-Chain Status" },
+    { key: "funding_status", title: "Ops Gas Status" },
+    { key: "btc_anchor", title: "BTC Anchor Status" },
     { key: "sync_status", title: "Canister Sync Status" },
     { key: "icp_dvn", title: "ICP DVN" },
     { key: "dvn_mint_tests", title: "DVN Mint Tests" },
@@ -560,7 +562,7 @@ export default function OpsPage() {
     { key: "qct_event_monitor", title: "iQube & QCT Event Register" },
     { key: "qct_dashboard", title: "QCT Multi-Chain Overview" },
     { key: "qct_trading", title: "QCT Cross-Chain Trading" },
-    { key: "qct_treasury", title: "QCT Treasury & USDC Trading" },
+    { key: "qct_treasury", title: "COYN Treasury Trading" },
     { key: "qct_analytics", title: "QCT Multi-Chain Analytics" },
     { key: "qct_rekey", title: "QCT Rekey (Stage 1A)" },
     { key: "a2a_tests", title: "A2A Tx Tests" },
@@ -622,6 +624,9 @@ export default function OpsPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
         {cards.map(({ key, title }) => {
+          if (key === "funding_status") {
+            return <FundingStatusCard key={key} title={title} />;
+          }
           if (key === "a2a_tests") {
             return <A2ATestCard key={key} title={title} />;
           }

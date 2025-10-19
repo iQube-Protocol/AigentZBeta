@@ -100,11 +100,10 @@ export function DiDQubeIdentityCard({ onPersonaClick }: DiDQubeIdentityCardProps
           <>
             <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
               <span>Total Personas: {personas.length}</span>
-              <Link href="/identity" className="text-indigo-400 hover:text-indigo-300">View →</Link>
             </div>
             
-            <div className="space-y-2">
-              {personas.slice(0, 3).map(p => (
+            <div className="space-y-2 max-h-80 overflow-y-auto">
+              {personas.map(p => (
                 <button
                   key={p.id}
                   onClick={() => onPersonaClick?.(p.id)}
@@ -159,9 +158,9 @@ export function DiDQubeIdentityCard({ onPersonaClick }: DiDQubeIdentityCardProps
               ))}
             </div>
 
-            {personas.length > 3 && (
+            {personas.length > 4 && (
               <p className="text-xs text-slate-500 text-center mt-2">
-                +{personas.length - 3} more personas
+                Scroll to see all {personas.length} personas
               </p>
             )}
           </>

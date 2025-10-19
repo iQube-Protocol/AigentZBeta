@@ -12,7 +12,7 @@
 
 import { AgentKeyService } from '../services/identity/agentKeyService';
 
-// Current agent keys from agentConfig.ts
+// Current agent keys matching agentConfig.ts
 const agentKeys = [
   {
     agentId: 'aigent-z',
@@ -25,24 +25,34 @@ const agentKeys = [
     solanaAddress: '9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM'
   },
   {
-    agentId: 'aigent-x',
-    agentName: 'Aigent X',
+    agentId: 'aigent-moneypenny',
+    agentName: 'Aigent MoneyPenny',
     evmPrivateKey: '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890',
-    evmAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb1',
+    evmAddress: '0x8D286CcECf7B838172A45c26a11F019C4303E742',
     btcPrivateKey: 'cT1vNvQzJsZZhVQqZvXzYvXzYvXzYvXzYvXzYvXzYvXz',
-    btcAddress: 'tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx',
+    btcAddress: 'tb1qmp0neypenny1234567890abcdef1234567890ab',
     solanaPrivateKey: '5K8QhkrwTZHCQYjLKV2T3JNJKqNxvQfgKjSHJHJHJHJHJHJHJHJHJHJHJHJHJHJH',
-    solanaAddress: '8WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM'
+    solanaAddress: 'MoneyPennyWallet123456789ABCDEFGHIJKLMNOP'
   },
   {
-    agentId: 'aigent-y',
-    agentName: 'Aigent Y',
-    evmPrivateKey: '0x1111111111111111111111111111111111111111111111111111111111111111',
-    evmAddress: '0x8626f6940E2eb28930eFb4CeF49B2d1F2C9C1199',
+    agentId: 'aigent-nakamoto',
+    agentName: 'Aigent Nakamoto',
+    evmPrivateKey: '0x2222222222222222222222222222222222222222222222222222222222222222',
+    evmAddress: '0x24BBB9C7aAcB33556D1429a3e1B33f05fAf7D4B9',
     btcPrivateKey: 'cU1vNvQzJsZZhVQqZvXzYvXzYvXzYvXzYvXzYvXzYvXz',
-    btcAddress: 'tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q0sl5k7',
+    btcAddress: 'tb1qnakamoto1234567890abcdef1234567890abcdef',
     solanaPrivateKey: '5L8QhkrwTZHCQYjLKV2T3JNJKqNxvQfgKjSHJHJHJHJHJHJHJHJHJHJHJHJHJHJH',
-    solanaAddress: '7WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM'
+    solanaAddress: 'NakamotoWallet123456789ABCDEFGHIJKLMNOPQR'
+  },
+  {
+    agentId: 'aigent-kn0w1',
+    agentName: 'Aigent Kn0w1',
+    evmPrivateKey: '0x3333333333333333333333333333333333333333333333333333333333333333',
+    evmAddress: '0x875E825E0341b330065152ddaE37CBb843FC8D84',
+    btcPrivateKey: 'cV1vNvQzJsZZhVQqZvXzYvXzYvXzYvXzYvXzYvXzYvXz',
+    btcAddress: 'tb1qkn0w1data1234567890abcdef1234567890abcd',
+    solanaPrivateKey: '5M8QhkrwTZHCQYjLKV2T3JNJKqNxvQfgKjSHJHJHJHJHJHJHJHJHJHJHJHJHJHJH',
+    solanaAddress: 'Kn0w1DataWallet123456789ABCDEFGHIJKLMNOPQ'
   }
 ];
 

@@ -5,6 +5,7 @@ import { AgentKeyService } from "@/services/identity/agentKeyService";
 
 const ERC20_ABI = [
   "function transfer(address to, uint256 value) returns (bool)",
+  "function balanceOf(address account) view returns (uint256)",
   "function decimals() view returns (uint8)",
 ];
 
@@ -114,24 +115,6 @@ export async function POST(req: NextRequest) {
     const provider = new ethers.JsonRpcProvider(url);
     const wallet = new ethers.Wallet(PK, provider);
     const erc20 = new ethers.Contract(tokenAddress, ERC20_ABI, wallet);
-    
-    // Check balance before transfer
-    const balance = await erc20.balanceOf(wallet.address);
-    console.log(`Wallet balance: ${balance.toString()}, attempting to transfer: ${amount}`);
-    
-    const amountBigInt = BigInt(amount);
-    if (balance < amountBigInt) {
-      throw new Error(`Insufficient balance: have ${balance.toString()}, need ${amountBigInt.toString()}`);
-    }
-    
-    // Estimate gas first to catch contract errors early
-    try {
-      const gasEstimate = await erc20.transfer.estimateGas(to, amount);
-      console.log(`Gas estimate: ${gasEstimate.toString()}`);
-    } catch (gasError: any) {
-      console.error('Gas estimation failed:', gasError);
-      throw new Error(`Gas estimation failed: ${gasError.reason || gasError.message || 'Unknown error'}`);
-    }
     
     console.log(`Executing transfer: ${amount} tokens to ${to}`);
     const tx = await erc20.transfer(to, amount);

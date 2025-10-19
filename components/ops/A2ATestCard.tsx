@@ -1,6 +1,6 @@
 "use client";
 import React, { useCallback, useMemo, useState } from "react";
-import { RefreshCw, Play, ShieldCheck, CheckCircle2, Globe, Copy } from "lucide-react";
+import { RefreshCw, Play, ShieldCheck, CheckCircle2, Globe, Copy, Fuel } from "lucide-react";
 import { x402PaidFetchFactory } from "@/app/hooks/useX402";
 
 function Card({ title, children, actions, className }: { title: React.ReactNode; children?: React.ReactNode; actions?: React.ReactNode; className?: string }) {
@@ -137,7 +137,7 @@ export function A2ATestCard({ title }: { title: string }) {
   const fundSigner = useCallback(async () => {
     try {
       setBusy("fund");
-      append("Funding signer and agents on all EVM testnets...");
+      append("Funding signer and aigents on all EVM testnets...");
       const r = await fetch('/api/admin/fund-signer', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -147,14 +147,53 @@ export function A2ATestCard({ title }: { title: string }) {
       append(`Signer fund result: status=${r.status} ok=${r.ok} -> ${JSON.stringify(j)}`);
       
       // Also fund all agents with 10 Q¢ per chain
-      append("Funding all agents with 10 Q¢ per chain...");
+      append("Funding all aigents with 10 Q¢ per chain...");
       const agentR = await fetch('/api/admin/fund-agents', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ chainIds: [11155111, 421614, 11155420, 84532, 80002], amountQct: '10' })
       });
       const agentJ = await agentR.json();
-      append(`Agents fund result: status=${agentR.status} ok=${agentR.ok} -> ${JSON.stringify(agentJ)}`);
+      append(`Aigents fund result: status=${agentR.status} ok=${agentR.ok} -> ${JSON.stringify(agentJ)}`);
+    } catch (e: any) {
+      append(`ERROR: ${e?.message || String(e)}`);
+    } finally {
+      setBusy(null);
+    }
+  }, []);
+
+  const fundAgentsNative = useCallback(async () => {
+    try {
+      setBusy("fundNative");
+      append("Funding agents with native tokens (ETH/MATIC) from Aigent Z...");
+      const r = await fetch('/api/admin/fund-agents-native', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' }
+      });
+      const j = await r.json();
+      
+      if (r.ok && j.ok) {
+        append(`✅ Native funding completed: ${j.summary.ethSuccessful}/${j.summary.ethSuccessful + j.summary.ethFailed} ETH transfers successful`);
+        
+        // Log successful transfers
+        const successful = j.results.filter((r: any) => r.success);
+        successful.forEach((result: any) => {
+          append(`  ✅ ${result.agent}: ${result.amount} ${result.currency} on ${result.chain} (${result.txHash?.slice(0, 10)}...)`);
+        });
+        
+        // Log failed transfers
+        const failed = j.results.filter((r: any) => !r.success);
+        if (failed.length > 0) {
+          append(`❌ Failed transfers:`);
+          failed.forEach((result: any) => {
+            append(`  ❌ ${result.agent}: ${result.currency} on ${result.chain} - ${result.error}`);
+          });
+        }
+        
+        append(`Summary: ${j.message}`);
+      } else {
+        append(`❌ Native funding failed: ${j.error || 'Unknown error'}`);
+      }
     } catch (e: any) {
       append(`ERROR: ${e?.message || String(e)}`);
     } finally {
@@ -215,9 +254,9 @@ export function A2ATestCard({ title }: { title: string }) {
 
   return (
     <Card title={title} actions={
-      <button onClick={() => window.location.reload()} className="px-3 py-1 text-xs rounded border border-slate-600 bg-slate-800 text-slate-200 hover:bg-slate-700 flex items-center gap-1">
+      <button onClick={() => setLog([])} className="px-3 py-1 text-xs rounded border border-slate-600 bg-slate-800 text-slate-200 hover:bg-slate-700 flex items-center gap-1">
         <RefreshCw size={12} />
-        Refresh
+        Clear Log
       </button>
     }>
       <div className="space-y-4">
@@ -263,7 +302,11 @@ export function A2ATestCard({ title }: { title: string }) {
         <div className="space-y-1">
           <div className="text-xs text-slate-400">Admin</div>
           <button disabled={busy==="fund"} onClick={fundSigner} className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-fuchsia-500/10 hover:bg-fuchsia-500/20 border border-fuchsia-500/30 text-fuchsia-300 rounded text-xs text-center">
-            Fund Signer and Agents
+            Fund Signer and Aigents
+          </button>
+          <button disabled={busy==="fundNative"} onClick={fundAgentsNative} className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 rounded text-xs text-center">
+            <Fuel size={14} />
+            Fund Aigents Native Tokens
           </button>
         </div>
 

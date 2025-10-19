@@ -128,13 +128,24 @@ export function DiDQubeReputationCard({ selectedPersonaId }: DiDQubeReputationCa
           <p className="text-xs text-slate-500">
             <strong>Note:</strong> RQH canister must be deployed and RQH_CANISTER_ID configured for live data.
           </p>
-          <Link 
-            href="/admin/reputation"
-            className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
-          >
-            <ExternalLink size={14} />
-            Manage Reputation
-          </Link>
+          <div className="grid grid-cols-1 gap-2">
+            <Link 
+              href="/admin/reputation"
+              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
+            >
+              <ExternalLink size={14} />
+              Manage Reputation
+            </Link>
+            {selectedPersonaId && (
+              <Link 
+                href={`/identity/persona/${selectedPersonaId}`}
+                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-sm bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors"
+              >
+                <TrendingUp size={14} />
+                View Identity and Reputation Card
+              </Link>
+            )}
+          </div>
         </div>
       </div>
     </div>
