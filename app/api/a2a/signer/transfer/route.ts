@@ -2,12 +2,23 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest } from "next/server";
 import { createClient } from '@supabase/supabase-js';
+import { createDecipheriv } from 'crypto';
 
 const ERC20_ABI = [
   "function transfer(address to, uint256 value) returns (bool)",
   "function balanceOf(address account) view returns (uint256)",
   "function decimals() view returns (uint8)",
 ];
+
+// Decrypt function for encrypted private keys
+function decrypt(encryptedText: string, encryptionKey: string): string {
+  const [ivHex, encrypted] = encryptedText.split(':');
+  const iv = Buffer.from(ivHex, 'hex');
+  const decipher = createDecipheriv('aes-256-cbc', Buffer.from(encryptionKey.slice(0, 32)), iv);
+  let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+  decrypted += decipher.final('utf8');
+  return decrypted;
+}
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -66,9 +77,14 @@ export async function POST(req: NextRequest) {
       // Create isolated Supabase client to avoid AgentiQBootstrap conflicts
       const supabaseUrl = process.env.SUPABASE_URL;
       const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      const encryptionKey = process.env.AGENT_KEY_ENCRYPTION_SECRET;
       
       if (!supabaseUrl || !supabaseServiceKey) {
         throw new Error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variables');
+      }
+      
+      if (!encryptionKey) {
+        throw new Error('Missing AGENT_KEY_ENCRYPTION_SECRET environment variable');
       }
       
       const supabase = createClient(supabaseUrl, supabaseServiceKey, {
@@ -86,11 +102,22 @@ export async function POST(req: NextRequest) {
       }
       
       agentKeys = data;
+      
+      // Decrypt the private key if it's encrypted
+      if (agentKeys?.evm_private_key_encrypted) {
+        try {
+          agentKeys.evm_private_key = decrypt(agentKeys.evm_private_key_encrypted, encryptionKey);
+        } catch (decryptError) {
+          throw new Error(`Failed to decrypt private key: ${decryptError instanceof Error ? decryptError.message : 'Unknown error'}`);
+        }
+      }
+      
       console.log(`[Transfer] Keys retrieved:`, {
         agentId: agentId || 'aigent-z',
         keysFound: !!agentKeys,
         hasEvmKey: !!agentKeys?.evm_private_key,
-        evmAddress: agentKeys?.evm_address
+        evmAddress: agentKeys?.evm_address,
+        wasEncrypted: !!agentKeys?.evm_private_key_encrypted
       });
     } catch (error) {
       console.error(`[Transfer] Error retrieving keys:`, error);
