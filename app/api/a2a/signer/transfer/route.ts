@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { NextRequest } from "next/server";
-import { AgentKeyService } from "@/services/identity/agentKeyService";
+import { AgentKeyServiceV2 } from "@/services/identity/agentKeyService.v2";
 
 const ERC20_ABI = [
   "function transfer(address to, uint256 value) returns (bool)",
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
     // Get agent private key using proper SDK pattern
     console.log(`[Transfer] Retrieving keys for agent: ${agentId || 'aigent-z'}`);
     
-    const keyService = new AgentKeyService();
+    const keyService = new AgentKeyServiceV2();
     const agentKeys = await keyService.getAgentKeys(agentId || 'aigent-z');
     
     if (!agentKeys?.evmPrivateKey) {

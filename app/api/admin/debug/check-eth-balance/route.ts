@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { NextRequest } from "next/server";
-import { AgentKeyService } from "@/services/identity/agentKeyService";
+import { AgentKeyServiceV2 } from "@/services/identity/agentKeyService.v2";
 
 
 /**
@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
   try {
     console.log(`[Debug] Checking ETH balance for agent: ${agentId} on chain: ${chainId}`);
     
-    const keyService = new AgentKeyService();
+    const keyService = new AgentKeyServiceV2();
     const agentKeys = await keyService.getAgentKeys(agentId);
     
     if (!agentKeys?.evmPrivateKey) {

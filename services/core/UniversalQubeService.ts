@@ -308,7 +308,7 @@ export class UniversalQubeService {
  */
 export function createPaymentService(): UniversalQubeService {
   return UniversalQubeService.initialize({
-    supabaseUrl: process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL!,
     supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
     supabaseAnonKey: process.env.SUPABASE_ANON_KEY,
     serviceType: 'payment',
