@@ -79,6 +79,14 @@ export async function POST(req: NextRequest) {
       const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
       const encryptionKey = process.env.AGENT_KEY_ENCRYPTION_SECRET;
       
+      console.log(`[Transfer] Environment check:`, {
+        hasSupabaseUrl: !!supabaseUrl,
+        hasServiceKey: !!supabaseServiceKey,
+        hasEncryptionKey: !!encryptionKey,
+        supabaseUrlPrefix: supabaseUrl?.substring(0, 20) + '...',
+        serviceKeyPrefix: supabaseServiceKey?.substring(0, 20) + '...'
+      });
+      
       if (!supabaseUrl || !supabaseServiceKey) {
         throw new Error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variables');
       }

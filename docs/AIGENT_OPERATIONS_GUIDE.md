@@ -72,7 +72,71 @@ User Request → Agent Selection → Balance Check → Transaction Execution →
 
 ## 🚨 Major Issues & Solutions
 
-### Issue #1: A2A Payment System Complete Failure
+### Issue #1: Production Private Key Decryption Crisis (RESOLVED - October 19, 2025)
+
+**Severity**: 🔴 CRITICAL - All production agent operations broken
+
+**Symptoms**:
+- A2A transfers returning 500 errors: "transfer failed: 500"
+- Balance checking APIs showing "Error" status for all chains
+- Ops Gas Status card completely broken (all chains showing "Error")
+- Agent wallet drawer transactions non-functional
+- EVM end-to-end tests failing
+
+**Root Cause**: Private Key Encryption/Decryption Mismatch
+```
+Database Reality vs API Expectations:
+├── Database Storage: evm_private_key_encrypted (AES-256-CBC encrypted)
+├── API Expectation: evm_private_key (plain text)
+├── Missing Component: Decryption logic in production APIs
+└── Environment: AGENT_KEY_ENCRYPTION_SECRET required but not used
+```
+
+**Critical APIs Affected**:
+```
+🔴 BROKEN:
+- /api/a2a/signer/transfer (A2A transfers - 500 errors)
+- /api/admin/debug/check-eth-balance (Balance checking - Error status)
+- All agent operations requiring private key access
+
+⚠️ IMPACT:
+- Ops Gas Status card showing "Error" for all chains
+- Agent-to-agent transactions completely broken
+- Fund Signer operations failing
+- Cross-chain operations non-functional
+```
+
+**Solution Implemented**: Direct Supabase Client with Decryption
+```typescript
+// Critical decryption function added to production APIs
+function decrypt(encryptedText: string, encryptionKey: string): string {
+  const [ivHex, encrypted] = encryptedText.split(':');
+  const iv = Buffer.from(ivHex, 'hex');
+  const decipher = createDecipheriv('aes-256-cbc', Buffer.from(encryptionKey.slice(0, 32)), iv);
+  let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+  decrypted += decipher.final('utf8');
+  return decrypted;
+}
+
+// Key retrieval with proper decryption
+const { data: agentKeys, error } = await supabase
+  .from('agent_keys')
+  .select('*')
+  .eq('agent_id', agentId)
+  .single();
+
+if (agentKeys?.evm_private_key_encrypted && encryptionKey) {
+  privateKey = decrypt(agentKeys.evm_private_key_encrypted, encryptionKey);
+}
+```
+
+**Files Fixed**:
+- `app/api/a2a/signer/transfer/route.ts` - Added decryption for A2A transfers
+- `app/api/admin/debug/check-eth-balance/route.ts` - Added decryption for balance checking
+
+**Resolution Status**: ✅ RESOLVED - Commit `ac1608d` deployed to production
+
+### Issue #2: A2A Payment System Complete Failure
 
 **Severity**: 🔴 CRITICAL - All agent transactions broken
 
@@ -397,10 +461,24 @@ GET /api/admin/debug/check-canister-cycles?canisterId={id}
 **Scenario**: All agent-to-agent transactions failing
 
 **Immediate Diagnosis** (< 2 minutes):
-1. 🔍 Check Ops Gas Status - are balances sufficient?
-2. 🔍 Test A2A API endpoint directly
-3. 🔍 Check Supabase client conflict indicators
-4. 🔍 Verify environment variables
+1. 🔍 **Check Private Key Decryption First** (Most Common Issue):
+   - Verify `AGENT_KEY_ENCRYPTION_SECRET` is set in environment
+   - Check if private keys are encrypted in database (`evm_private_key_encrypted` field)
+   - Test decryption logic with actual encrypted data
+   - Ensure APIs use direct Supabase client with decryption
+
+2. 🔍 **Check Agent Balances**:
+   - Verify sender has sufficient gas
+   - Verify recipient wallet exists
+   - Check network connectivity
+
+3. 🔍 **Verify Supabase Client Conflicts**:
+   - Check if AgentiQBootstrap is interfering
+   - Verify AgentKeyService has proper service role access
+   - Look for concurrent client initialization
+
+4. 🔍 **API Endpoint Testing**:
+   - Test A2A transfer endpoint directly
 
 **Escalation Path**:
 ```
