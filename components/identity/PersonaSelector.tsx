@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Select } from '@/components/ui/Select';
 
 interface Persona {
   id: string;
@@ -28,21 +27,21 @@ export function PersonaSelector({ onSelect, value }: PersonaSelectorProps) {
       .catch(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="text-sm text-gray-400">Loading personas...</div>;
-  if (personas.length === 0) return <div className="text-sm text-gray-400">No personas found. Create one via API.</div>;
+  if (loading) return <div className="text-sm text-slate-400">Loading personas...</div>;
+  if (personas.length === 0) return <div className="text-sm text-slate-400">No personas found. Create one via API.</div>;
 
   return (
-    <Select 
-      value={value} 
-      onValueChange={onSelect}
-      options={personas.map(p => p.id)}
-      className="w-full"
+    <select
+      value={value}
+      onChange={(e) => onSelect(e.target.value)}
+      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-md text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
     >
+      <option value="">Select a persona...</option>
       {personas.map(p => (
         <option key={p.id} value={p.id}>
           {p.fio_handle || p.id.slice(0, 8)} — {p.default_identity_state}
         </option>
       ))}
-    </Select>
+    </select>
   );
 }
