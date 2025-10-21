@@ -1,0 +1,14 @@
+/Users/hal1/CascadeProjects/AigentZBeta/target/wasm32-unknown-unknown/release/deps/serde-0bc25af2612b3c92.d: /Users/hal1/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /Users/hal1/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /Users/hal1/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /Users/hal1/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /Users/hal1/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /Users/hal1/CascadeProjects/AigentZBeta/target/wasm32-unknown-unknown/release/build/serde-e87c9c84cdf87b5d/out/private.rs
+
+/Users/hal1/CascadeProjects/AigentZBeta/target/wasm32-unknown-unknown/release/deps/libserde-0bc25af2612b3c92.rlib: /Users/hal1/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /Users/hal1/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /Users/hal1/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /Users/hal1/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /Users/hal1/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /Users/hal1/CascadeProjects/AigentZBeta/target/wasm32-unknown-unknown/release/build/serde-e87c9c84cdf87b5d/out/private.rs
+
+/Users/hal1/CascadeProjects/AigentZBeta/target/wasm32-unknown-unknown/release/deps/libserde-0bc25af2612b3c92.rmeta: /Users/hal1/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /Users/hal1/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /Users/hal1/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /Users/hal1/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /Users/hal1/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /Users/hal1/CascadeProjects/AigentZBeta/target/wasm32-unknown-unknown/release/build/serde-e87c9c84cdf87b5d/out/private.rs
+
+/Users/hal1/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs:
+/Users/hal1/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs:
+/Users/hal1/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs:
+/Users/hal1/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs:
+/Users/hal1/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs:
+/Users/hal1/CascadeProjects/AigentZBeta/target/wasm32-unknown-unknown/release/build/serde-e87c9c84cdf87b5d/out/private.rs:
+
+# env-dep:OUT_DIR=/Users/hal1/CascadeProjects/AigentZBeta/target/wasm32-unknown-unknown/release/build/serde-e87c9c84cdf87b5d/out

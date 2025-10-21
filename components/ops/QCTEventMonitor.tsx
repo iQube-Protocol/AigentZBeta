@@ -26,7 +26,7 @@ export function QCTEventMonitor({ className = '' }: QCTEventMonitorProps) {
     getErrorChains,
     getTotalEvents,
     getTotalErrors,
-  } = useEventListener(10000); // Refresh every 10 seconds
+  } = useEventListener(10000, true); // Refresh every 10 seconds, auto-start enabled
 
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [showChainDetails, setShowChainDetails] = useState(false);

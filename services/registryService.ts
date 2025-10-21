@@ -1,4 +1,5 @@
 import { ApiResult, BusinessModel, IQubeTemplate, IQubeType, InstanceType, RegistryFilter } from "../types/registry";
+import { ReputationService } from "./identity/reputationService";
 
 const TEMPLATES_KEY = "registry_templates";
 
@@ -125,5 +126,41 @@ export const RegistryService = {
     const updated = items.filter(t => t.id !== id);
     saveTemplatesLS(updated);
     return { ok: true, data: null };
+  },
+
+  /**
+   * Check if a persona meets the identity/reputation requirements for a template.
+   * Non-breaking: returns true if template has no policy hints.
+   */
+  async checkIdentityPolicy(
+    template: IQubeTemplate,
+    personaId: string,
+    identityState: string,
+    reputationPartitionId?: string
+  ): Promise<{ allowed: boolean; reason?: string }> {
+    // If template has no policy hints, allow by default (non-breaking)
+    if (!template.min_reputation_bucket && !template.require_human_proof && !template.require_agent_declare) {
+      return { allowed: true };
+    }
+
+    const repService = new ReputationService();
+
+    // Check reputation bucket if required
+    if (template.min_reputation_bucket !== undefined && reputationPartitionId) {
+      const bucketData = await repService.getBucket(reputationPartitionId);
+      if (!bucketData || bucketData.bucket < template.min_reputation_bucket) {
+        return { allowed: false, reason: `Reputation bucket ${bucketData?.bucket ?? 0} < required ${template.min_reputation_bucket}` };
+      }
+    }
+
+    // Check human proof / agent declaration (stubs for Phase 2)
+    if (template.require_human_proof) {
+      return { allowed: false, reason: 'Human proof required (World ID not yet integrated)' };
+    }
+    if (template.require_agent_declare) {
+      return { allowed: false, reason: 'Agent declaration required (not yet integrated)' };
+    }
+
+    return { allowed: true };
   }
 };
