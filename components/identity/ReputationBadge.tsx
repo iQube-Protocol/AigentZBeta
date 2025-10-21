@@ -41,7 +41,18 @@ export function ReputationBadge({ partitionId, refreshKey = 0 }: ReputationBadge
     
     // Fetch all reputation buckets for this partition
     fetch(`/api/identity/persona/${partitionId}/reputation/all`)
-      .then(r => r.json())
+      .then(async (r) => {
+        if (!r.ok) {
+          throw new Error(`API error: ${r.status}`);
+        }
+        const text = await r.text();
+        try {
+          return JSON.parse(text);
+        } catch (e) {
+          console.error('JSON parse error:', text);
+          throw new Error('Invalid JSON response from server');
+        }
+      })
       .then(data => {
         if (data.ok && data.data && data.data.length > 0) {
           const domains = data.data;
@@ -61,6 +72,7 @@ export function ReputationBadge({ partitionId, refreshKey = 0 }: ReputationBadge
         setLoading(false);
       })
       .catch((err) => {
+        console.error('Reputation fetch error:', err);
         setError(err.message || 'Failed to load reputation');
         setLoading(false);
       });
