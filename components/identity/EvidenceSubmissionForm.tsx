@@ -133,7 +133,7 @@ export function EvidenceSubmissionForm({ bucketId, partitionId, onSuccess }: Evi
               <div className="text-right">
                 <div className="text-xs text-slate-500">Score</div>
                 <div className={`text-xl font-bold ${getScoreColor(currentScore)}`}>
-                  {currentScore} / 100
+                  {Math.round(currentScore)} / 100
                 </div>
               </div>
               <div className="text-right">

@@ -1,14 +1,23 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { TrendingUp, Award, FileText, Target } from 'lucide-react';
+import { TrendingUp, Award, FileText, Target, ChevronDown } from 'lucide-react';
 
 interface ReputationData {
+  id: string;
   bucket: number;
   score: number;
   skill_category: string;
   evidence_count: number;
   last_updated: number;
+  partition_id: string;
+}
+
+interface AggregateReputation {
+  totalScore: number;
+  totalEvidence: number;
+  averageBucket: number;
+  domains: ReputationData[];
 }
 
 interface ReputationBadgeProps {
@@ -17,7 +26,8 @@ interface ReputationBadgeProps {
 }
 
 export function ReputationBadge({ partitionId, refreshKey = 0 }: ReputationBadgeProps) {
-  const [reputation, setReputation] = useState<ReputationData | null>(null);
+  const [aggregate, setAggregate] = useState<AggregateReputation | null>(null);
+  const [selectedDomain, setSelectedDomain] = useState<string>('aggregate');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,11 +38,23 @@ export function ReputationBadge({ partitionId, refreshKey = 0 }: ReputationBadge
     }
     setLoading(true);
     setError(null);
-    fetch(`/api/identity/reputation/bucket?partitionId=${partitionId}`)
+    
+    // Fetch all reputation buckets for this partition
+    fetch(`/api/identity/persona/${partitionId}/reputation/all`)
       .then(r => r.json())
       .then(data => {
-        if (data.ok && data.data) {
-          setReputation(data.data);
+        if (data.ok && data.data && data.data.length > 0) {
+          const domains = data.data;
+          const totalScore = domains.reduce((sum: number, d: ReputationData) => sum + d.score, 0);
+          const totalEvidence = domains.reduce((sum: number, d: ReputationData) => sum + d.evidence_count, 0);
+          const averageBucket = Math.round(domains.reduce((sum: number, d: ReputationData) => sum + d.bucket, 0) / domains.length);
+          
+          setAggregate({
+            totalScore,
+            totalEvidence,
+            averageBucket,
+            domains
+          });
         } else {
           setError(data.error || 'No reputation found');
         }
@@ -56,13 +78,23 @@ export function ReputationBadge({ partitionId, refreshKey = 0 }: ReputationBadge
     );
   }
 
-  if (error || !reputation) {
+  if (error || !aggregate) {
     return (
       <div className="p-4 bg-slate-800/50 border border-slate-700/50 rounded-md">
         <p className="text-sm text-slate-400">{error || 'No reputation data available'}</p>
       </div>
     );
   }
+
+  const currentReputation = selectedDomain === 'aggregate' 
+    ? {
+        bucket: aggregate.averageBucket,
+        score: aggregate.totalScore,
+        skill_category: 'All Domains',
+        evidence_count: aggregate.totalEvidence,
+        last_updated: Math.max(...aggregate.domains.map(d => d.last_updated))
+      }
+    : aggregate.domains.find(d => d.id === selectedDomain) || aggregate.domains[0];
 
   const getBucketColor = (bucket: number) => {
     if (bucket >= 4) return 'text-purple-400';
@@ -93,15 +125,15 @@ export function ReputationBadge({ partitionId, refreshKey = 0 }: ReputationBadge
       {/* Bucket Level */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Award size={18} className={getBucketColor(reputation.bucket)} />
+          <Award size={18} className={getBucketColor(currentReputation.bucket)} />
           <span className="text-xs text-slate-400 font-medium">Reputation Bucket</span>
         </div>
         <div className="text-right">
-          <div className={`text-3xl font-bold ${getBucketColor(reputation.bucket)}`}>
-            {reputation.bucket}
+          <div className={`text-3xl font-bold ${getBucketColor(currentReputation.bucket)}`}>
+            {currentReputation.bucket}
           </div>
-          <div className={`text-xs font-medium ${getBucketColor(reputation.bucket)}`}>
-            {getBucketLabel(reputation.bucket)}
+          <div className={`text-xs font-medium ${getBucketColor(currentReputation.bucket)}`}>
+            {getBucketLabel(currentReputation.bucket)}
           </div>
         </div>
       </div>
@@ -109,11 +141,11 @@ export function ReputationBadge({ partitionId, refreshKey = 0 }: ReputationBadge
       {/* Score */}
       <div className="flex items-center justify-between pt-3 border-t border-slate-700/50">
         <div className="flex items-center gap-2">
-          <Target size={16} className={getScoreColor(reputation.score)} />
+          <Target size={16} className={getScoreColor(currentReputation.score)} />
           <span className="text-xs text-slate-400">Reputation Score</span>
         </div>
-        <span className={`text-xl font-bold ${getScoreColor(reputation.score)}`}>
-          {reputation.score} / 100
+        <span className={`text-xl font-bold ${getScoreColor(currentReputation.score)}`}>
+          {Math.round(currentReputation.score)} / 100
         </span>
       </div>
 
@@ -124,25 +156,38 @@ export function ReputationBadge({ partitionId, refreshKey = 0 }: ReputationBadge
           <span className="text-xs text-slate-400">Evidence Submitted</span>
         </div>
         <span className="text-lg font-semibold text-indigo-400">
-          {reputation.evidence_count}
+          {currentReputation.evidence_count}
         </span>
       </div>
 
-      {/* Skill Category */}
+      {/* Skill Category / Domain Selector */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <TrendingUp size={16} className="text-emerald-400" />
           <span className="text-xs text-slate-400">Skill Category</span>
         </div>
-        <span className="text-sm font-medium text-emerald-400 capitalize">
-          {reputation.skill_category.replace(/_/g, ' ')}
-        </span>
+        <div className="relative">
+          <select
+            value={selectedDomain}
+            onChange={(e) => setSelectedDomain(e.target.value)}
+            className="appearance-none bg-slate-800 border border-slate-700 rounded px-3 py-1 pr-8 text-sm font-medium text-emerald-400 capitalize cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            aria-label="Select skill category domain"
+          >
+            <option value="aggregate">All Domains ({aggregate.domains.length})</option>
+            {aggregate.domains.map(domain => (
+              <option key={domain.id} value={domain.id}>
+                {domain.skill_category.replace(/_/g, ' ')}
+              </option>
+            ))}
+          </select>
+          <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-emerald-400 pointer-events-none" />
+        </div>
       </div>
 
       {/* Last Updated */}
       <div className="pt-3 border-t border-slate-700/50">
         <p className="text-xs text-slate-500">
-          Last updated: {new Date(reputation.last_updated / 1000000).toLocaleString()}
+          Last updated: {new Date(currentReputation.last_updated / 1000000).toLocaleString()}
         </p>
       </div>
     </div>

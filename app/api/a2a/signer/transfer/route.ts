@@ -166,12 +166,22 @@ export async function POST(req: NextRequest) {
     console.log(`Transaction confirmed: ${receipt.hash} with status ${receipt.status}`);
 
     // Trigger DVN/PoS flow for successful A2A transactions
+    // CRITICAL: This is required for proper settlement tracking and Event Register visibility
     if (receipt?.status === 1) {
       try {
         await triggerA2ADVNFlow(tx.hash, chainId, asset || 'QCT');
-      } catch (dvnError) {
-        console.warn('DVN flow trigger failed:', dvnError);
-        // Don't fail the transaction if DVN fails
+        console.log(`DVN/PoS flow completed successfully for tx: ${tx.hash}`);
+      } catch (dvnError: any) {
+        console.error('DVN flow trigger failed - CRITICAL:', dvnError);
+        // Return success with warning since blockchain tx succeeded
+        // but log the DVN failure for investigation
+        return new Response(JSON.stringify({ 
+          ok: true, 
+          txHash: tx.hash, 
+          status: receipt?.status || 1,
+          warning: 'Transaction succeeded but DVN tracking failed',
+          dvnError: dvnError?.message || String(dvnError)
+        }), { status: 200 });
       }
     }
 
