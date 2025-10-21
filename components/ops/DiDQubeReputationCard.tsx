@@ -136,15 +136,13 @@ export function DiDQubeReputationCard({ selectedPersonaId }: DiDQubeReputationCa
               <ExternalLink size={14} />
               Manage Reputation
             </Link>
-            {selectedPersonaId && (
-              <Link 
-                href={`/identity/persona/${selectedPersonaId}`}
-                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-sm bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors"
-              >
-                <TrendingUp size={14} />
-                View Identity and Reputation Card
-              </Link>
-            )}
+            <Link 
+              href="/identity"
+              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-sm bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors"
+            >
+              <TrendingUp size={14} />
+              View Identity & Reputation
+            </Link>
           </div>
         </div>
       </div>
