@@ -458,6 +458,7 @@ export default function OpsPage() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [icpHealth, setIcpHealth] = useState<{ ok: boolean; host?: string } | null>(null);
+  const [selectedPersonaId, setSelectedPersonaId] = useState<string | undefined>();
 
   // Hooks per card
   const icp = useCanisterHealth(30000);
@@ -628,10 +629,10 @@ export default function OpsPage() {
             return <A2ADVNCard key={key} title={title} />;
           }
           if (key === "didqube_identity") {
-            return <DiDQubeIdentityCard key={key} />;
+            return <DiDQubeIdentityCard key={key} onPersonaClick={setSelectedPersonaId} />;
           }
           if (key === "didqube_reputation") {
-            return <DiDQubeReputationCard key={key} />;
+            return <DiDQubeReputationCard key={key} selectedPersonaId={selectedPersonaId} />;
           }
           if (key === "icp_health") {
             const ok = icp.data?.ok ?? false;
