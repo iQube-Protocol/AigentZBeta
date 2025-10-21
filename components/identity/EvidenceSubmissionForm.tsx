@@ -5,7 +5,7 @@ import { FileText, Send, AlertCircle, CheckCircle, TrendingUp } from 'lucide-rea
 
 interface EvidenceSubmissionFormProps {
   bucketId: string;
-  partitionId: string;
+  partitionId?: string;
   onSuccess?: () => void;
 }
 
