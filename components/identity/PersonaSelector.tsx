@@ -35,6 +35,7 @@ export function PersonaSelector({ onSelect, value }: PersonaSelectorProps) {
       value={value}
       onChange={(e) => onSelect(e.target.value)}
       className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-md text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+      aria-label="Select persona"
     >
       <option value="">Select a persona...</option>
       {personas.map(p => (
