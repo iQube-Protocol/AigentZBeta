@@ -192,7 +192,7 @@ fn add_reputation_evidence(request: AddEvidenceRequest) -> ReputationResponse {
         evidence_type: request.evidence_type,
         evidence_data: request.evidence_data,
         weight: request.weight,
-        verified: false, // Requires verification process
+        verified: true, // Auto-verified for MVP (TODO: Add verification workflow)
         created_at: now,
     };
     
