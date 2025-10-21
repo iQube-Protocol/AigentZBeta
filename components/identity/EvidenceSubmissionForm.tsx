@@ -186,64 +186,76 @@ export function EvidenceSubmissionForm({ bucketId, partitionId, onSuccess }: Evi
   };
 
   return (
-    <div className="rounded-lg border border-slate-700 bg-slate-900/60 shadow-sm backdrop-blur p-6">
-      <div className="flex items-center gap-2 mb-4">
-        <FileText size={20} className="text-purple-400" />
-        <h3 className="text-lg font-semibold text-slate-100">Submit Evidence</h3>
-      </div>
+    <div className="p-6">
+      {/* Domain Selector & Current Reputation */}
+      <div className="mb-6 space-y-3">
+        {/* Domain Selector */}
+        <div>
+          <label htmlFor="domain-selector" className="block text-xs font-medium text-slate-400 mb-2">
+            Select Domain
+          </label>
+          <select
+            id="domain-selector"
+            value={skillCategory}
+            onChange={(e) => setSkillCategory(e.target.value)}
+            className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-md text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            aria-label="Select reputation domain"
+          >
+            <option value="">Select a domain...</option>
+            {skillCategories.map(cat => {
+              const existingBucket = availableBuckets.find(b => b.skill_category === cat.value);
+              return (
+                <option key={cat.value} value={cat.value}>
+                  {cat.label} {existingBucket ? `(Score: ${Math.round(existingBucket.score)})` : '(New)'}
+                </option>
+              );
+            })}
+          </select>
+        </div>
 
-      {/* Current Reputation Score Display */}
-      {currentScore !== null && currentBucket !== null && (
-        <div className="mb-6 p-4 bg-slate-800/50 border border-slate-700/50 rounded-md">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <TrendingUp size={16} className={getScoreColor(currentScore)} />
-              <span className="text-xs text-slate-400 font-medium">Current Reputation</span>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="text-right">
-                <div className="text-xs text-slate-500">Score</div>
-                <div className={`text-xl font-bold ${getScoreColor(currentScore)}`}>
-                  {Math.round(currentScore)} / 100
+        {/* Current Reputation Score Display */}
+        {currentScore !== null && currentBucket !== null && skillCategory && (
+          <div className="p-4 bg-slate-800/50 border border-slate-700/50 rounded-md">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <TrendingUp size={16} className={getScoreColor(currentScore)} />
+                  <span className="text-xs text-slate-400 font-medium">
+                    {skillCategories.find(c => c.value === skillCategory)?.label || skillCategory.replace(/_/g, ' ')}
+                  </span>
                 </div>
+                {availableBuckets.find(b => b.skill_category === skillCategory) ? (
+                  <span className="text-xs text-emerald-400">✓ Existing</span>
+                ) : (
+                  <span className="text-xs text-yellow-400">⚠ New Domain</span>
+                )}
               </div>
-              <div className="text-right">
-                <div className="text-xs text-slate-500">Bucket</div>
-                <div className={`text-xl font-bold ${getBucketColor(currentBucket)}`}>
-                  {currentBucket}
+              <div className="flex items-center gap-6">
+                <div>
+                  <div className="text-xs text-slate-500">Score</div>
+                  <div className={`text-2xl font-bold ${getScoreColor(currentScore)}`}>
+                    {Math.round(currentScore)}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-slate-500">Bucket</div>
+                  <div className={`text-2xl font-bold ${getBucketColor(currentBucket)}`}>
+                    {currentBucket}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-slate-500">Evidence</div>
+                  <div className="text-2xl font-bold text-indigo-400">
+                    {availableBuckets.find(b => b.skill_category === skillCategory)?.evidence_count || 0}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Skill Category */}
-        <div>
-          <label htmlFor="skill-category" className="block text-xs font-medium text-slate-400 mb-2">
-            Skill Category <span className="text-red-400">*</span>
-          </label>
-          <select
-            id="skill-category"
-            value={skillCategory}
-            onChange={(e) => setSkillCategory(e.target.value)}
-            className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-md text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            required
-            aria-label="Skill Category"
-          >
-            <option value="">Select category...</option>
-            {skillCategories.map(cat => (
-              <option key={cat.value} value={cat.value}>{cat.label}</option>
-            ))}
-          </select>
-          {availableBuckets.find(b => b.skill_category === skillCategory) ? (
-            <p className="mt-1 text-xs text-emerald-400">✓ Existing reputation bucket</p>
-          ) : skillCategory ? (
-            <p className="mt-1 text-xs text-yellow-400">⚠ New bucket will be created</p>
-          ) : null}
-        </div>
-
         {/* Evidence Type */}
         <div>
           <label htmlFor="evidence-type" className="block text-xs font-medium text-slate-400 mb-2">
