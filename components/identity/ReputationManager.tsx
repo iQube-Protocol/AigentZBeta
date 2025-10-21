@@ -15,6 +15,7 @@ export function ReputationManager({ personaId }: ReputationManagerProps) {
   const [loading, setLoading] = useState(false);
   const [showEvidenceForm, setShowEvidenceForm] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     checkReputationStatus();
@@ -92,7 +93,7 @@ export function ReputationManager({ personaId }: ReputationManagerProps) {
         </div>
         
         <div className="space-y-4">
-          <ReputationBadge partitionId={personaId} />
+          <ReputationBadge partitionId={personaId} refreshKey={refreshKey} />
           
           {hasReputation ? (
             <div className="space-y-2">
@@ -155,6 +156,7 @@ export function ReputationManager({ personaId }: ReputationManagerProps) {
                 onSuccess={() => {
                   setShowEvidenceForm(false);
                   checkReputationStatus(); // Refresh reputation status
+                  setRefreshKey(prev => prev + 1); // Trigger badge refresh
                 }}
               />
             )}
