@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState } from 'react';
-import { FileText, Send, AlertCircle, CheckCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { FileText, Send, AlertCircle, CheckCircle, TrendingUp } from 'lucide-react';
 
 interface EvidenceSubmissionFormProps {
   bucketId: string;
+  partitionId: string;
   onSuccess?: () => void;
 }
 
@@ -18,7 +19,7 @@ const evidenceTypes = [
   { value: 'other', label: 'Other' }
 ];
 
-export function EvidenceSubmissionForm({ bucketId, onSuccess }: EvidenceSubmissionFormProps) {
+export function EvidenceSubmissionForm({ bucketId, partitionId, onSuccess }: EvidenceSubmissionFormProps) {
   const [evidenceType, setEvidenceType] = useState('');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -27,6 +28,37 @@ export function EvidenceSubmissionForm({ bucketId, onSuccess }: EvidenceSubmissi
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [currentScore, setCurrentScore] = useState<number | null>(null);
+  const [currentBucket, setCurrentBucket] = useState<number | null>(null);
+
+  useEffect(() => {
+    // Fetch current reputation score
+    fetch(`/api/identity/reputation/bucket?partitionId=${partitionId}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.ok && data.data) {
+          setCurrentScore(data.data.score);
+          setCurrentBucket(data.data.bucket);
+        }
+      })
+      .catch(() => {});
+  }, [partitionId]);
+
+  const getScoreColor = (score: number) => {
+    if (score >= 80) return 'text-purple-400';
+    if (score >= 60) return 'text-green-400';
+    if (score >= 40) return 'text-blue-400';
+    if (score >= 20) return 'text-yellow-400';
+    return 'text-slate-400';
+  };
+
+  const getBucketColor = (bucket: number) => {
+    if (bucket >= 4) return 'text-purple-400';
+    if (bucket >= 3) return 'text-green-400';
+    if (bucket >= 2) return 'text-blue-400';
+    if (bucket >= 1) return 'text-yellow-400';
+    return 'text-slate-400';
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,6 +120,32 @@ export function EvidenceSubmissionForm({ bucketId, onSuccess }: EvidenceSubmissi
         <FileText size={20} className="text-purple-400" />
         <h3 className="text-lg font-semibold text-slate-100">Submit Evidence</h3>
       </div>
+
+      {/* Current Reputation Score Display */}
+      {currentScore !== null && currentBucket !== null && (
+        <div className="mb-6 p-4 bg-slate-800/50 border border-slate-700/50 rounded-md">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <TrendingUp size={16} className={getScoreColor(currentScore)} />
+              <span className="text-xs text-slate-400 font-medium">Current Reputation</span>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="text-right">
+                <div className="text-xs text-slate-500">Score</div>
+                <div className={`text-xl font-bold ${getScoreColor(currentScore)}`}>
+                  {currentScore} / 100
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-xs text-slate-500">Bucket</div>
+                <div className={`text-xl font-bold ${getBucketColor(currentBucket)}`}>
+                  {currentBucket}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Evidence Type */}

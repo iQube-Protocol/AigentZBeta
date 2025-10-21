@@ -153,6 +153,7 @@ export function ReputationManager({ personaId }: ReputationManagerProps) {
             {bucketId && (
               <EvidenceSubmissionForm
                 bucketId={bucketId}
+                partitionId={personaId}
                 onSuccess={() => {
                   setShowEvidenceForm(false);
                   checkReputationStatus(); // Refresh reputation status
