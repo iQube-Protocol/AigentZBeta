@@ -150,17 +150,15 @@ export function ReputationManager({ personaId }: ReputationManagerProps) {
                 ✕
               </button>
             </div>
-            {bucketId && (
-              <EvidenceSubmissionForm
-                bucketId={bucketId}
-                partitionId={personaId}
-                onSuccess={() => {
-                  setShowEvidenceForm(false);
-                  checkReputationStatus(); // Refresh reputation status
-                  setRefreshKey(prev => prev + 1); // Trigger badge refresh
-                }}
-              />
-            )}
+            <EvidenceSubmissionForm
+              bucketId={bucketId || undefined}
+              partitionId={personaId}
+              onSuccess={() => {
+                setShowEvidenceForm(false);
+                checkReputationStatus(); // Refresh reputation status
+                setRefreshKey(prev => prev + 1); // Trigger badge refresh
+              }}
+            />
           </div>
         </div>
       )}

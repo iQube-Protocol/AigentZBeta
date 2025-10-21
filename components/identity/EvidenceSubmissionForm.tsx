@@ -4,8 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { FileText, Send, AlertCircle, CheckCircle, TrendingUp } from 'lucide-react';
 
 interface EvidenceSubmissionFormProps {
-  bucketId: string;
-  partitionId?: string;
+  bucketId?: string;
+  partitionId: string;
   onSuccess?: () => void;
 }
 
@@ -19,7 +19,21 @@ const evidenceTypes = [
   { value: 'other', label: 'Other' }
 ];
 
+const skillCategories = [
+  { value: 'blockchain_development', label: 'Blockchain Development' },
+  { value: 'smart_contract_security', label: 'Smart Contract Security' },
+  { value: 'defi_protocols', label: 'DeFi Protocols' },
+  { value: 'web3_frontend', label: 'Web3 Frontend' },
+  { value: 'backend_development', label: 'Backend Development' },
+  { value: 'devops_infrastructure', label: 'DevOps & Infrastructure' },
+  { value: 'data_analysis', label: 'Data Analysis' },
+  { value: 'community_management', label: 'Community Management' },
+  { value: 'technical_writing', label: 'Technical Writing' },
+  { value: 'other', label: 'Other' }
+];
+
 export function EvidenceSubmissionForm({ bucketId, partitionId, onSuccess }: EvidenceSubmissionFormProps) {
+  const [skillCategory, setSkillCategory] = useState('');
   const [evidenceType, setEvidenceType] = useState('');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -30,19 +44,47 @@ export function EvidenceSubmissionForm({ bucketId, partitionId, onSuccess }: Evi
   const [success, setSuccess] = useState(false);
   const [currentScore, setCurrentScore] = useState<number | null>(null);
   const [currentBucket, setCurrentBucket] = useState<number | null>(null);
+  const [availableBuckets, setAvailableBuckets] = useState<any[]>([]);
 
   useEffect(() => {
-    // Fetch current reputation score
-    fetch(`/api/identity/reputation/bucket?partitionId=${partitionId}`)
+    if (!partitionId) return;
+    // Fetch all reputation buckets for this persona
+    fetch(`/api/identity/persona/${partitionId}/reputation/all`)
       .then(r => r.json())
       .then(data => {
         if (data.ok && data.data) {
-          setCurrentScore(data.data.score);
-          setCurrentBucket(data.data.bucket);
+          setAvailableBuckets(data.data);
+          // Set default to first bucket if no bucketId provided
+          if (!bucketId && data.data.length > 0) {
+            setSkillCategory(data.data[0].skill_category);
+            setCurrentScore(data.data[0].score);
+            setCurrentBucket(data.data[0].bucket);
+          } else if (bucketId) {
+            const bucket = data.data.find((b: any) => b.id === bucketId);
+            if (bucket) {
+              setSkillCategory(bucket.skill_category);
+              setCurrentScore(bucket.score);
+              setCurrentBucket(bucket.bucket);
+            }
+          }
         }
       })
       .catch(() => {});
-  }, [partitionId]);
+  }, [partitionId, bucketId]);
+
+  // Update current score when skill category changes
+  useEffect(() => {
+    if (skillCategory && availableBuckets.length > 0) {
+      const bucket = availableBuckets.find(b => b.skill_category === skillCategory);
+      if (bucket) {
+        setCurrentScore(bucket.score);
+        setCurrentBucket(bucket.bucket);
+      } else {
+        setCurrentScore(0);
+        setCurrentBucket(0);
+      }
+    }
+  }, [skillCategory, availableBuckets]);
 
   const getScoreColor = (score: number) => {
     if (score >= 80) return 'text-purple-400';
@@ -63,7 +105,7 @@ export function EvidenceSubmissionForm({ bucketId, partitionId, onSuccess }: Evi
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!evidenceType || !title || !description) {
+    if (!skillCategory || !evidenceType || !title || !description) {
       setError('Please fill in all required fields');
       return;
     }
@@ -73,6 +115,34 @@ export function EvidenceSubmissionForm({ bucketId, partitionId, onSuccess }: Evi
     setSuccess(false);
 
     try {
+      // Find or create bucket for this skill category
+      let targetBucketId = bucketId;
+      const existingBucket = availableBuckets.find(b => b.skill_category === skillCategory);
+      
+      if (existingBucket) {
+        targetBucketId = existingBucket.id;
+      } else {
+        // Create new bucket for this skill category
+        const createRes = await fetch('/api/identity/reputation/bucket', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            partitionId,
+            skillCategory,
+            initialScore: 0
+          })
+        });
+        
+        const createData = await createRes.json();
+        if (!createData.ok) {
+          setError('Failed to create reputation bucket');
+          setLoading(false);
+          return;
+        }
+        
+        targetBucketId = createData.data.id;
+      }
+
       const evidenceData = {
         title,
         description,
@@ -84,7 +154,7 @@ export function EvidenceSubmissionForm({ bucketId, partitionId, onSuccess }: Evi
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          bucketId,
+          bucketId: targetBucketId,
           evidenceType,
           evidenceData,
           weight
@@ -100,6 +170,7 @@ export function EvidenceSubmissionForm({ bucketId, partitionId, onSuccess }: Evi
         setUrl('');
         setEvidenceType('');
         setWeight(0.5);
+        // Don't reset skill category - keep it selected for next submission
         
         if (onSuccess) {
           setTimeout(() => onSuccess(), 1500);
@@ -148,6 +219,31 @@ export function EvidenceSubmissionForm({ bucketId, partitionId, onSuccess }: Evi
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Skill Category */}
+        <div>
+          <label htmlFor="skill-category" className="block text-xs font-medium text-slate-400 mb-2">
+            Skill Category <span className="text-red-400">*</span>
+          </label>
+          <select
+            id="skill-category"
+            value={skillCategory}
+            onChange={(e) => setSkillCategory(e.target.value)}
+            className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-md text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            required
+            aria-label="Skill Category"
+          >
+            <option value="">Select category...</option>
+            {skillCategories.map(cat => (
+              <option key={cat.value} value={cat.value}>{cat.label}</option>
+            ))}
+          </select>
+          {availableBuckets.find(b => b.skill_category === skillCategory) ? (
+            <p className="mt-1 text-xs text-emerald-400">✓ Existing reputation bucket</p>
+          ) : skillCategory ? (
+            <p className="mt-1 text-xs text-yellow-400">⚠ New bucket will be created</p>
+          ) : null}
+        </div>
+
         {/* Evidence Type */}
         <div>
           <label htmlFor="evidence-type" className="block text-xs font-medium text-slate-400 mb-2">
