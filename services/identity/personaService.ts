@@ -17,8 +17,16 @@ export class PersonaService {
   constructor() {
     // Use QubeBase SDK for proper connection management
     // CRITICAL: Use SERVICE_ROLE_KEY to bypass RLS policies for persona creation
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    // Try multiple possible environment variable names
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY 
+      || process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY;
     const anonKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    
+    console.log('[PersonaService] Key check:', {
+      hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+      hasPublicServiceKey: !!process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY,
+      usingServiceKey: !!serviceKey
+    });
     
     if (!serviceKey) {
       console.warn('[PersonaService] No SERVICE_ROLE_KEY found, using ANON key (RLS will apply)');
