@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { User, Loader2, CheckCircle } from 'lucide-react';
+import { User, Loader2, CheckCircle, Copy, Check } from 'lucide-react';
 import { FIOHandleInput } from './FIOHandleInput';
 import { FIORegistrationModal } from './FIORegistrationModal';
 
@@ -22,8 +22,19 @@ export function PersonaCreationForm({ onSuccess, onCancel }: PersonaCreationForm
   const [publicKey, setPublicKey] = useState('');
   const [privateKey, setPrivateKey] = useState('');
   const [showPrivateKey, setShowPrivateKey] = useState(false);
+  const [copiedPrivateKey, setCopiedPrivateKey] = useState(false);
   const [generatingKeys, setGeneratingKeys] = useState(false);
   const [step, setStep] = useState<'info' | 'generate-keys' | 'show-keys' | 'review' | 'creating'>('info');
+
+  const handleCopyPrivateKey = async () => {
+    try {
+      await navigator.clipboard.writeText(privateKey);
+      setCopiedPrivateKey(true);
+      setTimeout(() => setCopiedPrivateKey(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
 
   const handleGenerateKeys = async () => {
     setGeneratingKeys(true);
@@ -260,9 +271,27 @@ export function PersonaCreationForm({ onSuccess, onCancel }: PersonaCreationForm
 
             {/* Private Key */}
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2 flex items-center gap-2">
-                Private Key
-                <span className="text-xs text-red-400 font-normal">(Keep Secret!)</span>
+              <label className="block text-sm font-medium text-slate-300 mb-2 flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  Private Key
+                  <span className="text-xs text-red-400 font-normal">(Keep Secret!)</span>
+                </span>
+                <button
+                  onClick={handleCopyPrivateKey}
+                  className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 rounded transition-colors"
+                >
+                  {copiedPrivateKey ? (
+                    <>
+                      <Check size={12} />
+                      Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Copy size={12} />
+                      Copy
+                    </>
+                  )}
+                </button>
               </label>
               <div className="p-3 bg-slate-800 border border-red-700 rounded-md">
                 <p className="text-xs font-mono text-red-400 break-all">
@@ -370,11 +399,29 @@ export function PersonaCreationForm({ onSuccess, onCancel }: PersonaCreationForm
           </div>
         )}
 
+        {/* Creating Step - Loading State */}
+        {step === 'creating' && (
+          <div className="text-center py-12">
+            <Loader2 size={48} className="mx-auto text-indigo-400 animate-spin mb-4" />
+            <h4 className="text-lg font-medium text-slate-200 mb-2">
+              Creating Your Persona...
+            </h4>
+            <p className="text-sm text-slate-400 mb-4">
+              Registering <span className="text-indigo-400 font-mono">{fioHandle}</span> on the FIO blockchain
+            </p>
+            <div className="space-y-2 text-xs text-slate-500">
+              <p>⏳ Generating transaction...</p>
+              <p>⏳ Submitting to blockchain...</p>
+              <p>⏳ Saving to database...</p>
+            </div>
+          </div>
+        )}
+
         {/* FIO Registration Note */}
-        {fioHandleValid && !createdPersonaId && (
+        {fioHandleValid && !createdPersonaId && step !== 'creating' && (
           <div className="p-3 bg-blue-900/20 border border-blue-700 rounded-md">
             <p className="text-xs text-blue-400">
-              💡 After creating the persona, you'll be prompted to register your FIO handle on the blockchain.
+              💡 Your persona and FIO handle will be created in one atomic operation.
             </p>
           </div>
         )}
