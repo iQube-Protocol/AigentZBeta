@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { User, Loader2, CheckCircle, Copy, Check } from 'lucide-react';
+import { User, Loader2, CheckCircle, Copy, Check, ExternalLink } from 'lucide-react';
 import { FIOHandleInput } from './FIOHandleInput';
 import { FIORegistrationModal } from './FIORegistrationModal';
 
@@ -312,6 +312,30 @@ export function PersonaCreationForm({ onSuccess, onCancel }: PersonaCreationForm
                 ⚠️ <strong>Important:</strong> Save your private key in a secure location (password manager). You'll need it to manage your FIO handle. We cannot recover it if lost.
               </p>
             </div>
+
+            {/* Testnet Faucet Link */}
+            {process.env.NEXT_PUBLIC_FIO_NETWORK === 'testnet' || !process.env.NEXT_PUBLIC_FIO_NETWORK ? (
+              <div className="p-4 bg-blue-900/20 border border-blue-700 rounded-md">
+                <p className="text-sm text-blue-400 mb-2">
+                  💡 <strong>Testnet Tokens Required</strong>
+                </p>
+                <p className="text-xs text-slate-400 mb-3">
+                  To register on FIO testnet, your account needs tokens. Get free testnet tokens from the faucet:
+                </p>
+                <a
+                  href={`https://faucet.fioprotocol.io/?publickey=${publicKey}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm rounded-md hover:bg-indigo-700 transition-colors"
+                >
+                  <ExternalLink size={14} />
+                  Get Testnet Tokens
+                </a>
+                <p className="text-xs text-slate-500 mt-3">
+                  ⏱️ Wait 1-2 minutes after requesting tokens, then proceed to create your persona.
+                </p>
+              </div>
+            ) : null}
 
             <div className="flex gap-3 justify-end">
               <button

@@ -82,16 +82,35 @@ export async function POST(req: NextRequest) {
         const endpoint = process.env.FIO_API_ENDPOINT || 'https://testnet.fioprotocol.io/v1/';
         const chainId = process.env.FIO_CHAIN_ID || 'b20901380af44ef59c5918439a1f9a41d83669020319a80574b804a5f95cbd7e';
         
-        console.log('[Create with FIO] Initializing FIO SDK:', { endpoint, chainId });
+        // Use SYSTEM account to pay for registration (has FIO tokens)
+        const systemPrivateKey = process.env.FIO_SYSTEM_PRIVATE_KEY;
+        const systemPublicKey = process.env.FIO_SYSTEM_PUBLIC_KEY;
         
+        if (!systemPrivateKey || !systemPublicKey) {
+          throw new Error('FIO system account keys not configured');
+        }
+        
+        console.log('[Create with FIO] Initializing FIO SDK with system account:', { 
+          endpoint, 
+          chainId,
+          systemPublicKey: systemPublicKey.substring(0, 20) + '...'
+        });
+        
+        // Initialize with SYSTEM keys (which have FIO tokens to pay fees)
         await fioService.initialize({
           endpoint,
           chainId,
-          privateKey,
-          publicKey
+          privateKey: systemPrivateKey,
+          publicKey: systemPublicKey
         });
 
         console.log('[Create with FIO] Registering FIO handle on blockchain...');
+        console.log('[Create with FIO] System account pays fee, user gets ownership:', {
+          handle: fioHandle,
+          ownerPublicKey: publicKey.substring(0, 20) + '...'
+        });
+        
+        // Register handle - system pays, user's public key becomes owner
         fioResult = await fioService.registerHandle(fioHandle, publicKey);
         
         console.log('[Create with FIO] FIO registration successful:', {
