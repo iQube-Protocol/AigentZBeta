@@ -7,7 +7,7 @@ export interface Persona {
   fio_handle: string | null;
   default_identity_state: 'anonymous' | 'semi_anonymous' | 'semi_identifiable' | 'identifiable';
   app_origin: string | null;
-  world_id_status: 'unverified' | 'verified_human' | 'agent_declared';
+  world_id_status: 'unverified' | 'verified_human' | 'agent_declared' | 'not_verified';
   created_at: string;
 }
 
@@ -40,11 +40,26 @@ export class PersonaService {
         fio_handle: input.fioHandle ?? null,
         default_identity_state: input.defaultState ?? 'semi_anonymous',
         app_origin: input.appOrigin ?? 'aigent-z',
-        world_id_status: input.worldIdStatus ?? 'unverified'
+        world_id_status: input.worldIdStatus === 'not_verified' ? 'unverified' : (input.worldIdStatus ?? 'unverified')
       })
       .select()
       .single();
-    if (error) throw error;
+    
+    if (error) {
+      // Provide user-friendly error messages
+      if (error.message?.includes('persona_world_id_status_check')) {
+        throw new Error('Please select whether this persona represents a Verified Human or AI Agent');
+      }
+      if (error.message?.includes('row-level security policy')) {
+        throw new Error('Permission denied. Please ensure you are logged in and have the correct permissions.');
+      }
+      if (error.message?.includes('duplicate key')) {
+        throw new Error('A persona with this FIO handle already exists');
+      }
+      // Generic error
+      throw new Error(error.message || 'Failed to create persona');
+    }
+    
     return data as Persona;
   }
 
