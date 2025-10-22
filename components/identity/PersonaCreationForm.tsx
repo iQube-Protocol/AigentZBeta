@@ -21,8 +21,9 @@ export function PersonaCreationForm({ onSuccess, onCancel }: PersonaCreationForm
   const [showFIORegistration, setShowFIORegistration] = useState(false);
   const [publicKey, setPublicKey] = useState('');
   const [privateKey, setPrivateKey] = useState('');
+  const [showPrivateKey, setShowPrivateKey] = useState(false);
   const [generatingKeys, setGeneratingKeys] = useState(false);
-  const [step, setStep] = useState<'info' | 'keys' | 'creating'>('info');
+  const [step, setStep] = useState<'info' | 'generate-keys' | 'show-keys' | 'review' | 'creating'>('info');
 
   const handleGenerateKeys = async () => {
     setGeneratingKeys(true);
@@ -34,14 +35,16 @@ export function PersonaCreationForm({ onSuccess, onCancel }: PersonaCreationForm
       const keys = await FIOService.generateKeyPair();
       setPublicKey(keys.publicKey);
       setPrivateKey(keys.privateKey);
-      setStep('creating');
-      // Automatically proceed to creation
-      await handleCreatePersona(keys.publicKey, keys.privateKey);
+      setStep('show-keys'); // Show keys to user first
     } catch (e: any) {
       setError(e.message || 'Failed to generate keys');
     } finally {
       setGeneratingKeys(false);
     }
+  };
+
+  const handleProceedToReview = () => {
+    setStep('review');
   };
 
   const handleNextToKeys = () => {
@@ -57,10 +60,11 @@ export function PersonaCreationForm({ onSuccess, onCancel }: PersonaCreationForm
     }
 
     setError(null);
-    setStep('keys');
+    setStep('generate-keys');
   };
 
-  const handleCreatePersona = async (pubKey: string, privKey: string) => {
+  const handleCreatePersona = async () => {
+    setStep('creating');
     setCreating(true);
     setError(null);
 
@@ -71,8 +75,8 @@ export function PersonaCreationForm({ onSuccess, onCancel }: PersonaCreationForm
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           fioHandle,
-          publicKey: pubKey,
-          privateKey: privKey,
+          publicKey,
+          privateKey,
           defaultState: identityState,
           worldIdStatus
         })
@@ -201,33 +205,165 @@ export function PersonaCreationForm({ onSuccess, onCancel }: PersonaCreationForm
         )}
 
         {/* Key Generation Step */}
-        {step === 'keys' && (
+        {step === 'generate-keys' && (
           <div className="space-y-4">
             <div className="p-4 bg-blue-900/20 border border-blue-700 rounded-md">
               <p className="text-sm text-blue-400">
-                💡 Click below to generate cryptographic keys for your FIO handle. Your persona and FIO handle will be created in one atomic operation.
+                💡 Click below to generate cryptographic keys for your FIO handle <span className="font-mono text-indigo-400">{fioHandle}</span>
               </p>
             </div>
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setStep('info')}
-                disabled={generatingKeys || creating}
+                disabled={generatingKeys}
                 className="px-4 py-2 text-slate-400 hover:text-slate-200 disabled:opacity-50 transition-colors"
               >
                 Back
               </button>
               <button
                 onClick={handleGenerateKeys}
-                disabled={generatingKeys || creating}
-                className="inline-flex items-center gap-2 px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                disabled={generatingKeys}
+                className="inline-flex items-center gap-2 px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {generatingKeys || creating ? (
+                {generatingKeys ? (
                   <>
                     <Loader2 size={16} className="animate-spin" />
-                    {creating ? 'Creating Persona...' : 'Generating Keys...'}
+                    Generating Keys...
                   </>
                 ) : (
-                  'Generate Keys & Create Persona'
+                  'Generate FIO Keys'
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Show Keys Step */}
+        {step === 'show-keys' && publicKey && privateKey && (
+          <div className="space-y-4">
+            <div>
+              <h4 className="text-md font-medium text-slate-200 mb-3">Your FIO Cryptographic Keys</h4>
+              <p className="text-sm text-slate-400 mb-4">
+                Save these keys securely. You'll need the private key to manage your FIO handle.
+              </p>
+            </div>
+
+            {/* Public Key */}
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Public Key
+              </label>
+              <div className="p-3 bg-slate-800 border border-slate-700 rounded-md">
+                <p className="text-xs font-mono text-green-400 break-all">{publicKey}</p>
+              </div>
+            </div>
+
+            {/* Private Key */}
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2 flex items-center gap-2">
+                Private Key
+                <span className="text-xs text-red-400 font-normal">(Keep Secret!)</span>
+              </label>
+              <div className="p-3 bg-slate-800 border border-red-700 rounded-md">
+                <p className="text-xs font-mono text-red-400 break-all">
+                  {showPrivateKey ? privateKey : '••••••••••••••••••••••••••••••••••••••••••••••••••••••'}
+                </p>
+              </div>
+              <button
+                onClick={() => setShowPrivateKey(!showPrivateKey)}
+                className="text-xs text-indigo-400 hover:text-indigo-300 mt-2"
+              >
+                {showPrivateKey ? 'Hide' : 'Show'} Private Key
+              </button>
+            </div>
+
+            {/* Warning */}
+            <div className="p-4 bg-yellow-900/20 border border-yellow-700 rounded-md">
+              <p className="text-sm text-yellow-400">
+                ⚠️ <strong>Important:</strong> Save your private key in a secure location (password manager). You'll need it to manage your FIO handle. We cannot recover it if lost.
+              </p>
+            </div>
+
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setStep('generate-keys')}
+                className="px-4 py-2 text-slate-400 hover:text-slate-200 transition-colors"
+              >
+                Back
+              </button>
+              <button
+                onClick={handleProceedToReview}
+                className="px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
+              >
+                Next: Review
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Review Step */}
+        {step === 'review' && (
+          <div className="space-y-4">
+            <div>
+              <h4 className="text-md font-medium text-slate-200 mb-3">Review & Confirm</h4>
+              <p className="text-sm text-slate-400 mb-4">
+                Please review your persona details before creating
+              </p>
+            </div>
+
+            <div className="space-y-3 p-4 bg-slate-800 rounded-md">
+              <div>
+                <p className="text-xs text-slate-500">FIO Handle</p>
+                <p className="text-sm text-slate-200 font-mono">{fioHandle}</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500">Identity State</p>
+                <p className="text-sm text-slate-200 capitalize">{identityState.replace(/_/g, ' ')}</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500">Entity Type</p>
+                <p className="text-sm text-slate-200">
+                  {worldIdStatus === 'verified_human' ? 'Verified Human' : 'AI Agent'}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500">Public Key</p>
+                <p className="text-xs text-slate-200 font-mono break-all">{publicKey.substring(0, 50)}...</p>
+              </div>
+            </div>
+
+            <div className="p-4 bg-blue-900/20 border border-blue-700 rounded-md">
+              <p className="text-sm text-blue-400">
+                💡 This will create your persona and register your FIO handle on the blockchain in one atomic operation.
+              </p>
+            </div>
+
+            {error && (
+              <div className="p-3 bg-red-900/20 border border-red-700 rounded-md">
+                <p className="text-sm text-red-400">{error}</p>
+              </div>
+            )}
+
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setStep('show-keys')}
+                disabled={creating}
+                className="px-4 py-2 text-slate-400 hover:text-slate-200 disabled:opacity-50 transition-colors"
+              >
+                Back
+              </button>
+              <button
+                onClick={handleCreatePersona}
+                disabled={creating}
+                className="inline-flex items-center gap-2 px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {creating ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    Creating Persona...
+                  </>
+                ) : (
+                  'Create Persona'
                 )}
               </button>
             </div>
