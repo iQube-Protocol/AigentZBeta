@@ -118,7 +118,14 @@ export async function POST(req: NextRequest) {
           fioAddress: fioResult.fioAddress
         });
       } catch (fioError: any) {
-        console.error('[Create with FIO] FIO API Error:', fioError.message);
+        console.error('[Create with FIO] FIO API Error - Full Details:', {
+          message: fioError.message,
+          stack: fioError.stack,
+          json: fioError.json,
+          errorCode: fioError.errorCode,
+          list: fioError.list,
+          fields: fioError.fields
+        });
         console.log('[Create with FIO] Falling back to mock registration');
         
         // Fallback to mock if FIO API is down
