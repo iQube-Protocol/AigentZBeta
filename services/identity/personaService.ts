@@ -16,9 +16,17 @@ export class PersonaService {
 
   constructor() {
     // Use QubeBase SDK for proper connection management
+    // CRITICAL: Use SERVICE_ROLE_KEY to bypass RLS policies for persona creation
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const anonKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    
+    if (!serviceKey) {
+      console.warn('[PersonaService] No SERVICE_ROLE_KEY found, using ANON key (RLS will apply)');
+    }
+    
     const client = initAgentiqClient({
       supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL,
-      supabaseAnonKey: process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      supabaseAnonKey: serviceKey || anonKey
     });
     
     this.supabase = client.supabase;
