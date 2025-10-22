@@ -73,7 +73,12 @@ export function ReputationBadge({ partitionId, refreshKey = 0 }: ReputationBadge
       })
       .catch((err) => {
         console.error('Reputation fetch error:', err);
-        setError(err.message || 'Failed to load reputation');
+        // Provide user-friendly message for 404 (no reputation initialized)
+        if (err.message?.includes('404')) {
+          setError('Reputation not yet initialized');
+        } else {
+          setError(err.message || 'Failed to load reputation');
+        }
         setLoading(false);
       });
   }, [partitionId, refreshKey]);

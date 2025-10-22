@@ -157,16 +157,26 @@ export class FIOService {
       const feeToUse = maxFee || fee;
 
       // Register the handle
-      // Note: SDK uses the public key from initialization, not passed as parameter
-      // tpid (Technology Provider ID) is optional but recommended - use empty string for now
+      // IMPORTANT: registerFioAddress registers to the SDK's initialized public key
+      // If we want a different owner, we need to use registerFioAddressOnBehalfOfUser
+      // or transfer after registration
       const tpid = ''; // Empty string is valid for tpid
       
       console.log('Attempting FIO registration:', {
         handle,
         fee: feeToUse,
-        publicKey: ownerPublicKey,
+        sdkPublicKey: this.sdk.publicKey,
+        ownerPublicKey: ownerPublicKey,
         tpid
       });
+      
+      // Check if owner is different from SDK key
+      if (ownerPublicKey && ownerPublicKey !== this.sdk.publicKey) {
+        console.log('⚠️ WARNING: Owner public key differs from SDK key');
+        console.log('SDK will register to:', this.sdk.publicKey);
+        console.log('Desired owner:', ownerPublicKey);
+        console.log('This may require a transfer after registration');
+      }
       
       const result = await this.sdk.registerFioAddress(
         handle,
