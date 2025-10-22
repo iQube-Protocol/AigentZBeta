@@ -19,8 +19,32 @@ export function PersonaCreationForm({ onSuccess, onCancel }: PersonaCreationForm
   const [error, setError] = useState<string | null>(null);
   const [createdPersonaId, setCreatedPersonaId] = useState<string | null>(null);
   const [showFIORegistration, setShowFIORegistration] = useState(false);
+  const [publicKey, setPublicKey] = useState('');
+  const [privateKey, setPrivateKey] = useState('');
+  const [generatingKeys, setGeneratingKeys] = useState(false);
+  const [step, setStep] = useState<'info' | 'keys' | 'creating'>('info');
 
-  const handleCreatePersona = async () => {
+  const handleGenerateKeys = async () => {
+    setGeneratingKeys(true);
+    setError(null);
+
+    try {
+      // Use FIOService to generate keys
+      const { FIOService } = await import('@/services/identity/fioService');
+      const keys = await FIOService.generateKeyPair();
+      setPublicKey(keys.publicKey);
+      setPrivateKey(keys.privateKey);
+      setStep('creating');
+      // Automatically proceed to creation
+      await handleCreatePersona(keys.publicKey, keys.privateKey);
+    } catch (e: any) {
+      setError(e.message || 'Failed to generate keys');
+    } finally {
+      setGeneratingKeys(false);
+    }
+  };
+
+  const handleNextToKeys = () => {
     if (!fioHandle || !fioHandleValid) {
       setError('Please enter a valid FIO handle');
       return;
@@ -32,15 +56,23 @@ export function PersonaCreationForm({ onSuccess, onCancel }: PersonaCreationForm
       return;
     }
 
+    setError(null);
+    setStep('keys');
+  };
+
+  const handleCreatePersona = async (pubKey: string, privKey: string) => {
     setCreating(true);
     setError(null);
 
     try {
-      const response = await fetch('/api/identity/persona', {
+      // Use atomic endpoint to create persona + register FIO in one operation
+      const response = await fetch('/api/identity/persona/create-with-fio', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           fioHandle,
+          publicKey: pubKey,
+          privateKey: privKey,
           defaultState: identityState,
           worldIdStatus
         })
@@ -49,18 +81,16 @@ export function PersonaCreationForm({ onSuccess, onCancel }: PersonaCreationForm
       const data = await response.json();
 
       if (data.ok && data.data) {
-        setCreatedPersonaId(data.data.id);
-        // Optionally open FIO registration modal
-        if (fioHandleValid) {
-          setShowFIORegistration(true);
-        } else {
-          onSuccess?.(data.data.id);
-        }
+        setCreatedPersonaId(data.data.persona.id);
+        // Success! Persona created and FIO registered
+        onSuccess?.(data.data.persona.id);
       } else {
         setError(data.error || 'Failed to create persona');
+        setStep('info'); // Go back to start
       }
     } catch (e: any) {
       setError(e.message || 'Network error');
+      setStep('info'); // Go back to start
     } finally {
       setCreating(false);
     }
@@ -149,31 +179,60 @@ export function PersonaCreationForm({ onSuccess, onCancel }: PersonaCreationForm
         )}
 
         {/* Action Buttons */}
-        <div className="flex gap-3 justify-end">
-          {onCancel && (
-            <button
-              onClick={onCancel}
-              disabled={creating}
-              className="px-4 py-2 text-slate-400 hover:text-slate-200 disabled:opacity-50 transition-colors"
-            >
-              Cancel
-            </button>
-          )}
-          <button
-            onClick={handleCreatePersona}
-            disabled={creating || !fioHandle || !fioHandleValid}
-            className="inline-flex items-center gap-2 px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {creating ? (
-              <>
-                <Loader2 size={16} className="animate-spin" />
-                Creating...
-              </>
-            ) : (
-              'Create Persona'
+        {step === 'info' && (
+          <div className="flex gap-3 justify-end">
+            {onCancel && (
+              <button
+                onClick={onCancel}
+                disabled={creating}
+                className="px-4 py-2 text-slate-400 hover:text-slate-200 disabled:opacity-50 transition-colors"
+              >
+                Cancel
+              </button>
             )}
-          </button>
-        </div>
+            <button
+              onClick={handleNextToKeys}
+              disabled={creating || !fioHandle || !fioHandleValid}
+              className="inline-flex items-center gap-2 px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Next: Generate Keys
+            </button>
+          </div>
+        )}
+
+        {/* Key Generation Step */}
+        {step === 'keys' && (
+          <div className="space-y-4">
+            <div className="p-4 bg-blue-900/20 border border-blue-700 rounded-md">
+              <p className="text-sm text-blue-400">
+                💡 Click below to generate cryptographic keys for your FIO handle. Your persona and FIO handle will be created in one atomic operation.
+              </p>
+            </div>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setStep('info')}
+                disabled={generatingKeys || creating}
+                className="px-4 py-2 text-slate-400 hover:text-slate-200 disabled:opacity-50 transition-colors"
+              >
+                Back
+              </button>
+              <button
+                onClick={handleGenerateKeys}
+                disabled={generatingKeys || creating}
+                className="inline-flex items-center gap-2 px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {generatingKeys || creating ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    {creating ? 'Creating Persona...' : 'Generating Keys...'}
+                  </>
+                ) : (
+                  'Generate Keys & Create Persona'
+                )}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* FIO Registration Note */}
         {fioHandleValid && !createdPersonaId && (
