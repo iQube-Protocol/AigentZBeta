@@ -51,7 +51,7 @@ export class PersonaService {
         throw new Error('Please select whether this persona represents a Verified Human or AI Agent');
       }
       if (error.message?.includes('row-level security policy')) {
-        throw new Error('Permission denied. Please ensure you are logged in and have the correct permissions.');
+        throw new Error('Database permission error. Please contact support. (Missing SUPABASE_SERVICE_ROLE_KEY in environment)');
       }
       if (error.message?.includes('duplicate key')) {
         throw new Error('A persona with this FIO handle already exists');

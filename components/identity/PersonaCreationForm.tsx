@@ -26,6 +26,12 @@ export function PersonaCreationForm({ onSuccess, onCancel }: PersonaCreationForm
       return;
     }
 
+    // Validate entity type is selected
+    if (worldIdStatus === 'not_verified') {
+      setError('Please select whether this persona represents a Verified Human or AI Agent');
+      return;
+    }
+
     setCreating(true);
     setError(null);
 
