@@ -2,9 +2,35 @@
 
 ## Quick Answer
 
-**Persona ID** = Internal system UUID (database primary key)  
+**Root DID** = Master identity (ONE per user)  
+**Persona ID** = Context-specific identity (MANY per user)  
 **FIO Handle** = Blockchain identity (e.g., `test21@knyt`)  
 **FIO Public Key** = Blockchain address (e.g., `FIO7Jpu6...`)
+
+---
+
+## Identity Hierarchy
+
+```
+User (Human/AI Entity)
+  └─ Root DID (did:qube:root-xyz...)  ← ONE per user
+      ├─ Persona 1 (did:qube:persona-abc...)  ← Multiple personas
+      │   ├─ FIO Handle: alice@aigent
+      │   ├─ Reputation in Context A
+      │   └─ Cohort memberships
+      │
+      ├─ Persona 2 (did:qube:persona-def...)
+      │   ├─ FIO Handle: alice-work@aigent
+      │   ├─ Reputation in Context B
+      │   └─ Different cohort memberships
+      │
+      └─ Persona 3 (did:qube:persona-ghi...)
+          ├─ Anonymous (no FIO handle)
+          ├─ Separate reputation
+          └─ Different cohorts
+```
+
+**Key Principle:** Each user has ONE Root DID, but MANY personas for different contexts.
 
 ---
 
