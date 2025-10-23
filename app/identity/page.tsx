@@ -7,13 +7,26 @@ import { ReputationManager } from '@/components/identity/ReputationManager';
 import { PersonaCreationForm } from '@/components/identity/PersonaCreationForm';
 import { FIOVerificationBadge } from '@/components/identity/FIOVerificationBadge';
 import { FIOInfoCard } from '@/components/identity/FIOInfoCard';
-import { Plus, Key } from 'lucide-react';
+import { Plus, Key, X, Copy } from 'lucide-react';
 
 export default function IdentityPage() {
   const [selectedPersona, setSelectedPersona] = useState<string>('');
   const [identityState, setIdentityState] = useState<'anonymous' | 'semi_anonymous' | 'semi_identifiable' | 'identifiable'>('semi_anonymous');
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [copiedPersonaId, setCopiedPersonaId] = useState(false);
+
+  const handleCopyPersonaId = async () => {
+    if (selectedPersona) {
+      await navigator.clipboard.writeText(selectedPersona);
+      setCopiedPersonaId(true);
+      setTimeout(() => setCopiedPersonaId(false), 2000);
+    }
+  };
+
+  const handleClearSelection = () => {
+    setSelectedPersona('');
+  };
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -31,9 +44,31 @@ export default function IdentityPage() {
           <div>
             <PersonaSelector value={selectedPersona} onSelect={setSelectedPersona} />
             {selectedPersona && (
-              <div className="mt-4 p-3 bg-slate-800/50 rounded-md border border-slate-700/50">
-                <p className="text-sm font-medium text-slate-300">Selected Persona ID:</p>
-                <p className="text-xs text-slate-400 font-mono mt-1">{selectedPersona}</p>
+              <div className="mt-4 space-y-2">
+                <div className="p-3 bg-slate-800/50 rounded-md border border-slate-700/50">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-sm font-medium text-slate-300">Selected Persona ID:</p>
+                    <button
+                      onClick={handleCopyPersonaId}
+                      className="text-slate-400 hover:text-slate-200 transition-colors"
+                      title="Copy Persona ID"
+                    >
+                      {copiedPersonaId ? (
+                        <span className="text-xs text-green-400">Copied!</span>
+                      ) : (
+                        <Copy size={14} />
+                      )}
+                    </button>
+                  </div>
+                  <p className="text-xs text-slate-400 font-mono break-all">{selectedPersona}</p>
+                </div>
+                <button
+                  onClick={handleClearSelection}
+                  className="w-full px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-md transition-colors flex items-center justify-center gap-2 text-sm"
+                >
+                  <X size={14} />
+                  Clear Selection
+                </button>
               </div>
             )}
           </div>

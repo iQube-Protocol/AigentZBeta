@@ -16,6 +16,8 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 export async function POST(req: NextRequest) {
   let personaId: string | null = null;
   
+  console.log('[Create with FIO] ========== API CALLED ==========');
+  
   try {
     const body = await req.json();
     const { 
@@ -26,8 +28,17 @@ export async function POST(req: NextRequest) {
       worldIdStatus 
     } = body;
 
+    console.log('[Create with FIO] Request body:', {
+      fioHandle,
+      publicKey: publicKey?.substring(0, 20) + '...',
+      hasPrivateKey: !!privateKey,
+      defaultState,
+      worldIdStatus
+    });
+
     // Validate required fields
     if (!fioHandle || !publicKey || !privateKey) {
+      console.error('[Create with FIO] Missing required fields');
       return NextResponse.json(
         { ok: false, error: 'FIO handle, public key, and private key are required' },
         { status: 400 }
