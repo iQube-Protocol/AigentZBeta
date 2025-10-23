@@ -25,17 +25,16 @@ applications:
         paths:
           - node_modules/**/*
           - .next/cache/**/*
-    # Environment variables for SSR functions
-    # These will be available to API routes at runtime
-    environment:
-      variables:
+    # SSR environment variables - inject at build time for runtime availability
+    compute:
+      type: ssr
+      environment:
         FIO_API_ENDPOINT: ${FIO_API_ENDPOINT}
         FIO_CHAIN_ID: ${FIO_CHAIN_ID}
         FIO_SYSTEM_PUBLIC_KEY: ${FIO_SYSTEM_PUBLIC_KEY}
+        FIO_SYSTEM_PRIVATE_KEY: ${FIO_SYSTEM_PRIVATE_KEY}
         FIO_MOCK_MODE: ${FIO_MOCK_MODE}
         NEXT_PUBLIC_FIO_NETWORK: ${NEXT_PUBLIC_FIO_NETWORK}
         SUPABASE_URL: ${SUPABASE_URL}
-      secrets:
-        FIO_SYSTEM_PRIVATE_KEY: ${FIO_SYSTEM_PRIVATE_KEY}
         SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
     
