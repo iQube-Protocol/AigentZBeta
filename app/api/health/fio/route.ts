@@ -9,6 +9,7 @@ export async function GET() {
   const chainId = process.env.FIO_CHAIN_ID || 'unset'
   const publicKey = process.env.FIO_SYSTEM_PUBLIC_KEY || 'unset'
   const mockMode = process.env.FIO_MOCK_MODE || 'unset'
+  const nextPublicNetwork = process.env.NEXT_PUBLIC_FIO_NETWORK || 'unset'
 
   const redact = (v: string) => (v && v !== 'unset' ? v.slice(0, 12) + '...' : v)
 
@@ -19,11 +20,22 @@ export async function GET() {
       chainId,
       mockMode,
       systemPublicKey: redact(publicKey),
+      nextPublicNetwork,
     },
     probes: {
       get_info: null,
       balance: null,
       avail_check_fiotestnet: null,
+    },
+    envPresence: {
+      FIO_API_ENDPOINT: !!process.env.FIO_API_ENDPOINT,
+      FIO_CHAIN_ID: !!process.env.FIO_CHAIN_ID,
+      FIO_SYSTEM_PUBLIC_KEY: !!process.env.FIO_SYSTEM_PUBLIC_KEY,
+      FIO_SYSTEM_PRIVATE_KEY: !!process.env.FIO_SYSTEM_PRIVATE_KEY,
+      FIO_MOCK_MODE: !!process.env.FIO_MOCK_MODE,
+      NEXT_PUBLIC_FIO_NETWORK: !!process.env.NEXT_PUBLIC_FIO_NETWORK,
+      SUPABASE_URL: !!process.env.SUPABASE_URL,
+      SUPABASE_SERVICE_ROLE_KEY: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
     },
   }
 
