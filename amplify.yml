@@ -14,7 +14,19 @@ applications:
             - npm ci
         build:
           commands:
-            - echo "Building Next.js app..."
+            - echo "Creating .env.production with runtime env vars..."
+            - |
+              cat > .env.production << EOF
+              FIO_API_ENDPOINT=${FIO_API_ENDPOINT}
+              FIO_CHAIN_ID=${FIO_CHAIN_ID}
+              FIO_SYSTEM_PUBLIC_KEY=${FIO_SYSTEM_PUBLIC_KEY}
+              FIO_SYSTEM_PRIVATE_KEY=${FIO_SYSTEM_PRIVATE_KEY}
+              FIO_MOCK_MODE=${FIO_MOCK_MODE}
+              NEXT_PUBLIC_FIO_NETWORK=${NEXT_PUBLIC_FIO_NETWORK}
+              SUPABASE_URL=${SUPABASE_URL}
+              SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+              EOF
+            - echo ".env.production created, building Next.js app..."
             - npm run build
       artifacts:
         # .next contains the SSR build output
