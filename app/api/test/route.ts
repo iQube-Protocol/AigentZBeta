@@ -12,6 +12,7 @@ export async function GET() {
       NODE_ENV: process.env.NODE_ENV,
       hasSupabaseUrl: !!process.env.SUPABASE_URL,
       hasFioEndpoint: !!process.env.FIO_API_ENDPOINT,
+      hasEncryptionSecret: !!process.env.AGENT_KEY_ENCRYPTION_SECRET,
     }
   })
 }

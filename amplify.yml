@@ -25,6 +25,7 @@ applications:
               NEXT_PUBLIC_FIO_NETWORK=${NEXT_PUBLIC_FIO_NETWORK}
               SUPABASE_URL=${SUPABASE_URL}
               SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+              AGENT_KEY_ENCRYPTION_SECRET=${AGENT_KEY_ENCRYPTION_SECRET}
               EOF
             - echo ".env.production created, building Next.js app..."
             - npm run build
