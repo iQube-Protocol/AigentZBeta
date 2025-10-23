@@ -402,9 +402,9 @@ export function FIORegistrationModal({
                       >
                         Copy
                       </button>
-                      {!txId.startsWith('mock_') && (
+                      {!txId.startsWith('mock_') && !txId.startsWith('fallback_') && (
                         <a
-                          href={`https://fio.bloks.io/transaction/${txId}`}
+                          href={`https://fio-test.bloks.io/transaction/${txId}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="px-3 py-1 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700 transition-colors inline-flex items-center gap-1"

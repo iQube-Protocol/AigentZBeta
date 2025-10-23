@@ -119,10 +119,10 @@ export default function IdentityPage() {
             </button>
             <button 
               className="w-full px-4 py-2 bg-slate-700 text-slate-300 rounded-md hover:bg-slate-600 transition-colors flex items-center justify-center gap-2"
-              onClick={() => window.open('https://fio.bloks.io/', '_blank')}
+              onClick={() => window.open('https://fio-test.bloks.io/', '_blank')}
             >
               <Key size={16} />
-              View on FIO Explorer
+              View on FIO Testnet Explorer
             </button>
           </div>
         </div>
