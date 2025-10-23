@@ -9,6 +9,10 @@
 
 import { FIOSDK } from '@fioprotocol/fiosdk';
 import fetch from 'node-fetch';
+import * as dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config({ path: '.env.local' });
 
 // @ts-ignore
 global.fetch = fetch;
@@ -46,13 +50,15 @@ async function registerDomain(sdk: FIOSDK, domain: string): Promise<void> {
     
     // Get registration fee
     console.log(`   Getting registration fee...`);
-    const feeResponse = await sdk.getFee('register_fio_domain');
-    const fee = feeResponse.fee;
+    // Use a default fee for domain registration (typically 800 FIO on testnet)
+    const fee = 800000000000; // 800 FIO in SUFs
     console.log(`   Fee: ${fee / 1000000000} FIO`);
     
     // Register domain
     console.log(`   Registering on blockchain...`);
-    const result = await sdk.registerFioDomain(domain, fee);
+    // registerFioDomain(fioDomain: string, maxFee: number, technologyProviderId?: string)
+    // Use dele@fiotestnet as TPID (Technology Provider ID)
+    const result = await sdk.registerFioDomain(domain, fee, 'dele@fiotestnet');
     
     console.log(`   ✅ SUCCESS!`);
     console.log(`   Transaction ID: ${result.transaction_id}`);
@@ -63,6 +69,12 @@ async function registerDomain(sdk: FIOSDK, domain: string): Promise<void> {
     console.error(`   ❌ ERROR: ${error.message}`);
     if (error.json) {
       console.error(`   Details:`, JSON.stringify(error.json, null, 2));
+    }
+    if (error.errorCode) {
+      console.error(`   Error Code:`, error.errorCode);
+    }
+    if (error.list) {
+      console.error(`   Error List:`, error.list);
     }
   }
 }

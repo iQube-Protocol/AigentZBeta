@@ -27,7 +27,7 @@ export function FIOHandleInput({
   const [checkTimeout, setCheckTimeout] = useState<NodeJS.Timeout | null>(null);
 
   // Valid FIO testnet domains
-  const VALID_TESTNET_DOMAINS = ['fiotestnet', 'dapixdev', 'edge', 'aigent'];
+  const VALID_TESTNET_DOMAINS = ['fiotestnet', 'dapixdev', 'edge', 'aigent', 'knyt', 'qripto'];
 
   // Validate handle format
   const validateFormat = useCallback((handle: string): boolean => {
