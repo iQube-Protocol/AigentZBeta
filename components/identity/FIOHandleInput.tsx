@@ -26,6 +26,9 @@ export function FIOHandleInput({
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [checkTimeout, setCheckTimeout] = useState<NodeJS.Timeout | null>(null);
 
+  // Valid FIO testnet domains
+  const VALID_TESTNET_DOMAINS = ['fiotestnet', 'dapixdev', 'edge', 'aigent'];
+
   // Validate handle format
   const validateFormat = useCallback((handle: string): boolean => {
     if (!handle) return false;
@@ -35,7 +38,16 @@ export function FIOHandleInput({
     
     // Format: username@domain
     const regex = /^[a-z0-9-]{1,64}@[a-z0-9-]{1,64}$/i;
-    return regex.test(handle);
+    if (!regex.test(handle)) return false;
+    
+    // Check if domain is registered (for testnet)
+    const domain = handle.split('@')[1];
+    if (!VALID_TESTNET_DOMAINS.includes(domain.toLowerCase())) {
+      setErrorMessage(`Domain @${domain} not registered. Use @fiotestnet, @dapixdev, @edge, or @aigent`);
+      return false;
+    }
+    
+    return true;
   }, []);
 
   // Check handle availability
