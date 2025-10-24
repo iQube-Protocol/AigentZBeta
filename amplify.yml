@@ -26,6 +26,7 @@ applications:
               SUPABASE_URL=${SUPABASE_URL}
               SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
               AGENT_KEY_ENCRYPTION_SECRET=${AGENT_KEY_ENCRYPTION_SECRET}
+              NEXTAUTH_URL=${NEXTAUTH_URL}
               EOF
             - echo ".env.production created, building Next.js app..."
             - npm run build
