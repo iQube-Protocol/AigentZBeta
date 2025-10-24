@@ -1,4 +1,5 @@
 export const dynamic = "force-dynamic";
+export const runtime = 'nodejs';
 
 import { NextRequest } from "next/server";
 import { createClient } from '@supabase/supabase-js';
@@ -23,15 +24,31 @@ function decrypt(encryptedText: string, encryptionKey: string): string {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { chainId, tokenAddress, to, amount, asset, agentId } = body || {};
+  const { chainId, amount, asset, agentId } = body || {} as any;
+  // Accept multiple recipient field names and normalize casing
+  const toRaw: string | undefined = (body?.to || body?.payTo || body?.recipient || body?.address);
+  const tokenRaw: string | undefined = body?.tokenAddress || body?.token || body?.assetAddress;
+  const to = typeof toRaw === 'string' ? toRaw.toLowerCase() : undefined;
+  const tokenAddress = typeof tokenRaw === 'string' ? tokenRaw.toLowerCase() : undefined;
   
   try {
     const SIGNER_URL = process.env.SIGNER_URL || process.env.NEXT_PUBLIC_SIGNER_URL;
     if (SIGNER_URL) {
+      // Build a normalized forward body so external signer gets expected fields
+      const forwardBody: any = {
+        ...body,
+        chainId,
+        amount,
+        asset,
+        agentId,
+        to,
+        tokenAddress,
+      };
+      console.log(`[Transfer] Proxying to external signer with normalized body`, { to, tokenAddress, chainId });
       const r = await fetch(`${SIGNER_URL}/transfer`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify(forwardBody),
         cache: "no-store",
       });
       const text = await r.text();
@@ -66,12 +83,22 @@ export async function POST(req: NextRequest) {
     
     // EVM validation
     if (!chainId || !tokenAddress || !to || !amount) {
-      return new Response(JSON.stringify({ ok: false, error: "chainId, tokenAddress, to, amount required" }), { status: 400 });
+      const diag = {
+        receivedBodyKeys: Object.keys(body || {}),
+        normalized: { chainId, tokenAddress, to, amount },
+        has: {
+          chainId: !!chainId,
+          tokenAddress: !!tokenAddress,
+          to: !!to,
+          amount: !!amount,
+        },
+      };
+      return new Response(JSON.stringify({ ok: false, error: "chainId, tokenAddress, to/payTo, amount required", diag }), { status: 400 });
     }
 
     // Get agent private key using working direct pattern
     console.log(`[Transfer] Retrieving keys for agent: ${agentId || 'aigent-z'}`);
-    console.log(`[Transfer] Request body:`, { chainId, tokenAddress, to, amount, asset, agentId });
+    console.log(`[Transfer] Request body (normalized):`, { chainId, tokenAddress, to, amount, asset, agentId });
     
     // Get agent keys directly from Supabase with correct priority order
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
