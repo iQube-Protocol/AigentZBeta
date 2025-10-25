@@ -1,5 +1,8 @@
 // QCT Event Listener Service - Core Architecture
-// Listens to QCT token events across all supported chains
+// Dual-tracking system for complete iQube ecosystem transaction visibility:
+// 1. QCT Contract Events - External QCT token transactions on supported chains
+// 2. DVN Queue Messages - Internal system transactions at final settlement checkpoint
+// DVN messages represent the point where transactions leave our system for LayerZero settlement
 import { EventEmitter } from 'events';
 import { QCT_CONTRACTS } from '@/config/qct-contracts';
 
@@ -685,6 +688,8 @@ export class QCTEventListener extends EventEmitter {
   }
 
   // Poll DVN queue for new messages
+  // CRITICAL: This captures internal system transactions at the final settlement checkpoint
+  // These are transactions leaving our system for LayerZero settlement (not subject to drift)
   private async pollDVNQueue() {
     try {
       // Import dynamically to avoid circular dependencies

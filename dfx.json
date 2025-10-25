@@ -1,8 +1,11 @@
 {
+  "version": 1,
   "canisters": {
-    "evm_rpc": {
-      "type": "pull",
-      "id": "7hfb6-caaaa-aaaar-qadga-cai"
+    "rqh": {
+      "type": "rust",
+      "candid": "src/rqh/rqh.did",
+      "package": "rqh",
+      "build": ["cargo", "build", "--target", "wasm32-unknown-unknown", "--release", "-p", "rqh"]
     }
   },
   "defaults": {
@@ -10,5 +13,10 @@
       "packtool": ""
     }
   },
-  "version": 1
+  "networks": {
+    "ic": {
+      "providers": ["https://icp-api.io"],
+      "type": "persistent"
+    }
+  }
 }

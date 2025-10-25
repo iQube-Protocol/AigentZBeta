@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { RefreshCw, User, Shield, TrendingUp, Bot, UserCircle } from 'lucide-react';
 import Link from 'next/link';
+import { FIOVerificationIcon } from '@/components/identity/FIOVerificationBadge';
 
 interface Persona {
   id: string;
@@ -13,6 +14,8 @@ interface Persona {
   reputation_bucket?: number | null;
   reputation_score?: number | null;
   reputation_category?: string | null;
+  fio_status?: 'verified' | 'unverified' | 'pending' | 'expired' | 'expiring_soon' | 'no_handle' | 'failed';
+  fio_days_until_expiration?: number | null;
 }
 
 interface DiDQubeIdentityCardProps {
@@ -97,11 +100,10 @@ export function DiDQubeIdentityCard({ onPersonaClick }: DiDQubeIdentityCardProps
           <>
             <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
               <span>Total Personas: {personas.length}</span>
-              <Link href="/identity" className="text-indigo-400 hover:text-indigo-300">View →</Link>
             </div>
             
-            <div className="space-y-2">
-              {personas.slice(0, 3).map(p => (
+            <div className="space-y-2 max-h-80 overflow-y-auto">
+              {personas.map(p => (
                 <button
                   key={p.id}
                   onClick={() => onPersonaClick?.(p.id)}
@@ -131,6 +133,11 @@ export function DiDQubeIdentityCard({ onPersonaClick }: DiDQubeIdentityCardProps
                         </div>
                       )}
                       
+                      {/* FIO Verification Icon */}
+                      {p.fio_status && p.fio_status !== 'no_handle' && (
+                        <FIOVerificationIcon status={p.fio_status} size={12} />
+                      )}
+                      
                       {/* Handle */}
                       <span className="font-mono text-xs text-slate-300">
                         {p.fio_handle || p.id.slice(0, 8)}
@@ -151,9 +158,9 @@ export function DiDQubeIdentityCard({ onPersonaClick }: DiDQubeIdentityCardProps
               ))}
             </div>
 
-            {personas.length > 3 && (
+            {personas.length > 4 && (
               <p className="text-xs text-slate-500 text-center mt-2">
-                +{personas.length - 3} more personas
+                Scroll to see all {personas.length} personas
               </p>
             )}
           </>

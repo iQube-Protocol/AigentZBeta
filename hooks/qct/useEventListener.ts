@@ -23,10 +23,11 @@ export interface EventListenerStatus {
   at: string;
 }
 
-export function useEventListener(refreshInterval = 10000) {
+export function useEventListener(refreshInterval = 10000, autoStart = false) {
   const [status, setStatus] = useState<EventListenerStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasAutoStarted, setHasAutoStarted] = useState(false);
 
   // Fetch current status
   const fetchStatus = useCallback(async () => {
@@ -136,7 +137,7 @@ export function useEventListener(refreshInterval = 10000) {
     }
   }, [fetchStatus]);
 
-  // Auto-refresh status
+  // Auto-refresh status and auto-start
   useEffect(() => {
     fetchStatus();
 
@@ -145,6 +146,18 @@ export function useEventListener(refreshInterval = 10000) {
       return () => clearInterval(interval);
     }
   }, [fetchStatus, refreshInterval]);
+
+  // Auto-start functionality
+  useEffect(() => {
+    if (autoStart && !hasAutoStarted && status && !status.running && !loading) {
+      console.log('[useEventListener] Auto-starting QCT Event Listener...');
+      setHasAutoStarted(true);
+      start().catch(err => {
+        console.error('[useEventListener] Auto-start failed:', err);
+        setHasAutoStarted(false); // Reset to allow retry
+      });
+    }
+  }, [autoStart, hasAutoStarted, status, loading, start]);
 
   // Helper functions
   const getChainStats = useCallback((chainId: string) => {

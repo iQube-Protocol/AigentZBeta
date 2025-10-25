@@ -4,6 +4,8 @@ const nextConfig = {
   // Disable double-invocation and extra checks in dev to speed up refresh
   reactStrictMode: !isDev,
   swcMinify: true,
+  // Use standalone output for better Amplify compatibility
+  output: 'standalone',
   transpilePackages: [
     '@qriptoagentiq/core-client',
     '@qriptoagentiq/a2a-client',

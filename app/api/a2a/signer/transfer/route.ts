@@ -1,24 +1,54 @@
 export const dynamic = "force-dynamic";
+export const runtime = 'nodejs';
 
 import { NextRequest } from "next/server";
-import { AgentKeyService } from "@/services/identity/agentKeyService";
+import { createClient } from '@supabase/supabase-js';
+import { createDecipheriv } from 'crypto';
 
 const ERC20_ABI = [
   "function transfer(address to, uint256 value) returns (bool)",
+  "function balanceOf(address account) view returns (uint256)",
   "function decimals() view returns (uint8)",
 ];
 
+// Decrypt function for encrypted private keys
+function decrypt(encryptedText: string, encryptionKey: string): string {
+  const [ivHex, encrypted] = encryptedText.split(':');
+  const iv = Buffer.from(ivHex, 'hex');
+  const decipher = createDecipheriv('aes-256-cbc', Buffer.from(encryptionKey.slice(0, 32)), iv);
+  let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+  decrypted += decipher.final('utf8');
+  return decrypted;
+}
+
+
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { chainId, tokenAddress, to, amount, asset, agentId } = body || {};
+  const { chainId, amount, asset, agentId } = body || {} as any;
+  // Accept multiple recipient field names and normalize casing
+  const toRaw: string | undefined = (body?.to || body?.payTo || body?.recipient || body?.address);
+  const tokenRaw: string | undefined = body?.tokenAddress || body?.token || body?.assetAddress;
+  const to = typeof toRaw === 'string' ? toRaw.toLowerCase() : undefined;
+  const tokenAddress = typeof tokenRaw === 'string' ? tokenRaw.toLowerCase() : undefined;
   
   try {
     const SIGNER_URL = process.env.SIGNER_URL || process.env.NEXT_PUBLIC_SIGNER_URL;
     if (SIGNER_URL) {
+      // Build a normalized forward body so external signer gets expected fields
+      const forwardBody: any = {
+        ...body,
+        chainId,
+        amount,
+        asset,
+        agentId,
+        to,
+        tokenAddress,
+      };
+      console.log(`[Transfer] Proxying to external signer with normalized body`, { to, tokenAddress, chainId });
       const r = await fetch(`${SIGNER_URL}/transfer`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify(forwardBody),
         cache: "no-store",
       });
       const text = await r.text();
@@ -53,42 +83,82 @@ export async function POST(req: NextRequest) {
     
     // EVM validation
     if (!chainId || !tokenAddress || !to || !amount) {
-      return new Response(JSON.stringify({ ok: false, error: "chainId, tokenAddress, to, amount required" }), { status: 400 });
+      const diag = {
+        receivedBodyKeys: Object.keys(body || {}),
+        normalized: { chainId, tokenAddress, to, amount },
+        has: {
+          chainId: !!chainId,
+          tokenAddress: !!tokenAddress,
+          to: !!to,
+          amount: !!amount,
+        },
+      };
+      return new Response(JSON.stringify({ ok: false, error: "chainId, tokenAddress, to/payTo, amount required", diag }), { status: 400 });
     }
 
-    // Get agent private key from Supabase (server-side only)
+    // Get agent private key using working direct pattern
     console.log(`[Transfer] Retrieving keys for agent: ${agentId || 'aigent-z'}`);
+    console.log(`[Transfer] Request body (normalized):`, { chainId, tokenAddress, to, amount, asset, agentId });
     
-    let keyService;
-    let agentKeys;
+    // Get agent keys directly from Supabase with correct priority order
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+    const supabaseServiceKey = process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const encryptionKey = process.env.NEXT_PUBLIC_AGENT_KEY_ENCRYPTION_SECRET || process.env.AGENT_KEY_ENCRYPTION_SECRET;
     
-    try {
-      keyService = new AgentKeyService();
-      agentKeys = await keyService.getAgentKeys(agentId || 'aigent-z');
-      console.log(`[Transfer] Keys retrieved:`, {
-        agentId: agentId || 'aigent-z',
-        keysFound: !!agentKeys,
-        hasEvmKey: !!agentKeys?.evmPrivateKey,
-        evmAddress: agentKeys?.evmAddress
-      });
-    } catch (error) {
-      console.error(`[Transfer] Error retrieving keys:`, error);
-      return new Response(JSON.stringify({ 
-        ok: false, 
-        error: `Failed to retrieve agent keys: ${error instanceof Error ? error.message : 'Unknown error'}` 
+    console.log(`[Transfer] Environment check:`, {
+      hasSupabaseUrl: !!supabaseUrl,
+      hasServiceKey: !!supabaseServiceKey,
+      hasEncryptionKey: !!encryptionKey,
+      supabaseUrlPrefix: supabaseUrl?.substring(0, 30) + '...',
+      serviceKeyPrefix: supabaseServiceKey?.substring(0, 20) + '...'
+    });
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+      return new Response(JSON.stringify({
+        ok: false,
+        error: 'Missing Supabase environment variables'
       }), { status: 500 });
     }
     
-    if (!agentKeys?.evmPrivateKey) {
-      console.error(`[Transfer] No private key found for agent: ${agentId || 'aigent-z'}`);
-      return new Response(JSON.stringify({ 
-        ok: false, 
-        error: `Agent private key not found for ${agentId || 'aigent-z'}. Check Supabase agent_keys table.` 
-      }), { status: 500 });
+    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: { persistSession: false }
+    });
+    
+    const { data: agentKeys, error } = await supabase
+      .from('agent_keys')
+      .select('*')
+      .eq('agent_id', agentId || 'aigent-z')
+      .single();
+    
+    if (error || !agentKeys) {
+      return new Response(JSON.stringify({
+        ok: false,
+        error: `No agent keys found for ${agentId || 'aigent-z'}: ${error?.message || 'Not found'}`
+      }), { status: 404 });
     }
     
-    const PK = agentKeys.evmPrivateKey;
-    console.log(`[Transfer] Using private key for address: ${agentKeys.evmAddress}`);
+    // Decrypt private key if encrypted
+    let privateKey = agentKeys.evm_private_key;
+    if (!privateKey && agentKeys.evm_private_key_encrypted && encryptionKey) {
+      try {
+        privateKey = decrypt(agentKeys.evm_private_key_encrypted, encryptionKey);
+      } catch (decryptError) {
+        return new Response(JSON.stringify({
+          ok: false,
+          error: `Failed to decrypt private key: ${decryptError instanceof Error ? decryptError.message : 'Unknown error'}`
+        }), { status: 500 });
+      }
+    }
+    
+    if (!privateKey) {
+      return new Response(JSON.stringify({
+        ok: false,
+        error: `No EVM private key found for ${agentId || 'aigent-z'}`
+      }), { status: 404 });
+    }
+    
+    const PK = privateKey;
+    console.log(`[Transfer] Using private key for address: ${agentKeys.evm_address}`);
 
     const { ethers } = await import("ethers");
     const rpc = (cid: number) => {
@@ -123,12 +193,22 @@ export async function POST(req: NextRequest) {
     console.log(`Transaction confirmed: ${receipt.hash} with status ${receipt.status}`);
 
     // Trigger DVN/PoS flow for successful A2A transactions
+    // CRITICAL: This is required for proper settlement tracking and Event Register visibility
     if (receipt?.status === 1) {
       try {
         await triggerA2ADVNFlow(tx.hash, chainId, asset || 'QCT');
-      } catch (dvnError) {
-        console.warn('DVN flow trigger failed:', dvnError);
-        // Don't fail the transaction if DVN fails
+        console.log(`DVN/PoS flow completed successfully for tx: ${tx.hash}`);
+      } catch (dvnError: any) {
+        console.error('DVN flow trigger failed - CRITICAL:', dvnError);
+        // Return success with warning since blockchain tx succeeded
+        // but log the DVN failure for investigation
+        return new Response(JSON.stringify({ 
+          ok: true, 
+          txHash: tx.hash, 
+          status: receipt?.status || 1,
+          warning: 'Transaction succeeded but DVN tracking failed',
+          dvnError: dvnError?.message || String(dvnError)
+        }), { status: 200 });
       }
     }
 

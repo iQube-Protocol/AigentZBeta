@@ -63,9 +63,13 @@ async function getSignerAddress() {
 }
 
 function requireAdmin(req: NextRequest) {
-  // Dev-only by default; optionally allow header token in non-prod
+  // Allow in development or localhost
   const isDev = process.env.NODE_ENV !== "production";
-  if (isDev) return true;
+  const isLocalhost = req.url.includes('localhost') || req.url.includes('127.0.0.1');
+  
+  if (isDev || isLocalhost) return true;
+  
+  // In production, require admin token
   const token = req.headers.get("x-admin-token");
   return !!token && token === process.env.ADMIN_TOKEN;
 }

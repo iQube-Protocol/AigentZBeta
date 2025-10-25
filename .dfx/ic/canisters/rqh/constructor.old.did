@@ -1,0 +1,57 @@
+type ReputationBucket = record {
+  id : text;
+  partition_id : text;
+  bucket : nat32;
+  skill_category : text;
+  score : float64;
+  evidence_count : nat32;
+  last_updated : nat64;
+  created_at : nat64;
+};
+
+type ReputationEvidence = record {
+  id : text;
+  bucket_id : text;
+  evidence_type : text;
+  evidence_data : text;
+  weight : float64;
+  verified : bool;
+  created_at : nat64;
+};
+
+type CreateReputationRequest = record {
+  partition_id : text;
+  skill_category : text;
+  initial_score : opt float64;
+};
+
+type AddEvidenceRequest = record {
+  bucket_id : text;
+  evidence_type : text;
+  evidence_data : text;
+  weight : float64;
+};
+
+type ReputationResponse = record {
+  ok : bool;
+  data : opt ReputationBucket;
+  error : opt text;
+};
+
+type EvidenceResponse = record {
+  ok : bool;
+  data : opt vec ReputationEvidence;
+  error : opt text;
+};
+
+service : {
+  // Query methods
+  get_reputation_bucket : (text) -> (ReputationResponse) query;
+  get_reputation_evidence : (text) -> (EvidenceResponse) query;
+  get_partition_reputation : (text) -> (vec ReputationBucket) query;
+  health : () -> (text) query;
+  
+  // Update methods
+  create_reputation_bucket : (CreateReputationRequest) -> (ReputationResponse);
+  add_reputation_evidence : (AddEvidenceRequest) -> (ReputationResponse);
+}

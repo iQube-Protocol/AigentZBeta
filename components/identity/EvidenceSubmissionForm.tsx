@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState } from 'react';
-import { FileText, Send, AlertCircle, CheckCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { FileText, Send, AlertCircle, CheckCircle, TrendingUp } from 'lucide-react';
 
 interface EvidenceSubmissionFormProps {
-  bucketId: string;
+  bucketId?: string;
+  partitionId: string;
   onSuccess?: () => void;
 }
 
@@ -18,7 +19,21 @@ const evidenceTypes = [
   { value: 'other', label: 'Other' }
 ];
 
-export function EvidenceSubmissionForm({ bucketId, onSuccess }: EvidenceSubmissionFormProps) {
+const skillCategories = [
+  { value: 'blockchain_development', label: 'Blockchain Development' },
+  { value: 'smart_contract_security', label: 'Smart Contract Security' },
+  { value: 'defi_protocols', label: 'DeFi Protocols' },
+  { value: 'web3_frontend', label: 'Web3 Frontend' },
+  { value: 'backend_development', label: 'Backend Development' },
+  { value: 'devops_infrastructure', label: 'DevOps & Infrastructure' },
+  { value: 'data_analysis', label: 'Data Analysis' },
+  { value: 'community_management', label: 'Community Management' },
+  { value: 'technical_writing', label: 'Technical Writing' },
+  { value: 'other', label: 'Other' }
+];
+
+export function EvidenceSubmissionForm({ bucketId, partitionId, onSuccess }: EvidenceSubmissionFormProps) {
+  const [skillCategory, setSkillCategory] = useState('');
   const [evidenceType, setEvidenceType] = useState('');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -27,11 +42,70 @@ export function EvidenceSubmissionForm({ bucketId, onSuccess }: EvidenceSubmissi
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [currentScore, setCurrentScore] = useState<number | null>(null);
+  const [currentBucket, setCurrentBucket] = useState<number | null>(null);
+  const [availableBuckets, setAvailableBuckets] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!partitionId) return;
+    // Fetch all reputation buckets for this persona
+    fetch(`/api/identity/persona/${partitionId}/reputation/all`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.ok && data.data) {
+          setAvailableBuckets(data.data);
+          // Set default to first bucket if no bucketId provided
+          if (!bucketId && data.data.length > 0) {
+            setSkillCategory(data.data[0].skill_category);
+            setCurrentScore(data.data[0].score);
+            setCurrentBucket(data.data[0].bucket);
+          } else if (bucketId) {
+            const bucket = data.data.find((b: any) => b.id === bucketId);
+            if (bucket) {
+              setSkillCategory(bucket.skill_category);
+              setCurrentScore(bucket.score);
+              setCurrentBucket(bucket.bucket);
+            }
+          }
+        }
+      })
+      .catch(() => {});
+  }, [partitionId, bucketId]);
+
+  // Update current score when skill category changes
+  useEffect(() => {
+    if (skillCategory && availableBuckets.length > 0) {
+      const bucket = availableBuckets.find(b => b.skill_category === skillCategory);
+      if (bucket) {
+        setCurrentScore(bucket.score);
+        setCurrentBucket(bucket.bucket);
+      } else {
+        setCurrentScore(0);
+        setCurrentBucket(0);
+      }
+    }
+  }, [skillCategory, availableBuckets]);
+
+  const getScoreColor = (score: number) => {
+    if (score >= 80) return 'text-purple-400';
+    if (score >= 60) return 'text-green-400';
+    if (score >= 40) return 'text-blue-400';
+    if (score >= 20) return 'text-yellow-400';
+    return 'text-slate-400';
+  };
+
+  const getBucketColor = (bucket: number) => {
+    if (bucket >= 4) return 'text-purple-400';
+    if (bucket >= 3) return 'text-green-400';
+    if (bucket >= 2) return 'text-blue-400';
+    if (bucket >= 1) return 'text-yellow-400';
+    return 'text-slate-400';
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!evidenceType || !title || !description) {
+    if (!skillCategory || !evidenceType || !title || !description) {
       setError('Please fill in all required fields');
       return;
     }
@@ -41,6 +115,34 @@ export function EvidenceSubmissionForm({ bucketId, onSuccess }: EvidenceSubmissi
     setSuccess(false);
 
     try {
+      // Find or create bucket for this skill category
+      let targetBucketId = bucketId;
+      const existingBucket = availableBuckets.find(b => b.skill_category === skillCategory);
+      
+      if (existingBucket) {
+        targetBucketId = existingBucket.id;
+      } else {
+        // Create new bucket for this skill category
+        const createRes = await fetch('/api/identity/reputation/bucket', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            partitionId,
+            skillCategory,
+            initialScore: 0
+          })
+        });
+        
+        const createData = await createRes.json();
+        if (!createData.ok) {
+          setError('Failed to create reputation bucket');
+          setLoading(false);
+          return;
+        }
+        
+        targetBucketId = createData.data.id;
+      }
+
       const evidenceData = {
         title,
         description,
@@ -52,7 +154,7 @@ export function EvidenceSubmissionForm({ bucketId, onSuccess }: EvidenceSubmissi
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          bucketId,
+          bucketId: targetBucketId,
           evidenceType,
           evidenceData,
           weight
@@ -68,6 +170,7 @@ export function EvidenceSubmissionForm({ bucketId, onSuccess }: EvidenceSubmissi
         setUrl('');
         setEvidenceType('');
         setWeight(0.5);
+        // Don't reset skill category - keep it selected for next submission
         
         if (onSuccess) {
           setTimeout(() => onSuccess(), 1500);
@@ -83,10 +186,73 @@ export function EvidenceSubmissionForm({ bucketId, onSuccess }: EvidenceSubmissi
   };
 
   return (
-    <div className="rounded-lg border border-slate-700 bg-slate-900/60 shadow-sm backdrop-blur p-6">
-      <div className="flex items-center gap-2 mb-4">
-        <FileText size={20} className="text-purple-400" />
-        <h3 className="text-lg font-semibold text-slate-100">Submit Evidence</h3>
+    <div className="p-6">
+      {/* Domain Selector & Current Reputation */}
+      <div className="mb-6 space-y-3">
+        {/* Domain Selector */}
+        <div>
+          <label htmlFor="domain-selector" className="block text-xs font-medium text-slate-400 mb-2">
+            Select Domain
+          </label>
+          <select
+            id="domain-selector"
+            value={skillCategory}
+            onChange={(e) => setSkillCategory(e.target.value)}
+            className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-md text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            aria-label="Select reputation domain"
+          >
+            <option value="">Select a domain...</option>
+            {skillCategories.map(cat => {
+              const existingBucket = availableBuckets.find(b => b.skill_category === cat.value);
+              return (
+                <option key={cat.value} value={cat.value}>
+                  {cat.label} {existingBucket ? `(Score: ${Math.round(existingBucket.score)})` : '(New)'}
+                </option>
+              );
+            })}
+          </select>
+        </div>
+
+        {/* Current Reputation Score Display */}
+        {currentScore !== null && currentBucket !== null && skillCategory && (
+          <div className="p-4 bg-slate-800/50 border border-slate-700/50 rounded-md">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <TrendingUp size={16} className={getScoreColor(currentScore)} />
+                  <span className="text-xs text-slate-400 font-medium">
+                    {skillCategories.find(c => c.value === skillCategory)?.label || skillCategory.replace(/_/g, ' ')}
+                  </span>
+                </div>
+                {availableBuckets.find(b => b.skill_category === skillCategory) ? (
+                  <span className="text-xs text-emerald-400">✓ Existing</span>
+                ) : (
+                  <span className="text-xs text-yellow-400">⚠ New Domain</span>
+                )}
+              </div>
+              <div className="flex items-center gap-6">
+                <div>
+                  <div className="text-xs text-slate-500">Score</div>
+                  <div className={`text-2xl font-bold ${getScoreColor(currentScore)}`}>
+                    {Math.round(currentScore)}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-slate-500">Bucket</div>
+                  <div className={`text-2xl font-bold ${getBucketColor(currentBucket)}`}>
+                    {currentBucket}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-slate-500">Evidence</div>
+                  <div className="text-2xl font-bold text-indigo-400">
+                    {availableBuckets.find(b => b.skill_category === skillCategory)?.evidence_count || 0}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">

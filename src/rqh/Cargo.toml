@@ -16,4 +16,3 @@ ic-stable-structures = "0.6"
 
 [dependencies.ic-cdk-macros]
 version = "0.9"
-features = ["export"]
