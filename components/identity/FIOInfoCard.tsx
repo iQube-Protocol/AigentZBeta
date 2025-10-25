@@ -191,9 +191,9 @@ export function FIOInfoCard({ personaId }: FIOInfoCardProps) {
                   <Copy size={14} />
                 )}
               </button>
-              {!fioInfo.fio_tx_id.startsWith('mock_') && (
+              {!fioInfo.fio_tx_id.startsWith('mock_') && !fioInfo.fio_tx_id.startsWith('fallback_') && (
                 <a
-                  href={`https://fio.bloks.io/transaction/${fioInfo.fio_tx_id}`}
+                  href={`https://fio-test.bloks.io/transaction/${fioInfo.fio_tx_id}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-indigo-400 hover:text-indigo-300 transition-colors"

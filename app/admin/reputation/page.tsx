@@ -376,6 +376,7 @@ export default function ReputationAdminPage() {
                 {/* Evidence Submission */}
                 <EvidenceSubmissionForm
                   bucketId={reputationDetails.reputation.id}
+                  partitionId={selectedPersona.id}
                   onSuccess={() => loadReputationDetails(selectedPersona.id)}
                 />
               </>

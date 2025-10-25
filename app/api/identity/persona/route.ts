@@ -3,7 +3,24 @@ import { PersonaService } from '@/services/identity/personaService';
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+// CRITICAL: Must use SERVICE_ROLE_KEY to bypass RLS for persona operations
+// Try multiple possible environment variable names
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY 
+  || process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY 
+  || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+
+// Log environment variable status for debugging
+console.log('[Persona API] Environment check:', {
+  hasServiceRoleKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+  hasPublicServiceRoleKey: !!process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY,
+  hasAnonKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  usingKey: process.env.SUPABASE_SERVICE_ROLE_KEY ? 'SERVICE_ROLE' : 'ANON'
+});
+
+if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  console.error('[Persona API] WARNING: SUPABASE_SERVICE_ROLE_KEY not set! RLS policies will apply and may cause errors.');
+  console.error('[Persona API] Available env vars:', Object.keys(process.env).filter(k => k.includes('SUPABASE')));
+}
 
 export async function GET(req: NextRequest) {
   try {
