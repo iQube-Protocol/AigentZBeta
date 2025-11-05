@@ -1,0 +1,169 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { resolveIdentity } from '@/services/identity/identityResolver';
+import { getSupabaseServer } from '../../_lib/supabaseServer';
+import { verifyX402Signature } from '@/services/x402/signing';
+import { baseHeadersSchema, validateByIntent } from '@/services/x402/schemas';
+import { shouldEscrow } from '@/services/x402/policy';
+import { bindAliasToDid } from '@/services/identity/identityResolver';
+
+export async function POST(req: NextRequest) {
+  const headers = Object.fromEntries(req.headers.entries());
+  const payload = await req.json().catch(() => ({}));
+  const intent = headers['x-402-intent'];
+  const sender = headers['x-402-sender'];
+  const recipient = headers['x-402-recipient'];
+  if (!intent || !sender || !recipient) {
+    return NextResponse.json({ ok: false, error: 'Missing required x402 headers' }, { status: 400 });
+  }
+  const headerCheck = baseHeadersSchema.safeParse(headers as any);
+  if (!headerCheck.success) {
+    return NextResponse.json({ ok: false, error: 'Invalid headers', details: headerCheck.error.flatten() }, { status: 400 });
+  }
+  const payloadCheck = validateByIntent(intent, payload);
+  if (!(payloadCheck as any).success) {
+    return NextResponse.json({ ok: false, error: 'Invalid payload', details: (payloadCheck as any).error?.flatten?.() || 'schema' }, { status: 400 });
+  }
+  const resolvedSender = await resolveIdentity(sender);
+  const resolvedRecipient = await resolveIdentity(recipient);
+  const consentAliasBind = String(headers['x-402-consent-alias-bind'] || '').toLowerCase() === 'true';
+
+  const supabase = getSupabaseServer();
+  if (!supabase) {
+    return NextResponse.json({ ok: false, error: 'Supabase not configured' }, { status: 500 });
+  }
+  const validSig = await verifyX402Signature(headers as any, payload);
+  if (!validSig) {
+    return NextResponse.json({ ok: false, error: 'Invalid signature' }, { status: 400 });
+  }
+  const insertHeaders: Record<string, string> = {
+    ...headers,
+    'x-402-resolved-sender': resolvedSender.canonicalDid,
+    'x-402-resolved-recipient': resolvedRecipient.canonicalDid,
+  };
+  const { data: msgRow, error: msgErr } = await supabase
+    .from('x402_messages')
+    .insert({
+      intent,
+      headers: insertHeaders,
+      payload,
+      state: 'received',
+      resolved_sender_did: resolvedSender.canonicalDid,
+      resolved_recipient_did: resolvedRecipient.canonicalDid,
+    })
+    .select('id')
+    .single();
+  if (msgErr) {
+    return NextResponse.json({ ok: false, error: msgErr.message }, { status: 500 });
+  }
+  const settlement = {
+    message_id: msgRow.id,
+    asset: headers['x-402-asset'] || 'QCT.QCENT',
+    amount: headers['x-402-amount'] || '0',
+    status: 'pending',
+  } as any;
+  const { data: settleRow, error: settleErr } = await supabase
+    .from('x402_settlements')
+    .insert(settlement)
+    .select('id')
+    .single();
+  if (settleErr) {
+    return NextResponse.json({ ok: false, error: settleErr.message }, { status: 500 });
+  }
+  try {
+    const chainIdHeader = headers['x-402-chainid'] || headers['x-402-chain-id'];
+    const tokenHeader = headers['x-402-tokenaddress'] || headers['x-402-token-address'];
+    const payToHeader = headers['x-402-payto'] || headers['x-402-pay-to'];
+    const chainId = Number(chainIdHeader || 80002);
+    const tokenAddress = (tokenHeader as string) || '0x4C4f1aD931589449962bB675bcb8e95672349d09';
+    const treasury = process.env.TREASURY_ADDRESS || '0x742d35Cc6634C0532925a3b8D4C9db96C4b5Da5f';
+    const to = (payToHeader as string) || treasury;
+    const rawAmount = headers['x-402-amount'] || '0';
+    const amountQcent = BigInt(rawAmount);
+    const amountWei = (amountQcent * 10n ** 18n).toString();
+    const escrow = shouldEscrow({ intent, amountQcent });
+    if (!escrow) {
+      const signerUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/a2a/signer/transfer`;
+      const a2aBody = {
+        chainId,
+        amount: amountWei,
+        asset: 'QCT',
+        agentId: 'aigent-z',
+        to,
+        tokenAddress,
+      };
+      const r = await fetch(signerUrl, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(a2aBody),
+      });
+      const text = await r.text();
+      let txHash: string | null = null;
+      try {
+        const parsed = JSON.parse(text);
+        txHash = parsed?.txHash || null;
+      } catch {}
+      if (r.ok && txHash) {
+        await supabase
+          .from('x402_settlements')
+          .update({ status: 'paid', escrow_tx: txHash })
+          .eq('id', settleRow.id);
+      }
+    }
+  } catch (e) {
+    // leave settlement pending if payment fails; continue
+  }
+  try {
+    if (intent === 'iqube.grant' && payload?.capability) {
+      const cap = payload.capability;
+      const isFio = (headers['x-402-recipient'] || '').includes('@');
+      await supabase.from('iqube_capabilities').insert({
+        iqube_ref: cap.iqube_ref,
+        audience_did: resolvedRecipient.canonicalDid,
+        audience_alias: consentAliasBind && isFio ? [{ type: 'fio', value: headers['x-402-recipient'] }] : null,
+        scope: cap.scope || [],
+        ttl: cap.ttl ? new Date(cap.ttl).toISOString() : null,
+        state: 'active',
+        acl_delta_sig: payload.acl_delta_sig || null,
+      });
+      if (consentAliasBind && isFio) {
+        const handle = (headers['x-402-recipient'] as string).replace(/^fio:/i, '');
+        await bindAliasToDid(resolvedRecipient.canonicalDid, 'fio', handle);
+      }
+      await supabase.from('iqube_events').insert({
+        iqube_ref: cap.iqube_ref,
+        type: 'grant',
+        x402_message_id: msgRow.id,
+        identity_snapshot: {
+          sender: resolvedSender.canonicalDid,
+          recipient: resolvedRecipient.canonicalDid,
+        },
+      });
+    } else if (intent === 'iqube.deliver') {
+      await supabase.from('deliveries').insert({
+        message_id: msgRow.id,
+        meta_cid: payload?.meta?.cid || null,
+        blak_uri: payload?.blak?.uri || null,
+        hashes: {
+          meta: payload?.meta?.hash || null,
+          blak: payload?.blak?.hash || null,
+        },
+        status: 'pending',
+      });
+      if (payload?.license && payload?.meta?.cid) {
+        await supabase.from('iqube_events').insert({
+          iqube_ref: payload?.capability?.iqube_ref || insertHeaders['x-402-ref'] || null,
+          type: 'deliver',
+          x402_message_id: msgRow.id,
+          state_proof: { license: payload.license },
+          identity_snapshot: {
+            sender: resolvedSender.canonicalDid,
+            recipient: resolvedRecipient.canonicalDid,
+          },
+        });
+      }
+    }
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: e?.message || 'Persistence error' }, { status: 500 });
+  }
+  return NextResponse.json({ ok: true, data: { messageId: msgRow.id, settlementId: settleRow.id } }, { status: 202 });
+}

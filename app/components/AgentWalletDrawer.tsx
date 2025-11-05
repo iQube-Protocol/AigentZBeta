@@ -2,6 +2,8 @@
 import React from "react";
 import { useBalances } from "@/app/hooks/useBalances";
 import { useDVNEvents } from "@/app/hooks/useDVNEvents";
+import AliasConsentToggle from "@/components/identity/AliasConsentToggle";
+import SettlementRetryButton from "@/components/x402/SettlementRetryButton";
 
 type Props = {
   open: boolean;
@@ -12,6 +14,15 @@ type Props = {
 export default function AgentWalletDrawer({ open, onClose, agent }: Props) {
   const bals = useBalances({ sepolia: agent.evmSepolia, arb: agent.evmArb, btc: agent.btcAddress });
   const evs = useDVNEvents(agent.id);
+  const [aliasConsent, setAliasConsent] = React.useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    try { return localStorage.getItem('x402_alias_consent') === 'true'; } catch { return false; }
+  });
+  React.useEffect(() => {
+    try { localStorage.setItem('x402_alias_consent', aliasConsent ? 'true' : 'false'); } catch {}
+  }, [aliasConsent]);
+  const [retrySettlementId, setRetrySettlementId] = React.useState<string>("");
+  const [retryMessageId, setRetryMessageId] = React.useState<string>("");
   const formatToken = (raw?: string, decimals?: number, fractionDigits: number = 0) => {
     try {
       const d = typeof decimals === "number" ? decimals : 0;
@@ -131,6 +142,29 @@ export default function AgentWalletDrawer({ open, onClose, agent }: Props) {
             <div className="text-[11px] uppercase tracking-wider text-slate-400 mb-2">Identity</div>
             <div className="text-xs text-slate-300">
               FIO: {agent.fioHandle || "—"}
+            </div>
+            <div className="mt-3">
+              <AliasConsentToggle consented={aliasConsent} onChange={setAliasConsent} />
+              <div className="text-[11px] text-slate-400 mt-1">Header used in x402 send: X-402-Consent-Alias-Bind: {aliasConsent ? 'true' : 'false'}</div>
+            </div>
+          </section>
+
+          <section className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-3">
+            <div className="text-[11px] uppercase tracking-wider text-slate-400 mb-2">x402 Settlement</div>
+            <div className="space-y-2">
+              <input
+                value={retrySettlementId}
+                onChange={(e) => setRetrySettlementId(e.target.value)}
+                placeholder="Settlement ID (optional)"
+                className="w-full px-2 py-1.5 text-sm rounded bg-black/40 ring-1 ring-white/10 text-slate-200 placeholder:text-slate-500"
+              />
+              <input
+                value={retryMessageId}
+                onChange={(e) => setRetryMessageId(e.target.value)}
+                placeholder="Message ID (optional)"
+                className="w-full px-2 py-1.5 text-sm rounded bg-black/40 ring-1 ring-white/10 text-slate-200 placeholder:text-slate-500"
+              />
+              <SettlementRetryButton settlementId={retrySettlementId || undefined} messageId={retryMessageId || undefined} />
             </div>
           </section>
         </div>
