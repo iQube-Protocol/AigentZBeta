@@ -16,7 +16,7 @@
     "deploy:qct-reserve": "hardhat run scripts/deploy-qct-reserve.js"
   },
   "dependencies": {
-    "@noble/ed25519": "^1.9.1",
+    "@noble/ed25519": "1.7.3",
     "@dfinity/agent": "^3.2.6",
     "@dfinity/candid": "^3.2.6",
     "@dfinity/identity": "^3.2.7",
