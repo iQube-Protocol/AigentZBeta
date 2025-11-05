@@ -2,8 +2,8 @@
 import React from "react";
 import { useBalances } from "@/app/hooks/useBalances";
 import { useDVNEvents } from "@/app/hooks/useDVNEvents";
-import AliasConsentToggle from "@/components/identity/AliasConsentToggle";
-import SettlementRetryButton from "@/components/x402/SettlementRetryButton";
+import AliasConsentToggle from "./identity/AliasConsentToggle";
+import SettlementRetryButton from "./x402/SettlementRetryButton";
 
 type Props = {
   open: boolean;
