@@ -16,6 +16,7 @@
     "deploy:qct-reserve": "hardhat run scripts/deploy-qct-reserve.js"
   },
   "dependencies": {
+    "@noble/ed25519": "1.7.3",
     "@dfinity/agent": "^3.2.6",
     "@dfinity/candid": "^3.2.6",
     "@dfinity/identity": "^3.2.7",
@@ -54,7 +55,8 @@
     "tailwindcss": "^3.3.3",
     "tailwindcss-animate": "^1.0.7",
     "tiny-secp256k1": "^2.2.4",
-    "uuid": "^13.0.0"
+    "uuid": "^13.0.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.1.0",

@@ -3,6 +3,8 @@ import React, { useState, useCallback, useEffect } from "react";
 import { X, Copy, ExternalLink, Send, Download, CheckCircle, Wallet, ArrowUpRight, ArrowDownLeft, Shield, Circle } from "lucide-react";
 import { getAgentConfig, getAgentSupportedChains, chainConfigs } from "@/app/data/agentConfig";
 // Removed useBalances import - using direct balance fetching instead
+import AliasConsentToggle from "@/app/components/identity/AliasConsentToggle";
+import SettlementRetryButton from "@/app/components/x402/SettlementRetryButton";
 
 interface AgentWalletDrawerProps {
   open: boolean;
@@ -32,6 +34,15 @@ export default function AgentWalletDrawer({ open, onClose, agent }: AgentWalletD
   });
   const [loading, setLoading] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
+  const [aliasConsent, setAliasConsent] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    try { return localStorage.getItem('x402_alias_consent') === 'true'; } catch { return false; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('x402_alias_consent', aliasConsent ? 'true' : 'false'); } catch {}
+  }, [aliasConsent]);
+  const [retrySettlementId, setRetrySettlementId] = useState<string>("");
+  const [retryMessageId, setRetryMessageId] = useState<string>("");
 
   const agentConfig = getAgentConfig(agent.id);
   const supportedChains = getAgentSupportedChains(agent.id);
@@ -616,8 +627,50 @@ export default function AgentWalletDrawer({ open, onClose, agent }: AgentWalletD
               );
             })}
           </div>
+
+          {/* Identity (card) */}
+          <div className="bg-white/5 ring-1 ring-white/10 rounded p-3">
+            <h4 className="text-xs font-medium text-slate-200 mb-3 tracking-wide">Identity</h4>
+            <div className="text-xs text-slate-300">FIO: {agentConfig.fioId || "—"}</div>
+            <div className="mt-3">
+              <AliasConsentToggle consented={aliasConsent} onChange={setAliasConsent} />
+              <div className="text-[11px] text-slate-400 mt-1">X-402-Consent-Alias-Bind: {aliasConsent ? 'true' : 'false'}</div>
+            </div>
+          </div>
+
+          {/* x402 Settlement (card) */}
+          <div className="bg-white/5 ring-1 ring-white/10 rounded p-3">
+            <h4 className="text-xs font-medium text-slate-200 mb-3 tracking-wide">x402 Settlement</h4>
+            <div className="space-y-2">
+              <div>
+                <label className="block text-[11px] text-slate-400 mb-1">
+                  Settlement ID
+                  <span title="The UUID of the x402_settlements row to retry. Leave blank if using Message ID." className="ml-1 cursor-help text-slate-500">?</span>
+                </label>
+                <input
+                  value={retrySettlementId}
+                  onChange={(e) => setRetrySettlementId(e.target.value)}
+                  placeholder="e.g. 8a2f..."
+                  className="w-full px-2 py-1.5 text-sm rounded bg-black/40 ring-1 ring-white/10 text-slate-200 placeholder:text-slate-500"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] text-slate-400 mb-1">
+                  Message ID
+                  <span title="The UUID of the x402_messages row. If provided (and Settlement ID omitted), the latest settlement for this message is retried." className="ml-1 cursor-help text-slate-500">?</span>
+                </label>
+                <input
+                  value={retryMessageId}
+                  onChange={(e) => setRetryMessageId(e.target.value)}
+                  placeholder="e.g. 5b1d..."
+                  className="w-full px-2 py-1.5 text-sm rounded bg-black/40 ring-1 ring-white/10 text-slate-200 placeholder:text-slate-500"
+                />
+              </div>
+              <SettlementRetryButton settlementId={retrySettlementId || undefined} messageId={retryMessageId || undefined} />
+            </div>
+          </div>
+        </div>
         </div>
       </div>
-    </div>
   );
 }
