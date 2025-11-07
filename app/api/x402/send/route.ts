@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
   if (!headerCheck.success) {
     return NextResponse.json({ ok: false, error: 'Invalid headers', details: headerCheck.error.flatten() }, { status: 400 });
   }
-  const payloadCheck = validateByIntent(intent, payload);
+  const payloadCheck = validateByIntent(intent, payload, headers as any);
   if (!(payloadCheck as any).success) {
     return NextResponse.json({ ok: false, error: 'Invalid payload', details: (payloadCheck as any).error?.flatten?.() || 'schema' }, { status: 400 });
   }
@@ -70,6 +70,55 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: settleErr.message }, { status: 500 });
   }
   try {
+    // Persist DVN attestation root if provided
+    const dvnRoot = headers['x-402-dvn-attest'];
+    if (dvnRoot) {
+      await supabase.from('dvn_attestations').insert({
+        message_id: msgRow.id,
+        root: String(dvnRoot),
+        msg_hash: null,
+      });
+    }
+
+    // Delivery mode routing
+    const deliveryMode = String(headers['x-402-delivery-mode'] || '').toLowerCase();
+    if (deliveryMode === 'custody' && intent === 'iqube.grant' && payload?.capability) {
+      const cap = payload.capability as any;
+      const iqubeRef: string = cap.iqube_ref || headers['x-402-ref'] || '';
+      const toDid = resolvedRecipient.canonicalDid;
+      // Attempt simple chain parse from ref: iq:chain/contract/tokenId
+      let chain: string | null = null;
+      try { const p = String(iqubeRef).split(':')[1]?.split('/') || []; chain = p[0] || null; } catch {}
+      await supabase.from('custody_events').insert({
+        iqube_ref: iqubeRef,
+        to_did: toDid,
+        scope: cap.scope || [],
+        ttl: cap.ttl ? new Date(cap.ttl).toISOString() : null,
+        x402_message_id: msgRow.id,
+        x402_hash: null,
+        dvn_root: dvnRoot || null,
+        chain,
+        block_number: null,
+        tx_hash: null,
+      });
+    }
+
+    if (intent === 'asset.claim' && payload?.rights && payload?.redeem_to) {
+      const claimId: string = payload.claim_id || msgRow.id;
+      const fromChain: string = payload.from_chain || headers['x-402-chain-from'] || 'polygon';
+      await supabase.from('claims').insert({
+        claim_id: claimId,
+        asset: String(payload.rights.asset),
+        amount: String(payload.rights.amount),
+        from_chain: String(fromChain),
+        to_chain: String(payload.redeem_to.chain),
+        to_did: resolvedRecipient.canonicalDid,
+        expiry: payload.expiry ? new Date(payload.expiry).toISOString() : null,
+        dvn_root: String(headers['x-402-dvn-attest'] || ''),
+        status: 'open',
+      });
+    }
+
     const chainIdHeader = headers['x-402-chainid'] || headers['x-402-chain-id'];
     const tokenHeader = headers['x-402-tokenaddress'] || headers['x-402-token-address'];
     const payToHeader = headers['x-402-payto'] || headers['x-402-pay-to'];
