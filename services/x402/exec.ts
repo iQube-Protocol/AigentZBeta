@@ -1,4 +1,4 @@
-import { AbiCoder, JsonRpcProvider, Wallet, keccak256, toUtf8Bytes } from 'ethers';
+import { AbiCoder, JsonRpcProvider, Wallet, keccak256, toUtf8Bytes, zeroPadValue, isHexString } from 'ethers';
 import { tokenQubeACLAt } from '../contracts/ITokenQubeACL';
 import { claimManagerAt } from '../contracts/IClaimManager';
 import { loadExecConfig } from './config';
@@ -55,15 +55,16 @@ export async function executeCustodyGrant(input: {
     msgSig: input.messageSig || '0x',
   };
 
-  // STUB: Do not execute on-chain writes yet; return plan
-  // const provider = new JsonRpcProvider(chainCfg.rpcUrl);
-  // const signer = new Wallet(cfg.treasuryPrivateKey!, provider);
-  // const acl = tokenQubeACLAt(chainCfg.aclAddress!, signer);
-  // const tx = await acl.grantCapability(plan.tokenId, plan.to, plan.scopeHash, plan.ttl, plan.limits, plan.dvnAttestation, plan.msgSig);
-  // const receipt = await tx.wait();
-  // return { ok: true, executed: true, txHash: receipt?.hash };
-
-  return { ok: true, executed: false, plan };
+  try {
+    const provider = new JsonRpcProvider(chainCfg.rpcUrl);
+    const signer = new Wallet(cfg.treasuryPrivateKey!, provider);
+    const acl = tokenQubeACLAt(chainCfg.aclAddress!, signer);
+    const tx = await acl.grantCapability(plan.tokenId, plan.to, plan.scopeHash, plan.ttl, plan.limits, plan.dvnAttestation, plan.msgSig);
+    const receipt = await tx.wait();
+    return { ok: true, executed: true, txHash: receipt?.hash };
+  } catch (e: any) {
+    return { ok: false, executed: false, reason: e?.message || 'custody exec error', plan };
+  }
 }
 
 export async function executeClaimRedeem(input: {
@@ -80,20 +81,50 @@ export async function executeClaimRedeem(input: {
   if (!chainCfg?.rpcUrl || !chainCfg.claimManagerAddress) return { ok: true, executed: false, reason: 'rpc or claimManagerAddress not configured', plan: { chain: input.toChain } };
   if (!cfg.treasuryPrivateKey) return { ok: true, executed: false, reason: 'missing signer key', plan: { chain: input.toChain } };
 
-  const plan = {
-    claimId: input.claimId,
-    to: input.toAddress,
-    amount: input.amountWei,
-    dvnAttestation: input.dvnAttestation || '0x',
+  // Normalize claimId to bytes32
+  const toBytes32 = (v: string): string => {
+    if (!v) return '0x' + '00'.repeat(32);
+    if (isHexString(v)) {
+      const hex = v as `0x${string}`;
+      const len = (hex.length - 2) / 2;
+      if (len === 32) return hex;
+      return zeroPadValue(hex, 32);
+    }
+    // UUID -> strip dashes, treat as hex if valid length else hash
+    const noDash = v.replace(/-/g, '');
+    if (/^[0-9a-fA-F]+$/.test(noDash) && noDash.length <= 64) {
+      const padded = noDash.padStart(64, '0');
+      return '0x' + padded.toLowerCase();
+    }
+    return keccak256(toUtf8Bytes(v));
   };
 
-  // STUB: Do not execute on-chain writes yet
-  // const provider = new JsonRpcProvider(chainCfg.rpcUrl);
-  // const signer = new Wallet(cfg.treasuryPrivateKey!, provider);
-  // const cm = claimManagerAt(chainCfg.claimManagerAddress!, signer);
-  // const tx = await cm.redeem(plan.claimId, plan.to, plan.amount, plan.dvnAttestation);
-  // const receipt = await tx.wait();
-  // return { ok: true, executed: true, txHash: receipt?.hash };
+  const normalizedClaimId = toBytes32(input.claimId);
+  const normalizedAttestation = input.dvnAttestation && input.dvnAttestation !== '0x'
+    ? toBytes32(input.dvnAttestation)
+    : ('0x' + '00'.repeat(32));
+  const to = input.toAddress && input.toAddress !== '' ? input.toAddress : '0x0000000000000000000000000000000000000000';
 
-  return { ok: true, executed: false, plan };
+  const plan = {
+    claimId: normalizedClaimId,
+    to,
+    amount: input.amountWei,
+    dvnAttestation: normalizedAttestation,
+    original: {
+      claimId: input.claimId,
+      toAddress: input.toAddress,
+      dvnAttestation: input.dvnAttestation || '0x'
+    }
+  };
+
+  try {
+    const provider = new JsonRpcProvider(chainCfg.rpcUrl);
+    const signer = new Wallet(cfg.treasuryPrivateKey!, provider);
+    const cm = claimManagerAt(chainCfg.claimManagerAddress!, signer);
+    const tx = await cm.redeem(plan.claimId, plan.to, plan.amount, plan.dvnAttestation);
+    const receipt = await tx.wait();
+    return { ok: true, executed: true, txHash: receipt?.hash };
+  } catch (e: any) {
+    return { ok: false, executed: false, reason: e?.message || 'claim exec error', plan };
+  }
 }

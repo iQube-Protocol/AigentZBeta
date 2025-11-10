@@ -13,10 +13,19 @@ export type X402ExecConfig = {
 };
 
 export function loadExecConfig(): X402ExecConfig {
-  const enabled = (process.env.X402_EXEC_ENABLED || 'false').toLowerCase() === 'true';
-  const custodyEnabled = (process.env.CUSTODY_ENABLED || 'false').toLowerCase() === 'true';
-  const claimEnabled = (process.env.CLAIM_ENABLED || 'false').toLowerCase() === 'true';
-  const treasuryPrivateKey = process.env.TREASURY_PRIVATE_KEY;
+  const enabled = [
+    process.env.X402_EXEC_ENABLED,
+    process.env.X402_EXECUTION_ENABLED
+  ].some(v => (v || '').toLowerCase() === 'true');
+  const custodyEnabled = [
+    process.env.CUSTODY_ENABLED,
+    process.env.X402_EXEC_CUSTODY_ENABLED
+  ].some(v => (v || '').toLowerCase() === 'true');
+  const claimEnabled = [
+    process.env.CLAIM_ENABLED,
+    process.env.X402_EXEC_CLAIM_ENABLED
+  ].some(v => (v || '').toLowerCase() === 'true');
+  const treasuryPrivateKey = process.env.TREASURY_PRIVATE_KEY || process.env.EVM_DEPLOYER_KEY;
 
   // Optional JSON blob for chain config
   // Example: {"polygon":{"rpcUrl":"https://...","aclAddress":"0x..."},"arbitrum":{"rpcUrl":"https://...","claimManagerAddress":"0x..."}}
@@ -32,8 +41,11 @@ export function loadExecConfig(): X402ExecConfig {
     chains[key] = { ...cur, ...patch } as ChainConfig;
   };
   if (process.env.POLYGON_RPC_URL) ensure('polygon', { rpcUrl: process.env.POLYGON_RPC_URL });
+  if (process.env.NEXT_PUBLIC_RPC_POLYGON_AMOY && !chains['polygon']?.rpcUrl) ensure('polygon', { rpcUrl: process.env.NEXT_PUBLIC_RPC_POLYGON_AMOY });
   if (process.env.ARBITRUM_RPC_URL) ensure('arbitrum', { rpcUrl: process.env.ARBITRUM_RPC_URL });
   if (process.env.POLYGON_ACL_ADDRESS) ensure('polygon', { aclAddress: process.env.POLYGON_ACL_ADDRESS });
+  if (process.env.ARBITRUM_ACL_ADDRESS) ensure('arbitrum', { aclAddress: process.env.ARBITRUM_ACL_ADDRESS });
+  if (process.env.POLYGON_CLAIM_MANAGER_ADDRESS) ensure('polygon', { claimManagerAddress: process.env.POLYGON_CLAIM_MANAGER_ADDRESS });
   if (process.env.ARBITRUM_CLAIM_MANAGER_ADDRESS) ensure('arbitrum', { claimManagerAddress: process.env.ARBITRUM_CLAIM_MANAGER_ADDRESS });
 
   return { enabled, custodyEnabled, claimEnabled, chains, treasuryPrivateKey };

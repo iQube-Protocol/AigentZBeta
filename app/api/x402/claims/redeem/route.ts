@@ -12,23 +12,33 @@ export async function POST(req: NextRequest) {
     const toAddress: string | undefined = body?.toAddress; // optional override
     if (!claimId) return NextResponse.json({ ok: false, error: 'claimId required' }, { status: 400 });
 
-    const { data: claim, error } = await supabase
+    // Try new schema first (claim_id), then legacy (id)
+    let { data: claim, error } = await supabase
       .from('claims')
       .select('*')
       .eq('claim_id', claimId)
       .single();
-    if (error || !claim) return NextResponse.json({ ok: false, error: error?.message || 'Claim not found' }, { status: 404 });
+    if (error || !claim) {
+      const fallback = await supabase
+        .from('claims')
+        .select('*')
+        .eq('id', claimId)
+        .single();
+      claim = fallback.data as any;
+      error = fallback.error as any;
+      if (error || !claim) return NextResponse.json({ ok: false, error: error?.message || 'Claim not found' }, { status: 404 });
+    }
     if (claim.status !== 'open') return NextResponse.json({ ok: false, error: `Claim status is ${claim.status}` }, { status: 400 });
 
     // Convert amount (q¢ integer) to wei for QCT-like flows (18 decimals)
-    const amountQcent = BigInt(String(claim.amount || '0'));
+    const amountQcent = BigInt(String((claim.amount ?? claim.amount_qcent) || '0'));
     const amountWei = (amountQcent * 10n ** 18n).toString();
 
     const res = await executeClaimRedeem({
-      claimId: claim.claim_id,
-      toAddress,
+      claimId: String(claim.claim_id || claim.id),
+      toAddress: toAddress || String(claim.redeem_to || ''),
       amountWei,
-      toChain: String(claim.to_chain),
+      toChain: String(claim.to_chain || 'polygon'),
       dvnAttestation: String(claim.dvn_root || ''),
     });
 
@@ -37,7 +47,7 @@ export async function POST(req: NextRequest) {
       await supabase.from('claims').update({ status: 'redeemed' }).eq('claim_id', claimId);
     }
 
-    return NextResponse.json({ ok: true, executed: res.executed, txHash: res.txHash, plan: res.plan });
+    return NextResponse.json({ ok: true, executed: res.executed, txHash: res.txHash, plan: res.plan, reason: res.reason });
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || 'redeem error' }, { status: 500 });
   }

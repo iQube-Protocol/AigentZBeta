@@ -13,7 +13,8 @@
     "deploy:qct-runes": "node scripts/deploy-qct-runes.js",
     "deploy:qct-erc20": "hardhat run scripts/deploy-qct-erc20.js",
     "deploy:qct-spl": "node scripts/deploy-qct-spl.js",
-    "deploy:qct-reserve": "hardhat run scripts/deploy-qct-reserve.js"
+    "deploy:qct-reserve": "hardhat run scripts/deploy-qct-reserve.js",
+    "deploy:acl-claim": "hardhat run scripts/deploy-acl-claim.js"
   },
   "dependencies": {
     "@noble/ed25519": "1.7.3",

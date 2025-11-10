@@ -27,7 +27,7 @@ export const agentConfigs: Record<string, AgentConfig> = {
   "aigent-z": {
     id: "aigent-z",
     name: "Aigent Z",
-    fioId: "z@aigent",
+    fioId: "aigentz@aigent",
     color: "blue",
     walletAddresses: {
       evmAddress: "0x0e3a4FDbE83F7e206380E6C61CA016F2127FF844",
