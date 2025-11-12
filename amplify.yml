@@ -71,4 +71,18 @@ applications:
         NEXT_PUBLIC_RPC_SEPOLIA: ${NEXT_PUBLIC_RPC_SEPOLIA}
         NEXT_PUBLIC_RPC_ARB_SEPOLIA: ${NEXT_PUBLIC_RPC_ARB_SEPOLIA}
         NEXT_PUBLIC_USDC_SEPOLIA: ${NEXT_PUBLIC_USDC_SEPOLIA}
+
+  - appRoot: services/aa-api
+    frontend:
+      phases:
+        preBuild:
+          commands: []
+        build:
+          commands: []
+      artifacts:
+        baseDirectory: /
+        files:
+          - '**/*'
+      cache:
+        paths: []
     
