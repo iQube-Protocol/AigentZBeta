@@ -27,16 +27,17 @@ const allowedList = new Set(
 app.use((req, res, next) => {
   const origin = req.headers.origin as string | undefined;
   let allow = false;
+  const wildcard = allowedList.has('*');
   if (origin) {
     try {
       const u = new URL(origin);
       const host = u.host; // e.g., 6916...--aigent-moneypenny.netlify.app
-      if (allowedList.has(origin)) allow = true;
+      if (wildcard || allowedList.has(origin)) allow = true;
       else if (/\.netlify\.(app|com)$/i.test(host)) allow = true;
     } catch {}
   }
-  if (allow && origin) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
+  if (allow) {
+    res.setHeader('Access-Control-Allow-Origin', wildcard ? '*' : (origin || '*'));
   }
   res.setHeader('Vary', 'Origin');
   next();
@@ -44,6 +45,7 @@ app.use((req, res, next) => {
 
 app.use(cors({
   origin: (origin, cb) => {
+    if (allowedList.has('*')) return cb(null, true);
     if (!origin) return cb(null, true);
     try {
       const u = new URL(origin);
