@@ -38,6 +38,7 @@ app.use((req, res, next) => {
   }
   if (allow) {
     res.setHeader('Access-Control-Allow-Origin', wildcard ? '*' : (origin || '*'));
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
   }
   res.setHeader('Vary', 'Origin');
   next();
@@ -57,6 +58,7 @@ app.use(cors({
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   maxAge: 600,
+  credentials: true,
 }));
 
 // Handle preflight early
@@ -65,6 +67,7 @@ app.use((req, res, next) => {
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     res.setHeader('Access-Control-Max-Age', '600');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
     return res.sendStatus(204);
   }
   next();
