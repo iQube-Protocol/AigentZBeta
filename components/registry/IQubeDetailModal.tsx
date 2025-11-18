@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { X, Pencil } from "lucide-react";
 import { useToast } from "../ui/Toaster";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
+import { IQUBE_ABI } from "@/lib/abi/iqube";
+import { BrowserProvider, Contract, ethers, parseEther, BigNumber, keccak256, toUtf8Bytes} from 'ethers';
 
 interface IQubeDetailModalProps {
   templateId: string;
@@ -16,6 +18,9 @@ export const IQubeDetailModal: React.FC<IQubeDetailModalProps> = ({ templateId, 
   const [error, setError] = useState<string | null>(null);
   const [template, setTemplate] = useState<any | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const [tokenId, setTokenId] = useState<string | undefined>(undefined);
+  // derive parentTemplateId from loaded template (will be undefined until template loads)
+  const parentTemplateId = template?.parentTemplateId ?? undefined;
   const router = useRouter();
   const { toast } = useToast();
   // Mint notice state
@@ -50,6 +55,54 @@ export const IQubeDetailModal: React.FC<IQubeDetailModalProps> = ({ templateId, 
     if (typeof window === 'undefined') return false;
     return localStorage.getItem(`active_private_${tid}`) === '1';
   };
+
+  const [hasMetaMask, setHasMetaMask] = useState(false);
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const [chainId, setChainId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const eth = (window as any).ethereum;
+    setHasMetaMask(Boolean(eth && eth.isMetaMask));
+    if (!eth) return;
+    const handleAccounts = (accounts: string[]) => setWalletAddress(accounts[0] ?? null);
+    const handleChain = (cid: string) => setChainId(cid);
+
+    eth.request?.({ method: 'eth_accounts' }).then((accs: string[]) => handleAccounts(accs)).catch(()=>{});
+    eth.on?.('accountsChanged', handleAccounts);
+    eth.on?.('chainChanged', handleChain);
+    return () => {
+      eth.removeListener?.('accountsChanged', handleAccounts);
+      eth.removeListener?.('chainChanged', handleChain);
+    };
+  }, []);
+
+  async function connectMetaMask(): Promise<string | null> {
+    try {
+      const eth = (window as any).ethereum;
+      if (!eth) throw new Error('MetaMask not installed');
+      const accounts: string[] = await eth.request({ method: 'eth_requestAccounts' });
+      const acc = accounts?.[0] ?? null;
+      setWalletAddress(acc);
+      const cid = await eth.request({ method: 'eth_chainId' });
+      setChainId(cid);
+      return acc;
+    } catch (err) {
+      console.error('MetaMask connect error', err);
+      return null;
+    }
+  }
+  async function signMessage(msg: string): Promise<string | null> {
+    try {
+      const eth = (window as any).ethereum;
+      if (!eth || !walletAddress) throw new Error('Not connected');
+      // personal_sign expects [message, address]
+      const sig = await eth.request({ method: 'personal_sign', params: [msg, walletAddress] });
+      return sig;
+    } catch (err) {
+      console.error('Sign error', err);
+      return null;
+    }
+  }
 
   // ----- BlakQube mock schema helpers -----
   type BQField = { key: string; label: string; source: string; icon: string };
@@ -257,7 +310,169 @@ export const IQubeDetailModal: React.FC<IQubeDetailModalProps> = ({ templateId, 
     }
   }
 
-  // ... (rest of the code remains the same)
+
+  async function performMintWithMetaMask(opts: { templateId: string; parentTemplateId?: string | number | undefined; tokenId?: string | number | undefined; visibility?: 'public'|'private' }) {
+    setIsMinting(true);
+    try {
+      // log right before fetch to catch sync errors
+      console.log('[mint] about to call /api/core/mint/');
+      // 1) Prepare server-side payload
+      const mintRes = await fetch('/api/core/mint/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          visibility: opts.visibility || mintChoice,
+          templateId: opts.templateId,
+          parentTemplateId: opts.parentTemplateId ?? 0,
+          tokenId: opts.tokenId ?? tokenId,
+          network: 'ethereum',
+        }),
+      });
+      // Always log in browser console
+      console.log('💡 Fetch resolved:', mintRes);
+
+      const rawText = await mintRes.text();
+      console.log('Raw fetch response:', rawText);
+
+
+      let mintJson: any;
+
+      try {
+        mintJson = JSON.parse(rawText);
+      } catch (err) {
+        console.error('❌ Failed to parse mint JSON:', err);
+        throw new Error('Server returned invalid JSON');
+      }
+      if (!mintRes.ok) {
+        throw new Error(mintJson?.error || JSON.stringify(mintJson));
+      }
+
+      const {
+        tokenId: serverTokenId,
+        fileUri,
+        encryptionKey,
+        templateId,
+        parentTemplateId,
+        isProvenanceTemplate,
+        network,
+      } = mintJson;
+
+      console.log('✅ Parsed mint response:', mintJson);
+
+      // 2) Ensure MetaMask and connect
+      const eth = (window as any).ethereum;
+      if (!eth) throw new Error('MetaMask not found');
+
+      await connectMetaMask(); // uses the existing connectMetaMask() in this file
+
+
+      const provider = new BrowserProvider(eth);
+      const signer = await provider.getSigner();
+      const hoodiChainId = '0xaa36a7'; // replace with actual hex chain ID, e.g. 0x539 for local Hardhat (1337)
+      const hoodiNetworkName = 'Ethereum Sepolia';
+      try {
+        await eth.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: hoodiChainId }],
+        });
+        console.log(`✅ Switched to ${hoodiNetworkName}`);
+      } catch (error) {
+        console.warn(`⚠️ Could not switch to ${hoodiNetworkName}:`, error);
+
+      }
+
+      // 4) Prepare contract (replace with your contract address, ABI & function)
+      const CONTRACT_ADDRESS = '0x6BCe4463425E6E972D82f1650CC72017C52dBc5D';
+      const CONTRACT_ABI = IQUBE_ABI;
+
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+
+      const tokenIdBN = ethers.toBigInt(serverTokenId ?? opts.tokenId ?? 0n);
+      const templateIdBN = ethers.toBigInt(
+        keccak256(toUtf8Bytes(opts.templateId ?? templateId))
+      );
+
+      const parentTemplateIdBN = ethers.toBigInt(
+      typeof (opts.parentTemplateId ?? parentTemplateId) === 'number'
+        ? opts.parentTemplateId ?? parentTemplateId
+        : keccak256(toUtf8Bytes(String(opts.parentTemplateId ?? parentTemplateId ?? '0')))
+      );
+      console.log('🔢 tokenIdBN:', tokenIdBN.toString());
+      console.log('🔢 templateIdBN:', templateIdBN.toString());
+      console.log('🔢 parentTemplateIdBN:', parentTemplateIdBN.toString());
+
+      // 5) Call the mint function - adjust function name & params to match your contract
+      const address = await signer.getAddress();
+      const balance = await provider.getBalance(address);
+      console.log('💰 Wallet balance (wei):', balance.toString());
+
+
+      const priceValue = typeof template?.price === 'number' ? template.price : 0;
+      const overrides: any = {};
+      //if (priceValue && priceValue > 0) {
+       // overrides.value = parseEther(String(priceValue));
+      //}
+
+      // Estimate gas requirement
+      const gasEstimate = await contract.mintQube.estimateGas(
+        fileUri,
+        encryptionKey ?? '',
+        tokenIdBN,
+        templateIdBN,
+        parentTemplateIdBN,
+        true,
+        overrides
+      );
+
+      const gasPrice = await provider.getFeeData();
+      const estimatedCost = gasEstimate * (gasPrice.gasPrice ?? 0n);
+      console.log('⛽ Gas estimate:', gasEstimate.toString(), 'at', gasPrice.gasPrice?.toString(), 'wei');
+
+      console.log('🚀 Sending mintQube tx...');
+      console.log('fileUri, encryptionKey:', fileUri, encryptionKey);
+
+      const tx = await contract.mintQube(
+        fileUri,                     // string
+        encryptionKey ?? '',         // string
+        tokenIdBN,                   // BigInt
+        templateIdBN,                // BigInt
+        parentTemplateIdBN,          // BigInt
+        Boolean(isProvenanceTemplate ?? true),
+        overrides                         // isProvenanceTemplate, or use variable
+      );
+
+      // wait for confirmation
+      console.log('🧾 Mint transaction sent:', tx.hash);
+      const receipt = await tx.wait();
+      console.log('✅ Mint transaction confirmed:', receipt);
+
+      console.log('opts.templateId', opts.templateId);
+      // 6) Update UI / local state
+      setMinted(opts.templateId, true);
+      setOwner(opts.templateId, true);
+
+      try { 
+        localStorage.removeItem(`library_${opts.templateId}`); 
+      } catch (err){
+        console.warn('⚠️ Could not clear localStorage:', err);
+      }
+
+      window.dispatchEvent(
+        new CustomEvent('registryTemplateUpdated', { 
+          detail: { tokenId: serverTokenId, receipt } 
+        })
+      );
+      try { toast('Mint successful', 'success'); } catch {}
+      return { success: true, receipt, tokenId: serverTokenId };
+
+    } catch (err: any) {
+      console.error('Mint failed:', err);
+      try { toast(err?.message || 'Mint failed', 'error'); } catch {}
+      return { success: false, error: err?.message || String(err) };
+    } finally {
+      setIsMinting(false);
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -826,7 +1041,7 @@ export const IQubeDetailModal: React.FC<IQubeDetailModalProps> = ({ templateId, 
                       blakqubeLabels: bqEditFields,
                     };
                     const res = await fetch(`/api/registry/templates/${templateId}`, {
-                      method: 'PATCH',
+                      method: 'PUT',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify(payload),
                     });
@@ -870,7 +1085,10 @@ export const IQubeDetailModal: React.FC<IQubeDetailModalProps> = ({ templateId, 
             <button
               className={`px-3 py-1.5 text-sm rounded-lg ${isMinting ? 'opacity-60 pointer-events-none' : ''} bg-emerald-600 text-white hover:bg-emerald-500`}
               disabled={isMinting}
-              onClick={() => setMintPromptOpen(true)}
+              onClick={() => {
+                console.log('[mint UI] Mint button clicked', { templateId });
+                setMintPromptOpen(true);
+              }}
               title="Mint this iQube to the Registry"
             >
               Mint to Registry
@@ -900,31 +1118,27 @@ export const IQubeDetailModal: React.FC<IQubeDetailModalProps> = ({ templateId, 
           title="Mint iQube"
           onCancel={() => setMintPromptOpen(false)}
           onConfirm={async () => {
-            if (!template) { setMintPromptOpen(false); return; }
+            console.log('[mint] onConfirm called');
             setMintPromptOpen(false);
-            setIsMinting(true);
             try {
-              // Include user id if available
-              let body: any = { visibility: mintChoice };
-              try {
-                const r = await fetch('/api/dev/user');
-                if (r.ok) { const j = await r.json(); if (j?.validUuid && j?.devUserId) body.userId = j.devUserId; }
-              } catch {}
-              const res = await fetch(`/api/registry/templates/${templateId}`, {
-                method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+              setIsMinting(true);
+              // log right before fetch to catch sync errors
+              console.log('[mint] about to call /api/core/mint/');
+              const result = await performMintWithMetaMask({
+                templateId, // shorter form of templateId: templateId
+                parentTemplateId,
+                tokenId,
+                visibility: mintChoice,
               });
-              const { json, text } = await parseResponse(res);
-              if (!res.ok) throw new Error(json?.error || text || 'Mint failed');
-              setMinted(templateId, true);
-              setOwner(templateId, true);
-              // Clear library flag so Registry badge shows
-              try { localStorage.removeItem(`library_${templateId}`); } catch {}
-              try { toast(mintChoice==='public' ? 'Minted to the Public Registry' : 'Minted to the Registry Privately', 'success'); } catch {}
-              try { window.dispatchEvent(new CustomEvent('registryTemplateUpdated', { detail: json })); } catch {}
-              // Close the modal after successful mint
-              try { onClose(); } catch {}
-            } catch (e) {
-              try { toast(e instanceof Error ? e.message : 'Mint failed', 'error'); } catch {}
+              if (result?.success) {
+                // handle success (toast, update UI)
+              } else {
+                // handle error (result.error)
+                throw new Error(result?.error || 'Mint failed');
+              }
+            } catch (err: any) {
+              console.error('Mint error', err);
+              toast(err?.message || 'Mint failed', 'error');
             } finally {
               setIsMinting(false);
             }

@@ -1,4 +1,14 @@
 // iQubeService.ts - API service for iQube operations
+import { ethers } from "ethers";
+import { getMetaMaskWallet } from "@/services/wallet/metamask";
+import { IQUBE_ABI } from "@/lib/abi/iqube";
+
+
+export interface MintResult {
+  success: boolean;
+  txHash?: string;
+  error?: string;
+}
 
 // Types for iQube data
 export interface MetaQubeItem {
@@ -9,6 +19,7 @@ export interface MetaQubeItem {
   scoreType?: string;
   description?: string;
 }
+
 
 export interface BlakQubeData {
   [key: string]: string | any; // Encrypted data strings or structured data
@@ -73,21 +84,56 @@ export const mintIQube = async (
   templateId: string, 
   metaData: Array<{key: string, value: string, source: string}>,
   blakData?: Record<string, string>
-): Promise<boolean> => {
+): Promise<MintResult> => {
   // Simulate minting process
-  await new Promise(resolve => setTimeout(resolve, 1500));
+  //await new Promise(resolve => setTimeout(resolve, 1500));
   
   // In a real implementation, this would send the data to a blockchain or database
-  console.log(`Minting iQube from template ${templateId}`);
-  console.log('Meta data:', metaData);
-  console.log('Blak data:', blakData);
+  //console.log(`Minting iQube from template ${templateId}`);
+  //console.log('Meta data:', metaData);
+  //console.log('Blak data:', blakData);
   
   // Generate a mock transaction ID for the mint operation
-  const txId = `tx_${Math.random().toString(36).substring(2, 10)}`;
-  console.log(`Generated transaction ID: ${txId}`);
+  //const txId = `tx_${Math.random().toString(36).substring(2, 10)}`;
+  //console.log(`Generated transaction ID: ${txId}`);
   
-  // Always return success for mock
-  return true;
+  try{
+    console.log("🔗 Connecting to MetaMask...");
+    const wallet = getMetaMaskWallet();
+    await wallet.switchChain(560048);
+    // Prepare Ethers signer
+    const provider = new ethers.BrowserProvider((window as any).ethereum);
+    const signer = await provider.getSigner();
+    const contractAddress = process.env.IQUBE_CONTRACT_ADDRESS!;
+    const contract = new ethers.Contract(contractAddress, IQUBE_ABI, signer);
+    console.log("✅ Connected. Preparing mint data...");
+
+    // Example: build your mint args from template/meta data
+    const uri = metaData.find(d => d.key === "URI")?.value || "ipfs://example";
+    const encryptionKey = blakData?.encryptionKey || "default_key";
+    const customTokenId = Math.floor(Math.random() * 1_000_000);
+    const parentTemplateId = 0;
+    const isProvenanceTemplate = false;
+
+    console.log("🚀 Sending mint transaction...");
+    const tx = await contract.mintQube(
+      uri,
+      encryptionKey,
+      customTokenId,
+      templateId,
+      parentTemplateId,
+      isProvenanceTemplate
+    );
+
+    console.log("⏳ Waiting for confirmation...");
+    const receipt = await tx.wait();
+    console.log("✅ Mint successful:", receipt.transactionHash);
+    return { success: true, txHash: receipt.transactionHash };
+  }catch (err: any) {
+    console.error("❌ Mint failed:", err);
+    return { success: false, error: err.message };
+  }
+
 };
 
 export const activateIQube = async (qubeId: string, type: string): Promise<boolean> => {

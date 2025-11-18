@@ -68,6 +68,11 @@ export function AddIQuBeForm() {
   const [status, setStatus] = useState<{ success?: boolean; message: string } | null>(null);
   const [price, setPrice] = useState<string>("");
 
+  //template information 
+  const [templateId, setTemplateId] = useState<string>("");
+  const [parentTemplateId, setParentTemplateId] = useState<string>("");
+  const [isProvenanceTemplate, setIsProvenanceTemplate] = useState<boolean>(false);
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setIsLoading(true);

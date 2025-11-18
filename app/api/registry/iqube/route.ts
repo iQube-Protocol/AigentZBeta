@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('🔥 [iqube] Route hit');
     const body = await request.json();
     const { meta, blak, coreRef } = body;
     
