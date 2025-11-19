@@ -681,9 +681,9 @@ export default function OpsPage() {
             const rpcHost = actualEndpoint;
             // Get block height from testnet data, not anchor data
             const blockHeight = typeof (btc.data as any)?.blockHeight === 'number' ? (btc.data as any).blockHeight : '—';
-            const displayTx = btc.anchor?.txid;
-            const explorerBase = (process.env.NEXT_PUBLIC_RPC_BTC_TESTNET?.replace(/\/$/, '') || 'https://mempool.space/testnet/api').replace('/api','');
-            const txUrl = displayTx ? `${explorerBase}/tx/${displayTx}` : undefined;
+            const latestTx = btc.anchor?.txid || btc.latestTx?.txid || '—';
+            const explorerBase = 'https://blockstream.info/testnet';
+            const txUrl = (latestTx !== '—') ? `${explorerBase}/tx/${latestTx}` : undefined;
             return (
               <Card key={key} title={
                 <span className="inline-flex items-center gap-2">
@@ -699,28 +699,50 @@ export default function OpsPage() {
                   <span className="text-slate-400">RPC:</span>
                   <span className="text-xs text-slate-300">{rpcHost}</span>
                 </div>
-                {displayTx && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Latest TX:</span>
-                    <span className="flex items-center gap-1 max-w-[60%] justify-end">
-                      <a href={txUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-indigo-300 hover:text-white truncate" title={displayTx}>
-                        <span className="truncate font-mono">{displayTx}</span>
-                        <ExternalLink size={12} className="flex-shrink-0" />
-                      </a>
-                      <button
-                        aria-label="Copy TX Hash"
-                        className="text-slate-400 hover:text-white flex-shrink-0"
-                        onClick={() => displayTx && navigator.clipboard.writeText(displayTx)}
-                        title="Copy"
-                      >
-                        <Copy size={12} />
-                      </button>
-                    </span>
-                  </div>
-                )}
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Latest TX:</span>
+                  <span className="flex items-center gap-1 max-w-[60%] justify-end">
+                    {latestTx !== '—' ? (
+                      <>
+                        <a href={txUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-indigo-300 hover:text-white truncate" title={latestTx}>
+                          <span className="truncate font-mono">{latestTx}</span>
+                          <ExternalLink size={12} className="flex-shrink-0" />
+                        </a>
+                        <button
+                          aria-label="Copy TX Hash"
+                          className="text-slate-400 hover:text-white flex-shrink-0"
+                          onClick={() => navigator.clipboard.writeText(latestTx)}
+                          title="Copy"
+                        >
+                          <Copy size={12} />
+                        </button>
+                      </>
+                    ) : (
+                      <span className="text-xs text-slate-300">{latestTx}</span>
+                    )}
+                  </span>
+                </div>
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400">Block Height:</span>
-                  <span className="text-xs text-slate-300">{blockHeight}</span>
+                  <span className="flex items-center gap-1 max-w-[60%] justify-end">
+                    {blockHeight !== '—' ? (
+                      <>
+                        <a href={`https://blockstream.info/testnet/block-height/${blockHeight}`} target="_blank" rel="noreferrer" className="text-xs text-indigo-300 hover:text-white inline-flex items-center gap-1">
+                          <span>{blockHeight}</span>
+                          <ExternalLink size={12} className="flex-shrink-0" />
+                        </a>
+                        <button
+                          aria-label="Copy Block Height"
+                          className="text-slate-400 hover:text-white flex-shrink-0"
+                          onClick={() => navigator.clipboard.writeText(String(blockHeight))}
+                        >
+                          <Copy size={12} />
+                        </button>
+                      </>
+                    ) : (
+                      <span className="text-xs text-slate-300">{blockHeight}</span>
+                    )}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400">Last Check:</span>
@@ -974,10 +996,13 @@ export default function OpsPage() {
             const anchorStatus = btc.anchor?.status;
             const details = btc.anchor?.details ?? '';
             const latestTx = btc.latestTx;
-            const explorer = process.env.NEXT_PUBLIC_RPC_BTC_TESTNET?.replace(/\/$/, '') || 'https://mempool.space/testnet/api';
-            const displayTx = txid || (lastAnchorId !== '—' ? String(lastAnchorId) : undefined);
+            const explorer = 'https://blockstream.info/testnet';
+            // Only use txid for display - lastAnchorId is a batch ID, not a Bitcoin txid
+            const displayTx = txid;
             const txUrl = displayTx ? `${explorer.replace('/api','')}/tx/${displayTx}` : undefined;
             const latestTxUrl = latestTx?.txid ? `${explorer.replace('/api','')}/tx/${latestTx.txid}` : undefined;
+            // Helper to check if string is a valid Bitcoin txid (64 hex chars)
+            const isValidBitcoinTxid = (str: string) => /^[a-f0-9]{64}$/i.test(str);
             async function doAnchor() {
               try {
                 const response = await fetch('/api/ops/btc/anchor', { method: 'POST' });
@@ -1043,22 +1068,19 @@ export default function OpsPage() {
                   <span className="text-slate-400">Last Anchor:</span>
                   <span className="flex items-center gap-1 max-w-[60%] justify-end">
                     {lastAnchorId !== '—' ? (
-                      <a href={`https://mempool.space/testnet/tx/${lastAnchorId}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-indigo-300 hover:text-white truncate" title={String(lastAnchorId)}>
-                        <span className="truncate">{String(lastAnchorId)}</span>
-                        <ExternalLink size={12} className="flex-shrink-0" />
-                      </a>
+                      <>
+                        <span className="text-xs text-slate-300 truncate" title={`Batch ID: ${String(lastAnchorId)}`}>{String(lastAnchorId)}</span>
+                        <button
+                          aria-label="Copy Batch ID"
+                          className="text-slate-400 hover:text-white flex-shrink-0"
+                          onClick={() => navigator.clipboard.writeText(String(lastAnchorId))}
+                          title="Copy Batch ID"
+                        >
+                          <Copy size={12} />
+                        </button>
+                      </>
                     ) : (
-                      <span className="text-xs text-slate-300 truncate" title={String(lastAnchorId)}>{String(lastAnchorId)}</span>
-                    )}
-                    {lastAnchorId !== '—' && (
-                      <button
-                        aria-label="Copy Last Anchor"
-                        className="text-slate-400 hover:text-white flex-shrink-0"
-                        onClick={() => navigator.clipboard.writeText(String(lastAnchorId))}
-                        title="Copy"
-                      >
-                        <Copy size={12} />
-                      </button>
+                      <span className="text-xs text-slate-300 truncate">{String(lastAnchorId)}</span>
                     )}
                   </span>
                 </div>
@@ -1567,13 +1589,13 @@ export default function OpsPage() {
                 console.log('Bitcoin balance:', balance);
                 
                 if (balance.total === 0) {
-                  throw new Error('Insufficient testnet BTC. Get testnet BTC from:\nhttps://testnet-faucet.mempool.co/\nor\nhttps://bitcoinfaucet.uo1.net/');
+                  throw new Error('Insufficient testnet BTC. Get testnet BTC from:\nhttps://testnet-faucet.com/\nor\nhttps://bitcoinfaucet.uo1.net/');
                 }
                 
                 // Check if we have enough for dust limit + fees (minimum ~1000 sats)
                 const minRequired = 1000; // 546 dust + ~454 for fees
                 if (balance.total < minRequired) {
-                  throw new Error(`Insufficient testnet BTC for transaction.\n\nYou have: ${balance.total} sats\nNeed at least: ${minRequired} sats (dust limit + fees)\n\nGet more testnet BTC from:\n• https://testnet-faucet.mempool.co/\n• https://bitcoinfaucet.uo1.net/\n• https://coinfaucet.eu/en/btc-testnet/`);
+                  throw new Error(`Insufficient testnet BTC for transaction.\n\nYou have: ${balance.total} sats\nNeed at least: ${minRequired} sats (dust limit + fees)\n\nGet more testnet BTC from:\n• https://testnet-faucet.com/\n• https://bitcoinfaucet.uo1.net/\n• https://coinfaucet.eu/en/btc-testnet/`);
                 }
                 
                 // Send dust limit (546 sats) self-transfer
@@ -1620,7 +1642,7 @@ export default function OpsPage() {
                   errorMsg = 'Transaction rejected by user in Unisat wallet';
                 } else if (errorMsg.includes('Insufficient')) {
                   errorMsg = 'Insufficient testnet BTC for transaction fees. Get testnet BTC from:\n\n' +
-                    '• https://testnet-faucet.mempool.co/\n' +
+                    '• https://testnet-faucet.com/\n' +
                     '• https://bitcoinfaucet.uo1.net/\n' +
                     '• https://coinfaucet.eu/en/btc-testnet/';
                 } else if (errorMsg.includes('not installed')) {
