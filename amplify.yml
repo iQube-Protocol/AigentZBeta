@@ -76,24 +76,13 @@ applications:
     frontend:
       phases:
         preBuild:
-          commands:
-            - echo "Installing Node.js 20.18.0 for AA API..."
-            - nvm install 20.18.0
-            - nvm use 20.18.0
-            - echo "Node.js version (AA API):"
-            - node --version
-            - echo "Installing AA API dependencies..."
-            - npm ci
+          commands: []
         build:
-          commands:
-            - echo "Building AA API..."
-            - npm run build
+          commands: []
       artifacts:
         baseDirectory: /
         files:
           - '**/*'
       cache:
-        paths:
-          - node_modules/**/*
-          - dist/**/*
+        paths: []
     
