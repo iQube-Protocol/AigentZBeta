@@ -26,5 +26,11 @@
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "**/*.d.ts", ".next/types/**/*.ts"],
-  "exclude": ["node_modules", "AigentZBeta/**/*", "scripts/**/*"]
+  "exclude": [
+    "node_modules",
+    "AigentZBeta/**/*",
+    "scripts/**/*",
+    "services/aa-api/**/*",
+    "services/agentiq-wallet/**/*"
+  ]
 }
