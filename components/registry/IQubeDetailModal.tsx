@@ -313,6 +313,50 @@ export const IQubeDetailModal: React.FC<IQubeDetailModalProps> = ({ templateId, 
 
   async function performMintWithMetaMask(opts: { templateId: string; parentTemplateId?: string | number | undefined; tokenId?: string | number | undefined; visibility?: 'public'|'private' }) {
     setIsMinting(true);
+    try{
+      console.log('[mint] about to call /api/core/mint/');
+      // Build server payload. Include useServerMint so server knows to sign/send.
+      const payload = {
+        visibility: opts.visibility || mintChoice,
+        templateId: opts.templateId,
+        parentTemplateId: opts.parentTemplateId ?? 0,
+        tokenId: opts.tokenId ?? tokenId,
+      };
+      const mintRes = await fetch('/api/core/mint/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const mintJson = await mintRes.json().catch(() => null);
+      console.log('💡 Mint API response:', mintRes.status, mintJson);
+      if (!mintRes.ok) {
+        // Prefer server-provided error message when available
+        const errMsg = mintJson?.error || (mintJson ? JSON.stringify(mintJson) : 'Mint API request failed');
+        throw new Error(errMsg);
+      }
+
+      // Expect server to return success + txHash or tokenId
+      const { success, txHash, tokenId: serverTokenId, onChainReceipt } = mintJson;
+      if (!success) {
+        throw new Error(mintJson?.error || 'Mint API reported failure');
+      }
+
+      // Success — update UI/local state
+      setMinted(opts.templateId, true);
+      setOwner(opts.templateId, true);
+      try { localStorage.removeItem(`library_${opts.templateId}`); } catch (err) { /* ignore */ }
+      try { toast('Mint request accepted — transaction submitted', 'success'); } catch {}
+
+      return { success: true, txHash, tokenId: serverTokenId, receipt: onChainReceipt };
+
+    } catch (err: any) {
+      console.error('Mint failed:', err);
+      try { toast(err?.message || 'Mint failed', 'error'); } catch {}
+      return { success: false, error: err?.message || String(err) };
+    } finally {
+      setIsMinting(false);
+    }
+    /*
     try {
       // log right before fetch to catch sync errors
       console.log('[mint] about to call /api/core/mint/');
@@ -472,6 +516,7 @@ export const IQubeDetailModal: React.FC<IQubeDetailModalProps> = ({ templateId, 
     } finally {
       setIsMinting(false);
     }
+    */
   }
 
   return (
