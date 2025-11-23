@@ -15,13 +15,16 @@ supabaseRouter.post('/jwt', requireAuth, async (req, res) => {
 
     if (!env.SUPABASE_JWT_SECRET) return res.status(500).json({ error: 'SUPABASE_JWT_SECRET not configured' });
 
-    const claims: any = {
+    const claims = {
       sub: did,
       role: 'authenticated',
       tenant_id,
     };
 
-    const token = jwt.sign(claims, env.SUPABASE_JWT_SECRET, { algorithm: 'HS256', expiresIn });
+    const token = jwt.sign(claims, env.SUPABASE_JWT_SECRET, { 
+      algorithm: 'HS256', 
+      expiresIn: expiresIn as string | number
+    });
     return res.json({ ok: true, token, expiresIn });
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'failed to mint supabase jwt' });
