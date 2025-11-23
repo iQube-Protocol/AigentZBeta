@@ -3,8 +3,9 @@ runtime: nodejs22
 
 build:
   commands:
-    - npm install
-    - npm run build
+    build:
+      - npm install
+      - npm run build
 
 run:
   command: npm run start
