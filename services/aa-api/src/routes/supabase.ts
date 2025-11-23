@@ -11,7 +11,7 @@ export const supabaseRouter = Router();
 supabaseRouter.post('/jwt', requireAuth, async (req, res) => {
   try {
     const { did, tenant_id } = (req as any).auth as { did: string; tenant_id: string };
-    const { expiresIn = '1h' } = (req.body || {}) as { expiresIn?: string };
+    const expiresInRaw = (req.body?.expiresIn || '1h') as string;
 
     if (!env.SUPABASE_JWT_SECRET) return res.status(500).json({ error: 'SUPABASE_JWT_SECRET not configured' });
 
@@ -21,11 +21,9 @@ supabaseRouter.post('/jwt', requireAuth, async (req, res) => {
       tenant_id,
     };
 
-    const token = jwt.sign(claims, env.SUPABASE_JWT_SECRET, { 
-      algorithm: 'HS256', 
-      expiresIn: expiresIn as string | number
-    });
-    return res.json({ ok: true, token, expiresIn });
+    // @ts-expect-error - jwt.sign type inference issue with expiresIn string type
+    const token = jwt.sign(claims, env.SUPABASE_JWT_SECRET, { expiresIn: expiresInRaw });
+    return res.json({ ok: true, token, expiresIn: expiresInRaw });
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'failed to mint supabase jwt' });
   }
