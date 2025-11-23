@@ -3,10 +3,8 @@ runtime: nodejs20
 
 build:
   commands:
-    pre-build:
-      - echo "Pre-build phase"
     build:
-      - npm ci
+      - npm install
       - npm run build
 
 run:
