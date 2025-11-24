@@ -8,7 +8,7 @@ build:
       - npm run build
 
 run:
-  command: npm run start
+  command: node dist/index.js
   network:
     port: 8080
   env:
