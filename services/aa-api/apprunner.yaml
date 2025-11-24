@@ -12,7 +12,6 @@ build:
       - echo "Build complete"
 
 run:
-  runtime-version: 18
   command: npm start
   network:
     port: 8080
