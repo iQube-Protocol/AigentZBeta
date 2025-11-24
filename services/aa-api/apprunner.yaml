@@ -3,14 +3,19 @@ runtime: nodejs18
 
 build:
   commands:
+    pre-build:
+      - echo "Skipping pre-build"
     build:
-      - npm install
+      - npm ci
       - npm run build
+    post-build:
+      - echo "Build complete"
 
 run:
-  command: node dist/index.js
+  runtime-version: 18
+  command: npm start
   network:
     port: 8080
   env:
     - name: NODE_ENV
-      value: "production"
+      value: production
