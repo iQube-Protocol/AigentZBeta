@@ -309,18 +309,42 @@ Your purpose is to make Aigent Z and the iQube ecosystem **operationally managea
 /**
  * CopilotKit Runtime Handler
  * This endpoint handles all CopilotKit requests from the frontend
+ * 
+ * Note: OpenAI client is lazily initialized to avoid build-time errors
+ * when OPENAI_API_KEY is not available during static analysis
  */
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-const serviceAdapter = new OpenAIAdapter({ openai });
 
-const copilotRuntime = new CopilotRuntime({
-  actions: allActions as any,
-});
+let _openai: OpenAI | null = null;
+let _serviceAdapter: OpenAIAdapter | null = null;
+let _copilotRuntime: CopilotRuntime | null = null;
+
+function getOpenAI() {
+  if (!_openai) {
+    _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  }
+  return _openai;
+}
+
+function getServiceAdapter() {
+  if (!_serviceAdapter) {
+    _serviceAdapter = new OpenAIAdapter({ openai: getOpenAI() });
+  }
+  return _serviceAdapter;
+}
+
+function getCopilotRuntime() {
+  if (!_copilotRuntime) {
+    _copilotRuntime = new CopilotRuntime({
+      actions: allActions as any,
+    });
+  }
+  return _copilotRuntime;
+}
 
 export const POST = async (req: NextRequest) => {
   const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-    runtime: copilotRuntime,
-    serviceAdapter,
+    runtime: getCopilotRuntime(),
+    serviceAdapter: getServiceAdapter(),
     endpoint: "/api/copilotkit",
   });
 
