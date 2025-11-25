@@ -163,7 +163,12 @@ export const provisionIdentityFlowAction = {
     const personaId = `persona_${Date.now()}`;
     const handle = fioHandle || `${personaName.toLowerCase().replace(/\s+/g, "")}@aigent`;
 
-    const steps = [
+    const steps: Array<{
+      step: number;
+      action: string;
+      status: string;
+      result: Record<string, unknown>;
+    }> = [
       {
         step: 1,
         action: "identity_create_kybe_did",
