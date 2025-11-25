@@ -24,6 +24,9 @@ export async function GET(req: NextRequest) {
     'uxrrr-q7777-77774-qaaaq-cai': 'BTC Signer'
   };
   
+  const proxyUrl = process.env.CYCLES_PROXY_URL;
+  const proxyKey = process.env.CYCLES_PROXY_KEY;
+  
   // Helper: parse dfx canister status output to extract cycles
   const getCyclesFromDfx = async (id: string) => {
     return await new Promise<{
@@ -72,8 +75,43 @@ export async function GET(req: NextRequest) {
         error: "canisterId parameter required"
       }), { status: 400 });
     }
+    
+    // 1) Try external dfx proxy if configured (used in Amplify/cloud)
+    if (proxyUrl && proxyKey) {
+      try {
+        const url = `${proxyUrl.replace(/\/$/, '')}/ic/cycles?canisterId=${encodeURIComponent(canisterId)}`;
+        const resp = await fetch(url, {
+          headers: {
+            'x-api-key': proxyKey
+          }
+        });
+        if (resp.ok) {
+          const data: any = await resp.json();
+          if (data?.ok && typeof data.cyclesRaw === 'number') {
+            const canisterName = canisterNames[canisterId] || 'Unknown';
+            return new Response(JSON.stringify({
+              ok: true,
+              canisterId,
+              name: canisterName,
+              cycles: data.cycles,
+              cyclesRaw: data.cyclesRaw,
+              status: data.status || 'good',
+              canisterStatus: data.canisterStatus || 'running',
+              memorySize: data.memorySize ?? null,
+              lastChecked: new Date().toISOString(),
+              source: 'dfx-proxy'
+            }), {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' }
+            });
+          }
+        }
+      } catch {
+        // ignore proxy failures and fall back to local logic
+      }
+    }
 
-    // First, try to read cycles using dfx canister status (controller identity)
+    // 2) Try local dfx canister status (controller identity, used on dev laptop)
     try {
       const { cyclesNum, cyclesDisplay, status } = await getCyclesFromDfx(canisterId);
       const canisterName = canisterNames[canisterId] || 'Unknown';
@@ -94,10 +132,10 @@ export async function GET(req: NextRequest) {
         headers: { 'Content-Type': 'application/json' }
       });
     } catch {
-      // If dfx fails (not installed / not on this host), fall back to management canister
+      // If local dfx fails (not installed / not on this host), fall back to management canister
     }
 
-    // IC Management Canister interface for canister_status
+    // 3) IC Management Canister interface for canister_status (last resort)
     const managementCanisterIdl = ({ IDL }: any) => {
       const CanisterId = IDL.Principal;
       const CanisterStatusResult = IDL.Record({

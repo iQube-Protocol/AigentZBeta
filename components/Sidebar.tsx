@@ -88,6 +88,7 @@ const sections: SidebarSection[] = [
     label: "Orchestrator",
     icon: <Bot size={16} />,
     items: [
+      { href: "/copilot", label: "Platform Copilot", icon: <Brain size={14} className="text-cyan-400" /> },
       { href: "/aigents/aigent-z", label: "Aigent Z (System AI)", icon: <Bot size={14} className="text-blue-400" /> },
       { href: "/aigents/aigent-moneypenny", label: "Aigent MoneyPenny", icon: <Bot size={14} className="text-purple-400" /> },
       { href: "/aigents/aigent-nakamoto", label: "Aigent Nakamoto", icon: <Bot size={14} className="text-orange-400" /> },
