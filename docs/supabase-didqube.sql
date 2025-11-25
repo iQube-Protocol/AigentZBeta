@@ -56,12 +56,18 @@ alter table public.persona_agent_binding enable row level security;
 alter table public.hcp_profile enable row level security;
 
 -- Basic permissive policies (tighten in later sprints)
-create policy if not exists "persona read own or public app" on public.persona
-  for select using (true);
-create policy if not exists "persona insert by authenticated" on public.persona
-  for insert with check (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "persona read own or public app" ON public.persona;
+CREATE POLICY "persona read own or public app" ON public.persona
+  FOR SELECT USING (true);
 
-create policy if not exists "bindings read" on public.persona_agent_binding
-  for select using (true);
-create policy if not exists "bindings write by authenticated" on public.persona_agent_binding
-  for insert with check (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "persona insert by authenticated" ON public.persona;
+CREATE POLICY "persona insert by authenticated" ON public.persona
+  FOR INSERT WITH CHECK (auth.role() = 'authenticated' OR auth.role() = 'service_role');
+
+DROP POLICY IF EXISTS "bindings read" ON public.persona_agent_binding;
+CREATE POLICY "bindings read" ON public.persona_agent_binding
+  FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "bindings write by authenticated" ON public.persona_agent_binding;
+CREATE POLICY "bindings write by authenticated" ON public.persona_agent_binding
+  FOR INSERT WITH CHECK (auth.role() = 'authenticated' OR auth.role() = 'service_role');

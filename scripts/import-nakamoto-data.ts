@@ -17,7 +17,20 @@ import * as path from 'path';
 // ============================================================================
 
 interface NakamotoExport {
-  franchise: {
+  export_metadata?: {
+    exported_at: string;
+    source_system: string;
+    version: string;
+  };
+  // New format
+  kb_documents?: KBDocument[];
+  system_prompt?: {
+    app: string;
+    scope: string;
+    prompt_text: string;
+  };
+  // Legacy format
+  franchise?: {
     name: string;
     slug: string;
     systemPrompt?: string;
@@ -25,18 +38,25 @@ interface NakamotoExport {
     uiUrl?: string;
     description?: string;
   };
-  knowledgeBase: {
+  knowledgeBase?: {
     documents: KBDocument[];
   };
   users: UserData[];
   interactions: InteractionData[];
+  stats?: Record<string, any>;
 }
 
 interface KBDocument {
   id?: string;
-  type: 'COYN' | 'KNYT' | 'iQube' | 'general';
+  slug?: string;
+  type?: 'COYN' | 'KNYT' | 'iQube' | 'general';
   title: string;
-  content: string;
+  content?: string;
+  content_text?: string;
+  lang?: string;
+  tags?: string[];
+  domain?: string;
+  topic?: string;
   metadata?: Record<string, any>;
   embedding?: number[];
   createdAt?: string;
@@ -44,28 +64,40 @@ interface KBDocument {
 
 interface UserData {
   id?: string;
+  source_user_id?: string;
   email?: string;
   name?: string;
   fioHandle?: string;
+  fio_handle?: string;
   walletAddress?: string;
+  wallet_address?: string;
+  tenant_id?: string;
+  status?: string;
+  persona_type?: string;
   persona?: {
     type?: string;
     avatar?: string;
     preferences?: Record<string, any>;
   };
+  invitation_status?: Record<string, any>;
   createdAt?: string;
+  created_at?: string;
 }
 
 interface InteractionData {
-  userId: string;
+  userId?: string;
+  user_id?: string;
   sessionId?: string;
+  session_id?: string;
   messages: Array<{
     role: 'user' | 'assistant' | 'system';
     content: string;
     timestamp?: string;
   }>;
   agentId?: string;
+  agent_id?: string;
   createdAt?: string;
+  created_at?: string;
 }
 
 // ============================================================================
@@ -170,12 +202,27 @@ async function importKnowledgeBase(
 
   for (const doc of documents) {
     try {
+      const title = doc.title || doc.slug || 'Untitled';
+      const content = doc.content || doc.content_text || '';
+      
+      // Determine doc type from domain or tags
+      let docType = doc.type || 'general';
+      if (!doc.type) {
+        if (doc.domain?.includes('coyn') || doc.tags?.some(t => t.toLowerCase().includes('coyn'))) {
+          docType = 'COYN';
+        } else if (doc.domain?.includes('knyt') || doc.tags?.some(t => t.toLowerCase().includes('knyt'))) {
+          docType = 'KNYT';
+        } else if (doc.tags?.some(t => t.toLowerCase().includes('iqube'))) {
+          docType = 'iQube';
+        }
+      }
+
       // Check if document already exists (by title + franchise)
       const { data: existing } = await supabase
         .from('knowledge_base')
         .select('id')
         .eq('franchise_id', franchiseId)
-        .eq('title', doc.title)
+        .eq('title', title)
         .single();
 
       if (existing) {
@@ -187,16 +234,22 @@ async function importKnowledgeBase(
         .from('knowledge_base')
         .insert({
           franchise_id: franchiseId,
-          doc_type: doc.type,
-          title: doc.title,
-          content: doc.content,
-          metadata: doc.metadata || {},
-          embedding: doc.embedding,
+          doc_type: docType,
+          title: title,
+          content: content,
+          metadata: {
+            ...doc.metadata,
+            slug: doc.slug,
+            tags: doc.tags,
+            domain: doc.domain,
+            topic: doc.topic,
+            lang: doc.lang,
+          },
           created_at: doc.createdAt || new Date().toISOString(),
         });
 
       if (error) {
-        console.error(`   ❌ Error importing "${doc.title}":`, error.message);
+        console.error(`   ❌ Error importing "${title}":`, error.message);
         errors++;
         continue;
       }
@@ -222,10 +275,15 @@ async function importUsers(
   const userIdMap = new Map<string, string>(); // old ID -> new ID
 
   for (const user of users) {
-    const fioHandle = user.fioHandle || user.email?.split('@')[0] + '@nakamoto' || `user_${Date.now()}`;
+    // Handle various field name formats
+    const sourceId = user.source_user_id || user.id;
+    const email = user.email;
+    const fioHandle = user.fioHandle || user.fio_handle || email?.split('@')[0] + '@nakamoto' || `user_${Date.now()}`;
+    const personaType = user.persona_type || user.persona?.type || 'semi_anonymous';
+    const createdAt = user.created_at || user.createdAt || new Date().toISOString();
 
     try {
-      // Check if persona already exists
+      // Check if persona already exists by fio_handle
       const { data: existing } = await supabase
         .from('persona')
         .select('id')
@@ -233,7 +291,7 @@ async function importUsers(
         .single();
 
       if (existing) {
-        if (user.id) userIdMap.set(user.id, existing.id);
+        if (sourceId) userIdMap.set(sourceId, existing.id);
         skipped++;
         continue;
       }
@@ -242,10 +300,10 @@ async function importUsers(
         .from('persona')
         .insert({
           fio_handle: fioHandle,
-          default_identity_state: user.persona?.type || 'semi_anonymous',
+          default_identity_state: personaType === 'knyt' ? 'semi_anonymous' : personaType,
           app_origin: 'nakamoto',
           franchise_id: franchiseId,
-          created_at: user.createdAt || new Date().toISOString(),
+          created_at: createdAt,
         })
         .select()
         .single();
@@ -256,8 +314,13 @@ async function importUsers(
         continue;
       }
 
-      if (user.id) userIdMap.set(user.id, newPersona.id);
+      if (sourceId) userIdMap.set(sourceId, newPersona.id);
       imported++;
+      
+      // Log progress every 100 users
+      if (imported % 100 === 0) {
+        console.log(`   ... imported ${imported} users so far`);
+      }
     } catch (err: any) {
       console.error(`   ❌ Error importing ${fioHandle}:`, err.message);
       errors++;
@@ -279,18 +342,24 @@ async function importInteractions(
 
   for (const interaction of interactions) {
     try {
+      // Handle various field name formats
+      const userId = interaction.userId || interaction.user_id;
+      const sessionId = interaction.sessionId || interaction.session_id || `session_${Date.now()}`;
+      const agentId = interaction.agentId || interaction.agent_id || 'nakamoto';
+      const createdAt = interaction.createdAt || interaction.created_at || new Date().toISOString();
+      
       // Map old user ID to new persona ID
-      const personaId = userIdMap.get(interaction.userId) || interaction.userId;
+      const personaId = userId ? (userIdMap.get(userId) || userId) : null;
 
       const { error } = await supabase
         .from('chat_history')
         .insert({
           franchise_id: franchiseId,
           persona_id: personaId,
-          session_id: interaction.sessionId || `session_${Date.now()}`,
-          agent_id: interaction.agentId || 'nakamoto',
+          session_id: sessionId,
+          agent_id: agentId,
           messages: interaction.messages,
-          created_at: interaction.createdAt || new Date().toISOString(),
+          created_at: createdAt,
         });
 
       if (error) {
@@ -304,6 +373,11 @@ async function importInteractions(
       }
 
       imported++;
+      
+      // Log progress every 100 interactions
+      if (imported % 100 === 0) {
+        console.log(`   ... imported ${imported} interactions so far`);
+      }
     } catch (err: any) {
       errors++;
     }
@@ -382,35 +456,60 @@ Example:
     process.exit(1);
   }
 
-  // Validate structure
-  if (!data.franchise) {
-    console.error('❌ Missing "franchise" in JSON');
-    process.exit(1);
-  }
+  // Handle both new and legacy formats
+  const kbDocuments = data.kb_documents || data.knowledgeBase?.documents || [];
+  const systemPrompt = data.system_prompt?.prompt_text || data.franchise?.systemPrompt;
+  const franchiseName = data.export_metadata?.source_system || data.franchise?.name || 'Nakamoto';
 
   console.log(`\n📊 Data Summary:`);
-  console.log(`   Franchise: ${data.franchise.name}`);
-  console.log(`   KB Documents: ${data.knowledgeBase?.documents?.length || 0}`);
+  console.log(`   Source: ${franchiseName}`);
+  console.log(`   KB Documents: ${kbDocuments.length}`);
   console.log(`   Users: ${data.users?.length || 0}`);
   console.log(`   Interactions: ${data.interactions?.length || 0}`);
+  if (systemPrompt) {
+    console.log(`   System Prompt: ${systemPrompt.length} chars`);
+  }
 
-  // Import franchise
-  const franchiseId = await importFranchise(data.franchise);
-  if (!franchiseId) {
-    console.error('❌ Failed to import franchise. Aborting.');
-    process.exit(1);
+  // Get or create Nakamoto franchise
+  const { data: existingFranchise } = await supabase
+    .from('franchises')
+    .select('id')
+    .eq('slug', 'nakamoto')
+    .single();
+
+  let franchiseId: string;
+  if (existingFranchise) {
+    franchiseId = existingFranchise.id;
+    console.log(`\n🏢 Using existing Nakamoto franchise (ID: ${franchiseId})`);
+  } else {
+    const { data: newFranchise, error } = await supabase
+      .from('franchises')
+      .insert({
+        name: 'Nakamoto',
+        slug: 'nakamoto',
+        description: 'Bitcoin-native AI agents and services',
+        active: true,
+      })
+      .select()
+      .single();
+
+    if (error || !newFranchise) {
+      console.error('❌ Failed to create franchise:', error?.message);
+      process.exit(1);
+    }
+    franchiseId = newFranchise.id;
+    console.log(`\n🏢 Created Nakamoto franchise (ID: ${franchiseId})`);
   }
 
   // Store system prompt if provided
-  if (data.franchise.systemPrompt) {
-    console.log(`\n📝 System prompt provided (${data.franchise.systemPrompt.length} chars)`);
-    // Store in franchise_config or similar table
+  if (systemPrompt) {
+    console.log(`\n📝 Storing system prompt (${systemPrompt.length} chars)`);
     const { error } = await supabase
       .from('franchise_config')
       .upsert({
         franchise_id: franchiseId,
         key: 'system_prompt',
-        value: data.franchise.systemPrompt,
+        value: systemPrompt,
       }, { onConflict: 'franchise_id,key' });
 
     if (error && error.code !== '42P01') {
@@ -421,8 +520,8 @@ Example:
   }
 
   // Import KB documents
-  const kbResults = data.knowledgeBase?.documents?.length
-    ? await importKnowledgeBase(data.knowledgeBase.documents, franchiseId)
+  const kbResults = kbDocuments.length
+    ? await importKnowledgeBase(kbDocuments, franchiseId)
     : { imported: 0, skipped: 0, errors: 0 };
 
   // Import users
