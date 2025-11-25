@@ -327,7 +327,5 @@ export const POST = async (req: NextRequest) => {
   return handleRequest(req);
 };
 
-// Force Node.js runtime
-export const config = {
-  runtime: "nodejs",
-};
+// Force Node.js runtime (Next.js 14+ route segment config)
+export const runtime = "nodejs";
