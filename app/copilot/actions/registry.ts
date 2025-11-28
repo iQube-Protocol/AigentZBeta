@@ -263,11 +263,207 @@ export const listIQubesForTenantAction = {
 };
 
 /**
+ * List all franchises (L1 tenants)
+ */
+export const listFranchisesAction = {
+  name: "listFranchises",
+  description: "List all franchises in the Aigent Z platform. Franchises are L1 tenants that can have multiple L2 tenants. Examples: Nakamoto, Qriptopian, Kn0w1, MoneyPenny.",
+  parameters: [
+    {
+      name: "activeOnly",
+      type: "boolean" as const,
+      description: "If true, only return active franchises. Defaults to true.",
+      required: false,
+    },
+  ],
+  handler: async ({ activeOnly = true }: { activeOnly?: boolean }) => {
+    // Try live QubeBase first
+    if (QubeBase.isQubeBaseConfigured()) {
+      const result = await QubeBase.listFranchises(activeOnly);
+      if (result.success) {
+        return {
+          success: true,
+          source: "live",
+          franchises: result.franchises.map(f => ({
+            id: f.id,
+            name: f.name,
+            slug: f.slug,
+            description: f.description,
+            active: f.active,
+            chains: f.chains || ["polygon"],
+            kbEndpoint: f.kb_endpoint,
+            uiUrl: f.ui_url,
+          })),
+          count: result.franchises.length,
+        };
+      }
+    }
+
+    // Fallback to mock data
+    return {
+      success: true,
+      source: "mock",
+      franchises: [
+        {
+          id: "franchise_nakamoto",
+          name: "Nakamoto",
+          slug: "nakamoto",
+          description: "Bitcoin-native AI agents and services",
+          active: true,
+          chains: ["bitcoin", "polygon"],
+        },
+        {
+          id: "franchise_qriptopian",
+          name: "Qriptopian",
+          slug: "qriptopian",
+          description: "Crypto education and community platform",
+          active: true,
+          chains: ["polygon", "base"],
+        },
+        {
+          id: "franchise_kn0w1",
+          name: "Kn0w1",
+          slug: "kn0w1",
+          description: "Knowledge and AI orchestration franchise",
+          active: true,
+          chains: ["bitcoin", "polygon", "base"],
+        },
+      ],
+      count: 3,
+    };
+  },
+};
+
+/**
+ * Get franchise details by ID or slug
+ */
+export const getFranchiseAction = {
+  name: "getFranchise",
+  description: "Get detailed information about a specific franchise by ID or slug.",
+  parameters: [
+    {
+      name: "franchiseIdOrSlug",
+      type: "string" as const,
+      description: "The franchise ID or slug to look up (e.g., 'nakamoto', 'qriptopian').",
+      required: true,
+    },
+  ],
+  handler: async ({ franchiseIdOrSlug }: { franchiseIdOrSlug: string }) => {
+    // Try live QubeBase first
+    if (QubeBase.isQubeBaseConfigured()) {
+      const result = await QubeBase.getFranchise(franchiseIdOrSlug);
+      if (result.success && result.franchise) {
+        return {
+          success: true,
+          source: "live",
+          franchise: {
+            id: result.franchise.id,
+            name: result.franchise.name,
+            slug: result.franchise.slug,
+            description: result.franchise.description,
+            active: result.franchise.active,
+            chains: result.franchise.chains || ["polygon"],
+            kbEndpoint: result.franchise.kb_endpoint,
+            uiUrl: result.franchise.ui_url,
+            createdAt: result.franchise.created_at,
+          },
+        };
+      }
+    }
+
+    // Fallback to mock data
+    const mockFranchises: Record<string, any> = {
+      nakamoto: {
+        id: "franchise_nakamoto",
+        name: "Nakamoto",
+        slug: "nakamoto",
+        description: "Bitcoin-native AI agents and services",
+        active: true,
+        chains: ["bitcoin", "polygon"],
+      },
+      qriptopian: {
+        id: "franchise_qriptopian",
+        name: "Qriptopian",
+        slug: "qriptopian",
+        description: "Crypto education and community platform",
+        active: true,
+        chains: ["polygon", "base"],
+      },
+    };
+
+    const franchise = mockFranchises[franchiseIdOrSlug.toLowerCase()];
+    if (franchise) {
+      return {
+        success: true,
+        source: "mock",
+        franchise,
+      };
+    }
+
+    return {
+      success: false,
+      source: "mock",
+      error: `Franchise not found: ${franchiseIdOrSlug}`,
+    };
+  },
+};
+
+/**
+ * List tenants for a specific franchise
+ */
+export const listTenantsForFranchiseAction = {
+  name: "listTenantsForFranchise",
+  description: "List all tenants (L2) belonging to a specific franchise (L1).",
+  parameters: [
+    {
+      name: "franchiseId",
+      type: "string" as const,
+      description: "The franchise ID to list tenants for.",
+      required: true,
+    },
+  ],
+  handler: async ({ franchiseId }: { franchiseId: string }) => {
+    // Try live QubeBase first
+    if (QubeBase.isQubeBaseConfigured()) {
+      const result = await QubeBase.listTenantsForFranchise(franchiseId);
+      if (result.success) {
+        return {
+          success: true,
+          source: "live",
+          franchiseId,
+          tenants: result.tenants.map(t => ({
+            id: t.id,
+            name: t.name,
+            slug: t.slug,
+            active: t.active,
+          })),
+          count: result.tenants.length,
+        };
+      }
+    }
+
+    // Fallback to mock data
+    return {
+      success: true,
+      source: "mock",
+      franchiseId,
+      tenants: [
+        { id: "tenant_1", name: "Default Tenant", slug: "default", active: true },
+      ],
+      count: 1,
+    };
+  },
+};
+
+/**
  * Export all registry actions
  */
 export const registryActions = [
   listTenantsAction,
   getTenantAction,
+  listFranchisesAction,
+  getFranchiseAction,
+  listTenantsForFranchiseAction,
   listAigentsForTenantAction,
   listIQubesForTenantAction,
 ];
