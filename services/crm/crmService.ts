@@ -242,6 +242,8 @@ export async function listContributions(
     contributionType?: string;
     periodStart?: string;
     periodEnd?: string;
+    status?: string;
+    hasTask?: boolean;
     limit?: number;
     offset?: number;
   }

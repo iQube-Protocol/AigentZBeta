@@ -253,13 +253,15 @@ export interface ListContributionsOptions {
   contributionType?: string;
   periodStart?: string;
   periodEnd?: string;
+  status?: string;
+  hasTask?: boolean;
   limit?: number;
   offset?: number;
 }
 
 export async function listContributions(options: ListContributionsOptions): Promise<CrmContribution[]> {
   const client = getCrmClient();
-  const { tenantId, personaId, clusterqubeId, contributionType, periodStart, periodEnd, limit = 50, offset = 0 } = options;
+  const { tenantId, personaId, clusterqubeId, contributionType, periodStart, periodEnd, status, hasTask, limit = 50, offset = 0 } = options;
 
   let query = client
     .from('crm_contributions')
@@ -273,6 +275,9 @@ export async function listContributions(options: ListContributionsOptions): Prom
   if (contributionType) query = query.eq('contribution_type', contributionType);
   if (periodStart) query = query.gte('created_at', periodStart);
   if (periodEnd) query = query.lte('created_at', periodEnd);
+  if (status) query = query.eq('status', status);
+  if (hasTask === true) query = query.not('task_template_id', 'is', null);
+  if (hasTask === false) query = query.is('task_template_id', null);
 
   const { data, error } = await query;
   if (error) throw error;

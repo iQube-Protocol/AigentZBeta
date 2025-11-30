@@ -18,6 +18,8 @@ export async function GET(request: NextRequest) {
     const contributionType = searchParams.get('contributionType') || undefined;
     const periodStart = searchParams.get('periodStart') || undefined;
     const periodEnd = searchParams.get('periodEnd') || undefined;
+    const status = searchParams.get('status') || undefined;
+    const hasTask = searchParams.get('hasTask');
     const limit = parseInt(searchParams.get('limit') || '50');
     const offset = parseInt(searchParams.get('offset') || '0');
 
@@ -34,12 +36,15 @@ export async function GET(request: NextRequest) {
       contributionType,
       periodStart,
       periodEnd,
+      status,
+      hasTask: hasTask === 'true' ? true : hasTask === 'false' ? false : undefined,
       limit,
       offset,
     });
 
     return NextResponse.json({
       success: true,
+      contributions,  // Also return as 'contributions' for consistency
       data: contributions,
       pagination: {
         limit,
