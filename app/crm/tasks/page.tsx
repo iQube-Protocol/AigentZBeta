@@ -19,6 +19,7 @@ import { TaskList } from '@/components/crm/TaskList';
 import { MyTasks } from '@/components/crm/MyTasks';
 import { TaskReview } from '@/components/crm/TaskReview';
 import { ReputationDisplay } from '@/components/crm/ReputationDisplay';
+import { RewardsDisplay } from '@/components/crm/RewardsDisplay';
 import { useCrmContext } from '@/app/crm/CrmContext';
 import { CrmPersona } from '@/types/crm';
 
@@ -215,15 +216,18 @@ export default function TasksPage() {
           </Tabs>
         </div>
 
-        {/* Right: Reputation Sidebar */}
+        {/* Right: Reputation & Rewards Sidebar */}
         <div className="space-y-4">
           {selectedPersonaId ? (
-            <ReputationDisplay personaId={selectedPersonaId} key={`${selectedPersonaId}-${refreshKey}`} />
+            <>
+              <ReputationDisplay personaId={selectedPersonaId} key={`rep-${selectedPersonaId}-${refreshKey}`} />
+              <RewardsDisplay tenantId={tenantId} personaId={selectedPersonaId} compact key={`rew-${selectedPersonaId}-${refreshKey}`} />
+            </>
           ) : (
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Reputation</CardTitle>
-                <CardDescription>Select a persona to view reputation</CardDescription>
+                <CardTitle className="text-lg">Reputation & Rewards</CardTitle>
+                <CardDescription>Select a persona to view details</CardDescription>
               </CardHeader>
             </Card>
           )}
