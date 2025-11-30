@@ -1131,6 +1131,459 @@ export interface UnifiedProfile {
 }
 
 // ============================================================================
+// TASK TEMPLATE TYPES (TaskQubes)
+// Tasks are the bridge between rewards and reputation systems
+// ============================================================================
+
+export type TaskCategory = 
+  | 'technical'
+  | 'creative'
+  | 'entrepreneurial'
+  | 'data'
+  | 'iqube_design'
+  | 'community';
+
+export type TaskVerificationMode =
+  | 'auto_tests'
+  | 'code_review'
+  | 'editor_review'
+  | 'peer_review'
+  | 'usage_based'
+  | 'manual';
+
+export type ContributionStatus =
+  | 'claimed'
+  | 'submitted'
+  | 'under_review'
+  | 'accepted'
+  | 'rejected'
+  | 'cancelled';
+
+export type ReputationEventSourceType =
+  | 'task_completion'
+  | 'usage_reward'
+  | 'manual_attestation'
+  | 'external_verification'
+  | 'dispute_resolution'
+  | 'decay'
+  | 'correction';
+
+export type RewardPillar = 'knowledge' | 'compute' | 'capital';
+
+export interface CrmTaskTemplate {
+  id: string;
+  tenantId: string;
+  slug: string;
+  title: string;
+  description?: string | null;
+  category: TaskCategory;
+  isKnowledgePillar: boolean;
+  isComputePillar: boolean;
+  difficultyLevel: number;  // 1-5
+  expectedImpactLevel: number;  // 1-5
+  verificationMode: TaskVerificationMode;
+  verificationConfig?: Record<string, unknown> | null;
+  
+  // Reward configuration (base amounts for 100% score)
+  rewardQct: number;
+  rewardQoyn: number;
+  rewardKnyt: number;
+  
+  // Reputation weights
+  repWeightTechnical: number;
+  repWeightCreative: number;
+  repWeightEntrepreneurial: number;
+  repWeightDataArch: number;
+  repWeightCommunity: number;
+  
+  // Enduring utility
+  impactEnabled: boolean;
+  impactMultiplierMax: number;
+  impactLookbackDays: number;
+  
+  // Lifecycle
+  isActive: boolean;
+  maxClaims?: number | null;
+  currentClaims: number;
+  expiresAt?: string | null;
+  
+  createdByPersonaId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateTaskTemplateInput {
+  tenantId: TenantId;
+  slug: string;
+  title: string;
+  description?: string;
+  category: TaskCategory;
+  isKnowledgePillar?: boolean;
+  isComputePillar?: boolean;
+  difficultyLevel?: number;
+  expectedImpactLevel?: number;
+  verificationMode?: TaskVerificationMode;
+  verificationConfig?: Record<string, unknown>;
+  rewardQct?: number;
+  rewardQoyn?: number;
+  rewardKnyt?: number;
+  repWeightTechnical?: number;
+  repWeightCreative?: number;
+  repWeightEntrepreneurial?: number;
+  repWeightDataArch?: number;
+  repWeightCommunity?: number;
+  impactEnabled?: boolean;
+  impactMultiplierMax?: number;
+  impactLookbackDays?: number;
+  maxClaims?: number;
+  expiresAt?: string;
+  createdByPersonaId?: string;
+}
+
+export interface CrmPersonaReputation {
+  personaId: string;
+  repTechnical: number;
+  repCreative: number;
+  repEntrepreneurial: number;
+  repDataArch: number;
+  repCommunity: number;
+  repOverall: number;
+  lifetimeCvs: number;
+  totalTasksCompleted: number;
+  totalTasksClaimed: number;
+  rqhBucketId?: string | null;
+  rqhPartitionId?: string | null;
+  rqhSyncedAt?: string | null;
+  repRolling12m: number;
+  updatedAt: string;
+}
+
+export interface CrmReputationEventNew {
+  id: string;
+  tenantId: string;
+  personaId: string;
+  sourceType: ReputationEventSourceType;
+  sourceId?: string | null;
+  deltaTechnical: number;
+  deltaCreative: number;
+  deltaEntrepreneurial: number;
+  deltaDataArch: number;
+  deltaCommunity: number;
+  deltaOverall: number;
+  cvs?: number | null;
+  taskTemplateId?: string | null;
+  finalScoreSnapshot?: number | null;
+  reason?: string | null;
+  metadata?: Record<string, unknown> | null;
+  createdByPersonaId?: string | null;
+  createdAt: string;
+}
+
+export interface CrmCategoryDefaults {
+  category: TaskCategory;
+  defaultRepTechnical: number;
+  defaultRepCreative: number;
+  defaultRepEntrepreneurial: number;
+  defaultRepDataArch: number;
+  defaultRepCommunity: number;
+  defaultRewardRatioQct: number;
+  defaultRewardRatioQoyn: number;
+  defaultRewardRatioKnyt: number;
+  description?: string | null;
+}
+
+// Extended contribution with task fields
+export interface CrmContributionWithTask extends CrmContribution {
+  taskTemplateId?: string | null;
+  status: ContributionStatus;
+  finalScore?: number | null;
+  qualityScore?: number | null;
+  trustScore?: number | null;
+  scoringBreakdown?: Record<string, unknown> | null;
+  reviewedByPersonaId?: string | null;
+  reviewedAt?: string | null;
+  artifactUrl?: string | null;
+  artifactMetadata?: Record<string, unknown> | null;
+}
+
+// Extended reward with task fields
+export interface CrmRewardWithTask extends CrmReward {
+  taskTemplateId?: string | null;
+  contributionId?: string | null;
+  reputationBucketNum?: number | null;
+  reputationMultiplier: number;
+  pillar: RewardPillar;
+}
+
+// ============================================================================
+// TASK TEMPLATE ROW TYPES
+// ============================================================================
+
+export interface CrmTaskTemplateRow {
+  id: string;
+  tenant_id: string;
+  slug: string;
+  title: string;
+  description: string | null;
+  category: string;
+  is_knowledge_pillar: boolean;
+  is_compute_pillar: boolean;
+  difficulty_level: number;
+  expected_impact_level: number;
+  verification_mode: string;
+  verification_config: Record<string, unknown> | null;
+  reward_qct: number;
+  reward_qoyn: number;
+  reward_knyt: number;
+  rep_weight_technical: number;
+  rep_weight_creative: number;
+  rep_weight_entrepreneurial: number;
+  rep_weight_data_arch: number;
+  rep_weight_community: number;
+  impact_enabled: boolean;
+  impact_multiplier_max: number;
+  impact_lookback_days: number;
+  is_active: boolean;
+  max_claims: number | null;
+  current_claims: number;
+  expires_at: string | null;
+  created_by_persona_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CrmPersonaReputationRow {
+  persona_id: string;
+  rep_technical: number;
+  rep_creative: number;
+  rep_entrepreneurial: number;
+  rep_data_arch: number;
+  rep_community: number;
+  rep_overall: number;
+  lifetime_cvs: number;
+  total_tasks_completed: number;
+  total_tasks_claimed: number;
+  rqh_bucket_id: string | null;
+  rqh_partition_id: string | null;
+  rqh_synced_at: string | null;
+  rep_rolling_12m: number;
+  updated_at: string;
+}
+
+export interface CrmReputationEventNewRow {
+  id: string;
+  tenant_id: string;
+  persona_id: string;
+  source_type: string;
+  source_id: string | null;
+  delta_technical: number;
+  delta_creative: number;
+  delta_entrepreneurial: number;
+  delta_data_arch: number;
+  delta_community: number;
+  delta_overall: number;
+  cvs: number | null;
+  task_template_id: string | null;
+  final_score_snapshot: number | null;
+  reason: string | null;
+  metadata: Record<string, unknown> | null;
+  created_by_persona_id: string | null;
+  created_at: string;
+}
+
+export interface CrmCategoryDefaultsRow {
+  category: string;
+  default_rep_technical: number;
+  default_rep_creative: number;
+  default_rep_entrepreneurial: number;
+  default_rep_data_arch: number;
+  default_rep_community: number;
+  default_reward_ratio_qct: number;
+  default_reward_ratio_qoyn: number;
+  default_reward_ratio_knyt: number;
+  description: string | null;
+}
+
+// ============================================================================
+// TASK TEMPLATE ROW CONVERTERS
+// ============================================================================
+
+export function rowToTaskTemplate(row: CrmTaskTemplateRow): CrmTaskTemplate {
+  return {
+    id: row.id,
+    tenantId: row.tenant_id,
+    slug: row.slug,
+    title: row.title,
+    description: row.description,
+    category: row.category as TaskCategory,
+    isKnowledgePillar: row.is_knowledge_pillar,
+    isComputePillar: row.is_compute_pillar,
+    difficultyLevel: row.difficulty_level,
+    expectedImpactLevel: row.expected_impact_level,
+    verificationMode: row.verification_mode as TaskVerificationMode,
+    verificationConfig: row.verification_config,
+    rewardQct: Number(row.reward_qct),
+    rewardQoyn: Number(row.reward_qoyn),
+    rewardKnyt: Number(row.reward_knyt),
+    repWeightTechnical: Number(row.rep_weight_technical),
+    repWeightCreative: Number(row.rep_weight_creative),
+    repWeightEntrepreneurial: Number(row.rep_weight_entrepreneurial),
+    repWeightDataArch: Number(row.rep_weight_data_arch),
+    repWeightCommunity: Number(row.rep_weight_community),
+    impactEnabled: row.impact_enabled,
+    impactMultiplierMax: Number(row.impact_multiplier_max),
+    impactLookbackDays: row.impact_lookback_days,
+    isActive: row.is_active,
+    maxClaims: row.max_claims,
+    currentClaims: row.current_claims,
+    expiresAt: row.expires_at,
+    createdByPersonaId: row.created_by_persona_id,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function rowToPersonaReputation(row: CrmPersonaReputationRow): CrmPersonaReputation {
+  return {
+    personaId: row.persona_id,
+    repTechnical: Number(row.rep_technical),
+    repCreative: Number(row.rep_creative),
+    repEntrepreneurial: Number(row.rep_entrepreneurial),
+    repDataArch: Number(row.rep_data_arch),
+    repCommunity: Number(row.rep_community),
+    repOverall: Number(row.rep_overall),
+    lifetimeCvs: Number(row.lifetime_cvs),
+    totalTasksCompleted: row.total_tasks_completed,
+    totalTasksClaimed: row.total_tasks_claimed,
+    rqhBucketId: row.rqh_bucket_id,
+    rqhPartitionId: row.rqh_partition_id,
+    rqhSyncedAt: row.rqh_synced_at,
+    repRolling12m: Number(row.rep_rolling_12m),
+    updatedAt: row.updated_at,
+  };
+}
+
+export function rowToReputationEventNew(row: CrmReputationEventNewRow): CrmReputationEventNew {
+  return {
+    id: row.id,
+    tenantId: row.tenant_id,
+    personaId: row.persona_id,
+    sourceType: row.source_type as ReputationEventSourceType,
+    sourceId: row.source_id,
+    deltaTechnical: Number(row.delta_technical),
+    deltaCreative: Number(row.delta_creative),
+    deltaEntrepreneurial: Number(row.delta_entrepreneurial),
+    deltaDataArch: Number(row.delta_data_arch),
+    deltaCommunity: Number(row.delta_community),
+    deltaOverall: Number(row.delta_overall),
+    cvs: row.cvs ? Number(row.cvs) : null,
+    taskTemplateId: row.task_template_id,
+    finalScoreSnapshot: row.final_score_snapshot ? Number(row.final_score_snapshot) : null,
+    reason: row.reason,
+    metadata: row.metadata,
+    createdByPersonaId: row.created_by_persona_id,
+    createdAt: row.created_at,
+  };
+}
+
+export function rowToCategoryDefaults(row: CrmCategoryDefaultsRow): CrmCategoryDefaults {
+  return {
+    category: row.category as TaskCategory,
+    defaultRepTechnical: Number(row.default_rep_technical),
+    defaultRepCreative: Number(row.default_rep_creative),
+    defaultRepEntrepreneurial: Number(row.default_rep_entrepreneurial),
+    defaultRepDataArch: Number(row.default_rep_data_arch),
+    defaultRepCommunity: Number(row.default_rep_community),
+    defaultRewardRatioQct: Number(row.default_reward_ratio_qct),
+    defaultRewardRatioQoyn: Number(row.default_reward_ratio_qoyn),
+    defaultRewardRatioKnyt: Number(row.default_reward_ratio_knyt),
+    description: row.description,
+  };
+}
+
+// ============================================================================
+// TASK COMPLETION HELPERS
+// ============================================================================
+
+/**
+ * Calculate Contribution Value Score (CVS)
+ * CVS = (finalScore / 100) * impactLevel * impactMultiplier
+ */
+export function calculateCVS(
+  finalScore: number,
+  impactLevel: number,
+  impactMultiplier: number = 1.0
+): number {
+  return (finalScore / 100) * impactLevel * impactMultiplier;
+}
+
+/**
+ * Calculate reputation deltas from CVS and task weights
+ */
+export function calculateReputationDeltas(
+  cvs: number,
+  weights: {
+    technical: number;
+    creative: number;
+    entrepreneurial: number;
+    dataArch: number;
+    community: number;
+  }
+): {
+  deltaTechnical: number;
+  deltaCreative: number;
+  deltaEntrepreneurial: number;
+  deltaDataArch: number;
+  deltaCommunity: number;
+  deltaOverall: number;
+} {
+  // Normalize weights
+  const total = weights.technical + weights.creative + weights.entrepreneurial + 
+                weights.dataArch + weights.community;
+  
+  if (total === 0) {
+    // Equal distribution if no weights specified
+    const equal = cvs / 5;
+    return {
+      deltaTechnical: equal,
+      deltaCreative: equal,
+      deltaEntrepreneurial: equal,
+      deltaDataArch: equal,
+      deltaCommunity: equal,
+      deltaOverall: cvs,
+    };
+  }
+  
+  return {
+    deltaTechnical: cvs * (weights.technical / total),
+    deltaCreative: cvs * (weights.creative / total),
+    deltaEntrepreneurial: cvs * (weights.entrepreneurial / total),
+    deltaDataArch: cvs * (weights.dataArch / total),
+    deltaCommunity: cvs * (weights.community / total),
+    deltaOverall: cvs,
+  };
+}
+
+/**
+ * Calculate reward amounts from task template and final score
+ */
+export function calculateTaskRewards(
+  task: CrmTaskTemplate,
+  finalScore: number
+): {
+  qct: number;
+  qoyn: number;
+  knyt: number;
+} {
+  const scoreMultiplier = finalScore / 100;
+  return {
+    qct: task.rewardQct * scoreMultiplier,
+    qoyn: task.rewardQoyn * scoreMultiplier,
+    knyt: task.rewardKnyt * scoreMultiplier,
+  };
+}
+
+// ============================================================================
 // FRANCHISE/TENANT SWITCHER CONTEXT
 // ============================================================================
 
