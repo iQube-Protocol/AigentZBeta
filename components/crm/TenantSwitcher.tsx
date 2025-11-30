@@ -42,56 +42,96 @@ export function TenantSwitcher({
   const [selectedFranchise, setSelectedFranchise] = useState<Franchise | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
-    // Mock data - will be replaced with API call
-    const mockFranchises: Franchise[] = [
-      { 
-        id: 'f1', 
-        name: 'iQube Protocol', 
-        slug: 'iqube-protocol',
-        tenants: [
-          { id: 't1', name: 'iQube Main', slug: 'iqube-main', domain: 'app.iqube.io' },
-          { id: 't2', name: 'iQube Dev', slug: 'iqube-dev', domain: 'dev.iqube.io' },
-          { id: 't3', name: 'iQube Demo', slug: 'iqube-demo', domain: 'demo.iqube.io' },
-        ]
-      },
-      { 
-        id: 'f2', 
-        name: 'Qripto', 
-        slug: 'qripto',
-        tenants: [
-          { id: 't4', name: 'Qripto Exchange', slug: 'qripto-exchange', domain: 'exchange.qripto.io' },
-          { id: 't5', name: 'Qripto Wallet', slug: 'qripto-wallet', domain: 'wallet.qripto.io' },
-        ]
-      },
-      { 
-        id: 'f3', 
-        name: 'KNYT Network', 
-        slug: 'knyt',
-        tenants: [
-          { id: 't6', name: 'KNYT Hub', slug: 'knyt-hub', domain: 'hub.knyt.io' },
-          { id: 't7', name: 'KNYT Academy', slug: 'knyt-academy', domain: 'academy.knyt.io' },
-        ]
-      },
-    ];
+    // Fetch real data from API
+    const fetchFranchisesAndTenants = async () => {
+      try {
+        setLoading(true);
+        setError(null);
 
-    setFranchises(mockFranchises);
+        // Fetch all franchises
+        const franchisesRes = await fetch('/api/crm/franchises');
+        if (!franchisesRes.ok) throw new Error('Failed to fetch franchises');
+        const franchisesData = await franchisesRes.json();
+        
+        // Fetch all tenants
+        const tenantsRes = await fetch('/api/crm/tenants');
+        const tenantsData = tenantsRes.ok ? await tenantsRes.json() : { data: [] };
+        const allTenants = tenantsData.data || [];
 
-    // Set initial selection
-    if (currentTenantId) {
-      for (const franchise of mockFranchises) {
-        const tenant = franchise.tenants.find(t => t.id === currentTenantId);
-        if (tenant) {
-          setSelectedTenant(tenant);
-          setSelectedFranchise(franchise);
-          break;
+        // Group tenants by franchise
+        const franchiseMap = new Map<string, Franchise>();
+        
+        // Initialize franchises from API
+        for (const franchise of (franchisesData.data || [])) {
+          franchiseMap.set(franchise.id, {
+            id: franchise.id,
+            name: franchise.name,
+            slug: franchise.slug,
+            tenants: [],
+          });
         }
+
+        // Add "Unassigned" franchise for tenants without a valid franchiseId
+        franchiseMap.set('unassigned', {
+          id: 'unassigned',
+          name: 'Unassigned Tenants',
+          slug: 'unassigned',
+          tenants: [],
+        });
+
+        // Assign tenants to franchises
+        for (const tenant of allTenants) {
+          const mappedTenant = {
+            id: tenant.id,
+            name: tenant.name,
+            slug: tenant.slug,
+            domain: tenant.domain || tenant.customDomain,
+          };
+          
+          if (tenant.franchiseId && franchiseMap.has(tenant.franchiseId)) {
+            franchiseMap.get(tenant.franchiseId)!.tenants.push(mappedTenant);
+          } else {
+            franchiseMap.get('unassigned')!.tenants.push(mappedTenant);
+          }
+        }
+
+        // Filter out franchises with no tenants and convert to array
+        const validFranchises = Array.from(franchiseMap.values()).filter(f => f.tenants.length > 0);
+        setFranchises(validFranchises);
+
+        // Set initial selection
+        if (validFranchises.length > 0) {
+          if (currentTenantId) {
+            for (const franchise of validFranchises) {
+              const tenant = franchise.tenants.find(t => t.id === currentTenantId);
+              if (tenant) {
+                setSelectedTenant(tenant);
+                setSelectedFranchise(franchise);
+                break;
+              }
+            }
+          }
+          
+          // If no tenant selected yet, default to first
+          if (!selectedTenant && validFranchises[0]?.tenants[0]) {
+            setSelectedFranchise(validFranchises[0]);
+            setSelectedTenant(validFranchises[0].tenants[0]);
+            onTenantChange?.(validFranchises[0].tenants[0].id, validFranchises[0].id);
+          }
+        }
+      } catch (err: any) {
+        console.error('Failed to fetch franchises/tenants:', err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
       }
-    } else {
-      // Default to first tenant
-      setSelectedFranchise(mockFranchises[0]);
-      setSelectedTenant(mockFranchises[0].tenants[0]);
-    }
+    };
+
+    fetchFranchisesAndTenants();
   }, [currentTenantId]);
 
   // Close dropdown when clicking outside
@@ -127,10 +167,13 @@ export function TenantSwitcher({
       <div className="relative" ref={dropdownRef}>
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="flex items-center gap-2 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg transition text-sm"
+          disabled={loading}
+          className="flex items-center gap-2 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg transition text-sm disabled:opacity-50"
         >
           <Layers size={14} className="text-cyan-400" />
-          <span className="max-w-[120px] truncate">{selectedTenant?.name || 'Select Tenant'}</span>
+          <span className="max-w-[120px] truncate">
+            {loading ? 'Loading...' : (selectedTenant?.name || 'Select Tenant')}
+          </span>
           <ChevronDown size={14} className={`text-slate-400 transition ${isOpen ? 'rotate-180' : ''}`} />
         </button>
 
@@ -182,19 +225,28 @@ export function TenantSwitcher({
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-3 px-4 py-2.5 bg-white/5 hover:bg-white/10 rounded-xl ring-1 ring-white/10 transition min-w-[240px]"
+        disabled={loading}
+        className="flex items-center gap-3 px-4 py-2.5 bg-white/5 hover:bg-white/10 rounded-xl ring-1 ring-white/10 transition min-w-[240px] disabled:opacity-50"
       >
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center">
             <Layers size={16} />
           </div>
           <div className="text-left">
-            <p className="text-xs text-slate-400">{selectedFranchise?.name}</p>
-            <p className="text-sm font-medium">{selectedTenant?.name || 'Select Tenant'}</p>
+            <p className="text-xs text-slate-400">
+              {loading ? 'Loading...' : (selectedFranchise?.name || 'No franchise')}
+            </p>
+            <p className="text-sm font-medium">
+              {loading ? '...' : (selectedTenant?.name || 'Select Tenant')}
+            </p>
           </div>
         </div>
         <ChevronDown size={16} className={`text-slate-400 ml-auto transition ${isOpen ? 'rotate-180' : ''}`} />
       </button>
+      
+      {error && (
+        <p className="text-xs text-red-400 mt-1">{error}</p>
+      )}
 
       {isOpen && (
         <div className="absolute top-full left-0 mt-2 w-80 bg-slate-900 rounded-xl ring-1 ring-white/10 shadow-xl z-50 overflow-hidden">
