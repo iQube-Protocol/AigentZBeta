@@ -66,7 +66,7 @@ export function TaskCard({ task, onClaim, onView, isClaiming, alreadyClaimed }: 
             {task.category.replace('_', ' ')}
           </Badge>
           {task.isKnowledgePillar && (
-            <Badge variant="secondary" className="text-xs">Knowledge</Badge>
+            <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/20 text-xs">📚 Knowledge</Badge>
           )}
           {task.isComputePillar && (
             <Badge variant="secondary" className="text-xs">Compute</Badge>

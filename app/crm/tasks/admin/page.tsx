@@ -24,7 +24,7 @@ export default function TaskAdminPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<CrmTaskTemplate | null>(null);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ slug: '', title: '', description: '', category: 'technical' as TaskCategory, difficultyLevel: 2, expectedImpactLevel: 2, rewardQct: 100, rewardQoyn: 50, rewardKnyt: 0, maxClaims: '', isActive: true });
+  const [form, setForm] = useState({ slug: '', title: '', description: '', category: 'technical' as TaskCategory, difficultyLevel: 2, expectedImpactLevel: 2, rewardQct: 100, rewardQoyn: 50, rewardKnyt: 0, maxClaims: '', isActive: true, isKnowledgePillar: false });
   const { toast } = useToast();
   const tenantId = currentTenantId || 'default';
 
@@ -40,9 +40,9 @@ export default function TaskAdminPage() {
 
   useEffect(() => { fetchTasks(); }, [tenantId]);
 
-  const openCreate = () => { setEditingTask(null); setForm({ slug: '', title: '', description: '', category: 'technical', difficultyLevel: 2, expectedImpactLevel: 2, rewardQct: 100, rewardQoyn: 50, rewardKnyt: 0, maxClaims: '', isActive: true }); setDialogOpen(true); };
+  const openCreate = () => { setEditingTask(null); setForm({ slug: '', title: '', description: '', category: 'technical', difficultyLevel: 2, expectedImpactLevel: 2, rewardQct: 100, rewardQoyn: 50, rewardKnyt: 0, maxClaims: '', isActive: true, isKnowledgePillar: false }); setDialogOpen(true); };
   
-  const openEdit = (t: CrmTaskTemplate) => { setEditingTask(t); setForm({ slug: t.slug, title: t.title, description: t.description || '', category: t.category, difficultyLevel: t.difficultyLevel, expectedImpactLevel: t.expectedImpactLevel, rewardQct: t.rewardQct, rewardQoyn: t.rewardQoyn, rewardKnyt: t.rewardKnyt, maxClaims: t.maxClaims?.toString() || '', isActive: t.isActive }); setDialogOpen(true); };
+  const openEdit = (t: CrmTaskTemplate) => { setEditingTask(t); setForm({ slug: t.slug, title: t.title, description: t.description || '', category: t.category, difficultyLevel: t.difficultyLevel, expectedImpactLevel: t.expectedImpactLevel, rewardQct: t.rewardQct, rewardQoyn: t.rewardQoyn, rewardKnyt: t.rewardKnyt, maxClaims: t.maxClaims?.toString() || '', isActive: t.isActive, isKnowledgePillar: t.isKnowledgePillar }); setDialogOpen(true); };
 
   const handleSave = async () => {
     setSaving(true);
@@ -88,6 +88,7 @@ export default function TaskAdminPage() {
                     <div className="flex gap-2 mt-1">
                       <Badge variant="outline">{t.category}</Badge>
                       <Badge variant="secondary">L{t.difficultyLevel}</Badge>
+                      {t.isKnowledgePillar && <Badge className="bg-amber-500">📚 Knowledge</Badge>}
                       <span className="text-xs text-muted-foreground">{t.currentClaims} claims</span>
                     </div>
                   </div>
@@ -122,6 +123,10 @@ export default function TaskAdminPage() {
               <div><Label>QOYN</Label><Input type="number" value={form.rewardQoyn} onChange={e => setForm(f => ({ ...f, rewardQoyn: Number(e.target.value) }))} /></div>
               <div><Label>KNYT</Label><Input type="number" value={form.rewardKnyt} onChange={e => setForm(f => ({ ...f, rewardKnyt: Number(e.target.value) }))} /></div>
               <div><Label>Max Claims</Label><Input type="number" value={form.maxClaims} onChange={e => setForm(f => ({ ...f, maxClaims: e.target.value }))} placeholder="∞" /></div>
+            </div>
+            <div className="flex items-center gap-2 pt-2">
+              <input type="checkbox" id="isKnowledgePillar" checked={form.isKnowledgePillar} onChange={e => setForm(f => ({ ...f, isKnowledgePillar: e.target.checked }))} className="h-4 w-4" />
+              <Label htmlFor="isKnowledgePillar" className="cursor-pointer">📚 Knowledge Pillar Task (contributes to 5 knowledge dimensions)</Label>
             </div>
           </div>
           <DialogFooter>
