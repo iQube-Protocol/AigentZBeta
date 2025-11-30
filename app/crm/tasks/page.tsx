@@ -34,6 +34,7 @@ export default function TasksPage() {
     totalClaims: number;
     totalCompletions: number;
   } | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const tenantId = currentTenantId || 'default';
 
@@ -61,20 +62,26 @@ export default function TasksPage() {
   }, [tenantId, selectedPersonaId]);
 
   // Fetch task stats
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const response = await fetch(`/api/crm/tasks?tenantId=${tenantId}&stats=true`);
-        const data = await response.json();
-        if (data.stats) {
-          setStats(data.stats);
-        }
-      } catch (error) {
-        console.error('Failed to fetch stats:', error);
+  const fetchStats = async () => {
+    try {
+      const response = await fetch(`/api/crm/tasks?tenantId=${tenantId}&stats=true`);
+      const data = await response.json();
+      if (data.stats) {
+        setStats(data.stats);
       }
-    };
+    } catch (error) {
+      console.error('Failed to fetch stats:', error);
+    }
+  };
+
+  useEffect(() => {
     fetchStats();
-  }, [tenantId]);
+  }, [tenantId, refreshKey]);
+
+  // Callback to refresh stats and reputation after actions
+  const handleRefresh = () => {
+    setRefreshKey(k => k + 1);
+  };
 
   return (
     <div className="container mx-auto py-6 space-y-6">
@@ -188,12 +195,13 @@ export default function TasksPage() {
                 tenantId={tenantId}
                 personaId={selectedPersonaId}
                 showCreateButton={false}
+                onTaskClaimed={handleRefresh}
               />
             </TabsContent>
 
             <TabsContent value="my-tasks" className="mt-6">
               {selectedPersonaId ? (
-                <MyTasks tenantId={tenantId} personaId={selectedPersonaId} />
+                <MyTasks tenantId={tenantId} personaId={selectedPersonaId} onSubmit={handleRefresh} />
               ) : (
                 <div className="text-center py-12 text-muted-foreground">
                   <p>Please select a persona to view your tasks</p>
@@ -202,7 +210,7 @@ export default function TasksPage() {
             </TabsContent>
 
             <TabsContent value="review" className="mt-6">
-              <TaskReview tenantId={tenantId} reviewerPersonaId={selectedPersonaId} />
+              <TaskReview tenantId={tenantId} reviewerPersonaId={selectedPersonaId} onReviewComplete={handleRefresh} />
             </TabsContent>
           </Tabs>
         </div>
@@ -210,7 +218,7 @@ export default function TasksPage() {
         {/* Right: Reputation Sidebar */}
         <div className="space-y-4">
           {selectedPersonaId ? (
-            <ReputationDisplay personaId={selectedPersonaId} />
+            <ReputationDisplay personaId={selectedPersonaId} key={`${selectedPersonaId}-${refreshKey}`} />
           ) : (
             <Card>
               <CardHeader>

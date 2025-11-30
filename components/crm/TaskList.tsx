@@ -16,6 +16,7 @@ interface TaskListProps {
   onCreateTask?: () => void;
   onViewTask?: (taskId: string) => void;
   showCreateButton?: boolean;
+  onTaskClaimed?: () => void;
 }
 
 const categories: { value: TaskCategory | 'all'; label: string }[] = [
@@ -33,7 +34,8 @@ export function TaskList({
   personaId, 
   onCreateTask, 
   onViewTask,
-  showCreateButton = false 
+  showCreateButton = false,
+  onTaskClaimed
 }: TaskListProps) {
   const [tasks, setTasks] = useState<CrmTaskTemplate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -110,6 +112,7 @@ export function TaskList({
 
       // Refresh to update claim counts
       fetchTasks();
+      onTaskClaimed?.();
     } catch (error: any) {
       toast({
         title: 'Error',

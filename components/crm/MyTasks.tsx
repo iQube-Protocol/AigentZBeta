@@ -33,6 +33,7 @@ import { useToast } from '@/hooks/use-toast';
 interface MyTasksProps {
   tenantId: string;
   personaId: string;
+  onSubmit?: () => void;
 }
 
 interface TaskContribution extends CrmContribution {
@@ -58,7 +59,7 @@ const statusConfig: Record<ContributionStatus, { label: string; color: string; i
   cancelled: { label: 'Cancelled', color: 'bg-gray-500/10 text-gray-500', icon: <XCircle className="h-3 w-3" /> },
 };
 
-export function MyTasks({ tenantId, personaId }: MyTasksProps) {
+export function MyTasks({ tenantId, personaId, onSubmit }: MyTasksProps) {
   const [contributions, setContributions] = useState<TaskContribution[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('active');
@@ -133,6 +134,7 @@ export function MyTasks({ tenantId, personaId }: MyTasksProps) {
       setArtifactUrl('');
       setSubmitNotes('');
       fetchMyTasks();
+      onSubmit?.();
     } catch (error: any) {
       toast({
         title: 'Error',

@@ -43,6 +43,7 @@ import { useToast } from '@/hooks/use-toast';
 interface TaskReviewProps {
   tenantId: string;
   reviewerPersonaId?: string;
+  onReviewComplete?: () => void;
 }
 
 interface ReviewableContribution extends CrmContribution {
@@ -63,7 +64,7 @@ interface ReviewableContribution extends CrmContribution {
   };
 }
 
-export function TaskReview({ tenantId, reviewerPersonaId }: TaskReviewProps) {
+export function TaskReview({ tenantId, reviewerPersonaId, onReviewComplete }: TaskReviewProps) {
   const [contributions, setContributions] = useState<ReviewableContribution[]>([]);
   const [loading, setLoading] = useState(true);
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
@@ -138,6 +139,7 @@ export function TaskReview({ tenantId, reviewerPersonaId }: TaskReviewProps) {
       setReviewDialogOpen(false);
       resetForm();
       fetchSubmissions();
+      onReviewComplete?.();
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -180,6 +182,7 @@ export function TaskReview({ tenantId, reviewerPersonaId }: TaskReviewProps) {
       setRejectDialogOpen(false);
       resetForm();
       fetchSubmissions();
+      onReviewComplete?.();
     } catch (error: any) {
       toast({
         title: 'Error',
