@@ -219,13 +219,21 @@ export function TaskReview({ tenantId, reviewerPersonaId }: TaskReviewProps) {
     };
   };
 
+  const reviewableCount = contributions.filter(c => c.personaId !== reviewerPersonaId).length;
+  const ownSubmissionsCount = contributions.filter(c => c.personaId === reviewerPersonaId).length;
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-semibold">Review Submissions</h2>
           <p className="text-sm text-muted-foreground">
-            {contributions.length} submission(s) awaiting review
+            {reviewableCount} submission(s) you can review
+            {ownSubmissionsCount > 0 && (
+              <span className="ml-2 text-yellow-600">
+                ({ownSubmissionsCount} own submission{ownSubmissionsCount > 1 ? 's' : ''} - needs other reviewer)
+              </span>
+            )}
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={fetchSubmissions} disabled={loading}>
@@ -325,14 +333,22 @@ export function TaskReview({ tenantId, reviewerPersonaId }: TaskReviewProps) {
                 </CardContent>
 
                 <CardFooter className="border-t pt-4 gap-2">
-                  <Button onClick={() => openReviewDialog(contribution)}>
-                    <Star className="h-4 w-4 mr-1" />
-                    Review & Approve
-                  </Button>
-                  <Button variant="outline" onClick={() => openRejectDialog(contribution)}>
-                    <XCircle className="h-4 w-4 mr-1" />
-                    Reject
-                  </Button>
+                  {contribution.personaId === reviewerPersonaId ? (
+                    <p className="text-sm text-muted-foreground italic">
+                      You cannot review your own submission. Another reviewer must approve this.
+                    </p>
+                  ) : (
+                    <>
+                      <Button onClick={() => openReviewDialog(contribution)}>
+                        <Star className="h-4 w-4 mr-1" />
+                        Review & Approve
+                      </Button>
+                      <Button variant="outline" onClick={() => openRejectDialog(contribution)}>
+                        <XCircle className="h-4 w-4 mr-1" />
+                        Reject
+                      </Button>
+                    </>
+                  )}
                 </CardFooter>
               </Card>
             );
