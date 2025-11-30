@@ -299,7 +299,7 @@ export async function claimTask(input: ClaimTaskInput): Promise<ClaimTaskResult>
     throw new Error('Task has expired');
   }
 
-  if (task.maxClaims !== null && task.currentClaims >= task.maxClaims) {
+  if (typeof task.maxClaims === 'number' && task.currentClaims >= task.maxClaims) {
     throw new Error('Task has reached maximum claims');
   }
 
@@ -806,6 +806,26 @@ export async function listReputationEvents(
   if (error) throw error;
 
   return (data as CrmReputationEventNewRow[]).map(rowToReputationEventNew);
+}
+
+/**
+ * Get the latest reputation event for a persona
+ */
+export async function getLatestReputationEvent(
+  personaId: string
+): Promise<CrmReputationEventNew | null> {
+  const client = getCrmClient();
+
+  const { data, error } = await client
+    .from('crm_reputation_events')
+    .select('*')
+    .eq('persona_id', personaId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single();
+
+  if (error || !data) return null;
+  return rowToReputationEventNew(data as CrmReputationEventNewRow);
 }
 
 // ============================================================================

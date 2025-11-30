@@ -15,7 +15,9 @@ import {
   Users,
   Trophy,
   TrendingUp,
-  CheckCircle2
+  CheckCircle2,
+  CloudUpload,
+  AlertCircle
 } from 'lucide-react';
 import { CrmPersonaReputation } from '@/types/crm';
 import { useToast } from '@/hooks/use-toast';
@@ -36,6 +38,7 @@ const dimensionConfig = [
 export function ReputationDisplay({ personaId, compact = false }: ReputationDisplayProps) {
   const [reputation, setReputation] = useState<CrmPersonaReputation | null>(null);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   const { toast } = useToast();
 
   const fetchReputation = async () => {
@@ -66,6 +69,38 @@ export function ReputationDisplay({ personaId, compact = false }: ReputationDisp
       fetchReputation();
     }
   }, [personaId]);
+
+  const handleSyncToRQH = async () => {
+    setSyncing(true);
+    try {
+      const response = await fetch('/api/crm/reputation/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ personaId, direction: 'push' }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to sync to RQH');
+      }
+
+      toast({
+        title: 'Synced to RQH',
+        description: data.message || 'Reputation synced to on-chain canister',
+      });
+
+      // Refresh to show updated sync status
+      fetchReputation();
+    } catch (error: any) {
+      toast({
+        title: 'Sync Failed',
+        description: error.message || 'Failed to sync reputation',
+        variant: 'destructive',
+      });
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -182,12 +217,43 @@ export function ReputationDisplay({ personaId, compact = false }: ReputationDisp
         </div>
 
         {/* RQH Sync Status */}
-        {reputation.rqhBucketId && (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground pt-2 border-t">
-            <CheckCircle2 className="h-3 w-3 text-green-500" />
-            <span>Synced to RQH: {reputation.rqhSyncedAt ? new Date(reputation.rqhSyncedAt).toLocaleString() : 'Never'}</span>
-          </div>
-        )}
+        <div className="pt-2 border-t space-y-2">
+          {reputation.rqhBucketId ? (
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <CheckCircle2 className="h-3 w-3 text-green-500" />
+                <span>Synced to RQH</span>
+              </div>
+              <span className="text-xs text-muted-foreground">
+                {reputation.rqhSyncedAt ? new Date(reputation.rqhSyncedAt).toLocaleString() : 'Never'}
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <AlertCircle className="h-3 w-3 text-yellow-500" />
+              <span>Not synced to on-chain RQH</span>
+            </div>
+          )}
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="w-full" 
+            onClick={handleSyncToRQH}
+            disabled={syncing}
+          >
+            {syncing ? (
+              <>
+                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                Syncing...
+              </>
+            ) : (
+              <>
+                <CloudUpload className="h-3 w-3 mr-1" />
+                Sync to RQH Canister
+              </>
+            )}
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
