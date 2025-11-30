@@ -3,6 +3,7 @@
  * 
  * Phase 0: Read-only backend actions for Platform Copilot
  * Phase 1: Write operations with RBAC
+ * CRM: AgentiQ CRM operations
  */
 
 // Phase 0: Read-only actions
@@ -25,6 +26,9 @@ import { mcpToolQubeActions } from "./mcp-toolqube";
 // Phase 5: Governance & Logging
 import { governanceActions } from "./governance";
 
+// CRM: AgentiQ CRM operations
+import { crmActions } from "./crm";
+
 /**
  * All backend actions available to the Platform Copilot
  * These are registered with CopilotKit and available for tool calling
@@ -45,6 +49,8 @@ export const allActions = [
   ...mcpToolQubeActions,
   // Phase 5: Governance
   ...governanceActions,
+  // CRM: AgentiQ CRM
+  ...crmActions,
 ];
 
 export * from "./registry";
@@ -57,3 +63,5 @@ export * from "./smartmenu";
 export * from "./workflows";
 export * from "./mcp-toolqube";
 export * from "./governance";
+// CRM actions exported separately to avoid naming conflicts
+export { crmActions } from "./crm";

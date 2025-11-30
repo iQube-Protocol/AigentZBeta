@@ -1,0 +1,125 @@
+type RewardStatus = variant {
+  Proposed;
+  Approved;
+  Rejected;
+  Distributed;
+  Cancelled;
+};
+
+type RewardProposal = record {
+  id : text;
+  proposer_root_did : text;
+  recipient_root_did : text;
+  recipient_persona_id : text;
+  tenant_id : text;
+  amount : nat64;
+  token_type : text;
+  pokw_basis : nat64;
+  reputation_bucket : nat32;
+  reputation_multiplier : float64;
+  period_start : nat64;
+  period_end : nat64;
+  status : RewardStatus;
+  reason : text;
+  metadata : text;
+  created_at : nat64;
+  updated_at : nat64;
+};
+
+type Approval = record {
+  id : text;
+  proposal_id : text;
+  approver_root_did : text;
+  approved : bool;
+  comment : text;
+  signature : vec nat8;
+  created_at : nat64;
+};
+
+type Distribution = record {
+  id : text;
+  proposal_id : text;
+  distributor_root_did : text;
+  tx_hash : text;
+  chain_id : nat32;
+  dvn_message_id : text;
+  verified : bool;
+  distributed_at : nat64;
+};
+
+type CreateProposalRequest = record {
+  proposer_root_did : text;
+  recipient_root_did : text;
+  recipient_persona_id : text;
+  tenant_id : text;
+  amount : nat64;
+  token_type : text;
+  pokw_basis : nat64;
+  reputation_bucket : nat32;
+  reputation_multiplier : float64;
+  period_start : nat64;
+  period_end : nat64;
+  reason : text;
+  metadata : opt text;
+};
+
+type ApproveProposalRequest = record {
+  proposal_id : text;
+  approver_root_did : text;
+  approved : bool;
+  comment : opt text;
+  signature : vec nat8;
+};
+
+type DistributeRewardRequest = record {
+  proposal_id : text;
+  distributor_root_did : text;
+  tx_hash : text;
+  chain_id : nat32;
+  dvn_message_id : opt text;
+};
+
+type ProposalResponse = record {
+  ok : bool;
+  data : opt RewardProposal;
+  error : opt text;
+};
+
+type ProposalsListResponse = record {
+  ok : bool;
+  data : opt vec RewardProposal;
+  error : opt text;
+};
+
+type ApprovalResponse = record {
+  ok : bool;
+  data : opt Approval;
+  error : opt text;
+};
+
+type DistributionResponse = record {
+  ok : bool;
+  data : opt Distribution;
+  error : opt text;
+};
+
+service : {
+  // Query methods
+  health : () -> (text) query;
+  get_proposal : (text) -> (ProposalResponse) query;
+  get_proposals_by_status : (text) -> (ProposalsListResponse) query;
+  get_proposals_by_recipient : (text) -> (ProposalsListResponse) query;
+  get_proposal_approvals : (text) -> (vec Approval) query;
+  get_distribution : (text) -> (opt Distribution) query;
+  get_config : () -> (record { nat32; vec text }) query;
+
+  // Update methods
+  create_proposal : (CreateProposalRequest) -> (ProposalResponse);
+  approve_proposal : (ApproveProposalRequest) -> (ApprovalResponse);
+  distribute_reward : (DistributeRewardRequest) -> (DistributionResponse);
+  verify_distribution : (text, bool) -> (DistributionResponse);
+
+  // Admin methods
+  add_uber_admin : (text) -> (bool);
+  set_required_approvals : (nat32) -> (bool);
+}

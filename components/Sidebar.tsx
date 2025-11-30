@@ -24,7 +24,13 @@ import {
   Wrench,
   Bot,
   Grid3X3,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Contact,
+  Award,
+  TrendingUp,
+  Layers,
+  Building2,
+  Shield
 } from "lucide-react";
 import { SubmenuDrawer } from "./SubmenuDrawer";
 
@@ -102,6 +108,19 @@ const sections: SidebarSection[] = [
       ...IQUBES_ACTIVE_ITEMS,
       ...IQUBE_OPS_ITEMS,
       ...IQUBE_REGISTRY_ITEMS,
+    ],
+  },
+  {
+    label: "CRM",
+    icon: <Contact size={16} />,
+    items: [
+      { href: "/crm", label: "CRM Dashboard", icon: <TrendingUp size={14} className="text-emerald-400" /> },
+      { href: "/crm/personas", label: "Personas", icon: <Users size={14} className="text-cyan-400" /> },
+      { href: "/crm/contributions", label: "Contributions", icon: <Award size={14} className="text-amber-400" /> },
+      { href: "/crm/rewards", label: "Rewards", icon: <CreditCard size={14} className="text-purple-400" /> },
+      { href: "/crm/segments", label: "Segments", icon: <Layers size={14} className="text-pink-400" /> },
+      { href: "/crm/franchises", label: "Franchises", icon: <Building2 size={14} className="text-blue-400" /> },
+      { href: "/crm/admin", label: "Admin Roles", icon: <Shield size={14} className="text-red-400" /> },
     ],
   },
   {

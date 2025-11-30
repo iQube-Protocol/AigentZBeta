@@ -17,6 +17,7 @@ export async function GET(req: NextRequest) {
   const canisterNames: Record<string, string> = {
     'sp5ye-2qaaa-aaaao-qkqla-cai': 'DVN',
     'zdjf3-2qaaa-aaaas-qck4q-cai': 'RQH',
+    'lvo2w-jqaaa-aaaas-qc2wa-cai': 'RewardHub',
     'n2hhv-aaaaa-aaaas-qccza-cai': 'PoS',
     'ulvla-h7777-77774-qaacq-cai': 'PoS (Old)',
     'u6s2n-gx777-77774-qaaba-cai': 'Cross-Chain',
@@ -274,7 +275,8 @@ export async function GET(req: NextRequest) {
         lastChecked: new Date().toISOString(),
         note: `Canister operational. ${identityNote}. Last top-up: ` + 
               (canisterId === 'sp5ye-2qaaa-aaaao-qkqla-cai' ? '+5T cycles @ block 12,241,814' : 
-               canisterId === 'zdjf3-2qaaa-aaaas-qck4q-cai' ? '+3T cycles @ block 12,241,818' : 'See dfx canister status')
+               canisterId === 'zdjf3-2qaaa-aaaas-qck4q-cai' ? '+3T cycles @ block 12,241,818' : 
+               canisterId === 'lvo2w-jqaaa-aaaas-qc2wa-cai' ? 'Deployed 2025-11-29' : 'See dfx canister status')
       }), { 
         status: 200,
         headers: { 'Content-Type': 'application/json' }
