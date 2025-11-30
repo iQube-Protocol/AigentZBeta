@@ -1,6 +1,6 @@
 # Aigent Z Progress Report (Inception → Current)
 
-Date: 2025-11-29 (Updated)
+Date: 2025-11-30 (Updated)
 
 ## Executive Summary
 
@@ -57,6 +57,17 @@ Aigent Z has evolved from an initial exploratory agent UX into a working Next.js
    - Integrated DVN for cross-chain reward distribution verification
    - Added ReputationHub (RQH) and RewardHub to Ops Health and Gas Status monitoring cards
    - Created admin role management with uber-admin, tenant-admin, and contributor tiers
+9. **Task-Based Contribution Engine (November 2025)**
+   - Built complete task template system with categories (technical, creative, entrepreneurial, data, iqube_design, community)
+   - Implemented task claiming, submission, review, and approval workflow
+   - Created CVS (Contribution Value Score) calculation with difficulty, impact, and quality factors
+   - Built automatic reward generation (QCT, QOYN, KNYT tokens) on task completion
+   - Implemented reputation updates across 5 dimensions based on task weights
+   - Added self-review prevention (contributors cannot approve their own submissions)
+   - Created Task Administration page for creating/editing/deactivating tasks
+   - Added Knowledge Pillar task support for special knowledge dimension contributions
+   - Integrated RQH Canister Sync for on-chain reputation synchronization
+   - Built RewardsDisplay component showing earned tokens and reward history
 
 ## Completed Work (What and How)
 
@@ -120,6 +131,20 @@ Aigent Z has evolved from an initial exploratory agent UX into a working Next.js
   - Added ReputationHub (RQH) and RewardHub to Canister Health card
   - Added RewardHub to Ops Gas Status card for cycles monitoring
   - Fixed case-insensitive health check for RQH canister
+- **Task-Based Contribution Engine (November 2025)**
+  - Created `crm_task_templates` table for defining reusable task definitions
+  - Built task claiming system that creates `crm_contributions` with status tracking
+  - Implemented submission workflow with artifact URL and notes support
+  - Created review system with score sliders (final score, quality score)
+  - Built CVS calculation: `CVS = baseScore × difficultyMultiplier × impactMultiplier × qualityFactor`
+  - Automatic reward creation in `crm_rewards` table on task approval
+  - Reputation event logging in `crm_reputation_events` for audit trail
+  - Built `TaskList`, `MyTasks`, `TaskReview` components for full workflow UI
+  - Created `ReputationDisplay` component with 5-dimension visualization
+  - Added RQH sync button to push reputation to on-chain canister
+  - Built `RewardsDisplay` component showing QCT/QOYN/KNYT totals and history
+  - Created Task Admin page at `/crm/tasks/admin` for task management
+  - Added Knowledge Pillar flag for tasks that contribute to knowledge dimensions
 
 ## Key Problems Encountered and Resolutions
 
@@ -162,6 +187,15 @@ Aigent Z has evolved from an initial exploratory agent UX into a working Next.js
 - **RewardHub Showing as "Unknown" in Gas Status**
   - Cause: RewardHub canister ID not in the canister names map
   - Fix: Added `'lvo2w-jqaaa-aaaas-qc2wa-cai': 'RewardHub'` to canister names
+- **Task Contribution Status Not Updating in UI**
+  - Cause: UI components not refreshing after task actions (claim, submit, approve)
+  - Fix: Added `refreshKey` state and `onRefresh` callbacks to propagate updates through component tree
+- **Review Modal Not Closing After Approval**
+  - Cause: State updates conflicting with data refresh
+  - Fix: Close modal and clear selection before triggering background refresh with setTimeout
+- **Missing Lucide Icons in Tasks Page**
+  - Cause: Icons used but not imported (ListTodo, ClipboardList)
+  - Fix: Added missing imports to lucide-react import statement
 
 ## Current Architecture Snapshot
 
@@ -173,6 +207,7 @@ Aigent Z has evolved from an initial exploratory agent UX into a working Next.js
 - **Cross-Chain Infrastructure**: ICP canisters, EVM networks, BTC testnet, DVN monitoring
 - **Operations Console**: Real-time monitoring at `/ops` with live data feeds and transaction creation
 - **CRM Module**: Multi-tenant CRM at `/crm` with personas, contributions, rewards, segments, franchises
+- **Task Contribution Engine**: Task-based workflow at `/crm/tasks` with claiming, submission, review, rewards
 - **ICP Canisters**:
   - ReputationHub (RQH): `zdjf3-2qaaa-aaaas-qck4q-cai` - reputation buckets and evidence
   - RewardHub: `lvo2w-jqaaa-aaaas-qc2wa-cai` - reward proposals, approvals, distributions
@@ -269,5 +304,22 @@ Aigent Z has evolved from an initial exploratory agent UX into a working Next.js
 - `components/crm/*` — CRM UI components (ContributionForm, SegmentBuilder, AdminRoleModal, etc.)
 - `supabase/migrations/20251128*.sql` — CRM database migrations
 - `supabase/migrations/20251129030000_crm_persona_linking.sql` — Persona linking migration
+- `supabase/migrations/20251130010000_task_contribution_engine.sql` — Task templates and contribution engine
+- `supabase/migrations/20251130020000_add_contribution_notes.sql` — Additional contribution fields
 - `docs/DIDQUBE_IDENTITY_POLICY.md` — DiDQube Identity Policy documentation
 - `docs/DATA_ARCHITECTURE_ASSESSMENT.md` — Data architecture assessment
+- `app/crm/tasks/page.tsx` — Tasks page with browse, my tasks, and review tabs
+- `app/crm/tasks/admin/page.tsx` — Task administration page for creating/editing tasks
+- `app/api/crm/tasks/route.ts` — Task templates API (list, create)
+- `app/api/crm/tasks/[taskId]/route.ts` — Task template detail API (get, update, delete)
+- `app/api/crm/tasks/claim/route.ts` — Task claiming API
+- `app/api/crm/tasks/complete/route.ts` — Task submission and completion API
+- `app/api/crm/reputation/sync/route.ts` — RQH canister sync API
+- `services/crm/taskService.ts` — Task business logic and CVS calculation
+- `services/crm/taskCanisterService.ts` — RewardHub and RQH canister integration
+- `components/crm/TaskList.tsx` — Browse available tasks component
+- `components/crm/TaskCard.tsx` — Individual task card with claim button
+- `components/crm/MyTasks.tsx` — User's claimed tasks with submission form
+- `components/crm/TaskReview.tsx` — Review and approve submitted tasks
+- `components/crm/ReputationDisplay.tsx` — 5-dimension reputation visualization with RQH sync
+- `components/crm/RewardsDisplay.tsx` — Token rewards summary and history

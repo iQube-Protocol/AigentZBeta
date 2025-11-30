@@ -12,7 +12,9 @@ import {
   Trophy,
   Users,
   ArrowLeft,
-  Settings
+  Settings,
+  ListTodo,
+  ClipboardList
 } from 'lucide-react';
 import Link from 'next/link';
 import { TaskList } from '@/components/crm/TaskList';
