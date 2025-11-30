@@ -136,11 +136,18 @@ export function TaskReview({ tenantId, reviewerPersonaId, onReviewComplete }: Ta
         description: `Score: ${finalScore}%. ${data.rewards?.length || 0} reward(s) created. CVS: ${data.cvs?.toFixed(2) || 0}`,
       });
 
+      // Close modal first, then refresh data
       setReviewDialogOpen(false);
+      setSelectedContribution(null);
       resetForm();
-      fetchSubmissions();
-      onReviewComplete?.();
+      
+      // Refresh in background
+      setTimeout(() => {
+        fetchSubmissions();
+        onReviewComplete?.();
+      }, 100);
     } catch (error: any) {
+      console.error('[TaskReview] Approval error:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to approve submission',
@@ -179,11 +186,18 @@ export function TaskReview({ tenantId, reviewerPersonaId, onReviewComplete }: Ta
         description: 'The contributor has been notified.',
       });
 
+      // Close modal first, then refresh data
       setRejectDialogOpen(false);
+      setSelectedContribution(null);
       resetForm();
-      fetchSubmissions();
-      onReviewComplete?.();
+      
+      // Refresh in background
+      setTimeout(() => {
+        fetchSubmissions();
+        onReviewComplete?.();
+      }, 100);
     } catch (error: any) {
+      console.error('[TaskReview] Rejection error:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to reject submission',
