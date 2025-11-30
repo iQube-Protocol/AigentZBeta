@@ -7,12 +7,12 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
-  ListTodo, 
-  ClipboardList, 
+  Plus, 
   Star, 
   Trophy,
   Users,
-  ArrowLeft
+  ArrowLeft,
+  Settings
 } from 'lucide-react';
 import Link from 'next/link';
 import { TaskList } from '@/components/crm/TaskList';
@@ -103,21 +103,29 @@ export default function TasksPage() {
           </div>
         </div>
 
-        {/* Persona Selector */}
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Acting as:</span>
-          <Select value={selectedPersonaId} onValueChange={setSelectedPersonaId}>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="Select persona" />
-            </SelectTrigger>
-            <SelectContent>
-              {personas?.map(persona => (
-                <SelectItem key={persona.id} value={persona.id}>
-                  {persona.displayName}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        {/* Persona Selector & Admin */}
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Acting as:</span>
+            <Select value={selectedPersonaId} onValueChange={setSelectedPersonaId}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Select persona" />
+              </SelectTrigger>
+              <SelectContent>
+                {personas?.map(persona => (
+                  <SelectItem key={persona.id} value={persona.id}>
+                    {persona.displayName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Link href="/crm/tasks/admin">
+            <Button variant="outline" size="sm">
+              <Settings className="h-4 w-4 mr-1" />
+              Admin
+            </Button>
+          </Link>
         </div>
       </div>
 

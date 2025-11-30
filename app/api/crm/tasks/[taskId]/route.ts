@@ -49,7 +49,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   }
 }
 
-export async function PATCH(request: NextRequest, { params }: RouteParams) {
+async function handleUpdate(request: NextRequest, { params }: RouteParams) {
   try {
     const { taskId } = await params;
     const body = await request.json();
@@ -66,13 +66,16 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ task });
   } catch (error: unknown) {
-    console.error('[API] PATCH /api/crm/tasks/[taskId] error:', error);
+    console.error('[API] PATCH/PUT /api/crm/tasks/[taskId] error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to update task' },
       { status: 500 }
     );
   }
 }
+
+export const PATCH = handleUpdate;
+export const PUT = handleUpdate;
 
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
