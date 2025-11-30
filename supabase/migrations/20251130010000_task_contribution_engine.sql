@@ -142,56 +142,45 @@ CREATE TABLE IF NOT EXISTS public.crm_persona_reputation (
 
 -- ============================================================================
 -- 4. REPUTATION EVENTS
--- Audit log of all reputation changes (task-based and independent)
+-- Extend existing crm_reputation_events table with task-based fields
+-- The table already exists from 20251128173200_agentiq_crm_enhanced.sql
 -- ============================================================================
 
-CREATE TABLE IF NOT EXISTS public.crm_reputation_events (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id TEXT NOT NULL,
-  persona_id UUID NOT NULL REFERENCES public.crm_personas(id) ON DELETE CASCADE,
-  
-  -- Source of reputation change
-  source_type TEXT NOT NULL CHECK (source_type IN (
-    'task_completion',      -- From completing a task
-    'usage_reward',         -- From asset being used
-    'manual_attestation',   -- Admin/peer attestation
-    'external_verification', -- KYC, credential, etc.
-    'dispute_resolution',   -- Dispute outcome
-    'decay',                -- Time-based decay
-    'correction'            -- Manual correction
-  )),
-  source_id UUID,  -- Reference to contribution_id, reward_id, etc.
-  
-  -- Dimension deltas (can be positive or negative)
-  delta_technical NUMERIC(12,4) DEFAULT 0,
-  delta_creative NUMERIC(12,4) DEFAULT 0,
-  delta_entrepreneurial NUMERIC(12,4) DEFAULT 0,
-  delta_data_arch NUMERIC(12,4) DEFAULT 0,
-  delta_community NUMERIC(12,4) DEFAULT 0,
-  delta_overall NUMERIC(12,4) DEFAULT 0,
-  
-  -- Contribution Value Score (for task-based events)
-  cvs NUMERIC(12,4),
-  
-  -- Task reference (if task-based)
-  task_template_id UUID REFERENCES public.crm_task_templates(id) ON DELETE SET NULL,
-  final_score_snapshot NUMERIC(5,2),  -- Score at time of event
-  
-  -- Audit
-  reason TEXT,
-  metadata JSONB,
-  created_by_persona_id UUID REFERENCES public.crm_personas(id) ON DELETE SET NULL,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
+-- Add new columns to existing reputation_events table
+ALTER TABLE public.crm_reputation_events
+  ADD COLUMN IF NOT EXISTS source_type TEXT DEFAULT 'manual_attestation',
+  ADD COLUMN IF NOT EXISTS source_id UUID,
+  ADD COLUMN IF NOT EXISTS delta_technical NUMERIC(12,4) DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS delta_creative NUMERIC(12,4) DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS delta_entrepreneurial NUMERIC(12,4) DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS delta_data_arch NUMERIC(12,4) DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS delta_community NUMERIC(12,4) DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS delta_overall NUMERIC(12,4) DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS cvs NUMERIC(12,4),
+  ADD COLUMN IF NOT EXISTS task_template_id UUID REFERENCES public.crm_task_templates(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS final_score_snapshot NUMERIC(5,2),
+  ADD COLUMN IF NOT EXISTS reason TEXT,
+  ADD COLUMN IF NOT EXISTS created_by_persona_id UUID REFERENCES public.crm_personas(id) ON DELETE SET NULL;
 
-CREATE INDEX IF NOT EXISTS idx_reputation_events_tenant 
-  ON public.crm_reputation_events (tenant_id);
-CREATE INDEX IF NOT EXISTS idx_reputation_events_persona 
-  ON public.crm_reputation_events (persona_id);
+-- Add check constraint for source_type (only if column was just added)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint 
+    WHERE conname = 'crm_reputation_events_source_type_check'
+  ) THEN
+    ALTER TABLE public.crm_reputation_events
+      ADD CONSTRAINT crm_reputation_events_source_type_check
+      CHECK (source_type IS NULL OR source_type IN (
+        'task_completion', 'usage_reward', 'manual_attestation',
+        'external_verification', 'dispute_resolution', 'decay', 'correction'
+      ));
+  END IF;
+END $$;
+
+-- Create index on source_type if not exists
 CREATE INDEX IF NOT EXISTS idx_reputation_events_source 
   ON public.crm_reputation_events (source_type);
-CREATE INDEX IF NOT EXISTS idx_reputation_events_created 
-  ON public.crm_reputation_events (created_at);
 
 -- ============================================================================
 -- 5. EXTEND REWARDS WITH TASK AND REPUTATION DATA
@@ -451,8 +440,16 @@ COMMENT ON COLUMN public.crm_rewards.pillar IS 'Which pillar this reward belongs
 COMMENT ON COLUMN public.crm_persona_reputation.lifetime_cvs IS 'Cumulative Contribution Value Score across all completed tasks';
 COMMENT ON COLUMN public.crm_persona_reputation.rqh_bucket_id IS 'ID of reputation bucket in RQH canister for on-chain sync';
 
-COMMENT ON COLUMN public.crm_reputation_events.cvs IS 'Contribution Value Score: (final_score/100) * impact_level * impact_multiplier';
-COMMENT ON COLUMN public.crm_reputation_events.source_type IS 'What triggered this reputation change: task_completion, usage_reward, manual_attestation, external_verification, dispute_resolution, decay, correction';
+-- Only add comments if columns exist
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'crm_reputation_events' AND column_name = 'cvs') THEN
+    COMMENT ON COLUMN public.crm_reputation_events.cvs IS 'Contribution Value Score: (final_score/100) * impact_level * impact_multiplier';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'crm_reputation_events' AND column_name = 'source_type') THEN
+    COMMENT ON COLUMN public.crm_reputation_events.source_type IS 'What triggered this reputation change: task_completion, usage_reward, manual_attestation, external_verification, dispute_resolution, decay, correction';
+  END IF;
+END $$;
 
 COMMENT ON FUNCTION public.calculate_cvs IS 'Calculate Contribution Value Score from final score, impact level, and optional multiplier';
 COMMENT ON FUNCTION public.update_persona_reputation IS 'Atomically update persona reputation vector with deltas from a completed task';
