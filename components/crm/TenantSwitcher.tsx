@@ -105,22 +105,28 @@ export function TenantSwitcher({
 
         // Set initial selection
         if (validFranchises.length > 0) {
-          if (currentTenantId) {
+          let foundTenant = false;
+          
+          // Try to find the current tenant if provided
+          if (currentTenantId && currentTenantId !== 't1') {
             for (const franchise of validFranchises) {
               const tenant = franchise.tenants.find(t => t.id === currentTenantId);
               if (tenant) {
                 setSelectedTenant(tenant);
                 setSelectedFranchise(franchise);
+                foundTenant = true;
                 break;
               }
             }
           }
           
-          // If no tenant selected yet, default to first
-          if (!selectedTenant && validFranchises[0]?.tenants[0]) {
-            setSelectedFranchise(validFranchises[0]);
-            setSelectedTenant(validFranchises[0].tenants[0]);
-            onTenantChange?.(validFranchises[0].tenants[0].id, validFranchises[0].id);
+          // If no tenant found or currentTenantId is default, select first available
+          if (!foundTenant && validFranchises[0]?.tenants[0]) {
+            const firstFranchise = validFranchises[0];
+            const firstTenant = firstFranchise.tenants[0];
+            setSelectedFranchise(firstFranchise);
+            setSelectedTenant(firstTenant);
+            onTenantChange?.(firstTenant.id, firstFranchise.id);
           }
         }
       } catch (err: any) {

@@ -44,9 +44,11 @@ export default function TasksPage() {
         const response = await fetch(`/api/crm/personas?tenantId=${tenantId}`);
         if (response.ok) {
           const data = await response.json();
-          setPersonas(data.personas || []);
-          if (data.personas?.length > 0 && !selectedPersonaId) {
-            setSelectedPersonaId(data.personas[0].id);
+          // API returns { success, data: [...] } format
+          const personaList = data.data || data.personas || [];
+          setPersonas(personaList);
+          if (personaList.length > 0 && !selectedPersonaId) {
+            setSelectedPersonaId(personaList[0].id);
           }
         }
       } catch (error) {
