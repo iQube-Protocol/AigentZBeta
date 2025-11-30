@@ -19,7 +19,7 @@ import { TaskList } from '@/components/crm/TaskList';
 import { MyTasks } from '@/components/crm/MyTasks';
 import { TaskReview } from '@/components/crm/TaskReview';
 import { ReputationDisplay } from '@/components/crm/ReputationDisplay';
-import { useCrmContext } from '@/contexts/CrmContext';
+import { useCrmContext } from '@/app/crm/CrmContext';
 
 export default function TasksPage() {
   const { currentTenant, currentPersona, personas } = useCrmContext();
