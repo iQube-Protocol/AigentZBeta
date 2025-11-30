@@ -45,10 +45,10 @@ importers:
         specifier: 1.7.3
         version: 1.7.3
       '@qriptoagentiq/a2a-client':
-        specifier: ^0.1.5
+        specifier: ^0.1.9
         version: 0.1.9
       '@qriptoagentiq/core-client':
-        specifier: ^0.1.5
+        specifier: ^0.1.9
         version: 0.1.9(bufferutil@4.0.9)(utf-8-validate@5.0.10)
       '@radix-ui/react-alert-dialog':
         specifier: ^1.1.15

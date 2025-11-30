@@ -20,11 +20,14 @@ import { MyTasks } from '@/components/crm/MyTasks';
 import { TaskReview } from '@/components/crm/TaskReview';
 import { ReputationDisplay } from '@/components/crm/ReputationDisplay';
 import { useCrmContext } from '@/app/crm/CrmContext';
+import { CrmPersona } from '@/types/crm';
 
 export default function TasksPage() {
-  const { currentTenant, currentPersona, personas } = useCrmContext();
+  const { currentTenantId } = useCrmContext();
   const [activeTab, setActiveTab] = useState('browse');
   const [selectedPersonaId, setSelectedPersonaId] = useState<string>('');
+  const [personas, setPersonas] = useState<CrmPersona[]>([]);
+  const [loadingPersonas, setLoadingPersonas] = useState(true);
   const [stats, setStats] = useState<{
     totalTasks: number;
     activeTasks: number;
@@ -32,16 +35,28 @@ export default function TasksPage() {
     totalCompletions: number;
   } | null>(null);
 
-  const tenantId = currentTenant?.id || 'default';
+  const tenantId = currentTenantId || 'default';
 
-  // Set default persona
+  // Fetch personas
   useEffect(() => {
-    if (currentPersona?.id && !selectedPersonaId) {
-      setSelectedPersonaId(currentPersona.id);
-    } else if (personas.length > 0 && !selectedPersonaId) {
-      setSelectedPersonaId(personas[0].id);
-    }
-  }, [currentPersona, personas, selectedPersonaId]);
+    const fetchPersonas = async () => {
+      try {
+        const response = await fetch(`/api/crm/personas?tenantId=${tenantId}`);
+        if (response.ok) {
+          const data = await response.json();
+          setPersonas(data.personas || []);
+          if (data.personas?.length > 0 && !selectedPersonaId) {
+            setSelectedPersonaId(data.personas[0].id);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch personas:', error);
+      } finally {
+        setLoadingPersonas(false);
+      }
+    };
+    fetchPersonas();
+  }, [tenantId, selectedPersonaId]);
 
   // Fetch task stats
   useEffect(() => {
@@ -86,7 +101,7 @@ export default function TasksPage() {
               <SelectValue placeholder="Select persona" />
             </SelectTrigger>
             <SelectContent>
-              {personas.map(persona => (
+              {personas?.map(persona => (
                 <SelectItem key={persona.id} value={persona.id}>
                   {persona.displayName}
                 </SelectItem>
