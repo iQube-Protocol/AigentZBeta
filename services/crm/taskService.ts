@@ -23,6 +23,7 @@ import {
   CrmCategoryDefaults,
   CrmCategoryDefaultsRow,
   CrmContribution,
+  CrmContributionRow,
   CrmReward,
   CreateTaskTemplateInput,
   TaskCategory,
@@ -34,6 +35,7 @@ import {
   rowToPersonaReputation,
   rowToReputationEventNew,
   rowToCategoryDefaults,
+  rowToContribution,
   calculateCVS,
   calculateReputationDeltas,
   calculateTaskRewards,
@@ -343,7 +345,7 @@ export async function claimTask(input: ClaimTaskInput): Promise<ClaimTaskResult>
   await incrementTasksClaimed(personaId);
 
   return {
-    contribution: db.rowToContribution(contribution),
+    contribution: rowToContribution(contribution),
     task,
   };
 }
@@ -398,7 +400,7 @@ export async function submitTask(input: SubmitTaskInput): Promise<CrmContributio
     .single();
 
   if (updateError) throw updateError;
-  return db.rowToContribution(updated);
+  return rowToContribution(updated);
 }
 
 // ============================================================================
@@ -579,7 +581,7 @@ export async function completeTask(input: CompleteTaskInput): Promise<CompleteTa
   await updatePersonaReputation(contrib.persona_id, repDeltas, cvs);
 
   return {
-    contribution: db.rowToContribution(updatedContrib),
+    contribution: rowToContribution(updatedContrib),
     task,
     rewards,
     reputationEvent: repEvent,
@@ -620,7 +622,7 @@ export async function rejectTask(
     .single();
 
   if (error) throw error;
-  return db.rowToContribution(updated);
+  return rowToContribution(updated);
 }
 
 // ============================================================================
