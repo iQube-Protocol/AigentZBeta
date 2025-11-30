@@ -366,20 +366,38 @@ export interface CrmContribution {
   qubeId?: string | null;
   clusterqubeId?: string | null;
   
+  // Task reference (for task-based contributions)
+  taskTemplateId?: string | null;
+  status?: ContributionStatus;
+  
   // Contribution details
   contributionType: string;
   units: number;
   basePokwWeight: number;
   pokwScore: number;
+  finalScore?: number | null;
+  impactLevel?: number | null;
   
   // Future PoR/PoS/PoP scores (populated by dedicated agents)
   porScore?: number | null;
   posScore?: number | null;
   popScore?: number | null;
   
+  // Submission data
+  artifactUrl?: string | null;
+  artifactMetadata?: Record<string, unknown> | null;
+  notes?: string | null;
+  
+  // Review data
+  reviewedByPersonaId?: string | null;
+  reviewedAt?: string | null;
+  reviewNotes?: string | null;
+  rejectionReason?: string | null;
+  
   // Metadata
   source?: string | null;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface RecordContributionInput {
@@ -692,15 +710,27 @@ export interface CrmContributionRow {
   persona_id: string;
   qube_id: string | null;
   clusterqube_id: string | null;
+  task_template_id: string | null;
+  status: string | null;
   contribution_type: string;
   units: number;
   base_pokw_weight: number;
   pokw_score: number;
+  final_score: number | null;
+  impact_level: number | null;
   por_score: number | null;
   pos_score: number | null;
   pop_score: number | null;
+  artifact_url: string | null;
+  artifact_metadata: Record<string, unknown> | null;
+  notes: string | null;
+  reviewed_by_persona_id: string | null;
+  reviewed_at: string | null;
+  review_notes: string | null;
+  rejection_reason: string | null;
   source: string | null;
   created_at: string;
+  updated_at: string;
 }
 
 export interface CrmEngagementEventRow {
@@ -799,15 +829,27 @@ export function rowToContribution(row: CrmContributionRow): CrmContribution {
     personaId: row.persona_id,
     qubeId: row.qube_id,
     clusterqubeId: row.clusterqube_id,
+    taskTemplateId: row.task_template_id,
+    status: row.status as ContributionStatus | undefined,
     contributionType: row.contribution_type,
     units: Number(row.units),
     basePokwWeight: Number(row.base_pokw_weight),
     pokwScore: Number(row.pokw_score),
+    finalScore: row.final_score ? Number(row.final_score) : null,
+    impactLevel: row.impact_level ? Number(row.impact_level) : null,
     porScore: row.por_score ? Number(row.por_score) : null,
     posScore: row.pos_score ? Number(row.pos_score) : null,
     popScore: row.pop_score ? Number(row.pop_score) : null,
+    artifactUrl: row.artifact_url,
+    artifactMetadata: row.artifact_metadata,
+    notes: row.notes,
+    reviewedByPersonaId: row.reviewed_by_persona_id,
+    reviewedAt: row.reviewed_at,
+    reviewNotes: row.review_notes,
+    rejectionReason: row.rejection_reason,
     source: row.source,
     createdAt: row.created_at,
+    updatedAt: row.updated_at,
   };
 }
 
