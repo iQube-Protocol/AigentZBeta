@@ -30,7 +30,10 @@ import {
   TrendingUp,
   Layers,
   Building2,
-  Shield
+  Shield,
+  BookOpen,
+  Library,
+  Sparkles
 } from "lucide-react";
 import { SubmenuDrawer } from "./SubmenuDrawer";
 
@@ -108,6 +111,16 @@ const sections: SidebarSection[] = [
       ...IQUBES_ACTIVE_ITEMS,
       ...IQUBE_OPS_ITEMS,
       ...IQUBE_REGISTRY_ITEMS,
+    ],
+  },
+  {
+    label: "Content",
+    icon: <BookOpen size={16} />,
+    items: [
+      { href: "/content", label: "Content Hub", icon: <Sparkles size={14} className="text-fuchsia-400" /> },
+      { href: "/content/library", label: "My Library", icon: <Library size={14} className="text-cyan-400" /> },
+      { href: "/content/create", label: "Create", icon: <PlusCircle size={14} className="text-emerald-400" /> },
+      { href: "/content/demo", label: "Demo Gallery", icon: <Grid3X3 size={14} className="text-purple-400" /> },
     ],
   },
   {

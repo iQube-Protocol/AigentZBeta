@@ -29,6 +29,15 @@ import { governanceActions } from "./governance";
 // CRM: AgentiQ CRM operations
 import { crmActions } from "./crm";
 
+// Smart Content: Content creation, library, pricing
+import { smartContentActions } from "./smartcontent";
+
+// Smart Triad: Orchestrated Content + Wallet + Menu coordination
+import { smartTriadActions } from "./smartTriad";
+
+// Smart Menu Content Integration
+import { smartMenuContentActions } from "@/services/content/smartMenuIntegration";
+
 /**
  * All backend actions available to the Platform Copilot
  * These are registered with CopilotKit and available for tool calling
@@ -51,6 +60,12 @@ export const allActions = [
   ...governanceActions,
   // CRM: AgentiQ CRM
   ...crmActions,
+  // Smart Content: NL → SmartContentQube
+  ...smartContentActions,
+  // Smart Triad: Content + Wallet + Menu orchestration
+  ...smartTriadActions,
+  // Smart Menu Content Integration
+  ...smartMenuContentActions,
 ];
 
 export * from "./registry";
@@ -65,3 +80,7 @@ export * from "./mcp-toolqube";
 export * from "./governance";
 // CRM actions exported separately to avoid naming conflicts
 export { crmActions } from "./crm";
+// Smart Content actions
+export * from "./smartcontent";
+// Smart Triad orchestration actions
+export * from "./smartTriad";

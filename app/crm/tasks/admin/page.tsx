@@ -1,21 +1,20 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Plus, Pencil, ArrowLeft, Loader2, RefreshCw, CheckCircle2, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useCrmContext } from '@/app/crm/CrmContext';
 import { CrmTaskTemplate, TaskCategory } from '@/types/crm';
-import { useToast } from '@/hooks/use-toast';
 
-const categories: TaskCategory[] = ['technical', 'creative', 'entrepreneurial', 'data', 'iqube_design', 'community'];
+const CATEGORIES: TaskCategory[] = ['technical', 'creative', 'entrepreneurial', 'data', 'iqube_design', 'community'];
+
+const CATEGORY_COLORS: Record<TaskCategory, string> = {
+  technical: 'bg-blue-500/20 text-blue-300 ring-blue-500/30',
+  creative: 'bg-purple-500/20 text-purple-300 ring-purple-500/30',
+  entrepreneurial: 'bg-amber-500/20 text-amber-300 ring-amber-500/30',
+  data: 'bg-cyan-500/20 text-cyan-300 ring-cyan-500/30',
+  iqube_design: 'bg-fuchsia-500/20 text-fuchsia-300 ring-fuchsia-500/30',
+  community: 'bg-emerald-500/20 text-emerald-300 ring-emerald-500/30',
+};
 
 export default function TaskAdminPage() {
   const { currentTenantId } = useCrmContext();
@@ -24,9 +23,27 @@ export default function TaskAdminPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<CrmTaskTemplate | null>(null);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ slug: '', title: '', description: '', category: 'technical' as TaskCategory, difficultyLevel: 2, expectedImpactLevel: 2, rewardQct: 100, rewardQoyn: 50, rewardKnyt: 0, maxClaims: '', isActive: true, isKnowledgePillar: false });
-  const { toast } = useToast();
+  const [form, setForm] = useState({
+    slug: '',
+    title: '',
+    description: '',
+    category: 'technical' as TaskCategory,
+    difficultyLevel: 2,
+    expectedImpactLevel: 2,
+    rewardQct: 100,
+    rewardQoyn: 50,
+    rewardKnyt: 0,
+    maxClaims: '',
+    isActive: true,
+    isKnowledgePillar: false,
+  });
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const tenantId = currentTenantId || 'default';
+
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   const fetchTasks = async () => {
     setLoading(true);
@@ -34,107 +51,345 @@ export default function TaskAdminPage() {
       const res = await fetch(`/api/crm/tasks?tenantId=${tenantId}`);
       const data = await res.json();
       setTasks(data.tasks || []);
-    } catch { toast({ title: 'Error', description: 'Failed to load tasks', variant: 'destructive' }); }
-    finally { setLoading(false); }
+    } catch {
+      showToast('Failed to load tasks', 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  useEffect(() => { fetchTasks(); }, [tenantId]);
+  useEffect(() => {
+    fetchTasks();
+  }, [tenantId]);
 
-  const openCreate = () => { setEditingTask(null); setForm({ slug: '', title: '', description: '', category: 'technical', difficultyLevel: 2, expectedImpactLevel: 2, rewardQct: 100, rewardQoyn: 50, rewardKnyt: 0, maxClaims: '', isActive: true, isKnowledgePillar: false }); setDialogOpen(true); };
-  
-  const openEdit = (t: CrmTaskTemplate) => { setEditingTask(t); setForm({ slug: t.slug, title: t.title, description: t.description || '', category: t.category, difficultyLevel: t.difficultyLevel, expectedImpactLevel: t.expectedImpactLevel, rewardQct: t.rewardQct, rewardQoyn: t.rewardQoyn, rewardKnyt: t.rewardKnyt, maxClaims: t.maxClaims?.toString() || '', isActive: t.isActive, isKnowledgePillar: t.isKnowledgePillar }); setDialogOpen(true); };
+  const openCreate = () => {
+    setEditingTask(null);
+    setForm({
+      slug: '',
+      title: '',
+      description: '',
+      category: 'technical',
+      difficultyLevel: 2,
+      expectedImpactLevel: 2,
+      rewardQct: 100,
+      rewardQoyn: 50,
+      rewardKnyt: 0,
+      maxClaims: '',
+      isActive: true,
+      isKnowledgePillar: false,
+    });
+    setDialogOpen(true);
+  };
+
+  const openEdit = (t: CrmTaskTemplate) => {
+    setEditingTask(t);
+    setForm({
+      slug: t.slug,
+      title: t.title,
+      description: t.description || '',
+      category: t.category,
+      difficultyLevel: t.difficultyLevel,
+      expectedImpactLevel: t.expectedImpactLevel,
+      rewardQct: t.rewardQct,
+      rewardQoyn: t.rewardQoyn,
+      rewardKnyt: t.rewardKnyt,
+      maxClaims: t.maxClaims?.toString() || '',
+      isActive: t.isActive,
+      isKnowledgePillar: t.isKnowledgePillar,
+    });
+    setDialogOpen(true);
+  };
 
   const handleSave = async () => {
     setSaving(true);
     try {
       const url = editingTask ? `/api/crm/tasks/${editingTask.id}` : '/api/crm/tasks';
-      const res = await fetch(url, { method: editingTask ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tenantId, ...form, maxClaims: form.maxClaims ? Number(form.maxClaims) : null }) });
+      const res = await fetch(url, {
+        method: editingTask ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tenantId,
+          ...form,
+          maxClaims: form.maxClaims ? Number(form.maxClaims) : null,
+        }),
+      });
       if (!res.ok) throw new Error((await res.json()).error);
-      toast({ title: editingTask ? 'Task Updated' : 'Task Created' });
-      setDialogOpen(false); fetchTasks();
-    } catch (e: any) { toast({ title: 'Error', description: e.message, variant: 'destructive' }); }
-    finally { setSaving(false); }
+      showToast(editingTask ? 'Task Updated' : 'Task Created');
+      setDialogOpen(false);
+      fetchTasks();
+    } catch (e: any) {
+      showToast(e.message, 'error');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const toggleActive = async (t: CrmTaskTemplate) => {
     try {
-      await fetch(`/api/crm/tasks/${t.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tenantId, isActive: !t.isActive }) });
-      toast({ title: t.isActive ? 'Deactivated' : 'Activated' }); fetchTasks();
-    } catch { toast({ title: 'Error', variant: 'destructive' }); }
+      await fetch(`/api/crm/tasks/${t.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenantId, isActive: !t.isActive }),
+      });
+      showToast(t.isActive ? 'Deactivated' : 'Activated');
+      fetchTasks();
+    } catch {
+      showToast('Error', 'error');
+    }
   };
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <div className="space-y-6">
+      {/* Toast */}
+      {toast && (
+        <div className={`fixed top-4 right-4 z-50 px-4 py-2 rounded-lg text-sm ${
+          toast.type === 'error' ? 'bg-red-500/20 text-red-300 ring-1 ring-red-500/30' : 'bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/30'
+        }`}>
+          {toast.message}
+        </div>
+      )}
+
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Link href="/crm/tasks"><Button variant="ghost" size="sm"><ArrowLeft className="h-4 w-4 mr-1" />Back</Button></Link>
-          <div><h1 className="text-2xl font-bold">Task Administration</h1><p className="text-muted-foreground">Create and manage task templates</p></div>
+          <Link
+            href="/crm/tasks"
+            className="px-3 py-1.5 rounded-lg bg-white/5 ring-1 ring-white/10 text-sm text-slate-300 hover:bg-white/10 transition-colors"
+          >
+            ← Back
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold text-white">Task Administration</h1>
+            <p className="text-slate-400 text-sm">Create and manage task templates</p>
+          </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={fetchTasks} disabled={loading}><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /></Button>
-          <Button onClick={openCreate}><Plus className="h-4 w-4 mr-1" />Create Task</Button>
+          <button
+            onClick={fetchTasks}
+            disabled={loading}
+            className="px-3 py-1.5 rounded-lg bg-white/5 ring-1 ring-white/10 text-slate-300 hover:bg-white/10 disabled:opacity-50"
+          >
+            {loading ? '⟳' : '↻'}
+          </button>
+          <button
+            onClick={openCreate}
+            className="px-4 py-1.5 rounded-lg bg-gradient-to-r from-fuchsia-500 to-purple-500 text-white text-sm font-medium hover:from-fuchsia-400 hover:to-purple-400"
+          >
+            + Create Task
+          </button>
         </div>
       </div>
 
-      <Card>
-        <CardHeader><CardTitle>Tasks ({tasks.length})</CardTitle></CardHeader>
-        <CardContent>
-          {loading ? <div className="flex justify-center py-8"><Loader2 className="h-8 w-8 animate-spin" /></div> : tasks.length === 0 ? <p className="text-center py-8 text-muted-foreground">No tasks yet</p> : (
+      {/* Tasks List */}
+      <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 overflow-hidden">
+        <div className="px-4 py-3 border-b border-white/10">
+          <h2 className="text-sm font-medium text-white">Tasks ({tasks.length})</h2>
+        </div>
+        <div className="p-4">
+          {loading ? (
+            <div className="flex justify-center py-8">
+              <div className="w-8 h-8 border-2 border-fuchsia-500/30 border-t-fuchsia-500 rounded-full animate-spin" />
+            </div>
+          ) : tasks.length === 0 ? (
+            <p className="text-center py-8 text-slate-400">No tasks yet</p>
+          ) : (
             <div className="space-y-2">
-              {tasks.map(t => (
-                <div key={t.id} className="flex items-center justify-between p-3 border rounded-lg">
+              {tasks.map((t) => (
+                <div
+                  key={t.id}
+                  className="flex items-center justify-between p-3 rounded-xl bg-white/5 ring-1 ring-white/10"
+                >
                   <div>
-                    <p className="font-medium">{t.title}</p>
-                    <div className="flex gap-2 mt-1">
-                      <Badge variant="outline">{t.category}</Badge>
-                      <Badge variant="secondary">L{t.difficultyLevel}</Badge>
-                      {t.isKnowledgePillar && <Badge className="bg-amber-500">📚 Knowledge</Badge>}
-                      <span className="text-xs text-muted-foreground">{t.currentClaims} claims</span>
+                    <p className="font-medium text-white">{t.title}</p>
+                    <div className="flex gap-2 mt-1.5">
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full ring-1 ${CATEGORY_COLORS[t.category]}`}>
+                        {t.category}
+                      </span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/10 text-slate-300">
+                        L{t.difficultyLevel}
+                      </span>
+                      {t.isKnowledgePillar && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300">
+                          📚 Knowledge
+                        </span>
+                      )}
+                      <span className="text-[10px] text-slate-500">{t.currentClaims} claims</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge variant={t.isActive ? 'default' : 'secondary'}>{t.isActive ? 'Active' : 'Inactive'}</Badge>
-                    <Button variant="ghost" size="sm" onClick={() => openEdit(t)}><Pencil className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="sm" onClick={() => toggleActive(t)}>{t.isActive ? <XCircle className="h-4 w-4 text-red-500" /> : <CheckCircle2 className="h-4 w-4 text-green-500" />}</Button>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full ring-1 ${
+                      t.isActive ? 'bg-emerald-500/20 text-emerald-300 ring-emerald-500/30' : 'bg-slate-500/20 text-slate-400 ring-slate-500/30'
+                    }`}>
+                      {t.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                    <button
+                      onClick={() => openEdit(t)}
+                      className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white"
+                    >
+                      ✏️
+                    </button>
+                    <button
+                      onClick={() => toggleActive(t)}
+                      className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10"
+                    >
+                      {t.isActive ? '❌' : '✅'}
+                    </button>
                   </div>
                 </div>
               ))}
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>{editingTask ? 'Edit' : 'Create'} Task</DialogTitle></DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div><Label>Title</Label><Input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value, slug: f.slug || e.target.value.toLowerCase().replace(/\s+/g, '-') }))} /></div>
-              <div><Label>Slug</Label><Input value={form.slug} onChange={e => setForm(f => ({ ...f, slug: e.target.value }))} /></div>
+      {/* Dialog */}
+      {dialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setDialogOpen(false)} />
+          <div className="relative w-full max-w-lg mx-4 rounded-2xl bg-slate-900 ring-1 ring-white/10 p-6">
+            <h2 className="text-lg font-semibold text-white mb-4">
+              {editingTask ? 'Edit' : 'Create'} Task
+            </h2>
+            
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">Title</label>
+                  <input
+                    value={form.title}
+                    onChange={(e) => setForm((f) => ({ ...f, title: e.target.value, slug: f.slug || e.target.value.toLowerCase().replace(/\s+/g, '-') }))}
+                    className="w-full px-3 py-2 rounded-lg bg-white/5 ring-1 ring-white/10 text-white text-sm focus:outline-none focus:ring-fuchsia-500/50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">Slug</label>
+                  <input
+                    value={form.slug}
+                    onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-lg bg-white/5 ring-1 ring-white/10 text-white text-sm focus:outline-none focus:ring-fuchsia-500/50"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Description</label>
+                <textarea
+                  value={form.description}
+                  onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                  rows={2}
+                  className="w-full px-3 py-2 rounded-lg bg-white/5 ring-1 ring-white/10 text-white text-sm focus:outline-none focus:ring-fuchsia-500/50 resize-none"
+                />
+              </div>
+              
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">Category</label>
+                  <select
+                    value={form.category}
+                    onChange={(e) => setForm((f) => ({ ...f, category: e.target.value as TaskCategory }))}
+                    className="w-full px-3 py-2 rounded-lg bg-white/5 ring-1 ring-white/10 text-white text-sm focus:outline-none focus:ring-fuchsia-500/50"
+                  >
+                    {CATEGORIES.map((c) => (
+                      <option key={c} value={c} className="bg-slate-900">{c}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">Difficulty (1-5)</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={5}
+                    value={form.difficultyLevel}
+                    onChange={(e) => setForm((f) => ({ ...f, difficultyLevel: Number(e.target.value) }))}
+                    className="w-full px-3 py-2 rounded-lg bg-white/5 ring-1 ring-white/10 text-white text-sm focus:outline-none focus:ring-fuchsia-500/50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">Impact (1-5)</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={5}
+                    value={form.expectedImpactLevel}
+                    onChange={(e) => setForm((f) => ({ ...f, expectedImpactLevel: Number(e.target.value) }))}
+                    className="w-full px-3 py-2 rounded-lg bg-white/5 ring-1 ring-white/10 text-white text-sm focus:outline-none focus:ring-fuchsia-500/50"
+                  />
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-4 gap-4">
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">QCT</label>
+                  <input
+                    type="number"
+                    value={form.rewardQct}
+                    onChange={(e) => setForm((f) => ({ ...f, rewardQct: Number(e.target.value) }))}
+                    className="w-full px-3 py-2 rounded-lg bg-white/5 ring-1 ring-white/10 text-white text-sm focus:outline-none focus:ring-fuchsia-500/50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">QOYN</label>
+                  <input
+                    type="number"
+                    value={form.rewardQoyn}
+                    onChange={(e) => setForm((f) => ({ ...f, rewardQoyn: Number(e.target.value) }))}
+                    className="w-full px-3 py-2 rounded-lg bg-white/5 ring-1 ring-white/10 text-white text-sm focus:outline-none focus:ring-fuchsia-500/50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">KNYT</label>
+                  <input
+                    type="number"
+                    value={form.rewardKnyt}
+                    onChange={(e) => setForm((f) => ({ ...f, rewardKnyt: Number(e.target.value) }))}
+                    className="w-full px-3 py-2 rounded-lg bg-white/5 ring-1 ring-white/10 text-white text-sm focus:outline-none focus:ring-fuchsia-500/50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">Max Claims</label>
+                  <input
+                    type="number"
+                    value={form.maxClaims}
+                    onChange={(e) => setForm((f) => ({ ...f, maxClaims: e.target.value }))}
+                    placeholder="∞"
+                    className="w-full px-3 py-2 rounded-lg bg-white/5 ring-1 ring-white/10 text-white text-sm focus:outline-none focus:ring-fuchsia-500/50 placeholder:text-slate-500"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-2 pt-2">
+                <input
+                  type="checkbox"
+                  id="isKnowledgePillar"
+                  checked={form.isKnowledgePillar}
+                  onChange={(e) => setForm((f) => ({ ...f, isKnowledgePillar: e.target.checked }))}
+                  className="w-4 h-4 rounded bg-white/10 border-white/20"
+                />
+                <label htmlFor="isKnowledgePillar" className="text-sm text-slate-300 cursor-pointer">
+                  📚 Knowledge Pillar Task
+                </label>
+              </div>
             </div>
-            <div><Label>Description</Label><Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={2} /></div>
-            <div className="grid grid-cols-3 gap-4">
-              <div><Label>Category</Label><Select value={form.category} onValueChange={v => setForm(f => ({ ...f, category: v as TaskCategory }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{categories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select></div>
-              <div><Label>Difficulty (1-5)</Label><Input type="number" min={1} max={5} value={form.difficultyLevel} onChange={e => setForm(f => ({ ...f, difficultyLevel: Number(e.target.value) }))} /></div>
-              <div><Label>Impact (1-5)</Label><Input type="number" min={1} max={5} value={form.expectedImpactLevel} onChange={e => setForm(f => ({ ...f, expectedImpactLevel: Number(e.target.value) }))} /></div>
-            </div>
-            <div className="grid grid-cols-4 gap-4">
-              <div><Label>QCT</Label><Input type="number" value={form.rewardQct} onChange={e => setForm(f => ({ ...f, rewardQct: Number(e.target.value) }))} /></div>
-              <div><Label>QOYN</Label><Input type="number" value={form.rewardQoyn} onChange={e => setForm(f => ({ ...f, rewardQoyn: Number(e.target.value) }))} /></div>
-              <div><Label>KNYT</Label><Input type="number" value={form.rewardKnyt} onChange={e => setForm(f => ({ ...f, rewardKnyt: Number(e.target.value) }))} /></div>
-              <div><Label>Max Claims</Label><Input type="number" value={form.maxClaims} onChange={e => setForm(f => ({ ...f, maxClaims: e.target.value }))} placeholder="∞" /></div>
-            </div>
-            <div className="flex items-center gap-2 pt-2">
-              <input type="checkbox" id="isKnowledgePillar" checked={form.isKnowledgePillar} onChange={e => setForm(f => ({ ...f, isKnowledgePillar: e.target.checked }))} className="h-4 w-4" />
-              <Label htmlFor="isKnowledgePillar" className="cursor-pointer">📚 Knowledge Pillar Task (contributes to 5 knowledge dimensions)</Label>
+            
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setDialogOpen(false)}
+                className="flex-1 px-4 py-2 rounded-lg bg-white/5 ring-1 ring-white/10 text-slate-300 hover:bg-white/10"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving || !form.title || !form.slug}
+                className="flex-1 px-4 py-2 rounded-lg bg-gradient-to-r from-fuchsia-500 to-purple-500 text-white font-medium disabled:opacity-50"
+              >
+                {saving ? '...' : 'Save'}
+              </button>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleSave} disabled={saving || !form.title || !form.slug}>{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </div>
+      )}
     </div>
   );
 }

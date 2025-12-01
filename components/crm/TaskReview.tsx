@@ -1,44 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Slider } from '@/components/ui/slider';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { 
-  Loader2, 
-  RefreshCw, 
-  CheckCircle2, 
-  XCircle,
-  ExternalLink,
-  Trophy,
-  User,
-  Calendar,
-  Star
-} from 'lucide-react';
+import { RefreshCw, CheckCircle2, XCircle, ExternalLink, User, Calendar, Star } from 'lucide-react';
 import { CrmContribution } from '@/types/crm';
-import { useToast } from '@/hooks/use-toast';
 
 interface TaskReviewProps {
   tenantId: string;
@@ -47,21 +11,8 @@ interface TaskReviewProps {
 }
 
 interface ReviewableContribution extends CrmContribution {
-  task?: {
-    id: string;
-    title: string;
-    slug: string;
-    category: string;
-    difficultyLevel: number;
-    expectedImpactLevel: number;
-    rewardQct: number;
-    rewardQoyn: number;
-    rewardKnyt: number;
-  };
-  persona?: {
-    id: string;
-    displayName: string;
-  };
+  task?: { id: string; title: string; slug: string; category: string; difficultyLevel: number; expectedImpactLevel: number; rewardQct: number; rewardQoyn: number; rewardKnyt: number; };
+  persona?: { id: string; displayName: string; };
 }
 
 export function TaskReview({ tenantId, reviewerPersonaId, onReviewComplete }: TaskReviewProps) {
@@ -75,84 +26,42 @@ export function TaskReview({ tenantId, reviewerPersonaId, onReviewComplete }: Ta
   const [qualityScore, setQualityScore] = useState(80);
   const [reviewNotes, setReviewNotes] = useState('');
   const [rejectionReason, setRejectionReason] = useState('');
-  const { toast } = useToast();
+  const [toast, setToast] = useState<{ msg: string; type: string } | null>(null);
+
+  const showToast = (msg: string, type = 'success') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000); };
 
   const fetchSubmissions = async () => {
     setLoading(true);
     try {
-      const response = await fetch(
-        `/api/crm/contributions?tenantId=${tenantId}&status=submitted&hasTask=true`
-      );
+      const response = await fetch(`/api/crm/contributions?tenantId=${tenantId}&status=submitted&hasTask=true`);
       const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to fetch submissions');
-      }
-
+      if (!response.ok) throw new Error(data.error || 'Failed');
       setContributions(data.contributions || []);
     } catch (error) {
-      console.error('Failed to fetch submissions:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load submissions',
-        variant: 'destructive',
-      });
+      showToast('Failed to load submissions', 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchSubmissions();
-  }, [tenantId]);
+  useEffect(() => { fetchSubmissions(); }, [tenantId]);
 
   const handleApprove = async () => {
     if (!selectedContribution) return;
-
     setProcessing(true);
     try {
       const response = await fetch('/api/crm/tasks/complete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tenantId,
-          contributionId: selectedContribution.id,
-          action: 'complete',
-          finalScore,
-          qualityScore,
-          reviewerPersonaId,
-          notes: reviewNotes || undefined,
-        }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenantId, contributionId: selectedContribution.id, action: 'complete', finalScore, qualityScore, reviewerPersonaId, notes: reviewNotes || undefined }),
       });
-
       const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to approve submission');
-      }
-
-      toast({
-        title: 'Submission Approved!',
-        description: `Score: ${finalScore}%. ${data.rewards?.length || 0} reward(s) created. CVS: ${data.cvs?.toFixed(2) || 0}`,
-      });
-
-      // Close modal first, then refresh data
+      if (!response.ok) throw new Error(data.error || 'Failed');
+      showToast(`Approved! Score: ${finalScore}%`);
       setReviewDialogOpen(false);
-      setSelectedContribution(null);
       resetForm();
-      
-      // Refresh in background
-      setTimeout(() => {
-        fetchSubmissions();
-        onReviewComplete?.();
-      }, 100);
+      setTimeout(() => { fetchSubmissions(); onReviewComplete?.(); }, 100);
     } catch (error: any) {
-      console.error('[TaskReview] Approval error:', error);
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to approve submission',
-        variant: 'destructive',
-      });
+      showToast(error.message || 'Failed to approve', 'error');
     } finally {
       setProcessing(false);
     }
@@ -160,341 +69,173 @@ export function TaskReview({ tenantId, reviewerPersonaId, onReviewComplete }: Ta
 
   const handleReject = async () => {
     if (!selectedContribution || !rejectionReason) return;
-
     setProcessing(true);
     try {
       const response = await fetch('/api/crm/tasks/complete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tenantId,
-          contributionId: selectedContribution.id,
-          action: 'reject',
-          rejectionReason,
-          reviewerPersonaId,
-        }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenantId, contributionId: selectedContribution.id, action: 'reject', rejectionReason, reviewerPersonaId }),
       });
-
       const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to reject submission');
-      }
-
-      toast({
-        title: 'Submission Rejected',
-        description: 'The contributor has been notified.',
-      });
-
-      // Close modal first, then refresh data
+      if (!response.ok) throw new Error(data.error || 'Failed');
+      showToast('Submission rejected');
       setRejectDialogOpen(false);
-      setSelectedContribution(null);
       resetForm();
-      
-      // Refresh in background
-      setTimeout(() => {
-        fetchSubmissions();
-        onReviewComplete?.();
-      }, 100);
+      setTimeout(() => { fetchSubmissions(); onReviewComplete?.(); }, 100);
     } catch (error: any) {
-      console.error('[TaskReview] Rejection error:', error);
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to reject submission',
-        variant: 'destructive',
-      });
+      showToast(error.message || 'Failed to reject', 'error');
     } finally {
       setProcessing(false);
     }
   };
 
-  const resetForm = () => {
-    setSelectedContribution(null);
-    setFinalScore(80);
-    setQualityScore(80);
-    setReviewNotes('');
-    setRejectionReason('');
-  };
+  const resetForm = () => { setSelectedContribution(null); setFinalScore(80); setQualityScore(80); setReviewNotes(''); setRejectionReason(''); };
 
-  const openReviewDialog = (contribution: ReviewableContribution) => {
-    setSelectedContribution(contribution);
-    setReviewDialogOpen(true);
-  };
-
-  const openRejectDialog = (contribution: ReviewableContribution) => {
-    setSelectedContribution(contribution);
-    setRejectDialogOpen(true);
-  };
-
-  const calculatePotentialRewards = (task: ReviewableContribution['task'], score: number) => {
+  const calculateRewards = (task: ReviewableContribution['task'], score: number) => {
     if (!task) return { qct: 0, qoyn: 0, knyt: 0 };
-    const multiplier = score / 100;
-    return {
-      qct: Math.round(task.rewardQct * multiplier * 100) / 100,
-      qoyn: Math.round(task.rewardQoyn * multiplier * 100) / 100,
-      knyt: Math.round(task.rewardKnyt * multiplier * 100) / 100,
-    };
+    const m = score / 100;
+    return { qct: Math.round(task.rewardQct * m * 100) / 100, qoyn: Math.round(task.rewardQoyn * m * 100) / 100, knyt: Math.round(task.rewardKnyt * m * 100) / 100 };
   };
 
   const reviewableCount = contributions.filter(c => c.personaId !== reviewerPersonaId).length;
-  const ownSubmissionsCount = contributions.filter(c => c.personaId === reviewerPersonaId).length;
 
   return (
     <div className="space-y-4">
+      {toast && <div className={`fixed top-4 right-4 z-50 px-4 py-2 rounded-lg text-sm ${toast.type === 'error' ? 'bg-red-500/20 text-red-300 ring-1 ring-red-500/30' : 'bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/30'}`}>{toast.msg}</div>}
+      
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold">Review Submissions</h2>
-          <p className="text-sm text-muted-foreground">
-            {reviewableCount} submission(s) you can review
-            {ownSubmissionsCount > 0 && (
-              <span className="ml-2 text-yellow-600">
-                ({ownSubmissionsCount} own submission{ownSubmissionsCount > 1 ? 's' : ''} - needs other reviewer)
-              </span>
-            )}
-          </p>
+          <h2 className="text-lg font-semibold text-white">Review Submissions</h2>
+          <p className="text-sm text-slate-400">{reviewableCount} submission(s) awaiting review</p>
         </div>
-        <Button variant="outline" size="sm" onClick={fetchSubmissions} disabled={loading}>
-          <RefreshCw className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
-          Refresh
-        </Button>
+        <button onClick={fetchSubmissions} disabled={loading} className="px-3 py-1.5 rounded-lg bg-white/5 ring-1 ring-white/10 text-slate-300 hover:bg-white/10 disabled:opacity-50 flex items-center gap-1.5 text-sm">
+          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+        </button>
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
+        <div className="flex items-center justify-center py-12"><div className="w-8 h-8 border-2 border-fuchsia-500/30 border-t-fuchsia-500 rounded-full animate-spin" /></div>
       ) : contributions.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground">
-          <CheckCircle2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
-          <p>No submissions awaiting review</p>
-        </div>
+        <div className="text-center py-12 text-slate-400"><CheckCircle2 className="h-12 w-12 mx-auto mb-4 opacity-50" /><p>No submissions awaiting review</p></div>
       ) : (
         <div className="space-y-4">
           {contributions.map(contribution => {
             const task = contribution.task;
+            const isOwn = contribution.personaId === reviewerPersonaId;
             return (
-              <Card key={contribution.id}>
-                <CardHeader>
+              <div key={contribution.id} className="rounded-xl bg-slate-900/60 backdrop-blur-sm ring-1 ring-white/10">
+                <div className="p-4 border-b border-white/5">
                   <div className="flex items-start justify-between">
                     <div>
-                      <CardTitle className="text-lg">
-                        {task?.title || contribution.contributionType}
-                      </CardTitle>
-                      <CardDescription className="flex items-center gap-4 mt-1">
-                        {contribution.persona && (
-                          <span className="flex items-center gap-1">
-                            <User className="h-3 w-3" />
-                            {contribution.persona.displayName}
-                          </span>
-                        )}
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          Submitted {new Date(contribution.updatedAt).toLocaleDateString()}
-                        </span>
-                      </CardDescription>
+                      <h3 className="text-sm font-medium text-white">{task?.title || contribution.contributionType}</h3>
+                      <div className="flex items-center gap-3 mt-1 text-xs text-slate-400">
+                        {contribution.persona && <span className="flex items-center gap-1"><User className="h-3 w-3" />{contribution.persona.displayName}</span>}
+                        <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{new Date(contribution.updatedAt as string).toLocaleDateString()}</span>
+                      </div>
                     </div>
-                    <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600">
-                      Pending Review
-                    </Badge>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-300 ring-1 ring-yellow-500/30">Pending</span>
                   </div>
-                </CardHeader>
-
-                <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                    {task && (
-                      <>
-                        <div>
-                          <span className="text-muted-foreground">Category:</span>
-                          <p className="font-medium capitalize">{task.category}</p>
+                </div>
+                <div className="p-4">
+                  {task && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs mb-3">
+                      <div><span className="text-slate-500">Category</span><p className="text-white capitalize">{task.category}</p></div>
+                      <div><span className="text-slate-500">Difficulty</span><p className="text-white">L{task.difficultyLevel}</p></div>
+                      <div><span className="text-slate-500">Impact</span><p className="text-white">L{task.expectedImpactLevel}</p></div>
+                      <div><span className="text-slate-500">Rewards</span>
+                        <div className="flex gap-1 flex-wrap mt-0.5">
+                          {task.rewardQct > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-300">{task.rewardQct} QCT</span>}
+                          {task.rewardQoyn > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300">{task.rewardQoyn} QOYN</span>}
                         </div>
-                        <div>
-                          <span className="text-muted-foreground">Difficulty:</span>
-                          <p className="font-medium">Level {task.difficultyLevel}</p>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">Impact:</span>
-                          <p className="font-medium">Level {task.expectedImpactLevel}</p>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">Max Rewards:</span>
-                          <div className="flex gap-1 flex-wrap">
-                            {task.rewardQct > 0 && <Badge variant="outline" className="text-xs">{task.rewardQct} QCT</Badge>}
-                            {task.rewardQoyn > 0 && <Badge variant="outline" className="text-xs">{task.rewardQoyn} QOYN</Badge>}
-                            {task.rewardKnyt > 0 && <Badge variant="outline" className="text-xs">{task.rewardKnyt} KNYT</Badge>}
-                          </div>
-                        </div>
-                      </>
-                    )}
-                  </div>
-
+                      </div>
+                    </div>
+                  )}
                   {contribution.artifactUrl && (
-                    <div className="mt-4">
-                      <a 
-                        href={contribution.artifactUrl} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-blue-500 hover:underline"
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                        View Submitted Artifact
-                      </a>
-                    </div>
+                    <a href={contribution.artifactUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-fuchsia-400 hover:text-fuchsia-300 mb-2">
+                      <ExternalLink className="h-3 w-3" />View Artifact
+                    </a>
                   )}
-
-                  {contribution.notes && (
-                    <div className="mt-4 p-3 bg-muted rounded-md">
-                      <p className="text-sm font-medium mb-1">Contributor Notes:</p>
-                      <p className="text-sm text-muted-foreground">{contribution.notes}</p>
-                    </div>
-                  )}
-                </CardContent>
-
-                <CardFooter className="border-t pt-4 gap-2">
-                  {contribution.personaId === reviewerPersonaId ? (
-                    <p className="text-sm text-muted-foreground italic">
-                      You cannot review your own submission. Another reviewer must approve this.
-                    </p>
+                  {contribution.notes && <div className="p-2 rounded-lg bg-white/5 text-xs text-slate-300 mt-2">{contribution.notes}</div>}
+                </div>
+                <div className="px-4 py-3 border-t border-white/5 flex gap-2">
+                  {isOwn ? (
+                    <p className="text-xs text-slate-500 italic">Cannot review your own submission</p>
                   ) : (
                     <>
-                      <Button onClick={() => openReviewDialog(contribution)}>
-                        <Star className="h-4 w-4 mr-1" />
-                        Review & Approve
-                      </Button>
-                      <Button variant="outline" onClick={() => openRejectDialog(contribution)}>
-                        <XCircle className="h-4 w-4 mr-1" />
-                        Reject
-                      </Button>
+                      <button onClick={() => { setSelectedContribution(contribution); setReviewDialogOpen(true); }} className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-fuchsia-500 to-purple-500 text-white text-xs font-medium flex items-center gap-1.5">
+                        <Star className="h-3 w-3" />Approve
+                      </button>
+                      <button onClick={() => { setSelectedContribution(contribution); setRejectDialogOpen(true); }} className="px-3 py-1.5 rounded-lg bg-white/5 ring-1 ring-white/10 text-slate-300 text-xs flex items-center gap-1.5 hover:bg-white/10">
+                        <XCircle className="h-3 w-3" />Reject
+                      </button>
                     </>
                   )}
-                </CardFooter>
-              </Card>
+                </div>
+              </div>
             );
           })}
         </div>
       )}
 
       {/* Review Dialog */}
-      <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Review Submission</DialogTitle>
-            <DialogDescription>
-              Score and approve "{selectedContribution?.task?.title}"
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-6 py-4">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label>Final Score</Label>
-                <span className="text-2xl font-bold">{finalScore}%</span>
+      {reviewDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setReviewDialogOpen(false)} />
+          <div className="relative w-full max-w-md mx-4 rounded-2xl bg-slate-900 ring-1 ring-white/10 p-6">
+            <h2 className="text-lg font-semibold text-white mb-1">Review Submission</h2>
+            <p className="text-sm text-slate-400 mb-4">Score "{selectedContribution?.task?.title}"</p>
+            <div className="space-y-4">
+              <div>
+                <div className="flex items-center justify-between mb-2"><label className="text-xs text-slate-400">Final Score</label><span className="text-xl font-bold text-white">{finalScore}%</span></div>
+                <input type="range" min={0} max={100} step={5} value={finalScore} onChange={(e) => setFinalScore(Number(e.target.value))} className="w-full accent-fuchsia-500" />
               </div>
-              <Slider
-                value={[finalScore]}
-                onValueChange={([v]) => setFinalScore(v)}
-                min={0}
-                max={100}
-                step={5}
-              />
-              <p className="text-xs text-muted-foreground">
-                This score determines reward amount and reputation gain
-              </p>
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label>Quality Score</Label>
-                <span className="font-medium">{qualityScore}%</span>
+              <div>
+                <div className="flex items-center justify-between mb-2"><label className="text-xs text-slate-400">Quality Score</label><span className="text-sm text-white">{qualityScore}%</span></div>
+                <input type="range" min={0} max={100} step={5} value={qualityScore} onChange={(e) => setQualityScore(Number(e.target.value))} className="w-full accent-fuchsia-500" />
               </div>
-              <Slider
-                value={[qualityScore]}
-                onValueChange={([v]) => setQualityScore(v)}
-                min={0}
-                max={100}
-                step={5}
-              />
-            </div>
-
-            {selectedContribution?.task && (
-              <div className="p-3 bg-muted rounded-md">
-                <p className="text-sm font-medium mb-2">Calculated Rewards at {finalScore}%:</p>
-                <div className="flex gap-2">
-                  {(() => {
-                    const rewards = calculatePotentialRewards(selectedContribution.task, finalScore);
-                    return (
-                      <>
-                        {rewards.qct > 0 && <Badge variant="secondary">{rewards.qct} QCT</Badge>}
-                        {rewards.qoyn > 0 && <Badge variant="secondary">{rewards.qoyn} QOYN</Badge>}
-                        {rewards.knyt > 0 && <Badge variant="secondary">{rewards.knyt} KNYT</Badge>}
-                      </>
-                    );
-                  })()}
+              {selectedContribution?.task && (
+                <div className="p-3 rounded-lg bg-white/5">
+                  <p className="text-xs text-slate-400 mb-2">Rewards at {finalScore}%:</p>
+                  <div className="flex gap-1.5">
+                    {(() => { const r = calculateRewards(selectedContribution.task, finalScore); return (<>
+                      {r.qct > 0 && <span className="text-[10px] px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-300">{r.qct} QCT</span>}
+                      {r.qoyn > 0 && <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300">{r.qoyn} QOYN</span>}
+                      {r.knyt > 0 && <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-300">{r.knyt} KNYT</span>}
+                    </>); })()}
+                  </div>
                 </div>
+              )}
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Notes (optional)</label>
+                <textarea value={reviewNotes} onChange={(e) => setReviewNotes(e.target.value)} rows={2} placeholder="Feedback..." className="w-full px-3 py-2 rounded-lg bg-white/5 ring-1 ring-white/10 text-white text-sm focus:outline-none focus:ring-fuchsia-500/50 resize-none placeholder:text-slate-500" />
               </div>
-            )}
-
-            <div className="space-y-2">
-              <Label htmlFor="reviewNotes">Review Notes (optional)</Label>
-              <Textarea
-                id="reviewNotes"
-                placeholder="Feedback for the contributor..."
-                value={reviewNotes}
-                onChange={(e) => setReviewNotes(e.target.value)}
-                rows={3}
-              />
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button onClick={() => setReviewDialogOpen(false)} className="flex-1 px-4 py-2 rounded-lg bg-white/5 ring-1 ring-white/10 text-slate-300 hover:bg-white/10">Cancel</button>
+              <button onClick={handleApprove} disabled={processing} className="flex-1 px-4 py-2 rounded-lg bg-gradient-to-r from-fuchsia-500 to-purple-500 text-white font-medium disabled:opacity-50 flex items-center justify-center gap-1.5">
+                {processing ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /></> : <><CheckCircle2 className="h-4 w-4" />Approve ({finalScore}%)</>}
+              </button>
             </div>
           </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setReviewDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleApprove} disabled={processing}>
-              {processing ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="h-4 w-4 mr-1" />
-                  Approve ({finalScore}%)
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </div>
+      )}
 
       {/* Reject Dialog */}
-      <AlertDialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Reject Submission</AlertDialogTitle>
-            <AlertDialogDescription>
-              Please provide a reason for rejecting this submission. The contributor will be notified.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="py-4">
-            <Textarea
-              placeholder="Reason for rejection..."
-              value={rejectionReason}
-              onChange={(e) => setRejectionReason(e.target.value)}
-              rows={3}
-            />
+      {rejectDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setRejectDialogOpen(false)} />
+          <div className="relative w-full max-w-md mx-4 rounded-2xl bg-slate-900 ring-1 ring-white/10 p-6">
+            <h2 className="text-lg font-semibold text-white mb-1">Reject Submission</h2>
+            <p className="text-sm text-slate-400 mb-4">Provide a reason for rejection</p>
+            <textarea value={rejectionReason} onChange={(e) => setRejectionReason(e.target.value)} rows={3} placeholder="Reason..." className="w-full px-3 py-2 rounded-lg bg-white/5 ring-1 ring-white/10 text-white text-sm focus:outline-none focus:ring-fuchsia-500/50 resize-none placeholder:text-slate-500" />
+            <div className="flex gap-3 mt-6">
+              <button onClick={() => setRejectDialogOpen(false)} className="flex-1 px-4 py-2 rounded-lg bg-white/5 ring-1 ring-white/10 text-slate-300 hover:bg-white/10">Cancel</button>
+              <button onClick={handleReject} disabled={!rejectionReason || processing} className="flex-1 px-4 py-2 rounded-lg bg-red-500/20 ring-1 ring-red-500/30 text-red-300 font-medium disabled:opacity-50">
+                {processing ? 'Rejecting...' : 'Reject'}
+              </button>
+            </div>
           </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleReject} 
-              disabled={!rejectionReason || processing}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {processing ? 'Rejecting...' : 'Reject Submission'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        </div>
+      )}
     </div>
   );
 }
