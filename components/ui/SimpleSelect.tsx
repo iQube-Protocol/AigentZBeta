@@ -10,6 +10,8 @@ export interface SimpleSelectProps {
   onValueChange?: (value: string) => void;
   className?: string;
   placeholder?: string;
+  title?: string;
+  "aria-label"?: string;
 }
 
 /**
@@ -24,6 +26,8 @@ export function SimpleSelect({
   onValueChange,
   className = "",
   placeholder,
+  title,
+  "aria-label": ariaLabel,
 }: SimpleSelectProps) {
   return (
     <div className={`flex flex-col gap-1.5 ${className}`}>
@@ -34,6 +38,8 @@ export function SimpleSelect({
         value={value}
         defaultValue={defaultValue}
         onChange={(e) => onValueChange?.(e.target.value)}
+        title={title}
+        aria-label={ariaLabel}
         className="h-10 w-full rounded-md border border-white/10 bg-black/30 px-3 py-2 text-sm text-slate-100 ring-offset-background focus:outline-none focus:ring-2 focus:ring-fuchsia-500/50 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {placeholder && (
