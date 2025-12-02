@@ -1205,6 +1205,7 @@ export type ReputationEventSourceType =
   | 'task_completion'
   | 'usage_reward'
   | 'manual_attestation'
+  | 'manual_sync'
   | 'external_verification'
   | 'dispute_resolution'
   | 'decay'
