@@ -7,7 +7,7 @@ import AliasConsentToggle from "../identity/AliasConsentToggle";
 import SettlementRetryButton from "../x402/SettlementRetryButton";
 import LibraryShelf from "./LibraryShelf";
 import PurchaseFlow, { type PurchaseStep, type PaymentMethod } from "./PurchaseFlow";
-import type { SmartWalletNode, WalletTask, QuestProgress } from "@/types/smartWallet";
+import type { SmartWalletNode, WalletTask, QuestProgress, RecentReward } from "@/types/smartWallet";
 import type { SmartContentQube } from "@/types/smartContent";
 
 type DrawerTab = "wallet" | "library" | "tasks" | "rewards";
@@ -272,7 +272,7 @@ export default function SmartWalletDrawer({
             <h3 className="text-slate-100 text-sm font-medium tracking-wide">{agent.name}</h3>
             {walletNode?.personaContext && (
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-fuchsia-500/20 text-fuchsia-300 ring-1 ring-fuchsia-500/30">
-                {walletNode.personaContext.identityState}
+                {walletNode.personaContext.activePersona?.identifiability}
               </span>
             )}
           </div>
@@ -453,24 +453,24 @@ export default function SmartWalletDrawer({
                       <div key={task.id} className="rounded-lg bg-white/5 ring-1 ring-white/10 p-2">
                         <div className="flex items-start justify-between">
                           <div>
-                            <div className="text-sm text-slate-200">{task.title}</div>
+                            <div className="text-sm text-slate-200">{task.label}</div>
                             <div className="text-xs text-slate-400 mt-0.5">{task.description}</div>
                           </div>
                           <span
                             className={`text-[10px] px-1.5 py-0.5 rounded ${
-                              task.priority === "high"
-                                ? "bg-red-500/20 text-red-300"
-                                : task.priority === "medium"
+                              task.type === "reward"
                                 ? "bg-amber-500/20 text-amber-300"
+                                : task.type === "quest"
+                                ? "bg-fuchsia-500/20 text-fuchsia-300"
                                 : "bg-slate-500/20 text-slate-300"
                             }`}
                           >
-                            {task.priority}
+                            {task.type}
                           </span>
                         </div>
-                        {task.reward && (
+                        {task.rewardPreview && (
                           <div className="mt-2 text-xs text-fuchsia-300">
-                            +{task.reward.amount} {task.reward.currency}
+                            +{task.rewardPreview.amount} {task.rewardPreview.asset}
                           </div>
                         )}
                         <div className="mt-2 flex gap-1">
@@ -521,16 +521,16 @@ export default function SmartWalletDrawer({
           {activeTab === "rewards" && (
             <div className="space-y-4">
               {/* Pending Rewards */}
-              {rewards && rewards.pendingRewards.length > 0 && (
+              {rewards && rewards.pendingDistribution.proposalCount > 0 && (
                 <section className="rounded-2xl bg-gradient-to-br from-amber-500/10 to-orange-500/10 ring-1 ring-amber-500/20 p-3">
                   <div className="text-[11px] uppercase tracking-wider text-amber-300 mb-2">Pending Rewards</div>
                   <div className="space-y-2">
-                    {rewards.pendingRewards.map((reward, idx) => (
+                    {rewards.recentRewards.filter(r => r.status === 'pending' || r.status === 'proposed').map((reward: RecentReward, idx: number) => (
                       <div key={idx} className="rounded-lg bg-white/5 ring-1 ring-white/10 p-2">
                         <div className="flex items-center justify-between">
                           <span className="text-sm text-slate-200">{reward.reason}</span>
                           <span className="text-sm font-medium text-amber-300">
-                            +{reward.amount} {reward.tokenType}
+                            +{reward.amount} {reward.asset}
                           </span>
                         </div>
                         <div className="text-xs text-slate-400 mt-1">Status: {reward.status}</div>
@@ -550,7 +550,7 @@ export default function SmartWalletDrawer({
                         <div className="flex items-center justify-between">
                           <span className="text-sm text-slate-200">{reward.reason}</span>
                           <span className="text-sm font-medium text-emerald-300">
-                            +{reward.amount} {reward.tokenType}
+                            +{reward.amount} {reward.asset}
                           </span>
                         </div>
                         <div className="text-xs text-slate-400 mt-1">
@@ -567,17 +567,17 @@ export default function SmartWalletDrawer({
                 <section className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-3">
                   <div className="text-[11px] uppercase tracking-wider text-slate-400 mb-2">Lifetime Rewards</div>
                   <div className="grid grid-cols-2 gap-2">
-                    {Object.entries(rewards.lifetimeEarnings).map(([currency, amount]) => (
-                      <div key={currency} className="rounded-lg bg-white/5 ring-1 ring-white/10 p-2 text-center">
-                        <div className="text-lg font-semibold text-white">{amount}</div>
-                        <div className="text-[10px] text-slate-400">{currency}</div>
+                    {[rewards.totalEarned].map((earned, idx) => (
+                      <div key={idx} className="rounded-lg bg-white/5 ring-1 ring-white/10 p-2 text-center">
+                        <div className="text-lg font-semibold text-white">{earned.amount}</div>
+                        <div className="text-[10px] text-slate-400">{earned.asset}</div>
                       </div>
                     ))}
                   </div>
                 </section>
               )}
 
-              {(!rewards || (rewards.pendingRewards.length === 0 && rewards.recentRewards.length === 0)) && (
+              {(!rewards || rewards.recentRewards.length === 0) && (
                 <div className="text-center py-8 text-slate-400 text-sm">
                   No rewards yet. Complete tasks to earn rewards!
                 </div>

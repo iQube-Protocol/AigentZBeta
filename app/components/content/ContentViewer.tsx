@@ -69,20 +69,20 @@ function PanelViewer({
           </div>
         ) : panel ? (
           <div className="w-full h-full flex flex-col items-center justify-center p-4">
-            {panel.assetUri ? (
+            {panel.storageUri ? (
               <img
-                src={panel.assetUri}
-                alt={panel.caption || `Panel ${currentPanel + 1}`}
+                src={panel.storageUri}
+                alt={panel.altText || `Panel ${currentPanel + 1}`}
                 className="max-w-full max-h-[70%] object-contain rounded-lg"
               />
             ) : (
               <div className="text-slate-400 text-sm">No panel content</div>
             )}
             {/* Caption */}
-            {panel.caption && (
+            {panel.altText && (
               <div className="mt-4 px-6 py-3 bg-black/40 rounded-lg max-w-2xl">
                 <p className="text-slate-200 text-center text-sm leading-relaxed italic">
-                  "{panel.caption}"
+                  "{panel.altText}"
                 </p>
               </div>
             )}
@@ -144,7 +144,7 @@ function PanelViewer({
 }
 
 function VideoViewer({ watch }: { watch: WatchModality }) {
-  const primaryAsset = watch.assets[0];
+  const primaryAsset = watch.videoAssets?.[0];
 
   if (!primaryAsset) {
     return (
@@ -157,7 +157,7 @@ function VideoViewer({ watch }: { watch: WatchModality }) {
   return (
     <div className="w-full h-full flex items-center justify-center bg-black rounded-xl overflow-hidden">
       <video
-        src={primaryAsset.uri}
+        src={primaryAsset.storageUri}
         controls
         className="max-w-full max-h-full"
         poster={primaryAsset.thumbnailUri}
@@ -169,7 +169,7 @@ function VideoViewer({ watch }: { watch: WatchModality }) {
 }
 
 function AudioViewer({ listen }: { listen: ListenModality }) {
-  const primaryAsset = listen.assets[0];
+  const primaryAsset = listen.audioAssets?.[0];
 
   if (!primaryAsset) {
     return (
@@ -187,12 +187,12 @@ function AudioViewer({ listen }: { listen: ListenModality }) {
       </div>
 
       {/* Audio Player */}
-      <audio src={primaryAsset.uri} controls className="w-full max-w-md">
+      <audio src={primaryAsset.storageUri} controls className="w-full max-w-md">
         Your browser does not support audio playback.
       </audio>
 
       {/* Transcript Toggle */}
-      {listen.transcriptUri && (
+      {listen.transcriptAsset && (
         <button className="text-sm text-slate-400 hover:text-slate-200 transition-colors">
           Show Transcript
         </button>
@@ -352,7 +352,7 @@ export default function ContentViewer({
     [content.modalities?.read?.panels, startTime, onProgressUpdate]
   );
 
-  const previewPanels = content.accessPolicy?.previewPanels || 2;
+  const previewPanels = content.pricingModel?.freePreview?.panels || 2;
 
   return (
     <div className="flex flex-col h-full bg-black/30 backdrop-blur-xl rounded-2xl ring-1 ring-white/10 overflow-hidden">
