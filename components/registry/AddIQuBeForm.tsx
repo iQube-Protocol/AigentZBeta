@@ -1,11 +1,11 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "../ui/Button";
-import { Input } from "../ui/Input";
-import { SimpleSelect as Select } from "../ui/SimpleSelect";
-import { Textarea } from "../ui/Textarea";
-import { useToast } from "../ui/Toaster";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { SimpleSelect as Select } from "../ui/simple-select";
+import { Textarea } from "../ui/textarea";
+import { useToast } from "../ui/toaster";
 import { DotsInline } from "./scoreUtils";
 
 interface MetaQubeData {

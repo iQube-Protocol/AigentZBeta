@@ -2,7 +2,7 @@
 
 import "./globals.css";
 import { Sidebar } from "../components/Sidebar";
-import { ToastProvider } from "../components/ui/Toaster";
+import { ToastProvider } from "../components/ui/toaster";
 import AgentiQBootstrap from "./providers/AgentiQBootstrap";
 import { CopilotKit } from "@copilotkit/react-core";
 import "@copilotkit/react-ui/styles.css";

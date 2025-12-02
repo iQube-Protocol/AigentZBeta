@@ -2,8 +2,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { X, Pencil } from "lucide-react";
-import { useToast } from "../ui/Toaster";
-import { ConfirmDialog } from "../ui/ConfirmDialog";
+import { useToast } from "../ui/toaster";
+import { ConfirmDialog } from "../ui/confirm-dialog";
 
 interface IQubeDetailModalProps {
   templateId: string;

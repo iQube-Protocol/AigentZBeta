@@ -1,8 +1,8 @@
 "use client";
 import { useState } from "react";
-import { Button } from "../../components/ui/Button";
-import { Input } from "../../components/ui/Input";
-import { SimpleSelect as Select } from "../../components/ui/SimpleSelect";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import { SimpleSelect as Select } from "../../components/ui/simple-select";
 
 export default function SettingsPage() {
   const [isLoading, setIsLoading] = useState(false);

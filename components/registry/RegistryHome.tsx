@@ -7,8 +7,8 @@ import { FilterSection, type FilterState } from "./FilterSection";
 import { IdentityFilterSection } from "./IdentityFilterSection";
 import { ViewModeToggle, type ViewMode } from "./ViewModeToggle";
 import { DotsInline } from "./scoreUtils";
-import { ConfirmDialog } from "../ui/ConfirmDialog";
-import { useToast } from "../ui/Toaster";
+import { ConfirmDialog } from "../ui/confirm-dialog";
+import { useToast } from "../ui/toaster";
 
 interface IQubeTemplate {
   id: string;
