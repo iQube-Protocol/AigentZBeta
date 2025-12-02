@@ -41,39 +41,35 @@ export async function POST(request: NextRequest) {
     console.log('🚀 Mint triggered with body:', body);
 
     const {
-      uri,
-      encryptionKey,
       tokenId: incomingTokenId,
       templateId,
-      parentTemplateId = 0,
-      isProvenanceTemplate = true,
+      parentTemplateId,
+      isProvenance,
       network = 'ethereum',
     } = body;
 
    if (!templateId) {
       return NextResponse.json({ error: 'Missing required field: templateId' }, { status: 400 });
     }
-
+    console.log('🧾 Is providence template ISSUE first?:', isProvenance);
     // Build file URI (if the client didn't provide one)
-    const fileUri = uri || `ipfs://${templateId}`;
+    const fileUri = `ipfs://${templateId}`;
 
     console.log('fileUri', fileUri);
     // Retrieve encryption data from remote service
     let encryptionData: any = null;
-    try {
-      encryptionData = await getEncryptionData(fileUri);
-      console.log('fileUri', encryptionData);
-    } catch (err) {
-      console.error('[API] getEncryptionData failed', err);
-    }
-    if (!encryptionData?.key && !encryptionKey) {
-      return NextResponse.json({ error: 'Failed to retrieve encryption key' }, { status: 500 });
-    }
+   // try {
+     // encryptionData = await getEncryptionData(fileUri);
+     // console.log('fileUri', encryptionData);
+    //} catch (err) {
+      //console.error('[API] getEncryptionData failed', err);
+    //}
+    const encryptionKey = encryptionData?.key || null;
 
     // Call remote encryption service (server-side encryption step)
     let encrypted: any = null;
     try {
-      encrypted = await encryptMemberQube(encryptionData?.fileHash || uri || fileUri);
+      encrypted = await encryptMemberQube(encryptionData?.fileHash || fileUri);
       console.log('encrypted', encrypted);
     } catch (err) {
       console.error('[API] encryptMemberQube failed', err);
@@ -82,6 +78,7 @@ export async function POST(request: NextRequest) {
     if (!encrypted?.success) {
       return NextResponse.json({ error: 'Failed to encrypt content' }, { status: 500 });
     }
+
     function idToBigInt(id: unknown): bigint {
       if (typeof id === 'bigint') return id;
       if (typeof id === 'number') return BigInt(id);
@@ -107,19 +104,20 @@ export async function POST(request: NextRequest) {
     const ETH_RPC_URL = 'https://sepolia.drpc.org';
     const provider = new ethers.JsonRpcProvider(ETH_RPC_URL);
     const PRIVATE_KEY = process.env.AIGENTZ_PRIVATE_KEY!;
-    const CONTRACT_ADDRESS = '0x6BCe4463425E6E972D82f1650CC72017C52dBc5D';
+    const CONTRACT_ADDRESS = '0x5b9c2ff1fA8B33C62330dAAAC0f5d67Ac53c7C9C';
     const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
     const contract = new ethers.Contract(CONTRACT_ADDRESS, IQUBE_ABI, wallet);
 
     const to =  wallet.address;
     const overrides: any = {};
+    console.log('🧾 Is providence template ISSUE?:', isProvenance);
     const args = [
       fileUri,
       encryptionKey ?? '',
       tokenIdBig,
       templateIdBig,
       parentTemplateIdBig,
-      Boolean(isProvenanceTemplate ?? true)
+      isProvenance
     ];
     try {
       // optional overrides
@@ -230,7 +228,7 @@ export async function POST(request: NextRequest) {
       fileUri,
       templateId,
       parentTemplateId,
-      isProvenanceTemplate,
+      isProvenance,
       network,
       encryptionServiceResult: encrypted,
       txHash: tx?.hash ?? null,

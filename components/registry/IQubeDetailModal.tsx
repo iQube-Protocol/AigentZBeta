@@ -311,17 +311,26 @@ export const IQubeDetailModal: React.FC<IQubeDetailModalProps> = ({ templateId, 
   }
 
 
-  async function performMintWithMetaMask(opts: { templateId: string; parentTemplateId?: string | number | undefined; tokenId?: string | number | undefined; visibility?: 'public'|'private' }) {
+  async function performMintWithMetaMask(opts: { templateId: string; parentTemplateId?: string | number | undefined; tokenId?: string | number | undefined; visibility?: 'public'|'private'; isProvenance?: boolean }) {
     setIsMinting(true);
     try{
       console.log('[mint] about to call /api/core/mint/');
       // Build server payload. Include useServerMint so server knows to sign/send.
-      const payload = {
+      const payload: any = {
         visibility: opts.visibility || mintChoice,
         templateId: opts.templateId,
-        parentTemplateId: opts.parentTemplateId ?? 0,
         tokenId: opts.tokenId ?? tokenId,
+
       };
+
+      if (opts.parentTemplateId !== undefined && opts.parentTemplateId !== null) {
+        payload.parentTemplateId = opts.parentTemplateId;
+      } else if (parentTemplateId !== undefined && parentTemplateId !== null) {
+        payload.parentTemplateId = parentTemplateId;
+      }
+      if (opts.isProvenance !== undefined) payload.isProvenance = opts.isProvenance;
+      console.log('mint payload', payload);
+      console.log("body I'm sending:", JSON.stringify(payload));
       const mintRes = await fetch('/api/core/mint/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -356,7 +365,8 @@ export const IQubeDetailModal: React.FC<IQubeDetailModalProps> = ({ templateId, 
     } finally {
       setIsMinting(false);
     }
-    /*
+
+    /* // This is the old on-chain minting flow using MetaMask directly
     try {
       // log right before fetch to catch sync errors
       console.log('[mint] about to call /api/core/mint/');
@@ -1169,11 +1179,13 @@ export const IQubeDetailModal: React.FC<IQubeDetailModalProps> = ({ templateId, 
               setIsMinting(true);
               // log right before fetch to catch sync errors
               console.log('[mint] about to call /api/core/mint/');
+              const isProv = Number(template?.provenance ?? 0) === 0;
               const result = await performMintWithMetaMask({
                 templateId, // shorter form of templateId: templateId
-                parentTemplateId,
+                parentTemplateId: template?.parentTemplateId,
                 tokenId,
                 visibility: mintChoice,
+                isProvenance: isProv,
               });
               if (result?.success) {
                 // handle success (toast, update UI)

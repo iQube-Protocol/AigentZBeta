@@ -94,6 +94,7 @@ export async function GET(
       visibility: r.visibility || 'public',
       userId: r.user_id || null,
       createdAt: r.created_at,
+      parentTemplateId: r.parent_template_id ?? undefined,
     };
 
     return NextResponse.json(mapped, { status: 200 });
