@@ -40,7 +40,7 @@ export async function resolveIdentity(subject: string): Promise<ResolvedIdentity
 
 export async function bindAliasToDid(entityDid: string, aliasType: 'fio'|'evm'|'icp'|'email', aliasValue: string, proofRef?: string) {
   try {
-    const { initAgentiqClient } = await import('@qriptoagentiq/core-client');
+    const { initAgentiqClient } = await import('@/services/core/agentiqClient');
     const { aliasTtlDays } = await import('../identity/policy');
     const client = initAgentiqClient({
       supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL,

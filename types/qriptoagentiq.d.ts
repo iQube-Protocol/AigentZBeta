@@ -1,3 +1,7 @@
+// Type declarations for @qriptoagentiq/core-client
+// Note: This package is broken on npm (published without dist files)
+// Use the local implementation at @/services/core/agentiqClient instead
+
 declare module '@qriptoagentiq/core-client' {
   import type { SupabaseClient } from '@supabase/supabase-js';
   export interface AgentiqInitOptions {

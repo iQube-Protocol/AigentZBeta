@@ -29,8 +29,7 @@ export default function AgentiQBootstrap() {
     // Dynamic import with webpackIgnore to prevent build-time resolution
     (async () => {
       try {
-        // @ts-ignore - dynamic import may fail if package not built
-        const mod: any = await import(/* webpackIgnore: true */ "@qriptoagentiq/core-client");
+        const mod: any = await import("@/services/core/agentiqClient");
         if (mod && mod.initAgentiqClient) {
           const { initAgentiqClient } = mod;
           const core = initAgentiqClient({

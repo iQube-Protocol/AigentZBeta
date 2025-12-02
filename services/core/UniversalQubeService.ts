@@ -13,7 +13,7 @@
  */
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { AgentiqCoreClient, initAgentiqClient } from '@qriptoagentiq/core-client';
+import { AgentiqCoreClient, initAgentiqClient } from '@/services/core/agentiqClient';
 
 export interface QubeServiceConfig {
   // Core Supabase Configuration
