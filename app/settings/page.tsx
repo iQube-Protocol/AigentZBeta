@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
-import { Select } from "../../components/ui/Select";
+import { SimpleSelect as Select } from "../../components/ui/SimpleSelect";
 
 export default function SettingsPage() {
   const [isLoading, setIsLoading] = useState(false);

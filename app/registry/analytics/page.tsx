@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { Button } from "../../../components/ui/Button";
-import { Select } from "../../../components/ui/Select";
+import { SimpleSelect as Select } from "../../../components/ui/SimpleSelect";
 
 interface AnalyticsData {
   totalTemplates: number;
