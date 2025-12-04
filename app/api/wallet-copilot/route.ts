@@ -38,7 +38,9 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { messages, context } = body;
 
-    if (!process.env.OPENAI_API_KEY) {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      console.error('OPENAI_API_KEY not found in environment variables');
       return NextResponse.json(
         { message: "I'm currently offline. Please check back later!" },
         { status: 200 }
