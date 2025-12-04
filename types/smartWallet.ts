@@ -50,6 +50,9 @@ export interface PersonaState {
   
   /** App origin */
   appOrigin: string;
+  
+  /** Earned badges */
+  badges?: string[];
 }
 
 export interface PersonaContext {

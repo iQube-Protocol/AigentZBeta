@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { SmartContentCard, SmartWalletDrawer, ContentCopilotPanel, useSmartTriad } from "@/app/components/content";
+import { PersonaSetupWizard } from "@/app/components/wallet";
 import { agentConfigs } from "@/app/data/agentConfig";
 import type { SmartContentQube } from "@/types/smartContent";
 
@@ -14,6 +15,7 @@ export default function ContentHubView() {
   const [loading, setLoading] = useState(true);
   const [activeApp, setActiveApp] = useState<string | null>(null);
   const [copilotOpen, setCopilotOpen] = useState(false);
+  const [showPersonaWizard, setShowPersonaWizard] = useState(false);
 
   useEffect(() => {
     fetch("/api/content/smart?status=published")
@@ -83,7 +85,19 @@ export default function ContentHubView() {
         recipientAddress={RECIPIENT_AGENT.walletAddresses.evmAddress}
         currentContent={state.currentContent || undefined}
         onPurchaseComplete={() => actions.refreshLibrary()}
+        onCreatePersona={() => setShowPersonaWizard(true)}
       />
+
+      {/* Persona Setup Wizard */}
+      {showPersonaWizard && (
+        <PersonaSetupWizard
+          onComplete={(persona) => {
+            setShowPersonaWizard(false);
+            // Optionally refresh wallet state here
+          }}
+          onCancel={() => setShowPersonaWizard(false)}
+        />
+      )}
 
       <ContentCopilotPanel isOpen={copilotOpen} onClose={() => setCopilotOpen(false)} />
     </div>

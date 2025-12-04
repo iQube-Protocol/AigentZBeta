@@ -2,9 +2,21 @@
 
 import React, { useState, useEffect } from "react";
 import { SmartContentCard, ContentViewer, SmartWalletDrawer } from "@/app/components/content";
+import { PersonaSetupWizard } from "@/app/components/wallet";
 import { agentConfigs } from "@/app/data/agentConfig";
 import type { SmartContentQube } from "@/types/smartContent";
 import type { SmartWalletNode } from "@/types/smartWallet";
+import { 
+  Wallet, 
+  BookOpen, 
+  Video, 
+  Headphones, 
+  MessageSquare, 
+  FileText, 
+  LayoutGrid,
+  Layers,
+  Bot
+} from "lucide-react";
 
 // Agent wallet configurations for SmartContent payments
 // Payer: AigentZ (the user/buyer)
@@ -327,21 +339,52 @@ const DEMO_CONTENTS: any[] = [
 ];
 
 // Demo wallet uses simplified mock structure - cast to any to bypass strict typing
+// Aigent Z is the primary persona with real wallet for payments
 const DEMO_WALLET: any = {
   id: "demo-wallet",
   type: "SmartWalletNode",
   personaContext: {
-    personaId: "00000000-0000-0000-0000-000000000001",
-    rootDid: "did:iq:demo-user",
-    displayName: "Demo User",
-    identityState: "pseudo",
-    reputationBucket: 3,
-    reputationScore: 75,
-    badges: ["early-adopter", "content-creator"],
+    activePersonaId: "aigent-z",
+    activePersona: {
+      id: "aigent-z",
+      displayName: "Aigent Z",
+      fioHandle: "aigentz@aigent",
+      identifiability: "agent",
+      reputationBucket: 5,
+      reputationScore: 100,
+      badges: ["verified-agent", "early-adopter", "content-creator"],
+      // Real wallet address for payments
+      evmAddress: PAYER_AGENT.walletAddresses.evmAddress,
+    },
+    availablePersonas: [
+      {
+        id: "aigent-z",
+        displayName: "Aigent Z",
+        fioHandle: "aigentz@aigent",
+        reputationBucket: 5,
+        reputationScore: 100,
+        evmAddress: PAYER_AGENT.walletAddresses.evmAddress,
+      },
+      {
+        id: "00000000-0000-0000-0000-000000000001",
+        displayName: "kn0w1@qripto",
+        fioHandle: "kn0w1@qripto",
+        reputationBucket: 3,
+        reputationScore: 75,
+      },
+      {
+        id: "00000000-0000-0000-0000-000000000002",
+        displayName: "shadow@knyt",
+        fioHandle: "shadow@knyt",
+        reputationBucket: 2,
+        reputationScore: 45,
+      },
+    ],
+    rootDid: "did:iq:aigent-z",
   },
   balances: {
     QCT: { available: 1250, pending: 50, locked: 0 },
-    QOYN: { available: 500, pending: 0, locked: 100 },
+    USDC: { available: 125.50, pending: 0, locked: 0 },
     KNYT: { available: 25, pending: 0, locked: 0 },
   },
   contentEntitlements: [
@@ -407,7 +450,7 @@ const DEMO_WALLET: any = {
       { id: "r2", amount: 25, tokenType: "QCT", reason: "Daily login", status: "Distributed", distributedAt: new Date(Date.now() - 86400000).toISOString() },
       { id: "r3", amount: 10, tokenType: "QCT", reason: "Content share", status: "Distributed", distributedAt: new Date(Date.now() - 172800000).toISOString() },
     ],
-    lifetimeEarnings: { QCT: 285, QOYN: 50, KNYT: 5 },
+    lifetimeEarnings: { QCT: 285, USDC: 12.50, KNYT: 5 },
     rewardHubStatus: "connected",
   },
   preferences: {
@@ -442,6 +485,54 @@ export default function SmartContentDemoPage() {
   const [liveContent, setLiveContent] = useState<SmartContentQube[]>([]);
   const [loadingLive, setLoadingLive] = useState(true);
   const [purchaseContent, setPurchaseContent] = useState<SmartContentQube | null>(null);
+  const [showPersonaWizard, setShowPersonaWizard] = useState(false);
+  
+  // Dynamic wallet state - starts with DEMO_WALLET and updates on actions
+  const [walletState, setWalletState] = useState<any>(DEMO_WALLET);
+  
+  // Handle persona switching
+  const handlePersonaChange = (personaId: string) => {
+    const persona = walletState.personaContext.availablePersonas.find((p: any) => p.id === personaId);
+    if (persona) {
+      setWalletState((prev: any) => ({
+        ...prev,
+        personaContext: {
+          ...prev.personaContext,
+          activePersonaId: personaId,
+          activePersona: {
+            ...persona,
+            badges: persona.badges || prev.personaContext.activePersona?.badges || [],
+          },
+        },
+      }));
+    }
+  };
+  
+  // Add content to library - stores full content object for rendering
+  const addToLibrary = (content: SmartContentQube, acquiredVia: 'purchase' | 'free' | 'reward') => {
+    const newEntitlement = {
+      id: `ent-${Date.now()}`,
+      contentId: content.id,
+      contentTitle: content.title,
+      // Store full content object for SmartContentCard rendering
+      content: content,
+      // QubeBase reference - in production this would be IPFS CID or Supabase blob ref
+      qubeBaseRef: {
+        type: 'supabase' as const,
+        table: 'smart_content',
+        id: content.id,
+        // For IPFS: { type: 'ipfs', cid: 'Qm...' }
+      },
+      scope: 'full' as const,
+      acquiredVia,
+      acquiredAt: new Date().toISOString(),
+    };
+    
+    setWalletState((prev: any) => ({
+      ...prev,
+      contentEntitlements: [...(prev.contentEntitlements || []), newEntitlement],
+    }));
+  };
 
   // Fetch real content from database
   useEffect(() => {
@@ -473,9 +564,61 @@ export default function SmartContentDemoPage() {
   };
 
   const handlePurchaseComplete = (content: SmartContentQube) => {
-    // Add to unlocked content / library
-    console.log('Purchase complete:', content.title);
+    // Add to library after successful purchase
+    addToLibrary(content, 'purchase');
+    console.log('Purchase complete, added to library:', content.title);
     setPurchaseContent(null);
+  };
+  
+  // Handle adding free content to library
+  const handleAddFreeToLibrary = (content: SmartContentQube) => {
+    addToLibrary(content, 'free');
+    console.log('Added free content to library:', content.title);
+  };
+  
+  // Handle task actions (complete/dismiss)
+  const handleTaskAction = (task: any, action: 'complete' | 'dismiss') => {
+    if (action === 'complete') {
+      // Update task status and add reward
+      setWalletState((prev: any) => {
+        const updatedTasks = prev.tasks.map((t: any) => 
+          t.id === task.id ? { ...t, status: 'completed' } : t
+        );
+        
+        // Add reward to pending if task has one
+        const newReward = task.reward ? {
+          id: `reward-${Date.now()}`,
+          amount: task.reward.amount,
+          tokenType: task.reward.currency,
+          reason: `Completed: ${task.title}`,
+          status: 'Proposed',
+        } : null;
+        
+        return {
+          ...prev,
+          tasks: updatedTasks,
+          rewardsContext: {
+            ...prev.rewardsContext,
+            pendingRewards: newReward 
+              ? [...(prev.rewardsContext?.pendingRewards || []), newReward]
+              : prev.rewardsContext?.pendingRewards || [],
+          },
+        };
+      });
+      alert(`Task "${task.title}" completed! Reward pending.`);
+    } else {
+      // Dismiss task
+      setWalletState((prev: any) => ({
+        ...prev,
+        tasks: prev.tasks.filter((t: any) => t.id !== task.id),
+      }));
+    }
+  };
+  
+  // Handle reputation claim submission
+  const handleSubmitReputationClaim = () => {
+    alert('Reputation claim flow coming soon! This will allow you to submit evidence of contributions.');
+    // TODO: Open a modal for claim submission
   };
 
   const handlePanelPayment = (panelIndex: number) => {
@@ -491,7 +634,24 @@ export default function SmartContentDemoPage() {
   };
 
   const handleAddToLibrary = (content: SmartContentQube) => {
-    alert(`Added "${content.title}" to your library!`);
+    // Check if already in library
+    const alreadyInLibrary = walletState.contentEntitlements?.some(
+      (ent: any) => ent.contentId === content.id
+    );
+    if (alreadyInLibrary) {
+      alert(`"${content.title}" is already in your library!`);
+      return;
+    }
+    // Determine if free or needs purchase
+    const isFree = !content.pricingModel?.tiers?.length || 
+                   content.pricingModel.tiers.some(t => t.amount === 0);
+    if (isFree) {
+      addToLibrary(content, 'free');
+      alert(`Added "${content.title}" to your library!`);
+    } else {
+      // Open wallet for purchase
+      handlePurchase(content);
+    }
   };
 
   return (
@@ -508,9 +668,9 @@ export default function SmartContentDemoPage() {
           </div>
           <button
             onClick={() => setWalletOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-fuchsia-500/20 to-purple-500/20 ring-1 ring-fuchsia-500/30 text-fuchsia-300 hover:from-fuchsia-500/30 hover:to-purple-500/30 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-purple-500/20 to-fuchsia-500/20 ring-1 ring-purple-500/30 text-white/90 hover:from-purple-500/30 hover:to-fuchsia-500/30 transition-colors"
           >
-            <span>💰</span>
+            <Wallet className="w-5 h-5 text-purple-400" />
             <span className="font-medium">{PAYER_AGENT.name}</span>
           </button>
         </div>
@@ -1041,24 +1201,24 @@ memo: 'Payment for services'
           <h2 className="text-lg font-semibold text-white mb-4">Component Overview</h2>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
             <div className="rounded-xl bg-white/5 ring-1 ring-white/10 p-4">
-              <div className="text-2xl mb-2">🎴</div>
+              <LayoutGrid className="w-8 h-8 mb-2 text-purple-400" />
               <h3 className="font-medium text-white">SmartContentCard</h3>
-              <p className="text-slate-400 mt-1">20 variants for all layout needs</p>
+              <p className="text-white/60 mt-1">20 variants for all layout needs</p>
             </div>
             <div className="rounded-xl bg-white/5 ring-1 ring-white/10 p-4">
-              <div className="text-2xl mb-2">📖</div>
+              <Layers className="w-8 h-8 mb-2 text-blue-400" />
               <h3 className="font-medium text-white">ContentViewer</h3>
-              <p className="text-slate-400 mt-1">4 modalities: read, watch, listen, interact</p>
+              <p className="text-white/60 mt-1">4 modalities: read, watch, listen, interact</p>
             </div>
             <div className="rounded-xl bg-white/5 ring-1 ring-white/10 p-4">
-              <div className="text-2xl mb-2">📚</div>
+              <BookOpen className="w-8 h-8 mb-2 text-emerald-400" />
               <h3 className="font-medium text-white">LibraryShelf</h3>
-              <p className="text-slate-400 mt-1">Filters, stats, favorites, shelves</p>
+              <p className="text-white/60 mt-1">Filters, stats, favorites, shelves</p>
             </div>
             <div className="rounded-xl bg-white/5 ring-1 ring-white/10 p-4">
-              <div className="text-2xl mb-2">💰</div>
+              <Wallet className="w-8 h-8 mb-2 text-amber-400" />
               <h3 className="font-medium text-white">SmartWalletDrawer</h3>
-              <p className="text-slate-400 mt-1">Wallet, Library, Tasks, Rewards tabs</p>
+              <p className="text-white/60 mt-1">Wallet, Library, Tasks, Rewards tabs</p>
             </div>
           </div>
 
@@ -1187,13 +1347,28 @@ memo: 'Payment for services'
           btcAddress: PAYER_AGENT.walletAddresses.btcAddress,
           fioHandle: PAYER_AGENT.fioId,
         }}
-        personaId="00000000-0000-0000-0000-000000000001"
-        walletNode={DEMO_WALLET}
+        personaId={walletState.personaContext.activePersonaId}
+        walletNode={walletState}
         currentContent={purchaseContent || selectedContent || undefined}
         onContentSelect={handleContentSelect}
         onPurchaseComplete={handlePurchaseComplete}
         recipientAddress={RECIPIENT_AGENT.walletAddresses.evmAddress}
+        onCreatePersona={() => setShowPersonaWizard(true)}
+        onPersonaChange={handlePersonaChange}
+        onTaskAction={handleTaskAction}
+        onSubmitReputationClaim={handleSubmitReputationClaim}
+        onOpenCopilot={() => console.log('Copilot opened - Smart Triad ready')}
       />
+
+      {/* Persona Setup Wizard */}
+      {showPersonaWizard && (
+        <PersonaSetupWizard
+          onComplete={(persona) => {
+            setShowPersonaWizard(false);
+          }}
+          onCancel={() => setShowPersonaWizard(false)}
+        />
+      )}
     </div>
   );
 }

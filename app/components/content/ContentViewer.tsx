@@ -327,10 +327,12 @@ export default function ContentViewer({
   accessScope = "preview",
   unlockedPanels = [],
 }: ContentViewerProps) {
-  // Get available modalities
-  const availableModalities = Object.entries(content.modalities)
-    .filter(([_, mod]) => mod.enabled)
-    .map(([key]) => key as ContentModality);
+  // Get available modalities - guard against undefined modalities
+  const availableModalities = content.modalities 
+    ? Object.entries(content.modalities)
+        .filter(([_, mod]) => mod?.enabled)
+        .map(([key]) => key as ContentModality)
+    : ["read" as ContentModality];
 
   const [activeModality, setActiveModality] = useState<ContentModality>(
     initialModality || availableModalities[0] || "read"

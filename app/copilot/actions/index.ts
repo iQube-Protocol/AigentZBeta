@@ -32,6 +32,9 @@ import { crmActions } from "./crm";
 // Smart Content: Content creation, library, pricing
 import { smartContentActions } from "./smartcontent";
 
+// Persona: Persona management and wallet operations
+import { personaActions } from "./persona";
+
 // Smart Triad: Orchestrated Content + Wallet + Menu coordination
 import { smartTriadActions } from "./smartTriad";
 
@@ -62,6 +65,8 @@ export const allActions = [
   ...crmActions,
   // Smart Content: NL → SmartContentQube
   ...smartContentActions,
+  // Persona: Persona management and wallet operations
+  ...personaActions,
   // Smart Triad: Content + Wallet + Menu orchestration
   ...smartTriadActions,
   // Smart Menu Content Integration
@@ -82,5 +87,7 @@ export * from "./governance";
 export { crmActions } from "./crm";
 // Smart Content actions
 export * from "./smartcontent";
+// Persona actions
+export * from "./persona";
 // Smart Triad orchestration actions
 export * from "./smartTriad";

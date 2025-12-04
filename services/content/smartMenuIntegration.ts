@@ -107,7 +107,7 @@ export interface MenuAction {
   id: string;
   
   /** Action type */
-  type: 'payment' | 'navigation' | 'agent' | 'share' | 'bookmark' | 'settings';
+  type: 'payment' | 'navigation' | 'agent' | 'share' | 'bookmark' | 'settings' | 'copilot' | 'drawer-resize';
   
   /** Display label */
   label: string;
@@ -130,6 +130,24 @@ export interface MenuAction {
   /** Disabled reason */
   disabledReason?: string;
 }
+
+/**
+ * Drawer size configuration for copilot mode
+ */
+export interface DrawerSizeConfig {
+  /** Normal drawer width */
+  normal: string;
+  /** Expanded drawer width (copilot mode) */
+  expanded: string;
+  /** Expansion ratio (e.g., 1.3 for 30% larger) */
+  expansionRatio: number;
+}
+
+export const DRAWER_SIZE_CONFIG: DrawerSizeConfig = {
+  normal: '21.6rem',
+  expanded: '28rem',
+  expansionRatio: 1.3,
+};
 
 // =============================================================================
 // DRAWER CONFIGURATIONS
@@ -474,6 +492,55 @@ export class SmartMenuIntegrationService {
       showWalletSummary: userPreferences.showBalances,
       showQuestProgress: userPreferences.showTasks,
     };
+  }
+  
+  /**
+   * Create copilot activation action
+   * When copilot is activated, drawer expands by 30% for better readability
+   */
+  createCopilotAction(): MenuAction {
+    return {
+      id: 'action_copilot',
+      type: 'copilot',
+      label: 'Aigent Z Copilot',
+      icon: 'sparkles',
+      handler: 'handleCopilotToggle',
+      params: {
+        expandDrawer: true,
+        drawerWidth: DRAWER_SIZE_CONFIG.expanded,
+        normalWidth: DRAWER_SIZE_CONFIG.normal,
+        expansionRatio: DRAWER_SIZE_CONFIG.expansionRatio,
+      },
+      isPrimary: false,
+      isDisabled: false,
+    };
+  }
+  
+  /**
+   * Create drawer resize action
+   * Used to programmatically resize the drawer
+   */
+  createDrawerResizeAction(expanded: boolean): MenuAction {
+    return {
+      id: 'action_drawer_resize',
+      type: 'drawer-resize',
+      label: expanded ? 'Expand Drawer' : 'Collapse Drawer',
+      icon: expanded ? 'maximize-2' : 'minimize-2',
+      handler: 'handleDrawerResize',
+      params: {
+        expanded,
+        width: expanded ? DRAWER_SIZE_CONFIG.expanded : DRAWER_SIZE_CONFIG.normal,
+      },
+      isPrimary: false,
+      isDisabled: false,
+    };
+  }
+  
+  /**
+   * Get drawer size configuration
+   */
+  getDrawerSizeConfig(): DrawerSizeConfig {
+    return DRAWER_SIZE_CONFIG;
   }
 }
 
