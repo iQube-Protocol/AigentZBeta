@@ -226,7 +226,7 @@ export function PersonaSelector({
           {activePersona && getAvatarUri(activePersona) ? (
             <img src={getAvatarUri(activePersona)} alt="" className="w-full h-full rounded-full object-cover" />
           ) : (
-            getDomainIcon(activePersona)
+            getDomainIcon(activePersona ?? undefined)
           )}
         </div>
         
