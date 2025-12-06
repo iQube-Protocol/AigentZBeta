@@ -26,12 +26,9 @@ export class SmartTriadAdapter {
         label: tab.label,
         slots: tab.slots.map(slot => ({
           id: slot.id,
-          label: slot.label,
-          modality: slot.modality as any,
-          variantId: slot.variantId,
+          cardVariant: slot.variantId || 'default',
           dataSource: { type: 'currentContent' },
           behaviour: { refreshMode: 'manual' },
-          visibility: { alwaysShow: true },
         })),
       })),
     }));
