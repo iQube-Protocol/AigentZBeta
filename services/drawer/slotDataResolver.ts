@@ -555,7 +555,7 @@ class SlotDataResolver {
       type: 'content' as const,
       display: {
         title: p.protocol,
-        subtitle: `${p.assetIn.symbol} on ${p.chain}`,
+        subtitle: `${p.assetIn} on ${p.chain}`,
         status: p.status,
       },
       raw: p,
