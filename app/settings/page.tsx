@@ -123,6 +123,14 @@ export default function SettingsPage() {
           <div className="rounded-2xl bg-black/30 p-6 space-y-4">
             <h3 className="text-lg font-medium">Quick Actions</h3>
             <div className="space-y-2">
+              <a 
+                href="/demo/smart-drawer-new"
+                className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 flex items-center gap-2 block transition-colors"
+              >
+                <span className="text-purple-400">✨</span>
+                <span>Smart Drawer Console</span>
+                <span className="ml-auto text-xs text-purple-400/60">New</span>
+              </a>
               <button className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 flex items-center gap-2">
                 <span className="text-indigo-400">⟳</span>
                 <span>Sync iQube Registry</span>
