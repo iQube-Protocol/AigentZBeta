@@ -15,7 +15,7 @@ export default function SmartTriadConsolePage() {
   const [activeTab, setActiveTab] = useState<'drawers' | 'content' | 'wallet'>('drawers');
 
   useEffect(() => {
-    getSmartTriadSet('ds:qriptopian:tenant-main:persona-investor').then(setTriadSet);
+    getSmartTriadSet('Qriptopian', 'tenant-main', 'investor').then(setTriadSet);
   }, []);
 
   if (!triadSet) return <div className="p-8">Loading...</div>;
