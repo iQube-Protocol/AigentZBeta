@@ -28,10 +28,13 @@ export const SAMPLE_CONTENT: Record<string, SmartContentQube> = {
         enabled: false,
         audioAssets: [],
         primaryOn: [],
-        allowDownload: false
+        hasTranscript: false,
+        allowBackground: false
       },
       interact: { 
         enabled: false,
+        agents: [],
+        tools: [],
         primaryOn: []
       },
     },
@@ -67,10 +70,13 @@ export const SAMPLE_CONTENT: Record<string, SmartContentQube> = {
         enabled: false,
         audioAssets: [],
         primaryOn: [],
-        allowDownload: false
+        hasTranscript: false,
+        allowBackground: false
       },
       interact: { 
         enabled: false,
+        agents: [],
+        tools: [],
         primaryOn: []
       },
     },
@@ -106,10 +112,13 @@ export const SAMPLE_CONTENT: Record<string, SmartContentQube> = {
         enabled: true,
         audioAssets: [],
         primaryOn: ['mobile'],
-        allowDownload: true
+        hasTranscript: true,
+        allowBackground: true
       },
       interact: { 
         enabled: true,
+        agents: [],
+        tools: [],
         primaryOn: ['desktop', 'mobile', 'tv']
       },
     },
