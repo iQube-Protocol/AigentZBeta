@@ -339,8 +339,9 @@ class SlotDataResolver {
 
     // Apply status filter
     if ('statusFilter' in dataSource && dataSource.statusFilter && dataSource.statusFilter.length > 0) {
+      const statusFilter = dataSource.statusFilter as string[];
       entitlements = entitlements.filter((e) =>
-        dataSource.statusFilter!.includes(e.status)
+        statusFilter.includes(e.status)
       );
     }
 
@@ -368,7 +369,8 @@ class SlotDataResolver {
 
     // Apply status filter
     if ('statusFilter' in dataSource && dataSource.statusFilter && dataSource.statusFilter.length > 0) {
-      tasks = tasks.filter((t) => dataSource.statusFilter!.includes(t.status));
+      const statusFilter = dataSource.statusFilter as string[];
+      tasks = tasks.filter((t) => statusFilter.includes(t.status));
     }
 
     const items = tasks.map((t) => this.taskToResolvedItem(t));
@@ -395,7 +397,8 @@ class SlotDataResolver {
 
     // Apply status filter
     if ('statusFilter' in dataSource && dataSource.statusFilter && dataSource.statusFilter.length > 0) {
-      quests = quests.filter((q) => dataSource.statusFilter!.includes(q.status));
+      const statusFilter = dataSource.statusFilter as string[];
+      quests = quests.filter((q) => statusFilter.includes(q.status));
     }
 
     const items = quests.map((q) => this.questToResolvedItem(q));
