@@ -218,7 +218,7 @@ class SlotDataResolver {
     // TODO: Fetch related content from API
     // For now, return mock data
 
-    const limit = dataSource.limit ?? 6;
+    const limit = ('limit' in dataSource && dataSource.limit) ? dataSource.limit : 6;
     const mockItems: ResolvedItem[] = [];
 
     for (let i = 0; i < limit; i++) {
@@ -227,7 +227,7 @@ class SlotDataResolver {
         type: 'content',
         display: {
           title: `Related Content ${i + 1}`,
-          subtitle: `${dataSource.relationType ?? 'related'} content`,
+          subtitle: `${'relationType' in dataSource ? dataSource.relationType : 'related'} content`,
           imageUrl: `/api/placeholder/300/200?text=Related${i + 1}`,
         },
         action: {
