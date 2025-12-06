@@ -338,7 +338,7 @@ class SlotDataResolver {
     let entitlements = ctx.wallet.entitlements;
 
     // Apply status filter
-    if (dataSource.statusFilter && dataSource.statusFilter.length > 0) {
+    if ('statusFilter' in dataSource && dataSource.statusFilter && dataSource.statusFilter.length > 0) {
       entitlements = entitlements.filter((e) =>
         dataSource.statusFilter!.includes(e.status)
       );
@@ -367,7 +367,7 @@ class SlotDataResolver {
     let tasks = ctx.wallet.tasks;
 
     // Apply status filter
-    if (dataSource.statusFilter && dataSource.statusFilter.length > 0) {
+    if ('statusFilter' in dataSource && dataSource.statusFilter && dataSource.statusFilter.length > 0) {
       tasks = tasks.filter((t) => dataSource.statusFilter!.includes(t.status));
     }
 
@@ -394,7 +394,7 @@ class SlotDataResolver {
     let quests = ctx.wallet.quests ?? [];
 
     // Apply status filter
-    if (dataSource.statusFilter && dataSource.statusFilter.length > 0) {
+    if ('statusFilter' in dataSource && dataSource.statusFilter && dataSource.statusFilter.length > 0) {
       quests = quests.filter((q) => dataSource.statusFilter!.includes(q.status));
     }
 
