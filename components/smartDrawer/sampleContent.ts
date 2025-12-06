@@ -39,7 +39,11 @@ export const SAMPLE_CONTENT: Record<string, SmartContentQube> = {
       },
     },
     pricingModel: {
-      tiers: [{ kind: 'free', amount: 0, currency: 'Q¢' }],
+      primaryCurrency: 'QCT',
+      tiers: [{ kind: 'free', amount: 0, currency: 'QCT', covers: [] }],
+      freePreview: {},
+      creatorWalletAddress: '0x0000000000000000000000000000000000000000',
+      platformFeePercentage: 10,
     },
   },
   sample2: {
@@ -80,7 +84,11 @@ export const SAMPLE_CONTENT: Record<string, SmartContentQube> = {
       },
     },
     pricingModel: {
-      tiers: [{ kind: 'premium', amount: 50, currency: 'KNYT' }],
+      primaryCurrency: 'KNYT',
+      tiers: [{ kind: 'subscription', amount: 50, currency: 'KNYT', covers: [] }],
+      freePreview: { percentageOfContent: 20 },
+      creatorWalletAddress: '0x0000000000000000000000000000000000000000',
+      platformFeePercentage: 10,
     },
   },
   sample3: {
@@ -121,7 +129,11 @@ export const SAMPLE_CONTENT: Record<string, SmartContentQube> = {
       },
     },
     pricingModel: {
-      tiers: [{ kind: 'premium', amount: 100, currency: 'USDC' }],
+      primaryCurrency: 'USDC',
+      tiers: [{ kind: 'payPerArticle', amount: 100, currency: 'USDC', covers: [] }],
+      freePreview: { timeLimitSeconds: 300 },
+      creatorWalletAddress: '0x0000000000000000000000000000000000000000',
+      platformFeePercentage: 15,
     },
   },
 };
