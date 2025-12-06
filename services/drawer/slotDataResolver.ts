@@ -597,8 +597,8 @@ class SlotDataResolver {
       id: 'risk-summary',
       type: 'content' as const,
       display: {
-        title: `Risk: ${rs.overallRiskBand}`,
-        subtitle: `Health: ${rs.healthScore}%`,
+        title: `Risk: ${rs.dominantRiskBand ?? 'Unknown'}`,
+        subtitle: `Score: ${rs.riskScore ?? 0}`,
       },
       raw: rs,
     }];
