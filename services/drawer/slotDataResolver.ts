@@ -276,7 +276,7 @@ class SlotDataResolver {
 
     return {
       slotId: slot.id,
-      sourceType: 'curatedList',
+      sourceType: 'library',
       items: mockItems,
       totalCount: mockItems.length,
       isLoading: false,
