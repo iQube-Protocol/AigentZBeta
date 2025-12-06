@@ -38,7 +38,6 @@ export const SAMPLE_CONTENT: Record<string, SmartContentQube> = {
         primaryOn: []
       },
     },
-    structure: { kind: 'series' },
     pricingModel: {
       tiers: [{ kind: 'free', amount: 0, currency: 'Q¢' }],
     },
@@ -80,7 +79,6 @@ export const SAMPLE_CONTENT: Record<string, SmartContentQube> = {
         primaryOn: []
       },
     },
-    structure: { kind: 'series' },
     pricingModel: {
       tiers: [{ kind: 'premium', amount: 50, currency: 'KNYT' }],
     },
@@ -122,7 +120,6 @@ export const SAMPLE_CONTENT: Record<string, SmartContentQube> = {
         primaryOn: ['desktop', 'mobile', 'tv']
       },
     },
-    structure: { kind: 'series' },
     pricingModel: {
       tiers: [{ kind: 'premium', amount: 100, currency: 'USDC' }],
     },
