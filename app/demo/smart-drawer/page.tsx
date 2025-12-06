@@ -1,7 +1,23 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Sparkles, Save } from "lucide-react";
+import { 
+  Sparkles, 
+  Save, 
+  Play, 
+  Settings, 
+  RefreshCw, 
+  Bot, 
+  Send, 
+  Zap, 
+  Target, 
+  CheckSquare, 
+  BookOpen,
+  Monitor,
+  Smartphone,
+  Tv
+} from "lucide-react";
+import type { Device } from '@/types/smartDrawer';
 import type { SmartTriadSet } from '@/src/smartTriad';
 import { getSmartTriadSet, saveSmartTriadSet } from '@/src/smartTriad/service';
 import { DynamicModeSelector } from '@/components/smartDrawer/DynamicModeSelector';
@@ -9,11 +25,28 @@ import { DrawerMenuList } from '@/components/smartDrawer/DrawerMenuList';
 import { DrawerDetailEditor } from '@/components/smartDrawer/DrawerDetailEditor';
 import { LivePreviewPanel } from '@/components/smartDrawer/LivePreviewPanel';
 import { ResizableLayout } from '@/components/smartDrawer/ResizableLayout';
+import { useCopilotDrawer } from '@/hooks/useCopilotDrawer';
+import { SmartDrawerRenderer } from '@/components/drawer';
 
 const DEMO_APPS = [
   { id: "Qriptopian", label: "Qriptopian" },
   { id: "metaKnyts", label: "metaKnyts" },
   { id: "MoneyPenny", label: "MoneyPenny" },
+];
+
+const DEVICE_OPTIONS = [
+  { id: 'desktop' as Device, label: 'Desktop', icon: Monitor },
+  { id: 'mobile' as Device, label: 'Mobile', icon: Smartphone },
+  { id: 'tv' as Device, label: 'TV', icon: Tv },
+];
+
+const SAMPLE_PROMPTS = [
+  "Show my wallet balance",
+  "Add a tasks section",
+  "Show recent articles",
+  "Display my quests",
+  "Show DeFi positions",
+  "Add copilot panel",
 ];
 
 // =============================================================================
