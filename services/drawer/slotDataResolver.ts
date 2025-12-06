@@ -253,8 +253,8 @@ class SlotDataResolver {
     ctx: ResolutionContext
   ): Promise<ResolvedSlotData> {
     // TODO: Fetch curated list from API
-    const listId = dataSource.listId ?? 'default';
-    const limit = dataSource.limit ?? 10;
+    const listId = ('listId' in dataSource && dataSource.listId) ? dataSource.listId : 'default';
+    const limit = ('limit' in dataSource && dataSource.limit) ? dataSource.limit : 10;
 
     const mockItems: ResolvedItem[] = [];
     for (let i = 0; i < limit; i++) {
