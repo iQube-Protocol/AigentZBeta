@@ -1,11 +1,15 @@
+import { createSmartContentQube } from '@/types/smartContent';
 import type { SmartContentQube } from '@/types/smartContent';
 
 export const SAMPLE_CONTENT: Record<string, SmartContentQube> = {
-  sample1: {
+  sample1: createSmartContentQube({
     id: 'sample-1',
-    title: 'The Quantum Codex: Chapter 1',
-    description: 'Dive into a world where reality bends and digital consciousness emerges.',
     app: 'Qriptopian',
+    title: 'The Quantum Codex: Chapter 1',
+    slug: 'quantum-codex-chapter-1',
+    description: 'Dive into a world where reality bends and digital consciousness emerges.',
+    creatorRootDid: 'did:example:creator1',
+    tenantId: 'tenant-qriptopian',
     coverImageUri: 'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=800&h=600&fit=crop',
     modalities: {
       read: { 
@@ -45,12 +49,16 @@ export const SAMPLE_CONTENT: Record<string, SmartContentQube> = {
       creatorWalletAddress: '0x0000000000000000000000000000000000000000',
       platformFeePercentage: 10,
     },
-  },
-  sample2: {
+    status: 'published',
+  }),
+  sample2: createSmartContentQube({
     id: 'sample-2',
-    title: 'Cyberpunk Chronicles',
-    description: 'A neon-soaked journey through the digital underground.',
     app: 'metaKnyts',
+    title: 'Cyberpunk Chronicles',
+    slug: 'cyberpunk-chronicles',
+    description: 'A neon-soaked journey through the digital underground.',
+    creatorRootDid: 'did:example:creator2',
+    tenantId: 'tenant-metaknyts',
     coverImageUri: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=800&h=600&fit=crop',
     modalities: {
       read: { 
@@ -90,12 +98,16 @@ export const SAMPLE_CONTENT: Record<string, SmartContentQube> = {
       creatorWalletAddress: '0x0000000000000000000000000000000000000000',
       platformFeePercentage: 10,
     },
-  },
-  sample3: {
+    status: 'published',
+  }),
+  sample3: createSmartContentQube({
     id: 'sample-3',
-    title: 'Trading Algorithms Masterclass',
-    description: 'Learn advanced DeFi trading strategies from the pros.',
     app: 'MoneyPenny',
+    title: 'Trading Algorithms Masterclass',
+    slug: 'trading-algorithms-masterclass',
+    description: 'Learn advanced DeFi trading strategies from the pros.',
+    creatorRootDid: 'did:example:creator3',
+    tenantId: 'tenant-moneypenny',
     coverImageUri: 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800&h=600&fit=crop',
     modalities: {
       read: { 
@@ -135,7 +147,8 @@ export const SAMPLE_CONTENT: Record<string, SmartContentQube> = {
       creatorWalletAddress: '0x0000000000000000000000000000000000000000',
       platformFeePercentage: 15,
     },
-  },
+    status: 'published',
+  }),
 };
 
 export function getSampleContentByVariant(variantId?: string): SmartContentQube {
