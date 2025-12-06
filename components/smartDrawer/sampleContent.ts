@@ -8,10 +8,32 @@ export const SAMPLE_CONTENT: Record<string, SmartContentQube> = {
     app: 'Qriptopian',
     coverImageUri: 'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=800&h=600&fit=crop',
     modalities: {
-      read: { enabled: true },
-      watch: { enabled: false },
-      listen: { enabled: false },
-      interact: { enabled: false },
+      read: { 
+        enabled: true,
+        panels: [],
+        textAssets: [],
+        primaryOn: ['desktop', 'mobile'],
+        readingDirection: 'ltr',
+        estimatedReadMinutes: 15
+      },
+      watch: { 
+        enabled: false,
+        videoAssets: [],
+        primaryOn: [],
+        subtitleTracks: [],
+        allowPip: false,
+        allowDownload: false
+      },
+      listen: { 
+        enabled: false,
+        audioAssets: [],
+        primaryOn: [],
+        allowDownload: false
+      },
+      interact: { 
+        enabled: false,
+        primaryOn: []
+      },
     },
     structure: { kind: 'serial' },
     pricingModel: {
@@ -25,10 +47,32 @@ export const SAMPLE_CONTENT: Record<string, SmartContentQube> = {
     app: 'metaKnyts',
     coverImageUri: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=800&h=600&fit=crop',
     modalities: {
-      read: { enabled: true },
-      watch: { enabled: true },
-      listen: { enabled: false },
-      interact: { enabled: false },
+      read: { 
+        enabled: true,
+        panels: [],
+        textAssets: [],
+        primaryOn: ['desktop', 'mobile'],
+        readingDirection: 'ltr',
+        estimatedReadMinutes: 20
+      },
+      watch: { 
+        enabled: true,
+        videoAssets: [],
+        primaryOn: ['desktop', 'tv'],
+        subtitleTracks: [],
+        allowPip: true,
+        allowDownload: false
+      },
+      listen: { 
+        enabled: false,
+        audioAssets: [],
+        primaryOn: [],
+        allowDownload: false
+      },
+      interact: { 
+        enabled: false,
+        primaryOn: []
+      },
     },
     structure: { kind: 'anthology' },
     pricingModel: {
@@ -42,10 +86,32 @@ export const SAMPLE_CONTENT: Record<string, SmartContentQube> = {
     app: 'MoneyPenny',
     coverImageUri: 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800&h=600&fit=crop',
     modalities: {
-      read: { enabled: true },
-      watch: { enabled: true },
-      listen: { enabled: true },
-      interact: { enabled: true },
+      read: { 
+        enabled: true,
+        panels: [],
+        textAssets: [],
+        primaryOn: ['desktop', 'mobile'],
+        readingDirection: 'ltr',
+        estimatedReadMinutes: 45
+      },
+      watch: { 
+        enabled: true,
+        videoAssets: [],
+        primaryOn: ['desktop', 'tv'],
+        subtitleTracks: [],
+        allowPip: true,
+        allowDownload: true
+      },
+      listen: { 
+        enabled: true,
+        audioAssets: [],
+        primaryOn: ['mobile'],
+        allowDownload: true
+      },
+      interact: { 
+        enabled: true,
+        primaryOn: ['desktop', 'mobile', 'tv']
+      },
     },
     structure: { kind: 'course' },
     pricingModel: {
