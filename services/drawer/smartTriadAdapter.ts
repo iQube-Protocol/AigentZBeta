@@ -17,7 +17,7 @@ export class SmartTriadAdapter {
       id: drawer.id,
       label: drawer.label,
       icon: this.mapLabelToIcon(drawer.label),
-      side: drawer.side,
+      side: drawer.side === 'center' ? undefined : drawer.side,
       defaultSize: drawer.defaultSize,
       defaultMenuBehavior: drawer.defaultMenuBehavior,
       allowedPersonas: [],
