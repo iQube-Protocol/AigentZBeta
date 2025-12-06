@@ -50,7 +50,7 @@ export class SmartTriadAdapter {
       id: drawerSet.id,
       appId: drawerSet.appId,
       personaId: drawerSet.personaId,
-      dynamicMode: drawerSet.dynamicMode,
+      dynamicMode: drawerSet.dynamicMode || 'static-only',
       drawers: drawerSet.drawers.map(drawer => ({
         id: drawer.id,
         label: drawer.label,
