@@ -39,16 +39,6 @@ export class SmartTriadAdapter {
       personaId: triadSet.personaId,
       dynamicMode: triadSet.dynamicMode as any,
       drawers,
-      wallet: {
-        defaultDrawerId: triadSet.wallet?.defaultDrawerId || 'wallet',
-        defaultTabId: triadSet.wallet?.defaultTabId || 'overview',
-        personaAware: triadSet.wallet?.personaAware || false,
-        showTasks: triadSet.wallet?.showTasks || false,
-        showRewards: triadSet.wallet?.showRewards || false,
-        showLibrary: triadSet.wallet?.showLibrary || false,
-        sections: triadSet.wallet?.sections || {},
-      },
-      content: triadSet.content,
     };
   }
 
