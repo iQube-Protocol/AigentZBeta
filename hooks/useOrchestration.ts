@@ -5,7 +5,7 @@
  */
 
 import { useState } from "react";
-import { useLayoutStore } from "@/stores/layoutStore";
+import { useLayoutStore, type LayoutState } from "@/stores/layoutStore";
 import type { NarrativeHints } from "@/orchestration/types";
 
 export function useOrchestration() {
@@ -13,7 +13,7 @@ export function useOrchestration() {
   const [error, setError] = useState<string | null>(null);
   const [narrativeHints, setNarrativeHints] = useState<NarrativeHints | null>(null);
   
-  const applyDrawerDelta = useLayoutStore((state) => state.applyDrawerDelta);
+  const applyDrawerDelta = useLayoutStore((state: LayoutState) => state.applyDrawerDelta);
   
   const orchestrate = async (params: {
     appId: string;

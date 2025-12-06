@@ -8,7 +8,7 @@ import { create } from "zustand";
 import type { DrawerSize, SmartMenuBehavior } from "@/ui/smartLayout/types";
 import type { DrawerStateDelta } from "@/orchestration/types";
 
-interface LayoutState {
+export interface LayoutState {
   // Active drawer state
   activeDrawerId?: string;
   activeTabId?: string;
