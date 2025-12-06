@@ -289,7 +289,7 @@ class SlotDataResolver {
     ctx: ResolutionContext
   ): Promise<ResolvedSlotData> {
     // Custom queries are handled by specific query handlers
-    const queryId = dataSource.queryId ?? 'unknown';
+    const queryId = ('queryId' in dataSource && dataSource.queryId) ? dataSource.queryId : 'unknown';
 
     // For agent panels, return empty (handled separately)
     if (queryId === 'copilot-panel' || queryId.includes('agent')) {
