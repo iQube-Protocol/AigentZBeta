@@ -28,7 +28,6 @@ export class SmartTriadAdapter {
           id: slot.id,
           cardVariant: slot.variantId || 'default',
           dataSource: { type: 'currentContent' },
-          behaviour: { refreshMode: 'manual' },
         })),
       })),
     }));
