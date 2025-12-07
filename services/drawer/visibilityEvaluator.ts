@@ -222,16 +222,6 @@ class VisibilityEvaluator {
       }
     }
 
-    // Check excluded personas
-    if (rules.excludedPersonas && rules.excludedPersonas.length > 0) {
-      if (rules.excludedPersonas.includes(ctx.personaId)) {
-        return {
-          isVisible: false,
-          reason: `Persona '${ctx.personaId}' is excluded`,
-        };
-      }
-    }
-
     // Check minimum reputation score
     if (rules.minReputationScore !== undefined) {
       const userScore = ctx.reputationScore ?? 0;
@@ -243,35 +233,17 @@ class VisibilityEvaluator {
       }
     }
 
-    // Check required entitlements
-    if (rules.requiresEntitlements && rules.requiresEntitlements.length > 0) {
+    // Check requirePaidEntitlement
+    if (rules.requirePaidEntitlement) {
       const userEntitlements = ctx.wallet?.entitlements ?? [];
-      const activeEntitlementIds = userEntitlements
-        .filter((e) => e.status === 'active')
-        .map((e) => e.entitlementId);
-
-      const hasAllRequired = rules.requiresEntitlements.every((reqId) =>
-        activeEntitlementIds.some((id) => id === reqId || id.includes(reqId))
+      const hasActiveEntitlement = userEntitlements.some(
+        (e) => e.status === 'active' && e.acquiredVia !== 'free'
       );
 
-      if (!hasAllRequired) {
+      if (!hasActiveEntitlement) {
         return {
           isVisible: false,
-          reason: `Missing required entitlements: ${rules.requiresEntitlements.join(', ')}`,
-        };
-      }
-    }
-
-    // Check identity state
-    if (rules.minIdentityState) {
-      const identityOrder = ['anon', 'pseudo', 'semi', 'full'];
-      const requiredLevel = identityOrder.indexOf(rules.minIdentityState);
-      const userLevel = identityOrder.indexOf(ctx.identityState ?? 'anon');
-
-      if (userLevel < requiredLevel) {
-        return {
-          isVisible: false,
-          reason: `Identity state '${ctx.identityState}' below required '${rules.minIdentityState}'`,
+          reason: 'Requires paid entitlement',
         };
       }
     }
