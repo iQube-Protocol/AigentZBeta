@@ -237,7 +237,7 @@ class VisibilityEvaluator {
     if (rules.requirePaidEntitlement) {
       const userEntitlements = ctx.wallet?.entitlements ?? [];
       const hasActiveEntitlement = userEntitlements.some(
-        (e) => e.status === 'active' && e.acquiredVia !== 'free'
+        (e) => e.status === 'active' && (e.acquiredVia === 'purchase' || e.acquiredVia === 'subscription')
       );
 
       if (!hasActiveEntitlement) {
