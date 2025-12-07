@@ -172,18 +172,8 @@ class VisibilityEvaluator {
    * Filter a single tab
    */
   filterTab(tab: DrawerTab, ctx: VisibilityContext): FilteredTab {
-    // Check tab-level visibility rules
-    const tabVisibility = this.evaluateVisibilityRules(tab.visibilityRules, ctx);
-    
-    if (!tabVisibility.isVisible) {
-      return {
-        tab,
-        slots: [],
-        hiddenSlotCount: tab.slots.length,
-        isVisible: false,
-        hiddenReason: tabVisibility.reason,
-      };
-    }
+    // DrawerTab doesn't have visibilityRules, tabs are always visible
+    // Only slots have visibility constraints
 
     // Filter slots by device
     const filteredSlots: DrawerSlot[] = [];
