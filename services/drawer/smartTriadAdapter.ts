@@ -71,14 +71,25 @@ export class SmartTriadAdapter {
           label: tab.label,
           slots: tab.slots.map(slot => ({
             id: slot.id,
-            label: slot.label,
-            modality: slot.modality,
-            variantId: slot.variantId,
+            label: 'Slot',
+            modality: 'content-card' as const,
+            variantId: slot.cardVariant,
           })),
         })),
       })),
-      wallet: drawerSet.wallet,
-      content: drawerSet.content,
+      wallet: {
+        defaultDrawerId: 'wallet',
+        defaultTabId: 'overview',
+        personaAware: false,
+        showTasks: false,
+        showRewards: false,
+        showLibrary: false,
+        sections: {},
+      },
+      content: {
+        allowedVariants: [],
+        slotBindings: {},
+      },
     };
   }
 
