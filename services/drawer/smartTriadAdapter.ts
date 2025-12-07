@@ -10,6 +10,15 @@ import type { DrawerSet, Drawer, DrawerTab } from '@/types/smartDrawer';
 
 export class SmartTriadAdapter {
   /**
+   * Map DrawerSet DynamicMode to SmartTriadSet DynamicMode
+   */
+  private static mapDynamicMode(mode?: 'static-only' | 'allow-dynamic' | 'dynamic-by-default'): 'static-only' | 'copilot-suggest' | 'copilot-adaptive' {
+    if (!mode || mode === 'static-only') return 'static-only';
+    if (mode === 'allow-dynamic') return 'copilot-suggest';
+    return 'copilot-adaptive'; // dynamic-by-default
+  }
+
+  /**
    * Convert SmartTriadSet (console format) to DrawerSet (production format)
    */
   static toDrawerSet(triadSet: SmartTriadSet): DrawerSet {
@@ -50,7 +59,7 @@ export class SmartTriadAdapter {
       id: drawerSet.id,
       appId: drawerSet.appId,
       personaId: drawerSet.personaId,
-      dynamicMode: drawerSet.dynamicMode || 'static-only',
+      dynamicMode: this.mapDynamicMode(drawerSet.dynamicMode),
       drawers: drawerSet.drawers.map(drawer => ({
         id: drawer.id,
         label: drawer.label,
