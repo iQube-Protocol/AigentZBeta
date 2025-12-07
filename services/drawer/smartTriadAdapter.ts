@@ -63,8 +63,8 @@ export class SmartTriadAdapter {
       drawers: drawerSet.drawers.map(drawer => ({
         id: drawer.id,
         label: drawer.label,
-        side: drawer.side,
-        defaultSize: drawer.defaultSize,
+        side: drawer.side || 'center',
+        defaultSize: drawer.defaultSize || 'panel-3q',
         defaultMenuBehavior: drawer.defaultMenuBehavior,
         tabs: drawer.tabs.map(tab => ({
           id: tab.id,
