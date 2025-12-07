@@ -117,7 +117,7 @@ export class OrchestrationService {
           ...this.currentContext.location,
           activeDrawerId: updates.activeDrawerId,
           activeTabId: updates.activeTabId,
-          activeAgentId: updates.activeAgentId,
+          activeAgentId: updates.activeAgentId || this.currentContext.location.activeAgentId,
         },
         intent: updates.explicitGoal ? {
           explicitGoal: updates.explicitGoal,
