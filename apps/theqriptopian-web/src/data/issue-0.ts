@@ -2,7 +2,7 @@
  * The Qriptopian - Issue #0: The Genesis Issue
  * LIVE DATA FROM QUBEBASE
  * 
- * Generated: 2025-12-08T00:32:40.437Z
+ * Generated: 2025-12-08T00:42:27.602Z
  * Source: QubeBase (Supabase)
  * 
  * iQube Protocol compliant CodexQube
@@ -20,7 +20,7 @@ export const issue0: CodexQube = {
   "qubeType": "codexQube",
   "protocolVersion": "0.1.0",
   "createdAt": "2025-11-27T00:02:37.492744+00:00",
-  "updatedAt": "2025-12-08T00:32:40.437Z",
+  "updatedAt": "2025-12-08T00:42:27.602Z",
   "codexId": "theqriptopian-issue-0",
   "franchiseId": "theqriptopian",
   "issueNumber": 0,
@@ -47,7 +47,7 @@ export const issue0: CodexQube = {
       "qubeType": "domainQube",
       "protocolVersion": "1.0.0",
       "createdAt": "2025-11-27T00:02:37.492744+00:00",
-      "updatedAt": "2025-12-08T00:32:40.410Z",
+      "updatedAt": "2025-12-08T00:42:27.601Z",
       "domainId": "scrolls",
       "title": "Scrolls",
       "icon": "BookOpen",
@@ -66,6 +66,15 @@ export const issue0: CodexQube = {
           "format": "article",
           "content": {},
           "excerpt": "",
+          "placement": {
+            "tab": "synthsims",
+            "imageX": 50,
+            "imageY": 0,
+            "section": "scrolls",
+            "position": 8,
+            "imageScale": 100,
+            "imagePosition": "center"
+          },
           "media": {
             "thumbnail": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764201734919-me033h.jpg",
             "hero": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764201734919-me033h.jpg"
@@ -89,6 +98,15 @@ export const issue0: CodexQube = {
           "format": "article",
           "content": {},
           "excerpt": "",
+          "placement": {
+            "tab": "synthsims",
+            "imageX": 50,
+            "imageY": 50,
+            "section": "scrolls",
+            "position": 7,
+            "imageScale": 100,
+            "imagePosition": "center"
+          },
           "media": {
             "thumbnail": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764193213908-74chfcm.jpg",
             "hero": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764193213908-74chfcm.jpg"
@@ -112,6 +130,15 @@ export const issue0: CodexQube = {
           "format": "article",
           "content": {},
           "excerpt": "",
+          "placement": {
+            "tab": "synthsims",
+            "imageX": 50,
+            "imageY": 50,
+            "section": "scrolls",
+            "position": 6,
+            "imageScale": 100,
+            "imagePosition": "center"
+          },
           "media": {
             "thumbnail": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764193155810-1rdk1t.jpg",
             "hero": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764193155810-1rdk1t.jpg"
@@ -135,6 +162,15 @@ export const issue0: CodexQube = {
           "format": "article",
           "content": {},
           "excerpt": "",
+          "placement": {
+            "tab": "synthsims",
+            "imageX": 50,
+            "imageY": 40,
+            "section": "scrolls",
+            "position": 4,
+            "imageScale": 100,
+            "imagePosition": "center"
+          },
           "media": {
             "thumbnail": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764193057254-m9vf0h.jpg",
             "hero": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764193057254-m9vf0h.jpg"
@@ -158,6 +194,15 @@ export const issue0: CodexQube = {
           "format": "article",
           "content": {},
           "excerpt": "",
+          "placement": {
+            "tab": "synthsims",
+            "imageX": 50,
+            "imageY": 100,
+            "section": "scrolls",
+            "position": 5,
+            "imageScale": 100,
+            "imagePosition": "center"
+          },
           "media": {
             "thumbnail": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764201660666-k01j1q.jpg",
             "hero": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764201660666-k01j1q.jpg"
@@ -181,6 +226,15 @@ export const issue0: CodexQube = {
           "format": "article",
           "content": {},
           "excerpt": "",
+          "placement": {
+            "tab": "synthsims",
+            "imageX": 50,
+            "imageY": 50,
+            "section": "scrolls",
+            "position": 2,
+            "imageScale": 100,
+            "imagePosition": "center"
+          },
           "media": {
             "thumbnail": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764192466507-r0ef93.jpg",
             "hero": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764192466507-r0ef93.jpg"
@@ -204,6 +258,15 @@ export const issue0: CodexQube = {
           "format": "article",
           "content": {},
           "excerpt": "",
+          "placement": {
+            "tab": "synthsims",
+            "imageX": 50,
+            "imageY": 75,
+            "section": "scrolls",
+            "position": 3,
+            "imageScale": 100,
+            "imagePosition": "center"
+          },
           "media": {
             "thumbnail": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764201627357-7l77xj.jpg",
             "hero": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764201627357-7l77xj.jpg"
@@ -227,6 +290,15 @@ export const issue0: CodexQube = {
           "format": "article",
           "content": {},
           "excerpt": "",
+          "placement": {
+            "tab": "synthsims",
+            "imageX": 50,
+            "imageY": 50,
+            "section": "scrolls",
+            "position": 1,
+            "imageScale": 100,
+            "imagePosition": "center"
+          },
           "media": {
             "thumbnail": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764192196498-8y5i6e.jpg",
             "hero": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764192196498-8y5i6e.jpg"
@@ -250,6 +322,15 @@ export const issue0: CodexQube = {
           "format": "article",
           "content": {},
           "excerpt": "Battle KNYTS",
+          "placement": {
+            "tab": "metaknyts",
+            "imageX": 50,
+            "imageY": 50,
+            "section": "scrolls",
+            "position": 7,
+            "imageScale": 100,
+            "imagePosition": "center"
+          },
           "media": {
             "thumbnail": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764114922521-oqdfpc.jpg",
             "hero": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764114922521-oqdfpc.jpg"
@@ -273,6 +354,15 @@ export const issue0: CodexQube = {
           "format": "article",
           "content": {},
           "excerpt": "",
+          "placement": {
+            "tab": "metaknyts",
+            "imageX": 50,
+            "imageY": 50,
+            "section": "scrolls",
+            "position": 5,
+            "imageScale": 100,
+            "imagePosition": "center"
+          },
           "media": {
             "thumbnail": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764113491423-7l42k.png",
             "hero": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764113491423-7l42k.png"
@@ -296,6 +386,15 @@ export const issue0: CodexQube = {
           "format": "article",
           "content": {},
           "excerpt": "",
+          "placement": {
+            "tab": "metaknyts",
+            "imageX": 50,
+            "imageY": 50,
+            "section": "scrolls",
+            "position": 3,
+            "imageScale": 100,
+            "imagePosition": "center"
+          },
           "media": {
             "thumbnail": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764113343544-ayd03.png",
             "hero": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764113343544-ayd03.png"
@@ -319,6 +418,15 @@ export const issue0: CodexQube = {
           "format": "article",
           "content": {},
           "excerpt": "",
+          "placement": {
+            "tab": "metaknyts",
+            "imageX": 50,
+            "imageY": 50,
+            "section": "scrolls",
+            "position": 3,
+            "imageScale": 100,
+            "imagePosition": "center"
+          },
           "media": {
             "thumbnail": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764111731117-3rpvx6.png",
             "hero": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764111731117-3rpvx6.png"
@@ -342,6 +450,15 @@ export const issue0: CodexQube = {
           "format": "article",
           "content": {},
           "excerpt": "",
+          "placement": {
+            "tab": "metaknyts",
+            "imageX": 50,
+            "imageY": 60,
+            "section": "scrolls",
+            "position": 3,
+            "imageScale": 100,
+            "imagePosition": "center"
+          },
           "media": {
             "thumbnail": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764114746218-9za0e.png",
             "hero": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764114746218-9za0e.png"
@@ -365,6 +482,15 @@ export const issue0: CodexQube = {
           "format": "article",
           "content": {},
           "excerpt": "Podcast review of  metaKknyts' lore and story=world",
+          "placement": {
+            "tab": "metaknyts",
+            "imageX": 50,
+            "imageY": 30,
+            "section": "scrolls",
+            "position": 2,
+            "imageScale": 95,
+            "imagePosition": "center"
+          },
           "media": {
             "thumbnail": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1763953406769-1mdpr4.png",
             "hero": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1763953406769-1mdpr4.png"
@@ -388,6 +514,15 @@ export const issue0: CodexQube = {
           "format": "article",
           "content": {},
           "excerpt": "Kn0w1's welcome to the order of Metayé",
+          "placement": {
+            "tab": "metaknyts",
+            "imageX": 50,
+            "imageY": 50,
+            "section": "scrolls",
+            "position": 1,
+            "imageScale": 100,
+            "imagePosition": "bottom"
+          },
           "media": {
             "thumbnail": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1763948018453-aasx2e.jpg",
             "hero": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1763948018453-aasx2e.jpg"
@@ -406,7 +541,7 @@ export const issue0: CodexQube = {
       "qubeType": "domainQube",
       "protocolVersion": "1.0.0",
       "createdAt": "2025-11-26T22:02:25.95+00:00",
-      "updatedAt": "2025-12-08T00:32:40.437Z",
+      "updatedAt": "2025-12-08T00:42:27.601Z",
       "domainId": "home",
       "title": "Home",
       "icon": "Home",
@@ -425,6 +560,15 @@ export const issue0: CodexQube = {
           "format": "article",
           "content": {},
           "excerpt": "A little irreverence from Metaiye Media ",
+          "placement": {
+            "tab": "",
+            "imageX": 50,
+            "imageY": 50,
+            "section": "latest-news",
+            "position": 6,
+            "imageScale": 100,
+            "imagePosition": "center"
+          },
           "media": {
             "thumbnail": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764194479443-oytfj.jpg",
             "hero": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764194479443-oytfj.jpg"
@@ -448,6 +592,15 @@ export const issue0: CodexQube = {
           "format": "article",
           "content": {},
           "excerpt": "",
+          "placement": {
+            "tab": "",
+            "imageX": 50,
+            "imageY": 65,
+            "section": "second-hero",
+            "position": 1,
+            "imageScale": 100,
+            "imagePosition": "center"
+          },
           "media": {
             "thumbnail": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1763936648081-lqhwm.png",
             "hero": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1763936648081-lqhwm.png"
@@ -471,6 +624,15 @@ export const issue0: CodexQube = {
           "format": "article",
           "content": {},
           "excerpt": "The mystery of Satoshi's vanishing revealed. 12 | 21",
+          "placement": {
+            "tab": "",
+            "imageX": 50,
+            "imageY": 50,
+            "section": "latest-news",
+            "position": 2,
+            "imageScale": 160,
+            "imagePosition": "center"
+          },
           "media": {
             "thumbnail": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764109914029-o4uae.png",
             "hero": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764109914029-o4uae.png"
@@ -494,6 +656,15 @@ export const issue0: CodexQube = {
           "format": "article",
           "content": {},
           "excerpt": "metaProof's Vision of Data Sovereignty via Satoshis",
+          "placement": {
+            "tab": "",
+            "imageX": 5,
+            "imageY": 10,
+            "section": "latest-news",
+            "position": 3,
+            "imageScale": 110,
+            "imagePosition": "center"
+          },
           "media": {
             "thumbnail": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764109691386-pbg5oi.png",
             "hero": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764109691386-pbg5oi.png"
@@ -517,6 +688,15 @@ export const issue0: CodexQube = {
           "format": "article",
           "content": {},
           "excerpt": "metaProof's Vision of Data Sovereignty via Satoshis",
+          "placement": {
+            "tab": "",
+            "imageX": 50,
+            "imageY": 50,
+            "section": "latest-news",
+            "position": 4,
+            "imageScale": 100,
+            "imagePosition": "center"
+          },
           "media": {
             "thumbnail": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764109539903-6qy5j2.png",
             "hero": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764109539903-6qy5j2.png"
@@ -540,6 +720,15 @@ export const issue0: CodexQube = {
           "format": "article",
           "content": {},
           "excerpt": "metaProof Launches Qripto At Q+AI Summit in NYC",
+          "placement": {
+            "tab": "",
+            "imageX": 30,
+            "imageY": 70,
+            "section": "latest-news",
+            "position": 1,
+            "imageScale": 105,
+            "imagePosition": "center"
+          },
           "media": {
             "thumbnail": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764201286476-5nymeg.png",
             "hero": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764201286476-5nymeg.png"
@@ -563,6 +752,15 @@ export const issue0: CodexQube = {
           "format": "article",
           "content": {},
           "excerpt": "Qripto-AigentiQ tech and culture",
+          "placement": {
+            "tab": "",
+            "imageX": 60,
+            "imageY": 75,
+            "section": "second-hero",
+            "position": 2,
+            "imageScale": 115,
+            "imagePosition": "center"
+          },
           "media": {
             "thumbnail": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1763899019682-ydkvs8.png",
             "hero": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1763899019682-ydkvs8.png"
@@ -586,6 +784,15 @@ export const issue0: CodexQube = {
           "format": "article",
           "content": {},
           "excerpt": "New Money Aigent",
+          "placement": {
+            "tab": "",
+            "imageX": 50,
+            "imageY": 50,
+            "section": "home-hero",
+            "position": 3,
+            "imageScale": 100,
+            "imagePosition": "center"
+          },
           "media": {
             "thumbnail": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1763853904385-8d2zf.png",
             "hero": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1763853904385-8d2zf.png"
@@ -609,6 +816,15 @@ export const issue0: CodexQube = {
           "format": "article",
           "content": {},
           "excerpt": "The penny of the agentic internet",
+          "placement": {
+            "tab": "",
+            "imageX": 65,
+            "imageY": 55,
+            "section": "home-hero",
+            "position": 2,
+            "imageScale": 100,
+            "imagePosition": "center"
+          },
           "media": {
             "thumbnail": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1763944343334-su646.png",
             "hero": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1763944343334-su646.png"
@@ -632,6 +848,15 @@ export const issue0: CodexQube = {
           "format": "article",
           "content": {},
           "excerpt": "Is this the end or the beginning of an era?",
+          "placement": {
+            "tab": "",
+            "imageX": 50,
+            "imageY": 50,
+            "section": "home-hero",
+            "position": 1,
+            "imageScale": 100,
+            "imagePosition": "center"
+          },
           "media": {
             "thumbnail": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1763852402194-hswrqa.png",
             "hero": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1763852402194-hswrqa.png"
@@ -650,7 +875,7 @@ export const issue0: CodexQube = {
       "qubeType": "domainQube",
       "protocolVersion": "1.0.0",
       "createdAt": "2025-11-26T10:36:55.656+00:00",
-      "updatedAt": "2025-12-08T00:32:40.437Z",
+      "updatedAt": "2025-12-08T00:42:27.601Z",
       "domainId": "pennydrops",
       "title": "Penny Drops",
       "icon": "Droplets",
@@ -669,6 +894,15 @@ export const issue0: CodexQube = {
           "format": "article",
           "content": {},
           "excerpt": "A street musician swaps loose coins for Q¢ and finds that micro-payments can finally keep up with the music.",
+          "placement": {
+            "tab": "",
+            "imageX": 50,
+            "imageY": 50,
+            "section": "pennydrops",
+            "position": 3,
+            "imageScale": 100,
+            "imagePosition": "center"
+          },
           "media": {
             "thumbnail": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1763905630997-r95o1.jpg",
             "hero": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1763905630997-r95o1.jpg"
@@ -698,6 +932,15 @@ export const issue0: CodexQube = {
           "format": "article",
           "content": {},
           "excerpt": "A gig worker’s day shows how QriptoCENT turns waiting-for-payday into getting-paid-as-you-go.",
+          "placement": {
+            "tab": "",
+            "imageX": 50,
+            "imageY": 50,
+            "section": "pennydrops",
+            "position": 6,
+            "imageScale": 50,
+            "imagePosition": "center"
+          },
           "media": {
             "thumbnail": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764110789841-eg4i4p.png",
             "hero": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764110789841-eg4i4p.png"
@@ -727,6 +970,15 @@ export const issue0: CodexQube = {
           "format": "article",
           "content": {},
           "excerpt": "A pilot scheme replaces clunky parking meters with QriptoCENT flows, and the city’s streets start to breathe again.",
+          "placement": {
+            "tab": "",
+            "imageX": 50,
+            "imageY": 50,
+            "section": "pennydrops",
+            "position": 4,
+            "imageScale": 100,
+            "imagePosition": "center"
+          },
           "media": {
             "thumbnail": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764086459188-ulxqdc.jpg",
             "hero": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764086459188-ulxqdc.jpg"
@@ -756,6 +1008,15 @@ export const issue0: CodexQube = {
           "format": "article",
           "content": {},
           "excerpt": "A small creator discovers that QriptoCENT tips from 1,000 true fans beat chasing one big brand deal.",
+          "placement": {
+            "tab": "",
+            "imageX": 50,
+            "imageY": 50,
+            "section": "pennydrops",
+            "position": 5,
+            "imageScale": 100,
+            "imagePosition": "center"
+          },
           "media": {
             "thumbnail": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764110549852-54jt6x.png",
             "hero": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764110549852-54jt6x.png"
@@ -785,6 +1046,15 @@ export const issue0: CodexQube = {
           "format": "article",
           "content": {},
           "excerpt": "A story about how a corner café, a curious barista and a handful of micro-payments turned loose change into living QriptoCENT (Q¢).",
+          "placement": {
+            "tab": "",
+            "imageX": 50,
+            "imageY": 100,
+            "section": "pennydrops",
+            "position": 1,
+            "imageScale": 130,
+            "imagePosition": "center"
+          },
           "media": {
             "thumbnail": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764110549852-54jt6x.png",
             "hero": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764110549852-54jt6x.png"
@@ -814,6 +1084,15 @@ export const issue0: CodexQube = {
           "format": "article",
           "content": {},
           "excerpt": "A regular discovers what happens when every espresso at his local becomes a tiny QriptoCENT signal.",
+          "placement": {
+            "tab": "",
+            "imageX": 50,
+            "imageY": 50,
+            "section": "pennydrops",
+            "position": 2,
+            "imageScale": 100,
+            "imagePosition": "center"
+          },
           "media": {
             "thumbnail": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764086459188-ulxqdc.jpg",
             "hero": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764086459188-ulxqdc.jpg"
@@ -843,6 +1122,15 @@ export const issue0: CodexQube = {
           "format": "article",
           "content": {},
           "excerpt": "Signup too join the alpha for aigent moneypenny HFT aigent",
+          "placement": {
+            "tab": "",
+            "imageX": 50,
+            "imageY": 50,
+            "section": "pennydrops",
+            "position": 3,
+            "imageScale": 100,
+            "imagePosition": "center"
+          },
           "media": {
             "thumbnail": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764112778692-xg2drd.png",
             "hero": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764112778692-xg2drd.png"
@@ -861,7 +1149,7 @@ export const issue0: CodexQube = {
       "qubeType": "domainQube",
       "protocolVersion": "1.0.0",
       "createdAt": "2025-11-26T10:23:09.077+00:00",
-      "updatedAt": "2025-12-08T00:32:40.437Z",
+      "updatedAt": "2025-12-08T00:42:27.601Z",
       "domainId": "kn0wdz",
       "title": "Kn0wdZ",
       "icon": "Code2",
@@ -880,6 +1168,15 @@ export const issue0: CodexQube = {
           "format": "article",
           "content": {},
           "excerpt": "Bring characters to life in loops, stings and shorts that plug directly into QriptoCENT-powered interactions.",
+          "placement": {
+            "tab": "creative",
+            "imageX": 50,
+            "imageY": 30,
+            "section": "21knowdz",
+            "position": 3,
+            "imageScale": 95,
+            "imagePosition": "center"
+          },
           "media": {
             "thumbnail": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764200960667-hsqbfg.jpg",
             "hero": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764200960667-hsqbfg.jpg"
@@ -908,6 +1205,15 @@ export const issue0: CodexQube = {
           "format": "article",
           "content": {},
           "excerpt": "Guidelines for using Qripto, QriptoCENT and iQube marks consistently across the franchise.",
+          "placement": {
+            "tab": "creative",
+            "imageX": 50,
+            "imageY": 50,
+            "section": "21knowdz",
+            "position": 5,
+            "imageScale": 100,
+            "imagePosition": "center"
+          },
           "media": {
             "thumbnail": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764201286476-5nymeg.png",
             "hero": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764201286476-5nymeg.png"
@@ -936,6 +1242,15 @@ export const issue0: CodexQube = {
           "format": "article",
           "content": {},
           "excerpt": "Spin up your first agentic service that sends and receives QriptoCENT (Q¢) using the AigentiQ SDK.",
+          "placement": {
+            "tab": "dev",
+            "imageX": 50,
+            "imageY": 50,
+            "section": "21knowdz",
+            "position": 2,
+            "imageScale": 100,
+            "imagePosition": "center"
+          },
           "media": {
             "thumbnail": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764200627827-aecroh.png",
             "hero": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764200627827-aecroh.png"
@@ -964,6 +1279,15 @@ export const issue0: CodexQube = {
           "format": "article",
           "content": {},
           "excerpt": "How QriptoCENT turns micro interactions into measurable value across an iQube-based enterprise.",
+          "placement": {
+            "tab": "exec",
+            "imageX": 50,
+            "imageY": 75,
+            "section": "21knowdz",
+            "position": 1,
+            "imageScale": 95,
+            "imagePosition": "center"
+          },
           "media": {
             "thumbnail": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764199164794-2gpcr.png",
             "hero": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764199164794-2gpcr.png"
@@ -993,6 +1317,15 @@ export const issue0: CodexQube = {
           "format": "article",
           "content": {},
           "excerpt": "From QriptoMedia to data markets, a tour of monetisation strategies that only work at Q¢ scale.",
+          "placement": {
+            "tab": "exec",
+            "imageX": 50,
+            "imageY": 50,
+            "section": "21knowdz",
+            "position": 3,
+            "imageScale": 100,
+            "imagePosition": "center"
+          },
           "media": {
             "thumbnail": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764199371566-ir0bu4.png",
             "hero": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764199371566-ir0bu4.png"
@@ -1022,6 +1355,15 @@ export const issue0: CodexQube = {
           "format": "article",
           "content": {},
           "excerpt": "Use the AigentiQ SDK and A2A APIs to expose QriptoCENT-priced capabilities from thin client apps.",
+          "placement": {
+            "tab": "dev",
+            "imageX": 50,
+            "imageY": 50,
+            "section": "21knowdz",
+            "position": 3,
+            "imageScale": 100,
+            "imagePosition": "center"
+          },
           "media": {
             "thumbnail": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764200668123-7143pb.png",
             "hero": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764200668123-7143pb.png"
@@ -1051,6 +1393,15 @@ export const issue0: CodexQube = {
           "format": "article",
           "content": {},
           "excerpt": "Design patterns for keeping QriptoCENT movements safe using iQube primitives and DID-based identity.",
+          "placement": {
+            "tab": "dev",
+            "imageX": 50,
+            "imageY": 50,
+            "section": "21knowdz",
+            "position": 4,
+            "imageScale": 105,
+            "imagePosition": "center"
+          },
           "media": {
             "thumbnail": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764200722314-epfbak.png",
             "hero": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764200722314-epfbak.png"
@@ -1080,6 +1431,15 @@ export const issue0: CodexQube = {
           "format": "article",
           "content": {},
           "excerpt": "A practical overview of how to wire iQubes, AigentiQ and QriptoCENT (Q¢) into your next agentic application.",
+          "placement": {
+            "tab": "dev",
+            "imageX": 60,
+            "imageY": 25,
+            "section": "21knowdz",
+            "position": 1,
+            "imageScale": 70,
+            "imagePosition": "center"
+          },
           "media": {
             "thumbnail": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764200579731-uksu8o.png",
             "hero": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764200579731-uksu8o.png"
@@ -1109,6 +1469,15 @@ export const issue0: CodexQube = {
           "format": "article",
           "content": {},
           "excerpt": "Alliance models for banks, media platforms and cities that integrate QriptoCENT, iQubes and AigentiQ.",
+          "placement": {
+            "tab": "exec",
+            "imageX": 50,
+            "imageY": 50,
+            "section": "21knowdz",
+            "position": 2,
+            "imageScale": 100,
+            "imagePosition": "center"
+          },
           "media": {
             "thumbnail": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764199284841-1rj5bu.png",
             "hero": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764199284841-1rj5bu.png"
@@ -1137,6 +1506,15 @@ export const issue0: CodexQube = {
           "format": "article",
           "content": {},
           "excerpt": "A DevOps-oriented workflow for testing and deploying QriptoCENT-aware applications on QubeBase.",
+          "placement": {
+            "tab": "dev",
+            "imageX": 50,
+            "imageY": 50,
+            "section": "21knowdz",
+            "position": 5,
+            "imageScale": 100,
+            "imagePosition": "center"
+          },
           "media": {
             "thumbnail": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764200813389-enypr.png",
             "hero": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764200813389-enypr.png"
@@ -1165,6 +1543,15 @@ export const issue0: CodexQube = {
           "format": "article",
           "content": {},
           "excerpt": "Template ideas for campaigns where every like, share or quest can be tied to tiny Q¢ rewards.",
+          "placement": {
+            "tab": "creative",
+            "imageX": 50,
+            "imageY": 50,
+            "section": "21knowdz",
+            "position": 4,
+            "imageScale": 100,
+            "imagePosition": "center"
+          },
           "media": {
             "thumbnail": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764201053298-u8169m.png",
             "hero": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764201053298-u8169m.png"
@@ -1193,6 +1580,15 @@ export const issue0: CodexQube = {
           "format": "article",
           "content": {},
           "excerpt": "Use QriptoCENT to design panel and chapter level journeys that reward both readers and creators.",
+          "placement": {
+            "tab": "creative",
+            "imageX": 50,
+            "imageY": 50,
+            "section": "21knowdz",
+            "position": 2,
+            "imageScale": 100,
+            "imagePosition": "center"
+          },
           "media": {
             "thumbnail": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764111731117-3rpvx6.png",
             "hero": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764111731117-3rpvx6.png"
@@ -1221,6 +1617,15 @@ export const issue0: CodexQube = {
           "format": "article",
           "content": {},
           "excerpt": "Design story worlds where QriptoCENT quietly powers every interaction, choice and consequence.",
+          "placement": {
+            "tab": "creative",
+            "imageX": 100,
+            "imageY": 65,
+            "section": "21knowdz",
+            "position": 1,
+            "imageScale": 100,
+            "imagePosition": "center"
+          },
           "media": {
             "thumbnail": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764229072318-jcxy2k.png",
             "hero": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764229072318-jcxy2k.png"
@@ -1250,6 +1655,15 @@ export const issue0: CodexQube = {
           "format": "article",
           "content": {},
           "excerpt": "An operations playbook for KPIs, risk controls and infrastructure when Q¢ is flowing everywhere.",
+          "placement": {
+            "tab": "exec",
+            "imageX": 50,
+            "imageY": 50,
+            "section": "21knowdz",
+            "position": 4,
+            "imageScale": 100,
+            "imagePosition": "center"
+          },
           "media": {
             "thumbnail": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764199420111-9g5k5.png",
             "hero": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764199420111-9g5k5.png"
@@ -1278,6 +1692,15 @@ export const issue0: CodexQube = {
           "format": "article",
           "content": {},
           "excerpt": "How to explain QriptoCENT to boards, regulators and partners without drowning them in jargon.",
+          "placement": {
+            "tab": "exec",
+            "imageX": 50,
+            "imageY": 95,
+            "section": "21knowdz",
+            "position": 5,
+            "imageScale": 115,
+            "imagePosition": "center"
+          },
           "media": {
             "thumbnail": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764199725394-4w75l9.png",
             "hero": "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1764199725394-4w75l9.png"

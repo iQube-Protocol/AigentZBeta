@@ -98,6 +98,7 @@ function generateCodexQube(content: QubeBaseContent[]) {
       format: item.format,
       content: item.content,
       excerpt: item.excerpt || '',
+      placement: item.placement, // Include placement for home page filtering
       media: item.thumbnail ? {
         thumbnail: item.thumbnail,
         hero: item.thumbnail,
