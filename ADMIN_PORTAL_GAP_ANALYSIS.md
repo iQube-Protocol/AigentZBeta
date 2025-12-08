@@ -1,22 +1,30 @@
 # Admin Portal Gap Analysis
 
+**Last Updated:** December 7, 2025
+
 ## Current Status Summary
 
 ### ✅ **Working**
+
 - Admin portal imported from Lovable
 - Routes configured correctly
 - Development mode authentication bypass
 - Content managers for all sections
-- Content service CRUD operations
+- Content service CRUD operations (RLS-resilient)
 - Dashboard navigation
 - QubeBase connection
+- **Publish/Unpublish** (fixed - RLS workaround)
+- **Content Editor** (all modalities, placement, domain mapping)
+- **Image positioning UI** (scale, X, Y sliders with live preview)
+- **Bulk Content Importer** (validation, preview, duplicate detection)
+- **Auto read duration calculation**
+- **Section-to-domain mapping** (home-hero → home, etc.)
 
 ### ⚠️ **Partially Working**
-- Publish/Unpublish (RLS blocking SELECT after UPDATE)
-- Content Editor (needs full testing)
-- Image positioning UI (needs verification)
 
-### ❌ **Not Working / Missing**
+- Media upload (works but depends on Supabase Storage bucket config)
+
+### ❌ **Not Implemented (Phase 2)**
 
 ## Critical Gaps to Fix
 
