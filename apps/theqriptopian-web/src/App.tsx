@@ -57,9 +57,11 @@ const App = () => (
                   <Route path="/admin/content/pennydrops" element={<PennyDropsManager />} />
                   <Route path="/admin/content/scrolls" element={<ScrollsManager />} />
                   <Route path="/admin/content/knowdz" element={<KnowdZManager />} />
+                  <Route path="/admin/content/21knowdz" element={<KnowdZManager />} />
                   <Route path="/admin/content/staybull" element={<StayBullManager />} />
-                  <Route path="/admin/content/:id/edit" element={<ContentEditor />} />
+                  <Route path="/admin/content/edit/:id" element={<ContentEditor />} />
                   <Route path="/admin/import" element={<ContentImporter />} />
+                  <Route path="/admin/content/import" element={<ContentImporter />} />
                   
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                   <Route path="*" element={<NotFound />} />
