@@ -2,7 +2,7 @@
  * The Qriptopian - Issue #0: The Genesis Issue
  * LIVE DATA FROM QUBEBASE
  * 
- * Generated: 2025-12-08T02:01:20.756Z
+ * Generated: 2025-12-08T04:46:33.733Z
  * Source: QubeBase (Supabase)
  * 
  * iQube Protocol compliant CodexQube
@@ -20,7 +20,7 @@ export const issue0: CodexQube = {
   "qubeType": "codexQube",
   "protocolVersion": "0.1.0",
   "createdAt": "2025-11-27T00:02:37.492744+00:00",
-  "updatedAt": "2025-12-08T02:01:20.756Z",
+  "updatedAt": "2025-12-08T04:46:33.733Z",
   "codexId": "theqriptopian-issue-0",
   "franchiseId": "theqriptopian",
   "issueNumber": 0,
@@ -47,7 +47,7 @@ export const issue0: CodexQube = {
       "qubeType": "domainQube",
       "protocolVersion": "1.0.0",
       "createdAt": "2025-11-27T00:02:37.492744+00:00",
-      "updatedAt": "2025-12-08T02:01:20.749Z",
+      "updatedAt": "2025-12-08T04:46:33.733Z",
       "domainId": "scrolls",
       "title": "Scrolls",
       "icon": "BookOpen",
@@ -618,7 +618,7 @@ export const issue0: CodexQube = {
       "qubeType": "domainQube",
       "protocolVersion": "1.0.0",
       "createdAt": "2025-11-26T22:02:25.95+00:00",
-      "updatedAt": "2025-12-08T02:01:20.756Z",
+      "updatedAt": "2025-12-08T04:46:33.733Z",
       "domainId": "home",
       "title": "Home",
       "icon": "Home",
@@ -983,7 +983,7 @@ export const issue0: CodexQube = {
           "qubeType": "contentQube",
           "protocolVersion": "1.0.0",
           "createdAt": "2025-11-22T22:47:49.623795+00:00",
-          "updatedAt": "2025-12-08T00:27:52.393158+00:00",
+          "updatedAt": "2025-12-08T03:42:57.088346+00:00",
           "contentId": "d51579d4-6dad-48d6-9c1a-5b0904fd46f4",
           "title": "The Penny Is Dead,  Long Live the Penny",
           "type": "article",
@@ -1023,7 +1023,7 @@ export const issue0: CodexQube = {
       "qubeType": "domainQube",
       "protocolVersion": "1.0.0",
       "createdAt": "2025-11-26T10:36:55.656+00:00",
-      "updatedAt": "2025-12-08T02:01:20.756Z",
+      "updatedAt": "2025-12-08T04:46:33.733Z",
       "domainId": "pennydrops",
       "title": "Penny Drops",
       "icon": "Droplets",
@@ -1367,7 +1367,7 @@ export const issue0: CodexQube = {
       "qubeType": "domainQube",
       "protocolVersion": "1.0.0",
       "createdAt": "2025-11-26T10:23:09.077+00:00",
-      "updatedAt": "2025-12-08T02:01:20.756Z",
+      "updatedAt": "2025-12-08T04:46:33.733Z",
       "domainId": "kn0wdz",
       "title": "Kn0wdZ",
       "icon": "Code2",
