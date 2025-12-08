@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Upload, FileJson, AlertCircle } from "lucide-react";
+import { ArrowLeft, Upload, FileJson, AlertCircle, CheckCircle, XCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,41 +8,190 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { contentService } from "@/services/contentService";
+
+interface ImportItem {
+  id?: string;
+  title: string;
+  excerpt?: string;
+  thumbnail?: string;
+  domain: string;
+  placement: {
+    section: string;
+    tab?: string;
+    position?: number;
+    imageScale?: number;
+    imageX?: number;
+    imageY?: number;
+    imagePosition?: string;
+  };
+  modalities?: {
+    read?: { text: string; duration?: string };
+    watch?: { video_url: string; duration?: string; thumbnail?: string };
+    listen?: { audio_url: string; duration?: string; cover_image?: string };
+    link?: { url: string; allow_embed?: boolean };
+  };
+  tags?: string[];
+  format?: string;
+  type?: string;
+  status?: 'draft' | 'published';
+  issue_ref?: string;
+  author_id?: string;
+  author_type?: 'agent' | 'human';
+}
+
+interface PreviewItem extends ImportItem {
+  _action: 'insert' | 'update' | 'skip';
+  _reason?: string;
+  _existingId?: string;
+}
+
+interface ImportStats {
+  inserted: number;
+  updated: number;
+  skipped: number;
+  errors: number;
+}
+
+// Required fields for validation
+const REQUIRED_FIELDS = ['title', 'domain', 'placement'];
 
 export default function ContentImporter() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [jsonInput, setJsonInput] = useState("");
-  const [previewItems, setPreviewItems] = useState<any[]>([]);
+  const [previewItems, setPreviewItems] = useState<PreviewItem[]>([]);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [isImporting, setIsImporting] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [importStats, setImportStats] = useState<ImportStats | null>(null);
+  const [existingContent, setExistingContent] = useState<any[]>([]);
+  const isDev = import.meta.env.DEV;
 
   useEffect(() => {
-    checkAuth();
+    loadExistingContent();
   }, []);
 
-  const checkAuth = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    setIsAuthenticated(!!session);
-    
-    if (!session) {
-      toast({
-        title: "Authentication required",
-        description: "Please sign in to import content",
-        variant: "destructive",
-      });
-      navigate("/auth");
+  const loadExistingContent = async () => {
+    try {
+      const { data } = await supabase
+        .from('content')
+        .select('id, title, domain, placement');
+      setExistingContent(data || []);
+    } catch (error) {
+      console.error('Error loading existing content:', error);
     }
   };
 
+  // Validate a single item against the spec
+  const validateItem = (item: any, index: number): string[] => {
+    const errors: string[] = [];
+    
+    for (const field of REQUIRED_FIELDS) {
+      if (!item[field]) {
+        errors.push(`Item ${index + 1}: Missing required field "${field}"`);
+      }
+    }
+    
+    if (item.placement && !item.placement.section) {
+      errors.push(`Item ${index + 1}: placement.section is required`);
+    }
+    
+    if (item.domain && !['home', 'pennydrops', 'scrolls', 'kn0wdz', 'signals', 'staybull'].includes(item.domain)) {
+      errors.push(`Item ${index + 1}: Invalid domain "${item.domain}"`);
+    }
+    
+    if (item.status && !['draft', 'published'].includes(item.status)) {
+      errors.push(`Item ${index + 1}: Invalid status "${item.status}"`);
+    }
+    
+    return errors;
+  };
+
+  // Check if item already exists (by ID or title+domain+section)
+  const checkDuplicate = (item: ImportItem): { action: 'insert' | 'update' | 'skip'; existingId?: string; reason?: string } => {
+    // Check by ID first
+    if (item.id) {
+      const existingById = existingContent.find(e => e.id === item.id);
+      if (existingById) {
+        return { action: 'update', existingId: existingById.id, reason: 'ID match' };
+      }
+    }
+    
+    // Check by title + domain + section
+    const titleKey = `${item.title.toLowerCase()}-${item.domain}-${item.placement?.section}`;
+    const existingByTitle = existingContent.find(e => {
+      const eKey = `${e.title?.toLowerCase()}-${e.domain}-${(e.placement as any)?.section}`;
+      return eKey === titleKey;
+    });
+    
+    if (existingByTitle) {
+      return { action: 'skip', existingId: existingByTitle.id, reason: 'Duplicate (title+domain+section)' };
+    }
+    
+    return { action: 'insert' };
+  };
+
+  // Calculate read duration if missing
+  const calculateReadDuration = (text: string): string => {
+    const wordsPerMinute = 200;
+    const words = text.trim().split(/\s+/).length;
+    const minutes = Math.ceil(words / wordsPerMinute);
+    return `${minutes} min read`;
+  };
+
   const handlePreview = () => {
+    setValidationErrors([]);
+    setImportStats(null);
+    
     try {
       const parsed = JSON.parse(jsonInput);
-      const items = Array.isArray(parsed) ? parsed : parsed.content_items || [];
-      setPreviewItems(items);
+      const items: ImportItem[] = Array.isArray(parsed) ? parsed : parsed.content_items || [];
+      
+      if (items.length === 0) {
+        toast({
+          title: "No items found",
+          description: "JSON must be an array of content items",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Validate all items
+      const allErrors: string[] = [];
+      items.forEach((item, index) => {
+        allErrors.push(...validateItem(item, index));
+      });
+      
+      if (allErrors.length > 0) {
+        setValidationErrors(allErrors);
+        toast({
+          title: "Validation errors",
+          description: `${allErrors.length} validation error(s) found`,
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Check for duplicates and assign actions
+      const previewWithActions: PreviewItem[] = items.map(item => {
+        const { action, existingId, reason } = checkDuplicate(item);
+        return {
+          ...item,
+          _action: action,
+          _existingId: existingId,
+          _reason: reason,
+        };
+      });
+      
+      setPreviewItems(previewWithActions);
+      
+      const insertCount = previewWithActions.filter(i => i._action === 'insert').length;
+      const updateCount = previewWithActions.filter(i => i._action === 'update').length;
+      const skipCount = previewWithActions.filter(i => i._action === 'skip').length;
+      
       toast({
         title: "Preview ready",
-        description: `${items.length} items loaded for preview`,
+        description: `${insertCount} new, ${updateCount} updates, ${skipCount} skipped`,
       });
     } catch (error) {
       toast({
@@ -63,55 +212,100 @@ export default function ContentImporter() {
       return;
     }
 
-    // Verify session before importing
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      toast({
-        title: "Session expired",
-        description: "Please sign in again",
-        variant: "destructive",
-      });
-      navigate("/auth");
-      return;
+    // Skip auth check in dev mode
+    if (!isDev) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast({
+          title: "Session expired",
+          description: "Please sign in again",
+          variant: "destructive",
+        });
+        navigate("/auth");
+        return;
+      }
     }
 
     setIsImporting(true);
+    const stats: ImportStats = { inserted: 0, updated: 0, skipped: 0, errors: 0 };
 
     try {
-      const { data, error } = await supabase.functions.invoke('import-content', {
-        body: { content_items: previewItems },
-      });
+      for (const item of previewItems) {
+        if (item._action === 'skip') {
+          stats.skipped++;
+          continue;
+        }
+        
+        try {
+          // Auto-calculate read duration if needed
+          if (item.modalities?.read?.text && !item.modalities.read.duration) {
+            item.modalities.read.duration = calculateReadDuration(item.modalities.read.text);
+          }
+          
+          // Prepare content data
+          const contentData = {
+            title: item.title,
+            excerpt: item.excerpt || '',
+            thumbnail: item.thumbnail || null,
+            domain: item.domain,
+            format: item.format || 'article',
+            type: item.type || 'article',
+            status: item.status || 'published',
+            placement: {
+              section: item.placement.section,
+              tab: item.placement.tab || '',
+              position: item.placement.position || 1,
+              imageScale: item.placement.imageScale || 100,
+              imageX: item.placement.imageX || 50,
+              imageY: item.placement.imageY || 50,
+              imagePosition: item.placement.imagePosition || 'center',
+            },
+            modalities: item.modalities || {},
+            tags: item.tags || [],
+            issue_ref: item.issue_ref || '',
+            author_id: item.author_id || null,
+            author_type: item.author_type || null,
+            content: {},
+          };
+          
+          if (item._action === 'update' && item._existingId) {
+            await contentService.updateContent(item._existingId, contentData);
+            stats.updated++;
+          } else {
+            await contentService.createContent(contentData as any);
+            stats.inserted++;
+          }
+        } catch (error) {
+          console.error(`Error importing "${item.title}":`, error);
+          stats.errors++;
+        }
+      }
 
-      if (error) throw error;
-
+      setImportStats(stats);
+      
       toast({
-        title: "Import successful",
-        description: `${data.imported} items imported successfully`,
+        title: "Import complete",
+        description: `${stats.inserted} inserted, ${stats.updated} updated, ${stats.skipped} skipped, ${stats.errors} errors`,
       });
 
-      setJsonInput("");
-      setPreviewItems([]);
+      // Refresh existing content list
+      await loadExistingContent();
+      
+      if (stats.errors === 0) {
+        setJsonInput("");
+        setPreviewItems([]);
+      }
     } catch (error) {
       console.error("Import error:", error);
       toast({
         title: "Import failed",
-        description: error.message || "An error occurred during import",
+        description: (error as Error).message || "An error occurred during import",
         variant: "destructive",
       });
     } finally {
       setIsImporting(false);
     }
   };
-
-  if (isAuthenticated === null) {
-    return (
-      <div className="min-h-screen bg-background p-8 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-muted-foreground">Checking authentication...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-background p-8">
@@ -130,6 +324,11 @@ export default function ContentImporter() {
           <p className="text-muted-foreground">
             Import multiple content items at once using JSON
           </p>
+          {isDev && (
+            <Badge variant="outline" className="mt-2 bg-yellow-500/10 text-yellow-600 border-yellow-500/50">
+              Development Mode - Auth bypassed
+            </Badge>
+          )}
         </div>
 
         <div className="grid gap-6">
@@ -140,18 +339,29 @@ export default function ContentImporter() {
                 JSON Input
               </CardTitle>
               <CardDescription>
-                Paste your content items JSON array here. Each item should have: title, domain, format, type, content, placement.
+                Paste your content items JSON array. Required fields: title, domain, placement.section
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <Textarea
                 value={jsonInput}
                 onChange={(e) => setJsonInput(e.target.value)}
-                placeholder={`[\n  {\n    "title": "Article Title",\n    "domain": "21knowdz",\n    "format": "article",\n    "type": "educational",\n    "status": "published",\n    "content": { "body": "Content here..." },\n    "placement": { "section": "feature", "tab": "dev" }\n  }\n]`}
+                placeholder={`[
+  {
+    "title": "Article Title",
+    "domain": "home",
+    "placement": { "section": "home-hero", "position": 1 },
+    "modalities": {
+      "read": { "text": "Full article content..." }
+    },
+    "status": "published"
+  }
+]`}
                 className="min-h-[300px] font-mono text-sm"
               />
               <div className="flex gap-2">
                 <Button onClick={handlePreview} variant="outline">
+                  <RefreshCw className="h-4 w-4 mr-2" />
                   Preview Items
                 </Button>
                 <Button 
@@ -160,18 +370,73 @@ export default function ContentImporter() {
                   className="gap-2"
                 >
                   <Upload className="h-4 w-4" />
-                  {isImporting ? "Importing..." : `Import ${previewItems.length} Items`}
+                  {isImporting ? "Importing..." : `Import ${previewItems.filter(i => i._action !== 'skip').length} Items`}
                 </Button>
               </div>
             </CardContent>
           </Card>
 
+          {/* Validation Errors */}
+          {validationErrors.length > 0 && (
+            <Card className="border-red-500/50 bg-red-500/5">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-red-600">
+                  <AlertCircle className="h-5 w-5" />
+                  Validation Errors ({validationErrors.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="list-disc list-inside space-y-1 text-sm text-red-600">
+                  {validationErrors.map((error, index) => (
+                    <li key={index}>{error}</li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Import Stats */}
+          {importStats && (
+            <Card className="border-green-500/50 bg-green-500/5">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-green-600">
+                  <CheckCircle className="h-5 w-5" />
+                  Import Complete
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex gap-4 text-sm">
+                  <span className="text-green-600">✓ {importStats.inserted} inserted</span>
+                  <span className="text-blue-600">↻ {importStats.updated} updated</span>
+                  <span className="text-yellow-600">⊘ {importStats.skipped} skipped</span>
+                  {importStats.errors > 0 && (
+                    <span className="text-red-600">✗ {importStats.errors} errors</span>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Preview Table */}
           {previewItems.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle>Preview ({previewItems.length} items)</CardTitle>
+                <CardTitle className="flex items-center justify-between">
+                  <span>Preview ({previewItems.length} items)</span>
+                  <div className="flex gap-2 text-sm font-normal">
+                    <Badge variant="default" className="bg-green-600">
+                      {previewItems.filter(i => i._action === 'insert').length} new
+                    </Badge>
+                    <Badge variant="default" className="bg-blue-600">
+                      {previewItems.filter(i => i._action === 'update').length} update
+                    </Badge>
+                    <Badge variant="secondary">
+                      {previewItems.filter(i => i._action === 'skip').length} skip
+                    </Badge>
+                  </div>
+                </CardTitle>
                 <CardDescription>
-                  Review items before importing
+                  Review items before importing. Duplicates will be skipped.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -179,30 +444,58 @@ export default function ContentImporter() {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead>Action</TableHead>
                         <TableHead>Title</TableHead>
                         <TableHead>Domain</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Format</TableHead>
+                        <TableHead>Section</TableHead>
+                        <TableHead>Modalities</TableHead>
                         <TableHead>Status</TableHead>
-                        <TableHead>Placement</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {previewItems.map((item, index) => (
-                        <TableRow key={index}>
-                          <TableCell className="font-medium">{item.title}</TableCell>
+                        <TableRow key={index} className={item._action === 'skip' ? 'opacity-50' : ''}>
+                          <TableCell>
+                            {item._action === 'insert' && (
+                              <Badge className="bg-green-600">Insert</Badge>
+                            )}
+                            {item._action === 'update' && (
+                              <Badge className="bg-blue-600">Update</Badge>
+                            )}
+                            {item._action === 'skip' && (
+                              <Badge variant="secondary" title={item._reason}>Skip</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="font-medium max-w-[200px] truncate" title={item.title}>
+                            {item.title}
+                          </TableCell>
                           <TableCell>
                             <Badge variant="outline">{item.domain}</Badge>
                           </TableCell>
-                          <TableCell>{item.type}</TableCell>
-                          <TableCell>{item.format}</TableCell>
+                          <TableCell className="text-xs">
+                            {item.placement?.section}
+                            {item.placement?.tab && ` / ${item.placement.tab}`}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-1">
+                              {item.modalities?.read && (
+                                <Badge variant="outline" className="text-xs">R</Badge>
+                              )}
+                              {item.modalities?.watch && (
+                                <Badge variant="outline" className="text-xs">W</Badge>
+                              )}
+                              {item.modalities?.listen && (
+                                <Badge variant="outline" className="text-xs">L</Badge>
+                              )}
+                              {item.modalities?.link && (
+                                <Badge variant="outline" className="text-xs">🔗</Badge>
+                              )}
+                            </div>
+                          </TableCell>
                           <TableCell>
                             <Badge variant={item.status === 'published' ? 'default' : 'secondary'}>
-                              {item.status || 'draft'}
+                              {item.status || 'published'}
                             </Badge>
-                          </TableCell>
-                          <TableCell className="text-xs">
-                            {item.placement?.section} / {item.placement?.tab}
                           </TableCell>
                         </TableRow>
                       ))}

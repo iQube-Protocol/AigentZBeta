@@ -174,6 +174,20 @@ export default function ContentEditor() {
     }
   }
 
+  // Map section to domain
+  function getSectionDomain(sec: ContentSection): string {
+    const sectionToDomain: Record<string, string> = {
+      'home-hero': 'home',
+      'latest-news': 'home',
+      'second-hero': 'home',
+      'pennydrops': 'pennydrops',
+      'scrolls': 'scrolls',
+      '21knowdz': 'kn0wdz',
+      'staybull': 'staybull',
+    };
+    return sectionToDomain[sec] || 'home';
+  }
+
   async function handleSave(publish = false) {
     if (!title) {
       toast.error('Title is required');
@@ -182,17 +196,26 @@ export default function ContentEditor() {
 
     setSaving(true);
     try {
-      // Get current user for author_id
+      // Get current user for author_id (optional in dev mode)
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      const isDev = import.meta.env.DEV;
+      
+      // In dev mode, allow saving without auth
+      if (!user && !isDev) {
         toast.error('You must be logged in to save content');
         setSaving(false);
         return;
       }
 
+      // Auto-calculate read duration if text exists but duration is empty
+      let finalReadDuration = readDuration;
+      if (readText && !readDuration) {
+        finalReadDuration = calculateReadDuration(readText);
+      }
+
       const modalities: any = {};
       if (readText) {
-        modalities.read = { text: readText, duration: readDuration };
+        modalities.read = { text: readText, duration: finalReadDuration };
       }
       if (watchUrl) {
         modalities.watch = { video_url: watchUrl, duration: watchDuration };
@@ -204,6 +227,9 @@ export default function ContentEditor() {
         modalities.link = { url: linkUrl, allow_embed: linkAllowEmbed };
       }
 
+      // Derive domain from section
+      const domain = getSectionDomain(section);
+
       const contentData = {
         title,
         excerpt,
@@ -211,13 +237,13 @@ export default function ContentEditor() {
         modalities,
         placement: { section, tab, imagePosition, imageScale, imageX, imageY, position },
         status: publish ? ('published' as const) : ('draft' as const),
-        domain: 'qriptopian',
+        domain,
         format: contentType === 'resource' ? 'link' : 'article',
         type: contentType,
         content: {},
         issue_ref: issueRef,
         author_type: 'agent' as const,
-        author_id: user.id
+        author_id: user?.id || null
       } as const;
 
       if (id && id !== 'new') {

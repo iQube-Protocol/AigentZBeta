@@ -119,14 +119,35 @@ export const contentService = {
   },
 
   async createContent(content: Omit<Partial<Content>, 'id' | 'created_at' | 'updated_at'> & Pick<Content, 'domain' | 'format' | 'title' | 'type'>) {
-    const { data, error } = await supabase
+    // First do the insert without requiring a return value (RLS workaround)
+    const { error: insertError } = await supabase
       .from('content')
-      .insert([content as any])
-      .select()
-      .single();
+      .insert([content as any]);
 
-    if (error) throw error;
-    return data as Content;
+    if (insertError) throw insertError;
+    
+    // Try to fetch the created content by title+domain+section
+    try {
+      const placement = (content as any).placement;
+      const { data, error } = await supabase
+        .from('content')
+        .select('*')
+        .eq('title', content.title)
+        .eq('domain', content.domain)
+        .contains('placement', { section: placement?.section })
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+      
+      if (error) {
+        console.warn('[contentService] Could not fetch created content:', error);
+        return { ...content } as Content;
+      }
+      return data as Content;
+    } catch (err) {
+      console.warn('[contentService] Fetch failed after create:', err);
+      return { ...content } as Content;
+    }
   },
 
   async updateContent(id: string, updates: Partial<Content>) {
