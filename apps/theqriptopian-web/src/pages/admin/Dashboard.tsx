@@ -19,7 +19,11 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
   const { isAdmin, loading, method, did } = useIsAdminAA();
 
-  if (loading) {
+  // DEV MODE: Skip authentication in local development
+  const isDevelopment = import.meta.env.DEV;
+  const skipAuth = isDevelopment;
+
+  if (loading && !skipAuth) {
     return (
       <div className="h-screen flex items-center justify-center bg-background">
         <div className="text-center">
@@ -30,7 +34,7 @@ export default function AdminDashboard() {
     );
   }
 
-  if (!isAdmin) {
+  if (!isAdmin && !skipAuth) {
     return (
       <div className="h-screen flex items-center justify-center bg-background">
         <Card className="p-8 max-w-md text-center">
@@ -81,7 +85,14 @@ export default function AdminDashboard() {
               )}
             </div>
           </div>
-          {method === 'legacy' && (
+          {skipAuth && (
+            <div className="bg-yellow-500/10 border border-yellow-500/50 rounded-lg p-4 mb-4">
+              <p className="text-sm text-yellow-700 dark:text-yellow-400">
+                ⚠️ Development Mode: Authentication bypassed for local development
+              </p>
+            </div>
+          )}
+          {method === 'legacy' && !skipAuth && (
             <div className="bg-muted/50 border border-border rounded-lg p-4 mb-4">
               <p className="text-sm text-muted-foreground">
                 💡 You're using legacy authentication. 
