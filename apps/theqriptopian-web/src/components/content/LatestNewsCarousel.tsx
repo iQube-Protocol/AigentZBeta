@@ -1,4 +1,4 @@
-import { Lock, Crown } from "lucide-react";
+import { Lock, Crown, BookOpen, Play, ExternalLink } from "lucide-react";
 import { Carousel, CarouselContent, CarouselItem, CarouselApi } from "@/components/ui/carousel";
 import { Badge } from "@/components/ui/badge";
 import { useEffect, useState } from "react";
@@ -9,6 +9,8 @@ export function LatestNewsCarousel() {
   const [api, setApi] = useState<CarouselApi>();
   const [canScrollPrev, setCanScrollPrev] = useState(false);
   const [canScrollNext, setCanScrollNext] = useState(false);
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [slideCount, setSlideCount] = useState(0);
   const { currentCodex } = useCodex();
   
   // Get latest-news content from CodexQube
@@ -23,26 +25,34 @@ export function LatestNewsCarousel() {
       const posB = (b as any).placement?.position || 0;
       return posA - posB;
     })
-    .map(section => ({
-      id: section.contentId,
-      title: section.title,
-      description: section.excerpt || '',
-      image: section.media?.thumbnail || section.media?.hero || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&h=300&fit=crop',
-      badge: 'NEWS',
-      isPremium: false
-    })) || [];
+    .map(section => {
+      const modalities = (section as any).modalities || {};
+      return {
+        id: section.contentId,
+        title: section.title,
+        description: section.excerpt || '',
+        image: section.media?.thumbnail || section.media?.hero || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&h=300&fit=crop',
+        badge: 'NEWS',
+        isPremium: false,
+        hasRead: !!modalities.read,
+        hasWatch: !!modalities.watch,
+        hasLink: !!modalities.link
+      };
+    }) || [];
   useEffect(() => {
     if (!api) return;
-    const updateButtons = () => {
+    const updateState = () => {
       setCanScrollPrev(api.canScrollPrev());
       setCanScrollNext(api.canScrollNext());
+      setCurrentSlide(api.selectedScrollSnap());
+      setSlideCount(api.scrollSnapList().length);
     };
-    updateButtons();
-    api.on("select", updateButtons);
-    api.on("reInit", updateButtons);
+    updateState();
+    api.on("select", updateState);
+    api.on("reInit", updateState);
     return () => {
-      api.off("select", updateButtons);
-      api.off("reInit", updateButtons);
+      api.off("select", updateState);
+      api.off("reInit", updateState);
     };
   }, [api]);
   const scrollPrev = () => api?.scrollPrev();
@@ -69,13 +79,14 @@ export function LatestNewsCarousel() {
           className="w-full" 
           opts={{
             align: "start",
-            loop: true
+            loop: true,
+            slidesToScroll: 1
           }}
           plugins={[WheelGesturesPlugin()]}
         >
           <CarouselContent className="-ml-4">
             {newsItems.map((item) => (
-              <CarouselItem key={item.id} className="pl-4 md:basis-1/2 lg:basis-1/3">
+              <CarouselItem key={item.id} className="pl-4 basis-[85%] sm:basis-[45%] md:basis-[32%] lg:basis-[24%]">
                 <div className={`bg-[#020b18] border rounded-lg overflow-hidden transition-colors ${
                   item.isPremium ? 'border-amber-500/30 hover:border-amber-500/50' : 'border-[#1e2b40] hover:border-cyan-500/30'
                 }`}>
@@ -100,30 +111,56 @@ export function LatestNewsCarousel() {
                     )}
                   </div>
                   <div className="p-6">
-                    <Badge variant="default" className="bg-cyan-500/20 text-cyan-400 border-cyan-500/30 mb-2">
-                      {item.badge}
-                    </Badge>
+                    {/* Modality Icons */}
+                    <div className="flex gap-2 mb-3">
+                      {item.hasRead && (
+                        <button className="p-1.5 rounded bg-[#0a1528] border border-[#1e2b40] text-cyan-400 hover:border-cyan-500/50 transition-colors">
+                          <BookOpen className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      {item.hasWatch && (
+                        <button className="p-1.5 rounded bg-[#0a1528] border border-[#1e2b40] text-cyan-400 hover:border-cyan-500/50 transition-colors">
+                          <Play className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      {item.hasLink && (
+                        <button className="p-1.5 rounded bg-[#0a1528] border border-[#1e2b40] text-cyan-400 hover:border-cyan-500/50 transition-colors">
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
                     <h3 className={`text-xl font-semibold mb-2 ${
                       item.isPremium ? 'text-amber-400' : 'text-[#d0f6ff]'
                     }`}>
                       {item.title}
                     </h3>
-                    <p className="text-[#8fb3c0] text-sm mb-4">
+                    <p className="text-[#8fb3c0] text-sm mb-4 line-clamp-2">
                       {item.description}
                     </p>
-                    <button className={`text-sm transition-colors ${
-                      item.isPremium 
-                        ? 'text-amber-400 hover:text-amber-300 font-semibold' 
-                        : 'text-cyan-400 hover:text-cyan-300'
-                    }`}>
-                      {item.isPremium ? 'Unlock with QCT →' : 'Explore →'}
-                    </button>
                   </div>
                 </div>
               </CarouselItem>
             ))}
           </CarouselContent>
         </Carousel>
+        
+        {/* Pagination Dots */}
+        {slideCount > 1 && (
+          <div className="flex justify-center gap-2 mt-6">
+            {Array.from({ length: slideCount }).map((_, index) => (
+              <button
+                key={index}
+                onClick={() => api?.scrollTo(index)}
+                className={`transition-all rounded-full ${
+                  index === currentSlide 
+                    ? 'w-6 h-2 bg-cyan-400' 
+                    : 'w-2 h-2 bg-white/30 hover:bg-white/50'
+                }`}
+                aria-label={`Go to slide ${index + 1}`}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </div>;
 }
