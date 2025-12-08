@@ -45,12 +45,14 @@ export default function HomeHeroManager() {
     const newStatus = item.status === 'published' ? 'draft' : 'published';
     
     try {
-      await contentService.updateContent(item.id, { status: newStatus });
+      console.log('[HomeHeroManager] Updating status:', { id: item.id, newStatus });
+      const result = await contentService.updateContent(item.id, { status: newStatus });
+      console.log('[HomeHeroManager] Update successful:', result);
       toast.success(`Article ${newStatus === 'published' ? 'published' : 'unpublished'}`);
       loadContent();
     } catch (error) {
-      console.error('Error updating status:', error);
-      toast.error('Failed to update status');
+      console.error('[HomeHeroManager] Error updating status:', error);
+      toast.error(`Failed to update status: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
