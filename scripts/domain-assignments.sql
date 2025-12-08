@@ -13,6 +13,26 @@
 --
 -- ════════════════════════════════════════════════════════
 
+-- ⚠️ STEP 1: Fix the domain constraint first
+-- ════════════════════════════════════════════════════════
+
+-- Drop the existing constraint that only allows 'qriptopian'
+ALTER TABLE content DROP CONSTRAINT IF EXISTS content_domain_check;
+
+-- Add new constraint with all Issue #0 domains
+ALTER TABLE content ADD CONSTRAINT content_domain_check
+  CHECK (domain IN (
+    'pennydrops',   -- Q¢ use cases
+    'scrolls',      -- Chronicles (metaKnyts, SynthSims)
+    'kn0wdz',       -- Builder knowledge (Dev, Creative, Exec)
+    'signals',      -- Market signals (hidden)
+    'qriptopian'    -- Legacy/default
+  ));
+
+-- ════════════════════════════════════════════════════════
+-- STEP 2: Assign content to proper domains
+-- ════════════════════════════════════════════════════════
+
 -- 📜 Assign 15 items to 'scrolls' domain (Chronicles)
 UPDATE content SET domain = 'scrolls' WHERE id IN (
   '37266d3b-7ee1-4d0f-ac42-72e296550dc5', -- Primates Protocols
@@ -78,8 +98,7 @@ UPDATE content SET domain = 'kn0wdz' WHERE id IN (
 
 SELECT 
   domain, 
-  COUNT(*) as count,
-  ARRAY_AGG(title ORDER BY title LIMIT 3) as sample_titles
+  COUNT(*) as count
 FROM content 
 WHERE status = 'published' 
 GROUP BY domain 

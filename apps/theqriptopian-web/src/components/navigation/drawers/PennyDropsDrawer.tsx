@@ -9,6 +9,7 @@
 
 import { useState } from "react";
 import { DrawerLayer } from "@agentiq/smarttriad";
+import { useCodex } from "@agentiq/codex";
 import { Kn0w1Viewer } from "@/components/content/Kn0w1Viewer";
 import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
 import { WheelGesturesPlugin } from "embla-carousel-wheel-gestures";
@@ -18,41 +19,20 @@ interface PennyDropsDrawerProps {
   onClose: () => void;
 }
 
-// Sample Q¢ stories content
-const pennyDropsContent = [
-  {
-    id: '1',
-    title: 'Buying Coffee with Q¢',
-    description: 'How quantum micropayments work in everyday life',
-    image: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=800&h=600&fit=crop',
-    badge: 'Q¢',
-  },
-  {
-    id: '2',
-    title: 'Tipping Content Creators',
-    description: 'Q¢ enables instant microtips for digital content',
-    image: 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=800&h=600&fit=crop',
-    badge: 'MICRO',
-  },
-  {
-    id: '3',
-    title: 'Pay-per-Second Streaming',
-    description: 'Only pay for what you watch with Q¢',
-    image: 'https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=800&h=600&fit=crop',
-    badge: 'STREAM',
-  },
-  {
-    id: '4',
-    title: 'Gaming Rewards',
-    description: 'Earn Q¢ while you play',
-    image: 'https://images.unsplash.com/photo-1538481199705-c710c4e965fc?w=800&h=600&fit=crop',
-    badge: 'EARN',
-  },
-];
-
 export function PennyDropsDrawer({ isOpen, onClose }: PennyDropsDrawerProps) {
   const [activeTab] = useState('stories');
   const [fullscreenIndex, setFullscreenIndex] = useState<number | null>(null);
+  const { currentCodex } = useCodex();
+  
+  // Get live content from CodexQube
+  const pennyDropsDomain = currentCodex?.domains.find(d => d.domainId === 'pennydrops');
+  const pennyDropsContent = pennyDropsDomain?.sections?.map(section => ({
+    id: section.contentId,
+    title: section.title,
+    description: section.excerpt || '',
+    image: section.media?.thumbnail || section.media?.hero || 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=800&h=600&fit=crop',
+    badge: 'Q¢',
+  })) || [];
 
   const tabs = [
     { id: 'stories', label: 'Stories' },
@@ -66,7 +46,6 @@ export function PennyDropsDrawer({ isOpen, onClose }: PennyDropsDrawerProps) {
       subtitle="Q¢ use cases - fun, practical, irreverent"
       columns={3}
       tabs={tabs}
-      activeTab={activeTab}
     >
       <div className="col-span-3 h-full flex flex-col">
         {/* Feature Area - Desktop: col-span-2, Mobile: full width */}

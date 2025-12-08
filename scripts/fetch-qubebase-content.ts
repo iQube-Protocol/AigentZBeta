@@ -72,12 +72,13 @@ function groupByDomain(content: QubeBaseContent[]) {
 function generateCodexQube(content: QubeBaseContent[]) {
   const domainGroups = groupByDomain(content);
   
-  const domainConfigs: Record<string, {title: string, icon: string, description: string}> = {
-    signals: { title: 'Signals', icon: 'Radar', description: 'Market insights and trading signals' },
-    pennydrops: { title: 'Penny Drops', icon: 'Droplets', description: 'Q¢ use cases and practical applications' },
-    scrolls: { title: 'Scrolls', icon: 'BookOpen', description: 'Chronicles from the Quantum-Ready Internet' },
-    kn0wdz: { title: 'Kn0wdZ', icon: 'Code2', description: 'Technical knowledge and developer resources' },
-    staybull: { title: 'Stay Bull', icon: 'TrendingUp', description: 'Bullish market perspectives' },
+  const domainConfigs: Record<string, {title: string, icon: string, description: string, published?: boolean}> = {
+    home: { title: 'Home', icon: 'Home', description: 'Home page content', published: false },
+    signals: { title: 'Signals', icon: 'Radar', description: 'Market insights and trading signals', published: false },
+    pennydrops: { title: 'Penny Drops', icon: 'Droplets', description: 'Q¢ use cases and practical applications', published: true },
+    scrolls: { title: 'Scrolls', icon: 'BookOpen', description: 'Chronicles from the Quantum-Ready Internet', published: true },
+    kn0wdz: { title: 'Kn0wdZ', icon: 'Code2', description: 'Technical knowledge and developer resources', published: true },
+    staybull: { title: 'Stay Bull', icon: 'TrendingUp', description: 'Bullish market perspectives', published: false },
   };
 
   const domains = Object.keys(domainGroups).map(domainId => {
@@ -120,7 +121,7 @@ function generateCodexQube(content: QubeBaseContent[]) {
       title: config.title,
       icon: config.icon,
       description: config.description,
-      published: ['pennydrops', 'scrolls', 'kn0wdz'].includes(domainId), // Issue #0 active domains
+      published: config.published ?? false, // Use config published flag
       sections: contentQubes,
     };
   });

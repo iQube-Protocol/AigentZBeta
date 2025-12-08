@@ -11,6 +11,7 @@
 
 import { useState } from "react";
 import { DrawerLayer } from "@agentiq/smarttriad";
+import { useCodex } from "@agentiq/codex";
 import { Kn0w1Viewer } from "@/components/content/Kn0w1Viewer";
 import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
 import { WheelGesturesPlugin } from "embla-carousel-wheel-gestures";
@@ -58,13 +59,24 @@ const synthSimsContent = [
 
 export function ScrollsDrawer({ isOpen, onClose }: ScrollsDrawerProps) {
   const [activeTab, setActiveTab] = useState('metaknyts');
+  const { currentCodex } = useCodex();
+  
+  // Get live content from CodexQube
+  const scrollsDomain = currentCodex?.domains.find(d => d.domainId === 'scrolls');
+  const scrollsContent = scrollsDomain?.sections?.map(section => ({
+    id: section.contentId,
+    title: section.title,
+    description: section.excerpt || '',
+    image: section.media?.thumbnail || section.media?.hero || 'https://images.unsplash.com/photo-1457369804613-52c61a468e7d?w=800&h=600&fit=crop',
+    badge: 'SCROLL',
+  })) || [];
 
   const tabs = [
     { id: 'metaknyts', label: 'metaKnyts' },
     { id: 'synthsims', label: 'The SynthSims' },
   ];
 
-  const currentContent = activeTab === 'metaknyts' ? metaKnytsContent : synthSimsContent;
+  const currentContent = scrollsContent;
 
   return (
     <DrawerLayer
@@ -74,8 +86,6 @@ export function ScrollsDrawer({ isOpen, onClose }: ScrollsDrawerProps) {
       subtitle="Chronicles from the Quantum-Ready Internet"
       columns={2}
       tabs={tabs}
-      activeTab={activeTab}
-      onTabChange={setActiveTab}
     >
       <div className="col-span-2 h-full flex flex-col">
         {/* Main Content Area */}

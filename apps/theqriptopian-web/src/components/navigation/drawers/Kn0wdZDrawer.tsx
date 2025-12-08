@@ -14,6 +14,7 @@
 
 import { useState } from "react";
 import { DrawerLayer } from "@agentiq/smarttriad";
+import { useCodex } from "@agentiq/codex";
 import { Kn0w1Viewer } from "@/components/content/Kn0w1Viewer";
 import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
 import { WheelGesturesPlugin } from "embla-carousel-wheel-gestures";
@@ -87,6 +88,17 @@ const execContent = [
 
 export function Kn0wdZDrawer({ isOpen, onClose }: Kn0wdZDrawerProps) {
   const [activeTab, setActiveTab] = useState('dev');
+  const { currentCodex } = useCodex();
+  
+  // Get live content from CodexQube
+  const kn0wdZDomain = currentCodex?.domains.find(d => d.domainId === 'kn0wdz');
+  const kn0wdZContent = kn0wdZDomain?.sections?.map(section => ({
+    id: section.contentId,
+    title: section.title,
+    description: section.excerpt || '',
+    image: section.media?.thumbnail || section.media?.hero || 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=800&h=600&fit=crop',
+    badge: 'KNOW',
+  })) || [];
 
   const tabs = [
     { id: 'dev', label: 'Dev' },
@@ -100,13 +112,7 @@ export function Kn0wdZDrawer({ isOpen, onClose }: Kn0wdZDrawerProps) {
     exec: 'Impact Imperatives & Business Development - Strategic Insights',
   };
 
-  const contentMap = {
-    dev: devContent,
-    creative: creativeContent,
-    exec: execContent,
-  };
-
-  const currentContent = contentMap[activeTab as keyof typeof contentMap] || devContent;
+  const currentContent = kn0wdZContent;
 
   return (
     <DrawerLayer
@@ -116,8 +122,6 @@ export function Kn0wdZDrawer({ isOpen, onClose }: Kn0wdZDrawerProps) {
       subtitle={subtitles[activeTab as keyof typeof subtitles]}
       columns={3}
       tabs={tabs}
-      activeTab={activeTab}
-      onTabChange={setActiveTab}
     >
       <div className="col-span-3 h-full flex flex-col">
         {/* Main Content Grid */}
