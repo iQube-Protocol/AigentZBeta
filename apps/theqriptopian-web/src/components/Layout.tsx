@@ -24,7 +24,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       />
       
       <div className="flex w-full pt-[88px]">
-        <main className="flex-1 overflow-hidden">
+        <main className="flex-1 overflow-auto">
           {children}
         </main>
       </div>

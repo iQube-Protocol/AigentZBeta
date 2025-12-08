@@ -289,8 +289,8 @@ export default function ContentEditor() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-8">
+    <div className="min-h-screen bg-background overflow-auto">
+      <div className="container mx-auto px-4 py-8 pb-24">
         <div className="mb-8 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Button variant="outline" onClick={() => navigate(-1)}>
