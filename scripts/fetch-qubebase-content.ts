@@ -36,6 +36,8 @@ interface QubeBaseContent {
   author_id?: string;
   author_type?: string;
   issue_ref?: string;
+  placement?: any;
+  modalities?: any; // Read/watch/listen/link content
 }
 
 async function fetchContent() {
@@ -99,6 +101,7 @@ function generateCodexQube(content: QubeBaseContent[]) {
       content: item.content,
       excerpt: item.excerpt || '',
       placement: item.placement, // Include placement for home page filtering
+      modalities: item.modalities || undefined, // Read/watch/listen/link content
       media: item.thumbnail ? {
         thumbnail: item.thumbnail,
         hero: item.thumbnail,
