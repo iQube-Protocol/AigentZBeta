@@ -151,24 +151,105 @@ function mapToQubeBase(lovableContent: LovableContent): QubeBaseContent {
 }
 
 /**
+ * Check for existing content to avoid duplicates
+ */
+async function checkExistingContent(items: QubeBaseContent[]) {
+  console.log('\n🔍 Checking for existing content...');
+  
+  const { data: existing, error } = await supabase
+    .from('content')
+    .select('id, title, domain, placement');
+  
+  if (error) {
+    console.error('❌ Error checking existing content:', error);
+    return { toUpdate: [], toInsert: items };
+  }
+
+  const existingIds = new Set(existing?.map(item => item.id) || []);
+  const existingTitles = new Map(
+    existing?.map(item => [
+      `${item.title.toLowerCase()}-${item.domain}-${(item.placement as any)?.section}`,
+      item.id
+    ]) || []
+  );
+
+  const toUpdate: QubeBaseContent[] = [];
+  const toInsert: QubeBaseContent[] = [];
+
+  for (const item of items) {
+    const titleKey = `${item.title.toLowerCase()}-${item.domain}-${item.placement.section}`;
+    
+    if (item.id && existingIds.has(item.id)) {
+      console.log(`   🔄 Will update: ${item.title} (ID: ${item.id})`);
+      toUpdate.push(item);
+    } else if (existingTitles.has(titleKey)) {
+      const existingId = existingTitles.get(titleKey);
+      console.log(`   ⚠️  Duplicate found: ${item.title} -> Skipping (exists as ${existingId})`);
+      // Skip to avoid duplicate
+    } else {
+      console.log(`   ➕ Will insert: ${item.title} (new)`);
+      toInsert.push(item);
+    }
+  }
+
+  return { toUpdate, toInsert };
+}
+
+/**
  * Import content into QubeBase
  */
 async function importContent(content: QubeBaseContent[]) {
-  console.log(`\n📦 Importing ${content.length} items...`);
+  console.log(`\n📦 Processing ${content.length} items...`);
 
-  for (const item of content) {
-    try {
-      const { data, error } = await supabase
-        .from('content')
-        .upsert(item, { onConflict: 'id' });
+  // Check for duplicates
+  const { toUpdate, toInsert } = await checkExistingContent(content);
 
-      if (error) {
-        console.error(`❌ Error importing "${item.title}":`, error.message);
-      } else {
-        console.log(`✅ Imported: ${item.title} (${item.domain}/${item.placement.section})`);
+  console.log(`\n📊 Summary:`);
+  console.log(`   Updates: ${toUpdate.length}`);
+  console.log(`   New inserts: ${toInsert.length}`);
+  console.log(`   Skipped (duplicates): ${content.length - toUpdate.length - toInsert.length}\n`);
+
+  // Import updates
+  if (toUpdate.length > 0) {
+    console.log('🔄 Updating existing content...');
+    for (const item of toUpdate) {
+      try {
+        const { error } = await supabase
+          .from('content')
+          .update(item)
+          .eq('id', item.id);
+
+        if (error) {
+          console.error(`   ❌ Error updating "${item.title}":`, error.message);
+        } else {
+          console.log(`   ✅ Updated: ${item.title}`);
+        }
+      } catch (err) {
+        console.error(`   ❌ Exception updating "${item.title}":`, err);
       }
-    } catch (err) {
-      console.error(`❌ Exception importing "${item.title}":`, err);
+    }
+  }
+
+  // Import new items
+  if (toInsert.length > 0) {
+    console.log('\n➕ Inserting new content...');
+    for (const item of toInsert) {
+      try {
+        // Remove id for new inserts to let database generate it
+        const { id, ...itemWithoutId } = item;
+        
+        const { error } = await supabase
+          .from('content')
+          .insert(itemWithoutId);
+
+        if (error) {
+          console.error(`   ❌ Error inserting "${item.title}":`, error.message);
+        } else {
+          console.log(`   ✅ Inserted: ${item.title}`);
+        }
+      } catch (err) {
+        console.error(`   ❌ Exception inserting "${item.title}":`, err);
+      }
     }
   }
 }
