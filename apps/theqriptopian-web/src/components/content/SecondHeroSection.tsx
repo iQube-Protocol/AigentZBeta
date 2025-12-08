@@ -8,15 +8,28 @@ export function SecondHeroSection() {
   
   // Get second-hero content from CodexQube
   const homeDomain = currentCodex?.domains.find(d => d.domainId === 'home');
-  const heroArticles = homeDomain?.sections?.filter(s => {
-    const section = (s as any).placement?.section;
-    return section === 'second-hero';
-  }).map(section => ({
-    id: section.contentId,
-    title: section.title,
-    subtitle: section.excerpt || '',
-    image: section.media?.hero || section.media?.thumbnail || quantumTechHero,
-  })) || [];
+  const heroArticles = homeDomain?.sections
+    ?.filter(s => {
+      const section = (s as any).placement?.section;
+      return section === 'second-hero';
+    })
+    .sort((a, b) => {
+      const posA = (a as any).placement?.position || 0;
+      const posB = (b as any).placement?.position || 0;
+      return posA - posB;
+    })
+    .map(section => {
+      const placement = (section as any).placement;
+      return {
+        id: section.contentId,
+        title: section.title,
+        subtitle: section.excerpt || '',
+        image: section.media?.hero || section.media?.thumbnail || quantumTechHero,
+        imageScale: placement?.imageScale || 100,
+        imageX: placement?.imageX || 50,
+        imageY: placement?.imageY || 50
+      };
+    }) || [];
   
   const articles = heroArticles.length > 0 ? heroArticles : [{
     id: '1',
@@ -66,10 +79,13 @@ export function SecondHeroSection() {
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      <img 
-        src={currentArticle.image} 
-        alt={currentArticle.title} 
-        className="w-full h-full object-cover" 
+      <div 
+        className="w-full h-full bg-cover bg-center"
+        style={{
+          backgroundImage: `url(${currentArticle.image})`,
+          backgroundSize: `${(currentArticle as any).imageScale || 100}%`,
+          backgroundPosition: `${(currentArticle as any).imageX || 50}% ${(currentArticle as any).imageY || 50}%`
+        }}
       />
       <div className="absolute inset-0 bg-gradient-to-t from-[#050f1f] via-transparent to-transparent" />
       <div className="absolute inset-0 flex items-center justify-center">

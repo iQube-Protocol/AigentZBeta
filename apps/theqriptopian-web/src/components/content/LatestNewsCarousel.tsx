@@ -13,17 +13,24 @@ export function LatestNewsCarousel() {
   
   // Get latest-news content from CodexQube
   const homeDomain = currentCodex?.domains.find(d => d.domainId === 'home');
-  const newsItems = homeDomain?.sections?.filter(s => {
-    const section = (s as any).placement?.section;
-    return section === 'latest-news';
-  }).map(section => ({
-    id: section.contentId,
-    title: section.title,
-    description: section.excerpt || '',
-    image: section.media?.thumbnail || section.media?.hero || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&h=300&fit=crop',
-    badge: 'NEWS',
-    isPremium: false
-  })) || [];
+  const newsItems = homeDomain?.sections
+    ?.filter(s => {
+      const section = (s as any).placement?.section;
+      return section === 'latest-news';
+    })
+    .sort((a, b) => {
+      const posA = (a as any).placement?.position || 0;
+      const posB = (b as any).placement?.position || 0;
+      return posA - posB;
+    })
+    .map(section => ({
+      id: section.contentId,
+      title: section.title,
+      description: section.excerpt || '',
+      image: section.media?.thumbnail || section.media?.hero || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&h=300&fit=crop',
+      badge: 'NEWS',
+      isPremium: false
+    })) || [];
   useEffect(() => {
     if (!api) return;
     const updateButtons = () => {

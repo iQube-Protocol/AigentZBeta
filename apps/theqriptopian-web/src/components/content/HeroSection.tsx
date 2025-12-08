@@ -9,18 +9,31 @@ export function HeroSection() {
   
   // Get home-hero content from CodexQube
   const homeDomain = currentCodex?.domains.find(d => d.domainId === 'home');
-  const heroArticles = homeDomain?.sections?.filter(s => {
-    const section = (s as any).placement?.section;
-    return section === 'home-hero';
-  }).map(section => ({
-    id: section.contentId,
-    title: section.title,
-    subtitle: section.excerpt || '',
-    image: section.media?.hero || section.media?.thumbnail || heroImage,
-    readContent: section.excerpt || '',
-    duration: '12 min read',
-    watchProgress: 0
-  })) || [];
+  const heroArticles = homeDomain?.sections
+    ?.filter(s => {
+      const section = (s as any).placement?.section;
+      return section === 'home-hero';
+    })
+    .sort((a, b) => {
+      const posA = (a as any).placement?.position || 0;
+      const posB = (b as any).placement?.position || 0;
+      return posA - posB;
+    })
+    .map(section => {
+      const placement = (section as any).placement;
+      return {
+        id: section.contentId,
+        title: section.title,
+        subtitle: section.excerpt || '',
+        image: section.media?.hero || section.media?.thumbnail || heroImage,
+        readContent: section.excerpt || '',
+        duration: '12 min read',
+        watchProgress: 0,
+        imageScale: placement?.imageScale || 100,
+        imageX: placement?.imageX || 50,
+        imageY: placement?.imageY || 50
+      };
+    }) || [];
   
   const articles = heroArticles.length > 0 ? heroArticles : [{
     id: '1',
@@ -71,7 +84,14 @@ export function HeroSection() {
     onTouchMove={handleTouchMove}
     onTouchEnd={handleTouchEnd}
   >
-      <img src={currentArticle.image} alt={currentArticle.title} className="w-full h-full object-cover" />
+      <div 
+        className="w-full h-full bg-cover bg-center"
+        style={{
+          backgroundImage: `url(${currentArticle.image})`,
+          backgroundSize: `${(currentArticle as any).imageScale || 100}%`,
+          backgroundPosition: `${(currentArticle as any).imageX || 50}% ${(currentArticle as any).imageY || 50}%`
+        }}
+      />
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#050f1f]" />
       
       {/* Main Content */}
