@@ -1,37 +1,76 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { BookOpen, Play, Headphones } from "lucide-react";
+import { useCodex } from "@agentiq/codex";
 import heroImage from "@/assets/qriptopian-hero.jpg";
-import quantumTechImage from "@/assets/quantum-tech-hero.jpg";
-const articles = [{
-  id: 1,
-  title: "The Qriptopian",
-  subtitle: "Navigate the Quantum-Ready Internet",
-  image: heroImage,
-  readContent: "In the rapidly evolving landscape of quantum computing and decentralized technologies, The Qriptopian emerges as a comprehensive guide for navigating this new frontier. This groundbreaking publication explores the intersection of quantum mechanics and internet infrastructure...",
-  duration: "12 min read",
-  watchProgress: 0
-}, {
-  id: 2,
-  title: "Quantum Market Intel",
-  subtitle: "Real-time insights across all major protocols",
-  image: quantumTechImage,
-  readContent: "The quantum market represents a paradigm shift in how we understand financial networks and trading algorithms. With the integration of quantum computing capabilities into market analysis...",
-  duration: "8 min read",
-  watchProgress: 0
-}, {
-  id: 3,
-  title: "DeFi Protocol Evolution",
-  subtitle: "Next-generation decentralized finance",
-  image: "https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=1920&h=1080&fit=crop",
-  readContent: "Decentralized Finance continues to evolve at breakneck speed, with new protocols emerging that challenge traditional financial systems. This comprehensive analysis examines the latest developments...",
-  duration: "15 min read",
-  watchProgress: 0
-}];
 export function HeroSection() {
   const [activeArticle, setActiveArticle] = useState(0);
   const [activeMode, setActiveMode] = useState<'read' | 'watch' | 'listen' | null>(null);
+  const { currentCodex } = useCodex();
+  
+  // Get home-hero content from CodexQube
+  const homeDomain = currentCodex?.domains.find(d => d.domainId === 'home');
+  const heroArticles = homeDomain?.sections?.filter(s => {
+    const section = (s as any).placement?.section;
+    return section === 'home-hero';
+  }).map(section => ({
+    id: section.contentId,
+    title: section.title,
+    subtitle: section.excerpt || '',
+    image: section.media?.hero || section.media?.thumbnail || heroImage,
+    readContent: section.excerpt || '',
+    duration: '12 min read',
+    watchProgress: 0
+  })) || [];
+  
+  const articles = heroArticles.length > 0 ? heroArticles : [{
+    id: '1',
+    title: 'The Qriptopian',
+    subtitle: 'Navigate the Quantum-Ready Internet',
+    image: heroImage,
+    readContent: 'Loading content...',
+    duration: '12 min read',
+    watchProgress: 0
+  }];
+  
   const currentArticle = articles[activeArticle];
-  return <div className="w-full h-[calc(100vh-88px)] relative flex-shrink-0">
+  
+  // Auto-advance carousel every 8 seconds
+  useEffect(() => {
+    if (articles.length <= 1) return;
+    const interval = setInterval(() => {
+      setActiveArticle(prev => (prev + 1) % articles.length);
+    }, 8000);
+    return () => clearInterval(interval);
+  }, [articles.length]);
+  
+  // Touch/swipe support
+  const [touchStart, setTouchStart] = useState(0);
+  const [touchEnd, setTouchEnd] = useState(0);
+  
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+  
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+  
+  const handleTouchEnd = () => {
+    if (touchStart - touchEnd > 75) {
+      // Swipe left - next
+      setActiveArticle(prev => (prev + 1) % articles.length);
+    }
+    if (touchStart - touchEnd < -75) {
+      // Swipe right - previous
+      setActiveArticle(prev => (prev - 1 + articles.length) % articles.length);
+    }
+  };
+  return <div 
+    className="w-full h-[calc(100vh-88px)] relative flex-shrink-0"
+    onTouchStart={handleTouchStart}
+    onTouchMove={handleTouchMove}
+    onTouchEnd={handleTouchEnd}
+  >
       <img src={currentArticle.image} alt={currentArticle.title} className="w-full h-full object-cover" />
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#050f1f]" />
       
