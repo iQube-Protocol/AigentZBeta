@@ -19,6 +19,14 @@ export const SUPPORTED_CHAINS: Record<number, ChainConfig> = {
     rpc: 'https://rpc.sepolia.org',
     explorer: 'https://sepolia.etherscan.io'
   },
+  560048: {
+    chainId: 560048,
+    hex: '0x88cf0',
+    name: 'Ethereum Hoodi',
+    symbol: 'ETH',
+    rpc: 'https://ethereum-hoodi-rpc.publicnode.com',
+    explorer: 'https://hoodi.etherscan.io'
+  },
   80002: {
     chainId: 80002,
     hex: '0x13882',

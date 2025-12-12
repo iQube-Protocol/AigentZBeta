@@ -2,8 +2,11 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { X, Pencil } from "lucide-react";
-import { useToast } from "../ui/toaster";
-import { ConfirmDialog } from "../ui/confirm-dialog";
+import { useToast } from "../ui/Toaster";
+import { ConfirmDialog } from "../ui/ConfirmDialog";
+import { IQUBE_ABI } from "@/lib/abi/iqube";
+import { pinata } from '../../app/utils/pinata-config';
+import { BrowserProvider, Contract, ethers, parseEther, BigNumber, keccak256, toUtf8Bytes} from 'ethers';
 
 interface IQubeDetailModalProps {
   templateId: string;
@@ -16,6 +19,9 @@ export const IQubeDetailModal: React.FC<IQubeDetailModalProps> = ({ templateId, 
   const [error, setError] = useState<string | null>(null);
   const [template, setTemplate] = useState<any | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const [tokenId, setTokenId] = useState<string | undefined>(undefined);
+  // derive parentTemplateId from loaded template (will be undefined until template loads)
+  const parentTemplateId = template?.parentTemplateId ?? undefined;
   const router = useRouter();
   const { toast } = useToast();
   // Mint notice state
@@ -51,8 +57,58 @@ export const IQubeDetailModal: React.FC<IQubeDetailModalProps> = ({ templateId, 
     return localStorage.getItem(`active_private_${tid}`) === '1';
   };
 
+  const [hasMetaMask, setHasMetaMask] = useState(false);
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const [chainId, setChainId] = useState<string | null>(null);
+  const fileInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  useEffect(() => {
+    const eth = (window as any).ethereum;
+    setHasMetaMask(Boolean(eth && eth.isMetaMask));
+    if (!eth) return;
+    const handleAccounts = (accounts: string[]) => setWalletAddress(accounts[0] ?? null);
+    const handleChain = (cid: string) => setChainId(cid);
+
+    eth.request?.({ method: 'eth_accounts' }).then((accs: string[]) => handleAccounts(accs)).catch(()=>{});
+    eth.on?.('accountsChanged', handleAccounts);
+    eth.on?.('chainChanged', handleChain);
+    return () => {
+      eth.removeListener?.('accountsChanged', handleAccounts);
+      eth.removeListener?.('chainChanged', handleChain);
+    };
+  }, []);
+
+  async function connectMetaMask(): Promise<string | null> {
+    try {
+      const eth = (window as any).ethereum;
+      if (!eth) throw new Error('MetaMask not installed');
+      const accounts: string[] = await eth.request({ method: 'eth_requestAccounts' });
+      const acc = accounts?.[0] ?? null;
+      setWalletAddress(acc);
+      const cid = await eth.request({ method: 'eth_chainId' });
+      setChainId(cid);
+      return acc;
+    } catch (err) {
+      console.error('MetaMask connect error', err);
+      return null;
+    }
+  }
+  async function signMessage(msg: string): Promise<string | null> {
+    try {
+      const eth = (window as any).ethereum;
+      if (!eth || !walletAddress) throw new Error('Not connected');
+      // personal_sign expects [message, address]
+      const sig = await eth.request({ method: 'personal_sign', params: [msg, walletAddress] });
+      return sig;
+    } catch (err) {
+      console.error('Sign error', err);
+      return null;
+    }
+  }
+
   // ----- BlakQube mock schema helpers -----
-  type BQField = { key: string; label: string; source: string; icon: string };
+  //type BQField = { key: string; label: string; source: string; icon: string };
+  type BQField = { key: string; label: string; source: string; icon: string; fileUrl?: string; uploading?: boolean; example?: string; selectedFile?: File; preview?: File | string; };
   function getBlakQubeMockSchema(name?: string): BQField[] {
     const n = (name || '').toLowerCase();
     if (n.includes('personal')) {
@@ -164,6 +220,85 @@ export const IQubeDetailModal: React.FC<IQubeDetailModalProps> = ({ templateId, 
       return { json: null, text };
     }
   }
+  function handleBqFileSelect(rowIndex: number, e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Optional: quick client-side validation
+    const maxMB = 50;
+    if (file.size > maxMB * 1024 * 1024) {
+      try { toast(`File too large (${maxMB}MB)`, 'error'); } catch {}
+      e.target.value = '';
+      return;
+    }
+    // Create preview (base64 data URL) — good for images; for very large files prefer createObjectURL
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const preview = reader.result as string;
+      setBqEditFields(prev => {
+        const copy = [...prev];
+        const existing = copy[rowIndex] || {};
+        copy[rowIndex] = {
+          ...existing,
+          selectedFile: file,
+          preview,
+          // optionally show preview right away in Example field
+          example: existing.example || preview,
+        };
+        return copy;
+      });
+    };
+    reader.readAsDataURL(file);
+
+    // Clear the input value is handled after upload - but if you want immediate clear:
+    // e.target.value = '';
+
+  }
+
+
+  // Upload the previously-selected file (from bqEditFields[rowIndex].selectedFile)
+  async function handleBqUploadSelected(rowIndex: number) {
+    const file = bqEditFields?.[rowIndex]?.selectedFile as File | undefined;
+    if (!file) {
+      try { toast('No file selected for upload', 'error'); } catch {}
+      return;
+    }
+
+    // mark uploading state
+    setBqEditFields(prev => {
+      const copy = [...prev];
+      copy[rowIndex] = { ...copy[rowIndex], uploading: true };
+      return copy;
+    });
+
+    try {
+      // Upload file to IPFS
+      const fileUpload = await pinata.upload.file(file);
+      
+      // Store the IPFS URL/CID as the value
+      const ipfsUrl = `https://gateway.pinata.cloud/ipfs/${fileUpload.IpfsHash}`;
+        setBqEditFields(prev => {
+        const copy = [...prev];
+        const existing = copy[rowIndex] || {};
+        copy[rowIndex] = { 
+          ...existing, 
+          selectedFile: ipfsUrl, // or fileUpload.IpfsHash if you want just the CID
+          uploading: false 
+        };
+        return copy;
+      });
+      
+      try { toast('File uploaded to IPFS', 'success'); } catch {}
+    } catch (err: any) {
+      console.error('IPFS upload failed', err);
+      setBqEditFields(prev => {
+        const copy = [...prev];
+        copy[rowIndex] = { ...copy[rowIndex], uploading: false };
+        return copy;
+      });
+      try { toast(err?.message || 'Upload failed', 'error'); } catch {}
+    }
+  }
 
   useEffect(() => {
     let mounted = true;
@@ -257,7 +392,224 @@ export const IQubeDetailModal: React.FC<IQubeDetailModalProps> = ({ templateId, 
     }
   }
 
-  // ... (rest of the code remains the same)
+
+  async function performMintWithMetaMask(opts: { templateId: string; parentTemplateId?: string | number | undefined; tokenId?: string | number | undefined; visibility?: 'public'|'private'; isProvenance?: boolean }) {
+    setIsMinting(true);
+    try{
+      console.log('[mint] about to call /api/core/mint/');
+      // Build server payload. Include useServerMint so server knows to sign/send.
+      const payload: any = {
+        visibility: opts.visibility || mintChoice,
+        templateId: opts.templateId,
+        tokenId: opts.tokenId ?? tokenId,
+
+      };
+
+      if (opts.parentTemplateId !== undefined && opts.parentTemplateId !== null) {
+        payload.parentTemplateId = opts.parentTemplateId;
+      } else if (parentTemplateId !== undefined && parentTemplateId !== null) {
+        payload.parentTemplateId = parentTemplateId;
+      }
+      if (opts.isProvenance !== undefined) payload.isProvenance = opts.isProvenance;
+      console.log('mint payload', payload);
+      console.log("body I'm sending:", JSON.stringify(payload));
+      const mintRes = await fetch('/api/core/mint/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const mintJson = await mintRes.json().catch(() => null);
+      console.log('💡 Mint API response:', mintRes.status, mintJson);
+      if (!mintRes.ok) {
+        // Prefer server-provided error message when available
+        const errMsg = mintJson?.error || (mintJson ? JSON.stringify(mintJson) : 'Mint API request failed');
+        throw new Error(errMsg);
+      }
+
+      // Expect server to return success + txHash or tokenId
+      const { success, txHash, tokenId: serverTokenId, onChainReceipt } = mintJson;
+      if (!success) {
+        throw new Error(mintJson?.error || 'Mint API reported failure');
+      }
+
+      // Success — update UI/local state
+      setMinted(opts.templateId, true);
+      setOwner(opts.templateId, true);
+      try { localStorage.removeItem(`library_${opts.templateId}`); } catch (err) { /* ignore */ }
+      try { toast('Mint request accepted — transaction submitted', 'success'); } catch {}
+
+      return { success: true, txHash, tokenId: serverTokenId, receipt: onChainReceipt };
+
+    } catch (err: any) {
+      console.error('Mint failed:', err);
+      try { toast(err?.message || 'Mint failed', 'error'); } catch {}
+      return { success: false, error: err?.message || String(err) };
+    } finally {
+      setIsMinting(false);
+    }
+
+    /* // This is the old on-chain minting flow using MetaMask directly
+    try {
+      // log right before fetch to catch sync errors
+      console.log('[mint] about to call /api/core/mint/');
+      // 1) Prepare server-side payload
+      const mintRes = await fetch('/api/core/mint/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          visibility: opts.visibility || mintChoice,
+          templateId: opts.templateId,
+          parentTemplateId: opts.parentTemplateId ?? 0,
+          tokenId: opts.tokenId ?? tokenId,
+          network: 'ethereum',
+        }),
+      });
+      // Always log in browser console
+      console.log('💡 Fetch resolved:', mintRes);
+
+      const rawText = await mintRes.text();
+      console.log('Raw fetch response:', rawText);
+
+
+      let mintJson: any;
+
+      try {
+        mintJson = JSON.parse(rawText);
+      } catch (err) {
+        console.error('❌ Failed to parse mint JSON:', err);
+        throw new Error('Server returned invalid JSON');
+      }
+      if (!mintRes.ok) {
+        throw new Error(mintJson?.error || JSON.stringify(mintJson));
+      }
+
+      const {
+        tokenId: serverTokenId,
+        fileUri,
+        encryptionKey,
+        templateId,
+        parentTemplateId,
+        isProvenanceTemplate,
+        network,
+      } = mintJson;
+
+      console.log('✅ Parsed mint response:', mintJson);
+
+      // 2) Ensure MetaMask and connect
+      const eth = (window as any).ethereum;
+      if (!eth) throw new Error('MetaMask not found');
+
+      await connectMetaMask(); // uses the existing connectMetaMask() in this file
+
+
+      const provider = new BrowserProvider(eth);
+      const signer = await provider.getSigner();
+      const hoodiChainId = '0xaa36a7'; // replace with actual hex chain ID, e.g. 0x539 for local Hardhat (1337)
+      const hoodiNetworkName = 'Ethereum Sepolia';
+      try {
+        await eth.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: hoodiChainId }],
+        });
+        console.log(`✅ Switched to ${hoodiNetworkName}`);
+      } catch (error) {
+        console.warn(`⚠️ Could not switch to ${hoodiNetworkName}:`, error);
+
+      }
+
+      // 4) Prepare contract (replace with your contract address, ABI & function)
+      const CONTRACT_ADDRESS = '0x6BCe4463425E6E972D82f1650CC72017C52dBc5D';
+      const CONTRACT_ABI = IQUBE_ABI;
+
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+
+      const tokenIdBN = ethers.toBigInt(serverTokenId ?? opts.tokenId ?? 0n);
+      const templateIdBN = ethers.toBigInt(
+        keccak256(toUtf8Bytes(opts.templateId ?? templateId))
+      );
+
+      const parentTemplateIdBN = ethers.toBigInt(
+      typeof (opts.parentTemplateId ?? parentTemplateId) === 'number'
+        ? opts.parentTemplateId ?? parentTemplateId
+        : keccak256(toUtf8Bytes(String(opts.parentTemplateId ?? parentTemplateId ?? '0')))
+      );
+      console.log('🔢 tokenIdBN:', tokenIdBN.toString());
+      console.log('🔢 templateIdBN:', templateIdBN.toString());
+      console.log('🔢 parentTemplateIdBN:', parentTemplateIdBN.toString());
+
+      // 5) Call the mint function - adjust function name & params to match your contract
+      const address = await signer.getAddress();
+      const balance = await provider.getBalance(address);
+      console.log('💰 Wallet balance (wei):', balance.toString());
+
+
+      const priceValue = typeof template?.price === 'number' ? template.price : 0;
+      const overrides: any = {};
+      //if (priceValue && priceValue > 0) {
+       // overrides.value = parseEther(String(priceValue));
+      //}
+
+      // Estimate gas requirement
+      const gasEstimate = await contract.mintQube.estimateGas(
+        fileUri,
+        encryptionKey ?? '',
+        tokenIdBN,
+        templateIdBN,
+        parentTemplateIdBN,
+        true,
+        overrides
+      );
+
+      const gasPrice = await provider.getFeeData();
+      const estimatedCost = gasEstimate * (gasPrice.gasPrice ?? 0n);
+      console.log('⛽ Gas estimate:', gasEstimate.toString(), 'at', gasPrice.gasPrice?.toString(), 'wei');
+
+      console.log('🚀 Sending mintQube tx...');
+      console.log('fileUri, encryptionKey:', fileUri, encryptionKey);
+
+      const tx = await contract.mintQube(
+        fileUri,                     // string
+        encryptionKey ?? '',         // string
+        tokenIdBN,                   // BigInt
+        templateIdBN,                // BigInt
+        parentTemplateIdBN,          // BigInt
+        Boolean(isProvenanceTemplate ?? true),
+        overrides                         // isProvenanceTemplate, or use variable
+      );
+
+      // wait for confirmation
+      console.log('🧾 Mint transaction sent:', tx.hash);
+      const receipt = await tx.wait();
+      console.log('✅ Mint transaction confirmed:', receipt);
+
+      console.log('opts.templateId', opts.templateId);
+      // 6) Update UI / local state
+      setMinted(opts.templateId, true);
+      setOwner(opts.templateId, true);
+
+      try { 
+        localStorage.removeItem(`library_${opts.templateId}`); 
+      } catch (err){
+        console.warn('⚠️ Could not clear localStorage:', err);
+      }
+
+      window.dispatchEvent(
+        new CustomEvent('registryTemplateUpdated', { 
+          detail: { tokenId: serverTokenId, receipt } 
+        })
+      );
+      try { toast('Mint successful', 'success'); } catch {}
+      return { success: true, receipt, tokenId: serverTokenId };
+
+    } catch (err: any) {
+      console.error('Mint failed:', err);
+      try { toast(err?.message || 'Mint failed', 'error'); } catch {}
+      return { success: false, error: err?.message || String(err) };
+    } finally {
+      setIsMinting(false);
+    }
+    */
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -716,8 +1068,8 @@ export const IQubeDetailModal: React.FC<IQubeDetailModalProps> = ({ templateId, 
                 <div className="grid grid-cols-12 gap-2 text-[11px] text-slate-400 mb-1 px-1">
                   <div className="col-span-3">Key (machine)</div>
                   <div className="col-span-3">Label (display)</div>
-                  <div className="col-span-2">Source</div>
-                  <div className="col-span-2">Example</div>
+                  <div className="col-span-1">Source</div>
+                  <div className="col-span-3">Example</div>
                   <div className="col-span-1">Icon</div>
                   <div className="col-span-1 text-right">Del</div>
                 </div>
@@ -728,10 +1080,52 @@ export const IQubeDetailModal: React.FC<IQubeDetailModalProps> = ({ templateId, 
                         onChange={e => setBqEditFields(prev => prev.map((x,i)=> i===idx?{...x,key:e.target.value}:x))} placeholder="key" />
                       <input aria-label="BQ Label" className="col-span-3 bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-sm text-slate-200" value={f.label}
                         onChange={e => setBqEditFields(prev => prev.map((x,i)=> i===idx?{...x,label:e.target.value}:x))} placeholder="label" />
-                      <input aria-label="BQ Source" className="col-span-2 bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-sm text-slate-200" value={f.source}
+                      <input aria-label="BQ Source" className="col-span-1 bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-sm text-slate-200" value={f.source}
                         onChange={e => setBqEditFields(prev => prev.map((x,i)=> i===idx?{...x,source:e.target.value}:x))} placeholder="source" />
-                      <input aria-label="BQ Example" className="col-span-2 bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-sm text-slate-200" value={(f as any).example || ''}
-                        onChange={e => setBqEditFields(prev => prev.map((x,i)=> i===idx?{...x,example:e.target.value}:x))} placeholder="example" />
+
+                      {/* Example + Upload button (keeps layout in the same col-span-2) */}
+                      <div className="col-span-3 flex items-center gap-2">
+                        {/* preview thumbnail */}
+                        {(f.preview || f.fileUrl) ? (
+                          <img
+                            src={f.preview}
+                            alt="preview"
+                            className="w-10 h-10 object-cover rounded-md border border-white/10"
+                          />
+                        ) : (
+                          <input aria-label="BQ Example" className="flex-1 min-w-0 bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-sm text-slate-200" value={(f as any).example || f.fileUrl || ''}
+                            onChange={e => setBqEditFields(prev => prev.map((x,i)=> i===idx?{...x,example:e.target.value}:x))} placeholder="example or file URL" />
+                        )}
+                        {/* hidden file input triggered by button */}
+                        <label className="inline-flex items-center">
+                          <input
+                            ref={el => fileInputRefs.current[idx] = el}
+                            type="file"
+                            accept="*"
+                            className="hidden"
+                            onChange={e => handleBqFileSelect(idx, e)}
+                          />
+                          <button
+                            type="button"
+                            className="px-2 py-1 text-xs rounded-lg border border-white/10 text-slate-200 hover:text-white hover:bg-white/10 w-16 text-center"
+                            title="Upload file"
+                            onClick={() => {
+                              const row = bqEditFields[idx];
+
+                              // If no URL AND no selected file → open file selector instead of uploading
+                              if (!row?.selectedFile && !row?.fileUrl && !row?.example) {
+                                fileInputRefs.current[idx]?.click();
+                                return;
+                              }
+
+                              handleBqUploadSelected(idx)}
+                            }
+                          >
+                            {f.uploading ? 'Uploading…' : 'Upload'}
+                          </button>
+                        </label>
+                      </div>
+
                       <input aria-label="BQ Icon" className="col-span-1 bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-sm text-slate-200" value={f.icon}
                         onChange={e => setBqEditFields(prev => prev.map((x,i)=> i===idx?{...x,icon:e.target.value}:x))} placeholder="icon" />
                       <button className="col-span-1 px-2 py-1 text-xs rounded-lg border border-red-500/40 text-red-300 hover:text-white hover:bg-red-600/50 text-right"
@@ -826,7 +1220,7 @@ export const IQubeDetailModal: React.FC<IQubeDetailModalProps> = ({ templateId, 
                       blakqubeLabels: bqEditFields,
                     };
                     const res = await fetch(`/api/registry/templates/${templateId}`, {
-                      method: 'PATCH',
+                      method: 'PUT',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify(payload),
                     });
@@ -870,7 +1264,10 @@ export const IQubeDetailModal: React.FC<IQubeDetailModalProps> = ({ templateId, 
             <button
               className={`px-3 py-1.5 text-sm rounded-lg ${isMinting ? 'opacity-60 pointer-events-none' : ''} bg-emerald-600 text-white hover:bg-emerald-500`}
               disabled={isMinting}
-              onClick={() => setMintPromptOpen(true)}
+              onClick={() => {
+                console.log('[mint UI] Mint button clicked', { templateId });
+                setMintPromptOpen(true);
+              }}
               title="Mint this iQube to the Registry"
             >
               Mint to Registry
@@ -900,31 +1297,29 @@ export const IQubeDetailModal: React.FC<IQubeDetailModalProps> = ({ templateId, 
           title="Mint iQube"
           onCancel={() => setMintPromptOpen(false)}
           onConfirm={async () => {
-            if (!template) { setMintPromptOpen(false); return; }
+            console.log('[mint] onConfirm called');
             setMintPromptOpen(false);
-            setIsMinting(true);
             try {
-              // Include user id if available
-              let body: any = { visibility: mintChoice };
-              try {
-                const r = await fetch('/api/dev/user');
-                if (r.ok) { const j = await r.json(); if (j?.validUuid && j?.devUserId) body.userId = j.devUserId; }
-              } catch {}
-              const res = await fetch(`/api/registry/templates/${templateId}`, {
-                method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+              setIsMinting(true);
+              // log right before fetch to catch sync errors
+              console.log('[mint] about to call /api/core/mint/');
+              const isProv = Number(template?.provenance ?? 0) === 0;
+              const result = await performMintWithMetaMask({
+                templateId, // shorter form of templateId: templateId
+                parentTemplateId: template?.parentTemplateId,
+                tokenId,
+                visibility: mintChoice,
+                isProvenance: isProv,
               });
-              const { json, text } = await parseResponse(res);
-              if (!res.ok) throw new Error(json?.error || text || 'Mint failed');
-              setMinted(templateId, true);
-              setOwner(templateId, true);
-              // Clear library flag so Registry badge shows
-              try { localStorage.removeItem(`library_${templateId}`); } catch {}
-              try { toast(mintChoice==='public' ? 'Minted to the Public Registry' : 'Minted to the Registry Privately', 'success'); } catch {}
-              try { window.dispatchEvent(new CustomEvent('registryTemplateUpdated', { detail: json })); } catch {}
-              // Close the modal after successful mint
-              try { onClose(); } catch {}
-            } catch (e) {
-              try { toast(e instanceof Error ? e.message : 'Mint failed', 'error'); } catch {}
+              if (result?.success) {
+                // handle success (toast, update UI)
+              } else {
+                // handle error (result.error)
+                throw new Error(result?.error || 'Mint failed');
+              }
+            } catch (err: any) {
+              console.error('Mint error', err);
+              toast(err?.message || 'Mint failed', 'error');
             } finally {
               setIsMinting(false);
             }
