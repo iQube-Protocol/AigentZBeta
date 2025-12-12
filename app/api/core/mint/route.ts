@@ -101,16 +101,17 @@ export async function POST(request: NextRequest) {
     console.log('[mint] templateIdBig (hex):', '0x' + templateIdBig.toString(16));
     let tx: any = null;
     let receipt: any = null;
+
+    // the chain you minting to 
     const ETH_RPC_URL = 'https://sepolia.drpc.org';
     const provider = new ethers.JsonRpcProvider(ETH_RPC_URL);
     const PRIVATE_KEY = process.env.AIGENTZ_PRIVATE_KEY!;
-    const CONTRACT_ADDRESS = '0x5b9c2ff1fA8B33C62330dAAAC0f5d67Ac53c7C9C';
+    const CONTRACT_ADDRESS = '0x697F4A1D0E22a851ab50536612c2B72086A61C3E';
     const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
     const contract = new ethers.Contract(CONTRACT_ADDRESS, IQUBE_ABI, wallet);
 
     const to =  wallet.address;
     const overrides: any = {};
-    console.log('🧾 Is providence template ISSUE?:', isProvenance);
     const args = [
       fileUri,
       encryptionKey ?? '',

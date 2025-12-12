@@ -5,6 +5,7 @@ import { X, Pencil } from "lucide-react";
 import { useToast } from "../ui/Toaster";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
 import { IQUBE_ABI } from "@/lib/abi/iqube";
+import { pinata } from '../../app/utils/pinata-config';
 import { BrowserProvider, Contract, ethers, parseEther, BigNumber, keccak256, toUtf8Bytes} from 'ethers';
 
 interface IQubeDetailModalProps {
@@ -59,6 +60,7 @@ export const IQubeDetailModal: React.FC<IQubeDetailModalProps> = ({ templateId, 
   const [hasMetaMask, setHasMetaMask] = useState(false);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [chainId, setChainId] = useState<string | null>(null);
+  const fileInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
     const eth = (window as any).ethereum;
@@ -105,7 +107,8 @@ export const IQubeDetailModal: React.FC<IQubeDetailModalProps> = ({ templateId, 
   }
 
   // ----- BlakQube mock schema helpers -----
-  type BQField = { key: string; label: string; source: string; icon: string };
+  //type BQField = { key: string; label: string; source: string; icon: string };
+  type BQField = { key: string; label: string; source: string; icon: string; fileUrl?: string; uploading?: boolean; example?: string; selectedFile?: File; preview?: File | string; };
   function getBlakQubeMockSchema(name?: string): BQField[] {
     const n = (name || '').toLowerCase();
     if (n.includes('personal')) {
@@ -215,6 +218,85 @@ export const IQubeDetailModal: React.FC<IQubeDetailModalProps> = ({ templateId, 
       return { json: JSON.parse(text), text };
     } catch {
       return { json: null, text };
+    }
+  }
+  function handleBqFileSelect(rowIndex: number, e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Optional: quick client-side validation
+    const maxMB = 50;
+    if (file.size > maxMB * 1024 * 1024) {
+      try { toast(`File too large (${maxMB}MB)`, 'error'); } catch {}
+      e.target.value = '';
+      return;
+    }
+    // Create preview (base64 data URL) — good for images; for very large files prefer createObjectURL
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const preview = reader.result as string;
+      setBqEditFields(prev => {
+        const copy = [...prev];
+        const existing = copy[rowIndex] || {};
+        copy[rowIndex] = {
+          ...existing,
+          selectedFile: file,
+          preview,
+          // optionally show preview right away in Example field
+          example: existing.example || preview,
+        };
+        return copy;
+      });
+    };
+    reader.readAsDataURL(file);
+
+    // Clear the input value is handled after upload - but if you want immediate clear:
+    // e.target.value = '';
+
+  }
+
+
+  // Upload the previously-selected file (from bqEditFields[rowIndex].selectedFile)
+  async function handleBqUploadSelected(rowIndex: number) {
+    const file = bqEditFields?.[rowIndex]?.selectedFile as File | undefined;
+    if (!file) {
+      try { toast('No file selected for upload', 'error'); } catch {}
+      return;
+    }
+
+    // mark uploading state
+    setBqEditFields(prev => {
+      const copy = [...prev];
+      copy[rowIndex] = { ...copy[rowIndex], uploading: true };
+      return copy;
+    });
+
+    try {
+      // Upload file to IPFS
+      const fileUpload = await pinata.upload.file(file);
+      
+      // Store the IPFS URL/CID as the value
+      const ipfsUrl = `https://gateway.pinata.cloud/ipfs/${fileUpload.IpfsHash}`;
+        setBqEditFields(prev => {
+        const copy = [...prev];
+        const existing = copy[rowIndex] || {};
+        copy[rowIndex] = { 
+          ...existing, 
+          selectedFile: ipfsUrl, // or fileUpload.IpfsHash if you want just the CID
+          uploading: false 
+        };
+        return copy;
+      });
+      
+      try { toast('File uploaded to IPFS', 'success'); } catch {}
+    } catch (err: any) {
+      console.error('IPFS upload failed', err);
+      setBqEditFields(prev => {
+        const copy = [...prev];
+        copy[rowIndex] = { ...copy[rowIndex], uploading: false };
+        return copy;
+      });
+      try { toast(err?.message || 'Upload failed', 'error'); } catch {}
     }
   }
 
@@ -986,8 +1068,8 @@ export const IQubeDetailModal: React.FC<IQubeDetailModalProps> = ({ templateId, 
                 <div className="grid grid-cols-12 gap-2 text-[11px] text-slate-400 mb-1 px-1">
                   <div className="col-span-3">Key (machine)</div>
                   <div className="col-span-3">Label (display)</div>
-                  <div className="col-span-2">Source</div>
-                  <div className="col-span-2">Example</div>
+                  <div className="col-span-1">Source</div>
+                  <div className="col-span-3">Example</div>
                   <div className="col-span-1">Icon</div>
                   <div className="col-span-1 text-right">Del</div>
                 </div>
@@ -998,10 +1080,52 @@ export const IQubeDetailModal: React.FC<IQubeDetailModalProps> = ({ templateId, 
                         onChange={e => setBqEditFields(prev => prev.map((x,i)=> i===idx?{...x,key:e.target.value}:x))} placeholder="key" />
                       <input aria-label="BQ Label" className="col-span-3 bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-sm text-slate-200" value={f.label}
                         onChange={e => setBqEditFields(prev => prev.map((x,i)=> i===idx?{...x,label:e.target.value}:x))} placeholder="label" />
-                      <input aria-label="BQ Source" className="col-span-2 bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-sm text-slate-200" value={f.source}
+                      <input aria-label="BQ Source" className="col-span-1 bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-sm text-slate-200" value={f.source}
                         onChange={e => setBqEditFields(prev => prev.map((x,i)=> i===idx?{...x,source:e.target.value}:x))} placeholder="source" />
-                      <input aria-label="BQ Example" className="col-span-2 bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-sm text-slate-200" value={(f as any).example || ''}
-                        onChange={e => setBqEditFields(prev => prev.map((x,i)=> i===idx?{...x,example:e.target.value}:x))} placeholder="example" />
+
+                      {/* Example + Upload button (keeps layout in the same col-span-2) */}
+                      <div className="col-span-3 flex items-center gap-2">
+                        {/* preview thumbnail */}
+                        {(f.preview || f.fileUrl) ? (
+                          <img
+                            src={f.preview}
+                            alt="preview"
+                            className="w-10 h-10 object-cover rounded-md border border-white/10"
+                          />
+                        ) : (
+                          <input aria-label="BQ Example" className="flex-1 min-w-0 bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-sm text-slate-200" value={(f as any).example || f.fileUrl || ''}
+                            onChange={e => setBqEditFields(prev => prev.map((x,i)=> i===idx?{...x,example:e.target.value}:x))} placeholder="example or file URL" />
+                        )}
+                        {/* hidden file input triggered by button */}
+                        <label className="inline-flex items-center">
+                          <input
+                            ref={el => fileInputRefs.current[idx] = el}
+                            type="file"
+                            accept="*"
+                            className="hidden"
+                            onChange={e => handleBqFileSelect(idx, e)}
+                          />
+                          <button
+                            type="button"
+                            className="px-2 py-1 text-xs rounded-lg border border-white/10 text-slate-200 hover:text-white hover:bg-white/10 w-16 text-center"
+                            title="Upload file"
+                            onClick={() => {
+                              const row = bqEditFields[idx];
+
+                              // If no URL AND no selected file → open file selector instead of uploading
+                              if (!row?.selectedFile && !row?.fileUrl && !row?.example) {
+                                fileInputRefs.current[idx]?.click();
+                                return;
+                              }
+
+                              handleBqUploadSelected(idx)}
+                            }
+                          >
+                            {f.uploading ? 'Uploading…' : 'Upload'}
+                          </button>
+                        </label>
+                      </div>
+
                       <input aria-label="BQ Icon" className="col-span-1 bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-sm text-slate-200" value={f.icon}
                         onChange={e => setBqEditFields(prev => prev.map((x,i)=> i===idx?{...x,icon:e.target.value}:x))} placeholder="icon" />
                       <button className="col-span-1 px-2 py-1 text-xs rounded-lg border border-red-500/40 text-red-300 hover:text-white hover:bg-red-600/50 text-right"
