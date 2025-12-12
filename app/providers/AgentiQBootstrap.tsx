@@ -26,17 +26,21 @@ export default function AgentiQBootstrap() {
       getEnv("VITE_SUPABASE_ANON_KEY") ||
       (typeof window !== "undefined" && (window as any).VITE_SUPABASE_ANON_KEY);
 
+    // Dynamic import with webpackIgnore to prevent build-time resolution
     (async () => {
       try {
-        const mod: any = await import("@qriptoagentiq/core-client");
-        const { initAgentiqClient } = mod;
-        const core = initAgentiqClient({
-          supabaseUrl: supabaseUrl as string,
-          supabaseAnonKey: supabaseAnonKey as string,
-        });
-        core.ensureIamUser().catch(() => {});
+        const mod: any = await import("@/services/core/agentiqClient");
+        if (mod && mod.initAgentiqClient) {
+          const { initAgentiqClient } = mod;
+          const core = initAgentiqClient({
+            supabaseUrl: supabaseUrl as string,
+            supabaseAnonKey: supabaseAnonKey as string,
+          });
+          core.ensureIamUser().catch(() => {});
+        }
       } catch (e) {
         // silent: envs may be missing or package not ready
+        console.debug("[AgentiQBootstrap] Package not available:", e);
       }
     })();
   }, []);

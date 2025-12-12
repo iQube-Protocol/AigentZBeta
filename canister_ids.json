@@ -11,6 +11,9 @@
   "proof_of_state": {
     "ic": "n2hhv-aaaaa-aaaas-qccza-cai"
   },
+  "reward_hub": {
+    "ic": "lvo2w-jqaaa-aaaas-qc2wa-cai"
+  },
   "rqh": {
     "ic": "zdjf3-2qaaa-aaaas-qck4q-cai"
   }

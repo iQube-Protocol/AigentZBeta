@@ -1,8 +1,10 @@
 "use client";
 import React, { useState, useCallback, useEffect } from "react";
-import { X, Copy, ExternalLink, Send, Download, CheckCircle, Wallet, ArrowUpRight, ArrowDownLeft, Shield, Circle } from "lucide-react";
-import { getAgentConfig, getAgentSupportedChains, chainConfigs } from "@/app/data/agentConfig";
+import { X, Copy, ExternalLink, Send, Download, CheckCircle, Wallet, ArrowUpRight, ArrowDownLeft, Shield, Circle, Info } from "lucide-react";
+import { getAgentConfig, getAgentSupportedChains, chainConfigs, agentConfigs } from "@/app/data/agentConfig";
 // Removed useBalances import - using direct balance fetching instead
+import AliasConsentToggle from "@/app/components/identity/AliasConsentToggle";
+import SettlementRetryButton from "@/app/components/x402/SettlementRetryButton";
 
 interface AgentWalletDrawerProps {
   open: boolean;
@@ -32,6 +34,80 @@ export default function AgentWalletDrawer({ open, onClose, agent }: AgentWalletD
   });
   const [loading, setLoading] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
+  const [aliasConsent, setAliasConsent] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    try { return localStorage.getItem('x402_alias_consent') === 'true'; } catch { return false; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('x402_alias_consent', aliasConsent ? 'true' : 'false'); } catch {}
+  }, [aliasConsent]);
+  const [retrySettlementId, setRetrySettlementId] = useState<string>("");
+  const [retryMessageId, setRetryMessageId] = useState<string>("");
+  const [custodyCount, setCustodyCount] = useState<number>(0);
+  const [claimCount, setClaimCount] = useState<number>(0);
+  const [openClaims, setOpenClaims] = useState<Array<{ id: string; iqube_id?: string; amount_qcent?: number; created_at?: string }>>([]);
+  const [loadingClaims, setLoadingClaims] = useState<boolean>(false);
+  const [redeemClaimId, setRedeemClaimId] = useState<string>("");
+  const [redeemLoading, setRedeemLoading] = useState<boolean>(false);
+  const [selectedToAgent, setSelectedToAgent] = useState<string>("");
+  const [redeemResult, setRedeemResult] = useState<{ ok: boolean; txHash?: string; error?: string } | null>(null);
+
+  async function redeemClaim() {
+    if (!redeemClaimId) return;
+    setRedeemLoading(true);
+    setRedeemResult(null);
+    try {
+      const res = await fetch('/api/x402/claims/redeem', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ claimId: redeemClaimId })
+      });
+      const j = await res.json().catch(() => ({}));
+      if (j?.ok) {
+        setRedeemResult({ ok: true, txHash: j.txHash });
+        // best-effort refresh claims count
+        try {
+          const did = agent?.id ? `did:iq:${agent.id}#auth` : undefined;
+          if (did) {
+            const r = await fetch(`/api/x402/claims?did=${encodeURIComponent(did)}&status=open`, { cache: 'no-store' });
+            const rj = await r.json().catch(() => ({}));
+            if (rj?.ok && Array.isArray(rj.data)) setClaimCount(rj.data.length);
+          }
+        } catch {}
+        setRedeemClaimId("");
+      } else {
+        setRedeemResult({ ok: false, error: j?.error || 'Redeem failed' });
+      }
+    } catch (e: any) {
+      setRedeemResult({ ok: false, error: e?.message || 'Redeem error' });
+    } finally {
+      setRedeemLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    try {
+      const did = agent?.id ? `did:iq:${agent.id}#auth` : undefined;
+      if (!did) return;
+      (async () => {
+        try {
+          const c = await fetch(`/api/x402/custody?did=${encodeURIComponent(did)}`, { cache: 'no-store' });
+          const cj = await c.json().catch(() => ({}));
+          if (cj?.ok && Array.isArray(cj.data)) setCustodyCount(cj.data.length);
+        } catch {}
+        try {
+          setLoadingClaims(true);
+          const r = await fetch(`/api/x402/claims?did=${encodeURIComponent(did)}&status=open`, { cache: 'no-store' });
+          const rj = await r.json().catch(() => ({}));
+          if (rj?.ok && Array.isArray(rj.data)) {
+            setClaimCount(rj.data.length);
+            setOpenClaims(rj.data);
+          }
+        } catch {}
+        finally { setLoadingClaims(false); }
+      })();
+    } catch {}
+  }, [agent?.id]);
 
   const agentConfig = getAgentConfig(agent.id);
   const supportedChains = getAgentSupportedChains(agent.id);
@@ -49,7 +125,7 @@ export default function AgentWalletDrawer({ open, onClose, agent }: AgentWalletD
   
   useEffect(() => {
     if (agentConfig?.walletAddresses.evmAddress) {
-      import('../app/utils/balanceUtils').then(({ getQCTBalance, getQCTBalancesByChain }) => {
+      import('@/app/utils/balanceUtils').then(({ getQCTBalance, getQCTBalancesByChain }) => {
         // Get total balance
         getQCTBalance(agentConfig.walletAddresses.evmAddress).then(setQctBalance);
         // Get individual chain balances
@@ -177,7 +253,7 @@ export default function AgentWalletDrawer({ open, onClose, agent }: AgentWalletD
             // Refresh balances after successful transaction
             setTimeout(() => {
               if (agentConfig?.walletAddresses.evmAddress) {
-                import('../app/utils/balanceUtils').then(({ getQCTBalance, getQCTBalancesByChain }) => {
+                import('@/app/utils/balanceUtils').then(({ getQCTBalance, getQCTBalancesByChain }) => {
                   getQCTBalance(agentConfig.walletAddresses.evmAddress).then(setQctBalance);
                   getQCTBalancesByChain(agentConfig.walletAddresses.evmAddress).then(setChainBalances);
                 });
@@ -279,6 +355,12 @@ export default function AgentWalletDrawer({ open, onClose, agent }: AgentWalletD
             ✕
           </button>
         </header>
+
+        {/* Custody/Claim badges */}
+        <div className="px-4 mt-2 flex items-center gap-2 text-[11px]">
+          <span className="px-1.5 py-0.5 rounded bg-fuchsia-500/10 text-fuchsia-300 ring-1 ring-fuchsia-500/20">Custody: {custodyCount}</span>
+          <span className="px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-300 ring-1 ring-cyan-500/20">Claims: {claimCount}</span>
+        </div>
 
         {/* Notification */}
         {notification && (
@@ -429,9 +511,33 @@ export default function AgentWalletDrawer({ open, onClose, agent }: AgentWalletD
 
                 {/* Recipient/Sender or TX Hash */}
                 <div>
-                  <label className="block text-xs text-slate-300 mb-1">
-                    {txState.type === "verify" ? "Transaction Hash" : "Recipient Address / @aigent ID"}
-                  </label>
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs text-slate-300 mb-1">
+                      Recipient (TO_DID)
+                      <span title="TO_DID is the recipient's DID used in x402 messages (e.g., did:iq:aigent-moneypenny#auth). Use the dropdown to pick an agent; we will auto-fill recipient and show their public EVM address from DIDQube." className="ml-1 text-slate-500 cursor-help inline-flex items-center"><Info size={11} /></span>
+                    </label>
+                    <div className="text-[10px] text-slate-500">
+                      Select agent:
+                      <select
+                        value={selectedToAgent}
+                        onChange={(e) => {
+                          const id = e.target.value;
+                          setSelectedToAgent(id);
+                          const ac = agentConfigs[id as keyof typeof agentConfigs];
+                          if (ac) {
+                            setTxState(prev => ({ ...prev, recipient: `@${id}` }));
+                          }
+                        }}
+                        className="ml-1 bg-white/5 ring-1 ring-white/10 rounded px-1 py-0.5"
+                        title="Pick one of our four agents; recipient will be set to @agent-id and EVM address shown"
+                      >
+                        <option value="">—</option>
+                        {Object.values(agentConfigs).map(ac => (
+                          <option key={ac.id} value={ac.id}>{ac.fioId}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
                   <div className="flex gap-1">
                     <input
                       type="text"
@@ -440,7 +546,7 @@ export default function AgentWalletDrawer({ open, onClose, agent }: AgentWalletD
                         ...prev, 
                         [txState.type === "verify" ? "txHash" : "recipient"]: e.target.value 
                       }))}
-                      placeholder={txState.type === "verify" ? "0x..." : "0x... or @aigent-name"}
+                      placeholder={txState.type === "verify" ? "0x..." : "@aigent-moneypenny or 0x..."}
                       className="flex-1 bg-white/5 ring-1 ring-white/10 rounded px-2 py-1 text-xs text-slate-200"
                     />
                     {(txState.txHash || txState.recipient) && (
@@ -473,6 +579,12 @@ export default function AgentWalletDrawer({ open, onClose, agent }: AgentWalletD
                             );
                           })}
                       </div>
+                      {selectedToAgent && agentConfigs[selectedToAgent as keyof typeof agentConfigs] && (
+                        <div className="mt-2 text-[11px] text-slate-400">
+                          <span className="text-slate-300">EVM address:</span> {agentConfigs[selectedToAgent as keyof typeof agentConfigs].walletAddresses.evmAddress}
+                          <span className="ml-2 text-slate-500">FIO:</span> {agentConfigs[selectedToAgent as keyof typeof agentConfigs].fioId}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -615,6 +727,156 @@ export default function AgentWalletDrawer({ open, onClose, agent }: AgentWalletD
                 </div>
               );
             })}
+          </div>
+
+          {/* Identity (card) */}
+          <div className="bg-white/5 ring-1 ring-white/10 rounded p-3">
+            <h4 className="text-xs font-medium text-slate-200 mb-3 tracking-wide">Identity</h4>
+            <div className="text-xs text-slate-300">FIO: {agentConfig.fioId || "—"}</div>
+            <div className="mt-3">
+              <AliasConsentToggle consented={aliasConsent} onChange={setAliasConsent} />
+              <div className="text-[11px] text-slate-400 mt-1">X-402-Consent-Alias-Bind: {aliasConsent ? 'true' : 'false'}</div>
+            </div>
+          </div>
+
+          {/* x402 Settlement (card) */}
+          <div className="bg-white/5 ring-1 ring-white/10 rounded p-3">
+            <h4 className="text-xs font-medium text-slate-200 mb-3 tracking-wide">x402 Settlement</h4>
+            <div className="space-y-2">
+              <div>
+                <label className="block text-[11px] text-slate-400 mb-1">
+                  Settlement ID
+                  <span title="The UUID of the x402_settlements row to retry. Leave blank if using Message ID." className="ml-1 cursor-help text-slate-500">?</span>
+                </label>
+                <input
+                  value={retrySettlementId}
+                  onChange={(e) => setRetrySettlementId(e.target.value)}
+                  placeholder="e.g. 8a2f..."
+                  className="w-full px-2 py-1.5 text-sm rounded bg-black/40 ring-1 ring-white/10 text-slate-200 placeholder:text-slate-500"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] text-slate-400 mb-1">
+                  Message ID
+                  <span title="The UUID of the x402_messages row. If provided (and Settlement ID omitted), the latest settlement for this message is retried." className="ml-1 cursor-help text-slate-500">?</span>
+                </label>
+                <input
+                  value={retryMessageId}
+                  onChange={(e) => setRetryMessageId(e.target.value)}
+                  placeholder="e.g. 5b1d..."
+                  className="w-full px-2 py-1.5 text-sm rounded bg-black/40 ring-1 ring-white/10 text-slate-200 placeholder:text-slate-500"
+                />
+              </div>
+              <SettlementRetryButton settlementId={retrySettlementId || undefined} messageId={retryMessageId || undefined} />
+            </div>
+          </div>
+        </div>
+
+        {/* x402 Claims (card) */}
+        <div className="px-4 py-3">
+          <div className="bg-white/5 ring-1 ring-white/10 rounded p-3">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-xs font-medium text-slate-200 tracking-wide">x402 Claims</h4>
+              <span
+                className="inline-flex items-center text-slate-400 cursor-help"
+                title="REDEEM_TO is the destination EVM address embedded when the claim was created. Redeeming will send funds to that address; it cannot be changed here."
+              >
+                <Info size={12} />
+              </span>
+            </div>
+            <div className="space-y-2">
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-[11px] text-slate-400">Open Claims</label>
+                {loadingClaims && <span className="text-[10px] text-slate-500">loading…</span>}
+              </div>
+              <div className="flex gap-1">
+                <select
+                  value={redeemClaimId}
+                  onChange={(e) => setRedeemClaimId(e.target.value)}
+                  title="Select an open claim to auto-fill"
+                  className="flex-1 bg-white/5 ring-1 ring-white/10 rounded px-2 py-1 text-xs text-slate-200"
+                >
+                  <option value="">Select a claim…</option>
+                  {openClaims.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.iqube_id || 'iqube'} — {c.amount_qcent ?? '?'} Q¢ — {c.id.slice(0,6)}…
+                    </option>
+                  ))}
+                </select>
+                {redeemClaimId && (
+                  <button
+                    onClick={() => setRedeemClaimId('')}
+                    title="Clear selection"
+                    className="px-2 py-1 text-xs rounded bg-white/5 ring-1 ring-white/10 text-slate-200 hover:bg-white/10"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            </div>
+            <div>
+              <label className="block text-[11px] text-slate-400 mb-1">
+                Claim ID
+                <span title="UUID of the claim to redeem." className="ml-1 cursor-help text-slate-500">?</span>
+              </label>
+              <input
+                value={redeemClaimId}
+                onChange={(e) => setRedeemClaimId(e.target.value)}
+                placeholder="claim uuid"
+                className="w-full bg-white/5 ring-1 ring-white/10 rounded px-2 py-1 text-xs text-slate-200"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={redeemClaim}
+                disabled={redeemLoading || !redeemClaimId}
+                className="px-3 py-1.5 text-xs rounded bg-purple-500/20 hover:bg-purple-500/30 disabled:bg-white/5 disabled:cursor-not-allowed ring-1 ring-purple-500/30 text-purple-200"
+              >
+                {redeemLoading ? 'Redeeming...' : 'Redeem Claim'}
+              </button>
+              <button
+                onClick={() => setRedeemClaimId('')}
+                className="px-2 py-1 text-xs rounded bg-white/5 ring-1 ring-white/10 text-slate-200 hover:bg-white/10"
+              >
+                Clear
+              </button>
+            </div>
+
+            {/* Redeem result shown inside the modal, with truncation */}
+            {redeemResult && (
+              <div className={`mt-2 p-2 rounded ring-1 ${redeemResult.ok ? 'bg-green-500/10 ring-green-500/20 text-green-200' : 'bg-red-500/10 ring-red-500/20 text-red-200'}`}>
+                {redeemResult.ok ? (
+                  <div className="text-[11px]">
+                    <div className="mb-1">Claim redeemed</div>
+                    {redeemResult.txHash && (
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-[10px] max-w-[11rem] overflow-hidden text-ellipsis whitespace-nowrap">
+                          {`${redeemResult.txHash.slice(0, 12)}…${redeemResult.txHash.slice(-8)}`}
+                        </span>
+                        <button
+                          onClick={() => copyToClipboard(redeemResult.txHash!)}
+                          className="px-2 py-0.5 text-[10px] rounded bg-white/5 ring-1 ring-white/10 text-slate-200 hover:bg-white/10"
+                          title="Copy full transaction hash"
+                        >
+                          Copy
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-[11px]">
+                    <div className="mb-1">Redeem failed</div>
+                    {redeemResult.error && (
+                      <div className="font-mono text-[10px] max-w-[11rem] overflow-hidden text-ellipsis whitespace-nowrap">
+                        {redeemResult.error}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+            </div>
           </div>
         </div>
       </div>

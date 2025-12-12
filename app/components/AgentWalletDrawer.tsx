@@ -2,6 +2,8 @@
 import React from "react";
 import { useBalances } from "@/app/hooks/useBalances";
 import { useDVNEvents } from "@/app/hooks/useDVNEvents";
+import AliasConsentToggle from "./identity/AliasConsentToggle";
+import SettlementRetryButton from "./x402/SettlementRetryButton";
 
 type Props = {
   open: boolean;
@@ -12,6 +14,34 @@ type Props = {
 export default function AgentWalletDrawer({ open, onClose, agent }: Props) {
   const bals = useBalances({ sepolia: agent.evmSepolia, arb: agent.evmArb, btc: agent.btcAddress });
   const evs = useDVNEvents(agent.id);
+  const [aliasConsent, setAliasConsent] = React.useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    try { return localStorage.getItem('x402_alias_consent') === 'true'; } catch { return false; }
+  });
+  React.useEffect(() => {
+    try { localStorage.setItem('x402_alias_consent', aliasConsent ? 'true' : 'false'); } catch {}
+  }, [aliasConsent]);
+  const [retrySettlementId, setRetrySettlementId] = React.useState<string>("");
+  const [retryMessageId, setRetryMessageId] = React.useState<string>("");
+  const [custodyCount, setCustodyCount] = React.useState<number>(0);
+  const [claimCount, setClaimCount] = React.useState<number>(0);
+
+  React.useEffect(() => {
+    const did = agent?.id ? `did:iq:${agent.id}#auth` : undefined;
+    if (!did) return;
+    (async () => {
+      try {
+        const c = await fetch(`/api/x402/custody?did=${encodeURIComponent(did)}`, { cache: 'no-store' });
+        const cj = await c.json().catch(() => ({}));
+        if (cj?.ok && Array.isArray(cj.data)) setCustodyCount(cj.data.length);
+      } catch {}
+      try {
+        const r = await fetch(`/api/x402/claims?did=${encodeURIComponent(did)}&status=open`, { cache: 'no-store' });
+        const rj = await r.json().catch(() => ({}));
+        if (rj?.ok && Array.isArray(rj.data)) setClaimCount(rj.data.length);
+      } catch {}
+    })();
+  }, [agent?.id]);
   const formatToken = (raw?: string, decimals?: number, fractionDigits: number = 0) => {
     try {
       const d = typeof decimals === "number" ? decimals : 0;
@@ -129,8 +159,35 @@ export default function AgentWalletDrawer({ open, onClose, agent }: Props) {
 
           <section className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-3">
             <div className="text-[11px] uppercase tracking-wider text-slate-400 mb-2">Identity</div>
+            <div className="flex items-center gap-2 mb-2 text-[11px]">
+              <span className="px-1.5 py-0.5 rounded bg-fuchsia-500/10 text-fuchsia-300 ring-1 ring-fuchsia-500/20">Custody: {custodyCount}</span>
+              <span className="px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-300 ring-1 ring-cyan-500/20">Claims: {claimCount}</span>
+            </div>
             <div className="text-xs text-slate-300">
               FIO: {agent.fioHandle || "—"}
+            </div>
+            <div className="mt-3">
+              <AliasConsentToggle consented={aliasConsent} onChange={setAliasConsent} />
+              <div className="text-[11px] text-slate-400 mt-1">Header used in x402 send: X-402-Consent-Alias-Bind: {aliasConsent ? 'true' : 'false'}</div>
+            </div>
+          </section>
+
+          <section className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-3">
+            <div className="text-[11px] uppercase tracking-wider text-slate-400 mb-2">x402 Settlement</div>
+            <div className="space-y-2">
+              <input
+                value={retrySettlementId}
+                onChange={(e) => setRetrySettlementId(e.target.value)}
+                placeholder="Settlement ID (optional)"
+                className="w-full px-2 py-1.5 text-sm rounded bg-black/40 ring-1 ring-white/10 text-slate-200 placeholder:text-slate-500"
+              />
+              <input
+                value={retryMessageId}
+                onChange={(e) => setRetryMessageId(e.target.value)}
+                placeholder="Message ID (optional)"
+                className="w-full px-2 py-1.5 text-sm rounded bg-black/40 ring-1 ring-white/10 text-slate-200 placeholder:text-slate-500"
+              />
+              <SettlementRetryButton settlementId={retrySettlementId || undefined} messageId={retryMessageId || undefined} />
             </div>
           </section>
         </div>

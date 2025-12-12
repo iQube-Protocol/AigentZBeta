@@ -476,6 +476,13 @@ See `DEPLOYMENT_CONFIG.md` for complete configuration details.
 
 **Without these environment variables, the DVN functionality will not work correctly.**
 
+## Thin Clients / External Agents
+
+For agents or external services that need to talk to Aigent Z and QubeBase directly (e.g. using the AA-API and DiDQube features), see:
+
+- `docs/THIN_CLIENT_INTEGRATION.md` – architecture, environment configuration, and HTTP/API patterns for thin clients.
+- `docs/examples/aigentz-client.ts` – minimal TypeScript helper that implements the AA-API challenge/verify flow and provides convenient wrappers for payments and DiDQube reputation.
+
 ## Contact
 
 - Project Lead: [Your Name]

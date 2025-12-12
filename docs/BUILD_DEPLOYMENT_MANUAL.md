@@ -140,6 +140,64 @@ The build process includes:
 - **Static asset optimization** (images, fonts, etc.)
 - **CSS optimization** with Tailwind CSS purging
 
+## 🚨 MANDATORY PRE-DEPLOYMENT CHECKLIST
+
+**⚠️ CRITICAL: Run these checks BEFORE every deployment to AWS Amplify or any production environment**
+
+### Step 1: TypeScript Compilation Check
+```bash
+# Check ALL TypeScript files for type errors
+npx tsc --noEmit
+
+# This MUST return with exit code 0 (no errors)
+# If errors appear, fix them BEFORE pushing to dev/main
+```
+
+**Why this is mandatory:**
+- AWS Amplify uses a clean build environment
+- Type errors that seem to work locally will fail in production
+- Catches optional vs required property mismatches
+- Identifies missing type guards and invalid property accesses
+- Prevents iterative deployment failures (lesson learned: 33 failed builds)
+
+### Step 2: Dependency Lock File Sync
+```bash
+# If you added/updated dependencies, regenerate lock file
+npm install
+
+# Verify both files will be committed
+git status | grep -E "(package.json|package-lock.json)"
+
+# BOTH package.json AND package-lock.json must be committed together
+git add package.json package-lock.json
+```
+
+**Why this is mandatory:**
+- AWS Amplify uses `npm ci` which requires perfect lock file sync
+- Missing dependencies in lock file cause immediate build failure
+- Ensures reproducible builds across environments
+
+### Step 3: Local Build Verification
+```bash
+# Run production build locally
+npm run build
+
+# This should complete without errors
+# Fix any build warnings or errors before deploying
+```
+
+### Step 4: Pre-Deployment Checklist
+✅ `npx tsc --noEmit` returns 0 errors  
+✅ `package-lock.json` is in sync with `package.json`  
+✅ `npm run build` completes successfully  
+✅ All environment variables documented in `.env.example`  
+✅ No `console.log` or debug code in production files  
+✅ All changes committed and pushed to correct branch  
+
+**🛑 DO NOT DEPLOY if any checklist item fails**
+
+---
+
 ## Deployment
 
 ### Vercel Deployment (Recommended)
@@ -166,6 +224,100 @@ Set environment variables in Vercel dashboard:
 1. Go to Project Settings
 2. Navigate to Environment Variables
 3. Add all required variables from `.env.local`
+
+### AWS Amplify Deployment
+
+**⚠️ IMPORTANT: Complete the MANDATORY PRE-DEPLOYMENT CHECKLIST before deploying to Amplify**
+
+#### 1. Initial Setup
+```bash
+# Install Amplify CLI
+npm install -g @aws-amplify/cli
+
+# Configure Amplify
+amplify configure
+```
+
+#### 2. Connect Repository
+1. Log into AWS Amplify Console
+2. Click "New app" → "Host web app"
+3. Connect your GitHub repository
+4. Select the branch to deploy (typically `main` or `dev`)
+5. Amplify will auto-detect Next.js framework
+
+#### 3. Build Settings
+Amplify will auto-generate `amplify.yml`. Verify it includes:
+```yaml
+version: 1
+frontend:
+  phases:
+    preBuild:
+      commands:
+        # CRITICAL: Uses npm ci which requires package-lock.json sync
+        - npm ci
+    build:
+      commands:
+        # TypeScript compilation happens here
+        - npm run build
+  artifacts:
+    baseDirectory: .next
+    files:
+      - '**/*'
+  cache:
+    paths:
+      - node_modules/**/*
+```
+
+#### 4. Environment Variables
+In Amplify Console:
+1. Go to App Settings → Environment variables
+2. Add all variables from `.env.local`
+3. Mark sensitive variables as "secret"
+4. Save and redeploy
+
+#### 5. Pre-Deployment Verification
+**Run these commands locally BEFORE pushing:**
+```bash
+# 1. TypeScript check (MANDATORY)
+npx tsc --noEmit
+
+# 2. Verify lock file (if dependencies changed)
+npm install
+git add package.json package-lock.json
+
+# 3. Local build test
+npm run build
+
+# 4. Commit and push
+git commit -m "feat: your changes"
+git push origin dev
+```
+
+#### 6. Common Amplify Build Issues
+
+**Issue: "Missing: [package] from lock file"**
+- **Cause:** `package-lock.json` out of sync with `package.json`
+- **Fix:** Run `npm install` locally and commit both files
+
+**Issue: TypeScript compilation errors**
+- **Cause:** Type errors not caught locally
+- **Fix:** Always run `npx tsc --noEmit` before pushing
+
+**Issue: "Cannot find module 'xyz'"**
+- **Cause:** Dependency missing from `package.json`
+- **Fix:** Install and add to `package.json`, commit lock file
+
+#### 7. Monitoring Deployment
+```bash
+# View build logs in Amplify Console
+# Each phase shows detailed output:
+# - Provision: Environment setup
+# - Build: npm ci, npm run build
+# - Deploy: Artifact deployment
+# - Verify: Health checks
+```
+
+**Build typically takes 2-5 minutes for successful deployment**
 
 ### Docker Deployment
 

@@ -24,7 +24,16 @@ import {
   Wrench,
   Bot,
   Grid3X3,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Contact,
+  Award,
+  TrendingUp,
+  Layers,
+  Building2,
+  Shield,
+  BookOpen,
+  Library,
+  Sparkles
 } from "lucide-react";
 import { SubmenuDrawer } from "./SubmenuDrawer";
 
@@ -88,6 +97,7 @@ const sections: SidebarSection[] = [
     label: "Orchestrator",
     icon: <Bot size={16} />,
     items: [
+      { href: "/copilot", label: "Platform Copilot", icon: <Brain size={14} className="text-cyan-400" /> },
       { href: "/aigents/aigent-z", label: "Aigent Z (System AI)", icon: <Bot size={14} className="text-blue-400" /> },
       { href: "/aigents/aigent-moneypenny", label: "Aigent MoneyPenny", icon: <Bot size={14} className="text-purple-400" /> },
       { href: "/aigents/aigent-nakamoto", label: "Aigent Nakamoto", icon: <Bot size={14} className="text-orange-400" /> },
@@ -101,6 +111,29 @@ const sections: SidebarSection[] = [
       ...IQUBES_ACTIVE_ITEMS,
       ...IQUBE_OPS_ITEMS,
       ...IQUBE_REGISTRY_ITEMS,
+    ],
+  },
+  {
+    label: "Content",
+    icon: <BookOpen size={16} />,
+    items: [
+      { href: "/content", label: "Content Hub", icon: <Sparkles size={14} className="text-fuchsia-400" /> },
+      { href: "/content/library", label: "My Library", icon: <Library size={14} className="text-cyan-400" /> },
+      { href: "/content/create", label: "Create", icon: <PlusCircle size={14} className="text-emerald-400" /> },
+      { href: "/content/demo", label: "Demo Gallery", icon: <Grid3X3 size={14} className="text-purple-400" /> },
+    ],
+  },
+  {
+    label: "CRM",
+    icon: <Contact size={16} />,
+    items: [
+      { href: "/crm", label: "CRM Dashboard", icon: <TrendingUp size={14} className="text-emerald-400" /> },
+      { href: "/crm/personas", label: "Personas", icon: <Users size={14} className="text-cyan-400" /> },
+      { href: "/crm/contributions", label: "Contributions", icon: <Award size={14} className="text-amber-400" /> },
+      { href: "/crm/rewards", label: "Rewards", icon: <CreditCard size={14} className="text-purple-400" /> },
+      { href: "/crm/segments", label: "Segments", icon: <Layers size={14} className="text-pink-400" /> },
+      { href: "/crm/franchises", label: "Franchises", icon: <Building2 size={14} className="text-blue-400" /> },
+      { href: "/crm/admin", label: "Admin Roles", icon: <Shield size={14} className="text-red-400" /> },
     ],
   },
   {

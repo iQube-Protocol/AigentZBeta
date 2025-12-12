@@ -1,408 +1,240 @@
-# AigentZ Build Manual
+# QubeAgent Build Manual
 
-## Table of Contents
-1. [Build Environment Setup](#build-environment-setup)
-2. [Common Issues & Solutions](#common-issues--solutions)
-   - [JSX Syntax Resolution](#jsx-syntax-resolution)
-   - [Submenu Drawer Implementation](#submenu-drawer-implementation)
-   - [State Management Patterns](#state-management-patterns)
-3. [Component Architecture](#component-architecture)
-4. [Best Practices](#best-practices)
-5. [Deployment Guide](#deployment-guide)
+## 1. Development Environment Setup
 
-## Build Environment Setup
+### 1.1 Prerequisites
+- Python 3.13+
+- pip
+- virtualenv
+- Node.js 16+
+- npm
+- MetaMask Browser Extension
 
-### Prerequisites
-- Node.js 18+
-- npm 9+
-- TypeScript 5.0+
-- Next.js 13+
-- React 18+
+### 1.2 Recommended Development Tools
+- Visual Studio Code
+- PyCharm Professional
+- Docker Desktop
+- Postman
 
-### Installation
+## 2. Repository Cloning
+
 ```bash
-# Clone the repository
-git clone https://github.com/iQube-Protocol/AigentZBeta.git
-cd AigentZBeta
+git clone https://github.com/your-org/QubeAgent.git
+cd QubeAgent
+```
 
-# Install dependencies
+## 3. Python Environment Setup
+
+### 3.1 Create Virtual Environment
+```bash
+python3 -m venv qubeagent_env
+source qubeagent_env/bin/activate  # On macOS/Linux
+# OR
+qubeagent_env\Scripts\activate     # On Windows
+```
+
+### 3.2 Install Python Dependencies
+```bash
+pip install -r requirements.txt
+```
+
+## 4. Frontend Setup
+
+### 4.1 Install Node Dependencies
+```bash
 npm install
+npm install web3.js
+```
 
-# Set up environment variables
+### 4.2 Environment Configuration
+```bash
 cp .env.example .env.local
-# Edit .env.local with your configuration
+# Edit .env.local with your specific configurations
+```
 
-# Start development server
+**Required Environment Variables for Registry:**
+```env
+# Supabase Configuration (Required for Registry)
+SUPABASE_URL=your_supabase_project_url
+SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
+
+**Important**: Both prefixed (`NEXT_PUBLIC_`) and non-prefixed versions are required:
+- Non-prefixed versions are used by Next.js API routes (server-side)
+- Prefixed versions are used by client-side React components
+
+## 5. Blockchain Configuration
+
+### 5.1 MetaMask Setup
+1. Install MetaMask Browser Extension
+2. Create a new wallet or import existing
+3. Connect to Polygon Amoy Testnet
+   - Network Name: Polygon Amoy Testnet
+   - RPC URL: https://rpc-amoy.polygon.technology/
+   - Chain ID: 80002
+   - Currency Symbol: MATIC
+
+## 6. Database Initialization
+
+### 6.1 DB-GPT Configuration
+```bash
+python -m dbgpt.setup
+dbgpt init-database
+```
+
+### 6.2 AWEL Framework Setup
+```bash
+python -m awel.initialize
+awel configure
+```
+
+## 7. Running the Application
+
+### 7.1 Development Server
+```bash
+# Start backend
+python app.py
+
+# Start frontend (in separate terminal)
 npm run dev
+# Or specify port explicitly
+PORT=3001 npm run dev
 ```
 
-## Common Issues & Solutions
+### 7.2 Production Deployment
+```bash
+# Build frontend
+npm run build
 
-### Sidebar Auto-Expansion Bug Resolution
-
-#### Issue: Infinite Update Loop and Unwanted Auto-Expansion
-**Problem:** Sidebar sections were auto-expanding unexpectedly when interacting with form inputs, causing infinite re-renders and application crashes.
-
-**Root Cause:**
-- Auto-expansion logic was triggered by toggle state changes
-- Circular dependency in useEffect hooks
-- State updates causing cascading effects between sections
-
-**Solution:**
-1. **Removed Auto-Expansion Logic**
-   ```typescript
-   // Before: Complex auto-expansion based on toggle states
-   useEffect(() => {
-     // Complex logic that caused infinite loops
-     const sectionsWithActiveItems = [];
-     // ... problematic auto-expansion code
-   }, [toggleStates, openSections]); // Circular dependency
-   
-   // After: Simple path-based opening only
-   useEffect(() => {
-     if (!initialized || !isClient || !pathname) return;
-     
-     // Only open sections based on navigation
-     let currentPathSection = "";
-     for (const section of sections) {
-       for (const item of section.items) {
-         if (pathname.startsWith(item.href)) {
-           currentPathSection = section.label;
-           break;
-         }
-       }
-       if (currentPathSection) break;
-     }
-     
-     if (currentPathSection && !openSections.includes(currentPathSection)) {
-       setOpenSections(prev => [...prev, currentPathSection]);
-     }
-   }, [pathname, initialized, isClient, sections]);
-   ```
-
-2. **Manual Section Control**
-   - Sections now only open/close via manual user clicks
-   - No automatic expansion based on form interactions
-   - Preserved user preferences in localStorage
-
-3. **Separated Toggle State Management**
-   ```typescript
-   // Separate effect for saving toggle states without affecting sections
-   useEffect(() => {
-     if (!initialized || !isClient || !storageAvailable) return;
-     safeLocalStorage.setItem('toggleStates', JSON.stringify(toggleStates));
-   }, [toggleStates, initialized, isClient, storageAvailable]);
-   ```
-
-**Prevention:**
-- Never include state variables in useEffect dependencies if the effect modifies those same variables
-- Use comparison checks before state updates to prevent unnecessary re-renders
-- Separate concerns: navigation-based opening vs. manual control vs. state persistence
-
-### JSX Syntax Resolution
-
-#### Issue: Unexpected Token Errors
-**Problem:** JSX parser fails with "Unexpected token `div`. Expected jsx identifier" error.
-
-**Root Cause:**
-- Inconsistent indentation in nested JSX structures
-- Mismatched or missing closing tags
-- Improperly escaped JavaScript expressions within JSX
-
-**Solution:**
-1. **Consistent Indentation**
-   ```jsx
-   // Bad
-   {condition && (
-   <div>
-     <Component />
-     </div>
-   )}
-   
-   // Good
-   {condition && (
-     <div>
-       <Component />
-     </div>
-   )}
-   ```
-
-2. **Proper Tag Nesting**
-   - Always close self-closing tags: `<Component />`
-   - Ensure all tags are properly nested and closed
-   - Use fragments (`<>...</>`) for multiple elements
-
-3. **Expression Handling**
-   ```jsx
-   // Bad
-   {items.map(item => 
-     <div>{item.name}</div>
-   )}
-   
-   // Good
-   {items.map((item) => (
-     <div key={item.id}>{item.name}</div>
-   ))}
-   ```
-
-### Submenu Drawer Implementation
-
-#### Key Features
-- Collapsible sections
-- State persistence
-- Responsive design
-- Accessibility support
-
-#### Implementation Details
-
-**State Management**
-```typescript
-const [isExpanded, setIsExpanded] = useState<boolean>(false);
-const [activeSection, setActiveSection] = useState<string | null>(null);
-
-// Toggle section with persistence
-const toggleSection = (sectionId: string) => {
-  setActiveSection(prev => prev === sectionId ? null : sectionId);
-  // Persist state if needed
-  localStorage.setItem('activeSection', sectionId);
-};
+# Start production server
+gunicorn -w 4 -k uvicorn.workers.UvicornWorker app:app
 ```
 
-**Accessibility**
-```jsx
-<button 
-  aria-expanded={isExpanded}
-  aria-controls="section-content"
-  onClick={() => toggleSection('section-id')}
->
-  {sectionLabel}
-  <ChevronIcon isExpanded={isExpanded} />
-</button>
-<div 
-  id="section-content" 
-  role="region" 
-  aria-hidden={!isExpanded}
->
-  {/* Content */}
-</div>
+## 8. Testing
+
+### 8.1 Run Unit Tests
+```bash
+pytest tests/
 ```
 
-### State Management Patterns
-
-#### Issue: State Persistence Across Navigation
-**Problem:** State was being lost during page navigation.
-
-**Solution:**
-1. Implemented context-based state management
-2. Added localStorage persistence for critical states
-3. Used URL parameters for shareable states
-
-```typescript
-// Context Provider
-const AppStateContext = createContext<AppState | undefined>(undefined);
-
-export const AppProvider: React.FC<{children: ReactNode}> = ({ children }) => {
-  const [state, setState] = useState<AppState>(initialState);
-  
-  // Load state from localStorage on mount
-  useEffect(() => {
-    const savedState = localStorage.getItem('appState');
-    if (savedState) {
-      setState(JSON.parse(savedState));
-    }
-  }, []);
-  
-  // Persist state on change
-  useEffect(() => {
-    localStorage.setItem('appState', JSON.stringify(state));
-  }, [state]);
-  
-  return (
-    <AppStateContext.Provider value={{ state, setState }}>
-      {children}
-    </AppStateContext.Provider>
-  );
-};
+### 8.2 Run Integration Tests
+```bash
+pytest integration_tests/
 ```
 
-## Component Architecture
+## 9. Troubleshooting
 
-### File Structure
-```
-components/
-  ├── layout/
-  │   ├── Sidebar.tsx
-  │   └── Header.tsx
-  ├── ui/
-  │   ├── Button.tsx
-  │   └── Input.tsx
-  └── sections/
-      ├── DrawerSection.tsx
-      └── ContentSection.tsx
-```
+### 9.1 Common Issues
+- Ensure all dependencies are installed
+- Check `.env.local` file configurations
+- Verify MetaMask network settings
+- Confirm Python and Node.js versions
 
-### Component Design Principles
-1. **Single Responsibility**
-   - Each component should do one thing well
-   - Keep components small and focused
+### 9.2 Supabase Configuration Issues
 
-2. **Props Interface**
-   ```typescript
-   interface ButtonProps {
-     variant?: 'primary' | 'secondary' | 'danger';
-     size?: 'sm' | 'md' | 'lg';
-     onClick: () => void;
-     children: ReactNode;
-     disabled?: boolean;
-     className?: string;
-   }
-   ```
+#### "Supabase env not configured" Error
+**Symptoms**: Registry API returns error despite environment variables being set
 
-3. **Type Safety**
-   - Use TypeScript interfaces for all props
-   - Enable strict mode in tsconfig.json
-   - Use React.FC for functional components
+**Root Causes**:
+1. Missing non-prefixed environment variables for server-side API routes
+2. Corrupted `.env.local` file formatting
+3. Environment variable naming mismatch
 
-## Best Practices
+**Resolution Steps**:
+1. Verify both prefixed and non-prefixed Supabase variables exist in `.env.local`
+2. Check file formatting - ensure proper newlines between variables
+3. Restart development server after changes
+4. Test connectivity: `curl "http://localhost:3001/api/registry/templates"`
 
-### Code Organization
-1. **Hooks**
-   - Keep hooks at the top of the component
-   - Extract complex logic into custom hooks
-   - Follow the Rules of Hooks strictly
-
-2. **Styling**
-   - Use CSS Modules or styled-components
-   - Follow BEM naming convention
-   - Keep styles co-located with components
-
-3. **Performance**
-   - Use React.memo for expensive renders
-   - Implement proper key props in lists
-   - Use useCallback and useMemo appropriately
-
-### Error Handling
-```typescript
-try {
-  // Potentially failing operation
-} catch (error) {
-  if (error instanceof Error) {
-    console.error('Operation failed:', error.message);
-    // Handle error state
-  } else {
-    console.error('An unknown error occurred');
-  }
-}
+**Debug Environment Variables**:
+```bash
+# Check if variables are loaded
+node -e "console.log('SUPABASE_URL:', process.env.SUPABASE_URL ? 'SET' : 'NOT SET')"
 ```
 
-## Deployment Guide
+### 9.3 Development Server Issues
 
-### Prerequisites
-- Vercel account
-- GitHub repository access
-- Environment variables configured
+#### Old Application Version Loading
+**Symptoms**: Changes not reflected, old UI/API responses
 
-### Steps
-1. Push changes to main branch
-2. Vercel will automatically deploy
-3. Monitor deployment in Vercel dashboard
-4. Run tests in staging before production
+**Resolution**:
+```bash
+# Kill processes on target port
+lsof -ti tcp:3001 | xargs -r kill -9
 
-### Rollback Procedure
-1. Identify last stable commit
-2. Revert if needed:
-   ```bash
-   git revert <commit-hash>
-   git push origin main
-   ```
-3. Or rollback deployment in Vercel
+# Clean build artifacts
+rm -rf .next node_modules/.cache
 
-## Recent Major Updates
+# Reinstall and restart
+npm install
+PORT=3001 npm run dev
+```
 
-### Version 2.1.0 - UI Improvements and Stability Fixes
+### 9.4 General Debugging
+- Use `logging.basicConfig(level=logging.DEBUG)` for verbose logging
+- Check browser console for frontend errors
+- Review backend logs for server-side issues
+- Verify API routes are hitting correct handlers (not proxies)
 
-#### New Features Added
-1. **metaMe Persona Integration**
-   - Added new `metaMe` persona to personas.ts
-   - Integrated with sidebar navigation and generic-ai page
-   - Full functionality matching existing personas
+## 10. Continuous Integration
 
-2. **Enhanced MetaQube Headers**
-   - Added Sats price display for Instance mode only
-   - Dynamic price matching between header and data sections
-   - Green styling consistent with design system
+### 10.1 GitHub Actions
+- Automated testing on pull requests
+- Build and deployment workflows
+- Security scanning
 
-3. **Improved iQube Name Display**
-   - Added iQube names to View tab headers
-   - Consistent naming across Template and Instance modes
-   - Removed redundant "Template" and "Instance" text from headers
+## 11. Performance Optimization
 
-#### Critical Bug Fixes
-1. **Sidebar Auto-Expansion Resolution**
-   - Fixed infinite update loop causing application crashes
-   - Removed problematic auto-expansion logic
-   - Implemented manual-only section control
-   - Separated navigation-based opening from form interactions
+### 11.1 Caching Strategies
+- Implement Redis caching
+- Use memoization for expensive computations
+- Optimize database queries
 
-2. **Price Consistency Fix**
-   - Fixed mismatch between MetaQube header (2,100 sats) and iQube data (100 sats)
-   - Implemented dynamic price display using state variables
-   - Ensured consistency across all tabs and sections
+## 12. Security Best Practices
 
-#### Process Management Improvements
-- Enhanced PM2 configuration with log rotation
-- Added auto-start on boot functionality
-- Improved development server stability
+### 12.1 Secrets Management
+- Never commit sensitive information
+- Use environment variables
+- Rotate API keys and credentials regularly
 
-## Lessons Learned
+## 13. Documentation
 
-### What Went Well
-- TypeScript integration caught many potential runtime errors
-- Component composition allowed for flexible UI building
-- State management with Context API provided clean data flow
-- Comprehensive testing prevented regression issues
+### 13.1 Generating Docs
+```bash
+sphinx-build -b html docs/ docs/_build
+```
 
-### Challenges Overcome
-1. **Sidebar Auto-Expansion Bug**
-   - Root cause: Circular dependencies in useEffect hooks
-   - Solution: Separated concerns and removed auto-expansion logic
-   - Prevention: Better state management patterns and dependency analysis
+## 14. Contribution Guidelines
 
-2. **JSX Syntax Issues**
-   - Implemented strict ESLint rules
-   - Added Prettier for consistent formatting
-   - Created custom ESLint rules for common patterns
+1. Create feature branch
+2. Write tests
+3. Implement feature
+4. Run tests
+5. Update documentation
+6. Submit pull request
 
-3. **State Management**
-   - Moved from prop drilling to Context API
-   - Implemented proper TypeScript types
-   - Added error boundaries for graceful failures
+## 15. Version Management
 
-4. **Performance**
-   - Optimized re-renders with useMemo/useCallback
-   - Implemented code splitting
-   - Added lazy loading for non-critical components
+Use semantic versioning:
+- Major version: Significant architectural changes
+- Minor version: New features, backwards compatible
+- Patch version: Bug fixes and minor improvements
 
-## Troubleshooting
+## 16. Monitoring and Logging
 
-### Common Issues
-1. **Build Failures**
-   - Check TypeScript errors first
-   - Verify all dependencies are installed
-   - Clear .next folder and node_modules if needed
+### 16.1 Recommended Tools
+- Sentry for error tracking
+- Prometheus for metrics
+- ELK Stack for log management
 
-2. **Runtime Errors**
-   - Check browser console
-   - Verify environment variables
-   - Look for undefined variables or missing props
+## 17. Appendix
 
-3. **Performance Issues**
-   - Use React DevTools profiler
-   - Check for unnecessary re-renders
-   - Optimize expensive calculations
-
-## Support
-For additional help, please contact:
-- Development Team: dev@iqube-protocol.com
-- Documentation: docs@iqube-protocol.com
-- Support: support@iqube-protocol.com
+### 17.1 Recommended Reading
+- Web3.js Documentation
+- DB-GPT Guides
+- AWEL Framework Specifications
+- LangChain Best Practices
+```

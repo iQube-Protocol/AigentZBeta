@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>metaVatar Interface</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #0a1628 0%, #1a2942 100%);
+      color: #e0e0e0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    
+    .container {
+      max-width: 600px;
+      width: 100%;
+      text-align: center;
+    }
+    
+    .avatar-display {
+      width: 200px;
+      height: 200px;
+      margin: 0 auto 30px;
+      background: linear-gradient(135deg, #5eead4 0%, #06b6d4 100%);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 40px rgba(94, 234, 212, 0.3);
+      animation: pulse 3s ease-in-out infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% {
+        box-shadow: 0 0 40px rgba(94, 234, 212, 0.3);
+      }
+      50% {
+        box-shadow: 0 0 60px rgba(94, 234, 212, 0.5);
+      }
+    }
+    
+    .avatar-icon {
+      font-size: 80px;
+    }
+    
+    h1 {
+      font-size: 32px;
+      margin-bottom: 10px;
+      color: #5eead4;
+    }
+    
+    .agent-name {
+      font-size: 18px;
+      color: #94a3b8;
+      margin-bottom: 30px;
+    }
+    
+    .status {
+      padding: 12px 24px;
+      background: rgba(94, 234, 212, 0.1);
+      border: 1px solid rgba(94, 234, 212, 0.3);
+      border-radius: 8px;
+      display: inline-block;
+      margin-bottom: 20px;
+    }
+    
+    .info {
+      font-size: 14px;
+      color: #64748b;
+      line-height: 1.6;
+    }
+    
+    .loading {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid rgba(94, 234, 212, 0.3);
+      border-top-color: #5eead4;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-right: 10px;
+      vertical-align: middle;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="avatar-display">
+      <div class="avatar-icon">🤖</div>
+    </div>
+    
+    <h1>metaVatar Interface</h1>
+    <p class="agent-name">Agent: <span id="agent-name">Loading...</span></p>
+    
+    <div class="status">
+      <span class="loading"></span>
+      <span id="status">Initializing...</span>
+    </div>
+    
+    <div class="info">
+      <p>This is a placeholder for the persistent metaVatar interface.</p>
+      <p style="margin-top: 10px;">
+        In production, this will host the 3D avatar, voice interface,<br>
+        and advanced agent interaction capabilities.
+      </p>
+    </div>
+  </div>
+
+  <script>
+    // Parse URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const agentId = urlParams.get('agent') || 'nakamoto';
+    
+    // Agent names mapping
+    const agentNames = {
+      nakamoto: 'Nakamoto',
+      know1: 'KNOW1',
+      moneypenny: 'MoneyPenny'
+    };
+    
+    // Update UI with agent info
+    document.getElementById('agent-name').textContent = agentNames[agentId] || agentId;
+    
+    // Simulate loading
+    setTimeout(() => {
+      document.getElementById('status').textContent = 'Ready';
+      
+      // Send loaded message to parent
+      window.parent.postMessage({
+        type: 'agent:loaded',
+        payload: {
+          agentId: agentId,
+          timestamp: Date.now()
+        }
+      }, '*');
+      
+      console.log(`[metaVatar] Loaded for agent: ${agentId}`);
+    }, 1500);
+    
+    // Listen for messages from parent
+    window.addEventListener('message', (event) => {
+      console.log('[metaVatar] Received message:', event.data);
+      
+      if (event.data.type === 'app:agent-context') {
+        const { agentId: newAgentId } = event.data.payload;
+        document.getElementById('agent-name').textContent = agentNames[newAgentId] || newAgentId;
+        console.log(`[metaVatar] Switched to agent: ${newAgentId}`);
+      }
+    });
+    
+    // Example: Send a message after 3 seconds
+    setTimeout(() => {
+      window.parent.postMessage({
+        type: 'agent:message',
+        payload: {
+          agentId: agentId,
+          message: 'Hello from metaVatar!',
+          timestamp: Date.now()
+        }
+      }, '*');
+    }, 3000);
+  </script>
+</body>
+</html>

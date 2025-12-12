@@ -1,54 +1,74 @@
 version: 1
-applications:
-  - appRoot: .
-    frontend:
-      phases:
-        preBuild:
-          commands:
-            - echo "Installing Node.js 20.18.0..."
-            - nvm install 20.18.0
-            - nvm use 20.18.0
-            - echo "Node.js version:"
-            - node --version
-            - echo "Installing dependencies..."
-            - npm ci
-        build:
-          commands:
-            - echo "Creating .env.production with runtime env vars..."
-            - |
-              cat > .env.production << EOF
-              FIO_API_ENDPOINT=${FIO_API_ENDPOINT}
-              FIO_CHAIN_ID=${FIO_CHAIN_ID}
-              FIO_SYSTEM_PUBLIC_KEY=${FIO_SYSTEM_PUBLIC_KEY}
-              FIO_SYSTEM_PRIVATE_KEY=${FIO_SYSTEM_PRIVATE_KEY}
-              FIO_MOCK_MODE=${FIO_MOCK_MODE}
-              NEXT_PUBLIC_FIO_NETWORK=${NEXT_PUBLIC_FIO_NETWORK}
-              SUPABASE_URL=${SUPABASE_URL}
-              SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
-              AGENT_KEY_ENCRYPTION_SECRET=${AGENT_KEY_ENCRYPTION_SECRET}
-              NEXTAUTH_URL=${NEXTAUTH_URL}
-              EOF
-            - echo ".env.production created, building Next.js app..."
-            - npm run build
-      artifacts:
-        # .next contains the SSR build output
-        baseDirectory: .next
-        files:
-          - '**/*'
-      cache:
-        paths:
-          - node_modules/**/*
-          - .next/cache/**/*
-    # SSR environment variables - inject at build time for runtime availability
-    compute:
-      type: ssr
-      environment:
-        FIO_API_ENDPOINT: ${FIO_API_ENDPOINT}
-        FIO_CHAIN_ID: ${FIO_CHAIN_ID}
-        FIO_SYSTEM_PUBLIC_KEY: ${FIO_SYSTEM_PUBLIC_KEY}
-        FIO_SYSTEM_PRIVATE_KEY: ${FIO_SYSTEM_PRIVATE_KEY}
-        FIO_MOCK_MODE: ${FIO_MOCK_MODE}
-        NEXT_PUBLIC_FIO_NETWORK: ${NEXT_PUBLIC_FIO_NETWORK}
-        SUPABASE_URL: ${SUPABASE_URL}
-        SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
-    
+
+frontend:
+  phases:
+    preBuild:
+      commands:
+        - echo "Installing Node.js 20.18.0..."
+        - nvm install 20.18.0
+        - nvm use 20.18.0
+        - echo "Node.js version:"
+        - node --version
+        - echo "Installing dependencies..."
+        - npm ci
+    build:
+      commands:
+        - echo "Creating .env.production with runtime env vars..."
+        - |
+          cat > .env.production << EOF
+          FIO_API_ENDPOINT=${FIO_API_ENDPOINT}
+          FIO_CHAIN_ID=${FIO_CHAIN_ID}
+          FIO_SYSTEM_PUBLIC_KEY=${FIO_SYSTEM_PUBLIC_KEY}
+          FIO_SYSTEM_PRIVATE_KEY=${FIO_SYSTEM_PRIVATE_KEY}
+          FIO_MOCK_MODE=${FIO_MOCK_MODE}
+          NEXT_PUBLIC_FIO_NETWORK=${NEXT_PUBLIC_FIO_NETWORK}
+          SUPABASE_URL=${SUPABASE_URL}
+          SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+          SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+          AGENT_KEY_ENCRYPTION_SECRET=${AGENT_KEY_ENCRYPTION_SECRET}
+          TREASURY_PRIVATE_KEY=${TREASURY_PRIVATE_KEY}
+          NEXTAUTH_URL=${NEXTAUTH_URL}
+          NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+          NEXT_PUBLIC_DVN_SSE_URL=${NEXT_PUBLIC_DVN_SSE_URL}
+          NEXT_PUBLIC_QCT_SEPOLIA=${NEXT_PUBLIC_QCT_SEPOLIA}
+          NEXT_PUBLIC_QCT_ARB_SEPOLIA=${NEXT_PUBLIC_QCT_ARB_SEPOLIA}
+          NEXT_PUBLIC_RPC_SEPOLIA=${NEXT_PUBLIC_RPC_SEPOLIA}
+          NEXT_PUBLIC_RPC_ARB_SEPOLIA=${NEXT_PUBLIC_RPC_ARB_SEPOLIA}
+          NEXT_PUBLIC_USDC_SEPOLIA=${NEXT_PUBLIC_USDC_SEPOLIA}
+          OPENAI_API_KEY=${OPENAI_API_KEY}
+          EOF
+        - echo ".env.production created, building Next.js app..."
+        - npm run build
+  artifacts:
+    # .next contains the SSR build output
+    baseDirectory: .next
+    files:
+      - '**/*'
+  cache:
+    paths:
+      - node_modules/**/*
+      - .next/cache/**/*
+
+compute:
+  type: ssr
+  environment:
+    FIO_API_ENDPOINT: ${FIO_API_ENDPOINT}
+    FIO_CHAIN_ID: ${FIO_CHAIN_ID}
+    FIO_SYSTEM_PUBLIC_KEY: ${FIO_SYSTEM_PUBLIC_KEY}
+    FIO_SYSTEM_PRIVATE_KEY: ${FIO_SYSTEM_PRIVATE_KEY}
+    FIO_MOCK_MODE: ${FIO_MOCK_MODE}
+    NEXT_PUBLIC_FIO_NETWORK: ${NEXT_PUBLIC_FIO_NETWORK}
+    SUPABASE_URL: ${SUPABASE_URL}
+    SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+    SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+    AGENT_KEY_ENCRYPTION_SECRET: ${AGENT_KEY_ENCRYPTION_SECRET}
+    TREASURY_PRIVATE_KEY: ${TREASURY_PRIVATE_KEY}
+    NEXTAUTH_URL: ${NEXTAUTH_URL}
+    NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+    NEXT_PUBLIC_DVN_SSE_URL: ${NEXT_PUBLIC_DVN_SSE_URL}
+    NEXT_PUBLIC_QCT_SEPOLIA: ${NEXT_PUBLIC_QCT_SEPOLIA}
+    NEXT_PUBLIC_QCT_ARB_SEPOLIA: ${NEXT_PUBLIC_QCT_ARB_SEPOLIA}
+    NEXT_PUBLIC_RPC_SEPOLIA: ${NEXT_PUBLIC_RPC_SEPOLIA}
+    NEXT_PUBLIC_RPC_ARB_SEPOLIA: ${NEXT_PUBLIC_RPC_ARB_SEPOLIA}
+    NEXT_PUBLIC_USDC_SEPOLIA: ${NEXT_PUBLIC_USDC_SEPOLIA}
+    OPENAI_API_KEY: ${OPENAI_API_KEY}
