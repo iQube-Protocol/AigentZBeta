@@ -120,7 +120,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     // 6. Download encrypted content from Autonomys
     console.log(`[Stream] Fetching CID: ${master.auto_drive_cid}`);
     
-    const encryptedStream = await downloadFile(autoDrive, master.auto_drive_cid);
+    const encryptedStream = await autoDrive.downloadFile(master.auto_drive_cid);
 
     // 7. Create decryption stream
     const decryptionStream = createDecryptionStream(
