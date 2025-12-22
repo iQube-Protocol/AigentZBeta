@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     }
     
     if (chainId) {
-      const balance = await getEvmKnytBalance(address, parseInt(chainId));
+      const balance = await getEvmKnytBalance(address);
       return NextResponse.json({ address, balance });
     }
     

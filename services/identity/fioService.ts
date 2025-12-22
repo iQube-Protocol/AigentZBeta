@@ -423,7 +423,7 @@ export class FIOService {
         chainCode,
         tokenCode,
         publicAddress,
-        null, // maxFee - use default
+        0, // maxFee - use default (0 means calculate automatically)
         '' // tpid
       );
 

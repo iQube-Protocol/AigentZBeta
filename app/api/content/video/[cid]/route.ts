@@ -43,7 +43,7 @@ export async function GET(req: NextRequest, { params }: { params: { cid: string 
 
     if (!asset) {
       asset = (await supabase.from('codex_media_assets')
-        .select('id, auto_drive_cid, mime_type, encryption_iv, encryption_auth_tag, token_qube_id')
+        .select('id, auto_drive_cid, mime_type, encryption_iv, encryption_auth_tag, token_qube_id, blak_qube_id')
         .eq('auto_drive_cid', cid).single()).data;
     }
 
@@ -93,7 +93,8 @@ export async function GET(req: NextRequest, { params }: { params: { cid: string 
           mime_type: blakQube.payload_type,
           encryption_iv: blakQube.encryption_iv,
           encryption_auth_tag: blakQube.encryption_auth_tag,
-          token_qube_id: tokenQubeId
+          token_qube_id: tokenQubeId,
+          blak_qube_id: blakQube.id
         };
       }
     }
@@ -125,7 +126,7 @@ export async function GET(req: NextRequest, { params }: { params: { cid: string 
         const { data: tokenQube } = await supabase
           .from('iq_token_qubes')
           .select('key_ciphertext, key_wrapping_alg')
-          .eq('id', asset.token_qube_id)
+          .eq('id', asset?.token_qube_id)
           .single();
 
         if (!tokenQube) {
@@ -139,8 +140,8 @@ export async function GET(req: NextRequest, { params }: { params: { cid: string 
 
         videoData = decryptContent({
           ciphertext: rawData,
-          iv: asset.encryption_iv,
-          authTag: asset.encryption_auth_tag,
+          iv: asset?.encryption_iv || '',
+          authTag: asset?.encryption_auth_tag || '',
           key: contentKey,
         });
         console.log('[VideoStream] Decrypted:', videoData.length, 'bytes');
