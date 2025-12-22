@@ -10,6 +10,12 @@ export type { IconBarProps } from './IconBar';
 export { DrawerLayer } from './DrawerLayer';
 export type { DrawerLayerProps } from './DrawerLayer';
 
+export { VideoModal } from './VideoModal';
+export type { VideoModalProps, VideoItem } from './VideoModal';
+
+export { SmartThumbnail } from './SmartThumbnail';
+export type { SmartThumbnailProps } from './SmartThumbnail';
+
 export type {
   Domain,
   DrawerTab,

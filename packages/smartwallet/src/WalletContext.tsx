@@ -1,11 +1,12 @@
 /**
  * WalletContext
  * Provides wallet state and actions to the application
+ * Supports Q¢ (QriptoCENT), QCT, QOYN, KNYT tokens
  */
 
 import { createContext, useCallback, useEffect, useState, ReactNode } from 'react';
 import { BrowserProvider, formatEther } from 'ethers';
-import type { WalletState, WalletActions, WalletConfig, WalletAccount } from './types';
+import type { WalletState, WalletActions, WalletConfig, WalletAccount, TokenBalances } from './types';
 
 export interface WalletContextValue extends WalletState, WalletActions {}
 
@@ -16,12 +17,22 @@ interface WalletProviderProps {
   config?: WalletConfig;
 }
 
+// Mock token balances for development
+const MOCK_BALANCES: TokenBalances = {
+  qc: '1250.00',      // Q¢ balance
+  qct: '50.00',       // QCT balance
+  qoyn: '10.00',      // QOYN balance
+  knyt: '5.00',       // KNYT balance
+  native: '0.0',      // ETH balance (will be overwritten)
+};
+
 export function WalletProvider({ children, config = {} }: WalletProviderProps) {
   const [state, setState] = useState<WalletState>({
     account: null,
     isConnecting: false,
     isConnected: false,
     error: null,
+    isLoadingTokens: false,
   });
 
   // Check if MetaMask is installed
@@ -69,6 +80,7 @@ export function WalletProvider({ children, config = {} }: WalletProviderProps) {
         isConnecting: false,
         isConnected: true,
         error: null,
+        isLoadingTokens: false,
       });
     } catch (error: any) {
       console.error('Wallet connection error:', error);
@@ -77,6 +89,7 @@ export function WalletProvider({ children, config = {} }: WalletProviderProps) {
         isConnecting: false,
         isConnected: false,
         error: error.message || 'Failed to connect wallet',
+        isLoadingTokens: false,
       });
     }
   }, []);
@@ -88,6 +101,7 @@ export function WalletProvider({ children, config = {} }: WalletProviderProps) {
       isConnecting: false,
       isConnected: false,
       error: null,
+      isLoadingTokens: false,
     });
   }, []);
 
@@ -157,11 +171,38 @@ export function WalletProvider({ children, config = {} }: WalletProviderProps) {
     checkConnection();
   }, [connect]);
 
+  // Refresh token balances (placeholder for future implementation)
+  const refreshBalances = useCallback(async () => {
+    if (!state.account?.address) return;
+    
+    setState(prev => ({ ...prev, isLoadingTokens: true }));
+    
+    try {
+      // TODO: Implement actual token balance fetching
+      // For now, just refresh native balance
+      if (hasProvider()) {
+        const provider = new BrowserProvider(window.ethereum);
+        const balanceWei = await provider.getBalance(state.account.address);
+        const balance = formatEther(balanceWei);
+        
+        setState(prev => ({
+          ...prev,
+          account: prev.account ? { ...prev.account, balance } : null,
+          isLoadingTokens: false,
+        }));
+      }
+    } catch (error) {
+      console.error('Failed to refresh balances:', error);
+      setState(prev => ({ ...prev, isLoadingTokens: false }));
+    }
+  }, [state.account?.address]);
+
   const value: WalletContextValue = {
     ...state,
     connect,
     disconnect,
     switchChain,
+    refreshBalances,
   };
 
   return (

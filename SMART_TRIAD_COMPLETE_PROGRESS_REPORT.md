@@ -278,6 +278,67 @@ Menu stays visible    Menu auto-hides       Menu overlays
 
 ---
 
+### 5b. Content Action Icons (`app/components/content/ContentActionIcons.tsx`)
+
+**Purpose:** Reusable modality action icons for SmartContent items (read, watch, listen, interact)
+
+**Key Principle:** Icons only render when corresponding content exists for the content item.
+
+**Icon Styles:**
+- `lucide` (default) - Lucide React icons
+- `emoji` - Emoji icons (📖 🎬 🎧 💬)
+- `custom` - Franchise/tenant-specific icons
+
+**Usage:**
+```tsx
+import { ContentActionIcons } from '@/app/components/content';
+
+<ContentActionIcons
+  modalities={{ read: true, watch: true }}
+  onRead={() => openPdfViewer()}
+  onWatch={() => openVideoPlayer()}
+  iconStyle="lucide"  // or "emoji" or "custom"
+  size="md"           // "sm" | "md" | "lg"
+/>
+```
+
+**Modality Mapping:**
+```
+Modality    Lucide Icon      Emoji    Color
+─────────────────────────────────────────────
+read        BookOpen         📖       cyan
+watch       Play             🎬       pink
+listen      Headphones       🎧       purple
+interact    MessageSquare    💬       emerald
+```
+
+**Franchise Style Guide:**
+Franchises and tenants can configure their icon style at the SmartTriad level:
+```typescript
+// In SmartTriadSet config
+{
+  content: {
+    iconStyle: "lucide",  // Default for this franchise
+    customIcons: {        // Optional custom icons
+      read: <CustomReadIcon />,
+      watch: <CustomWatchIcon />,
+    }
+  }
+}
+```
+
+**Component Anatomy:**
+```
+┌─────────────────────────────────┐
+│  ┌────┐ ┌────┐ ┌────┐ ┌────┐  │
+│  │ 📖 │ │ 🎬 │ │ 🎧 │ │ 💬 │  │  ← Only visible if content exists
+│  │Read│ │Watch│ │Listen│ │Chat│  │
+│  └────┘ └────┘ └────┘ └────┘  │
+└─────────────────────────────────┘
+```
+
+---
+
 ### 6. Smart Drawer Console (Main Application)
 
 **Location:** `/app/demo/smart-drawer-new/page.tsx`

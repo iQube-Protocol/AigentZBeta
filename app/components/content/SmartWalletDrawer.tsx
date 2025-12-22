@@ -199,6 +199,11 @@ export default function SmartWalletDrawer({
   const [purchaseStep, setPurchaseStep] = useState<PurchaseStep>("idle");
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod>("arb");
+
+  const [convertUsdcAmount, setConvertUsdcAmount] = useState<string>("");
+  const [convertStep, setConvertStep] = useState<"idle" | "processing" | "success" | "error">("idle");
+  const [convertError, setConvertError] = useState<string | null>(null);
+  const [convertResult, setConvertResult] = useState<any>(null);
   
   // Persona state
   const [showUnlockModal, setShowUnlockModal] = useState(false);
@@ -297,13 +302,16 @@ export default function SmartWalletDrawer({
     const isRealContent = uuidRegex.test(currentContent.id);
     
     // Get chain config based on payment method
-    // Q¢ available on Arbitrum, Base, Polygon, Optimism (all testnets)
-    const CHAIN_CONFIG: Record<PaymentMethod, { chainId: number; asset: string; name: string }> = {
-      arb: { chainId: 421614, asset: "QCT", name: "Arbitrum Sepolia" },
-      base: { chainId: 84532, asset: "QCT", name: "Base Sepolia" },
-      polygon: { chainId: 80002, asset: "QCT", name: "Polygon Amoy" },
-      optimism: { chainId: 11155420, asset: "QCT", name: "Optimism Sepolia" },
-      knyt: { chainId: 1, asset: "KNYT", name: "Ethereum Mainnet" },
+    // Phase 1: USDC is Base-only.
+    const QCT_TOKEN_ADDRESS = "0x4C4f1aD931589449962bB675bcb8e95672349d09";
+    const USDC_BASE_SEPOLIA = "0x036CbD53842c5426634e7929541eC2318f3dCF7e";
+    const CHAIN_CONFIG: Record<PaymentMethod, { chainId: number; asset: string; name: string; tokenAddress?: string; decimals: number }> = {
+      arb: { chainId: 421614, asset: "QCT", name: "Arbitrum Sepolia", tokenAddress: QCT_TOKEN_ADDRESS, decimals: 18 },
+      base: { chainId: 84532, asset: "QCT", name: "Base Sepolia", tokenAddress: QCT_TOKEN_ADDRESS, decimals: 18 },
+      polygon: { chainId: 80002, asset: "QCT", name: "Polygon Amoy", tokenAddress: QCT_TOKEN_ADDRESS, decimals: 18 },
+      optimism: { chainId: 11155420, asset: "QCT", name: "Optimism Sepolia", tokenAddress: QCT_TOKEN_ADDRESS, decimals: 18 },
+      usdc: { chainId: 84532, asset: "USDC", name: "Base Sepolia (USDC)", tokenAddress: USDC_BASE_SEPOLIA, decimals: 6 },
+      knyt: { chainId: 1, asset: "KNYT", name: "Ethereum Mainnet", decimals: 18 },
     };
     const chainConfig = CHAIN_CONFIG[selectedPaymentMethod];
     
@@ -311,6 +319,12 @@ export default function SmartWalletDrawer({
       // Step 1: Execute payment via x402 rails using agent's wallet
       const paymentAmount = contentPrice?.amount || 0;
       const payTo = recipientAddress || currentContent.creatorRootDid; // Pay to content creator
+
+      // Guard: don't let the UI send USDC for non-USDC priced tiers.
+      const tierCurrency = (contentPrice?.currency || "").toUpperCase();
+      if (selectedPaymentMethod === "usdc" && tierCurrency !== "USDC") {
+        throw new Error(`This content is priced in ${contentPrice?.currency || "unknown"}. Select a Q¢ or KNYT rail, or choose a USDC-priced tier.`);
+      }
       
       if (paymentAmount > 0 && payTo) {
         // Use the a2a signer to transfer tokens
@@ -319,11 +333,11 @@ export default function SmartWalletDrawer({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             chainId: chainConfig.chainId,
-            amount: (BigInt(paymentAmount) * 10n ** 18n).toString(), // Convert to wei
-            asset: "QCT",
+            amount: (BigInt(paymentAmount) * 10n ** BigInt(chainConfig.decimals)).toString(),
+            asset: chainConfig.asset,
             agentId: agent.id, // Payer agent (AigentZ)
             to: payTo, // Recipient (Kn0w1)
-            tokenAddress: "0x4C4f1aD931589449962bB675bcb8e95672349d09", // QCT token
+            tokenAddress: chainConfig.tokenAddress,
           }),
         });
         
@@ -381,6 +395,40 @@ export default function SmartWalletDrawer({
   const handleCancelPurchase = () => {
     setPurchaseStep("idle");
     setPurchaseError(null);
+  };
+
+  const handleConvertUsdcToQc = async () => {
+    if (!personaId) return;
+    setConvertStep("processing");
+    setConvertError(null);
+    setConvertResult(null);
+
+    const n = Number(convertUsdcAmount);
+    if (!Number.isFinite(n) || n <= 0) {
+      setConvertError("Enter a valid USDC amount");
+      setConvertStep("error");
+      return;
+    }
+
+    try {
+      const r = await fetch("/api/wallet/qct/convert/usdc-to-qc", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ personaId, usdcAmount: n }),
+      });
+
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j?.ok) {
+        throw new Error(j?.error || "Conversion failed");
+      }
+
+      setConvertResult(j);
+      setConvertStep("success");
+      setConvertUsdcAmount("");
+    } catch (e: any) {
+      setConvertError(e?.message || "Conversion failed");
+      setConvertStep("error");
+    }
   };
 
   if (!open) return null;
@@ -756,6 +804,39 @@ export default function SmartWalletDrawer({
                     </span>
                   </div>
                 </div>
+              </section>
+
+              <section className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-3">
+                <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-white/60 mb-2">
+                  <CircleDollarSign className="w-3.5 h-3.5 text-green-400" />
+                  Convert USDC → Q¢
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <input
+                    value={convertUsdcAmount}
+                    onChange={(e) => setConvertUsdcAmount(e.target.value)}
+                    placeholder="USDC"
+                    className="col-span-2 px-3 py-2 rounded-lg bg-black/30 ring-1 ring-white/10 text-white text-sm placeholder:text-white/30"
+                    inputMode="decimal"
+                  />
+                  <button
+                    onClick={handleConvertUsdcToQc}
+                    disabled={convertStep === "processing"}
+                    className="px-3 py-2 rounded-lg bg-gradient-to-r from-emerald-500 to-green-500 text-white text-xs font-medium disabled:opacity-60"
+                  >
+                    {convertStep === "processing" ? "Converting" : "Convert"}
+                  </button>
+                </div>
+                {convertStep === "success" && convertResult?.quote && (
+                  <div className="mt-2 p-2 rounded-lg bg-emerald-500/10 ring-1 ring-emerald-500/30 text-xs text-emerald-200">
+                    Credited {convertResult.quote.qctNet} Q¢ (fee {convertResult.quote.feeQct} Q¢)
+                  </div>
+                )}
+                {convertStep === "error" && convertError && (
+                  <div className="mt-2 p-2 rounded-lg bg-red-500/10 ring-1 ring-red-500/30 text-xs text-red-200">
+                    {convertError}
+                  </div>
+                )}
               </section>
               
               {/* Demo/Persona Balances (if available) */}

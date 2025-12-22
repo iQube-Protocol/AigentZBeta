@@ -4,10 +4,13 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { WalletProvider } from "@agentiq/smartwallet";
-import { CodexProvider } from "@agentiq/codex";
 import { Layout } from "@/components/Layout";
+import { LiveCodexProvider } from "@/providers/LiveCodexProvider";
+import { SmartContentActionProvider } from "@/contexts/SmartContentActionContext";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
+import Auth from "./pages/Auth";
+import Onboarding from "./pages/Onboarding";
 import AdminDashboard from "./pages/admin/Dashboard";
 import SetupDID from "./pages/admin/SetupDID";
 import HomeHeroManager from "./pages/admin/content/HomeHeroManager";
@@ -19,34 +22,35 @@ import KnowdZManager from "./pages/admin/content/KnowdZManager";
 import StayBullManager from "./pages/admin/content/StayBullManager";
 import ContentEditor from "./pages/admin/content/ContentEditor";
 import ContentImporter from "./pages/admin/content/ContentImporter";
-import { issue0 } from "./data/issue-0";
-import { AvatarProvider, AvatarHost } from "@agentiq/avatar-host";
+import CodexManager from "./pages/admin/content/CodexManager";
+import { AvatarProvider } from "@agentiq/avatar-host";
+import { AGUIProvider } from "@/providers/AGUIProvider";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <WalletProvider>
-      <CodexProvider
-        source={{ type: 'local' }}
-        initialCodex={issue0}
-        autoLoadCodexId="theqriptopian-issue-0"
-      >
-        <AvatarProvider
-          context={{
-            franchiseId: 'theqriptopian',
-            tenantId: 'main',
-          }}
-          enablePersistence={true}
-        >
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
+    <AGUIProvider platformUrl="http://localhost:3000">
+      <WalletProvider>
+        <LiveCodexProvider>
+          <SmartContentActionProvider>
+            <AvatarProvider
+            context={{
+              franchiseId: 'theqriptopian',
+              tenantId: 'main',
+            }}
+            enablePersistence={true}
+          >
+            <TooltipProvider>
+              <Toaster />
+              <Sonner />
+              <BrowserRouter>
               <Layout>
                 <Routes>
                   <Route path="/" element={<Index />} />
                   <Route path="/console" element={<Index />} />
+                  <Route path="/auth" element={<Auth />} />
+                  <Route path="/onboarding" element={<Onboarding />} />
                   
                   {/* Admin Portal Routes */}
                   <Route path="/admin" element={<AdminDashboard />} />
@@ -62,23 +66,19 @@ const App = () => (
                   <Route path="/admin/content/edit/:id" element={<ContentEditor />} />
                   <Route path="/admin/import" element={<ContentImporter />} />
                   <Route path="/admin/content/import" element={<ContentImporter />} />
+                  <Route path="/admin/content/codex" element={<CodexManager />} />
                   
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </Layout>
-            </BrowserRouter>
-            
-            {/* Global persistent metaAvatar */}
-            <AvatarHost
-              position="bottom-right"
-              defaultAgent="copilot"
-              zIndex={10000}
-            />
-          </TooltipProvider>
-        </AvatarProvider>
-      </CodexProvider>
+              </BrowserRouter>
+            </TooltipProvider>
+          </AvatarProvider>
+        </SmartContentActionProvider>
+      </LiveCodexProvider>
     </WalletProvider>
+    </AGUIProvider>
   </QueryClientProvider>
 );
 

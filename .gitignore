@@ -91,3 +91,6 @@ AigentZBeta/
 
 # Local backups (tarballs and snapshots)
 backups/
+
+# Local Netlify folder
+.netlify

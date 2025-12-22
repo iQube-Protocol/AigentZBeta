@@ -1,0 +1,231 @@
+openapi: 3.0.3
+info:
+  title: AA-API AG-UI Endpoints
+  version: 0.1.0
+  description: |
+    AG-UI (Agent-Generated UI) endpoints for ultra-thin clients.
+    
+    These endpoints enable server-authoritative UI state synchronization using:
+    - STATE_SNAPSHOT: Full state sent at session start
+    - STATE_DELTA: RFC6902 JSON Patch operations for incremental updates
+    
+    Thin clients connect via SSE to receive state updates and send actions
+    via POST endpoint.
+
+servers:
+  - url: https://api.aigentz.me/a2a/agui
+    description: Production AG-UI endpoint
+  - url: http://localhost:3000/api/a2a/agui
+    description: Local development
+
+paths:
+  /stream:
+    get:
+      summary: AG-UI State Stream (SSE)
+      description: |
+        Server-Sent Events stream for receiving UI state updates.
+        
+        Event types:
+        - STATE_SNAPSHOT: Full state object (sent on connect and periodically)
+        - STATE_DELTA: JSON Patch (RFC6902) for incremental updates
+        - HEARTBEAT: Keep-alive ping
+        
+      parameters:
+        - name: sessionId
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Session identifier
+        - name: personaId
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Persona identifier
+        - name: tenantId
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Tenant context (defaults to persona's tenant)
+      
+      responses:
+        '200':
+          description: SSE stream established
+          content:
+            text/event-stream:
+              schema:
+                type: string
+              examples:
+                snapshot:
+                  value: |
+                    event: STATE_SNAPSHOT
+                    data: {"session":{"sessionId":"sess_123","personaId":"persona_abc"},"smartTriad":{...},"liquidUI":{...},"metadata":{"version":"0.1.0","timestamp":"2025-12-21T15:30:00Z","sequenceNumber":1}}
+                    
+                delta:
+                  value: |
+                    event: STATE_DELTA
+                    data: {"sequenceNumber":2,"patches":[{"op":"replace","path":"/smartTriad/wallet/balances/arb","value":1250.5}]}
+                    
+                heartbeat:
+                  value: |
+                    event: HEARTBEAT
+                    data: {"timestamp":"2025-12-21T15:30:30Z"}
+        
+        '401':
+          description: Unauthorized - invalid session or persona
+        '429':
+          description: Rate limit exceeded
+
+  /send:
+    post:
+      summary: Send Action to AG-UI
+      description: |
+        Send user actions to the server for processing.
+        
+        Actions trigger:
+        - SmartTriad state updates
+        - Liquid UI template selection
+        - Copilot tool invocations
+        
+        Server responds with acknowledgment and may emit STATE_DELTA via SSE.
+        
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sessionId, action]
+              properties:
+                sessionId:
+                  type: string
+                  description: Session identifier
+                action:
+                  type: object
+                  required: [type]
+                  properties:
+                    type:
+                      type: string
+                      enum:
+                        - SELECT_CONTENT
+                        - OPEN_WALLET
+                        - CLOSE_WALLET
+                        - PURCHASE_CONTENT
+                        - SELECT_TEMPLATE
+                        - CHANGE_REALM
+                        - COPILOT_PROMPT
+                      description: Action type
+                    payload:
+                      type: object
+                      description: Action-specific payload
+                      additionalProperties: true
+            examples:
+              selectContent:
+                value:
+                  sessionId: sess_123
+                  action:
+                    type: SELECT_CONTENT
+                    payload:
+                      contentId: content_hero_001
+              
+              openWallet:
+                value:
+                  sessionId: sess_123
+                  action:
+                    type: OPEN_WALLET
+                    payload:
+                      mode: wide
+              
+              copilotPrompt:
+                value:
+                  sessionId: sess_123
+                  action:
+                    type: COPILOT_PROMPT
+                    payload:
+                      prompt: "Show me KNYT scrolls in terra realm"
+                      context:
+                        device: desktop
+                        realm: terra
+      
+      responses:
+        '200':
+          description: Action accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  sequenceNumber:
+                    type: number
+                    description: Sequence number of resulting state
+                  message:
+                    type: string
+              examples:
+                success:
+                  value:
+                    success: true
+                    sequenceNumber: 5
+                    message: Content selected, STATE_DELTA emitted
+        
+        '400':
+          description: Invalid action format
+        '401':
+          description: Unauthorized
+        '429':
+          description: Rate limit exceeded
+
+components:
+  schemas:
+    StateSnapshot:
+      type: object
+      description: Complete UI state (matches smarttriad_liquidui_state_schema_v0_1.json)
+      properties:
+        session:
+          type: object
+        smartTriad:
+          type: object
+        liquidUI:
+          type: object
+        metadata:
+          type: object
+    
+    StateDelta:
+      type: object
+      description: RFC6902 JSON Patch for state updates
+      required: [sequenceNumber, patches]
+      properties:
+        sequenceNumber:
+          type: number
+          description: Monotonic sequence number
+        patches:
+          type: array
+          items:
+            type: object
+            required: [op, path]
+            properties:
+              op:
+                type: string
+                enum: [add, remove, replace, move, copy, test]
+              path:
+                type: string
+                description: JSON Pointer to target field
+              value:
+                description: New value (for add/replace)
+              from:
+                type: string
+                description: Source path (for move/copy)
+          description: Array of JSON Patch operations
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token with persona and tenant claims
+
+security:
+  - BearerAuth: []

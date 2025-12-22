@@ -118,3 +118,80 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+@layer utilities {
+  /* Hide scrollbar but keep scroll functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;  /* Chrome, Safari and Opera */
+  }
+}
+
+/* =============================================================================
+   COPILOT THINKING ANIMATION
+   Progressive dot enlargement moving right, smooth continuous effect
+   ============================================================================= */
+
+/* Thinking dots container */
+.copilot-thinking-dots {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+}
+
+/* Individual dot - base state is small and dim */
+.copilot-thinking-dots .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: rgb(74, 222, 128); /* green-400 */
+  opacity: 0.3;
+  transform: scale(0.8);
+  animation: copilot-pulse-right 1.5s ease-in-out infinite;
+}
+
+/* Staggered animation delays for left-to-right pulse effect */
+.copilot-thinking-dots .dot:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.copilot-thinking-dots .dot:nth-child(2) {
+  animation-delay: 0.25s;
+}
+
+.copilot-thinking-dots .dot:nth-child(3) {
+  animation-delay: 0.5s;
+}
+
+/* Horizontal pulsing animation - dot enlarges then shrinks as pulse moves right */
+@keyframes copilot-pulse-right {
+  0%, 100% {
+    transform: scale(0.8);
+    opacity: 0.3;
+  }
+  25% {
+    transform: scale(1.4);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(0.8);
+    opacity: 0.3;
+  }
+}
+
+/* Color variants */
+.copilot-thinking-dots.emerald .dot {
+  background-color: rgb(52, 211, 153); /* emerald-400 */
+}
+
+.copilot-thinking-dots.purple .dot {
+  background-color: rgb(192, 132, 252); /* purple-400 */
+}
+
+.copilot-thinking-dots.cyan .dot {
+  background-color: rgb(34, 211, 238); /* cyan-400 */
+}

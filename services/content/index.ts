@@ -63,3 +63,38 @@ export {
   type LayoutConfig,
   type MenuAction,
 } from './smartMenuIntegration';
+
+// PDF Extraction service
+export {
+  PDFExtractionService,
+  getPDFExtractionService,
+  type PDFExtractionResult,
+  type PDFPage,
+  type TextChunk,
+  type ChunkingOptions,
+} from './pdfExtractionService';
+
+// Knowledge Base service
+export {
+  KnowledgeBaseService,
+  getKnowledgeBaseService,
+  type ContentDomain,
+  type DocumentSourceType,
+  type ExtractionStatus,
+  type EntityType,
+  type KBDocument,
+  type KBChunk,
+  type KBEntity,
+  type DocumentRegistration,
+  type SearchOptions,
+  type SearchResult,
+} from './knowledgeBaseService';
+
+// Embedding service for semantic search
+export {
+  EmbeddingService,
+  getEmbeddingService,
+  type EmbeddingResult,
+  type BatchEmbeddingResult,
+  type SimilaritySearchResult,
+} from './embeddingService';

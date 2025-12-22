@@ -214,6 +214,7 @@ export class PersonaFioService {
    * Map chain addresses to FIO handle
    * 
    * This allows the FIO handle to resolve to different addresses on different chains.
+   * Syncs addresses to FIO network and returns the mappings.
    */
   async mapChainAddresses(
     fioHandle: string,
@@ -222,6 +223,7 @@ export class PersonaFioService {
     await this.ensureInitialized();
     
     const mappings: Record<string, string> = {};
+    const errors: string[] = [];
     
     // Map each enabled chain
     for (const chain of getEnabledChains()) {
@@ -230,9 +232,24 @@ export class PersonaFioService {
         // FIO uses chain codes like "ETH", "MATIC", etc.
         mappings[chain.fioChainCode] = address;
         
-        // TODO: Call FIO addpubaddress action
-        // await this.fioService.addPublicAddress(fioHandle, chain.fioChainCode, address);
+        // Sync to FIO network
+        try {
+          await this.fioService.addPublicAddress(
+            fioHandle,
+            chain.fioChainCode,
+            chain.fioChainCode, // tokenCode same as chainCode for native tokens
+            address
+          );
+          console.log(`[PersonaFIO] Mapped ${chain.fioChainCode} -> ${address} for ${fioHandle}`);
+        } catch (error) {
+          console.warn(`[PersonaFIO] Failed to map ${chain.fioChainCode} for ${fioHandle}:`, error);
+          errors.push(`${chain.fioChainCode}: ${(error as Error).message}`);
+        }
       }
+    }
+    
+    if (errors.length > 0) {
+      console.warn('[PersonaFIO] Some chain mappings failed:', errors);
     }
     
     return {
@@ -242,16 +259,46 @@ export class PersonaFioService {
   }
   
   /**
+   * Map a single wallet address to FIO handle
+   * Convenience method for mapping individual addresses (EVM, BTC, SOL)
+   */
+  async mapWalletAddress(
+    fioHandle: string,
+    chainCode: string,
+    address: string
+  ): Promise<{ success: boolean; error?: string }> {
+    await this.ensureInitialized();
+    
+    try {
+      await this.fioService.addPublicAddress(
+        fioHandle,
+        chainCode,
+        chainCode, // tokenCode same as chainCode
+        address
+      );
+      console.log(`[PersonaFIO] Mapped ${chainCode} -> ${address} for ${fioHandle}`);
+      return { success: true };
+    } catch (error) {
+      console.error(`[PersonaFIO] Failed to map ${chainCode} for ${fioHandle}:`, error);
+      return { success: false, error: (error as Error).message };
+    }
+  }
+  
+  /**
    * Resolve a FIO handle to chain addresses
+   * Fetches all public addresses mapped to the FIO handle from the FIO network
    */
   async resolveHandle(fioHandle: string): Promise<Record<string, string> | null> {
     await this.ensureInitialized();
     
     try {
-      // TODO: Implement FIO getpubaddress for each chain
-      // For now, return null (not implemented)
-      return null;
+      const addresses = await this.fioService.getPublicAddresses(fioHandle);
+      if (Object.keys(addresses).length === 0) {
+        return null;
+      }
+      return addresses;
     } catch (error) {
+      console.error('[PersonaFIO] Failed to resolve handle:', error);
       return null;
     }
   }

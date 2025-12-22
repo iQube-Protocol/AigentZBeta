@@ -124,16 +124,81 @@ export async function POST(req: NextRequest) {
       auth: { persistSession: false }
     });
     
-    const { data: agentKeys, error } = await supabase
-      .from('agent_keys')
-      .select('*')
-      .eq('agent_id', agentId || 'aigent-z')
-      .single();
+    // Use flexible lookup that supports UUID, FIO handle, agent_id string, or public address
+    const identifier = agentId || 'aigent-z';
+    console.log(`[Transfer] Looking up keys with flexible identifier: ${identifier}`);
     
-    if (error || !agentKeys) {
+    // Try the flexible RPC function first
+    let agentKeys: any = null;
+    let lookupError: any = null;
+    
+    const { data: rpcData, error: rpcError } = await supabase
+      .rpc('get_agent_keys_flexible', { p_identifier: identifier });
+    
+    if (!rpcError && rpcData && rpcData.length > 0) {
+      agentKeys = rpcData[0];
+      console.log(`[Transfer] Found keys via flexible lookup for: ${identifier}`);
+    } else {
+      // Fallback to direct query if RPC doesn't exist or fails
+      console.log(`[Transfer] Flexible RPC failed, trying direct query. Error: ${rpcError?.message}`);
+      
+      // Try by agent_id first
+      const { data: directData, error: directError } = await supabase
+        .from('agent_keys')
+        .select('*')
+        .eq('agent_id', identifier)
+        .maybeSingle();
+      
+      if (directData) {
+        agentKeys = directData;
+      } else {
+        // Try by fio_handle
+        const { data: fioData } = await supabase
+          .from('agent_keys')
+          .select('*')
+          .ilike('fio_handle', identifier)
+          .maybeSingle();
+        
+        if (fioData) {
+          agentKeys = fioData;
+        } else {
+          // Try by persona_id (if it's a UUID)
+          const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier);
+          if (isUUID) {
+            const { data: personaData } = await supabase
+              .from('agent_keys')
+              .select('*')
+              .eq('persona_id', identifier)
+              .maybeSingle();
+            
+            if (personaData) {
+              agentKeys = personaData;
+            }
+          }
+          
+          // Try by EVM address
+          if (!agentKeys && identifier.startsWith('0x')) {
+            const { data: evmData } = await supabase
+              .from('agent_keys')
+              .select('*')
+              .ilike('evm_address', identifier)
+              .maybeSingle();
+            
+            if (evmData) {
+              agentKeys = evmData;
+            }
+          }
+        }
+        
+        lookupError = directError;
+      }
+    }
+    
+    if (!agentKeys) {
       return new Response(JSON.stringify({
         ok: false,
-        error: `No agent keys found for ${agentId || 'aigent-z'}: ${error?.message || 'Not found'}`
+        error: `No agent keys found for ${identifier}. Tried: agent_id, fio_handle, persona_id, evm_address. ${lookupError?.message || ''}`,
+        hint: 'Ensure the agent/persona has keys registered in agent_keys table with matching fio_handle or persona_id'
       }), { status: 404 });
     }
     
@@ -208,10 +273,10 @@ export async function POST(req: NextRequest) {
 
     const erc20 = new ethers.Contract(tokenAddress, ERC20_ABI, wallet);
     
-    // Check QCT token balance before attempting transfer
+    // Check token balance before attempting transfer
     try {
       const balance = await erc20.balanceOf(wallet.address);
-      console.log(`[Transfer] QCT balance check:`, {
+      console.log(`[Transfer] Token balance check:`, {
         wallet: wallet.address,
         balance: balance.toString(),
         requestedAmount: amount.toString(),
@@ -222,7 +287,7 @@ export async function POST(req: NextRequest) {
         const cname = chainName(Number(chainId));
         return new Response(JSON.stringify({ 
           ok: false, 
-          error: `Insufficient QCT balance on ${cname}`,
+          error: `Insufficient ${asset || 'token'} balance on ${cname}`,
           details: {
             available: balance.toString(),
             requested: amount.toString(),
@@ -232,10 +297,10 @@ export async function POST(req: NextRequest) {
         }), { status: 400 });
       }
     } catch (balErr: any) {
-      console.error(`[Transfer] Failed to check QCT balance:`, balErr);
+      console.error(`[Transfer] Failed to check token balance:`, balErr);
       return new Response(JSON.stringify({ 
         ok: false, 
-        error: `Failed to check QCT balance: ${balErr?.message || 'unknown'}` 
+        error: `Failed to check token balance: ${balErr?.message || 'unknown'}` 
       }), { status: 500 });
     }
     

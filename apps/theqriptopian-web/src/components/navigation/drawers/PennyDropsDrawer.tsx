@@ -7,12 +7,15 @@
  * Features: metaVatar integration, modality buttons, hover actions
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { DrawerLayer } from "@agentiq/smarttriad";
-import { useCodex } from "@agentiq/codex";
-import { Kn0w1Viewer } from "@/components/content/Kn0w1Viewer";
+import { useLiquidUIContent } from "@/hooks/useLiquidUIContent";
+import { SmartContentViewer } from "@/components/content/SmartContentViewer";
+import { SmartContentActions, type ContentModalities } from "@/components/content/SmartContentActions";
+import { useSmartContentAction } from "@/contexts/SmartContentActionContext";
 import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
 import { WheelGesturesPlugin } from "embla-carousel-wheel-gestures";
+import { useMetaAvatar } from "@/contexts/MetaAvatarContext";
 
 interface PennyDropsDrawerProps {
   isOpen: boolean;
@@ -22,17 +25,37 @@ interface PennyDropsDrawerProps {
 export function PennyDropsDrawer({ isOpen, onClose }: PennyDropsDrawerProps) {
   const [activeTab] = useState('stories');
   const [fullscreenIndex, setFullscreenIndex] = useState<number | null>(null);
-  const { currentCodex } = useCodex();
+  const { requestAvatar, releaseAvatar } = useMetaAvatar();
   
-  // Get live content from CodexQube
-  const pennyDropsDomain = currentCodex?.domains.find(d => d.domainId === 'pennydrops');
-  const pennyDropsContent = pennyDropsDomain?.sections?.map(section => ({
-    id: section.contentId,
-    title: section.title,
-    description: section.excerpt || '',
-    image: section.media?.thumbnail || section.media?.hero || 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=800&h=600&fit=crop',
-    badge: 'Q¢',
-  })) || [];
+  // Use global SmartContent action handler
+  const { createHandler } = useSmartContentAction();
+  
+  // Get pennydrops content from Liquid UI Issue Package v1.4
+  const { content: liquidUIContent } = useLiquidUIContent('pennydrops');
+
+  // Request/release avatar based on drawer state and fullscreen mode
+  useEffect(() => {
+    if (isOpen && fullscreenIndex === null) {
+      // Show avatar in sidebar when drawer is open and not in fullscreen
+      requestAvatar('sidebar', 'moneypenny');
+    } else {
+      // Hide avatar when drawer closes or fullscreen is active
+      releaseAvatar('sidebar');
+    }
+    
+    // Cleanup on unmount
+    return () => releaseAvatar('sidebar');
+  }, [isOpen, fullscreenIndex, requestAvatar, releaseAvatar]);
+  
+  // Transform Liquid UI content to component format
+  const pennyDropsContent = liquidUIContent.map(item => ({
+    id: item.id,
+    title: item.title,
+    description: item.excerpt || '',
+    image: item.image || 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=800&h=600&fit=crop',
+    badge: item.badge || 'Q¢',
+    modalities: item.modalities || {},
+  }));
 
   const tabs = [
     { id: 'stories', label: 'Stories' },
@@ -52,7 +75,7 @@ export function PennyDropsDrawer({ isOpen, onClose }: PennyDropsDrawerProps) {
         <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Main Feature Viewer */}
           <div className="md:col-span-2">
-            <Kn0w1Viewer
+            <SmartContentViewer
               items={pennyDropsContent}
               domain="pennydrops"
               onFullscreenChange={(isFullscreen) => {
@@ -61,14 +84,11 @@ export function PennyDropsDrawer({ isOpen, onClose }: PennyDropsDrawerProps) {
             />
           </div>
 
-          {/* metaVatar Placeholder Area - Desktop only */}
+          {/* metaVatar Area - Desktop only
+              The actual avatar is rendered globally in Layout.tsx
+              and positioned via CSS to appear in this column */}
           <div className="hidden md:block md:col-span-1">
-            <div className="h-full bg-background/20 backdrop-blur-sm border border-border/30 rounded-lg flex items-center justify-center">
-              <div className="text-center text-muted-foreground p-6">
-                <p className="text-sm">metaVatar Integration</p>
-                <p className="text-xs mt-2 opacity-70">Coming soon</p>
-              </div>
-            </div>
+            {/* Transparent placeholder - avatar renders behind/over this via fixed positioning */}
           </div>
         </div>
 
@@ -82,9 +102,12 @@ export function PennyDropsDrawer({ isOpen, onClose }: PennyDropsDrawerProps) {
             <CarouselContent className="-ml-4">
               {pennyDropsContent.map((item, index) => (
                 <CarouselItem key={item.id} className="pl-4 basis-1/4">
-                  <button
+                  <div
                     onClick={() => setFullscreenIndex(index)}
-                    className="group relative aspect-[47/20] w-full overflow-hidden rounded-lg bg-black"
+                    className="group relative aspect-[47/20] w-full overflow-hidden rounded-lg bg-black cursor-pointer"
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => e.key === 'Enter' && setFullscreenIndex(index)}
                   >
                     <img
                       src={item.image}
@@ -101,18 +124,40 @@ export function PennyDropsDrawer({ isOpen, onClose }: PennyDropsDrawerProps) {
                       </div>
                     )}
 
-                    <div className="absolute bottom-2 left-2 right-2">
+                    {/* SmartContentActions on thumbnails */}
+                    <div className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                      <SmartContentActions
+                        modalities={item.modalities as ContentModalities || null}
+                        context="thumbnail"
+                        showExpand={true}
+                        showShare={false}
+                        size="sm"
+                        onAction={(action) => {
+                          // Expand is handled locally for fullscreen
+                          if (action === 'expand') {
+                            setFullscreenIndex(index);
+                          } else {
+                            // All other actions use global handler
+                            createHandler(item)(action);
+                          }
+                        }}
+                      />
+                    </div>
+
+                    <div className="absolute bottom-2 left-2 right-10">
                       <p className="text-white text-xs font-medium line-clamp-2">
                         {item.title}
                       </p>
                     </div>
-                  </button>
+                  </div>
                 </CarouselItem>
               ))}
             </CarouselContent>
           </Carousel>
         </div>
       </div>
+
+      {/* VideoModal and ArticleReader are now handled globally by SmartContentActionProvider */}
     </DrawerLayer>
   );
 }

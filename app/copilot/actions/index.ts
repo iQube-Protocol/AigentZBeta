@@ -38,8 +38,17 @@ import { personaActions } from "./persona";
 // Smart Triad: Orchestrated Content + Wallet + Menu coordination
 import { smartTriadActions } from "./smartTriad";
 
+// Liquid UI: Dynamic contextual UI composition
+import { liquidUIActions } from "./liquidUI";
+
+// Template UI: Complete Static GenUI (14 main stage + 9 wallet = 23 templates)
+import { completeTemplateUIActions } from "./templateUIComplete";
+
 // Smart Menu Content Integration
 import { smartMenuContentActions } from "@/services/content/smartMenuIntegration";
+
+// Codex: Knowledge Base, Auto-Drive content, task/rewards/ascension frameworks
+import { codexActions } from "./codex";
 
 /**
  * All backend actions available to the Platform Copilot
@@ -69,8 +78,14 @@ export const allActions = [
   ...personaActions,
   // Smart Triad: Content + Wallet + Menu orchestration
   ...smartTriadActions,
+  // Liquid UI: Dynamic contextual UI composition
+  ...liquidUIActions,
+  // Template UI: Complete Static GenUI (14 main stage + 9 wallet templates)
+  ...completeTemplateUIActions,
   // Smart Menu Content Integration
   ...smartMenuContentActions,
+  // Codex: KB search, Auto-Drive content, task/rewards/ascension frameworks
+  ...codexActions,
 ];
 
 export * from "./registry";
@@ -91,3 +106,9 @@ export * from "./smartcontent";
 export * from "./persona";
 // Smart Triad orchestration actions
 export * from "./smartTriad";
+// Liquid UI actions
+export * from "./liquidUI";
+// Template UI actions
+export * from "./templateUI";
+// Codex actions
+export * from "./codex";

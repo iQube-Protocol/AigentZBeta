@@ -26,6 +26,7 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
+    const fioHandle = searchParams.get('fio_handle');
     
     const supabase = createClient(supabaseUrl, supabaseKey);
     
@@ -42,6 +43,20 @@ export async function GET(req: NextRequest) {
       }
 
       return NextResponse.json({ ok: true, data: persona });
+    } else if (fioHandle) {
+      // Check if FIO handle exists - used for availability check
+      const { data: personas, error } = await supabase
+        .from('personas')
+        .select('id, fio_handle')
+        .eq('fio_handle', fioHandle)
+        .limit(1);
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      // Return empty array if not found (handle is available)
+      return NextResponse.json({ ok: true, data: personas || [] });
     } else {
       // Fetch all personas
       const { data: personas, error } = await supabase

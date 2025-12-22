@@ -23,3 +23,5 @@ export {
   useTriadLibrary,
 } from './SmartTriadProvider';
 export { default as ContentCopilotPanel } from './ContentCopilotPanel';
+export { ContentActionIcons } from './ContentActionIcons';
+export type { ContentActionIconsProps, ContentModalityState, IconStyle } from './ContentActionIcons';

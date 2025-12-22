@@ -1,35 +1,29 @@
 import { useState, useEffect } from "react";
-import { useCodex } from "@agentiq/codex";
+import { useLiquidUIContent } from "@/hooks/useLiquidUIContent";
+import { SmartContentActions, type ContentModalities } from "./SmartContentActions";
+import { useSmartContentAction } from "@/contexts/SmartContentActionContext";
 import quantumTechHero from "@/assets/quantum-tech-hero.jpg";
 
 export function SecondHeroSection() {
   const [activeArticle, setActiveArticle] = useState(0);
-  const { currentCodex } = useCodex();
   
-  // Get second-hero content from CodexQube
-  const homeDomain = currentCodex?.domains.find(d => d.domainId === 'home');
-  const heroArticles = homeDomain?.sections
-    ?.filter(s => {
-      const section = (s as any).placement?.section;
-      return section === 'second-hero';
-    })
-    .sort((a, b) => {
-      const posA = (a as any).placement?.position || 0;
-      const posB = (b as any).placement?.position || 0;
-      return posA - posB;
-    })
-    .map(section => {
-      const placement = (section as any).placement;
-      return {
-        id: section.contentId,
-        title: section.title,
-        subtitle: section.excerpt || '',
-        image: section.media?.hero || section.media?.thumbnail || quantumTechHero,
-        imageScale: placement?.imageScale || 100,
-        imageX: placement?.imageX || 50,
-        imageY: placement?.imageY || 50
-      };
-    }) || [];
+  // Use global SmartContent action handler
+  const { createHandler } = useSmartContentAction();
+  
+  // Get second-hero content from Liquid UI Issue Package v1.4
+  const { content: liquidUIContent } = useLiquidUIContent('second-hero');
+  
+  // Transform Liquid UI content to component format
+  const heroArticles = liquidUIContent.map(item => ({
+    id: item.id,
+    title: item.title,
+    subtitle: item.excerpt || '',
+    image: item.image || quantumTechHero,
+    imageScale: item.imageScale || 100,
+    imageX: item.imageX || 50,
+    imageY: item.imageY || 50,
+    modalities: item.modalities as ContentModalities || null
+  }));
   
   const articles = heroArticles.length > 0 ? heroArticles : [{
     id: '1',
@@ -96,6 +90,24 @@ export function SecondHeroSection() {
           <p className="text-xl text-[#8fb3c0] mb-8 drop-shadow-[0_0_20px_rgba(0,0,0,0.8)]">
             {currentArticle.subtitle}
           </p>
+          {/* SmartContentActions - uses global action handler */}
+          <div className="flex justify-center mb-4">
+            <SmartContentActions
+              modalities={currentArticle.modalities}
+              context="hero"
+              showExpand={false}
+              showShare={true}
+              size="lg"
+              onAction={createHandler({
+                id: currentArticle.id,
+                title: currentArticle.title,
+                description: currentArticle.subtitle,
+                image: currentArticle.image,
+                modalities: currentArticle.modalities,
+              })}
+            />
+          </div>
+          
           {articles.length > 1 && (
             <div className="flex justify-center gap-2 mt-4">
               {articles.map((_, index) => (
@@ -114,6 +126,8 @@ export function SecondHeroSection() {
           )}
         </div>
       </div>
+
+      {/* VideoModal and ArticleReader are now handled globally by SmartContentActionProvider */}
     </div>
   );
 }

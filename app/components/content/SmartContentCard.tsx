@@ -1,7 +1,9 @@
 "use client";
 
 import React from "react";
+import { BookOpen, Play, Headphones, MessageSquare } from "lucide-react";
 import type { SmartContentQube, ContentModality } from "@/types/smartContent";
+import type { IconStyle } from "./ContentActionIcons";
 
 type CardVariant = 
   | "compact"       // List row - library style
@@ -59,13 +61,20 @@ interface SmartContentCardProps {
   onAddToLibrary?: (content: SmartContentQube) => void;
   isOwned?: boolean;
   isInLibrary?: boolean;
+  /** Icon style for modality icons - defaults to "lucide" */
+  iconStyle?: IconStyle;
 }
 
-const MODALITY_ICONS: Record<ContentModality, { icon: string; label: string }> = {
-  read: { icon: "📖", label: "Read" },
-  watch: { icon: "🎬", label: "Watch" },
-  listen: { icon: "🎧", label: "Listen" },
-  interact: { icon: "💬", label: "Interact" },
+const MODALITY_EMOJI: Record<ContentModality, string> = {
+  read: "📖", watch: "🎬", listen: "🎧", interact: "💬",
+};
+
+const MODALITY_LABELS: Record<ContentModality, string> = {
+  read: "Read", watch: "Watch", listen: "Listen", interact: "Interact",
+};
+
+const LUCIDE_ICONS: Record<ContentModality, React.FC<{ className?: string }>> = {
+  read: BookOpen, watch: Play, listen: Headphones, interact: MessageSquare,
 };
 
 const APP_COLORS: Record<string, string> = {
@@ -91,7 +100,16 @@ export default function SmartContentCard({
   onAddToLibrary,
   isOwned = false,
   isInLibrary = false,
+  iconStyle = "lucide",
 }: SmartContentCardProps) {
+  // Helper to render modality icon based on iconStyle
+  const renderModalityIcon = (mod: ContentModality, className: string = "text-base") => {
+    if (iconStyle === "emoji") {
+      return <span className={className}>{MODALITY_EMOJI[mod]}</span>;
+    }
+    const Icon = LUCIDE_ICONS[mod];
+    return <Icon className={className.includes("w-") ? className : "w-4 h-4 text-white"} />;
+  };
   // Get active modalities (handle empty/undefined modalities)
   const activeModalities = content.modalities 
     ? Object.entries(content.modalities)
@@ -440,18 +458,19 @@ export default function SmartContentCard({
   }
 
   // Poster2 - 2 per row, large posters with overlay icons (SS3 top)
+  // Updated to 2:3 aspect ratio for taller cards that show full content
   if (variant === "poster2") {
     return (
       <button
         onClick={() => onSelect?.(content)}
         className="group w-full text-left"
       >
-        <div className="aspect-[3/4] rounded-xl bg-black/30 overflow-hidden ring-1 ring-white/10 group-hover:ring-cyan-500/50 transition-all relative">
+        <div className="aspect-[2/3] rounded-xl bg-black/30 overflow-hidden ring-1 ring-white/10 group-hover:ring-cyan-500/50 transition-all relative flex items-center justify-center">
           {content.coverImageUri && (
             <img
               src={content.coverImageUri}
               alt={content.title}
-              className="w-full h-full object-cover"
+              className="max-w-full max-h-full object-contain"
             />
           )}
           {/* Top-right modality icons */}

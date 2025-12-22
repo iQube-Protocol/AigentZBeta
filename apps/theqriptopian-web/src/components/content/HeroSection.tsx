@@ -1,39 +1,32 @@
 import { useState, useEffect } from "react";
-import { BookOpen, Play, Headphones } from "lucide-react";
-import { useCodex } from "@agentiq/codex";
+import { useLiquidUIContent } from "@/hooks/useLiquidUIContent";
+import { SmartContentActions, type ContentModalities } from "./SmartContentActions";
+import { useSmartContentAction } from "@/contexts/SmartContentActionContext";
 import heroImage from "@/assets/qriptopian-hero.jpg";
+
 export function HeroSection() {
   const [activeArticle, setActiveArticle] = useState(0);
-  const [activeMode, setActiveMode] = useState<'read' | 'watch' | 'listen' | null>(null);
-  const { currentCodex } = useCodex();
   
-  // Get home-hero content from CodexQube
-  const homeDomain = currentCodex?.domains.find(d => d.domainId === 'home');
-  const heroArticles = homeDomain?.sections
-    ?.filter(s => {
-      const section = (s as any).placement?.section;
-      return section === 'home-hero';
-    })
-    .sort((a, b) => {
-      const posA = (a as any).placement?.position || 0;
-      const posB = (b as any).placement?.position || 0;
-      return posA - posB;
-    })
-    .map(section => {
-      const placement = (section as any).placement;
-      return {
-        id: section.contentId,
-        title: section.title,
-        subtitle: section.excerpt || '',
-        image: section.media?.hero || section.media?.thumbnail || heroImage,
-        readContent: section.excerpt || '',
-        duration: '12 min read',
-        watchProgress: 0,
-        imageScale: placement?.imageScale || 100,
-        imageX: placement?.imageX || 50,
-        imageY: placement?.imageY || 50
-      };
-    }) || [];
+  // Use global SmartContent action handler
+  const { createHandler } = useSmartContentAction();
+  
+  // Get home-hero content from Liquid UI Issue Package v1.4
+  const { content: liquidUIContent } = useLiquidUIContent('home-hero');
+  
+  // Transform Liquid UI content to component format
+  const heroArticles = liquidUIContent.map(item => ({
+    id: item.id,
+    title: item.title,
+    subtitle: item.excerpt || '',
+    image: item.image || heroImage,
+    readContent: item.modalities?.read?.text || item.excerpt || '',
+    duration: item.modalities?.read?.duration || '5 min read',
+    watchProgress: 0,
+    imageScale: item.imageScale || 100,
+    imageX: item.imageX || 50,
+    imageY: item.imageY || 50,
+    modalities: item.modalities as ContentModalities || null
+  }));
   
   const articles = heroArticles.length > 0 ? heroArticles : [{
     id: '1',
@@ -97,19 +90,22 @@ export function HeroSection() {
       {/* Main Content */}
       <div className="absolute inset-0 flex items-end pb-16">
         <div className="px-8 max-w-2xl">
-          {/* Action Icons and Navigation Dots */}
+          {/* Smart Content Actions - Only shows icons for available modalities */}
           <div className="flex items-center gap-4 mb-6">
-            <div className="flex gap-3">
-              <button onClick={() => setActiveMode(activeMode === 'read' ? null : 'read')} className={`p-2 rounded-lg transition-all ${activeMode === 'read' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500' : 'bg-black/50 text-cyan-400 hover:text-cyan-300 hover:bg-black/70'}`} aria-label="Read">
-                <BookOpen className="h-4 w-4" />
-              </button>
-              <button onClick={() => setActiveMode(activeMode === 'watch' ? null : 'watch')} className={`p-2 rounded-lg transition-all ${activeMode === 'watch' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500' : 'bg-black/50 text-cyan-400 hover:text-cyan-300 hover:bg-black/70'}`} aria-label="Watch">
-                <Play className="h-4 w-4" />
-              </button>
-              <button onClick={() => setActiveMode(activeMode === 'listen' ? null : 'listen')} className={`p-2 rounded-lg transition-all ${activeMode === 'listen' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500' : 'bg-black/50 text-cyan-400 hover:text-cyan-300 hover:bg-black/70'}`} aria-label="Listen">
-                <Headphones className="h-4 w-4" />
-              </button>
-            </div>
+            <SmartContentActions
+              modalities={currentArticle.modalities}
+              context="hero"
+              showExpand={false}
+              showShare={true}
+              size="lg"
+              onAction={createHandler({
+                id: currentArticle.id,
+                title: currentArticle.title,
+                description: currentArticle.subtitle,
+                image: currentArticle.image,
+                modalities: currentArticle.modalities,
+              })}
+            />
             
             {/* Navigation Dots */}
             <div className="flex gap-2">
@@ -126,57 +122,6 @@ export function HeroSection() {
         </div>
       </div>
 
-      {/* Read Mode Overlay */}
-      {activeMode === 'read' && <div className="absolute inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center p-8">
-          <div className="max-w-4xl w-full bg-[#0a1528]/95 rounded-lg border border-cyan-500/20 p-8 max-h-[80vh] overflow-y-auto">
-            <div className="flex justify-between items-start mb-6">
-              <div>
-                <h2 className="text-3xl font-bold text-[#d0f6ff] mb-2">{currentArticle.title}</h2>
-                <p className="text-cyan-400">{currentArticle.duration}</p>
-              </div>
-              <button onClick={() => setActiveMode(null)} className="text-cyan-400 hover:text-cyan-300 text-xl">
-                ×
-              </button>
-            </div>
-            <div className="prose prose-cyan max-w-none">
-              <p className="text-gray-300 leading-relaxed text-lg">
-                {currentArticle.readContent}
-              </p>
-            </div>
-          </div>
-        </div>}
-
-      {/* Watch Mode Overlay */}
-      {activeMode === 'watch' && <div className="absolute inset-0 bg-black/95 flex items-center justify-center">
-          <div className="relative w-full h-full flex items-center justify-center">
-            <div className="absolute top-6 right-24 z-10">
-              <button onClick={() => setActiveMode(null)} className="text-white hover:text-cyan-400 text-xl bg-black/50 rounded-full w-10 h-10 flex items-center justify-center">
-                ×
-              </button>
-            </div>
-            
-            {/* Watch Content Placeholder */}
-            <div className="text-center">
-              <div className="w-32 h-32 mx-auto mb-6 bg-cyan-500/20 rounded-full flex items-center justify-center border border-cyan-500">
-                <Play className="h-16 w-16 text-cyan-400" />
-              </div>
-              <h3 className="text-2xl text-white mb-4">{currentArticle.title}</h3>
-              <div className="text-cyan-400 mb-6">Duration: {currentArticle.duration}</div>
-              
-              {/* Progress Bar */}
-              <div className="w-96 mx-auto">
-                <div className="flex justify-between text-sm text-gray-400 mb-2">
-                  <span>0:00</span>
-                  <span>{currentArticle.duration}</span>
-                </div>
-                <div className="w-full bg-gray-700 rounded-full h-2">
-                  <div className="bg-cyan-400 h-2 rounded-full transition-all" style={{
-                width: `${currentArticle.watchProgress}%`
-              }} />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>}
+      {/* VideoModal and ArticleReader are now handled globally by SmartContentActionProvider */}
     </div>;
 }

@@ -1,5 +1,5 @@
 import { DrawerLayer } from "@agentiq/smarttriad";
-import { Kn0w1Viewer } from "@/components/content/Kn0w1Viewer";
+import { SmartContentViewer } from "@/components/content/SmartContentViewer";
 import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
 import { useState } from "react";
 import { WheelGesturesPlugin } from "embla-carousel-wheel-gestures";
@@ -84,7 +84,7 @@ export function MythosDrawer({ isOpen, onClose }: MythosDrawerProps) {
                   onClick={() => setSelectedItemIndex(index)}
                   className="cursor-pointer"
                 >
-                  <Kn0w1Viewer items={[item]} domain="mythos" />
+                  <SmartContentViewer items={[item]} domain="mythos" />
                 </div>
               </CarouselItem>
             ))}

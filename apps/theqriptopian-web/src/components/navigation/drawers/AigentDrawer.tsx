@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect } from "react";
-import { X, Send, User, MessageSquare, Loader2 } from "lucide-react";
+import { X, Send, User, MessageSquare, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { MetaVatarFrame } from '@/components/metaVatar/MetaVatarFrame';
+import { useMetaAvatar } from "@/contexts/MetaAvatarContext";
 import { 
   sendChatMessage, 
   getAgentSystemPrompt,
@@ -29,6 +29,28 @@ export function AigentDrawer({ isOpen, onClose }: AigentDrawerProps) {
       content: 'Welcome to Qriptopian! I\'m Nakamoto, your crypto and blockchain intelligence specialist. I can help you discover insights, analyze markets, and explore the world of Web3. How can I assist you today?'
     }
   ]);
+  
+  // MetaAvatar context for persistent iframe
+  const { requestAvatar, releaseAvatar, refreshAvatar, setAgent } = useMetaAvatar();
+
+  // Request/release avatar based on drawer state and view mode
+  useEffect(() => {
+    if (isOpen && viewMode === 'metavatar') {
+      requestAvatar('immersive', activeTab);
+    } else {
+      releaseAvatar('immersive');
+    }
+    
+    // Cleanup on unmount
+    return () => releaseAvatar('immersive');
+  }, [isOpen, viewMode, activeTab, requestAvatar, releaseAvatar]);
+
+  // Update agent when tab changes in metavatar mode
+  useEffect(() => {
+    if (viewMode === 'metavatar') {
+      setAgent(activeTab);
+    }
+  }, [activeTab, viewMode, setAgent]);
 
   const tabs = [
     { id: 'nakamoto', label: 'Nakamoto', description: 'Qripto and blockchain intelligence specialist' },
@@ -205,12 +227,20 @@ export function AigentDrawer({ isOpen, onClose }: AigentDrawerProps) {
         {/* Content */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {viewMode === 'metavatar' ? (
-            <div className="flex-1 p-6">
-              <MetaVatarFrame
-                agentId={activeTab}
-                isVisible={true}
-                onMinimize={() => setViewMode('chat')}
-              />
+            /* MetaAvatar is rendered globally in Layout.tsx
+               This area becomes transparent to show the avatar behind it
+               The avatar is positioned via CSS based on 'immersive' container type */
+            <div className="flex-1 flex flex-col items-center justify-end p-6 pb-24">
+              {/* Refresh button for avatar */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={refreshAvatar}
+                className="bg-background/60 backdrop-blur-sm border-border/30 text-muted-foreground hover:text-foreground"
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh Avatar
+              </Button>
             </div>
           ) : (
             <>

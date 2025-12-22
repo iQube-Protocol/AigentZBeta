@@ -4,7 +4,7 @@ import React from "react";
 import type { SmartContentQube } from "@/types/smartContent";
 
 export type PurchaseStep = "idle" | "confirm" | "processing" | "success" | "error";
-export type PaymentMethod = "arb" | "base" | "polygon" | "optimism" | "knyt";
+export type PaymentMethod = "arb" | "base" | "polygon" | "optimism" | "usdc" | "knyt";
 
 interface PurchaseFlowProps {
   content: SmartContentQube;
@@ -24,6 +24,7 @@ const PAYMENT_METHODS = [
   { key: "base" as const, label: "Q¢ Base", icon: "🔵", color: "sky" },
   { key: "polygon" as const, label: "Q¢ Polygon", icon: "🟣", color: "purple" },
   { key: "optimism" as const, label: "Q¢ Optimism", icon: "🔴", color: "red" },
+  { key: "usdc" as const, label: "USDC (Base)", icon: "💵", color: "emerald" },
   { key: "knyt" as const, label: "KNYT", icon: "🔗", color: "cyan" },
 ];
 

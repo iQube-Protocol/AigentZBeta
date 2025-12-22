@@ -9,7 +9,10 @@ export { WalletButton } from './WalletButton';
 export type {
   WalletAccount,
   WalletState,
-  WalletProvider as WalletProviderType,
+  WalletProviderType,
   WalletConfig,
   WalletActions,
+  TokenBalances,
+  WalletQube,
+  WalletTransaction,
 } from './types';

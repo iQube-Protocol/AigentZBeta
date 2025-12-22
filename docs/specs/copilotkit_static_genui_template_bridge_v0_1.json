@@ -1,0 +1,350 @@
+{
+  "schema_version": "copilotkit_static_genui_template_bridge.v0.1",
+  "description": "Stage 1 Generative UI: Static template components bridge for CopilotKit. Maps KNYT Liquid UI templates to React components that Copilot can render via ui.renderTemplate tool.",
+  "version": "0.1.0",
+  "generated_at": "2025-12-21",
+  "copilotkit_version": "1.50+",
+  "integration_pattern": "static_genui",
+  "template_count": {
+    "main_stage": 14,
+    "wallet": 9,
+    "total": 23
+  },
+  "templates": [
+    {
+      "template_id": "knyt:drawer_grid_v1",
+      "component_name": "DrawerGridTemplate",
+      "component_path": "@/components/codex/templates/DrawerGridTemplate",
+      "description": "Browse/discover grid layout with scrolls drawer",
+      "best_for": ["browse", "discover", "quick_switch", "library"],
+      "required_bindings": {
+        "contentObjects": {
+          "type": "array",
+          "description": "Array of content objects to display in grid",
+          "items_schema": {
+            "content_id": "string",
+            "title": "string",
+            "thumbnail_url": "string?",
+            "content_type": "string",
+            "modalities": {
+              "read": "boolean",
+              "watch": "boolean",
+              "listen": "boolean"
+            }
+          }
+        },
+        "device": {
+          "type": "string",
+          "enum": ["mobile", "tablet", "desktop"],
+          "description": "Target device for responsive layout"
+        }
+      },
+      "optional_bindings": {
+        "onContentSelect": {
+          "type": "function",
+          "description": "Callback when content is selected"
+        },
+        "walletMode": {
+          "type": "string",
+          "enum": ["narrow", "wide", "closed"],
+          "default": "closed"
+        }
+      },
+      "copilot_tool_spec": {
+        "name": "ui_render_drawer_grid",
+        "description": "Render browse/discover grid with content cards. Use when user wants to browse library or discover content.",
+        "parameters": [
+          {
+            "name": "contentObjects",
+            "type": "array",
+            "required": true,
+            "description": "Content objects to display"
+          },
+          {
+            "name": "device",
+            "type": "string",
+            "required": false,
+            "default": "desktop"
+          }
+        ]
+      }
+    },
+    {
+      "template_id": "knyt:dual_poster_stage_v1",
+      "component_name": "DualPosterStageTemplate",
+      "component_path": "@/components/codex/templates/DualPosterStageTemplate",
+      "description": "90% height portrait posters with quest rail",
+      "best_for": ["character_deep_dive", "cover_art", "page_review", "collectible_display"],
+      "required_bindings": {
+        "primaryContent": {
+          "type": "object",
+          "description": "Primary poster content",
+          "schema": {
+            "content_id": "string",
+            "title": "string",
+            "thumbnail_url": "string",
+            "content_type": "string"
+          }
+        },
+        "device": {
+          "type": "string",
+          "enum": ["mobile", "tablet", "desktop"]
+        }
+      },
+      "optional_bindings": {
+        "secondaryContent": {
+          "type": "object",
+          "description": "Secondary poster or related content"
+        },
+        "questRailData": {
+          "type": "object",
+          "description": "Active tasks, rewards, ascension progress"
+        }
+      },
+      "copilot_tool_spec": {
+        "name": "ui_render_dual_poster",
+        "description": "Render large portrait poster stage. Use for character profiles, cover art, or collectible display.",
+        "parameters": [
+          {
+            "name": "primaryContent",
+            "type": "object",
+            "required": true
+          },
+          {
+            "name": "secondaryContent",
+            "type": "object",
+            "required": false
+          },
+          {
+            "name": "device",
+            "type": "string",
+            "required": false,
+            "default": "desktop"
+          }
+        ]
+      }
+    },
+    {
+      "template_id": "knyt:motion_stage_v1",
+      "component_name": "MotionStageTemplate",
+      "component_path": "@/components/codex/templates/MotionStageTemplate",
+      "description": "Immersive landscape motion stage with clip strip",
+      "best_for": ["watch", "motion_comics", "trailers", "scene_review"],
+      "required_bindings": {
+        "videoContent": {
+          "type": "object",
+          "description": "Video/motion content",
+          "schema": {
+            "content_id": "string",
+            "title": "string",
+            "video_url": "string",
+            "duration": "string"
+          }
+        },
+        "device": {
+          "type": "string",
+          "enum": ["mobile", "tablet", "desktop"]
+        }
+      },
+      "optional_bindings": {
+        "clipStrip": {
+          "type": "array",
+          "description": "Related clips for navigation"
+        }
+      },
+      "copilot_tool_spec": {
+        "name": "ui_render_motion_stage",
+        "description": "Render immersive video/motion stage. Use for motion comics, trailers, or video content.",
+        "parameters": [
+          {
+            "name": "videoContent",
+            "type": "object",
+            "required": true
+          },
+          {
+            "name": "clipStrip",
+            "type": "array",
+            "required": false
+          },
+          {
+            "name": "device",
+            "type": "string",
+            "required": false,
+            "default": "desktop"
+          }
+        ]
+      }
+    },
+    {
+      "template_id": "knyt:quest_hud_hub_v1",
+      "component_name": "QuestHudHubTemplate",
+      "component_path": "@/components/codex/templates/QuestHudHubTemplate",
+      "description": "Task/reward/ascension-first HUD with content stage",
+      "best_for": ["ascension", "earn_rewards", "member_get_member", "guided_paths"],
+      "required_bindings": {
+        "hudData": {
+          "type": "object",
+          "description": "HUD state (tasks, rewards, ascension)",
+          "schema": {
+            "activeTasks": "array",
+            "rewardMeter": "object",
+            "ascensionProgress": "object"
+          }
+        },
+        "device": {
+          "type": "string",
+          "enum": ["mobile", "tablet", "desktop"]
+        }
+      },
+      "optional_bindings": {
+        "contentStage": {
+          "type": "object",
+          "description": "Contextual content for current task"
+        }
+      },
+      "copilot_tool_spec": {
+        "name": "ui_render_quest_hud",
+        "description": "Render quest/task HUD with rewards. Use for guided paths, ascension, or reward-focused experiences.",
+        "parameters": [
+          {
+            "name": "hudData",
+            "type": "object",
+            "required": true
+          },
+          {
+            "name": "contentStage",
+            "type": "object",
+            "required": false
+          },
+          {
+            "name": "device",
+            "type": "string",
+            "required": false,
+            "default": "desktop"
+          }
+        ]
+      }
+    },
+    {
+      "template_id": "knyt:realm_bridge_map_v1",
+      "component_name": "RealmBridgeMapTemplate",
+      "component_path": "@/components/codex/templates/RealmBridgeMapTemplate",
+      "description": "DigiTerra ↔ Terra ↔ metaTerra/or realm navigation",
+      "best_for": ["bridge_real_to_lore", "realm_navigation"],
+      "required_bindings": {
+        "currentRealm": {
+          "type": "string",
+          "enum": ["terra", "digiterra", "metaterra_or"],
+          "description": "Current realm context"
+        },
+        "realmContent": {
+          "type": "object",
+          "description": "Content organized by realm",
+          "schema": {
+            "terra": "array",
+            "digiterra": "array",
+            "metaterra_or": "array"
+          }
+        },
+        "device": {
+          "type": "string",
+          "enum": ["mobile", "tablet", "desktop"]
+        }
+      },
+      "optional_bindings": {
+        "bridgeActions": {
+          "type": "array",
+          "description": "Available realm transition actions"
+        }
+      },
+      "copilot_tool_spec": {
+        "name": "ui_render_realm_bridge",
+        "description": "Render realm navigation map. Use for transitioning between Terra (real-world), DigiTerra (lore), and metaTerra/or (convergence).",
+        "parameters": [
+          {
+            "name": "currentRealm",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "realmContent",
+            "type": "object",
+            "required": true
+          },
+          {
+            "name": "device",
+            "type": "string",
+            "required": false,
+            "default": "desktop"
+          }
+        ]
+      }
+    }
+  ],
+  "template_registry_interface": {
+    "description": "TemplateRegistry service for runtime template lookup and rendering",
+    "methods": {
+      "getTemplate": {
+        "signature": "(templateId: string) => TemplateDefinition | null",
+        "description": "Get template definition by ID"
+      },
+      "selectTemplate": {
+        "signature": "(context: SelectionContext) => string",
+        "description": "Select best template based on user intent, device, content mix",
+        "context_schema": {
+          "userIntent": "string",
+          "device": "mobile | tablet | desktop",
+          "contentMix": "string",
+          "realm": "string?",
+          "taskState": "string?"
+        }
+      },
+      "renderTemplate": {
+        "signature": "(templateId: string, bindings: object) => ReactElement",
+        "description": "Render template component with data bindings"
+      }
+    }
+  },
+  "copilot_integration": {
+    "tool_registration": {
+      "description": "Register all template tools with CopilotKit runtime",
+      "pattern": "dynamic",
+      "code_example": "templates.forEach(t => copilotRuntime.registerAction(t.copilot_tool_spec))"
+    },
+    "state_sync": {
+      "description": "Sync template selection and bindings via STATE_DELTA",
+      "fields": [
+        "/liquidUI/selectedTemplateId",
+        "/liquidUI/templateBindings"
+      ]
+    },
+    "selection_strategy": {
+      "description": "Copilot uses template selection policy from knyt_liquid_ui_template_pack.json",
+      "priority_order": [
+        "user_intent",
+        "content_mix",
+        "realm",
+        "device",
+        "task_state",
+        "business_goal"
+      ]
+    }
+  },
+  "implementation_notes": {
+    "stage_1_limitations": [
+      "Templates are static React components (not dynamically generated)",
+      "Template selection is rule-based (not LLM-generated)",
+      "Bindings are typed and validated (not free-form)"
+    ],
+    "stage_2_roadmap": [
+      "Dynamic template generation from natural language",
+      "LLM-driven layout composition",
+      "Free-form component assembly"
+    ],
+    "backwards_compatibility": [
+      "Existing KnytTemplateRenderer components can be wrapped",
+      "Template pack JSON remains source of truth",
+      "Copilot tools are additive (don't break existing flows)"
+    ]
+  }
+}

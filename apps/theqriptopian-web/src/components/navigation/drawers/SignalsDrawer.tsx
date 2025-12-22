@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { DrawerLayer } from "@agentiq/smarttriad";
-import { Kn0w1Viewer } from "@/components/content/Kn0w1Viewer";
+import { SmartContentViewer } from "@/components/content/SmartContentViewer";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import { BookOpen, Play, Headphones, Maximize2, X } from "lucide-react";
 import { WheelGesturesPlugin } from "embla-carousel-wheel-gestures";
@@ -79,6 +79,8 @@ export function SignalsDrawer({
         <button
           onClick={() => setIsFullscreen(false)}
           className="absolute top-4 right-4 z-10 text-white hover:text-cyan-400 transition-colors"
+          aria-label="Close fullscreen"
+          title="Close fullscreen"
         >
           <X className="h-6 w-6" />
         </button>
@@ -99,7 +101,7 @@ export function SignalsDrawer({
         <div className="grid grid-cols-3 gap-6">
           {/* Column 1: Main Signal Viewer */}
           <div className="h-full">
-            <Kn0w1Viewer items={signalsContent} domain="signals" />
+            <SmartContentViewer items={signalsContent} domain="signals" />
           </div>
 
           {/* Column 2 & 3: Hero Image */}
@@ -112,19 +114,21 @@ export function SignalsDrawer({
               <button
                 onClick={() => setIsFullscreen(true)}
                 className="absolute top-6 left-6 p-2 bg-black/50 hover:bg-black/70 rounded-lg text-white transition-colors"
+                aria-label="View fullscreen"
+                title="View fullscreen"
               >
                 <Maximize2 className="h-5 w-5" />
               </button>
               
               {/* Icon Buttons in Bottom Right */}
               <div className="absolute bottom-6 right-6 flex gap-3 items-end">
-                <button className="text-cyan-400 hover:text-cyan-300 transition-colors" aria-label="Read">
+                <button className="text-cyan-400 hover:text-cyan-300 transition-colors" aria-label="Read" title="Read">
                   <BookOpen className="h-4 w-4" />
                 </button>
-                <button className="text-cyan-400 hover:text-cyan-300 transition-colors" aria-label="Watch">
+                <button className="text-cyan-400 hover:text-cyan-300 transition-colors" aria-label="Watch" title="Watch">
                   <Play className="h-4 w-4" />
                 </button>
-                <button className="text-cyan-400 hover:text-cyan-300 transition-colors" aria-label="Listen">
+                <button className="text-cyan-400 hover:text-cyan-300 transition-colors" aria-label="Listen" title="Listen">
                   <Headphones className="h-4 w-4" />
                 </button>
               </div>

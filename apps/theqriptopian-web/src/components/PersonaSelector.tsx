@@ -10,7 +10,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
 
 interface Persona {
   id: string;
@@ -23,37 +22,65 @@ export function PersonaSelector() {
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [activePersona, setActivePersona] = useState<Persona | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const { toast } = useToast();
 
   useEffect(() => {
-    fetchPersonas();
+    console.log('[PersonaSelector] Mounted');
+    fetchUserPersonas();
+    
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: string) => {
+      console.log('[PersonaSelector] Auth state changed:', event);
+      fetchUserPersonas();
+    });
+    
+    return () => subscription.unsubscribe();
   }, []);
 
-  const fetchPersonas = async () => {
+  const fetchUserPersonas = async () => {
+    console.log('[PersonaSelector] fetchUserPersonas called');
     try {
-      const { data, error } = await supabase
+      const { data: { user } } = await supabase.auth.getUser();
+      console.log('[PersonaSelector] User:', user?.id || 'none');
+      
+      if (!user) {
+        setPersonas([]);
+        setActivePersona(null);
+        setIsLoading(false);
+        return;
+      }
+
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('persona_id, display_name')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      console.log('[PersonaSelector] Profile:', profile, 'Error:', profileError);
+
+      if (!profile?.persona_id) {
+        setPersonas([]);
+        setActivePersona(null);
+        setIsLoading(false);
+        return;
+      }
+
+      const { data: persona, error } = await supabase
         .from('persona')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select('id, fio_handle, default_identity_state, created_at')
+        .eq('id', profile.persona_id)
+        .maybeSingle();
 
-      if (error) throw error;
+      console.log('[PersonaSelector] Persona:', persona, 'Error:', error);
 
-      setPersonas(data || []);
-      if (data && data.length > 0) {
-        // Set first persona as active by default
-        const savedPersonaId = localStorage.getItem('activePersonaId');
-        const active = savedPersonaId 
-          ? data.find(p => p.id === savedPersonaId) || data[0]
-          : data[0];
-        setActivePersona(active);
+      if (persona) {
+        setPersonas([persona]);
+        setActivePersona(persona);
+        localStorage.setItem('activePersonaId', persona.id);
+      } else {
+        setPersonas([]);
+        setActivePersona(null);
       }
     } catch (error) {
-      console.error('Error fetching personas:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load personas",
-        variant: "destructive",
-      });
+      console.error('[PersonaSelector] Error:', error);
     } finally {
       setIsLoading(false);
     }
@@ -62,19 +89,16 @@ export function PersonaSelector() {
   const handlePersonaChange = (persona: Persona) => {
     setActivePersona(persona);
     localStorage.setItem('activePersonaId', persona.id);
-    toast({
-      title: "Persona Changed",
-      description: `Switched to ${persona.fio_handle || 'Anonymous'}`,
-    });
   };
 
-  const getPersonaDisplayName = (persona: Persona) => {
+  const getDisplayName = (persona: Persona) => {
     return persona.fio_handle || `Persona ${persona.id.slice(0, 8)}`;
   };
 
+  // Always render something visible for debugging
   if (isLoading) {
     return (
-      <Button variant="ghost" size="sm" disabled className="gap-2">
+      <Button variant="ghost" size="sm" disabled className="gap-2 text-gray-400">
         <User className="h-4 w-4" />
         <span className="text-sm">Loading...</span>
       </Button>
@@ -83,9 +107,14 @@ export function PersonaSelector() {
 
   if (personas.length === 0) {
     return (
-      <Button variant="ghost" size="sm" className="gap-2 text-gray-400">
+      <Button 
+        variant="ghost" 
+        size="sm" 
+        className="gap-2 text-gray-400 hover:text-cyan-400"
+        onClick={() => window.location.href = '/auth?mode=signup'}
+      >
         <User className="h-4 w-4" />
-        <span className="text-sm">No Personas</span>
+        <span className="text-sm">Sign In</span>
       </Button>
     );
   }
@@ -100,7 +129,7 @@ export function PersonaSelector() {
         >
           <User className="h-4 w-4" />
           <span className="text-sm">
-            {activePersona ? getPersonaDisplayName(activePersona) : 'Select Persona'}
+            {activePersona ? getDisplayName(activePersona) : 'Select Persona'}
           </span>
           <ChevronDown className="h-3 w-3" />
         </Button>
@@ -122,7 +151,7 @@ export function PersonaSelector() {
             }`}
           >
             <User className="h-4 w-4 mr-2" />
-            <span>{getPersonaDisplayName(persona)}</span>
+            <span>{getDisplayName(persona)}</span>
             {activePersona?.id === persona.id && (
               <span className="ml-auto text-xs text-cyan-400">Active</span>
             )}

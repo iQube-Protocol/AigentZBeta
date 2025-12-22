@@ -12,7 +12,8 @@ import {
   BookOpen,
   TrendingUp,
   Shield,
-  Upload
+  Upload,
+  Library
 } from 'lucide-react';
 
 export default function AdminDashboard() {
@@ -53,6 +54,7 @@ export default function AdminDashboard() {
 
   const sections = [
     { name: 'Bulk Import', path: '/admin/content/import', icon: Upload, description: 'Import multiple content items' },
+    { name: 'Codex', path: '/admin/content/codex', icon: Library, description: 'Digital Scrolls & Collectibles' },
     { name: 'Home Hero', path: '/admin/content/home-hero', icon: LayoutGrid, description: '3 main hero articles' },
     { name: 'Latest News', path: '/admin/content/latest-news', icon: Newspaper, description: 'News carousel' },
     { name: 'Second Hero', path: '/admin/content/second-hero', icon: Image, description: 'Bottom featured article' },
@@ -64,7 +66,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-8 pr-[72px]">
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <div>

@@ -1,37 +1,52 @@
 import { useState } from "react";
-import { Play, BookOpen, Maximize2, X, Headphones } from "lucide-react";
+import { Play, X, Maximize2, BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { ArticleReader, theQriptopianStyleGuide } from "@agentiq/article-reader";
-import type { ArticleQube } from "@agentiq/codex";
+import { 
+  SmartContentActions, 
+  type ContentModalities,
+  hasPlayableContent,
+  hasReadableContent,
+} from "./SmartContentActions";
+import { useSmartContentAction } from "@/contexts/SmartContentActionContext";
 
 interface ContentItem {
   id: string;
   title: string;
   image: string;
   badge?: string;
-  article?: ArticleQube;  // Full article data for read mode
+  description?: string;
+  modalities?: ContentModalities;
 }
 
-interface Kn0w1ViewerProps {
+interface SmartContentViewerProps {
   items: ContentItem[];
   domain: string;
   hideActionIcons?: boolean;
   onFullscreenChange?: (isFullscreen: boolean) => void;
 }
 
-export function Kn0w1Viewer({ 
+export function SmartContentViewer({ 
   items, 
   domain, 
   hideActionIcons = false,
   onFullscreenChange 
-}: Kn0w1ViewerProps) {
+}: SmartContentViewerProps) {
   const [activeIndex, setActiveIndex] = useState(0);
-  const [mode, setMode] = useState<'read' | 'watch' | 'listen'>('watch');
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [readArticle, setReadArticle] = useState<ArticleQube | null>(null);
+  
+  // Use global SmartContent action handler
+  const { executeAction } = useSmartContentAction();
 
   const activeItem = items[activeIndex];
+
+  // Guard against empty items array
+  if (!activeItem) {
+    return (
+      <div className="h-[400px] flex items-center justify-center bg-black/50 rounded-lg">
+        <p className="text-white/50">No content available</p>
+      </div>
+    );
+  }
 
   const handlePrevious = () => {
     setActiveIndex((prev) => (prev === 0 ? items.length - 1 : prev - 1));
@@ -47,6 +62,8 @@ export function Kn0w1Viewer({
         <button
           onClick={() => setIsFullscreen(false)}
           className="absolute top-4 right-24 z-10 text-white hover:text-cyan-400 transition-colors"
+          aria-label="Close fullscreen"
+          title="Close fullscreen"
         >
           <X className="h-6 w-6" />
         </button>
@@ -99,18 +116,36 @@ export function Kn0w1Viewer({
           </div>
         )}
         
-        {/* Play Button Center */}
-        <button 
-          onClick={() => setIsFullscreen(true)}
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 rounded-full bg-cyan-500/30 border-2 border-cyan-400 flex items-center justify-center group hover:scale-110 transition-all"
-        >
-          <Play className="h-6 w-6 text-cyan-400 ml-1" fill="currentColor" />
-        </button>
+        {/* Primary Action Button Center - Only show if there's playable or readable content */}
+        {hasPlayableContent(activeItem.modalities) && (
+          <button 
+            onClick={() => executeAction('watch', activeItem)}
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 rounded-full bg-cyan-500/30 border-2 border-cyan-400 flex items-center justify-center group hover:scale-110 transition-all"
+            aria-label="Play video"
+            title="Play video"
+          >
+            <Play className="h-6 w-6 text-cyan-400 ml-1" fill="currentColor" />
+          </button>
+        )}
+        
+        {/* Read Button Center - Show if readable but not playable */}
+        {!hasPlayableContent(activeItem.modalities) && hasReadableContent(activeItem.modalities) && (
+          <button 
+            onClick={() => executeAction('read', activeItem)}
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 rounded-full bg-cyan-500/30 border-2 border-cyan-400 flex items-center justify-center group hover:scale-110 transition-all"
+            aria-label="Read article"
+            title="Read article"
+          >
+            <BookOpen className="h-6 w-6 text-cyan-400" />
+          </button>
+        )}
 
         {/* Fullscreen Button */}
         <button
           onClick={() => setIsFullscreen(true)}
           className="absolute top-6 left-6 p-2 bg-black/50 hover:bg-black/70 rounded-lg text-white transition-colors"
+          aria-label="View fullscreen"
+          title="View fullscreen"
         >
           <Maximize2 className="h-5 w-5" />
         </button>
@@ -139,42 +174,29 @@ export function Kn0w1Viewer({
           </div>
         </div>
         
-        {/* Icon Buttons in Bottom Right */}
+        {/* Smart Content Action Buttons */}
         {!hideActionIcons && (
-          <div className="absolute bottom-8 right-8 flex gap-3 items-end">
-            <button 
-              onClick={() => activeItem.article && setReadArticle(activeItem.article)}
-              disabled={!activeItem.article}
-              className="text-cyan-400 hover:text-cyan-300 transition-colors disabled:opacity-30 disabled:cursor-not-allowed" 
-              aria-label="Read article"
-            >
-              <BookOpen className="h-4 w-4" />
-            </button>
-            <button 
-              onClick={() => setMode('watch')}
-              className="text-cyan-400 hover:text-cyan-300 transition-colors" 
-              aria-label="Watch video"
-            >
-              <Play className="h-4 w-4" />
-            </button>
-            <button 
-              onClick={() => setMode('listen')}
-              className="text-cyan-400 hover:text-cyan-300 transition-colors" 
-              aria-label="Listen to audio"
-            >
-              <Headphones className="h-4 w-4" />
-            </button>
+          <div className="absolute bottom-8 right-8">
+            <SmartContentActions
+              modalities={activeItem.modalities || null}
+              context="drawer"
+              showExpand={true}
+              showShare={true}
+              onAction={(action) => {
+                // Expand/view is handled locally for fullscreen
+                if (action === 'expand' || action === 'view') {
+                  setIsFullscreen(true);
+                } else {
+                  // All other actions use global handler
+                  executeAction(action, activeItem);
+                }
+              }}
+            />
           </div>
         )}
       </div>
       
-      {/* ArticleReader Modal */}
-      <ArticleReader
-        article={readArticle}
-        isOpen={!!readArticle}
-        onClose={() => setReadArticle(null)}
-        styleGuide={theQriptopianStyleGuide}
-      />
+      {/* VideoModal and ArticleReader are now handled globally by SmartContentActionProvider */}
     </div>
   );
 }

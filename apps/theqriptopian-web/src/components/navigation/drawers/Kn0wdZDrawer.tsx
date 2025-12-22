@@ -1,104 +1,102 @@
 /**
  * Kn0wdZDrawer - Knowledge Resources
- * Published Issue #0 v0.1
- * 
- * Tabs: Dev, Creative, Exec
- * Subtitles vary per tab:
- * - Dev: "Builder & Developer Knowledge - How It Works"
- * - Creative: "Creative Storytelling & Visual Content"
- * - Exec: "Impact Imperatives & Business Development - Strategic Insights"
- * 
- * Features: Feature viewer, content grid, Exec special panels
- * NOTE: Read modality articles will require ArticleReader primitive (TBD)
+ * 3-Column Layout: Featured Card | Framework Panel | Resources Panel
+ * Bottom: Thumbnail Carousel (4/row)
  */
 
 import { useState } from "react";
 import { DrawerLayer } from "@agentiq/smarttriad";
-import { useCodex } from "@agentiq/codex";
-import { Kn0w1Viewer } from "@/components/content/Kn0w1Viewer";
+import { useLiquidUIContent } from "@/hooks/useLiquidUIContent";
 import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
 import { WheelGesturesPlugin } from "embla-carousel-wheel-gestures";
-import { Terminal, Palette, Building2, TrendingUp } from "lucide-react";
+import { Terminal, Palette, Building2, TrendingUp, BookOpen, Github, MessageCircle, Video, FileText, Users, Layers, Briefcase, BarChart3 } from "lucide-react";
+import { SmartContentActions, type ContentModalities } from "@/components/content/SmartContentActions";
+import { useSmartContentAction } from "@/contexts/SmartContentActionContext";
 
 interface Kn0wdZDrawerProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-// Dev content - technical tutorials and guides
-const devContent = [
-  {
-    id: '1',
-    title: 'Building with iQubes',
-    description: 'Developer guide to iQube protocol',
-    image: 'https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=800&h=600&fit=crop',
-    badge: 'DEV',
-  },
-  {
-    id: '2',
-    title: 'Smart Contract Patterns',
-    description: 'Best practices for quantum-safe contracts',
-    image: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800&h=600&fit=crop',
-    badge: 'CODE',
-  },
-  {
-    id: '3',
-    title: 'Agent Integration Guide',
-    description: 'Connect your app to AgentiQ',
-    image: 'https://images.unsplash.com/photo-1515879218367-8466d910aaa4?w=800&h=600&fit=crop',
-    badge: 'API',
-  },
-];
+// Tab-specific panel content
+const devPanel = {
+  title: "Quick Start",
+  icon: Terminal,
+  color: "cyan",
+  content: `// Initialize QIRI SDK
+import { QIRI } from '@qriptopian/sdk';
 
-// Creative content - storytelling and visual design
-const creativeContent = [
-  {
-    id: '1',
-    title: 'Visual Narratives',
-    description: 'Crafting compelling stories with Q¢',
-    image: 'https://images.unsplash.com/photo-1561998338-13ad7883b20f?w=800&h=600&fit=crop',
-    badge: 'DESIGN',
-  },
-  {
-    id: '2',
-    title: 'Brand Building in Web3',
-    description: 'Identity and design for quantum apps',
-    image: 'https://images.unsplash.com/photo-1561070791-2526d30994b5?w=800&h=600&fit=crop',
-    badge: 'BRAND',
-  },
-];
+const qiri = new QIRI({
+  network: 'mainnet',
+  apiKey: process.env.QIRI_KEY
+});
 
-// Exec content - business strategy and growth
-const execContent = [
-  {
-    id: '1',
-    title: 'Strategic Impact',
-    description: 'Business models for quantum economy',
-    image: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=800&h=600&fit=crop',
-    badge: 'STRATEGY',
-  },
-  {
-    id: '2',
-    title: 'Market Opportunities',
-    description: 'Growth sectors in Q¢ ecosystem',
-    image: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&h=600&fit=crop',
-    badge: 'GROWTH',
-  },
-];
+// Create a transaction
+const tx = await qiri.send({
+  to: 'did:qiri:recipient',
+  amount: 100, // Q¢
+  memo: 'Payment for services'
+});`,
+  resources: [
+    { label: "Documentation", desc: "Full API reference", icon: BookOpen },
+    { label: "GitHub Repos", desc: "Open source examples", icon: Github },
+    { label: "Discord", desc: "Developer community", icon: MessageCircle },
+    { label: "Video Tutorials", desc: "Step-by-step guides", icon: Video },
+  ]
+};
+
+const creativePanel = {
+  title: "Creative Framework",
+  icon: Palette,
+  color: "purple",
+  description: "Build compelling narratives that resonate with your audience through our mythos storytelling framework.",
+  structure: ["Establish world & characters", "Define central conflict", "Build tension & stakes", "Resolution & transformation"],
+  coreElements: ["Visual Narrative Design"],
+  resources: [
+    { label: "Style Guide", desc: "Visual standards & templates", icon: FileText },
+    { label: "Asset Library", desc: "Logos, characters & props", icon: Layers },
+    { label: "Creative Community", desc: "Share & collaborate", icon: Users },
+    { label: "Tutorial Series", desc: "Comics, animation & more", icon: Video },
+  ]
+};
+
+const execPanel = {
+  title: "Strategic Impact & Business Development",
+  icon: Building2,
+  color: "orange",
+  description: "Drive measurable impact through iQube infrastructure while building sustainable business models and strategic partnerships.",
+  imperatives: ["Impact measurement & reporting frameworks", "Enterprise integration & revenue models", "Operational scaling & efficiency", "Market positioning & ecosystem growth"],
+  resources: [
+    { label: "Strategic Playbooks", desc: "Business model templates", icon: Briefcase },
+    { label: "Partner Portal", desc: "Integration resources", icon: Users },
+    { label: "Ops Dashboard", desc: "Metrics & analytics", icon: BarChart3 },
+    { label: "Market Intelligence", desc: "Competitive insights", icon: TrendingUp },
+  ]
+};
 
 export function Kn0wdZDrawer({ isOpen, onClose }: Kn0wdZDrawerProps) {
   const [activeTab, setActiveTab] = useState('dev');
-  const { currentCodex } = useCodex();
+  const [selectedIndex, setSelectedIndex] = useState(0);
   
-  // Get live content from CodexQube
-  const kn0wdZDomain = currentCodex?.domains.find(d => d.domainId === 'kn0wdz');
-  const kn0wdZContent = kn0wdZDomain?.sections?.map(section => ({
-    id: section.contentId,
-    title: section.title,
-    description: section.excerpt || '',
-    image: section.media?.thumbnail || section.media?.hero || 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=800&h=600&fit=crop',
-    badge: 'KNOW',
-  })) || [];
+  // Use global SmartContent action handler
+  const { createHandler } = useSmartContentAction();
+  
+  // Get 21knowdz content from Liquid UI Issue Package v1.4
+  const { content: devContentLiquid } = useLiquidUIContent('21knowdz', 'developer');
+  const { content: creativeContentLiquid } = useLiquidUIContent('21knowdz', 'creative');
+  const { content: execContentLiquid } = useLiquidUIContent('21knowdz', 'executive');
+  
+  // Transform Liquid UI content to component format
+  const kn0wdZContent = [...devContentLiquid, ...creativeContentLiquid, ...execContentLiquid].map(item => ({
+    id: item.id,
+    title: item.title,
+    description: item.excerpt || '',
+    image: item.image || 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=800',
+    badge: item.badge || 'KNOW',
+    tab: item.badge === 'DEV' ? 'dev' : item.badge === 'CREATIVE' ? 'creative' : item.badge === 'EXEC' ? 'exec' : 'dev',
+    position: item.position,
+    modalities: item.modalities || {},
+  }));
 
   const tabs = [
     { id: 'dev', label: 'Dev' },
@@ -106,167 +104,127 @@ export function Kn0wdZDrawer({ isOpen, onClose }: Kn0wdZDrawerProps) {
     { id: 'exec', label: 'Exec' },
   ];
 
-  const subtitles = {
+  const subtitles: Record<string, string> = {
     dev: 'Builder & Developer Knowledge - How It Works',
     creative: 'Creative Storytelling & Visual Content',
     exec: 'Impact Imperatives & Business Development - Strategic Insights',
   };
 
-  const currentContent = kn0wdZContent;
+  const filteredContent = kn0wdZContent.filter(item => item.tab === activeTab).sort((a, b) => a.position - b.position);
+  const currentContent = filteredContent;
+  const panel = activeTab === 'dev' ? devPanel : activeTab === 'creative' ? creativePanel : execPanel;
+  const colorClass = activeTab === 'dev' ? 'cyan' : activeTab === 'creative' ? 'purple' : 'orange';
+
+  const handleTabChange = (tabId: string) => {
+    setActiveTab(tabId);
+    setSelectedIndex(0);
+  };
 
   return (
-    <DrawerLayer
-      isOpen={isOpen}
-      onClose={onClose}
-      title="Kn0wdZ"
-      subtitle={subtitles[activeTab as keyof typeof subtitles]}
-      columns={3}
-      tabs={tabs}
-    >
+    <DrawerLayer isOpen={isOpen} onClose={onClose} title="Kn0wdZ" subtitle={subtitles[activeTab]} columns={3} tabs={tabs} activeTabId={activeTab} onTabChange={handleTabChange}>
       <div className="col-span-3 h-full flex flex-col">
-        {/* Main Content Grid */}
-        <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Feature Viewer - Desktop: 1 col, Mobile: full width */}
-          <div className="md:col-span-1">
-            <Kn0w1Viewer
-              items={currentContent.slice(0, 1)}
-              domain="kn0wdz"
-              hideActionIcons={false}
-            />
+        {/* 3-Column Layout */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 flex-1">
+          {/* Col 1: Featured */}
+          {currentContent.length > 0 && (
+          <div className="group relative aspect-[4/3] overflow-hidden rounded-lg bg-black">
+            <img src={currentContent[selectedIndex]?.image} alt={currentContent[selectedIndex]?.title} className="absolute inset-0 w-full h-full object-cover" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+            <div className="absolute top-2 right-2">
+              <SmartContentActions
+                modalities={currentContent[selectedIndex]?.modalities as ContentModalities || null}
+                context="card"
+                showExpand={false}
+                showShare={true}
+                size="sm"
+                onAction={currentContent[selectedIndex] ? createHandler(currentContent[selectedIndex]) : () => {}}
+              />
+            </div>
+            <div className="absolute bottom-3 left-3 right-3"><p className="text-white text-sm font-medium line-clamp-2">{currentContent[selectedIndex]?.title}</p></div>
+          </div>
+          )}
+
+          {/* Col 2: Framework Panel */}
+          <div className={`p-4 bg-${colorClass}-500/10 border border-${colorClass}-500/30 rounded-lg`}>
+            <div className="flex items-center gap-2 mb-3">
+              <panel.icon className={`h-5 w-5 text-${colorClass}-400`} />
+              <h3 className="font-semibold text-white">{panel.title}</h3>
+            </div>
+            {activeTab === 'dev' && <pre className="text-xs text-cyan-300 bg-black/50 p-3 rounded overflow-auto max-h-48 font-mono">{devPanel.content}</pre>}
+            {activeTab === 'creative' && (
+              <>
+                <p className="text-sm text-muted-foreground mb-3">{creativePanel.description}</p>
+                <div className="bg-black/30 p-3 rounded mb-3">
+                  <h4 className="text-xs font-semibold text-white mb-2">Story Structure</h4>
+                  {creativePanel.structure.map((s, i) => <p key={i} className="text-xs text-muted-foreground">{i+1}. {s}</p>)}
+                </div>
+                <div className="flex items-center gap-2"><Layers className="h-4 w-4 text-purple-400" /><span className="text-sm text-white">Core Elements</span></div>
+                <p className="text-xs text-muted-foreground ml-6">▸ {creativePanel.coreElements[0]}</p>
+              </>
+            )}
+            {activeTab === 'exec' && (
+              <>
+                <p className="text-sm text-muted-foreground mb-3">{execPanel.description}</p>
+                <div className="bg-black/30 p-3 rounded mb-3">
+                  <h4 className="text-xs font-semibold text-white mb-2">Key Imperatives</h4>
+                  {execPanel.imperatives.map((s, i) => <p key={i} className="text-xs text-muted-foreground">• {s}</p>)}
+                </div>
+                <div className="flex items-center gap-2"><TrendingUp className="h-4 w-4 text-orange-400" /><span className="text-sm text-white">Focus Areas</span></div>
+              </>
+            )}
           </div>
 
-          {/* Content Grid - Desktop: 2 cols, Mobile: full width */}
-          <div className="md:col-span-2 space-y-6">
-            {/* Exec Tab Special Panels */}
-            {activeTab === 'exec' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                <div className="p-6 bg-orange-500/10 border border-orange-500/30 rounded-lg">
-                  <div className="flex items-center gap-3 mb-3">
-                    <Building2 className="h-6 w-6 text-orange-400" />
-                    <h3 className="font-semibold text-foreground">
-                      Strategic Impact & Business Development
-                    </h3>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    Navigate market opportunities and build sustainable growth strategies in the quantum economy.
-                  </p>
-                </div>
-
-                <div className="p-6 bg-orange-500/10 border border-orange-500/30 rounded-lg">
-                  <div className="flex items-center gap-3 mb-3">
-                    <TrendingUp className="h-6 w-6 text-orange-400" />
-                    <h3 className="font-semibold text-foreground">
-                      Focus Areas
-                    </h3>
-                  </div>
-                  <ul className="text-sm text-muted-foreground space-y-1">
-                    <li>• Market positioning</li>
-                    <li>• Partnership strategies</li>
-                    <li>• Revenue models</li>
-                  </ul>
-                </div>
-              </div>
-            )}
-
-            {/* Thumbnail Grid */}
-            <div className="grid grid-cols-2 gap-4">
-              {currentContent.map((item) => (
-                <div
-                  key={item.id}
-                  className="group relative aspect-video overflow-hidden rounded-lg bg-black cursor-pointer"
-                >
-                  <img
-                    src={item.image}
-                    alt={item.title}
-                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                  
-                  {item.badge && (
-                    <div className="absolute top-2 left-2">
-                      <span className={`px-2 py-1 backdrop-blur-sm text-white text-xs font-bold rounded ${
-                        activeTab === 'dev' ? 'bg-blue-500/80' :
-                        activeTab === 'creative' ? 'bg-purple-500/80' :
-                        'bg-orange-500/80'
-                      }`}>
-                        {item.badge}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Tab Icon */}
-                  <div className="absolute top-2 right-2">
-                    {activeTab === 'dev' && <Terminal className="h-4 w-4 text-white/70" />}
-                    {activeTab === 'creative' && <Palette className="h-4 w-4 text-white/70" />}
-                    {activeTab === 'exec' && <Building2 className="h-4 w-4 text-white/70" />}
-                  </div>
-
-                  <div className="absolute bottom-2 left-2 right-2">
-                    <p className="text-white text-sm font-medium line-clamp-2">
-                      {item.title}
-                    </p>
-                    <p className="text-white/70 text-xs mt-1 line-clamp-1">
-                      {item.description}
-                    </p>
-                  </div>
+          {/* Col 3: Resources */}
+          <div className="p-4 bg-gray-900/50 border border-gray-700/50 rounded-lg">
+            <div className="flex items-center gap-2 mb-3"><Layers className="h-5 w-5 text-cyan-400" /><h3 className="font-semibold text-white">Resources</h3></div>
+            <div className="space-y-2">
+              {panel.resources.map((r, i) => (
+                <div key={i} className="flex items-center gap-3 p-2 rounded hover:bg-white/5 cursor-pointer transition-colors">
+                  <r.icon className="h-4 w-4 text-muted-foreground" />
+                  <div><p className="text-sm text-white">{r.label}</p><p className="text-xs text-muted-foreground">{r.desc}</p></div>
                 </div>
               ))}
             </div>
           </div>
         </div>
 
-        {/* Desktop Thumbnail Carousel */}
-        <div className="hidden md:block mt-6 pt-6 border-t border-border/30">
-          <Carousel
-            opts={{ align: "start", loop: true }}
-            plugins={[WheelGesturesPlugin()]}
-            className="w-full"
-          >
-            <CarouselContent className="-ml-4">
-              {currentContent.map((item) => (
-                <CarouselItem key={item.id} className="pl-4 basis-1/4">
-                  <div className="relative aspect-[47/20] overflow-hidden rounded-lg bg-black">
-                    <img
-                      src={item.image}
-                      alt={item.title}
-                      className="absolute inset-0 w-full h-full object-cover"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                    <div className="absolute bottom-1 left-1 right-1">
-                      <p className="text-white text-[10px] font-medium line-clamp-1">
-                        {item.title}
-                      </p>
-                    </div>
-                  </div>
-                </CarouselItem>
-              ))}
-            </CarouselContent>
-          </Carousel>
-        </div>
-
-        {/* Mobile Thumbnail Carousel Overlay */}
-        <div className="md:hidden fixed bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-black/95 via-black/80 to-transparent z-50">
-          <Carousel
-            opts={{ align: "start", loop: true }}
-            plugins={[WheelGesturesPlugin()]}
-            className="w-full h-full px-2 pt-2"
-          >
-            <CarouselContent className="-ml-2">
-              {currentContent.map((item) => (
-                <CarouselItem key={item.id} className="pl-2 basis-[43%]">
-                  <div className="relative aspect-video overflow-hidden rounded-md bg-black">
-                    <img
-                      src={item.image}
-                      alt={item.title}
-                      className="absolute inset-0 w-full h-full object-cover"
+        {/* Thumbnail Carousel */}
+        {currentContent.length > 0 && (
+        <Carousel opts={{ align: "start", loop: true }} plugins={[WheelGesturesPlugin()]} className="w-full">
+          <CarouselContent className="-ml-2">
+            {currentContent.map((item, index) => (
+              <CarouselItem key={item.id} className="pl-2 basis-1/4">
+                <div onClick={() => setSelectedIndex(index)} className={`group relative aspect-video w-full overflow-hidden rounded-md bg-black cursor-pointer transition-all ${selectedIndex === index ? 'ring-2 ring-cyan-400' : 'opacity-70 hover:opacity-100'}`}>
+                  <img src={item.image} alt={item.title} className="absolute inset-0 w-full h-full object-cover" />
+                  <div className="absolute bottom-1 left-1 right-1"><p className="text-white text-[10px] font-medium line-clamp-1">{item.title}</p></div>
+                  {/* SmartContentActions on thumbnails */}
+                  <div className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <SmartContentActions
+                      modalities={item.modalities as ContentModalities || null}
+                      context="thumbnail"
+                      showExpand={true}
+                      showShare={false}
+                      onAction={(action) => {
+                        // Expand is handled locally for carousel selection
+                        if (action === 'expand') {
+                          setSelectedIndex(index);
+                        } else {
+                          // All other actions use global handler
+                          createHandler(item)(action);
+                        }
+                      }}
+                      size="sm"
                     />
                   </div>
-                </CarouselItem>
-              ))}
-            </CarouselContent>
-          </Carousel>
-        </div>
+                </div>
+              </CarouselItem>
+            ))}
+          </CarouselContent>
+        </Carousel>
+        )}
       </div>
+
+      {/* VideoModal and ArticleReader are now handled globally by SmartContentActionProvider */}
     </DrawerLayer>
   );
 }

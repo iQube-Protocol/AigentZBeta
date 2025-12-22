@@ -1,4 +1,4 @@
-import { Droplets, Code2, BookOpen, Bot } from "lucide-react";
+import { Droplets, Code2, BookOpen, Bot, Library } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { Domain } from "./MoneyPennyNav";
@@ -11,12 +11,15 @@ interface MobileNavProps {
   onAIClick: () => void;
 }
 
-// Issue #0 v0.1 - Three active domains
+// Issue #0 v0.1 - Active domains (Codex is below divider)
 const domains = [
   { id: 'pennydrops' as Domain, icon: Droplets, label: 'Penny Drops' },
   { id: 'scrolls' as Domain, icon: BookOpen, label: 'Scrolls' },
   { id: 'kn0wdz' as Domain, icon: Code2, label: 'Kn0wdZ' }
 ];
+
+// Codex is placed between divider and wallet
+const codexDomain = { id: 'codex' as Domain, icon: Library, label: 'Codex' };
 
 export function MobileNav({ isOpen, onClose, activeDomain, onDomainClick, onAIClick }: MobileNavProps) {
   if (!isOpen) return null;
@@ -64,8 +67,35 @@ export function MobileNav({ isOpen, onClose, activeDomain, onDomainClick, onAICl
             );
           })}
 
-          {/* AI Assistant */}
+          {/* Codex & AI Assistant - below divider */}
           <div className="mt-2 pt-2 border-t border-border/30">
+            {/* Codex */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => {
+                    onDomainClick(codexDomain.id);
+                    onClose();
+                  }}
+                  className={cn(
+                    "w-12 h-12 rounded-lg flex items-center justify-center transition-all relative",
+                    activeDomain === 'codex' 
+                      ? "bg-cyan-500/20 text-cyan-400" 
+                      : "text-gray-400 hover:text-cyan-400 hover:bg-cyan-500/10 active:bg-cyan-500/20"
+                  )}
+                >
+                  {activeDomain === 'codex' && (
+                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-cyan-400 rounded-r" />
+                  )}
+                  <Library className="h-5 w-5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="left" className="bg-[#071327] text-[#d0f6ff] border-[#1e2b40]">
+                {codexDomain.label}
+              </TooltipContent>
+            </Tooltip>
+            
+            {/* AI Assistant */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <button

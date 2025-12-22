@@ -31,6 +31,10 @@ export interface ContentModalities {
     url: string;
     allow_embed?: boolean;
   };
+  view?: {
+    // Image-only content - triggers expand/fullscreen view
+    image_url?: string;
+  };
 }
 
 export const contentService = {
@@ -92,14 +96,35 @@ export const contentService = {
     return data as Content;
   },
 
-  hasModality(content: Content, type: 'read' | 'watch' | 'listen' | 'link'): boolean {
+  hasModality(content: Content, type: 'read' | 'watch' | 'listen' | 'link' | 'view'): boolean {
     const modalities = content.modalities as ContentModalities | null;
     return !!modalities?.[type];
   },
 
-  getModality(content: Content, type: 'read' | 'watch' | 'listen' | 'link') {
+  getModality(content: Content, type: 'read' | 'watch' | 'listen' | 'link' | 'view') {
     const modalities = content.modalities as ContentModalities | null;
     return modalities?.[type];
+  },
+
+  /**
+   * Get available action buttons based on content modalities
+   * Smart Content Protocol: renders buttons only for available modalities
+   */
+  getAvailableActions(content: Content): Array<'read' | 'watch' | 'listen' | 'link' | 'view' | 'expand' | 'share'> {
+    const modalities = content.modalities as ContentModalities | null;
+    const actions: Array<'read' | 'watch' | 'listen' | 'link' | 'view' | 'expand' | 'share'> = [];
+    
+    if (modalities?.read) actions.push('read');
+    if (modalities?.watch) actions.push('watch');
+    if (modalities?.listen) actions.push('listen');
+    if (modalities?.link) actions.push('link');
+    if (modalities?.view) actions.push('view');
+    
+    // Always include expand and share
+    actions.push('expand');
+    actions.push('share');
+    
+    return actions;
   },
 
   async getRelatedContent(id: string) {

@@ -323,3 +323,111 @@ Aigent Z has evolved from an initial exploratory agent UX into a working Next.js
 - `components/crm/TaskReview.tsx` — Review and approve submitted tasks
 - `components/crm/ReputationDisplay.tsx` — 5-dimension reputation visualization with RQH sync
 - `components/crm/RewardsDisplay.tsx` — Token rewards summary and history
+
+## Progress Addendum: 2025-12-03 → 2025-12-15
+ 
+### Executive Summary
+ 
+ Work completed from Dec 3–15 spans four major tracks:
+ - **SmartWallet & Copilot:** Wallet drawer UI refinement and Copilot chat UX.
+ - **Smart Triad System:** Orchestration and contract/type hardening for dynamic “smart drawers”.
+ - **Admin Portal & QubeBase:** CMS import + hardening, RLS workarounds, and content integration.
+ - **Wallet Enhancements (12/15):** TransactionModal cleanup, persona UX improvements, KNYT pricing, and bug fixes.
+ 
+ ### References
+ 
+ - `docs/PROGRESS_REPORT_2025-12-03.md`
+ - `docs/PROGRESS_REPORT_2025-12-15.md` (legacy session-level report; may be empty depending on local edits)
+ - `docs/SUMMARY_DEC3-15.md`
+
+### Sprint 1 (Dec 3–4): SmartWallet UI & Copilot
+
+**Delivered:** Wallet drawer UX refinement + embedded Copilot.
+
+- **Lucide icon standardization**
+  - Replaced emoji icons with Lucide components across the wallet.
+  - Affected areas include wallet tab icons, DVN Events, Identity, x402 Settlement, quick actions, and Copilot chat UI.
+- **Copilot API + UI wiring**
+  - Added wallet-specific chat endpoint (`/app/api/wallet-copilot/route.ts`).
+  - Implemented chat state and message flow in the SmartWallet drawer UI (prompt input, send handler, loading state, message history).
+  - Added “quick prompts” that inject predefined prompts and send immediately.
+- **Interaction + styling enhancements**
+  - Implemented a horizontal “thinking” dots animation for Copilot loading.
+  - Converted quick actions into a horizontal swipeable carousel with scroll snapping and hidden scrollbar.
+
+**Key files / areas:**
+
+- `apps/theqriptopian-web/src/components/wallet/SmartWalletDrawer.tsx`
+- `app/api/wallet-copilot/route.ts`
+- `styles/drawer.css`
+
+### Sprint 2 (Dec 6): Smart Triad System
+
+**Delivered:** Core “smart drawer” orchestration + contract hardening.
+
+- **Orchestration framework completion**
+  - Finalized the Smart Triad / Smart Drawer Console behavior and supporting types.
+  - Hardened the drawer set ↔ triad set mapping and defaulting logic to prevent runtime undefined branches.
+- **Type-system stabilization (extensive TS fixes)**
+  - Added guards and default mappings for optional properties and union-type access.
+  - Standardized/normalized side + dynamic mode mappings.
+  - Corrected content/wallet slot typing and resolver expectations.
+- **Resolver + evaluator correctness**
+  - Improved slot data resolution safety (e.g., curated list listId/limit checks, query id guards).
+  - Improved visibility evaluation by removing invalid checks and ensuring the correct rule scope.
+
+**Key files / areas (representative):**
+- Slot data resolution and visibility evaluation utilities
+- Smart drawer demo/console pages
+- Shared Smart Triad type definitions
+
+### Sprint 3 (Dec 7): Admin Portal & QubeBase
+
+**Delivered:** Content management UI + live content integration + ops hardening.
+
+- **Admin portal import and hardening**
+  - Imported admin portal UI and aligned routing to match manager navigation.
+  - Added development-mode auth bypass to support local iteration.
+  - Enabled page scrolling and addressed UI alignment issues between monorepo UI and live site.
+- **RLS + publish/unpublish reliability**
+  - Added detailed logging for publish/unpublish actions to isolate failures.
+  - Implemented RLS workarounds to unblock publish/unpublish and documented findings in gap analysis updates.
+  - Added an RLS policy script to support local admin portal development.
+- **QubeBase integration**
+  - Added live content fetching and synced content from QubeBase (notably a bulk sync of 47 items).
+  - Added/updated content import tooling with modality support and duplicate detection.
+
+**Key files / areas (representative):**
+- Admin portal routes and UI components
+- Content import scripts + modality mapping
+- Documentation: gap analysis updates
+
+### Sprint 4 (Dec 15): SmartWallet + Persona + KNYT Enhancements
+
+**Delivered:** Wallet UX cleanups, persona creation/editing fixes, and live KNYT pricing.
+
+- **TransactionModal UX cleanup**
+  - Removed/hid chain selector button rows from the Send/Receive/Verify tabs (token dropdown is now the primary chain selection UX).
+  - Renamed user-facing "FIO Handle" to "Persona Handle" for consistency.
+  - Made Q¢ unselectable in the token dropdown (disabled state with "SOON" label).
+- **SmartWalletDrawer UI updates**
+  - Persona Identity card: removed persona name; display handle only as a small glass-styled badge aligned on the title row.
+  - Renamed "x402 Persona Wallet" to "x402 Wallet ID".
+  - Added optional Settlement ID + Message ID inputs to the x402 Settlement section and updated the embedded Copilot KB intent text accordingly.
+  - Adjusted quicklinks carousel padding so buttons don’t scroll flush to the card edge.
+  - Fixed a stray rendered `0` in the narrow view caused by truthy checks on numeric state:
+    - Changed `{pendingRewards && ...}` to `{pendingRewards != null && pendingRewards > 0 && ...}`.
+- **Persona API hardening**
+  - `/api/identity/persona/[id]` GET/PATCH now accept either UUID or FIO handle for lookup.
+  - `/api/identity/persona` GET now supports `fio_handle` query param for the persona creation wizard availability check.
+- **KNYT pricing updates**
+  - Implemented live ETH price fetching (CoinGecko) and derived KNYT pricing from an ETH conversion constant.
+  - Added an async package builder (`getKnytPackagesAsync`) to ensure PayPal/checkout UI renders with current prices.
+
+**Key files / areas:**
+- `apps/theqriptopian-web/src/components/wallet/SmartWalletDrawer.tsx`
+- `apps/theqriptopian-web/src/components/wallet/TransactionModal.tsx`
+- `apps/theqriptopian-web/src/components/wallet/PersonaSetupWizard.tsx`
+- `app/api/identity/persona/route.ts`
+- `app/api/identity/persona/[id]/route.ts`
+- `services/wallet/knyt/knytPricingService.ts`

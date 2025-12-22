@@ -3,34 +3,31 @@ import { Carousel, CarouselContent, CarouselItem, CarouselApi } from "@/componen
 import { Badge } from "@/components/ui/badge";
 import { useEffect, useState } from "react";
 import { WheelGesturesPlugin } from "embla-carousel-wheel-gestures";
-import { useCodex } from "@agentiq/codex";
+import { useLiquidUIContent } from "@/hooks/useLiquidUIContent";
+import { SmartContentActions, type ContentModalities } from "./SmartContentActions";
+import { useSmartContentAction } from "@/contexts/SmartContentActionContext";
 
 export function LatestNewsCarousel() {
   const [api, setApi] = useState<CarouselApi>();
   const [canScrollPrev, setCanScrollPrev] = useState(false);
   const [canScrollNext, setCanScrollNext] = useState(false);
-  const { currentCodex } = useCodex();
   
-  // Get latest-news content from CodexQube
-  const homeDomain = currentCodex?.domains.find(d => d.domainId === 'home');
-  const newsItems = homeDomain?.sections
-    ?.filter(s => {
-      const section = (s as any).placement?.section;
-      return section === 'latest-news';
-    })
-    .sort((a, b) => {
-      const posA = (a as any).placement?.position || 0;
-      const posB = (b as any).placement?.position || 0;
-      return posA - posB;
-    })
-    .map(section => ({
-      id: section.contentId,
-      title: section.title,
-      description: section.excerpt || '',
-      image: section.media?.thumbnail || section.media?.hero || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&h=300&fit=crop',
-      badge: 'NEWS',
-      isPremium: false
-    })) || [];
+  // Use global SmartContent action handler
+  const { createHandler } = useSmartContentAction();
+  
+  // Get latest-news content from Liquid UI Issue Package v1.4
+  const { content: liquidUIContent } = useLiquidUIContent('latest-news');
+  
+  // Transform Liquid UI content to component format
+  const newsItems = liquidUIContent.map(item => ({
+    id: item.id,
+    title: item.title,
+    description: item.excerpt || '',
+    image: item.image || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&h=300&fit=crop',
+    badge: item.badge || 'NEWS',
+    isPremium: false,
+    modalities: item.modalities as ContentModalities || null
+  }));
   useEffect(() => {
     if (!api) return;
     const updateButtons = () => {
@@ -52,12 +49,12 @@ export function LatestNewsCarousel() {
         <div className="flex items-center justify-between mb-8 px-12">
           <h2 className="text-[#d0f6ff] text-2xl font-medium text-left px-0 mx-0">Latest News</h2>
           <div className="flex items-center gap-4">
-            <button onClick={scrollPrev} disabled={!canScrollPrev} className="p-2 rounded-full bg-[#020b18]/80 border border-[#1e2b40] text-cyan-400 hover:bg-[#020b18] hover:text-cyan-300 hover:border-cyan-500/50 transition-all disabled:opacity-30 disabled:cursor-not-allowed">
+            <button onClick={scrollPrev} disabled={!canScrollPrev} className="p-2 rounded-full bg-[#020b18]/80 border border-[#1e2b40] text-cyan-400 hover:bg-[#020b18] hover:text-cyan-300 hover:border-cyan-500/50 transition-all disabled:opacity-30 disabled:cursor-not-allowed" aria-label="Previous" title="Previous">
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="15 18 9 12 15 6"></polyline>
               </svg>
             </button>
-            <button onClick={scrollNext} disabled={!canScrollNext} className="p-2 rounded-full bg-[#020b18]/80 border border-[#1e2b40] text-cyan-400 hover:bg-[#020b18] hover:text-cyan-300 hover:border-cyan-500/50 transition-all disabled:opacity-30 disabled:cursor-not-allowed">
+            <button onClick={scrollNext} disabled={!canScrollNext} className="p-2 rounded-full bg-[#020b18]/80 border border-[#1e2b40] text-cyan-400 hover:bg-[#020b18] hover:text-cyan-300 hover:border-cyan-500/50 transition-all disabled:opacity-30 disabled:cursor-not-allowed" aria-label="Next" title="Next">
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="9 18 15 12 9 6"></polyline>
               </svg>
@@ -100,9 +97,20 @@ export function LatestNewsCarousel() {
                     )}
                   </div>
                   <div className="p-6">
-                    <Badge variant="default" className="bg-cyan-500/20 text-cyan-400 border-cyan-500/30 mb-2">
-                      {item.badge}
-                    </Badge>
+                    <div className="flex items-center justify-between mb-2">
+                      <Badge variant="default" className="bg-cyan-500/20 text-cyan-400 border-cyan-500/30">
+                        {item.badge}
+                      </Badge>
+                      {/* SmartContentActions - uses global action handler */}
+                      <SmartContentActions
+                        modalities={item.modalities}
+                        context="card"
+                        showExpand={false}
+                        showShare={true}
+                        size="sm"
+                        onAction={createHandler(item)}
+                      />
+                    </div>
                     <h3 className={`text-xl font-semibold mb-2 ${
                       item.isPremium ? 'text-amber-400' : 'text-[#d0f6ff]'
                     }`}>
@@ -124,6 +132,7 @@ export function LatestNewsCarousel() {
             ))}
           </CarouselContent>
         </Carousel>
+        {/* VideoModal and ArticleReader are now handled globally by SmartContentActionProvider */}
       </div>
     </div>;
 }

@@ -19,6 +19,17 @@ export function useIsAdminAA(): AdminStatus {
   useEffect(() => {
     async function checkAdmin() {
       try {
+        // First check if there's a session at all
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError || !session) {
+          // No session - not an error in dev mode, just means not logged in
+          console.log('[useIsAdminAA] No auth session found');
+          setIsAdmin(false);
+          setLoading(false);
+          return;
+        }
+
         const { data: { user }, error: userError } = await supabase.auth.getUser();
         
         if (userError) {

@@ -1,7 +1,14 @@
-import { Bell, Menu } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Bell, Menu, User, ChevronDown, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { PersonaSelector } from "@/components/PersonaSelector";
-import { WalletButton } from "@agentiq/smartwallet";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { supabase } from "@/integrations/supabase/client";
 
 interface TopHeaderProps {
   onMobileMenuClick?: () => void;
@@ -9,6 +16,62 @@ interface TopHeaderProps {
 }
 
 export function TopHeader({ onMobileMenuClick, isMobileMenuOpen }: TopHeaderProps) {
+  const [personaHandle, setPersonaHandle] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPersona = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          setPersonaHandle(null);
+          setIsLoading(false);
+          return;
+        }
+
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('persona_id')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (profile?.persona_id) {
+          const { data: persona } = await supabase
+            .from('persona')
+            .select('fio_handle')
+            .eq('id', profile.persona_id)
+            .maybeSingle();
+          
+          if (persona?.fio_handle) {
+            setPersonaHandle(persona.fio_handle);
+          } else {
+            setPersonaHandle(null);
+          }
+        } else {
+          setPersonaHandle(null);
+        }
+      } catch (e) {
+        console.error('[TopHeader] Error fetching persona:', e);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchPersona();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      fetchPersona();
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    setPersonaHandle(null);
+    window.location.href = '/';
+  };
+
   return (
     <header className="fixed top-0 left-0 right-0 h-[88px] bg-[#0a1628] border-b border-[#1a2942] z-40 px-4 md:px-8 flex items-start pt-6">
       <div className="flex-1">
@@ -25,18 +88,47 @@ export function TopHeader({ onMobileMenuClick, isMobileMenuOpen }: TopHeaderProp
           <Bell className="h-5 w-5" />
         </Button>
         
-        <PersonaSelector />
-        
-        <WalletButton
-          className="hidden md:flex px-4 py-2 text-sm bg-white/5 backdrop-blur-md border border-white/10 text-gray-300 hover:bg-white/10 hover:border-cyan-500/20 hover:text-cyan-300 transition-all rounded-md"
-          connectedClassName="hidden md:flex px-4 py-2 text-sm bg-cyan-500/10 backdrop-blur-md border border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/20 hover:border-cyan-500/50 transition-all rounded-md gap-2"
-          connectingClassName="hidden md:flex px-4 py-2 text-sm bg-white/5 backdrop-blur-md border border-white/10 text-gray-400 transition-all rounded-md cursor-wait"
-          connectText="Connect Wallet"
-          connectingText="Connecting..."
-          showBalance={false}
-          showAddress={true}
-          addressFormat="short"
-        />
+        {/* Persona Selector with Sign In/Out */}
+        {isLoading ? (
+          <Button variant="ghost" size="sm" disabled className="gap-2 text-gray-400">
+            <User className="h-4 w-4" />
+            <span className="text-sm">...</span>
+          </Button>
+        ) : personaHandle ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="gap-2 text-gray-300 hover:text-cyan-400">
+                <User className="h-4 w-4" />
+                <span className="text-sm">{personaHandle}</span>
+                <ChevronDown className="h-3 w-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="bg-[#0a1628]/95 backdrop-blur-md border-[#1a2942]">
+              <DropdownMenuItem className="text-gray-300 cursor-default">
+                <User className="h-4 w-4 mr-2" />
+                {personaHandle}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator className="bg-[#1a2942]" />
+              <DropdownMenuItem 
+                className="text-red-400 hover:text-red-300 cursor-pointer"
+                onClick={handleSignOut}
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Sign Out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : (
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="gap-2 text-gray-400 hover:text-cyan-400"
+            onClick={() => window.location.href = '/auth'}
+          >
+            <User className="h-4 w-4" />
+            <span className="text-sm">Sign In</span>
+          </Button>
+        )}
         
         {/* Mobile Menu Button */}
         {onMobileMenuClick && (

@@ -4,14 +4,13 @@ import "./globals.css";
 import { Sidebar } from "../components/Sidebar";
 import { ToastProvider } from "../components/ui/toaster";
 import AgentiQBootstrap from "./providers/AgentiQBootstrap";
-import { CopilotKit } from "@copilotkit/react-core";
-import "@copilotkit/react-ui/styles.css";
+import { AGUIProvider } from "./components/AGUIProvider";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="h-full">
       <body className="h-full bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-slate-100">
-        <CopilotKit runtimeUrl="/api/copilotkit">
+        <AGUIProvider runtimeUrl="/api/copilotkit">
           <ToastProvider>
             <div className="flex h-screen overflow-hidden">
               {/* Fixed Sidebar */}
@@ -27,7 +26,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </div>
             <AgentiQBootstrap />
           </ToastProvider>
-        </CopilotKit>
+        </AGUIProvider>
       </body>
     </html>
   );

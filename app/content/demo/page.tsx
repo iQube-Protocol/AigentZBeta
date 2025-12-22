@@ -367,8 +367,8 @@ const DEMO_WALLET: any = {
       },
       {
         id: "00000000-0000-0000-0000-000000000001",
-        displayName: "kn0w1@qripto",
-        fioHandle: "kn0w1@qripto",
+        displayName: "kn0w1@aigent",
+        fioHandle: "kn0w1@aigent",
         reputationBucket: 3,
         reputationScore: 75,
       },

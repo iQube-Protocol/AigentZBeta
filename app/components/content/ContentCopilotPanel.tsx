@@ -15,6 +15,9 @@ import { CopilotChat } from "@copilotkit/react-ui";
 import { useCopilotAction } from "@copilotkit/react-core";
 import { useSmartTriad } from "./SmartTriadProvider";
 
+// Note: CopilotKit v1.50 is backwards compatible with v1.3.19 imports
+// New v2 APIs available at @copilotkit/react-core/v2 for advanced features
+
 interface ContentCopilotPanelProps {
   isOpen: boolean;
   onClose: () => void;
