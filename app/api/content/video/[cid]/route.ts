@@ -161,7 +161,7 @@ export async function GET(req: NextRequest, { params }: { params: { cid: string 
       const parts = rangeHeader.replace(/bytes=/, '').split('-');
       const start = parseInt(parts[0], 10);
       const end = parts[1] ? parseInt(parts[1], 10) : videoData.length - 1;
-      return new NextResponse(videoData.slice(start, end + 1), {
+      return new NextResponse(new Uint8Array(videoData.slice(start, end + 1)), {
         status: 206,
         headers: {
           ...corsHeaders,
@@ -174,7 +174,7 @@ export async function GET(req: NextRequest, { params }: { params: { cid: string 
       });
     }
 
-    return new NextResponse(videoData, {
+    return new NextResponse(new Uint8Array(videoData), {
       headers: {
         ...corsHeaders,
         'Content-Type': mimeType,

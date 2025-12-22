@@ -91,7 +91,7 @@ async function streamDecryptedContent(asset: {
   }
 
   // Return PDF with headers that prevent downloading
-  return new NextResponse(decryptedData, {
+  return new NextResponse(new Uint8Array(decryptedData), {
     headers: {
       'Content-Type': 'application/pdf',
       'Content-Disposition': 'inline', // Display in browser, not download

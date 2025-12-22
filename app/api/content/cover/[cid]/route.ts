@@ -161,7 +161,7 @@ async function streamDecryptedContent(asset: {
   }
 
   // Return the decrypted image
-  return new NextResponse(decryptedData, {
+  return new NextResponse(new Uint8Array(decryptedData), {
     headers: {
       'Content-Type': asset.mime_type || 'image/jpeg',
       'Content-Length': decryptedData.length.toString(),
