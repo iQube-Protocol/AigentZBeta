@@ -56,6 +56,11 @@ export async function POST(request: NextRequest) {
           contentObjects: content, 
           layoutDecisions: [] 
         },
+        copilotState: {
+          mode: 'docked',
+          visible: true,
+          position: { x: 0, y: 0 }
+        },
         userIntent: intent.primary,
         realmContext: context?.realm || 'digiterra',
       },
