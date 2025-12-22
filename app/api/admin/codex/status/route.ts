@@ -34,6 +34,9 @@ interface EpisodeStatus {
   stillMasterId?: string;
   motionMasterId?: string;
   motionMasterCid?: string; // CID for motion comic video streaming
+  printRareCid?: string;
+  printEpicCid?: string;
+  printLegendaryCid?: string;
   coverCount: number;
   coverImageCid?: string; // CID of primary cover for display
   characterCount: number;
