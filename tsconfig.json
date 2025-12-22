@@ -32,6 +32,7 @@
     "scripts/**/*",
     "services/aa-api/**/*",
     "services/agentiq-wallet/**/*",
-    "apps/theqriptopian-web/**/*"
+    "apps/theqriptopian-web/**/*",
+    "packages/article-reader/**/*"
   ]
 }
