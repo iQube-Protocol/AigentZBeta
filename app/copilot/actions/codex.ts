@@ -154,16 +154,16 @@ const codex_answer_question: Action<any> = {
 
       // Build context from chunks
       const context = relevantChunks
-        .map(chunk => `[${chunk.metadata.title}]: ${chunk.content}`)
+        .map(chunk => `[Chunk ${chunk.chunk_index}]: ${chunk.content}`)
         .join('\n\n');
 
       return {
         success: true,
         context,
         sources: relevantChunks.map(c => ({
-          title: c.metadata.title,
-          category: c.metadata.contentCategory,
-          similarity: c.similarity,
+          documentId: c.document_id,
+          chunkIndex: c.chunk_index,
+          sectionTitle: c.section_title,
         })),
         chunkCount: relevantChunks.length,
       };

@@ -5,6 +5,13 @@ import { BookOpen, Play, Headphones, MessageSquare } from "lucide-react";
 import type { SmartContentQube, ContentModality } from "@/types/smartContent";
 import type { IconStyle } from "./ContentActionIcons";
 
+const MODALITY_ICONS: Record<ContentModality, { icon: React.ReactNode; label: string }> = {
+  read: { icon: <BookOpen className="w-4 h-4" />, label: "Read" },
+  watch: { icon: <Play className="w-4 h-4" />, label: "Watch" },
+  listen: { icon: <Headphones className="w-4 h-4" />, label: "Listen" },
+  interact: { icon: <MessageSquare className="w-4 h-4" />, label: "Interact" },
+};
+
 type CardVariant = 
   | "compact"       // List row - library style
   | "standard"      // Grid card - 3-4 per row

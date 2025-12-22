@@ -54,7 +54,6 @@ export async function POST(request: NextRequest) {
         selectedTemplateId: template.templateId,
         templateBindings: { 
           contentObjects: content, 
-          device: context?.device || 'desktop', 
           layoutDecisions: [] 
         },
         userIntent: intent.primary,
