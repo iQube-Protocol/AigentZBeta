@@ -13,7 +13,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createAutoDriveApi, downloadFile } from '@autonomys/auto-drive';
+import { createAutoDriveApi } from '@autonomys/auto-drive';
 import { getSupabaseServer } from '../../../../_lib/supabaseServer';
 import { getTokenQube } from '../../../../../../server/services/iqRegistryService';
 
