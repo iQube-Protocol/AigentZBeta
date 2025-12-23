@@ -40,29 +40,48 @@ export const AGUIProvider = ({
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
+    // Skip SSE connection if no valid platform URL or if it's localhost in production
+    const shouldConnect = platformUrl && 
+      platformUrl !== '' && 
+      !platformUrl.includes('localhost');
+    
+    if (!shouldConnect) {
+      console.log('[AGUIProvider] Skipping AG-UI connection - no valid platform URL');
+      return;
+    }
+    
     console.log('[AGUIProvider] Initializing thin client connection to:', platformUrl);
     
-    // Initialize AG-UI client (SSE connection only)
-    const aguiClient = initializeAGUIClient({
-      platformUrl,
-      personaId: 'default', // Will be updated when user authenticates
-      device: typeof window !== 'undefined' && window.innerWidth < 768 ? 'mobile' : 'desktop',
-    });
+    try {
+      // Initialize AG-UI client (SSE connection only)
+      const aguiClient = initializeAGUIClient({
+        platformUrl,
+        personaId: 'default', // Will be updated when user authenticates
+        device: typeof window !== 'undefined' && window.innerWidth < 768 ? 'mobile' : 'desktop',
+      });
 
-    setClient(aguiClient);
+      setClient(aguiClient);
 
-    // Connect to AG-UI stream
-    aguiClient.connect();
-    setIsConnected(true);
+      // Connect to AG-UI stream in a non-blocking way
+      setTimeout(() => {
+        try {
+          aguiClient.connect();
+          setIsConnected(true);
+          console.log('[AGUIProvider] Thin client connected - consuming state via AG-UI hooks');
+        } catch (err) {
+          console.warn('[AGUIProvider] SSE connection failed:', err);
+        }
+      }, 100);
 
-    console.log('[AGUIProvider] Thin client connected - consuming state via AG-UI hooks');
-
-    // Cleanup on unmount
-    return () => {
-      console.log('[AGUIProvider] Disconnecting thin client');
-      aguiClient.disconnect();
-      setIsConnected(false);
-    };
+      // Cleanup on unmount
+      return () => {
+        console.log('[AGUIProvider] Disconnecting thin client');
+        aguiClient.disconnect();
+        setIsConnected(false);
+      };
+    } catch (err) {
+      console.warn('[AGUIProvider] Failed to initialize AG-UI client:', err);
+    }
   }, [platformUrl]);
 
   return (
