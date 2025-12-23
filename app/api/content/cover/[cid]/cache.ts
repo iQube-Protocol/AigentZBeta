@@ -19,11 +19,13 @@ export function getCachedImage(cid: string) {
 
 export function setCachedImage(cid: string, data: Buffer, mimeType: string) {
   while (currentCacheSize + data.length > MAX_CACHE_SIZE && imageCache.size > 0) {
-    const oldestKey = imageCache.keys().next().value;
-    const oldest = imageCache.get(oldestKey);
-    if (oldest) {
-      currentCacheSize -= oldest.data.length;
-      imageCache.delete(oldestKey);
+    const oldestKey = imageCache.keys().next().value as string | undefined;
+    if (oldestKey) {
+      const oldest = imageCache.get(oldestKey);
+      if (oldest) {
+        currentCacheSize -= oldest.data.length;
+        imageCache.delete(oldestKey);
+      }
     }
   }
   
