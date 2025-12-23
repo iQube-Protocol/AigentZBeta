@@ -23,14 +23,13 @@ const nextConfig = {
       'node_modules/@qriptoagentiq/core-client/src/index.ts'
     );
     
-    // Exclude pdf-parse test files from bundle to prevent ENOENT errors
-    config.plugins = config.plugins || [];
-    config.plugins.push(
-      new webpack.IgnorePlugin({
-        resourceRegExp: /^\.\/test$/,
-        contextRegExp: /pdf-parse$/,
-      })
-    );
+    // Make pdf-parse external on server to prevent test file bundling issues
+    if (isServer) {
+      config.externals = config.externals || [];
+      if (Array.isArray(config.externals)) {
+        config.externals.push('pdf-parse');
+      }
+    }
     
     if (dev) {
       // Turn off heavy source maps in dev for faster rebuilds
