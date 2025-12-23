@@ -14,7 +14,7 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  webpack(config, { dev }) {
+  webpack(config, { dev, isServer, webpack }) {
     // Temporary alias: resolve SDK to source until dist is present in npm tarball
     config.resolve = config.resolve || {};
     config.resolve.alias = config.resolve.alias || {};
@@ -22,6 +22,16 @@ const nextConfig = {
       __dirname,
       'node_modules/@qriptoagentiq/core-client/src/index.ts'
     );
+    
+    // Exclude pdf-parse test files from bundle to prevent ENOENT errors
+    config.plugins = config.plugins || [];
+    config.plugins.push(
+      new webpack.IgnorePlugin({
+        resourceRegExp: /^\.\/test$/,
+        contextRegExp: /pdf-parse$/,
+      })
+    );
+    
     if (dev) {
       // Turn off heavy source maps in dev for faster rebuilds
       config.devtool = false;
