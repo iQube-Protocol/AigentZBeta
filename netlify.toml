@@ -1,0 +1,21 @@
+# Netlify configuration for AigentZBeta monorepo
+# This builds the thin client from apps/theqriptopian-web
+
+[build]
+  base = "/"
+  command = "npm install --legacy-peer-deps && cd apps/theqriptopian-web && npm run build"
+  publish = "apps/theqriptopian-web/dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+  NPM_FLAGS = "--legacy-peer-deps"
+  # Force Node.js only build
+  NODE_ENV = "production"
+  # Disable all other language detection
+  NETLIFY_USE_YARN = "false"
+  NETLIFY_USE_PNPM = "false"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
