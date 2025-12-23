@@ -6,6 +6,17 @@ import { getEmbeddingService } from '@/services/content/embeddingService';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+// CORS headers for cross-origin requests from thin client
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
+export async function OPTIONS() {
+  return new NextResponse(null, { headers: corsHeaders });
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -77,10 +88,10 @@ export async function POST(request: NextRequest) {
       intent: { primary: intent.primary, focus: intent.focus, confidence: intent.confidence },
       template: { templateId: template.templateId, reason: template.reason },
       contentCount: content.length,
-    });
+    }, { headers: corsHeaders });
   } catch (error) {
     console.error('[Codex Query] Error:', error);
-    return NextResponse.json({ success: false, error: String(error) }, { status: 500 });
+    return NextResponse.json({ success: false, error: String(error) }, { status: 500, headers: corsHeaders });
   }
 }
 
