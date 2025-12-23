@@ -99,7 +99,7 @@ export function KnytCardsGrid({ personaId = '', knytBalance = 0, spendableKnyt, 
                 src={`${apiUrl}/api/content/cover/${poster.autoDriveCid}`}
                 alt={poster.title}
                 className="w-full h-full object-cover"
-                onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder-card.png'; }}
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
               />
               {/* Price badge - top right */}
               <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">

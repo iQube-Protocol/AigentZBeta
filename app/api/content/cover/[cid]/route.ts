@@ -12,6 +12,7 @@ import { createClient } from '@supabase/supabase-js';
 import { createAutoDriveApi } from '@autonomys/auto-drive';
 import { NetworkId } from '@autonomys/auto-utils';
 import { unwrapKeyWithMasterKey, decryptContent } from '../../../../../server/services/encryptionService';
+import { getCachedImage, setCachedImage } from './cache';
 
 export const runtime = 'nodejs';
 
@@ -44,6 +45,23 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     if (!cid) {
       return NextResponse.json({ error: 'CID required' }, { status: 400, headers: corsHeaders });
     }
+
+    // Check cache first
+    const cached = getCachedImage(cid);
+    if (cached) {
+      console.log(`[CoverStream] Cache HIT for ${cid}`);
+      return new NextResponse(new Uint8Array(cached.data), {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': cached.mimeType,
+          'Content-Length': cached.data.length.toString(),
+          'Cache-Control': 'public, max-age=3600',
+          'X-Cache': 'HIT',
+        },
+      });
+    }
+    
+    console.log(`[CoverStream] Cache MISS for ${cid}`);
 
     // Look up the asset by CID to get encryption metadata
     const { data: asset, error: assetError } = await supabase
@@ -171,13 +189,17 @@ async function streamDecryptedContent(asset: {
     return NextResponse.json({ error: 'Decryption failed' }, { status: 500, headers: corsHeaders });
   }
 
+  // Cache the decrypted image
+  setCachedImage(asset.auto_drive_cid, decryptedData, asset.mime_type || 'image/jpeg');
+
   // Return the decrypted image
   return new NextResponse(new Uint8Array(decryptedData), {
     headers: {
       ...corsHeaders,
       'Content-Type': asset.mime_type || 'image/jpeg',
       'Content-Length': decryptedData.length.toString(),
-      'Cache-Control': 'public, max-age=3600', // Cache for 1 hour
+      'Cache-Control': 'public, max-age=3600',
+      'X-Cache': 'MISS',
     },
   });
 }
