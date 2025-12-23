@@ -30,7 +30,10 @@ import type {
 } from '@/types/knytLiquidUI';
 import { PDFViewer } from '@/components/content/PDFViewer';
 import { VideoPlayer } from '@/components/content/VideoPlayer';
+import { VideoErrorBoundary } from '@/components/content/VideoErrorBoundary';
 import { LoreTextReader } from '@/components/content/LoreTextReader';
+import { SmartContentActions, type ContentModalities } from '@/components/content/SmartContentActions';
+import { useSmartContentAction } from '@/contexts/SmartContentActionContext';
 
 import issuePackage from '@/data/templates/qriptopian_episode1_issue_package_v1.4.json';
 
@@ -264,6 +267,12 @@ function transformIssuePackageMetaKnytsToContentItems(): KnytContentItem[] {
 
     const realm = (c?.taxonomy?.realm || 'terra') as Realm;
 
+    // Build modalities for SmartContentActions
+    const modalities: ContentModalities = {};
+    if (text) {
+      modalities.read = { text };
+    }
+
     out.push({
       id: `terra_${String(c.content_id || '').replace('content:', '')}`,
       type: 'terra_update',
@@ -276,9 +285,10 @@ function transformIssuePackageMetaKnytsToContentItems(): KnytContentItem[] {
       },
       metadata: {
         realm,
+        modalities, // Add modalities for SmartTriad
       },
       modalities: {
-        read: { available: false },
+        read: { available: !!text },
       },
     });
   }
@@ -417,6 +427,9 @@ export function CodexLiquidUITab({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Smart content action handler
+  const { handleAction } = useSmartContentAction();
+
   // Load content from real API
   useEffect(() => {
     async function loadContent() {
@@ -508,6 +521,18 @@ export function CodexLiquidUITab({
       setUserIntent('character_deep_dive');
     } else if (item.type === 'comic_cover_portrait' || item.type === 'comic_page_portrait') {
       setUserIntent('page_review');
+    }
+  }, []);
+
+  // Handle smart content actions
+  const handleSmartAction = useCallback((item: KnytContentItem, action: string) => {
+    if (action === 'read' && item.media?.text) {
+      setCurrentText({ title: item.title, content: item.media.text });
+      setTextReaderOpen(true);
+    } else if (action === 'watch' && item.media?.video_cid) {
+      setCurrentVideoCid(item.media.video_cid);
+      setCurrentVideoTitle(item.title);
+      setVideoViewerOpen(true);
     }
   }, []);
 
@@ -625,14 +650,19 @@ export function CodexLiquidUITab({
 
       {/* Video Player Modal */}
       {videoViewerOpen && currentVideoCid && (
-        <VideoPlayer
-          videoUrl={`/api/content/video/${currentVideoCid}`}
-          title={currentVideoTitle}
-          onClose={() => {
-            setVideoViewerOpen(false);
-            setCurrentVideoCid(null);
-          }}
-        />
+        <VideoErrorBoundary onClose={() => {
+          setVideoViewerOpen(false);
+          setCurrentVideoCid(null);
+        }}>
+          <VideoPlayer
+            videoUrl={`/api/content/video/${currentVideoCid}`}
+            title={currentVideoTitle}
+            onClose={() => {
+              setVideoViewerOpen(false);
+              setCurrentVideoCid(null);
+            }}
+          />
+        </VideoErrorBoundary>
       )}
 
       {textReaderOpen && currentText && (

@@ -38,31 +38,40 @@ class ImageLoadQueue {
       const response = await fetch(task.url);
       
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      // Check content type
+      const contentType = response.headers.get('content-type') || '';
+      if (!contentType.includes('image/') && !contentType.includes('application/octet-stream')) {
+        const text = await response.text();
+        console.error(`[ImageLoader] Expected image, got ${contentType}. Body:`, text.slice(0, 200));
+        throw new Error(`Expected image, got ${contentType}`);
       }
 
       // Create object URL from blob for caching
       const blob = await response.blob();
       const objectUrl = URL.createObjectURL(blob);
       
+      console.log(`[ImageLoader] ✅ Loaded: ${task.url}`);
       task.resolve(objectUrl);
     } catch (error) {
       if (task.retries < this.maxRetries) {
         // Retry with exponential backoff
-        console.log(`[ImageLoader] Retry ${task.retries + 1}/${this.maxRetries} for ${task.url}`);
+        console.log(`[ImageLoader] Retry ${task.retries + 1}/${this.maxRetries} for ${task.url}:`, error);
         task.retries++;
         
         setTimeout(() => {
           this.queue.unshift(task); // Put back at front of queue
+          this.activeLoads--;
           this.processQueue();
         }, this.retryDelay * (task.retries + 1));
       } else {
-        console.error(`[ImageLoader] Failed after ${this.maxRetries} retries:`, task.url, error);
+        console.error(`[ImageLoader] ❌ Failed after ${this.maxRetries} retries:`, task.url, error);
         task.reject(error as Error);
+        this.activeLoads--;
+        this.processQueue(); // Process next item
       }
-    } finally {
-      this.activeLoads--;
-      this.processQueue(); // Process next item
     }
   }
 

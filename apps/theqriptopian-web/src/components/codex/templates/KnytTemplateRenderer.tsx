@@ -11,6 +11,7 @@ import {
   ChevronRight, Sparkles, Gift, ArrowRight, Lock, Check, Coins
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { SmartContentActions, type ContentModalities } from '@/components/content/SmartContentActions';
 import type {
   KnytTemplateId,
   KnytTemplate,
@@ -48,6 +49,7 @@ interface KnytTemplateRendererProps {
   // Content interactions
   onContentSelect: (item: KnytContentItem) => void;
   onViewerOpen: (item: KnytContentItem, type: 'pdf' | 'video' | 'poster') => void;
+  onSmartAction?: (item: KnytContentItem, action: string) => void;
   selectedItemId?: string;
   // Quest/Task state
   activeTask?: { id: string; title: string; progress: number; nextStep: string };
@@ -73,12 +75,16 @@ interface ContentCardProps {
   onWatch?: () => void;
   onRead?: () => void;
   isSelected?: boolean;
+  onAction?: (action: string) => void;
 }
 
-function ContentCard({ item, variant, onSelect, onWatch, onRead, isSelected }: ContentCardProps) {
+function ContentCard({ item, variant, onSelect, onWatch, onRead, isSelected, onAction }: ContentCardProps) {
   const isPortrait = item.type.includes('portrait');
   const hasVideo = item.modalities?.watch?.available;
   const hasPdf = item.modalities?.read?.available;
+  
+  // Get modalities from metadata for SmartContentActions
+  const smartModalities = item.metadata?.modalities as ContentModalities | undefined;
 
   // Determine if this is a character/KNYT card (should be centered) vs episode/cover (align top)
   const isCharacter = item.type.includes('character') || item.type === 'character_portrait';
@@ -139,25 +145,42 @@ function ContentCard({ item, variant, onSelect, onWatch, onRead, isSelected }: C
         )}
       </div>
 
-      {/* Action buttons */}
-      <div className="absolute bottom-12 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-        {hasPdf && (
-          <button
-            className="w-7 h-7 rounded-lg bg-black/60 backdrop-blur-sm flex items-center justify-center ring-1 ring-cyan-500/40 text-cyan-400 hover:bg-cyan-500 hover:text-white transition-all"
-            title="Read"
-            onClick={(e) => { e.stopPropagation(); onRead?.(); }}
-          >
-            <BookOpen className="w-4 h-4" />
-          </button>
-        )}
-        {hasVideo && (
-          <button
-            className="w-7 h-7 rounded-lg bg-black/60 backdrop-blur-sm flex items-center justify-center ring-1 ring-cyan-500/40 text-cyan-400 hover:bg-cyan-500 hover:text-white transition-all"
-            title="Watch"
-            onClick={(e) => { e.stopPropagation(); onWatch?.(); }}
-          >
-            <Play className="w-4 h-4" />
-          </button>
+      {/* Action buttons - SmartContentActions or legacy buttons */}
+      <div className="absolute bottom-12 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        {smartModalities ? (
+          <SmartContentActions
+            modalities={smartModalities}
+            onAction={(action) => {
+              if (action === 'read') onRead?.();
+              else if (action === 'watch') onWatch?.();
+              else onAction?.(action);
+            }}
+            size="sm"
+            context="card"
+            showExpand={false}
+            showShare={false}
+          />
+        ) : (
+          <div className="flex gap-1">
+            {hasPdf && (
+              <button
+                className="w-7 h-7 rounded-lg bg-black/60 backdrop-blur-sm flex items-center justify-center ring-1 ring-cyan-500/40 text-cyan-400 hover:bg-cyan-500 hover:text-white transition-all"
+                title="Read"
+                onClick={(e) => { e.stopPropagation(); onRead?.(); }}
+              >
+                <BookOpen className="w-4 h-4" />
+              </button>
+            )}
+            {hasVideo && (
+              <button
+                className="w-7 h-7 rounded-lg bg-black/60 backdrop-blur-sm flex items-center justify-center ring-1 ring-cyan-500/40 text-cyan-400 hover:bg-cyan-500 hover:text-white transition-all"
+                title="Watch"
+                onClick={(e) => { e.stopPropagation(); onWatch?.(); }}
+              >
+                <Play className="w-4 h-4" />
+              </button>
+            )}
+          </div>
         )}
       </div>
 
@@ -1136,6 +1159,7 @@ export function KnytTemplateRenderer({
   walletDrawerContent,
   onContentSelect,
   onViewerOpen,
+  onSmartAction,
   selectedItemId,
   activeTask,
   rewards,
@@ -1143,7 +1167,7 @@ export function KnytTemplateRenderer({
   activeRealm,
   onRealmChange,
   knytBalance,
-  layoutVariant,
+  layoutVariant: copilotLayoutVariant,
 }: KnytTemplateRendererProps) {
   const service = getKnytLiquidUIService();
   const template = service.getTemplate(templateId);
@@ -1166,6 +1190,7 @@ export function KnytTemplateRenderer({
             contentItems={contentItems}
             onContentSelect={onContentSelect}
             onViewerOpen={onViewerOpen}
+            onSmartAction={onSmartAction}
             selectedItemId={selectedItemId}
             copilotContent={copilotContent}
             copilotMode={copilotMode}
