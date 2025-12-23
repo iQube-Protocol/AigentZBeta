@@ -203,7 +203,8 @@ export function WalletDrawer({ isOpen, onClose, initialTab = 'wallet', variant =
   // Fetch entitlements
   useEffect(() => {
     if (!isOpen || !persona?.id) return;
-    fetch(`/api/entitlements/list?personaId=${persona.id}`)
+    const apiBase = import.meta.env.VITE_API_URL || '';
+    fetch(`${apiBase}/api/entitlements/list?personaId=${persona.id}`)
       .then(r => r.json())
       .then(d => d.entitlements && setEntitlements(d.entitlements.map((e:any) => ({
         id: e.id,
