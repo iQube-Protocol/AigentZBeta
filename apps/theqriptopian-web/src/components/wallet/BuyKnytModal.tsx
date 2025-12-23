@@ -24,9 +24,12 @@ export function BuyKnytModal({ open, onClose, personaId, onPurchaseComplete }: P
     if (open) {
       setLoading(true);
       fetch(`${apiBase}/api/wallet/knyt/purchase`)
-        .then(r => r.json())
+        .then(async r => {
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          return r.json();
+        })
         .then(d => { setPackages(d.packages || []); setSelected(d.packages?.[1]?.packageId || null); })
-        .catch(() => setError('Failed to load packages'))
+        .catch((e) => setError(`Failed to load packages: ${e.message}`))
         .finally(() => setLoading(false));
     }
   }, [open, apiBase]);
@@ -39,6 +42,10 @@ export function BuyKnytModal({ open, onClose, personaId, onPurchaseComplete }: P
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ personaId, packageId: selected }),
       });
+      if (!orderRes.ok) {
+        const errorText = await orderRes.text();
+        throw new Error(`HTTP ${orderRes.status}: ${errorText}`);
+      }
       const { orderId, approvalUrl } = await orderRes.json();
       if (approvalUrl) {
         window.open(approvalUrl, '_blank', 'width=500,height=600');
@@ -49,6 +56,7 @@ export function BuyKnytModal({ open, onClose, personaId, onPurchaseComplete }: P
               method: 'POST', headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ orderId }),
             });
+            if (!captureRes.ok) return; // Skip if not ready yet
             const result = await captureRes.json();
             if (result.success) {
               clearInterval(checkInterval);
