@@ -1,7 +1,7 @@
 [build]
-  base = "/"
-  command = "npm install && cd apps/theqriptopian-web && npm run build"
-  publish = "apps/theqriptopian-web/dist"
+  base = "apps/theqriptopian-web"
+  command = "cp package-netlify.json package.json && npm install && npm run build"
+  publish = "dist"
 
 [build.environment]
   NODE_VERSION = "20"
