@@ -275,7 +275,7 @@ export function KnytCodexTab({
               </div>
               {episode.coverImageCid && (
                 <img
-                  src={`/api/content/cover/${episode.coverImageCid}`}
+                  src={`${import.meta.env.VITE_API_URL || ''}/api/content/cover/${episode.coverImageCid}`}
                   alt={episode.title}
                   className="absolute inset-0 w-full h-full object-cover object-top"
                   onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
@@ -317,7 +317,7 @@ export function KnytCodexTab({
                         type: episode.hasMotionMaster ? 'scroll_motion' : 'scroll_still',
                         id: `mk_ep${String(episode.episodeNumber).padStart(2, '0')}`,
                         title: episode.title || `Episode ${episode.displayNumber}`,
-                        image: episode.coverImageCid ? `/api/content/cover/${episode.coverImageCid}` : undefined,
+                        image: episode.coverImageCid ? `${import.meta.env.VITE_API_URL || ''}/api/content/cover/${episode.coverImageCid}` : undefined,
                       });
                       setPurchaseModalOpen(true);
                     }}

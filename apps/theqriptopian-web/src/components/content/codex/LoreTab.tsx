@@ -100,7 +100,7 @@ export function LoreTab() {
     <>
       {pdfOpen && currentPdf && (
         <PDFViewer
-          pdfUrl={`/api/content/pdf/${currentPdf.cid}`}
+          pdfUrl={`${import.meta.env.VITE_API_URL || ''}/api/content/pdf/${currentPdf.cid}`}
           title={currentPdf.title}
           onClose={() => { setPdfOpen(false); setCurrentPdf(null); }}
         />

@@ -15,6 +15,17 @@ import { unwrapKeyWithMasterKey, decryptContent } from '../../../../../server/se
 
 export const runtime = 'nodejs';
 
+// CORS headers for cross-origin requests from thin client
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
+
+export async function OPTIONS() {
+  return new NextResponse(null, { headers: corsHeaders });
+}
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -31,7 +42,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     const { cid } = params;
 
     if (!cid) {
-      return NextResponse.json({ error: 'CID required' }, { status: 400 });
+      return NextResponse.json({ error: 'CID required' }, { status: 400, headers: corsHeaders });
     }
 
     // Look up the asset by CID to get encryption metadata
@@ -157,12 +168,13 @@ async function streamDecryptedContent(asset: {
     });
   } catch (decryptError) {
     console.error('[CoverStream] Decryption failed:', decryptError);
-    return NextResponse.json({ error: 'Decryption failed' }, { status: 500 });
+    return NextResponse.json({ error: 'Decryption failed' }, { status: 500, headers: corsHeaders });
   }
 
   // Return the decrypted image
   return new NextResponse(new Uint8Array(decryptedData), {
     headers: {
+      ...corsHeaders,
       'Content-Type': asset.mime_type || 'image/jpeg',
       'Content-Length': decryptedData.length.toString(),
       'Cache-Control': 'public, max-age=3600', // Cache for 1 hour

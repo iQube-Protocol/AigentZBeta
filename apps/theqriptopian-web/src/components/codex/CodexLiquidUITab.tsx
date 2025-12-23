@@ -114,7 +114,7 @@ function transformEpisodesToContentItems(episodes: EpisodeFromAPI[]): KnytConten
         type: 'comic_page_portrait',
         title: ep.title || `Episode ${ep.displayNumber}`,
         subtitle: `Episode ${ep.displayNumber}`,
-        thumbnail: ep.coverImageCid ? `/api/content/cover/${ep.coverImageCid}` : undefined,
+        thumbnail: ep.coverImageCid ? `${import.meta.env.VITE_API_URL || ''}/api/content/cover/${ep.coverImageCid}` : undefined,
         media: { pdf_cid: printCid },
         metadata: { 
           episodeNumber: ep.episodeNumber, 
@@ -136,7 +136,7 @@ function transformEpisodesToContentItems(episodes: EpisodeFromAPI[]): KnytConten
         type: 'motion_comic_landscape',
         title: `${ep.title || `Episode ${ep.displayNumber}`} - Motion Comic`,
         subtitle: 'Motion Comic',
-        thumbnail: ep.coverImageCid ? `/api/content/cover/${ep.coverImageCid}` : undefined,
+        thumbnail: ep.coverImageCid ? `${import.meta.env.VITE_API_URL || ''}/api/content/cover/${ep.coverImageCid}` : undefined,
         media: { video_cid: ep.motionMasterCid },
         metadata: { 
           episodeNumber: ep.episodeNumber, 
@@ -163,7 +163,7 @@ function transformCharactersToContentItems(characters: CharacterFromAPI[]): Knyt
     type: 'character_portrait' as KnytContentType,
     title: char.name,
     subtitle: 'Character Card',
-    thumbnail: char.front_cid ? `/api/content/cover/${char.front_cid}` : undefined,
+    thumbnail: char.front_cid ? `${import.meta.env.VITE_API_URL || ''}/api/content/cover/${char.front_cid}` : undefined,
     media: { image_cid: char.front_cid },
     metadata: { 
       characterName: char.name, 
