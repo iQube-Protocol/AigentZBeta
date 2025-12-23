@@ -8,13 +8,16 @@
  * All other tabs (scrolls, characters, lore, etc.) remain unchanged.
  */
 
-import { useState, useEffect, lazy, Suspense, Component, type ReactNode, useMemo } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense, Component, type ReactNode, useMemo } from 'react';
 import { Loader2, BookOpen, Play, Lock, Check, Sparkles, Coins, ShoppingCart, AlertTriangle, RefreshCw } from 'lucide-react';
 import { PDFViewer } from './PDFViewer';
 import { VideoPlayer } from './VideoPlayer';
+import { VideoErrorBoundary } from './VideoErrorBoundary';
 import { KnytCardsGrid } from './KnytCardsGrid';
 import { ContentPurchaseModal, type ContentType } from './ContentPurchaseModal';
 import { CodexHomeTab, LoreTab, DigiTerraTab, TerraTab, OrderOfMetayeTab } from './codex';
+import { useCodexEpisodes, useCodexCharacters, useCodexLore } from '@/hooks/useCodexData';
+import { loadImageWithQueue } from '@/utils/image-loader';
 
 // Lazy load Liquid UI to prevent breaking other tabs if there are import issues
 const CodexLiquidUITab = lazy(() => 
@@ -68,6 +71,78 @@ class CodexErrorBoundary extends Component<{ children: ReactNode; onRetry?: () =
 
     return this.props.children;
   }
+}
+
+// CoverImage component with queued loading
+interface CoverImageProps {
+  cid: string;
+  alt: string;
+  loadedImages: Map<string, string>;
+  setLoadedImages: React.Dispatch<React.SetStateAction<Map<string, string>>>;
+}
+
+function CoverImage({ cid, alt, loadedImages, setLoadedImages }: CoverImageProps) {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const imgRef = useRef<HTMLImageElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    
+    async function loadImage() {
+      // Check if already loaded
+      if (loadedImages.has(cid)) {
+        if (imgRef.current) {
+          imgRef.current.src = loadedImages.get(cid)!;
+          setLoading(false);
+        }
+        return;
+      }
+
+      try {
+        const url = `${import.meta.env.VITE_API_URL || ''}/api/content/cover/${cid}`;
+        const objectUrl = await loadImageWithQueue(url);
+        
+        if (!cancelled) {
+          setLoadedImages(prev => new Map(prev).set(cid, objectUrl));
+          if (imgRef.current) {
+            imgRef.current.src = objectUrl;
+          }
+          setLoading(false);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error(`[CoverImage] Failed to load ${cid}:`, err);
+          setError(true);
+          setLoading(false);
+        }
+      }
+    }
+
+    loadImage();
+    return () => { cancelled = true; };
+  }, [cid, loadedImages, setLoadedImages]);
+
+  return (
+    <>
+      {loading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-slate-900/50">
+          <Loader2 className="w-8 h-8 animate-spin text-cyan-400" />
+        </div>
+      )}
+      {error && (
+        <div className="absolute inset-0 flex items-center justify-center bg-slate-900/50">
+          <AlertTriangle className="w-8 h-8 text-amber-400" />
+        </div>
+      )}
+      <img
+        ref={imgRef}
+        alt={alt}
+        className="absolute inset-0 w-full h-full object-cover object-top"
+        style={{ display: loading || error ? 'none' : 'block' }}
+      />
+    </>
+  );
 }
 
 // Feature flag for Liquid UI on the 'codex' tab
@@ -154,10 +229,14 @@ export function KnytCodexTab({
   spendableKnyt,
   onBalanceRefresh,
 }: KnytCodexTabProps) {
-  const [episodes, setEpisodes] = useState<Episode[]>([]);
+  // Use React Query for persistent caching across drawer opens/closes
+  const { data: episodes = [], isLoading: episodesLoading, error: episodesError } = useCodexEpisodes();
+  const { data: characters = [], isLoading: charactersLoading } = useCodexCharacters();
+  const { data: loreAssets = [], isLoading: loreLoading } = useCodexLore();
+  
   const [ownedIssues, setOwnedIssues] = useState<OwnedIssue[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const loading = episodesLoading || charactersLoading || loreLoading;
+  const error = episodesError ? (episodesError as Error).message : null;
   
   // PDF Reader state
   const [pdfReaderOpen, setPdfReaderOpen] = useState(false);
@@ -181,6 +260,7 @@ export function KnytCodexTab({
   } | null>(null);
 
   const [visitedTabs, setVisitedTabs] = useState<Set<CodexTab>>(() => new Set([activeTab]));
+  const [loadedImages, setLoadedImages] = useState<Map<string, string>>(new Map());
 
   useEffect(() => {
     setVisitedTabs(prev => {
@@ -191,46 +271,23 @@ export function KnytCodexTab({
     });
   }, [activeTab]);
 
-  // Fetch episodes
+  // Fetch owned issues (not cached via React Query as it's user-specific)
   useEffect(() => {
-    async function fetchData() {
+    async function fetchOwnedIssues() {
+      if (!personaId) return;
       try {
-        setLoading(true);
-        console.log('[KnytCodexTab] Fetching episodes...');
         const apiBase = import.meta.env.VITE_API_URL || '';
-        const statusRes = await fetch(`${apiBase}/api/admin/codex/status?series=metaKnyts`);
-        console.log('[KnytCodexTab] Response status:', statusRes.status);
-        if (statusRes.ok) {
-          const statusData = await statusRes.json();
-          console.log('[KnytCodexTab] Episodes received:', statusData.episodes?.length, statusData);
-          const episodeList: Episode[] = statusData.episodes?.map((ep: Episode & { coverImageCid?: string }) => ({
-            episodeNumber: ep.episodeNumber,
-            displayNumber: ep.displayNumber || `#${ep.episodeNumber - 1}`,
-            title: ep.title || `Episode ${ep.displayNumber || ep.episodeNumber}`,
-            coverImageCid: ep.coverImageCid,
-            hasStillMaster: ep.hasStillMaster,
-            hasMotionMaster: ep.hasMotionMaster,
-            hasPrintRare: ep.hasPrintRare,
-            hasPrintEpic: ep.hasPrintEpic,
-            hasPrintLegendary: ep.hasPrintLegendary,
-            printRareCid: ep.printRareCid,
-            printEpicCid: ep.printEpicCid,
-            printLegendaryCid: ep.printLegendaryCid,
-            motionMasterCid: ep.motionMasterCid,
-            availableCovers: ep.coverCount,
-          })) || [];
-          setEpisodes(episodeList);
+        const ownedRes = await fetch(`${apiBase}/api/codex/owned?personaId=${personaId}`);
+        if (ownedRes.ok) {
+          const ownedData = await ownedRes.json();
+          setOwnedIssues(ownedData.issues || []);
         }
-        setError(null);
       } catch (err) {
-        console.error('[KnytCodex] Fetch error:', err);
-        setError('Failed to load Codex');
-      } finally {
-        setLoading(false);
+        console.error('[KnytCodex] Failed to fetch owned issues:', err);
       }
     }
-    fetchData();
-  }, []);
+    fetchOwnedIssues();
+  }, [personaId]);
 
   const getOwnedIssuesForEpisode = (episodeNumber: number) => {
     return ownedIssues.filter(i => i.episodeNumber === episodeNumber);
@@ -274,11 +331,11 @@ export function KnytCodexTab({
                 </div>
               </div>
               {episode.coverImageCid && (
-                <img
-                  src={`${import.meta.env.VITE_API_URL || ''}/api/content/cover/${episode.coverImageCid}`}
+                <CoverImage
+                  cid={episode.coverImageCid}
                   alt={episode.title}
-                  className="absolute inset-0 w-full h-full object-cover object-top"
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                  loadedImages={loadedImages}
+                  setLoadedImages={setLoadedImages}
                 />
               )}
               <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent pointer-events-none" />
@@ -486,17 +543,19 @@ export function KnytCodexTab({
       
       {/* Video Player Modal */}
       {videoPlayerOpen && currentVideoCid && (
-        <VideoPlayer
-          videoUrl={`/api/content/video/${currentVideoCid}`}
-          title={currentVideoTitle}
-          onClose={() => { setVideoPlayerOpen(false); setCurrentVideoCid(null); setVideoSegments([]); }}
-          segments={videoSegments}
-          currentSegmentIndex={currentSegmentIndex}
-          onSegmentChange={(index) => {
-            setCurrentSegmentIndex(index);
-            setCurrentVideoCid(videoSegments[index]?.auto_drive_cid);
-          }}
-        />
+        <VideoErrorBoundary onClose={() => { setVideoPlayerOpen(false); setCurrentVideoCid(null); setVideoSegments([]); }}>
+          <VideoPlayer
+            videoUrl={`/api/content/video/${currentVideoCid}`}
+            title={currentVideoTitle}
+            onClose={() => { setVideoPlayerOpen(false); setCurrentVideoCid(null); setVideoSegments([]); }}
+            segments={videoSegments}
+            currentSegmentIndex={currentSegmentIndex}
+            onSegmentChange={(index) => {
+              setCurrentSegmentIndex(index);
+              setCurrentVideoCid(videoSegments[index]?.auto_drive_cid);
+            }}
+          />
+        </VideoErrorBoundary>
       )}
       
       {/* Content Purchase Modal */}
