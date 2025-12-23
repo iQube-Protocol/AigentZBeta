@@ -12,6 +12,10 @@
   NETLIFY_USE_PNPM = "false"
   # Force Node.js only
   NODE_ENV = "production"
+  # API URLs for thin client
+  VITE_AIGENTIQ_API_URL = "https://dev-beta.aigentz.me"
+  VITE_AIGENT_API_URL = "https://dev-beta.aigentz.me"
+  VITE_API_URL = "https://dev-beta.aigentz.me"
 
 [[redirects]]
   from = "/*"
