@@ -21,7 +21,8 @@ export function DigiTerraTab() {
     async function fetchAssets() {
       try {
         setLoading(true);
-        const res = await fetch('/api/content/assets?kinds=game_concept_doc,game_still,game_video');
+        const apiBase = import.meta.env.VITE_API_URL || '';
+        const res = await fetch(`${apiBase}/api/content/assets?kinds=game_concept_doc,game_still,game_video`);
         if (res.ok) {
           const data = await res.json();
           setGameAssets(data.assets || []);

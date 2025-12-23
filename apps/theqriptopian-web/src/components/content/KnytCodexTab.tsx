@@ -197,7 +197,8 @@ export function KnytCodexTab({
       try {
         setLoading(true);
         console.log('[KnytCodexTab] Fetching episodes...');
-        const statusRes = await fetch('/api/admin/codex/status?series=metaKnyts');
+        const apiBase = import.meta.env.VITE_API_URL || '';
+        const statusRes = await fetch(`${apiBase}/api/admin/codex/status?series=metaKnyts`);
         console.log('[KnytCodexTab] Response status:', statusRes.status);
         if (statusRes.ok) {
           const statusData = await statusRes.json();

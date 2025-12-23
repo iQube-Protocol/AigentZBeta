@@ -11,6 +11,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServer } from '../../../_lib/supabaseServer';
 
+// CORS headers for cross-origin requests from thin client
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
+export async function OPTIONS() {
+  return new NextResponse(null, { headers: corsHeaders });
+}
+
 // Helper to get Supabase client with null check
 function getSupabase() {
   const client = getSupabaseServer();
@@ -312,12 +323,12 @@ export async function GET(req: NextRequest) {
           (e.hasStillMaster || e.hasPrintRare || e.hasPrintEpic || e.hasPrintLegendary) && e.coverCount > 0
         ).length,
       },
-    });
+    }, { headers: corsHeaders });
 
   } catch (error) {
     console.error('[CodexStatus] Error:', error);
     return NextResponse.json({
       error: error instanceof Error ? error.message : 'Failed to get status',
-    }, { status: 500 });
+    }, { status: 500, headers: corsHeaders });
   }
 }

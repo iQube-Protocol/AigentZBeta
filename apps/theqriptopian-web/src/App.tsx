@@ -30,7 +30,7 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <AGUIProvider platformUrl="http://localhost:3000">
+    <AGUIProvider platformUrl={import.meta.env.VITE_API_URL || "http://localhost:3000"}>
       <WalletProvider>
         <LiveCodexProvider>
           <SmartContentActionProvider>

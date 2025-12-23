@@ -289,9 +289,10 @@ function transformIssuePackageMetaKnytsToContentItems(): KnytContentItem[] {
  * Fetch content from API
  */
 async function fetchCodexContent(): Promise<KnytContentItem[]> {
+  const apiBase = import.meta.env.VITE_API_URL || '';
   try {
     // Fetch episodes
-    const episodesRes = await fetch('/api/admin/codex/status?series=metaKnyts');
+    const episodesRes = await fetch(`${apiBase}/api/admin/codex/status?series=metaKnyts`);
     let episodeItems: KnytContentItem[] = [];
     
     if (episodesRes.ok) {
@@ -303,7 +304,7 @@ async function fetchCodexContent(): Promise<KnytContentItem[]> {
     }
     
     // Fetch characters
-    const charactersRes = await fetch('/api/codex/knyt-cards');
+    const charactersRes = await fetch(`${apiBase}/api/codex/knyt-cards`);
     let characterItems: KnytContentItem[] = [];
     
     if (charactersRes.ok) {
@@ -316,7 +317,7 @@ async function fetchCodexContent(): Promise<KnytContentItem[]> {
 
     let loreItems: KnytContentItem[] = [];
     try {
-      const loreRes = await fetch('/api/content/assets?kinds=background_lore_doc,twenty_one_sats_concept');
+      const loreRes = await fetch(`${apiBase}/api/content/assets?kinds=background_lore_doc,twenty_one_sats_concept`);
       if (loreRes.ok) {
         const data = await loreRes.json();
         if (data.assets) {

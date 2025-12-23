@@ -8,6 +8,17 @@ import { createClient } from '@supabase/supabase-js';
 
 export const runtime = 'nodejs';
 
+// CORS headers for cross-origin requests from thin client
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
+export async function OPTIONS() {
+  return new NextResponse(null, { headers: corsHeaders });
+}
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -15,7 +26,7 @@ export async function GET(req: NextRequest) {
     const episodeNumber = searchParams.get('episode');
     
     if (!kindsParam) {
-      return NextResponse.json({ error: 'Missing kinds parameter' }, { status: 400 });
+      return NextResponse.json({ error: 'Missing kinds parameter' }, { status: 400, headers: corsHeaders });
     }
 
     const kinds = kindsParam.split(',').map(k => k.trim());
@@ -39,12 +50,12 @@ export async function GET(req: NextRequest) {
 
     if (error) {
       console.error('[assets] Query error:', error);
-      return NextResponse.json({ error: 'Failed to fetch assets' }, { status: 500 });
+      return NextResponse.json({ error: 'Failed to fetch assets' }, { status: 500, headers: corsHeaders });
     }
 
-    return NextResponse.json({ assets: data || [] });
+    return NextResponse.json({ assets: data || [] }, { headers: corsHeaders });
   } catch (err) {
     console.error('[assets] Error:', err);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500, headers: corsHeaders });
   }
 }

@@ -33,7 +33,8 @@ export function LoreTab() {
     async function fetchLore() {
       try {
         setLoading(true);
-        const res = await fetch('/api/content/assets?kinds=background_lore_doc,twenty_one_sats_concept');
+        const apiBase = import.meta.env.VITE_API_URL || '';
+        const res = await fetch(`${apiBase}/api/content/assets?kinds=background_lore_doc,twenty_one_sats_concept`);
         if (res.ok) {
           const data = await res.json();
           setLoreAssets(data.assets || []);
