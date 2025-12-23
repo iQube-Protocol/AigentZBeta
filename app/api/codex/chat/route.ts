@@ -459,7 +459,7 @@ export async function POST(request: NextRequest) {
         model: OPENAI_MODEL,
         messages,
         temperature: 0.7,
-        max_tokens: 500
+        max_tokens: 1200
       })
     });
 
