@@ -1,10 +1,11 @@
 [build]
-  base = "apps/theqriptopian-web"
-  command = "cp package-netlify.json package.json && npm install && npm run build"
-  publish = "dist"
+  base = "/"
+  command = "npm install --legacy-peer-deps && cd apps/theqriptopian-web && npm run build"
+  publish = "apps/theqriptopian-web/dist"
 
 [build.environment]
   NODE_VERSION = "20"
+  NPM_FLAGS = "--legacy-peer-deps"
 
 [[redirects]]
   from = "/*"
