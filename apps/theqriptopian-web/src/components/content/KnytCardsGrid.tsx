@@ -96,7 +96,7 @@ export function KnytCardsGrid({ personaId = '', knytBalance = 0, spendableKnyt, 
               className="relative aspect-[3/4] rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-cyan-400 transition-all bg-gray-800 group"
             >
               <img
-                src={`${apiUrl}/api/content/cover/${poster.autoDriveCid}`}
+                src={`${apiUrl}/api/content/cover/${poster.autoDriveCid}?variant=thumb`}
                 alt={poster.title}
                 className="w-full h-full object-cover"
                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
@@ -156,7 +156,7 @@ export function KnytCardsGrid({ personaId = '', knytBalance = 0, spendableKnyt, 
               <div className="group flex flex-col">
                 <div className="aspect-[2/3] rounded-xl bg-black/50 overflow-hidden ring-1 ring-white/10 hover:ring-cyan-500/50 transition-all relative flex items-center justify-center">
                   <img
-                    src={`${apiUrl}/api/content/cover/${selected.poster.autoDriveCid}`}
+                    src={`${apiUrl}/api/content/cover/${selected.poster.autoDriveCid}?variant=thumb`}
                     alt="Character Poster"
                     className="max-w-full max-h-full object-contain"
                   />
@@ -177,7 +177,7 @@ export function KnytCardsGrid({ personaId = '', knytBalance = 0, spendableKnyt, 
                 <div className="group flex flex-col">
                   <div className="aspect-[2/3] rounded-xl bg-black/50 overflow-hidden ring-1 ring-white/10 hover:ring-purple-500/50 transition-all relative flex items-center justify-center">
                     <img
-                      src={`${apiUrl}/api/content/cover/${selected.sheet.autoDriveCid}`}
+                      src={`${apiUrl}/api/content/cover/${selected.sheet.autoDriveCid}?variant=thumb`}
                       alt="Powers Sheet"
                       className="max-w-full max-h-full object-contain"
                     />
@@ -253,7 +253,7 @@ export function KnytCardsGrid({ personaId = '', knytBalance = 0, spendableKnyt, 
           contentType="character_card"
           contentId={purchaseCard.id}
           contentTitle={purchaseCard.digiterraName || purchaseCard.title}
-          contentImage={`${apiUrl}/api/content/cover/${purchaseCard.autoDriveCid}`}
+          contentImage={`${apiUrl}/api/content/cover/${purchaseCard.autoDriveCid}?variant=thumb`}
           knytBalance={knytBalance}
           spendableKnyt={spendableKnyt}
           onPurchaseComplete={(entitlementId) => {

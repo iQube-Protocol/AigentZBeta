@@ -10,7 +10,7 @@
 
 import { useState, useEffect, useRef, lazy, Suspense, Component, type ReactNode, useMemo } from 'react';
 import { Loader2, BookOpen, Play, Lock, Check, Sparkles, Coins, ShoppingCart, AlertTriangle, RefreshCw } from 'lucide-react';
-import { PDFViewer } from './PDFViewer';
+import { PDFPageViewer } from './PDFPageViewer';
 import { VideoPlayer } from './VideoPlayer';
 import { VideoErrorBoundary } from './VideoErrorBoundary';
 import { KnytCardsGrid } from './KnytCardsGrid';
@@ -20,14 +20,13 @@ import { useCodexEpisodes, useCodexCharacters, useCodexLore } from '@/hooks/useC
 import { loadImageWithQueue } from '@/utils/image-loader';
 
 // Lazy load Liquid UI to prevent breaking other tabs if there are import issues
-const CodexLiquidUITab = lazy(() => 
-  import('@/components/codex/CodexLiquidUITab').then(mod => ({ default: mod.CodexLiquidUITab }))
-);
+const CodexLiquidUITab = lazy(() => import('@/components/codex/CodexLiquidUITab'));
 
 // Error Boundary for Codex - prevents crashes from breaking the entire UI
 interface ErrorBoundaryState {
   hasError: boolean;
   error?: Error;
+  errorInfo?: React.ErrorInfo;
 }
 
 class CodexErrorBoundary extends Component<{ children: ReactNode; onRetry?: () => void }, ErrorBoundaryState> {
@@ -42,6 +41,7 @@ class CodexErrorBoundary extends Component<{ children: ReactNode; onRetry?: () =
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('[CodexErrorBoundary] Caught error:', error, errorInfo);
+    this.setState({ errorInfo });
   }
 
   handleRetry = () => {
@@ -58,9 +58,18 @@ class CodexErrorBoundary extends Component<{ children: ReactNode; onRetry?: () =
           <p className="text-white/60 mb-4 max-w-md">
             There was an issue loading the Codex. This may be due to a network issue or service unavailability.
           </p>
+          {this.state.error && (
+            <div style={{ whiteSpace: 'pre-wrap', marginTop: 12, fontSize: 12, opacity: 0.9, maxWidth: '600px', textAlign: 'left' }} className="text-white/80 bg-black/40 p-3 rounded">
+              <strong>Debug Info:</strong>
+              <pre style={{ fontSize: 11, marginTop: 8 }}>{String(this.state.error?.message || this.state.error)}</pre>
+              {this.state.errorInfo?.componentStack && (
+                <pre style={{ fontSize: 10, marginTop: 8, opacity: 0.7 }}>{this.state.errorInfo.componentStack}</pre>
+              )}
+            </div>
+          )}
           <button
             onClick={this.handleRetry}
-            className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg transition-colors mt-4"
           >
             <RefreshCw className="w-4 h-4" />
             Try Again
@@ -100,7 +109,7 @@ function CoverImage({ cid, alt, loadedImages, setLoadedImages }: CoverImageProps
       }
 
       try {
-        const url = `${import.meta.env.VITE_API_URL || ''}/api/content/cover/${cid}`;
+        const url = `${import.meta.env.VITE_API_URL || ''}/api/content/cover/${cid}?variant=thumb`;
         const objectUrl = await loadImageWithQueue(url);
         
         if (!cancelled) {
@@ -374,7 +383,7 @@ export function KnytCodexTab({
                         type: episode.hasMotionMaster ? 'scroll_motion' : 'scroll_still',
                         id: `mk_ep${String(episode.episodeNumber).padStart(2, '0')}`,
                         title: episode.title || `Episode ${episode.displayNumber}`,
-                        image: episode.coverImageCid ? `${import.meta.env.VITE_API_URL || ''}/api/content/cover/${episode.coverImageCid}` : undefined,
+                        image: episode.coverImageCid ? `${import.meta.env.VITE_API_URL || ''}/api/content/cover/${episode.coverImageCid}?variant=thumb` : undefined,
                       });
                       setPurchaseModalOpen(true);
                     }}
@@ -534,8 +543,8 @@ export function KnytCodexTab({
     <>
       {/* PDF Reader Modal */}
       {pdfReaderOpen && currentPdfCid && (
-        <PDFViewer
-          pdfUrl={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/content/pdf/${currentPdfCid}`}
+        <PDFPageViewer
+          cid={currentPdfCid}
           title={currentPdfTitle}
           onClose={() => { setPdfReaderOpen(false); setCurrentPdfCid(null); }}
         />

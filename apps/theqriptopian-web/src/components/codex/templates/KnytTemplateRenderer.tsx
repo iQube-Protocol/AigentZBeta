@@ -399,6 +399,7 @@ function DrawerGridTemplate({
         }}
         onRead={() => onViewerOpen(item, 'pdf')}
         onWatch={() => onViewerOpen(item, 'video')}
+        onAction={(action) => onSmartAction?.(item, action)}
       />
     );
   };
@@ -1190,12 +1191,11 @@ export function KnytTemplateRenderer({
             contentItems={contentItems}
             onContentSelect={onContentSelect}
             onViewerOpen={onViewerOpen}
-            onSmartAction={onSmartAction}
             selectedItemId={selectedItemId}
             copilotContent={copilotContent}
             copilotMode={copilotMode}
             userIntent={userIntent}
-            layoutVariant={layoutVariant}
+            layoutVariant={copilotLayoutVariant}
           />
         );
 

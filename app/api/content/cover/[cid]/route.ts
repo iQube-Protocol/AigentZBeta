@@ -13,6 +13,7 @@ import { createAutoDriveApi } from '@autonomys/auto-drive';
 import { NetworkId } from '@autonomys/auto-utils';
 import { unwrapKeyWithMasterKey, decryptContent } from '../../../../../server/services/encryptionService';
 import { getCachedImage, setCachedImage } from './cache';
+import sharp from 'sharp';
 
 export const runtime = 'nodejs';
 
@@ -46,8 +47,12 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'CID required' }, { status: 400, headers: corsHeaders });
     }
 
+    // Get variant (default to thumb to avoid CloudFront 1MB limit)
+    const variant = req.nextUrl.searchParams.get('variant') ?? 'thumb';
+    const cacheKey = `${cid}:${variant}`;
+
     // Check cache first
-    const cached = getCachedImage(cid);
+    const cached = getCachedImage(cacheKey);
     if (cached) {
       console.log(`[CoverStream] Cache HIT for ${cid}`);
       return new NextResponse(new Uint8Array(cached.data), {
@@ -100,11 +105,11 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
       // Use master content
       console.log('[CoverStream] Found in master_content_qubes, token_qube_id:', master.token_qube_id);
-      return await streamDecryptedContent(master);
+      return await streamDecryptedContent(master, variant, cacheKey);
     }
 
     console.log('[CoverStream] Found asset:', asset.id, 'mime_type:', asset.mime_type, 'token_qube_id:', asset.token_qube_id);
-    return await streamDecryptedContent(asset);
+    return await streamDecryptedContent(asset, variant, cacheKey);
 
   } catch (error) {
     console.error('[CoverStream] Error:', error);
@@ -115,13 +120,17 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
   }
 }
 
-async function streamDecryptedContent(asset: {
-  auto_drive_cid: string;
-  mime_type: string;
-  encryption_iv: string;
-  encryption_auth_tag: string | null;
-  token_qube_id: string | null;
-}) {
+async function streamDecryptedContent(
+  asset: {
+    auto_drive_cid: string;
+    mime_type: string;
+    encryption_iv: string;
+    encryption_auth_tag: string | null;
+    token_qube_id: string | null;
+  },
+  variant: string,
+  cacheKey: string
+) {
   // Get the decryption key from token_qube
   if (!asset.token_qube_id) {
     return NextResponse.json({ error: 'No token qube for decryption' }, { status: 400 });
@@ -189,17 +198,84 @@ async function streamDecryptedContent(asset: {
     return NextResponse.json({ error: 'Decryption failed' }, { status: 500, headers: corsHeaders });
   }
 
-  // Cache the decrypted image
-  setCachedImage(asset.auto_drive_cid, decryptedData, asset.mime_type || 'image/jpeg');
+  // For covers, default to thumb to stay under CloudFront edge body limits (~1MB)
+  let finalData = decryptedData;
+  let finalMime = asset.mime_type || 'image/jpeg';
+  let thumbOk = true;
 
-  // Return the decrypted image
-  return new NextResponse(new Uint8Array(decryptedData), {
+  if (variant === 'thumb') {
+    try {
+      const thumb = await makeThumbUnderLimit(decryptedData);
+      finalData = thumb.data;
+      finalMime = thumb.mime;
+      thumbOk = thumb.ok;
+      console.log(`[CoverStream] Thumb: ${thumb.ok ? 'OK' : 'FALLBACK'}, size: ${finalData.length} bytes`);
+    } catch (e) {
+      console.error('[CoverStream] Thumb encode failed:', e);
+      // Fallback to placeholder rather than returning a big body that triggers 413
+      finalData = PLACEHOLDER_PNG;
+      finalMime = 'image/png';
+      thumbOk = false;
+    }
+  }
+
+  // Cache what we actually return
+  setCachedImage(cacheKey, finalData, finalMime);
+
+  return new NextResponse(new Uint8Array(finalData), {
     headers: {
       ...corsHeaders,
-      'Content-Type': asset.mime_type || 'image/jpeg',
-      'Content-Length': decryptedData.length.toString(),
+      'Content-Type': finalMime,
+      'Content-Length': finalData.length.toString(),
       'Cache-Control': 'public, max-age=3600',
       'X-Cache': 'MISS',
+      'X-Variant': variant,
+      'X-Thumb-OK': thumbOk ? '1' : '0',
     },
   });
+}
+
+// ============================================================================
+// Thumbnail Generation Helper
+// ============================================================================
+
+const MAX_EDGE_BODY_BYTES = 950_000; // Keep well under CloudFront's 1MB limit
+const PLACEHOLDER_PNG = Buffer.from(
+  // 1x1 transparent PNG
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/P5mU7QAAAABJRU5ErkJggg==',
+  'base64'
+);
+
+/**
+ * Resize and compress image to stay under CloudFront edge response limit.
+ * Tries progressively smaller sizes/qualities until under limit.
+ * Returns placeholder if all attempts fail.
+ */
+async function makeThumbUnderLimit(input: Buffer) {
+  const attempts = [
+    { width: 1024, quality: 75 },
+    { width: 900, quality: 70 },
+    { width: 800, quality: 65 },
+    { width: 700, quality: 60 },
+    { width: 600, quality: 55 },
+  ];
+
+  for (const a of attempts) {
+    try {
+      const out = await sharp(input)
+        .resize({ width: a.width, withoutEnlargement: true })
+        .webp({ quality: a.quality })
+        .toBuffer();
+
+      if (out.length <= MAX_EDGE_BODY_BYTES) {
+        return { data: out, mime: 'image/webp', ok: true as const };
+      }
+    } catch (e) {
+      console.error(`[makeThumbUnderLimit] Failed at width=${a.width}:`, e);
+      continue;
+    }
+  }
+
+  // All attempts failed, return tiny placeholder
+  return { data: PLACEHOLDER_PNG, mime: 'image/png', ok: false as const };
 }

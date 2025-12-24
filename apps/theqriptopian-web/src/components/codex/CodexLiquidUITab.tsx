@@ -28,7 +28,7 @@ import type {
   UserIntent,
   DrawerGridLayoutVariant,
 } from '@/types/knytLiquidUI';
-import { PDFViewer } from '@/components/content/PDFViewer';
+import { PDFPageViewer } from '@/components/content/PDFPageViewer';
 import { VideoPlayer } from '@/components/content/VideoPlayer';
 import { VideoErrorBoundary } from '@/components/content/VideoErrorBoundary';
 import { LoreTextReader } from '@/components/content/LoreTextReader';
@@ -117,7 +117,7 @@ function transformEpisodesToContentItems(episodes: EpisodeFromAPI[]): KnytConten
         type: 'comic_page_portrait',
         title: ep.title || `Episode ${ep.displayNumber}`,
         subtitle: `Episode ${ep.displayNumber}`,
-        thumbnail: ep.coverImageCid ? `${import.meta.env.VITE_API_URL || ''}/api/content/cover/${ep.coverImageCid}` : undefined,
+        thumbnail: ep.coverImageCid ? `${import.meta.env.VITE_API_URL || ''}/api/content/cover/${ep.coverImageCid}?variant=thumb` : undefined,
         media: { pdf_cid: printCid },
         metadata: { 
           episodeNumber: ep.episodeNumber, 
@@ -139,7 +139,7 @@ function transformEpisodesToContentItems(episodes: EpisodeFromAPI[]): KnytConten
         type: 'motion_comic_landscape',
         title: `${ep.title || `Episode ${ep.displayNumber}`} - Motion Comic`,
         subtitle: 'Motion Comic',
-        thumbnail: ep.coverImageCid ? `${import.meta.env.VITE_API_URL || ''}/api/content/cover/${ep.coverImageCid}` : undefined,
+        thumbnail: ep.coverImageCid ? `${import.meta.env.VITE_API_URL || ''}/api/content/cover/${ep.coverImageCid}?variant=thumb` : undefined,
         media: { video_cid: ep.motionMasterCid },
         metadata: { 
           episodeNumber: ep.episodeNumber, 
@@ -166,7 +166,7 @@ function transformCharactersToContentItems(characters: CharacterFromAPI[]): Knyt
     type: 'character_portrait' as KnytContentType,
     title: char.name,
     subtitle: 'Character Card',
-    thumbnail: char.front_cid ? `${import.meta.env.VITE_API_URL || ''}/api/content/cover/${char.front_cid}` : undefined,
+    thumbnail: char.front_cid ? `${import.meta.env.VITE_API_URL || ''}/api/content/cover/${char.front_cid}?variant=thumb` : undefined,
     media: { image_cid: char.front_cid },
     metadata: { 
       characterName: char.name, 
@@ -229,70 +229,76 @@ interface IssuePackage {
 }
 
 function transformIssuePackageMetaKnytsToContentItems(): KnytContentItem[] {
-  const pkg = issuePackage as IssuePackage;
-  const items = pkg.collections?.content_items || [];
-  const placements = pkg.collections?.placements || [];
-  const assets = pkg.collections?.assets || [];
+  try {
+    const pkg = issuePackage as IssuePackage;
+    const items = pkg.collections?.content_items || [];
+    const placements = pkg.collections?.placements || [];
+    const assets = pkg.collections?.assets || [];
 
-  const contentById = new Map<string, IssuePackageContentItem>();
-  for (const it of items) {
-    if (it?.content_id) contentById.set(it.content_id, it);
-  }
-  const assetById = new Map<string, IssuePackageAsset>();
-  for (const a of assets) {
-    if (a?.asset_id) assetById.set(a.asset_id, a);
-  }
-
-  const metaknytsPlacements = placements
-    .filter((p) => p?.section_id === 'scrolls' && p?.tab_id === 'metaknyts')
-    .sort((a, b) => (a.position ?? 999) - (b.position ?? 999));
-
-  const out: KnytContentItem[] = [];
-  for (const p of metaknytsPlacements) {
-    const c = contentById.get(p.content_id);
-    if (!c) continue;
-
-    const thumbUrl =
-      c?.render?.payloads?.thumbnail?.[0]?.url || assetById.get(c.thumbnail_asset_id)?.url || undefined;
-
-    const blocks = (c.content_blocks || []) as Array<{ type: string; level?: number; text: string }>;
-    const text = blocks
-      .filter((b) => b?.text)
-      .map((b) => {
-        if (b.type === 'heading') return `${'#'.repeat(b.level || 1)} ${b.text}`;
-        if (b.type === 'list_item') return `- ${b.text}`;
-        return b.text;
-      })
-      .join('\n\n');
-
-    const realm = (c?.taxonomy?.realm || 'terra') as Realm;
-
-    // Build modalities for SmartContentActions
-    const modalities: ContentModalities = {};
-    if (text) {
-      modalities.read = { text };
+    const contentById = new Map<string, IssuePackageContentItem>();
+    for (const it of items) {
+      if (it?.content_id) contentById.set(it.content_id, it);
+    }
+    const assetById = new Map<string, IssuePackageAsset>();
+    for (const a of assets) {
+      if (a?.asset_id) assetById.set(a.asset_id, a);
     }
 
-    out.push({
-      id: `terra_${String(c.content_id || '').replace('content:', '')}`,
-      type: 'terra_update',
-      title: c.title || c.slug || 'Terra Update',
-      subtitle: 'Terra',
-      description: c.excerpt || undefined,
-      thumbnail: thumbUrl,
-      media: {
-        text: text || undefined,
-      },
-      metadata: {
-        realm,
-        modalities, // Add modalities for SmartTriad
-      },
-      modalities: {
-        read: { available: !!text },
-      },
-    });
+    const metaknytsPlacements = placements
+      .filter((p) => p?.section_id === 'scrolls' && p?.tab_id === 'metaknyts')
+      .sort((a, b) => (a.position ?? 999) - (b.position ?? 999));
+
+    const out: KnytContentItem[] = [];
+    for (const p of metaknytsPlacements) {
+      const c = contentById.get(p.content_id);
+      if (!c) continue;
+
+      const thumbUrl =
+        c?.render?.payloads?.thumbnail?.[0]?.url || assetById.get(c.thumbnail_asset_id)?.url || undefined;
+
+      const blocks = (c.content_blocks || []) as Array<{ type: string; level?: number; text: string }>;
+      const text = blocks
+        .filter((b) => b?.text)
+        .map((b) => {
+          if (b.type === 'heading') return `${'#'.repeat(b.level || 1)} ${b.text}`;
+          if (b.type === 'list_item') return `- ${b.text}`;
+          return b.text;
+        })
+        .join('\n\n');
+
+      const realm = (c?.taxonomy?.realm || 'terra') as Realm;
+
+      // Build modalities for SmartContentActions
+      const modalities: ContentModalities = {};
+      if (text) {
+        modalities.read = { text };
+      }
+
+      out.push({
+        id: `terra_${String(c.content_id || '').replace('content:', '')}`,
+        type: 'terra_update',
+        title: c.title || c.slug || 'Terra Update',
+        subtitle: 'Terra',
+        description: c.excerpt || undefined,
+        thumbnail: thumbUrl,
+        media: {
+          text: text || undefined,
+        },
+        metadata: {
+          realm,
+          modalities, // Add modalities for SmartTriad
+        },
+        modalities: {
+          read: { available: !!text },
+        },
+      });
+    }
+    console.log('[CodexLiquidUI] Transformed', out.length, 'metaKnyts items');
+    return out;
+  } catch (error) {
+    console.error('[CodexLiquidUI] Error transforming metaKnyts:', error);
+    return [];
   }
-  return out;
 }
 
 /**
@@ -370,7 +376,7 @@ function getInitialTaskData() {
 // Main Component
 // ============================================================================
 
-export function CodexLiquidUITab({
+export default function CodexLiquidUITab({
   personaId,
   knytBalance = 0,
   spendableKnyt,
@@ -503,7 +509,7 @@ export function CodexLiquidUITab({
       setCopilotMode(result.copilotMode);
       onCopilotModeChange?.(result.copilotMode);
     }
-  }, [loading, contentItems, userIntent, device, activeRealm, isFirstVisit, personaId, taskData, service, copilotMode, onCopilotModeChange, selectedItemId]);
+  }, [loading, contentItems, userIntent, device, activeRealm, isFirstVisit, personaId, taskData, service, selectedItemId]);
 
   // Handle content selection
   const handleContentSelect = useCallback((item: KnytContentItem) => {
@@ -638,8 +644,8 @@ export function CodexLiquidUITab({
 
       {/* PDF Viewer Modal */}
       {pdfViewerOpen && currentPdfCid && (
-        <PDFViewer
-          pdfUrl={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/content/pdf/${currentPdfCid}`}
+        <PDFPageViewer
+          cid={currentPdfCid}
           title={currentPdfTitle}
           onClose={() => {
             setPdfViewerOpen(false);
@@ -685,3 +691,6 @@ export function CodexLiquidUITab({
     </div>
   );
 }
+
+// Also export as named export for compatibility with cached imports
+export { CodexLiquidUITab };

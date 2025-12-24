@@ -5,7 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { Loader2, FileText, BookOpen, Scroll, Image, Video, Sparkles } from 'lucide-react';
-import { PDFViewer } from '../PDFViewer';
+import { PDFPageViewer } from '../PDFPageViewer';
 import { LoreTextReader } from '../LoreTextReader';
 
 type DisplayMode = 'pdf' | 'image' | 'video' | 'text_extract';
@@ -99,8 +99,8 @@ export function LoreTab() {
   return (
     <>
       {pdfOpen && currentPdf && (
-        <PDFViewer
-          pdfUrl={`${import.meta.env.VITE_API_URL || ''}/api/content/pdf/${currentPdf.cid}`}
+        <PDFPageViewer
+          cid={currentPdf.cid}
           title={currentPdf.title}
           onClose={() => { setPdfOpen(false); setCurrentPdf(null); }}
         />
