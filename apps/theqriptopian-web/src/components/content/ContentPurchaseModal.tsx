@@ -147,8 +147,8 @@ export function ContentPurchaseModal({
   const pricing = calculatePricing(baseKnyt);
   const canAffordKnyt = effectiveSpendable >= pricing.rails.knyt.amount;
 
-  // Use relative path - Vite proxy forwards /api to Next.js backend
-  const apiBase = '';
+  // Use API URL from environment, fallback to relative path for local dev
+  const apiBase = import.meta.env.VITE_API_URL || '';
 
   // Reset state when modal opens
   useEffect(() => {
