@@ -197,6 +197,29 @@ export async function POST(req: NextRequest) {
       txId: fioResult.txId
     });
 
+    // STEP 4: Grant 50 Q¢ signup bonus (Base Q¢)
+    try {
+      const { error: bonusError } = await supabase
+        .from('qc_balances')
+        .insert({
+          persona_id: personaId,
+          balance: 50.0,
+          currency: 'base_qc',
+          source: 'signup_bonus',
+          created_at: new Date().toISOString()
+        });
+
+      if (bonusError) {
+        console.error('[Create with FIO] Failed to grant signup bonus:', bonusError);
+        // Don't fail the whole signup if bonus fails
+      } else {
+        console.log('[Create with FIO] Granted 50 Q¢ signup bonus to:', personaId);
+      }
+    } catch (bonusErr) {
+      console.error('[Create with FIO] Signup bonus error:', bonusErr);
+      // Don't fail the whole signup if bonus fails
+    }
+
     return NextResponse.json({
       ok: true,
       data: {

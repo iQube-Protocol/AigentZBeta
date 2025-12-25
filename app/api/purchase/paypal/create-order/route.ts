@@ -22,9 +22,21 @@ export async function OPTIONS() {
 }
 
 async function getAccessToken(): Promise<string> {
-  const auth = Buffer.from(
-    `${process.env.PAYPAL_CLIENT_ID}:${process.env.PAYPAL_CLIENT_SECRET}`
-  ).toString('base64');
+  const clientId = process.env.PAYPAL_CLIENT_ID;
+  const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
+  
+  if (!clientId || !clientSecret) {
+    console.error('[PayPal Auth] Missing credentials:', {
+      hasClientId: !!clientId,
+      hasClientSecret: !!clientSecret,
+      mode: process.env.PAYPAL_MODE
+    });
+    throw new Error('PayPal credentials not configured');
+  }
+  
+  const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+  
+  console.log('[PayPal Auth] Attempting authentication to:', PAYPAL_API);
   
   const res = await fetch(`${PAYPAL_API}/v1/oauth2/token`, {
     method: 'POST',
@@ -36,10 +48,17 @@ async function getAccessToken(): Promise<string> {
   });
   
   if (!res.ok) {
-    throw new Error('PayPal authentication failed');
+    const errorText = await res.text();
+    console.error('[PayPal Auth] Failed:', {
+      status: res.status,
+      statusText: res.statusText,
+      error: errorText
+    });
+    throw new Error(`PayPal authentication failed: ${res.status} ${errorText}`);
   }
   
   const data = await res.json();
+  console.log('[PayPal Auth] Success');
   return data.access_token;
 }
 
