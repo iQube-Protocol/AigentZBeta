@@ -48,6 +48,7 @@ export function WalletDrawer({ isOpen, onClose, initialTab = 'wallet', variant =
   const [isLoadingBalances, setIsLoadingBalances] = useState(false);
   const [savedPersonas, setSavedPersonas] = useState<SavedPersona[]>([]);
   const [entitlements, setEntitlements] = useState<ContentEntitlement[]>([]);
+  const [baseQcBalance, setBaseQcBalance] = useState<number>(0);
 
   // Fetch user's persona and saved list from Supabase
   const fetchPersona = useCallback(async () => {
@@ -165,6 +166,31 @@ export function WalletDrawer({ isOpen, onClose, initialTab = 'wallet', variant =
       loadBalances();
     }
   }, [isOpen, persona?.fio_handle]);
+
+  // Fetch Base Q¢ balance when persona changes
+  useEffect(() => {
+    const loadBaseQc = async () => {
+      if (!persona?.id) {
+        setBaseQcBalance(0);
+        return;
+      }
+
+      try {
+        const apiUrl = import.meta.env.VITE_API_URL || '';
+        const response = await fetch(`${apiUrl}/api/wallet/base-qc/balance?personaId=${persona.id}`);
+        if (response.ok) {
+          const data = await response.json();
+          setBaseQcBalance(data.balance || 0);
+        }
+      } catch (e) {
+        console.error('[WalletDrawer] Error fetching Base Q¢:', e);
+      }
+    };
+
+    if (isOpen && persona) {
+      loadBaseQc();
+    }
+  }, [isOpen, persona?.id]);
 
   // Helper to format asset ID to franchise display name with enriched metadata
   const formatAssetTitle = (assetId: string, metadata?: any, assetMeta?: any): string => {
@@ -288,7 +314,8 @@ export function WalletDrawer({ isOpen, onClose, initialTab = 'wallet', variant =
       switchingAllowed: true,
     },
     balances: {
-      totalQc: balances?.totalQct || 0,
+      totalQc: (balances?.totalQct || 0) + baseQcBalance,
+      baseQc: baseQcBalance,
       assets: [
         // QCT across all chains (include all, even with 0 balance)
         ...(balances?.chains || []).map(chain => ({

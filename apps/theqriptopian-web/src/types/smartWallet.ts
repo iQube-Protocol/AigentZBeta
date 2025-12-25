@@ -107,6 +107,9 @@ export interface WalletBalances {
   /** Total Q¢ across all chains */
   totalQc: number;
   
+  /** Base Q¢ (off-chain balance) */
+  baseQc?: number;
+  
   /** Individual asset balances */
   assets: AssetBalance[];
   
