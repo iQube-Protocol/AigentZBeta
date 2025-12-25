@@ -18,7 +18,7 @@ export function BuyKnytModal({ open, onClose, personaId, onPurchaseComplete }: P
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<{ knyt: number; balance: number } | null>(null);
 
-  const apiBase = import.meta.env.VITE_AIGENT_API_URL || '';
+  const apiBase = import.meta.env.VITE_API_URL || '';
 
   useEffect(() => {
     if (open) {
