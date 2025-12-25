@@ -1135,7 +1135,18 @@ export default function SmartWalletDrawer({
                     <div className="p-3 rounded-xl bg-purple-500/10 border border-purple-500/20">
                       <button onClick={() => setSelectedLibraryItem(null)} className="text-xs text-white/50 mb-2">← Back</button>
                       <div className="aspect-[3/4] w-32 mx-auto rounded-lg overflow-hidden bg-black/40 mb-2 relative">
-                        <div className="w-full h-full flex items-center justify-center">
+                        {selectedLibraryItem.coverCid ? (
+                          <img 
+                            src={`/api/content/cover/${selectedLibraryItem.coverCid}?variant=thumb`}
+                            alt={selectedLibraryItem.contentTitle}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'none';
+                              (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
+                            }}
+                          />
+                        ) : null}
+                        <div className={`w-full h-full flex items-center justify-center ${selectedLibraryItem.coverCid ? 'hidden' : ''}`}>
                           {isMotionContent(selectedLibraryItem) ? (
                             <Film className="w-12 h-12 text-purple-400/50" />
                           ) : (
@@ -1175,7 +1186,18 @@ export default function SmartWalletDrawer({
                       {walletNode.contentEntitlements.map((ent) => (
                         <div key={ent.id} onClick={() => setSelectedLibraryItem(ent)} className="cursor-pointer group">
                           <div className="aspect-[3/4] rounded-lg overflow-hidden bg-purple-500/10 border border-white/10 group-hover:border-purple-500/50 relative">
-                            <div className="w-full h-full flex items-center justify-center">
+                            {ent.coverCid ? (
+                              <img 
+                                src={`/api/content/cover/${ent.coverCid}?variant=thumb`}
+                                alt={ent.contentTitle}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display = 'none';
+                                  (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
+                                }}
+                              />
+                            ) : null}
+                            <div className={`w-full h-full flex items-center justify-center ${ent.coverCid ? 'hidden' : ''}`}>
                               {isMotionContent(ent) ? (
                                 <Film className="w-8 h-8 text-purple-400/50" />
                               ) : (

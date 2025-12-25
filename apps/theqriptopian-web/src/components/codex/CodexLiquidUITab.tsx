@@ -28,7 +28,8 @@ import type {
   UserIntent,
   DrawerGridLayoutVariant,
 } from '@/types/knytLiquidUI';
-import { PDFPageViewer } from '@/components/content/PDFPageViewer';
+import { PDFPageViewer } from '../content/PDFPageViewer';
+import { PDFLiteReaderModal } from '../content/PDFLiteReaderModal';
 import { VideoPlayer } from '@/components/content/VideoPlayer';
 import { VideoErrorBoundary } from '@/components/content/VideoErrorBoundary';
 import { LoreTextReader } from '@/components/content/LoreTextReader';
@@ -74,6 +75,7 @@ interface EpisodeFromAPI {
   displayNumber: string;
   title?: string;
   coverImageCid?: string;
+  coverThumbUrl?: string;
   hasStillMaster: boolean;
   hasMotionMaster: boolean;
   hasPrintRare: boolean;
@@ -82,6 +84,9 @@ interface EpisodeFromAPI {
   printRareCid?: string;
   printEpicCid?: string;
   printLegendaryCid?: string;
+  printRareLiteUrl?: string;
+  printEpicLiteUrl?: string;
+  printLegendaryLiteUrl?: string;
   motionMasterCid?: string;
   coverCount: number;
   characterCount: number;
@@ -107,6 +112,7 @@ function transformEpisodesToContentItems(episodes: EpisodeFromAPI[]): KnytConten
     if (ep.episodeNumber === 0) continue;
     
     const printCid = ep.printRareCid || ep.printEpicCid || ep.printLegendaryCid;
+    const printLiteUrl = ep.printRareLiteUrl || ep.printEpicLiteUrl || ep.printLegendaryLiteUrl;
     const hasReadable = !!printCid;
     const hasWatchable = ep.hasMotionMaster && !!ep.motionMasterCid;
     
@@ -117,8 +123,11 @@ function transformEpisodesToContentItems(episodes: EpisodeFromAPI[]): KnytConten
         type: 'comic_page_portrait',
         title: ep.title || `Episode ${ep.displayNumber}`,
         subtitle: `Episode ${ep.displayNumber}`,
-        thumbnail: ep.coverImageCid ? `${import.meta.env.VITE_API_URL || ''}/api/content/cover/${ep.coverImageCid}?variant=thumb` : undefined,
-        media: { pdf_cid: printCid },
+        thumbnail: ep.coverThumbUrl || (ep.coverImageCid ? `${import.meta.env.VITE_API_URL || ''}/api/content/cover/${ep.coverImageCid}?variant=thumb` : undefined),
+        media: { 
+          pdf_cid: printCid,
+          pdf_lite_url: printLiteUrl,
+        },
         metadata: { 
           episodeNumber: ep.episodeNumber, 
           owned: false, // TODO: Check entitlements
@@ -404,8 +413,10 @@ export default function CodexLiquidUITab({
 
   // Viewer state
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
+  const [pdfLiteViewerOpen, setPdfLiteViewerOpen] = useState(false);
   const [videoViewerOpen, setVideoViewerOpen] = useState(false);
   const [currentPdfCid, setCurrentPdfCid] = useState<string | null>(null);
+  const [currentPdfLiteUrl, setCurrentPdfLiteUrl] = useState<string | null>(null);
   const [currentPdfTitle, setCurrentPdfTitle] = useState('');
   const [currentVideoCid, setCurrentVideoCid] = useState<string | null>(null);
   const [currentVideoTitle, setCurrentVideoTitle] = useState('');
@@ -544,8 +555,9 @@ export default function CodexLiquidUITab({
 
   // Handle viewer open
   const handleViewerOpen = useCallback((item: KnytContentItem, type: 'pdf' | 'video' | 'poster') => {
-    if (type === 'pdf' && item.media?.pdf_cid) {
-      setCurrentPdfCid(item.media.pdf_cid);
+    if (type === 'pdf' && (item.media?.pdf_lite_url || item.media?.pdf_cid)) {
+      setCurrentPdfLiteUrl(item.media.pdf_lite_url || null);
+      setCurrentPdfCid(item.media.pdf_cid || null);
       setCurrentPdfTitle(item.title);
       setPdfViewerOpen(true);
     } else if (type === 'video' && item.media?.video_cid) {
@@ -642,8 +654,20 @@ export default function CodexLiquidUITab({
         }
       />
 
-      {/* PDF Viewer Modal */}
-      {pdfViewerOpen && currentPdfCid && (
+      {/* PDF Viewer Modal - prefer pdf_lite_url, fallback to CID-based page viewer */}
+      {pdfViewerOpen && currentPdfLiteUrl && (
+        <PDFLiteReaderModal
+          open={pdfViewerOpen}
+          pdfUrl={currentPdfLiteUrl}
+          title={currentPdfTitle}
+          onClose={() => {
+            setPdfViewerOpen(false);
+            setCurrentPdfLiteUrl(null);
+            setCurrentPdfCid(null);
+          }}
+        />
+      )}
+      {pdfViewerOpen && !currentPdfLiteUrl && currentPdfCid && (
         <PDFPageViewer
           cid={currentPdfCid}
           title={currentPdfTitle}

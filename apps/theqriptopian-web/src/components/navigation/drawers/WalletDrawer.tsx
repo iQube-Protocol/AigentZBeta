@@ -215,8 +215,9 @@ export function WalletDrawer({ isOpen, onClose, initialTab = 'wallet', variant =
         expiresAt: e.expiresAt,
         acquiredAt: e.createdAt,
         coverType: getCoverTypeBadge(e.assetMeta),
+        coverCid: e.assetMeta?.autoDriveCid || e.metadata?.contentImage,
+        assetId: e.assetId,
         characterName: e.assetMeta?.characterName,
-        autoDriveCid: e.assetMeta?.autoDriveCid,
       }))))
       .catch(() => {});
   }, [isOpen, persona?.id]);

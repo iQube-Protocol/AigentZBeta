@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Loader2, Users, X, Coins, ShoppingCart } from 'lucide-react';
+import { Loader2, Users, X, Coins, ShoppingCart, Check } from 'lucide-react';
 import { ContentPurchaseModal, type ContentType } from './ContentPurchaseModal';
 
 // Phase 1 Pricing Constants
@@ -43,6 +43,7 @@ export function KnytCardsGrid({ personaId = '', knytBalance = 0, spendableKnyt, 
   const [error, setError] = useState<string | null>(null);
   const [groups, setGroups] = useState<EpisodeGroup[]>([]);
   const [selected, setSelected] = useState<{ poster: KnytCardAsset; sheet?: KnytCardAsset } | null>(null);
+  const [ownedCharacters, setOwnedCharacters] = useState<Set<string>>(new Set());
   
   // Purchase Modal state
   const [purchaseModalOpen, setPurchaseModalOpen] = useState(false);
@@ -64,6 +65,26 @@ export function KnytCardsGrid({ personaId = '', knytBalance = 0, spendableKnyt, 
     }
     fetchCards();
   }, []);
+
+  // Fetch owned characters
+  useEffect(() => {
+    async function fetchOwned() {
+      if (!personaId) return;
+      try {
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+        const res = await fetch(`${apiUrl}/api/codex/owned?personaId=${personaId}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        console.log('[KnytCardsGrid] Owned characters data:', data);
+        const owned = new Set(data.characters?.map((c: any) => c.characterId) || []);
+        console.log('[KnytCardsGrid] Owned character IDs:', Array.from(owned));
+        setOwnedCharacters(owned);
+      } catch (err) {
+        console.error('Failed to fetch owned characters:', err);
+      }
+    }
+    fetchOwned();
+  }, [personaId]);
 
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -89,6 +110,10 @@ export function KnytCardsGrid({ personaId = '', knytBalance = 0, spendableKnyt, 
             s.title.toLowerCase().includes(poster.title.toLowerCase().replace(' front', ''))
           ) || group.sheets[0];
           
+          // Check if character is owned (match by ID)
+          const isOwned = ownedCharacters.has(poster.id);
+          console.log('[KnytCardsGrid] Character:', poster.id, 'isOwned:', isOwned);
+          
           return (
             <div
               key={poster.id}
@@ -101,28 +126,43 @@ export function KnytCardsGrid({ personaId = '', knytBalance = 0, spendableKnyt, 
                 className="w-full h-full object-cover"
                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
               />
+              
+              {/* Owned badge - top left */}
+              {isOwned && (
+                <div className="absolute top-2 left-2 z-10">
+                  <span className="flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-500/90 text-white text-xs font-bold">
+                    <Check className="w-3 h-3" />
+                    Owned
+                  </span>
+                </div>
+              )}
+              
               {/* Price badge - top right */}
-              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <span className="flex items-center gap-1 px-2 py-1 rounded-md bg-amber-500/90 text-white text-xs font-bold">
-                  <Coins className="w-3 h-3" />
-                  {CARD_PRICE_STILL} KNYT
-                </span>
-              </div>
+              {!isOwned && (
+                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <span className="flex items-center gap-1 px-2 py-1 rounded-md bg-amber-500/90 text-white text-xs font-bold">
+                    <Coins className="w-3 h-3" />
+                    {CARD_PRICE_STILL} KNYT
+                  </span>
+                </div>
+              )}
               
               {/* Action Icons - Buy button (same as Scrolls tab) */}
-              <div className="absolute bottom-12 right-2 flex gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button
-                  className="w-6 h-6 rounded-md bg-amber-500/80 backdrop-blur-sm flex items-center justify-center ring-1 ring-amber-400/40 text-white hover:bg-amber-400 transition-all"
-                  title={`Buy for ${CARD_PRICE_STILL} KNYT`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setPurchaseCard(poster);
-                    setPurchaseModalOpen(true);
-                  }}
-                >
-                  <ShoppingCart className="w-3 h-3" />
-                </button>
-              </div>
+              {!isOwned && (
+                <div className="absolute bottom-12 right-2 flex gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    className="w-6 h-6 rounded-md bg-amber-500/80 backdrop-blur-sm flex items-center justify-center ring-1 ring-amber-400/40 text-white hover:bg-amber-400 transition-all"
+                    title={`Buy for ${CARD_PRICE_STILL} KNYT`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPurchaseCard(poster);
+                      setPurchaseModalOpen(true);
+                    }}
+                  >
+                    <ShoppingCart className="w-3 h-3" />
+                  </button>
+                </div>
+              )}
               
               <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black">
                 <p className="text-xs text-cyan-400 font-medium">{poster.digiterraName || poster.title}</p>

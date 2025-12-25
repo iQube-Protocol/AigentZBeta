@@ -134,6 +134,15 @@ export interface ContentEntitlement {
   /** Content title */
   contentTitle: string;
   
+  /** Cover CID for thumbnail display */
+  coverCid?: string;
+  
+  /** Cover type (for rarity display) */
+  coverType?: string;
+  
+  /** Asset ID for ownership tracking */
+  assetId?: string;
+  
   /** Entitlement scope */
   scope: 'full' | 'preview' | 'rental' | 'subscription';
   

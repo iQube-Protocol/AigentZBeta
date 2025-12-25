@@ -9,6 +9,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getEntitlementService } from '@/services/rewards/entitlementService';
 import { createClient } from '@supabase/supabase-js';
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -20,7 +26,7 @@ export async function GET(request: NextRequest) {
     const personaId = searchParams.get('personaId');
     
     if (!personaId) {
-      return NextResponse.json({ error: 'personaId is required' }, { status: 400 });
+      return NextResponse.json({ error: 'personaId is required' }, { status: 400, headers: corsHeaders });
     }
     
     const entitlementService = getEntitlementService();
@@ -109,9 +115,13 @@ export async function GET(request: NextRequest) {
       personaId,
       entitlements: enrichedEntitlements,
       count: enrichedEntitlements.length,
-    });
+    }, { headers: corsHeaders });
   } catch (error) {
     console.error('[API] Error listing entitlements:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500, headers: corsHeaders });
   }
+}
+
+export async function OPTIONS() {
+  return new Response(null, { headers: corsHeaders });
 }

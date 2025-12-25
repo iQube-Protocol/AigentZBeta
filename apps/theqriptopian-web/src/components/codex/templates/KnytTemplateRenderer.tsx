@@ -742,7 +742,7 @@ function DrawerGridTemplate({
 
         {hasFeatured ? (
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 lg:hidden">
-            {contentItems.slice(0, 5).map((item) => renderCard(item))}
+            {contentItems.map((item) => renderCard(item))}
           </div>
         ) : null}
         {contentItems.length === 0 && (

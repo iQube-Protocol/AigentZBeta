@@ -48,8 +48,12 @@ interface EpisodeStatus {
   printRareCid?: string;
   printEpicCid?: string;
   printLegendaryCid?: string;
+  printRareLiteUrl?: string; // Supabase Storage PDF-lite URL
+  printEpicLiteUrl?: string;
+  printLegendaryLiteUrl?: string;
   coverCount: number;
   coverImageCid?: string; // CID of primary cover for display
+  coverThumbUrl?: string; // Supabase Storage cover thumbnail URL
   characterCount: number;
   totalAssets: number;
 }
@@ -92,10 +96,10 @@ export async function GET(req: NextRequest) {
       console.error('[CodexStatus] Global stats error:', globalError);
     }
 
-    // Get master content details (include auto_drive_cid for PDF viewing)
+    // Get master content details (include auto_drive_cid and pdf_lite_url for PDF viewing)
     const { data: masters, error: mastersError } = await supabase
       .from('master_content_qubes')
-      .select('id, episode_number, content_type, edition_tier, title, status, auto_drive_cid')
+      .select('id, episode_number, content_type, edition_tier, title, status, auto_drive_cid, pdf_lite_url')
       .eq('series', series)
       .eq('status', 'active')
       .order('episode_number', { ascending: true });
@@ -130,7 +134,7 @@ export async function GET(req: NextRequest) {
     // Query all covers to see what's actually stored
     const { data: covers, error: coversError } = await supabase
       .from('codex_media_assets')
-      .select('episode_number, auto_drive_cid, rarity_tier, asset_kind, mime_type')
+      .select('episode_number, auto_drive_cid, cover_thumb_url, rarity_tier, asset_kind, mime_type')
       .eq('series', series)
       .eq('status', 'active')
       .in('asset_kind', ['cover_image', 'cover_pdf'])
@@ -170,7 +174,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Build cover lookup (prefer cover_image over cover_pdf for each episode)
-    const coverMap = new Map<number, { cid: string; isImage: boolean }>();
+    const coverMap = new Map<number, { cid: string; thumbUrl?: string; isImage: boolean }>();
     if (covers) {
       for (const cover of covers) {
         if (!cover.episode_number) continue;
@@ -179,7 +183,11 @@ export async function GET(req: NextRequest) {
         
         // Only set if: no existing cover, OR this is an image and existing is PDF
         if (!existing || (isImage && !existing.isImage)) {
-          coverMap.set(cover.episode_number, { cid: cover.auto_drive_cid, isImage });
+          coverMap.set(cover.episode_number, { 
+            cid: cover.auto_drive_cid, 
+            thumbUrl: cover.cover_thumb_url,
+            isImage 
+          });
         }
       }
     }
@@ -204,6 +212,7 @@ export async function GET(req: NextRequest) {
             hasPrintLegendary: false,
             coverCount: 0,
             coverImageCid: coverMap.get(ep)?.cid,
+            coverThumbUrl: coverMap.get(ep)?.thumbUrl,
             characterCount: 0,
             totalAssets: 0,
           });
@@ -217,17 +226,20 @@ export async function GET(req: NextRequest) {
           status.motionMasterId = master.id;
           status.motionMasterCid = master.auto_drive_cid;
         } else if (master.content_type === 'episode_print') {
-          // Handle print editions by tier - store CID for PDF viewing
+          // Handle print editions by tier - store CID and pdf_lite_url for PDF viewing
           const tier = master.edition_tier;
           if (tier === 'rare') {
             status.hasPrintRare = true;
             status.printRareCid = master.auto_drive_cid;
+            status.printRareLiteUrl = master.pdf_lite_url;
           } else if (tier === 'epic') {
             status.hasPrintEpic = true;
             status.printEpicCid = master.auto_drive_cid;
+            status.printEpicLiteUrl = master.pdf_lite_url;
           } else if (tier === 'legendary') {
             status.hasPrintLegendary = true;
             status.printLegendaryCid = master.auto_drive_cid;
+            status.printLegendaryLiteUrl = master.pdf_lite_url;
           }
         }
       }

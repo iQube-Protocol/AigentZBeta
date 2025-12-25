@@ -365,6 +365,7 @@ export interface KnytContentItem {
   };
   media?: {
     pdf_cid?: string;
+    pdf_lite_url?: string;
     video_cid?: string;
     image_cid?: string;
     text?: string;

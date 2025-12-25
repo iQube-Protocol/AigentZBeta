@@ -1,0 +1,109 @@
+import React, { useEffect, useState } from 'react';
+
+type PDFLiteReaderModalProps = {
+  open: boolean;
+  onClose: () => void;
+  title?: string;
+  pdfUrl: string;
+};
+
+export function PDFLiteReaderModal({ open, onClose, title, pdfUrl }: PDFLiteReaderModalProps) {
+  const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    setLoading(true);
+    setFailed(null);
+  }, [open, pdfUrl]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="relative w-[min(1100px,95vw)] h-[min(90vh,900px)] bg-zinc-950 border border-white/10 rounded-xl overflow-hidden shadow-xl">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+          <div className="min-w-0">
+            <div className="text-sm font-semibold text-white truncate">
+              {title || 'Reading'}
+            </div>
+            <div className="text-xs text-white/60 truncate">
+              PDF-lite (fast preview)
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <a
+              className="text-xs px-3 py-1.5 rounded-md bg-white/10 hover:bg-white/15 text-white"
+              href={pdfUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Open in new tab
+            </a>
+            <a
+              className="text-xs px-3 py-1.5 rounded-md bg-white/10 hover:bg-white/15 text-white"
+              href={pdfUrl}
+              download
+            >
+              Download
+            </a>
+            <button
+              className="text-xs px-3 py-1.5 rounded-md bg-white text-black hover:bg-white/90"
+              onClick={onClose}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+
+        <div className="relative w-full h-[calc(100%-52px)]">
+          {loading && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/40 z-10">
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+              <div className="text-xs text-white/80">Loading PDF…</div>
+            </div>
+          )}
+
+          {failed && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/60 z-10 p-6 text-center">
+              <div className="text-sm text-white">Couldn't load the PDF preview.</div>
+              <div className="text-xs text-white/70 max-w-[60ch]">{failed}</div>
+              <div className="flex gap-2">
+                <a className="text-xs px-3 py-1.5 rounded-md bg-white text-black" href={pdfUrl} target="_blank" rel="noreferrer">
+                  Open in new tab
+                </a>
+                <button className="text-xs px-3 py-1.5 rounded-md bg-white/10 text-white" onClick={onClose}>
+                  Close
+                </button>
+              </div>
+            </div>
+          )}
+
+          <iframe
+            title={title || 'PDF'}
+            src={pdfUrl}
+            className="w-full h-full"
+            onLoad={() => setLoading(false)}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}

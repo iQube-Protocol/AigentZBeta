@@ -102,7 +102,7 @@ export class KnytLiquidUIService {
         ? this.groupEpisodeVariants({ print: byType.print, motion: byType.motion })
         : { print: byType.print, motion: byType.motion };
 
-      const maxVisibleItems = params.context.device === 'mobile' ? 4 : 8;
+      const maxVisibleItems = 999; // Show all items
       const motionCap = strategy.motionCap;
       const selected = this.selectDrawerGridItems({
         maxVisibleItems,
@@ -120,7 +120,7 @@ export class KnytLiquidUIService {
       const arranged = this.arrangeDrawerGridLayout({
         items: selected,
         columns,
-        maxItems: maxVisibleItems,
+        maxItems: 999, // Show all items
         userIntent: params.context.userIntent,
       });
 
@@ -397,7 +397,7 @@ export class KnytLiquidUIService {
 
     if (!isDesktop) {
       // Mobile/tablet: simple grid, no fancy layouts
-      return { variant: 'auto', items: [...tall, ...wide].slice(0, 4) };
+      return { variant: 'auto', items: [...tall, ...wide] };
     }
 
     const motionFocus = motion.length > 0 && (
@@ -420,7 +420,7 @@ export class KnytLiquidUIService {
 
         // 1C: Featured + 2 posters (when we have enough portraits)
         if (remainingTall.length >= 2) {
-          const fillers = remaining.filter(i => !remainingTall.slice(0, 2).some(t => t.id === i.id)).slice(0, 4);
+          const fillers = remaining.filter(i => !remainingTall.slice(0, 2).some(t => t.id === i.id));
           return {
             variant: '1C',
             items: [featuredCandidate, ...remainingTall.slice(0, 2), ...fillers],
@@ -434,7 +434,7 @@ export class KnytLiquidUIService {
           const variant: DrawerGridLayoutVariant = motionFocus ? '2A' : '2B';
           return {
             variant,
-            items: [featuredCandidate, ...remainingWide.slice(0, 8)],
+            items: [featuredCandidate, ...remainingWide],
             featuredItem: featuredCandidate,
             featuredSide: motionFocus ? 'featured_left' : 'featured_right',
           };
@@ -443,7 +443,7 @@ export class KnytLiquidUIService {
         // 2C: Featured center (fallback)
         return {
           variant: '2C',
-          items: [featuredCandidate, ...remaining.slice(0, 8)],
+          items: [featuredCandidate, ...remaining],
           featuredItem: featuredCandidate,
           featuredSide: 'featured_right',
         };
@@ -484,7 +484,7 @@ export class KnytLiquidUIService {
     }
 
     // Fallback: auto
-    return { variant: 'auto', items: [...tall, ...wide].slice(0, 8) };
+    return { variant: 'auto', items: [...tall, ...wide] };
   }
 
   private selectDrawerGridItems(params: {

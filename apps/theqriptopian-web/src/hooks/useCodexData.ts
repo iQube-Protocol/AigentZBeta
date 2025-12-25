@@ -10,6 +10,7 @@ interface Episode {
   displayNumber: string;
   title?: string;
   coverImageCid?: string;
+  coverThumbUrl?: string;
   hasStillMaster: boolean;
   hasMotionMaster: boolean;
   hasPrintRare: boolean;

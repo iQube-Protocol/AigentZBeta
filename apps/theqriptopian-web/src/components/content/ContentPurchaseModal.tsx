@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { X, Coins, CreditCard, Wallet, Check, Loader2, Sparkles } from 'lucide-react';
+import { X, Coins, CreditCard, Wallet, Check, Loader2, Sparkles, ShoppingCart } from 'lucide-react';
 
 // Phase 1 Pricing Constants
 const KNYT_USD_RATE = 1.40;
@@ -125,7 +125,8 @@ export function ContentPurchaseModal({
   const [selectedRail, setSelectedRail] = useState<PaymentRail>('knyt');
   const [purchasing, setPurchasing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<{ entitlementId: string } | null>(null);
+  const [success, setSuccess] = useState<{ entitlementId: string; amount: number; currency: string; rail: string } | null>(null);
+  const [showConfirmation, setShowConfirmation] = useState(false);
   
   // Version selector: Still vs Motion
   const [selectedVersion, setSelectedVersion] = useState<'still' | 'motion'>('still');
@@ -152,17 +153,98 @@ export function ContentPurchaseModal({
   // Reset state when modal opens
   useEffect(() => {
     if (open) {
+      console.log('[ContentPurchaseModal] Modal opened');
       setSelectedRail(canAffordKnyt ? 'knyt' : 'paypal');
       setError(null);
       setSuccess(null);
+      setShowConfirmation(false);
     }
   }, [open, canAffordKnyt]);
 
   const handlePurchase = async () => {
+    console.log('[ContentPurchaseModal] handlePurchase called');
     setPurchasing(true);
     setError(null);
 
     try {
+      console.log('[ContentPurchaseModal] Starting purchase request...');
+      
+      // PayPal requires a different flow - open popup for approval
+      if (selectedRail === 'paypal') {
+        const amountUSD = pricing.rails.paypal.amount;
+        const response = await fetch(`${apiBase}/api/purchase/paypal/create-order`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            personaId,
+            contentType: effectiveContentType,
+            contentId,
+            contentTitle,
+            amount: amountUSD,
+            version: selectedVersion,
+          }),
+        });
+        
+        const result = await response.json();
+        if (!response.ok || !result.approvalUrl) {
+          throw new Error(result.error || 'Failed to create PayPal order');
+        }
+        
+        // Open PayPal in popup window
+        const popup = window.open(
+          result.approvalUrl,
+          'PayPal Checkout',
+          'width=500,height=700,scrollbars=yes'
+        );
+        
+        if (!popup) {
+          throw new Error('Popup blocked. Please allow popups for this site.');
+        }
+        
+        // Listen for postMessage from popup
+        const messageHandler = (event: MessageEvent) => {
+          if (event.data.type === 'paypal-success') {
+            window.removeEventListener('message', messageHandler);
+            setSuccess({
+              entitlementId: event.data.entitlementId || 'paypal-success',
+              amount: amountUSD,
+              currency: 'USD',
+              rail: 'paypal',
+            });
+            onBalanceRefresh?.();
+            setTimeout(() => {
+              onPurchaseComplete?.(event.data.purchaseId || 'paypal-success');
+            }, 5000);
+            setPurchasing(false);
+          } else if (event.data.type === 'paypal-error') {
+            window.removeEventListener('message', messageHandler);
+            setError('Payment failed: ' + (event.data.error || 'Unknown error'));
+            setPurchasing(false);
+          } else if (event.data.type === 'paypal-cancelled') {
+            window.removeEventListener('message', messageHandler);
+            setError('Payment cancelled');
+            setPurchasing(false);
+          }
+        };
+        
+        window.addEventListener('message', messageHandler);
+        
+        // Fallback: Poll for popup closure in case postMessage fails
+        const pollTimer = setInterval(() => {
+          if (popup.closed) {
+            clearInterval(pollTimer);
+            window.removeEventListener('message', messageHandler);
+            // If we haven't received a message, assume cancelled
+            if (purchasing) {
+              setError('Payment window closed');
+              setPurchasing(false);
+            }
+          }
+        }, 500);
+        
+        return;
+      }
+      
       // Map frontend rail names to API expected values
       const railMap: Record<PaymentRail, string> = {
         knyt: 'knyt',
@@ -203,6 +285,7 @@ export function ContentPurchaseModal({
               : pricing.rails.paypal.amount,
             currency: selectedRail === 'knyt' ? 'KNYT' : 'USD',
             contentTitle,
+            contentImage,
             version: selectedVersion,
             includesAllClips: selectedVersion === 'motion',
           },
@@ -210,17 +293,42 @@ export function ContentPurchaseModal({
       });
 
       const result = await response.json();
+      console.log('[ContentPurchaseModal] Purchase response status:', response.status);
       console.log('[ContentPurchaseModal] Purchase result:', result);
 
       if (!response.ok) {
+        console.error('[ContentPurchaseModal] Purchase failed:', result);
         throw new Error(result.error || 'Purchase failed');
       }
+      
+      if (!result.success) {
+        console.error('[ContentPurchaseModal] Purchase not successful:', result);
+        throw new Error(result.error || 'Purchase was not successful');
+      }
 
-      // API returns purchaseId, not entitlementId
-      setSuccess({ entitlementId: result.purchaseId || result.entitlementId || 'success' });
-      onPurchaseComplete?.(result.purchaseId || result.entitlementId || 'success');
-      // Refresh balance after successful purchase
+      // Store purchase details for success message
+      const amountPaid = selectedRail === 'knyt' 
+        ? pricing.rails.knyt.amount 
+        : selectedRail === 'qcents'
+        ? pricing.rails.qcents.amount
+        : selectedRail === 'usdc'
+        ? pricing.rails.usdc.amount
+        : pricing.rails.paypal.amount;
+
+      setSuccess({ 
+        entitlementId: result.purchaseId || result.entitlementId || 'success',
+        amount: amountPaid,
+        currency: selectedRail === 'knyt' ? 'KNYT' : 'USD',
+        rail: selectedRail,
+      });
+      
+      // Refresh balance immediately
       onBalanceRefresh?.();
+      
+      // Delay closing to show success message
+      setTimeout(() => {
+        onPurchaseComplete?.(result.purchaseId || result.entitlementId || 'success');
+      }, 5000); // Show success for 5 seconds
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -271,7 +379,24 @@ export function ContentPurchaseModal({
               <p className="text-white/60 text-sm mt-2">
                 You now have access to "{contentTitle}"
               </p>
+              
+              {/* Purchase details */}
+              <div className="mt-4 p-3 rounded-lg bg-white/5 border border-emerald-500/20">
+                <div className="flex items-center justify-between text-sm mb-2">
+                  <span className="text-white/60">Amount Paid:</span>
+                  <span className="text-white font-medium">
+                    {success.amount} {success.currency}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-white/60">Payment Method:</span>
+                  <span className="text-white font-medium capitalize">{success.rail}</span>
+                </div>
+              </div>
+              
+              <p className="text-xs text-emerald-400 mt-3">✓ Added to your library</p>
               <p className="text-xs text-white/40 mt-1">Tier 0 - Streaming Access</p>
+              
               <button 
                 onClick={onClose} 
                 className="mt-6 px-6 py-2.5 bg-emerald-500/20 text-emerald-300 rounded-lg text-sm font-medium hover:bg-emerald-500/30 transition-colors"
@@ -436,31 +561,56 @@ export function ContentPurchaseModal({
                 <p className="text-red-400 text-xs mb-3 p-2 bg-red-500/10 rounded-lg">{error}</p>
               )}
 
-              {/* Purchase button */}
-              <button
-                onClick={handlePurchase}
-                disabled={purchasing}
-                className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold disabled:opacity-50 flex items-center justify-center gap-2 hover:from-amber-400 hover:to-orange-400 transition-all"
-              >
-                {purchasing ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Processing...
-                  </>
-                ) : (
-                  <>
-                    <Check className="w-4 h-4" />
-                    {selectedRail === 'knyt' 
-                      ? `Pay ${pricing.rails.knyt.amount.toFixed(2)} KNYT`
-                      : selectedRail === 'qcents'
-                      ? `Pay $${pricing.rails.qcents.amount.toFixed(2)} Q¢`
-                      : selectedRail === 'usdc'
-                      ? `Pay $${pricing.rails.usdc.amount.toFixed(2)} USDC`
-                      : `Pay $${pricing.rails.paypal.amount.toFixed(2)} via PayPal`
-                    }
-                  </>
-                )}
-              </button>
+              {/* Purchase/Confirm button */}
+              {!showConfirmation ? (
+                <button
+                  onClick={() => {
+                    console.log('[ContentPurchaseModal] Review Purchase clicked');
+                    setShowConfirmation(true);
+                  }}
+                  className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold flex items-center justify-center gap-2 hover:from-amber-400 hover:to-orange-400 transition-all"
+                >
+                  <ShoppingCart className="w-4 h-4" />
+                  Review Purchase
+                </button>
+              ) : (
+                <div className="space-y-3">
+                  <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                    <p className="text-white font-medium text-sm mb-2">Confirm Purchase</p>
+                    <div className="text-xs text-white/70 space-y-1">
+                      <p>• {contentTitle}</p>
+                      <p>• {pricing.rails[selectedRail].amount.toFixed(2)} {selectedRail === 'knyt' ? 'KNYT' : 'USD'} via {selectedRail.toUpperCase()}</p>
+                      {selectedRail === 'knyt' && <p>• Will be deducted from your wallet</p>}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => setShowConfirmation(false)}
+                      disabled={purchasing}
+                      className="py-2.5 rounded-lg bg-white/5 text-white/70 font-medium hover:bg-white/10 transition-all"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handlePurchase}
+                      disabled={purchasing}
+                      className="py-2.5 rounded-lg bg-gradient-to-r from-emerald-500 to-green-500 text-white font-semibold disabled:opacity-50 flex items-center justify-center gap-2 hover:from-emerald-400 hover:to-green-400 transition-all"
+                    >
+                      {purchasing ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Processing...
+                        </>
+                      ) : (
+                        <>
+                          <Check className="w-4 h-4" />
+                          Confirm Payment
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <p className="text-center text-white/40 text-xs mt-3">
                 Tier 0 Access • Perpetual streaming rights

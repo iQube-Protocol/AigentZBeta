@@ -109,6 +109,17 @@ function CoverImage({ cid, alt, loadedImages, setLoadedImages }: CoverImageProps
       }
 
       try {
+        // If it's a Supabase URL, use directly without queue
+        if (cid.startsWith('http')) {
+          if (!cancelled && imgRef.current) {
+            imgRef.current.src = cid;
+            setLoadedImages(prev => new Map(prev).set(cid, cid));
+            setLoading(false);
+          }
+          return;
+        }
+        
+        // Otherwise use API endpoint with queue
         const url = `${import.meta.env.VITE_API_URL || ''}/api/content/cover/${cid}?variant=thumb`;
         const objectUrl = await loadImageWithQueue(url);
         
@@ -182,6 +193,7 @@ interface Episode {
   title: string;
   description?: string;
   coverImageCid?: string;
+  coverThumbUrl?: string;
   hasStillMaster: boolean;
   hasMotionMaster: boolean;
   hasPrintRare: boolean;
@@ -315,7 +327,7 @@ export function KnytCodexTab({
           const owned = getOwnedIssuesForEpisode(episode.episodeNumber);
           const isOwned = owned.length > 0;
           const hasMaster = episode.hasStillMaster || episode.hasMotionMaster || episode.hasPrintRare || episode.hasPrintEpic || episode.hasPrintLegendary;
-          const isAvailable = hasMaster && episode.availableCovers > 0;
+          const isAvailable = hasMaster;
 
           return (
             <div
@@ -339,9 +351,9 @@ export function KnytCodexTab({
                   <span className="text-6xl font-bold text-white/10">{episode.episodeNumber}</span>
                 </div>
               </div>
-              {episode.coverImageCid && (
+              {(episode.coverThumbUrl || episode.coverImageCid) && (
                 <CoverImage
-                  cid={episode.coverImageCid}
+                  cid={episode.coverThumbUrl || episode.coverImageCid!}
                   alt={episode.title}
                   loadedImages={loadedImages}
                   setLoadedImages={setLoadedImages}
@@ -383,7 +395,7 @@ export function KnytCodexTab({
                         type: episode.hasMotionMaster ? 'scroll_motion' : 'scroll_still',
                         id: `mk_ep${String(episode.episodeNumber).padStart(2, '0')}`,
                         title: episode.title || `Episode ${episode.displayNumber}`,
-                        image: episode.coverImageCid ? `${import.meta.env.VITE_API_URL || ''}/api/content/cover/${episode.coverImageCid}?variant=thumb` : undefined,
+                        image: episode.coverThumbUrl || (episode.coverImageCid ? `${import.meta.env.VITE_API_URL || ''}/api/content/cover/${episode.coverImageCid}?variant=thumb` : undefined),
                       });
                       setPurchaseModalOpen(true);
                     }}
