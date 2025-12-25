@@ -23,11 +23,12 @@ const nextConfig = {
       'node_modules/@qriptoagentiq/core-client/src/index.ts'
     );
     
-    // Make pdf-parse external on server to prevent test file bundling issues
+    // Make pdf-parse and canvas external on server to prevent native binary bundling
     if (isServer) {
       config.externals = config.externals || [];
       if (Array.isArray(config.externals)) {
         config.externals.push('pdf-parse');
+        config.externals.push('@napi-rs/canvas');
       }
     }
     

@@ -14,7 +14,6 @@ import { createClient } from '@supabase/supabase-js';
 import { createAutoDriveApi } from '@autonomys/auto-drive';
 import { NetworkId } from '@autonomys/auto-utils';
 import sharp from 'sharp';
-import { createCanvas } from '@napi-rs/canvas';
 
 import {
   unwrapKeyWithMasterKey,
@@ -65,7 +64,9 @@ function releaseRenderSlot() {
 
 // ---- pdfjs canvas factory (Node) ----
 class NodeCanvasFactory {
-  create(width: number, height: number) {
+  async create(width: number, height: number) {
+    // Dynamic import to avoid webpack bundling native binary
+    const { createCanvas } = await import('@napi-rs/canvas');
     const canvas = createCanvas(width, height);
     const context = canvas.getContext('2d');
     return { canvas, context };
