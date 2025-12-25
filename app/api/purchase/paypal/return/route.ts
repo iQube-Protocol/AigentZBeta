@@ -48,12 +48,14 @@ export async function GET(request: NextRequest) {
     const result = await purchaseHandler.processPurchase({
       personaId,
       productType: contentType,
-      assetId: contentId,
+      assetIds: [contentId],
       paymentRail: 'paypal',
-      amount: parseFloat(order.purchase_units?.[0]?.amount?.value || '0'),
-      currency: 'USD',
-      version,
-      paymentProof: { paypalOrderId: token },
+      paymentReference: token,
+      metadata: {
+        amount: parseFloat(order.purchase_units?.[0]?.amount?.value || '0'),
+        currency: 'USD',
+        version,
+      },
     });
 
     if (!result.success) {
@@ -83,7 +85,7 @@ export async function GET(request: NextRequest) {
               window.opener.postMessage({ 
                 type: 'paypal-success', 
                 purchaseId: '${result.purchaseId}',
-                entitlementId: '${result.entitlementId}'
+                entitlementsGranted: ${result.entitlementsGranted || 0}
               }, '*');
               window.close();
             } else {

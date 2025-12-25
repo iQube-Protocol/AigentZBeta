@@ -321,7 +321,7 @@ async function renderPdfPageToPng(decryptedPdf: Buffer, pageNumber: number, targ
   const viewport = page.getViewport({ scale });
 
   const canvasFactory = new NodeCanvasFactory();
-  const { canvas, context } = canvasFactory.create(Math.floor(viewport.width), Math.floor(viewport.height));
+  const { canvas, context } = await canvasFactory.create(Math.floor(viewport.width), Math.floor(viewport.height));
 
   const renderTask = page.render({
     canvasContext: context as any,

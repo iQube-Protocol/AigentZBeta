@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
 
     // For now, return empty events array
     // TODO: Implement actual DVN events fetching when DVN is integrated
-    const events = [];
+    const events: any[] = [];
 
     return NextResponse.json({
       success: true,
