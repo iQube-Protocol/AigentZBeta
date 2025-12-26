@@ -45,6 +45,8 @@ frontend:
           EOF
         - echo ".env.production created, building Next.js app..."
         - npm run build
+        - echo "Copying .env.production to standalone build..."
+        - cp .env.production .next/standalone/.env.production || echo "Standalone dir not found, skipping"
   artifacts:
     # .next contains the SSR build output
     baseDirectory: .next
