@@ -20,27 +20,8 @@ frontend:
         - echo "Creating .env.production with required SSR env vars..."
         - rm -f .env.production
 
-        # Write the keys explicitly (even if empty) so we can detect missing injection
-        - printf "PAYPAL_MODE=%s\n" "${PAYPAL_MODE}" >> .env.production
-        - printf "PAYPAL_CLIENT_ID=%s\n" "${PAYPAL_CLIENT_ID}" >> .env.production
-        - printf "PAYPAL_CLIENT_SECRET=%s\n" "${PAYPAL_CLIENT_SECRET}" >> .env.production
-        - printf "SUPABASE_URL=%s\n" "${SUPABASE_URL}" >> .env.production
-        - printf "SUPABASE_SERVICE_ROLE_KEY=%s\n" "${SUPABASE_SERVICE_ROLE_KEY}" >> .env.production
-        - printf "SUPABASE_ANON_KEY=%s\n" "${SUPABASE_ANON_KEY}" >> .env.production
-        - printf "CODEX_MASTER_KEY=%s\n" "${CODEX_MASTER_KEY}" >> .env.production
-        - printf "AUTONOMYS_API_KEY=%s\n" "${AUTONOMYS_API_KEY}" >> .env.production
-        - printf "NEXTAUTH_URL=%s\n" "${NEXTAUTH_URL}" >> .env.production
-        - printf "OPENAI_API_KEY=%s\n" "${OPENAI_API_KEY}" >> .env.production
-        - printf "FIO_API_ENDPOINT=%s\n" "${FIO_API_ENDPOINT}" >> .env.production
-        - printf "FIO_CHAIN_ID=%s\n" "${FIO_CHAIN_ID}" >> .env.production
-        - printf "FIO_SYSTEM_PUBLIC_KEY=%s\n" "${FIO_SYSTEM_PUBLIC_KEY}" >> .env.production
-        - printf "FIO_SYSTEM_PRIVATE_KEY=%s\n" "${FIO_SYSTEM_PRIVATE_KEY}" >> .env.production
-        - printf "FIO_MOCK_MODE=%s\n" "${FIO_MOCK_MODE}" >> .env.production
-        - printf "AGENT_KEY_ENCRYPTION_SECRET=%s\n" "${AGENT_KEY_ENCRYPTION_SECRET}" >> .env.production
-        - printf "TREASURY_PRIVATE_KEY=%s\n" "${TREASURY_PRIVATE_KEY}" >> .env.production
-
-        # add all NEXT_PUBLIC_ vars too (AWS docs recommend this pattern for SSR env availability)
-        - env | grep -E '^NEXT_PUBLIC_' >> .env.production || true
+        # Use Node.js to write .env.production because Amplify env vars are accessible to Node.js but not shell
+        - node scripts/create-env-production.js
 
         # SAFE DIAGNOSTIC: print only keys + whether empty, never values
         - echo "=== .env.production keys + empty-check (REDACTED) ==="
