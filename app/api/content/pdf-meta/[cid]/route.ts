@@ -27,10 +27,11 @@ interface RouteParams {
 }
 
 export async function GET(req: NextRequest, { params }: RouteParams) {
-  const { cid } = params;
-  if (!cid) return NextResponse.json({ error: 'CID required' }, { status: 400, headers: corsHeaders });
+  try {
+    const { cid } = params;
+    if (!cid) return NextResponse.json({ error: 'CID required' }, { status: 400, headers: corsHeaders });
 
-  const asset = await findAssetByCid(cid);
+    const asset = await findAssetByCid(cid);
   if (!asset?.token_qube_id) {
     return NextResponse.json({ error: 'Asset/token qube not found' }, { status: 404, headers: corsHeaders });
   }
@@ -76,10 +77,17 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
   });
   const pdf = await loadingTask.promise;
 
-  return NextResponse.json(
-    { pages: pdf.numPages, suggestedWidth: 1200 },
-    { status: 200, headers: { ...corsHeaders, 'Cache-Control': 'public, max-age=3600' } }
-  );
+    return NextResponse.json(
+      { pages: pdf.numPages, suggestedWidth: 1200 },
+      { status: 200, headers: { ...corsHeaders, 'Cache-Control': 'public, max-age=3600' } }
+    );
+  } catch (error: any) {
+    console.error('[PDF Meta] Error:', error);
+    return NextResponse.json(
+      { error: error.message || 'Failed to process PDF' },
+      { status: 500, headers: corsHeaders }
+    );
+  }
 }
 
 async function findAssetByCid(cid: string) {
