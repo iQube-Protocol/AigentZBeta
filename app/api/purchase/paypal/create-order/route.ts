@@ -36,7 +36,14 @@ async function getAccessToken(): Promise<string> {
   
   const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
   
-  console.log('[PayPal Auth] Attempting authentication to:', PAYPAL_API);
+  console.log('[PayPal Auth] Attempting authentication:', {
+    api: PAYPAL_API,
+    mode: process.env.PAYPAL_MODE,
+    clientIdPrefix: clientId.substring(0, 8) + '...',
+    clientSecretPrefix: clientSecret.substring(0, 8) + '...',
+    clientIdLength: clientId.length,
+    clientSecretLength: clientSecret.length
+  });
   
   const res = await fetch(`${PAYPAL_API}/v1/oauth2/token`, {
     method: 'POST',

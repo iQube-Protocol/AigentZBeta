@@ -6,6 +6,13 @@ const nextConfig = {
   swcMinify: true,
   // Use standalone output for better Amplify compatibility
   output: 'standalone',
+  // Expose server-side environment variables to API routes
+  env: {
+    PAYPAL_CLIENT_ID: process.env.PAYPAL_CLIENT_ID,
+    PAYPAL_CLIENT_SECRET: process.env.PAYPAL_CLIENT_SECRET,
+    PAYPAL_MODE: process.env.PAYPAL_MODE,
+    NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
+  },
   transpilePackages: [
     '@qriptoagentiq/core-client',
     '@qriptoagentiq/a2a-client',
