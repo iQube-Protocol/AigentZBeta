@@ -34,20 +34,7 @@ frontend:
         - cp .env.production .next/standalone/.env.production || true
 
         - echo "Patching standalone server.js to load dotenv at runtime..."
-        - node <<'NODE'
-          const fs = require('fs');
-          const p = '.next/standalone/server.js';
-          if (!fs.existsSync(p)) { console.log('No .next/standalone/server.js found; skipping'); process.exit(0); }
-          let s = fs.readFileSync(p, 'utf8');
-
-          const inject = "require('dotenv').config({ path: __dirname + '/.env.production' });\\n";
-          if (!s.startsWith("require('dotenv')")) {
-            fs.writeFileSync(p, inject + s);
-            console.log('✅ Patched server.js to load .env.production');
-          } else {
-            console.log('ℹ️ server.js already patched');
-          }
-          NODE
+        - node scripts/patch-standalone-dotenv.js
 
   artifacts:
     baseDirectory: .next
