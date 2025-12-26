@@ -82,9 +82,14 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       { status: 200, headers: { ...corsHeaders, 'Cache-Control': 'public, max-age=3600' } }
     );
   } catch (error: any) {
-    console.error('[PDF Meta] Error:', error);
+    console.error('[PDF Meta] Error processing PDF:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name,
+      cid: params.cid
+    });
     return NextResponse.json(
-      { error: error.message || 'Failed to process PDF' },
+      { error: error.message || error.toString() || 'Failed to process PDF' },
       { status: 500, headers: corsHeaders }
     );
   }
