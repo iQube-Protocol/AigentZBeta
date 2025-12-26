@@ -12,22 +12,27 @@ async function getAccessToken(): Promise<string> {
   const clientId = process.env.PAYPAL_CLIENT_ID?.trim();
   const clientSecret = process.env.PAYPAL_CLIENT_SECRET?.trim();
   
+  // DIAGNOSTIC: Log credential details
+  console.log('[PayPal KNYT] Runtime env check:', {
+    mode,
+    modeRaw: process.env.PAYPAL_MODE,
+    clientIdDefined: !!clientId,
+    clientIdLength: clientId?.length || 0,
+    clientIdPrefix: clientId?.substring(0, 12) + '...',
+    clientSecretDefined: !!clientSecret,
+    clientSecretLength: clientSecret?.length || 0,
+    clientSecretPrefix: clientSecret?.substring(0, 12) + '...',
+    apiEndpoint: PAYPAL_API
+  });
+  
   if (!clientId || !clientSecret) {
-    console.error('[PayPal KNYT] Missing credentials:', {
-      hasClientId: !!clientId,
-      hasClientSecret: !!clientSecret,
-      mode
-    });
+    console.error('[PayPal KNYT] Missing credentials at runtime');
     throw new Error(`PayPal env missing at runtime (mode=${mode})`);
   }
   
   const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
   
-  console.log('[PayPal KNYT] Attempting auth:', {
-    api: PAYPAL_API,
-    mode: process.env.PAYPAL_MODE,
-    clientIdPrefix: clientId.substring(0, 8) + '...'
-  });
+  console.log('[PayPal KNYT] Attempting auth with endpoint:', PAYPAL_API);
   
   const res = await fetch(`${PAYPAL_API}/v1/oauth2/token`, {
     method: 'POST', headers: { 'Authorization': `Basic ${auth}`, 'Content-Type': 'application/x-www-form-urlencoded' },
