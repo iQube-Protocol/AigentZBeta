@@ -7,13 +7,43 @@ let cachedToken: { token: string; expiresAt: number } | null = null;
 
 async function getAccessToken(): Promise<string> {
   if (cachedToken && Date.now() < cachedToken.expiresAt) return cachedToken.token;
-  const auth = Buffer.from(`${process.env.PAYPAL_CLIENT_ID}:${process.env.PAYPAL_CLIENT_SECRET}`).toString('base64');
+  
+  const clientId = process.env.PAYPAL_CLIENT_ID;
+  const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
+  
+  if (!clientId || !clientSecret) {
+    console.error('[PayPal KNYT] Missing credentials:', {
+      hasClientId: !!clientId,
+      hasClientSecret: !!clientSecret,
+      mode: process.env.PAYPAL_MODE
+    });
+    throw new Error('PayPal credentials not configured');
+  }
+  
+  const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+  
+  console.log('[PayPal KNYT] Attempting auth:', {
+    api: PAYPAL_API,
+    mode: process.env.PAYPAL_MODE,
+    clientIdPrefix: clientId.substring(0, 8) + '...'
+  });
+  
   const res = await fetch(`${PAYPAL_API}/v1/oauth2/token`, {
     method: 'POST', headers: { 'Authorization': `Basic ${auth}`, 'Content-Type': 'application/x-www-form-urlencoded' },
     body: 'grant_type=client_credentials',
   });
-  if (!res.ok) throw new Error('PayPal auth failed');
+  
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error('[PayPal KNYT] Auth failed:', {
+      status: res.status,
+      error: errorText
+    });
+    throw new Error(`PayPal auth failed: ${res.status} ${errorText}`);
+  }
+  
   const data = await res.json();
+  console.log('[PayPal KNYT] Auth success');
   cachedToken = { token: data.access_token, expiresAt: Date.now() + (data.expires_in - 60) * 1000 };
   return cachedToken.token;
 }
