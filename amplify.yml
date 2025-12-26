@@ -17,23 +17,44 @@ frontend:
         - gs --version
     build:
       commands:
-        - echo "Creating .env.production (no indentation / safe parsing)..."
+        - echo "Creating .env.production with required SSR env vars..."
         - rm -f .env.production
 
-        # Write only the exact vars we want, without whitespace issues.
-        # (AWS recommended pattern for SSR env access is writing env vars into .env.production before build)
-        - env | grep -E '^(PAYPAL_CLIENT_ID|PAYPAL_CLIENT_SECRET|PAYPAL_MODE|SUPABASE_URL|SUPABASE_SERVICE_ROLE_KEY|SUPABASE_ANON_KEY|CODEX_MASTER_KEY|AUTONOMYS_API_KEY|OPENAI_API_KEY|NEXTAUTH_URL|FIO_API_ENDPOINT|FIO_CHAIN_ID|FIO_SYSTEM_PUBLIC_KEY|FIO_SYSTEM_PRIVATE_KEY|FIO_MOCK_MODE|AGENT_KEY_ENCRYPTION_SECRET|TREASURY_PRIVATE_KEY|NEXT_PUBLIC_)=' >> .env.production || true
+        # Write the keys explicitly (even if empty) so we can detect missing injection
+        - printf "PAYPAL_MODE=%s\n" "${PAYPAL_MODE}" >> .env.production
+        - printf "PAYPAL_CLIENT_ID=%s\n" "${PAYPAL_CLIENT_ID}" >> .env.production
+        - printf "PAYPAL_CLIENT_SECRET=%s\n" "${PAYPAL_CLIENT_SECRET}" >> .env.production
+        - printf "SUPABASE_URL=%s\n" "${SUPABASE_URL}" >> .env.production
+        - printf "SUPABASE_SERVICE_ROLE_KEY=%s\n" "${SUPABASE_SERVICE_ROLE_KEY}" >> .env.production
+        - printf "SUPABASE_ANON_KEY=%s\n" "${SUPABASE_ANON_KEY}" >> .env.production
+        - printf "CODEX_MASTER_KEY=%s\n" "${CODEX_MASTER_KEY}" >> .env.production
+        - printf "AUTONOMYS_API_KEY=%s\n" "${AUTONOMYS_API_KEY}" >> .env.production
+        - printf "NEXTAUTH_URL=%s\n" "${NEXTAUTH_URL}" >> .env.production
+        - printf "OPENAI_API_KEY=%s\n" "${OPENAI_API_KEY}" >> .env.production
+        - printf "FIO_API_ENDPOINT=%s\n" "${FIO_API_ENDPOINT}" >> .env.production
+        - printf "FIO_CHAIN_ID=%s\n" "${FIO_CHAIN_ID}" >> .env.production
+        - printf "FIO_SYSTEM_PUBLIC_KEY=%s\n" "${FIO_SYSTEM_PUBLIC_KEY}" >> .env.production
+        - printf "FIO_SYSTEM_PRIVATE_KEY=%s\n" "${FIO_SYSTEM_PRIVATE_KEY}" >> .env.production
+        - printf "FIO_MOCK_MODE=%s\n" "${FIO_MOCK_MODE}" >> .env.production
+        - printf "AGENT_KEY_ENCRYPTION_SECRET=%s\n" "${AGENT_KEY_ENCRYPTION_SECRET}" >> .env.production
+        - printf "TREASURY_PRIVATE_KEY=%s\n" "${TREASURY_PRIVATE_KEY}" >> .env.production
 
-        # DEBUG: Show what we captured
-        - echo "=== .env.production contents (first 5 lines) ==="
-        - head -n 5 .env.production || echo ".env.production is empty or missing"
-        - echo "=== PayPal env vars in build environment ==="
-        - echo "PAYPAL_MODE=${PAYPAL_MODE:-UNDEFINED}"
-        - echo "PAYPAL_CLIENT_ID=${PAYPAL_CLIENT_ID:0:10}... (len=${#PAYPAL_CLIENT_ID})"
-        - echo "PAYPAL_CLIENT_SECRET=${PAYPAL_CLIENT_SECRET:0:10}... (len=${#PAYPAL_CLIENT_SECRET})"
+        # add all NEXT_PUBLIC_ vars too (AWS docs recommend this pattern for SSR env availability)
+        - env | grep -E '^NEXT_PUBLIC_' >> .env.production || true
 
-        # Hard fail if paypal creds missing in build container
-        - node -e "if(!process.env.PAYPAL_CLIENT_ID||!process.env.PAYPAL_CLIENT_SECRET){console.error('Missing PAYPAL env vars in Amplify build env');process.exit(1)}"
+        # SAFE DIAGNOSTIC: print only keys + whether empty, never values
+        - echo "=== .env.production keys + empty-check (REDACTED) ==="
+        - node - <<'NODE'
+          const fs = require('fs');
+          const s = fs.readFileSync('.env.production','utf8').trim().split('\n').filter(Boolean);
+          for (const line of s) {
+            const [k,v=''] = line.split('=');
+            console.log(`${k}=${v ? '[SET]' : '[EMPTY]'}`);
+          }
+          NODE
+
+        # Hard fail if PayPal creds missing
+        - node -e "if(!process.env.PAYPAL_CLIENT_ID||!process.env.PAYPAL_CLIENT_SECRET){console.error('PAYPAL env vars missing in build env');process.exit(1)}"
 
         - echo ".env.production created. Building Next.js..."
         - npm run build
@@ -42,7 +63,14 @@ frontend:
         - cp .env.production .next/standalone/.env.production || true
 
         - echo "Patching standalone server.js to load dotenv at runtime..."
-        - node scripts/patch-standalone-dotenv.js
+        - node <<'NODE'
+          const fs = require('fs');
+          const p = '.next/standalone/server.js';
+          if (!fs.existsSync(p)) process.exit(0);
+          let s = fs.readFileSync(p, 'utf8');
+          const inject = "require('dotenv').config({ path: __dirname + '/.env.production' });\n";
+          if (!s.startsWith("require('dotenv')")) fs.writeFileSync(p, inject + s);
+          NODE
 
   artifacts:
     baseDirectory: .next
