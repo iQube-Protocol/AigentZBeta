@@ -2,22 +2,23 @@
  * PayPal Service for KNYT Purchases
  */
 
-const PAYPAL_API = process.env.PAYPAL_MODE === 'live' ? 'https://api-m.paypal.com' : 'https://api-m.sandbox.paypal.com';
+const mode = (process.env.PAYPAL_MODE || 'live').trim();
+const PAYPAL_API = mode === 'live' ? 'https://api-m.paypal.com' : 'https://api-m.sandbox.paypal.com';
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
 async function getAccessToken(): Promise<string> {
   if (cachedToken && Date.now() < cachedToken.expiresAt) return cachedToken.token;
   
-  const clientId = process.env.PAYPAL_CLIENT_ID;
-  const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
+  const clientId = process.env.PAYPAL_CLIENT_ID?.trim();
+  const clientSecret = process.env.PAYPAL_CLIENT_SECRET?.trim();
   
   if (!clientId || !clientSecret) {
     console.error('[PayPal KNYT] Missing credentials:', {
       hasClientId: !!clientId,
       hasClientSecret: !!clientSecret,
-      mode: process.env.PAYPAL_MODE
+      mode
     });
-    throw new Error('PayPal credentials not configured');
+    throw new Error(`PayPal env missing at runtime (mode=${mode})`);
   }
   
   const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');

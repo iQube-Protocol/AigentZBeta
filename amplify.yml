@@ -7,48 +7,49 @@ frontend:
         - echo "Installing Node.js 20.18.0..."
         - nvm install 20.18.0
         - nvm use 20.18.0
-        - echo "Node.js version:"
         - node --version
         - echo "Installing dependencies..."
         - npm ci
+
+        # Issue 3 dependency (Ghostscript) — AL2023 uses dnf (yum may be a shim)
+        - echo "Installing Ghostscript..."
+        - sudo dnf install -y ghostscript || sudo yum install -y ghostscript
+        - gs --version
     build:
       commands:
-        - echo "Creating .env.production with runtime env vars..."
-        - |
-          cat > .env.production << EOF
-          FIO_API_ENDPOINT=${FIO_API_ENDPOINT}
-          FIO_CHAIN_ID=${FIO_CHAIN_ID}
-          FIO_SYSTEM_PUBLIC_KEY=${FIO_SYSTEM_PUBLIC_KEY}
-          FIO_SYSTEM_PRIVATE_KEY=${FIO_SYSTEM_PRIVATE_KEY}
-          FIO_MOCK_MODE=${FIO_MOCK_MODE}
-          NEXT_PUBLIC_FIO_NETWORK=${NEXT_PUBLIC_FIO_NETWORK}
-          SUPABASE_URL=${SUPABASE_URL}
-          SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
-          SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
-          AGENT_KEY_ENCRYPTION_SECRET=${AGENT_KEY_ENCRYPTION_SECRET}
-          TREASURY_PRIVATE_KEY=${TREASURY_PRIVATE_KEY}
-          NEXTAUTH_URL=${NEXTAUTH_URL}
-          NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
-          NEXT_PUBLIC_DVN_SSE_URL=${NEXT_PUBLIC_DVN_SSE_URL}
-          NEXT_PUBLIC_QCT_SEPOLIA=${NEXT_PUBLIC_QCT_SEPOLIA}
-          NEXT_PUBLIC_QCT_ARB_SEPOLIA=${NEXT_PUBLIC_QCT_ARB_SEPOLIA}
-          NEXT_PUBLIC_RPC_SEPOLIA=${NEXT_PUBLIC_RPC_SEPOLIA}
-          NEXT_PUBLIC_RPC_ARB_SEPOLIA=${NEXT_PUBLIC_RPC_ARB_SEPOLIA}
-          NEXT_PUBLIC_USDC_SEPOLIA=${NEXT_PUBLIC_USDC_SEPOLIA}
-          OPENAI_API_KEY=${OPENAI_API_KEY}
-          CODEX_MASTER_KEY=${CODEX_MASTER_KEY}
-          AUTONOMYS_API_KEY=${AUTONOMYS_API_KEY}
-          PAYPAL_CLIENT_ID=${PAYPAL_CLIENT_ID}
-          PAYPAL_CLIENT_SECRET=${PAYPAL_CLIENT_SECRET}
-          PAYPAL_MODE=${PAYPAL_MODE}
-          NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
-          EOF
-        - echo ".env.production created, building Next.js app..."
+        - echo "Creating .env.production (no indentation / safe parsing)..."
+        - rm -f .env.production
+
+        # Write only the exact vars we want, without whitespace issues.
+        # (AWS recommended pattern for SSR env access is writing env vars into .env.production before build)
+        - env | grep -E '^(PAYPAL_CLIENT_ID|PAYPAL_CLIENT_SECRET|PAYPAL_MODE|SUPABASE_URL|SUPABASE_SERVICE_ROLE_KEY|SUPABASE_ANON_KEY|CODEX_MASTER_KEY|AUTONOMYS_API_KEY|OPENAI_API_KEY|NEXTAUTH_URL|FIO_API_ENDPOINT|FIO_CHAIN_ID|FIO_SYSTEM_PUBLIC_KEY|FIO_SYSTEM_PRIVATE_KEY|FIO_MOCK_MODE|AGENT_KEY_ENCRYPTION_SECRET|TREASURY_PRIVATE_KEY|NEXT_PUBLIC_)=' >> .env.production || true
+
+        # Hard fail if paypal creds missing in build container
+        - node -e "if(!process.env.PAYPAL_CLIENT_ID||!process.env.PAYPAL_CLIENT_SECRET){console.error('Missing PAYPAL env vars in Amplify build env');process.exit(1)}"
+
+        - echo ".env.production created. Building Next.js..."
         - npm run build
-        - echo "Copying .env.production to standalone build..."
-        - cp .env.production .next/standalone/.env.production || echo "Standalone dir not found, skipping"
+
+        - echo "Copying .env.production into standalone bundle..."
+        - cp .env.production .next/standalone/.env.production || true
+
+        - echo "Patching standalone server.js to load dotenv at runtime..."
+        - node <<'NODE'
+          const fs = require('fs');
+          const p = '.next/standalone/server.js';
+          if (!fs.existsSync(p)) { console.log('No .next/standalone/server.js found; skipping'); process.exit(0); }
+          let s = fs.readFileSync(p, 'utf8');
+
+          const inject = "require('dotenv').config({ path: __dirname + '/.env.production' });\\n";
+          if (!s.startsWith("require('dotenv')")) {
+            fs.writeFileSync(p, inject + s);
+            console.log('✅ Patched server.js to load .env.production');
+          } else {
+            console.log('ℹ️ server.js already patched');
+          }
+          NODE
+
   artifacts:
-    # .next contains the SSR build output
     baseDirectory: .next
     files:
       - '**/*'
@@ -56,33 +57,3 @@ frontend:
     paths:
       - node_modules/**/*
       - .next/cache/**/*
-
-compute:
-  type: ssr
-  environment:
-    FIO_API_ENDPOINT: ${FIO_API_ENDPOINT}
-    FIO_CHAIN_ID: ${FIO_CHAIN_ID}
-    FIO_SYSTEM_PUBLIC_KEY: ${FIO_SYSTEM_PUBLIC_KEY}
-    FIO_SYSTEM_PRIVATE_KEY: ${FIO_SYSTEM_PRIVATE_KEY}
-    FIO_MOCK_MODE: ${FIO_MOCK_MODE}
-    NEXT_PUBLIC_FIO_NETWORK: ${NEXT_PUBLIC_FIO_NETWORK}
-    SUPABASE_URL: ${SUPABASE_URL}
-    SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
-    SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
-    AGENT_KEY_ENCRYPTION_SECRET: ${AGENT_KEY_ENCRYPTION_SECRET}
-    TREASURY_PRIVATE_KEY: ${TREASURY_PRIVATE_KEY}
-    NEXTAUTH_URL: ${NEXTAUTH_URL}
-    NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
-    NEXT_PUBLIC_DVN_SSE_URL: ${NEXT_PUBLIC_DVN_SSE_URL}
-    NEXT_PUBLIC_QCT_SEPOLIA: ${NEXT_PUBLIC_QCT_SEPOLIA}
-    NEXT_PUBLIC_QCT_ARB_SEPOLIA: ${NEXT_PUBLIC_QCT_ARB_SEPOLIA}
-    NEXT_PUBLIC_RPC_SEPOLIA: ${NEXT_PUBLIC_RPC_SEPOLIA}
-    NEXT_PUBLIC_RPC_ARB_SEPOLIA: ${NEXT_PUBLIC_RPC_ARB_SEPOLIA}
-    NEXT_PUBLIC_USDC_SEPOLIA: ${NEXT_PUBLIC_USDC_SEPOLIA}
-    OPENAI_API_KEY: ${OPENAI_API_KEY}
-    CODEX_MASTER_KEY: ${CODEX_MASTER_KEY}
-    AUTONOMYS_API_KEY: ${AUTONOMYS_API_KEY}
-    PAYPAL_CLIENT_ID: ${PAYPAL_CLIENT_ID}
-    PAYPAL_CLIENT_SECRET: ${PAYPAL_CLIENT_SECRET}
-    PAYPAL_MODE: ${PAYPAL_MODE}
-    NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
