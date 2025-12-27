@@ -4,6 +4,19 @@ import { createAutoDriveApi } from '@autonomys/auto-drive';
 import { NetworkId } from '@autonomys/auto-utils';
 import { unwrapKeyWithMasterKey, decryptContent } from '@/server/services/encryptionService';
 
+// Polyfill for Promise.withResolvers (Node.js 22+ feature, not available in Node 20)
+if (typeof Promise.withResolvers === 'undefined') {
+  (Promise as any).withResolvers = function <T>() {
+    let resolve: (value: T | PromiseLike<T>) => void;
+    let reject: (reason?: any) => void;
+    const promise = new Promise<T>((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+    return { promise, resolve: resolve!, reject: reject! };
+  };
+}
+
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
@@ -82,14 +95,20 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       { status: 200, headers: { ...corsHeaders, 'Cache-Control': 'public, max-age=3600' } }
     );
   } catch (error: any) {
-    console.error('[PDF Meta] Error processing PDF:', {
-      message: error.message,
-      stack: error.stack,
-      name: error.name,
-      cid: params.cid
-    });
+    const errorDetails = {
+      message: error?.message || 'Unknown error',
+      name: error?.name || 'Error',
+      stack: error?.stack || 'No stack trace',
+      stringified: String(error),
+      cid: params.cid,
+      type: typeof error,
+      keys: error ? Object.keys(error) : []
+    };
+    console.error('[PDF Meta] Error processing PDF:', errorDetails);
+    
+    const errorMessage = error?.message || error?.toString?.() || JSON.stringify(error) || 'Failed to process PDF';
     return NextResponse.json(
-      { error: error.message || error.toString() || 'Failed to process PDF' },
+      { error: errorMessage, details: errorDetails },
       { status: 500, headers: corsHeaders }
     );
   }
