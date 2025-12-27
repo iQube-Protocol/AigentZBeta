@@ -48,29 +48,12 @@ export function PDFLiteReaderModal({ open, onClose, title, pdfUrl }: PDFLiteRead
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <a
-              className="text-xs px-3 py-1.5 rounded-md bg-white/10 hover:bg-white/15 text-white"
-              href={pdfUrl}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Open in new tab
-            </a>
-            <a
-              className="text-xs px-3 py-1.5 rounded-md bg-white/10 hover:bg-white/15 text-white"
-              href={pdfUrl}
-              download
-            >
-              Download
-            </a>
-            <button
-              className="text-xs px-3 py-1.5 rounded-md bg-white text-black hover:bg-white/90"
-              onClick={onClose}
-            >
-              Close
-            </button>
-          </div>
+          <button
+            className="text-xs px-3 py-1.5 rounded-md bg-white text-black hover:bg-white/90"
+            onClick={onClose}
+          >
+            Close
+          </button>
         </div>
 
         <div className="relative w-full h-[calc(100%-52px)]">

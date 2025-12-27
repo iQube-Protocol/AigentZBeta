@@ -241,7 +241,7 @@ export function PDFPageViewer({ cid, title, pdfLiteUrl, onClose }: PDFPageViewer
         {/* PDF object embed - more reliable than iframe */}
         <div className="flex-1 w-full min-h-[80vh] bg-black">
           <object 
-            data={effectivePdfLiteUrl} 
+            data={`${effectivePdfLiteUrl}#toolbar=0&navpanes=0`} 
             type="application/pdf" 
             className="w-full h-full"
           >
@@ -254,15 +254,6 @@ export function PDFPageViewer({ cid, title, pdfLiteUrl, onClose }: PDFPageViewer
           </object>
         </div>
 
-        {/* Fallback controls */}
-        <div className="px-4 py-3 bg-gray-900 border-t border-gray-800 flex gap-2">
-          <a className="text-xs px-3 py-1.5 rounded bg-white/10 hover:bg-white/20 text-white" href={effectivePdfLiteUrl} target="_blank" rel="noreferrer">
-            Open in new tab
-          </a>
-          <a className="text-xs px-3 py-1.5 rounded bg-white/10 hover:bg-white/20 text-white" href={effectivePdfLiteUrl} download>
-            Download
-          </a>
-        </div>
       </div>
     );
   }
