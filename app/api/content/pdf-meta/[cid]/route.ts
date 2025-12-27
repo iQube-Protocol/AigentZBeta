@@ -80,20 +80,12 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     key: contentKey,
   });
 
-  // Dynamic import to avoid Next.js ESM issues
-  const pdfjs = await import('pdfjs-dist/build/pdf.mjs');
-  const { getDocument } = pdfjs as any;
-
-  const loadingTask = getDocument({
-    data: new Uint8Array(decryptedPdf),
-    isEvalSupported: false, // Security hardening
-    useWorkerFetch: false, // Disable worker for server-side execution
-    disableWorker: true, // Run in main thread (server-side)
-  });
-  const pdf = await loadingTask.promise;
+  // Use pdf-parse instead of pdfjs-dist (Node.js compatible, no worker needed)
+  const pdfParse = (await import('pdf-parse')).default;
+  const pdfData = await pdfParse(decryptedPdf);
 
     return NextResponse.json(
-      { pages: pdf.numPages, suggestedWidth: 1200 },
+      { pages: pdfData.numpages, suggestedWidth: 1200 },
       { status: 200, headers: { ...corsHeaders, 'Cache-Control': 'public, max-age=3600' } }
     );
   } catch (error: any) {
