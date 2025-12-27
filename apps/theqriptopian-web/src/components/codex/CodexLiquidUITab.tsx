@@ -556,6 +556,11 @@ export default function CodexLiquidUITab({
   // Handle viewer open
   const handleViewerOpen = useCallback((item: KnytContentItem, type: 'pdf' | 'video' | 'poster') => {
     if (type === 'pdf' && (item.media?.pdf_lite_url || item.media?.pdf_cid)) {
+      console.log('[CodexLiquidUITab] Opening PDF viewer:', {
+        pdf_lite_url: item.media.pdf_lite_url,
+        pdf_cid: item.media.pdf_cid,
+        title: item.title
+      });
       setCurrentPdfLiteUrl(item.media.pdf_lite_url || null);
       setCurrentPdfCid(item.media.pdf_cid || null);
       setCurrentPdfTitle(item.title);
@@ -656,27 +661,33 @@ export default function CodexLiquidUITab({
 
       {/* PDF Viewer Modal - prefer pdf_lite_url, fallback to CID-based page viewer */}
       {pdfViewerOpen && currentPdfLiteUrl && (
-        <PDFLiteReaderModal
-          open={pdfViewerOpen}
-          pdfUrl={currentPdfLiteUrl}
-          title={currentPdfTitle}
-          onClose={() => {
-            setPdfViewerOpen(false);
-            setCurrentPdfLiteUrl(null);
-            setCurrentPdfCid(null);
-          }}
-        />
+        <>
+          {console.log('[CodexLiquidUITab] Rendering PDFLiteReaderModal with URL:', currentPdfLiteUrl)}
+          <PDFLiteReaderModal
+            open={pdfViewerOpen}
+            pdfUrl={currentPdfLiteUrl}
+            title={currentPdfTitle}
+            onClose={() => {
+              setPdfViewerOpen(false);
+              setCurrentPdfLiteUrl(null);
+              setCurrentPdfCid(null);
+            }}
+          />
+        </>
       )}
       {pdfViewerOpen && !currentPdfLiteUrl && currentPdfCid && (
-        <PDFPageViewer
-          cid={currentPdfCid}
-          title={currentPdfTitle}
-          pdfLiteUrl={currentPdfLiteUrl}
-          onClose={() => {
-            setPdfViewerOpen(false);
-            setCurrentPdfCid(null);
-          }}
-        />
+        <>
+          {console.log('[CodexLiquidUITab] Rendering PDFPageViewer with CID:', currentPdfCid, 'pdfLiteUrl:', currentPdfLiteUrl)}
+          <PDFPageViewer
+            cid={currentPdfCid}
+            title={currentPdfTitle}
+            pdfLiteUrl={currentPdfLiteUrl}
+            onClose={() => {
+              setPdfViewerOpen(false);
+              setCurrentPdfCid(null);
+            }}
+          />
+        </>
       )}
 
       {/* Video Player Modal */}
