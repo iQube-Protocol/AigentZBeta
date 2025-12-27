@@ -87,6 +87,8 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
   const loadingTask = getDocument({
     data: new Uint8Array(decryptedPdf),
     isEvalSupported: false, // Security hardening
+    useWorkerFetch: false, // Disable worker for server-side execution
+    disableWorker: true, // Run in main thread (server-side)
   });
   const pdf = await loadingTask.promise;
 
