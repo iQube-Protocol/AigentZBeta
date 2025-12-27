@@ -79,12 +79,16 @@ export function PDFLiteReaderModal({ open, onClose, title, pdfUrl }: PDFLiteRead
             </div>
           )}
 
-          <iframe
-            title={title || 'PDF'}
-            src={`https://docs.google.com/viewer?url=${encodeURIComponent(pdfUrl)}&embedded=true`}
+          <object
+            data={`${pdfUrl}#toolbar=0&navpanes=0`}
+            type="application/pdf"
             className="w-full h-full"
             onLoad={() => setLoading(false)}
-          />
+          >
+            <div className="flex flex-col items-center justify-center h-full p-8 text-center">
+              <p className="text-white mb-4">PDF preview not supported in this browser.</p>
+            </div>
+          </object>
         </div>
       </div>
     </div>
