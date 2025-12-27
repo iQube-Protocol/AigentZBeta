@@ -225,7 +225,7 @@ export function PDFPageViewer({ cid, title, pdfLiteUrl, onClose }: PDFPageViewer
               {title || 'PDF Viewer'}
             </h2>
             <div className="text-[10px] text-cyan-400/60">
-              Mode: PDF-LITE (iframe) • Build: 2025-12-26a
+              Mode: pdfLite (object) • Build: 2025-12-27a
             </div>
           </div>
           <Button
@@ -238,15 +238,20 @@ export function PDFPageViewer({ cid, title, pdfLiteUrl, onClose }: PDFPageViewer
           </Button>
         </div>
         
-        {/* PDF iframe */}
-        <div className="flex-1 relative min-h-[70vh]">
-          <iframe
-            src={effectivePdfLiteUrl}
-            key={effectivePdfLiteUrl}
-            className="absolute inset-0 w-full h-full border-0 bg-black"
-            title={title || 'PDF Viewer'}
-            onLoad={() => console.log('[PDFPageViewer] iframe loaded successfully')}
-          />
+        {/* PDF object embed - more reliable than iframe */}
+        <div className="flex-1 w-full min-h-[80vh] bg-black">
+          <object 
+            data={effectivePdfLiteUrl} 
+            type="application/pdf" 
+            className="w-full h-full"
+          >
+            <div className="flex flex-col items-center justify-center h-full p-8 text-center">
+              <p className="text-white mb-4">PDF preview not available in this browser.</p>
+              <a href={effectivePdfLiteUrl} target="_blank" rel="noreferrer" className="px-4 py-2 bg-cyan-500 text-white rounded">
+                Open PDF in new tab
+              </a>
+            </div>
+          </object>
         </div>
 
         {/* Fallback controls */}

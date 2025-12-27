@@ -26,6 +26,13 @@
   status = 200
   force = true
 
+# Headers for PDF embedding from Supabase
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "SAMEORIGIN"
+    Content-Security-Policy = "frame-src 'self' https://*.supabase.co https://docs.google.com; object-src 'self' https://*.supabase.co; frame-ancestors 'self'"
+
 # SPA fallback (must be last)
 [[redirects]]
   from = "/*"
