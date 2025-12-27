@@ -6,8 +6,8 @@ import { cn } from "@/lib/utils";
  * Each modality should only be present if the content actually supports it
  */
 export interface ContentModalities {
-  read?: { text: string; duration?: string };
-  watch?: { video_url: string; duration?: string; thumbnail?: string; type?: string };
+  read?: { text?: string; available?: boolean; cid?: string; duration?: string };
+  watch?: { video_url?: string; available?: boolean; cid?: string; duration?: string; thumbnail?: string; type?: string };
   listen?: { audio_url: string; duration?: string; cover_image?: string };
   link?: { url: string; allow_embed?: boolean };
   view?: { image_url?: string };
@@ -62,8 +62,8 @@ function getAvailableActions(
   const actions: ActionType[] = [];
   
   // Only add modality actions if they have actual content
-  if (modalities?.watch?.video_url) actions.push('watch');
-  if (modalities?.read?.text) actions.push('read');
+  if (modalities?.watch?.video_url || modalities?.watch?.available) actions.push('watch');
+  if (modalities?.read?.text || modalities?.read?.available) actions.push('read');
   if (modalities?.listen?.audio_url) actions.push('listen');
   if (modalities?.link?.url) actions.push('link');
   if (modalities?.view?.image_url) actions.push('view');
@@ -126,7 +126,7 @@ export function hasPlayableContent(modalities: ContentModalities | null): boolea
  * Helper to check if a content item has readable content
  */
 export function hasReadableContent(modalities: ContentModalities | null): boolean {
-  return !!(modalities?.read?.text);
+  return !!(modalities?.read?.text || modalities?.read?.available);
 }
 
 /**

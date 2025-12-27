@@ -12,6 +12,7 @@
 import React, { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
 import { VideoModal } from '@agentiq/smarttriad';
 import { ArticleReader, theQriptopianStyleGuide } from '@agentiq/article-reader';
+import { PDFPageViewer } from '@/components/content/PDFPageViewer';
 import type { ArticleQube } from '@agentiq/codex';
 import type { ContentModalities, ActionType } from '@/components/content/SmartContentActions';
 
@@ -25,6 +26,9 @@ export interface SmartContentItem {
   excerpt?: string;
   image?: string;
   modalities?: ContentModalities | null;
+  // PDF support
+  pdf_cid?: string;
+  pdf_lite_url?: string;
 }
 
 interface SmartContentActionContextValue {
@@ -52,6 +56,9 @@ export function SmartContentActionProvider({ children }: ProviderProps) {
   const [videoModalOpen, setVideoModalOpen] = useState(false);
   const [videoItem, setVideoItem] = useState<SmartContentItem | null>(null);
   const [readArticle, setReadArticle] = useState<ArticleQube | null>(null);
+  // PDF viewer state
+  const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
+  const [pdfItem, setPdfItem] = useState<SmartContentItem | null>(null);
   // TODO: Add audio player state when implemented
   // const [audioItem, setAudioItem] = useState<SmartContentItem | null>(null);
 
@@ -71,8 +78,13 @@ export function SmartContentActionProvider({ children }: ProviderProps) {
         break;
 
       case 'read':
-        if (modalities?.read?.text) {
-          // ArticleQube expects 'content' field for the article body
+        // Check for PDF content first (cid or available flag)
+        if (modalities?.read?.cid || modalities?.read?.available || item.pdf_cid || item.pdf_lite_url) {
+          console.log('[SmartContentAction] Opening PDF viewer for:', item.title);
+          setPdfItem(item);
+          setPdfViewerOpen(true);
+        } else if (modalities?.read?.text) {
+          // Fall back to ArticleReader for text content
           const article: ArticleQube = {
             contentId: item.id,
             title: item.title,
@@ -162,6 +174,19 @@ export function SmartContentActionProvider({ children }: ProviderProps) {
         onClose={() => setReadArticle(null)}
         styleGuide={theQriptopianStyleGuide}
       />
+
+      {/* Global PDFPageViewer */}
+      {pdfViewerOpen && pdfItem && (
+        <PDFPageViewer
+          cid={pdfItem.pdf_cid || pdfItem.modalities?.read?.cid || ''}
+          pdfLiteUrl={pdfItem.pdf_lite_url}
+          title={pdfItem.title}
+          onClose={() => {
+            setPdfViewerOpen(false);
+            setPdfItem(null);
+          }}
+        />
+      )}
 
       {/* TODO: Global AudioPlayer */}
     </SmartContentActionContext.Provider>
