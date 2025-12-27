@@ -18,11 +18,19 @@ interface PDFPageViewerProps {
 
 interface PageMeta {
   pages: number;
-  suggestedWidth: number;
+  suggestedWidth?: number;
   pdfLiteUrl?: string;
 }
 
+interface PageManifest {
+  pagesCount: number;
+  width: number;
+  pages: string[];
+  cached?: boolean;
+}
+
 export function PDFPageViewer({ cid, title, pdfLiteUrl, onClose }: PDFPageViewerProps) {
+  const [manifest, setManifest] = useState<PageManifest | null>(null);
   const [meta, setMeta] = useState<PageMeta | null>(null);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [loadingMeta, setLoadingMeta] = useState<boolean>(true);
@@ -35,26 +43,32 @@ export function PDFPageViewer({ cid, title, pdfLiteUrl, onClose }: PDFPageViewer
 
   const apiUrl = import.meta.env.VITE_API_URL || '';
 
-  // Fetch PDF metadata
+  // Fetch pre-rendered pages or fall back to metadata
   useEffect(() => {
-    const fetchMeta = async () => {
+    const fetchPages = async () => {
       try {
-        console.log('[PDFPageViewer] Fetching metadata for CID:', cid);
-        const response = await fetch(`${apiUrl}/api/content/pdf-meta/${cid}`);
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        // Try manifest first
+        const manifestRes = await fetch(`${apiUrl}/api/content/pdf-pages/${cid}`);
+        if (manifestRes.ok) {
+          const data = await manifestRes.json();
+          console.log('[PDFPageViewer] Using pre-rendered pages:', data.pagesCount);
+          setManifest(data);
+          setMeta({ pages: data.pagesCount, suggestedWidth: data.width });
+          setLoadingMeta(false);
+          return;
         }
-        const data = await response.json();
-        console.log('[PDFPageViewer] Metadata:', data);
+        // Fall back to old endpoint
+        const metaRes = await fetch(`${apiUrl}/api/content/pdf-meta/${cid}`);
+        if (!metaRes.ok) throw new Error(`HTTP ${metaRes.status}`);
+        const data = await metaRes.json();
         setMeta(data);
         setLoadingMeta(false);
       } catch (err) {
-        console.error('[PDFPageViewer] Meta fetch error:', err);
-        setError(`Failed to load PDF metadata: ${err instanceof Error ? err.message : 'Unknown error'}`);
+        setError(`Failed to load PDF: ${err instanceof Error ? err.message : 'Unknown error'}`);
         setLoadingMeta(false);
       }
     };
-    fetchMeta();
+    fetchPages();
   }, [cid, apiUrl]);
 
   // Setup intersection observer for lazy loading
@@ -293,6 +307,7 @@ export function PDFPageViewer({ cid, title, pdfLiteUrl, onClose }: PDFPageViewer
               onInView={handlePageInView}
               onError={() => setFailedPages((prev) => new Set(prev).add(pageNum))}
               isFailed={failedPages.has(pageNum)}
+              pageUrl={manifest?.pages[pageNum - 1]}
             />
           ))}
         </div>
@@ -362,6 +377,7 @@ interface PDFPageImageProps {
   onInView: (pageNum: number) => void;
   onError: () => void;
   isFailed: boolean;
+  pageUrl?: string; // Pre-rendered page URL from manifest
 }
 
 function PDFPageImage({ 
@@ -373,13 +389,15 @@ function PDFPageImage({
   onInView,
   onError,
   isFailed,
+  pageUrl: prerenderedUrl,
 }: PDFPageImageProps) {
   const [loaded, setLoaded] = useState(false);
   const [loading, setLoading] = useState(false);
   const imgRef = useRef<HTMLImageElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const pageUrl = `${apiUrl}/api/content/pdf-page/${cid}?page=${pageNum}&width=${width}`;
+  // Use pre-rendered URL if available, otherwise fall back to on-demand rendering
+  const pageUrl = prerenderedUrl || `${apiUrl}/api/content/pdf-page/${cid}?page=${pageNum}&width=${width}`;
 
   // Track when page enters viewport
   useEffect(() => {
