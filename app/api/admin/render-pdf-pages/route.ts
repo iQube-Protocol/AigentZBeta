@@ -83,12 +83,33 @@ export async function POST(req: NextRequest) {
   );
 
   try {
-    const { limit = 3 } = await req.json();
+    const { limit = 3, debug = false } = await req.json();
     
+    // Debug: Check what PDFs exist
+    if (debug) {
+      const { data: allPdfs } = await supabase
+        .from('codex_media_assets')
+        .select('auto_drive_cid, pdf_lite_url, pages_ready, mime_type')
+        .eq('mime_type', 'application/pdf')
+        .limit(10);
+      
+      const { data: allQubes } = await supabase
+        .from('master_content_qubes')
+        .select('auto_drive_cid, pdf_lite_url, pages_ready')
+        .not('pdf_lite_url', 'is', null)
+        .limit(10);
+      
+      return NextResponse.json({ 
+        debug: true,
+        codex_media_assets: allPdfs,
+        master_content_qubes: allQubes
+      });
+    }
+    
+    // Try master_content_qubes first since that's where pdf_lite_url was populated
     const { data: targets, error } = await supabase
-      .from('codex_media_assets')
-      .select('auto_drive_cid, pdf_lite_url, pages_ready, mime_type')
-      .eq('mime_type', 'application/pdf')
+      .from('master_content_qubes')
+      .select('auto_drive_cid, pdf_lite_url, pages_ready')
       .not('pdf_lite_url', 'is', null)
       .or('pages_ready.is.null,pages_ready.eq.false')
       .limit(limit);
