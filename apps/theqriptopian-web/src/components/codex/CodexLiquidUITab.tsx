@@ -671,6 +671,7 @@ export default function CodexLiquidUITab({
         <PDFPageViewer
           cid={currentPdfCid}
           title={currentPdfTitle}
+          pdfLiteUrl={currentPdfLiteUrl}
           onClose={() => {
             setPdfViewerOpen(false);
             setCurrentPdfCid(null);

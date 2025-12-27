@@ -42,7 +42,12 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
     if (typeof asset.page_count === 'number' && asset.page_count > 0) {
       return NextResponse.json(
-        { pages: asset.page_count, suggestedWidth: 1200, cached: true },
+        { 
+          pages: asset.page_count, 
+          suggestedWidth: 1200, 
+          cached: true,
+          pdfLiteUrl: asset.pdf_lite_url || undefined
+        },
         { status: 200, headers: { ...corsHeaders, 'Cache-Control': 'public, max-age=3600' } }
       );
     }
@@ -93,7 +98,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     await supabase.from(table).update({ page_count: pages }).eq('id', asset.id);
 
     return NextResponse.json(
-      { pages, suggestedWidth: 1200, cached: false },
+      { pages, suggestedWidth: 1200, cached: false, pdfLiteUrl: asset.pdf_lite_url || undefined },
       { status: 200, headers: { ...corsHeaders, 'Cache-Control': 'public, max-age=3600' } }
     );
   } catch (error: any) {
@@ -108,7 +113,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 async function findAssetByCid(cid: string): Promise<null | { table: 'codex_media_assets' | 'master_content_qubes'; asset: any }> {
   const { data: asset, error } = await supabase
     .from('codex_media_assets')
-    .select('id, auto_drive_cid, mime_type, encryption_iv, encryption_auth_tag, token_qube_id, page_count')
+    .select('id, auto_drive_cid, mime_type, encryption_iv, encryption_auth_tag, token_qube_id, page_count, pdf_lite_url')
     .eq('auto_drive_cid', cid)
     .single();
 
@@ -116,7 +121,7 @@ async function findAssetByCid(cid: string): Promise<null | { table: 'codex_media
 
   const { data: master, error: masterError } = await supabase
     .from('master_content_qubes')
-    .select('id, auto_drive_cid, mime_type, encryption_iv, encryption_auth_tag, token_qube_id, page_count')
+    .select('id, auto_drive_cid, mime_type, encryption_iv, encryption_auth_tag, token_qube_id, page_count, pdf_lite_url')
     .eq('auto_drive_cid', cid)
     .single();
 

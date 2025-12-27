@@ -12,15 +12,17 @@ import { Button } from '@/components/ui/button';
 interface PDFPageViewerProps {
   cid: string;
   title?: string;
+  pdfLiteUrl?: string | null;
   onClose: () => void;
 }
 
 interface PageMeta {
   pages: number;
   suggestedWidth: number;
+  pdfLiteUrl?: string;
 }
 
-export function PDFPageViewer({ cid, title, onClose }: PDFPageViewerProps) {
+export function PDFPageViewer({ cid, title, pdfLiteUrl, onClose }: PDFPageViewerProps) {
   const [meta, setMeta] = useState<PageMeta | null>(null);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [loadingMeta, setLoadingMeta] = useState<boolean>(true);
@@ -195,6 +197,39 @@ export function PDFPageViewer({ cid, title, onClose }: PDFPageViewerProps) {
     return null;
   }
 
+  // If pdf_lite_url is available (from prop or meta), use iframe rendering (preferred)
+  const effectivePdfLiteUrl = pdfLiteUrl || meta.pdfLiteUrl;
+  if (effectivePdfLiteUrl) {
+    return (
+      <div className="fixed inset-0 z-50 bg-black/95 flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 bg-gray-900 border-b border-gray-800">
+          <h2 className="text-lg font-semibold text-white">
+            {title || 'PDF Viewer'}
+          </h2>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onClose}
+            className="text-gray-400 hover:text-white"
+          >
+            <X className="w-5 h-5" />
+          </Button>
+        </div>
+        
+        {/* PDF iframe */}
+        <div className="flex-1 relative">
+          <iframe
+            src={effectivePdfLiteUrl}
+            className="absolute inset-0 w-full h-full border-0"
+            title={title || 'PDF Viewer'}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // Fallback to page-by-page rendering
   const width = Math.min(meta.suggestedWidth, 1200);
 
   return (
