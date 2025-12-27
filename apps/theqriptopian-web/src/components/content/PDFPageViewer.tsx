@@ -199,14 +199,21 @@ export function PDFPageViewer({ cid, title, pdfLiteUrl, onClose }: PDFPageViewer
 
   // If pdf_lite_url is available (from prop or meta), use iframe rendering (preferred)
   const effectivePdfLiteUrl = pdfLiteUrl || meta.pdfLiteUrl;
+  
   if (effectivePdfLiteUrl) {
+    console.log('[PDFPageViewer] Using PDF-LITE mode with URL:', effectivePdfLiteUrl);
     return (
       <div className="fixed inset-0 z-50 bg-black/95 flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 bg-gray-900 border-b border-gray-800">
-          <h2 className="text-lg font-semibold text-white">
-            {title || 'PDF Viewer'}
-          </h2>
+          <div className="flex flex-col gap-1">
+            <h2 className="text-lg font-semibold text-white">
+              {title || 'PDF Viewer'}
+            </h2>
+            <div className="text-[10px] text-cyan-400/60">
+              Mode: PDF-LITE (iframe) • Build: 2025-12-26a
+            </div>
+          </div>
           <Button
             variant="ghost"
             size="sm"
@@ -218,18 +225,31 @@ export function PDFPageViewer({ cid, title, pdfLiteUrl, onClose }: PDFPageViewer
         </div>
         
         {/* PDF iframe */}
-        <div className="flex-1 relative">
+        <div className="flex-1 relative min-h-[70vh]">
           <iframe
             src={effectivePdfLiteUrl}
-            className="absolute inset-0 w-full h-full border-0"
+            key={effectivePdfLiteUrl}
+            className="absolute inset-0 w-full h-full border-0 bg-black"
             title={title || 'PDF Viewer'}
+            onLoad={() => console.log('[PDFPageViewer] iframe loaded successfully')}
           />
+        </div>
+
+        {/* Fallback controls */}
+        <div className="px-4 py-3 bg-gray-900 border-t border-gray-800 flex gap-2">
+          <a className="text-xs px-3 py-1.5 rounded bg-white/10 hover:bg-white/20 text-white" href={effectivePdfLiteUrl} target="_blank" rel="noreferrer">
+            Open in new tab
+          </a>
+          <a className="text-xs px-3 py-1.5 rounded bg-white/10 hover:bg-white/20 text-white" href={effectivePdfLiteUrl} download>
+            Download
+          </a>
         </div>
       </div>
     );
   }
 
   // Fallback to page-by-page rendering
+  console.warn('[PDFPageViewer] Falling back to page rendering; meta=', meta);
   const width = Math.min(meta.suggestedWidth, 1200);
 
   return (
