@@ -371,18 +371,19 @@ function DrawerGridTemplate({
     const hasVideo = item.modalities?.watch?.available;
     const isPortrait = item.type.includes('portrait');
     const defaultOpen = () => {
+      console.log('[KnytTemplateRenderer] defaultOpen called for:', item.title, { hasPdf, hasVideo, userIntent });
       if (userIntent === 'watch' || userIntent === 'motion_comics' || userIntent === 'immersive_review' || userIntent === 'trailers' || userIntent === 'scene_review') {
-        if (hasVideo) return onViewerOpen(item, 'video');
-        if (hasPdf) return onViewerOpen(item, 'pdf');
+        if (hasVideo) { console.log('[KnytTemplateRenderer] Opening video viewer'); return onViewerOpen(item, 'video'); }
+        if (hasPdf) { console.log('[KnytTemplateRenderer] Opening PDF viewer'); return onViewerOpen(item, 'pdf'); }
         return;
       }
       if (userIntent === 'page_review' || userIntent === 'cover_art' || userIntent === 'collectible_display') {
-        if (hasPdf) return onViewerOpen(item, 'pdf');
-        if (hasVideo) return onViewerOpen(item, 'video');
+        if (hasPdf) { console.log('[KnytTemplateRenderer] Opening PDF viewer'); return onViewerOpen(item, 'pdf'); }
+        if (hasVideo) { console.log('[KnytTemplateRenderer] Opening video viewer'); return onViewerOpen(item, 'video'); }
         return;
       }
-      if (hasPdf) return onViewerOpen(item, 'pdf');
-      if (hasVideo) return onViewerOpen(item, 'video');
+      if (hasPdf) { console.log('[KnytTemplateRenderer] Opening PDF viewer (default)'); return onViewerOpen(item, 'pdf'); }
+      if (hasVideo) { console.log('[KnytTemplateRenderer] Opening video viewer (default)'); return onViewerOpen(item, 'video'); }
     };
 
     const variant: ContentCardProps['variant'] = variantOverride || (isPortrait ? 'poster' : 'card');
