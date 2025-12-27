@@ -80,9 +80,9 @@ export function PDFLiteReaderModal({ open, onClose, title, pdfUrl }: PDFLiteRead
           )}
 
           <object
-            data={`${pdfUrl}#toolbar=0&navpanes=0`}
+            data={pdfUrl}
             type="application/pdf"
-            className="w-full h-full"
+            className="w-full h-full touch-pan-y"
             onLoad={() => setLoading(false)}
           >
             <div className="flex flex-col items-center justify-center h-full p-8 text-center">

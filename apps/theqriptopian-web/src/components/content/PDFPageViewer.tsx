@@ -241,9 +241,9 @@ export function PDFPageViewer({ cid, title, pdfLiteUrl, onClose }: PDFPageViewer
         {/* PDF object embed - more reliable than iframe */}
         <div className="flex-1 w-full min-h-[80vh] bg-black">
           <object 
-            data={`${effectivePdfLiteUrl}#toolbar=0&navpanes=0`} 
+            data={effectivePdfLiteUrl} 
             type="application/pdf" 
-            className="w-full h-full"
+            className="w-full h-full touch-pan-y"
           >
             <div className="flex flex-col items-center justify-center h-full p-8 text-center">
               <p className="text-white mb-4">PDF preview not available in this browser.</p>

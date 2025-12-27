@@ -26,12 +26,12 @@
   status = 200
   force = true
 
-# Headers for PDF embedding from Supabase
+# Headers for PDF embedding and PayPal popups
 [[headers]]
   for = "/*"
   [headers.values]
     X-Frame-Options = "SAMEORIGIN"
-    Content-Security-Policy = "frame-src 'self' https://*.supabase.co https://docs.google.com; object-src 'self' https://*.supabase.co; frame-ancestors 'self'"
+    Content-Security-Policy = "frame-src 'self' https://*.supabase.co https://*.paypal.com https://*.paypalobjects.com https://docs.google.com; object-src 'self' https://*.supabase.co; frame-ancestors 'self'"
 
 # SPA fallback (must be last)
 [[redirects]]
