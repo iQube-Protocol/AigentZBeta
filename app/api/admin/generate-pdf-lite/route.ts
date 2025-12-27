@@ -36,6 +36,10 @@ export async function POST(req: NextRequest) {
           .eq('id', asset.token_qube_id)
           .single();
 
+        if (!tokenQube) {
+          throw new Error('Token qube not found');
+        }
+
         const contentKey = unwrapKeyWithMasterKey({
           keyCiphertext: tokenQube.key_ciphertext,
           wrappingAlgorithm: tokenQube.key_wrapping_alg || 'aes-256-kw',
