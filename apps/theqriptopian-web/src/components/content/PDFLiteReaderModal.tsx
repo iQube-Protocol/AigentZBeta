@@ -98,7 +98,7 @@ export function PDFLiteReaderModal({ open, onClose, title, pdfUrl }: PDFLiteRead
 
           <iframe
             title={title || 'PDF'}
-            src={pdfUrl}
+            src={`https://docs.google.com/viewer?url=${encodeURIComponent(pdfUrl)}&embedded=true`}
             className="w-full h-full"
             onLoad={() => setLoading(false)}
           />
