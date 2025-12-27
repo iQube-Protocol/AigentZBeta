@@ -2,23 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createAutoDriveApi } from '@autonomys/auto-drive';
 import { NetworkId } from '@autonomys/auto-utils';
+import { PDFDocument } from 'pdf-lib';
 import { unwrapKeyWithMasterKey, decryptContent } from '@/server/services/encryptionService';
 
-// Polyfill for Promise.withResolvers (Node.js 22+ feature, not available in Node 20)
-if (typeof Promise.withResolvers === 'undefined') {
-  (Promise as any).withResolvers = function <T>() {
-    let resolve: (value: T | PromiseLike<T>) => void;
-    let reject: (reason?: any) => void;
-    const promise = new Promise<T>((res, rej) => {
-      resolve = res;
-      reject = rej;
-    });
-    return { promise, resolve: resolve!, reject: reject! };
-  };
-}
-
 export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -27,7 +14,7 @@ const corsHeaders = {
 };
 
 export async function OPTIONS() {
-  return new NextResponse(null, { headers: corsHeaders });
+  return new NextResponse(null, { status: 204, headers: corsHeaders });
 }
 
 const supabase = createClient(
@@ -41,87 +28,99 @@ interface RouteParams {
 
 export async function GET(req: NextRequest, { params }: RouteParams) {
   try {
-    const { cid } = params;
-    if (!cid) return NextResponse.json({ error: 'CID required' }, { status: 400, headers: corsHeaders });
+    const cid = params?.cid;
+    if (!cid) {
+      return NextResponse.json({ error: 'CID required' }, { status: 400, headers: corsHeaders });
+    }
 
-    const asset = await findAssetByCid(cid);
-  if (!asset?.token_qube_id) {
-    return NextResponse.json({ error: 'Asset/token qube not found' }, { status: 404, headers: corsHeaders });
-  }
+    const assetLookup = await findAssetByCid(cid);
+    if (!assetLookup) {
+      return NextResponse.json({ error: 'Asset not found' }, { status: 404, headers: corsHeaders });
+    }
 
-  const { data: tokenQube, error: tokenError } = await supabase
-    .from('iq_token_qubes')
-    .select('key_ciphertext, key_wrapping_alg')
-    .eq('id', asset.token_qube_id)
-    .single();
+    const { table, asset } = assetLookup;
 
-  if (tokenError || !tokenQube) {
-    return NextResponse.json({ error: 'Token qube not found' }, { status: 404, headers: corsHeaders });
-  }
+    if (typeof asset.page_count === 'number' && asset.page_count > 0) {
+      return NextResponse.json(
+        { pages: asset.page_count, suggestedWidth: 1200, cached: true },
+        { status: 200, headers: { ...corsHeaders, 'Cache-Control': 'public, max-age=3600' } }
+      );
+    }
 
-  const contentKey = unwrapKeyWithMasterKey({
-    keyCiphertext: tokenQube.key_ciphertext,
-    wrappingAlgorithm: tokenQube.key_wrapping_alg || 'aes-256-kw',
-  });
+    if (!asset.token_qube_id) {
+      return NextResponse.json({ error: 'No token qube for decryption' }, { status: 400, headers: corsHeaders });
+    }
 
-  const apiKey = process.env.AUTONOMYS_API_KEY;
-  if (!apiKey) return NextResponse.json({ error: 'Autonomys not configured' }, { status: 500, headers: corsHeaders });
+    const { data: tokenQube, error: tokenError } = await supabase
+      .from('iq_token_qubes')
+      .select('key_ciphertext, key_wrapping_alg')
+      .eq('id', asset.token_qube_id)
+      .single();
 
-  const api = createAutoDriveApi({ apiKey, network: NetworkId.MAINNET });
-  const stream = await api.downloadFile(asset.auto_drive_cid);
-  const chunks: Buffer[] = [];
-  for await (const chunk of stream) chunks.push(Buffer.from(chunk));
-  const encryptedData = Buffer.concat(chunks);
+    if (tokenError || !tokenQube) {
+      return NextResponse.json(
+        { error: `Token qube not found: ${tokenError?.message || 'unknown'}` },
+        { status: 404, headers: corsHeaders }
+      );
+    }
 
-  const decryptedPdf = decryptContent({
-    ciphertext: encryptedData,
-    iv: asset.encryption_iv,
-    authTag: asset.encryption_auth_tag || '',
-    key: contentKey,
-  });
+    const contentKey = unwrapKeyWithMasterKey({
+      keyCiphertext: tokenQube.key_ciphertext,
+      wrappingAlgorithm: tokenQube.key_wrapping_alg || 'aes-256-kw',
+    });
 
-  // Use pdf-parse instead of pdfjs-dist (Node.js compatible, no worker needed)
-  const pdfParse = (await import('pdf-parse')).default;
-  const pdfData = await pdfParse(decryptedPdf);
+    const apiKey = process.env.AUTONOMYS_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json({ error: 'Autonomys not configured' }, { status: 500, headers: corsHeaders });
+    }
+
+    const api = createAutoDriveApi({ apiKey, network: NetworkId.MAINNET });
+    const stream = await api.downloadFile(asset.auto_drive_cid);
+    const chunks: Buffer[] = [];
+    for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+    const encryptedPdf = Buffer.concat(chunks);
+
+    const decryptedPdf = decryptContent({
+      ciphertext: encryptedPdf,
+      iv: asset.encryption_iv,
+      authTag: asset.encryption_auth_tag || '',
+      key: contentKey,
+    });
+
+    const pdfDoc = await PDFDocument.load(decryptedPdf, { updateMetadata: false });
+    const pages = pdfDoc.getPageCount();
+
+    await supabase.from(table).update({ page_count: pages }).eq('id', asset.id);
 
     return NextResponse.json(
-      { pages: pdfData.numpages, suggestedWidth: 1200 },
+      { pages, suggestedWidth: 1200, cached: false },
       { status: 200, headers: { ...corsHeaders, 'Cache-Control': 'public, max-age=3600' } }
     );
   } catch (error: any) {
-    const errorDetails = {
-      message: error?.message || 'Unknown error',
-      name: error?.name || 'Error',
-      stack: error?.stack || 'No stack trace',
-      stringified: String(error),
-      cid: params.cid,
-      type: typeof error,
-      keys: error ? Object.keys(error) : []
-    };
-    console.error('[PDF Meta] Error processing PDF:', errorDetails);
-    
-    const errorMessage = error?.message || error?.toString?.() || JSON.stringify(error) || 'Failed to process PDF';
+    console.error('[PDF Meta] Error:', { message: error?.message, stack: error?.stack });
     return NextResponse.json(
-      { error: errorMessage, details: errorDetails },
+      { error: error?.message || 'PDF meta failed' },
       { status: 500, headers: corsHeaders }
     );
   }
 }
 
-async function findAssetByCid(cid: string) {
-  const { data: asset } = await supabase
+async function findAssetByCid(cid: string): Promise<null | { table: 'codex_media_assets' | 'master_content_qubes'; asset: any }> {
+  const { data: asset, error } = await supabase
     .from('codex_media_assets')
-    .select('auto_drive_cid, encryption_iv, encryption_auth_tag, token_qube_id')
+    .select('id, auto_drive_cid, mime_type, encryption_iv, encryption_auth_tag, token_qube_id, page_count')
     .eq('auto_drive_cid', cid)
     .single();
 
-  if (asset) return asset;
+  if (asset && !error) return { table: 'codex_media_assets', asset };
 
-  const { data: master } = await supabase
+  const { data: master, error: masterError } = await supabase
     .from('master_content_qubes')
-    .select('auto_drive_cid, encryption_iv, encryption_auth_tag, token_qube_id')
+    .select('id, auto_drive_cid, mime_type, encryption_iv, encryption_auth_tag, token_qube_id, page_count')
     .eq('auto_drive_cid', cid)
     .single();
 
-  return master ?? null;
+  if (master && !masterError) return { table: 'master_content_qubes', asset: master };
+
+  return null;
 }
