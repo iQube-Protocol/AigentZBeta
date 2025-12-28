@@ -1561,6 +1561,7 @@ export default function SmartWalletDrawer({
                 )}
                 */}
               </section>
+              )}
 
               {/* USDC → Q¢ Conversion */}
               <section className="rounded-2xl bg-emerald-500/10 ring-1 ring-emerald-500/20 p-3">
