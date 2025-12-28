@@ -23,6 +23,11 @@ frontend:
         # Use Node.js to write .env.production because Amplify env vars are accessible to Node.js but not shell
         - node scripts/create-env-production.js
 
+        # Add backend version for debugging
+        - echo "Setting BACKEND_VERSION..."
+        - export BACKEND_VERSION="${AWS_BRANCH:-unknown}-${AWS_COMMIT_ID:-$(git rev-parse --short HEAD)}"
+        - echo "BACKEND_VERSION=$BACKEND_VERSION" >> .env.production
+
         # SAFE DIAGNOSTIC: print only keys + whether empty, never values
         - echo "=== .env.production keys + empty-check (REDACTED) ==="
         - node scripts/check-env-production.js
