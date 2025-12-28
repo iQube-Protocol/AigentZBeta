@@ -257,27 +257,36 @@ export function KnytCardsGrid({ personaId = '', knytBalance = 0, spendableKnyt, 
               
               {/* Pricing and Purchase */}
               <div className="flex items-center justify-between pt-3 border-t border-white/10">
-                <div>
-                  <div className="text-sm text-white/60">Price</div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl font-bold text-amber-300">{CARD_PRICE_STILL} KNYT</span>
-                    <span className="text-sm text-white/40">(${(CARD_PRICE_STILL * KNYT_USD_RATE).toFixed(2)} USD)</span>
+                {ownedCharacters.has(selected.poster.id) ? (
+                  <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500/20 ring-1 ring-emerald-500/50">
+                    <Check className="w-5 h-5 text-emerald-400" />
+                    <span className="text-lg font-bold text-emerald-300">OWNED</span>
                   </div>
-                  <div className="text-xs text-emerald-400 mt-0.5">
-                    Pay with KNYT: {(CARD_PRICE_STILL * (1 - 0.20)).toFixed(1)} KNYT (20% off)
-                  </div>
-                </div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setPurchaseCard(selected.poster);
-                    setPurchaseModalOpen(true);
-                  }}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-bold transition-colors"
-                >
-                  <Coins className="w-4 h-4" />
-                  Buy Now
-                </button>
+                ) : (
+                  <>
+                    <div>
+                      <div className="text-sm text-white/60">Price</div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl font-bold text-amber-300">{CARD_PRICE_STILL} KNYT</span>
+                        <span className="text-sm text-white/40">(${(CARD_PRICE_STILL * KNYT_USD_RATE).toFixed(2)} USD)</span>
+                      </div>
+                      <div className="text-xs text-emerald-400 mt-0.5">
+                        Pay with KNYT: {(CARD_PRICE_STILL * (1 - 0.20)).toFixed(1)} KNYT (20% off)
+                      </div>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPurchaseCard(selected.poster);
+                        setPurchaseModalOpen(true);
+                      }}
+                      className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-bold transition-colors"
+                    >
+                      <Coins className="w-4 h-4" />
+                      Buy Now
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>

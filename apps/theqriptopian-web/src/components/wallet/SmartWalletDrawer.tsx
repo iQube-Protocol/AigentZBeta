@@ -157,6 +157,7 @@ interface SmartWalletDrawerProps {
     isAgent: boolean;
   }>;
   isLoadingBalances?: boolean;
+  isLoadingWalletData?: boolean;
 }
 
 const TAB_CONFIG: Array<{ key: DrawerTab; label: string; icon: React.ReactNode }> = [
@@ -185,6 +186,7 @@ export default function SmartWalletDrawer({
   showCopilot = false,
   availablePersonas = [],
   isLoadingBalances = false,
+  isLoadingWalletData = false,
 }: SmartWalletDrawerProps) {
   const [activeTab, setActiveTab] = useState<DrawerTab>(initialTab);
   const [copilotOpen, setCopilotOpen] = useState(false);
@@ -1430,7 +1432,16 @@ export default function SmartWalletDrawer({
           {/* Wallet Tab */}
           {activeTab === "wallet" && (
             <div className="space-y-4">
+              {/* Loading Spinner */}
+              {isLoadingWalletData && (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-8 h-8 animate-spin text-cyan-400" />
+                  <span className="ml-3 text-white/60">Loading wallet data...</span>
+                </div>
+              )}
+              
               {/* Balances */}
+              {!isLoadingWalletData && (
               <section className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-3">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-white/60">
@@ -1636,6 +1647,7 @@ export default function SmartWalletDrawer({
                   <SettlementRetryButton settlementId={retrySettlementId || undefined} messageId={retryMessageId || undefined} />
                 </div>
               </section>
+              )}
             </div>
           )}
 
@@ -1646,13 +1658,22 @@ export default function SmartWalletDrawer({
                 <section className="rounded-2xl bg-purple-500/10 ring-1 ring-purple-500/20 p-4">
                   <button onClick={() => setSelectedLibraryItem(null)} className="text-xs text-white/50 mb-3">← Back</button>
                   <div className="aspect-[3/4] w-40 mx-auto rounded-xl overflow-hidden bg-black/40 mb-3 relative">
-                    <div className="w-full h-full flex items-center justify-center">
-                      {isMotionContent(selectedLibraryItem) ? (
-                        <Film className="w-16 h-16 text-purple-400/50" />
-                      ) : (
-                        <Book className="w-16 h-16 text-purple-400/50" />
-                      )}
-                    </div>
+                    {selectedLibraryItem.coverCid && (
+                      <img 
+                        src={`/api/content/cover/${selectedLibraryItem.coverCid}?variant=thumb`}
+                        alt={selectedLibraryItem.contentTitle}
+                        className="w-full h-full object-cover absolute inset-0"
+                      />
+                    )}
+                    {!selectedLibraryItem.coverCid && (
+                      <div className="w-full h-full flex items-center justify-center">
+                        {isMotionContent(selectedLibraryItem) ? (
+                          <Film className="w-16 h-16 text-purple-400/50" />
+                        ) : (
+                          <Book className="w-16 h-16 text-purple-400/50" />
+                        )}
+                      </div>
+                    )}
                     {/* Rarity knight icon - bottom left */}
                     {getRarityIcon((selectedLibraryItem as any).coverType) && (
                       <Tooltip text={getRarityTooltip((selectedLibraryItem as any).coverType)}>

@@ -49,6 +49,7 @@ export function WalletDrawer({ isOpen, onClose, initialTab = 'wallet', variant =
   const [savedPersonas, setSavedPersonas] = useState<SavedPersona[]>([]);
   const [entitlements, setEntitlements] = useState<ContentEntitlement[]>([]);
   const [baseQcBalance, setBaseQcBalance] = useState<number>(0);
+  const [isLoadingWalletData, setIsLoadingWalletData] = useState(false);
 
   // Fetch user's persona and saved list from Supabase
   const fetchPersona = useCallback(async () => {
@@ -145,6 +146,7 @@ export function WalletDrawer({ isOpen, onClose, initialTab = 'wallet', variant =
         return;
       }
 
+      setIsLoadingWalletData(true);
       const walletAddress = getWalletAddress(persona.fio_handle);
       if (!walletAddress) {
         // console.log('[WalletDrawer] No wallet address found for:', persona.fio_handle);
@@ -159,6 +161,7 @@ export function WalletDrawer({ isOpen, onClose, initialTab = 'wallet', variant =
         console.error('[WalletDrawer] Error fetching balances:', e);
       } finally {
         setIsLoadingBalances(false);
+        setIsLoadingWalletData(false);
       }
     };
 
@@ -426,6 +429,7 @@ export function WalletDrawer({ isOpen, onClose, initialTab = 'wallet', variant =
       initialTab={initialTab}
       availablePersonas={savedPersonas}
       isLoadingBalances={isLoadingBalances}
+      isLoadingWalletData={isLoadingWalletData}
     />
   );
 }
