@@ -100,7 +100,7 @@ export async function GET(request: NextRequest) {
                 episodeNumber: epNum,
                 coverType: isMotion ? 'MOTION' : coverType,
                 autoDriveCid: motionAsset?.auto_drive_cid,
-                coverCid: coverAsset?.auto_drive_cid, // Use cover_image CID for episode thumbnails
+                coverCid: coverAsset?.auto_drive_cid || printAsset?.auto_drive_cid, // Fallback to print asset if no cover
                 isMotion,
               };
             }
