@@ -51,6 +51,8 @@ export default function DebugPage() {
             <div><span className="text-gray-400">BUILD.sha:</span> {BUILD.sha}</div>
             <div><span className="text-gray-400">BUILD.api:</span> {BUILD.api}</div>
             <div><span className="text-gray-400">Current URL:</span> {typeof window !== 'undefined' ? window.location.href : 'N/A'}</div>
+            <div><span className="text-yellow-400">Expected Frontend:</span> https://theqriptopian.netlify.app</div>
+            <div><span className="text-yellow-400">Expected Backend:</span> https://dev-beta.aigentz.me</div>
           </div>
         </div>
 
