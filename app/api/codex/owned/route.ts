@@ -56,16 +56,23 @@ export async function GET(request: NextRequest) {
         const charNameMatch = assetId.match(/char(?:acter)?_(.+)$/i);
         if (charNameMatch) {
           const charName = charNameMatch[1].replace(/_/g, ' ');
+          console.log(`[API] Searching for character: "${charName}" from assetId: "${assetId}"`);
           
           // Query codex_media_assets for character_poster matching this name
-          const { data: assets } = await supabase
+          const { data: assets, error } = await supabase
             .from('codex_media_assets')
-            .select('id')
+            .select('id, title')
             .eq('asset_kind', 'character_poster')
             .ilike('title', `%${charName}%`);
           
+          console.log(`[API] Found ${assets?.length || 0} matching assets:`, assets);
+          if (error) console.error('[API] Query error:', error);
+          
           if (assets && assets.length > 0) {
-            assets.forEach(asset => characterAssetIds.add(asset.id));
+            assets.forEach(asset => {
+              console.log(`[API] Adding character asset ID: ${asset.id} (${asset.title})`);
+              characterAssetIds.add(asset.id);
+            });
           }
         }
       }

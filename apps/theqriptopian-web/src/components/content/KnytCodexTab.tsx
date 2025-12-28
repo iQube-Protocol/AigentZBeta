@@ -420,7 +420,8 @@ export function KnytCodexTab({
                     <BookOpen className="w-3 h-3" />
                   </button>
                 )}
-                {episode.hasMotionMaster && episode.motionMasterCid && (
+                {/* Hide watch for Episode #0 and #2 (episodeNumber 1 and 3) - no compressed video */}
+                {episode.hasMotionMaster && episode.motionMasterCid && ![1, 3].includes(episode.episodeNumber) && (
                   <button
                     className="w-6 h-6 rounded-md bg-black/60 backdrop-blur-sm flex items-center justify-center ring-1 ring-cyan-500/40 text-cyan-400 hover:bg-cyan-500 hover:text-white transition-all"
                     title="Watch"
