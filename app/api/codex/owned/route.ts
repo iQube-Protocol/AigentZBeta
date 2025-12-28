@@ -50,30 +50,25 @@ export async function GET(request: NextRequest) {
         ownedEpisodes.add(parseInt(epMatch[1], 10));
       }
       
-      // For character entitlements, query the actual asset IDs
+      // For character entitlements, get the actual character_poster asset
       if (assetId.includes('char') || assetId.includes('character')) {
-        // Extract character name from asset ID (e.g., "mk_char_aigent_z" -> "aigent z")
-        const charNameMatch = assetId.match(/char(?:acter)?_(.+)$/i);
-        if (charNameMatch) {
-          const charName = charNameMatch[1].replace(/_/g, ' ');
-          console.log(`[API] Searching for character: "${charName}" from assetId: "${assetId}"`);
-          
-          // Query codex_media_assets for character_poster matching this name
-          const { data: assets, error } = await supabase
-            .from('codex_media_assets')
-            .select('id, title')
-            .eq('asset_kind', 'character_poster')
-            .ilike('title', `%${charName}%`);
-          
-          console.log(`[API] Found ${assets?.length || 0} matching assets:`, assets);
-          if (error) console.error('[API] Query error:', error);
-          
-          if (assets && assets.length > 0) {
-            assets.forEach(asset => {
-              console.log(`[API] Adding character asset ID: ${asset.id} (${asset.title})`);
-              characterAssetIds.add(asset.id);
-            });
-          }
+        console.log(`[API] Processing character entitlement: ${assetId}`);
+        
+        // Query for character_poster that matches this entitlement's asset ID
+        const { data: asset } = await supabase
+          .from('codex_media_assets')
+          .select('id, title')
+          .eq('asset_kind', 'character_poster')
+          .eq('status', 'active')
+          .ilike('title', `%${assetId}%`) // Match the full asset ID in title
+          .limit(1)
+          .single();
+        
+        if (asset) {
+          console.log(`[API] Found character asset: ${asset.id} (${asset.title})`);
+          characterAssetIds.add(asset.id);
+        } else {
+          console.log(`[API] No character asset found for: ${assetId}`);
         }
       }
     }
