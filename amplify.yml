@@ -27,6 +27,12 @@ frontend:
         - echo "Setting BACKEND_VERSION..."
         - export BACKEND_VERSION="${AWS_BRANCH:-unknown}-${AWS_COMMIT_ID:-$(git rev-parse --short HEAD)}"
         - echo "BACKEND_VERSION=$BACKEND_VERSION" >> .env.production
+        
+        # Cache busting - force fresh build
+        - echo "Busting caches..."
+        - rm -rf .next/cache
+        - rm -rf node_modules/.cache
+        - npm ci --force
 
         # SAFE DIAGNOSTIC: print only keys + whether empty, never values
         - echo "=== .env.production keys + empty-check (REDACTED) ==="
@@ -50,5 +56,6 @@ frontend:
       - '**/*'
   cache:
     paths:
-      - node_modules/**/*
-      - .next/cache/**/*
+      # Temporarily disable caching to force fresh build
+      # - node_modules/**/*
+      # - .next/cache/**/*
