@@ -96,11 +96,14 @@ export async function GET(request: NextRequest) {
               const motionAsset = (epAssets || []).find(a => a.asset_kind === 'motion_master');
               const coverAsset = (epAssets || []).find(a => a.asset_kind === 'cover_image');
               
+              const finalCoverCid = coverAsset?.auto_drive_cid || printAsset?.auto_drive_cid;
+              console.log(`[Entitlements] Episode ${epNum} - coverCid: ${finalCoverCid}, coverAsset: ${coverAsset?.auto_drive_cid}, printAsset: ${printAsset?.auto_drive_cid}`);
+              
               assetMeta = {
                 episodeNumber: epNum,
                 coverType: isMotion ? 'MOTION' : coverType,
                 autoDriveCid: motionAsset?.auto_drive_cid,
-                coverCid: coverAsset?.auto_drive_cid || printAsset?.auto_drive_cid, // Fallback to print asset if no cover
+                coverCid: finalCoverCid,
                 isMotion,
               };
             }

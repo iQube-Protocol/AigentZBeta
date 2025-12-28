@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
         console.log(`[API] Processing character entitlement: ${assetId}`);
         
         // Query for character_poster that matches this entitlement's asset ID
-        const { data: asset } = await supabase
+        const { data: asset, error } = await supabase
           .from('codex_media_assets')
           .select('id, title')
           .eq('asset_kind', 'character_poster')
@@ -64,11 +64,23 @@ export async function GET(request: NextRequest) {
           .limit(1)
           .single();
         
+        if (error) {
+          console.log(`[API] Query error for ${assetId}:`, error);
+        }
+        
         if (asset) {
           console.log(`[API] Found character asset: ${asset.id} (${asset.title})`);
           characterAssetIds.add(asset.id);
         } else {
           console.log(`[API] No character asset found for: ${assetId}`);
+          // Try a broader search - just look for any character_poster
+          const { data: allAssets } = await supabase
+            .from('codex_media_assets')
+            .select('id, title')
+            .eq('asset_kind', 'character_poster')
+            .eq('status', 'active')
+            .limit(5);
+          console.log(`[API] Available character posters:`, allAssets?.map(a => ({id: a.id, title: a.title})));
         }
       }
     }

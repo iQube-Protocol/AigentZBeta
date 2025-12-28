@@ -459,7 +459,7 @@ export async function POST(request: NextRequest) {
         model: OPENAI_MODEL,
         messages,
         temperature: 0.7,
-        max_tokens: 8000
+        max_tokens: 16000
       })
     });
 
@@ -478,6 +478,10 @@ export async function POST(request: NextRequest) {
 
     const data = await response.json();
     const assistantMessage = data.choices[0]?.message?.content || 'I apologize, I could not generate a response.';
+    
+    console.log('[CodexChat] Response length:', assistantMessage.length);
+    console.log('[CodexChat] Response preview:', assistantMessage.substring(0, 200) + '...');
+    console.log('[CodexChat] Response ending:', assistantMessage.substring(assistantMessage.length - 200));
 
     return NextResponse.json({
       response: assistantMessage,
