@@ -1648,7 +1648,6 @@ export default function SmartWalletDrawer({
                   <SettlementRetryButton settlementId={retrySettlementId || undefined} messageId={retryMessageId || undefined} />
                 </div>
               </section>
-              )}
             </div>
           )}
 
