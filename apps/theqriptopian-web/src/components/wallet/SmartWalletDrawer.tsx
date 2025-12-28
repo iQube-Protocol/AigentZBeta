@@ -1688,13 +1688,8 @@ export default function SmartWalletDrawer({
                     {walletNode.contentEntitlements.map((ent) => (
                       <div key={ent.id} onClick={() => setSelectedLibraryItem(ent)} className="cursor-pointer group">
                         <div className="aspect-[3/4] rounded-lg overflow-hidden bg-purple-500/10 ring-1 ring-white/10 group-hover:ring-purple-500/50 relative">
-                          <div className="w-full h-full flex items-center justify-center">
-                            {isMotionContent(ent) ? (
-                              <Film className="w-8 h-8 text-purple-400/50" />
-                            ) : (
-                              <Book className="w-8 h-8 text-purple-400/50" />
-                            )}
-                          </div>
+                          {ent.coverCid && <img src={`/api/content/cover/${ent.coverCid}?variant=thumb`} alt="" className="w-full h-full object-cover absolute inset-0"/>}
+                          {!ent.coverCid && <div className="w-full h-full flex items-center justify-center">{isMotionContent(ent) ? <Film className="w-8 h-8 text-purple-400/50"/> : <Book className="w-8 h-8 text-purple-400/50"/>}</div>}
                           {/* Rarity knight icon - bottom left */}
                           {getRarityIcon((ent as any).coverType) && (
                             <Tooltip text={getRarityTooltip((ent as any).coverType)}>

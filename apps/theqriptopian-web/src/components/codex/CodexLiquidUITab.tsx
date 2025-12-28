@@ -114,7 +114,9 @@ function transformEpisodesToContentItems(episodes: EpisodeFromAPI[]): KnytConten
     const printCid = ep.printRareCid || ep.printEpicCid || ep.printLegendaryCid;
     const printLiteUrl = ep.printRareLiteUrl || ep.printEpicLiteUrl || ep.printLegendaryLiteUrl;
     const hasReadable = !!printCid;
-    const hasWatchable = ep.hasMotionMaster && !!ep.motionMasterCid;
+    // Hide watch for episodes without compressed video (Episode #0 = ep1, Episode #2 = ep3)
+    const hideWatchEpisodes = [1, 3];
+    const hasWatchable = ep.hasMotionMaster && !!ep.motionMasterCid && !hideWatchEpisodes.includes(ep.episodeNumber);
     
     // Add as comic page (portrait) if has print
     if (hasReadable) {

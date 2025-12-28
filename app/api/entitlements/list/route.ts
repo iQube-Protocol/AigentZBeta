@@ -67,6 +67,7 @@ export async function GET(request: NextRequest) {
                 assetKind: asset.asset_kind,
                 episodeNumber: asset.episode_number,
                 autoDriveCid: asset.auto_drive_cid,
+                coverCid: asset.auto_drive_cid, // Use auto_drive_cid as cover for characters
                 characterName: characterName,
                 coverType: 'CHARACTER',
               };
@@ -93,11 +94,13 @@ export async function GET(request: NextRequest) {
                 : (isMotion ? 'MOTION' : 'RARE');
               
               const motionAsset = (epAssets || []).find(a => a.asset_kind === 'motion_master');
+              const coverAsset = (epAssets || []).find(a => a.asset_kind === 'cover_image');
               
               assetMeta = {
                 episodeNumber: epNum,
                 coverType: isMotion ? 'MOTION' : coverType,
                 autoDriveCid: motionAsset?.auto_drive_cid,
+                coverCid: coverAsset?.auto_drive_cid, // Use cover_image CID for episode thumbnails
                 isMotion,
               };
             }
