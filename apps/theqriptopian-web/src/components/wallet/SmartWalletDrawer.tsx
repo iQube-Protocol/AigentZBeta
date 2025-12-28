@@ -1185,7 +1185,9 @@ export default function SmartWalletDrawer({
                   {/* Grid of thumbnails */}
                   {!selectedLibraryItem && walletNode?.contentEntitlements?.length > 0 ? (
                     <div className="grid grid-cols-3 gap-2">
-                      {walletNode.contentEntitlements.map((ent) => (
+                      {walletNode.contentEntitlements.map((ent) => {
+                        console.log('[Wallet] Rendering library item:', ent.id, ent.title);
+                        return (
                         <div key={ent.id} onClick={() => setSelectedLibraryItem(ent)} className="cursor-pointer group">
                           <div className="aspect-[3/4] rounded-lg overflow-hidden bg-purple-500/10 border border-white/10 group-hover:border-purple-500/50 relative">
                             {ent.coverCid ? (
@@ -1198,23 +1200,10 @@ export default function SmartWalletDrawer({
                                   (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
                                 }}
                               />
-                            ) : null}
-                            <div className={`w-full h-full flex items-center justify-center ${ent.coverCid ? 'hidden' : ''}`}>
-                              {isMotionContent(ent) ? (
-                                <Film className="w-8 h-8 text-purple-400/50" />
-                              ) : (
-                                <Book className="w-8 h-8 text-purple-400/50" />
-                              )}
-                            </div>
-                            {/* Rarity knight icon - bottom left */}
-                            {getRarityIcon((ent as any).coverType) && (
-                              <Tooltip text={getRarityTooltip((ent as any).coverType)}>
-                                <img 
-                                  src={getRarityIcon((ent as any).coverType)!} 
-                                  alt="rarity" 
-                                  className="absolute bottom-0.5 left-0.5 w-4 h-4 object-contain drop-shadow-lg cursor-help"
-                                />
-                              </Tooltip>
+                            ) : (
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <span className="text-white/40 text-xs">No Cover</span>
+                              </div>
                             )}
                             {/* Motion/Still indicator - top right */}
                             <Tooltip text={isMotionContent(ent) ? 'Motion Comic' : 'Digital Still'}>
@@ -1229,7 +1218,8 @@ export default function SmartWalletDrawer({
                           </div>
                           <div className="text-[10px] text-white/70 truncate mt-1">{ent.contentTitle}</div>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ) : !selectedLibraryItem && (
                     <div className="text-center py-6 text-white/50 text-sm">

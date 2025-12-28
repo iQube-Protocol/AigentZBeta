@@ -277,6 +277,8 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 // ---- Helpers ----
 
 async function findAssetByCid(cid: string) {
+  console.log(`[PdfPage] Looking for CID: ${cid}`);
+  
   // Try codex_media_assets first
   const { data: asset, error: assetError } = await supabase
     .from('codex_media_assets')
@@ -284,6 +286,7 @@ async function findAssetByCid(cid: string) {
     .eq('auto_drive_cid', cid)
     .single();
 
+  console.log(`[PdfPage] codex_media_assets result:`, { error: assetError, found: !!asset });
   if (!assetError && asset) return asset;
 
   // Fallback to master_content_qubes
@@ -294,6 +297,16 @@ async function findAssetByCid(cid: string) {
     .single();
 
   if (!masterError && master) return master;
+
+  // Check if this is Episode #12 specifically
+  if (cid.includes('ep12') || cid.includes('episode_12')) {
+    console.log(`[PdfPage] Episode #12 CID not found. Checking all Episode 12 assets...`);
+    const { data: ep12Assets } = await supabase
+      .from('codex_media_assets')
+      .select('auto_drive_cid, asset_kind, title')
+      .eq('episode_number', 12);
+    console.log(`[PdfPage] Episode 12 assets in database:`, ep12Assets);
+  }
 
   return null;
 }
