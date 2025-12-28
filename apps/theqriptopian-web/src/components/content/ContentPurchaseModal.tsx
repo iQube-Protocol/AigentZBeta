@@ -489,6 +489,7 @@ export function ContentPurchaseModal({
                   </div>
                   <div className="text-right">
                     <div className="text-amber-300 font-bold">{pricing.rails.knyt.amount.toFixed(2)} KNYT</div>
+                    <div className="text-xs text-white/50">(${(pricing.rails.knyt.amount * KNYT_USD_RATE).toFixed(2)} USD)</div>
                     <div className="text-xs text-white/40 line-through">{baseKnyt} KNYT</div>
                   </div>
                 </button>

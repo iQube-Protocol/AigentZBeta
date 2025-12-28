@@ -62,7 +62,8 @@ function getAvailableActions(
   const actions: ActionType[] = [];
   
   // Only add modality actions if they have actual content
-  if (modalities?.watch?.video_url || modalities?.watch?.available) actions.push('watch');
+  // TODO: Re-enable watch action when video compression is ready
+  // if (modalities?.watch?.video_url || modalities?.watch?.available) actions.push('watch');
   if (modalities?.read?.text || modalities?.read?.available) actions.push('read');
   if (modalities?.listen?.audio_url) actions.push('listen');
   if (modalities?.link?.url) actions.push('link');
