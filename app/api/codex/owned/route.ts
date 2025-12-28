@@ -7,6 +7,12 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getEntitlementService } from '@/services/rewards/entitlementService';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -28,26 +34,42 @@ export async function GET(request: NextRequest) {
     const entitlementService = getEntitlementService();
     const entitlements = await entitlementService.getPersonaEntitlements(personaId);
     
-    // Extract episode numbers and character IDs from entitlements
-    // Asset IDs are in format like "mk_ep01", "mk_ep02_motion", "mk_char_aigent_z", etc.
+    // Extract episode numbers from entitlements
     const ownedEpisodes = new Set<number>();
-    const ownedCharacters = new Set<string>();
     
-    entitlements.forEach(ent => {
+    // Get actual character asset IDs from codex_media_assets
+    const characterAssetIds = new Set<string>();
+    
+    for (const ent of entitlements) {
       const assetId = ent.assetId;
-      if (assetId) {
-        // Extract episode number from asset ID
-        const epMatch = assetId.match(/ep(\d+)/i);
-        if (epMatch) {
-          ownedEpisodes.add(parseInt(epMatch[1], 10));
-        }
-        
-        // Extract character ID from asset ID (e.g., "mk_char_aigent_z" or "knyt_character_aigent_z")
-        if (assetId.includes('char') || assetId.includes('character')) {
-          ownedCharacters.add(assetId);
+      if (!assetId) continue;
+      
+      // Extract episode number from asset ID
+      const epMatch = assetId.match(/ep(\d+)/i);
+      if (epMatch) {
+        ownedEpisodes.add(parseInt(epMatch[1], 10));
+      }
+      
+      // For character entitlements, query the actual asset IDs
+      if (assetId.includes('char') || assetId.includes('character')) {
+        // Extract character name from asset ID (e.g., "mk_char_aigent_z" -> "aigent z")
+        const charNameMatch = assetId.match(/char(?:acter)?_(.+)$/i);
+        if (charNameMatch) {
+          const charName = charNameMatch[1].replace(/_/g, ' ');
+          
+          // Query codex_media_assets for character_poster matching this name
+          const { data: assets } = await supabase
+            .from('codex_media_assets')
+            .select('id')
+            .eq('asset_kind', 'character_poster')
+            .ilike('title', `%${charName}%`);
+          
+          if (assets && assets.length > 0) {
+            assets.forEach(asset => characterAssetIds.add(asset.id));
+          }
         }
       }
-    });
+    }
     
     // Return as array of issue objects
     const issues = Array.from(ownedEpisodes).map(episodeNumber => ({
@@ -55,10 +77,12 @@ export async function GET(request: NextRequest) {
       owned: true,
     }));
     
-    const characters = Array.from(ownedCharacters).map(characterId => ({
+    const characters = Array.from(characterAssetIds).map(characterId => ({
       characterId,
       owned: true,
     }));
+    
+    console.log('[API] Owned characters:', characters);
     
     return NextResponse.json({
       personaId,
