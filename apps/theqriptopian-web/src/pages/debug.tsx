@@ -23,6 +23,9 @@ export default function DebugPage() {
           }
         });
         
+        console.log('[Debug] Full API URL called:', `${apiUrl}/api/_diag`);
+        console.log('[Debug] Response status:', response.status);
+        
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
