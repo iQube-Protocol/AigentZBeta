@@ -26,6 +26,12 @@ import CodexManager from "./pages/admin/content/CodexManager";
 import { AvatarProvider } from "@agentiq/avatar-host";
 import { AGUIProvider } from "@/providers/AGUIProvider";
 
+// SmartTriad Embed Routes
+import WalletEmbed from "./pages/triad/embed/WalletEmbed";
+import CodexEmbed from "./pages/triad/embed/CodexEmbed";
+import AdminDashboardEmbed from "./pages/triad/admin/AdminDashboard";
+import CodexManagerEmbed from "./pages/triad/admin/CodexManagerEmbed";
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -45,33 +51,38 @@ const App = () => (
               <Toaster />
               <Sonner />
               <BrowserRouter>
-              <Layout>
                 <Routes>
-                  <Route path="/" element={<Index />} />
-                  <Route path="/console" element={<Index />} />
-                  <Route path="/auth" element={<Auth />} />
-                  <Route path="/onboarding" element={<Onboarding />} />
+                  {/* SmartTriad Embed Routes - No Layout wrapper */}
+                  <Route path="/triad/embed/wallet" element={<WalletEmbed />} />
+                  <Route path="/triad/embed/codex" element={<CodexEmbed />} />
+                  <Route path="/triad/admin" element={<AdminDashboardEmbed />} />
+                  <Route path="/triad/admin/codex" element={<CodexManagerEmbed />} />
+                  
+                  {/* Main App Routes - With Layout wrapper */}
+                  <Route path="/" element={<Layout><Index /></Layout>} />
+                  <Route path="/console" element={<Layout><Index /></Layout>} />
+                  <Route path="/auth" element={<Layout><Auth /></Layout>} />
+                  <Route path="/onboarding" element={<Layout><Onboarding /></Layout>} />
                   
                   {/* Admin Portal Routes */}
-                  <Route path="/admin" element={<AdminDashboard />} />
-                  <Route path="/admin/setup-did" element={<SetupDID />} />
-                  <Route path="/admin/content/home-hero" element={<HomeHeroManager />} />
-                  <Route path="/admin/content/latest-news" element={<LatestNewsManager />} />
-                  <Route path="/admin/content/second-hero" element={<SecondHeroManager />} />
-                  <Route path="/admin/content/pennydrops" element={<PennyDropsManager />} />
-                  <Route path="/admin/content/scrolls" element={<ScrollsManager />} />
-                  <Route path="/admin/content/knowdz" element={<KnowdZManager />} />
-                  <Route path="/admin/content/21knowdz" element={<KnowdZManager />} />
-                  <Route path="/admin/content/staybull" element={<StayBullManager />} />
-                  <Route path="/admin/content/edit/:id" element={<ContentEditor />} />
-                  <Route path="/admin/import" element={<ContentImporter />} />
-                  <Route path="/admin/content/import" element={<ContentImporter />} />
-                  <Route path="/admin/content/codex" element={<CodexManager />} />
+                  <Route path="/admin" element={<Layout><AdminDashboard /></Layout>} />
+                  <Route path="/admin/setup-did" element={<Layout><SetupDID /></Layout>} />
+                  <Route path="/admin/content/home-hero" element={<Layout><HomeHeroManager /></Layout>} />
+                  <Route path="/admin/content/latest-news" element={<Layout><LatestNewsManager /></Layout>} />
+                  <Route path="/admin/content/second-hero" element={<Layout><SecondHeroManager /></Layout>} />
+                  <Route path="/admin/content/pennydrops" element={<Layout><PennyDropsManager /></Layout>} />
+                  <Route path="/admin/content/scrolls" element={<Layout><ScrollsManager /></Layout>} />
+                  <Route path="/admin/content/knowdz" element={<Layout><KnowdZManager /></Layout>} />
+                  <Route path="/admin/content/21knowdz" element={<Layout><KnowdZManager /></Layout>} />
+                  <Route path="/admin/content/staybull" element={<Layout><StayBullManager /></Layout>} />
+                  <Route path="/admin/content/edit/:id" element={<Layout><ContentEditor /></Layout>} />
+                  <Route path="/admin/import" element={<Layout><ContentImporter /></Layout>} />
+                  <Route path="/admin/content/import" element={<Layout><ContentImporter /></Layout>} />
+                  <Route path="/admin/content/codex" element={<Layout><CodexManager /></Layout>} />
                   
-                  {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                  <Route path="*" element={<NotFound />} />
+                  {/* Catch-all */}
+                  <Route path="*" element={<Layout><NotFound /></Layout>} />
                 </Routes>
-              </Layout>
               </BrowserRouter>
             </TooltipProvider>
           </AvatarProvider>

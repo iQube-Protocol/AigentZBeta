@@ -608,8 +608,8 @@ export default function SmartWalletDrawer({
 
   if (!open) return null;
 
-  // Drawer width: normal = 21.6rem, expanded (copilot) = 28rem
-  const drawerWidth = copilotOpen ? "w-[28rem]" : "w-[21.6rem]";
+  // Drawer width: normal = 21.6rem, expanded (copilot) = 28rem, embedded = full width
+  const drawerWidth = variant === 'embedded' ? 'w-full' : (copilotOpen ? "w-[28rem]" : "w-[21.6rem]");
 
   const drawerPanel = (
     <>

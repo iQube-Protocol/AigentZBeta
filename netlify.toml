@@ -19,19 +19,21 @@
   VITE_AIGENT_API_URL = "https://dev-beta.aigentz.me"
   VITE_API_URL = "https://dev-beta.aigentz.me"
 
+# Edge Functions for SmartTriad embeds
+[[edge_functions]]
+  path = "/triad/embed/*"
+  function = "embed-headers"
+
+[[edge_functions]]
+  path = "/__edge-test"
+  function = "embed-test"
+
 # Proxy /api/* requests to Amplify backend (prevents CORS issues and relative URL bugs)
 [[redirects]]
   from = "/api/*"
   to = "https://dev-beta.aigentz.me/api/:splat"
   status = 200
   force = true
-
-# Headers for PDF embedding and PayPal popups
-[[headers]]
-  for = "/*"
-  [headers.values]
-    X-Frame-Options = "SAMEORIGIN"
-    Content-Security-Policy = "frame-src 'self' https://*.supabase.co https://*.paypal.com https://*.paypalobjects.com https://docs.google.com; object-src 'self' https://*.supabase.co; frame-ancestors 'self'"
 
 # SPA fallback (must be last)
 [[redirects]]
