@@ -44,7 +44,8 @@ export default function SmartWalletPanel({ theme = 'dark', density = 'wide' }: S
   };
 
   const balances = useBalances(mockAddresses);
-  const { events, isLoading: eventsLoading } = useDVNEvents();
+  const events = useDVNEvents();
+  const eventsLoading = false; // useDVNEvents doesn't return loading state
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -175,8 +176,8 @@ export default function SmartWalletPanel({ theme = 'dark', density = 'wide' }: S
                   {events.slice(0, 5).map((event, idx) => (
                     <div key={idx} className="bg-slate-800/30 rounded-lg p-3 border border-slate-700/30">
                       <div className="flex items-center justify-between">
-                        <div className="text-sm">{event.type || 'Transaction'}</div>
-                        <div className="text-xs text-slate-500">{new Date(event.timestamp).toLocaleDateString()}</div>
+                        <div className="text-sm">{event.event || 'Transaction'}</div>
+                        <div className="text-xs text-slate-500">{event.timestamp ? new Date(event.timestamp).toLocaleDateString() : 'Recent'}</div>
                       </div>
                     </div>
                   ))}

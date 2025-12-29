@@ -33,6 +33,8 @@
     "services/aa-api/**/*",
     "services/agentiq-wallet/**/*",
     "apps/theqriptopian-web/**/*",
-    "packages/article-reader/**/*"
+    "packages/article-reader/**/*",
+    "netlify/**/*",
+    "tests/**/*"
   ]
 }
