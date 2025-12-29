@@ -177,23 +177,88 @@ export async function POST(req: NextRequest) {
           return undefined;
       }
     };
+    const chainName = (cid: number) => {
+      switch (cid) {
+        case 11155111: return 'ETH_SEPOLIA';
+        case 421614: return 'ARB_SEPOLIA';
+        case 84532: return 'BASE_SEPOLIA';
+        case 11155420: return 'OP_SEPOLIA';
+        case 80002: return 'POLYGON_AMOY';
+        default: return `CHAIN_${cid}`;
+      }
+    };
     const url = rpc(Number(chainId));
     if (!url) return new Response(JSON.stringify({ ok: false, error: "unsupported chainId" }), { status: 400 });
     console.log(`A2A Transfer: ${asset} on chain ${chainId} using RPC: ${url}`);
     
     const provider = new ethers.JsonRpcProvider(url);
     const wallet = new ethers.Wallet(PK, provider);
+
+    // Preflight: ensure native gas is available on this chain
+    try {
+      const native = await provider.getBalance(wallet.address);
+      if (native === 0n) {
+        const cname = chainName(Number(chainId));
+        return new Response(JSON.stringify({ ok: false, error: `No native gas on ${cname}` }), { status: 400 });
+      }
+    } catch (balErr: any) {
+      // If we cannot fetch balance, surface an RPC-specific error
+      return new Response(JSON.stringify({ ok: false, error: `Failed to fetch native balance (RPC): ${balErr?.message || 'unknown'}` }), { status: 500 });
+    }
+
     const erc20 = new ethers.Contract(tokenAddress, ERC20_ABI, wallet);
+    
+    // Check QCT token balance before attempting transfer
+    try {
+      const balance = await erc20.balanceOf(wallet.address);
+      console.log(`[Transfer] QCT balance check:`, {
+        wallet: wallet.address,
+        balance: balance.toString(),
+        requestedAmount: amount.toString(),
+        hasSufficientBalance: balance >= BigInt(amount)
+      });
+      
+      if (balance < BigInt(amount)) {
+        const cname = chainName(Number(chainId));
+        return new Response(JSON.stringify({ 
+          ok: false, 
+          error: `Insufficient QCT balance on ${cname}`,
+          details: {
+            available: balance.toString(),
+            requested: amount.toString(),
+            wallet: wallet.address,
+            tokenAddress
+          }
+        }), { status: 400 });
+      }
+    } catch (balErr: any) {
+      console.error(`[Transfer] Failed to check QCT balance:`, balErr);
+      return new Response(JSON.stringify({ 
+        ok: false, 
+        error: `Failed to check QCT balance: ${balErr?.message || 'unknown'}` 
+      }), { status: 500 });
+    }
     
     console.log(`Executing transfer: ${amount} tokens to ${to}`);
     const tx = await erc20.transfer(to, amount);
     console.log(`Transaction sent: ${tx.hash}`);
     
-    const receipt = await tx.wait();
-    console.log(`Transaction confirmed: ${receipt.hash} with status ${receipt.status}`);
+    // Try to wait for 1 confirmation but cap at 20s to avoid CF 504
+    let receipt: any = null;
+    try {
+      await wallet.provider!.waitForTransaction(tx.hash, 1, 20000);
+      receipt = await wallet.provider!.getTransactionReceipt(tx.hash);
+      console.log(`Transaction confirmed: ${receipt?.hash} with status ${receipt?.status}`);
+    } catch (waitErr: any) {
+      console.warn(`Confirmation wait timed out or failed: ${waitErr?.message || waitErr}`);
+    }
 
     // Trigger DVN/PoS flow for successful A2A transactions
     // CRITICAL: This is required for proper settlement tracking and Event Register visibility
+    if (!receipt) {
+      // Return early with pending status to avoid timeouts; backend trackers will continue
+      return new Response(JSON.stringify({ ok: true, txHash: tx.hash, status: 0, note: 'pending_confirmation' }), { status: 200 });
+    }
     if (receipt?.status === 1) {
       try {
         await triggerA2ADVNFlow(tx.hash, chainId, asset || 'QCT');

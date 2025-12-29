@@ -688,6 +688,78 @@
       "artifacts": [
         "IERC165"
       ]
+    },
+    "/Users/hal1/CascadeProjects/AigentZBeta/contracts/ClaimManager.sol": {
+      "lastModificationDate": 1762541181214,
+      "contentHash": "90c852aba20974af8f62c48818ad8557",
+      "sourceName": "contracts/ClaimManager.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "ClaimManager"
+      ]
+    },
+    "/Users/hal1/CascadeProjects/AigentZBeta/contracts/TokenQubeACL.sol": {
+      "lastModificationDate": 1762541165264,
+      "contentHash": "05e3393f249b66e96f5feb4afa1d9f99",
+      "sourceName": "contracts/TokenQubeACL.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "TokenQubeACL"
+      ]
     }
   }
 }

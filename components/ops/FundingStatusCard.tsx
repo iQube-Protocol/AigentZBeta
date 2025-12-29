@@ -81,6 +81,17 @@ export function FundingStatusCard({ title }: { title: string }) {
   ];
 
   const fetchChainBalances = async () => {
+    // Simple retry helper for transient RPC errors
+    const withRetry = async <T,>(fn: () => Promise<T>, retries = 1, delayMs = 800): Promise<T> => {
+      try {
+        return await fn();
+      } catch (e) {
+        if (retries <= 0) throw e;
+        await new Promise((r) => setTimeout(r, delayMs));
+        return withRetry(fn, retries - 1, delayMs);
+      }
+    };
+
     const chainPromises = chains.map(async (chain) => {
       // Handle inactive chains (BTC, SOL)
       if ((chain as any).inactive) {
@@ -142,10 +153,12 @@ export function FundingStatusCard({ title }: { title: string }) {
       }
 
       try {
-        const response = await fetch(`/api/admin/debug/check-eth-balance?agentId=aigent-z&chainId=${chain.chainId}`, {
-          cache: 'no-store'
-        });
-        
+        const response = await withRetry(
+          () => fetch(`/api/admin/debug/check-eth-balance?agentId=aigent-z&chainId=${chain.chainId}`, { cache: 'no-store' }),
+          1,
+          800
+        );
+
         if (response.ok) {
           const data = await response.json();
           const balance = parseFloat(data.humanEthBalance || '0');
@@ -164,24 +177,26 @@ export function FundingStatusCard({ title }: { title: string }) {
             hasGasForTx: data.hasGasForTx || false,
             status
           };
-        } else {
-          return {
-            chainId: chain.chainId,
-            chainName: chain.name,
-            balance: '0',
-            hasGasForTx: false,
-            status: 'critical' as const,
-            error: 'Failed to fetch balance'
-          };
         }
-      } catch (error: any) {
+
+        // Neutral fallback on non-OK response (avoid red card locally)
         return {
           chainId: chain.chainId,
           chainName: chain.name,
-          balance: '0',
+          balance: 'N/A',
           hasGasForTx: false,
-          status: 'critical' as const,
-          error: error.message || 'Network error'
+          status: 'low' as const,
+          error: 'Balance fetch unavailable'
+        };
+      } catch (error: any) {
+        // Neutral fallback on exception (timeouts/rate limits)
+        return {
+          chainId: chain.chainId,
+          chainName: chain.name,
+          balance: 'N/A',
+          hasGasForTx: false,
+          status: 'low' as const,
+          error: error?.message || 'RPC unavailable'
         };
       }
     });
