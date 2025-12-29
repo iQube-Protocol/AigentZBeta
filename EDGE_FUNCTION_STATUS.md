@@ -2,34 +2,95 @@
 
 ## Current State: Edge Functions NOT Executing
 
-**Deployment:** https://theqriptopian.netlify.app
-**Unique Deploy:** https://69520dd9efaca9b4be26c342--theqriptopian.netlify.app
+**Latest Deployment:** https://theqriptopian.netlify.app
+**Unique Deploy:** https://695216ba87b1ccf4f9218135--theqriptopian.netlify.app
+**Deploy Time:** 2025-12-29 05:51 UTC
 
-### What's Working:
-- ✅ Edge Functions are bundled: `embed-headers` and `embed-test`
-- ✅ Configuration file is correct: `/Users/hal1/CascadeProjects/AigentZBeta/netlify.toml`
+### Configuration Status:
+- ✅ Single `netlify.toml` at repo root
+- ✅ Edge Functions bundled: `embed-headers` and `embed-test`
 - ✅ Edge Functions exist at: `/Users/hal1/CascadeProjects/AigentZBeta/netlify/edge-functions/`
+- ✅ Removed conflicting `[[headers]]` block from netlify.toml
+- ✅ Standard Netlify Edge Function signatures used
 
-### What's NOT Working:
-- ❌ Edge Functions are not executing
-- ❌ Test endpoint `/__edge-test` returns SPA instead of `x-edge-test: 1` header
-- ❌ Embed routes `/triad/embed/*` still have restrictive CSP headers
+### Execution Status:
+- ❌ **Edge Functions are NOT executing**
+- ❌ Test endpoint `/__edge-test` returns SPA instead of Edge Function response
+- ❌ Embed routes `/triad/embed/*` still have default Netlify CSP headers
 
-### Test Results:
+---
 
-**Test Edge Function (`/__edge-test`):**
+## Test Results (Latest Deploy: 695216ba87b1ccf4f9218135)
+
+### Test Edge Function (`/__edge-test`)
+
+**Command:**
 ```bash
 curl -I https://theqriptopian.netlify.app/__edge-test
 ```
-**Expected:** `x-edge-test: 1` header
-**Actual:** Returns SPA with `x-frame-options: SAMEORIGIN`
 
-**Embed Route (`/triad/embed/wallet`):**
+**Expected Headers:**
+```
+HTTP/2 200
+x-edge-test: 1
+content-type: text/plain
+```
+
+**Actual Headers:**
+```
+HTTP/2 200 
+accept-ranges: bytes
+age: 0
+cache-control: public,max-age=0,must-revalidate
+cache-status: "Netlify Edge"; fwd=stale
+content-type: text/html; charset=UTF-8
+date: Mon, 29 Dec 2025 05:51:20 GMT
+etag: "a5058697372f5165214dfff66146012f-ssl"
+link: <http://theqriptopian.com/index.html>; rel="canonical"
+server: Netlify
+strict-transport-security: max-age=31536000; includeSubDomains; preload
+x-frame-options: SAMEORIGIN
+x-nf-request-id: 01KDMAJFHWF3ZKB11HJE3Q6RGA
+content-length: 1038
+```
+
+**Result:** ❌ Returns SPA, no `x-edge-test` header
+
+---
+
+### Embed Route (`/triad/embed/wallet`)
+
+**Command:**
 ```bash
 curl -I https://theqriptopian.netlify.app/triad/embed/wallet
 ```
-**Expected:** No `x-frame-options`, CSP with Lovable domains
-**Actual:** Returns SPA with restrictive CSP
+
+**Expected Headers:**
+```
+HTTP/2 200
+content-security-policy: <existing directives>; frame-ancestors 'self' https://qriptopian.lovable.app https://preview--qriptopian.lovable.app
+(NO x-frame-options header)
+```
+
+**Actual Headers:**
+```
+HTTP/2 200 
+accept-ranges: bytes
+age: 0
+cache-control: public,max-age=0,must-revalidate
+cache-status: "Netlify Edge"; fwd=stale
+content-type: text/html; charset=UTF-8
+date: Mon, 29 Dec 2025 05:51:41 GMT
+etag: "a5058697372f5165214dfff66146012f-ssl"
+link: <http://theqriptopian.com/index.html>; rel="canonical"
+server: Netlify
+strict-transport-security: max-age=31536000; includeSubDomains; preload
+x-frame-options: SAMEORIGIN
+x-nf-request-id: 01KDMAK3TRP4BFNR4R8DJ3DTV4
+content-length: 1038
+```
+
+**Result:** ❌ Returns SPA with `x-frame-options: SAMEORIGIN`, Edge Function not executing
 
 ### Configuration:
 

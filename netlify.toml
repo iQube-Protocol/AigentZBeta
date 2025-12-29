@@ -19,14 +19,15 @@
   VITE_AIGENT_API_URL = "https://dev-beta.aigentz.me"
   VITE_API_URL = "https://dev-beta.aigentz.me"
 
-# Edge Functions for SmartTriad embeds
+# TEMPORARY: run edge-debug on *every* route to verify Edge Functions work
 [[edge_functions]]
-  path = "/triad/embed/*"
-  function = "embed-headers"
+  path = "/*"
+  function = "edge-debug"
 
-[[edge_functions]]
-  path = "/__edge-test"
-  function = "embed-test"
+# Edge Functions for SmartTriad embeds (commented out for debug)
+# [[edge_functions]]
+#   path = "/triad/embed/*"
+#   function = "embed-headers"
 
 # Proxy /api/* requests to Amplify backend (prevents CORS issues and relative URL bugs)
 [[redirects]]
