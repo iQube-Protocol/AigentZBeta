@@ -295,9 +295,14 @@ export function KnytCodexTab({
   // Fetch owned issues (not cached via React Query as it's user-specific)
   useEffect(() => {
     async function fetchOwnedIssues() {
-      if (!personaId) return;
+      console.log('[KnytCodexTab] Fetching owned issues, personaId:', personaId);
+      if (!personaId) {
+        console.log('[KnytCodexTab] No personaId, skipping fetch');
+        return;
+      }
       try {
         const apiBase = import.meta.env.VITE_API_URL || '';
+        console.log('[KnytCodexTab] API URL:', apiBase);
         const ownedRes = await fetch(`${apiBase}/api/codex/owned?personaId=${personaId}`);
         if (ownedRes.ok) {
           const ownedData = await ownedRes.json();
