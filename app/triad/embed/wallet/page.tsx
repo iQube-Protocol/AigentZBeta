@@ -11,30 +11,24 @@
 
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
+import SmartWalletPanel from "../../components/SmartWalletPanel";
 
-// Placeholder - will be replaced with ported SmartWallet component
-function SmartWalletPanel() {
+function SmartWalletContent() {
   const searchParams = useSearchParams();
-  const theme = searchParams.get('theme') || 'dark';
-  const density = searchParams.get('density') || 'wide';
+  const theme = (searchParams.get('theme') as 'light' | 'dark') || 'dark';
+  const density = (searchParams.get('density') as 'narrow' | 'wide') || 'wide';
 
-  return (
-    <div className="flex flex-col h-full w-full p-4">
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <h1 className="text-3xl font-bold text-white">SmartWallet Embed</h1>
-          <p className="text-slate-300">Theme: {theme} | Density: {density}</p>
-          <p className="text-slate-400 text-sm">Component porting in progress...</p>
-        </div>
-      </div>
-    </div>
-  );
+  return <SmartWalletPanel theme={theme} density={density} />;
 }
 
 export default function WalletEmbedPage() {
   return (
-    <Suspense fallback={<div className="flex items-center justify-center h-full">Loading...</div>}>
-      <SmartWalletPanel />
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-full bg-slate-900">
+        <div className="text-white">Loading SmartWallet...</div>
+      </div>
+    }>
+      <SmartWalletContent />
     </Suspense>
   );
 }
