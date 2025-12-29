@@ -51,6 +51,31 @@ const nextConfig = {
       ],
     };
   },
+  // Security headers: protect all routes EXCEPT SmartTriad embeds
+  async headers() {
+    return [
+      // Default: protect everything with X-Frame-Options EXCEPT /triad/embed/*
+      {
+        source: '/((?!triad/embed/).*)',
+        headers: [
+          {
+            key: 'X-Frame-Options',
+            value: 'SAMEORIGIN',
+          },
+        ],
+      },
+      // SmartTriad embed routes: NO X-Frame-Options, explicit CSP frame-ancestors
+      {
+        source: '/triad/embed/:path*',
+        headers: [
+          {
+            key: 'Content-Security-Policy',
+            value: "frame-ancestors 'self' https://qriptopian.lovable.app https://preview--qriptopian.lovable.app;",
+          },
+        ],
+      },
+    ];
+  },
 };
 
 module.exports = nextConfig;
