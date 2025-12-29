@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     
     // Fetch published home hero content from database
     const { data: heroContent, error } = await supabase
-      .from('content_items')
+      .from('content')
       .select(`
         id,
         title,
@@ -42,7 +42,8 @@ export async function GET(request: NextRequest) {
         created_at,
         updated_at
       `)
-      .eq('content_type', 'home_hero')
+      .eq('domain', 'home')
+      .eq('placement->>\'section\'', 'home-hero')
       .eq('status', 'published')
       .order('published_at', { ascending: false })
       .limit(10); // Limit to 10 most recent articles
