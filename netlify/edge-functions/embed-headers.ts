@@ -1,40 +1,36 @@
+// netlify/edge-functions/embed-headers.ts
 import type { Context } from "https://edge.netlify.com";
 
-export default async function handler(req: Request, context: Context) {
-  const url = new URL(req.url);
-  
-  // Only process /triad/embed/* routes
-  if (!url.pathname.startsWith("/triad/embed/")) {
+export default async (request: Request, context: Context) => {
+  const url = new URL(request.url);
+
+  // Only touch the two embed routes
+  if (
+    !url.pathname.startsWith("/triad/embed/wallet") &&
+    !url.pathname.startsWith("/triad/embed/codex")
+  ) {
     return context.next();
   }
 
-  // Get the response from the origin
-  const response = await context.next();
-  const headers = new Headers(response.headers);
+  // Let the app generate its normal response
+  const originResponse = await context.next();
 
-  // Remove x-frame-options header
+  const headers = new Headers(originResponse.headers);
+
+  // 1. Remove X-Frame-Options entirely
   headers.delete("x-frame-options");
+  headers.delete("X-Frame-Options");
 
-  // Rewrite content-security-policy with exactly one frame-ancestors directive
-  const csp = headers.get("content-security-policy");
-  const frameAncestors = "frame-ancestors 'self' https://qriptopian.lovable.app https://preview--qriptopian.lovable.app";
+  // 2. Replace CSP with one that allows Lovable
+  const cspValue =
+    "frame-ancestors 'self' https://preview--qriptopian.lovable.app https://qriptopian.lovable.app;";
 
-  if (csp) {
-    // Remove any existing frame-ancestors directive
-    const filteredCsp = csp
-      .split(";")
-      .filter(directive => !directive.trim().toLowerCase().startsWith("frame-ancestors"))
-      .join(";");
-    
-    // Add our frame-ancestors directive
-    headers.set("content-security-policy", `${filteredCsp}; ${frameAncestors}`);
-  } else {
-    headers.set("content-security-policy", frameAncestors);
-  }
+  headers.set("content-security-policy", cspValue);
+  headers.set("Content-Security-Policy", cspValue);
 
-  return new Response(response.body, {
-    status: response.status,
-    statusText: response.statusText,
+  return new Response(originResponse.body, {
+    status: originResponse.status,
+    statusText: originResponse.statusText,
     headers,
   });
 }

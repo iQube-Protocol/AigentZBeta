@@ -1,10 +1,13 @@
 # Edge Function Deployment Status
 
-## Current State: Edge Functions NOT Executing
+## ❌ CONFIRMED: Edge Functions NOT Executing - Platform Issue
 
 **Latest Deployment:** https://theqriptopian.netlify.app
-**Unique Deploy:** https://695216ba87b1ccf4f9218135--theqriptopian.netlify.app
-**Deploy Time:** 2025-12-29 05:51 UTC
+**Unique Deploy:** https://695219b97a5169b2286a8873--theqriptopian.netlify.app
+**Deploy Time:** 2025-12-29 06:04 UTC
+
+### Critical Finding:
+**Edge Functions are bundled but NEVER execute, even with `path = "/*"` on a global debug function.**
 
 ### Configuration Status:
 - ✅ Single `netlify.toml` at repo root
@@ -92,7 +95,76 @@ content-length: 1038
 
 **Result:** ❌ Returns SPA with `x-frame-options: SAMEORIGIN`, Edge Function not executing
 
-### Configuration:
+---
+
+## Debug Test Results (Deploy: 695219b97a5169b2286a8873)
+
+### Global Debug Function Test
+
+**Configuration:** Edge Function configured to run on ALL routes (`path = "/*"`)
+
+**Test 1: Root Path**
+```bash
+curl -I https://theqriptopian.netlify.app/
+```
+
+**Expected:** `x-edge-debug: hit:/` header
+
+**Actual:**
+```
+HTTP/2 200 
+accept-ranges: bytes
+age: 0
+cache-control: public,max-age=0,must-revalidate
+cache-status: "Netlify Edge"; fwd=miss
+content-type: text/html; charset=UTF-8
+date: Mon, 29 Dec 2025 06:04:41 GMT
+etag: "adb9778af38ba6bffcc5b77bd9010588-ssl"
+link: <http://theqriptopian.com/>; rel="canonical"
+server: Netlify
+strict-transport-security: max-age=31536000; includeSubDomains; preload
+x-frame-options: SAMEORIGIN
+x-nf-request-id: 01KDMBAXCGPXRH4GN4K246TW4K
+content-length: 1038
+```
+
+**Result:** ❌ NO `x-edge-debug` header
+
+**Test 2: Test Endpoint**
+```bash
+curl -I https://theqriptopian.netlify.app/__edge-test
+```
+
+**Result:** ❌ NO `x-edge-debug` header
+
+**Test 3: Embed Route**
+```bash
+curl -I https://theqriptopian.netlify.app/triad/embed/wallet
+```
+
+**Result:** ❌ NO `x-edge-debug` header
+
+### Conclusion
+
+**Edge Functions are bundled but NEVER execute, even with `path = "/*"` on a global debug function.**
+
+This is definitively a **Netlify platform/configuration issue**, not a code issue.
+
+### Next Steps
+
+**Required Action:** Check Netlify dashboard settings
+
+1. Visit: https://app.netlify.com/sites/theqriptopian/settings/functions
+2. Verify Edge Functions are **enabled** for the site
+3. Check Edge Function logs: https://app.netlify.com/sites/theqriptopian/logs/edge-functions
+4. If Edge Functions are enabled but not executing, contact Netlify support with:
+   - Site name: theqriptopian
+   - Deploy ID: 695219b97a5169b2286a8873
+   - Issue: "Edge Functions bundle fine but never execute, even with `path = "/*"` on `edge-debug`"
+
+---
+
+### Configuration Details
 
 **Root netlify.toml:**
 ```toml

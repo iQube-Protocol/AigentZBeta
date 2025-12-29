@@ -2,16 +2,14 @@
 # This builds the thin client from apps/theqriptopian-web
 
 [build]
-  base = "/"
-  command = "echo 'VITE_API_URL='$VITE_API_URL && echo 'VITE_AIGENTIQ_API_URL='$VITE_AIGENTIQ_API_URL && echo 'VITE_AIGENT_API_URL='$VITE_AIGENT_API_URL && npm install --legacy-peer-deps && cd apps/theqriptopian-web && npm run build"
+  base = "apps/theqriptopian-web"
   publish = "apps/theqriptopian-web/dist"
+  command = "npm install --legacy-peer-deps && npm run build"
 
 [build.environment]
   NODE_VERSION = "20"
   NPM_FLAGS = "--legacy-peer-deps"
-  # Force Node.js only build
   NODE_ENV = "production"
-  # Disable all other language detection
   NETLIFY_USE_YARN = "false"
   NETLIFY_USE_PNPM = "false"
   # API URLs for thin client (injected at build time by Vite)
@@ -19,15 +17,10 @@
   VITE_AIGENT_API_URL = "https://dev-beta.aigentz.me"
   VITE_API_URL = "https://dev-beta.aigentz.me"
 
-# TEMPORARY: run edge-debug on *every* route to verify Edge Functions work
+# Edge Functions for SmartTriad embeds
 [[edge_functions]]
-  path = "/*"
-  function = "edge-debug"
-
-# Edge Functions for SmartTriad embeds (commented out for debug)
-# [[edge_functions]]
-#   path = "/triad/embed/*"
-#   function = "embed-headers"
+  function = "embed-headers"
+  path = "/triad/embed/*"
 
 # Proxy /api/* requests to Amplify backend (prevents CORS issues and relative URL bugs)
 [[redirects]]
