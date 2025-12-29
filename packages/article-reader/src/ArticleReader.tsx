@@ -2,11 +2,28 @@ import { useState, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
-import rehypeSanitize from 'rehype-sanitize';
+import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import { ReadingProgress, useReadingProgress } from './ReadingProgress';
 import { ReadingControls } from './ReadingControls';
 import { theQriptopianStyleGuide } from './defaultStyles';
 import type { ArticleReaderProps, FranchiseStyleGuide } from './types';
+
+// Custom sanitization schema that allows HTML tables and common formatting
+const customSchema = {
+  ...defaultSchema,
+  tagNames: [
+    ...(defaultSchema.tagNames || []),
+    'table', 'thead', 'tbody', 'tr', 'th', 'td', 'hr', 'h3'
+  ],
+  attributes: {
+    ...defaultSchema.attributes,
+    table: ['className', 'style'],
+    th: ['className', 'style', 'scope'],
+    td: ['className', 'style'],
+    tr: ['className', 'style'],
+    '*': ['className', 'style'],
+  },
+};
 
 export function ArticleReader({ 
   article, 
@@ -184,6 +201,67 @@ export function ArticleReader({
         {children}
       </li>
     ),
+    table: ({ children }: any) => (
+      <table 
+        style={{
+          width: '100%',
+          borderCollapse: 'collapse',
+          marginBottom: '1.5rem',
+          fontSize: `${fontSize - 2}px`,
+          backgroundColor: 'rgba(0, 0, 0, 0.3)',
+          borderRadius: '0.5rem',
+          overflow: 'hidden',
+        }}
+      >
+        {children}
+      </table>
+    ),
+    thead: ({ children }: any) => (
+      <thead style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)' }}>
+        {children}
+      </thead>
+    ),
+    tbody: ({ children }: any) => (
+      <tbody>{children}</tbody>
+    ),
+    tr: ({ children }: any) => (
+      <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
+        {children}
+      </tr>
+    ),
+    th: ({ children }: any) => (
+      <th 
+        style={{
+          padding: '0.75rem 1rem',
+          textAlign: 'left',
+          fontWeight: 'bold',
+          color: styleGuide.colors.primary,
+          fontFamily: typography.fontFamily.heading,
+        }}
+      >
+        {children}
+      </th>
+    ),
+    td: ({ children }: any) => (
+      <td 
+        style={{
+          padding: '0.75rem 1rem',
+          color: styles.textColor,
+          verticalAlign: 'top',
+        }}
+      >
+        {children}
+      </td>
+    ),
+    hr: () => (
+      <hr 
+        style={{
+          border: 'none',
+          borderTop: `1px solid ${styleGuide.colors.muted}40`,
+          margin: '2rem 0',
+        }}
+      />
+    ),
   };
 
   return (
@@ -283,7 +361,7 @@ export function ArticleReader({
               {/* Article Content */}
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
-                rehypePlugins={[rehypeRaw, rehypeSanitize]}
+                rehypePlugins={[rehypeRaw, [rehypeSanitize, customSchema]]}
                 components={components}
               >
                 {article.content || ''}
