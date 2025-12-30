@@ -17,6 +17,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:crm": "vitest run tests/crm-integration.test.ts",
+    "build:packages": "npm run build --workspace=packages/smarttriad",
     "aa:install": "npm --prefix services/aa-api install",
     "aa:dev": "DOTENV_CONFIG_PATH=../../.env.local npm --prefix services/aa-api run dev",
     "aa:build": "DOTENV_CONFIG_PATH=../../.env.local npm --prefix services/aa-api run build",
