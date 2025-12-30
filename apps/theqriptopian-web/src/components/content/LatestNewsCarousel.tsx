@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { useEffect, useState } from "react";
 import { WheelGesturesPlugin } from "embla-carousel-wheel-gestures";
 import { useLiquidUIContent } from "@/hooks/useLiquidUIContent";
-import { SmartContentActions, type ContentModalities } from "./SmartContentActions";
+import { SmartContentActions, type ContentModalities } from "@agentiq/smarttriad";
 import { useSmartContentAction } from "@/contexts/SmartContentActionContext";
 
 export function LatestNewsCarousel() {

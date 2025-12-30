@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { useLiquidUIContent } from "@/hooks/useLiquidUIContent";
-import { SmartContentActions, type ContentModalities } from "./SmartContentActions";
-import { useSmartContentAction } from "@/contexts/SmartContentActionContext";
+import { useLiquidUIContent } from '@/hooks/useLiquidUIContent';
+import { SmartContentActions, type ContentModalities } from '@agentiq/smarttriad';
+import { useSmartContentAction } from '@/contexts/SmartContentActionContext';
 import heroImage from "@/assets/qriptopian-hero.jpg";
 
 export function HeroSection() {

@@ -13,25 +13,9 @@ import React, { createContext, useContext, useState, useCallback, type ReactNode
 import { VideoModal } from '@agentiq/smarttriad';
 import { ArticleReader, theQriptopianStyleGuide } from '@agentiq/article-reader';
 import { PDFPageViewer } from '@/components/content/PDFPageViewer';
-import { shareArticle, getCurrentPersonaId } from '@/utils/articleSharing';
+import { shareArticle, getCurrentPersonaId } from '@agentiq/smarttriad';
 import type { ArticleQube } from '@agentiq/codex';
-import type { ContentModalities, ActionType } from '@/components/content/SmartContentActions';
-
-/**
- * Content item interface for action execution
- */
-export interface SmartContentItem {
-  id: string;
-  title: string;
-  description?: string;
-  excerpt?: string;
-  image?: string;
-  modalities?: ContentModalities | null;
-  section?: string;
-  // PDF support
-  pdf_cid?: string;
-  pdf_lite_url?: string;
-}
+import type { ContentModalities, ActionType, SmartContentItem } from '@agentiq/smarttriad';
 
 interface SmartContentActionContextValue {
   /**

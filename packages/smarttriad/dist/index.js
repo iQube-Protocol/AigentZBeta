@@ -7,3 +7,4 @@ export { IconBar } from './IconBar';
 export { DrawerLayer } from './DrawerLayer';
 export { VideoModal } from './VideoModal';
 export { SmartThumbnail } from './SmartThumbnail';
+export { SmartContentActions, shareArticle, getCurrentPersonaId } from './SmartContentActions';
