@@ -98,10 +98,12 @@ export function KnytCardsGrid({ personaId = '', knytBalance = 0, spendableKnyt, 
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2">
-        <Users className="w-5 h-5 text-cyan-400" />
-        <h3 className="text-xl font-bold text-white">KNYT Cards</h3>
-        <span className="text-white/60 text-sm">({groups.reduce((a, g) => a + g.posters.length, 0)} cards)</span>
+      <div className="mb-4">
+        <div className="flex items-center gap-2">
+          <Users className="w-5 h-5 text-cyan-400" />
+          <h3 className="text-xl font-bold text-white">KNYT Cards</h3>
+        </div>
+        <p className="text-sm text-white/60 mt-1">Meet the heroes and villains of the metaKnyts universe ({groups.reduce((a, g) => a + g.posters.length, 0)} cards)</p>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">

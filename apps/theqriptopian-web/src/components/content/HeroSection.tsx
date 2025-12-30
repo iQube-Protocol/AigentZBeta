@@ -50,10 +50,13 @@ export function HeroSection() {
   }, [articles.length]);
   
   // Touch/swipe support
-  const [touchStart, setTouchStart] = useState(0);
-  const [touchEnd, setTouchEnd] = useState(0);
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
+  
+  const minSwipeDistance = 50;
   
   const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null); // Reset touchEnd
     setTouchStart(e.targetTouches[0].clientX);
   };
   
@@ -62,11 +65,17 @@ export function HeroSection() {
   };
   
   const handleTouchEnd = () => {
-    if (touchStart - touchEnd > 75) {
+    if (!touchStart || !touchEnd) return;
+    
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+    
+    if (isLeftSwipe && articles.length > 1) {
       // Swipe left - next
       setActiveArticle(prev => (prev + 1) % articles.length);
     }
-    if (touchStart - touchEnd < -75) {
+    if (isRightSwipe && articles.length > 1) {
       // Swipe right - previous
       setActiveArticle(prev => (prev - 1 + articles.length) % articles.length);
     }
@@ -97,7 +106,7 @@ export function HeroSection() {
               context="hero"
               showExpand={false}
               showShare={true}
-              size="lg"
+              size="md"
               onAction={createHandler({
                 id: currentArticle.id,
                 title: currentArticle.title,
@@ -113,7 +122,7 @@ export function HeroSection() {
             </div>
           </div>
           
-          <h1 className="font-bold text-[#d0f6ff] mb-4 drop-shadow-[0_0_30px_rgba(0,196,255,0.5)] text-5xl">
+          <h1 className="font-bold text-[#d0f6ff] mb-4 drop-shadow-[0_0_30px_rgba(0,196,255,0.5)] text-4xl">
             {currentArticle.title}
           </h1>
           <p className="text-xl text-[#8fb3c0] drop-shadow-[0_0_20px_rgba(0,0,0,0.8)]">

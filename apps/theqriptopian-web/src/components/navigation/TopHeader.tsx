@@ -97,7 +97,7 @@ export function TopHeader({ onMobileMenuClick, isMobileMenuOpen }: TopHeaderProp
         ) : personaHandle ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="gap-2 text-gray-300 hover:text-cyan-400">
+              <Button variant="ghost" size="sm" className="gap-2 text-gray-300 hover:text-cyan-400 hover:bg-cyan-500/10 hover:backdrop-blur-sm transition-all">
                 <User className="h-4 w-4" />
                 <span className="text-sm">{personaHandle}</span>
                 <ChevronDown className="h-3 w-3" />
@@ -122,7 +122,7 @@ export function TopHeader({ onMobileMenuClick, isMobileMenuOpen }: TopHeaderProp
           <Button 
             variant="ghost" 
             size="sm" 
-            className="gap-2 text-gray-400 hover:text-cyan-400"
+            className="gap-2 text-gray-400 hover:text-cyan-400 hover:bg-cyan-500/10 hover:backdrop-blur-sm transition-all"
             onClick={() => window.location.href = '/auth'}
           >
             <User className="h-4 w-4" />

@@ -9,7 +9,8 @@
  */
 
 import { useState, useEffect, useRef, lazy, Suspense, Component, type ReactNode, useMemo } from 'react';
-import { Loader2, BookOpen, Play, Lock, Check, Sparkles, Coins, ShoppingCart, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Loader2, BookOpen, Play, Lock, Check, Sparkles, Coins, ShoppingCart, AlertTriangle, RefreshCw, LogIn, UserPlus } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { PDFPageViewer } from './PDFPageViewer';
 import { VideoPlayer } from './VideoPlayer';
 import { VideoErrorBoundary } from './VideoErrorBoundary';
@@ -234,6 +235,7 @@ interface KnytCodexTabProps {
   knytBalance?: number;      // Total KNYT (DVN + EVM)
   spendableKnyt?: number;    // DVN balance only (Tier 0 spendable)
   onBalanceRefresh?: () => void;
+  onDrawerClose?: () => void; // Close the parent drawer
 }
 
 export function KnytCodexTab({
@@ -249,7 +251,13 @@ export function KnytCodexTab({
   knytBalance = 0,
   spendableKnyt,
   onBalanceRefresh,
+  onDrawerClose,
 }: KnytCodexTabProps) {
+  const navigate = useNavigate();
+  
+  // Check if user is signed in
+  const isSignedIn = !!personaId && personaId !== 'default' && personaId !== 'guest';
+  
   // Use React Query for persistent caching across drawer opens/closes
   const { data: episodes = [], isLoading: episodesLoading, error: episodesError } = useCodexEpisodes();
   const { data: characters = [], isLoading: charactersLoading } = useCodexCharacters();
@@ -499,13 +507,7 @@ export function KnytCodexTab({
 
   // Render Characters tab (KNYT Cards)
   const renderCharactersTab = () => (
-    <>
-      <div className="mb-4">
-        <h3 className="text-xl font-bold text-white">KNYT Cards</h3>
-        <p className="text-sm text-white/60">Meet the heroes and villains of the metaKnyts universe</p>
-      </div>
-      <KnytCardsGrid personaId={personaId} knytBalance={knytBalance} spendableKnyt={spendableKnyt} onBalanceRefresh={onBalanceRefresh} />
-    </>
+    <KnytCardsGrid personaId={personaId} knytBalance={knytBalance} spendableKnyt={spendableKnyt} onBalanceRefresh={onBalanceRefresh} />
   );
 
   const tabPanels = useMemo(() => {
@@ -606,6 +608,39 @@ export function KnytCodexTab({
         />
       )}
       
+      {/* Sign-in Banner for unauthenticated users */}
+      {!isSignedIn && (
+        <div className="mb-6 p-4 rounded-xl bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/30">
+          <div className="flex flex-col sm:flex-row items-center gap-4">
+            <div className="w-12 h-12 rounded-full bg-amber-500/20 flex items-center justify-center flex-shrink-0">
+              <LogIn className="w-6 h-6 text-amber-400" />
+            </div>
+            <div className="flex-1 text-center sm:text-left">
+              <h3 className="text-white font-semibold mb-1">Sign in to unlock the full Codex</h3>
+              <p className="text-white/60 text-sm">
+                Create an account or sign in to purchase content, track your collection, and access exclusive features.
+              </p>
+            </div>
+            <div className="flex gap-2 flex-shrink-0">
+              <button
+                onClick={() => { onDrawerClose?.(); navigate('/auth'); }}
+                className="px-4 py-2 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold text-sm flex items-center gap-2 hover:from-amber-400 hover:to-orange-400 transition-all"
+              >
+                <LogIn className="w-4 h-4" />
+                Sign In
+              </button>
+              <button
+                onClick={() => { onDrawerClose?.(); navigate('/auth?mode=signup'); }}
+                className="px-4 py-2 rounded-lg bg-white/10 text-white font-medium text-sm flex items-center gap-2 hover:bg-white/20 transition-all"
+              >
+                <UserPlus className="w-4 h-4" />
+                Sign Up
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Tab Content - no internal tab navigation, controlled by parent */}
       <div className="min-h-[400px]">
         {loading && (

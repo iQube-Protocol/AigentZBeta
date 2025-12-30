@@ -44,10 +44,13 @@ export function SecondHeroSection() {
   }, [articles.length]);
   
   // Touch/swipe support
-  const [touchStart, setTouchStart] = useState(0);
-  const [touchEnd, setTouchEnd] = useState(0);
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
+  
+  const minSwipeDistance = 50;
   
   const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null); // Reset touchEnd
     setTouchStart(e.targetTouches[0].clientX);
   };
   
@@ -56,11 +59,17 @@ export function SecondHeroSection() {
   };
   
   const handleTouchEnd = () => {
-    if (touchStart - touchEnd > 75) {
+    if (!touchStart || !touchEnd) return;
+    
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+    
+    if (isLeftSwipe && articles.length > 1) {
       // Swipe left - next
       setActiveArticle(prev => (prev + 1) % articles.length);
     }
-    if (touchStart - touchEnd < -75) {
+    if (isRightSwipe && articles.length > 1) {
       // Swipe right - previous
       setActiveArticle(prev => (prev - 1 + articles.length) % articles.length);
     }
@@ -68,7 +77,7 @@ export function SecondHeroSection() {
   
   return (
     <div 
-      className="w-full h-[60vh] relative flex-shrink-0 bg-[#050f1f]"
+      className="w-full h-[calc(100vh-88px)] relative flex-shrink-0 bg-[#050f1f]"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -82,22 +91,22 @@ export function SecondHeroSection() {
         }}
       />
       <div className="absolute inset-0 bg-gradient-to-t from-[#050f1f] via-transparent to-transparent" />
-      <div className="absolute inset-0 flex items-center justify-center">
-        <div className="text-center px-8 max-w-4xl">
-          <h2 className="text-5xl font-bold text-[#d0f6ff] mb-6 drop-shadow-[0_0_30px_rgba(0,196,255,0.5)]">
+      <div className="absolute inset-0 flex items-end pb-16">
+        <div className="text-left px-8 max-w-2xl">
+          <h2 className="text-4xl font-bold text-[#d0f6ff] mb-6 drop-shadow-[0_0_30px_rgba(0,196,255,0.5)]">
             {currentArticle.title}
           </h2>
           <p className="text-xl text-[#8fb3c0] mb-8 drop-shadow-[0_0_20px_rgba(0,0,0,0.8)]">
             {currentArticle.subtitle}
           </p>
-          {/* SmartContentActions - uses global action handler */}
-          <div className="flex justify-center mb-4">
+          {/* SmartContentActions with navigation dots on the right */}
+          <div className="flex items-center gap-4 mb-4">
             <SmartContentActions
               modalities={currentArticle.modalities}
               context="hero"
               showExpand={false}
               showShare={true}
-              size="lg"
+              size="md"
               onAction={createHandler({
                 id: currentArticle.id,
                 title: currentArticle.title,
@@ -106,24 +115,25 @@ export function SecondHeroSection() {
                 modalities: currentArticle.modalities,
               })}
             />
+            
+            {/* Navigation Dots - inline with SmartContentActions */}
+            {articles.length > 1 && (
+              <div className="flex gap-2">
+                {articles.map((_, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setActiveArticle(index)}
+                    className={`transition-all ${
+                      index === activeArticle 
+                        ? 'w-8 h-2 bg-cyan-400 rounded-full' 
+                        : 'w-2 h-2 bg-white/30 hover:bg-white/50 rounded-full'
+                    }`}
+                    aria-label={`Article ${index + 1}`}
+                  />
+                ))}
+              </div>
+            )}
           </div>
-          
-          {articles.length > 1 && (
-            <div className="flex justify-center gap-2 mt-4">
-              {articles.map((_, index) => (
-                <button
-                  key={index}
-                  onClick={() => setActiveArticle(index)}
-                  className={`transition-all ${
-                    index === activeArticle 
-                      ? 'w-8 h-2 bg-cyan-400 rounded-full' 
-                      : 'w-2 h-2 bg-white/30 hover:bg-white/50 rounded-full'
-                  }`}
-                  aria-label={`Article ${index + 1}`}
-                />
-              ))}
-            </div>
-          )}
         </div>
       </div>
 

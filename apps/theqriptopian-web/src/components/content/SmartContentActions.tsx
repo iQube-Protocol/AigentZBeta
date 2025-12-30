@@ -66,10 +66,9 @@ function getAvailableActions(
   if (modalities?.read?.text || modalities?.read?.available) actions.push('read');
   if (modalities?.listen?.audio_url) actions.push('listen');
   if (modalities?.link?.url) actions.push('link');
-  if (modalities?.view?.image_url) actions.push('view');
-  
-  // Context-dependent actions
-  if (showExpand && context === 'thumbnail') actions.push('expand');
+  // Disabled: view and expand actions are redundant and not working
+  // if (modalities?.view?.image_url) actions.push('view');
+  // if (showExpand && context === 'thumbnail') actions.push('expand');
   if (showShare) actions.push('share');
   
   return actions;

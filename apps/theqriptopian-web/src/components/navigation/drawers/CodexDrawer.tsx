@@ -141,6 +141,8 @@ function CodexDrawerContent({ isOpen, onClose }: CodexDrawerProps) {
           <button
             onClick={onClose}
             className="p-2 rounded-lg text-white/60 hover:text-white hover:bg-white/10 ring-1 ring-white/10 transition-colors flex-shrink-0 ml-4 mb-3"
+            aria-label="Close Codex"
+            title="Close Codex"
           >
             <X className="w-5 h-5" />
           </button>
@@ -160,6 +162,7 @@ function CodexDrawerContent({ isOpen, onClose }: CodexDrawerProps) {
             knytBalance={knytBalance}
             spendableKnyt={spendableKnyt}
             onBalanceRefresh={refetchBalance}
+            onDrawerClose={onClose}
           />
         </div>
       </div>

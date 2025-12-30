@@ -6,9 +6,11 @@
  */
 
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useCodexCopilot } from '@/contexts/CodexCopilotContext';
 import { KnytCodexTab } from '@/components/content/KnytCodexTab';
-import { Library, Sparkles, BookOpen, Play, Users } from 'lucide-react';
+import { Library, Sparkles, BookOpen, Play, Users, LogIn, UserPlus } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 const ENABLE_LIQUID_UI = false;
 
@@ -24,6 +26,7 @@ interface CodexMainLayerProps {
   knytBalance?: number;
   spendableKnyt?: number;
   onBalanceRefresh?: () => void;
+  onDrawerClose?: () => void;
 }
 
 export function CodexMainLayer({ 
@@ -36,7 +39,9 @@ export function CodexMainLayer({
   knytBalance = 0,
   spendableKnyt,
   onBalanceRefresh,
+  onDrawerClose,
 }: CodexMainLayerProps) {
+  const navigate = useNavigate();
   const { activeCodex, contentInstruction, isFirstVisit } = useCodexCopilot();
   
   // Welcome screen for first-time visitors
@@ -83,6 +88,29 @@ export function CodexMainLayer({
           </div>
         </div>
         
+        <div className="bg-white/5 rounded-xl border border-white/10 p-6 mb-8">
+          <p className="text-gray-300 mb-4">
+            To access the Codex, you'll need to create a persona and sign in. Your persona is your identity in the Qriptopian universe.
+          </p>
+          <div className="flex items-center justify-center gap-4">
+            <Button 
+              onClick={() => navigate('/auth?mode=signin')}
+              variant="outline"
+              className="border-cyan-500/50 text-cyan-400 hover:bg-cyan-500/10 hover:border-cyan-400"
+            >
+              <LogIn className="w-4 h-4 mr-2" />
+              Sign In
+            </Button>
+            <Button 
+              onClick={() => navigate('/auth?mode=signup')}
+              className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-400 hover:to-purple-400 text-white"
+            >
+              <UserPlus className="w-4 h-4 mr-2" />
+              Create Persona
+            </Button>
+          </div>
+        </div>
+        
         <p className="text-sm text-gray-500">
           Hover in the bottom-right corner to open the Codex Copilot for personalized guidance.
         </p>
@@ -108,6 +136,7 @@ export function CodexMainLayer({
             knytBalance={knytBalance}
             spendableKnyt={spendableKnyt}
             onBalanceRefresh={onBalanceRefresh}
+            onDrawerClose={onDrawerClose}
           />
         </div>
       );

@@ -1,8 +1,8 @@
 /**
- * useLiquidUIContent - React hook for consuming Liquid UI Issue Package content
+ * useLiquidUIContent - React hook for consuming Liquid UI content
  * 
- * This hook provides content from the Issue Package v1.4 for use in components.
- * It is an ADDITIVE hook - does not modify any existing Codex or SmartWallet code.
+ * This hook fetches content from the Supabase database via API.
+ * Falls back to static JSON if the API is unavailable.
  */
 
 import { useState, useEffect, useMemo } from 'react';
@@ -14,43 +14,53 @@ import {
 } from '@/services/liquidUIService';
 
 /**
- * Hook to get content for a specific section
+ * Hook to get content for a specific section from the database
  */
 export function useLiquidUIContent(section: ContentSection, tab?: ContentTab) {
   const [content, setContent] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // For home-hero, fetch live data from API
-    if (section === 'home-hero') {
-      const fetchLiveContent = async () => {
-        setIsLoading(true);
-        setError(null);
-        try {
-          const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-          const response = await fetch(`${apiUrl}/api/content/home-hero`);
-          if (!response.ok) {
-            throw new Error('Failed to fetch home hero content');
-          }
-          const data = await response.json();
-          console.log('[useLiquidUIContent] Fetched live home hero content:', data);
-          setContent(data.content || []);
-        } catch (err) {
-          console.error('[useLiquidUIContent] Error fetching live content:', err);
-          setError(err instanceof Error ? err.message : 'Unknown error');
-          // Fallback to static JSON
-          setContent(liquidUIService.getContentBySection(section));
-        } finally {
-          setIsLoading(false);
+    const fetchLiveContent = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const apiUrl = import.meta.env.VITE_API_URL || 'https://dev-beta.aigentz.me';
+        const tabParam = tab ? `?tab=${tab}` : '';
+        const response = await fetch(`${apiUrl}/api/content/section/${section}${tabParam}`);
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch ${section} content: ${response.status}`);
         }
-      };
+        
+        const data = await response.json();
+        console.log(`[useLiquidUIContent] Fetched ${section} content:`, data.count, 'items from', data.source);
+        
+        if (data.content && data.content.length > 0) {
+          setContent(data.content);
+        } else {
+          // No content in database, fall back to static JSON
+          console.log(`[useLiquidUIContent] No database content for ${section}, using static JSON`);
+          const staticContent = tab 
+            ? liquidUIService.getContentBySectionWithTabs(section, tab) 
+            : liquidUIService.getContentBySection(section);
+          setContent(staticContent);
+        }
+      } catch (err) {
+        console.error(`[useLiquidUIContent] Error fetching ${section}:`, err);
+        setError(err instanceof Error ? err.message : 'Unknown error');
+        // Fallback to static JSON on error
+        const staticContent = tab 
+          ? liquidUIService.getContentBySectionWithTabs(section, tab) 
+          : liquidUIService.getContentBySection(section);
+        setContent(staticContent);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-      fetchLiveContent();
-    } else {
-      // For other sections, use static JSON
-      setContent(tab ? liquidUIService.getContentBySectionWithTabs(section, tab) : liquidUIService.getContentBySection(section));
-    }
+    fetchLiveContent();
   }, [section, tab]);
 
   return {

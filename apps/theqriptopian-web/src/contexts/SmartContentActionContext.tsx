@@ -78,13 +78,9 @@ export function SmartContentActionProvider({ children }: ProviderProps) {
         break;
 
       case 'read':
-        // Check for PDF content first (cid or available flag)
-        if (modalities?.read?.cid || modalities?.read?.available || item.pdf_cid || item.pdf_lite_url) {
-          console.log('[SmartContentAction] Opening PDF viewer for:', item.title);
-          setPdfItem(item);
-          setPdfViewerOpen(true);
-        } else if (modalities?.read?.text) {
-          // Fall back to ArticleReader for text content
+        // Check for text content FIRST - this is the most common case for articles
+        if (modalities?.read?.text) {
+          console.log('[SmartContentAction] Opening ArticleReader for:', item.title);
           const article: ArticleQube = {
             contentId: item.id,
             title: item.title,
@@ -93,6 +89,11 @@ export function SmartContentActionProvider({ children }: ProviderProps) {
             media: item.image ? { thumbnail: item.image } : undefined,
           };
           setReadArticle(article);
+        } else if (modalities?.read?.cid || item.pdf_cid || item.pdf_lite_url) {
+          // Only use PDF viewer if there's an explicit PDF CID or URL (no text content)
+          console.log('[SmartContentAction] Opening PDF viewer for:', item.title);
+          setPdfItem(item);
+          setPdfViewerOpen(true);
         }
         break;
 

@@ -18,8 +18,8 @@ interface AigentDrawerProps {
 }
 
 export function AigentDrawer({ isOpen, onClose }: AigentDrawerProps) {
-  const [activeTab, setActiveTab] = useState<'nakamoto' | 'know1' | 'moneypenny'>('nakamoto');
-  const [viewMode, setViewMode] = useState<'metavatar' | 'chat'>('chat');
+  const [activeTab, setActiveTab] = useState<'nakamoto' | 'know1' | 'moneypenny'>('moneypenny');
+  const [viewMode, setViewMode] = useState<'metavatar' | 'chat'>('metavatar');
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -52,11 +52,16 @@ export function AigentDrawer({ isOpen, onClose }: AigentDrawerProps) {
     }
   }, [activeTab, viewMode, setAgent]);
 
-  const tabs = [
-    { id: 'nakamoto', label: 'Nakamoto', description: 'Qripto and blockchain intelligence specialist' },
-    { id: 'know1', label: 'KNOW1', description: 'Knowledge and research intelligence specialist' },
-    { id: 'moneypenny', label: 'MoneyPenny', description: 'COYN and Q¢ financial specialist' },
+  // All available agents - only moneypenny is currently active
+  // Other agents are ready to be activated in the future
+  const allTabs = [
+    { id: 'nakamoto', label: 'Nakamoto', description: 'Qripto and blockchain intelligence specialist', active: false },
+    { id: 'know1', label: 'KNOW1', description: 'Knowledge and research intelligence specialist', active: false },
+    { id: 'moneypenny', label: 'MoneyPenny', description: 'COYN and Q¢ financial specialist', active: true },
   ];
+  
+  // Only show active tabs
+  const tabs = allTabs.filter(t => t.active);
 
   const activeAgentData = tabs.find(t => t.id === activeTab);
 

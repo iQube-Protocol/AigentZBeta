@@ -6,7 +6,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { X, Coins, CreditCard, Wallet, Check, Loader2, Sparkles, ShoppingCart } from 'lucide-react';
+import { X, Coins, CreditCard, Wallet, Check, Loader2, Sparkles, ShoppingCart, LogIn, UserPlus } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 // Phase 1 Pricing Constants
 const KNYT_USD_RATE = 1.40;
@@ -120,8 +121,12 @@ export function ContentPurchaseModal({
   onPurchaseComplete,
   onBalanceRefresh,
 }: ContentPurchaseModalProps) {
+  const navigate = useNavigate();
   // Use spendableKnyt if provided, otherwise fall back to knytBalance
   const effectiveSpendable = spendableKnyt ?? knytBalance;
+  
+  // Check if user is signed in (personaId is required for purchases)
+  const isSignedIn = !!personaId && personaId !== 'default' && personaId !== 'guest';
   const [selectedRail, setSelectedRail] = useState<PaymentRail>('knyt');
   const [purchasing, setPurchasing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -403,6 +408,33 @@ export function ContentPurchaseModal({
               >
                 Done
               </button>
+            </div>
+          ) : !isSignedIn ? (
+            /* Sign-in required message */
+            <div className="text-center py-6">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-amber-500/20 flex items-center justify-center">
+                <LogIn className="w-8 h-8 text-amber-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-white mb-2">Sign In Required</h3>
+              <p className="text-white/60 text-sm mb-6">
+                Please sign in or create an account to purchase content and access the full Codex experience.
+              </p>
+              <div className="flex gap-3 justify-center">
+                <button
+                  onClick={() => { onClose(); navigate('/auth'); }}
+                  className="px-5 py-2.5 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold flex items-center gap-2 hover:from-amber-400 hover:to-orange-400 transition-all"
+                >
+                  <LogIn className="w-4 h-4" />
+                  Sign In
+                </button>
+                <button
+                  onClick={() => { onClose(); navigate('/auth?mode=signup'); }}
+                  className="px-5 py-2.5 rounded-lg bg-white/10 text-white font-medium flex items-center gap-2 hover:bg-white/20 transition-all"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  Create Account
+                </button>
+              </div>
             </div>
           ) : (
             <>

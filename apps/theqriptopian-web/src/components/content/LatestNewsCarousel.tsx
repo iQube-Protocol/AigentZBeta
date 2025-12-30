@@ -44,9 +44,9 @@ export function LatestNewsCarousel() {
   }, [api]);
   const scrollPrev = () => api?.scrollPrev();
   const scrollNext = () => api?.scrollNext();
-  return <div className="w-full bg-[#071327] py-12 px-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-8 px-12">
+  return <div className="w-full bg-[#071327] py-12 px-4">
+      <div className="w-full">
+        <div className="flex items-center justify-between mb-8 px-4">
           <h2 className="text-[#d0f6ff] text-2xl font-medium text-left px-0 mx-0">Latest News</h2>
           <div className="flex items-center gap-4">
             <button onClick={scrollPrev} disabled={!canScrollPrev} className="p-2 rounded-full bg-[#020b18]/80 border border-[#1e2b40] text-cyan-400 hover:bg-[#020b18] hover:text-cyan-300 hover:border-cyan-500/50 transition-all disabled:opacity-30 disabled:cursor-not-allowed" aria-label="Previous" title="Previous">
@@ -72,7 +72,7 @@ export function LatestNewsCarousel() {
         >
           <CarouselContent className="-ml-4">
             {newsItems.map((item) => (
-              <CarouselItem key={item.id} className="pl-4 md:basis-1/2 lg:basis-1/3">
+              <CarouselItem key={item.id} className="pl-4 basis-[85%] sm:basis-[45%] md:basis-[30%] lg:basis-[30%]">
                 <div className={`bg-[#020b18] border rounded-lg overflow-hidden transition-colors ${
                   item.isPremium ? 'border-amber-500/30 hover:border-amber-500/50' : 'border-[#1e2b40] hover:border-cyan-500/30'
                 }`}>
@@ -119,13 +119,6 @@ export function LatestNewsCarousel() {
                     <p className="text-[#8fb3c0] text-sm mb-4">
                       {item.description}
                     </p>
-                    <button className={`text-sm transition-colors ${
-                      item.isPremium 
-                        ? 'text-amber-400 hover:text-amber-300 font-semibold' 
-                        : 'text-cyan-400 hover:text-cyan-300'
-                    }`}>
-                      {item.isPremium ? 'Unlock with QCT →' : 'Explore →'}
-                    </button>
                   </div>
                 </div>
               </CarouselItem>
