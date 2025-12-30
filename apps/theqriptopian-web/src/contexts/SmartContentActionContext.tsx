@@ -13,7 +13,7 @@ import React, { createContext, useContext, useState, useCallback, type ReactNode
 import { VideoModal } from '@agentiq/smarttriad';
 import { ArticleReader, theQriptopianStyleGuide } from '@agentiq/article-reader';
 import { PDFPageViewer } from '@/components/content/PDFPageViewer';
-import { shareArticle, getCurrentPersonaId } from '@agentiq/smarttriad';
+import { shareArticle, getCurrentPersonaId, SocialSharingModal } from '@agentiq/smarttriad';
 import type { ArticleQube } from '@agentiq/codex';
 import type { ContentModalities, ActionType, SmartContentItem } from '@agentiq/smarttriad';
 
@@ -45,6 +45,9 @@ export function SmartContentActionProvider({ children }: ProviderProps) {
   // PDF viewer state
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
   const [pdfItem, setPdfItem] = useState<SmartContentItem | null>(null);
+  // Social sharing modal state
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [shareItem, setShareItem] = useState<SmartContentItem | null>(null);
   // TODO: Add audio player state when implemented
   // const [audioItem, setAudioItem] = useState<SmartContentItem | null>(null);
 
@@ -113,25 +116,35 @@ export function SmartContentActionProvider({ children }: ProviderProps) {
         break;
 
       case 'share':
-        // Enhanced sharing with deep links and persona tracking
-        const personaId = getCurrentPersonaId();
-        const shareMetadata = {
-          id: item.id,
-          title: item.title,
-          description: item.description || item.excerpt || '',
-          image: item.image,
-          modalities: item.modalities,
-          section: item.section,
-        };
-        
-        shareArticle(shareMetadata, personaId).catch(error => {
-          console.warn('[SmartContentAction] Share failed:', error);
-          // Fallback to basic clipboard copy
-          navigator.clipboard.writeText(window.location.href);
-        });
+        // Open social sharing modal with comprehensive platform options
+        setShareItem(item);
+        setShareModalOpen(true);
         break;
     }
   }, []);
+
+  /**
+   * Handle share tracking from social sharing modal
+   */
+  const handleShareTracking = useCallback(async (platform: string) => {
+    if (!shareItem) return;
+    
+    const personaId = getCurrentPersonaId();
+    const shareMetadata = {
+      id: shareItem.id,
+      title: shareItem.title,
+      description: shareItem.description || shareItem.excerpt || '',
+      image: shareItem.image,
+      modalities: shareItem.modalities,
+      section: shareItem.section,
+    };
+    
+    try {
+      await shareArticle(shareMetadata, personaId, platform);
+    } catch (error) {
+      console.warn('[SmartContentAction] Share tracking failed:', error);
+    }
+  }, [shareItem]);
 
   /**
    * Factory function to create an onAction handler for a specific item
@@ -180,6 +193,23 @@ export function SmartContentActionProvider({ children }: ProviderProps) {
           }}
         />
       )}
+
+      {/* Social Sharing Modal */}
+      <SocialSharingModal
+        isOpen={shareModalOpen}
+        onClose={() => {
+          setShareModalOpen(false);
+          setShareItem(null);
+        }}
+        article={shareItem ? {
+          id: shareItem.id,
+          title: shareItem.title,
+          description: shareItem.description || shareItem.excerpt || '',
+          section: shareItem.section,
+        } : { id: '', title: '', section: '' }}
+        personaId={getCurrentPersonaId() || undefined}
+        onShare={handleShareTracking}
+      />
 
       {/* TODO: Global AudioPlayer */}
     </SmartContentActionContext.Provider>

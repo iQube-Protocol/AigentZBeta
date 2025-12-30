@@ -17,6 +17,7 @@ export { SmartThumbnail } from './SmartThumbnail';
 export type { SmartThumbnailProps } from './SmartThumbnail';
 
 export { SmartContentActions, shareArticle, getCurrentPersonaId } from './SmartContentActions';
+export { SocialSharingModal } from './SocialSharingModal';
 export type { 
   ContentModalities, 
   ActionType, 

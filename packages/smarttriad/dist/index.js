@@ -8,3 +8,4 @@ export { DrawerLayer } from './DrawerLayer';
 export { VideoModal } from './VideoModal';
 export { SmartThumbnail } from './SmartThumbnail';
 export { SmartContentActions, shareArticle, getCurrentPersonaId } from './SmartContentActions';
+export { SocialSharingModal } from './SocialSharingModal';
