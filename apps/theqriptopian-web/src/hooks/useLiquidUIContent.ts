@@ -20,53 +20,76 @@ export function useLiquidUIContent(section: ContentSection, tab?: ContentTab) {
   const [content, setContent] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+
+  const fetchLiveContent = async (currentSection?: ContentSection, currentTab?: ContentTab) => {
+    const targetSection = currentSection || section;
+    const targetTab = currentTab || tab;
+    
+    setIsLoading(true);
+    setError(null);
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || 'https://dev-beta.aigentz.me';
+      const tabParam = targetTab ? `&tab=${targetTab}` : '';
+      // Add cache-busting timestamp
+      const response = await fetch(`${apiUrl}/api/content/section/${targetSection}?_t=${Date.now()}${tabParam}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch ${targetSection} content: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log(`[useLiquidUIContent] Fetched ${targetSection} content:`, data.count, 'items from', data.source);
+      
+      if (data.content && data.content.length > 0) {
+        setContent(data.content);
+        setLastUpdated(new Date());
+      } else {
+        // No content in database, fall back to static JSON
+        console.log(`[useLiquidUIContent] No database content for ${targetSection}, using static JSON`);
+        const staticContent = targetTab 
+          ? liquidUIService.getContentBySectionWithTabs(targetSection, targetTab) 
+          : liquidUIService.getContentBySection(targetSection);
+        setContent(staticContent);
+        setLastUpdated(new Date());
+      }
+    } catch (err) {
+      console.error(`[useLiquidUIContent] Error fetching ${targetSection}:`, err);
+      setError(err instanceof Error ? err.message : 'Unknown error');
+      // Fallback to static JSON on error
+      const staticContent = targetTab 
+        ? liquidUIService.getContentBySectionWithTabs(targetSection, targetTab) 
+        : liquidUIService.getContentBySection(targetSection);
+      setContent(staticContent);
+      setLastUpdated(new Date());
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchLiveContent = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const apiUrl = import.meta.env.VITE_API_URL || 'https://dev-beta.aigentz.me';
-        const tabParam = tab ? `?tab=${tab}` : '';
-        const response = await fetch(`${apiUrl}/api/content/section/${section}${tabParam}`);
-        
-        if (!response.ok) {
-          throw new Error(`Failed to fetch ${section} content: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        console.log(`[useLiquidUIContent] Fetched ${section} content:`, data.count, 'items from', data.source);
-        
-        if (data.content && data.content.length > 0) {
-          setContent(data.content);
-        } else {
-          // No content in database, fall back to static JSON
-          console.log(`[useLiquidUIContent] No database content for ${section}, using static JSON`);
-          const staticContent = tab 
-            ? liquidUIService.getContentBySectionWithTabs(section, tab) 
-            : liquidUIService.getContentBySection(section);
-          setContent(staticContent);
-        }
-      } catch (err) {
-        console.error(`[useLiquidUIContent] Error fetching ${section}:`, err);
-        setError(err instanceof Error ? err.message : 'Unknown error');
-        // Fallback to static JSON on error
-        const staticContent = tab 
-          ? liquidUIService.getContentBySectionWithTabs(section, tab) 
-          : liquidUIService.getContentBySection(section);
-        setContent(staticContent);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchLiveContent();
   }, [section, tab]);
+
+  // Manual refresh function
+  const refresh = () => {
+    console.log(`[useLiquidUIContent] Manual refresh triggered for ${section}`);
+    fetchLiveContent(section, tab);
+  };
 
   return {
     content,
     isLoading,
     error,
+    refresh,
+    lastUpdated,
   };
 }
 
