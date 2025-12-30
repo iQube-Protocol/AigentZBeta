@@ -138,7 +138,7 @@ function generateArticleDeepLink(article, personaId) {
  */
 async function trackShare(analytics) {
     try {
-        const apiUrl = import.meta.env.VITE_API_URL || 'https://dev-beta.aigentz.me';
+        const apiUrl = import.meta.env?.VITE_API_URL || 'https://dev-beta.aigentz.me';
         const response = await fetch(`${apiUrl}/api/analytics/share`, {
             method: 'POST',
             headers: {

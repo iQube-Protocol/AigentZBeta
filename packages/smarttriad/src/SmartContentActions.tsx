@@ -229,7 +229,7 @@ async function trackShare(analytics: {
   deepLink: string;
 }): Promise<void> {
   try {
-    const apiUrl = (import.meta as any).env.VITE_API_URL || 'https://dev-beta.aigentz.me';
+    const apiUrl = (import.meta as any).env?.VITE_API_URL || 'https://dev-beta.aigentz.me';
     const response = await fetch(`${apiUrl}/api/analytics/share`, {
       method: 'POST',
       headers: {
