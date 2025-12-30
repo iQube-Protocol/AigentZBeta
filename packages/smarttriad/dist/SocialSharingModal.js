@@ -8,7 +8,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Share2, Copy, Twitter, Linkedin, Facebook, Reddit, MessageCircle, Send, Mail } from 'lucide-react';
+import { Share2, Copy, Twitter, Linkedin, Facebook, MessageCircle, Send, Mail } from 'lucide-react';
 export function SocialSharingModal({ isOpen, onClose, article, personaId, onShare }) {
     const [copied, setCopied] = useState(false);
     const deepLink = generateArticleDeepLink(article, personaId);
@@ -31,12 +31,6 @@ export function SocialSharingModal({ isOpen, onClose, article, personaId, onShar
             icon: Facebook,
             color: 'bg-blue-600 hover:bg-blue-700',
             getUrl: () => `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(deepLink)}`
-        },
-        {
-            name: 'Reddit',
-            icon: Reddit,
-            color: 'bg-orange-500 hover:bg-orange-600',
-            getUrl: () => `https://reddit.com/submit?url=${encodeURIComponent(deepLink)}&title=${encodeURIComponent(article.title)}`
         },
         {
             name: 'WhatsApp',

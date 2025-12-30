@@ -16,7 +16,6 @@ import {
   Twitter,
   Linkedin,
   Facebook,
-  Reddit,
   MessageCircle,
   Send,
   Mail
@@ -67,13 +66,7 @@ export function SocialSharingModal({
       color: 'bg-blue-600 hover:bg-blue-700',
       getUrl: () => `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(deepLink)}`
     },
-    {
-      name: 'Reddit',
-      icon: Reddit,
-      color: 'bg-orange-500 hover:bg-orange-600',
-      getUrl: () => `https://reddit.com/submit?url=${encodeURIComponent(deepLink)}&title=${encodeURIComponent(article.title)}`
-    },
-    {
+        {
       name: 'WhatsApp',
       icon: MessageCircle,
       color: 'bg-green-500 hover:bg-green-600',
