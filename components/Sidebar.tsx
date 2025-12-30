@@ -114,6 +114,15 @@ const sections: SidebarSection[] = [
     ],
   },
   {
+    label: "Codex",
+    icon: <Library size={16} />,
+    items: [
+      { href: "/codex/viewer", label: "Codex", icon: <BookOpen size={14} className="text-purple-400" /> },
+      { href: "/codex/wallet", label: "SmartWallet", icon: <CreditCard size={14} className="text-cyan-400" /> },
+      { href: "/codex/copilot", label: "Copilot", icon: <Brain size={14} className="text-emerald-400" /> },
+    ],
+  },
+  {
     label: "Content",
     icon: <BookOpen size={16} />,
     items: [
