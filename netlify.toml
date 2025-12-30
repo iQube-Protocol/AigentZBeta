@@ -4,7 +4,7 @@
 [build]
   base = "/"
   publish = "apps/theqriptopian-web/dist"
-  command = "npm install --legacy-peer-deps && cd apps/theqriptopian-web && npm run build"
+  command = "npm install --legacy-peer-deps && cd apps/theqriptopian-web && npm install --legacy-peer-deps && npm run build"
 
 [build.environment]
   NODE_VERSION = "20"
