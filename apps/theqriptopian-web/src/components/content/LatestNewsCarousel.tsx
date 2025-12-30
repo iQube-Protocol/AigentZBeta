@@ -1,4 +1,4 @@
-import { Lock, Crown } from "lucide-react";
+import { Lock, Crown, RefreshCw } from "lucide-react";
 import { Carousel, CarouselContent, CarouselItem, CarouselApi } from "@/components/ui/carousel";
 import { Badge } from "@/components/ui/badge";
 import { useEffect, useState } from "react";
@@ -16,7 +16,7 @@ export function LatestNewsCarousel() {
   const { createHandler } = useSmartContentAction();
   
   // Get latest-news content from Liquid UI Issue Package v1.4
-  const { content: liquidUIContent } = useLiquidUIContent('latest-news');
+  const { content: liquidUIContent, refresh, isLoading, lastUpdated } = useLiquidUIContent('latest-news');
   
   // Transform Liquid UI content to component format
   const newsItems = liquidUIContent.map(item => ({
@@ -47,7 +47,23 @@ export function LatestNewsCarousel() {
   return <div className="w-full bg-[#071327] py-12 px-4">
       <div className="w-full">
         <div className="flex items-center justify-between mb-8 px-4">
-          <h2 className="text-[#d0f6ff] text-2xl font-medium text-left px-0 mx-0">Latest News</h2>
+          <div className="flex items-center gap-4">
+            <h2 className="text-[#d0f6ff] text-2xl font-medium text-left px-0 mx-0">Latest News</h2>
+            <button 
+              onClick={refresh} 
+              disabled={isLoading}
+              className="p-2 rounded-full bg-[#020b18]/80 border border-[#1e2b40] text-cyan-400 hover:bg-[#020b18] hover:text-cyan-300 hover:border-cyan-500/50 transition-all disabled:opacity-30 disabled:cursor-not-allowed" 
+              aria-label="Refresh content" 
+              title="Refresh content"
+            >
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            </button>
+            {lastUpdated && (
+              <span className="text-xs text-gray-400">
+                Updated: {lastUpdated.toLocaleTimeString()}
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-4">
             <button onClick={scrollPrev} disabled={!canScrollPrev} className="p-2 rounded-full bg-[#020b18]/80 border border-[#1e2b40] text-cyan-400 hover:bg-[#020b18] hover:text-cyan-300 hover:border-cyan-500/50 transition-all disabled:opacity-30 disabled:cursor-not-allowed" aria-label="Previous" title="Previous">
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
