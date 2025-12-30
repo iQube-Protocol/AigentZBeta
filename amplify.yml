@@ -9,12 +9,16 @@ frontend:
         - nvm use 20.18.0
         - node --version
         - echo "Installing dependencies..."
-        - npm install --legacy-peer-deps
+        - npm install --legacy-peer-deps --include=optional
 
         # Issue 3 dependency (Ghostscript) — AL2023 uses dnf (yum may be a shim)
         - echo "Installing Ghostscript..."
         - sudo dnf install -y ghostscript || sudo yum install -y ghostscript
         - gs --version
+        
+        # Install Sharp for Linux x64 platform
+        - echo "Installing Sharp for Linux..."
+        - npm install --os=linux --cpu=x64 sharp
     build:
       commands:
         - echo "Creating .env.production with required SSR env vars..."
@@ -32,7 +36,7 @@ frontend:
         - echo "Busting caches..."
         - rm -rf .next/cache
         - rm -rf node_modules/.cache
-        - npm install --legacy-peer-deps --force
+        - npm install --legacy-peer-deps --include=optional --force
 
         # SAFE DIAGNOSTIC: print only keys + whether empty, never values
         - echo "=== .env.production keys + empty-check (REDACTED) ==="
