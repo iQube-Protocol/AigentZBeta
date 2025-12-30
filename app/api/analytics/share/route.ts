@@ -72,11 +72,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Also update share count in content table
-    await supabase.rpc('increment_share_count', {
-      content_id: data.articleId
-    }).catch(error => {
+    try {
+      await supabase.rpc('increment_share_count', {
+        content_id: data.articleId
+      });
+    } catch (error) {
       console.warn('[Analytics/Share] Failed to increment share count:', error);
-    });
+    }
 
     return NextResponse.json({
       success: true,
