@@ -2,9 +2,9 @@
 # This builds the thin client from apps/theqriptopian-web
 
 [build]
-  base = "/"
-  publish = "apps/theqriptopian-web/dist"
-  command = "npm install --legacy-peer-deps && cd apps/theqriptopian-web && npm install --legacy-peer-deps && npm run build"
+  base = "apps/theqriptopian-web"
+  publish = "dist"
+  command = "npm install --legacy-peer-deps && npm run build"
 
 [build.environment]
   NODE_VERSION = "20"

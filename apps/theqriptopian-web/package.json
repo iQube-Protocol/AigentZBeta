@@ -12,12 +12,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@agentiq/agentiq-sdk": "workspace:*",
-    "@agentiq/article-reader": "workspace:*",
-    "@agentiq/avatar-host": "workspace:*",
-    "@agentiq/codex": "workspace:*",
-    "@agentiq/smarttriad": "workspace:*",
-    "@agentiq/smartwallet": "workspace:*",
+    "@agentiq/agentiq-sdk": "file:../../packages/agentiq-sdk",
+    "@agentiq/article-reader": "file:../../packages/article-reader",
+    "@agentiq/avatar-host": "file:../../packages/avatar-host",
+    "@agentiq/codex": "file:../../packages/codex",
+    "@agentiq/smarttriad": "file:../../packages/smarttriad",
+    "@agentiq/smartwallet": "file:../../packages/smartwallet",
     "@hookform/resolvers": "^3.10.0",
     "@radix-ui/react-accordion": "^1.2.11",
     "@radix-ui/react-alert-dialog": "^1.1.14",
