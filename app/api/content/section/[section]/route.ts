@@ -155,7 +155,14 @@ export async function GET(
       count: transformedContent.length,
       section,
       tab: tab || null,
-      source: 'database'
+      source: 'database',
+      timestamp: new Date().toISOString(),
+      debug: {
+        query_section: section,
+        query_tab: tab,
+        total_found: content?.length || 0,
+        sample_ids: transformedContent.slice(0, 3).map((item: any) => ({ id: item.id, title: item.title.slice(0, 30) }))
+      }
     }, { headers: corsHeaders });
 
   } catch (error) {
