@@ -6,7 +6,8 @@ __pycache__/
 .Python
 build/
 develop-eggs/
-dist/
+# dist/ - temporarily allow SmartTriad dist folder for Netlify deployment
+# dist/
 downloads/
 eggs/
 .eggs/
