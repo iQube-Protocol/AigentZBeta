@@ -25,7 +25,7 @@ export function HeroSection() {
     imageScale: item.imageScale || 100,
     imageX: item.imageX || 50,
     imageY: item.imageY || 50,
-    modalities: item.modalities as ContentModalities || null
+    modalities: item.modalities ? (item.modalities as ContentModalities) : null,
   }));
   
   const articles = heroArticles.length > 0 ? heroArticles : [{
@@ -35,7 +35,8 @@ export function HeroSection() {
     image: heroImage,
     readContent: 'Loading content...',
     duration: '12 min read',
-    watchProgress: 0
+    watchProgress: 0,
+    modalities: null
   }];
   
   const currentArticle = articles[activeArticle];
@@ -102,7 +103,7 @@ export function HeroSection() {
           {/* Smart Content Actions - Only shows icons for available modalities */}
           <div className="flex items-center gap-4 mb-6">
             <SmartContentActions
-              modalities={currentArticle.modalities}
+              modalities={'modalities' in currentArticle ? currentArticle.modalities : null}
               context="hero"
               showExpand={false}
               showShare={true}
@@ -112,7 +113,8 @@ export function HeroSection() {
                 title: currentArticle.title,
                 description: currentArticle.subtitle,
                 image: currentArticle.image,
-                modalities: currentArticle.modalities,
+                modalities: 'modalities' in currentArticle ? currentArticle.modalities : null,
+                section: 'home-hero',
               })}
             />
             

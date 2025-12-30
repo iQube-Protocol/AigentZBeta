@@ -124,7 +124,10 @@ export function LatestNewsCarousel() {
                         showExpand={false}
                         showShare={true}
                         size="sm"
-                        onAction={createHandler(item)}
+                        onAction={createHandler({
+  ...item,
+  section: 'latest-news'
+})}
                       />
                     </div>
                     <h3 className={`text-xl font-semibold mb-2 ${

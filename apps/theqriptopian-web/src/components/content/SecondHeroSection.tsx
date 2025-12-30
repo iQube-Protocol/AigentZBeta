@@ -113,6 +113,7 @@ export function SecondHeroSection() {
                 description: currentArticle.subtitle,
                 image: currentArticle.image,
                 modalities: currentArticle.modalities,
+                section: 'second-hero',
               })}
             />
             

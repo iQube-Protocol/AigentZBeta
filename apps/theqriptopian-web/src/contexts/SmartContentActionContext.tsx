@@ -13,6 +13,7 @@ import React, { createContext, useContext, useState, useCallback, type ReactNode
 import { VideoModal } from '@agentiq/smarttriad';
 import { ArticleReader, theQriptopianStyleGuide } from '@agentiq/article-reader';
 import { PDFPageViewer } from '@/components/content/PDFPageViewer';
+import { shareArticle, getCurrentPersonaId } from '@/utils/articleSharing';
 import type { ArticleQube } from '@agentiq/codex';
 import type { ContentModalities, ActionType } from '@/components/content/SmartContentActions';
 
@@ -26,6 +27,7 @@ export interface SmartContentItem {
   excerpt?: string;
   image?: string;
   modalities?: ContentModalities | null;
+  section?: string;
   // PDF support
   pdf_cid?: string;
   pdf_lite_url?: string;
@@ -127,16 +129,22 @@ export function SmartContentActionProvider({ children }: ProviderProps) {
         break;
 
       case 'share':
-        if (navigator.share) {
-          navigator.share({
-            title: item.title,
-            text: item.description || item.excerpt || '',
-            url: window.location.href,
-          });
-        } else {
-          // Clipboard fallback
+        // Enhanced sharing with deep links and persona tracking
+        const personaId = getCurrentPersonaId();
+        const shareMetadata = {
+          id: item.id,
+          title: item.title,
+          description: item.description || item.excerpt || '',
+          image: item.image,
+          modalities: item.modalities,
+          section: item.section,
+        };
+        
+        shareArticle(shareMetadata, personaId).catch(error => {
+          console.warn('[SmartContentAction] Share failed:', error);
+          // Fallback to basic clipboard copy
           navigator.clipboard.writeText(window.location.href);
-        }
+        });
         break;
     }
   }, []);
