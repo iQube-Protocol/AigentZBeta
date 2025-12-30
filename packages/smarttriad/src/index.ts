@@ -25,6 +25,8 @@ export type {
   SmartContentItem 
 } from './SmartContentActions';
 
+export { SocialAnalyticsDashboard } from './SocialAnalyticsDashboard';
+
 export type {
   Domain,
   DrawerTab,

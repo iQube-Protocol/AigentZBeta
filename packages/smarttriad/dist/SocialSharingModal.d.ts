@@ -1,6 +1,6 @@
 /**
- * Social Sharing Modal Component
- * Provides comprehensive social media sharing options
+ * Social Sharing Modal - Simple version without UI dependencies
+ * Provides platform-specific sharing URLs and functionality
  */
 interface SocialSharingModalProps {
     isOpen: boolean;
@@ -9,12 +9,11 @@ interface SocialSharingModalProps {
         id: string;
         title: string;
         description?: string;
-        excerpt?: string;
         section?: string;
     };
     personaId?: string;
-    onShare: (platform: string) => void;
+    onShare?: (platform: string) => void;
 }
-export declare function SocialSharingModal({ isOpen, onClose, article, personaId, onShare }: SocialSharingModalProps): import("react/jsx-runtime").JSX.Element;
+export declare function SocialSharingModal({ isOpen, onClose, article, personaId, onShare }: SocialSharingModalProps): import("react/jsx-runtime").JSX.Element | null;
 export {};
 //# sourceMappingURL=SocialSharingModal.d.ts.map

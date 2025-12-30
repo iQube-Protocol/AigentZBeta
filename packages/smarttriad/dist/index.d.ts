@@ -14,5 +14,6 @@ export type { SmartThumbnailProps } from './SmartThumbnail';
 export { SmartContentActions, shareArticle, getCurrentPersonaId } from './SmartContentActions';
 export { SocialSharingModal } from './SocialSharingModal';
 export type { ContentModalities, ActionType, ContentContext, SmartContentItem } from './SmartContentActions';
+export { SocialAnalyticsDashboard } from './SocialAnalyticsDashboard';
 export type { Domain, DrawerTab, DrawerColumns, IconBarConfig, DrawerLayerConfig, } from './types';
 //# sourceMappingURL=index.d.ts.map
