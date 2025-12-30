@@ -138,7 +138,8 @@ function generateArticleDeepLink(article, personaId) {
  */
 async function trackShare(analytics) {
     try {
-        const response = await fetch('/api/analytics/share', {
+        const apiUrl = import.meta.env.VITE_API_URL || 'https://dev-beta.aigentz.me';
+        const response = await fetch(`${apiUrl}/api/analytics/share`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -151,7 +152,8 @@ async function trackShare(analytics) {
             }),
         });
         if (!response.ok) {
-            console.warn('Failed to track share analytics:', response.statusText);
+            const errorText = await response.text();
+            console.warn('Failed to track share analytics:', errorText);
         }
     }
     catch (error) {
