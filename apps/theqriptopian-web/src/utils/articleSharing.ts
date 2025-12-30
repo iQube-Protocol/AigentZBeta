@@ -224,11 +224,11 @@ export function parseArticleFromUrl(): ShareMetadata | null {
   const section = params.get('section');
   const type = params.get('type');
   
-  if (!id || !title) return null;
+  if (!id) return null;
   
   return {
     id,
-    title,
+    title: title || 'Untitled Article',
     section: section || undefined,
     modalities: type === 'video' ? { watch: { video_url: '', available: true } } : undefined,
   };
