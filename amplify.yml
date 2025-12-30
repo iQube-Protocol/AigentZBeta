@@ -9,7 +9,7 @@ frontend:
         - nvm use 20.18.0
         - node --version
         - echo "Installing dependencies..."
-        - npm ci
+        - npm install --legacy-peer-deps
 
         # Issue 3 dependency (Ghostscript) — AL2023 uses dnf (yum may be a shim)
         - echo "Installing Ghostscript..."
@@ -32,7 +32,7 @@ frontend:
         - echo "Busting caches..."
         - rm -rf .next/cache
         - rm -rf node_modules/.cache
-        - npm ci --force
+        - npm install --legacy-peer-deps --force
 
         # SAFE DIAGNOSTIC: print only keys + whether empty, never values
         - echo "=== .env.production keys + empty-check (REDACTED) ==="
