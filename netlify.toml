@@ -12,6 +12,7 @@
   NODE_ENV = "production"
   NETLIFY_USE_YARN = "false"
   NETLIFY_USE_PNPM = "false"
+  NETLIFY_USE_NPM = "true"
   # API URLs for thin client (injected at build time by Vite)
   VITE_AIGENTIQ_API_URL = "https://dev-beta.aigentz.me"
   VITE_AIGENT_API_URL = "https://dev-beta.aigentz.me"
