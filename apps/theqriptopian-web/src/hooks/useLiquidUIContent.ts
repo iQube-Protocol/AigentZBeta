@@ -28,12 +28,17 @@ export function useLiquidUIContent(section: ContentSection, tab?: ContentTab) {
     
     setIsLoading(true);
     setError(null);
+    
+    const apiUrl = import.meta.env.VITE_API_URL || 'https://dev-beta.aigentz.me';
+    const tabParam = targetTab ? `&tab=${targetTab}` : '';
+    // Add multiple cache-busting parameters
+    const cacheBuster = `t=${Date.now()}&r=${Math.random()}`;
+    const fullUrl = `${apiUrl}/api/content/section/${targetSection}?${cacheBuster}${tabParam}`;
+    
+    console.log(`[useLiquidUIContent] Fetching from: ${fullUrl}`);
+    
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'https://dev-beta.aigentz.me';
-      const tabParam = targetTab ? `&tab=${targetTab}` : '';
-      // Add multiple cache-busting parameters
-      const cacheBuster = `t=${Date.now()}&r=${Math.random()}`;
-      const response = await fetch(`${apiUrl}/api/content/section/${targetSection}?${cacheBuster}${tabParam}`, {
+      const response = await fetch(fullUrl, {
         cache: 'no-store',
         headers: {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -42,25 +47,35 @@ export function useLiquidUIContent(section: ContentSection, tab?: ContentTab) {
         }
       });
       
+      console.log(`[useLiquidUIContent] Response status: ${response.status} ${response.statusText}`);
+      
       if (!response.ok) {
         throw new Error(`Failed to fetch ${targetSection} content: ${response.status}`);
       }
       
       const data = await response.json();
+      console.log(`[useLiquidUIContent] Response data:`, data);
       console.log(`[useLiquidUIContent] Fetched ${targetSection} content:`, data.count, 'items from', data.source);
       
       if (data.content && data.content.length > 0) {
         setContent(data.content);
         setLastUpdated(new Date());
         console.log(`[useLiquidUIContent] Successfully loaded ${data.content.length} items from database for ${targetSection}`);
+        console.log(`[useLiquidUIContent] Sample item:`, data.content[0]);
       } else {
         // No content in database - set empty array to show admin needs to add content
         console.log(`[useLiquidUIContent] No database content for ${targetSection} - showing empty state`);
+        console.log(`[useLiquidUIContent] Data structure:`, JSON.stringify(data, null, 2));
         setContent([]);
         setLastUpdated(new Date());
       }
     } catch (err) {
       console.error(`[useLiquidUIContent] Error fetching ${targetSection}:`, err);
+      console.error(`[useLiquidUIContent] Error details:`, {
+        message: err instanceof Error ? err.message : 'Unknown error',
+        stack: err instanceof Error ? err.stack : 'No stack',
+        url: fullUrl
+      });
       setError(err instanceof Error ? err.message : 'Unknown error');
       // On error, set empty content to show the API issue
       setContent([]);
