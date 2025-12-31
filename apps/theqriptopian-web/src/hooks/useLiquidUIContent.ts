@@ -29,13 +29,21 @@ export function useLiquidUIContent(section: ContentSection, tab?: ContentTab) {
     setIsLoading(true);
     setError(null);
     
-    const apiUrl = import.meta.env.VITE_API_URL || 'https://dev-beta.aigentz.me';
+    // Try both absolute and relative URLs for Netlify proxy compatibility
+    const absoluteApiUrl = import.meta.env.VITE_API_URL || 'https://dev-beta.aigentz.me';
+    const useAbsolute = absoluteApiUrl && !absoluteApiUrl.includes('localhost');
+    
     const tabParam = targetTab ? `&tab=${targetTab}` : '';
     // Add multiple cache-busting parameters
     const cacheBuster = `t=${Date.now()}&r=${Math.random()}`;
-    const fullUrl = `${apiUrl}/api/content/section/${targetSection}?${cacheBuster}${tabParam}`;
+    
+    // Construct URL based on whether using absolute or relative
+    const fullUrl = useAbsolute 
+      ? `${absoluteApiUrl}/api/content/section/${targetSection}?${cacheBuster}${tabParam}`
+      : `/api/content/section/${targetSection}?${cacheBuster}${tabParam}`;
     
     console.log(`[useLiquidUIContent] Fetching from: ${fullUrl}`);
+    console.log(`[useLiquidUIContent] Using ${useAbsolute ? 'absolute' : 'relative'} URL`);
     
     try {
       const response = await fetch(fullUrl, {
