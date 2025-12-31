@@ -200,8 +200,8 @@ export function VideoPlayer({ videoUrl, title, onClose, segments = [], currentSe
             <>
               {canGoPrev && (
                 <button
-                  onClick={() => goToSegment(currentSegmentIndex - 1)}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/60 hover:bg-cyan-500/80 transition-all opacity-0 group-hover:opacity-100"
+                  onClick={(e) => { e.stopPropagation(); goToSegment(currentSegmentIndex - 1); }}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/60 hover:bg-cyan-500/80 transition-all opacity-0 group-hover:opacity-100 z-10"
                   title="Previous segment"
                 >
                   <ChevronLeft className="w-8 h-8 text-white" />
@@ -209,8 +209,8 @@ export function VideoPlayer({ videoUrl, title, onClose, segments = [], currentSe
               )}
               {canGoNext && (
                 <button
-                  onClick={() => goToSegment(currentSegmentIndex + 1)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/60 hover:bg-cyan-500/80 transition-all opacity-0 group-hover:opacity-100"
+                  onClick={(e) => { e.stopPropagation(); goToSegment(currentSegmentIndex + 1); }}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/60 hover:bg-cyan-500/80 transition-all opacity-0 group-hover:opacity-100 z-10"
                   title="Next segment"
                 >
                   <ChevronRight className="w-8 h-8 text-white" />
