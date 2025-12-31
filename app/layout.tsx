@@ -1,32 +1,19 @@
-"use client";
+/**
+ * Minimal Root Layout
+ * 
+ * This layout provides only the bare HTML structure.
+ * Route groups (shell) and (embed) define their own layouts:
+ * - (shell) = full AigentiQ UI with sidebar and chrome
+ * - (embed) = chrome-free embed routes for thin clients
+ */
 
 import "./globals.css";
-import { Sidebar } from "../components/Sidebar";
-import { ToastProvider } from "../components/ui/toaster";
-import AgentiQBootstrap from "./providers/AgentiQBootstrap";
-import { AGUIProvider } from "./components/AGUIProvider";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="h-full">
-      <body className="h-full bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-slate-100">
-        <AGUIProvider runtimeUrl="/api/copilotkit">
-          <ToastProvider>
-            <div className="flex h-screen overflow-hidden">
-              {/* Fixed Sidebar */}
-              <div className="flex-shrink-0">
-                <Sidebar />
-              </div>
-              {/* Scrollable Content Area */}
-              <main className="flex-1 overflow-y-auto">
-                <div className="p-6 md:p-8 lg:p-10">
-                  {children}
-                </div>
-              </main>
-            </div>
-            <AgentiQBootstrap />
-          </ToastProvider>
-        </AGUIProvider>
+      <body className="h-full">
+        {children}
       </body>
     </html>
   );

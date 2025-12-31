@@ -5,7 +5,7 @@ import {
 } from "@copilotkit/runtime";
 import OpenAI from "openai";
 import { NextRequest } from "next/server";
-import { allActions } from "@/app/copilot/actions";
+import { allActions } from "@/app/(shell)/copilot/actions";
 
 // Next.js route segment config
 export const dynamic = "force-dynamic";
