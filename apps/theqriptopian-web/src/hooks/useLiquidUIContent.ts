@@ -29,9 +29,13 @@ export function useLiquidUIContent(section: ContentSection, tab?: ContentTab) {
     setIsLoading(true);
     setError(null);
     
-    // Try both absolute and relative URLs for Netlify proxy compatibility
+    // For local development, always use the live API to avoid proxy issues
     const absoluteApiUrl = import.meta.env.VITE_API_URL || 'https://dev-beta.aigentz.me';
-    const useAbsolute = absoluteApiUrl && !absoluteApiUrl.includes('localhost');
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    
+    // In local development, use absolute URL to avoid proxy issues
+    // In production, use relative URL for Netlify proxy
+    const useAbsolute = isLocalhost || (absoluteApiUrl && !absoluteApiUrl.includes('localhost'));
     
     const tabParam = targetTab ? `&tab=${targetTab}` : '';
     // Add multiple cache-busting parameters
