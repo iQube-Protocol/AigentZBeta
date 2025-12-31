@@ -31,8 +31,9 @@ export function useLiquidUIContent(section: ContentSection, tab?: ContentTab) {
     try {
       const apiUrl = import.meta.env.VITE_API_URL || 'https://dev-beta.aigentz.me';
       const tabParam = targetTab ? `&tab=${targetTab}` : '';
-      // Add cache-busting timestamp
-      const response = await fetch(`${apiUrl}/api/content/section/${targetSection}?_t=${Date.now()}${tabParam}`, {
+      // Add multiple cache-busting parameters
+      const cacheBuster = `t=${Date.now()}&r=${Math.random()}`;
+      const response = await fetch(`${apiUrl}/api/content/section/${targetSection}?${cacheBuster}${tabParam}`, {
         cache: 'no-store',
         headers: {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -51,23 +52,18 @@ export function useLiquidUIContent(section: ContentSection, tab?: ContentTab) {
       if (data.content && data.content.length > 0) {
         setContent(data.content);
         setLastUpdated(new Date());
+        console.log(`[useLiquidUIContent] Successfully loaded ${data.content.length} items from database for ${targetSection}`);
       } else {
-        // No content in database, fall back to static JSON
-        console.log(`[useLiquidUIContent] No database content for ${targetSection}, using static JSON`);
-        const staticContent = targetTab 
-          ? liquidUIService.getContentBySectionWithTabs(targetSection, targetTab) 
-          : liquidUIService.getContentBySection(targetSection);
-        setContent(staticContent);
+        // No content in database - set empty array to show admin needs to add content
+        console.log(`[useLiquidUIContent] No database content for ${targetSection} - showing empty state`);
+        setContent([]);
         setLastUpdated(new Date());
       }
     } catch (err) {
       console.error(`[useLiquidUIContent] Error fetching ${targetSection}:`, err);
       setError(err instanceof Error ? err.message : 'Unknown error');
-      // Fallback to static JSON on error
-      const staticContent = targetTab 
-        ? liquidUIService.getContentBySectionWithTabs(targetSection, targetTab) 
-        : liquidUIService.getContentBySection(targetSection);
-      setContent(staticContent);
+      // On error, set empty content to show the API issue
+      setContent([]);
       setLastUpdated(new Date());
     } finally {
       setIsLoading(false);

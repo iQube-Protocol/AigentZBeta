@@ -1,0 +1,433 @@
+/**
+ * Codex Configuration Definitions
+ * 
+ * This file contains the default codex configurations for the multi-codex system.
+ * These definitions serve as fallbacks when the database is unavailable or during initial setup.
+ * 
+ * BACKWARD COMPATIBILITY:
+ * 
+ * KNYT Codex Integration:
+ * - Scrolls Tab: Uses /api/admin/codex/status?series=metaKnyts (existing Qriptopian API)
+ * - Characters Tab: Uses /api/codex/knyt-cards (existing Qriptopian API)
+ * - Lore Tab: Uses /api/content/assets?kinds=background_lore_doc,twenty_one_sats_concept
+ * - Compatible with Qriptopian hooks: useCodexEpisodes, useCodexCharacters, useCodexLore
+ * 
+ * Qripto Codex Integration:
+ * - Features Tab: Integrates Qriptopian home page content
+ *   - Hero Articles: /api/content/section/home-hero
+ *   - Latest News: /api/content/section/latest-news
+ *   - Second Hero: /api/content/section/second-hero
+ * - PennyDrops Tab: Uses /api/content/section/pennydrops
+ * - Scrolls Tab: Uses /api/content/section/scrolls
+ * - Kn0wdZ Tab: Uses /api/content/section/21knowdz
+ * - Compatible with existing Supabase content structure and Liquid UI system
+ */
+
+import { CodexConfig } from '@/types/codex';
+
+export const KNYT_CODEX: CodexConfig = {
+  id: 'knyt-codex',
+  name: 'KNYT Codex',
+  slug: 'knyt',
+  enabled: true,
+  version: '1.0.0',
+  owner: 'aigent-kn0w1',
+  metadata: {
+    description: 'KNYT Protocol knowledge base, lore, and world-building',
+    icon: 'BookOpen',
+    color: 'purple',
+    category: 'protocol',
+    tags: ['knyt', 'protocol', 'lore', 'world-building']
+  },
+  tabs: [
+    {
+      id: 'codex',
+      label: 'Codex',
+      slug: 'codex',
+      enabled: true,
+      order: 0,
+      type: 'liquid-ui',
+      config: {
+        liquidTemplate: 'knyt-codex-home',
+        dataSource: '/api/codex/knyt/home'
+      },
+      metadata: {
+        icon: 'Home',
+        description: 'KNYT Codex home and overview',
+        color: 'purple'
+      }
+    },
+    {
+      id: 'scrolls',
+      label: 'Scrolls',
+      slug: 'scrolls',
+      enabled: true,
+      order: 1,
+      type: 'static',
+      config: {
+        component: 'ScrollsTab',
+        // Uses existing API: /api/admin/codex/status?series=metaKnyts
+        // Backward compatible with Qriptopian useCodexEpisodes hook
+      },
+      metadata: {
+        icon: 'Scroll',
+        description: 'Sacred scrolls and ancient texts',
+        badge: '12'
+      }
+    },
+    {
+      id: 'characters',
+      label: 'Characters',
+      slug: 'characters',
+      enabled: true,
+      order: 2,
+      type: 'static',
+      config: {
+        component: 'CharactersTab',
+        // Uses existing API: /api/codex/knyt-cards
+        // Backward compatible with Qriptopian useCodexCharacters hook
+      },
+      metadata: {
+        icon: 'Users',
+        description: 'Key characters and personas'
+      }
+    },
+    {
+      id: 'lore',
+      label: 'Lore',
+      slug: 'lore',
+      enabled: true,
+      order: 3,
+      type: 'static',
+      config: {
+        component: 'LoreTab'
+      },
+      metadata: {
+        icon: 'BookMarked',
+        description: 'World lore and mythology'
+      }
+    },
+    {
+      id: 'digiterra',
+      label: 'DigiTerra',
+      slug: 'digiterra',
+      enabled: true,
+      order: 4,
+      type: 'static',
+      config: {
+        component: 'DigiTerraTab'
+      },
+      metadata: {
+        icon: 'Globe',
+        description: 'Digital realm and territories'
+      }
+    },
+    {
+      id: 'terra',
+      label: 'Terra',
+      slug: 'terra',
+      enabled: true,
+      order: 5,
+      type: 'static',
+      config: {
+        component: 'TerraTab'
+      },
+      metadata: {
+        icon: 'Mountain',
+        description: 'Physical world and locations'
+      }
+    },
+    {
+      id: 'order',
+      label: 'Order',
+      slug: 'order',
+      enabled: true,
+      order: 6,
+      type: 'static',
+      config: {
+        component: 'OrderTab'
+      },
+      metadata: {
+        icon: 'Shield',
+        description: 'Orders, factions, and organizations'
+      }
+    },
+    {
+      id: 'qriptopia',
+      label: 'Qriptopia',
+      slug: 'qriptopia',
+      enabled: true,
+      order: 7,
+      type: 'static',
+      config: {
+        component: 'QriptopiaTab'
+      },
+      metadata: {
+        icon: 'Sparkles',
+        description: 'The vision of Qriptopia'
+      }
+    }
+  ],
+  permissions: {
+    view: ['*'],
+    edit: ['aigent-kn0w1', 'aigent-z'],
+    admin: ['aigent-z']
+  },
+  liquidUI: {
+    enabled: true,
+    templateId: 'knyt-codex-v1'
+  },
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString()
+};
+
+export const QRIPTO_CODEX: CodexConfig = {
+  id: 'qripto-codex',
+  name: 'Qripto Codex',
+  slug: 'qripto',
+  enabled: true,
+  version: '1.0.0',
+  owner: 'qriptopian',
+  metadata: {
+    description: 'The Qriptopian knowledge base, features, and community',
+    icon: 'Newspaper',
+    color: 'indigo',
+    category: 'publication',
+    tags: ['qriptopian', 'news', 'features', 'community']
+  },
+  tabs: [
+    {
+      id: 'codex',
+      label: 'Codex',
+      slug: 'codex',
+      enabled: true,
+      order: 0,
+      type: 'liquid-ui',
+      config: {
+        liquidTemplate: 'qripto-codex-home',
+        dataSource: '/api/codex/qripto/home'
+      },
+      metadata: {
+        icon: 'Home',
+        description: 'Qripto Codex home and overview',
+        color: 'indigo'
+      }
+    },
+    {
+      id: 'features',
+      label: 'Features',
+      slug: 'features',
+      enabled: true,
+      order: 1,
+      type: 'static',
+      config: {
+        component: 'FeaturesTab',
+        // Integrates Qriptopian home content: hero articles, latest news, second hero
+        // Backward compatible with existing Supabase content structure
+        // Uses APIs: /api/content/section/home-hero, /api/content/section/latest-news, /api/content/section/second-hero
+      },
+      metadata: {
+        icon: 'Star',
+        description: 'Featured articles and stories from The Qriptopian home page'
+      }
+    },
+    {
+      id: 'pennydrops',
+      label: 'PennyDrops',
+      slug: 'pennydrops',
+      enabled: true,
+      order: 2,
+      type: 'dynamic',
+      config: {
+        component: 'PennyDropsTab',
+        dataSource: '/api/codex/qripto/pennydrops'
+      },
+      metadata: {
+        icon: 'Coins',
+        description: 'MoneyPenny wisdom and insights',
+        badge: 'New'
+      }
+    },
+    {
+      id: 'scrolls',
+      label: 'Scrolls',
+      slug: 'scrolls',
+      enabled: true,
+      order: 3,
+      type: 'static',
+      config: {
+        component: 'QriptoScrollsTab'
+      },
+      metadata: {
+        icon: 'Scroll',
+        description: 'Qriptopian scrolls and archives'
+      }
+    },
+    {
+      id: 'kn0wdz',
+      label: 'Kn0wdZ',
+      slug: 'kn0wdz',
+      enabled: true,
+      order: 4,
+      type: 'static',
+      config: {
+        component: 'Kn0wdZTab'
+      },
+      metadata: {
+        icon: 'Brain',
+        description: 'Knowledge base and learning resources'
+      }
+    },
+    {
+      id: 'rewards',
+      label: 'Rewards',
+      slug: 'rewards',
+      enabled: true,
+      order: 5,
+      type: 'dynamic',
+      config: {
+        component: 'RewardsTab',
+        dataSource: '/api/codex/qripto/rewards'
+      },
+      metadata: {
+        icon: 'Gift',
+        description: 'Community rewards and achievements'
+      }
+    },
+    {
+      id: 'qriptopia',
+      label: 'Qriptopia',
+      slug: 'qriptopia',
+      enabled: true,
+      order: 6,
+      type: 'static',
+      config: {
+        component: 'QriptopiaTab'
+      },
+      metadata: {
+        icon: 'Sparkles',
+        description: 'The vision of Qriptopia'
+      }
+    }
+  ],
+  permissions: {
+    view: ['*'],
+    edit: ['qriptopian', 'aigent-z'],
+    admin: ['aigent-z']
+  },
+  liquidUI: {
+    enabled: true,
+    templateId: 'qripto-codex-v1'
+  },
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString()
+};
+
+export const AIGENTIQ_CODEX: CodexConfig = {
+  id: 'aigentiq-codex',
+  name: 'AigentiQ Codex',
+  slug: 'aigentiq',
+  enabled: true,
+  version: '1.0.0',
+  owner: 'aigent-z',
+  metadata: {
+    description: 'AigentiQ platform documentation, guides, and resources',
+    icon: 'Zap',
+    color: 'blue',
+    category: 'platform',
+    tags: ['aigentiq', 'platform', 'documentation', 'api']
+  },
+  tabs: [
+    {
+      id: 'codex',
+      label: 'Codex',
+      slug: 'codex',
+      enabled: true,
+      order: 0,
+      type: 'liquid-ui',
+      config: {
+        liquidTemplate: 'aigentiq-codex-home',
+        dataSource: '/api/codex/aigentiq/home'
+      },
+      metadata: {
+        icon: 'Home',
+        description: 'AigentiQ Codex home',
+        color: 'blue'
+      }
+    },
+    {
+      id: 'docs',
+      label: 'Documentation',
+      slug: 'docs',
+      enabled: true,
+      order: 1,
+      type: 'static',
+      config: {
+        component: 'DocsTab'
+      },
+      metadata: {
+        icon: 'FileText',
+        description: 'Platform documentation'
+      }
+    },
+    {
+      id: 'api',
+      label: 'API Reference',
+      slug: 'api',
+      enabled: true,
+      order: 2,
+      type: 'static',
+      config: {
+        component: 'APITab'
+      },
+      metadata: {
+        icon: 'Code',
+        description: 'API reference and endpoints'
+      }
+    },
+    {
+      id: 'tutorials',
+      label: 'Tutorials',
+      slug: 'tutorials',
+      enabled: true,
+      order: 3,
+      type: 'static',
+      config: {
+        component: 'TutorialsTab'
+      },
+      metadata: {
+        icon: 'GraduationCap',
+        description: 'Step-by-step tutorials'
+      }
+    }
+  ],
+  permissions: {
+    view: ['*'],
+    edit: ['aigent-z'],
+    admin: ['aigent-z']
+  },
+  liquidUI: {
+    enabled: true,
+    templateId: 'aigentiq-codex-v1'
+  },
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString()
+};
+
+export const CODEX_DEFINITIONS: CodexConfig[] = [
+  KNYT_CODEX,
+  QRIPTO_CODEX,
+  AIGENTIQ_CODEX
+];
+
+export function getCodexById(id: string): CodexConfig | undefined {
+  return CODEX_DEFINITIONS.find(codex => codex.id === id);
+}
+
+export function getCodexBySlug(slug: string): CodexConfig | undefined {
+  return CODEX_DEFINITIONS.find(codex => codex.slug === slug);
+}
+
+export function getEnabledCodexes(): CodexConfig[] {
+  return CODEX_DEFINITIONS.filter(codex => codex.enabled);
+}

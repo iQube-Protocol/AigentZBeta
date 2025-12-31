@@ -1,9 +1,11 @@
 /**
- * KNYT Codex Embed Page
+ * Default Codex Embed Page (Backward Compatibility)
  * 
- * Full-panel KNYT Codex for iframe embedding.
+ * Defaults to KNYT Codex for backward compatibility.
+ * For new implementations, use: /triad/embed/codex/[codexSlug]
+ * 
  * Query params:
- * - tab: 'scrolls' | 'characters' | 'lore' | 'digiterra' | 'terra' | 'order' (optional)
+ * - tab: string (optional)
  * - theme: 'light' | 'dark' (optional)
  * - density: 'narrow' | 'wide' (optional)
  * - personaId: string (optional)
@@ -13,22 +15,33 @@
 
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
-import CodexPanel from "../../../../triad/components/CodexPanel";
+import CodexPanelDynamic from "../../../../triad/components/CodexPanelDynamic";
 
 function CodexContent() {
   const searchParams = useSearchParams();
-  const tab = searchParams.get('tab') || 'scrolls';
+  const tab = searchParams.get('tab') || undefined;
   const theme = (searchParams.get('theme') as 'light' | 'dark') || 'dark';
   const density = (searchParams.get('density') as 'narrow' | 'wide') || 'wide';
+  const personaId = searchParams.get('personaId') || undefined;
 
-  return <CodexPanel theme={theme} density={density} initialTab={tab} />;
+  // Default to KNYT Codex for backward compatibility
+  return (
+    <CodexPanelDynamic
+      codexId="knyt-codex"
+      theme={theme}
+      density={density}
+      initialTab={tab}
+      personaId={personaId}
+      useDefaults={true}
+    />
+  );
 }
 
 export default function CodexEmbedPage() {
   return (
     <Suspense fallback={
       <div className="flex items-center justify-center h-full bg-slate-900">
-        <div className="text-white">Loading KNYT Codex...</div>
+        <div className="text-white">Loading Codex...</div>
       </div>
     }>
       <CodexContent />

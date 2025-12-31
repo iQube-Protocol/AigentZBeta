@@ -1,15 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import CodexPanel from "../../../triad/components/CodexPanel";
+import CodexPanelDynamic from "../../../triad/components/CodexPanelDynamic";
 import { BookOpen, Settings, Code } from "lucide-react";
 
 export default function CodexViewerPage() {
+  const [codexId, setCodexId] = useState('knyt-codex');
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [density, setDensity] = useState<'narrow' | 'wide'>('wide');
   const [activeTab, setActiveTab] = useState('scrolls');
 
-  const embedUrl = `https://dev-beta.aigentz.me/triad/embed/codex?tab=${activeTab}&theme=${theme}&density=${density}`;
+  const codexSlug = codexId.replace('-codex', '');
+  const embedUrl = `https://dev-beta.aigentz.me/triad/embed/codex/${codexSlug}?tab=${activeTab}&theme=${theme}&density=${density}`;
 
   return (
     <div className="h-screen flex flex-col bg-slate-900">
@@ -19,8 +21,8 @@ export default function CodexViewerPage() {
           <div className="flex items-center gap-3">
             <BookOpen className="w-6 h-6 text-purple-400" />
             <div>
-              <h1 className="text-xl font-bold text-white">KNYT Codex Viewer</h1>
-              <p className="text-sm text-slate-400">Test and configure the Codex embed component</p>
+              <h1 className="text-xl font-bold text-white">Multi-Codex Viewer</h1>
+              <p className="text-sm text-slate-400">Test and configure Codex embed components</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -34,6 +36,30 @@ export default function CodexViewerPage() {
         {/* Control Panel */}
         <div className="w-80 flex-shrink-0 border-r border-slate-700/50 bg-slate-800/30 p-6 overflow-y-auto">
           <div className="space-y-6">
+            {/* Codex Selection */}
+            <div>
+              <label className="block text-sm font-semibold text-slate-300 mb-3">Select Codex</label>
+              <div className="flex flex-col gap-2">
+                {[
+                  { id: 'knyt-codex', label: 'KNYT Codex', color: 'purple' },
+                  { id: 'qripto-codex', label: 'Qripto Codex', color: 'indigo' },
+                  { id: 'aigentiq-codex', label: 'AigentiQ Codex', color: 'blue' }
+                ].map((codex) => (
+                  <button
+                    key={codex.id}
+                    onClick={() => setCodexId(codex.id)}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      codexId === codex.id
+                        ? `bg-${codex.color}-500 text-white`
+                        : 'bg-slate-700/50 text-slate-400 hover:bg-slate-700'
+                    }`}
+                  >
+                    {codex.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Theme Control */}
             <div>
               <label className="block text-sm font-semibold text-slate-300 mb-3">Theme</label>
@@ -143,7 +169,13 @@ export default function CodexViewerPage() {
 
         {/* Component Preview */}
         <div className="flex-1 overflow-hidden">
-          <CodexPanel theme={theme} density={density} initialTab={activeTab} />
+          <CodexPanelDynamic 
+            codexId={codexId}
+            theme={theme} 
+            density={density} 
+            initialTab={activeTab}
+            useDefaults={true}
+          />
         </div>
       </div>
     </div>
