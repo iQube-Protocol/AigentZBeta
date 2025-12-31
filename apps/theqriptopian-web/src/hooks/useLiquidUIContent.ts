@@ -29,25 +29,21 @@ export function useLiquidUIContent(section: ContentSection, tab?: ContentTab) {
     setIsLoading(true);
     setError(null);
     
-    // For local development, always use the live API to avoid proxy issues
-    const absoluteApiUrl = import.meta.env.VITE_API_URL || 'https://dev-beta.aigentz.me';
+    // Determine if we're on localhost or production
     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    
-    // In local development, use absolute URL to avoid proxy issues
-    // In production, use relative URL for Netlify proxy
-    const useAbsolute = isLocalhost || (absoluteApiUrl && !absoluteApiUrl.includes('localhost'));
     
     const tabParam = targetTab ? `&tab=${targetTab}` : '';
     // Add multiple cache-busting parameters
     const cacheBuster = `t=${Date.now()}&r=${Math.random()}`;
     
-    // Construct URL based on whether using absolute or relative
-    const fullUrl = useAbsolute 
-      ? `${absoluteApiUrl}/api/content/section/${targetSection}?${cacheBuster}${tabParam}`
+    // On localhost, use absolute URL to live API (avoid proxy issues)
+    // On production Netlify, use relative URL (uses Netlify proxy to backend)
+    const fullUrl = isLocalhost
+      ? `https://dev-beta.aigentz.me/api/content/section/${targetSection}?${cacheBuster}${tabParam}`
       : `/api/content/section/${targetSection}?${cacheBuster}${tabParam}`;
     
     console.log(`[useLiquidUIContent] Fetching from: ${fullUrl}`);
-    console.log(`[useLiquidUIContent] Using ${useAbsolute ? 'absolute' : 'relative'} URL`);
+    console.log(`[useLiquidUIContent] Using ${isLocalhost ? 'absolute' : 'relative'} URL`);
     
     try {
       const response = await fetch(fullUrl, {
