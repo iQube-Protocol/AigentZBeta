@@ -102,9 +102,16 @@ export function ScrollsDrawer({ isOpen, onClose }: ScrollsDrawerProps) {
                   alt={item.title}
                   className="absolute inset-0 w-full h-full object-cover"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                {/* Title and Excerpt Overlay */}
+                <div className="absolute bottom-0 left-0 right-0 p-4">
+                  <h3 className="text-white font-semibold text-lg mb-1 line-clamp-2">{item.title}</h3>
+                  {item.description && (
+                    <p className="text-white/80 text-sm line-clamp-2">{item.description}</p>
+                  )}
+                </div>
                 {/* SmartContentActions overlay */}
-                <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                   <SmartContentActions
                     modalities={item.modalities as ContentModalities || null}
                     context="card"
@@ -142,8 +149,16 @@ export function ScrollsDrawer({ isOpen, onClose }: ScrollsDrawerProps) {
                       alt={item.title}
                       className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                     />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent" />
+                    {/* Title and Excerpt Overlay */}
+                    <div className="absolute bottom-0 left-0 right-0 p-2">
+                      <h4 className="text-white font-medium text-xs mb-0.5 line-clamp-1">{item.title}</h4>
+                      {item.description && (
+                        <p className="text-white/70 text-[10px] line-clamp-1">{item.description}</p>
+                      )}
+                    </div>
                     {/* SmartContentActions on thumbnails */}
-                    <div className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <SmartContentActions
                         modalities={item.modalities as ContentModalities || null}
                         context="thumbnail"
