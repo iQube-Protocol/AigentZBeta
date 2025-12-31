@@ -13,7 +13,8 @@ import {
   TrendingUp,
   Shield,
   Upload,
-  Library
+  Library,
+  BarChart3
 } from 'lucide-react';
 
 export default function AdminDashboard() {
@@ -53,6 +54,7 @@ export default function AdminDashboard() {
   }
 
   const sections = [
+    { name: 'Social Analytics', path: '/analytics', icon: BarChart3, description: 'View social sharing analytics', highlight: true },
     { name: 'Bulk Import', path: '/admin/content/import', icon: Upload, description: 'Import multiple content items' },
     { name: 'Codex', path: '/admin/content/codex', icon: Library, description: 'Digital Scrolls & Collectibles' },
     { name: 'Home Hero', path: '/admin/content/home-hero', icon: LayoutGrid, description: '3 main hero articles' },

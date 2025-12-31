@@ -35,20 +35,31 @@ export default function ArticlePage() {
     // Fetch the full article data
     const fetchArticle = async () => {
       try {
-        const apiUrl = import.meta.env.VITE_API_URL || 'https://dev-beta.aigentz.me';
-        const response = await fetch(`${apiUrl}/api/content/section/${urlArticle.section || 'latest-news'}`);
+        // Use relative URL for Netlify proxy (production) or absolute for localhost
+        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        const cacheBuster = `t=${Date.now()}&r=${Math.random()}`;
+        const apiPath = `/api/content/section/${urlArticle.section || 'latest-news'}?${cacheBuster}`;
+        const fullUrl = isLocalhost 
+          ? `https://dev-beta.aigentz.me${apiPath}`
+          : apiPath;
+        
+        console.log('[ArticlePage] Fetching from:', fullUrl);
+        const response = await fetch(fullUrl);
         
         if (!response.ok) {
           throw new Error(`Failed to fetch article: ${response.status}`);
         }
         
         const data = await response.json();
+        console.log('[ArticlePage] Received data:', data);
         const foundArticle = data.content.find((item: any) => item.id === urlArticle.id);
         
         if (!foundArticle) {
+          console.error('[ArticlePage] Article not found. Available IDs:', data.content.map((c: any) => c.id));
           throw new Error('Article not found');
         }
 
+        console.log('[ArticlePage] Found article:', foundArticle);
         setArticle(foundArticle);
         
         // Update page metadata
