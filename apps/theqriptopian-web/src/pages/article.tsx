@@ -35,6 +35,8 @@ export default function ArticlePage() {
     // Fetch the full article data
     const fetchArticle = async () => {
       try {
+        console.log('[ArticlePage] URL Article data:', urlArticle);
+        
         // Use relative URL for Netlify proxy (production) or absolute for localhost
         const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
         const cacheBuster = `t=${Date.now()}&r=${Math.random()}`;
@@ -44,19 +46,33 @@ export default function ArticlePage() {
           : apiPath;
         
         console.log('[ArticlePage] Fetching from:', fullUrl);
-        const response = await fetch(fullUrl);
+        console.log('[ArticlePage] Looking for article ID:', urlArticle.id);
+        
+        const response = await fetch(fullUrl, {
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+          }
+        });
         
         if (!response.ok) {
+          console.error('[ArticlePage] API response not OK:', response.status, response.statusText);
           throw new Error(`Failed to fetch article: ${response.status}`);
         }
         
         const data = await response.json();
         console.log('[ArticlePage] Received data:', data);
-        const foundArticle = data.content.find((item: any) => item.id === urlArticle.id);
+        console.log('[ArticlePage] Content count:', data.content?.length || 0);
+        
+        const foundArticle = data.content?.find((item: any) => item.id === urlArticle.id);
         
         if (!foundArticle) {
-          console.error('[ArticlePage] Article not found. Available IDs:', data.content.map((c: any) => c.id));
-          throw new Error('Article not found');
+          console.error('[ArticlePage] Article not found!');
+          console.error('[ArticlePage] Looking for ID:', urlArticle.id);
+          console.error('[ArticlePage] Available IDs:', data.content?.map((c: any) => c.id) || []);
+          throw new Error('Article not found in this section. The content may have been moved or deleted.');
         }
 
         console.log('[ArticlePage] Found article:', foundArticle);
