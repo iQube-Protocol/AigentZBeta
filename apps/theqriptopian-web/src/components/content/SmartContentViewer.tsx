@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Play, X, Maximize2, BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { 
@@ -22,6 +22,7 @@ interface SmartContentViewerProps {
   items: ContentItem[];
   domain: string;
   hideActionIcons?: boolean;
+  initialIndex?: number;
   onFullscreenChange?: (isFullscreen: boolean) => void;
 }
 
@@ -29,13 +30,19 @@ export function SmartContentViewer({
   items, 
   domain, 
   hideActionIcons = false,
+  initialIndex = 0,
   onFullscreenChange 
 }: SmartContentViewerProps) {
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [activeIndex, setActiveIndex] = useState(initialIndex);
   const [isFullscreen, setIsFullscreen] = useState(false);
   
   // Use global SmartContent action handler
   const { executeAction } = useSmartContentAction();
+
+  // Sync activeIndex with initialIndex prop changes
+  useEffect(() => {
+    setActiveIndex(initialIndex);
+  }, [initialIndex]);
 
   const activeItem = items[activeIndex];
 

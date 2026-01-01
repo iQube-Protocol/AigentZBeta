@@ -24,6 +24,7 @@ interface PennyDropsDrawerProps {
 
 export function PennyDropsDrawer({ isOpen, onClose }: PennyDropsDrawerProps) {
   const [activeTab] = useState('stories');
+  const [selectedIndex, setSelectedIndex] = useState(0);
   const [fullscreenIndex, setFullscreenIndex] = useState<number | null>(null);
   const { requestAvatar, releaseAvatar } = useMetaAvatar();
   
@@ -78,6 +79,7 @@ export function PennyDropsDrawer({ isOpen, onClose }: PennyDropsDrawerProps) {
             <SmartContentViewer
               items={pennyDropsContent}
               domain="pennydrops"
+              initialIndex={selectedIndex}
               onFullscreenChange={(isFullscreen) => {
                 if (!isFullscreen) setFullscreenIndex(null);
               }}
@@ -103,11 +105,11 @@ export function PennyDropsDrawer({ isOpen, onClose }: PennyDropsDrawerProps) {
               {pennyDropsContent.map((item, index) => (
                 <CarouselItem key={item.id} className="pl-4 basis-1/4">
                   <div
-                    onClick={() => setFullscreenIndex(index)}
-                    className="group relative aspect-[47/20] w-full overflow-hidden rounded-lg bg-black cursor-pointer"
+                    onClick={() => setSelectedIndex(index)}
+                    className={`group relative aspect-[47/20] w-full overflow-hidden rounded-lg bg-black cursor-pointer transition-all ${selectedIndex === index ? 'ring-2 ring-cyan-400' : 'opacity-70 hover:opacity-100'}`}
                     role="button"
                     tabIndex={0}
-                    onKeyDown={(e) => e.key === 'Enter' && setFullscreenIndex(index)}
+                    onKeyDown={(e) => e.key === 'Enter' && setSelectedIndex(index)}
                   >
                     <img
                       src={item.image}
@@ -124,28 +126,8 @@ export function PennyDropsDrawer({ isOpen, onClose }: PennyDropsDrawerProps) {
                       </div>
                     )}
 
-                    {/* SmartContentActions on thumbnails */}
-                    <div className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                      <SmartContentActions
-                        modalities={item.modalities as ContentModalities || null}
-                        context="thumbnail"
-                        showExpand={true}
-                        showShare={false}
-                        size="sm"
-                        onAction={(action) => {
-                          // Expand is handled locally for fullscreen
-                          if (action === 'expand') {
-                            setFullscreenIndex(index);
-                          } else {
-                            // All other actions use global handler
-                            createHandler(item)(action);
-                          }
-                        }}
-                      />
-                    </div>
-
-                    <div className="absolute bottom-2 left-2 right-10">
-                      <p className="text-white text-xs font-medium line-clamp-2">
+                    <div className="absolute bottom-2 left-2 right-2">
+                      <p className="text-white text-sm font-medium line-clamp-2">
                         {item.title}
                       </p>
                     </div>

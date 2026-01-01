@@ -141,7 +141,7 @@ export function Kn0wdZDrawer({ isOpen, onClose }: Kn0wdZDrawerProps) {
                 onAction={currentContent[selectedIndex] ? createHandler(currentContent[selectedIndex]) : () => {}}
               />
             </div>
-            <div className="absolute bottom-3 left-3 right-3"><p className="text-white text-sm font-medium line-clamp-2">{currentContent[selectedIndex]?.title}</p></div>
+            <div className="absolute bottom-3 left-3 right-3"><p className="text-white text-base font-medium line-clamp-2">{currentContent[selectedIndex]?.title}</p></div>
           </div>
           )}
 
@@ -197,26 +197,7 @@ export function Kn0wdZDrawer({ isOpen, onClose }: Kn0wdZDrawerProps) {
               <CarouselItem key={item.id} className="pl-2 basis-1/4">
                 <div onClick={() => setSelectedIndex(index)} className={`group relative aspect-video w-full overflow-hidden rounded-md bg-black cursor-pointer transition-all ${selectedIndex === index ? 'ring-2 ring-cyan-400' : 'opacity-70 hover:opacity-100'}`}>
                   <img src={item.image} alt={item.title} className="absolute inset-0 w-full h-full object-cover" />
-                  <div className="absolute bottom-1 left-1 right-1"><p className="text-white text-[10px] font-medium line-clamp-1">{item.title}</p></div>
-                  {/* SmartContentActions on thumbnails */}
-                  <div className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <SmartContentActions
-                      modalities={item.modalities as ContentModalities || null}
-                      context="thumbnail"
-                      showExpand={true}
-                      showShare={false}
-                      onAction={(action) => {
-                        // Expand is handled locally for carousel selection
-                        if (action === 'expand') {
-                          setSelectedIndex(index);
-                        } else {
-                          // All other actions use global handler
-                          createHandler(item)(action);
-                        }
-                      }}
-                      size="sm"
-                    />
-                  </div>
+                  <div className="absolute bottom-1 left-1 right-1"><p className="text-white text-[11px] font-medium line-clamp-1">{item.title}</p></div>
                 </div>
               </CarouselItem>
             ))}
