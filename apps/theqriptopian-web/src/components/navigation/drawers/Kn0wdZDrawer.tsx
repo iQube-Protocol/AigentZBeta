@@ -82,9 +82,10 @@ export function Kn0wdZDrawer({ isOpen, onClose }: Kn0wdZDrawerProps) {
   const { createHandler } = useSmartContentAction();
   
   // Get 21knowdz content from Liquid UI Issue Package v1.4
-  const { content: devContentLiquid } = useLiquidUIContent('21knowdz', 'developer');
+  // Using admin portal tab names: 'dev', 'creative', 'exec'
+  const { content: devContentLiquid } = useLiquidUIContent('21knowdz', 'dev');
   const { content: creativeContentLiquid } = useLiquidUIContent('21knowdz', 'creative');
-  const { content: execContentLiquid } = useLiquidUIContent('21knowdz', 'executive');
+  const { content: execContentLiquid } = useLiquidUIContent('21knowdz', 'exec');
   
   // Transform Liquid UI content to component format
   const kn0wdZContent = [...devContentLiquid, ...creativeContentLiquid, ...execContentLiquid].map(item => ({
