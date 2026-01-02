@@ -362,7 +362,7 @@ export default function SmartWalletDrawer({
         };
         
         // Import and use the social sharing utility
-        const { showSocialSharingDialog } = await import('@/utils/articleSharing');
+        const { showSocialSharingDialog } = await import('@/utils/socialSharing');
         showSocialSharingDialog(shareMetadata, personaId);
       }
     } catch (error) {

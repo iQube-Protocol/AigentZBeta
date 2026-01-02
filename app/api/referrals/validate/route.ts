@@ -16,17 +16,24 @@ export async function POST(request: NextRequest) {
     
     let persona = null;
     
+    // Normalize format: convert 'user@knyt' to '@knyt:user'
+    let normalized = identifier;
+    if (identifier.includes('@') && !identifier.startsWith('@')) {
+      const [user, domain] = identifier.split('@');
+      normalized = `@${domain}:${user}`;
+    }
+    
     // Determine identifier type and search
-    if (identifier.startsWith('@knyt:')) {
-      const handle = identifier.replace('@knyt:', '') + '@knyt';
+    if (normalized.startsWith('@knyt:')) {
+      const handle = normalized.replace('@knyt:', '') + '@knyt';
       const { data } = await supabase
         .from('personas')
         .select('id, fio_handle, display_name')
         .eq('fio_handle', handle)
         .single();
       persona = data;
-    } else if (identifier.startsWith('@qripto:')) {
-      const handle = identifier.replace('@qripto:', '') + '@qripto';
+    } else if (normalized.startsWith('@qripto:')) {
+      const handle = normalized.replace('@qripto:', '') + '@qripto';
       const { data } = await supabase
         .from('personas')
         .select('id, fio_handle, display_name')
