@@ -37,16 +37,11 @@ export default function ArticlePage() {
       try {
         console.log('[ArticlePage] URL Article data:', urlArticle);
         
-        // Use relative URL for Netlify proxy (production) or absolute for localhost
-        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        const cacheBuster = `t=${Date.now()}&r=${Math.random()}`;
-        const apiPath = `/api/content/section/${urlArticle.section || 'latest-news'}?${cacheBuster}`;
-        const fullUrl = isLocalhost 
-          ? `https://dev-beta.aigentz.me${apiPath}`
-          : apiPath;
+        // Use direct article fetch by ID
+        const apiBase = import.meta.env.VITE_AIGENT_API_URL || '';
+        const fullUrl = `${apiBase}/api/content/smart/${urlArticle.id}`;
         
-        console.log('[ArticlePage] Fetching from:', fullUrl);
-        console.log('[ArticlePage] Looking for article ID:', urlArticle.id);
+        console.log('[ArticlePage] Fetching article directly from:', fullUrl);
         
         const response = await fetch(fullUrl, {
           cache: 'no-store',
@@ -62,21 +57,22 @@ export default function ArticlePage() {
           throw new Error(`Failed to fetch article: ${response.status}`);
         }
         
-        const data = await response.json();
-        console.log('[ArticlePage] Received data:', data);
-        console.log('[ArticlePage] Content count:', data.content?.length || 0);
+        const result = await response.json();
+        console.log('[ArticlePage] Received data:', result);
         
-        const foundArticle = data.content?.find((item: any) => item.id === urlArticle.id);
-        
-        if (!foundArticle) {
-          console.error('[ArticlePage] Article not found!');
-          console.error('[ArticlePage] Looking for ID:', urlArticle.id);
-          console.error('[ArticlePage] Available IDs:', data.content?.map((c: any) => c.id) || []);
-          throw new Error('Article not found in this section. The content may have been moved or deleted.');
+        if (!result.success || !result.data) {
+          console.error('[ArticlePage] Article not found or API error');
+          throw new Error('Article not found or has been removed.');
         }
 
+        const foundArticle = result.data;
         console.log('[ArticlePage] Found article:', foundArticle);
         setArticle(foundArticle);
+        
+        // Track social share conversion if persona is present
+        if (urlPersona) {
+          trackSocialConversion(urlArticle.id, urlPersona);
+        }
         
         // Update page metadata
         document.title = `${foundArticle.title} - Qriptopian`;
@@ -100,6 +96,25 @@ export default function ArticlePage() {
 
     fetchArticle();
   }, []);
+
+  const trackSocialConversion = async (articleId: string, personaId: string) => {
+    try {
+      const apiBase = import.meta.env.VITE_AIGENT_API_URL || '';
+      await fetch(`${apiBase}/api/social/track`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          personaId,
+          platform: document.referrer ? new URL(document.referrer).hostname : 'direct',
+          action: 'conversion',
+          metadata: { articleId, deepLink: window.location.href }
+        })
+      });
+      console.log('[ArticlePage] Social conversion tracked for persona:', personaId);
+    } catch (error) {
+      console.error('[ArticlePage] Failed to track social conversion:', error);
+    }
+  };
 
   const updateOpenGraphTags = (articleData: any, persona: string | null) => {
     const ogUrl = window.location.href;
