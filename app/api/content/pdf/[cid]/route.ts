@@ -18,14 +18,8 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 // CORS headers for cross-origin requests from thin client
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-};
-
 export async function OPTIONS() {
-  return new NextResponse(null, { headers: corsHeaders });
+  return new NextResponse(null);
 }
 
 const supabase = createClient(
@@ -50,7 +44,7 @@ async function streamDecryptedContent(asset: {
 
   if (tokenError || !tokenQube) {
     console.error('[PDFStream] Token qube query error:', tokenError);
-    return NextResponse.json({ error: `Token qube not found: ${tokenError?.message || 'unknown'}` }, { status: 404, headers: corsHeaders });
+    return NextResponse.json({ error: `Token qube not found: ${tokenError?.message || 'unknown'}` }, { status: 404,  });
   }
 
   // Unwrap the content key
@@ -62,13 +56,13 @@ async function streamDecryptedContent(asset: {
     });
   } catch (err) {
     console.error('[PDFStream] Key unwrap error:', err);
-    return NextResponse.json({ error: 'Failed to unwrap content key' }, { status: 500, headers: corsHeaders });
+    return NextResponse.json({ error: 'Failed to unwrap content key' }, { status: 500,  });
   }
 
   // Download encrypted content from Autonomys
   const apiKey = process.env.AUTONOMYS_API_KEY;
   if (!apiKey) {
-    return NextResponse.json({ error: 'Autonomys not configured' }, { status: 500, headers: corsHeaders });
+    return NextResponse.json({ error: 'Autonomys not configured' }, { status: 500,  });
   }
   // Use SDK v1.6.4+ with proper network support
   const api = createAutoDriveApi({ apiKey, network: NetworkId.MAINNET });
@@ -98,7 +92,7 @@ async function streamDecryptedContent(asset: {
     });
   } catch (err) {
     console.error('[PDFStream] Decryption error:', err);
-    return NextResponse.json({ error: 'Failed to decrypt content' }, { status: 500, headers: corsHeaders });
+    return NextResponse.json({ error: 'Failed to decrypt content' }, { status: 500,  });
   }
 
   // Return PDF with headers that prevent downloading
@@ -109,10 +103,6 @@ async function streamDecryptedContent(asset: {
       'Cache-Control': 'no-store, no-cache, must-revalidate, private',
       'X-Content-Type-Options': 'nosniff',
       'X-Frame-Options': 'SAMEORIGIN',
-      // CORS headers for cross-origin requests from Vite dev server
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
     },
   });
 }
@@ -158,7 +148,7 @@ export async function GET(
         .single();
 
       if (assetError || !asset) {
-        return NextResponse.json({ error: 'PDF not found' }, { status: 404, headers: corsHeaders });
+        return NextResponse.json({ error: 'PDF not found' }, { status: 404,  });
       }
 
       return await streamDecryptedContent(asset);
@@ -170,7 +160,7 @@ export async function GET(
     console.error('[PDFStream] Error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Stream failed' },
-      { status: 500, headers: corsHeaders }
+      { status: 500,  }
     );
   }
 }

@@ -7,14 +7,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getKnowledgeBaseService } from '@/services/content/knowledgeBaseService';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-};
-
 export async function OPTIONS() {
-  return new NextResponse(null, { status: 204, headers: corsHeaders });
+  return new NextResponse(null, { status: 204,  });
 }
 
 /**
@@ -52,13 +46,13 @@ export async function POST(request: NextRequest) {
         before: statsBefore,
         after: statsAfter,
       },
-    }, { headers: corsHeaders });
+    });
 
   } catch (error) {
     console.error('[KB Process API] Error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500, headers: corsHeaders }
+      { status: 500,  }
     );
   }
 }

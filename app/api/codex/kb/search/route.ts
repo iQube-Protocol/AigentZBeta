@@ -8,14 +8,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getKnowledgeBaseService } from '@/services/content/knowledgeBaseService';
 import type { ContentDomain } from '@/services/content/knowledgeBaseService';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-};
-
 export async function OPTIONS() {
-  return new NextResponse(null, { status: 204, headers: corsHeaders });
+  return new NextResponse(null, { status: 204,  });
 }
 
 /**
@@ -38,7 +32,7 @@ export async function GET(request: NextRequest) {
     if (!query) {
       return NextResponse.json(
         { error: 'Query parameter "q" is required' },
-        { status: 400, headers: corsHeaders }
+        { status: 400,  }
       );
     }
 
@@ -66,13 +60,13 @@ export async function GET(request: NextRequest) {
         totalTokens,
         maxTokens,
       },
-    }, { headers: corsHeaders });
+    });
 
   } catch (error) {
     console.error('[KB Search API] Error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500, headers: corsHeaders }
+      { status: 500,  }
     );
   }
 }

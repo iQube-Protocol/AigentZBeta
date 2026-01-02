@@ -13,12 +13,6 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-};
-
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -141,17 +135,17 @@ export async function GET(request: NextRequest) {
       }))
     };
 
-    return NextResponse.json(analytics, { headers: corsHeaders });
+    return NextResponse.json(analytics);
 
   } catch (error) {
     console.error('[Analytics/Dashboard] Error:', error);
     return NextResponse.json({ 
       error: 'Failed to fetch analytics data',
       details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500, headers: corsHeaders });
+    }, { status: 500,  });
   }
 }
 
 export async function OPTIONS() {
-  return new Response(null, { headers: corsHeaders });
+  return new Response(null);
 }

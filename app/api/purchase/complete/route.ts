@@ -9,12 +9,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPurchaseHandler } from '@/services/rewards/purchaseHandler';
 
 // CORS headers for cross-origin requests from thin client
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-};
-
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -38,13 +32,13 @@ export async function POST(request: NextRequest) {
       });
       return NextResponse.json({ 
         error: 'personaId, productType, and paymentRail are required' 
-      }, { status: 400, headers: corsHeaders });
+      }, { status: 400,  });
     }
     
     if (!['qc', 'knyt', 'usdc', 'paypal'].includes(paymentRail)) {
       return NextResponse.json({ 
         error: 'paymentRail must be qc, knyt, usdc, or paypal' 
-      }, { status: 400, headers: corsHeaders });
+      }, { status: 400,  });
     }
     
     const purchaseHandler = getPurchaseHandler();
@@ -63,7 +57,7 @@ export async function POST(request: NextRequest) {
     
     if (!result.success) {
       console.error('[Purchase API] Purchase failed:', result.error);
-      return NextResponse.json({ error: result.error }, { status: 400, headers: corsHeaders });
+      return NextResponse.json({ error: result.error }, { status: 400,  });
     }
     
     return NextResponse.json({
@@ -71,13 +65,13 @@ export async function POST(request: NextRequest) {
       purchaseId: result.purchaseId,
       entitlementsGranted: result.entitlementsGranted,
       rewardsTriggered: result.rewardsTriggered,
-    }, { headers: corsHeaders });
+    });
   } catch (error) {
     console.error('[API] Error processing purchase:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500, headers: corsHeaders });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500,  });
   }
 }
 
 export async function OPTIONS() {
-  return new Response(null, { headers: corsHeaders });
+  return new Response(null);
 }

@@ -14,12 +14,6 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-};
-
 // Valid sections
 const VALID_SECTIONS = [
   'home-hero',
@@ -44,7 +38,7 @@ export async function GET(
     if (!VALID_SECTIONS.includes(section)) {
       return NextResponse.json({ 
         error: `Invalid section: ${section}. Valid sections: ${VALID_SECTIONS.join(', ')}`
-      }, { status: 400, headers: corsHeaders });
+      }, { status: 400,  });
     }
 
     console.log(`[Content/${section}] Fetching content from database${tab ? ` (tab: ${tab})` : ''}`);
@@ -76,7 +70,7 @@ export async function GET(
       return NextResponse.json({ 
         error: 'Failed to fetch content',
         details: error.message
-      }, { status: 500, headers: corsHeaders });
+      }, { status: 500,  });
     }
 
     console.log(`[Content/${section}] Found ${content?.length || 0} published items`);
@@ -163,16 +157,16 @@ export async function GET(
         total_found: content?.length || 0,
         sample_ids: transformedContent.slice(0, 3).map((item: any) => ({ id: item.id, title: item.title.slice(0, 30) }))
       }
-    }, { headers: corsHeaders });
+    });
 
   } catch (error) {
     console.error('[Content] Unexpected error:', error);
     return NextResponse.json({ 
       error: 'Internal server error' 
-    }, { status: 500, headers: corsHeaders });
+    }, { status: 500,  });
   }
 }
 
 export async function OPTIONS() {
-  return new Response(null, { headers: corsHeaders });
+  return new Response(null);
 }

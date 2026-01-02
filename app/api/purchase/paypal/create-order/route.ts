@@ -11,14 +11,8 @@ const PAYPAL_API = process.env.PAYPAL_MODE === 'live'
   ? 'https://api-m.paypal.com' 
   : 'https://api-m.sandbox.paypal.com';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-};
-
 export async function OPTIONS() {
-  return new NextResponse(null, { headers: corsHeaders });
+  return new NextResponse(null);
 }
 
 async function getAccessToken(): Promise<string> {
@@ -76,7 +70,7 @@ export async function POST(request: NextRequest) {
     if (!personaId || !contentType || !contentId || !amount) {
       return NextResponse.json(
         { error: 'Missing required fields' },
-        { status: 400, headers: corsHeaders }
+        { status: 400,  }
       );
     }
     
@@ -145,13 +139,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       orderId: order.id,
       approvalUrl,
-    }, { headers: corsHeaders });
+    });
     
   } catch (error) {
     console.error('[PayPal Create Order] Error:', error);
     return NextResponse.json(
       { error: (error as Error).message },
-      { status: 500, headers: corsHeaders }
+      { status: 500,  }
     );
   }
 }

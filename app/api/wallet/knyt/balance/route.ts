@@ -20,14 +20,8 @@ import { getPersonaFioService } from '@/services/wallet/personaFioService';
 export const runtime = 'nodejs';
 
 // CORS headers for cross-origin requests from thin client
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-};
-
 export async function OPTIONS() {
-  return new NextResponse(null, { headers: corsHeaders });
+  return new NextResponse(null);
 }
 
 export async function GET(request: NextRequest) {
@@ -36,14 +30,14 @@ export async function GET(request: NextRequest) {
     const personaId = searchParams.get('personaId');
     
     if (!personaId) {
-      return NextResponse.json({ error: 'personaId is required' }, { status: 400, headers: corsHeaders });
+      return NextResponse.json({ error: 'personaId is required' }, { status: 400,  });
     }
     
     // Get DVN ledger balance
     const result = await getKnytBalance(personaId);
     
     if (!result.success) {
-      return NextResponse.json({ error: result.error }, { status: 500, headers: corsHeaders });
+      return NextResponse.json({ error: result.error }, { status: 500,  });
     }
     
     // Try to get on-chain EVM KNYT balance
@@ -163,12 +157,12 @@ export async function GET(request: NextRequest) {
       spendableKnyt: dvnBalance,     // What can be spent in Tier 0 (gas-free)
       evmAddress,
       updatedAt: result.balance?.updatedAt,
-    }, { headers: corsHeaders });
+    });
   } catch (error) {
     console.error('[KNYT Balance API] Error:', error);
     return NextResponse.json(
       { error: (error as Error).message },
-      { status: 500, headers: corsHeaders }
+      { status: 500,  }
     );
   }
 }

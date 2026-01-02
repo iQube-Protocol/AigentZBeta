@@ -16,14 +16,8 @@ const supabase = createClient(
 );
 
 // CORS headers for cross-origin requests from Vite dev server
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-};
-
 export async function OPTIONS() {
-  return new NextResponse(null, { status: 204, headers: corsHeaders });
+  return new NextResponse(null, { status: 204,  });
 }
 
 export interface KnytCardAsset {
@@ -167,13 +161,13 @@ export async function GET(request: NextRequest) {
       totalCards: knytCardAssets.length,
       cards: knytCardAssets,
       byEpisode: episodeGroups,
-    }, { headers: corsHeaders });
+    });
 
   } catch (error) {
     console.error('[KnytCards] Error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to fetch KNYT cards' },
-      { status: 500, headers: corsHeaders }
+      { status: 500,  }
     );
   }
 }

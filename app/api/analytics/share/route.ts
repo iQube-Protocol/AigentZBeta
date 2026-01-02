@@ -14,12 +14,6 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-};
-
 interface ShareAnalyticsData {
   articleId: string;
   personaId?: string;
@@ -45,7 +39,7 @@ export async function POST(request: NextRequest) {
     if (!data.articleId || !data.platform || !data.timestamp) {
       return NextResponse.json({ 
         error: 'Missing required fields: articleId, platform, timestamp' 
-      }, { status: 400, headers: corsHeaders });
+      }, { status: 400,  });
     }
 
     // Store in Supabase analytics table
@@ -68,7 +62,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ 
         error: 'Failed to store analytics',
         details: error.message 
-      }, { status: 500, headers: corsHeaders });
+      }, { status: 500,  });
     }
 
     // Also update share count in content table
@@ -88,16 +82,16 @@ export async function POST(request: NextRequest) {
         personaId: data.personaId,
         timestamp: data.timestamp,
       }
-    }, { headers: corsHeaders });
+    });
 
   } catch (error) {
     console.error('[Analytics/Share] Unexpected error:', error);
     return NextResponse.json({ 
       error: 'Internal server error' 
-    }, { status: 500, headers: corsHeaders });
+    }, { status: 500,  });
   }
 }
 
 export async function OPTIONS() {
-  return new Response(null, { headers: corsHeaders });
+  return new Response(null);
 }

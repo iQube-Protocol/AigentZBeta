@@ -14,12 +14,6 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-};
-
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -28,7 +22,7 @@ export async function GET(request: NextRequest) {
     if (!personaId) {
       return NextResponse.json({ 
         error: 'personaId is required' 
-      }, { status: 400, headers: corsHeaders });
+      }, { status: 400,  });
     }
     
     const entitlementService = getEntitlementService();
@@ -104,15 +98,15 @@ export async function GET(request: NextRequest) {
       characters,
       episodeCount: issues.length,
       characterCount: characters.length,
-    }, { headers: corsHeaders });
+    });
   } catch (error) {
     console.error('[API] Error fetching owned issues:', error);
     return NextResponse.json({ 
       error: 'Internal server error' 
-    }, { status: 500, headers: corsHeaders });
+    }, { status: 500,  });
   }
 }
 
 export async function OPTIONS() {
-  return new Response(null, { headers: corsHeaders });
+  return new Response(null);
 }

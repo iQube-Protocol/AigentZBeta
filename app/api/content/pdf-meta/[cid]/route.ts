@@ -7,14 +7,8 @@ import { unwrapKeyWithMasterKey, decryptContent } from '@/server/services/encryp
 
 export const runtime = 'nodejs';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-};
-
 export async function OPTIONS() {
-  return new NextResponse(null, { status: 204, headers: corsHeaders });
+  return new NextResponse(null, { status: 204,  });
 }
 
 const supabase = createClient(
@@ -30,12 +24,12 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
   try {
     const cid = params?.cid;
     if (!cid) {
-      return NextResponse.json({ error: 'CID required' }, { status: 400, headers: corsHeaders });
+      return NextResponse.json({ error: 'CID required' }, { status: 400,  });
     }
 
     const assetLookup = await findAssetByCid(cid);
     if (!assetLookup) {
-      return NextResponse.json({ error: 'Asset not found' }, { status: 404, headers: corsHeaders });
+      return NextResponse.json({ error: 'Asset not found' }, { status: 404,  });
     }
 
     const { table, asset } = assetLookup;
@@ -48,12 +42,12 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
           cached: true,
           pdfLiteUrl: asset.pdf_lite_url || undefined
         },
-        { status: 200, headers: { ...corsHeaders, 'Cache-Control': 'public, max-age=3600' } }
+        { status: 200, headers: { 'Cache-Control': 'public, max-age=3600' } }
       );
     }
 
     if (!asset.token_qube_id) {
-      return NextResponse.json({ error: 'No token qube for decryption' }, { status: 400, headers: corsHeaders });
+      return NextResponse.json({ error: 'No token qube for decryption' }, { status: 400,  });
     }
 
     const { data: tokenQube, error: tokenError } = await supabase
@@ -65,7 +59,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     if (tokenError || !tokenQube) {
       return NextResponse.json(
         { error: `Token qube not found: ${tokenError?.message || 'unknown'}` },
-        { status: 404, headers: corsHeaders }
+        { status: 404,  }
       );
     }
 
@@ -76,7 +70,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
     const apiKey = process.env.AUTONOMYS_API_KEY;
     if (!apiKey) {
-      return NextResponse.json({ error: 'Autonomys not configured' }, { status: 500, headers: corsHeaders });
+      return NextResponse.json({ error: 'Autonomys not configured' }, { status: 500,  });
     }
 
     const api = createAutoDriveApi({ apiKey, network: NetworkId.MAINNET });
@@ -99,13 +93,13 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json(
       { pages, suggestedWidth: 1200, cached: false, pdfLiteUrl: asset.pdf_lite_url || undefined },
-      { status: 200, headers: { ...corsHeaders, 'Cache-Control': 'public, max-age=3600' } }
+      { status: 200, headers: { 'Cache-Control': 'public, max-age=3600' } }
     );
   } catch (error: any) {
     console.error('[PDF Meta] Error:', { message: error?.message, stack: error?.stack });
     return NextResponse.json(
       { error: error?.message || 'PDF meta failed' },
-      { status: 500, headers: corsHeaders }
+      { status: 500,  }
     );
   }
 }

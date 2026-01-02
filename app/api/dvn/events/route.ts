@@ -9,12 +9,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 // CORS headers for cross-origin requests from thin client
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-};
-
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -30,16 +24,16 @@ export async function GET(request: NextRequest) {
       events,
       agentId,
       limit,
-    }, { headers: corsHeaders });
+    });
 
   } catch (error) {
     console.error('[DVN Events] Error:', error);
     return NextResponse.json({
       error: error instanceof Error ? error.message : 'Failed to fetch DVN events',
-    }, { status: 500, headers: corsHeaders });
+    }, { status: 500,  });
   }
 }
 
 export async function OPTIONS() {
-  return new Response(null, { headers: corsHeaders });
+  return new Response(null);
 }

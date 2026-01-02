@@ -8,14 +8,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getEmbeddingService } from '@/services/content/embeddingService';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-};
-
 export async function OPTIONS() {
-  return new NextResponse(null, { status: 204, headers: corsHeaders });
+  return new NextResponse(null, { status: 204,  });
 }
 
 /**
@@ -36,13 +30,13 @@ export async function GET() {
       percentComplete: stats.totalChunks > 0 
         ? Math.round((stats.embeddedChunks / stats.totalChunks) * 100) 
         : 0,
-    }, { headers: corsHeaders });
+    });
 
   } catch (error) {
     console.error('[KB Embeddings API] Error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500, headers: corsHeaders }
+      { status: 500,  }
     );
   }
 }
@@ -62,7 +56,7 @@ export async function POST(request: NextRequest) {
     if (!embeddingService.isAvailable()) {
       return NextResponse.json(
         { error: 'OpenAI API key not configured. Embeddings are not available.' },
-        { status: 503, headers: corsHeaders }
+        { status: 503,  }
       );
     }
 
@@ -100,13 +94,13 @@ export async function POST(request: NextRequest) {
       percentComplete: statsAfter.totalChunks > 0 
         ? Math.round((statsAfter.embeddedChunks / statsAfter.totalChunks) * 100) 
         : 0,
-    }, { headers: corsHeaders });
+    });
 
   } catch (error) {
     console.error('[KB Embeddings API] Error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500, headers: corsHeaders }
+      { status: 500,  }
     );
   }
 }

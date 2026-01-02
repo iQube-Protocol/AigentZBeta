@@ -7,14 +7,8 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 // CORS headers for cross-origin requests from thin client
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-};
-
 export async function OPTIONS() {
-  return new NextResponse(null, { headers: corsHeaders });
+  return new NextResponse(null);
 }
 
 export async function POST(request: NextRequest) {
@@ -88,10 +82,10 @@ export async function POST(request: NextRequest) {
       intent: { primary: intent.primary, focus: intent.focus, confidence: intent.confidence },
       template: { templateId: template.templateId, reason: template.reason },
       contentCount: content.length,
-    }, { headers: corsHeaders });
+    });
   } catch (error) {
     console.error('[Codex Query] Error:', error);
-    return NextResponse.json({ success: false, error: String(error) }, { status: 500, headers: corsHeaders });
+    return NextResponse.json({ success: false, error: String(error) }, { status: 500,  });
   }
 }
 

@@ -10,26 +10,20 @@ import { creditKnyt } from '@/services/wallet/knyt/knytLedgerService';
 export const runtime = 'nodejs';
 
 // CORS headers for cross-origin requests from thin client
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-};
-
 export async function OPTIONS() {
-  return new NextResponse(null, { headers: corsHeaders });
+  return new NextResponse(null);
 }
 
 export async function POST(request: NextRequest) {
   try {
     const { orderId } = await request.json();
     if (!orderId) {
-      return NextResponse.json({ error: 'orderId required' }, { status: 400, headers: corsHeaders });
+      return NextResponse.json({ error: 'orderId required' }, { status: 400,  });
     }
     
     const capture = await capturePayPalOrder(orderId);
     if (!capture.success) {
-      return NextResponse.json({ error: capture.error }, { status: 400, headers: corsHeaders });
+      return NextResponse.json({ error: capture.error }, { status: 400,  });
     }
     
     // Credit KNYT to persona
@@ -45,9 +39,9 @@ export async function POST(request: NextRequest) {
       knytAmount: capture.knytAmount,
       newBalance: credit.newBalance,
       transactionId: credit.transaction?.id,
-    }, { headers: corsHeaders });
+    });
   } catch (error) {
     console.error('[PayPal Capture] Error:', error);
-    return NextResponse.json({ error: (error as Error).message }, { status: 500, headers: corsHeaders });
+    return NextResponse.json({ error: (error as Error).message }, { status: 500,  });
   }
 }

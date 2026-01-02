@@ -3,14 +3,8 @@ import { createClient } from '@supabase/supabase-js';
 
 export const runtime = 'nodejs';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-};
-
 export async function OPTIONS() {
-  return new NextResponse(null, { status: 204, headers: corsHeaders });
+  return new NextResponse(null, { status: 204,  });
 }
 
 const supabase = createClient(
@@ -35,7 +29,7 @@ export async function GET(
     if (error || !data) {
       return NextResponse.json(
         { error: 'Pages not ready or not found' },
-        { status: 404, headers: corsHeaders }
+        { status: 404,  }
       );
     }
 
@@ -52,13 +46,13 @@ export async function GET(
         pages,
         cached: false,
       },
-      { status: 200, headers: corsHeaders }
+      { status: 200,  }
     );
   } catch (e: any) {
     console.error('[pdf-pages] Error:', e);
     return NextResponse.json(
       { error: e?.message || 'Internal error' },
-      { status: 500, headers: corsHeaders }
+      { status: 500,  }
     );
   }
 }

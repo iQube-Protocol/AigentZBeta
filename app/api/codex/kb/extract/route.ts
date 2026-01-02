@@ -13,14 +13,8 @@ import { getKnowledgeBaseService } from '@/services/content/knowledgeBaseService
 import type { ContentDomain } from '@/services/content/knowledgeBaseService';
 
 // CORS headers
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-};
-
 export async function OPTIONS() {
-  return new NextResponse(null, { status: 204, headers: corsHeaders });
+  return new NextResponse(null, { status: 204,  });
 }
 
 /**
@@ -62,14 +56,14 @@ export async function POST(request: NextRequest) {
       if (!file) {
         return NextResponse.json(
           { error: 'No file provided' },
-          { status: 400, headers: corsHeaders }
+          { status: 400,  }
         );
       }
 
       if (!title) {
         return NextResponse.json(
           { error: 'Title is required' },
-          { status: 400, headers: corsHeaders }
+          { status: 400,  }
         );
       }
 
@@ -90,7 +84,7 @@ export async function POST(request: NextRequest) {
       if (!result.success) {
         return NextResponse.json(
           { error: result.error || 'Failed to process PDF' },
-          { status: 500, headers: corsHeaders }
+          { status: 500,  }
         );
       }
 
@@ -98,7 +92,7 @@ export async function POST(request: NextRequest) {
         success: true,
         documentId: result.documentId,
         message: 'PDF extracted and stored in knowledge base',
-      }, { headers: corsHeaders });
+      });
     }
 
     // Handle JSON body (CID-based extraction)
@@ -116,14 +110,14 @@ export async function POST(request: NextRequest) {
     if (!cid) {
       return NextResponse.json(
         { error: 'CID is required' },
-        { status: 400, headers: corsHeaders }
+        { status: 400,  }
       );
     }
 
     if (!title) {
       return NextResponse.json(
         { error: 'Title is required' },
-        { status: 400, headers: corsHeaders }
+        { status: 400,  }
       );
     }
 
@@ -144,7 +138,7 @@ export async function POST(request: NextRequest) {
     if (!result.success) {
       return NextResponse.json(
         { error: result.error || 'Failed to process PDF' },
-        { status: 500, headers: corsHeaders }
+        { status: 500,  }
       );
     }
 
@@ -152,13 +146,13 @@ export async function POST(request: NextRequest) {
       success: true,
       documentId: result.documentId,
       message: 'PDF extracted and stored in knowledge base',
-    }, { headers: corsHeaders });
+    });
 
   } catch (error) {
     console.error('[KB Extract API] Error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500, headers: corsHeaders }
+      { status: 500,  }
     );
   }
 }

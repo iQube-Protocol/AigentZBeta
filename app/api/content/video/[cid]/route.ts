@@ -21,20 +21,14 @@ const supabase = createClient(
 const videoCache = new Map<string, { data: Buffer; timestamp: number }>();
 const CACHE_TTL = 10 * 60 * 1000;
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Range',
-};
-
 export async function OPTIONS() {
-  return new NextResponse(null, { headers: corsHeaders });
+  return new NextResponse(null);
 }
 
 export async function GET(req: NextRequest, { params }: { params: { cid: string } }) {
   try {
     const cid = params.cid;
-    if (!cid) return NextResponse.json({ error: 'CID required' }, { status: 400, headers: corsHeaders });
+    if (!cid) return NextResponse.json({ error: 'CID required' }, { status: 400,  });
 
     // Find asset in database - check multiple sources
     let asset = (await supabase.from('master_content_qubes')
@@ -130,7 +124,7 @@ export async function GET(req: NextRequest, { params }: { params: { cid: string 
           .single();
 
         if (!tokenQube) {
-          return NextResponse.json({ error: 'Token not found' }, { status: 404, headers: corsHeaders });
+          return NextResponse.json({ error: 'Token not found' }, { status: 404,  });
         }
 
         const contentKey = unwrapKeyWithMasterKey({
@@ -165,8 +159,7 @@ export async function GET(req: NextRequest, { params }: { params: { cid: string 
       return new NextResponse(new Uint8Array(videoData.slice(start, end + 1)), {
         status: 206,
         headers: {
-          ...corsHeaders,
-          'Content-Type': mimeType,
+                    'Content-Type': mimeType,
           'Content-Range': `bytes ${start}-${end}/${videoData.length}`,
           'Accept-Ranges': 'bytes',
           'Content-Length': String(end - start + 1),
@@ -177,8 +170,7 @@ export async function GET(req: NextRequest, { params }: { params: { cid: string 
 
     return new NextResponse(new Uint8Array(videoData), {
       headers: {
-        ...corsHeaders,
-        'Content-Type': mimeType,
+                'Content-Type': mimeType,
         'Content-Length': String(videoData.length),
         'Accept-Ranges': 'bytes',
         'Cache-Control': 'no-store',
@@ -189,7 +181,7 @@ export async function GET(req: NextRequest, { params }: { params: { cid: string 
     console.error('[VideoStream] Error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Stream failed' },
-      { status: 500, headers: corsHeaders }
+      { status: 500,  }
     );
   }
 }

@@ -362,14 +362,8 @@ ${kb.content.substring(0, 800)}${kb.content.length > 800 ? '...' : ''}`).join('\
 }
 
 // CORS headers for cross-origin requests from Vite dev server
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-};
-
 export async function OPTIONS() {
-  return new NextResponse(null, { status: 200, headers: corsHeaders });
+  return new NextResponse(null, { status: 200,  });
 }
 
 export async function POST(request: NextRequest) {
@@ -391,7 +385,7 @@ export async function POST(request: NextRequest) {
     if (!message) {
       return NextResponse.json(
         { error: 'Message is required' },
-        { status: 400, headers: corsHeaders }
+        { status: 400,  }
       );
     }
 
@@ -438,7 +432,7 @@ export async function POST(request: NextRequest) {
           characterCount: metadata.stats.characterCount,
           episodeCount: metadata.stats.episodeCount
         }
-      }, { headers: corsHeaders });
+      });
     }
 
     // Build messages array for OpenAI
@@ -473,7 +467,7 @@ export async function POST(request: NextRequest) {
         response: fallbackResponse,
         persona,
         fallback: true
-      }, { headers: corsHeaders });
+      });
     }
 
     const data = await response.json();
@@ -499,13 +493,13 @@ export async function POST(request: NextRequest) {
         title: r.title,
         category: r.contentCategory,
       })) : undefined,
-    }, { headers: corsHeaders });
+    });
 
   } catch (error) {
     console.error('[CodexChat] Error:', error);
     return NextResponse.json(
       { error: 'Failed to process chat request' },
-      { status: 500, headers: corsHeaders }
+      { status: 500,  }
     );
   }
 }

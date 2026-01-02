@@ -18,14 +18,8 @@ import sharp from 'sharp';
 export const runtime = 'nodejs';
 
 // CORS headers for cross-origin requests from thin client
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-};
-
 export async function OPTIONS() {
-  return new NextResponse(null, { headers: corsHeaders });
+  return new NextResponse(null);
 }
 
 const supabase = createClient(
@@ -44,7 +38,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     const { cid } = params;
 
     if (!cid) {
-      return NextResponse.json({ error: 'CID required' }, { status: 400, headers: corsHeaders });
+      return NextResponse.json({ error: 'CID required' }, { status: 400,  });
     }
 
     // Get variant (default to thumb to avoid CloudFront 1MB limit)
@@ -57,8 +51,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       console.log(`[CoverStream] Cache HIT for ${cid}`);
       return new NextResponse(new Uint8Array(cached.data), {
         headers: {
-          ...corsHeaders,
-          'Content-Type': cached.mimeType,
+                    'Content-Type': cached.mimeType,
           'Content-Length': cached.data.length.toString(),
           'Cache-Control': 'public, max-age=3600',
           'X-Cache': 'HIT',
@@ -195,7 +188,7 @@ async function streamDecryptedContent(
     });
   } catch (decryptError) {
     console.error('[CoverStream] Decryption failed:', decryptError);
-    return NextResponse.json({ error: 'Decryption failed' }, { status: 500, headers: corsHeaders });
+    return NextResponse.json({ error: 'Decryption failed' }, { status: 500,  });
   }
 
   // For covers, default to thumb to stay under CloudFront edge body limits (~1MB)
@@ -224,8 +217,7 @@ async function streamDecryptedContent(
 
   return new NextResponse(new Uint8Array(finalData), {
     headers: {
-      ...corsHeaders,
-      'Content-Type': finalMime,
+            'Content-Type': finalMime,
       'Content-Length': finalData.length.toString(),
       'Cache-Control': 'public, max-age=3600',
       'X-Cache': 'MISS',

@@ -26,14 +26,8 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 // CORS headers for cross-origin requests from thin client
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-};
-
 export async function OPTIONS() {
-  return new NextResponse(null, { headers: corsHeaders });
+  return new NextResponse(null);
 }
 
 const supabase = createClient(
@@ -116,7 +110,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
   const { cid } = params;
 
   if (!cid) {
-    return NextResponse.json({ error: 'CID required' }, { status: 400, headers: corsHeaders });
+    return NextResponse.json({ error: 'CID required' }, { status: 400,  });
   }
 
   const pageParam = req.nextUrl.searchParams.get('page') ?? '1';
@@ -131,8 +125,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     console.log(`[PdfPage] Cache HIT: ${cacheKey}`);
     return new NextResponse(new Uint8Array(cached.data), {
       headers: {
-        ...corsHeaders,
-        'Content-Type': cached.mimeType,
+                'Content-Type': cached.mimeType,
         'Content-Length': cached.data.length.toString(),
         'Cache-Control': 'public, max-age=3600',
         'X-Cache': 'HIT',
@@ -150,10 +143,10 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     // 1) Lookup encryption metadata
     const asset = await findAssetByCid(cid);
     if (!asset) {
-      return NextResponse.json({ error: 'Asset not found' }, { status: 404, headers: corsHeaders });
+      return NextResponse.json({ error: 'Asset not found' }, { status: 404,  });
     }
     if (!asset.token_qube_id) {
-      return NextResponse.json({ error: 'No token qube for decryption' }, { status: 400, headers: corsHeaders });
+      return NextResponse.json({ error: 'No token qube for decryption' }, { status: 400,  });
     }
 
     // 2) Fetch token qube (unwrap key)
@@ -166,7 +159,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     if (tokenError || !tokenQube) {
       return NextResponse.json(
         { error: `Token qube not found: ${tokenError?.message || 'unknown'}` },
-        { status: 404, headers: corsHeaders }
+        { status: 404,  }
       );
     }
 
@@ -180,14 +173,14 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       console.error('[PdfPage] Key unwrap error:', e);
       return NextResponse.json(
         { error: 'Key unwrap failed - check CODEX_MASTER_KEY' },
-        { status: 500, headers: corsHeaders }
+        { status: 500,  }
       );
     }
 
     // 3) Download encrypted PDF from Autonomys
     const apiKey = process.env.AUTONOMYS_API_KEY;
     if (!apiKey) {
-      return NextResponse.json({ error: 'Autonomys not configured' }, { status: 500, headers: corsHeaders });
+      return NextResponse.json({ error: 'Autonomys not configured' }, { status: 500,  });
     }
 
     const api = createAutoDriveApi({ apiKey, network: NetworkId.MAINNET });
@@ -203,7 +196,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       console.log(`[PdfPage] Downloaded ${encryptedData.length} bytes from Autonomys`);
     } catch (e) {
       console.error('[PdfPage] Download error:', e);
-      return NextResponse.json({ error: 'Download failed' }, { status: 500, headers: corsHeaders });
+      return NextResponse.json({ error: 'Download failed' }, { status: 500,  });
     }
 
     // 4) Decrypt PDF
@@ -218,7 +211,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       console.log(`[PdfPage] Decrypted ${decryptedPdf.length} bytes`);
     } catch (e) {
       console.error('[PdfPage] Decryption error:', e);
-      return NextResponse.json({ error: 'Decryption failed' }, { status: 500, headers: corsHeaders });
+      return NextResponse.json({ error: 'Decryption failed' }, { status: 500,  });
     }
 
     // 5) Render page -> PNG buffer
@@ -227,7 +220,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     if (page > numPages) {
       return NextResponse.json(
         { error: `Invalid page. PDF has ${numPages} pages.` },
-        { status: 400, headers: corsHeaders }
+        { status: 400,  }
       );
     }
 
@@ -242,8 +235,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
     return new NextResponse(new Uint8Array(encoded.data), {
       headers: {
-        ...corsHeaders,
-        'Content-Type': encoded.mime,
+                'Content-Type': encoded.mime,
         'Content-Length': encoded.data.length.toString(),
         'Cache-Control': 'public, max-age=3600',
         'X-Cache': 'MISS',
@@ -259,8 +251,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     setCachedImage(`${cid}:page:${page}:w:${width}`, PLACEHOLDER_PNG, 'image/png');
     return new NextResponse(new Uint8Array(PLACEHOLDER_PNG), {
       headers: {
-        ...corsHeaders,
-        'Content-Type': 'image/png',
+                'Content-Type': 'image/png',
         'Content-Length': PLACEHOLDER_PNG.length.toString(),
         'Cache-Control': 'public, max-age=300',
         'X-Variant': 'page',

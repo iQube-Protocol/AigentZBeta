@@ -13,12 +13,6 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-};
-
 export async function GET(request: NextRequest) {
   try {
     console.log('[HomeHero] Fetching live home hero content from database');
@@ -38,7 +32,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ 
         error: 'Failed to fetch home hero content',
         details: error.message
-      }, { status: 500, headers: corsHeaders });
+      }, { status: 500,  });
     }
 
     console.log(`[HomeHero] Found ${heroContent?.length || 0} published home hero articles`);
@@ -102,16 +96,16 @@ export async function GET(request: NextRequest) {
       content: transformedContent,
       count: transformedContent.length,
       source: 'database'
-    }, { headers: corsHeaders });
+    });
 
   } catch (error) {
     console.error('[HomeHero] Unexpected error:', error);
     return NextResponse.json({ 
       error: 'Internal server error' 
-    }, { status: 500, headers: corsHeaders });
+    }, { status: 500,  });
   }
 }
 
 export async function OPTIONS() {
-  return new Response(null, { headers: corsHeaders });
+  return new Response(null);
 }
