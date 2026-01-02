@@ -344,7 +344,7 @@ export default function SmartWalletDrawer({
     window.location.href = '/auth';
   };
 
-  // Handle invite click - open social sharing suite
+  // Handle invite click - use SmartContentActions share
   const handleInviteClick = async () => {
     if (!personaId) return;
     
@@ -353,18 +353,32 @@ export default function SmartWalletDrawer({
       const data = await response.json();
       
       if (data.success && data.link) {
-        // Use native share API
-        if (navigator.share) {
-          await navigator.share({
-            title: 'Join The Qriptopian',
-            text: 'Join me on The Qriptopian - earn KNYT tokens and explore the future of content!',
-            url: data.link
-          });
-        } else {
-          // Fallback: copy to clipboard
-          await navigator.clipboard.writeText(data.link);
-          alert('Invite link copied to clipboard!');
-        }
+        // Create content item for SmartContentActions
+        const shareItem = {
+          id: `invite-${personaId}`,
+          title: 'Join The Qriptopian',
+          description: 'Join me on The Qriptopian - earn KNYT tokens and explore the future of content!',
+          modalities: null
+        };
+        
+        // Use SmartContentActions share handler
+        const { createActionHandler } = await import('@/utils/smartContentActionHandler');
+        const handler = createActionHandler({
+          item: shareItem,
+          onShare: () => {
+            if (navigator.share) {
+              navigator.share({
+                title: shareItem.title,
+                text: shareItem.description,
+                url: data.link
+              });
+            } else {
+              navigator.clipboard.writeText(data.link);
+              alert('Invite link copied to clipboard!');
+            }
+          }
+        });
+        handler('share');
       }
     } catch (error) {
       console.error('Failed to generate invite link:', error);
