@@ -82,14 +82,24 @@ export async function distributeHeraldOfOrderReward(personaId: string, shareId: 
 
     if (error) throw error;
 
-    // Update social share analytics
-    await supabase
+    // Update social share analytics - fetch current values first
+    const { data: shareData } = await supabase
       .from('social_share_analytics')
-      .update({
-        [`${conversionType}s`]: supabase.raw(`${conversionType}s + 1`),
-        reward_earned: supabase.raw(`reward_earned + ${rewardAmount}`)
-      })
-      .eq('id', shareId);
+      .select('clicks, signups, conversions, reward_earned')
+      .eq('id', shareId)
+      .single();
+
+    if (shareData) {
+      const updates: any = { reward_earned: (shareData.reward_earned || 0) + rewardAmount };
+      if (conversionType === 'click') updates.clicks = (shareData.clicks || 0) + 1;
+      if (conversionType === 'signup') updates.signups = (shareData.signups || 0) + 1;
+      if (conversionType === 'conversion') updates.conversions = (shareData.conversions || 0) + 1;
+      
+      await supabase
+        .from('social_share_analytics')
+        .update(updates)
+        .eq('id', shareId);
+    }
 
     return { success: true, reward: data };
   } catch (error) {

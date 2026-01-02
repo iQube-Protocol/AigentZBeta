@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { distributeHeraldOfOrderReward } from '@/services/rewardsService';
+import { distributeHeraldOfOrderReward } from '@/services/rewards/rewardsService';
 
 export async function POST(request: NextRequest) {
   try {

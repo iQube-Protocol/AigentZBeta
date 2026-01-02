@@ -14,7 +14,7 @@ export default function CodexDetailPage() {
   const router = useRouter();
   const codexId = params.codexId as string;
   
-  const { data: codex, isLoading, error } = useCodexConfig(codexId);
+  const { data: codex, isLoading, error } = useCodexConfig({ codexId, useDefaults: false });
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { distributeKnightOfAttentionReward } from '@/services/rewardsService';
+import { distributeKnightOfAttentionReward } from '@/services/rewards/rewardsService';
 
 export async function POST(request: NextRequest) {
   try {

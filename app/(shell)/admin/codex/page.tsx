@@ -9,7 +9,7 @@ export default function CodexManagementPage() {
   const { data: codexes, isLoading, error, refetch } = useCodexList();
   const [filter, setFilter] = useState<'all' | 'enabled' | 'disabled'>('all');
 
-  const filteredCodexes = codexes?.filter(codex => {
+  const filteredCodexes = codexes?.filter((codex: any) => {
     if (filter === 'enabled') return codex.enabled;
     if (filter === 'disabled') return !codex.enabled;
     return true;
@@ -79,7 +79,7 @@ export default function CodexManagementPage() {
         {/* Codex List */}
         {filteredCodexes && filteredCodexes.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredCodexes.map((codex) => (
+            {filteredCodexes.map((codex: any) => (
               <div
                 key={codex.id}
                 className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 hover:border-purple-500/50 transition-colors"
@@ -127,7 +127,7 @@ export default function CodexManagementPage() {
                 {/* Tags */}
                 {codex.metadata.tags && codex.metadata.tags.length > 0 && (
                   <div className="flex flex-wrap gap-1 mb-4">
-                    {codex.metadata.tags.slice(0, 3).map((tag) => (
+                    {codex.metadata.tags.slice(0, 3).map((tag: string) => (
                       <span
                         key={tag}
                         className="px-2 py-0.5 bg-purple-500/20 text-purple-300 rounded text-xs"
@@ -199,13 +199,13 @@ export default function CodexManagementPage() {
             </div>
             <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
               <div className="text-2xl font-bold text-green-400 mb-1">
-                {codexes.filter(c => c.enabled).length}
+                {codexes.filter((c: any) => c.enabled).length}
               </div>
               <div className="text-sm text-slate-400">Active Codexes</div>
             </div>
             <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
               <div className="text-2xl font-bold text-purple-400 mb-1">
-                {codexes.reduce((sum, c) => sum + c.tabCount, 0)}
+                {codexes.reduce((sum: number, c: any) => sum + c.tabCount, 0)}
               </div>
               <div className="text-sm text-slate-400">Total Tabs</div>
             </div>

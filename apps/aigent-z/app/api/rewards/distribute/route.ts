@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { distributeBringAKnightReward, distributeHeraldOfOrderReward, distributeKnightOfAttentionReward } from '@/services/rewardsService';
+import { distributeBringAKnightReward, distributeHeraldOfOrderReward, distributeKnightOfAttentionReward } from '@/services/rewards/rewardsService';
 
 export async function POST(request: NextRequest) {
   try {
