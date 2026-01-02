@@ -58,6 +58,8 @@ export function generateSocialShareLinks(article: ShareMetadata, personaId?: str
     reddit: `https://reddit.com/submit?url=${encodeURIComponent(deepLink)}&title=${encodeURIComponent(text)}`,
     whatsapp: `https://wa.me/?text=${encodeURIComponent(`${text} ${deepLink}`)}`,
     telegram: `https://t.me/share/url?url=${encodeURIComponent(deepLink)}&text=${encodeURIComponent(text)}`,
+    discord: `https://discord.com/channels/@me?message=${encodeURIComponent(`${text} ${deepLink}`)}`,
+    signal: `sgnl://send?text=${encodeURIComponent(`${text} ${deepLink}`)}`,
     email: `mailto:?subject=${encodeURIComponent(article.title)}&body=${encodeURIComponent(`${text} ${deepLink}`)}`,
     native: deepLink // For native share API
   };
@@ -176,6 +178,14 @@ function showSocialSharingDialog(
         <button onclick="window.open('${socialLinks.telegram}', '_blank')" class="flex flex-col items-center p-3 bg-[#1e2b40] hover:bg-[#2a3b52] rounded-lg transition-colors">
           <div class="w-6 h-6 bg-blue-400 rounded-full mb-2"></div>
           <span class="text-xs text-gray-300">Telegram</span>
+        </button>
+        <button onclick="window.open('${socialLinks.discord}', '_blank')" class="flex flex-col items-center p-3 bg-[#1e2b40] hover:bg-[#2a3b52] rounded-lg transition-colors">
+          <div class="w-6 h-6 bg-indigo-500 rounded-full mb-2"></div>
+          <span class="text-xs text-gray-300">Discord</span>
+        </button>
+        <button onclick="window.open('${socialLinks.signal}', '_blank')" class="flex flex-col items-center p-3 bg-[#1e2b40] hover:bg-[#2a3b52] rounded-lg transition-colors">
+          <div class="w-6 h-6 bg-blue-600 rounded-full mb-2"></div>
+          <span class="text-xs text-gray-300">Signal</span>
         </button>
       </div>
       

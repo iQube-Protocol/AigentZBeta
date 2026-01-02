@@ -1,0 +1,176 @@
+[
+  {
+    "_comment": "HOME-HERO Example (3 articles, position 1-3)",
+    "title": "Article Title Here",
+    "slug": "article-slug-here",
+    "excerpt": "Brief description of the article",
+    "thumbnail": "https://images.unsplash.com/photo-id?w=800&h=600",
+    "image": "https://images.unsplash.com/photo-id?w=1200&h=800",
+    "badge": "HERO",
+    "domain": "home",
+    "type": "article",
+    "format": "article",
+    "status": "published",
+    "placement": {
+      "section": "home-hero",
+      "position": 1
+    },
+    "tags": ["tag1", "tag2"],
+    "modalities": {
+      "read": {
+        "available": true,
+        "text": "# Full Article Content\n\nYour markdown content here...",
+        "duration": "8 min read"
+      }
+    }
+  },
+  {
+    "_comment": "LATEST-NEWS Example (4-6 articles)",
+    "title": "News Article Title",
+    "slug": "news-article-slug",
+    "excerpt": "Short news summary",
+    "thumbnail": "https://images.unsplash.com/photo-id?w=800&h=600",
+    "badge": "NEWS",
+    "domain": "home",
+    "type": "article",
+    "format": "article",
+    "status": "published",
+    "placement": {
+      "section": "latest-news",
+      "position": 1
+    },
+    "tags": ["news"],
+    "modalities": {
+      "read": {
+        "available": true,
+        "text": "# News Content",
+        "duration": "3 min read"
+      }
+    }
+  },
+  {
+    "_comment": "SECOND-HERO Example (1-3 articles)",
+    "title": "Featured Article Title",
+    "slug": "featured-article-slug",
+    "excerpt": "Featured article description",
+    "thumbnail": "https://images.unsplash.com/photo-id?w=1200&h=800",
+    "image": "https://images.unsplash.com/photo-id?w=1200&h=800",
+    "badge": "FEATURED",
+    "domain": "home",
+    "type": "article",
+    "format": "article",
+    "status": "published",
+    "placement": {
+      "section": "second-hero",
+      "position": 1
+    },
+    "tags": ["featured"],
+    "modalities": {
+      "read": {
+        "available": true,
+        "text": "# Featured Content",
+        "duration": "12 min read"
+      }
+    }
+  },
+  {
+    "_comment": "PENNYDROPS Example",
+    "title": "Q¢ Story Title",
+    "slug": "qct-story-slug",
+    "excerpt": "Fun Q¢ use case story",
+    "thumbnail": "https://images.unsplash.com/photo-id?w=800&h=600",
+    "image": "https://images.unsplash.com/photo-id?w=800&h=600",
+    "badge": "Q¢",
+    "domain": "pennydrops",
+    "type": "article",
+    "format": "article",
+    "status": "published",
+    "placement": {
+      "section": "pennydrops",
+      "position": 1
+    },
+    "tags": ["use-case", "qct"],
+    "modalities": {
+      "read": {
+        "available": true,
+        "text": "# Story Content",
+        "duration": "5 min read"
+      }
+    }
+  },
+  {
+    "_comment": "KN0WDZ Developer Tab Example - CRITICAL: Use 'dev' not 'developer'",
+    "title": "Developer Tutorial Title",
+    "slug": "dev-tutorial-slug",
+    "excerpt": "Developer tutorial description",
+    "thumbnail": "https://images.unsplash.com/photo-id?w=800&h=600",
+    "badge": "DEV",
+    "domain": "qriptopian",
+    "type": "tutorial",
+    "format": "article",
+    "status": "published",
+    "placement": {
+      "section": "21knowdz",
+      "tab": "dev",
+      "position": 1
+    },
+    "tags": ["developer", "tutorial"],
+    "modalities": {
+      "read": {
+        "available": true,
+        "text": "# Tutorial Content\n\nCode examples...",
+        "duration": "10 min read"
+      }
+    }
+  },
+  {
+    "_comment": "KN0WDZ Creative Tab Example",
+    "title": "Creative Guide Title",
+    "slug": "creative-guide-slug",
+    "excerpt": "Creative content description",
+    "thumbnail": "https://images.unsplash.com/photo-id?w=800&h=600",
+    "badge": "CREATIVE",
+    "domain": "qriptopian",
+    "type": "article",
+    "format": "article",
+    "status": "published",
+    "placement": {
+      "section": "21knowdz",
+      "tab": "creative",
+      "position": 1
+    },
+    "tags": ["creative"],
+    "modalities": {
+      "read": {
+        "available": true,
+        "text": "# Creative Content",
+        "duration": "8 min read"
+      }
+    }
+  },
+  {
+    "_comment": "KN0WDZ Executive Tab Example - CRITICAL: Use 'exec' not 'executive'",
+    "title": "Executive Strategy Title",
+    "slug": "exec-strategy-slug",
+    "excerpt": "Executive strategy description",
+    "thumbnail": "https://images.unsplash.com/photo-id?w=800&h=600",
+    "badge": "EXEC",
+    "domain": "qriptopian",
+    "type": "tutorial",
+    "format": "article",
+    "status": "published",
+    "placement": {
+      "section": "21knowdz",
+      "tab": "exec",
+      "position": 1
+    },
+    "tags": ["executive", "strategy"],
+    "modalities": {
+      "read": {
+        "available": true,
+        "text": "# Strategy Content",
+        "duration": "12 min read"
+      }
+    }
+  }
+]

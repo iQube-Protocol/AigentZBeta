@@ -344,6 +344,32 @@ export default function SmartWalletDrawer({
     window.location.href = '/auth';
   };
 
+  // Handle invite click - open social sharing suite
+  const handleInviteClick = async () => {
+    if (!personaId) return;
+    
+    try {
+      const response = await fetch(`${import.meta.env.VITE_AIGENT_API_URL || ''}/api/referrals/link?personaId=${personaId}`);
+      const data = await response.json();
+      
+      if (data.success && data.link) {
+        // Create social share metadata
+        const shareMetadata = {
+          title: 'Join The Qriptopian',
+          description: 'Join me on The Qriptopian - earn KNYT tokens and explore the future of content!',
+          url: data.link,
+          imageUrl: 'https://app.aigentz.me/og-image.png'
+        };
+        
+        // Import and use the social sharing utility
+        const { showSocialSharingDialog } = await import('@/utils/articleSharing');
+        showSocialSharingDialog(shareMetadata, personaId);
+      }
+    } catch (error) {
+      console.error('Failed to generate invite link:', error);
+    }
+  };
+
   // Handle persona created - refresh data via callback
   const handlePersonaCreated = () => {
     if (onCreatePersona) {
@@ -1749,9 +1775,12 @@ export default function SmartWalletDrawer({
                     </div>
                   </div>
                   <p className="text-xs text-white/60 mb-3">Invite friends to join the Order. You earn 2 KNYT when they make their first purchase, and they get 1 KNYT as a welcome bonus!</p>
-                  <button className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-cyan-500/20 text-cyan-300 text-sm hover:bg-cyan-500/30 transition-colors">
+                  <button 
+                    onClick={() => handleInviteClick()}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-cyan-500/20 text-cyan-300 text-sm hover:bg-cyan-500/30 transition-colors"
+                  >
                     <Share2 className="w-4 h-4" />
-                    Copy Invite Link
+                    Invite Friends
                   </button>
                 </section>
 

@@ -30,7 +30,10 @@ export async function POST(req: NextRequest) {
       publicKey, 
       privateKey, 
       defaultState, 
-      worldIdStatus 
+      worldIdStatus,
+      referrerId,
+      referralMethod,
+      referralIdentifier
     } = body;
 
     console.log('[Create with FIO] Request body:', {
@@ -38,7 +41,8 @@ export async function POST(req: NextRequest) {
       publicKey: publicKey?.substring(0, 20) + '...',
       hasPrivateKey: !!privateKey,
       defaultState,
-      worldIdStatus
+      worldIdStatus,
+      hasReferrer: !!referrerId
     });
 
     // Validate required fields
@@ -155,20 +159,31 @@ export async function POST(req: NextRequest) {
     }
 
     // STEP 3: Create persona in database with FIO info
+    const personaData: any = {
+      fio_handle: fioHandle,
+      fio_public_key: publicKey,
+      fio_tx_id: fioResult.txId,
+      fio_handle_expiration: fioResult.expiration.toISOString(),
+      fio_registration_status: fioResult.txId.startsWith('fallback_') ? 'pending' : 'confirmed',
+      fio_registered_at: new Date().toISOString(),
+      default_identity_state: defaultState || 'semi_anonymous',
+      world_id_status: worldIdStatus === 'not_verified' ? 'unverified' : worldIdStatus,
+      app_origin: 'aigent-z',
+      root_id: null
+    };
+
+    // Add referrer data if provided and valid
+    if (referrerId) {
+      personaData.referred_by_persona_id = referrerId;
+      personaData.referral_locked_at = new Date().toISOString();
+      personaData.referral_method = referralMethod || 'persona_name';
+      personaData.referral_identifier = referralIdentifier;
+      console.log('[Create with FIO] Setting referrer:', { referrerId, referralMethod });
+    }
+
     const { data: persona, error: createError } = await supabase
       .from('persona')
-      .insert({
-        fio_handle: fioHandle,
-        fio_public_key: publicKey,
-        fio_tx_id: fioResult.txId,
-        fio_handle_expiration: fioResult.expiration.toISOString(),
-        fio_registration_status: fioResult.txId.startsWith('fallback_') ? 'pending' : 'confirmed',
-        fio_registered_at: new Date().toISOString(),
-        default_identity_state: defaultState || 'semi_anonymous',
-        world_id_status: worldIdStatus === 'not_verified' ? 'unverified' : worldIdStatus,
-        app_origin: 'aigent-z',
-        root_id: null
-      })
+      .insert(personaData)
       .select()
       .single();
 
@@ -196,6 +211,33 @@ export async function POST(req: NextRequest) {
       fioHandle,
       txId: fioResult.txId
     });
+
+    // STEP 3.5: Create referral event if referrer exists
+    if (referrerId) {
+      try {
+        const { error: referralError } = await supabase
+          .from('referral_events')
+          .insert({
+            referrer_persona_id: referrerId,
+            referee_persona_id: personaId,
+            event_type: 'signed_up',
+            metadata: { 
+              method: referralMethod, 
+              identifier: referralIdentifier,
+              fio_handle: fioHandle 
+            }
+          });
+
+        if (referralError) {
+          console.error('[Create with FIO] Failed to create referral event:', referralError);
+          // Don't fail signup if referral event fails
+        } else {
+          console.log('[Create with FIO] Created referral event for referrer:', referrerId);
+        }
+      } catch (refErr) {
+        console.error('[Create with FIO] Referral event error:', refErr);
+      }
+    }
 
     // STEP 4: Grant 50 Q¢ signup bonus (Base Q¢)
     try {

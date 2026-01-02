@@ -32,6 +32,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 const developerContent = [
   {
     title: 'QIRI SDK Quick Start',
+    slug: 'qiri-sdk-quick-start',
     excerpt: 'Get started with the QIRI SDK in minutes. Build your first iQube-powered application.',
     thumbnail: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800&h=600&fit=crop',
     placement: { section: '21knowdz', tab: 'developer', position: 1 },
@@ -50,21 +51,24 @@ const developerContent = [
   },
   {
     title: 'Building with iQubes',
+    slug: 'building-with-iqubes',
     excerpt: 'Learn how to create, manage, and interact with iQubes in your applications.',
+
     thumbnail: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&h=600&fit=crop',
     placement: { section: '21knowdz', tab: 'developer', position: 2 },
     status: 'published',
     tags: ['developer', 'iqubes', 'tutorial'],
     modalities: {
       read: {
-        text: '# Building with iQubes\n\niQubes are the fundamental building blocks of the Qriptopian ecosystem.\n\n## What is an iQube?\n\nAn iQube is a self-contained unit of value, data, and logic that can be transferred, stored, and executed across chains.\n\n## Creating an iQube\n\n```javascript\nconst iqube = await qiri.createIQube({\n  type: \'content\',\n  data: {\n    title: \'My Article\',\n    content: \'...\'\n  },\n  value: 100 // Q¢\n});\n```',
         duration: '8 min read'
       }
     }
   },
   {
     title: 'Cross-Chain Integration',
+    slug: 'cross-chain-integration',
     excerpt: 'Connect your application to multiple blockchains using the QIRI protocol.',
+
     thumbnail: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=800&h=600&fit=crop',
     placement: { section: '21knowdz', tab: 'developer', position: 3 },
     status: 'published',
@@ -78,7 +82,9 @@ const developerContent = [
   },
   {
     title: 'Aigent Integration Guide',
+    slug: 'aigent-integration-guide',
     excerpt: 'Integrate AI agents into your application for autonomous operations.',
+
     thumbnail: 'https://images.unsplash.com/photo-1677442136019-21780ecad995?w=800&h=600&fit=crop',
     placement: { section: '21knowdz', tab: 'developer', position: 4 },
     status: 'published',
@@ -92,7 +98,9 @@ const developerContent = [
   },
   {
     title: 'API Reference & Examples',
+    slug: 'api-reference-examples',
     excerpt: 'Complete API documentation with code examples and best practices.',
+
     thumbnail: 'https://images.unsplash.com/photo-1516116216624-53e697fedbea?w=800&h=600&fit=crop',
     placement: { section: '21knowdz', tab: 'developer', position: 5 },
     status: 'published',
@@ -114,7 +122,9 @@ const developerContent = [
 const executiveContent = [
   {
     title: 'Strategic Impact Framework',
+    slug: 'strategic-impact-framework',
     excerpt: 'Measure and report the real-world impact of iQube infrastructure deployment.',
+
     thumbnail: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&h=600&fit=crop',
     placement: { section: '21knowdz', tab: 'executive', position: 1 },
     status: 'published',
@@ -128,7 +138,9 @@ const executiveContent = [
   },
   {
     title: 'Enterprise Integration Playbook',
+    slug: 'enterprise-integration-playbook',
     excerpt: 'Step-by-step guide for integrating iQube infrastructure into enterprise systems.',
+
     thumbnail: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=800&h=600&fit=crop',
     placement: { section: '21knowdz', tab: 'executive', position: 2 },
     status: 'published',
@@ -142,7 +154,9 @@ const executiveContent = [
   },
   {
     title: 'Revenue Models & Business Cases',
+    slug: 'revenue-models-business-cases',
     excerpt: 'Explore sustainable revenue models and build compelling business cases.',
+
     thumbnail: 'https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?w=800&h=600&fit=crop',
     placement: { section: '21knowdz', tab: 'executive', position: 3 },
     status: 'published',
@@ -156,7 +170,9 @@ const executiveContent = [
   },
   {
     title: 'Operational Scaling Strategy',
+    slug: 'operational-scaling-strategy',
     excerpt: 'Scale operations efficiently while maintaining quality and performance.',
+
     thumbnail: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&h=600&fit=crop',
     placement: { section: '21knowdz', tab: 'executive', position: 4 },
     status: 'published',
@@ -170,7 +186,9 @@ const executiveContent = [
   },
   {
     title: 'Market Positioning & Ecosystem Growth',
+    slug: 'market-positioning-ecosystem-growth',
     excerpt: 'Position your organization for success in the evolving Web3 ecosystem.',
+
     thumbnail: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&h=600&fit=crop',
     placement: { section: '21knowdz', tab: 'executive', position: 5 },
     status: 'published',
@@ -184,7 +202,9 @@ const executiveContent = [
   },
   {
     title: 'Risk Management & Compliance',
+    slug: 'risk-management-compliance',
     excerpt: 'Navigate regulatory requirements and manage operational risks effectively.',
+
     thumbnail: 'https://images.unsplash.com/photo-1450101499163-c8848c66ca85?w=800&h=600&fit=crop',
     placement: { section: '21knowdz', tab: 'executive', position: 6 },
     status: 'published',
@@ -198,7 +218,9 @@ const executiveContent = [
   },
   {
     title: 'Executive Dashboard & Analytics',
+    slug: 'executive-dashboard-analytics',
     excerpt: 'Real-time insights and analytics for data-driven decision making.',
+
     thumbnail: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&h=600&fit=crop',
     placement: { section: '21knowdz', tab: 'executive', position: 7 },
     status: 'published',
@@ -215,40 +237,81 @@ const executiveContent = [
 async function importContent() {
   console.log('Starting content import...\n');
 
+  // Safety check: Check existing content first
+  console.log('Checking for existing content...');
+  const { data: existingDev } = await supabase
+    .from('content')
+    .select('id, title')
+    .eq('placement->>section', '21knowdz')
+    .eq('placement->>tab', 'developer');
+
+  const { data: existingExec } = await supabase
+    .from('content')
+    .select('id, title')
+    .eq('placement->>section', '21knowdz')
+    .eq('placement->>tab', 'executive');
+
+  console.log(`Found ${existingDev?.length || 0} existing Developer articles`);
+  console.log(`Found ${existingExec?.length || 0} existing Executive articles\n`);
+
+  let devImported = 0;
+  let devSkipped = 0;
+  let execImported = 0;
+  let execSkipped = 0;
+
   // Import Developer content
   console.log('Importing Developer tab content...');
   for (const item of developerContent) {
+    // Check if title already exists
+    const exists = existingDev?.some(e => e.title === item.title);
+    if (exists) {
+      console.log(`⊘ Skipped (already exists): ${item.title}`);
+      devSkipped++;
+      continue;
+    }
+
     const { data, error } = await supabase
       .from('content')
       .insert(item)
       .select();
 
     if (error) {
-      console.error(`Error importing "${item.title}":`, error.message);
+      console.error(`✗ Error importing "${item.title}":`, error.message);
     } else {
       console.log(`✓ Imported: ${item.title}`);
+      devImported++;
     }
   }
 
   // Import Executive content
   console.log('\nImporting Executive tab content...');
   for (const item of executiveContent) {
+    // Check if title already exists
+    const exists = existingExec?.some(e => e.title === item.title);
+    if (exists) {
+      console.log(`⊘ Skipped (already exists): ${item.title}`);
+      execSkipped++;
+      continue;
+    }
+
     const { data, error } = await supabase
       .from('content')
       .insert(item)
       .select();
 
     if (error) {
-      console.error(`Error importing "${item.title}":`, error.message);
+      console.error(`✗ Error importing "${item.title}":`, error.message);
     } else {
       console.log(`✓ Imported: ${item.title}`);
+      execImported++;
     }
   }
 
   console.log('\n✅ Content import complete!');
-  console.log(`\nImported:`);
-  console.log(`- ${developerContent.length} Developer articles`);
-  console.log(`- ${executiveContent.length} Executive articles`);
+  console.log(`\nResults:`);
+  console.log(`- Developer: ${devImported} imported, ${devSkipped} skipped`);
+  console.log(`- Executive: ${execImported} imported, ${execSkipped} skipped`);
+  console.log(`\nTotal: ${devImported + execImported} new articles added`);
 }
 
 importContent().catch(console.error);

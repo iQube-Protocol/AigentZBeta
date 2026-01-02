@@ -5,7 +5,7 @@ import React, { useState, useCallback } from 'react';
 import { User, Key, CheckCircle, ArrowRight, ArrowLeft, Loader2, AlertCircle, Eye, EyeOff, Copy, Check } from 'lucide-react';
 
 type FioDomain = 'qripto' | 'knyt';
-type WizardStep = 'domain' | 'handle' | 'keys' | 'password' | 'confirm';
+type WizardStep = 'domain' | 'handle' | 'referrer' | 'keys' | 'password' | 'confirm';
 
 interface Props {
   tenantId?: string;
@@ -17,6 +17,9 @@ interface WizardState {
   domain: FioDomain | null;
   username: string;
   displayName: string;
+  referrerIdentifier: string;
+  referrerValid: boolean | null;
+  referrerId: string | null;
   keySource: 'generated' | 'imported';
   importedKey: string;
   password: string;
@@ -33,8 +36,8 @@ const validatePwd = (p: string) => ({ valid: p.length >= 8 && /[A-Z]/.test(p) &&
 export function PersonaSetupWizard({ tenantId = 'default', onComplete, onCancel }: Props) {
   const [step, setStep] = useState<WizardStep>('domain');
   const [state, setState] = useState<WizardState>({
-    domain: null, username: '', displayName: '', keySource: 'generated', importedKey: '',
-    password: '', confirmPassword: '', evmAddress: '', btcAddress: '', solAddress: ''
+    domain: null, username: '', displayName: '', referrerIdentifier: '', referrerValid: null, referrerId: null,
+    keySource: 'generated', importedKey: '', password: '', confirmPassword: '', evmAddress: '', btcAddress: '', solAddress: ''
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,12 +48,13 @@ export function PersonaSetupWizard({ tenantId = 'default', onComplete, onCancel 
   const [createdPersona, setCreatedPersona] = useState<any>(null);
   const [copied, setCopied] = useState(false);
 
-  const steps: WizardStep[] = ['domain', 'handle', 'keys', 'password', 'confirm'];
+  const steps: WizardStep[] = ['domain', 'handle', 'referrer', 'keys', 'password', 'confirm'];
   const idx = steps.indexOf(step);
 
   const canNext = useCallback(() => {
     if (step === 'domain') return !!state.domain;
-    if (step === 'handle') return state.username.length >= 3 && handleAvailable && state.displayName.length > 0;
+    if (step === 'handle') return state.username.length >= 3 && handleAvailable !== false && state.displayName.length > 0;
+    if (step === 'referrer') return true; // Referrer is optional
     if (step === 'keys') return state.keySource === 'generated' || isValidKey(state.importedKey);
     if (step === 'password') return validatePwd(state.password).valid && state.password === state.confirmPassword;
     return true;
@@ -71,6 +75,24 @@ export function PersonaSetupWizard({ tenantId = 'default', onComplete, onCancel 
       setHandleAvailable(!(d.ok && d.data?.length > 0));
     } catch { setHandleAvailable(true); }
     finally { setCheckingHandle(false); }
+  };
+
+  const validateReferrer = async () => {
+    if (!state.referrerIdentifier) {
+      setState(s => ({ ...s, referrerValid: null, referrerId: null }));
+      return;
+    }
+    try {
+      const r = await fetch(`${import.meta.env.VITE_AIGENT_API_URL || ''}/api/referrals/validate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: state.referrerIdentifier })
+      });
+      const d = await r.json();
+      setState(s => ({ ...s, referrerValid: d.valid, referrerId: d.persona?.id || null }));
+    } catch {
+      setState(s => ({ ...s, referrerValid: false, referrerId: null }));
+    }
   };
 
   const handleCreate = async () => {
@@ -135,6 +157,43 @@ export function PersonaSetupWizard({ tenantId = 'default', onComplete, onCancel 
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">Display Name</label>
                 <input type="text" value={state.displayName} onChange={e => setState(s => ({ ...s, displayName: e.target.value }))} placeholder="Your name" className="w-full px-4 py-3 bg-black/30 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/50" />
+              </div>
+            </div>
+          )}
+
+          {step === 'referrer' && (
+            <div className="space-y-6">
+              <div className="text-center mb-8">
+                <h2 className="text-2xl font-bold text-white mb-2">Who Referred You?</h2>
+                <p className="text-slate-400">Optional - Enter referrer details to earn rewards</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Referrer (Optional)</label>
+                <input 
+                  type="text" 
+                  value={state.referrerIdentifier} 
+                  onChange={e => setState(s => ({ ...s, referrerIdentifier: e.target.value, referrerValid: null }))}
+                  onBlur={validateReferrer}
+                  placeholder="@knyt:username, @qripto:username, or email" 
+                  className="w-full px-4 py-3 bg-black/30 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/50" 
+                />
+                <div className="mt-2 h-6">
+                  {state.referrerValid === true && (
+                    <div className="flex items-center gap-2 text-green-400">
+                      <CheckCircle className="w-4 h-4" />
+                      <span className="text-sm">Valid referrer found!</span>
+                    </div>
+                  )}
+                  {state.referrerValid === false && (
+                    <div className="flex items-center gap-2 text-amber-400">
+                      <AlertCircle className="w-4 h-4" />
+                      <span className="text-sm">Referrer not found - you can add later</span>
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs text-slate-500 mt-2">
+                  You can skip this and add a referrer later in your profile settings
+                </p>
               </div>
             </div>
           )}

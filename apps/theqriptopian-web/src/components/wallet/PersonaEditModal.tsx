@@ -14,6 +14,10 @@ interface PersonaData {
   solAddress?: string;
   bio?: string;
   reputationScore?: number;
+  referrerIdentifier?: string;
+  referrerValid?: boolean | null;
+  referrerId?: string | null;
+  referralLockedAt?: string | null;
 }
 
 interface Props {
@@ -77,6 +81,25 @@ export function PersonaEditModal({ isOpen, onClose, persona, onSave }: Props) {
         setForm(f => ({ ...f, avatarUri: reader.result as string }));
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  const validateReferrer = async () => {
+    if (!form.referrerIdentifier) {
+      setForm(f => ({ ...f, referrerValid: null, referrerId: null }));
+      return;
+    }
+    try {
+      const apiBase = import.meta.env.VITE_AIGENT_API_URL || '';
+      const response = await fetch(`${apiBase}/api/referrals/validate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: form.referrerIdentifier })
+      });
+      const data = await response.json();
+      setForm(f => ({ ...f, referrerValid: data.valid, referrerId: data.persona?.id || null }));
+    } catch {
+      setForm(f => ({ ...f, referrerValid: false, referrerId: null }));
     }
   };
 
@@ -199,6 +222,53 @@ export function PersonaEditModal({ isOpen, onClose, persona, onSave }: Props) {
               className="w-full px-4 py-3 bg-black/30 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/50 resize-none"
             />
           </div>
+
+          {/* Referrer */}
+          {!form.referralLockedAt && (
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Referrer (Optional)
+              </label>
+              <input
+                type="text"
+                value={form.referrerIdentifier || ''}
+                onChange={e => setForm(f => ({ ...f, referrerIdentifier: e.target.value, referrerValid: null }))}
+                onBlur={validateReferrer}
+                placeholder="@knyt:username, @qripto:username, or email"
+                className="w-full px-4 py-3 bg-black/30 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/50"
+              />
+              <div className="mt-2 h-6">
+                {form.referrerValid === true && (
+                  <div className="flex items-center gap-2 text-green-400">
+                    <CheckCircle className="w-4 h-4" />
+                    <span className="text-sm">Valid referrer found!</span>
+                  </div>
+                )}
+                {form.referrerValid === false && (
+                  <div className="flex items-center gap-2 text-amber-400">
+                    <AlertCircle className="w-4 h-4" />
+                    <span className="text-sm">Referrer not found</span>
+                  </div>
+                )}
+              </div>
+              <p className="text-xs text-slate-500 mt-2">
+                Once set with a valid referrer, this field will be locked
+              </p>
+            </div>
+          )}
+          {form.referralLockedAt && (
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Referrer (Locked)
+              </label>
+              <div className="px-4 py-3 bg-black/30 border border-white/10 rounded-lg text-slate-400">
+                {form.referrerIdentifier || 'Set'}
+              </div>
+              <p className="text-xs text-slate-500 mt-2">
+                Referrer is locked and cannot be changed
+              </p>
+            </div>
+          )}
 
           {/* Wallet Addresses Section */}
           <div className="pt-4 border-t border-white/10">

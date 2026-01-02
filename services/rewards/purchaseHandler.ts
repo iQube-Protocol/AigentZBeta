@@ -226,43 +226,53 @@ export class PurchaseHandler {
     // Get persona with referrer info
     const { data: persona } = await this.supabase
       .from('personas')
-      .select('id, referrer_persona_id, ref_campaign_id')
+      .select('id, referred_by_persona_id, referral_locked_at')
       .eq('id', personaId)
       .single();
     
     if (!persona) return triggered;
     
-    // Grant welcome reward to new user (1 KNYT base)
-    const welcomeResult = await rewardService.grantRewardForTask({
-      personaId,
-      taskType: RewardTaskType.BringAKnightQualifiedReferral,
-      sourceEventId: purchaseId,
-      customBaseAmount: 1.0, // New user gets 1 KNYT
-      metadata: { isWelcomeGrant: true, purchaseId },
-    });
-    
-    if (welcomeResult.success) {
-      triggered.push(`welcome:${welcomeResult.rewardGrantId}`);
-    }
-    
     // Grant referrer reward if exists (2 KNYT base)
-    if (persona.referrer_persona_id) {
+    if (persona.referred_by_persona_id) {
+      // Create referral event for first purchase
+      await this.supabase
+        .from('referral_events')
+        .insert({
+          referrer_persona_id: persona.referred_by_persona_id,
+          referee_persona_id: personaId,
+          event_type: 'first_purchase',
+          reward_amount: 2.0,
+          metadata: { purchaseId }
+        });
+
       const referrerResult = await rewardService.grantRewardForTask({
-        personaId: persona.referrer_persona_id,
+        personaId: persona.referred_by_persona_id,
         taskType: RewardTaskType.BringAKnightQualifiedReferral,
         sourceEventId: purchaseId,
         customBaseAmount: 2.0, // Referrer gets 2 KNYT
         metadata: { 
           isReferrerReward: true, 
           referredPersonaId: personaId,
-          purchaseId,
-          campaign: persona.ref_campaign_id,
+          purchaseId
         },
       });
       
       if (referrerResult.success) {
         triggered.push(`referrer:${referrerResult.rewardGrantId}`);
       }
+    }
+    
+    // Grant welcome reward to new user (1 KNYT as discount on this purchase)
+    const welcomeResult = await rewardService.grantRewardForTask({
+      personaId,
+      taskType: RewardTaskType.BringAKnightQualifiedReferral,
+      sourceEventId: purchaseId,
+      customBaseAmount: 1.0, // New user gets 1 KNYT discount
+      metadata: { isWelcomeDiscount: true, purchaseId },
+    });
+    
+    if (welcomeResult.success) {
+      triggered.push(`welcome:${welcomeResult.rewardGrantId}`);
     }
     
     return triggered;
