@@ -108,6 +108,16 @@ export function PersonaEditModal({ isOpen, onClose, persona, onSave }: Props) {
     setError(null);
     try {
       const apiBase = import.meta.env.VITE_AIGENT_API_URL || '';
+      
+      // Lock referrer if valid and not already locked
+      if (form.referrerValid && form.referrerId && !form.referralLockedAt) {
+        await fetch(`${apiBase}/api/referrals/set`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ personaId: form.id, referrerIdentifier: form.referrerIdentifier })
+        });
+        form.referralLockedAt = new Date().toISOString();
+      }
       // Use the correct API endpoint: PATCH /api/identity/persona/[id]
       const response = await fetch(`${apiBase}/api/identity/persona/${form.id}`, {
         method: 'PATCH',

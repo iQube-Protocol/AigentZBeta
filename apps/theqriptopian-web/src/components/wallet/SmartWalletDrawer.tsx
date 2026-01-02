@@ -353,17 +353,18 @@ export default function SmartWalletDrawer({
       const data = await response.json();
       
       if (data.success && data.link) {
-        // Create social share metadata
-        const shareMetadata = {
-          title: 'Join The Qriptopian',
-          description: 'Join me on The Qriptopian - earn KNYT tokens and explore the future of content!',
-          url: data.link,
-          imageUrl: 'https://app.aigentz.me/og-image.png'
-        };
-        
-        // Import and use the social sharing utility
-        const { showSocialSharingDialog } = await import('@/utils/socialSharing');
-        showSocialSharingDialog(shareMetadata, personaId);
+        // Use native share API
+        if (navigator.share) {
+          await navigator.share({
+            title: 'Join The Qriptopian',
+            text: 'Join me on The Qriptopian - earn KNYT tokens and explore the future of content!',
+            url: data.link
+          });
+        } else {
+          // Fallback: copy to clipboard
+          await navigator.clipboard.writeText(data.link);
+          alert('Invite link copied to clipboard!');
+        }
       }
     } catch (error) {
       console.error('Failed to generate invite link:', error);
