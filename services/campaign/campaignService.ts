@@ -33,6 +33,7 @@ function buildInitialState(definition: CampaignDefinition, personaId: string): O
       phases: definition.phases.map((phase) => ({
         id: phase.id,
         label: phase.label,
+        completedAt: undefined,
         targetCount: phase.targetCount,
         counterKey: phase.counterKey,
       })),
@@ -90,6 +91,7 @@ function applyEventToState(
     : definition.phases.map((phase) => ({
         id: phase.id,
         label: phase.label,
+        completedAt: undefined,
         targetCount: phase.targetCount,
         counterKey: phase.counterKey,
       }));
