@@ -5,8 +5,6 @@
  * URL format: /article?id=xxx&title=xxx&section=xxx&persona=xxx&type=video
  */
 
-console.log('[ArticlePage] Module loading');
-
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { parseArticleFromUrl } from '@/utils/articleSharing';
@@ -14,7 +12,6 @@ import { ArticleReader, theQriptopianStyleGuide } from '@agentiq/article-reader'
 import { Loader2, AlertCircle } from 'lucide-react';
 
 export default function ArticlePage() {
-  console.log('[ArticlePage] Component mounting');
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -22,7 +19,6 @@ export default function ArticlePage() {
   const [personaId, setPersonaId] = useState<string | null>(null);
 
   useEffect(() => {
-    console.log('[ArticlePage] useEffect running');
     const urlArticle = parseArticleFromUrl();
     const urlPersona = new URLSearchParams(window.location.search).get('persona');
 
@@ -37,14 +33,10 @@ export default function ArticlePage() {
     // Fetch the full article data
     const fetchArticle = async () => {
       try {
-        console.log('[ArticlePage] URL Article data:', urlArticle);
-        
         // Use direct article fetch by ID
         const apiBase = import.meta.env.VITE_AIGENT_API_URL || '';
         const fullUrl = `${apiBase}/api/content/smart/${urlArticle.id}`;
-        
-        console.log('[ArticlePage] Fetching article directly from:', fullUrl);
-        
+
         const response = await fetch(fullUrl, {
           cache: 'no-store',
           headers: {
@@ -55,21 +47,17 @@ export default function ArticlePage() {
         });
         
         if (!response.ok) {
-          console.error('[ArticlePage] API response not OK:', response.status, response.statusText);
           const errorText = await response.text();
           throw new Error(`Failed to fetch article (${response.status}): ${errorText || 'No error details'}`);
         }
         
         const result = await response.json();
-        console.log('[ArticlePage] Received data:', result);
         
         if (!result.success || !result.data) {
-          console.error('[ArticlePage] Article not found or API error');
           throw new Error(`Article not found: ${result.error || 'Content may have been removed or ID is invalid'}`);
         }
 
         const foundArticle = result.data;
-        console.log('[ArticlePage] Found article:', foundArticle);
         setArticle(foundArticle);
         
         // Track social share conversion if persona is present
@@ -90,7 +78,6 @@ export default function ArticlePage() {
         updateOpenGraphTags(foundArticle, urlPersona);
         
       } catch (err) {
-        console.error('[ArticlePage] Error:', err);
         setError(err instanceof Error ? err.message : 'Failed to load article');
       } finally {
         setLoading(false);
@@ -113,9 +100,7 @@ export default function ArticlePage() {
           metadata: { articleId, deepLink: window.location.href }
         })
       });
-      console.log('[ArticlePage] Social conversion tracked for persona:', personaId);
     } catch (error) {
-      console.error('[ArticlePage] Failed to track social conversion:', error);
     }
   };
 
@@ -179,7 +164,6 @@ export default function ArticlePage() {
   }
 
   if (!article) {
-    console.warn('[ArticlePage] No article, showing loader');
     return (
       <div className="min-h-screen bg-[#050f1f] flex items-center justify-center">
         <Loader2 className="w-8 h-8 text-cyan-400 animate-spin mx-auto" />
@@ -245,12 +229,20 @@ export default function ArticlePage() {
     };
 
     return (
-      <ArticleReader
-        article={articleQube}
-        isOpen={true}
-        onClose={() => navigate('/')}
-        styleGuide={theQriptopianStyleGuide}
-      />
+      <>
+        <ArticleReader
+          article={articleQube}
+          isOpen={true}
+          onClose={() => navigate('/')}
+          styleGuide={theQriptopianStyleGuide}
+        />
+        <button
+          onClick={() => navigate('/')}
+          className="fixed top-4 left-4 z-[10002] rounded-full bg-[#071327] border border-[#1e2b40] px-4 py-2 text-sm text-cyan-400 hover:text-cyan-300 hover:bg-[#0a1a2f] transition-colors"
+        >
+          ← Back to Home
+        </button>
+      </>
     );
   }
 
