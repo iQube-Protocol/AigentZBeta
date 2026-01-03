@@ -1,9 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { Actor, HttpAgent } from '@dfinity/agent';
-import { idlFactory } from '@/services/dvn/cross_chain_service.did';
+/**
+ * DVN Events API
+ * 
+ * GET /api/dvn/events?agentId=guest&limit=10
+ * 
+ * Returns DVN events for an agent from wallet_transactions table
+ */
 
-const CANISTER_ID = 'sp5ye-2qaaa-aaaao-qkqla-cai';
-const IC_HOST = 'https://ic0.app';
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 export async function GET(request: NextRequest) {
   try {
@@ -11,24 +18,37 @@ export async function GET(request: NextRequest) {
     const agentId = searchParams.get('agentId') || 'default';
     const limit = parseInt(searchParams.get('limit') || '10');
 
-    const agent = new HttpAgent({ host: IC_HOST });
-    if (process.env.NODE_ENV !== 'production') {
-      await agent.fetchRootKey();
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Fetch wallet transactions for the persona
+    const { data: transactions, error } = await supabase
+      .from('wallet_transactions')
+      .select('*')
+      .eq('persona_id', agentId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      console.error('[DVN Events] Supabase error:', error);
+      return NextResponse.json({
+        success: true,
+        events: [],
+        agentId,
+        limit,
+      });
     }
 
-    const actor = Actor.createActor(idlFactory, {
-      agent,
-      canisterId: CANISTER_ID,
-    });
-
-    const messages = await actor.get_messages_for_persona(agentId, limit);
-    
-    const events = messages.map((msg: any) => ({
-      id: msg.id,
-      timestamp: Number(msg.timestamp),
-      type: msg.message_type,
-      status: msg.status,
-      data: msg.payload,
+    // Map transactions to event format
+    const events = (transactions || []).map((tx: any) => ({
+      id: tx.id,
+      timestamp: new Date(tx.created_at).getTime(),
+      type: tx.direction === 'credit' ? 'receive' : 'send',
+      status: tx.dvn_submitted_at ? 'confirmed' : 'pending',
+      amount: parseFloat(tx.amount),
+      asset: tx.asset_code,
+      source: tx.source,
+      metadata: tx.metadata,
+      dvnBatchId: tx.dvn_batch_id,
     }));
 
     return NextResponse.json({
@@ -43,7 +63,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       events: [],
-      agentId: 'default',
       error: error instanceof Error ? error.message : 'Failed to fetch',
     });
   }
