@@ -127,15 +127,31 @@ export class SmartContentService {
    * Get a SmartContentQube by ID
    */
   async getById(id: string): Promise<SmartContentQube | null> {
-    const { data, error } = await this.supabase
+    // Try smart_content_qubes first
+    let { data, error } = await this.supabase
       .from('smart_content_qubes')
       .select('*')
       .eq('id', id)
       .is('deleted_at', null)
       .single();
     
+    // If not found, try content table (legacy/published content)
+    if (error?.code === 'PGRST116') {
+      const { data: contentData, error: contentError } = await this.supabase
+        .from('content')
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      if (contentError) {
+        if (contentError.code === 'PGRST116') return null;
+        throw new Error(`Failed to get content: ${contentError.message}`);
+      }
+      
+      return this.mapDbToSmartContent(contentData);
+    }
+    
     if (error) {
-      if (error.code === 'PGRST116') return null; // Not found
       throw new Error(`Failed to get SmartContentQube: ${error.message}`);
     }
     

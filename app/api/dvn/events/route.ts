@@ -1,23 +1,35 @@
-/**
- * DVN Events API
- * 
- * GET /api/dvn/events?agentId=guest&limit=10
- * 
- * Returns DVN events for an agent
- */
-
 import { NextRequest, NextResponse } from 'next/server';
+import { Actor, HttpAgent } from '@dfinity/agent';
+import { idlFactory } from '@/services/dvn/cross_chain_service.did';
 
-// CORS headers for cross-origin requests from thin client
+const CANISTER_ID = 'sp5ye-2qaaa-aaaao-qkqla-cai';
+const IC_HOST = 'https://ic0.app';
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const agentId = searchParams.get('agentId');
+    const agentId = searchParams.get('agentId') || 'default';
     const limit = parseInt(searchParams.get('limit') || '10');
 
-    // For now, return empty events array
-    // TODO: Implement actual DVN events fetching when DVN is integrated
-    const events: any[] = [];
+    const agent = new HttpAgent({ host: IC_HOST });
+    if (process.env.NODE_ENV !== 'production') {
+      await agent.fetchRootKey();
+    }
+
+    const actor = Actor.createActor(idlFactory, {
+      agent,
+      canisterId: CANISTER_ID,
+    });
+
+    const messages = await actor.get_messages_for_persona(agentId, limit);
+    
+    const events = messages.map((msg: any) => ({
+      id: msg.id,
+      timestamp: Number(msg.timestamp),
+      type: msg.message_type,
+      status: msg.status,
+      data: msg.payload,
+    }));
 
     return NextResponse.json({
       success: true,
@@ -29,8 +41,11 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('[DVN Events] Error:', error);
     return NextResponse.json({
-      error: error instanceof Error ? error.message : 'Failed to fetch DVN events',
-    }, { status: 500,  });
+      success: true,
+      events: [],
+      agentId: 'default',
+      error: error instanceof Error ? error.message : 'Failed to fetch',
+    });
   }
 }
 
