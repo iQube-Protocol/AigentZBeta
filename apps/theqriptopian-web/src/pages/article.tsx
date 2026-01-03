@@ -10,8 +10,7 @@ console.log('[ArticlePage] Module loading');
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { parseArticleFromUrl } from '@/utils/articleSharing';
-import { ArticleReader } from '@agentiq/article-reader';
-import { VideoModal } from '@agentiq/smarttriad';
+import { ArticleReader, theQriptopianStyleGuide } from '@agentiq/article-reader';
 import { Loader2, AlertCircle } from 'lucide-react';
 
 export default function ArticlePage() {
@@ -212,14 +211,13 @@ export default function ArticlePage() {
                 Shared via persona: {personaId}
               </p>
             )}
-            
+
             <div className="aspect-video bg-black rounded-lg overflow-hidden">
-              <VideoModal
-                videoUrl={article.modalities.watch.video_url}
-                title={article.title}
-                thumbnail={article.image}
-                autoPlay={false}
-                showControls={true}
+              <video
+                src={article.modalities.watch.video_url}
+                poster={article.image || undefined}
+                controls
+                className="w-full h-full"
               />
             </div>
           </div>
@@ -231,34 +229,28 @@ export default function ArticlePage() {
   // Render text article
   if (article.modalities?.read?.text) {
     const articleQube = {
+      qubeType: 'articleQube',
       contentId: article.id,
       title: article.title,
-      excerpt: article.excerpt || article.description || '',
+      slug: article.slug || article.id,
+      description: article.excerpt || article.description || '',
       content: article.modalities.read.text,
-      media: article.image ? { thumbnail: article.image } : undefined,
+      author: {
+        name: article.author?.name || 'Qriptopian',
+      },
+      publishedAt: article.publishedAt || article.created_at || new Date().toISOString(),
+      image: article.image ? { url: article.image, alt: article.title } : undefined,
+      tags: Array.isArray(article.tags) ? article.tags : [],
+      status: 'published' as const,
     };
 
     return (
-      <div className="min-h-screen bg-[#050f1f]">
-        <div className="container mx-auto px-4 py-8">
-          <button
-            onClick={() => navigate('/')}
-            className="text-cyan-400 hover:text-cyan-300 mb-6 transition-colors"
-          >
-            ← Back to Home
-          </button>
-          
-          <div className="max-w-4xl mx-auto">
-            {personaId && (
-              <p className="text-sm text-cyan-400 mb-6">
-                Shared via persona: {personaId}
-              </p>
-            )}
-            
-            <ArticleReader article={articleQube} />
-          </div>
-        </div>
-      </div>
+      <ArticleReader
+        article={articleQube}
+        isOpen={true}
+        onClose={() => navigate('/')}
+        styleGuide={theQriptopianStyleGuide}
+      />
     );
   }
 
