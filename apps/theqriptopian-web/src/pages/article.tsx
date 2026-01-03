@@ -14,6 +14,7 @@ import { VideoModal } from '@agentiq/smarttriad';
 import { Loader2, AlertCircle } from 'lucide-react';
 
 export default function ArticlePage() {
+  console.log('[ArticlePage] Component mounting');
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -21,6 +22,7 @@ export default function ArticlePage() {
   const [personaId, setPersonaId] = useState<string | null>(null);
 
   useEffect(() => {
+    console.log('[ArticlePage] useEffect running');
     const urlArticle = parseArticleFromUrl();
     const urlPersona = new URLSearchParams(window.location.search).get('persona');
 
@@ -177,7 +179,13 @@ export default function ArticlePage() {
   }
 
   if (!article) {
-    return null;
+    console.warn('[ArticlePage] No article, showing loader');
+    return (
+      <div className="min-h-screen bg-[#050f1f] flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-cyan-400 animate-spin mx-auto" />
+        <p className="text-gray-300 ml-3">Loading...</p>
+      </div>
+    );
   }
 
   // Render video article
