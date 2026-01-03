@@ -12,6 +12,7 @@ import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
 import Onboarding from "./pages/Onboarding";
 import ArticlePage from "./pages/article";
+import ArticleTest from "./pages/ArticleTest";
 import AnalyticsPage from "./pages/Analytics";
 import AdminDashboard from "./pages/admin/Dashboard";
 import SetupDID from "./pages/admin/SetupDID";
@@ -65,7 +66,7 @@ const App = () => (
                   <Route path="/console" element={<Layout><Index /></Layout>} />
                   <Route path="/auth" element={<Layout><Auth /></Layout>} />
                   <Route path="/onboarding" element={<Layout><Onboarding /></Layout>} />
-                  <Route path="/article" element={<Layout><ArticlePage /></Layout>} />
+                  <Route path="/article" element={<ArticleTest />} />
                   <Route path="/analytics" element={<Layout><AnalyticsPage /></Layout>} />
                   
                   {/* Admin Portal Routes */}
