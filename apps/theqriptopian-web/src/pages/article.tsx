@@ -54,7 +54,8 @@ export default function ArticlePage() {
         
         if (!response.ok) {
           console.error('[ArticlePage] API response not OK:', response.status, response.statusText);
-          throw new Error(`Failed to fetch article: ${response.status}`);
+          const errorText = await response.text();
+          throw new Error(`Failed to fetch article (${response.status}): ${errorText || 'No error details'}`);
         }
         
         const result = await response.json();
@@ -62,7 +63,7 @@ export default function ArticlePage() {
         
         if (!result.success || !result.data) {
           console.error('[ArticlePage] Article not found or API error');
-          throw new Error('Article not found or has been removed.');
+          throw new Error(`Article not found: ${result.error || 'Content may have been removed or ID is invalid'}`);
         }
 
         const foundArticle = result.data;
