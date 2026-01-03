@@ -59,6 +59,9 @@ export function PersonaEditModal({ isOpen, onClose, persona, onSave }: Props) {
               btcAddress: data.btc_address || prev.btcAddress || '',
               solAddress: data.sol_address || prev.solAddress || '',
               bio: data.bio || prev.bio || '',
+              referrerIdentifier: data.referrer_identifier || prev.referrerIdentifier || '',
+              referrerId: data.referrer_id || prev.referrerId || null,
+              referralLockedAt: data.referral_locked_at || prev.referralLockedAt || null,
             }));
           }
         } catch (err) {
