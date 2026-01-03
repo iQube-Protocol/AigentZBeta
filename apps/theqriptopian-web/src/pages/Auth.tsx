@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,7 @@ export default function Auth() {
   
   // Get mode from URL param or default to signin
   const initialMode = searchParams.get('mode') === 'signup' ? 'signup' : 'signin';
+  const refParam = searchParams.get('ref');
   
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const [email, setEmail] = useState('');
@@ -26,6 +27,12 @@ export default function Auth() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (refParam) {
+      sessionStorage.setItem('referrer_id', refParam);
+    }
+  }, [refParam]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,7 +60,7 @@ export default function Auth() {
           email,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/onboarding`,
+            emailRedirectTo: `${window.location.origin}/onboarding${refParam ? `?ref=${encodeURIComponent(refParam)}` : ''}`,
           },
         });
 
@@ -69,7 +76,7 @@ export default function Auth() {
           
           // If email confirmation is disabled, redirect to onboarding
           if (data.session) {
-            navigate('/onboarding');
+            navigate(`/onboarding${refParam ? `?ref=${encodeURIComponent(refParam)}` : ''}`);
           }
         }
       } else {

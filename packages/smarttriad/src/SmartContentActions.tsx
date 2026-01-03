@@ -201,6 +201,10 @@ export async function shareArticle(
  * Generate deep link for an article
  */
 function generateArticleDeepLink(article: SmartContentItem, personaId?: string): string {
+  if (article.modalities?.link?.url) {
+    return article.modalities.link.url;
+  }
+
   const baseUrl = window.location.origin;
   const params = new URLSearchParams({
     id: article.id,

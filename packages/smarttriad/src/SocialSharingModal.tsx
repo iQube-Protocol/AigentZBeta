@@ -16,6 +16,7 @@ interface SocialSharingModalProps {
     description?: string;
     section?: string;
     type?: 'text' | 'video';
+    url?: string;
   };
   personaId?: string;
   onShare?: (platform: string) => void;
@@ -33,7 +34,9 @@ export function SocialSharingModal({
   if (!isOpen) return null;
 
   // Generate deep link with persona tracking
-  const deepLink = `${window.location.origin}/article?id=${article.id}&title=${encodeURIComponent(article.title)}${personaId ? `&persona=${personaId}` : ''}${article.section ? `&section=${article.section}` : ''}${article.type ? `&type=${encodeURIComponent(article.type)}` : ''}`;
+  const deepLink = article.url
+    ? article.url
+    : `${window.location.origin}/article?id=${article.id}&title=${encodeURIComponent(article.title)}${personaId ? `&persona=${personaId}` : ''}${article.section ? `&section=${article.section}` : ''}${article.type ? `&type=${encodeURIComponent(article.type)}` : ''}`;
   
   const shareText = `Check out this article: ${article.title}${article.description ? ` - ${article.description}` : ''}`;
 

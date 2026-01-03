@@ -30,6 +30,7 @@ import { useKnytBalance } from "@/hooks/useKnytBalance";
 import { useBalances } from "@/hooks/useBalances";
 import { useDVNEvents } from "@/hooks/useDVNEvents";
 import { useEthPrice } from "@/hooks/useEthPrice";
+import { useSmartContentAction } from "@/contexts/SmartContentActionContext";
 import {
   Sparkles,
   Library,
@@ -344,42 +345,25 @@ export default function SmartWalletDrawer({
     window.location.href = '/auth';
   };
 
-  // Handle invite click - use SmartContentActions share
+  const { executeAction } = useSmartContentAction();
+
+  // Handle invite click - open social sharing modal with signup link
   const handleInviteClick = async () => {
     if (!personaId) return;
     
     try {
-      const response = await fetch(`${import.meta.env.VITE_AIGENT_API_URL || ''}/api/referrals/link?personaId=${personaId}`);
-      const data = await response.json();
-      
-      if (data.success && data.link) {
-        // Create content item for SmartContentActions
-        const shareItem = {
-          id: `invite-${personaId}`,
-          title: 'Join The Qriptopian',
-          description: 'Join me on The Qriptopian - earn KNYT tokens and explore the future of content!',
-          modalities: null
-        };
-        
-        // Use SmartContentActions share handler
-        const { createActionHandler } = await import('@/utils/smartContentActionHandler');
-        const handler = createActionHandler({
-          item: shareItem,
-          onShare: () => {
-            if (navigator.share) {
-              navigator.share({
-                title: shareItem.title,
-                text: shareItem.description,
-                url: data.link
-              });
-            } else {
-              navigator.clipboard.writeText(data.link);
-              alert('Invite link copied to clipboard!');
-            }
-          }
-        });
-        handler('share');
-      }
+      const inviteUrl = `${window.location.origin}/auth?mode=signup&ref=${encodeURIComponent(personaId)}`;
+      const shareItem = {
+        id: `invite-${personaId}`,
+        title: 'Join The Qriptopian',
+        description: 'Join me on The Qriptopian - earn KNYT tokens and explore the future of content!',
+        section: 'referral',
+        modalities: {
+          link: { url: inviteUrl },
+        },
+      };
+
+      executeAction('share', shareItem);
     } catch (error) {
       console.error('Failed to generate invite link:', error);
     }

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,7 +43,9 @@ interface OnboardingState {
 
 export default function Onboarding() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
+  const refParam = searchParams.get('ref') || sessionStorage.getItem('referrer_id');
   
   const [step, setStep] = useState<OnboardingStep>('persona');
   const [loading, setLoading] = useState(false);
@@ -199,6 +201,24 @@ export default function Onboarding() {
         if (personaError) {
           console.error('Persona creation error:', personaError);
           throw new Error(personaError.message || 'Failed to create persona');
+        }
+
+        if (persona?.id && refParam) {
+          try {
+            const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(refParam);
+            const apiBase = import.meta.env.VITE_AIGENT_API_URL || '';
+            await fetch(`${apiBase}/api/referral/process`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                newPersonaId: persona.id,
+                ...(isUuid ? { referrerPersonaId: refParam } : { referrerHandle: refParam }),
+              }),
+            });
+            sessionStorage.removeItem('referrer_id');
+          } catch (referralError) {
+            console.warn('Referral processing failed:', referralError);
+          }
         }
 
         // Link persona to user profile

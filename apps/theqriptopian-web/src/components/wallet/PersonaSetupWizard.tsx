@@ -1,7 +1,7 @@
 /**
  * PersonaSetupWizard - Full 5-step persona creation wizard
  */
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { User, Key, CheckCircle, ArrowRight, ArrowLeft, Loader2, AlertCircle, Eye, EyeOff, Copy, Check } from 'lucide-react';
 
 type FioDomain = 'qripto' | 'knyt';
@@ -47,6 +47,21 @@ export function PersonaSetupWizard({ tenantId = 'default', onComplete, onCancel 
   const [showKey, setShowKey] = useState(false);
   const [createdPersona, setCreatedPersona] = useState<any>(null);
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (state.referrerIdentifier) return;
+    const params = new URLSearchParams(window.location.search);
+    const refParam = params.get('ref') || sessionStorage.getItem('referrer_id');
+    if (!refParam) return;
+
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(refParam);
+    setState(s => ({
+      ...s,
+      referrerIdentifier: refParam,
+      referrerValid: isUuid ? true : s.referrerValid,
+      referrerId: isUuid ? refParam : s.referrerId,
+    }));
+  }, [state.referrerIdentifier]);
 
   const steps: WizardStep[] = ['domain', 'handle', 'referrer', 'keys', 'password', 'confirm'];
   const idx = steps.indexOf(step);
