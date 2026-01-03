@@ -85,7 +85,7 @@ export class ReferralService {
         const referrer = await this.findPersonaByHandle(referrerHandle);
         if (referrer) {
           foundReferrerId = referrer.id;
-          foundHandle = referrer.fioHandle;
+          foundHandle = referrer.fioHandle || undefined;
         }
       }
       
@@ -94,7 +94,7 @@ export class ReferralService {
         const referrer = await this.findPersonaById(referrerPersonaId);
         if (referrer) {
           foundReferrerId = referrer.id;
-          foundHandle = referrer.fioHandle;
+          foundHandle = referrer.fioHandle || undefined;
         }
       }
       
