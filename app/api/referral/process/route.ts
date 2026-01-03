@@ -43,6 +43,16 @@ export async function POST(request: NextRequest) {
           refereePersonaId: newPersonaId,
         },
       });
+
+      await emitCampaignEvent({
+        campaignId: 'qriptopian-share',
+        eventType: 'content_share_signup',
+        personaId: result.referrerPersonaId,
+        source: 'referral_process',
+        metadata: {
+          refereePersonaId: newPersonaId,
+        },
+      });
     }
     
     return NextResponse.json({

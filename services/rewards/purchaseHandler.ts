@@ -234,12 +234,12 @@ export class PurchaseHandler {
     if (!persona) return triggered;
     
     // Grant referrer reward if exists (2 KNYT base)
-    if (persona.referred_by_persona_id) {
-      // Create referral event for first purchase
-      await this.supabase
-        .from('referral_events')
-        .insert({
-          referrer_persona_id: persona.referred_by_persona_id,
+      if (persona.referred_by_persona_id) {
+        // Create referral event for first purchase
+        await this.supabase
+          .from('referral_events')
+          .insert({
+            referrer_persona_id: persona.referred_by_persona_id,
           referee_persona_id: personaId,
           event_type: 'first_purchase',
           reward_amount: 2.0,
@@ -270,10 +270,21 @@ export class PurchaseHandler {
         },
       });
       
-      if (referrerResult.success) {
-        triggered.push(`referrer:${referrerResult.rewardGrantId}`);
+        if (referrerResult.success) {
+          triggered.push(`referrer:${referrerResult.rewardGrantId}`);
+        }
+
+        await emitCampaignEvent({
+          campaignId: 'qriptopian-share',
+          eventType: 'content_share_conversion',
+          personaId: persona.referred_by_persona_id,
+          source: 'purchase_handler',
+          metadata: {
+            refereePersonaId: personaId,
+            purchaseId,
+          },
+        });
       }
-    }
     
     // Grant welcome reward to new user (1 KNYT as discount on this purchase)
     const welcomeResult = await rewardService.grantRewardForTask({

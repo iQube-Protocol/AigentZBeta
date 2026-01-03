@@ -30,13 +30,40 @@ export function SocialSharingModal({
   onShare 
 }: SocialSharingModalProps) {
   const [copied, setCopied] = useState(false);
+  const [shareId] = useState(() => {
+    if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+      return crypto.randomUUID();
+    }
+    return `share_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+  });
 
   if (!isOpen) return null;
 
   // Generate deep link with persona tracking
-  const deepLink = article.url
-    ? article.url
-    : `${window.location.origin}/article?id=${article.id}&title=${encodeURIComponent(article.title)}${personaId ? `&persona=${personaId}` : ''}${article.section ? `&section=${article.section}` : ''}${article.type ? `&type=${encodeURIComponent(article.type)}` : ''}`;
+  const baseUrl = article.url
+    ? new URL(article.url, window.location.origin)
+    : new URL(`${window.location.origin}/article`);
+  const isArticleLink = baseUrl.pathname.includes('/article');
+
+  if (isArticleLink) {
+    if (!baseUrl.searchParams.get('id')) baseUrl.searchParams.set('id', article.id);
+    if (!baseUrl.searchParams.get('title')) baseUrl.searchParams.set('title', article.title);
+    if (article.section && !baseUrl.searchParams.get('section')) {
+      baseUrl.searchParams.set('section', article.section);
+    }
+    if (article.type && !baseUrl.searchParams.get('type')) {
+      baseUrl.searchParams.set('type', article.type);
+    }
+    if (personaId && !baseUrl.searchParams.get('persona')) {
+      baseUrl.searchParams.set('persona', personaId);
+    }
+  }
+
+  if (shareId && !baseUrl.searchParams.get('shareId')) {
+    baseUrl.searchParams.set('shareId', shareId);
+  }
+
+  const deepLink = baseUrl.toString();
   
   const shareText = `Check out this article: ${article.title}${article.description ? ` - ${article.description}` : ''}`;
 
@@ -138,6 +165,21 @@ export function SocialSharingModal({
     if (onShare) {
       onShare(platform);
     }
+
+    if (shareId) {
+      fetch('/api/social/track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          shareId,
+          personaId,
+          contentId: article.id,
+          platform,
+          eventType: 'create',
+        }),
+      }).catch(() => {});
+    }
+
     window.open(url, '_blank', 'width=600,height=400');
   };
 

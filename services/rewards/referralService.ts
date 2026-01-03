@@ -43,6 +43,15 @@ export interface ReferralStats {
   totalKnytEarned: number;
 }
 
+const PERSONA_TABLES = ['persona', 'personas'] as const;
+const REFERRER_COLUMNS = ['referred_by_persona_id', 'referrer_persona_id'] as const;
+
+const isMissingColumn = (error?: { message?: string }) =>
+  !!error?.message && error.message.includes('column') && error.message.includes('does not exist');
+
+const isMissingTable = (error?: { message?: string }) =>
+  !!error?.message && error.message.includes('relation') && error.message.includes('does not exist');
+
 // =============================================================================
 // REFERRAL SERVICE CLASS
 // =============================================================================
@@ -73,30 +82,19 @@ export class ReferralService {
       
       // Try to find referrer by handle first
       if (referrerHandle) {
-        const handle = referrerHandle.trim().toLowerCase();
-        const { data: referrer } = await this.supabase
-          .from('personas')
-          .select('id, fio_handle')
-          .eq('fio_handle', handle)
-          .single();
-        
+        const referrer = await this.findPersonaByHandle(referrerHandle);
         if (referrer) {
           foundReferrerId = referrer.id;
-          foundHandle = referrer.fio_handle;
+          foundHandle = referrer.fioHandle;
         }
       }
       
       // Fall back to direct persona ID
       if (!foundReferrerId && referrerPersonaId) {
-        const { data: referrer } = await this.supabase
-          .from('personas')
-          .select('id, fio_handle')
-          .eq('id', referrerPersonaId)
-          .single();
-        
+        const referrer = await this.findPersonaById(referrerPersonaId);
         if (referrer) {
           foundReferrerId = referrer.id;
-          foundHandle = referrer.fio_handle;
+          foundHandle = referrer.fioHandle;
         }
       }
       
@@ -114,17 +112,23 @@ export class ReferralService {
       }
       
       // Update new persona with referrer info
-      const { error: updateError } = await this.supabase
-        .from('personas')
-        .update({
-          referrer_persona_id: foundReferrerId,
-          ref_campaign_id: campaignId || 'bring-a-knight-v1',
-        })
-        .eq('id', newPersonaId);
-      
-      if (updateError) {
-        console.error('[ReferralService] Failed to update persona:', updateError);
+      const targetTable = await this.findPersonaTableById(newPersonaId);
+      if (!targetTable) {
+        return { success: false, referrerFound: true, error: 'New persona not found' };
+      }
+
+      const referrerUpdated = await this.updateReferrerForPersona(
+        targetTable,
+        newPersonaId,
+        foundReferrerId
+      );
+
+      if (!referrerUpdated) {
         return { success: false, referrerFound: true, error: 'Failed to link referrer' };
+      }
+
+      if (campaignId) {
+        await this.updateCampaignId(targetTable, newPersonaId, campaignId);
       }
       
       return {
@@ -143,19 +147,7 @@ export class ReferralService {
    * Find persona by FIO handle
    */
   async findByFioHandle(handle: string): Promise<{ id: string; fioHandle: string } | null> {
-    const normalizedHandle = handle.trim().toLowerCase();
-    
-    const { data, error } = await this.supabase
-      .from('personas')
-      .select('id, fio_handle')
-      .eq('fio_handle', normalizedHandle)
-      .single();
-    
-    if (error || !data) {
-      return null;
-    }
-    
-    return { id: data.id, fioHandle: data.fio_handle };
+    return this.findPersonaByHandle(handle);
   }
   
   /**
@@ -199,25 +191,31 @@ export class ReferralService {
    * Get referral stats for a persona
    */
   async getReferralStats(personaId: string): Promise<ReferralStats> {
-    // Get persona's FIO handle
-    const { data: persona } = await this.supabase
-      .from('personas')
-      .select('fio_handle')
-      .eq('id', personaId)
-      .single();
-    
-    // Count total referrals
-    const { count: totalReferrals } = await this.supabase
-      .from('personas')
-      .select('id', { count: 'exact', head: true })
-      .eq('referrer_persona_id', personaId);
-    
-    // Count qualified referrals (made first purchase)
-    const { count: qualifiedReferrals } = await this.supabase
-      .from('personas')
-      .select('id', { count: 'exact', head: true })
-      .eq('referrer_persona_id', personaId)
-      .not('first_paid_purchase_at', 'is', null);
+    const table = await this.findPersonaTableById(personaId);
+    const personaRow = table
+      ? await this.supabase
+          .from(table)
+          .select('fio_handle')
+          .eq('id', personaId)
+          .maybeSingle()
+      : { data: null };
+
+    const column = await this.findExistingReferrerColumn(table);
+
+    const { count: totalReferrals } = table && column
+      ? await this.supabase
+          .from(table)
+          .select('id', { count: 'exact', head: true })
+          .eq(column, personaId)
+      : { count: 0 };
+
+    const { count: qualifiedReferrals } = table && column
+      ? await this.supabase
+          .from(table)
+          .select('id', { count: 'exact', head: true })
+          .eq(column, personaId)
+          .not('first_paid_purchase_at', 'is', null)
+      : { count: 0 };
     
     // Get total KNYT earned from referrals
     const { data: rewards } = await this.supabase
@@ -230,12 +228,125 @@ export class ReferralService {
     
     return {
       personaId,
-      fioHandle: persona?.fio_handle || null,
+      fioHandle: (personaRow as any)?.data?.fio_handle || null,
       totalReferrals: totalReferrals || 0,
       qualifiedReferrals: qualifiedReferrals || 0,
       pendingReferrals: (totalReferrals || 0) - (qualifiedReferrals || 0),
       totalKnytEarned,
     };
+  }
+
+  private async findPersonaByHandle(handle: string): Promise<{ id: string; fioHandle: string } | null> {
+    const normalizedHandle = handle.trim().toLowerCase();
+
+    for (const table of PERSONA_TABLES) {
+      const { data, error } = await this.supabase
+        .from(table)
+        .select('id, fio_handle')
+        .eq('fio_handle', normalizedHandle)
+        .maybeSingle();
+
+      if (data?.id) {
+        return { id: data.id, fioHandle: data.fio_handle };
+      }
+
+      if (error && !isMissingTable(error)) {
+        console.warn('[ReferralService] handle lookup error:', error.message);
+      }
+    }
+
+    return null;
+  }
+
+  private async findPersonaById(personaId: string): Promise<{ id: string; fioHandle: string | null } | null> {
+    for (const table of PERSONA_TABLES) {
+      const { data, error } = await this.supabase
+        .from(table)
+        .select('id, fio_handle')
+        .eq('id', personaId)
+        .maybeSingle();
+
+      if (data?.id) {
+        return { id: data.id, fioHandle: data.fio_handle || null };
+      }
+
+      if (error && !isMissingTable(error)) {
+        console.warn('[ReferralService] id lookup error:', error.message);
+      }
+    }
+
+    return null;
+  }
+
+  private async findPersonaTableById(personaId: string): Promise<(typeof PERSONA_TABLES)[number] | null> {
+    for (const table of PERSONA_TABLES) {
+      const { data, error } = await this.supabase
+        .from(table)
+        .select('id')
+        .eq('id', personaId)
+        .maybeSingle();
+
+      if (data?.id) {
+        return table;
+      }
+
+      if (error && !isMissingTable(error)) {
+        console.warn('[ReferralService] persona table lookup error:', error.message);
+      }
+    }
+
+    return null;
+  }
+
+  private async updateReferrerForPersona(table: string, personaId: string, referrerId: string): Promise<boolean> {
+    for (const column of REFERRER_COLUMNS) {
+      const { error } = await this.supabase
+        .from(table)
+        .update({ [column]: referrerId })
+        .eq('id', personaId);
+
+      if (!error) {
+        return true;
+      }
+
+      if (!isMissingColumn(error)) {
+        console.warn('[ReferralService] referrer update error:', error.message);
+      }
+    }
+
+    return false;
+  }
+
+  private async updateCampaignId(table: string, personaId: string, campaignId: string): Promise<void> {
+    const { error } = await this.supabase
+      .from(table)
+      .update({ ref_campaign_id: campaignId })
+      .eq('id', personaId);
+
+    if (error && !isMissingColumn(error)) {
+      console.warn('[ReferralService] campaign update error:', error.message);
+    }
+  }
+
+  private async findExistingReferrerColumn(table?: string | null): Promise<(typeof REFERRER_COLUMNS)[number] | null> {
+    if (!table) return null;
+
+    for (const column of REFERRER_COLUMNS) {
+      const { error } = await this.supabase
+        .from(table)
+        .select(column)
+        .limit(1);
+
+      if (!error) {
+        return column;
+      }
+
+      if (!isMissingColumn(error) && !isMissingTable(error)) {
+        return column;
+      }
+    }
+
+    return null;
   }
   
   /**

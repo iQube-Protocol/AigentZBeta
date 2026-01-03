@@ -21,7 +21,9 @@ export default function ArticlePage() {
 
   useEffect(() => {
     const urlArticle = parseArticleFromUrl();
-    const urlPersona = new URLSearchParams(window.location.search).get('persona');
+    const searchParams = new URLSearchParams(window.location.search);
+    const urlPersona = searchParams.get('persona');
+    const shareId = searchParams.get('shareId') || searchParams.get('s');
 
     if (!urlArticle) {
       setError('Invalid article link');
@@ -63,7 +65,7 @@ export default function ArticlePage() {
         
         // Track social share conversion if persona is present
         if (urlPersona) {
-          trackSocialConversion(urlArticle.id, urlPersona);
+          trackShareEngagement(urlArticle.id, urlPersona, shareId || undefined);
         }
         
         // Update page metadata
@@ -88,7 +90,7 @@ export default function ArticlePage() {
     fetchArticle();
   }, []);
 
-  const trackSocialConversion = async (articleId: string, personaId: string) => {
+  const trackShareEngagement = async (articleId: string, personaId: string, shareId?: string) => {
     try {
       const apiBase = import.meta.env.VITE_AIGENT_API_URL || '';
       await fetch(`${apiBase}/api/social/track`, {
@@ -97,8 +99,9 @@ export default function ArticlePage() {
         body: JSON.stringify({
           personaId,
           contentId: articleId,
+          shareId,
           platform: document.referrer ? new URL(document.referrer).hostname : 'direct',
-          eventType: 'conversion',
+          eventType: 'click',
           metadata: { articleId, deepLink: window.location.href }
         })
       });
