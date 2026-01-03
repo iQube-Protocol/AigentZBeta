@@ -4,7 +4,7 @@
 [build]
   base = "apps/theqriptopian-web"
   publish = "dist"
-  command = "rm -rf ../../package-lock.json ../../node_modules && npm install --legacy-peer-deps && cd ../../packages/smarttriad && npm run build && cd ../.. && cd apps/theqriptopian-web && npm run build"
+  command = "rm -rf ../../package-lock.json ../../node_modules && cd ../../packages/smarttriad && npm install --legacy-peer-deps && npm run build && cd ../../apps/theqriptopian-web && npm install --legacy-peer-deps && npm run build"
 
 [build.environment]
   NODE_VERSION = "20"

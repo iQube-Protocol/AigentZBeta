@@ -1,6 +1,6 @@
 /**
- * Simple Social Analytics Dashboard for SmartTriad
- * Minimal dependencies version for package compatibility
+ * Social Analytics Dashboard for SmartTriad
+ * Smart Wallet CSS styling with lucide icons and glass effects
  */
 interface SocialAnalyticsDashboardProps {
     className?: string;

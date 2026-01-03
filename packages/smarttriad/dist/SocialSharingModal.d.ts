@@ -10,6 +10,7 @@ interface SocialSharingModalProps {
         title: string;
         description?: string;
         section?: string;
+        type?: 'text' | 'video';
     };
     personaId?: string;
     onShare?: (platform: string) => void;
