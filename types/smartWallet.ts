@@ -303,6 +303,9 @@ export interface QuestProgress {
   
   /** Quest title */
   questTitle: string;
+
+  /** Quest group */
+  group?: 'rewarded' | 'purchase';
   
   /** Current step */
   currentStep: number;
@@ -327,6 +330,17 @@ export interface QuestProgress {
     amount: number;
     asset: PaymentCurrency;
   };
+
+  /** Campaign phases (optional) */
+  phases?: Array<{
+    id: string;
+    label: string;
+    counterKey?: string;
+    targetCount?: number;
+  }>;
+
+  /** Counters for phase progress (optional) */
+  counters?: Record<string, number>;
   
   /** Started date */
   startedAt?: string;

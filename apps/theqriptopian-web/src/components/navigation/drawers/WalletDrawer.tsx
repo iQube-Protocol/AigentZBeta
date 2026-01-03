@@ -13,10 +13,11 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { SmartWalletDrawer } from '@/components/wallet';
-import type { SmartWalletNode, WalletTask, ContentEntitlement } from '@/types/smartWallet';
+import type { SmartWalletNode, WalletTask, ContentEntitlement, QuestProgress } from '@/types/smartWallet';
 import { createSmartWalletNode } from '@/types/smartWallet';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchBalances, getWalletAddress, type ChainBalances } from '@/services/balanceService';
+import type { CampaignStateView } from '@/types/campaign';
 
 interface WalletDrawerProps {
   isOpen: boolean;
@@ -50,6 +51,7 @@ export function WalletDrawer({ isOpen, onClose, initialTab = 'wallet', variant =
   const [entitlements, setEntitlements] = useState<ContentEntitlement[]>([]);
   const [baseQcBalance, setBaseQcBalance] = useState<number>(0);
   const [isLoadingWalletData, setIsLoadingWalletData] = useState(false);
+  const [campaigns, setCampaigns] = useState<CampaignStateView[]>([]);
 
   // Fetch user's persona and saved list from Supabase
   const fetchPersona = useCallback(async () => {
@@ -194,6 +196,59 @@ export function WalletDrawer({ isOpen, onClose, initialTab = 'wallet', variant =
       loadBaseQc();
     }
   }, [isOpen, persona?.id]);
+
+  useEffect(() => {
+    const loadCampaigns = async () => {
+      if (!persona?.id) {
+        setCampaigns([]);
+        return;
+      }
+
+      try {
+        const apiBase = import.meta.env.VITE_AIGENT_API_URL || import.meta.env.VITE_API_URL || '';
+        const response = await fetch(`${apiBase}/api/campaigns/state?personaId=${persona.id}`);
+        if (!response.ok) {
+          setCampaigns([]);
+          return;
+        }
+
+        const data = await response.json();
+        setCampaigns(Array.isArray(data?.campaigns) ? data.campaigns : []);
+      } catch (error) {
+        console.error('[WalletDrawer] Failed to load campaign state:', error);
+        setCampaigns([]);
+      }
+    };
+
+    if (isOpen && persona) {
+      loadCampaigns();
+    }
+  }, [isOpen, persona?.id]);
+
+  const mapCampaignsToQuests = useCallback((items: CampaignStateView[]): QuestProgress[] => {
+    return items.map((campaign) => {
+      const completedCount = campaign.completedSteps.length;
+      const status = completedCount >= campaign.totalSteps
+        ? 'completed'
+        : completedCount > 0
+          ? 'in_progress'
+          : 'not_started';
+
+      return {
+        questId: campaign.campaignId,
+        questTitle: campaign.title,
+        group: campaign.group,
+        currentStep: campaign.currentStep,
+        totalSteps: campaign.totalSteps,
+        completedSteps: campaign.completedSteps,
+        status,
+        totalReward: { amount: 0, asset: 'KNYT' },
+        earnedSoFar: { amount: 0, asset: 'KNYT' },
+        phases: campaign.phases,
+        counters: campaign.counters,
+      };
+    });
+  }, []);
 
   // Helper to format asset ID to franchise display name with enriched metadata
   const formatAssetTitle = (assetId: string, metadata?: any, assetMeta?: any): string => {
@@ -365,6 +420,7 @@ export function WalletDrawer({ isOpen, onClose, initialTab = 'wallet', variant =
       lastRefreshed: balances?.lastUpdated || new Date().toISOString(),
     },
     tasks: [],
+    activeQuests: mapCampaignsToQuests(campaigns),
     contentEntitlements: entitlements,
     rewardsContext: {
       recentRewards: [],

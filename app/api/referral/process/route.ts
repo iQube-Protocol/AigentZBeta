@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getReferralService } from '@/services/rewards/referralService';
+import { emitCampaignEvent } from '@/services/campaign/campaignService';
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,6 +31,19 @@ export async function POST(request: NextRequest) {
       referrerPersonaId,
       campaignId,
     });
+
+    if (result.success && result.referrerFound && result.referrerPersonaId) {
+      await emitCampaignEvent({
+        campaignId: 'bring-a-knight',
+        eventType: 'referral_signup_completed',
+        personaId: result.referrerPersonaId,
+        referrerPersonaId: result.referrerPersonaId,
+        source: 'referral_process',
+        metadata: {
+          refereePersonaId: newPersonaId,
+        },
+      });
+    }
     
     return NextResponse.json({
       success: result.success,

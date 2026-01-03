@@ -11,6 +11,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { getRewardService, RewardTaskType } from './rewardService';
+import { emitCampaignEvent } from '@/services/campaign/campaignService';
 import { getEntitlementService } from './entitlementService';
 import { getMultiRailPricing, PaymentRail, ContentType } from '../wallet/knyt/knytPricingService';
 
@@ -244,6 +245,18 @@ export class PurchaseHandler {
           reward_amount: 2.0,
           metadata: { purchaseId }
         });
+
+      await emitCampaignEvent({
+        campaignId: 'bring-a-knight',
+        eventType: 'referral_first_purchase',
+        personaId: persona.referred_by_persona_id,
+        referrerPersonaId: persona.referred_by_persona_id,
+        source: 'purchase_handler',
+        metadata: {
+          refereePersonaId: personaId,
+          purchaseId,
+        },
+      });
 
       const referrerResult = await rewardService.grantRewardForTask({
         personaId: persona.referred_by_persona_id,

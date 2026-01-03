@@ -71,6 +71,7 @@ import {
   Medal,
   BadgeCheck,
   Flame,
+  ShoppingBag,
   Crown,
   LogOut,
   LogIn,
@@ -393,11 +394,19 @@ export default function SmartWalletDrawer({
   // Get tasks from wallet node or use empty array
   const tasks = walletNode?.tasks || [];
   const quests = walletNode?.activeQuests || [];
+  const rewardedQuests = quests.filter((quest) => quest.group !== 'purchase');
+  const purchaseQuests = quests.filter((quest) => quest.group === 'purchase');
   const rewards = walletNode?.rewardsContext;
   
   // Format token display
   const formatToken = (amount: number, decimals: number = 0) => {
     return amount.toLocaleString(undefined, { maximumFractionDigits: decimals });
+  };
+
+  const getQuestPhaseCount = (quest: (typeof quests)[number], phase: NonNullable<(typeof quests)[number]['phases']>[number]) => {
+    if (!quest.counters) return 0;
+    if (phase.counterKey) return quest.counters[phase.counterKey] || 0;
+    return quest.counters[`phase:${phase.id}`] || 0;
   };
 
   // Detect intent from user message and switch tabs accordingly
@@ -1756,93 +1765,90 @@ export default function SmartWalletDrawer({
           {/* Tasks Tab - Phase 1 Hero Tasks */}
           {activeTab === "tasks" && (
             <div className="space-y-4">
-              {/* Hero Tasks Grid */}
-              <div className="grid grid-cols-1 gap-3">
-                {/* Bring a Knight (Referral) */}
-                <section className="rounded-2xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 ring-1 ring-cyan-500/20 p-4">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-10 h-10 rounded-xl bg-cyan-500/20 flex items-center justify-center">
-                      <Users className="w-5 h-5 text-cyan-400" />
+              {/* Rewarded Activities */}
+              <section className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-3">
+                <div className="text-[11px] uppercase tracking-wider text-white/60 mb-2">Rewarded Activities</div>
+                <div className="space-y-2">
+                  {rewardedQuests.length > 0 ? rewardedQuests.map((quest) => (
+                    <div key={quest.questId} className="rounded-lg bg-white/5 ring-1 ring-white/10 p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 text-sm text-white/90">
+                          <Trophy className="w-4 h-4 text-amber-400" />
+                          {quest.questTitle}
+                        </div>
+                        <div className="text-xs text-white/50">Step {quest.currentStep}/{quest.totalSteps}</div>
+                      </div>
+                      <div className="mt-2 h-1.5 bg-black/30 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-amber-400 to-orange-500"
+                          style={{ width: `${(quest.currentStep / quest.totalSteps) * 100}%` }}
+                        />
+                      </div>
+                      {quest.phases && quest.phases.length > 0 && (
+                        <div className="mt-3 grid grid-cols-3 gap-2 p-2 rounded-lg bg-black/20">
+                          {quest.phases.map((phase) => (
+                            <div key={phase.id} className="text-center">
+                              <div className="text-sm font-bold text-white">
+                                {Math.min(getQuestPhaseCount(quest, phase), phase.targetCount ?? 1)}/{phase.targetCount ?? 1}
+                              </div>
+                              <div className="text-[10px] text-white/40">{phase.label}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {quest.questId === 'bring-a-knight' && (
+                        <button
+                          onClick={handleInviteClick}
+                          className="mt-3 w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-cyan-500/20 text-cyan-300 text-sm hover:bg-cyan-500/30 transition-colors"
+                        >
+                          <Share2 className="w-4 h-4" />
+                          Invite Friends
+                        </button>
+                      )}
                     </div>
-                    <div className="flex-1">
-                      <div className="text-sm font-medium text-cyan-300">Bring a Knight</div>
-                      <div className="text-xs text-white/50">Referral Program</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-sm font-bold text-amber-300">+2 KNYT</div>
-                      <div className="text-[10px] text-white/40">per referral</div>
-                    </div>
-                  </div>
-                  <p className="text-xs text-white/60 mb-3">Invite friends to join the Order. You earn 2 KNYT when they make their first purchase, and they get 1 KNYT as a welcome bonus!</p>
-                  <button 
-                    onClick={() => handleInviteClick()}
-                    className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-cyan-500/20 text-cyan-300 text-sm hover:bg-cyan-500/30 transition-colors"
-                  >
-                    <Share2 className="w-4 h-4" />
-                    Invite Friends
-                  </button>
-                </section>
+                  )) : (
+                    <div className="text-xs text-white/50">No rewarded quests available yet.</div>
+                  )}
+                </div>
+              </section>
 
-                {/* Knight of Attention (Engagement) */}
-                <section className="rounded-2xl bg-gradient-to-br from-purple-500/10 to-fuchsia-500/10 ring-1 ring-purple-500/20 p-4">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">
-                      <Flame className="w-5 h-5 text-orange-400" />
+              {/* Standard Purchases */}
+              <section className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-3">
+                <div className="text-[11px] uppercase tracking-wider text-white/60 mb-2">Standard Purchases</div>
+                <div className="space-y-2">
+                  {purchaseQuests.length > 0 ? purchaseQuests.map((quest) => (
+                    <div key={quest.questId} className="rounded-lg bg-white/5 ring-1 ring-white/10 p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 text-sm text-white/90">
+                          <ShoppingBag className="w-4 h-4 text-purple-300" />
+                          {quest.questTitle}
+                        </div>
+                        <div className="text-xs text-white/50">Step {quest.currentStep}/{quest.totalSteps}</div>
+                      </div>
+                      <div className="mt-2 h-1.5 bg-black/30 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-purple-500 to-fuchsia-500"
+                          style={{ width: `${(quest.currentStep / quest.totalSteps) * 100}%` }}
+                        />
+                      </div>
+                      {quest.phases && quest.phases.length > 0 && (
+                        <div className="mt-3 grid grid-cols-3 gap-2 p-2 rounded-lg bg-black/20">
+                          {quest.phases.map((phase) => (
+                            <div key={phase.id} className="text-center">
+                              <div className="text-sm font-bold text-white">
+                                {Math.min(getQuestPhaseCount(quest, phase), phase.targetCount ?? 1)}/{phase.targetCount ?? 1}
+                              </div>
+                              <div className="text-[10px] text-white/40">{phase.label}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    <div className="flex-1">
-                      <div className="text-sm font-medium text-purple-300">Knight of Attention</div>
-                      <div className="text-xs text-white/50">Engagement Rewards</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-sm font-bold text-amber-300">+0.5 KNYT</div>
-                      <div className="text-[10px] text-white/40">per episode</div>
-                    </div>
-                  </div>
-                  <p className="text-xs text-white/60 mb-3">Complete episodes to earn KNYT. Build weekly streaks for bonus rewards - 4 consecutive weeks earns you 2 KNYT bonus!</p>
-                  <div className="grid grid-cols-2 gap-2 p-2 rounded-lg bg-black/20">
-                    <div className="text-center">
-                      <div className="text-lg font-bold text-white">0/2</div>
-                      <div className="text-[10px] text-white/40">Episodes this week</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-lg font-bold text-orange-400">0</div>
-                      <div className="text-[10px] text-white/40">Week streak</div>
-                    </div>
-                  </div>
-                </section>
-
-                {/* Herald of the Order (Social) */}
-                <section className="rounded-2xl bg-gradient-to-br from-amber-500/10 to-orange-500/10 ring-1 ring-amber-500/20 p-4">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center">
-                      <Trophy className="w-5 h-5 text-amber-400" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="text-sm font-medium text-amber-300">Herald of the Order</div>
-                      <div className="text-xs text-white/50">Social Sharing</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-sm font-bold text-amber-300">+0.25-2 KNYT</div>
-                      <div className="text-[10px] text-white/40">per milestone</div>
-                    </div>
-                  </div>
-                  <p className="text-xs text-white/60 mb-3">Share content and earn when others engage! Clicks, signups, and conversions all earn you KNYT.</p>
-                  <div className="grid grid-cols-3 gap-2 p-2 rounded-lg bg-black/20">
-                    <div className="text-center">
-                      <div className="text-sm font-bold text-white">0/10</div>
-                      <div className="text-[10px] text-white/40">Clicks</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-sm font-bold text-white">0/3</div>
-                      <div className="text-[10px] text-white/40">Signups</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-sm font-bold text-white">0/1</div>
-                      <div className="text-[10px] text-white/40">Conversions</div>
-                    </div>
-                  </div>
-                </section>
-              </div>
+                  )) : (
+                    <div className="text-xs text-white/50">No purchase quests available yet.</div>
+                  )}
+                </div>
+              </section>
 
               {/* Active Tasks from props */}
               {tasks.filter((t) => t.status === "pending" || t.status === "in_progress").length > 0 && (
@@ -1871,31 +1877,6 @@ export default function SmartWalletDrawer({
                 </section>
               )}
 
-              {/* Quest Progress */}
-              {quests.length > 0 && (
-                <section className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-3">
-                  <div className="text-[11px] uppercase tracking-wider text-white/60 mb-2">Quest Progress</div>
-                  <div className="space-y-2">
-                    {quests.map((quest) => (
-                      <div key={quest.questId} className="rounded-lg bg-white/5 ring-1 ring-white/10 p-2">
-                        <div className="flex items-center gap-2 text-sm text-white/90">
-                          <Flame className="w-4 h-4 text-orange-400" />
-                          {quest.questTitle}
-                        </div>
-                        <div className="mt-2 h-1.5 bg-black/30 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-gradient-to-r from-purple-500 to-fuchsia-500"
-                            style={{ width: `${(quest.currentStep / quest.totalSteps) * 100}%` }}
-                          />
-                        </div>
-                        <div className="mt-1 text-xs text-white/50">
-                          Step {quest.currentStep} of {quest.totalSteps}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              )}
             </div>
           )}
 

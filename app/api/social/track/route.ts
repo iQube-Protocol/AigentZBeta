@@ -1,13 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { distributeHeraldOfOrderReward } from '@/services/rewards/rewardsService';
+import { emitCampaignEvent } from '@/services/campaign/campaignService';
 
 export async function POST(request: NextRequest) {
   try {
-    const { shareId, personaId, contentId, platform, eventType } = await request.json();
+    const { shareId, personaId, contentId, platform, eventType, action } = await request.json();
+    const resolvedEventType = eventType || action;
+    const resolvedShareId = shareId || (personaId && contentId ? `auto_${personaId}_${contentId}` : null);
     
-    if (!shareId || !eventType) {
-      return NextResponse.json({ success: false, error: 'shareId and eventType required' }, { status: 400 });
+    if (!resolvedShareId || !resolvedEventType) {
+      return NextResponse.json(
+        { success: false, error: 'shareId (or personaId + contentId) and eventType are required' },
+        { status: 400 }
+      );
     }
 
     const supabase = createClient(
@@ -16,14 +22,14 @@ export async function POST(request: NextRequest) {
     );
 
     // Create or update social share analytics
-    if (eventType === 'create') {
+    if (resolvedEventType === 'create') {
       const { data, error } = await supabase
         .from('social_share_analytics')
         .insert({
-          id: shareId,
+          id: resolvedShareId,
           persona_id: personaId,
           content_id: contentId,
-          platform,
+          platform: platform || 'unknown',
           share_url: request.headers.get('referer') || '',
           clicks: 0,
           signups: 0,
@@ -42,23 +48,47 @@ export async function POST(request: NextRequest) {
     }
 
     // Track click, signup, or conversion
-    const updateField = eventType === 'click' ? 'clicks' : 
-                       eventType === 'signup' ? 'signups' : 
-                       eventType === 'conversion' ? 'conversions' : null;
+    const updateField = resolvedEventType === 'click' ? 'clicks' : 
+                       resolvedEventType === 'signup' ? 'signups' : 
+                       resolvedEventType === 'conversion' ? 'conversions' : null;
 
     if (!updateField) {
       return NextResponse.json({ success: false, error: 'Invalid eventType' }, { status: 400 });
     }
 
     // Increment counter
-    const { data: share, error: updateError } = await supabase
+    let { data: share, error: updateError } = await supabase
       .from('social_share_analytics')
       .select('*')
-      .eq('id', shareId)
+      .eq('id', resolvedShareId)
       .single();
 
     if (updateError || !share) {
-      return NextResponse.json({ success: false, error: 'Share not found' }, { status: 404 });
+      if (!personaId) {
+        return NextResponse.json({ success: false, error: 'Share not found' }, { status: 404 });
+      }
+
+      const { data: insertedShare, error: insertError } = await supabase
+        .from('social_share_analytics')
+        .insert({
+          id: resolvedShareId,
+          persona_id: personaId,
+          content_id: contentId,
+          platform: platform || 'unknown',
+          share_url: request.headers.get('referer') || '',
+          clicks: 0,
+          signups: 0,
+          conversions: 0,
+          reward_earned: 0
+        })
+        .select()
+        .single();
+
+      if (insertError || !insertedShare) {
+        return NextResponse.json({ success: false, error: 'Share not found' }, { status: 404 });
+      }
+
+      share = insertedShare;
     }
 
     const newCount = (share[updateField] || 0) + 1;
@@ -69,22 +99,43 @@ export async function POST(request: NextRequest) {
         [updateField]: newCount,
         last_activity_at: new Date().toISOString()
       })
-      .eq('id', shareId);
+      .eq('id', resolvedShareId);
+
+    const campaignEventType = resolvedEventType === 'click'
+      ? 'content_share_click'
+      : resolvedEventType === 'signup'
+        ? 'content_share_signup'
+        : 'content_share_conversion';
+
+    const ownerPersonaId = share.persona_id || personaId;
+    if (ownerPersonaId) {
+      await emitCampaignEvent({
+        campaignId: 'qriptopian-share',
+        eventType: campaignEventType,
+        personaId: ownerPersonaId,
+        contentId: share.content_id,
+        source: 'social_track',
+        metadata: {
+          shareId: resolvedShareId,
+          platform: share.platform || platform || null,
+        },
+      });
+    }
 
     // Check if reward threshold met and distribute Herald of Order reward
     let rewardDistributed = false;
     if (share.persona_id) {
       // Herald of Order reward thresholds
       const shouldReward = 
-        (eventType === 'click' && newCount % 10 === 0) ||  // Every 10 clicks
-        (eventType === 'signup' && newCount % 3 === 0) ||   // Every 3 signups
-        (eventType === 'conversion');                        // Every conversion
+        (resolvedEventType === 'click' && newCount % 10 === 0) ||  // Every 10 clicks
+        (resolvedEventType === 'signup' && newCount % 3 === 0) ||   // Every 3 signups
+        (resolvedEventType === 'conversion');                        // Every conversion
 
       if (shouldReward) {
         const result = await distributeHeraldOfOrderReward(
           share.persona_id,
-          shareId,
-          eventType as 'click' | 'signup' | 'conversion'
+          resolvedShareId,
+          resolvedEventType as 'click' | 'signup' | 'conversion'
         );
         rewardDistributed = result.success;
       }
@@ -92,7 +143,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ 
       success: true, 
-      shareId,
+      shareId: resolvedShareId,
       [updateField]: newCount,
       rewardDistributed
     });

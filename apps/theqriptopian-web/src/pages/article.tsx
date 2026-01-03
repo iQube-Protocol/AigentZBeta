@@ -96,8 +96,9 @@ export default function ArticlePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           personaId,
+          contentId: articleId,
           platform: document.referrer ? new URL(document.referrer).hostname : 'direct',
-          action: 'conversion',
+          eventType: 'conversion',
           metadata: { articleId, deepLink: window.location.href }
         })
       });

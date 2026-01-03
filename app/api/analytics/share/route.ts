@@ -8,6 +8,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { emitCampaignEvent } from '@/services/campaign/campaignService';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -63,6 +64,31 @@ export async function POST(request: NextRequest) {
         error: 'Failed to store analytics',
         details: error.message 
       }, { status: 500,  });
+    }
+
+    try {
+      if (data.deepLink) {
+        const parsed = new URL(data.deepLink);
+        const referrerId = parsed.searchParams.get('ref');
+        const isSignupInvite = parsed.pathname === '/auth' && parsed.searchParams.get('mode') === 'signup';
+
+        if (isSignupInvite && referrerId) {
+          await emitCampaignEvent({
+            campaignId: 'bring-a-knight',
+            eventType: 'referral_share_created',
+            personaId: referrerId,
+            referrerPersonaId: data.personaId || null,
+            source: 'analytics_share',
+            metadata: {
+              platform: data.platform,
+              deepLink: data.deepLink,
+              articleId: data.articleId,
+            },
+          });
+        }
+      }
+    } catch (eventError) {
+      console.warn('[Analytics/Share] Failed to emit campaign event:', eventError);
     }
 
     // Also update share count in content table
