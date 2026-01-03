@@ -5,10 +5,11 @@
  * URL format: /article?id=xxx&title=xxx&section=xxx&persona=xxx&type=video
  */
 
+console.log('[ArticlePage] Module loading');
+
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { parseArticleFromUrl } from '@/utils/articleSharing';
-import { useLiquidUIContent } from '@/hooks/useLiquidUIContent';
 import { ArticleReader } from '@agentiq/article-reader';
 import { VideoModal } from '@agentiq/smarttriad';
 import { Loader2, AlertCircle } from 'lucide-react';
