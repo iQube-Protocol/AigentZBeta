@@ -212,8 +212,13 @@ function generateArticleDeepLink(article: SmartContentItem, personaId?: string):
     params.set('persona', personaId);
   }
   
-  if (article.modalities?.watch?.video_url) {
+  const hasVideo = !!article.modalities?.watch?.video_url;
+  const hasText = !!article.modalities?.read?.text;
+
+  if (hasVideo && !hasText) {
     params.set('type', 'video');
+  } else if (hasText) {
+    params.set('type', 'text');
   }
   
   return `${baseUrl}/article?${params.toString()}`;

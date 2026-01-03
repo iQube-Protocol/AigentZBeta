@@ -15,6 +15,7 @@ interface SocialSharingModalProps {
     title: string;
     description?: string;
     section?: string;
+    type?: 'text' | 'video';
   };
   personaId?: string;
   onShare?: (platform: string) => void;
@@ -32,14 +33,14 @@ export function SocialSharingModal({
   if (!isOpen) return null;
 
   // Generate deep link with persona tracking
-  const deepLink = `${window.location.origin}/article?id=${article.id}&title=${encodeURIComponent(article.title)}${personaId ? `&persona=${personaId}` : ''}${article.section ? `&section=${article.section}` : ''}`;
+  const deepLink = `${window.location.origin}/article?id=${article.id}&title=${encodeURIComponent(article.title)}${personaId ? `&persona=${personaId}` : ''}${article.section ? `&section=${article.section}` : ''}${article.type ? `&type=${encodeURIComponent(article.type)}` : ''}`;
   
   const shareText = `Check out this article: ${article.title}${article.description ? ` - ${article.description}` : ''}`;
 
   // Social platforms configuration with SVG logos
   const socialPlatforms = [
     {
-      name: 'Twitter',
+      name: 'X',
       logo: (
         <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
           <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
@@ -87,6 +88,36 @@ export function SocialSharingModal({
       ),
       color: 'bg-[#0088cc] hover:bg-[#0077b3]',
       getUrl: () => `https://t.me/share/url?url=${encodeURIComponent(deepLink)}&text=${encodeURIComponent(shareText)}`
+    },
+    {
+      name: 'Discord',
+      logo: (
+        <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M20.317 4.369A19.791 19.791 0 0 0 15.949 3a14.033 14.033 0 0 0-.699 1.442 18.688 18.688 0 0 0-5.5 0A14.4 14.4 0 0 0 9.05 3a19.736 19.736 0 0 0-4.37 1.37C1.884 8.446 1.052 12.417 1.39 16.34A19.962 19.962 0 0 0 7.5 19.5a14.35 14.35 0 0 0 1.233-2.02 12.979 12.979 0 0 1-1.942-.938c.164-.118.324-.241.478-.37a13.725 13.725 0 0 0 9.462 0c.156.13.316.253.482.372a12.926 12.926 0 0 1-1.946.936 14.36 14.36 0 0 0 1.233 2.02 19.94 19.94 0 0 0 6.11-3.16c.413-4.523-.74-8.463-2.293-11.971zM8.02 14.34c-1.183 0-2.156-1.085-2.156-2.42 0-1.336.952-2.42 2.156-2.42 1.21 0 2.17 1.094 2.156 2.42 0 1.335-.952 2.42-2.156 2.42zm7.965 0c-1.183 0-2.156-1.085-2.156-2.42 0-1.336.952-2.42 2.156-2.42 1.21 0 2.17 1.094 2.156 2.42 0 1.335-.946 2.42-2.156 2.42z"/>
+        </svg>
+      ),
+      color: 'bg-[#5865F2] hover:bg-[#4c59d9]',
+      getUrl: () => `https://discord.com/channels/@me?message=${encodeURIComponent(`${shareText} ${deepLink}`)}`
+    },
+    {
+      name: 'TikTok',
+      logo: (
+        <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M16.706 5.998a4.862 4.862 0 0 1-1.302-3.483h-2.922v12.22a2.59 2.59 0 1 1-2.598-2.59c.25 0 .487.038.712.108V9.33a5.447 5.447 0 0 0-.712-.046 5.512 5.512 0 1 0 5.52 5.512V8.916a7.646 7.646 0 0 0 4.24 1.28V7.31a4.88 4.88 0 0 1-2.938-1.312z"/>
+        </svg>
+      ),
+      color: 'bg-[#010101] hover:bg-[#111111]',
+      getUrl: () => `https://www.tiktok.com/share?url=${encodeURIComponent(deepLink)}&title=${encodeURIComponent(shareText)}`
+    },
+    {
+      name: 'Instagram',
+      logo: (
+        <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M7 3C4.794 3 3 4.794 3 7v10c0 2.206 1.794 4 4 4h10c2.206 0 4-1.794 4-4V7c0-2.206-1.794-4-4-4H7zm10 2c1.103 0 2 .897 2 2v10c0 1.103-.897 2-2 2H7c-1.103 0-2-.897-2-2V7c0-1.103.897-2 2-2h10zm-5 2.5A4.5 4.5 0 1 0 16.5 12 4.505 4.505 0 0 0 12 7.5zm0 2A2.5 2.5 0 1 1 9.5 12 2.503 2.503 0 0 1 12 9.5zM17.5 6.5A1 1 0 1 0 18.5 7.5 1 1 0 0 0 17.5 6.5z"/>
+        </svg>
+      ),
+      color: 'bg-gradient-to-br from-[#f58529] via-[#dd2a7b] to-[#515bd4]',
+      getUrl: () => `https://www.instagram.com/?url=${encodeURIComponent(deepLink)}`
     },
     {
       name: 'Email',
@@ -170,17 +201,17 @@ export function SocialSharingModal({
 
         {/* Social Platforms */}
         <div className="p-6">
-          <div className="grid grid-cols-2 gap-3 mb-6">
+          <div className="grid grid-cols-3 gap-2 mb-6">
             {socialPlatforms.map((platform) => (
               <button
                 key={platform.name}
                 onClick={() => handleShare(platform.name, platform.getUrl())}
-                className={`${platform.color} text-white p-4 rounded-lg flex flex-col items-center space-y-2 transition-all transform hover:scale-105 hover:shadow-lg`}
+                className={`${platform.color} text-white p-3 rounded-lg flex flex-col items-center space-y-1 transition-all transform hover:scale-105 hover:shadow-lg`}
               >
                 <div className="w-8 h-8 flex items-center justify-center">
                   {platform.logo}
                 </div>
-                <span className="text-sm font-medium">{platform.name}</span>
+                <span className="text-xs font-medium">{platform.name}</span>
               </button>
             ))}
           </div>

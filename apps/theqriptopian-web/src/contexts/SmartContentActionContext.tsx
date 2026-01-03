@@ -206,6 +206,11 @@ export function SmartContentActionProvider({ children }: ProviderProps) {
           title: shareItem.title,
           description: shareItem.description || shareItem.excerpt || '',
           section: shareItem.section,
+          type: shareItem.modalities?.read?.text
+            ? 'text'
+            : shareItem.modalities?.watch?.video_url
+              ? 'video'
+              : undefined,
         } : { id: '', title: '', section: '' }}
         personaId={getCurrentPersonaId() || undefined}
         onShare={handleShareTracking}

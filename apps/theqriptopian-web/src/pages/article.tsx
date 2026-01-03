@@ -17,6 +17,7 @@ export default function ArticlePage() {
   const [error, setError] = useState<string | null>(null);
   const [article, setArticle] = useState<any>(null);
   const [personaId, setPersonaId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'text' | 'video' | null>(null);
 
   useEffect(() => {
     const urlArticle = parseArticleFromUrl();
@@ -134,6 +135,39 @@ export default function ArticlePage() {
     });
   };
 
+  useEffect(() => {
+    if (!article) return;
+    const params = new URLSearchParams(window.location.search);
+    const preferredType = params.get('type');
+    const hasText = !!article.modalities?.read?.text;
+    const hasVideo = !!article.modalities?.watch?.video_url;
+
+    if (preferredType === 'video' && hasVideo) {
+      setViewMode('video');
+      return;
+    }
+
+    if (hasText) {
+      setViewMode('text');
+      return;
+    }
+
+    if (hasVideo) {
+      setViewMode('video');
+      return;
+    }
+
+    setViewMode('text');
+  }, [article]);
+
+  const setPreferredView = (nextMode: 'text' | 'video') => {
+    setViewMode(nextMode);
+    const params = new URLSearchParams(window.location.search);
+    params.set('type', nextMode);
+    const newUrl = `${window.location.pathname}?${params.toString()}`;
+    window.history.replaceState(null, '', newUrl);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#050f1f] flex items-center justify-center">
@@ -172,8 +206,13 @@ export default function ArticlePage() {
     );
   }
 
+  const hasVideo = !!article.modalities?.watch?.video_url;
+  const hasText = !!article.modalities?.read?.text;
+  const showToggle = hasVideo && hasText;
+  const resolvedView = viewMode || (hasText ? 'text' : hasVideo ? 'video' : 'text');
+
   // Render video article
-  if (article.modalities?.watch?.video_url) {
+  if (resolvedView === 'video' && hasVideo) {
     return (
       <div className="min-h-screen bg-[#050f1f]">
         <div className="container mx-auto px-4 py-8">
@@ -196,6 +235,23 @@ export default function ArticlePage() {
               </p>
             )}
 
+            {showToggle && (
+              <div className="mb-6 flex items-center gap-2">
+                <button
+                  onClick={() => setPreferredView('text')}
+                  className="rounded-full border border-[#1e2b40] px-4 py-1 text-sm text-gray-300 hover:text-white hover:bg-[#0a1a2f] transition-colors"
+                >
+                  Read Text
+                </button>
+                <button
+                  onClick={() => setPreferredView('video')}
+                  className="rounded-full border border-cyan-500/40 px-4 py-1 text-sm text-cyan-300 bg-cyan-500/10"
+                >
+                  Watch Video
+                </button>
+              </div>
+            )}
+
             <div className="aspect-video bg-black rounded-lg overflow-hidden">
               <video
                 src={article.modalities.watch.video_url}
@@ -211,7 +267,7 @@ export default function ArticlePage() {
   }
 
   // Render text article
-  if (article.modalities?.read?.text) {
+  if (resolvedView === 'text' && hasText) {
     const articleQube = {
       qubeType: 'articleQube',
       contentId: article.id,
@@ -242,6 +298,22 @@ export default function ArticlePage() {
         >
           ← Back to Home
         </button>
+        {showToggle && (
+          <div className="fixed top-4 right-4 z-[10002] flex items-center gap-2">
+            <button
+              onClick={() => setPreferredView('text')}
+              className="rounded-full border border-cyan-500/40 px-4 py-2 text-sm text-cyan-300 bg-cyan-500/10"
+            >
+              Read Text
+            </button>
+            <button
+              onClick={() => setPreferredView('video')}
+              className="rounded-full border border-[#1e2b40] px-4 py-2 text-sm text-gray-300 hover:text-white hover:bg-[#0a1a2f] transition-colors"
+            >
+              Watch Video
+            </button>
+          </div>
+        )}
       </>
     );
   }
