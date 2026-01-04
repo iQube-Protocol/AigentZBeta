@@ -54,9 +54,10 @@ export function SocialSharingModal({
     if (article.type && !baseUrl.searchParams.get('type')) {
       baseUrl.searchParams.set('type', article.type);
     }
-    if (personaId && !baseUrl.searchParams.get('persona')) {
-      baseUrl.searchParams.set('persona', personaId);
-    }
+  }
+
+  if (personaId && !baseUrl.searchParams.get('persona')) {
+    baseUrl.searchParams.set('persona', personaId);
   }
 
   if (shareId && !baseUrl.searchParams.get('shareId')) {
