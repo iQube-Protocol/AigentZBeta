@@ -219,7 +219,7 @@ export function useRewards(tenantId: string) {
     personaId?: string; 
     status?: string;
     tokenType?: string;
-    source?: 'crm' | 'grants';
+    source?: 'crm' | 'grants' | 'wallet' | 'combined';
     limit?: number; 
     offset?: number 
   }) => {
