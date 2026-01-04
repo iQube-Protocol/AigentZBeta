@@ -37,6 +37,7 @@ const BATCH_SIZE = Number(process.env.BATCH_SIZE || 500);
 const DRY_RUN = String(process.env.DRY_RUN || '').toLowerCase() === 'true';
 const TABLE_FILTER = (process.env.TABLES || '').split(',').map((t) => t.trim()).filter(Boolean);
 const SEED_ONLY = String(process.env.SEED_ONLY || '').toLowerCase() === 'true';
+const SEED_INVITEES = String(process.env.SEED_INVITEES || '').toLowerCase() === 'true';
 
 function extractTablesFromSpec(spec) {
   return Array.from(new Set(Object.keys(spec.paths || {})
@@ -298,6 +299,72 @@ async function importPersonas(table, domain, tenantId, existingHandles) {
   }
 }
 
+async function importInvitees(tenantId, existingHandles) {
+  let offset = 0;
+  let total = 0;
+
+  const statusValue = process.env.INVITEE_STATUS || 'inactive';
+
+  while (true) {
+    const { data, error } = await source
+      .from('invited_users')
+      .select('*')
+      .eq('signup_completed', false)
+      .range(offset, offset + BATCH_SIZE - 1);
+
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+
+    const payload = data.map((row) => {
+      const personaData = row.persona_data || {};
+      const email = row.email || personaData.Email || '';
+      const fallbackId = row.id || row.invitation_token || row.email;
+      const domain = (row.persona_type || 'knyt').toLowerCase() === 'qripto' ? 'qripto' : 'knyt';
+      const fioHandle = buildFioHandle(email, fallbackId, domain, existingHandles);
+      existingHandles.add(fioHandle.toLowerCase());
+
+      const invested = parseInvested(personaData['Total-Invested'] || personaData.total_invested || personaData.total_invested_usd);
+      const omTier = normalizeTier(personaData['OM-Tier-Status'] || personaData.om_tier_status);
+      const orderTier = omTier || tierFromInvested(invested);
+      const repTier = repTierFromOrder(orderTier);
+      const bucket = bucketFromRepTier(repTier);
+
+      return {
+        id: row.id,
+        type: 'human',
+        fio_handle: fioHandle,
+        fio_domain: domain,
+        root_did: `did:iq:invitee:${row.id}`,
+        display_name: buildDisplayName(personaData['First-Name'], personaData['Last-Name'], email, fioHandle),
+        avatar_uri: personaData.profile_image_url || null,
+        evm_key: {},
+        chain_addresses: {},
+        evm_address: personaData['EVM-Public-Key'] || null,
+        btc_address: personaData['BTC-Public-Key'] || null,
+        status: statusValue,
+        tenant_id: tenantId,
+        reputation_score: 0,
+        reputation_bucket: bucket,
+        order_tier: orderTier,
+        reputation_tier: repTier,
+        badges: [],
+        created_at: row.invited_at || new Date().toISOString(),
+        updated_at: row.invited_at || new Date().toISOString(),
+      };
+    });
+
+    const { error: upsertError } = await target
+      .from('personas')
+      .upsert(payload, { onConflict: 'id' });
+
+    if (upsertError) throw upsertError;
+
+    total += payload.length;
+    console.log(`[invited_users] Seeded invitees ${total}`);
+    offset += data.length;
+  }
+}
+
 async function main() {
   console.log('Fetching source schema...');
   const sourceSpec = await fetchSpec(SOURCE_URL, SOURCE_KEY);
@@ -327,6 +394,9 @@ async function main() {
 
   await importPersonas('knyt_personas', 'knyt', tenantId, existingHandles);
   await importPersonas('qripto_personas', 'qripto', tenantId, existingHandles);
+  if (SEED_INVITEES) {
+    await importInvitees(tenantId, existingHandles);
+  }
 
   console.log('Done.');
 }
