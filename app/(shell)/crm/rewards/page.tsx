@@ -15,31 +15,55 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { useCrmContext } from '../CrmContext';
-import { useRewards } from '../hooks/useCrmApi';
+import { useRewards, usePersonas } from '../hooks/useCrmApi';
 import RewardApprovalWorkflow from '@/components/crm/RewardApprovalWorkflow';
+import type { CrmReward } from '@/types/crm';
 
-interface Reward {
+interface RewardRow {
   id: string;
+  personaId: string;
   personaName: string;
   tokenType: string;
   amount: number;
   pokwBasis: number;
   status: string;
-  proposedAt: string;
-  paidAt?: string;
+  periodStart: string;
+  periodEnd: string;
+  createdAt: string;
   txHash?: string;
 }
 
 export default function RewardsPage() {
   const { currentTenantId } = useCrmContext();
-  const [rewards, setRewards] = useState<Reward[]>([]);
+  const [rewards, setRewards] = useState<RewardRow[]>([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [apiError, setApiError] = useState<string | null>(null);
   const [showApprovalWorkflow, setShowApprovalWorkflow] = useState(false);
   
   const rewardsApi = useRewards(currentTenantId);
+  const personasApi = usePersonas(currentTenantId);
   const loading = rewardsApi.loading;
+  const [personaMap, setPersonaMap] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    async function fetchPersonas() {
+      if (!currentTenantId) return;
+      try {
+        const result = await personasApi.fetch({ limit: 500 });
+        const map: Record<string, string> = {};
+        (result?.data || []).forEach((persona: any) => {
+          if (persona?.id) {
+            map[persona.id] = persona.displayName || persona.name || persona.fioHandle || persona.id.slice(0, 12);
+          }
+        });
+        setPersonaMap(map);
+      } catch {
+        setPersonaMap({});
+      }
+    }
+    fetchPersonas();
+  }, [currentTenantId]);
 
   useEffect(() => {
     async function fetchRewards() {
@@ -50,17 +74,20 @@ export default function RewardsPage() {
           limit: 100 
         });
         if (result?.data) {
-          setRewards(result.data.map((r: any) => ({
+          const mapped = (result.data as CrmReward[]).map((r) => ({
             id: r.id,
-            personaName: r.personaDisplayName || r.personaId?.slice(0, 12) + '...',
+            personaId: r.personaId,
+            personaName: personaMap[r.personaId] || r.personaId.slice(0, 12) + '...',
             tokenType: r.tokenType,
             amount: r.amount || 0,
-            pokwBasis: r.pokwBasis || 0,
+            pokwBasis: r.pokwScoreUsed || 0,
             status: r.status,
-            proposedAt: r.proposedAt || r.createdAt,
-            paidAt: r.paidAt,
-            txHash: r.txHash,
-          })));
+            periodStart: r.periodStart,
+            periodEnd: r.periodEnd,
+            createdAt: r.createdAt,
+            txHash: r.txHash || undefined,
+          }));
+          setRewards(mapped);
         }
       } catch (err: any) {
         setApiError(err.message || 'Failed to load rewards');
@@ -68,7 +95,7 @@ export default function RewardsPage() {
       }
     }
     fetchRewards();
-  }, [currentTenantId, statusFilter]);
+  }, [currentTenantId, statusFilter, personaMap]);
 
   const filteredRewards = rewards.filter(r => {
     const matchesSearch = r.personaName.toLowerCase().includes(search.toLowerCase());
@@ -78,7 +105,7 @@ export default function RewardsPage() {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'proposed': return <Clock size={14} className="text-amber-400" />;
+      case 'draft': return <Clock size={14} className="text-amber-400" />;
       case 'approved': return <CheckCircle size={14} className="text-blue-400" />;
       case 'paid': return <Send size={14} className="text-emerald-400" />;
       case 'cancelled': return <XCircle size={14} className="text-red-400" />;
@@ -88,7 +115,7 @@ export default function RewardsPage() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'proposed': return 'bg-amber-400/20 text-amber-400';
+      case 'draft': return 'bg-amber-400/20 text-amber-400';
       case 'approved': return 'bg-blue-400/20 text-blue-400';
       case 'paid': return 'bg-emerald-400/20 text-emerald-400';
       case 'cancelled': return 'bg-red-400/20 text-red-400';
@@ -101,11 +128,12 @@ export default function RewardsPage() {
       case 'QCT': return 'text-purple-400';
       case 'QOYN': return 'text-cyan-400';
       case 'USDC': return 'text-blue-400';
+      case 'KNYT': return 'text-amber-400';
       default: return 'text-slate-400';
     }
   };
 
-  const totalProposed = rewards.filter(r => r.status === 'proposed').reduce((sum, r) => sum + r.amount, 0);
+  const totalProposed = rewards.filter(r => r.status === 'draft').reduce((sum, r) => sum + r.amount, 0);
   const totalApproved = rewards.filter(r => r.status === 'approved').reduce((sum, r) => sum + r.amount, 0);
   const totalPaid = rewards.filter(r => r.status === 'paid').reduce((sum, r) => sum + r.amount, 0);
 
@@ -184,7 +212,7 @@ export default function RewardsPage() {
           title="Filter by status"
         >
           <option value="all">All Status</option>
-          <option value="proposed">Proposed</option>
+          <option value="draft">Draft</option>
           <option value="approved">Approved</option>
           <option value="paid">Paid</option>
           <option value="cancelled">Cancelled</option>
@@ -203,9 +231,9 @@ export default function RewardsPage() {
               <th className="text-left px-6 py-4 text-sm font-medium text-slate-400">Recipient</th>
               <th className="text-left px-6 py-4 text-sm font-medium text-slate-400">Token</th>
               <th className="text-right px-6 py-4 text-sm font-medium text-slate-400">Amount</th>
-              <th className="text-right px-6 py-4 text-sm font-medium text-slate-400">PoKW Basis</th>
+              <th className="text-right px-6 py-4 text-sm font-medium text-slate-400">PoKW</th>
               <th className="text-left px-6 py-4 text-sm font-medium text-slate-400">Status</th>
-              <th className="text-right px-6 py-4 text-sm font-medium text-slate-400">Proposed</th>
+              <th className="text-right px-6 py-4 text-sm font-medium text-slate-400">Period</th>
               <th className="px-6 py-4"></th>
             </tr>
           </thead>
@@ -256,7 +284,7 @@ export default function RewardsPage() {
                     </div>
                   </td>
                   <td className="px-6 py-4 text-right text-slate-400 text-sm">
-                    {new Date(reward.proposedAt).toLocaleDateString()}
+                    {new Date(reward.periodStart).toLocaleDateString()} - {new Date(reward.periodEnd).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4">
                     <button className="p-2 hover:bg-white/10 rounded-lg transition" aria-label="More options">
