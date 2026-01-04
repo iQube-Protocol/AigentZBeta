@@ -221,6 +221,13 @@ export default function Onboarding() {
           }
         }
 
+        if (persona?.id) {
+          try {
+            localStorage.setItem('currentPersonaId', persona.id);
+            sessionStorage.setItem('currentPersonaId', persona.id);
+          } catch {}
+        }
+
         // Link persona to user profile
         if (userId && persona?.id) {
           const { error: profileError } = await supabase

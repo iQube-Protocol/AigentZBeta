@@ -94,6 +94,10 @@ export function WalletDrawer({ isOpen, onClose, initialTab = 'wallet', variant =
 
         if (personaData) {
           setPersona(personaData);
+          try {
+            localStorage.setItem('currentPersonaId', personaData.id);
+            sessionStorage.setItem('currentPersonaId', personaData.id);
+          } catch {}
 
           // Update saved personas if current is missing (e.g. first load or newly added)
           const isAgent = personaData.world_id_status === 'verified_ai_agent' || personaData.world_id_status === 'agent_declared';
