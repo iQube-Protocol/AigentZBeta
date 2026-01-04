@@ -124,19 +124,19 @@ export default function CRMDashboardPage() {
 
         const activity: ActivityItem[] = [
           ...personas.slice(0, 3).map((p: any) => ({
-            type: 'persona',
+            type: 'persona' as const,
             action: 'Persona created',
             label: personaMap.get(p.id) || p.id?.slice(0, 12) + '...',
             createdAt: p.createdAt,
           })),
           ...contributions.slice(0, 3).map((c: any) => ({
-            type: 'contribution',
+            type: 'contribution' as const,
             action: 'Contribution recorded',
             label: personaMap.get(c.personaId) || c.personaId?.slice(0, 12) + '...',
             createdAt: c.createdAt,
           })),
           ...rewards.slice(0, 3).map((r: any) => ({
-            type: 'reward',
+            type: 'reward' as const,
             action: 'Reward updated',
             label: personaMap.get(r.personaId) || r.personaId?.slice(0, 12) + '...',
             createdAt: r.createdAt,

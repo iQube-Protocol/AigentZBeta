@@ -299,7 +299,7 @@ async function importPersonas(table, domain, tenantId, existingHandles) {
   }
 }
 
-async function importInvitees(tenantId, franchiseId, existingHandles) {
+async function importInvitees(tenantId, franchiseId, existingHandles, options = {}) {
   let offset = 0;
   let total = 0;
 
@@ -332,7 +332,7 @@ async function importInvitees(tenantId, franchiseId, existingHandles) {
       const repTier = repTierFromOrder(orderTier);
       const bucket = bucketFromRepTier(repTier);
 
-      return {
+      const rowPayload = {
         id: row.id,
         type: 'human',
         fio_handle: fioHandle,
@@ -355,6 +355,18 @@ async function importInvitees(tenantId, franchiseId, existingHandles) {
         created_at: row.invited_at || new Date().toISOString(),
         updated_at: row.invited_at || new Date().toISOString(),
       };
+
+      if (options.includeMetadata) {
+        rowPayload.metadata = {
+          pending: true,
+          source: 'nakamoto_invited_users',
+          invite_id: row.id,
+          invited_at: row.invited_at || null,
+          invitation_token: row.invitation_token || null,
+        };
+      }
+
+      return rowPayload;
     });
 
     const personaPayload = payload.map(({ _email, ...row }) => row);
@@ -411,6 +423,11 @@ async function main() {
   const tables = extractTablesFromSpec(sourceSpec);
   const defs = sourceSpec.definitions || {};
 
+  console.log('Fetching target schema...');
+  const targetSpec = await fetchSpec(TARGET_URL, TARGET_KEY);
+  const targetDefs = targetSpec.definitions || {};
+  const hasPersonaMetadata = Boolean(targetDefs.personas?.properties?.metadata);
+
   console.log(`Found ${tables.length} tables in source.`);
 
   const tablesToImport = SEED_ONLY
@@ -435,7 +452,7 @@ async function main() {
   await importPersonas('knyt_personas', 'knyt', tenantId, existingHandles);
   await importPersonas('qripto_personas', 'qripto', tenantId, existingHandles);
   if (SEED_INVITEES) {
-    await importInvitees(tenantId, franchiseId, existingHandles);
+    await importInvitees(tenantId, franchiseId, existingHandles, { includeMetadata: hasPersonaMetadata });
   }
 
   console.log('Done.');
