@@ -9,13 +9,14 @@
  * not dependent on where it's displayed.
  */
 
-import React, { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
 import { VideoModal } from '@agentiq/smarttriad';
 import { ArticleReader, theQriptopianStyleGuide } from '@agentiq/article-reader';
 import { PDFPageViewer } from '@/components/content/PDFPageViewer';
 import { shareArticle, getCurrentPersonaId, SocialSharingModal } from '@agentiq/smarttriad';
 import type { ArticleQube } from '@agentiq/codex';
 import type { ContentModalities, ActionType, SmartContentItem } from '@agentiq/smarttriad';
+import { supabase } from '@/integrations/supabase/client';
 
 interface SmartContentActionContextValue {
   /**
@@ -50,6 +51,32 @@ export function SmartContentActionProvider({ children }: ProviderProps) {
   const [shareItem, setShareItem] = useState<SmartContentItem | null>(null);
   // TODO: Add audio player state when implemented
   // const [audioItem, setAudioItem] = useState<SmartContentItem | null>(null);
+
+  useEffect(() => {
+    const ensurePersonaId = async () => {
+      if (getCurrentPersonaId()) return;
+
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('persona_id')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (profile?.persona_id) {
+          localStorage.setItem('currentPersonaId', profile.persona_id);
+          sessionStorage.setItem('currentPersonaId', profile.persona_id);
+        }
+      } catch (error) {
+        console.warn('[SmartContentAction] Failed to resolve persona:', error);
+      }
+    };
+
+    ensurePersonaId();
+  }, []);
 
   /**
    * Universal action executor
