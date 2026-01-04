@@ -130,7 +130,7 @@ async function ensureTenant() {
     .eq('slug', 'nakamoto')
     .maybeSingle();
 
-  if (existing?.id) return existing.id;
+  if (existing?.id) return { tenantId: existing.id, franchiseId: franchise?.id || null };
 
   const { data: created, error } = await target
     .from('tenants')
@@ -146,7 +146,7 @@ async function ensureTenant() {
     .single();
 
   if (error) throw error;
-  return created.id;
+  return { tenantId: created.id, franchiseId: franchise?.id || null };
 }
 
 async function loadExistingHandles(domains) {
@@ -299,11 +299,14 @@ async function importPersonas(table, domain, tenantId, existingHandles) {
   }
 }
 
-async function importInvitees(tenantId, existingHandles) {
+async function importInvitees(tenantId, franchiseId, existingHandles) {
   let offset = 0;
   let total = 0;
 
-  const statusValue = process.env.INVITEE_STATUS || 'inactive';
+  const rawStatus = process.env.INVITEE_STATUS || 'pending';
+  const statusValue = rawStatus === 'pending' ? 'inactive' : rawStatus;
+  const rawPersonaState = process.env.INVITEE_STATE || 'pending';
+  const personaState = rawPersonaState === 'pending' ? 'pseudonymous' : rawPersonaState;
 
   while (true) {
     const { data, error } = await source
@@ -336,6 +339,7 @@ async function importInvitees(tenantId, existingHandles) {
         fio_domain: domain,
         root_did: `did:iq:invitee:${row.id}`,
         display_name: buildDisplayName(personaData['First-Name'], personaData['Last-Name'], email, fioHandle),
+        _email: email,
         avatar_uri: personaData.profile_image_url || null,
         evm_key: {},
         chain_addresses: {},
@@ -353,11 +357,47 @@ async function importInvitees(tenantId, existingHandles) {
       };
     });
 
+    const personaPayload = payload.map(({ _email, ...row }) => row);
+
     const { error: upsertError } = await target
       .from('personas')
-      .upsert(payload, { onConflict: 'id' });
+      .upsert(personaPayload, { onConflict: 'id' });
 
     if (upsertError) throw upsertError;
+
+    const identityPayload = payload.map((row) => ({
+      id: row.id,
+      fio_handle: row.fio_handle,
+      default_identity_state: 'semi_anonymous',
+      app_origin: 'nakamoto',
+      tenant_id: tenantId,
+      franchise_id: franchiseId,
+      created_at: row.created_at,
+    }));
+
+    const { error: identityError } = await target
+      .from('persona')
+      .upsert(identityPayload, { onConflict: 'id' });
+
+    if (identityError) throw identityError;
+
+    const crmPayload = payload.map((row) => ({
+      id: row.id,
+      tenant_id: tenantId,
+      persona_state: personaState,
+      external_user_id: row.id,
+      display_name: row.display_name,
+      email: row._email || null,
+      persona_dataqube_id: row.id,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    }));
+
+    const { error: crmError } = await target
+      .from('crm_personas')
+      .upsert(crmPayload, { onConflict: 'id' });
+
+    if (crmError) throw crmError;
 
     total += payload.length;
     console.log(`[invited_users] Seeded invitees ${total}`);
@@ -389,13 +429,13 @@ async function main() {
   }
 
   console.log('\nSeeding personas from knyt_personas and qripto_personas...');
-  const tenantId = await ensureTenant();
+  const { tenantId, franchiseId } = await ensureTenant();
   const existingHandles = await loadExistingHandles(['knyt', 'qripto']);
 
   await importPersonas('knyt_personas', 'knyt', tenantId, existingHandles);
   await importPersonas('qripto_personas', 'qripto', tenantId, existingHandles);
   if (SEED_INVITEES) {
-    await importInvitees(tenantId, existingHandles);
+    await importInvitees(tenantId, franchiseId, existingHandles);
   }
 
   console.log('Done.');
