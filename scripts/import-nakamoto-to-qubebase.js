@@ -36,6 +36,7 @@ const target = createClient(TARGET_URL, TARGET_KEY, { auth: { persistSession: fa
 const BATCH_SIZE = Number(process.env.BATCH_SIZE || 500);
 const DRY_RUN = String(process.env.DRY_RUN || '').toLowerCase() === 'true';
 const TABLE_FILTER = (process.env.TABLES || '').split(',').map((t) => t.trim()).filter(Boolean);
+const SEED_ONLY = String(process.env.SEED_ONLY || '').toLowerCase() === 'true';
 
 function extractTablesFromSpec(spec) {
   return Array.from(new Set(Object.keys(spec.paths || {})
@@ -266,8 +267,11 @@ async function importPersonas(table, domain, tenantId, existingHandles) {
         type: 'human',
         fio_handle: fioHandle,
         fio_domain: domain,
+        root_did: `did:iq:persona:${row.id}`,
         display_name: buildDisplayName(row['First-Name'], row['Last-Name'], email, fioHandle),
         avatar_uri: row.profile_image_url || null,
+        evm_key: {},
+        chain_addresses: {},
         evm_address: row['EVM-Public-Key'] || null,
         btc_address: row['BTC-Public-Key'] || null,
         status: 'active',
@@ -302,7 +306,9 @@ async function main() {
 
   console.log(`Found ${tables.length} tables in source.`);
 
-  const tablesToImport = TABLE_FILTER.length ? tables.filter((t) => TABLE_FILTER.includes(t)) : tables;
+  const tablesToImport = SEED_ONLY
+    ? []
+    : (TABLE_FILTER.length ? tables.filter((t) => TABLE_FILTER.includes(t)) : tables);
 
   for (const table of tablesToImport) {
     const def = defs[table];
