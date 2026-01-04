@@ -192,7 +192,7 @@ export class RewardService {
         persona = altResult.data;
       }
 
-      if (personaError && !persona) {
+      if (!persona) {
         return { success: false, baseAmount, finalAmount: 0, repMultiplier: 1, error: 'Persona not found' };
       }
       
