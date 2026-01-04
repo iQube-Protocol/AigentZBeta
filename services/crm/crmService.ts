@@ -69,8 +69,8 @@ export async function getFranchise(idOrSlug: string): Promise<CrmFranchise | nul
 /**
  * Get tenants for a franchise
  */
-export async function getFranchiseTenants(franchiseId: string): Promise<CrmTenant[]> {
-  return db.listTenants({ franchiseId, activeOnly: true });
+export async function getFranchiseTenants(franchiseId: string, activeOnly = true): Promise<CrmTenant[]> {
+  return db.listTenants({ franchiseId, activeOnly });
 }
 
 // ============================================================================
@@ -80,8 +80,8 @@ export async function getFranchiseTenants(franchiseId: string): Promise<CrmTenan
 /**
  * List all tenants (optionally filtered by franchise)
  */
-export async function listTenants(franchiseId?: string): Promise<CrmTenant[]> {
-  return db.listTenants({ franchiseId, activeOnly: true });
+export async function listTenants(franchiseId?: string, activeOnly = true): Promise<CrmTenant[]> {
+  return db.listTenants({ franchiseId, activeOnly });
 }
 
 /**

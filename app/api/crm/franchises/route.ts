@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
 
       // Include tenants if requested
       if (includeTenants) {
-        const franchiseTenants = await crmService.getFranchiseTenants(franchise.id);
+        const franchiseTenants = await crmService.getFranchiseTenants(franchise.id, activeOnly);
         const tenantIds = franchiseTenants.map((t) => t.id);
         const personaCounts = await fetchPersonaCountsByTenant(tenantIds);
 
@@ -91,7 +91,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const tenantsList = await crmService.listTenants();
+    const tenantsList = await crmService.listTenants(undefined, activeOnly);
     const tenantIds = tenantsList.map((t) => t.id);
     const personaCounts = await fetchPersonaCountsByTenant(tenantIds);
 

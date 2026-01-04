@@ -14,6 +14,7 @@ import {
 import { TaskCategory } from '@/types/crm';
 import { getCampaignDefinition } from '@/services/campaign/campaignRegistry';
 import { getCampaignStateViewsForPersona } from '@/services/campaign/campaignService';
+import { getCrmClient } from '@/services/crm/crmDataAccess';
 
 function campaignViewToTask(tenantId: string, view: any) {
   const now = new Date().toISOString();
@@ -51,6 +52,93 @@ function campaignViewToTask(tenantId: string, view: any) {
   };
 }
 
+const isUuid = (value: string) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+
+async function resolveCampaignPersonaId(rawPersonaId: string): Promise<string | null> {
+  const client = getCrmClient();
+  const trimmed = rawPersonaId.trim();
+
+  if (!trimmed) return null;
+
+  if (isUuid(trimmed)) {
+    const { data: crmPersona } = await client
+      .from('crm_personas')
+      .select('identity_persona_id')
+      .eq('id', trimmed)
+      .maybeSingle();
+
+    if (crmPersona?.identity_persona_id) return crmPersona.identity_persona_id;
+
+    const { data: identityPersona } = await client
+      .from('persona')
+      .select('id')
+      .eq('id', trimmed)
+      .maybeSingle();
+
+    if (identityPersona?.id) return identityPersona.id;
+
+    const { data: personaQube } = await client
+      .from('personas')
+      .select('id')
+      .eq('id', trimmed)
+      .maybeSingle();
+
+    if (personaQube?.id) return personaQube.id;
+  }
+
+  const normalized = trimmed.toLowerCase();
+
+  const { data: identityByHandle } = await client
+    .from('persona')
+    .select('id')
+    .eq('fio_handle', normalized)
+    .maybeSingle();
+
+  if (identityByHandle?.id) return identityByHandle.id;
+
+  const { data: personaQubeByHandle } = await client
+    .from('personas')
+    .select('id')
+    .eq('fio_handle', normalized)
+    .maybeSingle();
+
+  return personaQubeByHandle?.id ?? null;
+}
+
+async function resolveCampaignTenantMatchers(rawTenantId: string): Promise<string[]> {
+  const client = getCrmClient();
+  const trimmed = rawTenantId.trim();
+  if (!trimmed) return [];
+
+  const matchers = new Set<string>([trimmed]);
+
+  const { data: tenantRow } = await client
+    .from('tenants')
+    .select('id, slug')
+    .eq('id', trimmed)
+    .maybeSingle();
+
+  if (tenantRow?.slug) {
+    matchers.add(tenantRow.slug);
+  }
+
+  const { data: tenantBySlug } = await client
+    .from('tenants')
+    .select('id, slug')
+    .eq('slug', trimmed)
+    .maybeSingle();
+
+  if (tenantBySlug?.id) {
+    matchers.add(tenantBySlug.id);
+  }
+  if (tenantBySlug?.slug) {
+    matchers.add(tenantBySlug.slug);
+  }
+
+  return Array.from(matchers);
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -78,10 +166,19 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      const campaignViews = await getCampaignStateViewsForPersona(personaId);
+      const resolvedPersonaId = await resolveCampaignPersonaId(personaId);
+      if (!resolvedPersonaId) {
+        return NextResponse.json(
+          { error: 'personaId could not be resolved for campaigns' },
+          { status: 404 }
+        );
+      }
+
+      const tenantMatchers = await resolveCampaignTenantMatchers(tenantId);
+      const campaignViews = await getCampaignStateViewsForPersona(resolvedPersonaId);
       const filteredViews = campaignViews
         .map((view) => ({ view, definition: getCampaignDefinition(view.campaignId) }))
-        .filter(({ definition }) => definition?.tenantId === tenantId)
+        .filter(({ definition }) => definition && (tenantMatchers.length === 0 || tenantMatchers.includes(definition.tenantId)))
         .map(({ view }) => view);
 
       if (stats === 'true') {

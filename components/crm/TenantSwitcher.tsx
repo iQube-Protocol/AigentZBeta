@@ -53,12 +53,12 @@ export function TenantSwitcher({
         setError(null);
 
         // Fetch all franchises
-        const franchisesRes = await fetch('/api/crm/franchises');
+        const franchisesRes = await fetch('/api/crm/franchises?activeOnly=false');
         if (!franchisesRes.ok) throw new Error('Failed to fetch franchises');
         const franchisesData = await franchisesRes.json();
         
         // Fetch all tenants
-        const tenantsRes = await fetch('/api/crm/tenants');
+        const tenantsRes = await fetch('/api/crm/tenants?activeOnly=false');
         const tenantsData = tenantsRes.ok ? await tenantsRes.json() : { data: [] };
         const allTenants = tenantsData.data || [];
 
@@ -108,7 +108,7 @@ export function TenantSwitcher({
           let foundTenant = false;
           
           // Try to find the current tenant if provided
-          if (currentTenantId && currentTenantId !== 't1') {
+          if (currentTenantId && currentTenantId !== 't1' && currentTenantId !== 'default') {
             for (const franchise of validFranchises) {
               const tenant = franchise.tenants.find(t => t.id === currentTenantId);
               if (tenant) {

@@ -35,6 +35,7 @@ export default function SegmentsPage() {
   const [search, setSearch] = useState('');
   const [apiError, setApiError] = useState<string | null>(null);
   const [showBuilder, setShowBuilder] = useState(false);
+  const [uniquePersonaCount, setUniquePersonaCount] = useState(0);
   
   const segmentsApi = useSegments(currentTenantId);
   const loading = segmentsApi.loading;
@@ -43,9 +44,10 @@ export default function SegmentsPage() {
     async function fetchSegments() {
       setApiError(null);
       try {
-        const [customResult, systemResult] = await Promise.all([
+        const [customResult, systemResult, personaStats] = await Promise.all([
           segmentsApi.fetch({ limit: 100 }),
           fetch(`/api/crm/segments/system?tenantId=${currentTenantId}`).then((res) => res.json()),
+          fetch(`/api/crm/personas?tenantId=${currentTenantId}&source=live&stats=true`).then((res) => res.json()),
         ]);
 
         const customSegments = (customResult?.data || []).map((s: any) => ({
@@ -73,9 +75,11 @@ export default function SegmentsPage() {
         }));
 
         setSegments([...systemSegments, ...customSegments]);
+        setUniquePersonaCount(personaStats?.data?.total || 0);
       } catch (err: any) {
         setApiError(err.message || 'Failed to load segments');
         setSegments([]);
+        setUniquePersonaCount(0);
       }
     }
     fetchSegments();
@@ -86,7 +90,7 @@ export default function SegmentsPage() {
     s.description?.toLowerCase().includes(search.toLowerCase())
   );
 
-  const totalMembers = segments.reduce((sum, s) => sum + s.memberCount, 0);
+  const totalMemberships = segments.reduce((sum, s) => sum + s.memberCount, 0);
 
   return (
     <div className="space-y-6">
@@ -131,8 +135,9 @@ export default function SegmentsPage() {
           <p className="text-2xl font-semibold mt-1">{segments.length}</p>
         </div>
         <div className="rounded-xl p-4 bg-white/5 ring-1 ring-white/10">
-          <p className="text-sm text-slate-400">Total Members (across all)</p>
-          <p className="text-2xl font-semibold mt-1">{totalMembers.toLocaleString()}</p>
+          <p className="text-sm text-slate-400">Unique Personas</p>
+          <p className="text-2xl font-semibold mt-1">{uniquePersonaCount.toLocaleString()}</p>
+          <p className="text-xs text-slate-500 mt-1">{totalMemberships.toLocaleString()} total memberships</p>
         </div>
         <div className="rounded-xl p-4 bg-white/5 ring-1 ring-white/10">
           <p className="text-sm text-slate-400">Dynamic Segments</p>

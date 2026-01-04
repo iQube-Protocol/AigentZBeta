@@ -13,6 +13,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     const franchiseId = searchParams.get('franchiseId') || undefined;
+    const activeOnly = searchParams.get('activeOnly') !== 'false';
 
     // Get specific tenant
     if (id) {
@@ -32,7 +33,7 @@ export async function GET(request: NextRequest) {
     }
 
     // List tenants (optionally filtered by franchise)
-    const tenants = await crmService.listTenants(franchiseId);
+    const tenants = await crmService.listTenants(franchiseId, activeOnly);
 
     return NextResponse.json({
       success: true,

@@ -50,7 +50,7 @@ export default function FranchisesPage() {
     async function fetchFranchises() {
       setApiError(null);
       try {
-        const result = await franchisesApi.fetch({ includeTenants: true });
+        const result = await franchisesApi.fetch({ includeTenants: true, activeOnly: false });
         if (result?.data) {
           setFranchises(result.data.map((f: any) => ({
             id: f.id,

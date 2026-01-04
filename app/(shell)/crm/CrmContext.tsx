@@ -9,16 +9,16 @@ interface CrmContextType {
 }
 
 const CrmContext = createContext<CrmContextType>({
-  currentTenantId: 't1',
-  currentFranchiseId: 'f1',
+  currentTenantId: 'default',
+  currentFranchiseId: '',
   setCurrentTenant: () => {},
 });
 
 export const useCrmContext = () => useContext(CrmContext);
 
 export function CrmProvider({ children }: { children: ReactNode }) {
-  const [currentTenantId, setCurrentTenantId] = useState('t1');
-  const [currentFranchiseId, setCurrentFranchiseId] = useState('f1');
+  const [currentTenantId, setCurrentTenantId] = useState('default');
+  const [currentFranchiseId, setCurrentFranchiseId] = useState('');
 
   const setCurrentTenant = (tenantId: string, franchiseId: string) => {
     setCurrentTenantId(tenantId);

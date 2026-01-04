@@ -25,8 +25,11 @@ export async function GET(request: NextRequest) {
     const includeCount = searchParams.get('includeCount') === 'true';
     const countOnly = searchParams.get('countOnly') === 'true';
     const stats = searchParams.get('stats') === 'true';
+    const tenantStats = searchParams.get('tenantStats') === 'true';
 
-    if (!tenantId) {
+    const isTenantStatsAll = tenantStats && (!tenantId || tenantId === 'all');
+
+    if (!tenantId && !isTenantStatsAll) {
       return NextResponse.json(
         { error: 'tenantId is required' },
         { status: 400 }
@@ -36,32 +39,73 @@ export async function GET(request: NextRequest) {
     if (source === 'live') {
       const client = getCrmClient();
 
-      if (stats) {
+      if (stats || tenantStats) {
         const statusBuckets = ['active', 'pending', 'suspended', 'inactive', 'deleted'];
         const byStatus: Record<string, number> = {};
 
-        const { count: totalCount, error: totalError } = await client
+        const baseQuery = client
           .from('personas')
-          .select('id', { count: 'exact', head: true })
-          .eq('tenant_id', tenantId);
+          .select('id', { count: 'exact', head: true });
+
+        const totalQuery = tenantId && !isTenantStatsAll
+          ? baseQuery.eq('tenant_id', tenantId)
+          : baseQuery;
+
+        const { count: totalCount, error: totalError } = await totalQuery;
 
         if (totalError) throw totalError;
 
-        for (const status of statusBuckets) {
-          const { count, error } = await client
-            .from('personas')
-            .select('id', { count: 'exact', head: true })
-            .eq('tenant_id', tenantId)
-            .eq('status', status);
-          if (error) throw error;
-          byStatus[status] = count ?? 0;
+        if (!isTenantStatsAll) {
+          for (const status of statusBuckets) {
+            const { count, error } = await client
+              .from('personas')
+              .select('id', { count: 'exact', head: true })
+              .eq('tenant_id', tenantId)
+              .eq('status', status);
+            if (error) throw error;
+            byStatus[status] = count ?? 0;
+          }
+        }
+
+        let byTenant: Record<string, number> | undefined;
+
+        if (tenantStats) {
+          const tenantCounts = new Map<string, number>();
+          const pageSize = 1000;
+          let tenantOffset = 0;
+
+          while (true) {
+            let tenantQuery = client
+              .from('personas')
+              .select('tenant_id')
+              .range(tenantOffset, tenantOffset + pageSize - 1);
+
+            if (tenantId && !isTenantStatsAll) {
+              tenantQuery = tenantQuery.eq('tenant_id', tenantId);
+            }
+
+            const { data: rows, error } = await tenantQuery;
+
+            if (error) throw error;
+
+            (rows || []).forEach((row: { tenant_id: string | null }) => {
+              if (!row.tenant_id) return;
+              tenantCounts.set(row.tenant_id, (tenantCounts.get(row.tenant_id) || 0) + 1);
+            });
+
+            if (!rows || rows.length < pageSize) break;
+            tenantOffset += pageSize;
+          }
+
+          byTenant = Object.fromEntries(tenantCounts.entries());
         }
 
         return NextResponse.json({
           success: true,
           data: {
             total: totalCount ?? 0,
-            byStatus,
+            ...(Object.keys(byStatus).length ? { byStatus } : {}),
+            ...(byTenant ? { byTenant } : {}),
           },
         });
       }

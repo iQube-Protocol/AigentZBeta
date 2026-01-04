@@ -85,7 +85,7 @@ export default function CRMDashboardPage() {
           contributionsApi.fetch({ limit: 1000 }),
           rewardsApi.fetch(),
           segmentsApi.fetch({ limit: 1000 }),
-          franchisesApi.fetch({ includeTenants: true }),
+          franchisesApi.fetch({ includeTenants: true, activeOnly: false }),
           topContributorsApi.fetch({ limit: 5 }),
         ]);
 

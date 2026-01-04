@@ -171,7 +171,15 @@ export function useCrmApi<T>(options?: UseCrmApiOptions) {
 export function usePersonas(tenantId: string) {
   const api = useCrmApi<any[]>();
   
-  const fetch = useCallback((options?: { search?: string; limit?: number; offset?: number }) => {
+  const fetch = useCallback((options?: { 
+    search?: string; 
+    limit?: number; 
+    offset?: number;
+    source?: 'crm' | 'live';
+    includeCount?: boolean;
+    countOnly?: boolean;
+    stats?: boolean;
+  }) => {
     return api.fetchData('/personas', { tenantId, ...options });
   }, [api, tenantId]);
 
@@ -257,7 +265,7 @@ export function useSegments(tenantId: string) {
 export function useFranchises() {
   const api = useCrmApi<any[]>();
   
-  const fetch = useCallback((options?: { includeTenants?: boolean }) => {
+  const fetch = useCallback((options?: { includeTenants?: boolean; activeOnly?: boolean }) => {
     return api.fetchData('/franchises', options);
   }, [api]);
 
