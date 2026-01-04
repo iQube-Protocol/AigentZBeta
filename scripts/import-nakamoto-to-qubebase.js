@@ -303,10 +303,8 @@ async function importInvitees(tenantId, franchiseId, existingHandles, options = 
   let offset = 0;
   let total = 0;
 
-  const rawStatus = process.env.INVITEE_STATUS || 'pending';
-  const statusValue = rawStatus === 'pending' ? 'inactive' : rawStatus;
-  const rawPersonaState = process.env.INVITEE_STATE || 'pending';
-  const personaState = rawPersonaState === 'pending' ? 'pseudonymous' : rawPersonaState;
+  const statusValue = process.env.INVITEE_STATUS || 'pending';
+  const personaState = process.env.INVITEE_STATE || 'pending';
 
   while (true) {
     const { data, error } = await source

@@ -107,7 +107,7 @@ export interface FioChainMappings {
 // =============================================================================
 
 /** Persona status */
-export type PersonaStatus = 'active' | 'inactive' | 'suspended';
+export type PersonaStatus = 'active' | 'inactive' | 'suspended' | 'pending';
 
 /**
  * PersonaQube - The core identity iQube for a user

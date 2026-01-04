@@ -26,6 +26,7 @@ interface Segment {
   ruleDefinition?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
+  kind?: 'system' | 'custom';
 }
 
 export default function SegmentsPage() {
@@ -42,19 +43,36 @@ export default function SegmentsPage() {
     async function fetchSegments() {
       setApiError(null);
       try {
-        const result = await segmentsApi.fetch({ limit: 100 });
-        if (result?.data) {
-          setSegments(result.data.map((s: any) => ({
-            id: s.id,
-            name: s.name,
-            description: s.description,
-            memberCount: s.memberCount || 0,
-            isDynamic: s.isDynamic || false,
-            ruleDefinition: s.ruleDefinition,
-            createdAt: s.createdAt,
-            updatedAt: s.updatedAt,
-          })));
-        }
+        const [customResult, systemResult] = await Promise.all([
+          segmentsApi.fetch({ limit: 100 }),
+          fetch(`/api/crm/segments/system?tenantId=${currentTenantId}`).then((res) => res.json()),
+        ]);
+
+        const customSegments = (customResult?.data || []).map((s: any) => ({
+          id: s.id,
+          name: s.name,
+          description: s.description,
+          memberCount: s.memberCount || 0,
+          isDynamic: s.isDynamic || false,
+          ruleDefinition: s.ruleDefinition,
+          createdAt: s.createdAt,
+          updatedAt: s.updatedAt,
+          kind: 'custom' as const,
+        }));
+
+        const systemSegments = (systemResult?.data || []).map((s: any) => ({
+          id: s.id,
+          name: s.name,
+          description: s.description,
+          memberCount: s.memberCount || 0,
+          isDynamic: true,
+          ruleDefinition: s.ruleDefinition,
+          createdAt: s.createdAt,
+          updatedAt: s.updatedAt,
+          kind: 'system' as const,
+        }));
+
+        setSegments([...systemSegments, ...customSegments]);
       } catch (err: any) {
         setApiError(err.message || 'Failed to load segments');
         setSegments([]);
@@ -166,6 +184,11 @@ export default function SegmentsPage() {
                   }`}>
                     {segment.isDynamic ? 'Dynamic' : 'Static'}
                   </span>
+                  {segment.kind === 'system' && (
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-blue-400/10 text-blue-300">
+                      System
+                    </span>
+                  )}
                 </div>
                 <button className="p-1 hover:bg-white/10 rounded opacity-0 group-hover:opacity-100 transition" aria-label="More options">
                   <MoreVertical size={16} className="text-slate-400" />

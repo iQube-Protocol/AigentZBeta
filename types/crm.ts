@@ -278,7 +278,7 @@ export interface AuthProfilePersonaLink {
 // PERSONA TYPES
 // ============================================================================
 
-export type PersonaState = 'anonymous' | 'pseudonymous' | 'identifiable';
+export type PersonaState = 'anonymous' | 'pseudonymous' | 'identifiable' | 'pending';
 
 export interface CrmPersona {
   id: string;
