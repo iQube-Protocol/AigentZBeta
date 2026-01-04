@@ -91,7 +91,7 @@ export default function CRMDashboardPage() {
 
         // Calculate stats from API responses
         const personas = personasRes?.data || [];
-        const personaStats = personaStatsRes?.data;
+        const personaStats = personaStatsRes?.data as any;
         const contributions = contributionsRes?.data || [];
         const rewards = rewardsRes?.data || [];
         const segments = segmentsRes?.data || [];
