@@ -9,6 +9,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as crmService from '@/services/crm/crmService';
 import { TenantId, TokenType, RewardStatus } from '@/types/crm';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export async function GET(request: NextRequest) {
   try {
@@ -17,6 +23,7 @@ export async function GET(request: NextRequest) {
     const personaId = searchParams.get('personaId') || undefined;
     const status = searchParams.get('status') as RewardStatus | undefined;
     const tokenType = searchParams.get('tokenType') as TokenType | undefined;
+    const source = searchParams.get('source') || 'crm';
     const limit = parseInt(searchParams.get('limit') || '50');
     const offset = parseInt(searchParams.get('offset') || '0');
 
@@ -25,6 +32,46 @@ export async function GET(request: NextRequest) {
         { error: 'tenantId is required' },
         { status: 400 }
       );
+    }
+
+    if (source === 'grants') {
+      let query = supabase
+        .from('reward_grants')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
+
+      if (personaId) query = query.eq('persona_id', personaId);
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      const mapped = (data || []).map((row: any) => ({
+        id: row.id,
+        tenantId,
+        personaId: row.persona_id,
+        periodStart: row.created_at,
+        periodEnd: row.created_at,
+        pokwScoreUsed: 0,
+        tokenType: 'KNYT',
+        amount: row.amount_knyt,
+        status: 'paid',
+        txHash: row.tx_hash || null,
+        chainId: row.chain_id || null,
+        notes: row.metadata?.taskType || null,
+        createdAt: row.created_at,
+        updatedAt: row.created_at,
+      }));
+
+      return NextResponse.json({
+        success: true,
+        data: mapped,
+        pagination: {
+          limit,
+          offset,
+          count: mapped.length,
+        },
+      });
     }
 
     const rewards = await crmService.listRewards(tenantId, {

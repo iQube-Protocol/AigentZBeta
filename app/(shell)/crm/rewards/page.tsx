@@ -38,6 +38,7 @@ export default function RewardsPage() {
   const [rewards, setRewards] = useState<RewardRow[]>([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [sourceFilter, setSourceFilter] = useState<'crm' | 'grants'>('crm');
   const [apiError, setApiError] = useState<string | null>(null);
   const [showApprovalWorkflow, setShowApprovalWorkflow] = useState(false);
   
@@ -71,7 +72,8 @@ export default function RewardsPage() {
       try {
         const result = await rewardsApi.fetch({ 
           status: statusFilter !== 'all' ? statusFilter : undefined,
-          limit: 100 
+          limit: 100,
+          source: sourceFilter,
         });
         if (result?.data) {
           const mapped = (result.data as CrmReward[]).map((r) => ({
@@ -95,7 +97,7 @@ export default function RewardsPage() {
       }
     }
     fetchRewards();
-  }, [currentTenantId, statusFilter, personaMap]);
+  }, [currentTenantId, statusFilter, personaMap, sourceFilter]);
 
   const filteredRewards = rewards.filter(r => {
     const matchesSearch = r.personaName.toLowerCase().includes(search.toLowerCase());
@@ -194,7 +196,7 @@ export default function RewardsPage() {
       </div>
 
       {/* Search and Filters */}
-      <div className="flex items-center gap-4">
+      <div className="flex flex-wrap items-center gap-4">
         <div className="relative flex-1 max-w-md">
           <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
@@ -216,6 +218,15 @@ export default function RewardsPage() {
           <option value="approved">Approved</option>
           <option value="paid">Paid</option>
           <option value="cancelled">Cancelled</option>
+        </select>
+        <select
+          value={sourceFilter}
+          onChange={(e) => setSourceFilter(e.target.value as 'crm' | 'grants')}
+          className="bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+          title="Reward source"
+        >
+          <option value="crm">CRM Proposed</option>
+          <option value="grants">Live Reward Grants</option>
         </select>
         <button className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-sm transition">
           <Filter size={16} />

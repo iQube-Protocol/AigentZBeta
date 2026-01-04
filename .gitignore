@@ -95,3 +95,7 @@ backups/
 
 # Local Netlify folder
 .netlify
+
+# Local artifacts from debugging
+apps/aigent-z/services/
+apps/theqriptopian-web/src/pages/ArticleTest.tsx

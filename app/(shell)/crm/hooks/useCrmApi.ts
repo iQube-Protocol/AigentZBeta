@@ -211,6 +211,7 @@ export function useRewards(tenantId: string) {
     personaId?: string; 
     status?: string;
     tokenType?: string;
+    source?: 'crm' | 'grants';
     limit?: number; 
     offset?: number 
   }) => {
