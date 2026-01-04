@@ -10,6 +10,37 @@ import { NextRequest, NextResponse } from 'next/server';
 import * as crmService from '@/services/crm/crmService';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 
+async function fetchPersonaCountsByTenant(tenantIds: string[]) {
+  const supabase = getSupabaseServer();
+  const counts = new Map<string, number>();
+
+  if (!supabase || tenantIds.length === 0) return counts;
+
+  const pageSize = 1000;
+  let offset = 0;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from('personas')
+      .select('tenant_id')
+      .in('tenant_id', tenantIds)
+      .order('tenant_id', { ascending: true })
+      .range(offset, offset + pageSize - 1);
+
+    if (error) throw error;
+
+    (data || []).forEach((row: { tenant_id: string | null }) => {
+      if (!row.tenant_id) return;
+      counts.set(row.tenant_id, (counts.get(row.tenant_id) || 0) + 1);
+    });
+
+    if (!data || data.length < pageSize) break;
+    offset += pageSize;
+  }
+
+  return counts;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -32,23 +63,8 @@ export async function GET(request: NextRequest) {
       // Include tenants if requested
       if (includeTenants) {
         const franchiseTenants = await crmService.getFranchiseTenants(franchise.id);
-        const supabase = getSupabaseServer();
         const tenantIds = franchiseTenants.map((t) => t.id);
-        const personaCounts = new Map<string, number>();
-
-        if (supabase && tenantIds.length > 0) {
-          const { data: personaRows, error: personaError } = await supabase
-            .from('personas')
-            .select('tenant_id')
-            .in('tenant_id', tenantIds);
-
-          if (!personaError) {
-            (personaRows || []).forEach((row: any) => {
-              if (!row.tenant_id) return;
-              personaCounts.set(row.tenant_id, (personaCounts.get(row.tenant_id) || 0) + 1);
-            });
-          }
-        }
+        const personaCounts = await fetchPersonaCountsByTenant(tenantIds);
 
         return NextResponse.json({
           success: true,
@@ -75,24 +91,9 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const supabase = getSupabaseServer();
     const tenantsList = await crmService.listTenants();
     const tenantIds = tenantsList.map((t) => t.id);
-    const personaCounts = new Map<string, number>();
-
-    if (supabase && tenantIds.length > 0) {
-      const { data: personaRows, error: personaError } = await supabase
-        .from('personas')
-        .select('tenant_id')
-        .in('tenant_id', tenantIds);
-
-      if (!personaError) {
-        (personaRows || []).forEach((row: any) => {
-          if (!row.tenant_id) return;
-          personaCounts.set(row.tenant_id, (personaCounts.get(row.tenant_id) || 0) + 1);
-        });
-      }
-    }
+    const personaCounts = await fetchPersonaCountsByTenant(tenantIds);
 
     const tenantsByFranchise = new Map<string, any[]>();
     tenantsList.forEach((tenant) => {

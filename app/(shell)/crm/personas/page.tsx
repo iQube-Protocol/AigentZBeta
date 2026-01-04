@@ -22,6 +22,7 @@ interface Persona {
   displayName: string;
   email?: string;
   personaState: string;
+  pendingInvite: boolean;
   reputationBucket?: string;
   totalPokw: number;
   contributionCount: number;
@@ -36,26 +37,41 @@ export default function PersonasPage() {
   const [apiError, setApiError] = useState<string | null>(null);
   const [showContributionForm, setShowContributionForm] = useState(false);
   const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
+  const pageSize = 100;
   
   const personasApi = usePersonas(currentTenantId);
   const loading = personasApi.loading;
 
   useEffect(() => {
+    setPage(0);
+  }, [currentTenantId, search]);
+
+  useEffect(() => {
     async function fetchPersonas() {
       setApiError(null);
       try {
-        const result = await personasApi.fetch({ limit: 100 });
+        const result = await personasApi.fetch({ 
+          limit: pageSize, 
+          offset: page * pageSize, 
+          search: search || undefined,
+          source: 'live',
+          includeCount: true,
+        });
         if (result?.data) {
           setPersonas(result.data.map((p: any) => ({
             id: p.id,
             displayName: p.displayName || p.kybeDid?.slice(0, 16) + '...',
             email: p.email,
             personaState: p.personaState || 'active',
+            pendingInvite: p.personaState === 'pending',
             reputationBucket: p.reputationBucket,
             totalPokw: p.totalPokw || 0,
             contributionCount: p.contributionCount || 0,
             createdAt: p.createdAt,
           })));
+          setTotalCount(result.pagination?.count ?? result.data.length);
         }
       } catch (err: any) {
         setApiError(err.message || 'Failed to load personas');
@@ -63,12 +79,9 @@ export default function PersonasPage() {
       }
     }
     fetchPersonas();
-  }, [currentTenantId]);
+  }, [currentTenantId, page, search]);
 
-  const filteredPersonas = personas.filter(p => 
-    p.displayName.toLowerCase().includes(search.toLowerCase()) ||
-    p.email?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredPersonas = personas;
 
   const getStateColor = (state: string) => {
     switch (state) {
@@ -181,6 +194,11 @@ export default function PersonasPage() {
                         {persona.email && (
                           <p className="text-sm text-slate-400">{persona.email}</p>
                         )}
+                        {persona.pendingInvite && (
+                          <span className="mt-1 inline-flex items-center rounded-full bg-amber-400/15 px-2 py-0.5 text-xs font-medium text-amber-300">
+                            Pending invite
+                          </span>
+                        )}
                       </div>
                     </div>
                   </td>
@@ -228,13 +246,21 @@ export default function PersonasPage() {
       {/* Pagination */}
       <div className="flex items-center justify-between">
         <p className="text-sm text-slate-400">
-          Showing {filteredPersonas.length} of {personas.length} personas
+          Showing {filteredPersonas.length} of {totalCount.toLocaleString()} personas
         </p>
         <div className="flex items-center gap-2">
-          <button className="px-3 py-1 bg-white/5 hover:bg-white/10 rounded text-sm transition disabled:opacity-50" disabled>
+          <button 
+            className="px-3 py-1 bg-white/5 hover:bg-white/10 rounded text-sm transition disabled:opacity-50" 
+            disabled={page === 0}
+            onClick={() => setPage((prev) => Math.max(prev - 1, 0))}
+          >
             Previous
           </button>
-          <button className="px-3 py-1 bg-white/5 hover:bg-white/10 rounded text-sm transition">
+          <button 
+            className="px-3 py-1 bg-white/5 hover:bg-white/10 rounded text-sm transition disabled:opacity-50"
+            disabled={(page + 1) * pageSize >= totalCount}
+            onClick={() => setPage((prev) => prev + 1)}
+          >
             Next
           </button>
         </div>
@@ -246,7 +272,13 @@ export default function PersonasPage() {
           tenantId={currentTenantId}
           personaId={selectedPersonaId || undefined}
           onClose={() => { setShowContributionForm(false); setSelectedPersonaId(null); }}
-          onSuccess={() => personasApi.fetch({ limit: 100 })}
+          onSuccess={() => personasApi.fetch({ 
+            limit: pageSize, 
+            offset: page * pageSize, 
+            search: search || undefined,
+            source: 'live',
+            includeCount: true,
+          })}
         />
       )}
     </div>

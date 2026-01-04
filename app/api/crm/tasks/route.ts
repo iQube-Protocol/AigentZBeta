@@ -12,6 +12,44 @@ import {
   getTaskStats,
 } from '@/services/crm/taskService';
 import { TaskCategory } from '@/types/crm';
+import { getCampaignDefinition } from '@/services/campaign/campaignRegistry';
+import { getCampaignStateViewsForPersona } from '@/services/campaign/campaignService';
+
+function campaignViewToTask(tenantId: string, view: any) {
+  const now = new Date().toISOString();
+  return {
+    id: `campaign:${view.campaignId}`,
+    tenantId,
+    slug: view.campaignId,
+    title: view.title,
+    description: `Progress ${view.currentStep}/${view.totalSteps} • ${Math.round(view.progress)}%`,
+    category: 'community' as TaskCategory,
+    isKnowledgePillar: false,
+    isComputePillar: false,
+    difficultyLevel: 1,
+    expectedImpactLevel: 2,
+    verificationMode: 'manual',
+    verificationConfig: null,
+    rewardQct: 0,
+    rewardQoyn: 0,
+    rewardKnyt: 0,
+    repWeightTechnical: 0,
+    repWeightCreative: 0,
+    repWeightEntrepreneurial: 0,
+    repWeightDataArch: 0,
+    repWeightCommunity: 0,
+    impactEnabled: false,
+    impactMultiplierMax: 1,
+    impactLookbackDays: 0,
+    isActive: false,
+    maxClaims: null,
+    currentClaims: 0,
+    expiresAt: null,
+    createdByPersonaId: null,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -22,12 +60,49 @@ export async function GET(request: NextRequest) {
     const stats = searchParams.get('stats');
     const limit = searchParams.get('limit');
     const offset = searchParams.get('offset');
+    const source = searchParams.get('source') || 'crm';
+    const personaId = searchParams.get('personaId');
 
     if (!tenantId) {
       return NextResponse.json(
         { error: 'tenantId is required' },
         { status: 400 }
       );
+    }
+
+    if (source === 'campaign') {
+      if (!personaId) {
+        return NextResponse.json(
+          { error: 'personaId is required for campaign tasks' },
+          { status: 400 }
+        );
+      }
+
+      const campaignViews = await getCampaignStateViewsForPersona(personaId);
+      const filteredViews = campaignViews
+        .map((view) => ({ view, definition: getCampaignDefinition(view.campaignId) }))
+        .filter(({ definition }) => definition?.tenantId === tenantId)
+        .map(({ view }) => view);
+
+      if (stats === 'true') {
+        const totalTasks = filteredViews.length;
+        const totalCompletions = filteredViews.filter((view) => view.progress >= 100).length;
+        const totalClaims = filteredViews.filter((view) => view.progress > 0).length;
+        const activeTasks = totalTasks - totalCompletions;
+
+        return NextResponse.json({
+          stats: {
+            totalTasks,
+            activeTasks,
+            totalClaims,
+            totalCompletions,
+          },
+        });
+      }
+
+      const tasks = filteredViews.map((view) => campaignViewToTask(tenantId, view));
+
+      return NextResponse.json({ tasks });
     }
 
     // Return stats if requested

@@ -35,7 +35,7 @@ export default function TasksPage() {
   useEffect(() => {
     const fetchPersonas = async () => {
       try {
-        const response = await fetch(`/api/crm/personas?tenantId=${tenantId}`);
+        const response = await fetch(`/api/crm/personas?tenantId=${tenantId}&source=live`);
         if (response.ok) {
           const data = await response.json();
           const personaList = data.data || data.personas || [];
@@ -55,7 +55,11 @@ export default function TasksPage() {
 
   const fetchStats = async () => {
     try {
-      const response = await fetch(`/api/crm/tasks?tenantId=${tenantId}&stats=true`);
+      if (!selectedPersonaId) {
+        setStats(null);
+        return;
+      }
+      const response = await fetch(`/api/crm/tasks?tenantId=${tenantId}&stats=true&source=campaign&personaId=${selectedPersonaId}`);
       const data = await response.json();
       if (data.stats) {
         setStats(data.stats);
@@ -67,7 +71,7 @@ export default function TasksPage() {
 
   useEffect(() => {
     fetchStats();
-  }, [tenantId, refreshKey]);
+  }, [tenantId, refreshKey, selectedPersonaId]);
 
   const handleRefresh = () => {
     setRefreshKey(k => k + 1);
@@ -180,6 +184,7 @@ export default function TasksPage() {
                 tenantId={tenantId}
                 personaId={selectedPersonaId}
                 showCreateButton={false}
+                source="campaign"
                 onTaskClaimed={handleRefresh}
               />
             )}

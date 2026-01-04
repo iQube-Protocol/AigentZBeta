@@ -31,24 +31,33 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const { data: personas, error } = await supabase
-      .from('personas')
-      .select('order_tier, reputation_tier')
-      .eq('tenant_id', tenantId);
-
-    if (error) throw error;
-
     const orderCounts = new Map<string, number>();
     const repCounts = new Map<string, number>();
+    const pageSize = 1000;
+    let offset = 0;
 
-    (personas || []).forEach((row: any) => {
-      if (row.order_tier) {
-        orderCounts.set(row.order_tier, (orderCounts.get(row.order_tier) || 0) + 1);
-      }
-      if (row.reputation_tier) {
-        repCounts.set(row.reputation_tier, (repCounts.get(row.reputation_tier) || 0) + 1);
-      }
-    });
+    while (true) {
+      const { data: personas, error } = await supabase
+        .from('personas')
+        .select('order_tier, reputation_tier')
+        .eq('tenant_id', tenantId)
+        .order('created_at', { ascending: true })
+        .range(offset, offset + pageSize - 1);
+
+      if (error) throw error;
+
+      (personas || []).forEach((row: any) => {
+        if (row.order_tier) {
+          orderCounts.set(row.order_tier, (orderCounts.get(row.order_tier) || 0) + 1);
+        }
+        if (row.reputation_tier) {
+          repCounts.set(row.reputation_tier, (repCounts.get(row.reputation_tier) || 0) + 1);
+        }
+      });
+
+      if (!personas || personas.length < pageSize) break;
+      offset += pageSize;
+    }
 
     const now = new Date().toISOString();
     const segments = [

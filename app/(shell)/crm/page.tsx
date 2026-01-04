@@ -19,6 +19,7 @@ import { usePersonas, useContributions, useRewards, useSegments, useFranchises, 
 interface DashboardStats {
   totalPersonas: number;
   activePersonas: number;
+  pendingPersonas: number;
   totalContributions: number;
   totalPokw: number;
   pendingRewards: number;
@@ -78,17 +79,19 @@ export default function CRMDashboardPage() {
       
       try {
         // Fetch all data in parallel
-        const [personasRes, contributionsRes, rewardsRes, segmentsRes, franchisesRes, topRes] = await Promise.all([
-          personasApi.fetch({ limit: 1000 }),
+        const [personasRes, personaStatsRes, contributionsRes, rewardsRes, segmentsRes, franchisesRes, topRes] = await Promise.all([
+          personasApi.fetch({ limit: 10, source: 'live' }),
+          personasApi.fetch({ stats: true, source: 'live' }),
           contributionsApi.fetch({ limit: 1000 }),
           rewardsApi.fetch(),
-          segmentsApi.fetch(),
+          segmentsApi.fetch({ limit: 1000 }),
           franchisesApi.fetch({ includeTenants: true }),
           topContributorsApi.fetch({ limit: 5 }),
         ]);
 
         // Calculate stats from API responses
         const personas = personasRes?.data || [];
+        const personaStats = personaStatsRes?.data;
         const contributions = contributionsRes?.data || [];
         const rewards = rewardsRes?.data || [];
         const segments = segmentsRes?.data || [];
@@ -100,8 +103,9 @@ export default function CRMDashboardPage() {
         const tenantCount = franchises.reduce((sum: number, f: any) => sum + (f.tenants?.length || 0), 0);
 
         setStats({
-          totalPersonas: personas.length,
-          activePersonas: personas.filter((p: any) => p.personaState === 'active').length,
+          totalPersonas: personaStats?.total ?? personas.length,
+          activePersonas: personaStats?.byStatus?.active ?? personas.filter((p: any) => p.personaState === 'active').length,
+          pendingPersonas: personaStats?.byStatus?.pending ?? personas.filter((p: any) => p.personaState === 'pending').length,
           totalContributions: contributions.length,
           totalPokw,
           pendingRewards,
@@ -155,6 +159,7 @@ export default function CRMDashboardPage() {
         setStats({
           totalPersonas: 0,
           activePersonas: 0,
+          pendingPersonas: 0,
           totalContributions: 0,
           totalPokw: 0,
           pendingRewards: 0,
@@ -176,6 +181,14 @@ export default function CRMDashboardPage() {
       icon: Users,
       color: 'text-cyan-400',
       bgColor: 'bg-cyan-400/10',
+      href: '/crm/personas',
+    },
+    {
+      title: 'Pending Invites',
+      value: stats?.pendingPersonas.toString() || '—',
+      icon: Shield,
+      color: 'text-amber-400',
+      bgColor: 'bg-amber-400/10',
       href: '/crm/personas',
     },
     {

@@ -79,23 +79,23 @@ export default function PersonaDetailPage() {
 
       try {
         // Fetch persona details
-        const personaRes = await fetch(`/api/crm/personas/${personaId}?tenantId=${currentTenantId}`);
+        const personaRes = await fetch(`/api/crm/personas?tenantId=${currentTenantId}&personaId=${personaId}&source=live`);
         if (!personaRes.ok) throw new Error('Failed to fetch persona');
         const personaData = await personaRes.json();
-        setPersona(personaData);
+        setPersona(personaData.data || personaData);
 
         // Fetch contributions
         const contribRes = await fetch(`/api/crm/contributions?tenantId=${currentTenantId}&personaId=${personaId}&limit=10`);
         if (contribRes.ok) {
           const contribData = await contribRes.json();
-          setContributions(contribData.contributions || []);
+          setContributions(contribData.data || contribData.contributions || []);
         }
 
         // Fetch rewards
         const rewardsRes = await fetch(`/api/crm/rewards?tenantId=${currentTenantId}&personaId=${personaId}&limit=10`);
         if (rewardsRes.ok) {
           const rewardsData = await rewardsRes.json();
-          setRewards(rewardsData.rewards || []);
+          setRewards(rewardsData.data || rewardsData.rewards || []);
         }
       } catch (err: any) {
         setError(err.message || 'Failed to load persona details');
@@ -214,6 +214,11 @@ export default function PersonaDetailPage() {
             </button>
           </div>
         </div>
+        {persona.personaState === 'pending' && (
+          <div className="mt-4 rounded-lg bg-amber-400/10 ring-1 ring-amber-400/20 px-4 py-3 text-sm text-amber-300">
+            Pending invite awaiting account activation.
+          </div>
+        )}
 
         {/* Stats Row */}
         <div className="grid grid-cols-4 gap-4 mt-6">

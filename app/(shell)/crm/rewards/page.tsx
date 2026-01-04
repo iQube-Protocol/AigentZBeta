@@ -51,7 +51,7 @@ export default function RewardsPage() {
     async function fetchPersonas() {
       if (!currentTenantId) return;
       try {
-        const result = await personasApi.fetch({ limit: 500 });
+        const result = await personasApi.fetch({ limit: 1000, source: 'live' });
         const map: Record<string, string> = {};
         (result?.data || []).forEach((persona: any) => {
           if (persona?.id) {

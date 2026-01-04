@@ -12,6 +12,7 @@ interface TaskListProps {
   onViewTask?: (taskId: string) => void;
   showCreateButton?: boolean;
   onTaskClaimed?: () => void;
+  source?: 'crm' | 'campaign';
 }
 
 const categories: { value: TaskCategory | 'all'; label: string }[] = [
@@ -24,7 +25,7 @@ const categories: { value: TaskCategory | 'all'; label: string }[] = [
   { value: 'community', label: 'Community' },
 ];
 
-export function TaskList({ tenantId, personaId, onCreateTask, onViewTask, showCreateButton = false, onTaskClaimed }: TaskListProps) {
+export function TaskList({ tenantId, personaId, onCreateTask, onViewTask, showCreateButton = false, onTaskClaimed, source = 'crm' }: TaskListProps) {
   const [tasks, setTasks] = useState<CrmTaskTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [claimingTaskId, setClaimingTaskId] = useState<string | null>(null);
@@ -36,9 +37,17 @@ export function TaskList({ tenantId, personaId, onCreateTask, onViewTask, showCr
   const showToast = (msg: string, type = 'success') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000); };
 
   const fetchTasks = async () => {
+    if (source === 'campaign' && !personaId) {
+      setTasks([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
-      const params = new URLSearchParams({ tenantId, isActive: 'true' });
+      const params = new URLSearchParams({ tenantId, isActive: 'true', source });
+      if (source === 'campaign' && personaId) {
+        params.append('personaId', personaId);
+      }
       if (categoryFilter !== 'all') params.append('category', categoryFilter);
       const response = await fetch(`/api/crm/tasks?${params}`);
       const data = await response.json();
@@ -51,7 +60,7 @@ export function TaskList({ tenantId, personaId, onCreateTask, onViewTask, showCr
     }
   };
 
-  useEffect(() => { fetchTasks(); }, [tenantId, categoryFilter]);
+  useEffect(() => { fetchTasks(); }, [tenantId, categoryFilter, personaId, source]);
 
   const handleClaimTask = async (taskId: string) => {
     if (!personaId) { showToast('Select a persona first', 'error'); return; }
@@ -108,7 +117,16 @@ export function TaskList({ tenantId, personaId, onCreateTask, onViewTask, showCr
         <div className="text-center py-12 text-slate-400"><p>No tasks found</p>{searchQuery && <button onClick={() => setSearchQuery('')} className="text-fuchsia-400 text-sm mt-2">Clear search</button>}</div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredTasks.map(task => <TaskCard key={task.id} task={task} onClaim={personaId ? handleClaimTask : undefined} onView={onViewTask} isClaiming={claimingTaskId === task.id} alreadyClaimed={claimedTaskIds.has(task.id)} />)}
+          {filteredTasks.map(task => (
+            <TaskCard 
+              key={task.id} 
+              task={task} 
+              onClaim={source === 'crm' && personaId ? handleClaimTask : undefined} 
+              onView={onViewTask} 
+              isClaiming={claimingTaskId === task.id} 
+              alreadyClaimed={claimedTaskIds.has(task.id)} 
+            />
+          ))}
         </div>
       )}
     </div>
