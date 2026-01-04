@@ -38,7 +38,7 @@ export default function RewardsPage() {
   const [rewards, setRewards] = useState<RewardRow[]>([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [sourceFilter, setSourceFilter] = useState<'crm' | 'grants'>('grants');
+  const [sourceFilter, setSourceFilter] = useState<'crm' | 'grants' | 'wallet' | 'combined'>('combined');
   const [apiError, setApiError] = useState<string | null>(null);
   const [showApprovalWorkflow, setShowApprovalWorkflow] = useState(false);
   
@@ -76,10 +76,10 @@ export default function RewardsPage() {
           source: sourceFilter,
         });
         if (result?.data) {
-          const mapped = (result.data as CrmReward[]).map((r) => ({
+          const mapped = (result.data as any[]).map((r) => ({
             id: r.id,
             personaId: r.personaId,
-            personaName: personaMap[r.personaId] || r.personaId.slice(0, 12) + '...',
+            personaName: r.personaName || personaMap[r.personaId] || r.personaId.slice(0, 12) + '...',
             tokenType: r.tokenType,
             amount: r.amount || 0,
             pokwBasis: r.pokwScoreUsed || 0,
@@ -221,12 +221,14 @@ export default function RewardsPage() {
         </select>
         <select
           value={sourceFilter}
-          onChange={(e) => setSourceFilter(e.target.value as 'crm' | 'grants')}
+          onChange={(e) => setSourceFilter(e.target.value as 'crm' | 'grants' | 'wallet' | 'combined')}
           className="bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
           title="Reward source"
         >
           <option value="crm">CRM Proposed</option>
-          <option value="grants">Live Reward Grants</option>
+          <option value="grants">Reward Grants</option>
+          <option value="wallet">Wallet Transactions</option>
+          <option value="combined">Wallet + Grants</option>
         </select>
         <button className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-sm transition">
           <Filter size={16} />
