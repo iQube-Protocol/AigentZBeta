@@ -163,13 +163,36 @@ export class RewardService {
       }
       
       // 2. Fetch persona and get reputation multiplier
-      const { data: persona, error: personaError } = await this.supabase
+      let persona = null;
+      let personaError = null;
+
+      const personaResult = await this.supabase
         .from('personas')
         .select('id, reputation_tier, order_tier')
         .eq('id', personaId)
-        .single();
-      
-      if (personaError || !persona) {
+        .maybeSingle();
+
+      if (personaResult.error) {
+        personaError = personaResult.error;
+      } else {
+        persona = personaResult.data;
+      }
+
+      if (!persona) {
+        const altResult = await this.supabase
+          .from('persona')
+          .select('id, reputation_tier, order_tier')
+          .eq('id', personaId)
+          .maybeSingle();
+
+        if (altResult.error && !personaError) {
+          personaError = altResult.error;
+        }
+
+        persona = altResult.data;
+      }
+
+      if (personaError && !persona) {
         return { success: false, baseAmount, finalAmount: 0, repMultiplier: 1, error: 'Persona not found' };
       }
       

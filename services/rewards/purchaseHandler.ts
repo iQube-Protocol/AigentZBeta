@@ -300,20 +300,22 @@ export class PurchaseHandler {
         },
       });
 
-      const referrerResult = await rewardService.grantRewardForTask({
-        personaId: referrerId,
-        taskType: RewardTaskType.BringAKnightQualifiedReferral,
-        sourceEventId: purchaseId,
-        customBaseAmount: 2.0, // Referrer gets 2 KNYT
-        metadata: { 
-          isReferrerReward: true, 
-          referredPersonaId: personaId,
-          purchaseId
-        },
-      });
+        const referrerResult = await rewardService.grantRewardForTask({
+          personaId: referrerId,
+          taskType: RewardTaskType.BringAKnightQualifiedReferral,
+          sourceEventId: purchaseId,
+          customBaseAmount: 2.0, // Referrer gets 2 KNYT
+          metadata: { 
+            isReferrerReward: true, 
+            referredPersonaId: personaId,
+            purchaseId
+          },
+        });
       
         if (referrerResult.success) {
           triggered.push(`referrer:${referrerResult.rewardGrantId}`);
+        } else {
+          console.warn('[PurchaseHandler] Referrer reward failed:', referrerResult.error);
         }
 
         await emitCampaignEvent({
