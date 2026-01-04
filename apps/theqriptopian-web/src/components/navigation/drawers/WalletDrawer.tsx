@@ -13,7 +13,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { SmartWalletDrawer } from '@/components/wallet';
-import type { SmartWalletNode, WalletTask, ContentEntitlement, QuestProgress } from '@/types/smartWallet';
+import type { SmartWalletNode, WalletTask, ContentEntitlement, QuestProgress, RecentReward } from '@/types/smartWallet';
 import { createSmartWalletNode } from '@/types/smartWallet';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchBalances, getWalletAddress, type ChainBalances } from '@/services/balanceService';
@@ -52,6 +52,9 @@ export function WalletDrawer({ isOpen, onClose, initialTab = 'wallet', variant =
   const [baseQcBalance, setBaseQcBalance] = useState<number>(0);
   const [isLoadingWalletData, setIsLoadingWalletData] = useState(false);
   const [campaigns, setCampaigns] = useState<CampaignStateView[]>([]);
+  const [rewardHistory, setRewardHistory] = useState<RecentReward[]>([]);
+  const [totalRewardsEarned, setTotalRewardsEarned] = useState<number>(0);
+  const [rewardMultiplier, setRewardMultiplier] = useState<number>(1);
 
   // Fetch user's persona and saved list from Supabase
   const fetchPersona = useCallback(async () => {
@@ -198,6 +201,48 @@ export function WalletDrawer({ isOpen, onClose, initialTab = 'wallet', variant =
 
     if (isOpen && persona) {
       loadBaseQc();
+    }
+  }, [isOpen, persona?.id]);
+
+  useEffect(() => {
+    const loadRewards = async () => {
+      if (!persona?.id) {
+        setRewardHistory([]);
+        setTotalRewardsEarned(0);
+        setRewardMultiplier(1);
+        return;
+      }
+
+      try {
+        const apiBase = import.meta.env.VITE_AIGENT_API_URL || import.meta.env.VITE_API_URL || '';
+        const response = await fetch(`${apiBase}/api/rewards/history?personaId=${persona.id}`);
+        if (!response.ok) {
+          return;
+        }
+
+        const data = await response.json();
+        const rewards = Array.isArray(data?.rewards) ? data.rewards : [];
+
+        const mapped: RecentReward[] = rewards.map((reward: any) => ({
+          id: reward.id,
+          amount: reward.amountKnyt || reward.amount_knyt || 0,
+          asset: 'KNYT',
+          reason: reward.taskType || reward.task_type || 'Reward',
+          questId: reward.sourceEventId || reward.source_event_id || undefined,
+          status: 'distributed',
+          earnedAt: reward.createdAt || reward.created_at || new Date().toISOString(),
+        }));
+
+        setRewardHistory(mapped);
+        setTotalRewardsEarned(typeof data?.totalEarned === 'number' ? data.totalEarned : 0);
+        setRewardMultiplier(typeof data?.reputationMultiplier === 'number' ? data.reputationMultiplier : 1);
+      } catch (error) {
+        console.error('[WalletDrawer] Failed to load rewards:', error);
+      }
+    };
+
+    if (isOpen && persona) {
+      loadRewards();
     }
   }, [isOpen, persona?.id]);
 
@@ -427,16 +472,20 @@ export function WalletDrawer({ isOpen, onClose, initialTab = 'wallet', variant =
     activeQuests: mapCampaignsToQuests(campaigns),
     contentEntitlements: entitlements,
     rewardsContext: {
-      recentRewards: [],
-      totalEarned: { amount: 0, asset: 'QCT' },
+      recentRewards: rewardHistory,
+      totalEarned: { amount: totalRewardsEarned, asset: 'KNYT' },
       earnedThisPeriod: {
-        amount: 0,
-        asset: 'QCT',
+        amount: rewardHistory.reduce((sum, reward) => {
+          const earnedAt = new Date(reward.earnedAt).getTime();
+          const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+          return earnedAt >= cutoff ? sum + reward.amount : sum;
+        }, 0),
+        asset: 'KNYT',
         periodStart: new Date().toISOString(),
         periodEnd: new Date().toISOString(),
       },
-      pendingDistribution: { amount: 0, asset: 'QCT', proposalCount: 0 },
-      reputationMultiplier: 1.0,
+      pendingDistribution: { amount: 0, asset: 'KNYT', proposalCount: 0 },
+      reputationMultiplier: rewardMultiplier,
     },
     connectionStatus: isAuthenticated ? 'connected' : 'disconnected',
   });

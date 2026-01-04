@@ -437,12 +437,44 @@ export class RewardService {
    * Get reputation multiplier for a persona
    */
   async getReputationMultiplier(personaId: string): Promise<{ tier: ReputationTier; multiplier: number }> {
-    const { data: persona } = await this.supabase
-      .from('personas')
-      .select('reputation_tier')
-      .eq('id', personaId)
-      .single();
-    
+    const isMissingColumn = (error?: { message?: string }) =>
+      !!error?.message && error.message.includes('column') && error.message.includes('does not exist');
+    const isMissingTable = (error?: { message?: string }) =>
+      !!error?.message && error.message.includes('relation') && error.message.includes('does not exist');
+
+    const fetchPersona = async (table: string) => {
+      let result = await this.supabase
+        .from(table)
+        .select('reputation_tier, reputation_bucket')
+        .eq('id', personaId)
+        .maybeSingle();
+
+      if (result.error && isMissingColumn(result.error)) {
+        result = await this.supabase
+          .from(table)
+          .select('reputation_bucket')
+          .eq('id', personaId)
+          .maybeSingle();
+      }
+
+      if (result.error && isMissingColumn(result.error)) {
+        result = await this.supabase
+          .from(table)
+          .select('id')
+          .eq('id', personaId)
+          .maybeSingle();
+      }
+
+      if (result.error && isMissingTable(result.error)) {
+        return null;
+      }
+
+      return result;
+    };
+
+    const personaResult = await fetchPersona('personas');
+    const persona = personaResult?.data || (await fetchPersona('persona'))?.data || null;
+
     const tier = (persona?.reputation_tier as ReputationTier) || 'R-';
     return {
       tier,
