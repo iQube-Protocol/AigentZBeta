@@ -173,6 +173,12 @@ export function ContentPurchaseModal({
 
     try {
       console.log('[ContentPurchaseModal] Starting purchase request...');
+
+      if (selectedRail === 'knyt' && !canAffordKnyt) {
+        setError('Insufficient KNYT balance');
+        setPurchasing(false);
+        return;
+      }
       
       // PayPal requires a different flow - open popup for approval
       if (selectedRail === 'paypal') {
@@ -489,11 +495,12 @@ export function ContentPurchaseModal({
                 {/* KNYT Rail - Best Value */}
                 <button
                   onClick={() => setSelectedRail('knyt')}
+                  disabled={!canAffordKnyt}
                   className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${
                     selectedRail === 'knyt' 
                       ? 'border-amber-500/50 bg-amber-500/10' 
                       : 'border-white/10 bg-white/5 hover:bg-white/10'
-                  }`}
+                  } ${!canAffordKnyt ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center">

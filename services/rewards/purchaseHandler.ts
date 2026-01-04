@@ -95,7 +95,27 @@ export class PurchaseHandler {
       const pricing = getMultiRailPricing('purchase', productType as ContentType);
       const railPricing = pricing.rails[paymentRail];
       
-      // 2. Create purchase record
+      // 2. Guard: require sufficient KNYT balance for KNYT rail
+      if (paymentRail === 'knyt') {
+        const { data: balanceRow, error: balanceError } = await this.supabase
+          .from('wallet_balances')
+          .select('balance')
+          .eq('persona_id', personaId)
+          .eq('asset_code', 'KNYT')
+          .maybeSingle();
+
+        if (balanceError) {
+          console.error('[PurchaseHandler] Failed to fetch KNYT balance:', balanceError);
+          return { success: false, error: 'Unable to verify KNYT balance' };
+        }
+
+        const currentBalance = balanceRow?.balance ? parseFloat(balanceRow.balance) : 0;
+        if (currentBalance < railPricing.price) {
+          return { success: false, error: 'Insufficient KNYT balance' };
+        }
+      }
+
+      // 3. Create purchase record
       const { data: purchase, error: purchaseError } = await this.supabase
         .from('purchases')
         .insert({
@@ -159,9 +179,14 @@ export class PurchaseHandler {
       
       if (isFirstPurchase) {
         // Mark first purchase
+        const firstPurchaseAt = new Date().toISOString();
         await this.supabase
           .from('personas')
-          .update({ first_paid_purchase_at: new Date().toISOString() })
+          .update({ first_paid_purchase_at: firstPurchaseAt })
+          .eq('id', personaId);
+        await this.supabase
+          .from('persona')
+          .update({ first_paid_purchase_at: firstPurchaseAt })
           .eq('id', personaId);
         
         // Trigger Bring a Knight rewards
@@ -195,15 +220,9 @@ export class PurchaseHandler {
    * Check if this is the persona's first paid purchase
    */
   private async checkFirstPaidPurchase(personaId: string, currentPurchaseId: string): Promise<boolean> {
-    // Check if persona already has first_paid_purchase_at set
-    const { data: persona } = await this.supabase
-      .from('personas')
-      .select('first_paid_purchase_at')
-      .eq('id', personaId)
-      .single();
-    
-    if (persona?.first_paid_purchase_at) {
-      return false; // Already had a first purchase
+    const firstPaidAt = await this.getFirstPaidPurchaseAt(personaId);
+    if (firstPaidAt) {
+      return false;
     }
     
     // Check if there are any other completed purchases
@@ -216,6 +235,33 @@ export class PurchaseHandler {
     
     return (count || 0) === 0;
   }
+
+  private async getFirstPaidPurchaseAt(personaId: string): Promise<string | null> {
+    const tables = ['persona', 'personas'] as const;
+    const isMissingColumn = (error?: { message?: string }) =>
+      !!error?.message && error.message.includes('column') && error.message.includes('does not exist');
+    const isMissingTable = (error?: { message?: string }) =>
+      !!error?.message && error.message.includes('relation') && error.message.includes('does not exist');
+
+    for (const table of tables) {
+      const { data, error } = await this.supabase
+        .from(table)
+        .select('first_paid_purchase_at')
+        .eq('id', personaId)
+        .maybeSingle();
+
+      if (data?.first_paid_purchase_at) {
+        return data.first_paid_purchase_at as string;
+      }
+
+      if (error && !isMissingColumn(error) && !isMissingTable(error)) {
+        console.warn('[PurchaseHandler] First purchase lookup error:', error.message);
+        return null;
+      }
+    }
+
+    return null;
+  }
   
   /**
    * Trigger Bring a Knight rewards for referrer and new user
@@ -224,22 +270,18 @@ export class PurchaseHandler {
     const rewardService = getRewardService();
     const triggered: string[] = [];
     
-    // Get persona with referrer info
-    const { data: persona } = await this.supabase
-      .from('personas')
-      .select('id, referred_by_persona_id, referral_locked_at')
-      .eq('id', personaId)
-      .single();
-    
+    const persona = await this.findPersonaWithReferrer(personaId);
     if (!persona) return triggered;
+
+    const referrerId = persona.referred_by_persona_id || persona.referrer_persona_id;
     
     // Grant referrer reward if exists (2 KNYT base)
-      if (persona.referred_by_persona_id) {
+      if (referrerId) {
         // Create referral event for first purchase
         await this.supabase
           .from('referral_events')
           .insert({
-            referrer_persona_id: persona.referred_by_persona_id,
+            referrer_persona_id: referrerId,
           referee_persona_id: personaId,
           event_type: 'first_purchase',
           reward_amount: 2.0,
@@ -249,8 +291,8 @@ export class PurchaseHandler {
       await emitCampaignEvent({
         campaignId: 'bring-a-knight',
         eventType: 'referral_first_purchase',
-        personaId: persona.referred_by_persona_id,
-        referrerPersonaId: persona.referred_by_persona_id,
+        personaId: referrerId,
+        referrerPersonaId: referrerId,
         source: 'purchase_handler',
         metadata: {
           refereePersonaId: personaId,
@@ -259,7 +301,7 @@ export class PurchaseHandler {
       });
 
       const referrerResult = await rewardService.grantRewardForTask({
-        personaId: persona.referred_by_persona_id,
+        personaId: referrerId,
         taskType: RewardTaskType.BringAKnightQualifiedReferral,
         sourceEventId: purchaseId,
         customBaseAmount: 2.0, // Referrer gets 2 KNYT
@@ -277,7 +319,7 @@ export class PurchaseHandler {
         await emitCampaignEvent({
           campaignId: 'qriptopian-share',
           eventType: 'content_share_conversion',
-          personaId: persona.referred_by_persona_id,
+          personaId: referrerId,
           source: 'purchase_handler',
           metadata: {
             refereePersonaId: personaId,
@@ -359,7 +401,7 @@ export class PurchaseHandler {
       
       if (existing) {
         const currentBalance = parseFloat(existing.balance) || 0;
-        const newBalance = Math.max(0, currentBalance - amount);
+        const newBalance = currentBalance - amount;
         
         console.log('[PurchaseHandler] Deducting from DVN balance:', {
           currentBalance,
@@ -407,6 +449,39 @@ export class PurchaseHandler {
         points_delta: 10, // Purchases earn reputation points
         metadata,
       });
+  }
+
+  private async findPersonaWithReferrer(
+    personaId: string
+  ): Promise<{ referred_by_persona_id?: string | null; referrer_persona_id?: string | null } | null> {
+    const tables = ['persona', 'personas'] as const;
+    const columns = ['referred_by_persona_id', 'referrer_persona_id'] as const;
+
+    const isMissingColumn = (error?: { message?: string }) =>
+      !!error?.message && error.message.includes('column') && error.message.includes('does not exist');
+    const isMissingTable = (error?: { message?: string }) =>
+      !!error?.message && error.message.includes('relation') && error.message.includes('does not exist');
+
+    for (const table of tables) {
+      for (const column of columns) {
+        const { data, error } = await this.supabase
+          .from(table)
+          .select(`${column}`)
+          .eq('id', personaId)
+          .maybeSingle();
+
+        if (data && (data as any)[column] !== undefined) {
+          return { [column]: (data as any)[column] } as any;
+        }
+
+        if (error && !isMissingColumn(error) && !isMissingTable(error)) {
+          console.warn('[PurchaseHandler] Referrer lookup error:', error.message);
+          return null;
+        }
+      }
+    }
+
+    return null;
   }
   
   /**
