@@ -163,33 +163,51 @@ export class RewardService {
       }
       
       // 2. Fetch persona and get reputation multiplier
-      let persona = null;
-      let personaError = null;
+      const isMissingColumn = (error?: { message?: string }) =>
+        !!error?.message && error.message.includes('column') && error.message.includes('does not exist');
+      const isMissingTable = (error?: { message?: string }) =>
+        !!error?.message && error.message.includes('relation') && error.message.includes('does not exist');
 
-      const personaResult = await this.supabase
-        .from('personas')
-        .select('id, reputation_tier, order_tier')
-        .eq('id', personaId)
-        .maybeSingle();
-
-      if (personaResult.error) {
-        personaError = personaResult.error;
-      } else {
-        persona = personaResult.data;
-      }
-
-      if (!persona) {
-        const altResult = await this.supabase
-          .from('persona')
-          .select('id, reputation_tier, order_tier')
+      const fetchPersona = async (table: string) => {
+        let result = await this.supabase
+          .from(table)
+          .select('id, reputation_tier, order_tier, reputation_bucket')
           .eq('id', personaId)
           .maybeSingle();
 
-        if (altResult.error && !personaError) {
-          personaError = altResult.error;
+        if (result.error && isMissingColumn(result.error)) {
+          result = await this.supabase
+            .from(table)
+            .select('id, reputation_bucket')
+            .eq('id', personaId)
+            .maybeSingle();
         }
 
-        persona = altResult.data;
+        if (result.error && isMissingColumn(result.error)) {
+          result = await this.supabase
+            .from(table)
+            .select('id')
+            .eq('id', personaId)
+            .maybeSingle();
+        }
+
+        if (result.error && isMissingTable(result.error)) {
+          return null;
+        }
+
+        return result;
+      };
+
+      const personaResult = await fetchPersona('personas');
+      let persona = personaResult?.data || null;
+      let personaError = personaResult?.error || null;
+
+      if (!persona) {
+        const altResult = await fetchPersona('persona');
+        persona = altResult?.data || null;
+        if (!personaError) {
+          personaError = altResult?.error || null;
+        }
       }
 
       if (!persona) {
