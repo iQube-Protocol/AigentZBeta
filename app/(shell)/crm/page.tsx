@@ -11,8 +11,6 @@ import {
   TrendingUp,
   Shield,
   Activity,
-  ArrowUpRight,
-  ArrowDownRight,
   AlertCircle
 } from 'lucide-react';
 import { useCrmContext } from './CrmContext';
@@ -36,10 +34,32 @@ interface TopContributor {
   contributionCount: number;
 }
 
+interface ActivityItem {
+  type: 'persona' | 'contribution' | 'reward';
+  action: string;
+  label: string;
+  createdAt: string;
+}
+
+function formatTimeAgo(isoTime?: string) {
+  if (!isoTime) return '—';
+  const time = new Date(isoTime).getTime();
+  if (Number.isNaN(time)) return '—';
+  const diffMs = Date.now() - time;
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
 export default function CRMDashboardPage() {
   const { currentTenantId } = useCrmContext();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [topContributors, setTopContributors] = useState<TopContributor[]>([]);
+  const [recentActivity, setRecentActivity] = useState<ActivityItem[]>([]);
   const [apiError, setApiError] = useState<string | null>(null);
   
   const personasApi = usePersonas(currentTenantId);
@@ -76,7 +96,7 @@ export default function CRMDashboardPage() {
         const topContrib = topRes?.data || [];
 
         const totalPokw = contributions.reduce((sum: number, c: any) => sum + (c.pokwScore || 0), 0);
-        const pendingRewards = rewards.filter((r: any) => r.status === 'proposed').length;
+        const pendingRewards = rewards.filter((r: any) => r.status === 'draft').length;
         const tenantCount = franchises.reduce((sum: number, f: any) => sum + (f.tenants?.length || 0), 0);
 
         setStats({
@@ -96,6 +116,37 @@ export default function CRMDashboardPage() {
           totalPokw: c.totalPokw || 0,
           contributionCount: c.contributionCount || 0,
         })));
+
+        const personaMap = new Map<string, string>();
+        personas.forEach((persona: any) => {
+          personaMap.set(persona.id, persona.displayName || persona.email || persona.id?.slice(0, 12) + '...');
+        });
+
+        const activity: ActivityItem[] = [
+          ...personas.slice(0, 3).map((p: any) => ({
+            type: 'persona',
+            action: 'Persona created',
+            label: personaMap.get(p.id) || p.id?.slice(0, 12) + '...',
+            createdAt: p.createdAt,
+          })),
+          ...contributions.slice(0, 3).map((c: any) => ({
+            type: 'contribution',
+            action: 'Contribution recorded',
+            label: personaMap.get(c.personaId) || c.personaId?.slice(0, 12) + '...',
+            createdAt: c.createdAt,
+          })),
+          ...rewards.slice(0, 3).map((r: any) => ({
+            type: 'reward',
+            action: 'Reward updated',
+            label: personaMap.get(r.personaId) || r.personaId?.slice(0, 12) + '...',
+            createdAt: r.createdAt,
+          })),
+        ]
+          .filter((item) => item.createdAt)
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+          .slice(0, 5);
+
+        setRecentActivity(activity);
       } catch (err: any) {
         console.error('Dashboard fetch error:', err);
         setApiError(err.message || 'Failed to load dashboard data');
@@ -111,6 +162,7 @@ export default function CRMDashboardPage() {
           franchiseCount: 0,
           tenantCount: 0,
         });
+        setRecentActivity([]);
       }
     }
 
@@ -121,8 +173,6 @@ export default function CRMDashboardPage() {
     {
       title: 'Total Personas',
       value: stats?.totalPersonas.toLocaleString() || '—',
-      change: '+12%',
-      positive: true,
       icon: Users,
       color: 'text-cyan-400',
       bgColor: 'bg-cyan-400/10',
@@ -131,8 +181,6 @@ export default function CRMDashboardPage() {
     {
       title: 'Total PoKW',
       value: stats?.totalPokw.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '—',
-      change: '+8.5%',
-      positive: true,
       icon: TrendingUp,
       color: 'text-emerald-400',
       bgColor: 'bg-emerald-400/10',
@@ -141,8 +189,6 @@ export default function CRMDashboardPage() {
     {
       title: 'Contributions',
       value: stats?.totalContributions.toLocaleString() || '—',
-      change: '+24%',
-      positive: true,
       icon: Award,
       color: 'text-amber-400',
       bgColor: 'bg-amber-400/10',
@@ -151,8 +197,6 @@ export default function CRMDashboardPage() {
     {
       title: 'Pending Rewards',
       value: stats?.pendingRewards.toString() || '—',
-      change: '-5',
-      positive: false,
       icon: CreditCard,
       color: 'text-purple-400',
       bgColor: 'bg-purple-400/10',
@@ -161,8 +205,6 @@ export default function CRMDashboardPage() {
     {
       title: 'Segments',
       value: stats?.totalSegments.toString() || '—',
-      change: '+2',
-      positive: true,
       icon: Layers,
       color: 'text-pink-400',
       bgColor: 'bg-pink-400/10',
@@ -171,8 +213,6 @@ export default function CRMDashboardPage() {
     {
       title: 'Franchises',
       value: stats?.franchiseCount.toString() || '—',
-      change: '—',
-      positive: true,
       icon: Building2,
       color: 'text-blue-400',
       bgColor: 'bg-blue-400/10',
@@ -218,15 +258,8 @@ export default function CRMDashboardPage() {
               <div className={`p-2 rounded-lg ${card.bgColor}`}>
                 <card.icon size={20} className={card.color} />
               </div>
-              <div className="flex items-center gap-1 text-sm">
-                {card.positive ? (
-                  <ArrowUpRight size={14} className="text-emerald-400" />
-                ) : (
-                  <ArrowDownRight size={14} className="text-red-400" />
-                )}
-                <span className={card.positive ? 'text-emerald-400' : 'text-red-400'}>
-                  {card.change}
-                </span>
+              <div className="flex items-center gap-1 text-sm text-slate-500">
+                <span>—</span>
               </div>
             </div>
             <div className="mt-4">
@@ -246,27 +279,26 @@ export default function CRMDashboardPage() {
             <Activity size={18} className="text-slate-400" />
           </div>
           <div className="space-y-3">
-            {[
-              { action: 'New persona created', persona: 'alice.eth', time: '2 min ago', type: 'persona' },
-              { action: 'Contribution recorded', persona: 'bob.fio', time: '5 min ago', type: 'contribution' },
-              { action: 'Reward approved', persona: 'charlie.eth', time: '12 min ago', type: 'reward' },
-              { action: 'Segment updated', persona: 'Power Users', time: '1 hour ago', type: 'segment' },
-            ].map((item, i) => (
-              <div key={i} className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
-                <div className="flex items-center gap-3">
-                  <div className={`w-2 h-2 rounded-full ${
-                    item.type === 'persona' ? 'bg-cyan-400' :
-                    item.type === 'contribution' ? 'bg-amber-400' :
-                    item.type === 'reward' ? 'bg-purple-400' : 'bg-pink-400'
-                  }`} />
-                  <div>
-                    <p className="text-sm">{item.action}</p>
-                    <p className="text-xs text-slate-400">{item.persona}</p>
+            {recentActivity.length === 0 ? (
+              <p className="text-sm text-slate-400 text-center py-4">No recent activity</p>
+            ) : (
+              recentActivity.map((item, i) => (
+                <div key={`${item.type}-${i}`} className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-2 h-2 rounded-full ${
+                      item.type === 'persona' ? 'bg-cyan-400' :
+                      item.type === 'contribution' ? 'bg-amber-400' :
+                      'bg-purple-400'
+                    }`} />
+                    <div>
+                      <p className="text-sm">{item.action}</p>
+                      <p className="text-xs text-slate-400">{item.label}</p>
+                    </div>
                   </div>
+                  <span className="text-xs text-slate-500">{formatTimeAgo(item.createdAt)}</span>
                 </div>
-                <span className="text-xs text-slate-500">{item.time}</span>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
 

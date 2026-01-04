@@ -38,7 +38,7 @@ export default function RewardsPage() {
   const [rewards, setRewards] = useState<RewardRow[]>([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [sourceFilter, setSourceFilter] = useState<'crm' | 'grants'>('crm');
+  const [sourceFilter, setSourceFilter] = useState<'crm' | 'grants'>('grants');
   const [apiError, setApiError] = useState<string | null>(null);
   const [showApprovalWorkflow, setShowApprovalWorkflow] = useState(false);
   
