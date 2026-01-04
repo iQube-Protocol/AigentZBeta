@@ -210,6 +210,7 @@ export function PersonaEditModal({ isOpen, onClose, persona, onSave }: Props) {
             <div className="flex-1">
               <div className="text-sm text-slate-400">FIO Handle</div>
               <div className="text-white font-medium">{form.fioHandle || 'Not set'}</div>
+              <div className="mt-1 text-xs text-slate-500 break-all">Persona ID: {form.id}</div>
             </div>
           </div>
 
