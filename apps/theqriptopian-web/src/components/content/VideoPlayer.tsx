@@ -193,7 +193,15 @@ export function VideoPlayer({ videoUrl, title, onClose, segments = [], currentSe
             </div>
           )}
           {currentBlobUrl && (
-            <video ref={videoRef} src={currentBlobUrl} className="w-full h-full" playsInline onClick={togglePlay} autoPlay />
+            <video
+              ref={videoRef}
+              src={currentBlobUrl}
+              className="w-full h-full"
+              playsInline
+              onClick={togglePlay}
+              autoPlay
+              loop={!hasMultipleSegments}
+            />
           )}
           
           {hasMultipleSegments && (

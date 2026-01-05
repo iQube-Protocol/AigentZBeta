@@ -48,6 +48,7 @@ export function VideoModal({ isOpen, onClose, items, initialIndex = 0 }: VideoMo
           src={currentItem.videoUrl}
           className="max-w-full max-h-full object-contain"
           autoPlay
+          loop
           controls
         />
 

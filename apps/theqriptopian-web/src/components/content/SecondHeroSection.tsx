@@ -1,11 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLiquidUIContent } from '@/hooks/useLiquidUIContent';
 import { SmartContentActions, type ContentModalities } from '@agentiq/smarttriad';
 import { useSmartContentAction } from '@/contexts/SmartContentActionContext';
+import { useIsMobile } from "@/hooks/use-mobile";
 import quantumTechHero from "@/assets/quantum-tech-hero.jpg";
 
 export function SecondHeroSection() {
   const [activeArticle, setActiveArticle] = useState(0);
+  const isMobile = useIsMobile();
   
   // Use global SmartContent action handler
   const { createHandler } = useSmartContentAction();
@@ -44,23 +46,24 @@ export function SecondHeroSection() {
   }, [articles.length]);
   
   // Touch/swipe support
-  const [touchStart, setTouchStart] = useState<number | null>(null);
-  const [touchEnd, setTouchEnd] = useState<number | null>(null);
+  const touchStartRef = useRef<number | null>(null);
+  const touchEndRef = useRef<number | null>(null);
   
   const minSwipeDistance = 50;
   
   const handleTouchStart = (e: React.TouchEvent) => {
-    setTouchEnd(null); // Reset touchEnd
-    setTouchStart(e.targetTouches[0].clientX);
+    touchEndRef.current = null;
+    touchStartRef.current = e.targetTouches[0].clientX;
   };
   
   const handleTouchMove = (e: React.TouchEvent) => {
-    setTouchEnd(e.targetTouches[0].clientX);
+    touchEndRef.current = e.targetTouches[0].clientX;
   };
   
-  const handleTouchEnd = () => {
-    if (!touchStart || !touchEnd) return;
-    
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    const touchStart = touchStartRef.current;
+    const touchEnd = touchEndRef.current ?? e.changedTouches[0]?.clientX;
+    if (touchStart === null || touchEnd === null) return;
     const distance = touchStart - touchEnd;
     const isLeftSwipe = distance > minSwipeDistance;
     const isRightSwipe = distance < -minSwipeDistance;
@@ -86,8 +89,11 @@ export function SecondHeroSection() {
         className="w-full h-full bg-cover bg-center"
         style={{
           backgroundImage: `url(${currentArticle.image})`,
-          backgroundSize: `${(currentArticle as any).imageScale || 100}%`,
-          backgroundPosition: `${(currentArticle as any).imageX || 50}% ${(currentArticle as any).imageY || 50}%`
+          backgroundRepeat: 'no-repeat',
+          backgroundSize: isMobile ? 'auto 100%' : `${(currentArticle as any).imageScale || 100}%`,
+          backgroundPosition: isMobile
+            ? 'center center'
+            : `${(currentArticle as any).imageX || 50}% ${(currentArticle as any).imageY || 50}%`
         }}
       />
       <div className="absolute inset-0 bg-gradient-to-t from-[#050f1f] via-transparent to-transparent" />

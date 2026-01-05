@@ -261,6 +261,7 @@ export default function ArticlePage() {
                 src={article.modalities.watch.video_url}
                 poster={article.image || undefined}
                 controls
+                loop
                 className="w-full h-full"
               />
             </div>
