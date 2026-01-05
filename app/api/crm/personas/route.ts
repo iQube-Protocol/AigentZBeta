@@ -140,6 +140,10 @@ export async function GET(request: NextRequest) {
           throw error;
         }
 
+        if (!data) {
+          return NextResponse.json({ error: 'Persona not found' }, { status: 404 });
+        }
+
         const reputationBucket = mapReputationBucket(data.reputation_tier, data.reputation_bucket);
         const persona = {
           id: data.id,
