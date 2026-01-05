@@ -15,6 +15,7 @@ interface Tenant {
   name: string;
   slug: string;
   domain?: string;
+  personaCount?: number;
 }
 
 interface Franchise {
@@ -62,6 +63,20 @@ export function TenantSwitcher({
         const tenantsData = tenantsRes.ok ? await tenantsRes.json() : { data: [] };
         const allTenants = tenantsData.data || [];
 
+        // Fetch live tenant counts from personas (covers tenants missing from CRM tables)
+        const liveTenantsRes = await fetch('/api/crm/personas?source=live&stats=true&tenantStats=true&tenantId=all');
+        const liveTenantsData = liveTenantsRes.ok ? await liveTenantsRes.json() : { data: {} };
+        const liveTenantCounts: Record<string, number> = liveTenantsData?.data?.byTenant || {};
+
+        const franchiseTenantOverrides: Record<string, Tenant> = {
+          theqriptopian: {
+            id: 'c1a4e5f8-5326-4fa3-ac11-87c36e0b1848',
+            name: 'Qriptopian',
+            slug: 'qriptopian',
+            personaCount: liveTenantCounts['c1a4e5f8-5326-4fa3-ac11-87c36e0b1848'] || 0,
+          },
+        };
+
         // Group tenants by franchise
         const franchiseMap = new Map<string, Franchise>();
         
@@ -84,19 +99,56 @@ export function TenantSwitcher({
         });
 
         // Assign tenants to franchises
+        const tenantById = new Map<string, Tenant>();
+        const tenantBySlug = new Map<string, Tenant>();
+
         for (const tenant of allTenants) {
           const mappedTenant = {
             id: tenant.id,
             name: tenant.name,
             slug: tenant.slug,
             domain: tenant.domain || tenant.customDomain,
+            personaCount: liveTenantCounts[tenant.id] || liveTenantCounts[tenant.slug] || 0,
           };
+          tenantById.set(mappedTenant.id, mappedTenant);
+          if (mappedTenant.slug) tenantBySlug.set(mappedTenant.slug, mappedTenant);
           
           if (tenant.franchiseId && franchiseMap.has(tenant.franchiseId)) {
             franchiseMap.get(tenant.franchiseId)!.tenants.push(mappedTenant);
           } else {
             franchiseMap.get('unassigned')!.tenants.push(mappedTenant);
           }
+        }
+
+        // Apply franchise tenant overrides when missing
+        for (const franchise of franchiseMap.values()) {
+          const override = franchiseTenantOverrides[franchise.slug];
+          if (!override) continue;
+          const hasTenant = franchise.tenants.some((t) => t.id === override.id || t.slug === override.slug);
+          if (!hasTenant) {
+            franchise.tenants.push(override);
+          }
+        }
+
+        // Add live-only tenants (present in personas but missing from tenants table)
+        const liveOnlyTenants: Tenant[] = [];
+        Object.entries(liveTenantCounts).forEach(([tenantId, count]) => {
+          if (tenantById.has(tenantId) || tenantBySlug.has(tenantId)) return;
+          liveOnlyTenants.push({
+            id: tenantId,
+            name: `Tenant ${tenantId.slice(0, 8)}…`,
+            slug: tenantId,
+            personaCount: count,
+          });
+        });
+
+        if (liveOnlyTenants.length > 0) {
+          franchiseMap.set('live-tenants', {
+            id: 'live-tenants',
+            name: 'Live Tenants',
+            slug: 'live-tenants',
+            tenants: liveOnlyTenants.sort((a, b) => (b.personaCount || 0) - (a.personaCount || 0)),
+          });
         }
 
         // Filter out franchises with no tenants and convert to array
@@ -119,11 +171,30 @@ export function TenantSwitcher({
               }
             }
           }
+
+          if (!foundTenant && currentTenantId && currentTenantId !== 't1' && currentTenantId !== 'default') {
+            for (const franchise of validFranchises) {
+              const tenant = franchise.tenants.find(t => t.slug === currentTenantId);
+              if (tenant) {
+                setSelectedTenant(tenant);
+                setSelectedFranchise(franchise);
+                foundTenant = true;
+                break;
+              }
+            }
+          }
           
           // If no tenant found or currentTenantId is default, select first available
-          if (!foundTenant && validFranchises[0]?.tenants[0]) {
-            const firstFranchise = validFranchises[0];
-            const firstTenant = firstFranchise.tenants[0];
+          if (!foundTenant && validFranchises.length > 0) {
+            const allTenantsFlat = validFranchises.flatMap((franchise) =>
+              franchise.tenants.map((tenant) => ({ franchise, tenant }))
+            );
+            allTenantsFlat.sort((a, b) => (b.tenant.personaCount || 0) - (a.tenant.personaCount || 0));
+
+            const firstEntry = allTenantsFlat[0];
+            if (!firstEntry) return;
+            const firstFranchise = firstEntry.franchise;
+            const firstTenant = firstEntry.tenant;
             setSelectedFranchise(firstFranchise);
             setSelectedTenant(firstTenant);
             onTenantChange?.(firstTenant.id, firstFranchise.id);

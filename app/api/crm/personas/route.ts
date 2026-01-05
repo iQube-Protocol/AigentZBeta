@@ -16,7 +16,7 @@ import { TenantId } from '@/types/crm';
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const tenantId = searchParams.get('tenantId') as TenantId;
+    const tenantIdParam = searchParams.get('tenantId') as TenantId;
     const personaId = searchParams.get('personaId');
     const limit = parseInt(searchParams.get('limit') || '50');
     const offset = parseInt(searchParams.get('offset') || '0');
@@ -27,14 +27,18 @@ export async function GET(request: NextRequest) {
     const stats = searchParams.get('stats') === 'true';
     const tenantStats = searchParams.get('tenantStats') === 'true';
 
-    const isTenantStatsAll = tenantStats && (!tenantId || tenantId === 'all');
+    const isTenantStatsAll = tenantStats && (!tenantIdParam || tenantIdParam === 'all');
 
-    if (!tenantId && !isTenantStatsAll) {
+    if (!tenantIdParam && !isTenantStatsAll) {
       return NextResponse.json(
         { error: 'tenantId is required' },
         { status: 400 }
       );
     }
+
+    const tenantId = source === 'live'
+      ? await resolveTenantId(tenantIdParam)
+      : tenantIdParam;
 
     if (source === 'live') {
       const client = getCrmClient();
@@ -111,12 +115,23 @@ export async function GET(request: NextRequest) {
       }
 
       if (personaId) {
-        const { data, error } = await client
+        const baseSelect = 'id, display_name, fio_handle, status, reputation_bucket, reputation_tier, tenant_id, created_at, updated_at';
+        let { data, error } = await client
           .from('personas')
-          .select('id, display_name, fio_handle, status, reputation_bucket, reputation_tier, tenant_id, created_at, updated_at')
+          .select(baseSelect)
           .eq('tenant_id', tenantId)
           .eq('id', personaId)
-          .single();
+          .maybeSingle();
+
+        if (!data && (error?.code === 'PGRST116' || error == null)) {
+          const fallback = await client
+            .from('personas')
+            .select(baseSelect)
+            .eq('id', personaId)
+            .maybeSingle();
+          data = fallback.data;
+          error = fallback.error;
+        }
 
         if (error) {
           if (error.code === 'PGRST116') {
@@ -292,6 +307,17 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+async function resolveTenantId(tenantId?: string | null) {
+  if (!tenantId || tenantId === 'all') return tenantId || null;
+  const client = getCrmClient();
+  const { data } = await client
+    .from('tenants')
+    .select('id, slug')
+    .or(`id.eq.${tenantId},slug.eq.${tenantId}`)
+    .maybeSingle();
+  return data?.id || tenantId;
 }
 
 function mapStatusToPersonaState(status?: string | null) {

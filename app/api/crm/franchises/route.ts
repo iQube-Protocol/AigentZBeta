@@ -10,6 +10,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import * as crmService from '@/services/crm/crmService';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 
+const FRANCHISE_TENANT_OVERRIDES: Record<string, { id: string; slug: string; name: string }> = {
+  theqriptopian: {
+    id: 'c1a4e5f8-5326-4fa3-ac11-87c36e0b1848',
+    slug: 'qriptopian',
+    name: 'Qriptopian',
+  },
+};
+
 async function fetchPersonaCountsByTenant(tenantIds: string[]) {
   const supabase = getSupabaseServer();
   const counts = new Map<string, number>();
@@ -63,14 +71,38 @@ export async function GET(request: NextRequest) {
       // Include tenants if requested
       if (includeTenants) {
         const franchiseTenants = await crmService.getFranchiseTenants(franchise.id, activeOnly);
-        const tenantIds = franchiseTenants.map((t) => t.id);
+        const override = FRANCHISE_TENANT_OVERRIDES[franchise.slug];
+        const effectiveTenants = override
+          ? [
+              ...franchiseTenants,
+              {
+                id: override.id,
+                franchiseId: franchise.id,
+                name: override.name,
+                slug: override.slug,
+                description: '',
+                domain: null,
+                config: {},
+                supportedTokens: [],
+                defaultModalities: [],
+                isActive: true,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              },
+            ]
+          : franchiseTenants;
+
+        const tenantIds = effectiveTenants.map((t) => t.id);
         const personaCounts = await fetchPersonaCountsByTenant(tenantIds);
 
         return NextResponse.json({
           success: true,
           data: {
             ...franchise,
-            tenants: franchiseTenants,
+            tenants: effectiveTenants.map((tenant) => ({
+              ...tenant,
+              personaCount: personaCounts.get(tenant.id) || 0,
+            })),
             personaCounts: Object.fromEntries(personaCounts.entries()),
           },
         });
@@ -93,6 +125,9 @@ export async function GET(request: NextRequest) {
 
     const tenantsList = await crmService.listTenants(undefined, activeOnly);
     const tenantIds = tenantsList.map((t) => t.id);
+    Object.values(FRANCHISE_TENANT_OVERRIDES).forEach((override) => {
+      if (!tenantIds.includes(override.id)) tenantIds.push(override.id);
+    });
     const personaCounts = await fetchPersonaCountsByTenant(tenantIds);
 
     const tenantsByFranchise = new Map<string, any[]>();
@@ -109,7 +144,31 @@ export async function GET(request: NextRequest) {
       success: true,
       data: franchises.map((franchise) => ({
         ...franchise,
-        tenants: tenantsByFranchise.get(franchise.id) || [],
+        tenants: (() => {
+          const baseTenants = tenantsByFranchise.get(franchise.id) || [];
+          const override = FRANCHISE_TENANT_OVERRIDES[franchise.slug];
+          if (!override) return baseTenants;
+          const alreadyPresent = baseTenants.some((t) => t.id === override.id || t.slug === override.slug);
+          if (alreadyPresent) return baseTenants;
+          return [
+            ...baseTenants,
+            {
+              id: override.id,
+              franchiseId: franchise.id,
+              name: override.name,
+              slug: override.slug,
+              description: '',
+              domain: null,
+              config: {},
+              supportedTokens: [],
+              defaultModalities: [],
+              isActive: true,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              personaCount: personaCounts.get(override.id) || 0,
+            },
+          ];
+        })(),
       })),
     });
   } catch (error: any) {
