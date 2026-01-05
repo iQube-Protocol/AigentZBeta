@@ -149,13 +149,14 @@ export function SignalsDrawer({
           <Carousel 
             opts={{
               align: "start",
-              loop: true
+              loop: true,
+              dragFree: true
             }} 
             plugins={[WheelGesturesPlugin()]}
             className="w-full"
           >
-            <CarouselContent className="-ml-4">
-              {thumbnailContent.map(item => <CarouselItem key={item.id} className="pl-4 basis-1/3">
+            <CarouselContent className="-ml-2">
+              {thumbnailContent.map(item => <CarouselItem key={item.id} className="pl-2 basis-[43%] md:basis-1/3 lg:basis-1/4">
                   <div className="relative rounded-lg overflow-hidden group cursor-pointer bg-card/50 backdrop-blur-sm border border-border/30 hover:border-cyan-500/50 transition-all">
                     <div className="aspect-video relative">
                       <img src={item.image} alt={item.title} className="w-full h-full object-cover" />

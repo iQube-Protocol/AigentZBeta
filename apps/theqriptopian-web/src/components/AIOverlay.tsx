@@ -48,13 +48,13 @@ export function AIOverlay({ isOpen, onClose }: AIOverlayProps) {
       
       {/* AI Drawer - matches other drawer positioning */}
       <div 
-        className={`fixed right-[80px] top-[88px] h-[calc(100vh-88px)] w-[600px] bg-background/80 backdrop-blur-xl border-l border-border/30 shadow-[0_0_60px_rgba(0,0,0,0.5)] z-50 flex flex-col transition-transform duration-300 ease-out ${
+        className={`fixed inset-0 bg-background/95 backdrop-blur-xl md:right-[80px] md:top-[88px] md:left-auto md:h-[calc(100vh-88px)] md:w-[600px] md:bg-background/80 md:border-l md:border-border/30 shadow-[0_0_60px_rgba(0,0,0,0.5)] z-50 flex flex-col transition-transform duration-300 ease-out ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
         {/* Header Section */}
         <div className="flex-shrink-0 border-b border-border/30 bg-background/60 backdrop-blur-sm">
-          <div className="p-6 flex items-center justify-between">
+          <div className="p-4 md:p-6 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-[0_0_20px_rgba(94,234,212,0.5)]">
                 <span className="text-lg font-bold text-background">AI</span>
@@ -76,7 +76,7 @@ export function AIOverlay({ isOpen, onClose }: AIOverlayProps) {
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+        <div className="flex-1 overflow-y-auto px-4 md:px-6 py-4 space-y-4">
           {messages.map((msg, idx) => (
             <div key={idx} className="space-y-1">
               <div
@@ -99,7 +99,7 @@ export function AIOverlay({ isOpen, onClose }: AIOverlayProps) {
         </div>
 
         {/* Input Area */}
-        <div className="flex-shrink-0 px-6 py-4 border-t border-border/30 bg-background/60 backdrop-blur-sm">
+        <div className="flex-shrink-0 px-4 md:px-6 py-4 border-t border-border/30 bg-background/60 backdrop-blur-sm">
           <form onSubmit={handleSubmit}>
             <div className="flex items-center gap-2 bg-card/50 border border-border/30 rounded-lg px-4 py-2.5">
               <button

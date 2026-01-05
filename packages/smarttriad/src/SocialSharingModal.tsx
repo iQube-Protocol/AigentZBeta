@@ -210,10 +210,10 @@ export function SocialSharingModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-      <div className="bg-[#050f1f] border border-[#1e2b40] rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/95 backdrop-blur-2xl flex items-center justify-center z-[60] p-4">
+      <div className="bg-[#050f1f] border border-[#1e2b40] rounded-none md:rounded-xl w-full h-full md:h-auto md:max-w-[896px] md:max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="p-6 border-b border-[#1e2b40]">
+        <div className="p-4 md:p-6 border-b border-[#1e2b40]">
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-3">
               <div className="w-8 h-8 bg-gradient-to-r from-cyan-400 to-blue-500 rounded-full flex items-center justify-center">
@@ -223,7 +223,8 @@ export function SocialSharingModal({
             </div>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-white text-2xl transition-colors"
+              className="w-10 h-10 rounded-full bg-black/50 border border-white/20 text-gray-300 hover:text-white hover:bg-black/70 transition-colors flex items-center justify-center"
+              aria-label="Close sharing modal"
             >
               ×
             </button>
@@ -231,7 +232,7 @@ export function SocialSharingModal({
         </div>
 
         {/* Article Preview */}
-        <div className="p-6 border-b border-[#1e2b40]">
+        <div className="p-4 md:p-6 border-b border-[#1e2b40]">
           <h3 className="font-medium text-white mb-2">{article.title}</h3>
           {article.description && (
             <p className="text-sm text-gray-300 line-clamp-2">{article.description}</p>
@@ -246,7 +247,7 @@ export function SocialSharingModal({
         </div>
 
         {/* Social Platforms */}
-        <div className="p-6">
+        <div className="p-4 md:p-6">
           <div className="grid grid-cols-3 gap-2 mb-6">
             {socialPlatforms.map((platform) => (
               <button

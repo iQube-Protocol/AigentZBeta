@@ -82,7 +82,7 @@ export function HeroSection() {
     }
   };
   return <div 
-    className="w-full h-[calc(100vh-88px)] relative flex-shrink-0"
+    className="w-full h-[calc(100svh-64px)] md:h-[calc(100vh-88px)] relative flex-shrink-0 overflow-hidden"
     onTouchStart={handleTouchStart}
     onTouchMove={handleTouchMove}
     onTouchEnd={handleTouchEnd}
@@ -97,39 +97,52 @@ export function HeroSection() {
       />
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#050f1f]" />
       
-      {/* Main Content */}
-      <div className="absolute inset-0 flex items-end pb-16">
-        <div className="px-8 max-w-2xl">
-          {/* Smart Content Actions - Only shows icons for available modalities */}
-          <div className="flex items-center gap-4 mb-6">
-            <SmartContentActions
-              modalities={'modalities' in currentArticle ? currentArticle.modalities : null}
-              context="hero"
-              showExpand={false}
-              showShare={true}
-              size="md"
-              onAction={createHandler({
-                id: currentArticle.id,
-                title: currentArticle.title,
-                description: currentArticle.subtitle,
-                image: currentArticle.image,
-                modalities: 'modalities' in currentArticle ? currentArticle.modalities : null,
-                section: 'home-hero',
-              })}
-            />
-            
+      {/* Action Buttons */}
+      <div className="absolute top-4 right-6 md:right-8 flex gap-3 z-10">
+        <SmartContentActions
+          modalities={'modalities' in currentArticle ? currentArticle.modalities : null}
+          context="hero"
+          showExpand={false}
+          showShare={true}
+          size="md"
+          onAction={createHandler({
+            id: currentArticle.id,
+            title: currentArticle.title,
+            description: currentArticle.subtitle,
+            image: currentArticle.image,
+            modalities: 'modalities' in currentArticle ? currentArticle.modalities : null,
+            section: 'home-hero',
+          })}
+        />
+      </div>
+
+      {/* Text Overlay */}
+      <div className="absolute inset-x-0 bottom-0">
+        <div className="bg-gradient-to-t from-black/80 to-transparent px-6 md:px-8 pb-8 md:pb-16">
+          <div className="max-w-2xl">
             {/* Navigation Dots */}
-            <div className="flex gap-2">
-              {articles.map((_, index) => <button key={index} onClick={() => setActiveArticle(index)} className={`transition-all ${index === activeArticle ? 'w-8 h-2 bg-cyan-400 rounded-full' : 'w-2 h-2 bg-white/30 hover:bg-white/50 rounded-full'}`} aria-label={`Article ${index + 1}`} />)}
+            <div className="flex gap-2 mb-3 md:mb-6">
+              {articles.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => setActiveArticle(index)}
+                  className={`transition-all ${
+                    index === activeArticle
+                      ? 'w-8 h-2 bg-cyan-400 rounded-full'
+                      : 'w-2 h-2 bg-white/30 hover:bg-white/50 rounded-full'
+                  }`}
+                  aria-label={`Article ${index + 1}`}
+                />
+              ))}
             </div>
+            
+            <h1 className="font-bold text-[#d0f6ff] mb-3 drop-shadow-[0_0_30px_rgba(0,196,255,0.5)] text-2xl md:text-4xl leading-tight">
+              {currentArticle.title}
+            </h1>
+            <p className="text-sm md:text-lg text-[#8fb3c0] drop-shadow-[0_0_20px_rgba(0,0,0,0.8)] line-clamp-2 md:line-clamp-none">
+              {currentArticle.subtitle}
+            </p>
           </div>
-          
-          <h1 className="font-bold text-[#d0f6ff] mb-4 drop-shadow-[0_0_30px_rgba(0,196,255,0.5)] text-4xl">
-            {currentArticle.title}
-          </h1>
-          <p className="text-xl text-[#8fb3c0] drop-shadow-[0_0_20px_rgba(0,0,0,0.8)]">
-            {currentArticle.subtitle}
-          </p>
         </div>
       </div>
 

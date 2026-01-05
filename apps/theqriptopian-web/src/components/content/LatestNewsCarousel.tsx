@@ -11,6 +11,8 @@ export function LatestNewsCarousel() {
   const [api, setApi] = useState<CarouselApi>();
   const [canScrollPrev, setCanScrollPrev] = useState(false);
   const [canScrollNext, setCanScrollNext] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [snapCount, setSnapCount] = useState(0);
   
   // Use global SmartContent action handler
   const { createHandler } = useSmartContentAction();
@@ -33,8 +35,10 @@ export function LatestNewsCarousel() {
     const updateButtons = () => {
       setCanScrollPrev(api.canScrollPrev());
       setCanScrollNext(api.canScrollNext());
+      setSelectedIndex(api.selectedScrollSnap());
     };
     updateButtons();
+    setSnapCount(api.scrollSnapList().length);
     api.on("select", updateButtons);
     api.on("reInit", updateButtons);
     return () => {
@@ -44,9 +48,9 @@ export function LatestNewsCarousel() {
   }, [api]);
   const scrollPrev = () => api?.scrollPrev();
   const scrollNext = () => api?.scrollNext();
-  return <div className="w-full bg-[#071327] py-12 px-4">
+  return <div className="w-full bg-[#071327] py-12 px-4 md:px-6">
       <div className="w-full">
-        <div className="flex items-center justify-between mb-8 px-4">
+        <div className="flex items-center justify-between mb-8 px-4 md:px-6">
           <div className="flex items-center gap-4">
             <h2 className="text-[#d0f6ff] text-2xl font-medium text-left px-0 mx-0">Latest News</h2>
             <button 
@@ -79,16 +83,17 @@ export function LatestNewsCarousel() {
         </div>
         <Carousel 
           setApi={setApi} 
-          className="w-full" 
+          className="w-full overflow-hidden" 
           opts={{
             align: "start",
-            loop: true
+            loop: true,
+            dragFree: true
           }}
           plugins={[WheelGesturesPlugin()]}
         >
-          <CarouselContent className="-ml-4">
+          <CarouselContent className="-ml-2">
             {newsItems.map((item) => (
-              <CarouselItem key={item.id} className="pl-4 basis-[85%] sm:basis-[45%] md:basis-[30%] lg:basis-[30%]">
+              <CarouselItem key={item.id} className="pl-2 basis-[43%] md:basis-1/3 lg:basis-1/4">
                 <div className={`bg-[#020b18] border rounded-lg overflow-hidden transition-colors ${
                   item.isPremium ? 'border-amber-500/30 hover:border-amber-500/50' : 'border-[#1e2b40] hover:border-cyan-500/30'
                 }`}>
@@ -104,7 +109,7 @@ export function LatestNewsCarousel() {
                     <img 
                       src={item.image} 
                       alt={item.title} 
-                      className={`w-full h-48 object-cover ${item.isPremium ? 'opacity-60' : ''}`} 
+                      className={`w-full aspect-video object-cover ${item.isPremium ? 'opacity-60' : ''}`} 
                     />
                     {item.isPremium && (
                       <div className="absolute inset-0 flex items-center justify-center">
@@ -144,6 +149,22 @@ export function LatestNewsCarousel() {
             ))}
           </CarouselContent>
         </Carousel>
+        {snapCount > 1 && (
+          <div className="mt-2 flex items-center justify-center gap-2">
+            {Array.from({ length: snapCount }).map((_, index) => (
+              <button
+                key={index}
+                onClick={() => api?.scrollTo(index)}
+                className={`transition-all rounded-full ${
+                  index === selectedIndex
+                    ? 'w-6 h-1.5 bg-cyan-400'
+                    : 'w-1.5 h-1.5 bg-white/30 hover:bg-white/50'
+                }`}
+                aria-label={`Go to slide ${index + 1}`}
+              />
+            ))}
+          </div>
+        )}
         {/* VideoModal and ArticleReader are now handled globally by SmartContentActionProvider */}
       </div>
     </div>;

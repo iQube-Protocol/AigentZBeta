@@ -8,6 +8,7 @@ interface ApiResponse<T> {
   success: boolean;
   data?: T;
   error?: string;
+  meta?: Record<string, unknown>;
   pagination?: {
     limit: number;
     offset: number;

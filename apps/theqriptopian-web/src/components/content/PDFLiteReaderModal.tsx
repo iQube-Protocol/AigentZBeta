@@ -32,13 +32,13 @@ export function PDFLiteReaderModal({ open, onClose, title, pdfUrl }: PDFLiteRead
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/95 backdrop-blur-2xl"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="relative w-[min(1100px,95vw)] h-[min(90vh,900px)] bg-zinc-950 border border-white/10 rounded-xl overflow-hidden shadow-xl">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+      <div className="relative w-full h-full md:w-[min(896px,95vw)] md:h-[min(100%,900px)] bg-zinc-950 border border-white/10 rounded-none md:rounded-xl overflow-hidden shadow-xl">
+        <div className="flex items-center justify-between px-4 md:px-6 py-4 md:py-5 border-b border-white/10">
           <div className="min-w-0">
             <div className="text-sm font-semibold text-white truncate">
               {title || 'Reading'}
@@ -49,14 +49,15 @@ export function PDFLiteReaderModal({ open, onClose, title, pdfUrl }: PDFLiteRead
           </div>
 
           <button
-            className="text-xs px-3 py-1.5 rounded-md bg-white text-black hover:bg-white/90"
+            className="w-10 h-10 rounded-full bg-black/50 border border-white/20 text-white hover:bg-black/70 transition-colors flex items-center justify-center"
             onClick={onClose}
+            aria-label="Close PDF preview"
           >
-            Close
+            ×
           </button>
         </div>
 
-        <div className="relative w-full h-[calc(100%-52px)]">
+        <div className="relative w-full h-[calc(100%-60px)]">
           {loading && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/40 z-10">
               <div className="h-6 w-6 animate-spin rounded-full border-2 border-white/30 border-t-white" />

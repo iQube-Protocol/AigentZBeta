@@ -191,10 +191,10 @@ export function Kn0wdZDrawer({ isOpen, onClose }: Kn0wdZDrawerProps) {
 
         {/* Thumbnail Carousel */}
         {currentContent.length > 0 && (
-        <Carousel opts={{ align: "start", loop: true }} plugins={[WheelGesturesPlugin()]} className="w-full">
+        <Carousel opts={{ align: "start", loop: true, dragFree: true }} plugins={[WheelGesturesPlugin()]} className="w-full">
           <CarouselContent className="-ml-2">
             {currentContent.map((item, index) => (
-              <CarouselItem key={item.id} className="pl-2 basis-1/4">
+              <CarouselItem key={item.id} className="pl-2 basis-[43%] md:basis-1/3 lg:basis-1/4">
                 <div onClick={() => setSelectedIndex(index)} className={`group relative aspect-video w-full overflow-hidden rounded-md bg-black cursor-pointer transition-all ${selectedIndex === index ? 'ring-2 ring-cyan-400' : 'opacity-70 hover:opacity-100'}`}>
                   <img src={item.image} alt={item.title} className="absolute inset-0 w-full h-full object-cover" />
                   <div className="absolute bottom-1 left-1 right-1"><p className="text-white text-[11px] font-medium line-clamp-1">{item.title}</p></div>

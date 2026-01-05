@@ -103,7 +103,7 @@ export function MythosDrawer({ isOpen, onClose }: MythosDrawerProps) {
           >
             <CarouselContent className="-ml-2">
               {mythosContent.map((item, index) => (
-                <CarouselItem key={`thumb-${item.id}`} className="basis-1/6 pl-2">
+                <CarouselItem key={`thumb-${item.id}`} className="basis-[43%] md:basis-1/3 lg:basis-1/4 pl-2">
                   <button
                     onClick={() => setSelectedItemIndex(index)}
                     className={`w-full aspect-video rounded-lg overflow-hidden border-2 transition-all hover:border-primary/50 ${

@@ -10,6 +10,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import * as crmService from '@/services/crm/crmService';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 
+export const dynamic = 'force-dynamic';
+
 const QRIPTOPIAN_TENANT = {
   id: 'c1a4e5f8-5326-4fa3-ac11-87c36e0b1848',
   slug: 'qriptopian',

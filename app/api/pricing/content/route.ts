@@ -8,6 +8,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getMultiRailPricing, ContentType, KNYT_USD_RATE, RAIL_CONFIG } from '@/services/wallet/knyt/knytPricingService';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);

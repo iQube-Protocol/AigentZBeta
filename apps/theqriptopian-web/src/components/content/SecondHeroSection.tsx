@@ -77,7 +77,7 @@ export function SecondHeroSection() {
   
   return (
     <div 
-      className="w-full h-[calc(100vh-88px)] relative flex-shrink-0 bg-[#050f1f]"
+      className="w-full h-[calc(100svh-64px)] md:h-[calc(100vh-88px)] relative flex-shrink-0 bg-[#050f1f] overflow-hidden"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -91,35 +91,33 @@ export function SecondHeroSection() {
         }}
       />
       <div className="absolute inset-0 bg-gradient-to-t from-[#050f1f] via-transparent to-transparent" />
-      <div className="absolute inset-0 flex items-end pb-16">
-        <div className="text-left px-8 max-w-2xl">
-          <h2 className="text-4xl font-bold text-[#d0f6ff] mb-6 drop-shadow-[0_0_30px_rgba(0,196,255,0.5)]">
-            {currentArticle.title}
-          </h2>
-          <p className="text-xl text-[#8fb3c0] mb-8 drop-shadow-[0_0_20px_rgba(0,0,0,0.8)]">
-            {currentArticle.subtitle}
-          </p>
-          {/* SmartContentActions with navigation dots on the right */}
-          <div className="flex items-center gap-4 mb-4">
-            <SmartContentActions
-              modalities={currentArticle.modalities}
-              context="hero"
-              showExpand={false}
-              showShare={true}
-              size="md"
-              onAction={createHandler({
-                id: currentArticle.id,
-                title: currentArticle.title,
-                description: currentArticle.subtitle,
-                image: currentArticle.image,
-                modalities: currentArticle.modalities,
-                section: 'second-hero',
-              })}
-            />
-            
-            {/* Navigation Dots - inline with SmartContentActions */}
+
+      {/* Action Buttons */}
+      <div className="absolute top-4 right-6 md:right-8 flex gap-3 z-10">
+        <SmartContentActions
+          modalities={currentArticle.modalities}
+          context="hero"
+          showExpand={false}
+          showShare={true}
+          size="md"
+          onAction={createHandler({
+            id: currentArticle.id,
+            title: currentArticle.title,
+            description: currentArticle.subtitle,
+            image: currentArticle.image,
+            modalities: currentArticle.modalities,
+            section: 'second-hero',
+          })}
+        />
+      </div>
+
+      {/* Text Overlay */}
+      <div className="absolute inset-x-0 bottom-0">
+        <div className="bg-gradient-to-t from-black/80 to-transparent px-6 md:px-8 pb-8 md:pb-16">
+          <div className="text-left max-w-2xl">
+            {/* Navigation Dots */}
             {articles.length > 1 && (
-              <div className="flex gap-2">
+              <div className="flex gap-2 mb-3 md:mb-6">
                 {articles.map((_, index) => (
                   <button
                     key={index}
@@ -134,6 +132,13 @@ export function SecondHeroSection() {
                 ))}
               </div>
             )}
+
+            <h2 className="text-2xl md:text-4xl font-bold text-[#d0f6ff] mb-3 drop-shadow-[0_0_30px_rgba(0,196,255,0.5)] leading-tight">
+              {currentArticle.title}
+            </h2>
+            <p className="text-sm md:text-lg text-[#8fb3c0] drop-shadow-[0_0_20px_rgba(0,0,0,0.8)] line-clamp-2 md:line-clamp-none">
+              {currentArticle.subtitle}
+            </p>
           </div>
         </div>
       </div>

@@ -507,7 +507,7 @@ export function CodexCopilotLayer({
   };
   
   // Drawer width classes - positioned at right edge of browser
-  const widthClass = copilotWidth === 'wide' ? 'w-[480px]' : 'w-[320px]';
+  const widthClass = copilotWidth === 'wide' ? 'w-full md:w-[480px]' : 'w-full md:w-[320px]';
   
   // Carousel scroll state
   const carouselRef = useRef<HTMLDivElement>(null);
@@ -542,7 +542,7 @@ export function CodexCopilotLayer({
       {!copilotOpen && (
         <button
           onClick={() => setCopilotOpen(true)}
-          className={`fixed bottom-6 right-6 z-[120] p-4 rounded-full bg-black/30 backdrop-blur-xl ring-1 ring-white/20 shadow-lg transition-all duration-300 hover:scale-110 hover:ring-cyan-400/50 ${
+          className={`fixed bottom-4 right-4 z-[120] p-4 rounded-full bg-black/30 backdrop-blur-xl ring-1 ring-white/20 shadow-lg transition-all duration-300 hover:scale-110 hover:ring-cyan-400/50 ${
             showActivationButton ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
           }`}
         >
@@ -552,10 +552,9 @@ export function CodexCopilotLayer({
       
       {/* Copilot + Docked Wallet (inside Codex experience) */}
       {copilotOpen && (
-        <div className="fixed bottom-2.5 right-2.5 z-[120] flex gap-2 transition-all duration-300 ease-out">
+        <div className="fixed inset-0 min-h-[100svh] md:inset-auto md:bottom-2.5 md:right-2.5 z-[120] flex flex-col md:flex-row gap-2 transition-all duration-300 ease-out">
           <div
-            className={`${widthClass} transition-all duration-300 ease-out`}
-            style={{ height: 'calc(100vh - 100px)', maxHeight: '600px' }}
+            className={`${widthClass} h-full md:h-[calc(100vh-100px)] md:max-h-[600px] transition-all duration-300 ease-out`}
           >
             <div
               className="h-full bg-black/30 backdrop-blur-xl ring-1 ring-white/10 rounded-2xl shadow-2xl flex flex-col overflow-hidden"
@@ -778,8 +777,7 @@ export function CodexCopilotLayer({
           {/* Docked Smart Wallet panel (embedded) */}
           {walletPanelOpen && !walletPanelCollapsed && (
             <div
-              className="rounded-2xl overflow-hidden ring-1 ring-white/10 shadow-2xl"
-              style={{ height: 'calc(100vh - 100px)', maxHeight: '600px' }}
+              className="rounded-2xl overflow-hidden ring-1 ring-white/10 shadow-2xl w-full md:w-auto h-full md:h-[calc(100vh-100px)] md:max-h-[600px]"
             >
               <WalletDrawer
                 isOpen={walletPanelOpen}

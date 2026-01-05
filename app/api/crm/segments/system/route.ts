@@ -8,6 +8,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 
+export const dynamic = 'force-dynamic';
+
 const ORDER_TIERS = ['KETA', 'KEJI', 'FIRST', 'ZERO', 'SAT'] as const;
 const REP_TIERS = ['R0_KETA', 'R1_KEJI', 'R2_FIRST', 'R3_ZERO', 'R4_SAT'] as const;
 

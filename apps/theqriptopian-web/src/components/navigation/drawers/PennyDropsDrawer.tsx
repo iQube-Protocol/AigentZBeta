@@ -97,16 +97,16 @@ export function PennyDropsDrawer({ isOpen, onClose }: PennyDropsDrawerProps) {
         {/* Thumbnail Carousel - Desktop: below, Mobile: overlay at bottom */}
         <div className="mt-6 pt-6 border-t border-border/30">
           <Carousel
-            opts={{ align: "start", loop: true }}
+            opts={{ align: "start", loop: true, dragFree: true }}
             plugins={[WheelGesturesPlugin()]}
             className="w-full"
           >
-            <CarouselContent className="-ml-4">
+            <CarouselContent className="-ml-2">
               {pennyDropsContent.map((item, index) => (
-                <CarouselItem key={item.id} className="pl-4 basis-1/4">
+                <CarouselItem key={item.id} className="pl-2 basis-[43%] md:basis-1/3 lg:basis-1/4">
                   <div
                     onClick={() => setSelectedIndex(index)}
-                    className={`group relative aspect-[47/20] w-full overflow-hidden rounded-lg bg-black cursor-pointer transition-all ${selectedIndex === index ? 'ring-2 ring-cyan-400' : 'opacity-70 hover:opacity-100'}`}
+                    className={`group relative aspect-video w-full overflow-hidden rounded-lg bg-black cursor-pointer transition-all ${selectedIndex === index ? 'ring-2 ring-cyan-400' : 'opacity-70 hover:opacity-100'}`}
                     role="button"
                     tabIndex={0}
                     onKeyDown={(e) => e.key === 'Enter' && setSelectedIndex(index)}

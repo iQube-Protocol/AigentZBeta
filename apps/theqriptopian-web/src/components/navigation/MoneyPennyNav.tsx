@@ -96,9 +96,9 @@ export function MoneyPennyNav({
   onAIClick
 }: MoneyPennyNavProps) {
   return <TooltipProvider delayDuration={0}>
-      <aside className="fixed right-0 top-1/2 -translate-y-1/2 w-16 flex flex-col items-center py-6 z-50">
+      <aside className="fixed right-[2px] top-1/2 -translate-y-1/2 w-14 hidden md:flex flex-col items-center z-50">
         {/* Navigation Icons */}
-        <nav className="flex flex-col gap-2 w-full px-2">
+        <nav className="flex flex-col gap-1 w-full px-1">
           {navItems.map(item => {
           const Icon = item.icon;
           const isActive = activeDomain === item.id;

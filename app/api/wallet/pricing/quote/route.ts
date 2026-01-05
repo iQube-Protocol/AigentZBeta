@@ -3,6 +3,7 @@ import { quoteSkuOffers } from "@/services/wallet/knyt/knytSkuQuoteService";
 import type { PricingKind } from "@/types/smartContent";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {

@@ -5,6 +5,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PurchaseHandler } from '@/services/rewards/purchaseHandler';
 
+export const dynamic = 'force-dynamic';
+
 const PAYPAL_API = process.env.PAYPAL_MODE === 'live' 
   ? 'https://api-m.paypal.com' 
   : 'https://api-m.sandbox.paypal.com';

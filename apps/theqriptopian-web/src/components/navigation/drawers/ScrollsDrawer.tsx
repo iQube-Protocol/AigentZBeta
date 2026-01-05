@@ -131,13 +131,13 @@ export function ScrollsDrawer({ isOpen, onClose }: ScrollsDrawerProps) {
         {currentContent.length > 0 && (
         <div className="mt-auto">
           <Carousel
-            opts={{ align: "start", loop: true }}
+            opts={{ align: "start", loop: true, dragFree: true }}
             plugins={[WheelGesturesPlugin()]}
             className="w-full"
           >
             <CarouselContent className="-ml-2">
               {currentContent.map((item, index) => (
-                <CarouselItem key={item.id} className="pl-2 basis-1/4">
+                <CarouselItem key={item.id} className="pl-2 basis-[43%] md:basis-1/3 lg:basis-1/4">
                   <div
                     onClick={() => setSelectedIndex(index)}
                     className={`group relative aspect-video w-full overflow-hidden rounded-md bg-black cursor-pointer transition-all ${

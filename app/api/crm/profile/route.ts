@@ -12,6 +12,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import * as crmService from '@/services/crm/crmService';
 import * as db from '@/services/crm/crmDataAccess';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);

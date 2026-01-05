@@ -151,11 +151,11 @@ function showSocialSharingDialog(
 ) {
   // Create modal overlay
   const modal = document.createElement('div');
-  modal.className = 'fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4';
+  modal.className = 'fixed inset-0 bg-black/95 backdrop-blur-2xl z-[60] flex items-center justify-center p-4';
   modal.style.display = 'flex';
   
   modal.innerHTML = `
-    <div class="bg-[#071327] border border-[#1e2b40] rounded-xl p-6 max-w-md w-full">
+    <div class="bg-[#071327] border border-[#1e2b40] rounded-none md:rounded-xl p-4 md:p-6 w-full h-full md:h-auto md:max-w-[896px] md:max-h-[90vh] overflow-y-auto">
       <h3 class="text-xl font-semibold text-white mb-4">Share this article</h3>
       <p class="text-gray-300 mb-6">${article.title}</p>
       

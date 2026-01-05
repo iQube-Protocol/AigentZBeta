@@ -72,9 +72,9 @@ export function DrawerLayer({
       {/* Drawer - slides from right, positioned between screen edge and IconBar */}
       <div
         className={clsx(
-          'fixed right-[80px] top-[88px] h-[calc(100vh-88px)] w-[calc(100vw-160px)]',
-          'bg-background/80 backdrop-blur-xl',
-          'border-l border-border/30',
+          'fixed inset-0 bg-background/95 backdrop-blur-xl',
+          'md:right-[80px] md:top-[88px] md:left-auto md:h-[calc(100vh-88px)] md:w-[calc(100vw-160px)]',
+          'md:bg-background/80 md:backdrop-blur-xl md:border-l md:border-border/30',
           'shadow-[0_0_60px_rgba(0,0,0,0.5)]',
           'z-50 overflow-hidden flex flex-col',
           'transition-transform duration-300 ease-out',
@@ -84,10 +84,10 @@ export function DrawerLayer({
       >
         {/* Header */}
         <div className="flex-shrink-0 border-b border-border/30 bg-background/60 backdrop-blur-sm">
-          <div className="p-6 flex items-center justify-between gap-4">
+          <div className="p-4 md:p-6 flex items-center justify-between gap-4">
             <div className="flex-shrink-0">
-              <h2 className="text-2xl font-bold text-foreground mb-1">{title}</h2>
-              {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
+              <h2 className="text-xl md:text-2xl font-bold text-foreground mb-1">{title}</h2>
+              {subtitle && <p className="hidden md:block text-sm text-muted-foreground">{subtitle}</p>}
             </div>
 
             <div className="flex items-center gap-6">
@@ -123,8 +123,8 @@ export function DrawerLayer({
         </div>
 
         {/* Content with column support */}
-        <div className="flex-1 overflow-y-auto p-6">
-          <div className={`grid ${columnClasses[columns]} gap-6`}>{children}</div>
+        <div className="flex-1 overflow-y-auto p-4 md:p-6">
+          <div className={`grid ${columnClasses[columns]} gap-4 md:gap-6`}>{children}</div>
         </div>
       </div>
     </>

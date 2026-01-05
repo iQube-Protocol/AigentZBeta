@@ -73,7 +73,9 @@ export default function FranchisesPage() {
               isActive: t.isActive !== false,
             })),
           })));
-          setUniquePersonaTotal(result?.meta?.uniquePersonaCount || 0);
+          const rawUniqueCount = result?.meta?.uniquePersonaCount;
+          const uniqueCount = typeof rawUniqueCount === 'number' ? rawUniqueCount : Number(rawUniqueCount ?? 0);
+          setUniquePersonaTotal(Number.isFinite(uniqueCount) ? uniqueCount : 0);
         }
       } catch (err: any) {
         setApiError(err.message || 'Failed to load franchises');

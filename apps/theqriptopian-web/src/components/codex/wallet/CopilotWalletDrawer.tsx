@@ -59,7 +59,7 @@ export function CopilotWalletDrawer({
         bottom: 0,
         left: 0,
         right: 0,
-        height: `${(dimensions.height || 0.28) * 100}vh`,
+        height: `${(dimensions.height || 0.28) * 100}svh`,
         zIndex: 51,
       };
     }

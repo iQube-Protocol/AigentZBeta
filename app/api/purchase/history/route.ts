@@ -8,6 +8,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPurchaseHandler } from '@/services/rewards/purchaseHandler';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);

@@ -8,6 +8,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import * as db from '@/services/crm/crmDataAccess';
 import { AdminPermissions, AdminCategorySlug } from '@/types/crm';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);

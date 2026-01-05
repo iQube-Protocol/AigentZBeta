@@ -20,7 +20,7 @@ const METAAVATAR_POSITION_CLASSES = {
   immersive: `
     block right-4 top-[96px] left-4 h-[calc(100vh-104px)]
     md:right-[80px] md:top-[172px] md:left-auto
-    md:w-[calc(100vw-160px)] md:h-[calc(100vh-180px)]
+    md:w-[calc(100vw-160px)] md:h-[calc(100vh-172px)]
     opacity-100 z-[100]
   `,
   // Sidebar: Compact sidebar placement (1/3 width, ~400px height)
@@ -76,14 +76,14 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="flex h-screen bg-[#020818]">
+    <div className="flex min-h-[100svh] md:min-h-screen bg-[#020818]">
       <TopHeader 
         onMobileMenuClick={() => setIsMobileNavOpen(true)} 
         isMobileMenuOpen={isMobileNavOpen}
       />
       
-      <div className="flex w-full pt-[88px]">
-        <main className="flex-1 overflow-auto">
+      <div className="flex w-full pt-[88px] min-h-[calc(100svh-88px)] md:min-h-[calc(100vh-88px)] overflow-hidden">
+        <main className="flex-1 overflow-hidden">
           {children}
         </main>
       </div>

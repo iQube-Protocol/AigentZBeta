@@ -41,7 +41,7 @@ export function VideoModal({ isOpen, onClose, items, initialIndex = 0 }: VideoMo
   };
 
   return (
-    <div className="fixed inset-0 z-[200] bg-black/95 flex items-center justify-center">
+    <div className="fixed inset-0 z-[60] bg-black/95 backdrop-blur-2xl flex items-center justify-center">
       <div className="relative w-full h-full flex items-center justify-center">
         <video
           ref={videoRef}
@@ -57,13 +57,13 @@ export function VideoModal({ isOpen, onClose, items, initialIndex = 0 }: VideoMo
         </div>
 
         {/* Control Buttons */}
-        <div className="absolute top-4 right-4 flex flex-col gap-2 z-[210]">
+        <div className="absolute top-4 right-4 flex flex-col gap-2 z-[70]">
           <button
             onClick={(e) => {
               e.stopPropagation();
               onClose();
             }}
-            className="w-10 h-10 rounded-full bg-gray-800/80 hover:bg-gray-700 flex items-center justify-center text-white transition-colors"
+            className="w-10 h-10 rounded-full bg-black/50 border border-white/20 hover:bg-black/70 flex items-center justify-center text-white transition-colors"
             aria-label="Close video"
           >
             <X className="h-5 w-5" />
@@ -73,7 +73,7 @@ export function VideoModal({ isOpen, onClose, items, initialIndex = 0 }: VideoMo
               e.stopPropagation();
               handleReplay();
             }}
-            className="w-10 h-10 rounded-full bg-gray-800/80 hover:bg-gray-700 flex items-center justify-center text-white transition-colors"
+            className="w-10 h-10 rounded-full bg-black/50 border border-white/20 hover:bg-black/70 flex items-center justify-center text-white transition-colors"
             aria-label="Replay video"
           >
             <RotateCcw className="h-5 w-5" />
