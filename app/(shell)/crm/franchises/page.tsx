@@ -32,6 +32,7 @@ interface Franchise {
   description?: string;
   tenantCount: number;
   totalPersonas: number;
+  uniquePersonaCount?: number;
   isActive: boolean;
   createdAt: string;
   tenants: Tenant[];
@@ -42,6 +43,7 @@ export default function FranchisesPage() {
   const [search, setSearch] = useState('');
   const [expandedFranchise, setExpandedFranchise] = useState<string | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [uniquePersonaTotal, setUniquePersonaTotal] = useState(0);
   
   const franchisesApi = useFranchises();
   const loading = franchisesApi.loading;
@@ -58,7 +60,8 @@ export default function FranchisesPage() {
             slug: f.slug,
             description: f.description,
             tenantCount: f.tenants?.length || 0,
-            totalPersonas: f.tenants?.reduce((sum: number, t: any) => sum + (t.personaCount || 0), 0) || 0,
+            totalPersonas: f.uniquePersonaCount ?? (f.tenants?.reduce((sum: number, t: any) => sum + (t.personaCount || 0), 0) || 0),
+            uniquePersonaCount: f.uniquePersonaCount,
             isActive: f.isActive !== false,
             createdAt: f.createdAt,
             tenants: (f.tenants || []).map((t: any) => ({
@@ -70,10 +73,12 @@ export default function FranchisesPage() {
               isActive: t.isActive !== false,
             })),
           })));
+          setUniquePersonaTotal(result?.meta?.uniquePersonaCount || 0);
         }
       } catch (err: any) {
         setApiError(err.message || 'Failed to load franchises');
         setFranchises([]);
+        setUniquePersonaTotal(0);
       }
     }
     fetchFranchises();
@@ -86,7 +91,9 @@ export default function FranchisesPage() {
   );
 
   const totalTenants = franchises.reduce((sum, f) => sum + f.tenantCount, 0);
-  const totalPersonas = franchises.reduce((sum, f) => sum + f.totalPersonas, 0);
+  const totalPersonas = uniquePersonaTotal > 0
+    ? uniquePersonaTotal
+    : franchises.reduce((sum, f) => sum + (f.uniquePersonaCount ?? f.totalPersonas), 0);
 
   return (
     <div className="space-y-6">

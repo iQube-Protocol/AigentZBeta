@@ -58,6 +58,53 @@ async function fetchPersonaCountsByTenant(tenantIds: string[]) {
   return counts;
 }
 
+async function fetchUniquePersonaCountsByFranchise(
+  tenantToFranchise: Map<string, string>
+): Promise<{ perFranchise: Map<string, number>; globalCount: number }> {
+  const supabase = getSupabaseServer();
+  const perFranchise = new Map<string, Set<string>>();
+  const globalSet = new Set<string>();
+
+  if (!supabase || tenantToFranchise.size === 0) {
+    return { perFranchise: new Map(), globalCount: 0 };
+  }
+
+  const tenantIds = Array.from(tenantToFranchise.keys());
+  const pageSize = 1000;
+  let offset = 0;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from('personas')
+      .select('tenant_id, fio_handle, id')
+      .in('tenant_id', tenantIds)
+      .order('tenant_id', { ascending: true })
+      .range(offset, offset + pageSize - 1);
+
+    if (error) throw error;
+
+    (data || []).forEach((row: { tenant_id: string | null; fio_handle: string | null; id: string }) => {
+      if (!row.tenant_id) return;
+      const franchiseId = tenantToFranchise.get(row.tenant_id);
+      if (!franchiseId) return;
+      const key = row.fio_handle || row.id;
+      globalSet.add(key);
+      if (!perFranchise.has(franchiseId)) perFranchise.set(franchiseId, new Set());
+      perFranchise.get(franchiseId)?.add(key);
+    });
+
+    if (!data || data.length < pageSize) break;
+    offset += pageSize;
+  }
+
+  const counts = new Map<string, number>();
+  perFranchise.forEach((set, franchiseId) => {
+    counts.set(franchiseId, set.size);
+  });
+
+  return { perFranchise: counts, globalCount: globalSet.size };
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -103,6 +150,9 @@ export async function GET(request: NextRequest) {
 
         const tenantIds = effectiveTenants.map((t) => t.id);
         const personaCounts = await fetchPersonaCountsByTenant(tenantIds);
+        const tenantToFranchise = new Map<string, string>();
+        effectiveTenants.forEach((tenant) => tenantToFranchise.set(tenant.id, franchise.id));
+        const uniqueCounts = await fetchUniquePersonaCountsByFranchise(tenantToFranchise);
 
         return NextResponse.json({
           success: true,
@@ -112,6 +162,7 @@ export async function GET(request: NextRequest) {
               ...tenant,
               personaCount: personaCounts.get(tenant.id) || 0,
             })),
+            uniquePersonaCount: uniqueCounts.perFranchise.get(franchise.id) || 0,
             personaCounts: Object.fromEntries(personaCounts.entries()),
           },
         });
@@ -138,6 +189,7 @@ export async function GET(request: NextRequest) {
       if (!tenantIds.includes(override.id)) tenantIds.push(override.id);
     });
     const personaCounts = await fetchPersonaCountsByTenant(tenantIds);
+    const tenantToFranchise = new Map<string, string>();
 
     const tenantsByFranchise = new Map<string, any[]>();
     tenantsList.forEach((tenant) => {
@@ -147,10 +199,23 @@ export async function GET(request: NextRequest) {
         ...tenant,
         personaCount: personaCounts.get(tenant.id) || 0,
       });
+      tenantToFranchise.set(tenant.id, franchiseId);
     });
+
+    Object.values(FRANCHISE_TENANT_OVERRIDES).forEach((override) => {
+      const target = franchises.find((f) => getTenantOverride(f)?.id === override.id);
+      if (target) {
+        tenantToFranchise.set(override.id, target.id);
+      }
+    });
+
+    const uniqueCounts = await fetchUniquePersonaCountsByFranchise(tenantToFranchise);
 
     return NextResponse.json({
       success: true,
+      meta: {
+        uniquePersonaCount: uniqueCounts.globalCount,
+      },
       data: franchises.map((franchise) => ({
         ...franchise,
         tenants: (() => {
@@ -178,6 +243,7 @@ export async function GET(request: NextRequest) {
             },
           ];
         })(),
+        uniquePersonaCount: uniqueCounts.perFranchise.get(franchise.id) || 0,
       })),
     });
   } catch (error: any) {
