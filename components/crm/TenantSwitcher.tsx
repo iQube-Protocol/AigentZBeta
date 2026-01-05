@@ -68,13 +68,15 @@ export function TenantSwitcher({
         const liveTenantsData = liveTenantsRes.ok ? await liveTenantsRes.json() : { data: {} };
         const liveTenantCounts: Record<string, number> = liveTenantsData?.data?.byTenant || {};
 
+        const qriptopianTenant: Tenant = {
+          id: 'c1a4e5f8-5326-4fa3-ac11-87c36e0b1848',
+          name: 'Qriptopian',
+          slug: 'qriptopian',
+          personaCount: liveTenantCounts['c1a4e5f8-5326-4fa3-ac11-87c36e0b1848'] || 0,
+        };
         const franchiseTenantOverrides: Record<string, Tenant> = {
-          theqriptopian: {
-            id: 'c1a4e5f8-5326-4fa3-ac11-87c36e0b1848',
-            name: 'Qriptopian',
-            slug: 'qriptopian',
-            personaCount: liveTenantCounts['c1a4e5f8-5326-4fa3-ac11-87c36e0b1848'] || 0,
-          },
+          theqriptopian: qriptopianTenant,
+          qriptopian: qriptopianTenant,
         };
 
         // Group tenants by franchise
@@ -122,7 +124,11 @@ export function TenantSwitcher({
 
         // Apply franchise tenant overrides when missing
         for (const franchise of franchiseMap.values()) {
-          const override = franchiseTenantOverrides[franchise.slug];
+          const franchiseKey = franchise.slug?.toLowerCase() || '';
+          const nameKey = franchise.name?.toLowerCase() || '';
+          const override =
+            franchiseTenantOverrides[franchiseKey] ||
+            (nameKey.includes('qriptopian') ? qriptopianTenant : undefined);
           if (!override) continue;
           const hasTenant = franchise.tenants.some((t) => t.id === override.id || t.slug === override.slug);
           if (!hasTenant) {

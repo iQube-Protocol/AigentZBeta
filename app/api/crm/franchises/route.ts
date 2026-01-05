@@ -10,13 +10,22 @@ import { NextRequest, NextResponse } from 'next/server';
 import * as crmService from '@/services/crm/crmService';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 
-const FRANCHISE_TENANT_OVERRIDES: Record<string, { id: string; slug: string; name: string }> = {
-  theqriptopian: {
-    id: 'c1a4e5f8-5326-4fa3-ac11-87c36e0b1848',
-    slug: 'qriptopian',
-    name: 'Qriptopian',
-  },
+const QRIPTOPIAN_TENANT = {
+  id: 'c1a4e5f8-5326-4fa3-ac11-87c36e0b1848',
+  slug: 'qriptopian',
+  name: 'Qriptopian',
 };
+
+const FRANCHISE_TENANT_OVERRIDES: Record<string, { id: string; slug: string; name: string }> = {
+  theqriptopian: QRIPTOPIAN_TENANT,
+  qriptopian: QRIPTOPIAN_TENANT,
+};
+
+function getTenantOverride(franchise: { slug?: string; name?: string }) {
+  const slugKey = franchise.slug?.toLowerCase() || '';
+  const nameKey = franchise.name?.toLowerCase() || '';
+  return FRANCHISE_TENANT_OVERRIDES[slugKey] || (nameKey.includes('qriptopian') ? QRIPTOPIAN_TENANT : undefined);
+}
 
 async function fetchPersonaCountsByTenant(tenantIds: string[]) {
   const supabase = getSupabaseServer();
@@ -71,7 +80,7 @@ export async function GET(request: NextRequest) {
       // Include tenants if requested
       if (includeTenants) {
         const franchiseTenants = await crmService.getFranchiseTenants(franchise.id, activeOnly);
-        const override = FRANCHISE_TENANT_OVERRIDES[franchise.slug];
+        const override = getTenantOverride(franchise);
         const effectiveTenants = override
           ? [
               ...franchiseTenants,
@@ -146,7 +155,7 @@ export async function GET(request: NextRequest) {
         ...franchise,
         tenants: (() => {
           const baseTenants = tenantsByFranchise.get(franchise.id) || [];
-          const override = FRANCHISE_TENANT_OVERRIDES[franchise.slug];
+          const override = getTenantOverride(franchise);
           if (!override) return baseTenants;
           const alreadyPresent = baseTenants.some((t) => t.id === override.id || t.slug === override.slug);
           if (alreadyPresent) return baseTenants;
