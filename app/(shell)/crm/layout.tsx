@@ -60,9 +60,6 @@ function CrmLayoutContent({ children }: { children: React.ReactNode }) {
                 currentTenantId={currentTenantId}
                 onTenantChange={setCurrentTenant}
               />
-              <span className="px-2 py-0.5 rounded-full bg-emerald-400/20 text-emerald-400 text-xs">
-                Phase 1
-              </span>
             </div>
           </div>
         </div>

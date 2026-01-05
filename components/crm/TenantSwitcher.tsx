@@ -122,6 +122,22 @@ export function TenantSwitcher({
           }
         }
 
+        // Ensure Qriptopian franchise exists even if missing from API
+        const hasQriptopianFranchise = Array.from(franchiseMap.values()).some(
+          (franchise) =>
+            franchise.slug?.toLowerCase() === 'qriptopian' ||
+            franchise.slug?.toLowerCase() === 'theqriptopian' ||
+            franchise.name?.toLowerCase().includes('qriptopian')
+        );
+        if (!hasQriptopianFranchise) {
+          franchiseMap.set('qriptopian', {
+            id: 'qriptopian',
+            name: 'Qriptopian',
+            slug: 'qriptopian',
+            tenants: [],
+          });
+        }
+
         // Apply franchise tenant overrides when missing
         for (const franchise of franchiseMap.values()) {
           const franchiseKey = franchise.slug?.toLowerCase() || '';
