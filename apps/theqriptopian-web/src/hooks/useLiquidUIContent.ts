@@ -29,21 +29,17 @@ export function useLiquidUIContent(section: ContentSection, tab?: ContentTab) {
     setIsLoading(true);
     setError(null);
     
-    // Determine if we're on localhost or production
-    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    
     const tabParam = targetTab ? `&tab=${targetTab}` : '';
     // Add multiple cache-busting parameters
     const cacheBuster = `t=${Date.now()}&r=${Math.random()}`;
-    
-    // On localhost, use absolute URL to live API (avoid proxy issues)
-    // On production Netlify, use relative URL (uses Netlify proxy to backend)
-    const fullUrl = isLocalhost
-      ? `https://dev-beta.aigentz.me/api/content/section/${targetSection}?${cacheBuster}${tabParam}`
+
+    const apiBase = (import.meta.env.VITE_API_URL || '').trim();
+    const fullUrl = apiBase
+      ? `${apiBase}/api/content/section/${targetSection}?${cacheBuster}${tabParam}`
       : `/api/content/section/${targetSection}?${cacheBuster}${tabParam}`;
     
     console.log(`[useLiquidUIContent] Fetching from: ${fullUrl}`);
-    console.log(`[useLiquidUIContent] Using ${isLocalhost ? 'absolute' : 'relative'} URL`);
+    console.log(`[useLiquidUIContent] Using ${apiBase ? 'configured base URL' : 'relative'} URL`);
     
     try {
       const response = await fetch(fullUrl, {

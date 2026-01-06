@@ -48,7 +48,7 @@ export function AIOverlay({ isOpen, onClose }: AIOverlayProps) {
       
       {/* AI Drawer - matches other drawer positioning */}
       <div 
-        className={`fixed inset-0 bg-background/95 backdrop-blur-xl md:right-[80px] md:top-[88px] md:left-auto md:h-[calc(100vh-88px)] md:w-[600px] md:bg-background/80 md:border-l md:border-border/30 shadow-[0_0_60px_rgba(0,0,0,0.5)] z-50 flex flex-col transition-transform duration-300 ease-out ${
+        className={`fixed inset-0 bg-background/95 backdrop-blur-xl md:right-16 md:top-[88px] md:bottom-auto md:left-auto md:h-[calc(100vh-104px)] md:w-[calc(100vw-80px-64px)] md:bg-background/80 md:border-l md:border-border/30 shadow-[0_0_60px_rgba(0,0,0,0.5)] z-50 flex flex-col transition-transform duration-300 ease-out ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >

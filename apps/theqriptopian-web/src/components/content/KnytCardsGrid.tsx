@@ -7,6 +7,7 @@
 import { useState, useEffect } from 'react';
 import { Loader2, Users, X, Coins, ShoppingCart, Check } from 'lucide-react';
 import { ContentPurchaseModal, type ContentType } from './ContentPurchaseModal';
+import { API_BASE_URL } from '@/config/api';
 
 // Phase 1 Pricing Constants
 const KNYT_USD_RATE = 1.40;
@@ -52,7 +53,7 @@ export function KnytCardsGrid({ personaId = '', knytBalance = 0, spendableKnyt, 
   useEffect(() => {
     async function fetchCards() {
       try {
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+        const apiUrl = API_BASE_URL;
         const res = await fetch(`${apiUrl}/api/codex/knyt-cards`);
         if (!res.ok) throw new Error('Failed to fetch');
         const data = await res.json();
@@ -71,7 +72,7 @@ export function KnytCardsGrid({ personaId = '', knytBalance = 0, spendableKnyt, 
     async function fetchOwned() {
       if (!personaId) return;
       try {
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+        const apiUrl = API_BASE_URL;
         const res = await fetch(`${apiUrl}/api/codex/owned?personaId=${personaId}`);
         if (!res.ok) return;
         const data = await res.json();
@@ -86,7 +87,7 @@ export function KnytCardsGrid({ personaId = '', knytBalance = 0, spendableKnyt, 
     fetchOwned();
   }, [personaId]);
 
-  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+  const apiUrl = API_BASE_URL;
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">

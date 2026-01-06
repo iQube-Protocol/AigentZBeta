@@ -24,6 +24,7 @@ interface WalletDrawerProps {
   onClose: () => void;
   initialTab?: 'wallet' | 'library' | 'tasks' | 'reputation' | 'rewards';
   variant?: 'overlay' | 'embedded';
+  embeddedWidth?: 'fill' | 'fixed';
 }
 
 interface UserPersona {
@@ -40,7 +41,13 @@ interface SavedPersona {
   isAgent: boolean;
 }
 
-export function WalletDrawer({ isOpen, onClose, initialTab = 'wallet', variant = 'overlay' }: WalletDrawerProps) {
+export function WalletDrawer({
+  isOpen,
+  onClose,
+  initialTab = 'wallet',
+  variant = 'overlay',
+  embeddedWidth = 'fill',
+}: WalletDrawerProps) {
   const [persona, setPersona] = useState<UserPersona | null>(null);
   const [displayName, setDisplayName] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
@@ -512,6 +519,7 @@ export function WalletDrawer({ isOpen, onClose, initialTab = 'wallet', variant =
         open={isOpen}
         onClose={onClose}
         variant={variant}
+        embeddedWidth={embeddedWidth}
         agent={{ id: 'guest', name: 'Sign In Required' }}
         walletNode={walletNode}
         onTaskAction={handleTaskAction}
@@ -528,6 +536,7 @@ export function WalletDrawer({ isOpen, onClose, initialTab = 'wallet', variant =
       open={isOpen}
       onClose={onClose}
       variant={variant}
+      embeddedWidth={embeddedWidth}
       agent={agentConfig}
       personaId={persona?.id}
       walletNode={walletNode}

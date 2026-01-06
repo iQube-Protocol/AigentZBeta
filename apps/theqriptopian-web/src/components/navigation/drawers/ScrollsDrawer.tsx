@@ -77,6 +77,7 @@ export function ScrollsDrawer({ isOpen, onClose }: ScrollsDrawerProps) {
       tabs={tabs}
       activeTabId={activeTab}
       onTabChange={handleTabChange}
+      className="md:right-16 md:top-[88px] md:bottom-auto md:h-[calc(100vh-104px)] md:w-[calc(100vw-80px-64px)]"
     >
       {/* metaKnyts / SynthSims Content */}
       {(activeTab === 'metaknyts' || activeTab === 'synthsims') && (

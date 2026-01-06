@@ -132,6 +132,7 @@ interface SmartWalletDrawerProps {
   open: boolean;
   onClose: () => void;
   variant?: 'overlay' | 'embedded';
+  embeddedWidth?: 'fill' | 'fixed';
   agent: {
     id: string;
     name: string;
@@ -174,6 +175,7 @@ export default function SmartWalletDrawer({
   open,
   onClose,
   variant = 'overlay',
+  embeddedWidth = 'fill',
   agent,
   personaId,
   walletNode,
@@ -642,8 +644,11 @@ export default function SmartWalletDrawer({
 
   if (!open) return null;
 
-  // Drawer width: normal = 21.6rem, expanded (copilot) = 28rem, embedded = full width
-  const drawerWidth = variant === 'embedded' ? 'w-full' : (copilotOpen ? "w-[28rem]" : "w-[21.6rem]");
+  // Drawer width: normal = 21.6rem, expanded (copilot) = 28rem, embedded can be full or fixed
+  const drawerWidth =
+    variant === 'embedded' && embeddedWidth === 'fill'
+      ? 'w-full'
+      : (copilotOpen ? "w-[28rem]" : "w-[21.6rem]");
 
   const drawerPanel = (
     <>

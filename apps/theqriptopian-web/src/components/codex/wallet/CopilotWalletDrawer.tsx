@@ -46,6 +46,7 @@ export function CopilotWalletDrawer({
   onInvite,
   onConfirmAction,
 }: CopilotWalletDrawerProps) {
+  const safeWalletUI = Array.isArray(walletUI) ? walletUI : [];
   const service = getKnytLiquidUIService();
   const dimensions = service.getDrawerDimensions(mode, device);
 
@@ -63,14 +64,15 @@ export function CopilotWalletDrawer({
         zIndex: 51,
       };
     }
-    // Desktop/tablet - dock right
+    // Desktop/tablet - dock right, bottom-aligned
     return {
       position: 'fixed',
-      top: '88px',
       right: '80px',
-      bottom: 0,
+      bottom: '10px',
       width: `${(dimensions.width || 0.22) * 100}vw`,
       maxWidth: mode === 'wide' ? '480px' : '320px',
+      height: 'calc(100vh - 140px)',
+      maxHeight: '600px',
       zIndex: 51,
     };
   };
@@ -319,7 +321,7 @@ export function CopilotWalletDrawer({
     }
   };
 
-  const isModal = walletUI.some(ui => ui.startsWith('wallet_modal.'));
+  const isModal = safeWalletUI.some(ui => ui.startsWith('wallet_modal.'));
 
   return (
     <>
@@ -362,7 +364,7 @@ export function CopilotWalletDrawer({
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {walletUI.map((component) => 
+          {safeWalletUI.map((component) => 
             component.startsWith('wallet_modal.') 
               ? renderWalletModal(component)
               : renderWalletCard(component)

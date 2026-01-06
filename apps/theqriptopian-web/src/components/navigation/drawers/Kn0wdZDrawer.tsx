@@ -122,7 +122,17 @@ export function Kn0wdZDrawer({ isOpen, onClose }: Kn0wdZDrawerProps) {
   };
 
   return (
-    <DrawerLayer isOpen={isOpen} onClose={onClose} title="Kn0wdZ" subtitle={subtitles[activeTab]} columns={3} tabs={tabs} activeTabId={activeTab} onTabChange={handleTabChange}>
+    <DrawerLayer
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Kn0wdZ"
+      subtitle={subtitles[activeTab]}
+      columns={3}
+      tabs={tabs}
+      activeTabId={activeTab}
+      onTabChange={handleTabChange}
+      className="md:right-16 md:top-[88px] md:bottom-auto md:h-[calc(100vh-104px)] md:w-[calc(100vw-80px-64px)]"
+    >
       <div className="col-span-3 h-full flex flex-col">
         {/* 3-Column Layout */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 flex-1">

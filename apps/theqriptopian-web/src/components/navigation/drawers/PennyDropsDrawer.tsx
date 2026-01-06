@@ -70,6 +70,7 @@ export function PennyDropsDrawer({ isOpen, onClose }: PennyDropsDrawerProps) {
       subtitle="Q¢ use cases - fun, practical, irreverent"
       columns={3}
       tabs={tabs}
+      className="md:right-16 md:top-[88px] md:bottom-auto md:h-[calc(100vh-104px)] md:w-[calc(100vw-80px-64px)]"
     >
       <div className="col-span-3 h-full flex flex-col">
         {/* Feature Area - Desktop: col-span-2, Mobile: full width */}
@@ -95,7 +96,7 @@ export function PennyDropsDrawer({ isOpen, onClose }: PennyDropsDrawerProps) {
         </div>
 
         {/* Thumbnail Carousel - Desktop: below, Mobile: overlay at bottom */}
-        <div className="mt-6 pt-6 border-t border-border/30">
+        <div className="mt-2 pt-1 border-t border-border/30">
           <Carousel
             opts={{ align: "start", loop: true, dragFree: true }}
             plugins={[WheelGesturesPlugin()]}

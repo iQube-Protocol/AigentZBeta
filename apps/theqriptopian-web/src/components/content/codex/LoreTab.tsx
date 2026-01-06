@@ -3,10 +3,11 @@
  * Supports multiple display modes: pdf, image, video, text_extract
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Loader2, FileText, BookOpen, Scroll, Image, Video, Sparkles } from 'lucide-react';
 import { PDFPageViewer } from '../PDFPageViewer';
 import { LoreTextReader } from '../LoreTextReader';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
 
 type DisplayMode = 'pdf' | 'image' | 'video' | 'text_extract';
 
@@ -28,6 +29,7 @@ export function LoreTab() {
   const [textReaderOpen, setTextReaderOpen] = useState(false);
   const [currentPdf, setCurrentPdf] = useState<{ cid: string; title: string } | null>(null);
   const [currentText, setCurrentText] = useState<{ title: string; content: string } | null>(null);
+  const { isAdmin } = useIsAdmin();
 
   useEffect(() => {
     async function fetchLore() {
@@ -87,6 +89,11 @@ export function LoreTab() {
     }
   };
 
+  const visibleAssets = useMemo(() => {
+    if (isAdmin) return loreAssets;
+    return loreAssets.filter((asset) => !/^E\d+\s/i.test(asset.title || ''));
+  }, [isAdmin, loreAssets]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -125,9 +132,9 @@ export function LoreTab() {
           </p>
         </div>
 
-        {loreAssets.length > 0 ? (
+        {visibleAssets.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {loreAssets.map((asset) => (
+            {visibleAssets.map((asset) => (
               <div
                 key={asset.id}
                 onClick={() => openDocument(asset)}

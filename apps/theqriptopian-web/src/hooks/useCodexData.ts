@@ -4,6 +4,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
+import { API_BASE_URL } from '@/config/api';
 
 interface Episode {
   episodeNumber: number;
@@ -45,7 +46,7 @@ interface LoreAsset {
 }
 
 async function fetchEpisodes(): Promise<Episode[]> {
-  const apiBase = import.meta.env.VITE_API_URL || '';
+  const apiBase = API_BASE_URL;
   const res = await fetch(`${apiBase}/api/admin/codex/status?series=metaKnyts`);
   
   if (!res.ok) {
@@ -57,7 +58,7 @@ async function fetchEpisodes(): Promise<Episode[]> {
 }
 
 async function fetchCharacters(): Promise<Character[]> {
-  const apiBase = import.meta.env.VITE_API_URL || '';
+  const apiBase = API_BASE_URL;
   const res = await fetch(`${apiBase}/api/codex/knyt-cards`);
   
   if (!res.ok) {
@@ -69,7 +70,7 @@ async function fetchCharacters(): Promise<Character[]> {
 }
 
 async function fetchLoreAssets(): Promise<LoreAsset[]> {
-  const apiBase = import.meta.env.VITE_API_URL || '';
+  const apiBase = API_BASE_URL;
   const res = await fetch(`${apiBase}/api/content/assets?kinds=background_lore_doc,twenty_one_sats_concept`);
   
   if (!res.ok) {

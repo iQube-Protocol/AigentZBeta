@@ -33,8 +33,9 @@ import { PDFLiteReaderModal } from '../content/PDFLiteReaderModal';
 import { VideoPlayer } from '@/components/content/VideoPlayer';
 import { VideoErrorBoundary } from '@/components/content/VideoErrorBoundary';
 import { LoreTextReader } from '@/components/content/LoreTextReader';
-import { SmartContentActions, type ContentModalities } from '@/components/content/SmartContentActions';
-import { useSmartContentAction } from '@/contexts/SmartContentActionContext';
+import type { ContentModalities } from '@/components/content/SmartContentActions';
+import { ContentPurchaseModal, type ContentType } from '@/components/content/ContentPurchaseModal';
+import { API_BASE_URL } from '@/config/api';
 
 import issuePackage from '@/data/templates/qriptopian_episode1_issue_package_v1.4.json';
 
@@ -125,7 +126,7 @@ function transformEpisodesToContentItems(episodes: EpisodeFromAPI[]): KnytConten
         type: 'comic_page_portrait',
         title: ep.title || `Episode ${ep.displayNumber}`,
         subtitle: `Episode ${ep.displayNumber}`,
-        thumbnail: ep.coverThumbUrl || (ep.coverImageCid ? `${import.meta.env.VITE_API_URL || ''}/api/content/cover/${ep.coverImageCid}?variant=thumb` : undefined),
+        thumbnail: ep.coverThumbUrl || (ep.coverImageCid ? `${API_BASE_URL}/api/content/cover/${ep.coverImageCid}?variant=thumb` : undefined),
         media: { 
           pdf_cid: printCid,
           pdf_lite_url: printLiteUrl,
@@ -150,7 +151,7 @@ function transformEpisodesToContentItems(episodes: EpisodeFromAPI[]): KnytConten
         type: 'motion_comic_landscape',
         title: `${ep.title || `Episode ${ep.displayNumber}`} - Motion Comic`,
         subtitle: 'Motion Comic',
-        thumbnail: ep.coverImageCid ? `${import.meta.env.VITE_API_URL || ''}/api/content/cover/${ep.coverImageCid}?variant=thumb` : undefined,
+        thumbnail: ep.coverImageCid ? `${API_BASE_URL}/api/content/cover/${ep.coverImageCid}?variant=thumb` : undefined,
         media: { video_cid: ep.motionMasterCid },
         metadata: { 
           episodeNumber: ep.episodeNumber, 
@@ -177,7 +178,7 @@ function transformCharactersToContentItems(characters: CharacterFromAPI[]): Knyt
     type: 'character_portrait' as KnytContentType,
     title: char.name,
     subtitle: 'Character Card',
-    thumbnail: char.front_cid ? `${import.meta.env.VITE_API_URL || ''}/api/content/cover/${char.front_cid}?variant=thumb` : undefined,
+    thumbnail: char.front_cid ? `${API_BASE_URL}/api/content/cover/${char.front_cid}?variant=thumb` : undefined,
     media: { image_cid: char.front_cid },
     metadata: { 
       characterName: char.name, 
@@ -316,7 +317,7 @@ function transformIssuePackageMetaKnytsToContentItems(): KnytContentItem[] {
  * Fetch content from API
  */
 async function fetchCodexContent(): Promise<KnytContentItem[]> {
-  const apiBase = import.meta.env.VITE_API_URL || '';
+  const apiBase = API_BASE_URL;
   try {
     // Fetch episodes
     const episodesRes = await fetch(`${apiBase}/api/admin/codex/status?series=metaKnyts`);
@@ -412,6 +413,7 @@ export default function CodexLiquidUITab({
   const [loading, setLoading] = useState(true);
   const [curatedContent, setCuratedContent] = useState<KnytContentItem[] | null>(null);
   const [layoutVariant, setLayoutVariant] = useState<DrawerGridLayoutVariant>('auto');
+  const [ownedEpisodeNumbers, setOwnedEpisodeNumbers] = useState<Set<number>>(new Set());
 
   // Viewer state
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
@@ -424,6 +426,13 @@ export default function CodexLiquidUITab({
   const [currentVideoTitle, setCurrentVideoTitle] = useState('');
   const [textReaderOpen, setTextReaderOpen] = useState(false);
   const [currentText, setCurrentText] = useState<{ title: string; content: string } | null>(null);
+  const [purchaseModalOpen, setPurchaseModalOpen] = useState(false);
+  const [purchaseContent, setPurchaseContent] = useState<{
+    type: ContentType;
+    id: string;
+    title: string;
+    image?: string;
+  } | null>(null);
 
   // Wallet drawer state
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -444,10 +453,32 @@ export default function CodexLiquidUITab({
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  }, [isEpisodeLocked, openPurchaseForItem]);
 
-  // Smart content action handler
-  const { handleAction } = useSmartContentAction();
+  const fetchOwnedEpisodes = useCallback(async () => {
+    if (!personaId) {
+      setOwnedEpisodeNumbers(new Set());
+      return;
+    }
+    try {
+      const apiBase = API_BASE_URL;
+      const ownedRes = await fetch(`${apiBase}/api/codex/owned?personaId=${personaId}`);
+      if (!ownedRes.ok) return;
+      const ownedData = await ownedRes.json();
+      const ownedEpisodes = new Set<number>(
+        (ownedData.issues || [])
+          .map((issue: { episodeNumber?: number }) => issue.episodeNumber)
+          .filter((episodeNumber: number | undefined) => typeof episodeNumber === 'number')
+      );
+      setOwnedEpisodeNumbers(ownedEpisodes);
+    } catch (error) {
+      console.warn('[CodexLiquidUI] Failed to load owned episodes:', error);
+    }
+  }, [personaId]);
+
+  useEffect(() => {
+    fetchOwnedEpisodes();
+  }, [fetchOwnedEpisodes]);
 
   // Load content from real API
   useEffect(() => {
@@ -466,11 +497,25 @@ export default function CodexLiquidUITab({
     loadContent();
   }, []);
 
+  const contentWithOwnership = useMemo(() => {
+    return contentItems.map((item) => {
+      const episodeNumber = item.metadata?.episodeNumber;
+      if (typeof episodeNumber !== 'number') return item;
+      return {
+        ...item,
+        metadata: {
+          ...item.metadata,
+          owned: ownedEpisodeNumbers.has(episodeNumber),
+        },
+      };
+    });
+  }, [contentItems, ownedEpisodeNumbers]);
+
   // Select template based on context
   useEffect(() => {
     if (loading) return;
 
-    const contentMix = service.inferContentMix(contentItems);
+    const contentMix = service.inferContentMix(contentWithOwnership);
     const hasActiveTasks = !!taskData.activeTask;
 
     const context: TemplateSelectionContext = {
@@ -489,13 +534,13 @@ export default function CodexLiquidUITab({
     const composed = service.composeScreen({
       templateId: result.templateId,
       context,
-      contentItems,
+      contentItems: contentWithOwnership,
       selectedItemId,
     });
 
     if (composed) {
       const drawerRegion = composed.regions?.drawer_grid;
-      if (result.templateId === 'knyt:drawer_grid_v1' && drawerRegion?.items?.length) {
+    if (result.templateId === 'knyt:drawer_grid_v1' && drawerRegion?.items?.length) {
         setCuratedContent(drawerRegion.items);
         // Set layout variant from composition
         if (composed.meta?.drawerGridLayoutVariant) {
@@ -522,7 +567,29 @@ export default function CodexLiquidUITab({
       setCopilotMode(result.copilotMode);
       onCopilotModeChange?.(result.copilotMode);
     }
-  }, [loading, contentItems, userIntent, device, activeRealm, isFirstVisit, personaId, taskData, service, selectedItemId]);
+  }, [loading, contentWithOwnership, userIntent, device, activeRealm, isFirstVisit, personaId, taskData, service, selectedItemId]);
+
+  const isEpisodeLocked = useCallback((item: KnytContentItem) => {
+    const episodeNumber = item.metadata?.episodeNumber;
+    if (typeof episodeNumber !== 'number') return false;
+    return !item.metadata?.owned;
+  }, []);
+
+  const openPurchaseForItem = useCallback((item: KnytContentItem, action: 'read' | 'watch' | 'default' = 'default') => {
+    const episodeNumber = item.metadata?.episodeNumber;
+    if (typeof episodeNumber !== 'number') return;
+    const contentType: ContentType =
+      action === 'watch' || item.type === 'motion_comic_landscape'
+        ? 'scroll_motion'
+        : 'scroll_still';
+    setPurchaseContent({
+      type: contentType,
+      id: item.id.replace(/_motion$/, ''),
+      title: item.title,
+      image: item.thumbnail,
+    });
+    setPurchaseModalOpen(true);
+  }, []);
 
   // Handle content selection
   const handleContentSelect = useCallback((item: KnytContentItem) => {
@@ -545,6 +612,10 @@ export default function CodexLiquidUITab({
 
   // Handle smart content actions
   const handleSmartAction = useCallback((item: KnytContentItem, action: string) => {
+    if ((action === 'read' || action === 'watch') && isEpisodeLocked(item)) {
+      openPurchaseForItem(item, action === 'watch' ? 'watch' : 'read');
+      return;
+    }
     if (action === 'read' && item.media?.text) {
       setCurrentText({ title: item.title, content: item.media.text });
       setTextReaderOpen(true);
@@ -557,6 +628,10 @@ export default function CodexLiquidUITab({
 
   // Handle viewer open
   const handleViewerOpen = useCallback((item: KnytContentItem, type: 'pdf' | 'video' | 'poster') => {
+    if (isEpisodeLocked(item)) {
+      openPurchaseForItem(item, type === 'video' ? 'watch' : 'read');
+      return;
+    }
     if (type === 'pdf' && (item.media?.pdf_lite_url || item.media?.pdf_cid)) {
       console.log('[CodexLiquidUITab] Opening PDF viewer:', {
         pdf_lite_url: item.media.pdf_lite_url,
@@ -572,7 +647,7 @@ export default function CodexLiquidUITab({
       setCurrentVideoTitle(item.title);
       setVideoViewerOpen(true);
     }
-  }, []);
+  }, [isEpisodeLocked, openPurchaseForItem]);
 
   // Handle copilot mode change
   const handleCopilotModeChange = useCallback((mode: CopilotOverlayMode) => {
@@ -623,21 +698,22 @@ export default function CodexLiquidUITab({
   return (
     <div className="h-full w-full overflow-hidden">
       {/* Main Template Renderer */}
-      <KnytTemplateRenderer
-        templateId={templateResult.templateId}
-        device={device}
-        contentItems={curatedContent || contentItems}
-        userIntent={userIntent}
+        <KnytTemplateRenderer
+          templateId={templateResult.templateId}
+          device={device}
+          contentItems={curatedContent || contentWithOwnership}
+          userIntent={userIntent}
         copilotMode={copilotMode}
         onCopilotModeChange={handleCopilotModeChange}
         copilotContent={copilotContent}
         drawerMode={templateResult.drawerMode}
         drawerOpen={drawerOpen}
         walletUI={templateResult.walletUI}
-        onDrawerToggle={handleDrawerToggle}
-        onContentSelect={handleContentSelect}
-        onViewerOpen={handleViewerOpen}
-        selectedItemId={selectedItemId}
+          onDrawerToggle={handleDrawerToggle}
+          onContentSelect={handleContentSelect}
+          onViewerOpen={handleViewerOpen}
+          onSmartAction={handleSmartAction}
+          selectedItemId={selectedItemId}
         activeTask={taskData.activeTask}
         rewards={taskData.rewards}
         ascensionRank={taskData.ascensionRank}
@@ -717,6 +793,30 @@ export default function CodexLiquidUITab({
             setTextReaderOpen(false);
             setCurrentText(null);
           }}
+        />
+      )}
+
+      {/* Content Purchase Modal */}
+      {purchaseContent && (
+        <ContentPurchaseModal
+          open={purchaseModalOpen}
+          onClose={() => {
+            setPurchaseModalOpen(false);
+            setPurchaseContent(null);
+          }}
+          personaId={personaId}
+          contentType={purchaseContent.type}
+          contentId={purchaseContent.id}
+          contentTitle={purchaseContent.title}
+          contentImage={purchaseContent.image}
+          knytBalance={knytBalance}
+          spendableKnyt={spendableKnyt}
+          onPurchaseComplete={() => {
+            setPurchaseModalOpen(false);
+            setPurchaseContent(null);
+            fetchOwnedEpisodes();
+          }}
+          onBalanceRefresh={onBalanceRefresh}
         />
       )}
 

@@ -20,6 +20,7 @@ import { getCopilotContextService } from '@/services/copilotContextService';
 import type { ContentDomain, UserRole } from '@/types/copilotContext';
 import { WalletDrawer } from '@/components/navigation/drawers/WalletDrawer';
 import { MarkdownMessage } from './MarkdownMessage';
+import { useIsMobile } from '@/hooks/use-mobile';
 import {
   Bot,
   User,
@@ -71,6 +72,7 @@ export function CodexCopilotLayer({
     chatMessages,
     addChatMessage,
   } = useCodexCopilot();
+  const isMobile = useIsMobile();
   
   const [showActivationButton, setShowActivationButton] = useState(false);
   const [inputValue, setInputValue] = useState('');
@@ -552,7 +554,16 @@ export function CodexCopilotLayer({
       
       {/* Copilot + Docked Wallet (inside Codex experience) */}
       {copilotOpen && (
-        <div className="fixed inset-0 min-h-[100svh] md:inset-auto md:bottom-2.5 md:right-2.5 z-[120] flex flex-col md:flex-row gap-2 transition-all duration-300 ease-out">
+        <div
+          className={`codex-copilot-container fixed z-[120] flex flex-col md:flex-row gap-2 transition-all duration-300 ease-out ${
+            isMobile ? 'inset-0 min-h-[100svh]' : ''
+          }`}
+          style={
+            isMobile
+              ? undefined
+              : { bottom: '10px', right: '10px', top: 'auto', left: 'auto' }
+          }
+        >
           <div
             className={`${widthClass} h-full md:h-[calc(100vh-100px)] md:max-h-[600px] transition-all duration-300 ease-out`}
           >
@@ -784,6 +795,7 @@ export function CodexCopilotLayer({
                 onClose={() => setWalletPanelOpen(false)}
                 initialTab={walletPanelTab}
                 variant="embedded"
+                embeddedWidth="fixed"
               />
             </div>
           )}

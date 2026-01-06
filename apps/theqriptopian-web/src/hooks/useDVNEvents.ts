@@ -22,8 +22,13 @@ export function useDVNEvents(agentId: string | undefined): DVNEvent[] {
 
       try {
         const apiBase = import.meta.env.VITE_AIGENT_API_URL || '';
-        const url = apiBase
-          ? `${apiBase}/api/dvn/events?agentId=${encodeURIComponent(agentId)}&limit=10`
+        const sameOrigin =
+          typeof window !== 'undefined' &&
+          apiBase &&
+          new URL(apiBase).origin === window.location.origin;
+        const resolvedBase = sameOrigin ? apiBase : '';
+        const url = resolvedBase
+          ? `${resolvedBase}/api/dvn/events?agentId=${encodeURIComponent(agentId)}&limit=10`
           : `/api/dvn/events?agentId=${encodeURIComponent(agentId)}&limit=10`;
 
         const response = await fetch(url, { signal });

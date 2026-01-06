@@ -73,7 +73,7 @@ export function DrawerLayer({
       <div
         className={clsx(
           'fixed inset-0 bg-background/95 backdrop-blur-xl',
-          'md:right-[80px] md:top-[88px] md:left-auto md:h-[calc(100vh-88px)] md:w-[calc(100vw-160px)]',
+          'md:right-[80px] md:top-[88px] md:left-auto md:h-[calc(100vh-88px)] md:w-[calc(100vw-80px)]',
           'md:bg-background/80 md:backdrop-blur-xl md:border-l md:border-border/30',
           'shadow-[0_0_60px_rgba(0,0,0,0.5)]',
           'z-50 overflow-hidden flex flex-col',

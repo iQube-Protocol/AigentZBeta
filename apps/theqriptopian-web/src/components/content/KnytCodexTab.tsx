@@ -8,7 +8,7 @@
  * All other tabs (scrolls, characters, lore, etc.) remain unchanged.
  */
 
-import { useState, useEffect, useRef, lazy, Suspense, Component, type ReactNode, useMemo } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense, Component, type ReactNode, useMemo, useCallback } from 'react';
 import { Loader2, BookOpen, Play, Lock, Check, Sparkles, Coins, ShoppingCart, AlertTriangle, RefreshCw, LogIn, UserPlus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { PDFPageViewer } from './PDFPageViewer';
@@ -300,32 +300,51 @@ export function KnytCodexTab({
     });
   }, [activeTab]);
 
+  const fetchOwnedIssues = useCallback(async () => {
+    console.log('[KnytCodexTab] Fetching owned issues, personaId:', personaId);
+    if (!personaId) {
+      console.log('[KnytCodexTab] No personaId, skipping fetch');
+      return;
+    }
+    try {
+      const apiBase = import.meta.env.VITE_API_URL || '';
+      console.log('[KnytCodexTab] API URL:', apiBase);
+      const ownedRes = await fetch(`${apiBase}/api/codex/owned?personaId=${personaId}`);
+      if (ownedRes.ok) {
+        const ownedData = await ownedRes.json();
+        setOwnedIssues(ownedData.issues || []);
+      }
+    } catch (err) {
+      console.error('[KnytCodex] Failed to fetch owned issues:', err);
+    }
+  }, [personaId]);
+
   // Fetch owned issues (not cached via React Query as it's user-specific)
   useEffect(() => {
-    async function fetchOwnedIssues() {
-      console.log('[KnytCodexTab] Fetching owned issues, personaId:', personaId);
-      if (!personaId) {
-        console.log('[KnytCodexTab] No personaId, skipping fetch');
-        return;
-      }
-      try {
-        const apiBase = import.meta.env.VITE_API_URL || '';
-        console.log('[KnytCodexTab] API URL:', apiBase);
-        const ownedRes = await fetch(`${apiBase}/api/codex/owned?personaId=${personaId}`);
-        if (ownedRes.ok) {
-          const ownedData = await ownedRes.json();
-          setOwnedIssues(ownedData.issues || []);
-        }
-      } catch (err) {
-        console.error('[KnytCodex] Failed to fetch owned issues:', err);
-      }
-    }
     fetchOwnedIssues();
-  }, [personaId]);
+  }, [fetchOwnedIssues]);
 
   const getOwnedIssuesForEpisode = (episodeNumber: number) => {
     return ownedIssues.filter(i => i.episodeNumber === episodeNumber);
   };
+
+  const openPurchaseForEpisode = useCallback((episode: Episode, action: 'read' | 'watch' | 'default' = 'default') => {
+    const contentType: ContentType =
+      action === 'watch'
+        ? 'scroll_motion'
+        : action === 'read'
+          ? 'scroll_still'
+          : episode.hasMotionMaster
+            ? 'scroll_motion'
+            : 'scroll_still';
+    setPurchaseContent({
+      type: contentType,
+      id: `mk_ep${String(episode.episodeNumber).padStart(2, '0')}`,
+      title: episode.title || `Episode ${episode.displayNumber}`,
+      image: episode.coverThumbUrl || (episode.coverImageCid ? `${import.meta.env.VITE_API_URL || ''}/api/content/cover/${episode.coverImageCid}?variant=thumb` : undefined),
+    });
+    setPurchaseModalOpen(true);
+  }, []);
 
   // Render Scrolls tab content (episodes grid)
   const renderScrollsTab = () => (
@@ -350,6 +369,10 @@ export function KnytCodexTab({
               }`}
               onClick={() => {
                 const printCid = episode.printRareCid || episode.printEpicCid || episode.printLegendaryCid;
+                if (!isOwned && isAvailable) {
+                  openPurchaseForEpisode(episode);
+                  return;
+                }
                 if (printCid) {
                   setCurrentPdfCid(printCid);
                   setCurrentPdfTitle(episode.title || `Episode ${episode.displayNumber}`);
@@ -423,6 +446,10 @@ export function KnytCodexTab({
                     onClick={(e) => {
                       e.stopPropagation();
                       const printCid = episode.printRareCid || episode.printEpicCid || episode.printLegendaryCid;
+                      if (!isOwned && isAvailable) {
+                        openPurchaseForEpisode(episode, 'read');
+                        return;
+                      }
                       if (printCid) {
                         setCurrentPdfCid(printCid);
                         setCurrentPdfTitle(episode.title || `Episode ${episode.displayNumber}`);
@@ -441,6 +468,10 @@ export function KnytCodexTab({
                     onClick={async (e) => {
                       e.preventDefault();
                       e.stopPropagation();
+                      if (!isOwned && isAvailable) {
+                        openPurchaseForEpisode(episode, 'watch');
+                        return;
+                      }
                       setPdfReaderOpen(false);
                       setCurrentVideoTitle(`${episode.title} - Motion Comic`);
                       const motionId = `mk_ep${String(episode.episodeNumber).padStart(2, '0')}_motion`;
@@ -603,6 +634,7 @@ export function KnytCodexTab({
             console.log('[KnytCodex] Purchase complete, entitlement:', entitlementId);
             setPurchaseModalOpen(false);
             setPurchaseContent(null);
+            fetchOwnedIssues();
           }}
           onBalanceRefresh={onBalanceRefresh}
         />

@@ -5,11 +5,24 @@
 
 // Get the API base URL from environment variables
 // Supports multiple env var names for backward compatibility
-export const API_BASE_URL = 
-  import.meta.env.VITE_API_URL || 
-  import.meta.env.VITE_AIGENT_API_URL || 
-  import.meta.env.VITE_AIGENTIQ_API_URL || 
+const RAW_API_BASE_URL =
+  import.meta.env.VITE_API_URL ||
+  import.meta.env.VITE_AIGENT_API_URL ||
+  import.meta.env.VITE_AIGENTIQ_API_URL ||
   '';
+
+const resolveApiBase = () => {
+  if (!RAW_API_BASE_URL) return '';
+  if (typeof window === 'undefined') return RAW_API_BASE_URL;
+  try {
+    const resolvedOrigin = new URL(RAW_API_BASE_URL).origin;
+    return resolvedOrigin === window.location.origin ? RAW_API_BASE_URL : '';
+  } catch {
+    return '';
+  }
+};
+
+export const API_BASE_URL = resolveApiBase();
 
 /**
  * Build a full API URL

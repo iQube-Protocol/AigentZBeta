@@ -195,3 +195,12 @@ All colors MUST be HSL.
 .copilot-thinking-dots.cyan .dot {
   background-color: rgb(34, 211, 238); /* cyan-400 */
 }
+
+@media (min-width: 768px) {
+  .codex-copilot-container {
+    top: auto !important;
+    left: auto !important;
+    right: 10px !important;
+    bottom: 10px !important;
+  }
+}

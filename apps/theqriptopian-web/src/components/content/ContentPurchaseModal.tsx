@@ -135,6 +135,15 @@ export function ContentPurchaseModal({
   
   // Version selector: Still vs Motion
   const [selectedVersion, setSelectedVersion] = useState<'still' | 'motion'>('still');
+
+  useEffect(() => {
+    if (!open) return;
+    if (contentType.includes('motion')) {
+      setSelectedVersion('motion');
+    } else {
+      setSelectedVersion('still');
+    }
+  }, [contentType, open]);
   
   // Determine effective content type based on version selection
   const getEffectiveContentType = (): ContentType => {

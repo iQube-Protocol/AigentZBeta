@@ -35,5 +35,11 @@ export default defineConfig(({ mode }) => ({
   },
   optimizeDeps: {
     include: ['react-pdf'],
+    esbuildOptions: {
+      target: 'esnext',
+    },
+  },
+  esbuild: {
+    target: 'esnext',
   },
 }));
