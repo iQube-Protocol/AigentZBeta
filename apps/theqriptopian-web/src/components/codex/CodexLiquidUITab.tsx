@@ -453,7 +453,7 @@ export default function CodexLiquidUITab({
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [isEpisodeLocked, openPurchaseForItem]);
+  }, []);
 
   const fetchOwnedEpisodes = useCallback(async () => {
     if (!personaId) {

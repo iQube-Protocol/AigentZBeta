@@ -42,7 +42,7 @@ export const theQriptopianStyleGuide: FranchiseStyleGuide = {
     maxWidth: '42rem',
     padding: '3rem 2rem',
     backgroundColor: '#0a1628',
-    textColor: '#d0f6ff',
+    textColor: '#f3f7ff',
     linkColor: '#5eead4',
     linkHoverColor: '#2dd4bf',
     codeBlockBackground: '#1e293b',
