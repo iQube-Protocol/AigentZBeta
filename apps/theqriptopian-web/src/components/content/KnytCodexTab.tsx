@@ -34,13 +34,11 @@ class CodexErrorBoundary extends Component<{
   children: ReactNode;
   onRetry?: () => void;
   onError?: (error: Error) => void;
-  fallback?: ReactNode;
 }, ErrorBoundaryState> {
   constructor(props: {
     children: ReactNode;
     onRetry?: () => void;
     onError?: (error: Error) => void;
-    fallback?: ReactNode;
   }) {
     super(props);
     this.state = { hasError: false };
@@ -63,9 +61,6 @@ class CodexErrorBoundary extends Component<{
 
   render() {
     if (this.state.hasError) {
-      if (this.props.fallback) {
-        return <>{this.props.fallback}</>;
-      }
       return (
         <div className="flex flex-col items-center justify-center h-64 text-center p-6">
           <AlertTriangle className="w-12 h-12 text-amber-400 mb-4" />
@@ -292,7 +287,6 @@ export function KnytCodexTab({
     title: string;
     image?: string;
   } | null>(null);
-  const [forceLegacyCodex, setForceLegacyCodex] = useState(false);
 
   const [visitedTabs, setVisitedTabs] = useState<Set<CodexTab>>(() => new Set([activeTab]));
   const [loadedImages, setLoadedImages] = useState<Map<string, string>>(new Map());
@@ -553,15 +547,8 @@ export function KnytCodexTab({
     if (loading || error) return panels;
 
     if (visitedTabs.has('codex')) {
-      panels.codex = ENABLE_LIQUID_UI_CODEX_TAB && !forceLegacyCodex ? (
-        <CodexErrorBoundary
-          onRetry={() => {
-            setForceLegacyCodex(false);
-            onBalanceRefresh?.();
-          }}
-          onError={() => setForceLegacyCodex(true)}
-          fallback={<CodexHomeTab onNavigate={(tab) => onTabChange?.(tab as CodexTab)} />}
-        >
+      panels.codex = ENABLE_LIQUID_UI_CODEX_TAB ? (
+        <CodexErrorBoundary onRetry={onBalanceRefresh}>
           <Suspense
             fallback={
               <div className="flex items-center justify-center h-64">
