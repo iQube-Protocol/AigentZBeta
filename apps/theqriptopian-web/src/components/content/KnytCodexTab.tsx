@@ -30,8 +30,18 @@ interface ErrorBoundaryState {
   errorInfo?: React.ErrorInfo;
 }
 
-class CodexErrorBoundary extends Component<{ children: ReactNode; onRetry?: () => void }, ErrorBoundaryState> {
-  constructor(props: { children: ReactNode; onRetry?: () => void }) {
+class CodexErrorBoundary extends Component<{
+  children: ReactNode;
+  onRetry?: () => void;
+  onError?: (error: Error) => void;
+  fallback?: ReactNode;
+}, ErrorBoundaryState> {
+  constructor(props: {
+    children: ReactNode;
+    onRetry?: () => void;
+    onError?: (error: Error) => void;
+    fallback?: ReactNode;
+  }) {
     super(props);
     this.state = { hasError: false };
   }
@@ -43,6 +53,7 @@ class CodexErrorBoundary extends Component<{ children: ReactNode; onRetry?: () =
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('[CodexErrorBoundary] Caught error:', error, errorInfo);
     this.setState({ errorInfo });
+    this.props.onError?.(error);
   }
 
   handleRetry = () => {
@@ -52,22 +63,16 @@ class CodexErrorBoundary extends Component<{ children: ReactNode; onRetry?: () =
 
   render() {
     if (this.state.hasError) {
+      if (this.props.fallback) {
+        return <>{this.props.fallback}</>;
+      }
       return (
         <div className="flex flex-col items-center justify-center h-64 text-center p-6">
           <AlertTriangle className="w-12 h-12 text-amber-400 mb-4" />
           <h3 className="text-lg font-semibold text-white mb-2">Codex Loading Error</h3>
           <p className="text-white/60 mb-4 max-w-md">
-            There was an issue loading the Codex. This may be due to a network issue or service unavailability.
+            Switching to the classic Codex view while we recover.
           </p>
-          {this.state.error && (
-            <div style={{ whiteSpace: 'pre-wrap', marginTop: 12, fontSize: 12, opacity: 0.9, maxWidth: '600px', textAlign: 'left' }} className="text-white/80 bg-black/40 p-3 rounded">
-              <strong>Debug Info:</strong>
-              <pre style={{ fontSize: 11, marginTop: 8 }}>{String(this.state.error?.message || this.state.error)}</pre>
-              {this.state.errorInfo?.componentStack && (
-                <pre style={{ fontSize: 10, marginTop: 8, opacity: 0.7 }}>{this.state.errorInfo.componentStack}</pre>
-              )}
-            </div>
-          )}
           <button
             onClick={this.handleRetry}
             className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg transition-colors mt-4"
@@ -287,6 +292,7 @@ export function KnytCodexTab({
     title: string;
     image?: string;
   } | null>(null);
+  const [forceLegacyCodex, setForceLegacyCodex] = useState(false);
 
   const [visitedTabs, setVisitedTabs] = useState<Set<CodexTab>>(() => new Set([activeTab]));
   const [loadedImages, setLoadedImages] = useState<Map<string, string>>(new Map());
@@ -547,8 +553,15 @@ export function KnytCodexTab({
     if (loading || error) return panels;
 
     if (visitedTabs.has('codex')) {
-      panels.codex = ENABLE_LIQUID_UI_CODEX_TAB ? (
-        <CodexErrorBoundary onRetry={onBalanceRefresh}>
+      panels.codex = ENABLE_LIQUID_UI_CODEX_TAB && !forceLegacyCodex ? (
+        <CodexErrorBoundary
+          onRetry={() => {
+            setForceLegacyCodex(false);
+            onBalanceRefresh?.();
+          }}
+          onError={() => setForceLegacyCodex(true)}
+          fallback={<CodexHomeTab onNavigate={(tab) => onTabChange?.(tab as CodexTab)} />}
+        >
           <Suspense
             fallback={
               <div className="flex items-center justify-center h-64">
