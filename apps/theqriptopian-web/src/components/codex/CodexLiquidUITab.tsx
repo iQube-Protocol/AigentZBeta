@@ -202,6 +202,7 @@ function transformLoreAssetsToContentItems(assets: LoreAssetFromAPI[]): KnytCont
     },
     metadata: {
       realm: 'terra',
+      modalities: asset.extracted_text ? { read: { text: asset.extracted_text } } : undefined,
     },
     modalities: {
       read: { available: true, cid: asset.auto_drive_cid },
@@ -630,6 +631,11 @@ export default function CodexLiquidUITab({
   const handleViewerOpen = useCallback((item: KnytContentItem, type: 'pdf' | 'video' | 'poster') => {
     if (isEpisodeLocked(item)) {
       openPurchaseForItem(item, type === 'video' ? 'watch' : 'read');
+      return;
+    }
+    if (type === 'pdf' && item.type === 'lore_snippet' && item.media?.text) {
+      setCurrentText({ title: item.title, content: item.media.text });
+      setTextReaderOpen(true);
       return;
     }
     if (type === 'pdf' && (item.media?.pdf_lite_url || item.media?.pdf_cid)) {

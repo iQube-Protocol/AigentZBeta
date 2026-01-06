@@ -83,6 +83,7 @@ function ContentCard({ item, variant, onSelect, onWatch, onRead, isSelected, onA
   const isPortrait = itemType.includes('portrait');
   const hasVideo = item.modalities?.watch?.available;
   const hasPdf = item.modalities?.read?.available;
+  const hasText = !!item.media?.text;
   
   // Get modalities from metadata for SmartContentActions
   const smartModalities = item.metadata?.modalities as ContentModalities | undefined;
@@ -90,6 +91,14 @@ function ContentCard({ item, variant, onSelect, onWatch, onRead, isSelected, onA
   // Determine if this is a character/KNYT card (should be centered) vs episode/cover (align top)
   const isCharacter = itemType.includes('character') || itemType === 'character_portrait';
   const imagePosition = isCharacter ? 'object-center' : 'object-top';
+
+  const handleReadAction = () => {
+    if (hasText) {
+      onAction?.('read');
+      return;
+    }
+    onRead?.();
+  };
 
   const aspectClass = {
     poster: isPortrait ? 'aspect-[3/4]' : 'aspect-video',
@@ -152,7 +161,7 @@ function ContentCard({ item, variant, onSelect, onWatch, onRead, isSelected, onA
           <SmartContentActions
             modalities={smartModalities}
             onAction={(action) => {
-              if (action === 'read') onRead?.();
+              if (action === 'read') handleReadAction();
               else if (action === 'watch') onWatch?.();
               else onAction?.(action);
             }}
@@ -167,7 +176,7 @@ function ContentCard({ item, variant, onSelect, onWatch, onRead, isSelected, onA
               <button
                 className="w-7 h-7 rounded-lg bg-black/60 backdrop-blur-sm flex items-center justify-center ring-1 ring-cyan-500/40 text-cyan-400 hover:bg-cyan-500 hover:text-white transition-all"
                 title="Read"
-                onClick={(e) => { e.stopPropagation(); onRead?.(); }}
+                onClick={(e) => { e.stopPropagation(); handleReadAction(); }}
               >
                 <BookOpen className="w-4 h-4" />
               </button>
@@ -376,6 +385,10 @@ function DrawerGridTemplate({
     const isPortrait = itemType.includes('portrait');
     const defaultOpen = () => {
       console.log('[KnytTemplateRenderer] defaultOpen called for:', item.title, { hasPdf, hasVideo, userIntent });
+      if (item.media?.text) {
+        onSmartAction?.(item, 'read');
+        return;
+      }
       if (userIntent === 'watch' || userIntent === 'motion_comics' || userIntent === 'immersive_review' || userIntent === 'trailers' || userIntent === 'scene_review') {
         if (hasVideo) { console.log('[KnytTemplateRenderer] Opening video viewer'); return onViewerOpen(item, 'video'); }
         if (hasPdf) { console.log('[KnytTemplateRenderer] Opening PDF viewer'); return onViewerOpen(item, 'pdf'); }

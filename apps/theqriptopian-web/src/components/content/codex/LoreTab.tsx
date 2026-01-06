@@ -51,16 +51,15 @@ export function LoreTab() {
   }, []);
 
   const openDocument = (asset: LoreAsset) => {
-    const mode = asset.display_mode || 'pdf';
-    
-    if (mode === 'text_extract' && asset.extracted_text) {
+    if (asset.extracted_text) {
       setCurrentText({ title: asset.title, content: asset.extracted_text });
       setTextReaderOpen(true);
-    } else {
-      // Default to PDF viewer for pdf mode or if no extracted text
-      setCurrentPdf({ cid: asset.auto_drive_cid, title: asset.title });
-      setPdfOpen(true);
+      return;
     }
+
+    // Default to PDF viewer when no extracted text is available
+    setCurrentPdf({ cid: asset.auto_drive_cid, title: asset.title });
+    setPdfOpen(true);
   };
 
   const getDisplayModeIcon = (mode: DisplayMode | null) => {
@@ -134,35 +133,38 @@ export function LoreTab() {
 
         {visibleAssets.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {visibleAssets.map((asset) => (
-              <div
-                key={asset.id}
-                onClick={() => openDocument(asset)}
-                className="group p-4 bg-gradient-to-br from-purple-900/30 to-indigo-900/30 rounded-lg border border-white/10 hover:border-cyan-400/50 cursor-pointer transition-all"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="p-2 bg-cyan-500/20 rounded-lg">
-                    <FileText className="w-6 h-6 text-cyan-400" />
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="font-medium text-white group-hover:text-cyan-400 transition-colors">
-                      {asset.title}
-                    </h4>
-                    <div className="flex items-center gap-2 mt-1">
-                      <p className="text-xs text-white/50">
-                        {asset.episode_number ? `Episode #${asset.episode_number - 1}` : 'Series-wide'}
-                      </p>
-                      <span className="text-white/20">•</span>
-                      <span className="flex items-center gap-1 text-xs text-white/50">
-                        {getDisplayModeIcon(asset.display_mode)}
-                        {getDisplayModeLabel(asset.display_mode)}
-                      </span>
+            {visibleAssets.map((asset) => {
+              const displayMode = asset.extracted_text ? 'text_extract' : asset.display_mode;
+              return (
+                <div
+                  key={asset.id}
+                  onClick={() => openDocument(asset)}
+                  className="group p-4 bg-gradient-to-br from-purple-900/30 to-indigo-900/30 rounded-lg border border-white/10 hover:border-cyan-400/50 cursor-pointer transition-all"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 bg-cyan-500/20 rounded-lg">
+                      <FileText className="w-6 h-6 text-cyan-400" />
                     </div>
+                    <div className="flex-1">
+                      <h4 className="font-medium text-white group-hover:text-cyan-400 transition-colors">
+                        {asset.title}
+                      </h4>
+                      <div className="flex items-center gap-2 mt-1">
+                        <p className="text-xs text-white/50">
+                          {asset.episode_number ? `Episode #${asset.episode_number - 1}` : 'Series-wide'}
+                        </p>
+                        <span className="text-white/20">•</span>
+                        <span className="flex items-center gap-1 text-xs text-white/50">
+                          {getDisplayModeIcon(displayMode)}
+                          {getDisplayModeLabel(displayMode)}
+                        </span>
+                      </div>
+                    </div>
+                    <BookOpen className="w-4 h-4 text-white/30 group-hover:text-cyan-400 transition-colors" />
                   </div>
-                  <BookOpen className="w-4 h-4 text-white/30 group-hover:text-cyan-400 transition-colors" />
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div className="text-center py-12 bg-gradient-to-br from-purple-900/20 to-indigo-900/20 rounded-lg border border-white/10">
