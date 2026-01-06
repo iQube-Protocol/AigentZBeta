@@ -540,6 +540,7 @@ function DrawerGridTemplate({
   const wideCandidatesRaw = contentItems.filter((i) => !(i.type || '').includes('portrait'));
   const tallCandidates = tallCandidatesRaw.length > 0 ? tallCandidatesRaw : contentItems;
   const wideCandidates = wideCandidatesRaw.length > 0 ? wideCandidatesRaw : contentItems;
+  const synopsisItem = contentItems.find((item) => /synopsis/i.test(item.title));
 
   const cyclePick = <T,>(arr: T[], idx: number) => {
     if (!arr.length) return undefined;
@@ -728,7 +729,33 @@ function DrawerGridTemplate({
   
   // In production, use copilot-selected layout variant OR fall back to old production logic
   const copilotPlacements = effectiveLayout !== 'auto' ? getPlacementsForVariant(effectiveLayout) : null;
-  const productionDesktopPlacements = copilotPlacements || getProductionDesktopPlacements();
+  const applySynopsisTopRight = (
+    placements: Array<{ key: string; item: KnytContentItem; col: number; row: number; colSpan: number; rowSpan: number; variant?: ContentCardProps['variant'] }>
+  ) => {
+    if (!synopsisItem) return placements;
+
+    const featuredRight = placements.find((p) => p.col === 3 && p.row === 1 && p.colSpan === 2 && p.rowSpan === 2);
+    const topRight = featuredRight || placements.find((p) => p.col === 4 && p.row === 1);
+    if (!topRight) return placements;
+
+    const synopsisPlacement = placements.find((p) => p.item.id === synopsisItem.id);
+    if (synopsisPlacement?.key === topRight.key) return placements;
+
+    return placements.map((p) => {
+      if (p.key === topRight.key) {
+        return { ...p, item: synopsisItem };
+      }
+      if (synopsisPlacement && p.key === synopsisPlacement.key) {
+        return { ...p, item: topRight.item };
+      }
+      return p;
+    });
+  };
+
+  const productionDesktopPlacementsRaw = copilotPlacements || getProductionDesktopPlacements();
+  const productionDesktopPlacements = productionDesktopPlacementsRaw
+    ? applySynopsisTopRight(productionDesktopPlacementsRaw)
+    : null;
   const showProductionDesktopGrid = !showDevPreviewGrid && !!productionDesktopPlacements;
 
   return (

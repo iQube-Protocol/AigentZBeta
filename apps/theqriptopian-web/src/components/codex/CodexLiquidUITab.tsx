@@ -191,7 +191,13 @@ function transformCharactersToContentItems(characters: CharacterFromAPI[]): Knyt
 }
 
 function transformLoreAssetsToContentItems(assets: LoreAssetFromAPI[]): KnytContentItem[] {
-  return assets.map((asset) => ({
+  const synopsis = assets.find((asset) => /synopsis/i.test(asset.title));
+  const sagaIntroIndex = assets.findIndex((asset) => /saga intro/i.test(asset.title));
+  const curated = synopsis && sagaIntroIndex !== -1
+    ? assets.filter((_, index) => index !== sagaIntroIndex)
+    : assets;
+
+  return curated.map((asset) => ({
     id: `lore_${asset.id}`,
     type: 'lore_snippet',
     title: asset.title,
