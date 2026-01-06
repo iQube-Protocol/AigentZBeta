@@ -79,7 +79,8 @@ interface ContentCardProps {
 }
 
 function ContentCard({ item, variant, onSelect, onWatch, onRead, isSelected, onAction }: ContentCardProps) {
-  const isPortrait = item.type.includes('portrait');
+  const itemType = item.type || '';
+  const isPortrait = itemType.includes('portrait');
   const hasVideo = item.modalities?.watch?.available;
   const hasPdf = item.modalities?.read?.available;
   
@@ -87,7 +88,7 @@ function ContentCard({ item, variant, onSelect, onWatch, onRead, isSelected, onA
   const smartModalities = item.metadata?.modalities as ContentModalities | undefined;
 
   // Determine if this is a character/KNYT card (should be centered) vs episode/cover (align top)
-  const isCharacter = item.type.includes('character') || item.type === 'character_portrait';
+  const isCharacter = itemType.includes('character') || itemType === 'character_portrait';
   const imagePosition = isCharacter ? 'object-center' : 'object-top';
 
   const aspectClass = {
@@ -336,6 +337,7 @@ function DrawerGridTemplate({
   contentItems,
   onContentSelect,
   onViewerOpen,
+  onSmartAction,
   selectedItemId,
   copilotContent,
   copilotMode,
@@ -345,6 +347,7 @@ function DrawerGridTemplate({
   contentItems: KnytContentItem[];
   onContentSelect: (item: KnytContentItem) => void;
   onViewerOpen: (item: KnytContentItem, type: 'pdf' | 'video' | 'poster') => void;
+  onSmartAction?: (item: KnytContentItem, action: string) => void;
   selectedItemId?: string;
   copilotContent?: React.ReactNode;
   copilotMode: CopilotOverlayMode;
@@ -369,7 +372,8 @@ function DrawerGridTemplate({
   const renderCard = (item: KnytContentItem, variantOverride?: ContentCardProps['variant']) => {
     const hasPdf = item.modalities?.read?.available;
     const hasVideo = item.modalities?.watch?.available;
-    const isPortrait = item.type.includes('portrait');
+    const itemType = item.type || '';
+    const isPortrait = itemType.includes('portrait');
     const defaultOpen = () => {
       console.log('[KnytTemplateRenderer] defaultOpen called for:', item.title, { hasPdf, hasVideo, userIntent });
       if (userIntent === 'watch' || userIntent === 'motion_comics' || userIntent === 'immersive_review' || userIntent === 'trailers' || userIntent === 'scene_review') {
@@ -436,7 +440,7 @@ function DrawerGridTemplate({
       const posterCol2 = featuredLeft ? 4 : 2;
 
       const remaining = contentItems.slice(1);
-      const portraits = remaining.filter((x) => x.type.includes('portrait'));
+      const portraits = remaining.filter((x) => (x.type || '').includes('portrait'));
 
       // If we have at least 2 portrait tiles, lock them into the non-featured side as true posters
       // so a poster never “falls” to row 3 (especially column 2).
@@ -486,8 +490,8 @@ function DrawerGridTemplate({
     }
 
     // Auto: default to 1A-like placement (posters only start row 1; row 3 remains wide)
-    const tall = contentItems.filter((i) => i.type.includes('portrait'));
-    const wide = contentItems.filter((i) => !i.type.includes('portrait'));
+    const tall = contentItems.filter((i) => (i.type || '').includes('portrait'));
+    const wide = contentItems.filter((i) => !(i.type || '').includes('portrait'));
     const t0 = tall[0];
     const t1 = tall[1];
     const w = (idx: number) => wide[idx] || contentItems[idx];
@@ -519,8 +523,8 @@ function DrawerGridTemplate({
   const devIsDesktop = typeof window !== 'undefined' && window.innerWidth >= 1024;
   const shouldShowDevPreview = import.meta.env.DEV && devIsDesktop;
 
-  const tallCandidatesRaw = contentItems.filter((i) => i.type.includes('portrait'));
-  const wideCandidatesRaw = contentItems.filter((i) => !i.type.includes('portrait'));
+  const tallCandidatesRaw = contentItems.filter((i) => (i.type || '').includes('portrait'));
+  const wideCandidatesRaw = contentItems.filter((i) => !(i.type || '').includes('portrait'));
   const tallCandidates = tallCandidatesRaw.length > 0 ? tallCandidatesRaw : contentItems;
   const wideCandidates = wideCandidatesRaw.length > 0 ? wideCandidatesRaw : contentItems;
 
@@ -1192,6 +1196,7 @@ export function KnytTemplateRenderer({
             contentItems={contentItems}
             onContentSelect={onContentSelect}
             onViewerOpen={onViewerOpen}
+            onSmartAction={onSmartAction}
             selectedItemId={selectedItemId}
             copilotContent={copilotContent}
             copilotMode={copilotMode}

@@ -45,7 +45,7 @@ export function LoreTextReader({ title, content, onClose }: LoreTextReaderProps)
 
         {/* Content */}
         <div className="overflow-y-auto max-h-[calc(90vh-80px)] p-6">
-          <article className="prose prose-invert prose-cyan max-w-none">
+          <article className="prose prose-invert max-w-none prose-p:text-white/85 prose-li:text-white/85">
             {paragraphs.map((paragraph, index) => {
               // Check if it's a heading (starts with # or is all caps and short)
               if (paragraph.startsWith('#')) {
@@ -64,7 +64,7 @@ export function LoreTextReader({ title, content, onClose }: LoreTextReaderProps)
               if (paragraph.startsWith('- ') || paragraph.startsWith('* ')) {
                 const items = paragraph.split(/\n/).filter(l => l.trim());
                 return (
-                  <ul key={index} className="list-disc list-inside space-y-1 mb-4 text-gray-300">
+                  <ul key={index} className="list-disc list-inside space-y-1 mb-4 text-white/85">
                     {items.map((item, i) => (
                       <li key={i}>{item.replace(/^[-*]\s*/, '')}</li>
                     ))}
@@ -76,7 +76,7 @@ export function LoreTextReader({ title, content, onClose }: LoreTextReaderProps)
               if (/^\d+\.\s/.test(paragraph)) {
                 const items = paragraph.split(/\n/).filter(l => l.trim());
                 return (
-                  <ol key={index} className="list-decimal list-inside space-y-1 mb-4 text-gray-300">
+                  <ol key={index} className="list-decimal list-inside space-y-1 mb-4 text-white/85">
                     {items.map((item, i) => (
                       <li key={i}>{item.replace(/^\d+\.\s*/, '')}</li>
                     ))}
@@ -86,7 +86,7 @@ export function LoreTextReader({ title, content, onClose }: LoreTextReaderProps)
 
               // Regular paragraph
               return (
-                <p key={index} className="text-gray-300 leading-relaxed mb-4">
+                <p key={index} className="text-white/85 leading-relaxed mb-4">
                   {paragraph}
                 </p>
               );
