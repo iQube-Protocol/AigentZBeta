@@ -45,6 +45,7 @@ export function SmartContentViewer({
   }, [initialIndex]);
 
   const activeItem = items[activeIndex];
+  const actionItems = items;
 
   // Guard against empty items array
   if (!activeItem) {
@@ -126,7 +127,7 @@ export function SmartContentViewer({
         {/* Primary Action Button Center - Only show if there's playable or readable content */}
         {hasPlayableContent(activeItem.modalities) && (
           <button 
-            onClick={() => executeAction('watch', activeItem)}
+            onClick={() => executeAction('watch', activeItem, actionItems)}
             className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 rounded-full bg-cyan-500/30 border-2 border-cyan-400 flex items-center justify-center group hover:scale-110 transition-all"
             aria-label="Play video"
             title="Play video"
@@ -138,7 +139,7 @@ export function SmartContentViewer({
         {/* Read Button Center - Show if readable but not playable */}
         {!hasPlayableContent(activeItem.modalities) && hasReadableContent(activeItem.modalities) && (
           <button 
-            onClick={() => executeAction('read', activeItem)}
+            onClick={() => executeAction('read', activeItem, actionItems)}
             className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 rounded-full bg-cyan-500/30 border-2 border-cyan-400 flex items-center justify-center group hover:scale-110 transition-all"
             aria-label="Read article"
             title="Read article"
@@ -195,7 +196,7 @@ export function SmartContentViewer({
                   setIsFullscreen(true);
                 } else {
                   // All other actions use global handler
-                  executeAction(action, activeItem);
+                  executeAction(action, activeItem, actionItems);
                 }
               }}
             />

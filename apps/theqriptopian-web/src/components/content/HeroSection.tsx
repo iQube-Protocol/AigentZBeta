@@ -40,6 +40,15 @@ export function HeroSection() {
     watchProgress: 0,
     modalities: null
   }];
+
+  const actionItems = articles.map((article) => ({
+    id: article.id,
+    title: article.title,
+    description: article.subtitle,
+    image: article.image,
+    modalities: 'modalities' in article ? article.modalities : null,
+    section: 'home-hero',
+  }));
   
   const currentArticle = articles[activeArticle];
   
@@ -118,7 +127,7 @@ export function HeroSection() {
             image: currentArticle.image,
             modalities: 'modalities' in currentArticle ? currentArticle.modalities : null,
             section: 'home-hero',
-          })}
+          }, actionItems)}
         />
       </div>
 

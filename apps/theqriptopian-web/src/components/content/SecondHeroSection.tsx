@@ -33,6 +33,15 @@ export function SecondHeroSection() {
     subtitle: 'Advanced computing infrastructure for the next generation of digital innovation',
     image: quantumTechHero,
   }];
+
+  const actionItems = articles.map((article) => ({
+    id: article.id,
+    title: article.title,
+    description: article.subtitle,
+    image: article.image,
+    modalities: article.modalities || null,
+    section: 'second-hero',
+  }));
   
   const currentArticle = articles[activeArticle];
   
@@ -113,7 +122,7 @@ export function SecondHeroSection() {
             image: currentArticle.image,
             modalities: currentArticle.modalities,
             section: 'second-hero',
-          })}
+          }, actionItems)}
         />
       </div>
 

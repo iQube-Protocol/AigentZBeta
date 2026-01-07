@@ -30,6 +30,10 @@ export function LatestNewsCarousel() {
     isPremium: false,
     modalities: item.modalities as ContentModalities || null
   }));
+  const actionItems = newsItems.map((item) => ({
+    ...item,
+    section: 'latest-news',
+  }));
   useEffect(() => {
     if (!api) return;
     const updateButtons = () => {
@@ -132,7 +136,7 @@ export function LatestNewsCarousel() {
                         onAction={createHandler({
   ...item,
   section: 'latest-news'
-})}
+}, actionItems)}
                       />
                     </div>
                     <h3 className={`text-xl font-semibold mb-2 ${

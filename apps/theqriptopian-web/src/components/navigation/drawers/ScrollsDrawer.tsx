@@ -59,6 +59,7 @@ export function ScrollsDrawer({ isOpen, onClose }: ScrollsDrawerProps) {
   
   // Use filtered Liquid UI content
   const currentContent = filteredContent;
+  const actionItems = currentContent.map((item) => ({ ...item }));
 
   // Reset selected index when tab changes
   const handleTabChange = (tabId: string) => {
@@ -118,7 +119,7 @@ export function ScrollsDrawer({ isOpen, onClose }: ScrollsDrawerProps) {
                     context="card"
                     showExpand={false}
                     showShare={true}
-                    onAction={createHandler(item)}
+                    onAction={createHandler(item, actionItems)}
                     size="md"
                   />
                 </div>
@@ -171,7 +172,7 @@ export function ScrollsDrawer({ isOpen, onClose }: ScrollsDrawerProps) {
                             setSelectedIndex(index);
                           } else {
                             // All other actions use global handler
-                            createHandler(item)(action);
+                            createHandler(item, actionItems)(action);
                           }
                         }}
                         size="sm"

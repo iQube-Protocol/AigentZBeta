@@ -113,6 +113,7 @@ export function Kn0wdZDrawer({ isOpen, onClose }: Kn0wdZDrawerProps) {
 
   const filteredContent = kn0wdZContent.filter(item => item.tab === activeTab).sort((a, b) => a.position - b.position);
   const currentContent = filteredContent;
+  const actionItems = currentContent.map((item) => ({ ...item }));
   const panel = activeTab === 'dev' ? devPanel : activeTab === 'creative' ? creativePanel : execPanel;
   const colorClass = activeTab === 'dev' ? 'cyan' : activeTab === 'creative' ? 'purple' : 'orange';
 
@@ -148,7 +149,7 @@ export function Kn0wdZDrawer({ isOpen, onClose }: Kn0wdZDrawerProps) {
                 showExpand={false}
                 showShare={true}
                 size="sm"
-                onAction={currentContent[selectedIndex] ? createHandler(currentContent[selectedIndex]) : () => {}}
+                onAction={currentContent[selectedIndex] ? createHandler(currentContent[selectedIndex], actionItems) : () => {}}
               />
             </div>
             <div className="absolute bottom-3 left-3 right-3"><p className="text-white text-base font-medium line-clamp-2">{currentContent[selectedIndex]?.title}</p></div>

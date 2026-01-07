@@ -23,13 +23,13 @@ interface SmartContentActionContextValue {
    * Execute an action on a content item.
    * This is the UNIVERSAL action handler - use this instead of local handlers.
    */
-  executeAction: (action: ActionType, item: SmartContentItem) => void;
+  executeAction: (action: ActionType, item: SmartContentItem, playlist?: SmartContentItem[]) => void;
   
   /**
    * Create an onAction handler for SmartContentActions component.
    * Pass the content item and get back a handler function.
    */
-  createHandler: (item: SmartContentItem) => (action: ActionType) => void;
+  createHandler: (item: SmartContentItem, playlist?: SmartContentItem[]) => (action: ActionType) => void;
 }
 
 const SmartContentActionContext = createContext<SmartContentActionContextValue | null>(null);
@@ -42,6 +42,8 @@ export function SmartContentActionProvider({ children }: ProviderProps) {
   // Global modal state
   const [videoModalOpen, setVideoModalOpen] = useState(false);
   const [videoItem, setVideoItem] = useState<SmartContentItem | null>(null);
+  const [videoPlaylist, setVideoPlaylist] = useState<SmartContentItem[]>([]);
+  const [videoIndex, setVideoIndex] = useState(0);
   const [readArticle, setReadArticle] = useState<ArticleQube | null>(null);
   // PDF viewer state
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
@@ -82,12 +84,18 @@ export function SmartContentActionProvider({ children }: ProviderProps) {
    * Universal action executor
    * Handles ALL SmartContent actions based on the content's modalities
    */
-  const executeAction = useCallback((action: ActionType, item: SmartContentItem) => {
+  const executeAction = useCallback((action: ActionType, item: SmartContentItem, playlist?: SmartContentItem[]) => {
     const modalities = item.modalities;
 
     switch (action) {
       case 'watch':
         if (modalities?.watch?.video_url) {
+          const sourceList = playlist && playlist.length > 0 ? playlist : [item];
+          const playableItems = sourceList.filter((entry) => !!entry.modalities?.watch?.video_url);
+          const effectivePlaylist = playableItems.length > 0 ? playableItems : [item];
+          const startIndex = Math.max(0, effectivePlaylist.findIndex((entry) => entry.id === item.id));
+          setVideoPlaylist(effectivePlaylist);
+          setVideoIndex(startIndex === -1 ? 0 : startIndex);
           setVideoItem(item);
           setVideoModalOpen(true);
         }
@@ -176,8 +184,8 @@ export function SmartContentActionProvider({ children }: ProviderProps) {
   /**
    * Factory function to create an onAction handler for a specific item
    */
-  const createHandler = useCallback((item: SmartContentItem) => {
-    return (action: ActionType) => executeAction(action, item);
+  const createHandler = useCallback((item: SmartContentItem, playlist?: SmartContentItem[]) => {
+    return (action: ActionType) => executeAction(action, item, playlist);
   }, [executeAction]);
 
   return (
@@ -190,14 +198,16 @@ export function SmartContentActionProvider({ children }: ProviderProps) {
         onClose={() => {
           setVideoModalOpen(false);
           setVideoItem(null);
+          setVideoPlaylist([]);
+          setVideoIndex(0);
         }}
-        items={videoItem ? [{
-          id: videoItem.id,
-          title: videoItem.title,
-          videoUrl: videoItem.modalities?.watch?.video_url || '',
-          duration: videoItem.modalities?.watch?.duration || '0:00',
-        }] : []}
-        initialIndex={0}
+        items={(videoPlaylist.length > 0 ? videoPlaylist : videoItem ? [videoItem] : []).map((entry) => ({
+          id: entry.id,
+          title: entry.title,
+          videoUrl: entry.modalities?.watch?.video_url || '',
+          duration: entry.modalities?.watch?.duration || '0:00',
+        }))}
+        initialIndex={videoIndex}
       />
 
       {/* Global ArticleReader */}
@@ -264,7 +274,7 @@ export function useSmartContentAction() {
  * Hook that returns a handler for a specific content item
  * Use this in components: onAction={useSmartContentHandler(item)}
  */
-export function useSmartContentHandler(item: SmartContentItem) {
+export function useSmartContentHandler(item: SmartContentItem, playlist?: SmartContentItem[]) {
   const { createHandler } = useSmartContentAction();
-  return createHandler(item);
+  return createHandler(item, playlist);
 }

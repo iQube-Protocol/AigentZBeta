@@ -75,6 +75,7 @@ export function CodexCopilotLayer({
   const isMobile = useIsMobile();
   
   const [showActivationButton, setShowActivationButton] = useState(false);
+  const activationIntroMs = 4000;
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [walletPanelOpen, setWalletPanelOpen] = useState(false);
@@ -217,6 +218,23 @@ export function CodexCopilotLayer({
   // Use global MetaAvatar system
   const { requestAvatar, releaseAvatar, activeContainer } = useMetaAvatar();
   
+  // Show activation button when drawer opens, then fall back to hover behavior
+  useEffect(() => {
+    if (!isDrawerOpen || copilotOpen) return;
+    setShowActivationButton(true);
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+    }
+    hoverTimeoutRef.current = setTimeout(() => {
+      setShowActivationButton(false);
+    }, activationIntroMs);
+    return () => {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+      }
+    };
+  }, [isDrawerOpen, copilotOpen, activationIntroMs]);
+
   // Handle mouse movement for activation button visibility
   useEffect(() => {
     if (!isDrawerOpen || copilotOpen) {
