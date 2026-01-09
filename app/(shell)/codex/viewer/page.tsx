@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import CodexPanelDynamic from "../../../triad/components/CodexPanelDynamic";
 import { useCodexConfig, useCodexList } from "@/app/hooks/useCodexConfig";
+import type { CodexListItem } from "@/types/codex";
 import {
   BookOpen,
   Code,
@@ -64,7 +65,7 @@ export default function CodexViewerPage() {
 
   const codexOptions = useMemo(() => {
     if (!codexList || codexList.length === 0) return fallbackCodexes;
-    return codexList.map(codex => ({
+    return codexList.map((codex: CodexListItem) => ({
       id: codex.id,
       label: codex.name,
       color: normalizeColor(codex.metadata?.color),
