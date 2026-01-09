@@ -248,7 +248,7 @@ export const Sidebar = () => {
       // Initialize default values first
       const initialShowOnlyActive: Record<string, boolean> = {};
       sections.forEach(section => {
-        initialShowOnlyActive[section.label] = true; // Default to showing only active items
+        initialShowOnlyActive[section.label] = false; // Default to showing all items in collapsed mode
       });
       
       // Load collapsed state
@@ -347,9 +347,9 @@ export const Sidebar = () => {
           const parsedShowOnlyActive = JSON.parse(savedShowOnlyActive);
           // Ensure all sections are initialized with a default value
           sections.forEach(section => {
-            // If section doesn't exist in saved state, default to true (show only active)
+            // If section doesn't exist in saved state, default to false (show all)
             if (parsedShowOnlyActive[section.label] === undefined) {
-              parsedShowOnlyActive[section.label] = true;
+              parsedShowOnlyActive[section.label] = false;
             }
           });
           Object.assign(initialShowOnlyActive, parsedShowOnlyActive);
@@ -401,7 +401,7 @@ export const Sidebar = () => {
   const initDefaultShowOnlyActive = () => {
     const initialShowOnlyActive: Record<string, boolean> = {};
     sections.forEach(section => {
-      initialShowOnlyActive[section.label] = true; // Default to showing only active items
+      initialShowOnlyActive[section.label] = false; // Default to showing all items in collapsed mode
     });
     setShowOnlyActive(initialShowOnlyActive);
     
@@ -926,7 +926,7 @@ export const Sidebar = () => {
   
   return (
     <>
-      <aside className={`${collapsed ? "w-16" : "w-72"} transition-all duration-200 bg-black/30 ring-1 ring-white/10 backdrop-blur-xl p-4 md:p-6 flex-shrink-0 min-h-screen`}>
+      <aside className={`${collapsed ? "w-16" : "w-72"} relative z-20 pointer-events-auto transition-all duration-200 bg-black/30 ring-1 ring-white/10 backdrop-blur-xl p-4 md:p-6 flex-shrink-0 min-h-screen`}>
         <button className="mb-6 text-sm font-semibold text-slate-200 hover:text-white flex items-center gap-2 uppercase tracking-wider" onClick={toggleSidebar}>
           <Bot size={18} className="text-blue-400" />
           {!collapsed && <span>QRIPTO: AGENTIQ</span>}
