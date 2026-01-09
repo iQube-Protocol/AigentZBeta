@@ -20,6 +20,7 @@ function createServerClient() {
 }
 import { CodexConfig, CodexListItem, CreateCodexRequest, CodexRegistryResponse } from '@/types/codex';
 import { CODEX_DEFINITIONS } from '@/data/codex-configs';
+import { codexToListItem, loadPackCodexes } from './_lib/packRegistry';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,9 +36,11 @@ export async function GET(request: NextRequest) {
     const ownerFilter = searchParams.get('owner');
     const useDefaults = searchParams.get('defaults') === 'true';
 
-    // If defaults flag is set, return hardcoded definitions
+    // If defaults flag is set, return pack-scanned + hardcoded definitions
     if (useDefaults) {
-      let codexes = CODEX_DEFINITIONS;
+      const packCodexes = await loadPackCodexes();
+      const packIds = new Set(packCodexes.map(codex => codex.id));
+      let codexes = [...packCodexes, ...CODEX_DEFINITIONS.filter(codex => !packIds.has(codex.id))];
       
       if (enabledFilter !== null) {
         const enabled = enabledFilter === 'true';
@@ -48,17 +51,7 @@ export async function GET(request: NextRequest) {
         codexes = codexes.filter(c => c.owner === ownerFilter);
       }
 
-      const listItems: CodexListItem[] = codexes.map(c => ({
-        id: c.id,
-        name: c.name,
-        slug: c.slug,
-        enabled: c.enabled,
-        owner: c.owner,
-        metadata: c.metadata,
-        tabCount: c.tabs.length,
-        createdAt: c.createdAt,
-        updatedAt: c.updatedAt
-      }));
+      const listItems: CodexListItem[] = codexes.map(codexToListItem);
 
       return NextResponse.json<CodexRegistryResponse<CodexListItem[]>>({
         success: true,

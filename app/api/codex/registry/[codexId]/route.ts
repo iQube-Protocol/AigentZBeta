@@ -23,6 +23,7 @@ function createServerClient() {
 
 import { CodexConfig, UpdateCodexRequest, CodexRegistryResponse } from '@/types/codex';
 import { getCodexById } from '@/data/codex-configs';
+import { getPackCodexById } from '../_lib/packRegistry';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,9 +41,10 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     const searchParams = request.nextUrl.searchParams;
     const useDefaults = searchParams.get('defaults') === 'true';
 
-    // If defaults flag is set, return hardcoded definition
+    // If defaults flag is set, return pack-scanned definition first
     if (useDefaults) {
-      const codex = getCodexById(codexId);
+      const packCodex = await getPackCodexById(codexId);
+      const codex = packCodex ?? getCodexById(codexId);
       if (!codex) {
         return NextResponse.json<CodexRegistryResponse>({
           success: false,

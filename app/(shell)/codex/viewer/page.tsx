@@ -1,17 +1,221 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import CodexPanelDynamic from "../../../triad/components/CodexPanelDynamic";
-import { BookOpen, Settings, Code } from "lucide-react";
+import { useCodexConfig, useCodexList } from "@/app/hooks/useCodexConfig";
+import {
+  BookOpen,
+  Code,
+  LayoutGrid,
+  Link,
+  List,
+  Palette,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Settings,
+} from "lucide-react";
+
+type ConfigSection = "codex" | "theme" | "density" | "tab" | "embed" | "iframe";
+
+const COLOR_SET = new Set(["purple", "indigo", "blue", "emerald", "cyan", "amber", "rose"]);
+
+function normalizeColor(color?: string) {
+  if (!color) return "indigo";
+  const lowered = color.toLowerCase();
+  return COLOR_SET.has(lowered) ? lowered : "indigo";
+}
+
+function labelize(value: string) {
+  return value
+    .replace(/[-_]+/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
 
 export default function CodexViewerPage() {
-  const [codexId, setCodexId] = useState('knyt-codex');
-  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
-  const [density, setDensity] = useState<'narrow' | 'wide'>('wide');
-  const [activeTab, setActiveTab] = useState('scrolls');
+  const [codexId, setCodexId] = useState("knyt-codex");
+  const [theme, setTheme] = useState<"light" | "dark">("dark");
+  const [density, setDensity] = useState<"narrow" | "wide">("wide");
+  const [activeTab, setActiveTab] = useState("scrolls");
+  const [configCollapsed, setConfigCollapsed] = useState(false);
+  const [activeSection, setActiveSection] = useState<ConfigSection>("codex");
 
-  const codexSlug = codexId.replace('-codex', '');
+  const { data: codexList } = useCodexList({ useDefaults: true });
+  const { data: codexConfig } = useCodexConfig({ codexId, useDefaults: true });
+
+  const enabledTabs = useMemo(() => {
+    return (codexConfig?.tabs || []).filter(tab => tab.enabled).sort((a, b) => a.order - b.order);
+  }, [codexConfig]);
+
+  const tabOptions = useMemo(() => {
+    if (enabledTabs.length > 0) {
+      return enabledTabs.map(tab => ({ slug: tab.slug, label: tab.label }));
+    }
+    return ["scrolls", "characters", "lore", "digiterra", "terra", "order"].map(slug => ({
+      slug,
+      label: labelize(slug),
+    }));
+  }, [enabledTabs]);
+
+  const fallbackCodexes = useMemo(() => ([
+    { id: "knyt-codex", label: "KNYT Codex", color: "purple" },
+    { id: "qripto-codex", label: "Qripto Codex", color: "indigo" },
+    { id: "aigentiq-codex", label: "Agentiq Cartridge", color: "blue" },
+  ]), []);
+
+  const codexOptions = useMemo(() => {
+    if (!codexList || codexList.length === 0) return fallbackCodexes;
+    return codexList.map(codex => ({
+      id: codex.id,
+      label: codex.name,
+      color: normalizeColor(codex.metadata?.color),
+    }));
+  }, [codexList, fallbackCodexes]);
+
+  useEffect(() => {
+    if (!codexOptions.length) return;
+    if (!codexOptions.some(option => option.id === codexId)) {
+      setCodexId(codexOptions[0].id);
+    }
+  }, [codexOptions, codexId]);
+
+  useEffect(() => {
+    if (!tabOptions.length) return;
+    if (!tabOptions.some(tab => tab.slug === activeTab)) {
+      setActiveTab(tabOptions[0].slug);
+    }
+  }, [tabOptions, activeTab]);
+
+  const codexSlug = codexId.replace("-codex", "");
   const embedUrl = `https://dev-beta.aigentz.me/triad/embed/codex/${codexSlug}?tab=${activeTab}&theme=${theme}&density=${density}`;
+
+  const sections = [
+    {
+      id: "codex",
+      label: "Select Codex",
+      icon: BookOpen,
+      content: (
+        <div className="flex flex-col gap-2">
+          {codexOptions.map((codex) => (
+            <button
+              key={codex.id}
+              onClick={() => setCodexId(codex.id)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                codexId === codex.id
+                  ? `bg-${codex.color}-500 text-white`
+                  : "bg-slate-700/50 text-slate-400 hover:bg-slate-700"
+              }`}
+            >
+              {codex.label}
+            </button>
+          ))}
+        </div>
+      ),
+    },
+    {
+      id: "theme",
+      label: "Theme",
+      icon: Palette,
+      content: (
+        <div className="flex gap-2">
+          <button
+            onClick={() => setTheme("dark")}
+            className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              theme === "dark"
+                ? "bg-indigo-500 text-white"
+                : "bg-slate-700/50 text-slate-400 hover:bg-slate-700"
+            }`}
+          >
+            Dark
+          </button>
+          <button
+            onClick={() => setTheme("light")}
+            className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              theme === "light"
+                ? "bg-indigo-500 text-white"
+                : "bg-slate-700/50 text-slate-400 hover:bg-slate-700"
+            }`}
+          >
+            Light
+          </button>
+        </div>
+      ),
+    },
+    {
+      id: "density",
+      label: "Density",
+      icon: LayoutGrid,
+      content: (
+        <div className="flex gap-2">
+          <button
+            onClick={() => setDensity("narrow")}
+            className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              density === "narrow"
+                ? "bg-purple-500 text-white"
+                : "bg-slate-700/50 text-slate-400 hover:bg-slate-700"
+            }`}
+          >
+            Narrow
+          </button>
+          <button
+            onClick={() => setDensity("wide")}
+            className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              density === "wide"
+                ? "bg-purple-500 text-white"
+                : "bg-slate-700/50 text-slate-400 hover:bg-slate-700"
+            }`}
+          >
+            Wide
+          </button>
+        </div>
+      ),
+    },
+    {
+      id: "tab",
+      label: "Initial Tab",
+      icon: List,
+      content: (
+        <div className="grid grid-cols-2 gap-2">
+          {tabOptions.map((tab) => (
+            <button
+              key={tab.slug}
+              onClick={() => setActiveTab(tab.slug)}
+              className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                activeTab === tab.slug
+                  ? "bg-purple-500 text-white"
+                  : "bg-slate-700/50 text-slate-400 hover:bg-slate-700"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      ),
+    },
+    {
+      id: "embed",
+      label: "Embed URL",
+      icon: Link,
+      content: (
+        <div className="bg-slate-900/50 rounded-lg p-3 border border-slate-700/50">
+          <code className="text-xs text-emerald-400 break-all">{embedUrl}</code>
+        </div>
+      ),
+    },
+    {
+      id: "iframe",
+      label: "Iframe Code",
+      icon: Code,
+      content: (
+        <div className="bg-slate-900/50 rounded-lg p-3 border border-slate-700/50">
+          <code className="text-xs text-cyan-400 break-all">
+            {`<iframe src="${embedUrl}" width="100%" height="600px" />`}
+          </code>
+        </div>
+      ),
+    },
+  ];
+
+  const activeSectionConfig = sections.find(section => section.id === activeSection) ?? sections[0];
 
   return (
     <div className="h-screen flex flex-col bg-slate-900">
@@ -34,137 +238,65 @@ export default function CodexViewerPage() {
 
       <div className="flex-1 flex overflow-hidden">
         {/* Control Panel */}
-        <div className="w-80 flex-shrink-0 border-r border-slate-700/50 bg-slate-800/30 p-6 overflow-y-auto">
-          <div className="space-y-6">
-            {/* Codex Selection */}
-            <div>
-              <label className="block text-sm font-semibold text-slate-300 mb-3">Select Codex</label>
-              <div className="flex flex-col gap-2">
-                {[
-                  { id: 'knyt-codex', label: 'KNYT Codex', color: 'purple' },
-                  { id: 'qripto-codex', label: 'Qripto Codex', color: 'indigo' },
-                  { id: 'aigentiq-codex', label: 'Agentiq Cartridge', color: 'blue' }
-                ].map((codex) => (
+        <div className="flex h-full border-r border-slate-700/50 bg-slate-800/30">
+          <div className="w-16 flex-shrink-0 border-r border-slate-700/50 bg-slate-800/70 flex flex-col items-center py-4">
+            <button
+              onClick={() => setConfigCollapsed(!configCollapsed)}
+              className="p-2 rounded-lg bg-slate-700/50 text-slate-200 hover:bg-slate-700"
+              title={configCollapsed ? "Expand configuration" : "Collapse configuration"}
+              aria-label={configCollapsed ? "Expand configuration" : "Collapse configuration"}
+            >
+              {configCollapsed ? (
+                <PanelLeftOpen className="w-4 h-4" />
+              ) : (
+                <PanelLeftClose className="w-4 h-4" />
+              )}
+            </button>
+
+            <div className="mt-6 flex flex-col gap-3">
+              {sections.map((section) => {
+                const Icon = section.icon;
+                const isActive = section.id === activeSection;
+                return (
                   <button
-                    key={codex.id}
-                    onClick={() => setCodexId(codex.id)}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      codexId === codex.id
-                        ? `bg-${codex.color}-500 text-white`
-                        : 'bg-slate-700/50 text-slate-400 hover:bg-slate-700'
+                    key={section.id}
+                    onClick={() => {
+                      setActiveSection(section.id as ConfigSection);
+                      if (configCollapsed) setConfigCollapsed(false);
+                    }}
+                    className={`p-2 rounded-lg transition-colors ${
+                      isActive
+                        ? "bg-indigo-500/30 text-indigo-200"
+                        : "bg-slate-700/30 text-slate-400 hover:bg-slate-700/60"
                     }`}
+                    title={section.label}
+                    aria-label={section.label}
                   >
-                    {codex.label}
+                    <Icon className="w-4 h-4" />
                   </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Theme Control */}
-            <div>
-              <label className="block text-sm font-semibold text-slate-300 mb-3">Theme</label>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setTheme('dark')}
-                  className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    theme === 'dark'
-                      ? 'bg-indigo-500 text-white'
-                      : 'bg-slate-700/50 text-slate-400 hover:bg-slate-700'
-                  }`}
-                >
-                  Dark
-                </button>
-                <button
-                  onClick={() => setTheme('light')}
-                  className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    theme === 'light'
-                      ? 'bg-indigo-500 text-white'
-                      : 'bg-slate-700/50 text-slate-400 hover:bg-slate-700'
-                  }`}
-                >
-                  Light
-                </button>
-              </div>
-            </div>
-
-            {/* Density Control */}
-            <div>
-              <label className="block text-sm font-semibold text-slate-300 mb-3">Density</label>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setDensity('narrow')}
-                  className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    density === 'narrow'
-                      ? 'bg-purple-500 text-white'
-                      : 'bg-slate-700/50 text-slate-400 hover:bg-slate-700'
-                  }`}
-                >
-                  Narrow
-                </button>
-                <button
-                  onClick={() => setDensity('wide')}
-                  className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    density === 'wide'
-                      ? 'bg-purple-500 text-white'
-                      : 'bg-slate-700/50 text-slate-400 hover:bg-slate-700'
-                  }`}
-                >
-                  Wide
-                </button>
-              </div>
-            </div>
-
-            {/* Tab Selection */}
-            <div>
-              <label className="block text-sm font-semibold text-slate-300 mb-3">Initial Tab</label>
-              <div className="grid grid-cols-2 gap-2">
-                {['scrolls', 'characters', 'lore', 'digiterra', 'terra', 'order'].map((tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors capitalize ${
-                      activeTab === tab
-                        ? 'bg-purple-500 text-white'
-                        : 'bg-slate-700/50 text-slate-400 hover:bg-slate-700'
-                    }`}
-                  >
-                    {tab}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Embed Code */}
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <Code className="w-4 h-4 text-slate-400" />
-                <label className="text-sm font-semibold text-slate-300">Embed URL</label>
-              </div>
-              <div className="bg-slate-900/50 rounded-lg p-3 border border-slate-700/50">
-                <code className="text-xs text-emerald-400 break-all">{embedUrl}</code>
-              </div>
-            </div>
-
-            {/* Iframe Code */}
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <Code className="w-4 h-4 text-slate-400" />
-                <label className="text-sm font-semibold text-slate-300">Iframe Code</label>
-              </div>
-              <div className="bg-slate-900/50 rounded-lg p-3 border border-slate-700/50">
-                <code className="text-xs text-cyan-400 break-all">
-                  {`<iframe src="${embedUrl}" width="100%" height="600px" />`}
-                </code>
-              </div>
-            </div>
-
-            {/* Info */}
-            <div className="bg-indigo-500/10 border border-indigo-500/30 rounded-lg p-4">
-              <p className="text-xs text-indigo-300">
-                <strong>Testing Mode:</strong> Changes here update the component in real-time. Use this to ensure predictable behavior before embedding in thin clients.
-              </p>
+                );
+              })}
             </div>
           </div>
+
+          {!configCollapsed && (
+            <div className="w-80 p-6 overflow-y-auto">
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-300 mb-3">
+                    {activeSectionConfig.label}
+                  </label>
+                  {activeSectionConfig.content}
+                </div>
+
+                <div className="bg-indigo-500/10 border border-indigo-500/30 rounded-lg p-4">
+                  <p className="text-xs text-indigo-300">
+                    <strong>Testing Mode:</strong> Changes here update the component in real-time. Use this to ensure predictable behavior before embedding in thin clients.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Component Preview */}

@@ -1,6 +1,6 @@
 {
   "version": "0.1.1",
-  "generated_at": "2026-01-09T04:58:32Z",
+  "generated_at": "2026-01-09T05:30:36Z",
   "repo": "AigentZBeta",
   "entries": [
     {
@@ -31,7 +31,7 @@
       "summary": "Primary shelves and item groupings for the Agentiq Cartridge.",
       "tags": ["collections", "navigation", "agentiq"],
       "owners": ["Aigent Z", "Aigent C"],
-      "last_updated": "2026-01-09T04:58:32Z"
+      "last_updated": "2026-01-09T05:30:36Z"
     },
     {
       "id": "agentiq-system-map",

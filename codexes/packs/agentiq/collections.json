@@ -9,6 +9,13 @@
       ]
     },
     {
+      "id": "col_system_map",
+      "title": "System Map",
+      "items": [
+        "items/SYSTEM_MAP.md"
+      ]
+    },
+    {
       "id": "col_decisions",
       "title": "Decisions",
       "items": [
