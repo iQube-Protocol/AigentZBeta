@@ -1,0 +1,87 @@
+{
+  "version": "0.1.0",
+  "generated_at": "2026-01-09T04:16:23Z",
+  "repo": "AigentZBeta",
+  "entries": [
+    {
+      "id": "agentiq-cartridge-front-door",
+      "path": "codexes/packs/agentiq/items/AGENTIQ_CARTRIDGE.md",
+      "type": "doc",
+      "title": "Agentiq Cartridge",
+      "summary": "Front door for agent context and update rules.",
+      "tags": ["agentiq", "cartridge", "front-door"],
+      "owners": ["Aigent Z", "Aigent C"],
+      "last_updated": "2026-01-09T04:10:40Z"
+    },
+    {
+      "id": "agentiq-system-map",
+      "path": "codexes/packs/agentiq/items/SYSTEM_MAP.md",
+      "type": "doc",
+      "title": "System Map",
+      "summary": "High-level architecture, module boundaries, and core flows.",
+      "tags": ["system", "architecture", "flows"],
+      "owners": ["Aigent Z"],
+      "last_updated": "2026-01-09T04:10:40Z"
+    },
+    {
+      "id": "agentiq-cartridge-brief",
+      "path": "codexes/packs/agentiq/items/AGENTIQ_CARTRIDGE_BRIEF.md",
+      "type": "doc",
+      "title": "Decision Brief — Agentiq Cartridge",
+      "summary": "Intent, Autodrive model, and PR auto-update requirements.",
+      "tags": ["decision", "agentiq", "cartridge", "autodrive"],
+      "owners": ["Aigent Z", "Aigent C"],
+      "last_updated": "2026-01-09T04:10:40Z"
+    },
+    {
+      "id": "agentiq-work-allocation",
+      "path": "codexes/packs/agentiq/items/WORK_ALLOCATION.md",
+      "type": "doc",
+      "title": "Work Allocation",
+      "summary": "Ownership boundaries between Cascade and Codex workstreams.",
+      "tags": ["ownership", "work-allocation", "boundaries"],
+      "owners": ["Aigent Z", "Aigent C"],
+      "last_updated": "2026-01-09T04:10:40Z"
+    },
+    {
+      "id": "agentiq-pr-brief-template",
+      "path": "codexes/packs/agentiq/items/PR_BRIEF_TEMPLATE.md",
+      "type": "doc",
+      "title": "PR Brief Template",
+      "summary": "Structured template for merge summaries and deployment notes.",
+      "tags": ["pr", "template", "process"],
+      "owners": ["Aigent Z", "Aigent C"],
+      "last_updated": "2026-01-09T04:10:40Z"
+    },
+    {
+      "id": "agentiq-retrieval-index-doc",
+      "path": "codexes/packs/agentiq/items/RETRIEVAL_INDEX.md",
+      "type": "doc",
+      "title": "Retrieval Index",
+      "summary": "Schema and update rules for the pack retrieval index.",
+      "tags": ["retrieval", "index", "schema"],
+      "owners": ["Aigent Z", "Aigent C"],
+      "last_updated": "2026-01-09T04:10:40Z"
+    },
+    {
+      "id": "agentiq-retrieval-index-schema",
+      "path": "codexes/packs/agentiq/contracts/index.schema.json",
+      "type": "schema",
+      "title": "Retrieval Index Schema",
+      "summary": "JSON schema for validating the retrieval index.",
+      "tags": ["retrieval", "index", "schema", "contract"],
+      "owners": ["Aigent C"],
+      "last_updated": "2026-01-09T04:13:54Z"
+    },
+    {
+      "id": "agentiq-pr-brief-2026-01-09",
+      "path": "codexes/packs/agentiq/updates/2026-01-09_agentiq-cartridge-index-expansion.md",
+      "type": "pr-brief",
+      "title": "PR Brief — 2026-01-09",
+      "summary": "Retrieval index schema entry, PR brief creation, and pack version bump.",
+      "tags": ["pr-brief", "update", "agentiq"],
+      "owners": ["Aigent C"],
+      "last_updated": "2026-01-09T04:16:23Z"
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "collections": [
+    {
+      "id": "col_start_here",
+      "title": "Start Here",
+      "items": [
+        "items/AGENTIQ_CARTRIDGE.md",
+        "items/SYSTEM_MAP.md"
+      ]
+    },
+    {
+      "id": "col_decisions",
+      "title": "Decisions",
+      "items": [
+        "items/AGENTIQ_CARTRIDGE_BRIEF.md"
+      ]
+    },
+    {
+      "id": "col_work_allocation",
+      "title": "Work Allocation",
+      "items": [
+        "items/WORK_ALLOCATION.md"
+      ]
+    },
+    {
+      "id": "col_pr_briefs",
+      "title": "PR Briefs",
+      "items": [
+        "items/PR_BRIEF_TEMPLATE.md"
+      ]
+    },
+    {
+      "id": "col_retrieval_index",
+      "title": "Retrieval Index",
+      "items": [
+        "items/RETRIEVAL_INDEX.md"
+      ]
+    }
+  ]
+}
