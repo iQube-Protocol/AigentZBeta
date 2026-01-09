@@ -19,15 +19,19 @@ import CodexPanelDynamic from "../../../../triad/components/CodexPanelDynamic";
 
 function CodexContent() {
   const searchParams = useSearchParams();
+  const codexParam = searchParams.get('codex') || searchParams.get('codexId') || undefined;
   const tab = searchParams.get('tab') || undefined;
   const theme = (searchParams.get('theme') as 'light' | 'dark') || 'dark';
   const density = (searchParams.get('density') as 'narrow' | 'wide') || 'wide';
   const personaId = searchParams.get('personaId') || undefined;
 
-  // Default to KNYT Codex for backward compatibility
+  const codexId = codexParam
+    ? (codexParam.endsWith('-codex') ? codexParam : `${codexParam}-codex`)
+    : 'knyt-codex';
+
   return (
     <CodexPanelDynamic
-      codexId="knyt-codex"
+      codexId={codexId}
       theme={theme}
       density={density}
       initialTab={tab}
