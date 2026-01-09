@@ -573,11 +573,12 @@ export const Sidebar = () => {
   
   const toggleSection = (label: string) => {
     if (collapsed) {
-      // In collapsed mode, toggle between showing all icons or only active ones
+      setCollapsed(false);
       setShowOnlyActive(prev => ({
         ...prev,
-        [label]: !prev[label]
+        [label]: false,
       }));
+      setOpenSections(prev => (prev.includes(label) ? prev : [...prev, label]));
       return;
     }
     

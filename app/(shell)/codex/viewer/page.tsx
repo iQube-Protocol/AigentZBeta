@@ -17,6 +17,8 @@ import {
 } from "lucide-react";
 
 type ConfigSection = "codex" | "theme" | "density" | "tab" | "embed" | "iframe";
+type CodexOption = { id: string; label: string; color: string };
+type TabOption = { slug: string; label: string };
 
 const COLOR_SET = new Set(["purple", "indigo", "blue", "emerald", "cyan", "amber", "rose"]);
 
@@ -47,7 +49,7 @@ export default function CodexViewerPage() {
     return (codexConfig?.tabs || []).filter(tab => tab.enabled).sort((a, b) => a.order - b.order);
   }, [codexConfig]);
 
-  const tabOptions = useMemo(() => {
+  const tabOptions = useMemo<TabOption[]>(() => {
     if (enabledTabs.length > 0) {
       return enabledTabs.map(tab => ({ slug: tab.slug, label: tab.label }));
     }
@@ -57,13 +59,13 @@ export default function CodexViewerPage() {
     }));
   }, [enabledTabs]);
 
-  const fallbackCodexes = useMemo(() => ([
+  const fallbackCodexes = useMemo<CodexOption[]>(() => ([
     { id: "knyt-codex", label: "KNYT Codex", color: "purple" },
     { id: "qripto-codex", label: "Qripto Codex", color: "indigo" },
     { id: "aigentiq-codex", label: "Agentiq Cartridge", color: "blue" },
   ]), []);
 
-  const codexOptions = useMemo(() => {
+  const codexOptions = useMemo<CodexOption[]>(() => {
     if (!codexList || codexList.length === 0) return fallbackCodexes;
     return codexList.map((codex: CodexListItem) => ({
       id: codex.id,
