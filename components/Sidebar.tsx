@@ -923,11 +923,6 @@ export const Sidebar = () => {
   // Debug logging
   console.log('Sidebar render state:', { initialized, isClient, storageAvailable });
   
-  // Show a minimal placeholder during initialization to prevent UI jumping
-  if (!initialized || !isClient) {
-    return <aside className="w-16 transition-all duration-200 bg-black/30 ring-1 ring-white/10 backdrop-blur-xl p-4 md:p-6 flex-shrink-0 min-h-screen"></aside>;
-  }
-  
   return (
     <>
       <aside className={`${collapsed ? "w-16" : "w-72"} transition-all duration-200 bg-black/30 ring-1 ring-white/10 backdrop-blur-xl p-4 md:p-6 flex-shrink-0 min-h-screen`}>
