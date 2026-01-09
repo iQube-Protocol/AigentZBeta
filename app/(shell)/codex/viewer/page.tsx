@@ -43,7 +43,7 @@ export default function CodexViewerPage() {
                 {[
                   { id: 'knyt-codex', label: 'KNYT Codex', color: 'purple' },
                   { id: 'qripto-codex', label: 'Qripto Codex', color: 'indigo' },
-                  { id: 'aigentiq-codex', label: 'AigentiQ Codex', color: 'blue' }
+                  { id: 'aigentiq-codex', label: 'Agentiq Cartridge', color: 'blue' }
                 ].map((codex) => (
                   <button
                     key={codex.id}

@@ -323,81 +323,155 @@ export const QRIPTO_CODEX: CodexConfig = {
   updatedAt: new Date().toISOString()
 };
 
-export const AIGENTIQ_CODEX: CodexConfig = {
+export const AGENTIQ_CARTRIDGE: CodexConfig = {
   id: 'aigentiq-codex',
-  name: 'AigentiQ Codex',
+  name: 'Agentiq Cartridge',
   slug: 'aigentiq',
   enabled: true,
   version: '1.0.0',
   owner: 'aigent-z',
   metadata: {
-    description: 'AigentiQ platform documentation, guides, and resources',
-    icon: 'Zap',
+    description: 'AgentiQ engineering truth: docs, decisions, PR briefs, and system maps',
+    icon: 'Brain',
     color: 'blue',
-    category: 'platform',
-    tags: ['aigentiq', 'platform', 'documentation', 'api']
+    category: 'cartridge',
+    tags: ['agentiq', 'cartridge', 'platform', 'decisions', 'pr-briefs']
   },
   tabs: [
     {
-      id: 'codex',
-      label: 'Codex',
-      slug: 'codex',
+      id: 'start',
+      label: 'Start Here',
+      slug: 'start',
       enabled: true,
       order: 0,
-      type: 'liquid-ui',
+      type: 'static',
       config: {
-        liquidTemplate: 'aigentiq-codex-home',
-        dataSource: '/api/codex/aigentiq/home'
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'agentiq',
+          collectionId: 'col_start_here',
+          defaultPath: 'items/AGENTIQ_CARTRIDGE.md'
+        }
       },
       metadata: {
         icon: 'Home',
-        description: 'AigentiQ Codex home',
+        description: 'Cartridge overview and navigation',
         color: 'blue'
       }
     },
     {
-      id: 'docs',
-      label: 'Documentation',
-      slug: 'docs',
+      id: 'system-map',
+      label: 'System Map',
+      slug: 'system-map',
       enabled: true,
       order: 1,
       type: 'static',
       config: {
-        component: 'DocsTab'
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'agentiq',
+          collectionId: 'col_start_here',
+          defaultPath: 'items/SYSTEM_MAP.md'
+        }
       },
       metadata: {
-        icon: 'FileText',
-        description: 'Platform documentation'
+        icon: 'BookOpen',
+        description: 'Architecture and core flows'
       }
     },
     {
-      id: 'api',
-      label: 'API Reference',
-      slug: 'api',
+      id: 'decisions',
+      label: 'Decisions',
+      slug: 'decisions',
       enabled: true,
       order: 2,
       type: 'static',
       config: {
-        component: 'APITab'
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'agentiq',
+          collectionId: 'col_decisions'
+        }
       },
       metadata: {
         icon: 'Code',
-        description: 'API reference and endpoints'
+        description: 'Decision briefs and rationale'
       }
     },
     {
-      id: 'tutorials',
-      label: 'Tutorials',
-      slug: 'tutorials',
+      id: 'work-allocation',
+      label: 'Work Allocation',
+      slug: 'work-allocation',
       enabled: true,
       order: 3,
       type: 'static',
       config: {
-        component: 'TutorialsTab'
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'agentiq',
+          collectionId: 'col_work_allocation'
+        }
       },
       metadata: {
-        icon: 'GraduationCap',
-        description: 'Step-by-step tutorials'
+        icon: 'Shield',
+        description: 'Ownership boundaries'
+      }
+    },
+    {
+      id: 'pr-briefs',
+      label: 'PR Briefs',
+      slug: 'pr-briefs',
+      enabled: true,
+      order: 4,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'agentiq',
+          collectionId: 'col_pr_briefs'
+        }
+      },
+      metadata: {
+        icon: 'FileText',
+        description: 'PR summaries and impact'
+      }
+    },
+    {
+      id: 'updates',
+      label: 'Updates',
+      slug: 'updates',
+      enabled: true,
+      order: 5,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'agentiq',
+          collectionId: 'col_updates'
+        }
+      },
+      metadata: {
+        icon: 'Sparkles',
+        description: 'Latest cartridge updates'
+      }
+    },
+    {
+      id: 'retrieval-index',
+      label: 'Retrieval Index',
+      slug: 'retrieval-index',
+      enabled: true,
+      order: 6,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'agentiq',
+          collectionId: 'col_retrieval_index'
+        }
+      },
+      metadata: {
+        icon: 'BookMarked',
+        description: 'Index schema and lookup'
       }
     }
   ],
@@ -408,7 +482,7 @@ export const AIGENTIQ_CODEX: CodexConfig = {
   },
   liquidUI: {
     enabled: true,
-    templateId: 'aigentiq-codex-v1'
+    templateId: 'agentiq-cartridge-v1'
   },
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString()
@@ -417,7 +491,7 @@ export const AIGENTIQ_CODEX: CodexConfig = {
 export const CODEX_DEFINITIONS: CodexConfig[] = [
   KNYT_CODEX,
   QRIPTO_CODEX,
-  AIGENTIQ_CODEX
+  AGENTIQ_CARTRIDGE
 ];
 
 export function getCodexById(id: string): CodexConfig | undefined {

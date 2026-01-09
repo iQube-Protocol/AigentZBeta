@@ -23,6 +23,7 @@ import { OrderTab } from "./tabs/OrderTab";
 import { QriptopiaTab } from "./tabs/QriptopiaTab";
 import { FeaturesTab } from "./tabs/FeaturesTab";
 import { PlaceholderTab } from "./tabs/PlaceholderTab";
+import { AgentiqCartridgeTab } from "./tabs/AgentiqCartridgeTab";
 
 interface TabRendererProps {
   tab: CodexTab;
@@ -42,6 +43,7 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   OrderTab,
   QriptopiaTab,
   FeaturesTab,
+  AgentiqCartridgeTab,
   PlaceholderTab,
   QriptoScrollsTab: ScrollsTab, // Reuse for Qripto
   Kn0wdZTab: PlaceholderTab,

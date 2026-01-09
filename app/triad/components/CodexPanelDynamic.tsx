@@ -15,7 +15,7 @@ import { TabRenderer } from "./codex/TabRenderer";
 import { getIconComponent } from "./codex/iconMap";
 
 interface CodexPanelDynamicProps {
-  codexId: string;              // 'knyt-codex', 'qripto-codex', 'aigentiq-codex'
+  codexId: string;              // 'knyt-codex', 'qripto-codex', 'aigentiq-codex' (Agentiq Cartridge)
   theme?: 'light' | 'dark';
   density?: 'narrow' | 'wide';
   initialTab?: string;

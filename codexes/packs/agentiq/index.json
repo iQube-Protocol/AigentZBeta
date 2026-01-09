@@ -1,6 +1,6 @@
 {
-  "version": "0.1.0",
-  "generated_at": "2026-01-09T04:16:23Z",
+  "version": "0.1.1",
+  "generated_at": "2026-01-09T04:58:32Z",
   "repo": "AigentZBeta",
   "entries": [
     {
@@ -12,6 +12,26 @@
       "tags": ["agentiq", "cartridge", "front-door"],
       "owners": ["Aigent Z", "Aigent C"],
       "last_updated": "2026-01-09T04:10:40Z"
+    },
+    {
+      "id": "agentiq-pack-meta",
+      "path": "codexes/packs/agentiq/meta.json",
+      "type": "meta",
+      "title": "Pack Metadata",
+      "summary": "Pack identity, version, tags, and navigation defaults.",
+      "tags": ["pack", "meta", "agentiq"],
+      "owners": ["Aigent Z", "Aigent C"],
+      "last_updated": "2026-01-09T04:58:32Z"
+    },
+    {
+      "id": "agentiq-pack-collections",
+      "path": "codexes/packs/agentiq/collections.json",
+      "type": "collection",
+      "title": "Pack Collections",
+      "summary": "Primary shelves and item groupings for the Agentiq Cartridge.",
+      "tags": ["collections", "navigation", "agentiq"],
+      "owners": ["Aigent Z", "Aigent C"],
+      "last_updated": "2026-01-09T04:58:32Z"
     },
     {
       "id": "agentiq-system-map",

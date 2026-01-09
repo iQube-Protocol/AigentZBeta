@@ -30,6 +30,13 @@
       ]
     },
     {
+      "id": "col_updates",
+      "title": "Updates",
+      "items": [
+        "updates/2026-01-09_agentiq-cartridge-index-expansion.md"
+      ]
+    },
+    {
       "id": "col_retrieval_index",
       "title": "Retrieval Index",
       "items": [
