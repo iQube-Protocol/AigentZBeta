@@ -51,6 +51,29 @@ async function fetchJson<T>(url: string): Promise<T> {
   return (await res.json()) as T;
 }
 
+async function buildPayloadFromSections(origin: string, issue: string): Promise<QriptoHomePayload> {
+  const [homeHero, latestNews, secondHero, pennydrops, scrolls, knowdz] = await Promise.all([
+    fetchJson<any>(`${origin}/api/content/section/home-hero?issue=${encodeURIComponent(issue)}`),
+    fetchJson<any>(`${origin}/api/content/section/latest-news?issue=${encodeURIComponent(issue)}`),
+    fetchJson<any>(`${origin}/api/content/section/second-hero?issue=${encodeURIComponent(issue)}`),
+    fetchJson<any>(`${origin}/api/content/section/pennydrops?issue=${encodeURIComponent(issue)}`),
+    fetchJson<any>(`${origin}/api/content/section/scrolls?issue=${encodeURIComponent(issue)}`),
+    fetchJson<any>(`${origin}/api/content/section/21knowdz?issue=${encodeURIComponent(issue)}`),
+  ]);
+
+  return {
+    issue,
+    sections: {
+      homeHero: homeHero.content || [],
+      latestNews: latestNews.content || [],
+      secondHero: secondHero.content || [],
+      pennydrops: pennydrops.content || [],
+      scrolls: scrolls.content || [],
+      knowdz: knowdz.content || [],
+    },
+  };
+}
+
 export function QriptoLiquidCodexTab({ theme = 'dark', issueSlug, dataSource }: QriptoLiquidCodexTabProps) {
   const { actions } = useSmartTriad();
   const isOwnedItem = (item: { id: string }) => actions.checkOwnership(item.id);
@@ -83,29 +106,17 @@ export function QriptoLiquidCodexTab({ theme = 'dark', issueSlug, dataSource }: 
           cacheKey,
           async () => {
             if (primary) {
-              return await fetchJson<QriptoHomePayload>(primary);
+              const primaryData = await fetchJson<QriptoHomePayload>(primary);
+              const hasContent = Object.values(primaryData.sections || {}).some(
+                (items) => Array.isArray(items) && items.length > 0
+              );
+              if (hasContent) {
+                return primaryData;
+              }
+              return await buildPayloadFromSections(origin, issue);
             }
 
-            const [homeHero, latestNews, secondHero, pennydrops, scrolls, knowdz] = await Promise.all([
-              fetchJson<any>(`${origin}/api/content/section/home-hero?issue=${encodeURIComponent(issue)}`),
-              fetchJson<any>(`${origin}/api/content/section/latest-news?issue=${encodeURIComponent(issue)}`),
-              fetchJson<any>(`${origin}/api/content/section/second-hero?issue=${encodeURIComponent(issue)}`),
-              fetchJson<any>(`${origin}/api/content/section/pennydrops?issue=${encodeURIComponent(issue)}`),
-              fetchJson<any>(`${origin}/api/content/section/scrolls?issue=${encodeURIComponent(issue)}`),
-              fetchJson<any>(`${origin}/api/content/section/21knowdz?issue=${encodeURIComponent(issue)}`),
-            ]);
-
-            return {
-              issue,
-              sections: {
-                homeHero: homeHero.content || [],
-                latestNews: latestNews.content || [],
-                secondHero: secondHero.content || [],
-                pennydrops: pennydrops.content || [],
-                scrolls: scrolls.content || [],
-                knowdz: knowdz.content || [],
-              },
-            } as QriptoHomePayload;
+            return await buildPayloadFromSections(origin, issue);
           },
           { ttl: 300, tags: [`qripto:home:${issue}`] }
         );
