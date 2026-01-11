@@ -7,13 +7,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import fs from 'fs';
+import path from 'path';
 import { isPremiumContent } from '@/app/triad/components/codex/utils/contentFlags';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 
 // Valid sections
 const VALID_SECTIONS = [
@@ -45,6 +42,58 @@ function issueNumberFromSlug(issueSlug: string): number {
   return Number.isFinite(n) ? n : 1;
 }
 
+type FallbackItem = {
+  id: string;
+  title: string;
+  excerpt?: string;
+  slug?: string;
+  status?: string;
+  tags?: string[];
+  thumbnail?: string;
+  cover_image_url?: string;
+  cover_image_uri?: string;
+  image?: string;
+  placement?: Record<string, any>;
+  modalities?: Record<string, any>;
+  published_at?: string;
+  created_at?: string;
+  issue_ref?: string;
+  is_premium?: boolean;
+  isPremium?: boolean;
+  premium?: boolean;
+};
+
+let fallbackCache: FallbackItem[] | null = null;
+
+function loadFallbackContent(): FallbackItem[] | null {
+  if (fallbackCache) return fallbackCache;
+  const filePath = path.join(process.cwd(), 'qriptopian-content-export.json');
+  if (!fs.existsSync(filePath)) return null;
+  try {
+    const raw = fs.readFileSync(filePath, 'utf8');
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return null;
+    fallbackCache = parsed as FallbackItem[];
+    return fallbackCache;
+  } catch (error) {
+    console.warn('[Content] Failed to load fallback content:', error);
+    return null;
+  }
+}
+
+function filterFallbackContent(section: string, tab: string | null, issue: string, issueNumber: number) {
+  const data = loadFallbackContent();
+  if (!data) return [];
+  const issueRefCandidates = [String(issueNumber), `#${issueNumber}`, issue];
+  return data.filter((item) => {
+    const placement = item.placement || {};
+    if (placement.section !== section) return false;
+    if (tab && placement.tab && placement.tab !== tab) return false;
+    if (item.issue_ref && !issueRefCandidates.includes(item.issue_ref)) return false;
+    return true;
+  });
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { section: string } }
@@ -56,9 +105,8 @@ export async function GET(
     const issue = normalizeIssueSlug(searchParams.get('issue'));
     const issueNumber = issueNumberFromSlug(issue);
 
-    const hasSupabase = Boolean(
-      process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
-    );
+    const supabase = getSupabaseServer();
+    const hasSupabase = Boolean(supabase);
     
     // Validate section
     if (!VALID_SECTIONS.includes(section)) {
@@ -68,15 +116,82 @@ export async function GET(
     }
 
     if (!hasSupabase) {
+      const fallback = filterFallbackContent(section, tab, issue, issueNumber);
+      const fallbackContent = fallback.length > 0 ? fallback : [];
+      const transformedContent = fallbackContent.map((item: any) => {
+        const placement = item.placement || {};
+        const modalities = item.modalities || {};
+        let badge = 'ARTICLE';
+        if (section === 'pennydrops') badge = 'Q¢';
+        else if (placement.tab === 'metaknyts') badge = 'METAKNYTS';
+        else if (placement.tab === 'synthsims') badge = 'SYNTHSIMS';
+        else if (placement.tab === 'dev' || placement.tab === 'developer') badge = 'DEV';
+        else if (placement.tab === 'creative') badge = 'CREATIVE';
+        else if (placement.tab === 'exec' || placement.tab === 'executive') badge = 'EXEC';
+        else if (section === 'latest-news') badge = 'NEWS';
+        else if (section === 'home-hero' || section === 'second-hero') badge = 'HERO';
+
+        const isPremium = isPremiumContent({
+          id: item.id,
+          tags: item.tags || [],
+          badge,
+          isPremium: Boolean(item.is_premium ?? item.isPremium ?? item.premium),
+        });
+
+        return {
+          id: item.id,
+          content_id: item.id,
+          slug: item.slug || item.title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+          title: item.title,
+          subtitle: item.excerpt,
+          excerpt: item.excerpt,
+          status: item.status || 'published',
+          tags: item.tags || [],
+          badge,
+          isPremium,
+          image: item.thumbnail || item.cover_image_url || item.cover_image_uri || item.image,
+          imageScale: placement.imageScale || 100,
+          imageX: placement.imageX || 50,
+          imageY: placement.imageY || 50,
+          position: placement.position || 1,
+          modalities: {
+            read: modalities.read ? {
+              available: true,
+              text: modalities.read.text,
+              duration: modalities.read.duration || '5 min read',
+            } : undefined,
+            watch: modalities.watch ? {
+              available: true,
+              video_url: modalities.watch.video_url,
+              duration: modalities.watch.duration,
+              type: 'hosted',
+            } : undefined,
+            listen: modalities.listen ? {
+              available: true,
+              audio_url: modalities.listen.audio_url,
+              duration: modalities.listen.duration,
+            } : undefined,
+            link: modalities.link ? {
+              available: true,
+              url: modalities.link.url,
+              allow_embed: modalities.link.allow_embed,
+            } : undefined,
+          },
+          contentBlocks: [],
+          created_at: item.created_at,
+          published_at: item.published_at,
+        };
+      });
+
       return NextResponse.json({
-        content: [],
-        count: 0,
+        content: transformedContent,
+        count: transformedContent.length,
         section,
         tab: tab || null,
         issue,
-        source: 'unconfigured',
+        source: fallback.length > 0 ? 'fallback' : 'unconfigured',
         timestamp: new Date().toISOString(),
-        warning: 'Supabase not configured',
+        warning: fallback.length > 0 ? 'Supabase not configured; using fallback content' : 'Supabase not configured',
       });
     }
 
@@ -90,7 +205,7 @@ export async function GET(
     const issuePlacement = { ...basePlacement, issue };
 
     const runQuery = async (placement: Record<string, any>) => {
-      return supabase
+      return supabase!
         .from('content')
         .select('*')
         .contains('placement', placement)
@@ -106,7 +221,7 @@ export async function GET(
         issue,
       ];
 
-      return supabase
+      return supabase!
         .from('content')
         .select('*')
         .contains('placement', placement)
@@ -132,13 +247,79 @@ export async function GET(
 
     if (error) {
       console.error(`[Content/${section}] Database error:`, error);
+      const fallback = filterFallbackContent(section, tab, issue, issueNumber);
+      const transformedFallback = fallback.map((item: any) => {
+        const placement = item.placement || {};
+        const modalities = item.modalities || {};
+        let badge = 'ARTICLE';
+        if (section === 'pennydrops') badge = 'Q¢';
+        else if (placement.tab === 'metaknyts') badge = 'METAKNYTS';
+        else if (placement.tab === 'synthsims') badge = 'SYNTHSIMS';
+        else if (placement.tab === 'dev' || placement.tab === 'developer') badge = 'DEV';
+        else if (placement.tab === 'creative') badge = 'CREATIVE';
+        else if (placement.tab === 'exec' || placement.tab === 'executive') badge = 'EXEC';
+        else if (section === 'latest-news') badge = 'NEWS';
+        else if (section === 'home-hero' || section === 'second-hero') badge = 'HERO';
+
+        const isPremium = isPremiumContent({
+          id: item.id,
+          tags: item.tags || [],
+          badge,
+          isPremium: Boolean(item.is_premium ?? item.isPremium ?? item.premium),
+        });
+
+        return {
+          id: item.id,
+          content_id: item.id,
+          slug: item.slug || item.title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+          title: item.title,
+          subtitle: item.excerpt,
+          excerpt: item.excerpt,
+          status: item.status || 'published',
+          tags: item.tags || [],
+          badge,
+          isPremium,
+          image: item.thumbnail || item.cover_image_url || item.cover_image_uri || item.image,
+          imageScale: placement.imageScale || 100,
+          imageX: placement.imageX || 50,
+          imageY: placement.imageY || 50,
+          position: placement.position || 1,
+          modalities: {
+            read: modalities.read ? {
+              available: true,
+              text: modalities.read.text,
+              duration: modalities.read.duration || '5 min read',
+            } : undefined,
+            watch: modalities.watch ? {
+              available: true,
+              video_url: modalities.watch.video_url,
+              duration: modalities.watch.duration,
+              type: 'hosted',
+            } : undefined,
+            listen: modalities.listen ? {
+              available: true,
+              audio_url: modalities.listen.audio_url,
+              duration: modalities.listen.duration,
+            } : undefined,
+            link: modalities.link ? {
+              available: true,
+              url: modalities.link.url,
+              allow_embed: modalities.link.allow_embed,
+            } : undefined,
+          },
+          contentBlocks: [],
+          created_at: item.created_at,
+          published_at: item.published_at,
+        };
+      });
+
       return NextResponse.json({
-        content: [],
-        count: 0,
+        content: transformedFallback,
+        count: transformedFallback.length,
         section,
         tab: tab || null,
         issue,
-        source: 'error',
+        source: fallback.length > 0 ? 'fallback' : 'error',
         timestamp: new Date().toISOString(),
         warning: error.message || 'Failed to fetch content',
       });
@@ -152,6 +333,87 @@ export async function GET(
       const posB = b.placement?.position || 999;
       return posA - posB;
     });
+
+    if (!content || content.length === 0) {
+      const fallback = filterFallbackContent(section, tab, issue, issueNumber);
+      if (fallback.length > 0) {
+        const transformedFallback = fallback.map((item: any) => {
+          const placement = item.placement || {};
+          const modalities = item.modalities || {};
+          let badge = 'ARTICLE';
+          if (section === 'pennydrops') badge = 'Q¢';
+          else if (placement.tab === 'metaknyts') badge = 'METAKNYTS';
+          else if (placement.tab === 'synthsims') badge = 'SYNTHSIMS';
+          else if (placement.tab === 'dev' || placement.tab === 'developer') badge = 'DEV';
+          else if (placement.tab === 'creative') badge = 'CREATIVE';
+          else if (placement.tab === 'exec' || placement.tab === 'executive') badge = 'EXEC';
+          else if (section === 'latest-news') badge = 'NEWS';
+          else if (section === 'home-hero' || section === 'second-hero') badge = 'HERO';
+
+          const isPremium = isPremiumContent({
+            id: item.id,
+            tags: item.tags || [],
+            badge,
+            isPremium: Boolean(item.is_premium ?? item.isPremium ?? item.premium),
+          });
+
+          return {
+            id: item.id,
+            content_id: item.id,
+            slug: item.slug || item.title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+            title: item.title,
+            subtitle: item.excerpt,
+            excerpt: item.excerpt,
+            status: item.status || 'published',
+            tags: item.tags || [],
+            badge,
+            isPremium,
+            image: item.thumbnail || item.cover_image_url || item.cover_image_uri || item.image,
+            imageScale: placement.imageScale || 100,
+            imageX: placement.imageX || 50,
+            imageY: placement.imageY || 50,
+            position: placement.position || 1,
+            modalities: {
+              read: modalities.read ? {
+                available: true,
+                text: modalities.read.text,
+                duration: modalities.read.duration || '5 min read',
+              } : undefined,
+              watch: modalities.watch ? {
+                available: true,
+                video_url: modalities.watch.video_url,
+                duration: modalities.watch.duration,
+                type: 'hosted',
+              } : undefined,
+              listen: modalities.listen ? {
+                available: true,
+                audio_url: modalities.listen.audio_url,
+                duration: modalities.listen.duration,
+              } : undefined,
+              link: modalities.link ? {
+                available: true,
+                url: modalities.link.url,
+                allow_embed: modalities.link.allow_embed,
+              } : undefined,
+            },
+            contentBlocks: [],
+            created_at: item.created_at,
+            published_at: item.published_at,
+          };
+        });
+
+        return NextResponse.json({
+          content: transformedFallback,
+          count: transformedFallback.length,
+          section,
+          tab: tab || null,
+          issue,
+          source: 'fallback',
+          timestamp: new Date().toISOString(),
+          warning: 'No database content found; using fallback content',
+        });
+      }
+    }
 
     // Transform to match Liquid UI format expected by frontend
     const transformedContent = sortedContent.map((item: any) => {

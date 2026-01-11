@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 
 /**
  * Server-Driven User Preferences and Flags
@@ -7,10 +7,7 @@ import { createClient } from '@supabase/supabase-js';
  * Replaces localStorage-based flags with server-driven state management
  */
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabase = getSupabaseServer();
 
 interface UserPreference {
   user_id: string;
@@ -34,6 +31,16 @@ export async function GET(request: NextRequest) {
         { ok: false, error: 'userId parameter required' },
         { status: 400 }
       );
+    }
+
+    if (!supabase) {
+      return NextResponse.json({
+        ok: true,
+        preferences: {},
+        raw: [],
+        at: new Date().toISOString(),
+        warning: 'Supabase not configured',
+      });
     }
 
     let query = supabase
@@ -111,6 +118,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (!supabase) {
+      return NextResponse.json({
+        ok: true,
+        results: [],
+        setCount: 0,
+        totalCount: 0,
+        at: new Date().toISOString(),
+        warning: 'Supabase not configured',
+      });
+    }
+
     const results = [];
     const now = new Date().toISOString();
 
@@ -176,6 +194,15 @@ export async function DELETE(request: NextRequest) {
         { ok: false, error: 'userId parameter required' },
         { status: 400 }
       );
+    }
+
+    if (!supabase) {
+      return NextResponse.json({
+        ok: true,
+        deletedCount: 0,
+        at: new Date().toISOString(),
+        warning: 'Supabase not configured',
+      });
     }
 
     let query = supabase
