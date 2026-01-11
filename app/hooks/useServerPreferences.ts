@@ -28,6 +28,9 @@ export function useServerPreferences(options: ServerPreferencesOptions = {}) {
 
   // Get user ID from SmartTriad or generate session-based ID
   const getUserId = useCallback(() => {
+    if (typeof window === "undefined") {
+      return triadContext?.personaId ? `persona_${triadContext.personaId}` : "server_anonymous";
+    }
     // Try to get authenticated user ID first
     if (triadContext?.personaId) {
       return `persona_${triadContext.personaId}`;
