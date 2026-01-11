@@ -564,6 +564,10 @@ export function useSmartTriad() {
   return context;
 }
 
+export function useOptionalSmartTriad() {
+  return useContext(SmartTriadContext);
+}
+
 export function useTriadContent() {
   const { state, actions } = useSmartTriad();
   return {

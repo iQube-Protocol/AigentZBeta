@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useSmartTriad } from '../components/content';
+import { useOptionalSmartTriad } from '../components/content';
 
 interface ServerPreferencesOptions {
   category?: 'feature_flag' | 'ui_preference' | 'consent' | 'workflow';
@@ -19,7 +19,7 @@ interface PreferenceState {
  */
 export function useServerPreferences(options: ServerPreferencesOptions = {}) {
   const { category, keys, autoSync = true } = options;
-  const triadContext = useSmartTriad();
+  const triadContext = useOptionalSmartTriad();
   
   const [preferences, setPreferences] = useState<PreferenceState>({});
   const [loading, setLoading] = useState(true);
@@ -29,7 +29,7 @@ export function useServerPreferences(options: ServerPreferencesOptions = {}) {
   // Get user ID from SmartTriad or generate session-based ID
   const getUserId = useCallback(() => {
     // Try to get authenticated user ID first
-    if (triadContext.personaId) {
+    if (triadContext?.personaId) {
       return `persona_${triadContext.personaId}`;
     }
     

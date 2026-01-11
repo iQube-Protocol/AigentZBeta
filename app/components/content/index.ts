@@ -16,6 +16,7 @@ export { default as SmartWalletDrawer } from './SmartWalletDrawer';
 export { 
   SmartTriadProvider,
   useSmartTriad,
+  useOptionalSmartTriad,
   useTriadContent,
   useTriadWallet,
   useTriadMenu,
