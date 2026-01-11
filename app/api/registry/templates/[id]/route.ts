@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServer } from '../../../_lib/supabaseServer';
 import { getStore, setStore } from '../store';
 import { IQubeTemplate } from '../../../../../types/registry';
+import { CacheInvalidation } from '../../../../utils/cache';
 
 function notFound() {
   return NextResponse.json({ error: 'Not found' }, { status: 404 });
@@ -213,6 +214,10 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
     if (supabase) {
       const { error, status } = await supabase.from('iqube_templates').delete().eq('id', id);
       if (error) return NextResponse.json({ error: error.message }, { status: status || 500 });
+      
+      // Invalidate cache when template is deleted
+      CacheInvalidation.invalidateRegistry(id);
+      
       return NextResponse.json({ ok: true }, { status: 200 });
     }
     // Fallback memory
@@ -220,6 +225,10 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
     const next = items.filter(t => t.id !== id);
     if (next.length === items.length) return notFound();
     setStore(next);
+    
+    // Invalidate cache for memory store
+    CacheInvalidation.invalidateRegistry(id);
+    
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch (e) {
     console.error('DELETE /api/registry/templates/[id] error:', e);

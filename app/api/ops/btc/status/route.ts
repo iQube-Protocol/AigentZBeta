@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createLogger } from '../../../../utils/structuredLogger';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -9,18 +10,33 @@ import { idlFactory as posIdl } from '@/services/ops/idl/proof_of_state';
 import { idlFactory as dvnIdl } from '@/services/ops/idl/cross_chain_service';
 
 export async function GET(req: NextRequest) {
+  // Initialize structured logger
+  const logger = createLogger().logRequest(req, { 
+    component: 'btc-status',
+    operation: 'get-status'
+  });
+  
   try {
+    logger.info('Fetching BTC testnet status');
     const testnet = await getTestnetStatus();
-    console.log('BTC testnet status:', testnet);
+    
+    logger.debug('BTC testnet status retrieved', {
+      blockHeight: testnet.blockHeight,
+      details: testnet.details
+    });
 
     // Start with placeholder anchor values then enrich via Proof-of-State
+    logger.info('Fetching anchor status');
     let anchor = await getAnchorStatus().catch(() => null as any);
 
     try {
       const POS_ID = (process.env.PROOF_OF_STATE_CANISTER_ID || process.env.NEXT_PUBLIC_PROOF_OF_STATE_CANISTER_ID) as string;
       if (POS_ID) {
+        logger.info('Connecting to Proof-of-State canister', { canisterId: POS_ID });
         const pos = await getActor<any>(POS_ID, posIdl);
+        
         // Get batches from proof-of-state, but get pending count from DVN (they should be synchronized)
+        logger.debug('Fetching batches from Proof-of-State');
         const batches = await pos.get_batches().catch(() => []);
         
         // Get pending count from both canisters to verify synchronization
@@ -196,14 +212,25 @@ export async function GET(req: NextRequest) {
       }
     } catch {}
 
-    return NextResponse.json({ 
+    const response = NextResponse.json({ 
       ok: testnet.ok && (!!anchor ? anchor.ok : true), 
       testnet, 
       anchor, 
       latestTx,
       at: new Date().toISOString() 
     });
+    
+    logger.logResponse(response.status, { testnet, anchor });
+    return response;
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || 'Failed to load BTC status' }, { status: 500 });
+    logger.error('Failed to load BTC status', e, {
+      component: 'btc-status',
+      operation: 'get-status'
+    });
+    return NextResponse.json({ 
+      ok: false, 
+      error: e?.message || 'Failed to load BTC status',
+      requestId: logger.getContext().requestId 
+    }, { status: 500 });
   }
 }

@@ -31,11 +31,6 @@ const nextConfig = {
         config.externals.push('@napi-rs/canvas');
       }
     }
-    
-    if (dev) {
-      // Turn off heavy source maps in dev for faster rebuilds
-      config.devtool = false;
-    }
     return config;
   },
   // Important: do NOT rewrite /api/* so local Next.js API routes are used.

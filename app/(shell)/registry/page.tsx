@@ -21,12 +21,21 @@ function RegistryPageInner() {
   };
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-semibold">iQube Registry</h1>
-      <p className="text-slate-300 mb-4">
-        Browse and manage iQube templates and instances in the registry.
-      </p>
-      <Suspense fallback={<div>Loading...</div>}>
+    <div className="space-y-8">
+      <div className="space-y-2">
+        <h1 className="text-3xl font-semibold text-white">iQube Registry</h1>
+        <p className="text-slate-300 text-lg">
+          Browse and manage iQube templates and instances in the registry.
+        </p>
+      </div>
+      <Suspense fallback={
+        <div className="flex items-center justify-center h-64">
+          <div className="flex items-center gap-3 text-slate-400">
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-400"></div>
+            Loading registry...
+          </div>
+        </div>
+      }>
         <RegistryClient />
       </Suspense>
     </div>

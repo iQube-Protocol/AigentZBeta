@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import type {
   SmartContentQube,
   ContentModality,
@@ -327,18 +327,34 @@ export default function ContentViewer({
   accessScope = "preview",
   unlockedPanels = [],
 }: ContentViewerProps) {
+  const isModalityEnabled = (mod?: { enabled?: boolean; available?: boolean }) => {
+    if (!mod) return false;
+    if (typeof mod.enabled === "boolean") return mod.enabled;
+    if (typeof mod.available === "boolean") return mod.available;
+    return false;
+  };
+
   // Get available modalities - guard against undefined modalities
   const availableModalities = content.modalities 
     ? Object.entries(content.modalities)
-        .filter(([_, mod]) => mod?.enabled)
+        .filter(([_, mod]) => isModalityEnabled(mod as { enabled?: boolean; available?: boolean }))
         .map(([key]) => key as ContentModality)
     : ["read" as ContentModality];
 
+  const resolveModality = (preferred?: ContentModality) => {
+    if (preferred && availableModalities.includes(preferred)) return preferred;
+    return availableModalities[0] || "read";
+  };
+
   const [activeModality, setActiveModality] = useState<ContentModality>(
-    initialModality || availableModalities[0] || "read"
+    resolveModality(initialModality)
   );
   const [currentPanel, setCurrentPanel] = useState(0);
   const [startTime] = useState(Date.now());
+
+  useEffect(() => {
+    setActiveModality(resolveModality(initialModality));
+  }, [content.id, initialModality, availableModalities.join(",")]);
 
   // Track progress
   const handlePanelChange = useCallback(
@@ -399,7 +415,7 @@ export default function ContentViewer({
 
       {/* Content Area */}
       <div className="flex-1 p-4 overflow-hidden">
-        {activeModality === "read" && content.modalities?.read?.enabled && (
+        {activeModality === "read" && isModalityEnabled(content.modalities?.read) && (
           <PanelViewer
             panels={content.modalities?.read?.panels || []}
             currentPanel={currentPanel}
@@ -412,23 +428,23 @@ export default function ContentViewer({
           />
         )}
 
-        {activeModality === "watch" && content.modalities?.watch?.enabled && (
+        {activeModality === "watch" && isModalityEnabled(content.modalities?.watch) && (
           <VideoViewer watch={content.modalities.watch} />
         )}
 
-        {activeModality === "listen" && content.modalities?.listen?.enabled && (
+        {activeModality === "listen" && isModalityEnabled(content.modalities?.listen) && (
           <AudioViewer listen={content.modalities.listen} />
         )}
 
-        {activeModality === "interact" && content.modalities?.interact?.enabled && (
+        {activeModality === "interact" && isModalityEnabled(content.modalities?.interact) && (
           <InteractViewer interact={content.modalities.interact} contentId={content.id} />
         )}
 
         {/* Fallback for content without modalities */}
-        {!content.modalities?.read?.enabled && 
-         !content.modalities?.watch?.enabled && 
-         !content.modalities?.listen?.enabled && 
-         !content.modalities?.interact?.enabled && (
+        {!isModalityEnabled(content.modalities?.read) &&
+         !isModalityEnabled(content.modalities?.watch) &&
+         !isModalityEnabled(content.modalities?.listen) &&
+         !isModalityEnabled(content.modalities?.interact) && (
           <div className="flex flex-col items-center justify-center h-full text-center">
             <div className="text-4xl mb-4">📄</div>
             <h3 className="text-lg font-medium text-white mb-2">{content.title}</h3>

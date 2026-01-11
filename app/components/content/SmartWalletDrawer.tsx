@@ -12,6 +12,7 @@ import type { SmartWalletNode, WalletTask, QuestProgress, RecentReward, PersonaS
 import type { SmartContentQube } from "@/types/smartContent";
 import { PersonaSelector, UnlockModal } from "../wallet";
 import { useSmartTriad } from "./SmartTriadProvider";
+import { useConsentState } from "@/app/hooks/useServerPreferences";
 import {
   Sparkles,
   Library,
@@ -175,20 +176,8 @@ export default function SmartWalletDrawer({
     // Not wrapped in SmartTriadProvider - that's ok
   }
 
-  const [aliasConsent, setAliasConsent] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    try {
-      return localStorage.getItem("x402_alias_consent") === "true";
-    } catch {
-      return false;
-    }
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem("x402_alias_consent", aliasConsent ? "true" : "false");
-    } catch {}
-  }, [aliasConsent]);
+  // Use server-driven consent state instead of localStorage
+  const { aliasConsent, setAliasConsent, loading: consentLoading } = useConsentState();
 
   const [retrySettlementId, setRetrySettlementId] = useState("");
   const [retryMessageId, setRetryMessageId] = useState("");

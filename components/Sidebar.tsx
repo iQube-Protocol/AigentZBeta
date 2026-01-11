@@ -186,7 +186,8 @@ export const Sidebar = () => {
   const pathname = usePathname();
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
-  const [openSections, setOpenSections] = useState<string[]>([]);
+  // CRITICAL FIX: Initialize with a default open section for immediate UX
+  const [openSections, setOpenSections] = useState<string[]>(["Persona"]); // Default to first non-dashboard section
   const [toggleStates, setToggleStates] = useState<Record<string, boolean>>({});
   const [storageAvailable, setStorageAvailable] = useState<boolean | null>(null);
   const [showOnlyActive, setShowOnlyActive] = useState<Record<string, boolean>>({});
@@ -270,6 +271,16 @@ export const Sidebar = () => {
           initialOpenSections = JSON.parse(savedOpenSections);
         } catch (e) {
           console.error('Error parsing openSections:', e);
+        }
+      }
+      
+      // CRITICAL FIX: Ensure at least one section is open by default for better UX
+      // If no sections are open from localStorage, open the first non-dashboard section
+      if (initialOpenSections.length === 0) {
+        // Find the first non-dashboard section and open it
+        const firstNonDashboardSection = sections.find(section => section.label !== "Dashboard");
+        if (firstNonDashboardSection) {
+          initialOpenSections = [firstNonDashboardSection.label];
         }
       }
 
@@ -582,14 +593,13 @@ export const Sidebar = () => {
       return;
     }
     
-    // Manually toggle the section regardless of auto-expansion rules
-    if (openSections.includes(label)) {
-      // Close the section
-      setOpenSections(prev => prev.filter(s => s !== label));
-    } else {
-      // Open the section
-      setOpenSections(prev => [...prev, label]);
-    }
+    // Manually toggle the section
+    setOpenSections(prev => {
+      const newSections = prev.includes(label) 
+        ? prev.filter(s => s !== label)
+        : [...prev, label];
+      return newSections;
+    });
   };
 
   const toggleItemState = (href: string) => {
@@ -904,6 +914,18 @@ export const Sidebar = () => {
     }
   };
 
+  const handleSidebarNavigate = (href: string) => {
+    if (!href || href.startsWith('#')) return;
+    try {
+      router.push(href);
+    } catch {
+      // Fallback to hard navigation if router fails.
+      if (typeof window !== 'undefined') {
+        window.location.assign(href);
+      }
+    }
+  };
+
   useEffect(() => {
     // keyboard shortcuts: g d / g r / g s / g a
     let gPressed = false;
@@ -920,13 +942,10 @@ export const Sidebar = () => {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
-
-  // Debug logging
-  console.log('Sidebar render state:', { initialized, isClient, storageAvailable });
   
   return (
     <>
-      <aside className={`${collapsed ? "w-16" : "w-72"} relative z-20 pointer-events-auto transition-all duration-200 bg-black/30 ring-1 ring-white/10 backdrop-blur-xl p-4 md:p-6 flex-shrink-0 min-h-screen`}>
+      <aside className={`${collapsed ? "w-16" : "w-72"} relative z-[90] pointer-events-auto transition-all duration-200 bg-black/30 ring-1 ring-white/10 backdrop-blur-xl p-4 md:p-6 flex-shrink-0 min-h-screen`}>
         <button className="mb-6 text-sm font-semibold text-slate-200 hover:text-white flex items-center gap-2 uppercase tracking-wider" onClick={toggleSidebar}>
           <Bot size={18} className="text-blue-400" />
           {!collapsed && <span>QRIPTO: AGENTIQ</span>}
@@ -955,7 +974,7 @@ export const Sidebar = () => {
                 </div>
               ) : (
                 <div 
-                  className={`uppercase text-[11px] tracking-wider text-slate-400 mb-3 flex items-center cursor-pointer group`}
+                  className={`uppercase text-[11px] tracking-wider text-slate-400 mb-3 flex items-center cursor-pointer group hover:text-slate-300 transition-colors`}
                   onClick={() => toggleSection(section.label)}
                 >
                   <div className="flex items-center justify-between w-full">
@@ -1197,37 +1216,47 @@ export const Sidebar = () => {
                                   </div>
                                 </div>
                               ) : (
-                                <Link
-                                  href={item.href}
-                                  className="flex items-center w-full px-3 py-2"
-                                  onClick={(e) => {
-                                    if (isToggleable) {
-                                      const sectionLabel = sections.find(section => 
-                                        section.items.some(i => i.href === item.href)
-                                      )?.label;
-                                      
-                                      if (sectionLabel === "Persona") {
-                                        e.preventDefault();
-                                        handlePersonaClick(item.href);
-                                      } else if (sectionLabel === "iQubes") {
-                                        e.preventDefault();
-                                        handleModelQubeClick(item.href);
-                                      } else if (item.href.startsWith('#iqube-')) {
-                                        e.preventDefault();
-                                        handleIQubeOperationsClick(item.href);
+                                (!isToggleable && !item.drawerAction && !item.href.startsWith('#')) ? (
+                                  <Link
+                                    href={item.href}
+                                    className="flex items-center w-full px-3 py-2"
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <span>{item.icon}</span>
+                                      <span className="text-[13px]">{item.label}</span>
+                                    </div>
+                                  </Link>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    className="flex items-center w-full px-3 py-2"
+                                    onClick={() => {
+                                      if (isToggleable) {
+                                        const sectionLabel = sections.find(section =>
+                                          section.items.some(i => i.href === item.href)
+                                        )?.label;
+
+                                        if (sectionLabel === "Persona") {
+                                          handlePersonaClick(item.href);
+                                        } else if (sectionLabel === "iQubes") {
+                                          handleModelQubeClick(item.href);
+                                        } else if (item.href.startsWith('#iqube-')) {
+                                          handleIQubeOperationsClick(item.href);
+                                        }
+                                      } else if (item.drawerAction) {
+                                        setDrawerType(item.drawerAction);
+                                        setDrawerOpen(true);
+                                      } else {
+                                        handleSidebarNavigate(item.href);
                                       }
-                                    } else if (item.drawerAction) {
-                                      e.preventDefault();
-                                      setDrawerType(item.drawerAction);
-                                      setDrawerOpen(true);
-                                    }
-                                  }}
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <span>{item.icon}</span>
-                                    <span className="text-[13px]">{item.label}</span>
-                                  </div>
-                                </Link>
+                                    }}
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <span>{item.icon}</span>
+                                      <span className="text-[13px]">{item.label}</span>
+                                    </div>
+                                  </button>
+                                )
                               )}
                               {isToggleable && (
                                 <button 
@@ -1283,36 +1312,43 @@ export const Sidebar = () => {
                       
                       return (
                         <div key={item.href} className="flex justify-center mb-2 relative">
-                          <Link
-                            href={item.href}
-                            className={`flex items-center justify-center rounded-xl p-2 text-[13px] hover:bg-slate-700/50 ${active || isItemActive ? "bg-slate-700/50" : "bg-transparent"}`}
-                            title={item.label}
-                            onClick={(e) => {
-                              if (isToggleable) {
-                                const sectionLabel = sections.find(section => 
-                                  section.items.some(i => i.href === item.href)
-                                )?.label;
-                                
-                                if (sectionLabel === "Persona") {
-                                  // Prevent navigation for personas
-                                  e.preventDefault();
-                                  handlePersonaClick(item.href);
-                                } else if (sectionLabel === "iQubes") {
-                                  handleModelQubeClick(item.href);
-                                } else if (item.href.startsWith('#iqube-')) {
-                                  e.preventDefault();
-                                  console.log('Collapsed view clicked for:', item.href);
-                                  handleIQubeOperationsClick(item.href);
+                          {(!isToggleable && !item.drawerAction && !item.href.startsWith('#')) ? (
+                            <Link
+                              href={item.href}
+                              className={`flex items-center justify-center rounded-xl p-2 text-[13px] hover:bg-slate-700/50 ${active || isItemActive ? "bg-slate-700/50" : "bg-transparent"}`}
+                              title={item.label}
+                            >
+                              {item.icon}
+                            </Link>
+                          ) : (
+                            <button
+                              type="button"
+                              className={`flex items-center justify-center rounded-xl p-2 text-[13px] hover:bg-slate-700/50 ${active || isItemActive ? "bg-slate-700/50" : "bg-transparent"}`}
+                              title={item.label}
+                              onClick={() => {
+                                if (isToggleable) {
+                                  const sectionLabel = sections.find(section =>
+                                    section.items.some(i => i.href === item.href)
+                                  )?.label;
+
+                                  if (sectionLabel === "Persona") {
+                                    handlePersonaClick(item.href);
+                                  } else if (sectionLabel === "iQubes") {
+                                    handleModelQubeClick(item.href);
+                                  } else if (item.href.startsWith('#iqube-')) {
+                                    handleIQubeOperationsClick(item.href);
+                                  }
+                                } else if (item.drawerAction) {
+                                  setDrawerType(item.drawerAction);
+                                  setDrawerOpen(true);
+                                } else {
+                                  handleSidebarNavigate(item.href);
                                 }
-                              } else if (item.drawerAction) {
-                                e.preventDefault();
-                                setDrawerType(item.drawerAction);
-                                setDrawerOpen(true);
-                              }
-                            }}
-                          >
-                            {item.icon}
-                          </Link>
+                              }}
+                            >
+                              {item.icon}
+                            </button>
+                          )}
                           {isToggleable && isItemActive && (
                             <div className="absolute top-0 right-0 h-2 w-2 rounded-full bg-green-500 mr-1 mt-1"></div>
                           )}

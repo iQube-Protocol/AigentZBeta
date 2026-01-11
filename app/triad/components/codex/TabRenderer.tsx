@@ -12,6 +12,7 @@
 import React from "react";
 import { CodexTab } from "@/types/codex";
 import { AlertCircle } from "lucide-react";
+import { liquidTemplateRegistry } from "./liquidTemplates/registry";
 
 // Import static tab components
 import { ScrollsTab } from "./tabs/ScrollsTab";
@@ -22,8 +23,12 @@ import { TerraTab } from "./tabs/TerraTab";
 import { OrderTab } from "./tabs/OrderTab";
 import { QriptopiaTab } from "./tabs/QriptopiaTab";
 import { FeaturesTab } from "./tabs/FeaturesTab";
+import { PennyDropsTab } from "./tabs/PennyDropsTab";
+import { Kn0wdZTab } from "./tabs/Kn0wdZTab";
+import { QriptoScrollsTab } from "./tabs/QriptoScrollsTab";
 import { PlaceholderTab } from "./tabs/PlaceholderTab";
 import { AgentiqCartridgeTab } from "./tabs/AgentiqCartridgeTab";
+import { PackBrowserTab } from "./tabs/PackBrowserTab";
 
 interface TabRendererProps {
   tab: CodexTab;
@@ -31,6 +36,7 @@ interface TabRendererProps {
   theme?: 'light' | 'dark';
   density?: 'narrow' | 'wide';
   personaId?: string;
+  issueSlug?: string;
 }
 
 // Component registry for static tabs
@@ -43,18 +49,18 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   OrderTab,
   QriptopiaTab,
   FeaturesTab,
+  PennyDropsTab,
+  Kn0wdZTab,
+  QriptoScrollsTab,
   AgentiqCartridgeTab,
   PlaceholderTab,
-  QriptoScrollsTab: ScrollsTab, // Reuse for Qripto
-  Kn0wdZTab: PlaceholderTab,
-  PennyDropsTab: PlaceholderTab,
   RewardsTab: PlaceholderTab,
   DocsTab: PlaceholderTab,
   APITab: PlaceholderTab,
   TutorialsTab: PlaceholderTab,
 };
 
-export function TabRenderer({ tab, codexId, theme, density, personaId }: TabRendererProps) {
+export function TabRenderer({ tab, codexId, theme, density, personaId, issueSlug }: TabRendererProps) {
   // Handle static tabs
   if (tab.type === 'static') {
     const componentName = tab.config.component;
@@ -80,11 +86,42 @@ export function TabRenderer({ tab, codexId, theme, density, personaId }: TabRend
       );
     }
 
-    return <Component theme={theme} density={density} personaId={personaId} {...tab.config.props} />;
+    return <Component theme={theme} density={density} personaId={personaId} issueSlug={issueSlug} {...tab.config.props} />;
   }
 
   // Handle dynamic tabs (fetch data from API)
   if (tab.type === 'dynamic') {
+    const packId = tab.config.props?.packId as string | undefined;
+    const collectionId = tab.config.props?.collectionId as string | undefined;
+    const defaultPath = tab.config.props?.defaultPath as string | undefined;
+    const componentName = tab.config.component;
+    const dataSource = tab.config.dataSource;
+
+    if (packId) {
+      return (
+        <PackBrowserTab
+          packId={packId}
+          collectionId={collectionId}
+          defaultPath={defaultPath}
+          theme={theme}
+        />
+      );
+    }
+
+    if (componentName && componentRegistry[componentName]) {
+      const Component = componentRegistry[componentName];
+      return (
+        <Component
+          theme={theme}
+          density={density}
+          personaId={personaId}
+          issueSlug={issueSlug}
+          dataSource={dataSource}
+          {...tab.config.props}
+        />
+      );
+    }
+
     return (
       <PlaceholderTab
         title={tab.label}
@@ -96,6 +133,37 @@ export function TabRenderer({ tab, codexId, theme, density, personaId }: TabRend
 
   // Handle liquid-ui tabs
   if (tab.type === 'liquid-ui') {
+    const packId = tab.config.props?.packId as string | undefined;
+    const collectionId = tab.config.props?.collectionId as string | undefined;
+    const defaultPath = tab.config.props?.defaultPath as string | undefined;
+    const liquidTemplate = tab.config.liquidTemplate as string | undefined;
+    const dataSource = tab.config.dataSource as string | undefined;
+
+    if (packId) {
+      return (
+        <PackBrowserTab
+          packId={packId}
+          collectionId={collectionId}
+          defaultPath={defaultPath}
+          theme={theme}
+        />
+      );
+    }
+
+    const Template = liquidTemplate ? liquidTemplateRegistry[liquidTemplate] : undefined;
+    if (Template) {
+      return (
+        <Template
+          theme={theme}
+          density={density}
+          personaId={personaId}
+          issueSlug={issueSlug}
+          dataSource={dataSource}
+          {...tab.config.props}
+        />
+      );
+    }
+
     return (
       <PlaceholderTab
         title={tab.label}

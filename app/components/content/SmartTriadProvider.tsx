@@ -62,6 +62,7 @@ export interface TriadState {
   currentContent: SmartContentQube | null;
   contentLoading: boolean;
   contentError: string | null;
+  viewerModality: string | null;
   
   // Wallet state
   walletOpen: boolean;
@@ -89,6 +90,7 @@ export interface TriadActions {
   // Content actions
   setContent: (content: SmartContentQube | null) => void;
   loadContent: (contentId: string) => Promise<void>;
+  setViewerModality: (modality: string | null) => void;
   
   // Wallet actions
   openWallet: (mode?: "compact" | "full") => void;
@@ -144,6 +146,7 @@ export function SmartTriadProvider({
     currentContent: initialContent || null,
     contentLoading: false,
     contentError: null,
+    viewerModality: null,
     walletOpen: false,
     walletMode: "compact",
     menuManifest: null,
@@ -178,6 +181,13 @@ export function SmartTriadProvider({
       ...prev,
       currentContent: content,
       contentError: null,
+    }));
+  }, []);
+
+  const setViewerModality = useCallback((modality: string | null) => {
+    setState(prev => ({
+      ...prev,
+      viewerModality: modality,
     }));
   }, []);
 
@@ -263,7 +273,12 @@ export function SmartTriadProvider({
           title: content.title,
           app: content.app,
           modalities: Object.entries(content.modalities || {})
-            .filter(([_, v]) => (v as any)?.enabled)
+            .filter(([_, v]) => {
+              const mod = v as any;
+              if (typeof mod?.enabled === "boolean") return mod.enabled;
+              if (typeof mod?.available === "boolean") return mod.available;
+              return false;
+            })
             .map(([k]) => k),
         },
         access: {
@@ -516,6 +531,7 @@ export function SmartTriadProvider({
     actions: {
       setContent,
       loadContent,
+      setViewerModality,
       openWallet,
       closeWallet,
       setActiveDrawer,

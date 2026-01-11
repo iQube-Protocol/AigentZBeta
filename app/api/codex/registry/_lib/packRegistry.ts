@@ -20,7 +20,8 @@ interface PackMeta {
 interface PackCollection {
   id: string;
   title: string;
-  items: string[];
+  items?: string[];
+  collections?: PackCollection[];
 }
 
 interface PackCollectionsFile {
@@ -28,6 +29,23 @@ interface PackCollectionsFile {
 }
 
 const PACKS_ROOT = path.join(process.cwd(), "codexes", "packs");
+
+function normalizePackId(packId: string): { canonicalPackId: string; codexId: string; slug: string; nameOverride?: string } {
+  const lowered = packId.toLowerCase();
+  if (lowered === "aigency" || lowered === "aigentiq" || lowered === "agentiq") {
+    return {
+      canonicalPackId: "aigentiq",
+      codexId: "aigentiq-codex",
+      slug: "aigentiq",
+      nameOverride: "AgentiQ Codex",
+    };
+  }
+  return {
+    canonicalPackId: packId,
+    codexId: `${packId}-codex`,
+    slug: packId,
+  };
+}
 
 const PACK_ICON_BY_ID: Record<string, string> = {
   agentiq: "Brain",
@@ -89,20 +107,29 @@ function tabFromCollection(collection: PackCollection, packId: string, order: nu
   const slug = slugify(slugBase);
   const icon = COLLECTION_ICON_BY_ID[collection.id] || "FileText";
 
+  const hasNestedCollections = (collection.collections?.length ?? 0) > 0;
+
   return {
     id: `${packId}-tab-${slug}`,
     label: collection.title,
     slug,
     enabled: true,
     order,
-    type: "static",
-    config: {
-      component: "AgentiqCartridgeTab",
-      props: {
-        packId,
-        collectionId: collection.id,
-      },
-    },
+    type: hasNestedCollections ? "dynamic" : "static",
+    config: hasNestedCollections
+      ? {
+          props: {
+            packId,
+            collectionId: collection.id,
+          },
+        }
+      : {
+          component: "AgentiqCartridgeTab",
+          props: {
+            packId,
+            collectionId: collection.id,
+          },
+        },
     metadata: {
       icon,
       description: collection.title,
@@ -126,12 +153,13 @@ async function buildCodexConfigFromPack(packId: string): Promise<CodexConfig | n
   const updatedAt = metaStats?.mtime?.toISOString() ?? new Date().toISOString();
 
   const owner = normalizeOwner(meta.owner);
-  const codexId = `${packId}-codex`;
+  const normalized = normalizePackId(packId);
+  const codexId = normalized.codexId;
 
   return {
     id: codexId,
-    name: meta.name || packId,
-    slug: packId,
+    name: normalized.nameOverride || meta.name || packId,
+    slug: normalized.slug,
     enabled: true,
     version: meta.version || "0.0.0",
     owner,
@@ -160,12 +188,21 @@ export async function loadPackCodexes(): Promise<CodexConfig[]> {
   try {
     const dirents = await fs.readdir(PACKS_ROOT, { withFileTypes: true });
     const codexes: CodexConfig[] = [];
+    const seenIds = new Set<string>();
 
     for (const dirent of dirents) {
       if (!dirent.isDirectory()) continue;
       if (dirent.name.startsWith(".")) continue;
+
+      // Avoid duplicate AgentiQ entries. Canonical pack is 'aigency' (mapped to 'aigentiq-codex').
+      const lowered = dirent.name.toLowerCase();
+      if (lowered === "agentiq" || lowered === "aigentiq") continue;
+
       const codex = await buildCodexConfigFromPack(dirent.name);
-      if (codex) codexes.push(codex);
+      if (!codex) continue;
+      if (seenIds.has(codex.id)) continue;
+      seenIds.add(codex.id);
+      codexes.push(codex);
     }
 
     return codexes;

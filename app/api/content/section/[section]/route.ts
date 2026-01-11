@@ -8,6 +8,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { isPremiumContent } from '@/lib/contentFlags';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -25,6 +26,25 @@ const VALID_SECTIONS = [
   'staybull'
 ];
 
+function normalizeIssueSlug(raw: string | null): string {
+  if (!raw) return 'issue-1';
+  const cleaned = raw.trim();
+  const match = cleaned.match(/^issue-(\d{1,2})$/i)
+    || cleaned.match(/^#?(\d{1,2})$/)
+    || cleaned.match(/^issue\s*#?\s*(\d{1,2})$/i);
+  if (!match) return 'issue-1';
+  const n = Number(match[1]);
+  if (!Number.isFinite(n) || n < 0 || n > 12) return 'issue-1';
+  return `issue-${n}`;
+}
+
+function issueNumberFromSlug(issueSlug: string): number {
+  const match = issueSlug.match(/^issue-(\d{1,2})$/);
+  if (!match) return 1;
+  const n = Number(match[1]);
+  return Number.isFinite(n) ? n : 1;
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { section: string } }
@@ -33,6 +53,8 @@ export async function GET(
     const section = params.section;
     const { searchParams } = new URL(request.url);
     const tab = searchParams.get('tab');
+    const issue = normalizeIssueSlug(searchParams.get('issue'));
+    const issueNumber = issueNumberFromSlug(issue);
     
     // Validate section
     if (!VALID_SECTIONS.includes(section)) {
@@ -41,29 +63,55 @@ export async function GET(
       }, { status: 400,  });
     }
 
-    console.log(`[Content/${section}] Fetching content from database${tab ? ` (tab: ${tab})` : ''}`);
+    console.log(`[Content/${section}] Fetching content from database${tab ? ` (tab: ${tab})` : ''} (issue: ${issue})`);
     
-    // Build query - fetch content with matching section in placement
-    let query = supabase
-      .from('content')
-      .select('*')
-      .contains('placement', { section })
-      .eq('status', 'published')
-      .order('created_at', { ascending: false })
-      .limit(50);
+    const basePlacement: Record<string, any> = { section };
+    if (tab) basePlacement.tab = tab;
 
-    // Add tab filter if provided
-    if (tab) {
-      query = supabase
+    // Prefer issue-scoped content, but remain backward compatible:
+    // if the DB doesn't have issue placement yet, fall back to unscoped.
+    const issuePlacement = { ...basePlacement, issue };
+
+    const runQuery = async (placement: Record<string, any>) => {
+      return supabase
         .from('content')
         .select('*')
-        .contains('placement', { section, tab })
+        .contains('placement', placement)
         .eq('status', 'published')
         .order('created_at', { ascending: false })
         .limit(50);
-    }
+    };
 
-    const { data: content, error } = await query;
+    const runQueryByIssueRef = async (placement: Record<string, any>) => {
+      const issueRefCandidates = [
+        String(issueNumber),
+        `#${issueNumber}`,
+        issue,
+      ];
+
+      return supabase
+        .from('content')
+        .select('*')
+        .contains('placement', placement)
+        .in('issue_ref', issueRefCandidates)
+        .eq('status', 'published')
+        .order('created_at', { ascending: false })
+        .limit(50);
+    };
+
+    let { data: content, error } = await runQuery(issuePlacement);
+
+    if (!error && (!content || content.length === 0)) {
+      const byIssueRefResult = await runQueryByIssueRef(basePlacement);
+      content = byIssueRefResult.data;
+      error = byIssueRefResult.error;
+
+      if (!error && (!content || content.length === 0)) {
+        const fallbackResult = await runQuery(basePlacement);
+        content = fallbackResult.data;
+        error = fallbackResult.error;
+      }
+    }
 
     if (error) {
       console.error(`[Content/${section}] Database error:`, error);
@@ -98,6 +146,13 @@ export async function GET(
       else if (section === 'latest-news') badge = 'NEWS';
       else if (section === 'home-hero' || section === 'second-hero') badge = 'HERO';
       
+      const isPremium = isPremiumContent({
+        id: item.id,
+        tags: item.tags || [],
+        badge,
+        isPremium: Boolean(item.is_premium ?? item.isPremium ?? item.premium),
+      });
+
       return {
         id: item.id,
         content_id: item.id,
@@ -108,8 +163,9 @@ export async function GET(
         status: item.status,
         tags: item.tags || [],
         badge,
-        // Image from thumbnail field
-        image: item.thumbnail,
+        isPremium,
+        // Image from thumbnail or cover field (fallbacks keep legacy content visible)
+        image: item.thumbnail || item.cover_image_url || item.cover_image_uri || item.image,
         imageScale: placement.imageScale || 100,
         imageX: placement.imageX || 50,
         imageY: placement.imageY || 50,
@@ -149,11 +205,13 @@ export async function GET(
       count: transformedContent.length,
       section,
       tab: tab || null,
+      issue,
       source: 'database',
       timestamp: new Date().toISOString(),
       debug: {
         query_section: section,
         query_tab: tab,
+        query_issue: issue,
         total_found: content?.length || 0,
         sample_ids: transformedContent.slice(0, 3).map((item: any) => ({ id: item.id, title: item.title.slice(0, 30) }))
       }

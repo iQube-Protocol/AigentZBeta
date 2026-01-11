@@ -183,7 +183,7 @@ export const KNYT_CODEX: CodexConfig = {
 
 export const QRIPTO_CODEX: CodexConfig = {
   id: 'qripto-codex',
-  name: 'Qripto Codex',
+  name: 'Qriptopian Codex',
   slug: 'qripto',
   enabled: true,
   version: '1.0.0',
@@ -325,7 +325,7 @@ export const QRIPTO_CODEX: CodexConfig = {
 
 export const AGENTIQ_CARTRIDGE: CodexConfig = {
   id: 'aigentiq-codex',
-  name: 'Agentiq Cartridge',
+  name: 'AgentiQ Codex',
   slug: 'aigentiq',
   enabled: true,
   version: '1.0.0',

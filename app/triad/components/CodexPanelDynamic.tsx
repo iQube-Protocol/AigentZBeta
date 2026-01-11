@@ -7,12 +7,68 @@
 
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCodexConfig, getEnabledTabs } from "@/app/hooks/useCodexConfig";
 import { CodexTab } from "@/types/codex";
 import { Loader2, AlertCircle } from "lucide-react";
+import { ContentViewer, SmartTriadProvider, SmartWalletDrawer, useSmartTriad } from "@/app/components/content";
+import { agentConfigs } from "@/app/data/agentConfig";
 import { TabRenderer } from "./codex/TabRenderer";
 import { getIconComponent } from "./codex/iconMap";
+
+function CodexTriadSurfaces({ personaId }: { personaId?: string }) {
+  const { state, actions } = useSmartTriad();
+
+  const payer = agentConfigs["aigent-z"];
+  const recipient = agentConfigs["aigent-kn0w1"];
+
+  const viewerOpen = state.activeDrawer === 'contentViewer' && !!state.currentContent;
+  const hasAccess = state.currentContent ? actions.checkOwnership(state.currentContent.id) : false;
+
+  return (
+    <>
+      {viewerOpen && state.currentContent && (
+        <div className="fixed inset-0 z-50">
+          <div
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            onClick={() => {
+              actions.setActiveDrawer(null);
+            }}
+          />
+          <div className="absolute inset-0 p-4 flex items-center justify-center">
+            <div className="w-full max-w-5xl h-[85vh] rounded-2xl bg-slate-950/70 ring-1 ring-white/10 overflow-hidden">
+              <ContentViewer
+                content={state.currentContent}
+                initialModality={(state.viewerModality as any) || undefined}
+                hasAccess={hasAccess}
+                accessScope={hasAccess ? 'full' : 'preview'}
+                onClose={() => actions.setActiveDrawer(null)}
+                onPanelPayment={() => actions.openWallet('full')}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      <SmartWalletDrawer
+        open={state.walletOpen}
+        onClose={() => actions.closeWallet()}
+        agent={{
+          id: payer.id,
+          name: payer.name,
+          evmSepolia: payer.walletAddresses.evmAddress as `0x${string}`,
+          evmArb: payer.walletAddresses.evmAddress as `0x${string}`,
+          btcAddress: payer.walletAddresses.btcAddress,
+        }}
+        recipientAddress={recipient.walletAddresses.evmAddress}
+        currentContent={state.currentContent || undefined}
+        onPurchaseComplete={() => actions.refreshLibrary()}
+        personaId={personaId}
+      />
+    </>
+  );
+}
 
 interface CodexPanelDynamicProps {
   codexId: string;              // 'knyt-codex', 'qripto-codex', 'aigentiq-codex' (Agentiq Cartridge)
@@ -31,6 +87,10 @@ export default function CodexPanelDynamic({
   personaId,
   useDefaults = true
 }: CodexPanelDynamicProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
   const { data: codex, isLoading, error } = useCodexConfig({ codexId, useDefaults });
   
   const enabledTabs = useMemo(() => getEnabledTabs(codex), [codex]);
@@ -38,6 +98,27 @@ export default function CodexPanelDynamic({
   const [activeTabSlug, setActiveTabSlug] = useState<string>(
     initialTab || enabledTabs[0]?.slug || 'codex'
   );
+
+  const isQriptopian = codexId === 'qripto-codex';
+  const urlIssue = searchParams.get('issue');
+  const [issueSlug, setIssueSlug] = useState<string>(() => {
+    if (!isQriptopian) return 'issue-1';
+    return urlIssue || 'issue-1';
+  });
+
+  useEffect(() => {
+    if (!isQriptopian) return;
+    const next = urlIssue || 'issue-1';
+    setIssueSlug(next);
+  }, [isQriptopian, urlIssue]);
+
+  const issueOptions = useMemo(() => {
+    return Array.from({ length: 13 }, (_, i) => {
+      const slug = `issue-${i}`;
+      const label = `#${i}`;
+      return { slug, label };
+    });
+  }, []);
 
   const activeTab = useMemo(
     () => enabledTabs.find(tab => tab.slug === activeTabSlug) || enabledTabs[0],
@@ -88,65 +169,88 @@ export default function CodexPanelDynamic({
   }
 
   return (
-    <div className={`flex flex-col h-full w-full ${theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'}`}>
-      {/* Header */}
-      <div className="flex-shrink-0 border-b border-slate-700/50 p-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold flex items-center gap-2">
-            {codex.metadata.icon && React.createElement(
-              getIconComponent(codex.metadata.icon),
-              { className: `w-5 h-5 text-${codex.metadata.color || 'indigo'}-400` }
-            )}
-            {codex.name}
-          </h2>
-          {codex.metadata.description && density === 'wide' && (
-            <p className="text-sm text-slate-400">{codex.metadata.description}</p>
+    <SmartTriadProvider personaId={personaId}>
+      <div className={`flex flex-col h-full w-full ${theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'}`}>
+        <div className="flex-shrink-0 border-b border-slate-700/50 p-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold flex items-center gap-2">
+              {codex.metadata.icon && React.createElement(
+                getIconComponent(codex.metadata.icon),
+                { className: `w-5 h-5 text-${codex.metadata.color || 'indigo'}-400` }
+              )}
+              {codex.name}
+            </h2>
+            <div className="flex items-center gap-3">
+              {isQriptopian && (
+                <select
+                  value={issueSlug}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setIssueSlug(next);
+                    const params = new URLSearchParams(searchParams.toString());
+                    params.set('issue', next);
+                    router.replace(`${pathname}?${params.toString()}`);
+                  }}
+                  className="rounded-md border border-slate-700 bg-slate-900/60 px-2 py-1 text-sm text-slate-200"
+                >
+                  {issueOptions.map((opt) => (
+                    <option key={opt.slug} value={opt.slug}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {codex.metadata.description && density === 'wide' && (
+                <p className="text-sm text-slate-400">{codex.metadata.description}</p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex-shrink-0 border-b border-slate-700/50 px-4">
+          <div className="flex gap-1 overflow-x-auto">
+            {enabledTabs.map((tab) => {
+              const Icon = getIconComponent(tab.metadata?.icon || 'Circle');
+              const isActive = tab.slug === activeTabSlug;
+
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTabSlug(tab.slug)}
+                  className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${
+                    isActive
+                      ? `border-${codex.metadata.color || 'indigo'}-500 text-${codex.metadata.color || 'indigo'}-400`
+                      : 'border-transparent text-slate-400 hover:text-slate-300'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  {density === 'wide' && tab.label}
+                  {tab.metadata?.badge && (
+                    <span className="ml-1 px-1.5 py-0.5 text-xs bg-indigo-500/20 text-indigo-300 rounded">
+                      {tab.metadata.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto">
+          {activeTab && (
+            <TabRenderer
+              tab={activeTab}
+              codexId={codexId}
+              theme={theme}
+              density={density}
+              personaId={personaId}
+              issueSlug={isQriptopian ? issueSlug : undefined}
+            />
           )}
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex-shrink-0 border-b border-slate-700/50 px-4">
-        <div className="flex gap-1 overflow-x-auto">
-          {enabledTabs.map((tab) => {
-            const Icon = getIconComponent(tab.metadata?.icon || 'Circle');
-            const isActive = tab.slug === activeTabSlug;
-            
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTabSlug(tab.slug)}
-                className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${
-                  isActive
-                    ? `border-${codex.metadata.color || 'indigo'}-500 text-${codex.metadata.color || 'indigo'}-400`
-                    : 'border-transparent text-slate-400 hover:text-slate-300'
-                }`}
-              >
-                <Icon className="w-4 h-4" />
-                {density === 'wide' && tab.label}
-                {tab.metadata?.badge && (
-                  <span className="ml-1 px-1.5 py-0.5 text-xs bg-indigo-500/20 text-indigo-300 rounded">
-                    {tab.metadata.badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Tab Content */}
-      <div className="flex-1 overflow-y-auto">
-        {activeTab && (
-          <TabRenderer
-            tab={activeTab}
-            codexId={codexId}
-            theme={theme}
-            density={density}
-            personaId={personaId}
-          />
-        )}
-      </div>
-    </div>
+      <CodexTriadSurfaces personaId={personaId} />
+    </SmartTriadProvider>
   );
 }

@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Sparkles, ChevronRight, Clock, User } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Sparkles } from 'lucide-react';
+import { useSmartTriad } from '@/app/components/content/SmartTriadProvider';
+import { QriptopianFeatureSections } from '../QriptopianFeatureSections';
 
-// SmartTriad integration types
 interface ContentModalities {
   read?: { available?: boolean; text?: string; cid?: string };
   watch?: { available?: boolean; video_url?: string; duration?: string };
@@ -19,54 +20,100 @@ interface ContentItem {
   author?: string;
   published_at?: string;
   cover_image_url?: string;
+  image?: string;
+  imageScale?: number;
+  imageX?: number;
+  imageY?: number;
   section?: string;
+  badge?: string;
+  tags?: string[];
+  isPremium?: boolean;
   modalities?: ContentModalities;
   content_blocks?: Array<{ type: string; text: string }>;
 }
 
 interface FeaturesTabProps {
   theme?: 'light' | 'dark';
+  issueSlug?: string;
 }
 
-/**
- * FeaturesTab - Displays Qriptopian home content (hero articles, latest news, second hero)
- * Integrates with existing Qriptopian Supabase content structure
- */
-export function FeaturesTab({ theme = 'dark' }: FeaturesTabProps) {
+export function FeaturesTab({ theme = 'dark', issueSlug }: FeaturesTabProps) {
+  const { actions } = useSmartTriad();
   const [heroArticles, setHeroArticles] = useState<ContentItem[]>([]);
   const [latestNews, setLatestNews] = useState<ContentItem[]>([]);
-  const [secondHero, setSecondHero] = useState<ContentItem | null>(null);
+  const [secondHeroArticles, setSecondHeroArticles] = useState<ContentItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const emitDvnReceipt = async (eventType: string, contentId: string) => {
+    try {
+      await fetch('/api/ops/dvn/receipt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          eventType,
+          contentId,
+          personaId: null,
+          issue: issueSlug || 'issue-1',
+          source: 'QRIPTO_FEATURES_TAB',
+        }),
+      });
+    } catch {
+      // Fail-open for UX; DVN is optional.
+    }
+  };
+
+  const resolveEventType = (item: ContentItem, preferred?: 'read' | 'watch' | 'view') => {
+    if (preferred === 'watch') return 'content.watch';
+    if (preferred === 'read') return 'content.read';
+    if (preferred === 'view') return 'content.view';
+    if (item.modalities?.watch) return 'content.watch';
+    if (item.modalities?.read) return 'content.read';
+    return 'content.view';
+  };
+
+  const openViaTriad = async (item: ContentItem, preferred?: 'read' | 'watch' | 'view') => {
+    const eventType = resolveEventType(item, preferred);
+    const isOwned = actions.checkOwnership(item.id);
+    await actions.loadContent(item.id);
+    if (!isOwned) {
+      actions.openWallet('full');
+      await emitDvnReceipt(eventType, item.id);
+      return;
+    }
+    actions.setViewerModality(
+      eventType === 'content.watch' ? 'watch' : eventType === 'content.read' ? 'read' : null
+    );
+    actions.setActiveDrawer('contentViewer');
+    await emitDvnReceipt(eventType, item.id);
+  };
+
+  const issueParam = useMemo(() => {
+    return issueSlug ? `?issue=${encodeURIComponent(issueSlug)}` : '';
+  }, [issueSlug]);
 
   useEffect(() => {
     const fetchContent = async () => {
       try {
         setIsLoading(true);
-        const apiUrl = typeof window !== 'undefined' 
-          ? window.location.origin 
-          : 'https://dev-beta.aigentz.me';
+        const apiUrl = typeof window !== 'undefined' ? window.location.origin : 'https://dev-beta.aigentz.me';
 
-        // Fetch hero articles
-        const heroResponse = await fetch(`${apiUrl}/api/content/section/home-hero`);
+        const heroResponse = await fetch(`${apiUrl}/api/content/section/home-hero${issueParam}`);
         if (heroResponse.ok) {
           const heroData = await heroResponse.json();
           setHeroArticles(heroData.content || []);
         }
 
-        // Fetch latest news
-        const newsResponse = await fetch(`${apiUrl}/api/content/section/latest-news`);
+        const newsResponse = await fetch(`${apiUrl}/api/content/section/latest-news${issueParam}`);
         if (newsResponse.ok) {
           const newsData = await newsResponse.json();
           setLatestNews(newsData.content || []);
         }
 
-        // Fetch second hero
-        const secondResponse = await fetch(`${apiUrl}/api/content/section/second-hero`);
+        const secondResponse = await fetch(`${apiUrl}/api/content/section/second-hero${issueParam}`);
         if (secondResponse.ok) {
           const secondData = await secondResponse.json();
-          if (secondData.content && secondData.content.length > 0) {
-            setSecondHero(secondData.content[0]);
-          }
+          setSecondHeroArticles(secondData.content || []);
         }
       } catch (error) {
         console.error('Error fetching features content:', error);
@@ -76,13 +123,11 @@ export function FeaturesTab({ theme = 'dark' }: FeaturesTabProps) {
     };
 
     fetchContent();
-  }, []);
+  }, [issueParam, refreshKey]);
 
   const isDark = theme === 'dark';
-  const bgClass = isDark ? 'bg-slate-800/50' : 'bg-white';
   const textClass = isDark ? 'text-white' : 'text-slate-900';
-  const mutedClass = isDark ? 'text-slate-400' : 'text-slate-600';
-  const borderClass = isDark ? 'border-slate-700' : 'border-slate-200';
+  const mutedClass = isDark ? 'text-[#8fb3c0]' : 'text-slate-600';
 
   if (isLoading) {
     return (
@@ -93,8 +138,7 @@ export function FeaturesTab({ theme = 'dark' }: FeaturesTabProps) {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
+    <div className="space-y-10">
       <div>
         <h3 className={`text-xl font-bold ${textClass} flex items-center gap-2`}>
           <Sparkles className="w-5 h-5 text-indigo-400" />
@@ -105,147 +149,16 @@ export function FeaturesTab({ theme = 'dark' }: FeaturesTabProps) {
         </p>
       </div>
 
-      {/* Hero Articles Section */}
-      {heroArticles.length > 0 && (
-        <div>
-          <h4 className={`text-lg font-semibold ${textClass} mb-3`}>Hero Articles</h4>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {heroArticles.slice(0, 3).map((article) => (
-              <div
-                key={article.id}
-                className={`${bgClass} rounded-lg border ${borderClass} overflow-hidden hover:border-indigo-500/50 transition-colors cursor-pointer`}
-              >
-                {article.cover_image_url && (
-                  <div className="aspect-video bg-slate-700 relative overflow-hidden">
-                    <img
-                      src={article.cover_image_url}
-                      alt={article.title}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                )}
-                <div className="p-4">
-                  <h5 className={`font-semibold ${textClass} line-clamp-2 mb-2`}>
-                    {article.title}
-                  </h5>
-                  {article.excerpt && (
-                    <p className={`text-sm ${mutedClass} line-clamp-2 mb-3`}>
-                      {article.excerpt}
-                    </p>
-                  )}
-                  <div className={`flex items-center gap-3 text-xs ${mutedClass}`}>
-                    {article.author && (
-                      <span className="flex items-center gap-1">
-                        <User className="w-3 h-3" />
-                        {article.author}
-                      </span>
-                    )}
-                    {article.published_at && (
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {new Date(article.published_at).toLocaleDateString()}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Latest News Section */}
-      {latestNews.length > 0 && (
-        <div>
-          <h4 className={`text-lg font-semibold ${textClass} mb-3`}>Latest News</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {latestNews.slice(0, 6).map((article) => (
-              <div
-                key={article.id}
-                className={`${bgClass} rounded-lg border ${borderClass} p-4 hover:border-indigo-500/50 transition-colors cursor-pointer`}
-              >
-                <div className="flex gap-3">
-                  {article.cover_image_url && (
-                    <div className="w-20 h-20 flex-shrink-0 rounded bg-slate-700 overflow-hidden">
-                      <img
-                        src={article.cover_image_url}
-                        alt={article.title}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <h5 className={`font-medium ${textClass} line-clamp-2 mb-1`}>
-                      {article.title}
-                    </h5>
-                    {article.excerpt && (
-                      <p className={`text-xs ${mutedClass} line-clamp-2`}>
-                        {article.excerpt}
-                      </p>
-                    )}
-                  </div>
-                  <ChevronRight className={`w-4 h-4 ${mutedClass} flex-shrink-0`} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Second Hero Section */}
-      {secondHero && (
-        <div>
-          <h4 className={`text-lg font-semibold ${textClass} mb-3`}>Featured Story</h4>
-          <div className={`${bgClass} rounded-lg border ${borderClass} overflow-hidden hover:border-indigo-500/50 transition-colors cursor-pointer`}>
-            <div className="md:flex">
-              {secondHero.cover_image_url && (
-                <div className="md:w-1/2 aspect-video md:aspect-auto bg-slate-700 relative overflow-hidden">
-                  <img
-                    src={secondHero.cover_image_url}
-                    alt={secondHero.title}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              )}
-              <div className="md:w-1/2 p-6">
-                <h5 className={`text-xl font-bold ${textClass} mb-3`}>
-                  {secondHero.title}
-                </h5>
-                {secondHero.excerpt && (
-                  <p className={`${mutedClass} mb-4 line-clamp-4`}>
-                    {secondHero.excerpt}
-                  </p>
-                )}
-                <div className={`flex items-center gap-3 text-sm ${mutedClass}`}>
-                  {secondHero.author && (
-                    <span className="flex items-center gap-1">
-                      <User className="w-4 h-4" />
-                      {secondHero.author}
-                    </span>
-                  )}
-                  {secondHero.published_at && (
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-4 h-4" />
-                      {new Date(secondHero.published_at).toLocaleDateString()}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Empty State */}
-      {heroArticles.length === 0 && latestNews.length === 0 && !secondHero && (
-        <div className={`${bgClass} rounded-lg border ${borderClass} p-12 text-center`}>
-          <Sparkles className={`w-12 h-12 ${mutedClass} mx-auto mb-4`} />
-          <h4 className={`text-lg font-semibold ${textClass} mb-2`}>No Content Available</h4>
-          <p className={`text-sm ${mutedClass}`}>
-            Featured content will appear here once published
-          </p>
-        </div>
-      )}
+      <QriptopianFeatureSections
+        theme={theme}
+        heroArticles={heroArticles}
+        latestNews={latestNews}
+        secondHeroArticles={secondHeroArticles}
+        onOpen={openViaTriad}
+        isOwned={(id) => actions.checkOwnership(id)}
+        onRefresh={() => setRefreshKey(Date.now())}
+        isRefreshing={false}
+      />
     </div>
   );
 }

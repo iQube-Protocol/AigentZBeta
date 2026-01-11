@@ -6,6 +6,7 @@ import { IQubeCard } from "./IQubeCard";
 import { FilterSection, type FilterState } from "./FilterSection";
 import { IdentityFilterSection } from "./IdentityFilterSection";
 import { ViewModeToggle, type ViewMode } from "./ViewModeToggle";
+import { Pagination } from "./Pagination";
 import { DotsInline } from "./scoreUtils";
 import { ConfirmDialog } from "../ui/confirm-dialog";
 import { useToast } from "../ui/toaster";
@@ -27,6 +28,17 @@ interface IQubeTemplate {
   visibility?: 'public' | 'private';
 }
 
+interface PaginationMeta {
+  currentPage: number;
+  totalPages: number;
+  totalCount: number;
+  limit: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+  nextPage: number | null;
+  prevPage: number | null;
+}
+
 export function RegistryHome() {
   const [templates, setTemplates] = useState<IQubeTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -41,6 +53,18 @@ export function RegistryHome() {
   const [devUser, setDevUser] = useState<{ masked?: string; valid?: boolean } | null>(null);
   const [selectedPersona, setSelectedPersona] = useState<string>("");
   const [minReputationBucket, setMinReputationBucket] = useState<number>(0);
+  
+  // Pagination state
+  const [pagination, setPagination] = useState<PaginationMeta>({
+    currentPage: 1,
+    totalPages: 1,
+    totalCount: 0,
+    limit: 12,
+    hasNextPage: false,
+    hasPrevPage: false,
+    nextPage: null,
+    prevPage: null,
+  });
 
   // Clean legacy query param like ?template=template-003
   useEffect(() => {
@@ -95,19 +119,34 @@ export function RegistryHome() {
   // Hydrate list from service and refetch on filter changes
   useEffect(() => {
     let mounted = true;
-    const fetchList = async (f: FilterState) => {
+    const fetchList = async (f: FilterState, page: number = pagination.currentPage, limit: number = pagination.limit) => {
       const params = new URLSearchParams();
       if (f.search) params.set('search', f.search);
       if (f.type) params.set('type', f.type);
       if (f.instance) params.set('instance', f.instance);
       if (f.businessModel) params.set('businessModel', f.businessModel);
       if (f.sort) params.set('sort', f.sort);
+      params.set('page', page.toString());
+      params.set('limit', limit.toString());
       setIsLoading(true);
       try {
         const res = await fetch(`/api/registry/templates?${params.toString()}`);
         const data = await res.json();
         if (!res.ok) throw new Error(data?.error || 'Failed to load templates');
-        setTemplates(Array.isArray(data) ? data : []);
+        
+        // Handle new paginated response format
+        if (data.data && data.pagination) {
+          setTemplates(Array.isArray(data.data) ? data.data : []);
+          setPagination(data.pagination);
+        } else {
+          // Fallback for legacy response format
+          setTemplates(Array.isArray(data) ? data : []);
+          setPagination(prev => ({
+            ...prev,
+            totalCount: Array.isArray(data) ? data.length : 0,
+            totalPages: 1,
+          }));
+        }
       } catch (e: any) {
         setError(e?.message || 'Failed to load templates');
       } finally {
@@ -116,7 +155,7 @@ export function RegistryHome() {
     };
     fetchList(filters);
     return () => { mounted = false; };
-  }, [filters]);
+  }, [filters, pagination.currentPage, pagination.limit]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -135,7 +174,7 @@ export function RegistryHome() {
     );
   }
 
-  // Apply filters
+  // Apply filters (now handled server-side, but keep for client-side search fallback)
   const filteredTemplates = templates.filter((t) => {
     if (filters.search) {
       const s = filters.search.toLowerCase();
@@ -154,6 +193,20 @@ export function RegistryHome() {
   const handleAddToCart = (id: string) => {
     setCart(prev => (prev.includes(id) ? prev : [...prev, id]));
   };
+
+  // Pagination handlers
+  const handlePageChange = (page: number) => {
+    setPagination(prev => ({ ...prev, currentPage: page }));
+  };
+
+  const handleLimitChange = (limit: number) => {
+    setPagination(prev => ({ ...prev, limit, currentPage: 1 }));
+  };
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setPagination(prev => ({ ...prev, currentPage: 1 }));
+  }, [filters.search, filters.type, filters.instance, filters.businessModel, filters.sort]);
 
   // Open confirmation dialog for deletion
   const requestDelete = (id: string) => setDeleteId(id);
@@ -187,48 +240,67 @@ export function RegistryHome() {
       {/* Sticky Header Section */}
       <div className="sticky top-0 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 z-10 pb-6 space-y-6">
         <div className="flex justify-between items-center">
-          <h2 className="text-xl font-medium">iQube Templates</h2>
-          {devUser && devUser.masked && (
-            <button
-              type="button"
-              onClick={async () => {
-                try {
-                  const res = await fetch(`/api/dev/user?t=${Date.now()}`, { cache: 'no-store' });
-                  if (!res.ok) return;
-                  const data = await res.json();
-                  setDevUser({ masked: data.maskedDevUserId, valid: data.validUuid });
-                } catch {}
-              }}
-              className={`inline-flex items-center gap-2 px-2 py-1 rounded-lg text-xs ${devUser.valid ? 'bg-white/5 ring-1 ring-white/10 text-slate-300' : 'bg-red-500/20 ring-1 ring-red-500/30 text-red-200'}`}
-              title="Click to refresh DEV_USER_ID from server"
+          <div className="space-y-1">
+            <h2 className="text-xl font-medium text-white">iQube Templates</h2>
+            <p className="text-sm text-slate-400">Browse and manage iQube templates</p>
+          </div>
+          <div className="flex items-center gap-3">
+            {devUser && devUser.masked && (
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const res = await fetch(`/api/dev/user?t=${Date.now()}`, { cache: 'no-store' });
+                    if (!res.ok) return;
+                    const data = await res.json();
+                    setDevUser({ masked: data.maskedDevUserId, valid: data.validUuid });
+                  } catch {}
+                }}
+                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${devUser.valid ? 'bg-white/5 ring-1 ring-white/10 text-slate-300 hover:bg-white/10' : 'bg-red-500/20 ring-1 ring-red-500/30 text-red-200 hover:bg-red-500/30'}`}
+                title="Click to refresh DEV_USER_ID from server"
+              >
+                DEV_USER_ID: {devUser.masked}
+              </button>
+            )}
+            <Link 
+              href="/registry/add" 
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-indigo-400 bg-indigo-500/10 ring-1 ring-indigo-500/20 hover:bg-indigo-500/20 hover:text-indigo-300 transition-all"
             >
-              DEV_USER_ID: {devUser.masked}
-            </button>
-          )}
-          <Link href="/registry/add" className="text-indigo-400 hover:text-indigo-300 text-sm">
-            + Add New iQube
-          </Link>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 5v14M5 12h14"/>
+              </svg>
+              Add New iQube
+            </Link>
+          </div>
         </div>
 
-        <div className="flex items-start justify-between gap-3">
-          <FilterSection value={filters} onChange={setFilters} />
-          <div className="flex items-center gap-2 mt-6">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1">
+            <FilterSection value={filters} onChange={setFilters} />
+          </div>
+          <div className="flex items-center gap-3 mt-6 flex-shrink-0">
             <ViewModeToggle value={viewMode} onChange={setViewMode} />
-            {/* Cart indicator (kept as pill, aligned next to icons) */}
-            <span className="inline-flex items-center gap-2 px-2 py-1 rounded-md bg-white/5 ring-1 ring-white/10 text-sm text-slate-300" title="Items in cart">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-300"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 12.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
-              {cart.length}
-            </span>
+            {/* Cart indicator with enhanced styling */}
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 ring-1 ring-white/10 text-sm font-medium text-slate-300" title="Items in cart">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-300">
+                <circle cx="9" cy="21" r="1"/>
+                <circle cx="20" cy="21" r="1"/>
+                <path d="M1 1h4l2.68 12.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+              </svg>
+              <span className="tabular-nums">{cart.length}</span>
+            </div>
           </div>
         </div>
 
         {/* DiDQube Identity Filters */}
-        <IdentityFilterSection
-          selectedPersona={selectedPersona}
-          onPersonaChange={setSelectedPersona}
-          minReputationBucket={minReputationBucket}
-          onReputationChange={setMinReputationBucket}
-        />
+        <div className="border-t border-white/5 pt-4">
+          <IdentityFilterSection
+            selectedPersona={selectedPersona}
+            onPersonaChange={setSelectedPersona}
+            minReputationBucket={minReputationBucket}
+            onReputationChange={setMinReputationBucket}
+          />
+        </div>
       </div>
 
       {/* Scrollable Content Section */}
@@ -346,6 +418,21 @@ export function RegistryHome() {
           </table>
         </div>
       )}
+      
+      {/* Pagination */}
+      {pagination.totalPages > 1 && (
+        <Pagination
+          currentPage={pagination.currentPage}
+          totalPages={pagination.totalPages}
+          totalCount={pagination.totalCount}
+          limit={pagination.limit}
+          hasNextPage={pagination.hasNextPage}
+          hasPrevPage={pagination.hasPrevPage}
+          onPageChange={handlePageChange}
+          onLimitChange={handleLimitChange}
+        />
+      )}
+      
       <ConfirmDialog
         open={!!deleteId}
         title="Delete Template"
