@@ -8,7 +8,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useCodexConfig, getEnabledTabs } from "@/app/hooks/useCodexConfig";
 import { CodexTab } from "@/types/codex";
 import { Loader2, AlertCircle } from "lucide-react";
@@ -89,8 +89,6 @@ export default function CodexPanelDynamic({
 }: CodexPanelDynamicProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
-
   const { data: codex, isLoading, error } = useCodexConfig({ codexId, useDefaults });
   
   const enabledTabs = useMemo(() => getEnabledTabs(codex), [codex]);
@@ -100,17 +98,17 @@ export default function CodexPanelDynamic({
   );
 
   const isQriptopian = codexId === 'qripto-codex';
-  const urlIssue = searchParams.get('issue');
   const [issueSlug, setIssueSlug] = useState<string>(() => {
     if (!isQriptopian) return 'issue-1';
-    return urlIssue || 'issue-1';
+    return 'issue-1';
   });
 
   useEffect(() => {
     if (!isQriptopian) return;
-    const next = urlIssue || 'issue-1';
+    if (typeof window === 'undefined') return;
+    const next = new URLSearchParams(window.location.search).get('issue') || 'issue-1';
     setIssueSlug(next);
-  }, [isQriptopian, urlIssue]);
+  }, [isQriptopian]);
 
   const issueOptions = useMemo(() => {
     return Array.from({ length: 13 }, (_, i) => {
@@ -187,7 +185,7 @@ export default function CodexPanelDynamic({
                   onChange={(e) => {
                     const next = e.target.value;
                     setIssueSlug(next);
-                    const params = new URLSearchParams(searchParams.toString());
+                    const params = new URLSearchParams(window.location.search);
                     params.set('issue', next);
                     router.replace(`${pathname}?${params.toString()}`);
                   }}
