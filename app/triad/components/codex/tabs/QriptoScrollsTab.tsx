@@ -8,6 +8,7 @@ import { WheelGesturesPlugin } from 'embla-carousel-wheel-gestures';
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from '@/components/ui/carousel';
 import { isLockedContent, isPremiumContent } from '@/app/triad/components/codex/utils/contentFlags';
 import { CodexBadge } from '../CodexBadge';
+import { CacheManager } from '@/app/utils/cache';
 
 interface QriptoScrollsTabProps {
   theme?: 'light' | 'dark';
@@ -95,10 +96,17 @@ export function QriptoScrollsTab({ theme = 'dark', issueSlug }: QriptoScrollsTab
         setError(null);
 
         const origin = getApiOrigin();
-        const res = await fetch(`${origin}/api/content/section/scrolls${issueParam}`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-        const data = await res.json();
+        const issue = issueSlug || 'issue-1';
+        const cacheKey = CacheManager.generateKey('qripto:scrolls', { issue });
+        const data = await CacheManager.getOrSet(
+          cacheKey,
+          async () => {
+            const res = await fetch(`${origin}/api/content/section/scrolls${issueParam}`);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            return res.json();
+          },
+          { ttl: 300, tags: [`qripto:scrolls:${issue}`] }
+        );
         const content = data.content || data.data || [];
         setItems(Array.isArray(content) ? content : []);
       } catch (e: any) {

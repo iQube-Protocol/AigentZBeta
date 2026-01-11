@@ -65,10 +65,13 @@ export async function GET(request: NextRequest) {
         });
       }
       console.error('Failed to fetch user preferences:', error);
-      return NextResponse.json(
-        { ok: false, error: 'Failed to fetch preferences' },
-        { status: 500 }
-      );
+      return NextResponse.json({
+        ok: true,
+        preferences: {},
+        raw: [],
+        at: new Date().toISOString(),
+        warning: 'user_preferences unavailable',
+      });
     }
 
     // Convert to key-value map for easier consumption
@@ -85,10 +88,13 @@ export async function GET(request: NextRequest) {
     });
   } catch (error: any) {
     console.error('User preferences GET error:', error);
-    return NextResponse.json(
-      { ok: false, error: error.message || 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({
+      ok: true,
+      preferences: {},
+      raw: [],
+      at: new Date().toISOString(),
+      warning: error?.message || 'user_preferences unavailable',
+    });
   }
 }
 

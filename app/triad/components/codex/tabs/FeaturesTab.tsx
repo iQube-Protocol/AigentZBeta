@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Sparkles } from 'lucide-react';
 import { useSmartTriad } from '@/app/components/content/SmartTriadProvider';
 import { QriptopianFeatureSections } from '../QriptopianFeatureSections';
+import { CacheManager } from '@/app/utils/cache';
 
 interface ContentModalities {
   read?: { available?: boolean; text?: string; cid?: string };
@@ -92,29 +93,48 @@ export function FeaturesTab({ theme = 'dark', issueSlug }: FeaturesTabProps) {
     return issueSlug ? `?issue=${encodeURIComponent(issueSlug)}` : '';
   }, [issueSlug]);
 
+  const cacheTag = useMemo(() => `qripto:features:${issueSlug || 'issue-1'}`, [issueSlug]);
+
   useEffect(() => {
     const fetchContent = async () => {
       try {
         setIsLoading(true);
         const apiUrl = typeof window !== 'undefined' ? window.location.origin : 'https://dev-beta.aigentz.me';
+        const issue = issueSlug || 'issue-1';
 
-        const heroResponse = await fetch(`${apiUrl}/api/content/section/home-hero${issueParam}`);
-        if (heroResponse.ok) {
-          const heroData = await heroResponse.json();
-          setHeroArticles(heroData.content || []);
-        }
+        const [heroData, newsData, secondData] = await Promise.all([
+          CacheManager.getOrSet(
+            CacheManager.generateKey('qripto:home-hero', { issue }),
+            async () => {
+              const res = await fetch(`${apiUrl}/api/content/section/home-hero${issueParam}`);
+              if (!res.ok) throw new Error(`HTTP ${res.status}`);
+              return res.json();
+            },
+            { ttl: 300, tags: [cacheTag] }
+          ),
+          CacheManager.getOrSet(
+            CacheManager.generateKey('qripto:latest-news', { issue }),
+            async () => {
+              const res = await fetch(`${apiUrl}/api/content/section/latest-news${issueParam}`);
+              if (!res.ok) throw new Error(`HTTP ${res.status}`);
+              return res.json();
+            },
+            { ttl: 300, tags: [cacheTag] }
+          ),
+          CacheManager.getOrSet(
+            CacheManager.generateKey('qripto:second-hero', { issue }),
+            async () => {
+              const res = await fetch(`${apiUrl}/api/content/section/second-hero${issueParam}`);
+              if (!res.ok) throw new Error(`HTTP ${res.status}`);
+              return res.json();
+            },
+            { ttl: 300, tags: [cacheTag] }
+          ),
+        ]);
 
-        const newsResponse = await fetch(`${apiUrl}/api/content/section/latest-news${issueParam}`);
-        if (newsResponse.ok) {
-          const newsData = await newsResponse.json();
-          setLatestNews(newsData.content || []);
-        }
-
-        const secondResponse = await fetch(`${apiUrl}/api/content/section/second-hero${issueParam}`);
-        if (secondResponse.ok) {
-          const secondData = await secondResponse.json();
-          setSecondHeroArticles(secondData.content || []);
-        }
+        setHeroArticles(heroData.content || []);
+        setLatestNews(newsData.content || []);
+        setSecondHeroArticles(secondData.content || []);
       } catch (error) {
         console.error('Error fetching features content:', error);
       } finally {
@@ -156,7 +176,10 @@ export function FeaturesTab({ theme = 'dark', issueSlug }: FeaturesTabProps) {
         secondHeroArticles={secondHeroArticles}
         onOpen={openViaTriad}
         isOwned={(id) => actions.checkOwnership(id)}
-        onRefresh={() => setRefreshKey(Date.now())}
+        onRefresh={() => {
+          CacheManager.invalidate(cacheTag);
+          setRefreshKey(Date.now());
+        }}
         isRefreshing={false}
       />
     </div>

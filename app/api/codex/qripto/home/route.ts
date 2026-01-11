@@ -19,12 +19,16 @@ function getCanonicalIssue(raw: string | null): string {
 async function fetchSection(origin: string, section: string, issue: string) {
   const url = new URL(`/api/content/section/${section}`, origin);
   url.searchParams.set('issue', issue);
-  const res = await fetch(url.toString(), { cache: 'no-store' });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Failed section ${section}: ${res.status} ${text}`);
+  try {
+    const res = await fetch(url.toString(), { cache: 'no-store' });
+    if (!res.ok) {
+      const text = await res.text();
+      return { content: [], error: `Failed section ${section}: ${res.status} ${text}` } as any;
+    }
+    return (await res.json()) as SectionResponse;
+  } catch (error: any) {
+    return { content: [], error: error?.message || `Failed section ${section}` } as any;
   }
-  return (await res.json()) as SectionResponse;
 }
 
 export async function GET(request: NextRequest) {
@@ -43,6 +47,10 @@ export async function GET(request: NextRequest) {
       fetchSection(origin, '21knowdz', issue),
     ]);
 
+    const warnings = [homeHero, latestNews, secondHero, pennydrops, scrolls, knowdz]
+      .map((section: any) => section?.error)
+      .filter(Boolean);
+
     return NextResponse.json({
       issue,
       sections: {
@@ -53,6 +61,7 @@ export async function GET(request: NextRequest) {
         scrolls: scrolls.content || [],
         knowdz: knowdz.content || [],
       },
+      warnings: warnings.length ? warnings : undefined,
     });
   } catch (error: any) {
     return NextResponse.json(

@@ -24,6 +24,7 @@ import { useSmartTriad } from '@/app/components/content/SmartTriadProvider';
 import { CodexActionRow } from '../CodexActionRow';
 import { isLockedContent, isPremiumContent } from '@/app/triad/components/codex/utils/contentFlags';
 import { CodexBadge } from '../CodexBadge';
+import { CacheManager } from '@/app/utils/cache';
 
 interface Kn0wdZTabProps {
   theme?: 'light' | 'dark';
@@ -162,10 +163,18 @@ export function Kn0wdZTab({ theme = 'dark', issueSlug }: Kn0wdZTabProps) {
         setError(null);
 
         const origin = getApiOrigin();
-        const res = await fetch(`${origin}/api/content/section/21knowdz${issueParam}`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const issue = issueSlug || 'issue-1';
+        const cacheKey = CacheManager.generateKey('qripto:knowdz', { issue });
+        const data = await CacheManager.getOrSet(
+          cacheKey,
+          async () => {
+            const res = await fetch(`${origin}/api/content/section/21knowdz${issueParam}`);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            return res.json();
+          },
+          { ttl: 300, tags: [`qripto:knowdz:${issue}`] }
+        );
 
-        const data = await res.json();
         const content = data.content || data.data || [];
         setItems(Array.isArray(content) ? content : []);
       } catch (e: any) {

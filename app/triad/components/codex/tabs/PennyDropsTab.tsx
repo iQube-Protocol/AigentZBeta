@@ -8,6 +8,7 @@ import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from '@/com
 import { WheelGesturesPlugin } from 'embla-carousel-wheel-gestures';
 import { isLockedContent, isPremiumContent } from '@/app/triad/components/codex/utils/contentFlags';
 import { CodexBadge } from '../CodexBadge';
+import { CacheManager } from '@/app/utils/cache';
 
 interface PennyDropsTabProps {
   theme?: 'light' | 'dark';
@@ -66,27 +67,35 @@ export function PennyDropsTab({ theme = 'dark', issueSlug, dataSource }: PennyDr
         const origin = getApiOrigin();
         const primary = dataSource ? `${origin}${dataSource}${issueParam}` : null;
         const fallback = `${origin}/api/content/section/pennydrops${issueParam}`;
+        const issue = issueSlug || 'issue-1';
+        const cacheKey = CacheManager.generateKey('qripto:pennydrops', { issue, source: primary ? 'api' : 'section' });
 
-        const urls = [primary, fallback].filter(Boolean) as string[];
+        const data = await CacheManager.getOrSet(
+          cacheKey,
+          async () => {
+            const urls = [primary, fallback].filter(Boolean) as string[];
 
-        let lastErr: any = null;
-        for (const url of urls) {
-          try {
-            const res = await fetch(url);
-            if (!res.ok) {
-              lastErr = new Error(`HTTP ${res.status}`);
-              continue;
+            let lastErr: any = null;
+            for (const url of urls) {
+              try {
+                const res = await fetch(url);
+                if (!res.ok) {
+                  lastErr = new Error(`HTTP ${res.status}`);
+                  continue;
+                }
+                return await res.json();
+              } catch (e) {
+                lastErr = e;
+              }
             }
-            const data = await res.json();
-            const content = data.content || data.data || [];
-            setItems(Array.isArray(content) ? content : []);
-            return;
-          } catch (e) {
-            lastErr = e;
-          }
-        }
 
-        throw lastErr || new Error('Failed to load PennyDrops');
+            throw lastErr || new Error('Failed to load PennyDrops');
+          },
+          { ttl: 300, tags: [`qripto:pennydrops:${issue}`] }
+        );
+
+        const content = data.content || data.data || [];
+        setItems(Array.isArray(content) ? content : []);
       } catch (e: any) {
         setError(e?.message || 'Failed to load PennyDrops');
         setItems([]);

@@ -55,12 +55,29 @@ export async function GET(
     const tab = searchParams.get('tab');
     const issue = normalizeIssueSlug(searchParams.get('issue'));
     const issueNumber = issueNumberFromSlug(issue);
+
+    const hasSupabase = Boolean(
+      process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
+    );
     
     // Validate section
     if (!VALID_SECTIONS.includes(section)) {
       return NextResponse.json({ 
         error: `Invalid section: ${section}. Valid sections: ${VALID_SECTIONS.join(', ')}`
       }, { status: 400,  });
+    }
+
+    if (!hasSupabase) {
+      return NextResponse.json({
+        content: [],
+        count: 0,
+        section,
+        tab: tab || null,
+        issue,
+        source: 'unconfigured',
+        timestamp: new Date().toISOString(),
+        warning: 'Supabase not configured',
+      });
     }
 
     console.log(`[Content/${section}] Fetching content from database${tab ? ` (tab: ${tab})` : ''} (issue: ${issue})`);
@@ -115,10 +132,16 @@ export async function GET(
 
     if (error) {
       console.error(`[Content/${section}] Database error:`, error);
-      return NextResponse.json({ 
-        error: 'Failed to fetch content',
-        details: error.message
-      }, { status: 500,  });
+      return NextResponse.json({
+        content: [],
+        count: 0,
+        section,
+        tab: tab || null,
+        issue,
+        source: 'error',
+        timestamp: new Date().toISOString(),
+        warning: error.message || 'Failed to fetch content',
+      });
     }
 
     console.log(`[Content/${section}] Found ${content?.length || 0} published items`);

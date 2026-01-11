@@ -7,6 +7,7 @@ import { CodexActionRow } from '../CodexActionRow';
 import { QriptopianFeatureSections } from '../QriptopianFeatureSections';
 import { isLockedContent, isPremiumContent } from '@/app/triad/components/codex/utils/contentFlags';
 import { CodexBadge } from '../CodexBadge';
+import { CacheManager } from '@/app/utils/cache';
 
 type SectionItem = {
   id: string;
@@ -75,34 +76,41 @@ export function QriptoLiquidCodexTab({ theme = 'dark', issueSlug, dataSource }: 
 
         const origin = getApiOrigin();
         const primary = dataSource ? `${origin}${dataSource}${issueParam}` : null;
-
-        if (primary) {
-          const data = await fetchJson<QriptoHomePayload>(primary);
-          setPayload(data);
-          return;
-        }
-
         const issue = issueSlug || 'issue-1';
-        const [homeHero, latestNews, secondHero, pennydrops, scrolls, knowdz] = await Promise.all([
-          fetchJson<any>(`${origin}/api/content/section/home-hero?issue=${encodeURIComponent(issue)}`),
-          fetchJson<any>(`${origin}/api/content/section/latest-news?issue=${encodeURIComponent(issue)}`),
-          fetchJson<any>(`${origin}/api/content/section/second-hero?issue=${encodeURIComponent(issue)}`),
-          fetchJson<any>(`${origin}/api/content/section/pennydrops?issue=${encodeURIComponent(issue)}`),
-          fetchJson<any>(`${origin}/api/content/section/scrolls?issue=${encodeURIComponent(issue)}`),
-          fetchJson<any>(`${origin}/api/content/section/21knowdz?issue=${encodeURIComponent(issue)}`),
-        ]);
+        const cacheKey = CacheManager.generateKey('qripto:home', { issue, source: primary ? 'api' : 'fallback' });
 
-        setPayload({
-          issue,
-          sections: {
-            homeHero: homeHero.content || [],
-            latestNews: latestNews.content || [],
-            secondHero: secondHero.content || [],
-            pennydrops: pennydrops.content || [],
-            scrolls: scrolls.content || [],
-            knowdz: knowdz.content || [],
+        const data = await CacheManager.getOrSet(
+          cacheKey,
+          async () => {
+            if (primary) {
+              return await fetchJson<QriptoHomePayload>(primary);
+            }
+
+            const [homeHero, latestNews, secondHero, pennydrops, scrolls, knowdz] = await Promise.all([
+              fetchJson<any>(`${origin}/api/content/section/home-hero?issue=${encodeURIComponent(issue)}`),
+              fetchJson<any>(`${origin}/api/content/section/latest-news?issue=${encodeURIComponent(issue)}`),
+              fetchJson<any>(`${origin}/api/content/section/second-hero?issue=${encodeURIComponent(issue)}`),
+              fetchJson<any>(`${origin}/api/content/section/pennydrops?issue=${encodeURIComponent(issue)}`),
+              fetchJson<any>(`${origin}/api/content/section/scrolls?issue=${encodeURIComponent(issue)}`),
+              fetchJson<any>(`${origin}/api/content/section/21knowdz?issue=${encodeURIComponent(issue)}`),
+            ]);
+
+            return {
+              issue,
+              sections: {
+                homeHero: homeHero.content || [],
+                latestNews: latestNews.content || [],
+                secondHero: secondHero.content || [],
+                pennydrops: pennydrops.content || [],
+                scrolls: scrolls.content || [],
+                knowdz: knowdz.content || [],
+              },
+            } as QriptoHomePayload;
           },
-        });
+          { ttl: 300, tags: [`qripto:home:${issue}`] }
+        );
+
+        setPayload(data);
       } catch (e: any) {
         setError(e?.message || 'Failed to load Codex');
         setPayload(null);
