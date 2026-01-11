@@ -41,7 +41,7 @@ export function useServerPreferences(options: ServerPreferencesOptions = {}) {
     }
     
     return sessionId;
-  }, [triadContext.personaId]);
+  }, [triadContext?.personaId]);
 
   // Load preferences from server
   const loadPreferences = useCallback(async () => {
