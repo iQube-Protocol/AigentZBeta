@@ -52,6 +52,7 @@ async function fetchJson<T>(url: string): Promise<T> {
 
 export function QriptoLiquidCodexTab({ theme = 'dark', issueSlug, dataSource }: QriptoLiquidCodexTabProps) {
   const { actions } = useSmartTriad();
+  const isOwnedItem = (item: SectionItem) => actions.checkOwnership(item.id);
 
   const [payload, setPayload] = useState<QriptoHomePayload | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -216,7 +217,7 @@ export function QriptoLiquidCodexTab({ theme = 'dark', issueSlug, dataSource }: 
                     <img
                       src={item.image}
                       alt={item.title}
-                      className={`h-full w-full object-cover ${isLockedContent(item, actions.checkOwnership) ? 'opacity-60' : ''}`}
+                      className={`h-full w-full object-cover ${isLockedContent(item, isOwnedItem) ? 'opacity-60' : ''}`}
                     />
                   ) : (
                     <Coins className="w-5 h-5 text-slate-600" />
@@ -226,7 +227,7 @@ export function QriptoLiquidCodexTab({ theme = 'dark', issueSlug, dataSource }: 
                       <Crown className="h-3 w-3" />
                     </div>
                   )}
-                  {isLockedContent(item, actions.checkOwnership) && (
+                  {isLockedContent(item, isOwnedItem) && (
                     <div className="absolute inset-0 flex items-center justify-center">
                       <Lock className="h-3.5 w-3.5 text-amber-300" />
                     </div>
@@ -265,7 +266,7 @@ export function QriptoLiquidCodexTab({ theme = 'dark', issueSlug, dataSource }: 
                     <img
                       src={item.image}
                       alt={item.title}
-                      className={`h-full w-full object-cover ${isLockedContent(item, actions.checkOwnership) ? 'opacity-60' : ''}`}
+                      className={`h-full w-full object-cover ${isLockedContent(item, isOwnedItem) ? 'opacity-60' : ''}`}
                     />
                   ) : (
                     <BookOpen className="w-5 h-5 text-slate-600" />
@@ -275,7 +276,7 @@ export function QriptoLiquidCodexTab({ theme = 'dark', issueSlug, dataSource }: 
                       <Crown className="h-3 w-3" />
                     </div>
                   )}
-                  {isLockedContent(item, actions.checkOwnership) && (
+                  {isLockedContent(item, isOwnedItem) && (
                     <div className="absolute inset-0 flex items-center justify-center">
                       <Lock className="h-3.5 w-3.5 text-amber-300" />
                     </div>
@@ -325,7 +326,7 @@ export function QriptoLiquidCodexTab({ theme = 'dark', issueSlug, dataSource }: 
                     <img
                       src={item.image}
                       alt={item.title}
-                      className={`h-full w-full object-cover ${isLockedContent(item, actions.checkOwnership) ? 'opacity-60' : ''}`}
+                      className={`h-full w-full object-cover ${isLockedContent(item, isOwnedItem) ? 'opacity-60' : ''}`}
                     />
                   ) : (
                     <Brain className="w-5 h-5 text-slate-600" />
@@ -335,7 +336,7 @@ export function QriptoLiquidCodexTab({ theme = 'dark', issueSlug, dataSource }: 
                       <Crown className="h-3 w-3" />
                     </div>
                   )}
-                  {isLockedContent(item, actions.checkOwnership) && (
+                  {isLockedContent(item, isOwnedItem) && (
                     <div className="absolute inset-0 flex items-center justify-center">
                       <Lock className="h-3.5 w-3.5 text-amber-300" />
                     </div>

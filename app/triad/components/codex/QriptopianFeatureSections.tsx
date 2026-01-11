@@ -124,7 +124,8 @@ export function QriptopianFeatureSections({
   );
 
   const isItemPremium = (item: QriptopianFeatureItem) => isPremiumContent(item);
-  const isItemLocked = (item: QriptopianFeatureItem) => isLockedContent(item, isOwned);
+  const isOwnedItem = (item: QriptopianFeatureItem) => (isOwned ? isOwned(item.id) : false);
+  const isItemLocked = (item: QriptopianFeatureItem) => isLockedContent(item, isOwnedItem);
 
   return (
     <div className="space-y-10">

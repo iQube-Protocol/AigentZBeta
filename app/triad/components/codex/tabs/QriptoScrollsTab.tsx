@@ -36,6 +36,7 @@ function getApiOrigin() {
 
 export function QriptoScrollsTab({ theme = 'dark', issueSlug }: QriptoScrollsTabProps) {
   const { actions } = useSmartTriad();
+  const isOwnedItem = (item: ScrollItem) => actions.checkOwnership(item.id);
   const [items, setItems] = useState<ScrollItem[]>([]);
   const [activeTab, setActiveTab] = useState<'metaknyts' | 'synthsims'>('metaknyts');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -153,8 +154,6 @@ export function QriptoScrollsTab({ theme = 'dark', issueSlug }: QriptoScrollsTab
     return null;
   };
 
-  const isOwned = (id: string) => actions.checkOwnership(id);
-
   const tabs = [
     { id: 'metaknyts', label: 'metaKnyts' },
     { id: 'synthsims', label: 'The SynthSims' },
@@ -223,7 +222,7 @@ export function QriptoScrollsTab({ theme = 'dark', issueSlug }: QriptoScrollsTab
                       src={item.cover_image_url || item.image}
                       alt={item.title}
                       className={`absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 ${
-                        isLockedContent(item, isOwned) ? 'opacity-60' : ''
+                        isLockedContent(item, isOwnedItem) ? 'opacity-60' : ''
                       }`}
                     />
                   ) : (
@@ -241,7 +240,7 @@ export function QriptoScrollsTab({ theme = 'dark', issueSlug }: QriptoScrollsTab
                       </CodexBadge>
                     )}
                   </div>
-                  {isLockedContent(item, isOwned) && (
+                  {isLockedContent(item, isOwnedItem) && (
                     <div className="absolute inset-0 flex items-center justify-center">
                       <div className="rounded-full bg-black/60 p-3">
                         <Lock className="h-5 w-5 text-amber-300" />
@@ -317,7 +316,7 @@ export function QriptoScrollsTab({ theme = 'dark', issueSlug }: QriptoScrollsTab
                       src={item.cover_image_url || item.image}
                       alt={item.title}
                       className={`absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105 ${
-                        isLockedContent(item, isOwned) ? 'opacity-60' : ''
+                        isLockedContent(item, isOwnedItem) ? 'opacity-60' : ''
                       }`}
                     />
                   ) : (
@@ -333,7 +332,7 @@ export function QriptoScrollsTab({ theme = 'dark', issueSlug }: QriptoScrollsTab
                       </CodexBadge>
                     </div>
                   )}
-                  {isLockedContent(item, isOwned) && (
+                  {isLockedContent(item, isOwnedItem) && (
                     <div className="absolute inset-0 flex items-center justify-center">
                       <Lock className="h-4 w-4 text-amber-300" />
                     </div>

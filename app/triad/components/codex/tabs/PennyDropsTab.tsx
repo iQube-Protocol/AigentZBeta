@@ -37,6 +37,7 @@ function getApiOrigin() {
 
 export function PennyDropsTab({ theme = 'dark', issueSlug, dataSource }: PennyDropsTabProps) {
   const { actions } = useSmartTriad();
+  const isOwnedItem = (item: PennyDropItem) => actions.checkOwnership(item.id);
   const [items, setItems] = useState<PennyDropItem[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [carouselApi, setCarouselApi] = useState<CarouselApi>();
@@ -120,7 +121,7 @@ export function PennyDropsTab({ theme = 'dark', issueSlug, dataSource }: PennyDr
 
   const selectedItem = items[selectedIndex] || items[0];
   const isSelectedPremium = selectedItem ? isPremiumContent(selectedItem) : false;
-  const isSelectedLocked = selectedItem ? isLockedContent(selectedItem, actions.checkOwnership) : false;
+  const isSelectedLocked = selectedItem ? isLockedContent(selectedItem, isOwnedItem) : false;
 
   const emitDvnReceipt = async (eventType: string, contentId: string) => {
     try {
@@ -308,7 +309,7 @@ export function PennyDropsTab({ theme = 'dark', issueSlug, dataSource }: PennyDr
                       src={getImage(item)}
                       alt={item.title}
                       className={`absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105 ${
-                        isLockedContent(item, actions.checkOwnership) ? 'opacity-60' : ''
+                        isLockedContent(item, isOwnedItem) ? 'opacity-60' : ''
                       }`}
                     />
                   ) : (
@@ -317,7 +318,7 @@ export function PennyDropsTab({ theme = 'dark', issueSlug, dataSource }: PennyDr
                     </div>
                   )}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-                  {isLockedContent(item, actions.checkOwnership) && (
+                  {isLockedContent(item, isOwnedItem) && (
                     <div className="absolute inset-0 flex items-center justify-center">
                       <Lock className="h-4 w-4 text-amber-300" />
                     </div>

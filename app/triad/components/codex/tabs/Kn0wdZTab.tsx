@@ -140,6 +140,7 @@ function badgeToTab(badge?: string): TabId {
 
 export function Kn0wdZTab({ theme = 'dark', issueSlug }: Kn0wdZTabProps) {
   const { actions } = useSmartTriad();
+  const isOwnedItem = (item: Kn0wdZItem) => actions.checkOwnership(item.id);
   const [items, setItems] = useState<Kn0wdZItem[]>([]);
   const [activeTab, setActiveTab] = useState<TabId>('dev');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -192,7 +193,7 @@ export function Kn0wdZTab({ theme = 'dark', issueSlug }: Kn0wdZTabProps) {
   const activePanel = panels[activeTab];
   const ActivePanelIcon = activePanel.icon;
   const isSelectedPremium = selectedItem ? isPremiumContent(selectedItem) : false;
-  const isSelectedLocked = selectedItem ? isLockedContent(selectedItem, actions.checkOwnership) : false;
+  const isSelectedLocked = selectedItem ? isLockedContent(selectedItem, isOwnedItem) : false;
 
   const emitDvnReceipt = async (eventType: string, contentId: string) => {
     try {
@@ -438,7 +439,7 @@ export function Kn0wdZTab({ theme = 'dark', issueSlug }: Kn0wdZTabProps) {
                   src={getImage(item)}
                   alt={item.title}
                   className={`absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105 ${
-                    isLockedContent(item, actions.checkOwnership) ? 'opacity-60' : ''
+                    isLockedContent(item, isOwnedItem) ? 'opacity-60' : ''
                   }`}
                 />
               ) : (
@@ -447,7 +448,7 @@ export function Kn0wdZTab({ theme = 'dark', issueSlug }: Kn0wdZTabProps) {
                 </div>
               )}
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-              {isLockedContent(item, actions.checkOwnership) && (
+              {isLockedContent(item, isOwnedItem) && (
                 <div className="absolute inset-0 flex items-center justify-center">
                   <Lock className="h-4 w-4 text-amber-300" />
                 </div>
