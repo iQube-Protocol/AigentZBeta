@@ -6,7 +6,7 @@ import { useSmartTriad } from '@/app/components/content/SmartTriadProvider';
 import { CodexActionRow } from '../CodexActionRow';
 import { WheelGesturesPlugin } from 'embla-carousel-wheel-gestures';
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from '@/components/ui/carousel';
-import { isLockedContent, isPremiumContent } from '@/lib/contentFlags';
+import { isLockedContent, isPremiumContent } from '@/app/triad/components/codex/utils/contentFlags';
 import { CodexBadge } from '../CodexBadge';
 
 interface QriptoScrollsTabProps {

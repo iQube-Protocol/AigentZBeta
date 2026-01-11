@@ -1,5 +1,3 @@
-'use client';
-
 type PremiumItem = {
   id: string;
   tags?: string[];

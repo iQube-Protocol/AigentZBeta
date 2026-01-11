@@ -8,7 +8,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { isPremiumContent } from '@/lib/contentFlags';
+import { isPremiumContent } from '@/app/triad/components/codex/utils/contentFlags';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,

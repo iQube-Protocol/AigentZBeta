@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { useSmartTriad } from '@/app/components/content/SmartTriadProvider';
 import { CodexActionRow } from '../CodexActionRow';
-import { isLockedContent, isPremiumContent } from '@/lib/contentFlags';
+import { isLockedContent, isPremiumContent } from '@/app/triad/components/codex/utils/contentFlags';
 import { CodexBadge } from '../CodexBadge';
 
 interface Kn0wdZTabProps {

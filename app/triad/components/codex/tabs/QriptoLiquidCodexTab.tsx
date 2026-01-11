@@ -5,7 +5,7 @@ import { BookOpen, Brain, Coins, Crown, Loader2, Lock, Sparkles } from 'lucide-r
 import { useSmartTriad } from '@/app/components/content/SmartTriadProvider';
 import { CodexActionRow } from '../CodexActionRow';
 import { QriptopianFeatureSections } from '../QriptopianFeatureSections';
-import { isLockedContent, isPremiumContent } from '@/lib/contentFlags';
+import { isLockedContent, isPremiumContent } from '@/app/triad/components/codex/utils/contentFlags';
 import { CodexBadge } from '../CodexBadge';
 
 type SectionItem = {

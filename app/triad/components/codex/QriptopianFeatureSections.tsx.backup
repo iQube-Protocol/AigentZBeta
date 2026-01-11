@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight, Clock, Crown, Lock, RefreshCw, User } from '
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from '@/components/ui/carousel';
 import { CodexActionRow } from './CodexActionRow';
 import { WheelGesturesPlugin } from 'embla-carousel-wheel-gestures';
-import { isLockedContent, isPremiumContent } from '@/lib/contentFlags';
+import { isLockedContent, isPremiumContent } from '@/app/triad/components/codex/utils/contentFlags';
 import { CodexBadge } from './CodexBadge';
 
 export type QriptopianFeatureItem = {
