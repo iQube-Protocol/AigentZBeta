@@ -52,7 +52,7 @@ async function fetchJson<T>(url: string): Promise<T> {
 
 export function QriptoLiquidCodexTab({ theme = 'dark', issueSlug, dataSource }: QriptoLiquidCodexTabProps) {
   const { actions } = useSmartTriad();
-  const isOwnedItem = (item: SectionItem) => actions.checkOwnership(item.id);
+  const isOwnedItem = (item: { id: string }) => actions.checkOwnership(item.id);
 
   const [payload, setPayload] = useState<QriptoHomePayload | null>(null);
   const [isLoading, setIsLoading] = useState(true);

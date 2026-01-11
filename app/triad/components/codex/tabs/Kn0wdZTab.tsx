@@ -140,7 +140,7 @@ function badgeToTab(badge?: string): TabId {
 
 export function Kn0wdZTab({ theme = 'dark', issueSlug }: Kn0wdZTabProps) {
   const { actions } = useSmartTriad();
-  const isOwnedItem = (item: Kn0wdZItem) => actions.checkOwnership(item.id);
+  const isOwnedItem = (item: { id: string }) => actions.checkOwnership(item.id);
   const [items, setItems] = useState<Kn0wdZItem[]>([]);
   const [activeTab, setActiveTab] = useState<TabId>('dev');
   const [selectedIndex, setSelectedIndex] = useState(0);

@@ -36,7 +36,7 @@ function getApiOrigin() {
 
 export function QriptoScrollsTab({ theme = 'dark', issueSlug }: QriptoScrollsTabProps) {
   const { actions } = useSmartTriad();
-  const isOwnedItem = (item: ScrollItem) => actions.checkOwnership(item.id);
+  const isOwnedItem = (item: { id: string }) => actions.checkOwnership(item.id);
   const [items, setItems] = useState<ScrollItem[]>([]);
   const [activeTab, setActiveTab] = useState<'metaknyts' | 'synthsims'>('metaknyts');
   const [selectedIndex, setSelectedIndex] = useState(0);
