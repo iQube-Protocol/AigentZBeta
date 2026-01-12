@@ -10,6 +10,8 @@ import {
   LayoutGrid,
   Link,
   List,
+  Maximize2,
+  Minimize2,
   Palette,
   PanelLeftClose,
   PanelLeftOpen,
@@ -41,6 +43,7 @@ export default function CodexViewerPage() {
   const [activeTab, setActiveTab] = useState("scrolls");
   const [configCollapsed, setConfigCollapsed] = useState(false);
   const [activeSection, setActiveSection] = useState<ConfigSection>("codex");
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const { data: codexList } = useCodexList({ useDefaults: true });
   const { data: codexConfig } = useCodexConfig({ codexId, useDefaults: true });
@@ -221,20 +224,30 @@ export default function CodexViewerPage() {
   const activeSectionConfig = sections.find(section => section.id === activeSection) ?? sections[0];
 
   return (
-    <div className="h-screen flex flex-col bg-slate-900">
+    <div
+      className={`flex flex-col bg-slate-900 ${
+        isFullscreen ? "fixed inset-0 z-[200]" : "h-screen"
+      }`}
+    >
       {/* Header */}
       <div className="flex-shrink-0 border-b border-slate-700/50 bg-slate-800/50 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <BookOpen className="w-6 h-6 text-purple-400" />
-            <div>
-              <h1 className="text-xl font-bold text-white">Multi-Codex Viewer</h1>
-              <p className="text-sm text-slate-400">Test and configure Codex embed components</p>
-            </div>
+            <h1 className="text-xl font-bold text-white">Multi-Codex Viewer</h1>
+            <span className="text-sm text-slate-400">Test and configure Codex embed components</span>
           </div>
           <div className="flex items-center gap-2">
             <Settings className="w-5 h-5 text-slate-400" />
             <span className="text-sm text-slate-400">Component Tester</span>
+            <button
+              type="button"
+              onClick={() => setIsFullscreen((prev) => !prev)}
+              className="ml-2 inline-flex items-center gap-1 rounded-lg border border-slate-700/60 bg-slate-800/70 px-2 py-1 text-xs font-semibold text-slate-200 hover:bg-slate-700/80"
+              aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+            >
+              {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+            </button>
           </div>
         </div>
       </div>
