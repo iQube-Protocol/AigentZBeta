@@ -16,7 +16,7 @@ export default function ScrollsManager() {
 
   const loadContent = async () => {
     try {
-      const data = await contentService.getContentBySection('scrolls', { tab: activeTab });
+      const data = await contentService.getAllContentBySection('scrolls', { tab: activeTab });
       setContent(data);
     } catch (error) {
       console.error('Error loading content:', error);
@@ -53,6 +53,18 @@ export default function ScrollsManager() {
     } catch (error) {
       console.error('Error updating status:', error);
       toast.error('Failed to update status');
+    }
+  };
+
+  const handleToggleArchive = async (item: Content) => {
+    try {
+      const newStatus = item.status === 'archived' ? 'draft' : 'archived';
+      await contentService.updateContent(item.id, { status: newStatus });
+      toast.success(newStatus === 'archived' ? 'Article archived' : 'Article restored to draft');
+      loadContent();
+    } catch (error) {
+      console.error('Error updating archive status:', error);
+      toast.error('Failed to update archive status');
     }
   };
 
@@ -123,7 +135,10 @@ export default function ScrollsManager() {
                           </Badge>
                         )}
                       </div>
-                      <Badge variant={item.status === 'published' ? 'default' : 'secondary'}>
+                      <Badge
+                        variant={item.status === 'published' ? 'default' : 'secondary'}
+                        className={item.status === 'archived' ? 'border-amber-500/30 bg-amber-500/10 text-amber-500' : undefined}
+                      >
                         {item.status}
                       </Badge>
                     </div>
@@ -147,6 +162,13 @@ export default function ScrollsManager() {
                         onClick={() => handleToggleStatus(item)}
                       >
                         {item.status === 'published' ? 'Unpublish' : 'Publish'}
+                      </Button>
+                      <Button
+                        variant={item.status === 'archived' ? 'secondary' : 'outline'}
+                        size="sm"
+                        onClick={() => handleToggleArchive(item)}
+                      >
+                        {item.status === 'archived' ? 'Restore' : 'Archive'}
                       </Button>
                       <Button
                         variant="outline"

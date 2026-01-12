@@ -945,13 +945,15 @@ export const Sidebar = () => {
   
   return (
     <>
-      <aside className={`${collapsed ? "w-16" : "w-72"} relative z-[90] pointer-events-auto transition-all duration-200 bg-black/30 ring-1 ring-white/10 backdrop-blur-xl p-4 md:p-6 flex-shrink-0 min-h-screen`}>
-        <button className="mb-6 text-sm font-semibold text-slate-200 hover:text-white flex items-center gap-2 uppercase tracking-wider" onClick={toggleSidebar}>
-          <Bot size={18} className="text-blue-400" />
-          {!collapsed && <span>QRIPTO: AGENTIQ</span>}
-          {!collapsed && <span className="ml-auto">«</span>}
-        </button>
-      <nav className="space-y-6">
+      <aside className={`${collapsed ? "w-16" : "w-72"} relative z-[90] pointer-events-auto transition-all duration-200 bg-black/30 ring-1 ring-white/10 backdrop-blur-xl p-4 md:p-6 flex-shrink-0 h-screen flex flex-col overflow-hidden`}>
+        <div className="flex-shrink-0">
+          <button className="mb-6 text-sm font-semibold text-slate-200 hover:text-white flex items-center gap-2 uppercase tracking-wider" onClick={toggleSidebar}>
+            <Bot size={18} className="text-blue-400" />
+            {!collapsed && <span>QRIPTO: AGENTIQ</span>}
+            {!collapsed && <span className="ml-auto">«</span>}
+          </button>
+        </div>
+      <nav className="space-y-6 flex-1 overflow-y-auto pr-1 pb-6">
         {sections.map((section) => {
           const isDashboard = section.label === "Dashboard";
           

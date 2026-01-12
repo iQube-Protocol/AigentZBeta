@@ -90,7 +90,11 @@ export function FeaturesTab({ theme = 'dark', issueSlug }: FeaturesTabProps) {
   };
 
   const issueParam = useMemo(() => {
-    return issueSlug ? `?issue=${encodeURIComponent(issueSlug)}` : '';
+    const params = new URLSearchParams();
+    if (issueSlug) params.set('issue', issueSlug);
+    params.set('scope', 'codex');
+    const qs = params.toString();
+    return qs ? `?${qs}` : '';
   }, [issueSlug]);
 
   const cacheTag = useMemo(() => `qripto:features:${issueSlug || 'issue-1'}`, [issueSlug]);

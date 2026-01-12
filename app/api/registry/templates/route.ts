@@ -11,6 +11,14 @@ function buildUrl(base: string, path: string, params?: Record<string, string>) {
 }
 
 const getHandler = async (req: Request) => {
+    const fetchMode = req.headers.get('sec-fetch-mode');
+    const fetchDest = req.headers.get('sec-fetch-dest');
+    const accept = req.headers.get('accept') || '';
+    if ((fetchMode === 'navigate' || fetchDest === 'document') && accept.includes('text/html')) {
+      const url = new URL(req.url);
+      return NextResponse.redirect(new URL('/registry', url));
+    }
+
     // Generate cache key from request parameters
     const url = new URL(req.url);
     const cacheKey = CacheManager.generateKey(

@@ -153,7 +153,11 @@ export function Kn0wdZTab({ theme = 'dark', issueSlug }: Kn0wdZTabProps) {
   const mutedClass = isDark ? 'text-slate-400' : 'text-slate-600';
 
   const issueParam = useMemo(() => {
-    return issueSlug ? `?issue=${encodeURIComponent(issueSlug)}` : '';
+    const params = new URLSearchParams();
+    if (issueSlug) params.set('issue', issueSlug);
+    params.set('scope', 'codex');
+    const qs = params.toString();
+    return qs ? `?${qs}` : '';
   }, [issueSlug]);
 
   useEffect(() => {

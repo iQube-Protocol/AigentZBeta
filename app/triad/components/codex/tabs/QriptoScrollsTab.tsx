@@ -86,7 +86,11 @@ export function QriptoScrollsTab({ theme = 'dark', issueSlug }: QriptoScrollsTab
   const cardClass = isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-200';
 
   const issueParam = useMemo(() => {
-    return issueSlug ? `?issue=${encodeURIComponent(issueSlug)}` : '';
+    const params = new URLSearchParams();
+    if (issueSlug) params.set('issue', issueSlug);
+    params.set('scope', 'codex');
+    const qs = params.toString();
+    return qs ? `?${qs}` : '';
   }, [issueSlug]);
 
   useEffect(() => {

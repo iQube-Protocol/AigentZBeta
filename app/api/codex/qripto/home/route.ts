@@ -19,6 +19,7 @@ function getCanonicalIssue(raw: string | null): string {
 async function fetchSection(origin: string, section: string, issue: string) {
   const url = new URL(`/api/content/section/${section}`, origin);
   url.searchParams.set('issue', issue);
+  url.searchParams.set('scope', 'codex');
   try {
     const res = await fetch(url.toString(), { cache: 'no-store' });
     if (!res.ok) {

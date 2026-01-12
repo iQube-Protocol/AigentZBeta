@@ -52,13 +52,14 @@ async function fetchJson<T>(url: string): Promise<T> {
 }
 
 async function buildPayloadFromSections(origin: string, issue: string): Promise<QriptoHomePayload> {
+  const issueParam = `issue=${encodeURIComponent(issue)}&scope=codex`;
   const [homeHero, latestNews, secondHero, pennydrops, scrolls, knowdz] = await Promise.all([
-    fetchJson<any>(`${origin}/api/content/section/home-hero?issue=${encodeURIComponent(issue)}`),
-    fetchJson<any>(`${origin}/api/content/section/latest-news?issue=${encodeURIComponent(issue)}`),
-    fetchJson<any>(`${origin}/api/content/section/second-hero?issue=${encodeURIComponent(issue)}`),
-    fetchJson<any>(`${origin}/api/content/section/pennydrops?issue=${encodeURIComponent(issue)}`),
-    fetchJson<any>(`${origin}/api/content/section/scrolls?issue=${encodeURIComponent(issue)}`),
-    fetchJson<any>(`${origin}/api/content/section/21knowdz?issue=${encodeURIComponent(issue)}`),
+    fetchJson<any>(`${origin}/api/content/section/home-hero?${issueParam}`),
+    fetchJson<any>(`${origin}/api/content/section/latest-news?${issueParam}`),
+    fetchJson<any>(`${origin}/api/content/section/second-hero?${issueParam}`),
+    fetchJson<any>(`${origin}/api/content/section/pennydrops?${issueParam}`),
+    fetchJson<any>(`${origin}/api/content/section/scrolls?${issueParam}`),
+    fetchJson<any>(`${origin}/api/content/section/21knowdz?${issueParam}`),
   ]);
 
   return {
@@ -88,7 +89,11 @@ export function QriptoLiquidCodexTab({ theme = 'dark', issueSlug, dataSource }: 
   const cardClass = isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-200';
 
   const issueParam = useMemo(() => {
-    return issueSlug ? `?issue=${encodeURIComponent(issueSlug)}` : '';
+    const params = new URLSearchParams();
+    if (issueSlug) params.set('issue', issueSlug);
+    params.set('scope', 'codex');
+    const qs = params.toString();
+    return qs ? `?${qs}` : '';
   }, [issueSlug]);
 
   useEffect(() => {

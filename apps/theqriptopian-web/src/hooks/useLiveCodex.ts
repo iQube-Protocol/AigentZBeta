@@ -152,7 +152,7 @@ export function useLiveCodex() {
       const { data, error: fetchError } = await supabase
         .from('content')
         .select('*')
-        .eq('status', 'published')
+        .in('status', ['published', 'archived'])
         .order('created_at', { ascending: false });
 
       if (fetchError) {

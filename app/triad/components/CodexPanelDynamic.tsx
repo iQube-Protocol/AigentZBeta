@@ -79,6 +79,12 @@ interface CodexPanelDynamicProps {
   useDefaults?: boolean;        // Use hardcoded configs vs database
 }
 
+type IssueOption = {
+  slug: string;
+  label: string;
+  count?: number;
+};
+
 export default function CodexPanelDynamic({
   codexId,
   theme = 'dark',
@@ -102,6 +108,8 @@ export default function CodexPanelDynamic({
     if (!isQriptopian) return 'issue-1';
     return 'issue-1';
   });
+  const [issueOptions, setIssueOptions] = useState<IssueOption[]>([]);
+  const [issueOptionsLoading, setIssueOptionsLoading] = useState(false);
 
   useEffect(() => {
     if (!isQriptopian) return;
@@ -110,13 +118,57 @@ export default function CodexPanelDynamic({
     setIssueSlug(next);
   }, [isQriptopian]);
 
-  const issueOptions = useMemo(() => {
-    return Array.from({ length: 13 }, (_, i) => {
-      const slug = `issue-${i}`;
-      const label = `#${i}`;
-      return { slug, label };
-    });
-  }, []);
+  const toIssueLabel = (slug: string) => {
+    const match = slug.match(/issue-(\d{1,2})/i);
+    if (!match) return slug;
+    return `#${match[1]}`;
+  };
+
+  const fallbackIssueOptions = useMemo<IssueOption[]>(() => {
+    if (!issueSlug) return [{ slug: 'issue-1', label: '#1' }];
+    return [{ slug: issueSlug, label: toIssueLabel(issueSlug) }];
+  }, [issueSlug]);
+
+  useEffect(() => {
+    if (!isQriptopian) return;
+    let cancelled = false;
+
+    const fetchIssues = async () => {
+      setIssueOptionsLoading(true);
+      try {
+        const res = await fetch('/api/content/issues?scope=codex', { cache: 'no-store' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const options = Array.isArray(data?.issues) ? data.issues : [];
+        if (!cancelled && options.length > 0) {
+          setIssueOptions(options);
+        }
+      } catch {
+        if (!cancelled) setIssueOptions([]);
+      } finally {
+        if (!cancelled) setIssueOptionsLoading(false);
+      }
+    };
+
+    fetchIssues();
+    return () => {
+      cancelled = true;
+    };
+  }, [isQriptopian]);
+
+  useEffect(() => {
+    if (!isQriptopian) return;
+    if (issueOptions.length === 0) return;
+    if (issueOptions.some((opt) => opt.slug === issueSlug)) return;
+    const next = issueOptions[0]?.slug;
+    if (!next || next === issueSlug) return;
+    setIssueSlug(next);
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      params.set('issue', next);
+      router.replace(`${pathname}?${params.toString()}`);
+    }
+  }, [issueOptions, issueSlug, isQriptopian, pathname, router]);
 
   const activeTab = useMemo(
     () => enabledTabs.find(tab => tab.slug === activeTabSlug) || enabledTabs[0],
@@ -189,9 +241,10 @@ export default function CodexPanelDynamic({
                     params.set('issue', next);
                     router.replace(`${pathname}?${params.toString()}`);
                   }}
+                  disabled={issueOptionsLoading && issueOptions.length === 0}
                   className="rounded-md border border-slate-700 bg-slate-900/60 px-2 py-1 text-sm text-slate-200"
                 >
-                  {issueOptions.map((opt) => (
+                  {(issueOptions.length > 0 ? issueOptions : fallbackIssueOptions).map((opt) => (
                     <option key={opt.slug} value={opt.slug}>
                       {opt.label}
                     </option>

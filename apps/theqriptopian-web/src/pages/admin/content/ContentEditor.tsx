@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Save, Upload, Eye, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Save, Upload, Eye, CheckCircle, Archive } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function ContentEditor() {
@@ -33,7 +33,9 @@ export default function ContentEditor() {
   const [linkUrl, setLinkUrl] = useState('');
   const [linkAllowEmbed, setLinkAllowEmbed] = useState(true);
   const [issueRef, setIssueRef] = useState('');
+  const [status, setStatus] = useState<'draft' | 'published' | 'archived'>('draft');
   const [uploading, setUploading] = useState(false);
+  const [saveAction, setSaveAction] = useState<'save' | 'published' | 'archived' | null>(null);
   const [imagePosition, setImagePosition] = useState('center');
   const [imageScale, setImageScale] = useState(100);
   const [imageX, setImageX] = useState(50);
@@ -55,6 +57,7 @@ export default function ContentEditor() {
       setExcerpt(content.excerpt || '');
       setThumbnail(content.thumbnail || '');
       setIssueRef(content.issue_ref || '');
+      setStatus((content.status as 'draft' | 'published' | 'archived') || 'draft');
       
       const placement = content.placement as any || {};
       setImagePosition(placement.imagePosition || 'center');
@@ -188,14 +191,21 @@ export default function ContentEditor() {
     return sectionToDomain[sec] || 'home';
   }
 
-  async function handleSave(publish = false) {
+  async function handleSave(
+    statusOverride?: 'draft' | 'published' | 'archived',
+    actionOverride?: 'save' | 'published' | 'archived'
+  ) {
     if (!title) {
       toast.error('Title is required');
       return;
     }
 
+    const action = actionOverride
+      || (statusOverride === 'published' ? 'published' : statusOverride === 'archived' ? 'archived' : 'save');
     setSaving(true);
+    setSaveAction(action);
     try {
+      const finalStatus = statusOverride || status;
       // Get current user for author_id (optional in dev mode)
       const { data: { user } } = await supabase.auth.getUser();
       const isDev = import.meta.env.DEV;
@@ -236,7 +246,7 @@ export default function ContentEditor() {
         thumbnail,
         modalities,
         placement: { section, tab, imagePosition, imageScale, imageX, imageY, position },
-        status: publish ? ('published' as const) : ('draft' as const),
+        status: finalStatus,
         domain,
         format: contentType === 'resource' ? 'link' : 'article',
         type: contentType,
@@ -248,10 +258,14 @@ export default function ContentEditor() {
 
       if (id && id !== 'new') {
         await contentService.updateContent(id, contentData);
-        toast.success(publish ? 'Content published' : 'Content saved as draft');
+        toast.success(finalStatus === 'published' ? 'Content published' : finalStatus === 'archived' ? 'Content archived' : 'Content saved as draft');
       } else {
         await contentService.createContent(contentData);
-        toast.success(publish ? 'Content published' : 'Content saved as draft');
+        toast.success(finalStatus === 'published' ? 'Content published' : finalStatus === 'archived' ? 'Content archived' : 'Content saved as draft');
+      }
+
+      if (statusOverride) {
+        setStatus(statusOverride);
       }
 
       // Navigate to the appropriate section manager
@@ -270,6 +284,7 @@ export default function ContentEditor() {
       toast.error('Failed to save content');
     } finally {
       setSaving(false);
+      setSaveAction(null);
     }
   }
 
@@ -308,13 +323,17 @@ export default function ContentEditor() {
               <Eye className="h-4 w-4 mr-2" />
               Preview on Site
             </Button>
-            <Button variant="outline" onClick={() => handleSave(false)} disabled={saving}>
+            <Button variant="outline" onClick={() => handleSave()} disabled={saving}>
               <Save className="h-4 w-4 mr-2" />
-              {saving ? 'Saving...' : 'Save Draft'}
+              {saveAction === 'save' ? 'Saving...' : 'Save'}
             </Button>
-            <Button onClick={() => handleSave(true)} disabled={saving}>
+            <Button onClick={() => handleSave('published', 'published')} disabled={saving}>
               <CheckCircle className="h-4 w-4 mr-2" />
-              {saving ? 'Publishing...' : 'Publish'}
+              {saveAction === 'published' ? 'Publishing...' : 'Publish'}
+            </Button>
+            <Button variant="outline" onClick={() => handleSave('archived', 'archived')} disabled={saving}>
+              <Archive className="h-4 w-4 mr-2" />
+              {saveAction === 'archived' ? 'Archiving...' : 'Save as Archived'}
             </Button>
           </div>
         </div>
@@ -352,6 +371,23 @@ export default function ContentEditor() {
                     onChange={(e) => setIssueRef(e.target.value)}
                     placeholder="e.g., #0, #1, Issue 1"
                   />
+                </div>
+
+                <div>
+                  <Label htmlFor="status">Status</Label>
+                  <select
+                    id="status"
+                    value={status}
+                    onChange={(e) => setStatus(e.target.value as 'draft' | 'published' | 'archived')}
+                    className="w-full px-3 py-2 border border-input bg-background rounded-md"
+                  >
+                    <option value="draft">Draft</option>
+                    <option value="published">Published</option>
+                    <option value="archived">Archived</option>
+                  </select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Archived items stay visible in the Kodex but are hidden from the live site.
+                  </p>
                 </div>
 
                 <div>

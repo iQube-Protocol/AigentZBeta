@@ -56,6 +56,21 @@ export default function HomeHeroManager() {
     }
   }
 
+  async function handleToggleArchive(item: Content) {
+    const newStatus = item.status === 'archived' ? 'draft' : 'archived';
+
+    try {
+      console.log('[HomeHeroManager] Updating archive status:', { id: item.id, newStatus });
+      const result = await contentService.updateContent(item.id, { status: newStatus });
+      console.log('[HomeHeroManager] Archive update successful:', result);
+      toast.success(newStatus === 'archived' ? 'Article archived' : 'Article restored to draft');
+      loadContent();
+    } catch (error) {
+      console.error('[HomeHeroManager] Error updating archive status:', error);
+      toast.error(`Failed to update archive status: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -115,11 +130,15 @@ export default function HomeHeroManager() {
                               {item.issue_ref}
                             </span>
                           )}
-                          <span className={`px-2 py-0.5 text-xs rounded ${
-                            item.status === 'published' 
-                              ? 'bg-green-500/10 text-green-500' 
-                              : 'bg-yellow-500/10 text-yellow-500'
-                          }`}>
+                          <span
+                            className={`px-2 py-0.5 text-xs rounded ${
+                              item.status === 'published'
+                                ? 'bg-green-500/10 text-green-500'
+                                : item.status === 'archived'
+                                  ? 'bg-amber-500/10 text-amber-500'
+                                  : 'bg-yellow-500/10 text-yellow-500'
+                            }`}
+                          >
                             {item.status}
                           </span>
                         </div>
@@ -141,6 +160,14 @@ export default function HomeHeroManager() {
                           title={item.status === 'published' ? 'Unpublish' : 'Publish'}
                         >
                           {item.status === 'published' ? 'Unpublish' : 'Publish'}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant={item.status === 'archived' ? 'secondary' : 'outline'}
+                          onClick={() => handleToggleArchive(item)}
+                          title={item.status === 'archived' ? 'Restore' : 'Archive'}
+                        >
+                          {item.status === 'archived' ? 'Restore' : 'Archive'}
                         </Button>
                         <Button
                           size="sm"

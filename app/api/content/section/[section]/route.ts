@@ -62,7 +62,13 @@ type FallbackItem = {
   premium?: boolean;
 };
 
-function filterFallbackContent(section: string, tab: string | null, issue: string, issueNumber: number) {
+function filterFallbackContent(
+  section: string,
+  tab: string | null,
+  issue: string,
+  issueNumber: number,
+  includeArchived: boolean
+) {
   const data = Array.isArray(fallbackContent) ? (fallbackContent as FallbackItem[]) : [];
   if (data.length === 0) return [];
   const issueRefCandidates = [String(issueNumber), `#${issueNumber}`, issue];
@@ -71,6 +77,7 @@ function filterFallbackContent(section: string, tab: string | null, issue: strin
     if (placement.section !== section) return false;
     if (tab && placement.tab && placement.tab !== tab) return false;
     if (item.issue_ref && !issueRefCandidates.includes(item.issue_ref)) return false;
+    if (!includeArchived && item.status === 'archived') return false;
     return true;
   });
 }
@@ -85,6 +92,9 @@ export async function GET(
     const tab = searchParams.get('tab');
     const issue = normalizeIssueSlug(searchParams.get('issue'));
     const issueNumber = issueNumberFromSlug(issue);
+    const scope = searchParams.get('scope');
+    const includeArchived = scope === 'codex' || searchParams.get('includeArchived') === 'true';
+    const statusFilter = includeArchived ? ['published', 'archived'] : ['published'];
 
     const supabase = getSupabaseServer();
     const hasSupabase = Boolean(supabase);
@@ -97,7 +107,7 @@ export async function GET(
     }
 
     if (!hasSupabase) {
-      const fallback = filterFallbackContent(section, tab, issue, issueNumber);
+      const fallback = filterFallbackContent(section, tab, issue, issueNumber, includeArchived);
       const fallbackContent = fallback.length > 0 ? fallback : [];
       const transformedContent = fallbackContent.map((item: any) => {
         const placement = item.placement || {};
@@ -176,7 +186,7 @@ export async function GET(
       });
     }
 
-    console.log(`[Content/${section}] Fetching content from database${tab ? ` (tab: ${tab})` : ''} (issue: ${issue})`);
+    console.log(`[Content/${section}] Fetching content from database${tab ? ` (tab: ${tab})` : ''} (issue: ${issue}, scope: ${includeArchived ? 'codex' : 'live'})`);
     
     const basePlacement: Record<string, any> = { section };
     if (tab) basePlacement.tab = tab;
@@ -190,7 +200,7 @@ export async function GET(
         .from('content')
         .select('*')
         .contains('placement', placement)
-        .eq('status', 'published')
+        .in('status', statusFilter)
         .order('created_at', { ascending: false })
         .limit(50);
     };
@@ -207,7 +217,7 @@ export async function GET(
         .select('*')
         .contains('placement', placement)
         .in('issue_ref', issueRefCandidates)
-        .eq('status', 'published')
+        .in('status', statusFilter)
         .order('created_at', { ascending: false })
         .limit(50);
     };
@@ -228,7 +238,7 @@ export async function GET(
 
     if (error) {
       console.error(`[Content/${section}] Database error:`, error);
-      const fallback = filterFallbackContent(section, tab, issue, issueNumber);
+      const fallback = filterFallbackContent(section, tab, issue, issueNumber, includeArchived);
       const transformedFallback = fallback.map((item: any) => {
         const placement = item.placement || {};
         const modalities = item.modalities || {};
@@ -306,7 +316,7 @@ export async function GET(
       });
     }
 
-    console.log(`[Content/${section}] Found ${content?.length || 0} published items`);
+    console.log(`[Content/${section}] Found ${content?.length || 0} items`);
 
     // Sort by position if available
     const sortedContent = (content || []).sort((a: any, b: any) => {
@@ -316,7 +326,7 @@ export async function GET(
     });
 
     if (!content || content.length === 0) {
-      const fallback = filterFallbackContent(section, tab, issue, issueNumber);
+      const fallback = filterFallbackContent(section, tab, issue, issueNumber, includeArchived);
       if (fallback.length > 0) {
         const transformedFallback = fallback.map((item: any) => {
           const placement = item.placement || {};

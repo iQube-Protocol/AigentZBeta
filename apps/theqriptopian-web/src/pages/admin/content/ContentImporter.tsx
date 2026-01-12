@@ -34,7 +34,7 @@ interface ImportItem {
   tags?: string[];
   format?: string;
   type?: string;
-  status?: 'draft' | 'published';
+  status?: 'draft' | 'published' | 'archived';
   issue_ref?: string;
   author_id?: string;
   author_type?: 'agent' | 'human';
@@ -100,7 +100,7 @@ export default function ContentImporter() {
       errors.push(`Item ${index + 1}: Invalid domain "${item.domain}"`);
     }
     
-    if (item.status && !['draft', 'published'].includes(item.status)) {
+    if (item.status && !['draft', 'published', 'archived'].includes(item.status)) {
       errors.push(`Item ${index + 1}: Invalid status "${item.status}"`);
     }
     
@@ -493,7 +493,10 @@ export default function ContentImporter() {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Badge variant={item.status === 'published' ? 'default' : 'secondary'}>
+                            <Badge
+                              variant={item.status === 'published' ? 'default' : 'secondary'}
+                              className={item.status === 'archived' ? 'border-amber-500/30 bg-amber-500/10 text-amber-500' : undefined}
+                            >
                               {item.status || 'published'}
                             </Badge>
                           </TableCell>
