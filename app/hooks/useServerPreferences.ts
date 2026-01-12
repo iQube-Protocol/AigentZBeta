@@ -26,6 +26,16 @@ export function useServerPreferences(options: ServerPreferencesOptions = {}) {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const parseJsonResponse = useCallback(async (response: Response) => {
+    const text = await response.text();
+    if (!text) return null;
+    try {
+      return JSON.parse(text);
+    } catch (err) {
+      throw new Error(`Invalid JSON response (${response.status})`);
+    }
+  }, []);
+
   // Get user ID from SmartTriad or generate session-based ID
   const getUserId = useCallback(() => {
     if (typeof window === "undefined") {
@@ -59,13 +69,17 @@ export function useServerPreferences(options: ServerPreferencesOptions = {}) {
       if (keys && keys.length > 0) params.append('keys', keys.join(','));
       
       const response = await fetch(`/api/ops/state/user-preferences?${params}`);
-      const result = await response.json();
+      const result = await parseJsonResponse(response);
+
+      if (!response.ok) {
+        throw new Error(result?.error || `Failed to load preferences (${response.status})`);
+      }
       
-      if (!result.ok) {
+      if (!result?.ok) {
         throw new Error(result.error || 'Failed to load preferences');
       }
       
-      setPreferences(result.preferences || {});
+      setPreferences(result?.preferences || {});
     } catch (err: any) {
       console.error('Failed to load server preferences:', err);
       setError(err.message);
@@ -106,11 +120,10 @@ export function useServerPreferences(options: ServerPreferencesOptions = {}) {
           preferences: newPreferences,
         }),
       });
-      
-      const result = await response.json();
-      
-      if (!result.ok) {
-        throw new Error(result.error || 'Failed to save preferences');
+      const result = await parseJsonResponse(response);
+
+      if (!response.ok || !result?.ok) {
+        throw new Error(result?.error || `Failed to save preferences (${response.status})`);
       }
       
       // Update local state
@@ -162,11 +175,10 @@ export function useServerPreferences(options: ServerPreferencesOptions = {}) {
       const response = await fetch(`/api/ops/state/user-preferences?${params}`, {
         method: 'DELETE',
       });
-      
-      const result = await response.json();
-      
-      if (!result.ok) {
-        throw new Error(result.error || 'Failed to clear preferences');
+      const result = await parseJsonResponse(response);
+
+      if (!response.ok || !result?.ok) {
+        throw new Error(result?.error || `Failed to clear preferences (${response.status})`);
       }
       
       // Update local state

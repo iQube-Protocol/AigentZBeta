@@ -7,8 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
+import fallbackContent from '@/qriptopian-content-export.json';
 import { isPremiumContent } from '@/app/triad/components/codex/utils/contentFlags';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 
@@ -63,27 +62,9 @@ type FallbackItem = {
   premium?: boolean;
 };
 
-let fallbackCache: FallbackItem[] | null = null;
-
-function loadFallbackContent(): FallbackItem[] | null {
-  if (fallbackCache) return fallbackCache;
-  const filePath = path.join(process.cwd(), 'qriptopian-content-export.json');
-  if (!fs.existsSync(filePath)) return null;
-  try {
-    const raw = fs.readFileSync(filePath, 'utf8');
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return null;
-    fallbackCache = parsed as FallbackItem[];
-    return fallbackCache;
-  } catch (error) {
-    console.warn('[Content] Failed to load fallback content:', error);
-    return null;
-  }
-}
-
 function filterFallbackContent(section: string, tab: string | null, issue: string, issueNumber: number) {
-  const data = loadFallbackContent();
-  if (!data) return [];
+  const data = Array.isArray(fallbackContent) ? (fallbackContent as FallbackItem[]) : [];
+  if (data.length === 0) return [];
   const issueRefCandidates = [String(issueNumber), `#${issueNumber}`, issue];
   return data.filter((item) => {
     const placement = item.placement || {};

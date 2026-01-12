@@ -56,9 +56,21 @@ export async function GET(request: NextRequest) {
       query = query.in('key', keys);
     }
 
-    const { data, error } = await query;
+    const timeoutResult = new Promise<{ data: null; error: { message: string; code: string } }>((resolve) =>
+      setTimeout(() => resolve({ data: null, error: { message: 'timeout', code: 'TIMEOUT' } }), 2500)
+    );
+    const { data, error } = await Promise.race([query, timeoutResult]);
 
     if (error) {
+      if ((error as any).code === 'TIMEOUT') {
+        return NextResponse.json({
+          ok: true,
+          preferences: {},
+          raw: [],
+          at: new Date().toISOString(),
+          warning: 'user_preferences timeout',
+        });
+      }
       const code = (error as any).code;
       const message = (error as any).message || '';
       if (code === 'PGRST205' || message.includes('user_preferences')) {
@@ -142,15 +154,25 @@ export async function POST(request: NextRequest) {
       };
 
       // Upsert preference
-      const { data, error } = await supabase
-        .from('user_preferences')
-        .upsert(prefData, {
-          onConflict: 'user_id,key',
-          ignoreDuplicates: false,
-        })
-        .select();
+      const timeoutResult = new Promise<{ data: null; error: { message: string; code: string } }>((resolve) =>
+        setTimeout(() => resolve({ data: null, error: { message: 'timeout', code: 'TIMEOUT' } }), 2500)
+      );
+      const { data, error } = await Promise.race([
+        supabase
+          .from('user_preferences')
+          .upsert(prefData, {
+            onConflict: 'user_id,key',
+            ignoreDuplicates: false,
+          })
+          .select(),
+        timeoutResult,
+      ]);
 
       if (error) {
+        if ((error as any).code === 'TIMEOUT') {
+          results.push({ key, success: true, skipped: true, warning: 'timeout' });
+          continue;
+        }
         const code = (error as any).code;
         const message = (error as any).message || '';
         if (code === 'PGRST205' || message.includes('user_preferences')) {
@@ -214,9 +236,20 @@ export async function DELETE(request: NextRequest) {
       query = query.in('key', keys);
     }
 
-    const { error, count } = await query;
+    const timeoutResult = new Promise<{ data: null; error: { message: string; code: string } }>((resolve) =>
+      setTimeout(() => resolve({ data: null, error: { message: 'timeout', code: 'TIMEOUT' } }), 2500)
+    );
+    const { error, count } = await Promise.race([query, timeoutResult]) as any;
 
     if (error) {
+      if ((error as any).code === 'TIMEOUT') {
+        return NextResponse.json({
+          ok: true,
+          deletedCount: 0,
+          at: new Date().toISOString(),
+          warning: 'user_preferences timeout',
+        });
+      }
       const code = (error as any).code;
       const message = (error as any).message || '';
       if (code === 'PGRST205' || message.includes('user_preferences')) {
