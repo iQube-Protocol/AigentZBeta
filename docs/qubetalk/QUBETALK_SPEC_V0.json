@@ -1,0 +1,433 @@
+{
+  "spec_version": "0.1",
+  "name": "QubeTalk v0",
+  "purpose": "Tenant-scoped agent-to-agent delegation and audit trail for Aigent Z Copilots.",
+  "tenancy": {
+    "scope": "tenant",
+    "required_fields": ["tenant_id", "channel_id"]
+  },
+  "auth": {
+    "required": true,
+    "strategy": "TODO: session or service token",
+    "rbac": {
+      "create_delegation": ["tenant_owner", "platform_admin", "system_agent"],
+      "read_channel": ["tenant_owner", "platform_admin", "system_agent", "tenant_agent"],
+      "post_message": ["tenant_agent", "system_agent"]
+    }
+  },
+  "idempotency": {
+    "enabled": true,
+    "header": "Idempotency-Key"
+  },
+  "endpoints": [
+    {
+      "method": "POST",
+      "path": "/api/qubetalk/delegations",
+      "description": "Create a new delegation request from a system copilot to a tenant agent.",
+      "request_schema": { "$ref": "#/schemas/delegation_request" },
+      "response_schema": { "$ref": "#/schemas/delegation_response" }
+    },
+    {
+      "method": "GET",
+      "path": "/api/qubetalk/delegations/:id",
+      "description": "Fetch delegation by id.",
+      "response_schema": { "$ref": "#/schemas/delegation_response" }
+    },
+    {
+      "method": "GET",
+      "path": "/api/qubetalk/channels/:id/messages",
+      "description": "List messages for a channel (paginated).",
+      "response_schema": { "$ref": "#/schemas/message_list" }
+    },
+    {
+      "method": "GET",
+      "path": "/api/qubetalk/channels/:id/stream",
+      "description": "SSE stream of channel messages.",
+      "response_schema": { "$ref": "#/schemas/message_event" }
+    },
+    {
+      "method": "POST",
+      "path": "/api/qubetalk/messages",
+      "description": "Post a message in response to a delegation.",
+      "request_schema": { "$ref": "#/schemas/message" },
+      "response_schema": { "$ref": "#/schemas/message" }
+    }
+  ],
+  "events": {
+    "sse": {
+      "event_types": ["message", "status", "error"],
+      "replay": "last_event_id_supported"
+    }
+  },
+  "schemas": {
+    "delegation_request": {
+      "type": "object",
+      "required": ["tenant_id", "channel_id", "request_id", "from_agent", "to_agent", "task"],
+      "properties": {
+        "tenant_id": { "type": "string" },
+        "channel_id": { "type": "string" },
+        "request_id": { "type": "string" },
+        "from_agent": { "$ref": "#/schemas/agent_ref" },
+        "to_agent": { "$ref": "#/schemas/agent_ref" },
+        "task": { "$ref": "#/schemas/task_request" },
+        "context": { "$ref": "#/schemas/context_ref" },
+        "metadata": { "type": "object" }
+      }
+    },
+    "delegation_response": {
+      "type": "object",
+      "required": ["delegation_id", "request_id", "status", "created_at"],
+      "properties": {
+        "delegation_id": { "type": "string" },
+        "request_id": { "type": "string" },
+        "status": { "type": "string", "enum": ["queued", "in_progress", "complete", "failed"] },
+        "created_at": { "type": "string", "format": "date-time" },
+        "channel_id": { "type": "string" },
+        "receipt_ref": { "$ref": "#/schemas/receipt" }
+      }
+    },
+    "message": {
+      "type": "object",
+      "required": ["message_id", "channel_id", "from_agent", "type", "content", "created_at"],
+      "properties": {
+        "message_id": { "type": "string" },
+        "channel_id": { "type": "string" },
+        "in_reply_to": { "type": "string" },
+        "from_agent": { "$ref": "#/schemas/agent_ref" },
+        "type": { "type": "string", "enum": ["request", "response", "event", "error"] },
+        "content": { "type": "string" },
+        "iqube_refs": { "type": "array", "items": { "type": "string" } },
+        "receipt_ref": { "$ref": "#/schemas/receipt" },
+        "status": { "type": "string", "enum": ["partial", "complete", "failed"] },
+        "created_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "message_list": {
+      "type": "object",
+      "required": ["items", "pagination"],
+      "properties": {
+        "items": { "type": "array", "items": { "$ref": "#/schemas/message" } },
+        "pagination": {
+          "type": "object",
+          "required": ["page", "page_size", "total"],
+          "properties": {
+            "page": { "type": "integer" },
+            "page_size": { "type": "integer" },
+            "total": { "type": "integer" }
+          }
+        }
+      }
+    },
+    "message_event": {
+      "type": "object",
+      "required": ["event_id", "event_type", "payload"],
+      "properties": {
+        "event_id": { "type": "string" },
+        "event_type": { "type": "string" },
+        "payload": { "$ref": "#/schemas/message" }
+      }
+    },
+    "task_request": {
+      "type": "object",
+      "required": ["type", "prompt"],
+      "properties": {
+        "type": { "type": "string", "enum": ["summarize", "compare", "classify", "route"] },
+        "prompt": { "type": "string" },
+        "iqube_refs": { "type": "array", "items": { "type": "string" } },
+        "constraints": {
+          "type": "object",
+          "properties": {
+            "risk_tier": { "type": "string", "enum": ["low", "medium", "high"] },
+            "max_tokens": { "type": "integer" }
+          }
+        }
+      }
+    },
+    "context_ref": {
+      "type": "object",
+      "properties": {
+        "user_iq_refs": { "type": "array", "items": { "type": "string" } },
+        "receipt_refs": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "agent_ref": {
+      "type": "object",
+      "required": ["id", "role"],
+      "properties": {
+        "id": { "type": "string" },
+        "role": { "type": "string", "enum": ["system", "tenant", "platform"] }
+      }
+    },
+    "receipt": {
+      "type": "object",
+      "required": ["receipt_id", "type", "status", "created_at", "tenant_id"],
+      "properties": {
+        "receipt_id": { "type": "string", "description": "Unique receipt identifier" },
+        "type": {
+          "type": "object",
+          "required": ["category", "sub_type"],
+          "properties": {
+            "category": { "type": "string", "enum": ["pos", "purchase", "qubetalk", "smarttriad"] },
+            "sub_type": { "type": "string", "description": "Specific receipt type within category" }
+          }
+        },
+        "status": {
+          "type": "object",
+          "required": ["state", "verified"],
+          "properties": {
+            "state": { "type": "string", "enum": ["pending", "completed", "failed", "expired"] },
+            "verified": { "type": "boolean" },
+            "error": { "type": "string", "description": "Error details if failed" }
+          }
+        },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" },
+        "tenant_id": { "type": "string", "description": "Tenant scope for receipt" },
+        "delegation_id": { "type": "string", "description": "Linked delegation for QubeTalk receipts" },
+        "transaction_id": { "type": "string", "description": "Transaction ID for purchase receipts" },
+        "data_hash": { "type": "string", "description": "Data hash for PoS receipts" },
+        "metadata": { "type": "object", "description": "Additional receipt-specific data" }
+      }
+    },
+    "error": {
+      "type": "object",
+      "required": ["code", "message"],
+      "properties": {
+        "code": { "type": "string" },
+        "message": { "type": "string" },
+        "details": { "type": "object" }
+      }
+    },
+    "component_registry_validation": {
+      "type": "object",
+      "description": "Rules for validating component usage in delegations",
+      "properties": {
+        "risk_tiers": {
+          "type": "object",
+          "properties": {
+            "low": {
+              "type": "object",
+              "properties": {
+                "max_tokens": { "type": "integer", "default": 1000 },
+                "allowed_actions": {
+                  "type": "array",
+                  "items": { "type": "string", "enum": ["read", "summarize", "classify"] }
+                },
+                "timeout_seconds": { "type": "integer", "default": 30 }
+              }
+            },
+            "medium": {
+              "type": "object",
+              "properties": {
+                "max_tokens": { "type": "integer", "default": 2000 },
+                "allowed_actions": {
+                  "type": "array",
+                  "items": { "type": "string", "enum": ["read", "summarize", "classify", "compare", "generate"] }
+                },
+                "timeout_seconds": { "type": "integer", "default": 60 },
+                "requires_approval": { "type": "boolean", "default": false }
+              }
+            },
+            "high": {
+              "type": "object",
+              "properties": {
+                "max_tokens": { "type": "integer", "default": 4000 },
+                "allowed_actions": {
+                  "type": "array",
+                  "items": { "type": "string", "enum": ["*"] }
+                },
+                "timeout_seconds": { "type": "integer", "default": 120 },
+                "requires_approval": { "type": "boolean", "default": true },
+                "audit_required": { "type": "boolean", "default": true }
+              }
+            }
+          }
+        },
+        "component_type_rules": {
+          "type": "object",
+          "properties": {
+            "DataQube": {
+              "allowed_actions": ["read", "summarize", "analyze", "compare"],
+              "default_risk_tier": "medium"
+            },
+            "ContentQube": {
+              "allowed_actions": ["read", "summarize", "generate", "transform"],
+              "default_risk_tier": "low"
+            },
+            "ToolQube": {
+              "allowed_actions": ["execute", "read", "configure"],
+              "default_risk_tier": "high"
+            },
+            "ModelQube": {
+              "allowed_actions": ["read", "execute", "fine_tune"],
+              "default_risk_tier": "high"
+            },
+            "AgentQube": {
+              "allowed_actions": ["delegate", "monitor", "configure"],
+              "default_risk_tier": "medium"
+            }
+          }
+        },
+        "validation_errors": {
+          "type": "object",
+          "properties": {
+            "RISK_TIER_EXCEEDED": {
+              "code": "RISK_TIER_EXCEEDED",
+              "message": "Action exceeds allowed risk tier for component",
+              "suggestion": "Reduce action complexity or request approval"
+            },
+            "ACTION_NOT_ALLOWED": {
+              "code": "ACTION_NOT_ALLOWED", 
+              "message": "Action not permitted for this component type",
+              "suggestion": "Use allowed actions or upgrade component permissions"
+            },
+            "COMPONENT_NOT_FOUND": {
+              "code": "COMPONENT_NOT_FOUND",
+              "message": "Referenced component not found in registry",
+              "suggestion": "Verify component exists and is accessible"
+            },
+            "TENANT_ACCESS_DENIED": {
+              "code": "TENANT_ACCESS_DENIED",
+              "message": "Component not accessible to this tenant",
+              "suggestion": "Check tenant subscription or component licensing"
+            }
+          }
+        }
+      }
+    },
+    "entitlement_tenant_scoping": {
+      "type": "object",
+      "description": "Tenant scoping rules for entitlement checking",
+      "properties": {
+        "access_levels": {
+          "type": "object",
+          "properties": {
+            "locked": {
+              "description": "Content requires purchase/entitlement",
+              "access_check": "verify_entitlement",
+              "error_code": "CONTENT_LOCKED",
+              "error_message": "Content requires purchase or subscription"
+            },
+            "owned": {
+              "description": "Content owned by user",
+              "access_check": "verify_ownership",
+              "error_code": "ACCESS_DENIED",
+              "error_message": "Access denied - content not owned"
+            },
+            "public": {
+              "description": "Publicly accessible content",
+              "access_check": "none",
+              "error_code": null,
+              "error_message": null
+            },
+            "tenant_exclusive": {
+              "description": "Content exclusive to tenant",
+              "access_check": "verify_tenant_membership",
+              "error_code": "TENANT_EXCLUSIVE",
+              "error_message": "Content exclusive to tenant members"
+            }
+          }
+        },
+        "entitlement_verification": {
+          "type": "object",
+          "properties": {
+            "required_fields": ["user_id", "content_id", "tenant_id", "access_type"],
+            "verification_endpoints": {
+              "check_entitlement": "GET /api/entitlements/check",
+              "verify_ownership": "GET /api/entitlements/ownership",
+              "tenant_access": "GET /api/entitlements/tenant"
+            },
+            "cache_behavior": {
+              "ttl_seconds": 300,
+              "cache_key_pattern": "entitlement:{user_id}:{content_id}:{tenant_id}"
+            }
+          }
+        },
+        "cross_tenant_behavior": {
+          "type": "object",
+          "properties": {
+            "default_policy": "deny",
+            "exceptions": {
+              "system_agents": "allow_read_only",
+              "platform_admin": "full_access",
+              "shared_content": "allow_with_entitlement"
+            },
+            "audit_events": [
+              "cross_tenant_access_attempt",
+              "cross_tenant_access_granted", 
+              "cross_tenant_access_denied"
+            ]
+          }
+        },
+        "error_responses": {
+          "CONTENT_LOCKED": {
+            "status": 402,
+            "code": "CONTENT_LOCKED",
+            "message": "Content requires purchase or subscription",
+            "metadata": {
+              "purchase_url": "/api/purchase/content/{content_id}",
+              "subscription_options": "/api/subscriptions/options"
+            }
+          },
+          "ACCESS_DENIED": {
+            "status": 403,
+            "code": "ACCESS_DENIED", 
+            "message": "Access denied - insufficient permissions",
+            "metadata": {
+              "required_role": "owner",
+              "appeal_url": "/api/access/appeal"
+            }
+          },
+          "TENANT_EXCLUSIVE": {
+            "status": 403,
+            "code": "TENANT_EXCLUSIVE",
+            "message": "Content exclusive to tenant members",
+            "metadata": {
+              "tenant_id": "{tenant_id}",
+              "membership_url": "/api/tenant/join/{tenant_id}"
+            }
+          }
+        }
+      }
+    }
+  },
+  "notes": [
+    "Receipt schema finalized with full canonical fields and state transitions",
+    "Component Registry validation rules completed with risk tier enforcement", 
+    "Entitlement tenant scoping defined with cross-tenant access controls",
+    "Confirm RBAC for tenant agents vs owners before production",
+    "Decide if messages require persistence or are event-sourced only"
+  ],
+  "dependencies_required": {
+  "receipt_schema_final": {
+    "status": "completed",
+    "needed_for": ["receipt drawer UI", "delegation audit trail"],
+    "details": [
+      "Canonical fields and required metadata - DONE",
+      "Linkage to delegation_id/request_id/message_id - DONE", 
+      "Status/state transitions - DONE"
+    ],
+    "schema_ref": "#/schemas/receipt"
+  },
+  "component_registry_validation": {
+    "status": "completed",
+    "needed_for": ["action gating", "risk tier enforcement"],
+    "details": [
+      "Risk tier enforcement rules - DONE",
+      "Allowed action mappings per component type - DONE",
+      "Rejection/override behaviors - DONE"
+    ],
+    "schema_ref": "#/schemas/component_registry_validation"
+  },
+  "entitlement_tenant_scoping": {
+    "status": "completed",
+    "needed_for": ["locked/owned state", "cross-tenant access"],
+    "details": [
+      "Tenant boundary rules and fallback behavior - DONE",
+      "Locked/owned determination contract - DONE",
+      "Error codes for cross-tenant access - DONE"
+    ],
+    "schema_ref": "#/schemas/entitlement_tenant_scoping"
+  }
+}
+}

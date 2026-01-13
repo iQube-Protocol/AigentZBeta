@@ -52,7 +52,56 @@ export const IQubeDetailModal: React.FC<IQubeDetailModalProps> = ({ templateId, 
   };
 
   // ----- BlakQube mock schema helpers -----
-  type BQField = { key: string; label: string; source: string; icon: string };
+  type BQField = {
+    key: string;
+    label: string;
+    source: string;
+    icon: string;
+    templateValue?: string;
+    instanceValue?: string;
+  };
+  function normalizeBlakQubeLabels(labels: unknown): BQField[] {
+    if (!Array.isArray(labels)) return [];
+    const parsed: BQField[] = [];
+    labels.forEach((entry) => {
+      if (!entry) return;
+      if (typeof entry === 'string') {
+        try {
+          const obj = JSON.parse(entry);
+          if (obj && typeof obj === 'object') {
+            parsed.push({
+              key: obj.key || obj.label || entry,
+              label: obj.label || obj.key || entry,
+              source: obj.source || 'System',
+              icon: obj.icon || '·',
+              templateValue: obj.templateValue,
+              instanceValue: obj.instanceValue,
+            });
+            return;
+          }
+        } catch {}
+        parsed.push({
+          key: entry,
+          label: entry,
+          source: 'System',
+          icon: '·',
+        });
+        return;
+      }
+      if (typeof entry === 'object') {
+        const obj = entry as any;
+        parsed.push({
+          key: obj.key || obj.label || 'field',
+          label: obj.label || obj.key || 'Field',
+          source: obj.source || 'System',
+          icon: obj.icon || '·',
+          templateValue: obj.templateValue,
+          instanceValue: obj.instanceValue,
+        });
+      }
+    });
+    return parsed;
+  }
   function getBlakQubeMockSchema(name?: string): BQField[] {
     const n = (name || '').toLowerCase();
     if (n.includes('personal')) {
@@ -110,6 +159,32 @@ export const IQubeDetailModal: React.FC<IQubeDetailModalProps> = ({ templateId, 
       { k: 'SLA Target (days)', v: '7' },
     ];
   }
+  type MetaValueParse = {
+    kind: 'text' | 'array' | 'object';
+    value: unknown;
+    summary: string;
+  };
+  function parseMetaValue(raw?: string): MetaValueParse {
+    const trimmed = (raw ?? '').trim();
+    if (!trimmed) {
+      return { kind: 'text', value: '', summary: '—' };
+    }
+    const looksJson = (trimmed.startsWith('[') && trimmed.endsWith(']'))
+      || (trimmed.startsWith('{') && trimmed.endsWith('}'));
+    if (!looksJson) {
+      return { kind: 'text', value: trimmed, summary: trimmed };
+    }
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return { kind: 'array', value: parsed, summary: `Array (${parsed.length})` };
+      }
+      if (parsed && typeof parsed === 'object') {
+        return { kind: 'object', value: parsed, summary: 'Object' };
+      }
+    } catch {}
+    return { kind: 'text', value: trimmed, summary: trimmed };
+  }
   const [isDecrypted, setIsDecrypted] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
   const [isMinting, setIsMinting] = useState(false);
@@ -152,7 +227,10 @@ export const IQubeDetailModal: React.FC<IQubeDetailModalProps> = ({ templateId, 
   }), []);
   function canDecrypt(): boolean {
     if (typeof window === 'undefined') return false;
-    return localStorage.getItem('has_decrypt_token') === '1';
+    return (
+      localStorage.getItem('has_decrypt_token') === '1'
+      || localStorage.getItem('registry_admin') === '1'
+    );
   }
 
   // Safely parse fetch responses that may return text/HTML on errors
@@ -177,7 +255,10 @@ export const IQubeDetailModal: React.FC<IQubeDetailModalProps> = ({ templateId, 
           const item = await single.json();
           if (mounted) setTemplate(item);
           // Initialize BlakQube editor fields from template or mock
-          if (mounted) setBqEditFields(Array.isArray(item?.blakqubeLabels) && item.blakqubeLabels.length ? item.blakqubeLabels : getBlakQubeMockSchema(item?.name));
+          if (mounted) {
+            const normalized = normalizeBlakQubeLabels(item?.blakqubeLabels);
+            setBqEditFields(normalized.length ? normalized : getBlakQubeMockSchema(item?.name));
+          }
           // Initialize Additional MetaQube Records from template if present
           if (mounted) setMetaEditRows(Array.isArray(item?.metaExtras) && item.metaExtras.length ? item.metaExtras : []);
           return;
@@ -194,7 +275,10 @@ export const IQubeDetailModal: React.FC<IQubeDetailModalProps> = ({ templateId, 
           const data: any[] = await res.json();
           const item = Array.isArray(data) ? data.find(d => d.id === templateId) || null : null;
           if (mounted) setTemplate(item);
-          if (mounted && item) setBqEditFields(Array.isArray(item?.blakqubeLabels) && item.blakqubeLabels.length ? item.blakqubeLabels : getBlakQubeMockSchema(item?.name));
+          if (mounted && item) {
+            const normalized = normalizeBlakQubeLabels(item?.blakqubeLabels);
+            setBqEditFields(normalized.length ? normalized : getBlakQubeMockSchema(item?.name));
+          }
       if (mounted && item) setMetaEditRows(Array.isArray(item?.metaExtras) && item.metaExtras.length ? item.metaExtras : []);
           if (!item) setError('Template not found');
         } else {
@@ -394,9 +478,26 @@ export const IQubeDetailModal: React.FC<IQubeDetailModalProps> = ({ templateId, 
                 <div className="text-sm text-slate-400 mb-2">Additional MetaQube Records</div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {(Array.isArray(template?.metaExtras) && template!.metaExtras!.length ? template!.metaExtras! : metaExtras).map((item: { k: string; v: string }) => (
-                    <div key={item.k} className="flex items-center justify-between rounded-lg px-3 py-2 bg-black/30 ring-1 ring-white/10">
+                    <div key={item.k} className="flex items-start justify-between gap-3 rounded-lg px-3 py-2 bg-black/30 ring-1 ring-white/10">
                       <div className="text-sm text-slate-300">{item.k}</div>
-                      <div className="text-sm text-slate-500 text-right">{item.v}</div>
+                      <div className="text-sm text-slate-500 text-right min-w-[120px] max-w-[60%]">
+                        {(() => {
+                          const parsed = parseMetaValue(item.v);
+                          if (parsed.kind === 'array' || parsed.kind === 'object') {
+                            return (
+                              <details className="text-left">
+                                <summary className="cursor-pointer select-none text-right text-slate-400 hover:text-slate-200">
+                                  {parsed.summary}
+                                </summary>
+                                <pre className="mt-2 max-h-48 overflow-auto rounded-lg bg-black/40 p-2 text-[11px] text-slate-300">
+                                  {JSON.stringify(parsed.value, null, 2)}
+                                </pre>
+                              </details>
+                            );
+                          }
+                          return <span className="break-words">{parsed.summary}</span>;
+                        })()}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -442,8 +543,8 @@ export const IQubeDetailModal: React.FC<IQubeDetailModalProps> = ({ templateId, 
                   )}
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {(template.blakqubeLabels && Array.isArray(template.blakqubeLabels) && template.blakqubeLabels.length
-                    ? template.blakqubeLabels
+                  {(normalizeBlakQubeLabels(template.blakqubeLabels).length
+                    ? normalizeBlakQubeLabels(template.blakqubeLabels)
                     : getBlakQubeMockSchema(template.name)
                   ).map((f: any) => (
                     <div key={f.key} className="flex items-center rounded-xl px-3 py-2 bg-white/5 ring-1 ring-white/10">
@@ -460,7 +561,7 @@ export const IQubeDetailModal: React.FC<IQubeDetailModalProps> = ({ templateId, 
                           <span className="text-violet-300">Encrypted</span>
                         )}
                         {template.iQubeInstanceType !== 'template' && isDecrypted && (
-                          <span className="text-slate-200">Sample Value</span>
+                          <span className="text-slate-200">{f.instanceValue || 'Sample Value'}</span>
                         )}
                       </div>
                       {/* Right: icon badge with tooltip (source) */}

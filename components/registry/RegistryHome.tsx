@@ -10,6 +10,7 @@ import { Pagination } from "./Pagination";
 import { DotsInline } from "./scoreUtils";
 import { ConfirmDialog } from "../ui/confirm-dialog";
 import { useToast } from "../ui/toaster";
+import { ComponentRegistryPanel } from "./ComponentRegistryPanel";
 
 interface IQubeTemplate {
   id: string;
@@ -43,6 +44,7 @@ export function RegistryHome() {
   const [templates, setTemplates] = useState<IQubeTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
   const router = useRouter();
   const [filters, setFilters] = useState<FilterState>({ search: "", type: "", instance: "", businessModel: "", sort: 'newest' });
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
@@ -138,6 +140,7 @@ export function RegistryHome() {
         if (data.data && data.pagination) {
           setTemplates(Array.isArray(data.data) ? data.data : []);
           setPagination(data.pagination);
+          setWarning(data.error || null);
         } else {
           // Fallback for legacy response format
           setTemplates(Array.isArray(data) ? data : []);
@@ -146,6 +149,7 @@ export function RegistryHome() {
             totalCount: Array.isArray(data) ? data.length : 0,
             totalPages: 1,
           }));
+          setWarning(null);
         }
       } catch (e: any) {
         setError(e?.message || 'Failed to load templates');
@@ -161,6 +165,11 @@ export function RegistryHome() {
     if (typeof window === 'undefined') return;
     localStorage.setItem('registry_cart', JSON.stringify(cart));
   }, [cart]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setPagination(prev => ({ ...prev, currentPage: 1 }));
+  }, [filters.search, filters.type, filters.instance, filters.businessModel, filters.sort]);
 
   if (isLoading) {
     return <RegistryLoadingSkeleton />;
@@ -202,11 +211,6 @@ export function RegistryHome() {
   const handleLimitChange = (limit: number) => {
     setPagination(prev => ({ ...prev, limit, currentPage: 1 }));
   };
-
-  // Reset to page 1 when filters change
-  useEffect(() => {
-    setPagination(prev => ({ ...prev, currentPage: 1 }));
-  }, [filters.search, filters.type, filters.instance, filters.businessModel, filters.sort]);
 
   // Open confirmation dialog for deletion
   const requestDelete = (id: string) => setDeleteId(id);
@@ -304,7 +308,13 @@ export function RegistryHome() {
       </div>
 
       {/* Scrollable Content Section */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto space-y-6">
+        <ComponentRegistryPanel />
+        {warning && (
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+            Registry data is unavailable right now: {warning}
+          </div>
+        )}
 
       {viewMode === 'grid' && (
         <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">

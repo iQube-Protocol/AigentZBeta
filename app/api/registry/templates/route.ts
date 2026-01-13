@@ -21,6 +21,11 @@ const getHandler = async (req: Request) => {
 
     // Generate cache key from request parameters
     const url = new URL(req.url);
+    // Parse pagination early for fallback responses
+    const rawPage = parseInt(url.searchParams.get('page') || '1');
+    const rawLimit = parseInt(url.searchParams.get('limit') || '12');
+    const page = Number.isFinite(rawPage) && rawPage > 0 ? rawPage : 1;
+    const limit = Number.isFinite(rawLimit) && rawLimit > 0 && rawLimit <= 100 ? rawLimit : 12;
     const cacheKey = CacheManager.generateKey(
       'registry:templates',
       Object.fromEntries(url.searchParams)
@@ -64,17 +69,7 @@ const getHandler = async (req: Request) => {
       const sort = url.searchParams.get('sort'); // newest|oldest
       
       // Pagination parameters
-      const page = parseInt(url.searchParams.get('page') || '1');
-      const limit = parseInt(url.searchParams.get('limit') || '12');
       const offset = (page - 1) * limit;
-
-      // Validate pagination parameters
-      if (page < 1) {
-        throw new Error('Page must be greater than 0');
-      }
-      if (limit < 1 || limit > 100) {
-        throw new Error('Limit must be between 1 and 100');
-      }
 
       // Base select with pagination
       const qp: Record<string, string> = {
@@ -156,10 +151,33 @@ const getHandler = async (req: Request) => {
     };
 
     // Get data from cache or fetch fresh
-    const data = await CacheManager.getOrSet(cacheKey, fetchData, {
-      ttl: 300, // 5 minutes cache
-      tags: ['registry', 'templates'],
-    });
+    let data;
+    try {
+      data = await CacheManager.getOrSet(cacheKey, fetchData, {
+        ttl: 300, // 5 minutes cache
+        tags: ['registry', 'templates'],
+      });
+    } catch (error) {
+      console.error('[RegistryTemplates] Fetch failed:', error);
+      const fallbackPagination = {
+        currentPage: page,
+        totalPages: 1,
+        totalCount: 0,
+        limit,
+        hasNextPage: false,
+        hasPrevPage: false,
+        nextPage: null,
+        prevPage: null,
+      };
+      return NextResponse.json(
+        {
+          data: [],
+          pagination: fallbackPagination,
+          error: error instanceof Error ? error.message : 'Registry fetch failed',
+        },
+        { headers: CDNCache.getHeaders({ ttl: 0 }) }
+      );
+    }
 
     // Track cache hit/miss based on whether fetchData was called
     // This is a simplified tracking - in production you'd want more sophisticated tracking
