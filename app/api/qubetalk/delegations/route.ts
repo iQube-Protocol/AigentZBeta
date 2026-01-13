@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
     const body: DelegationRequest = await request.json();
     
     // Validate required fields
-    const required = ['tenant_id', 'channel_id', 'request_id', 'from_agent', 'to_agent', 'task'];
+    const required: Array<keyof DelegationRequest> = ['tenant_id', 'channel_id', 'request_id', 'from_agent', 'to_agent', 'task'];
     for (const field of required) {
       if (!body[field]) {
         return NextResponse.json({
