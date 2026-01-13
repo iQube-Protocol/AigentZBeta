@@ -77,14 +77,25 @@ export async function POST(request: NextRequest) {
     const body: DelegationRequest = await request.json();
     
     // Validate required fields
-    const required: Array<keyof DelegationRequest> = ['tenant_id', 'channel_id', 'request_id', 'from_agent', 'to_agent', 'task'];
-    for (const field of required) {
-      if (!body[field]) {
-        return NextResponse.json({
-          error: `${field} is required`,
-          code: 'MISSING_FIELD'
-        }, { status: 400 });
-      }
+    const missingField = !body.tenant_id
+      ? 'tenant_id'
+      : !body.channel_id
+        ? 'channel_id'
+        : !body.request_id
+          ? 'request_id'
+          : !body.from_agent
+            ? 'from_agent'
+            : !body.to_agent
+              ? 'to_agent'
+              : !body.task
+                ? 'task'
+                : null;
+
+    if (missingField) {
+      return NextResponse.json({
+        error: `${missingField} is required`,
+        code: 'MISSING_FIELD'
+      }, { status: 400 });
     }
 
     // Check for duplicate request_id

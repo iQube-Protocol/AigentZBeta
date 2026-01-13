@@ -44,14 +44,21 @@ export async function POST(request: NextRequest) {
     const body: MessageRequest = await request.json();
     
     // Validate required fields
-    const required: Array<keyof MessageRequest> = ['channel_id', 'from_agent', 'type', 'content'];
-    for (const field of required) {
-      if (!body[field]) {
-        return NextResponse.json({
-          error: `${field} is required`,
-          code: 'MISSING_FIELD'
-        }, { status: 400 });
-      }
+    const missingField = !body.channel_id
+      ? 'channel_id'
+      : !body.from_agent
+        ? 'from_agent'
+        : !body.type
+          ? 'type'
+          : !body.content
+            ? 'content'
+            : null;
+
+    if (missingField) {
+      return NextResponse.json({
+        error: `${missingField} is required`,
+        code: 'MISSING_FIELD'
+      }, { status: 400 });
     }
 
     // Verify channel exists
