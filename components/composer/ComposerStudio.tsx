@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { CheckCircle2, Circle, Loader2 } from "lucide-react";
 
 type ComposerField = {
@@ -65,6 +66,7 @@ const DEFAULT_TENANT = "t_demo_001";
 const DEFAULT_USER = "u_demo_001";
 
 export const ComposerStudio = () => {
+  const router = useRouter();
   const [templates, setTemplates] = useState<ExperienceTemplate[]>([]);
   const [templatesLoading, setTemplatesLoading] = useState(true);
   const [templatesError, setTemplatesError] = useState<string | null>(null);
@@ -557,6 +559,14 @@ export const ComposerStudio = () => {
                       {tag}
                     </span>
                   ))}
+                </div>
+                <div className="mt-3 flex items-center gap-2">
+                  <button
+                    onClick={() => router.push(`/studio/composer/experience/${exp.id}`)}
+                    className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-200 hover:bg-emerald-500/20"
+                  >
+                    Launch Experience
+                  </button>
                 </div>
               </div>
             ))}
