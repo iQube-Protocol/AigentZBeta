@@ -70,6 +70,16 @@ function mapExperienceToRow(experience: ExperienceQubeData): ExperienceRow {
   };
 }
 
+function normalizeAccess(input: Record<string, any> | null | undefined): ExperienceQubeData["access"] {
+  const access = input || {};
+  const visibility = access.visibility === "tenant" || access.visibility === "public" ? access.visibility : "private";
+  return {
+    visibility,
+    required_entitlements: Array.isArray(access.required_entitlements) ? access.required_entitlements : [],
+    allowed_roles: Array.isArray(access.allowed_roles) ? access.allowed_roles : [],
+  };
+}
+
 function mapRowToExperience(row: ExperienceRow): ExperienceQubeData {
   const meta = row.meta_qube || {};
   const blak = row.blak_qube || {};
@@ -96,11 +106,7 @@ function mapRowToExperience(row: ExperienceRow): ExperienceQubeData {
       timeout_seconds: 300,
       max_concurrent_users: 10,
     },
-    access: row.token_qube || {
-      visibility: "private",
-      required_entitlements: [],
-      allowed_roles: [],
-    },
+    access: normalizeAccess(row.token_qube),
   };
 }
 

@@ -269,13 +269,13 @@ export class ComposerService {
     // Create receipt for ExperienceQube creation
     try {
       await receiptService.createSmartTriadReceipt({
-        experienceQubeId: experienceId,
-        templateId: params.template_id,
-        creatorId: params.creator_id,
-        tenantId: params.tenant_id,
         action: 'create_experience_qube',
-        resultData: {
+        component: 'composer',
+        tenantId: params.tenant_id,
+        result: {
           experienceId,
+          templateId: params.template_id,
+          creatorId: params.creator_id,
           name: params.name,
           status: 'draft',
         },
@@ -319,11 +319,9 @@ export class ComposerService {
     if (deleted) {
       try {
         await receiptService.createSmartTriadReceipt({
-          experienceQubeId: experienceId,
           action: 'delete_experience_qube',
-          creatorId: 'system',
-          tenantId: 'unknown',
-          resultData: { experienceId, deleted: true },
+          component: 'composer',
+          result: { experienceId, deleted: true },
         });
       } catch (error) {
         console.warn('Failed to create deletion receipt:', error);
@@ -357,11 +355,15 @@ export class ComposerService {
         for (const rule of step.validation_rules) {
           const validationResult = this.applyValidationRule(rule, configuration, step.id);
           if (!validationResult.valid) {
-            errors.push({
-              field: step.id,
-              message: rule.error_message,
-              severity: rule.severity,
-            });
+            if (rule.severity === 'info') {
+              warnings.push({ field: step.id, message: rule.error_message });
+            } else {
+              errors.push({
+                field: step.id,
+                message: rule.error_message,
+                severity: rule.severity,
+              });
+            }
           }
         }
       }
@@ -384,9 +386,9 @@ export class ComposerService {
       
       case 'risk_tier':
         // Check if selected components exceed risk tier
-        const selectedTier = configuration[stepId]?.risk_tier || 'low';
-        const maxAllowedTier = configuration.max_risk_tier || 'medium';
-        const tierOrder = { low: 1, medium: 2, high: 3 };
+        const selectedTier = (configuration[stepId]?.risk_tier as 'low' | 'medium' | 'high') || 'low';
+        const maxAllowedTier = (configuration.max_risk_tier as 'low' | 'medium' | 'high') || 'medium';
+        const tierOrder: Record<'low' | 'medium' | 'high', number> = { low: 1, medium: 2, high: 3 };
         return { valid: tierOrder[selectedTier] <= tierOrder[maxAllowedTier] };
       
       default:

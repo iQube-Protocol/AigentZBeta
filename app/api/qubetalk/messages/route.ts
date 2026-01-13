@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     const body: MessageRequest = await request.json();
     
     // Validate required fields
-    const required = ['channel_id', 'from_agent', 'type', 'content'];
+    const required: Array<keyof MessageRequest> = ['channel_id', 'from_agent', 'type', 'content'];
     for (const field of required) {
       if (!body[field]) {
         return NextResponse.json({
