@@ -1,11 +1,27 @@
 /**
- * Template Registry for Static GenUI (Stage 1)
+ * Template Registry for Liquid UI (Stage 1)
  * 
- * Maps KNYT Liquid UI templates to React components for CopilotKit rendering.
+ * Maps Liquid UI base templates to renderer components for CopilotKit and composer flows.
  * Implements template selection logic and dynamic component loading.
  */
 
 import templatePackData from '@/apps/theqriptopian-web/src/data/knyt_liquid_ui_template_pack.json';
+
+const TEMPLATE_ALIASES: Record<string, string> = {
+  'knyt:drawer_grid_v1': 'liquidui:drawer_grid_v1',
+  'knyt:drawer_grid_1a': 'liquidui:drawer_grid_1a',
+  'knyt:drawer_grid_1b': 'liquidui:drawer_grid_1b',
+  'knyt:drawer_grid_1c': 'liquidui:drawer_grid_1c',
+  'knyt:drawer_grid_2a': 'liquidui:drawer_grid_2a',
+  'knyt:drawer_grid_2b': 'liquidui:drawer_grid_2b',
+  'knyt:drawer_grid_2c': 'liquidui:drawer_grid_2c',
+  'knyt:drawer_grid_3a': 'liquidui:drawer_grid_3a',
+  'knyt:drawer_grid_3b': 'liquidui:drawer_grid_3b',
+  'knyt:dual_poster_stage_v1': 'liquidui:drawer_grid_2c',
+  'knyt:motion_stage_v1': 'liquidui:drawer_grid_2a',
+  'knyt:quest_hud_hub_v1': 'liquidui:drawer_grid_2a',
+  'knyt:realm_bridge_map_v1': 'liquidui:drawer_grid_2a',
+};
 
 export interface TemplateDefinition {
   template_id: string;
@@ -13,6 +29,9 @@ export interface TemplateDefinition {
   component_name: string;
   component_path: string;
   description: string;
+  archetype: string;
+  core?: boolean;
+  status?: 'active' | 'placeholder';
   best_for: string[];
   required_bindings: Record<string, any>;
   optional_bindings?: Record<string, any>;
@@ -52,31 +71,25 @@ export class TemplateRegistry {
    * Load template definitions from template pack
    */
   private loadTemplates(): void {
-    // Load all 14 KNYT templates: 5 base templates + 9 drawer grid variants
-    // All implemented in KnytTemplateRenderer.tsx and CopilotWalletDrawer.tsx
+    const drawerPath = '@/app/triad/components/codex/liquidTemplates/KnytDrawerGridFallbackTemplate';
+    const placeholderPath = '@/app/triad/components/codex/liquidTemplates/LiquidUIPlaceholderTemplate';
+
     const templates: TemplateDefinition[] = [
-      // ========================================
-      // BASE TEMPLATE 1: Drawer Grid (with 9 variants)
-      // ========================================
       {
-        template_id: 'knyt:drawer_grid_v1',
-        name: 'Scrolls Drawer Grid (Auto)',
-        component_name: 'DrawerGridTemplate',
-        component_path: '@/components/codex/templates/KnytTemplateRenderer',
-        description: 'Browse/discover grid layout with automatic variant selection',
-        best_for: ['browse', 'discover', 'quick_switch', 'library'],
-        required_bindings: {
-          contentObjects: 'array',
-          device: 'string',
-        },
-        optional_bindings: {
-          layoutVariant: 'string',
-          onContentSelect: 'function',
-          walletMode: 'string',
-        },
+        template_id: 'liquidui:drawer_grid_v1',
+        name: 'LiquidUI Drawer Grid (Catalog)',
+        component_name: 'LiquidUIDrawerGrid',
+        component_path: drawerPath,
+        description: 'Catalog or gallery grid with drawer framing.',
+        archetype: 'catalog_gallery',
+        core: true,
+        status: 'active',
+        best_for: ['browse', 'catalog', 'gallery'],
+        required_bindings: { contentObjects: 'array', device: 'string' },
+        optional_bindings: { layoutVariant: 'string', onContentSelect: 'function', walletMode: 'string' },
         copilot_tool_spec: {
-          name: 'ui_render_drawer_grid',
-          description: 'Render browse/discover grid with content cards. Automatically selects best layout variant.',
+          name: 'ui_render_liquidui_drawer_grid',
+          description: 'Render catalog grid with auto layout selection.',
           parameters: [
             { name: 'contentObjects', type: 'array', required: true },
             { name: 'device', type: 'string', required: false, default: 'desktop' },
@@ -84,278 +97,410 @@ export class TemplateRegistry {
           ],
         },
       },
-      // Drawer Grid Variant 1A: 2 posters left + 4 wide right + 4 wide row 3 (full)
       {
-        template_id: 'knyt:drawer_grid_1a',
-        name: 'Drawer Grid 1A (Posters Left, Full Row 3)',
-        component_name: 'DrawerGridTemplate',
-        component_path: '@/components/codex/templates/KnytTemplateRenderer',
-        description: '2 tall posters left + 4 wide cards right + 4 wide cards row 3 (full row)',
-        best_for: ['browse', 'portrait_heavy', 'character_gallery'],
-        required_bindings: {
-          contentObjects: 'array',
-          device: 'string',
-        },
+        template_id: 'liquidui:drawer_grid_1a',
+        name: 'LiquidUI Drawer Grid 1A (Feed Stream)',
+        component_name: 'LiquidUIDrawerGrid',
+        component_path: drawerPath,
+        description: 'Feed-focused grid layout with a strong hero emphasis.',
+        archetype: 'feed_stream',
+        core: true,
+        status: 'active',
+        best_for: ['feed', 'discover', 'stream'],
+        required_bindings: { contentObjects: 'array', device: 'string' },
         copilot_tool_spec: {
-          name: 'ui_render_drawer_grid_1a',
-          description: 'Render grid with 2 portrait posters on left, 4 wide cards on right, full row 3.',
+          name: 'ui_render_liquidui_drawer_grid_1a',
+          description: 'Render feed layout with a hero-first grid.',
           parameters: [
             { name: 'contentObjects', type: 'array', required: true },
             { name: 'device', type: 'string', required: false, default: 'desktop' },
           ],
         },
       },
-      // Drawer Grid Variant 1B: 2 posters left + 4 wide right + 2 wide row 3 (sparse)
       {
-        template_id: 'knyt:drawer_grid_1b',
-        name: 'Drawer Grid 1B (Posters Left, Sparse Row 3)',
-        component_name: 'DrawerGridTemplate',
-        component_path: '@/components/codex/templates/KnytTemplateRenderer',
-        description: '2 tall posters left + 4 wide cards right + 2 wide cards row 3 (sparse)',
-        best_for: ['browse', 'portrait_focus', 'less_dense'],
-        required_bindings: {
-          contentObjects: 'array',
-          device: 'string',
-        },
+        template_id: 'liquidui:drawer_grid_1b',
+        name: 'LiquidUI Drawer Grid 1B (Search Results)',
+        component_name: 'LiquidUIDrawerGrid',
+        component_path: drawerPath,
+        description: 'Search results grid with tighter density.',
+        archetype: 'search_filter',
+        core: true,
+        status: 'active',
+        best_for: ['search', 'filter', 'query'],
+        required_bindings: { contentObjects: 'array', device: 'string' },
         copilot_tool_spec: {
-          name: 'ui_render_drawer_grid_1b',
-          description: 'Render grid with 2 portrait posters on left, 4 wide cards on right, sparse row 3.',
+          name: 'ui_render_liquidui_drawer_grid_1b',
+          description: 'Render search results grid.',
           parameters: [
             { name: 'contentObjects', type: 'array', required: true },
             { name: 'device', type: 'string', required: false, default: 'desktop' },
           ],
         },
       },
-      // Drawer Grid Variant 1C: Featured 2x2 stage
       {
-        template_id: 'knyt:drawer_grid_1c',
-        name: 'Drawer Grid 1C (Featured Stage)',
-        component_name: 'DrawerGridTemplate',
-        component_path: '@/components/codex/templates/KnytTemplateRenderer',
-        description: 'Featured 2x2 stage with supporting content',
-        best_for: ['featured_content', 'hero_focus', 'new_release'],
-        required_bindings: {
-          contentObjects: 'array',
-          device: 'string',
-        },
+        template_id: 'liquidui:drawer_grid_1c',
+        name: 'LiquidUI Drawer Grid 1C (Compare)',
+        component_name: 'LiquidUIDrawerGrid',
+        component_path: drawerPath,
+        description: 'Featured comparison grid with a decision focus.',
+        archetype: 'compare_decision',
+        core: false,
+        status: 'active',
+        best_for: ['compare', 'decide', 'evaluate'],
+        required_bindings: { contentObjects: 'array', device: 'string' },
         copilot_tool_spec: {
-          name: 'ui_render_drawer_grid_1c',
-          description: 'Render grid with large featured 2x2 stage.',
+          name: 'ui_render_liquidui_drawer_grid_1c',
+          description: 'Render comparison grid with a featured stage.',
           parameters: [
             { name: 'contentObjects', type: 'array', required: true },
             { name: 'device', type: 'string', required: false, default: 'desktop' },
           ],
         },
       },
-      // Drawer Grid Variant 2A: Featured 2x2 LEFT + 4 wide right + 4 wide row 3
       {
-        template_id: 'knyt:drawer_grid_2a',
-        name: 'Drawer Grid 2A (Featured Left)',
-        component_name: 'DrawerGridTemplate',
-        component_path: '@/components/codex/templates/KnytTemplateRenderer',
-        description: 'Featured 2x2 stage on left + 4 wide cards right + 4 wide row 3',
-        best_for: ['featured_left', 'hero_with_context'],
-        required_bindings: {
-          contentObjects: 'array',
-          device: 'string',
-        },
+        template_id: 'liquidui:drawer_grid_2a',
+        name: 'LiquidUI Drawer Grid 2A (Dashboard)',
+        component_name: 'LiquidUIDrawerGrid',
+        component_path: drawerPath,
+        description: 'Dashboard grid with KPIs and featured highlights.',
+        archetype: 'dashboard_kpi',
+        core: true,
+        status: 'active',
+        best_for: ['dashboard', 'monitor', 'kpi'],
+        required_bindings: { contentObjects: 'array', device: 'string' },
         copilot_tool_spec: {
-          name: 'ui_render_drawer_grid_2a',
-          description: 'Render grid with featured stage on left, supporting cards on right.',
+          name: 'ui_render_liquidui_drawer_grid_2a',
+          description: 'Render dashboard grid with a featured stage.',
           parameters: [
             { name: 'contentObjects', type: 'array', required: true },
             { name: 'device', type: 'string', required: false, default: 'desktop' },
           ],
         },
       },
-      // Drawer Grid Variant 2B: Featured 2x2 RIGHT + 4 wide left + 4 wide row 3
       {
-        template_id: 'knyt:drawer_grid_2b',
-        name: 'Drawer Grid 2B (Featured Right)',
-        component_name: 'DrawerGridTemplate',
-        component_path: '@/components/codex/templates/KnytTemplateRenderer',
-        description: 'Featured 2x2 stage on right + 4 wide cards left + 4 wide row 3',
-        best_for: ['featured_right', 'hero_with_context'],
-        required_bindings: {
-          contentObjects: 'array',
-          device: 'string',
-        },
+        template_id: 'liquidui:drawer_grid_2b',
+        name: 'LiquidUI Drawer Grid 2B (Workspace)',
+        component_name: 'LiquidUIDrawerGrid',
+        component_path: drawerPath,
+        description: 'Workspace grid with list-detail emphasis.',
+        archetype: 'workspace_table',
+        core: true,
+        status: 'active',
+        best_for: ['workspace', 'manage', 'organize'],
+        required_bindings: { contentObjects: 'array', device: 'string' },
         copilot_tool_spec: {
-          name: 'ui_render_drawer_grid_2b',
-          description: 'Render grid with featured stage on right, supporting cards on left.',
+          name: 'ui_render_liquidui_drawer_grid_2b',
+          description: 'Render workspace grid with detail emphasis.',
           parameters: [
             { name: 'contentObjects', type: 'array', required: true },
             { name: 'device', type: 'string', required: false, default: 'desktop' },
           ],
         },
       },
-      // Drawer Grid Variant 2C: Featured 2x2 CENTER + 2 wide sides + 4 wide row 3
       {
-        template_id: 'knyt:drawer_grid_2c',
-        name: 'Drawer Grid 2C (Featured Center)',
-        component_name: 'DrawerGridTemplate',
-        component_path: '@/components/codex/templates/KnytTemplateRenderer',
-        description: 'Featured 2x2 stage centered + 2 wide cards on sides + 4 wide row 3',
-        best_for: ['featured_center', 'hero_spotlight'],
-        required_bindings: {
-          contentObjects: 'array',
-          device: 'string',
-        },
+        template_id: 'liquidui:drawer_grid_2c',
+        name: 'LiquidUI Drawer Grid 2C (Entity Detail)',
+        component_name: 'LiquidUIDrawerGrid',
+        component_path: drawerPath,
+        description: 'Entity detail grid with primary focus area.',
+        archetype: 'entity_detail',
+        core: true,
+        status: 'active',
+        best_for: ['detail', 'profile', 'entity'],
+        required_bindings: { contentObjects: 'array', device: 'string' },
         copilot_tool_spec: {
-          name: 'ui_render_drawer_grid_2c',
-          description: 'Render grid with featured stage centered, flanked by cards.',
+          name: 'ui_render_liquidui_drawer_grid_2c',
+          description: 'Render entity detail grid with primary focus.',
           parameters: [
             { name: 'contentObjects', type: 'array', required: true },
             { name: 'device', type: 'string', required: false, default: 'desktop' },
           ],
         },
       },
-      // Drawer Grid Variant 3A: 4 posters (2 left + 2 right) with wide cards
       {
-        template_id: 'knyt:drawer_grid_3a',
-        name: 'Drawer Grid 3A (4 Posters)',
-        component_name: 'DrawerGridTemplate',
-        component_path: '@/components/codex/templates/KnytTemplateRenderer',
-        description: '2 posters left + 2 wide top-right + 2 posters right + 2 wide bottom-left',
-        best_for: ['character_showcase', 'portrait_heavy', 'gallery'],
-        required_bindings: {
-          contentObjects: 'array',
-          device: 'string',
-        },
+        template_id: 'liquidui:drawer_grid_3a',
+        name: 'LiquidUI Drawer Grid 3A (Inbox)',
+        component_name: 'LiquidUIDrawerGrid',
+        component_path: drawerPath,
+        description: 'Inbox and thread list grid.',
+        archetype: 'inbox_threads',
+        core: true,
+        status: 'active',
+        best_for: ['inbox', 'threads', 'messages'],
+        required_bindings: { contentObjects: 'array', device: 'string' },
         copilot_tool_spec: {
-          name: 'ui_render_drawer_grid_3a',
-          description: 'Render grid with 4 portrait posters and supporting wide cards.',
+          name: 'ui_render_liquidui_drawer_grid_3a',
+          description: 'Render inbox thread grid.',
           parameters: [
             { name: 'contentObjects', type: 'array', required: true },
             { name: 'device', type: 'string', required: false, default: 'desktop' },
           ],
         },
       },
-      // Drawer Grid Variant 3B: Mirror of 3A
       {
-        template_id: 'knyt:drawer_grid_3b',
-        name: 'Drawer Grid 3B (4 Posters Mirrored)',
-        component_name: 'DrawerGridTemplate',
-        component_path: '@/components/codex/templates/KnytTemplateRenderer',
-        description: '2 posters right + 2 wide top-left + 2 posters left + 2 wide bottom-right',
-        best_for: ['character_showcase', 'portrait_heavy', 'gallery_alt'],
-        required_bindings: {
-          contentObjects: 'array',
-          device: 'string',
-        },
+        template_id: 'liquidui:drawer_grid_3b',
+        name: 'LiquidUI Drawer Grid 3B (Community)',
+        component_name: 'LiquidUIDrawerGrid',
+        component_path: drawerPath,
+        description: 'Community and forum grid.',
+        archetype: 'community_forum',
+        core: false,
+        status: 'active',
+        best_for: ['community', 'forum', 'topics'],
+        required_bindings: { contentObjects: 'array', device: 'string' },
         copilot_tool_spec: {
-          name: 'ui_render_drawer_grid_3b',
-          description: 'Render grid with 4 portrait posters (mirrored layout) and supporting wide cards.',
+          name: 'ui_render_liquidui_drawer_grid_3b',
+          description: 'Render community grid.',
           parameters: [
             { name: 'contentObjects', type: 'array', required: true },
             { name: 'device', type: 'string', required: false, default: 'desktop' },
           ],
         },
       },
-      // ========================================
-      // BASE TEMPLATE 2: Dual Poster Stage
-      // ========================================
       {
-        template_id: 'knyt:dual_poster_stage_v1',
-        name: 'Dual Poster Stage',
-        component_name: 'DualPosterStageTemplate',
-        component_path: '@/components/codex/templates/DualPosterStageTemplate',
-        description: '90% height portrait posters with quest rail',
-        best_for: ['character_deep_dive', 'cover_art', 'page_review', 'collectible_display'],
-        required_bindings: {
-          primaryContent: 'object',
-          device: 'string',
-        },
-        optional_bindings: {
-          secondaryContent: 'object',
-          questRailData: 'object',
-        },
+        template_id: 'liquidui:reader_viewer_v1',
+        name: 'LiquidUI Reader',
+        component_name: 'LiquidUIPlaceholderTemplate',
+        component_path: placeholderPath,
+        description: 'Long-form reader and media viewer.',
+        archetype: 'reader_viewer',
+        core: true,
+        status: 'placeholder',
+        best_for: ['read', 'watch', 'consume'],
+        required_bindings: { contentObject: 'object' },
         copilot_tool_spec: {
-          name: 'ui_render_dual_poster',
-          description: 'Render large portrait poster stage. Use for character profiles, cover art, or collectible display.',
+          name: 'ui_render_liquidui_reader',
+          description: 'Render a long-form reader or media viewer.',
           parameters: [
-            { name: 'primaryContent', type: 'object', required: true },
-            { name: 'secondaryContent', type: 'object', required: false },
-            { name: 'device', type: 'string', required: false, default: 'desktop' },
+            { name: 'contentObject', type: 'object', required: true },
           ],
         },
       },
       {
-        template_id: 'knyt:motion_stage_v1',
-        name: 'Immersive Motion Stage',
-        component_name: 'MotionStageTemplate',
-        component_path: '@/components/codex/templates/MotionStageTemplate',
-        description: 'Immersive landscape motion stage with clip strip',
-        best_for: ['watch', 'motion_comics', 'trailers', 'scene_review'],
-        required_bindings: {
-          videoContent: 'object',
-          device: 'string',
-        },
-        optional_bindings: {
-          clipStrip: 'array',
-        },
+        template_id: 'liquidui:chat_conversation_v1',
+        name: 'LiquidUI Chat',
+        component_name: 'LiquidUIPlaceholderTemplate',
+        component_path: placeholderPath,
+        description: 'Conversational chat and agent threads.',
+        archetype: 'chat_conversation',
+        core: true,
+        status: 'placeholder',
+        best_for: ['chat', 'conversation', 'assist'],
+        required_bindings: { messages: 'array' },
         copilot_tool_spec: {
-          name: 'ui_render_motion_stage',
-          description: 'Render immersive video/motion stage. Use for motion comics, trailers, or video content.',
+          name: 'ui_render_liquidui_chat',
+          description: 'Render a chat conversation.',
           parameters: [
-            { name: 'videoContent', type: 'object', required: true },
-            { name: 'clipStrip', type: 'array', required: false },
-            { name: 'device', type: 'string', required: false, default: 'desktop' },
+            { name: 'messages', type: 'array', required: true },
           ],
         },
       },
-      // ========================================
-      // BASE TEMPLATE 4: Quest HUD Hub
-      // ========================================
       {
-        template_id: 'knyt:quest_hud_hub_v1',
-        name: 'Quest HUD Hub',
-        component_name: 'QuestHudHubTemplate',
-        component_path: '@/components/codex/templates/QuestHudHubTemplate',
-        description: 'Task/reward/ascension-first HUD with content stage',
-        best_for: ['ascension', 'earn_rewards', 'member_get_member', 'guided_paths'],
-        required_bindings: {
-          hudData: 'object',
-          device: 'string',
-        },
-        optional_bindings: {
-          contentStage: 'object',
-        },
+        template_id: 'liquidui:editor_compose_v1',
+        name: 'LiquidUI Editor',
+        component_name: 'LiquidUIPlaceholderTemplate',
+        component_path: placeholderPath,
+        description: 'Structured editor for creating and publishing.',
+        archetype: 'editor_compose',
+        core: true,
+        status: 'placeholder',
+        best_for: ['create', 'edit', 'compose'],
+        required_bindings: { document: 'object' },
         copilot_tool_spec: {
-          name: 'ui_render_quest_hud',
-          description: 'Render quest/task HUD with rewards. Use for guided paths, ascension, or reward-focused experiences.',
+          name: 'ui_render_liquidui_editor',
+          description: 'Render a document editor.',
           parameters: [
-            { name: 'hudData', type: 'object', required: true },
-            { name: 'contentStage', type: 'object', required: false },
-            { name: 'device', type: 'string', required: false, default: 'desktop' },
+            { name: 'document', type: 'object', required: true },
           ],
         },
       },
-      // ========================================
-      // BASE TEMPLATE 5: Realm Bridge Map
-      // ========================================
       {
-        template_id: 'knyt:realm_bridge_map_v1',
-        name: 'Realm Bridge Map',
-        component_name: 'RealmBridgeMapTemplate',
-        component_path: '@/components/codex/templates/RealmBridgeMapTemplate',
-        description: 'DigiTerra ↔ Terra ↔ metaTerra/or realm navigation',
-        best_for: ['bridge_real_to_lore', 'realm_navigation'],
-        required_bindings: {
-          currentRealm: 'string',
-          realmContent: 'object',
-          device: 'string',
-        },
-        optional_bindings: {
-          bridgeActions: 'array',
-        },
+        template_id: 'liquidui:canvas_workspace_v1',
+        name: 'LiquidUI Canvas',
+        component_name: 'LiquidUIPlaceholderTemplate',
+        component_path: placeholderPath,
+        description: 'Spatial canvas for freeform work.',
+        archetype: 'canvas_workspace',
+        core: true,
+        status: 'placeholder',
+        best_for: ['canvas', 'whiteboard', 'design'],
+        required_bindings: { nodes: 'array' },
         copilot_tool_spec: {
-          name: 'ui_render_realm_bridge',
-          description: 'Render realm navigation map. Use for transitioning between Terra (real-world), DigiTerra (lore), and metaTerra/or (convergence).',
+          name: 'ui_render_liquidui_canvas',
+          description: 'Render a freeform canvas workspace.',
           parameters: [
-            { name: 'currentRealm', type: 'string', required: true },
-            { name: 'realmContent', type: 'object', required: true },
-            { name: 'device', type: 'string', required: false, default: 'desktop' },
+            { name: 'nodes', type: 'array', required: true },
+          ],
+        },
+      },
+      {
+        template_id: 'liquidui:settings_admin_v1',
+        name: 'LiquidUI Settings',
+        component_name: 'LiquidUIPlaceholderTemplate',
+        component_path: placeholderPath,
+        description: 'Settings and admin console.',
+        archetype: 'settings_admin',
+        core: true,
+        status: 'placeholder',
+        best_for: ['settings', 'admin', 'configure'],
+        required_bindings: { settings: 'object' },
+        copilot_tool_spec: {
+          name: 'ui_render_liquidui_settings',
+          description: 'Render settings or admin console.',
+          parameters: [
+            { name: 'settings', type: 'object', required: true },
+          ],
+        },
+      },
+      {
+        template_id: 'liquidui:timeline_activity_v1',
+        name: 'LiquidUI Timeline',
+        component_name: 'LiquidUIPlaceholderTemplate',
+        component_path: placeholderPath,
+        description: 'Activity timeline and changelog.',
+        archetype: 'timeline_activity',
+        core: false,
+        status: 'placeholder',
+        best_for: ['timeline', 'activity', 'history'],
+        required_bindings: { events: 'array' },
+        copilot_tool_spec: {
+          name: 'ui_render_liquidui_timeline',
+          description: 'Render an activity timeline.',
+          parameters: [
+            { name: 'events', type: 'array', required: true },
+          ],
+        },
+      },
+      {
+        template_id: 'liquidui:meeting_live_room_v1',
+        name: 'LiquidUI Live Room',
+        component_name: 'LiquidUIPlaceholderTemplate',
+        component_path: placeholderPath,
+        description: 'Live meeting room for audio/video sessions.',
+        archetype: 'meeting_live_room',
+        core: false,
+        status: 'placeholder',
+        best_for: ['meeting', 'live', 'collaborate'],
+        required_bindings: { session: 'object' },
+        copilot_tool_spec: {
+          name: 'ui_render_liquidui_live_room',
+          description: 'Render a live meeting room.',
+          parameters: [
+            { name: 'session', type: 'object', required: true },
+          ],
+        },
+      },
+      {
+        template_id: 'liquidui:builder_ide_v1',
+        name: 'LiquidUI Builder',
+        component_name: 'LiquidUIPlaceholderTemplate',
+        component_path: placeholderPath,
+        description: 'Builder or IDE workspace.',
+        archetype: 'builder_ide',
+        core: false,
+        status: 'placeholder',
+        best_for: ['build', 'code', 'workflow'],
+        required_bindings: { project: 'object' },
+        copilot_tool_spec: {
+          name: 'ui_render_liquidui_builder',
+          description: 'Render a builder or IDE workspace.',
+          parameters: [
+            { name: 'project', type: 'object', required: true },
+          ],
+        },
+      },
+      {
+        template_id: 'liquidui:notebook_lab_v1',
+        name: 'LiquidUI Notebook',
+        component_name: 'LiquidUIPlaceholderTemplate',
+        component_path: placeholderPath,
+        description: 'Notebook and experiment lab.',
+        archetype: 'notebook_lab',
+        core: false,
+        status: 'placeholder',
+        best_for: ['notebook', 'lab', 'experiment'],
+        required_bindings: { cells: 'array' },
+        copilot_tool_spec: {
+          name: 'ui_render_liquidui_notebook',
+          description: 'Render a notebook lab.',
+          parameters: [
+            { name: 'cells', type: 'array', required: true },
+          ],
+        },
+      },
+      {
+        template_id: 'liquidui:checkout_payment_v1',
+        name: 'LiquidUI Checkout',
+        component_name: 'LiquidUIPlaceholderTemplate',
+        component_path: placeholderPath,
+        description: 'Checkout and payment flow.',
+        archetype: 'checkout_payment',
+        core: false,
+        status: 'placeholder',
+        best_for: ['checkout', 'payment', 'purchase'],
+        required_bindings: { lineItems: 'array' },
+        copilot_tool_spec: {
+          name: 'ui_render_liquidui_checkout',
+          description: 'Render a checkout flow.',
+          parameters: [
+            { name: 'lineItems', type: 'array', required: true },
+          ],
+        },
+      },
+      {
+        template_id: 'liquidui:marketplace_exchange_v1',
+        name: 'LiquidUI Marketplace',
+        component_name: 'LiquidUIPlaceholderTemplate',
+        component_path: placeholderPath,
+        description: 'Marketplace and exchange layout.',
+        archetype: 'marketplace_exchange',
+        core: false,
+        status: 'placeholder',
+        best_for: ['marketplace', 'exchange', 'listings'],
+        required_bindings: { listings: 'array' },
+        copilot_tool_spec: {
+          name: 'ui_render_liquidui_marketplace',
+          description: 'Render a marketplace view.',
+          parameters: [
+            { name: 'listings', type: 'array', required: true },
+          ],
+        },
+      },
+      {
+        template_id: 'liquidui:board_kanban_v1',
+        name: 'LiquidUI Board',
+        component_name: 'LiquidUIPlaceholderTemplate',
+        component_path: placeholderPath,
+        description: 'Kanban or stage board.',
+        archetype: 'board_kanban',
+        core: false,
+        status: 'placeholder',
+        best_for: ['board', 'kanban', 'pipeline'],
+        required_bindings: { columns: 'array' },
+        copilot_tool_spec: {
+          name: 'ui_render_liquidui_board',
+          description: 'Render a kanban board.',
+          parameters: [
+            { name: 'columns', type: 'array', required: true },
+          ],
+        },
+      },
+      {
+        template_id: 'liquidui:map_geo_v1',
+        name: 'LiquidUI Map',
+        component_name: 'LiquidUIPlaceholderTemplate',
+        component_path: placeholderPath,
+        description: 'Map and geo layout.',
+        archetype: 'map_geo',
+        core: false,
+        status: 'placeholder',
+        best_for: ['map', 'geo', 'location'],
+        required_bindings: { points: 'array' },
+        copilot_tool_spec: {
+          name: 'ui_render_liquidui_map',
+          description: 'Render a map view.',
+          parameters: [
+            { name: 'points', type: 'array', required: true },
           ],
         },
       },
@@ -368,7 +513,8 @@ export class TemplateRegistry {
    * Get template definition by ID
    */
   getTemplate(templateId: string): TemplateDefinition | null {
-    return this.templates.get(templateId) || null;
+    const resolved = TEMPLATE_ALIASES[templateId] || templateId;
+    return this.templates.get(resolved) || null;
   }
 
   /**
@@ -383,72 +529,63 @@ export class TemplateRegistry {
    * Implements template selection policy from knyt_liquid_ui_template_pack.json
    */
   selectTemplate(context: SelectionContext): string {
-    const { userIntent, device, contentMix, realm, taskState, businessGoal } = context;
+    const { userIntent, contentMix, realm, taskState } = context;
+    const normalized = (userIntent || '').toLowerCase();
 
-    // Priority order: user_intent > content_mix > realm > device > task_state > business_goal
-
-    // Rule 1: Browse/discover with mixed/portrait content → drawer_grid
-    if (
-      userIntent &&
-      ['browse', 'discover'].includes(userIntent) &&
-      (!contentMix || ['mixed', 'mostly_portrait'].includes(contentMix))
-    ) {
-      return 'knyt:drawer_grid_v1';
+    // Priority order: user intent, then context hints, then fallback.
+    // Only return active templates (the initial 9 drawer grid variants).
+    if (['search', 'filter', 'query'].includes(normalized)) {
+      return 'liquidui:drawer_grid_1b';
     }
 
-    // Rule 2: Character/cover/page focus with portrait → dual_poster_stage
-    if (
-      userIntent &&
-      ['character_deep_dive', 'cover_art', 'page_review'].includes(userIntent) &&
-      contentMix === 'portrait_focus'
-    ) {
-      return 'knyt:dual_poster_stage_v1';
+    if (['feed', 'discover', 'stream'].includes(normalized)) {
+      return 'liquidui:drawer_grid_1a';
     }
 
-    // Rule 3: Watch/immersive with motion/landscape → motion_stage
-    if (
-      userIntent &&
-      ['watch', 'immersive_review'].includes(userIntent) &&
-      contentMix &&
-      ['motion_focus', 'landscape_focus'].includes(contentMix)
-    ) {
-      return 'knyt:motion_stage_v1';
+    if (['browse', 'catalog', 'gallery'].includes(normalized)) {
+      return 'liquidui:drawer_grid_v1';
     }
 
-    // Rule 4: Questing/ascension/rewards with active tasks → quest_hud_hub
-    if (
-      userIntent &&
-      ['questing', 'ascension', 'earn_rewards'].includes(userIntent) &&
-      taskState &&
-      ['active', 'needs_guidance'].includes(taskState)
-    ) {
-      return 'knyt:quest_hud_hub_v1';
+    if (['compare', 'decide', 'evaluate'].includes(normalized)) {
+      return 'liquidui:drawer_grid_1c';
     }
 
-    // Rule 5: Realm navigation/bridging → realm_bridge_map
-    if (
-      userIntent &&
-      ['bridge_real_to_lore', 'realm_navigation'].includes(userIntent) &&
-      realm &&
-      ['terra', 'metaterra_or'].includes(realm)
-    ) {
-      return 'knyt:realm_bridge_map_v1';
+    if (['dashboard', 'monitor', 'kpi'].includes(normalized)) {
+      return 'liquidui:drawer_grid_2a';
     }
 
-    // Default fallback: drawer_grid for general browsing
-    return 'knyt:drawer_grid_v1';
+    if (['workspace', 'manage', 'organize', 'create', 'edit', 'compose'].includes(normalized)) {
+      return 'liquidui:drawer_grid_2b';
+    }
+
+    if (['detail', 'profile', 'entity', 'read', 'consume', 'watch'].includes(normalized)) {
+      return 'liquidui:drawer_grid_2c';
+    }
+
+    if (['inbox', 'threads', 'messages', 'chat', 'conversation', 'assist'].includes(normalized)) {
+      return 'liquidui:drawer_grid_3a';
+    }
+
+    if (['community', 'forum', 'topics'].includes(normalized)) {
+      return 'liquidui:drawer_grid_3b';
+    }
+
+    // Default fallback: drawer grid 2A per request.
+    return 'liquidui:drawer_grid_2a';
   }
 
   /**
    * Generate CopilotKit action specs for all templates
    */
   getCopilotActionSpecs(): any[] {
-    return this.getAllTemplates().map(template => ({
-      name: template.copilot_tool_spec.name,
-      description: template.copilot_tool_spec.description,
-      parameters: template.copilot_tool_spec.parameters.map(p => ({
-        name: p.name,
-        type: p.type as any,
+    return this.getAllTemplates()
+      .filter(template => template.status !== 'placeholder')
+      .map(template => ({
+        name: template.copilot_tool_spec.name,
+        description: template.copilot_tool_spec.description,
+        parameters: template.copilot_tool_spec.parameters.map(p => ({
+          name: p.name,
+          type: p.type as any,
         description: p.description || `${p.name} parameter`,
         required: p.required,
       })),

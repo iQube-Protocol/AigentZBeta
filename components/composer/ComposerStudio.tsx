@@ -10,7 +10,7 @@ type ComposerField = {
   type: "text" | "select" | "multiselect" | "checkbox" | "slider" | "textarea";
   required: boolean;
   options?: Array<{ value: string; label: string; description?: string }>;
-  validation?: { min?: number; max?: number; step?: number };
+  validation?: { min?: number; max?: number; step?: number; pattern?: string };
   default_value?: any;
   help_text?: string;
 };
@@ -136,6 +136,44 @@ export const ComposerStudio = () => {
     return sessionTemplate.steps[session?.current_step || 0] || null;
   }, [sessionTemplate, session?.current_step]);
 
+  const getFieldError = (field: ComposerField, value: any): string | null => {
+    const isEmpty =
+      value === undefined ||
+      value === null ||
+      (typeof value === "string" && value.trim().length === 0);
+
+    if (field.type === "multiselect") {
+      const list = Array.isArray(value) ? value : [];
+      if (field.required && list.length === 0) return "Select at least one option.";
+      return null;
+    }
+
+    if (field.type === "checkbox") {
+      if (field.required && value !== true) return "This must be enabled.";
+      return null;
+    }
+
+    if (field.required && isEmpty) return "This field is required.";
+
+    if (field.validation?.pattern && !isEmpty) {
+      try {
+        const regex = new RegExp(field.validation.pattern);
+        if (!regex.test(String(value))) return "Value does not match the required format.";
+      } catch {
+        // Ignore invalid regex patterns.
+      }
+    }
+
+    if (field.validation && typeof value === "number") {
+      const min = field.validation.min;
+      const max = field.validation.max;
+      if (min !== undefined && value < min) return `Minimum value is ${min}.`;
+      if (max !== undefined && value > max) return `Maximum value is ${max}.`;
+    }
+
+    return null;
+  };
+
   useEffect(() => {
     if (!currentStep) return;
     setStepData((prev) => {
@@ -151,15 +189,17 @@ export const ComposerStudio = () => {
 
   const stepValues = currentStep ? stepData[currentStep.id] || {} : {};
 
+  const mergedData = useMemo(() => {
+    if (!currentStep) return sessionData;
+    return {
+      ...sessionData,
+      [currentStep.id]: stepValues,
+    };
+  }, [currentStep, sessionData, stepValues]);
+
   const isStepValid = useMemo(() => {
     if (!currentStep) return false;
-    return currentStep.ui_config.fields.every((field) => {
-      if (!field.required) return true;
-      const value = stepValues[field.id];
-      if (field.type === "multiselect") return Array.isArray(value) && value.length > 0;
-      if (field.type === "checkbox") return value === true;
-      return value !== undefined && value !== null && `${value}`.trim().length > 0;
-    });
+    return currentStep.ui_config.fields.every((field) => !getFieldError(field, stepValues[field.id]));
   }, [currentStep, stepValues]);
 
   const handleStartSession = async () => {
@@ -269,6 +309,44 @@ export const ComposerStudio = () => {
   };
 
   const cardClass = "rounded-2xl border border-slate-800 bg-slate-900/60 p-6";
+  const summaryCardClass = "rounded-xl border border-slate-800 bg-slate-950/60 p-4";
+
+  const getMergedValue = (stepId: string, fieldId: string) => mergedData?.[stepId]?.[fieldId];
+  const summary = useMemo(() => {
+    if (!sessionTemplate) return [];
+    const getLabel = (stepId: string, fieldId: string) => {
+      const step = sessionTemplate.steps.find((s) => s.id === stepId);
+      const field = step?.ui_config.fields.find((f) => f.id === fieldId);
+      return field?.name || fieldId;
+    };
+
+    const list: Array<{ label: string; value: string }> = [];
+    const intentStep = mergedData.intent_timebox || {};
+    if (intentStep.experience_name) list.push({ label: getLabel("intent_timebox", "experience_name"), value: intentStep.experience_name });
+    if (intentStep.goal) list.push({ label: getLabel("intent_timebox", "goal"), value: intentStep.goal });
+    if (intentStep.time_available) list.push({ label: getLabel("intent_timebox", "time_available"), value: `${intentStep.time_available} min` });
+    if (intentStep.depth) list.push({ label: getLabel("intent_timebox", "depth"), value: intentStep.depth });
+
+    const contentStep = mergedData.content_selection || {};
+    if (contentStep.issue_slug) list.push({ label: getLabel("content_selection", "issue_slug"), value: contentStep.issue_slug });
+    if (contentStep.feature_item_id) list.push({ label: getLabel("content_selection", "feature_item_id"), value: contentStep.feature_item_id });
+    if (Array.isArray(contentStep.supporting_item_ids) && contentStep.supporting_item_ids.length > 0) {
+      list.push({ label: getLabel("content_selection", "supporting_item_ids"), value: `${contentStep.supporting_item_ids.length} items` });
+    }
+
+    const walletStep = mergedData.wallet_rewards || {};
+    if (walletStep.unlock_price !== undefined) list.push({ label: getLabel("wallet_rewards", "unlock_price"), value: `${walletStep.unlock_price} Qc` });
+    if (walletStep.reward_amount !== undefined) list.push({ label: getLabel("wallet_rewards", "reward_amount"), value: `${walletStep.reward_amount} Qc` });
+    if (walletStep.require_wallet_connect !== undefined) list.push({ label: getLabel("wallet_rewards", "require_wallet_connect"), value: walletStep.require_wallet_connect ? "Required" : "Optional" });
+
+    const copilotStep = mergedData.copilot_output || {};
+    if (Array.isArray(copilotStep.outputs) && copilotStep.outputs.length > 0) {
+      list.push({ label: getLabel("copilot_output", "outputs"), value: copilotStep.outputs.join(", ") });
+    }
+    if (copilotStep.takeaways_count !== undefined) list.push({ label: getLabel("copilot_output", "takeaways_count"), value: String(copilotStep.takeaways_count) });
+
+    return list;
+  }, [mergedData, sessionTemplate]);
 
   return (
     <div className="min-h-screen bg-slate-900 p-8">
@@ -404,6 +482,7 @@ export const ComposerStudio = () => {
                     <div className="space-y-3">
                       {currentStep.ui_config.fields.map((field) => {
                         const value = stepValues[field.id];
+                        const error = getFieldError(field, value);
                         return (
                           <div key={field.id}>
                             <label className="text-xs text-slate-400">
@@ -413,14 +492,18 @@ export const ComposerStudio = () => {
                               <input
                                 value={value || ""}
                                 onChange={(e) => updateField(currentStep.id, field.id, e.target.value)}
-                                className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-200"
+                                className={`mt-1 w-full rounded-lg border bg-slate-900 px-3 py-2 text-sm text-slate-200 ${
+                                  error ? "border-rose-500/60" : "border-slate-800"
+                                }`}
                               />
                             )}
                             {field.type === "textarea" && (
                               <textarea
                                 value={value || ""}
                                 onChange={(e) => updateField(currentStep.id, field.id, e.target.value)}
-                                className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-200"
+                                className={`mt-1 w-full rounded-lg border bg-slate-900 px-3 py-2 text-sm text-slate-200 ${
+                                  error ? "border-rose-500/60" : "border-slate-800"
+                                }`}
                                 rows={3}
                               />
                             )}
@@ -428,7 +511,9 @@ export const ComposerStudio = () => {
                               <select
                                 value={value || ""}
                                 onChange={(e) => updateField(currentStep.id, field.id, e.target.value)}
-                                className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-200"
+                                className={`mt-1 w-full rounded-lg border bg-slate-900 px-3 py-2 text-sm text-slate-200 ${
+                                  error ? "border-rose-500/60" : "border-slate-800"
+                                }`}
                               >
                                 <option value="">Select...</option>
                                 {field.options?.map((opt) => (
@@ -486,12 +571,27 @@ export const ComposerStudio = () => {
                                 </div>
                               </div>
                             )}
-                            {field.help_text && (
+                            {error && <div className="mt-1 text-[11px] text-rose-300">{error}</div>}
+                            {field.help_text && !error && (
                               <div className="mt-1 text-[11px] text-slate-500">{field.help_text}</div>
                             )}
                           </div>
                         );
                       })}
+                    </div>
+                  </div>
+                )}
+
+                {summary.length > 0 && (
+                  <div className={summaryCardClass}>
+                    <div className="mb-2 text-xs uppercase tracking-widest text-slate-400">Experience Snapshot</div>
+                    <div className="grid gap-2 text-sm text-slate-200">
+                      {summary.map((item) => (
+                        <div key={item.label} className="flex items-center justify-between gap-3">
+                          <span className="text-slate-400">{item.label}</span>
+                          <span className="text-slate-200 text-right">{item.value}</span>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}
@@ -524,6 +624,14 @@ export const ComposerStudio = () => {
                   >
                     {isCompleting ? "Completing..." : "Complete"}
                   </button>
+                  {experience && (
+                    <button
+                      onClick={() => router.push(`/studio/composer/experience/${experience.id}`)}
+                      className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-200"
+                    >
+                      Open Experience
+                    </button>
+                  )}
                 </div>
               </div>
             )}

@@ -12,63 +12,10 @@ import { usePathname, useRouter } from "next/navigation";
 import { useCodexConfig, getEnabledTabs } from "@/app/hooks/useCodexConfig";
 import { CodexTab } from "@/types/codex";
 import { Loader2, AlertCircle } from "lucide-react";
-import { ContentViewer, SmartTriadProvider, SmartWalletDrawer, useSmartTriad } from "@/app/components/content";
-import { agentConfigs } from "@/app/data/agentConfig";
+import { SmartTriadProvider, SmartTriadSurfaces } from "@/app/components/content";
 import { TabRenderer } from "./codex/TabRenderer";
 import { getIconComponent } from "./codex/iconMap";
 
-function CodexTriadSurfaces({ personaId }: { personaId?: string }) {
-  const { state, actions } = useSmartTriad();
-
-  const payer = agentConfigs["aigent-z"];
-  const recipient = agentConfigs["aigent-kn0w1"];
-
-  const viewerOpen = state.activeDrawer === 'contentViewer' && !!state.currentContent;
-  const hasAccess = state.currentContent ? actions.checkOwnership(state.currentContent.id) : false;
-
-  return (
-    <>
-      {viewerOpen && state.currentContent && (
-        <div className="fixed inset-0 z-50">
-          <div
-            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-            onClick={() => {
-              actions.setActiveDrawer(null);
-            }}
-          />
-          <div className="absolute inset-0 p-4 flex items-center justify-center">
-            <div className="w-full max-w-5xl h-[85vh] rounded-2xl bg-slate-950/70 ring-1 ring-white/10 overflow-hidden">
-              <ContentViewer
-                content={state.currentContent}
-                initialModality={(state.viewerModality as any) || undefined}
-                hasAccess={hasAccess}
-                accessScope={hasAccess ? 'full' : 'preview'}
-                onClose={() => actions.setActiveDrawer(null)}
-                onPanelPayment={() => actions.openWallet('full')}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
-      <SmartWalletDrawer
-        open={state.walletOpen}
-        onClose={() => actions.closeWallet()}
-        agent={{
-          id: payer.id,
-          name: payer.name,
-          evmSepolia: payer.walletAddresses.evmAddress as `0x${string}`,
-          evmArb: payer.walletAddresses.evmAddress as `0x${string}`,
-          btcAddress: payer.walletAddresses.btcAddress,
-        }}
-        recipientAddress={recipient.walletAddresses.evmAddress}
-        currentContent={state.currentContent || undefined}
-        onPurchaseComplete={() => actions.refreshLibrary()}
-        personaId={personaId}
-      />
-    </>
-  );
-}
 
 interface CodexPanelDynamicProps {
   codexId: string;              // 'knyt-codex', 'qripto-codex', 'aigentiq-codex' (Agentiq Cartridge)
@@ -301,7 +248,7 @@ export default function CodexPanelDynamic({
         </div>
       </div>
 
-      <CodexTriadSurfaces personaId={personaId} />
+      <SmartTriadSurfaces personaId={personaId} />
     </SmartTriadProvider>
   );
 }

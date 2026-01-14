@@ -84,6 +84,9 @@ export interface TriadState {
   // Library state
   ownedContentIds: Set<string>;
   libraryLoading: boolean;
+
+  // Developer overrides
+  devGatingOverride: boolean;
 }
 
 export interface TriadActions {
@@ -106,6 +109,9 @@ export interface TriadActions {
   // Library actions
   refreshLibrary: () => Promise<void>;
   checkOwnership: (contentId: string) => boolean;
+
+  // Developer overrides
+  setDevGatingOverride: (enabled: boolean) => void;
   
   // Copilot integration
   executeTriadAction: (actionName: string, params: Record<string, any>) => Promise<any>;
@@ -123,6 +129,7 @@ interface SmartTriadContextValue {
 // =============================================================================
 
 const SmartTriadContext = createContext<SmartTriadContextValue | null>(null);
+const DEV_OVERRIDE_STORAGE_KEY = "agentiq_dev_gating_override";
 
 // =============================================================================
 // PROVIDER
@@ -156,7 +163,17 @@ export function SmartTriadProvider({
     lastPurchase: null,
     ownedContentIds: new Set(),
     libraryLoading: false,
+    devGatingOverride: false,
   });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const envOverride = process.env.NEXT_PUBLIC_DEV_TOKEN_OVERRIDE === "true";
+    const storedOverride = localStorage.getItem(DEV_OVERRIDE_STORAGE_KEY) === "true";
+    if (envOverride || storedOverride) {
+      setState(prev => ({ ...prev, devGatingOverride: true }));
+    }
+  }, []);
 
   // Load library on mount
   useEffect(() => {
@@ -263,7 +280,7 @@ export function SmartTriadProvider({
       const content = state.currentContent;
       if (!content) return null;
 
-      const hasAccess = state.ownedContentIds.has(contentId);
+      const hasAccess = state.devGatingOverride || state.ownedContentIds.has(contentId);
       
       const manifest: SmartMenuManifest = {
         id: `manifest_${contentId}_${Date.now()}`,
@@ -322,7 +339,7 @@ export function SmartTriadProvider({
       console.error("Failed to configure experience:", error);
       return null;
     }
-  }, [personaId, state.currentContent, state.ownedContentIds]);
+  }, [personaId, state.currentContent, state.ownedContentIds, state.devGatingOverride]);
 
   // ==========================================================================
   // PURCHASE ACTIONS (Copilot-orchestrated)
@@ -413,8 +430,16 @@ export function SmartTriadProvider({
   }, [personaId]);
 
   const checkOwnership = useCallback((contentId: string): boolean => {
+    if (state.devGatingOverride) return true;
     return state.ownedContentIds.has(contentId);
-  }, [state.ownedContentIds]);
+  }, [state.ownedContentIds, state.devGatingOverride]);
+
+  const setDevGatingOverride = useCallback((enabled: boolean) => {
+    setState(prev => ({ ...prev, devGatingOverride: enabled }));
+    if (typeof window !== "undefined") {
+      localStorage.setItem(DEV_OVERRIDE_STORAGE_KEY, enabled ? "true" : "false");
+    }
+  }, []);
 
   // ==========================================================================
   // COPILOT INTEGRATION
@@ -539,6 +564,7 @@ export function SmartTriadProvider({
       purchaseContent,
       refreshLibrary,
       checkOwnership,
+      setDevGatingOverride,
       executeTriadAction,
     },
     personaId,

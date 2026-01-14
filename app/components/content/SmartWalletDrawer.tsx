@@ -175,6 +175,33 @@ export default function SmartWalletDrawer({
   } catch {
     // Not wrapped in SmartTriadProvider - that's ok
   }
+  const DEV_OVERRIDE_STORAGE_KEY = "agentiq_dev_gating_override";
+  const [showDevOverrides, setShowDevOverrides] = useState(false);
+  const [localOverrideEnabled, setLocalOverrideEnabled] = useState(false);
+  const devOverrideEnabled = triadContext?.state.devGatingOverride ?? localOverrideEnabled;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const storedOverride = localStorage.getItem(DEV_OVERRIDE_STORAGE_KEY) === "true";
+    setLocalOverrideEnabled(storedOverride);
+    const host = window.location.hostname;
+    const hostAllows =
+      host === "localhost" ||
+      host === "127.0.0.1" ||
+      host.endsWith(".localhost") ||
+      host.endsWith(".local") ||
+      host.endsWith(".dev") ||
+      host.startsWith("dev.") ||
+      host.startsWith("dev-") ||
+      host.includes("staging");
+    setShowDevOverrides(
+      process.env.NODE_ENV !== "production" ||
+        process.env.NEXT_PUBLIC_DEV_TOKEN_OVERRIDE_UI === "true" ||
+        process.env.NEXT_PUBLIC_DEV_TOKEN_OVERRIDE === "true" ||
+        storedOverride ||
+        hostAllows
+    );
+  }, [devOverrideEnabled]);
 
   // Use server-driven consent state instead of localStorage
   const { aliasConsent, setAliasConsent, loading: consentLoading } = useConsentState();
@@ -717,6 +744,35 @@ export default function SmartWalletDrawer({
 
         {/* Content Area */}
         <div className="flex-1 overflow-y-auto p-4">
+          {showDevOverrides && (
+            <div className="mb-4 rounded-xl bg-white/5 ring-1 ring-white/10 px-3 py-2">
+              <div className="flex items-center justify-between">
+                <div className="text-[11px] uppercase tracking-wider text-white/60">Developer Overrides</div>
+                <button
+                  onClick={() => {
+                    const nextValue = !devOverrideEnabled;
+                    if (triadContext) {
+                      triadContext.actions.setDevGatingOverride(nextValue);
+                    }
+                    if (typeof window !== "undefined") {
+                      localStorage.setItem(DEV_OVERRIDE_STORAGE_KEY, nextValue ? "true" : "false");
+                      setLocalOverrideEnabled(nextValue);
+                    }
+                  }}
+                  className={`px-2 py-1 rounded-full text-[10px] font-semibold ${
+                    devOverrideEnabled
+                      ? "bg-emerald-500/20 text-emerald-200 ring-1 ring-emerald-500/40"
+                      : "bg-white/5 text-white/50 ring-1 ring-white/10"
+                  }`}
+                >
+                  {devOverrideEnabled ? "Token Override ON" : "Token Override OFF"}
+                </button>
+              </div>
+              <p className="mt-1 text-[11px] text-white/50">
+                Bypass token gating for content previews. Toggle off to test the full unlock flow.
+              </p>
+            </div>
+          )}
           {/* Wallet Tab */}
           {activeTab === "wallet" && (
             <div className="space-y-4">

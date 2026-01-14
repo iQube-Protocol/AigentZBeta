@@ -3,9 +3,11 @@ import {
   OpenAIAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
+import { AbstractAgent } from "@ag-ui/client";
+import type { BaseEvent, RunAgentInput } from "@ag-ui/core";
+import { Observable } from "rxjs";
 import OpenAI from "openai";
-import { NextRequest } from "next/server";
-import { allActions } from "@/app/(shell)/copilot/actions";
+import { NextRequest, NextResponse } from "next/server";
 
 // Next.js route segment config
 export const dynamic = "force-dynamic";
@@ -326,6 +328,16 @@ Your purpose is to make Aigent Z and the iQube ecosystem **operationally managea
 let _openai: OpenAI | null = null;
 let _serviceAdapter: OpenAIAdapter | null = null;
 let _copilotRuntime: CopilotRuntime | null = null;
+let _actions: any[] | null = null;
+const HAS_OPENAI_KEY = Boolean(process.env.OPENAI_API_KEY);
+
+class NoopAgent extends AbstractAgent {
+  protected run(_input: RunAgentInput): Observable<BaseEvent> {
+    return new Observable<BaseEvent>((subscriber) => {
+      subscriber.complete();
+    });
+  }
+}
 
 function getOpenAI() {
   if (!_openai) {
@@ -341,19 +353,83 @@ function getServiceAdapter() {
   return _serviceAdapter;
 }
 
-function getCopilotRuntime() {
+async function getActions() {
+  if (_actions) return _actions;
+  try {
+    const actionsModule = await import("@/app/(shell)/copilot/actions");
+    _actions = actionsModule.allActions || [];
+  } catch (error) {
+    console.warn("Copilot actions failed to load. Continuing with no actions.", error);
+    _actions = [];
+  }
+  return _actions;
+}
+
+async function getCopilotRuntime() {
   if (!_copilotRuntime) {
+    const actions = await getActions();
+    const agents = {
+      default: new NoopAgent({ agentId: "default", description: "Local dev agent" }),
+    } as any;
     _copilotRuntime = new CopilotRuntime({
-      actions: allActions as any,
+      actions: actions as any,
+      agents,
     });
   }
   return _copilotRuntime;
 }
 
 export const POST = async (req: NextRequest) => {
+  if (req.nextUrl.pathname.endsWith("/info")) {
+    return NextResponse.json({
+      version: "local",
+      agents: {
+        default: {
+          description: "Local dev agent",
+        },
+      },
+    });
+  }
+  try {
+    const body = await req.json();
+    if (body?.method === "info") {
+      return NextResponse.json({
+        version: "local",
+        agents: {
+          default: {
+            description: "Local dev agent",
+          },
+        },
+      });
+    }
+  } catch {
+    // Ignore body parse errors; continue to runtime.
+  }
+  const serviceAdapter = HAS_OPENAI_KEY ? getServiceAdapter() : undefined;
   const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-    runtime: getCopilotRuntime(),
-    serviceAdapter: getServiceAdapter(),
+    runtime: await getCopilotRuntime(),
+    serviceAdapter,
+    endpoint: "/api/copilotkit",
+  });
+
+  return handleRequest(req);
+};
+
+export const GET = async (req: NextRequest) => {
+  if (req.nextUrl.pathname.endsWith("/info")) {
+    return NextResponse.json({
+      version: "local",
+      agents: {
+        default: {
+          description: "Local dev agent",
+        },
+      },
+    });
+  }
+  const serviceAdapter = HAS_OPENAI_KEY ? getServiceAdapter() : undefined;
+  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+    runtime: await getCopilotRuntime(),
+    serviceAdapter,
     endpoint: "/api/copilotkit",
   });
 

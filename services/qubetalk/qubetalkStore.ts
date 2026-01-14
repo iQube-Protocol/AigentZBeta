@@ -1,130 +1,115 @@
 /**
- * QubeTalk In-Memory Store
+ * QubeTalk Store - Database Persistence Layer
  * 
- * Temporary storage for QubeTalk development.
- * In production, this would be replaced with a proper database.
+ * Now uses Supabase database instead of in-memory storage
  */
 
-// Global in-memory storage that persists across requests
-const delegations = new Map();
-const channels = new Map();
-const messages = new Map();
+import {
+  qubetalkPersistence,
+  type DelegationData,
+  type ChannelData,
+  type MessageData,
+  type ListOptions,
+  type ListResult
+} from './qubetalkPersistence';
 
-export interface DelegationData {
-  delegation_id: string;
-  tenant_id: string;
-  channel_id: string;
-  request_id: string;
-  status: string;
-  created_at: string;
-  updated_at: string;
-  from_agent: any;
-  to_agent: any;
-  task: any;
-  context?: any;
-  result?: any;
-  receipt_ref?: string;
-}
-
-export interface ChannelData {
-  channel_id: string;
-  tenant_id: string;
-  participants: string[];
-  created_at: string;
-}
-
-export interface MessageData {
-  message_id: string;
-  channel_id: string;
-  in_reply_to?: string;
-  from_agent: any;
-  type: string;
-  content: string;
-  created_at: string;
-  iqube_refs?: string[];
-  receipt_ref?: string;
-  metadata?: any;
-}
+// Re-export types from persistence layer
+export type {
+  DelegationData,
+  ChannelData,
+  MessageData,
+  ListOptions,
+  ListResult
+};
 
 // Delegation operations
-export function createDelegation(delegation: DelegationData): void {
-  delegations.set(delegation.delegation_id, delegation);
+export async function createDelegation(delegation: Omit<DelegationData, 'created_at' | 'updated_at'>): Promise<DelegationData> {
+  return await qubetalkPersistence.createDelegation(delegation);
 }
 
-export function getDelegation(id: string): DelegationData | undefined {
-  return delegations.get(id);
+export async function getDelegation(delegationId: string, tenant_id: string): Promise<DelegationData | undefined> {
+  const result = await qubetalkPersistence.getDelegation(delegationId, tenant_id);
+  return result || undefined;
 }
 
-export function getAllDelegations(): DelegationData[] {
-  return Array.from(delegations.values());
+export async function getDelegationByRequestId(requestId: string, tenant_id: string): Promise<DelegationData | undefined> {
+  const result = await qubetalkPersistence.getDelegationByRequestId(requestId, tenant_id);
+  return result || undefined;
 }
 
-export function updateDelegation(id: string, updates: Partial<DelegationData>): boolean {
-  const delegation = delegations.get(id);
-  if (!delegation) return false;
-  
-  Object.assign(delegation, updates, { updated_at: new Date().toISOString() });
-  return true;
+export async function getAllDelegations(tenant_id: string, options: ListOptions = {}): Promise<DelegationData[]> {
+  const result = await qubetalkPersistence.listDelegations({ ...options, tenant_id });
+  return result.items;
+}
+
+export async function updateDelegation(delegationId: string, updates: Partial<DelegationData>, tenant_id: string): Promise<boolean> {
+  const result = await qubetalkPersistence.updateDelegation(delegationId, updates, tenant_id);
+  return result !== null;
+}
+
+export async function deleteDelegation(delegationId: string, tenant_id: string): Promise<boolean> {
+  return await qubetalkPersistence.deleteDelegation(delegationId, tenant_id);
 }
 
 // Channel operations
-export function createChannel(channel: ChannelData): void {
-  channels.set(channel.channel_id, channel);
+export async function createChannel(channel: Omit<ChannelData, 'created_at' | 'updated_at'>): Promise<ChannelData> {
+  return await qubetalkPersistence.createChannel(channel);
 }
 
-export function getChannel(id: string): ChannelData | undefined {
-  return channels.get(id);
+export async function getChannel(channelId: string, tenant_id: string): Promise<ChannelData | undefined> {
+  const result = await qubetalkPersistence.getChannel(channelId, tenant_id);
+  return result || undefined;
 }
 
-export function getAllChannels(): ChannelData[] {
-  return Array.from(channels.values());
+export async function getAllChannels(tenant_id: string, options: ListOptions = {}): Promise<ChannelData[]> {
+  const result = await qubetalkPersistence.listChannels({ ...options, tenant_id });
+  return result.items;
+}
+
+export async function updateChannel(channelId: string, updates: Partial<ChannelData>, tenant_id: string): Promise<boolean> {
+  const result = await qubetalkPersistence.updateChannel(channelId, updates, tenant_id);
+  return result !== null;
+}
+
+export async function deleteChannel(channelId: string, tenant_id: string): Promise<boolean> {
+  return await qubetalkPersistence.deleteChannel(channelId, tenant_id);
 }
 
 // Message operations
-export function createMessage(message: MessageData): void {
-  messages.set(message.message_id, message);
+export async function createMessage(message: Omit<MessageData, 'created_at'>): Promise<MessageData> {
+  return await qubetalkPersistence.createMessage(message);
 }
 
-export function getMessage(id: string): MessageData | undefined {
-  return messages.get(id);
+export async function getMessage(messageId: string, tenant_id: string): Promise<MessageData | undefined> {
+  const result = await qubetalkPersistence.getMessage(messageId, tenant_id);
+  return result || undefined;
 }
 
-export function getAllMessages(): MessageData[] {
-  return Array.from(messages.values());
+export async function getChannelMessages(channelId: string, tenant_id: string, options: { limit?: number; offset?: number } = {}): Promise<MessageData[]> {
+  const result = await qubetalkPersistence.listMessages(channelId, tenant_id, options);
+  return result.items;
 }
 
-export function getChannelMessages(channelId: string): MessageData[] {
-  return Array.from(messages.values()).filter(msg => msg.channel_id === channelId);
+export async function deleteMessage(messageId: string, tenant_id: string): Promise<boolean> {
+  return await qubetalkPersistence.deleteMessage(messageId, tenant_id);
 }
 
 // Utility functions
-export function clearAll(): void {
-  delegations.clear();
-  channels.clear();
-  messages.clear();
+export async function getChannelStats(channelId: string, tenant_id: string) {
+  return await qubetalkPersistence.getChannelStats(channelId, tenant_id);
 }
 
-export function getStoreStats() {
+// Backward compatibility - maintain the same interface as before
+export const getStoreStats = async (tenant_id: string) => {
+  const [channels, delegations, messages] = await Promise.all([
+    qubetalkPersistence.listChannels({ tenant_id }),
+    qubetalkPersistence.listDelegations({ tenant_id }),
+    qubetalkPersistence.listMessages('dummy', tenant_id, { limit: 1 }) // Just to get count
+  ]);
+
   return {
-    delegations: delegations.size,
-    channels: channels.size,
-    messages: messages.size,
+    channels: channels.total,
+    delegations: delegations.total,
+    messages: messages.total,
   };
-}
-
-// Auto-cleanup old messages (older than 1 hour)
-setInterval(() => {
-  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-  let cleaned = 0;
-  
-  for (const [id, message] of messages) {
-    if (new Date(message.created_at) < oneHourAgo) {
-      messages.delete(id);
-      cleaned++;
-    }
-  }
-  
-  if (cleaned > 0) {
-    console.log(`Cleaned up ${cleaned} old QubeTalk messages`);
-  }
-}, 5 * 60 * 1000); // Check every 5 minutes
+};

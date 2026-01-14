@@ -9,6 +9,7 @@ const nextConfig = {
   transpilePackages: [
     '@qriptoagentiq/core-client',
     '@qriptoagentiq/a2a-client',
+    '@agentiq/article-reader',
   ],
   // Ignore ESLint errors during build (legacy code cleanup in progress)
   eslint: {

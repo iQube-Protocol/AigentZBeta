@@ -1,6 +1,8 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import ReactMarkdown from "react-markdown";
+import { theQriptopianStyleGuide } from "@agentiq/article-reader";
 import type {
   SmartContentQube,
   ContentModality,
@@ -30,6 +32,368 @@ interface PanelViewerProps {
   accessScope: "full" | "preview" | "panel";
   unlockedPanels: number[];
   previewPanels: number;
+}
+
+interface TextReaderProps {
+  title: string;
+  description?: string;
+  coverImageUri?: string;
+  text: string;
+  hasAccess: boolean;
+  accessScope: "full" | "preview" | "panel";
+  previewParagraphs: number;
+  onUnlock?: () => void;
+  theme?: "qriptopian" | "default";
+  fontSize: number;
+  onFontSizeChange: (delta: number) => void;
+}
+
+function getPreviewText(rawText: string, previewParagraphs: number) {
+  const paragraphs = rawText
+    .split(/\n{2,}/)
+    .map((chunk) => chunk.trim())
+    .filter(Boolean);
+  const previewCount = Math.max(1, previewParagraphs);
+  return {
+    text: paragraphs.slice(0, previewCount).join("\n\n"),
+    total: paragraphs.length,
+  };
+}
+
+function TextReader({
+  title,
+  description,
+  coverImageUri,
+  text,
+  hasAccess,
+  accessScope,
+  previewParagraphs,
+  onUnlock,
+  theme = "default",
+  fontSize,
+  onFontSizeChange,
+}: TextReaderProps) {
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const [progress, setProgress] = useState(0);
+  const isPreview = !hasAccess && accessScope !== "full";
+  const preview = useMemo(() => getPreviewText(text, previewParagraphs), [text, previewParagraphs]);
+  const markdownSource = isPreview ? preview.text : text;
+  const truncated = isPreview && preview.total > previewParagraphs;
+
+  const styleGuide = theme === "qriptopian" ? theQriptopianStyleGuide : null;
+  const typography = styleGuide?.typography;
+  const readerStyles = styleGuide?.articleReader;
+  const colors = styleGuide?.colors;
+
+  const themeClasses =
+    theme === "qriptopian"
+      ? {
+          container: "bg-[#0a1628] text-[#f3f7ff]",
+          border: "border-[#1a2942]",
+          accent: "text-cyan-300",
+          muted: colors?.muted || "#6b7280",
+          primary: colors?.primary || "#5eead4",
+          secondary: colors?.secondary || "#2dd4bf",
+          text: readerStyles?.textColor || "#f3f7ff",
+          fontFamily: typography?.fontFamily?.body || "Inter, system-ui, sans-serif",
+        }
+      : {
+          container: "bg-slate-950/30 text-slate-100",
+          border: "border-white/10",
+          accent: "text-fuchsia-300",
+          muted: "#94a3b8",
+          primary: "#f8fafc",
+          secondary: "#e2e8f0",
+          text: "#e2e8f0",
+          fontFamily: "Inter, system-ui, sans-serif",
+        };
+
+  return (
+    <div
+      className={`h-full rounded-xl ${themeClasses.container}`}
+      style={{
+        fontFamily: themeClasses.fontFamily,
+        backgroundColor: readerStyles?.backgroundColor,
+        color: readerStyles?.textColor,
+      }}
+    >
+      <div className="sticky top-0 z-10">
+        <div className="h-1 w-full bg-white/5">
+          <div
+            className="h-full transition-all"
+            style={{ width: `${progress}%`, backgroundColor: themeClasses.primary }}
+          />
+        </div>
+        <div className="flex items-center justify-end gap-2 bg-[#0a1628]/95 px-4 py-2">
+          <span className="text-[11px]" style={{ color: themeClasses.muted }}>
+            Text Size:
+          </span>
+          <button
+            onClick={() => onFontSizeChange(-2)}
+            className="rounded-full px-3 py-1 text-[11px] font-semibold text-[#d0f6ff] bg-white/5 ring-1 ring-white/10 hover:bg-white/10"
+          >
+            A-
+          </button>
+          <span className="text-[11px] font-semibold" style={{ color: themeClasses.text }}>
+            {fontSize}px
+          </span>
+          <button
+            onClick={() => onFontSizeChange(2)}
+            className="rounded-full px-3 py-1 text-[11px] font-semibold text-[#d0f6ff] bg-white/5 ring-1 ring-white/10 hover:bg-white/10"
+          >
+            A+
+          </button>
+        </div>
+      </div>
+      <div
+        ref={scrollRef}
+        className="h-[calc(100%-44px)] overflow-y-auto"
+        onScroll={() => {
+          const node = scrollRef.current;
+          if (!node) return;
+          const max = node.scrollHeight - node.clientHeight;
+          const next = max > 0 ? Math.min(100, Math.round((node.scrollTop / max) * 100)) : 0;
+          setProgress(next);
+        }}
+      >
+        <div className="mx-auto" style={{ maxWidth: "42rem", padding: "3rem 2rem" }}>
+        {coverImageUri && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={coverImageUri}
+            alt={title}
+            className={`mb-6 w-full rounded-xl border ${themeClasses.border} object-cover`}
+          />
+        )}
+        <h1
+          className="font-semibold tracking-tight"
+          style={{
+            fontSize: typography?.fontSize?.h1 || "2.5rem",
+            lineHeight: typography?.lineHeight?.heading || 1.2,
+            color: themeClasses.primary,
+            fontFamily: typography?.fontFamily?.heading || themeClasses.fontFamily,
+          }}
+        >
+          {title}
+        </h1>
+        {description && (
+          <p
+            className="mt-2"
+            style={{ fontSize: typography?.fontSize?.body || "1.125rem", color: themeClasses.muted }}
+          >
+            {description}
+          </p>
+        )}
+        <div className={`mt-6 border-t ${themeClasses.border} pt-6`}>
+          {markdownSource.trim().length === 0 ? (
+            <p className="text-sm text-slate-400">No article content available.</p>
+          ) : (
+            <ReactMarkdown
+              components={{
+                h1: ({ children }) => (
+                  <h1
+                    style={{
+                      fontFamily: typography?.fontFamily?.heading || themeClasses.fontFamily,
+                      fontSize: typography?.fontSize?.h1 || "2.5rem",
+                      lineHeight: typography?.lineHeight?.heading || 1.2,
+                      color: themeClasses.primary,
+                      marginBottom: "1.5rem",
+                      marginTop: "2rem",
+                    }}
+                  >
+                    {children}
+                  </h1>
+                ),
+                h2: ({ children }) => (
+                  <h2
+                    style={{
+                      fontFamily: typography?.fontFamily?.heading || themeClasses.fontFamily,
+                      fontSize: typography?.fontSize?.h2 || "2rem",
+                      lineHeight: typography?.lineHeight?.heading || 1.2,
+                      color: themeClasses.primary,
+                      marginBottom: "1rem",
+                      marginTop: "1.5rem",
+                    }}
+                  >
+                    {children}
+                  </h2>
+                ),
+                h3: ({ children }) => (
+                  <h3
+                    style={{
+                      fontFamily: typography?.fontFamily?.heading || themeClasses.fontFamily,
+                      fontSize: typography?.fontSize?.h3 || "1.5rem",
+                      lineHeight: typography?.lineHeight?.heading || 1.2,
+                      color: themeClasses.secondary,
+                      marginBottom: "0.75rem",
+                      marginTop: "1.25rem",
+                    }}
+                  >
+                    {children}
+                  </h3>
+                ),
+                p: ({ children }) => (
+                  <p
+                    style={{
+                      fontFamily: typography?.fontFamily?.body || themeClasses.fontFamily,
+                      fontSize: `${fontSize}px`,
+                      lineHeight: typography?.lineHeight?.body || 1.7,
+                      color: themeClasses.text,
+                      marginBottom: "1rem",
+                    }}
+                  >
+                    {children}
+                  </p>
+                ),
+                a: ({ href, children }) => (
+                  <a
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      color: readerStyles?.linkColor || themeClasses.primary,
+                      textDecoration: "underline",
+                      textDecorationColor: `${readerStyles?.linkColor || themeClasses.primary}40`,
+                    }}
+                  >
+                    {children}
+                  </a>
+                ),
+                code: ({ inline, children }) =>
+                  inline ? (
+                    <code
+                      style={{
+                        fontFamily: typography?.fontFamily?.code || "JetBrains Mono, monospace",
+                        fontSize: `${Math.max(12, fontSize - 2)}px`,
+                        backgroundColor: readerStyles?.codeBlockBackground || "#1e293b",
+                        color: themeClasses.secondary,
+                        padding: "0.2em 0.4em",
+                        borderRadius: "0.25rem",
+                      }}
+                    >
+                      {children}
+                    </code>
+                  ) : (
+                    <code
+                      style={{
+                        fontFamily: typography?.fontFamily?.code || "JetBrains Mono, monospace",
+                        fontSize: `${Math.max(12, fontSize - 2)}px`,
+                        lineHeight: typography?.lineHeight?.code || 1.5,
+                        backgroundColor: readerStyles?.codeBlockBackground || "#1e293b",
+                        color: themeClasses.text,
+                        display: "block",
+                        padding: "1rem",
+                        borderRadius: "0.5rem",
+                        border: `1px solid ${readerStyles?.codeBlockBorder || "#334155"}`,
+                        marginBottom: "1rem",
+                        overflowX: "auto",
+                      }}
+                    >
+                      {children}
+                    </code>
+                  ),
+                blockquote: ({ children }) => (
+                  <blockquote
+                    style={{
+                      borderLeft: `4px solid ${readerStyles?.blockquoteBorder || themeClasses.primary}`,
+                      backgroundColor:
+                        readerStyles?.blockquoteBackground || "rgba(94, 234, 212, 0.05)",
+                      padding: "1rem 1.5rem",
+                      marginBottom: "1rem",
+                      fontStyle: "italic",
+                      color: themeClasses.text,
+                    }}
+                  >
+                    {children}
+                  </blockquote>
+                ),
+                ul: ({ children }) => (
+                  <ul style={{ paddingLeft: "1.5rem", marginBottom: "1rem", color: themeClasses.text }}>
+                    {children}
+                  </ul>
+                ),
+                ol: ({ children }) => (
+                  <ol style={{ paddingLeft: "1.5rem", marginBottom: "1rem", color: themeClasses.text }}>
+                    {children}
+                  </ol>
+                ),
+                li: ({ children }) => (
+                  <li style={{ marginBottom: "0.5rem", fontSize: `${fontSize}px` }}>{children}</li>
+                ),
+                table: ({ children }) => (
+                  <table
+                    style={{
+                      width: "100%",
+                      borderCollapse: "collapse",
+                      marginBottom: "1.5rem",
+                      fontSize: `${Math.max(12, fontSize - 2)}px`,
+                      backgroundColor: "rgba(0, 0, 0, 0.3)",
+                      borderRadius: "0.5rem",
+                      overflow: "hidden",
+                    }}
+                  >
+                    {children}
+                  </table>
+                ),
+                thead: ({ children }) => (
+                  <thead style={{ backgroundColor: "rgba(255, 255, 255, 0.1)" }}>{children}</thead>
+                ),
+                tr: ({ children }) => (
+                  <tr style={{ borderBottom: "1px solid rgba(255, 255, 255, 0.1)" }}>{children}</tr>
+                ),
+                th: ({ children }) => (
+                  <th
+                    style={{
+                      padding: "0.75rem 1rem",
+                      textAlign: "left",
+                      fontWeight: "bold",
+                      color: themeClasses.primary,
+                      fontFamily: typography?.fontFamily?.heading || themeClasses.fontFamily,
+                    }}
+                  >
+                    {children}
+                  </th>
+                ),
+                td: ({ children }) => (
+                  <td style={{ padding: "0.75rem 1rem", color: themeClasses.text, verticalAlign: "top" }}>
+                    {children}
+                  </td>
+                ),
+                hr: () => (
+                  <hr
+                    style={{
+                      border: "none",
+                      borderTop: `1px solid ${themeClasses.muted}40`,
+                      margin: "2rem 0",
+                    }}
+                  />
+                ),
+              }}
+            >
+              {markdownSource}
+            </ReactMarkdown>
+          )}
+        </div>
+        </div>
+
+      {truncated && (
+        <div className={`sticky bottom-0 border-t ${themeClasses.border} bg-[#0a1628]/95`}>
+          <div className="mx-auto flex items-center justify-between gap-3 px-6 py-4" style={{ maxWidth: "42rem" }}>
+            <div className="text-xs" style={{ color: themeClasses.muted }}>
+              Unlock to read the full article.
+            </div>
+            <button
+              onClick={onUnlock}
+              className={`rounded-full px-4 py-2 text-xs font-semibold ${themeClasses.accent} bg-white/5 ring-1 ring-white/10 hover:bg-white/10`}
+            >
+              Unlock Full Read
+            </button>
+          </div>
+        </div>
+      )}
+      </div>
+    </div>
+  );
 }
 
 function PanelViewer({
@@ -327,10 +691,19 @@ export default function ContentViewer({
   accessScope = "preview",
   unlockedPanels = [],
 }: ContentViewerProps) {
-  const isModalityEnabled = (mod?: { enabled?: boolean; available?: boolean }) => {
+  const isModalityEnabled = (mod?: {
+    enabled?: boolean;
+    available?: boolean;
+    panels?: unknown[];
+    textAssets?: unknown[];
+    text?: string;
+  }) => {
     if (!mod) return false;
     if (typeof mod.enabled === "boolean") return mod.enabled;
     if (typeof mod.available === "boolean") return mod.available;
+    if (Array.isArray(mod.panels) && mod.panels.length > 0) return true;
+    if (Array.isArray(mod.textAssets) && mod.textAssets.length > 0) return true;
+    if (typeof mod.text === "string" && mod.text.trim().length > 0) return true;
     return false;
   };
 
@@ -351,6 +724,8 @@ export default function ContentViewer({
   );
   const [currentPanel, setCurrentPanel] = useState(0);
   const [startTime] = useState(Date.now());
+  const [textAssetBody, setTextAssetBody] = useState<string | null>(null);
+  const [fontSize, setFontSize] = useState(18);
 
   useEffect(() => {
     setActiveModality(resolveModality(initialModality));
@@ -371,6 +746,48 @@ export default function ContentViewer({
   );
 
   const previewPanels = content.pricingModel?.freePreview?.panels || 2;
+  const previewParagraphs = content.pricingModel?.freePreview?.paragraphs || 3;
+  const readModality: any = content.modalities?.read || {};
+  const readTextInline = typeof readModality?.text === "string" ? readModality.text : "";
+  const readTextAsset = readModality?.textAssets?.[0];
+  const resolvedReadText = readTextInline || textAssetBody || "";
+  const isTextLoading = !readTextInline && !!readTextAsset?.storageUri && textAssetBody === null;
+  const isQriptopian = String(content.app || "").toLowerCase().includes("qripto");
+
+  const handleFontSizeChange = useCallback((delta: number) => {
+    setFontSize(prev => Math.min(24, Math.max(14, prev + delta)));
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    if (readTextInline || !readTextAsset?.storageUri) {
+      setTextAssetBody(null);
+      return;
+    }
+
+    const resolveUri = (uri: string) => {
+      if (uri.startsWith("http")) return uri;
+      const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      if (!base) return uri;
+      return `${base}/storage/v1/object/public/content-assets/${uri}`;
+    };
+
+    const load = async () => {
+      try {
+        const res = await fetch(resolveUri(readTextAsset.storageUri));
+        if (!res.ok) throw new Error("Failed to load article text");
+        const text = await res.text();
+        if (active) setTextAssetBody(text);
+      } catch {
+        if (active) setTextAssetBody("");
+      }
+    };
+
+    load();
+    return () => {
+      active = false;
+    };
+  }, [readTextInline, readTextAsset?.storageUri]);
 
   return (
     <div className="flex flex-col h-full bg-black/30 backdrop-blur-xl rounded-2xl ring-1 ring-white/10 overflow-hidden">
@@ -416,16 +833,36 @@ export default function ContentViewer({
       {/* Content Area */}
       <div className="flex-1 p-4 overflow-hidden">
         {activeModality === "read" && isModalityEnabled(content.modalities?.read) && (
-          <PanelViewer
-            panels={content.modalities?.read?.panels || []}
-            currentPanel={currentPanel}
-            onPanelChange={handlePanelChange}
-            onPanelPayment={onPanelPayment}
-            hasAccess={hasAccess}
-            accessScope={accessScope}
-            unlockedPanels={unlockedPanels}
-            previewPanels={previewPanels}
-          />
+          isTextLoading ? (
+            <div className="flex h-full items-center justify-center text-sm text-slate-400">
+              Loading article...
+            </div>
+          ) : resolvedReadText ? (
+            <TextReader
+              title={content.title}
+              description={content.description}
+              coverImageUri={content.coverImageUri}
+              text={resolvedReadText}
+              hasAccess={hasAccess}
+              accessScope={accessScope}
+              previewParagraphs={previewParagraphs}
+              onUnlock={() => onPanelPayment?.(0)}
+              theme={isQriptopian ? "qriptopian" : "default"}
+              fontSize={fontSize}
+              onFontSizeChange={handleFontSizeChange}
+            />
+          ) : (
+            <PanelViewer
+              panels={content.modalities?.read?.panels || []}
+              currentPanel={currentPanel}
+              onPanelChange={handlePanelChange}
+              onPanelPayment={onPanelPayment}
+              hasAccess={hasAccess}
+              accessScope={accessScope}
+              unlockedPanels={unlockedPanels}
+              previewPanels={previewPanels}
+            />
+          )
         )}
 
         {activeModality === "watch" && isModalityEnabled(content.modalities?.watch) && (

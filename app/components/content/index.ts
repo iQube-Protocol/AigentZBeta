@@ -13,6 +13,7 @@ export { default as SmartContentCard } from './SmartContentCard';
 export { default as ContentViewer } from './ContentViewer';
 export { default as LibraryShelf } from './LibraryShelf';
 export { default as SmartWalletDrawer } from './SmartWalletDrawer';
+export { SmartTriadSurfaces } from './SmartTriadSurfaces';
 export { 
   SmartTriadProvider,
   useSmartTriad,

@@ -48,6 +48,8 @@ interface DelegationRequest {
     forbidden_actions?: string[];
   };
   expires_at?: string;
+  result?: DelegationResponse['result'];
+  receipt_ref?: string;
 }
 
 interface DelegationResponse {
@@ -98,73 +100,47 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Check for duplicate request_id
-    const existingDelegations = getAllDelegations();
-    for (const delegation of existingDelegations) {
-      if (delegation.request_id === body.request_id) {
-        return NextResponse.json({
-          error: 'Request ID already exists',
-          code: 'DUPLICATE_REQUEST',
-          existing_request_id: body.request_id
-        }, { status: 409 });
-      }
-    }
-
-    // Create delegation
-    const delegation_id = `del_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const now = new Date().toISOString();
-
-    const delegation: DelegationData = {
-      delegation_id,
+    const delegation = await createDelegation({
+      delegation_id: `del_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       tenant_id: body.tenant_id,
       channel_id: body.channel_id,
       request_id: body.request_id,
       status: 'pending',
-      created_at: now,
-      updated_at: now,
       from_agent: body.from_agent,
       to_agent: body.to_agent,
       task: body.task,
       context: body.context,
-    };
+      result: body.result,
+      receipt_ref: body.receipt_ref,
+    });
 
-    // Store delegation
-    createDelegation(delegation);
-
-    // Ensure channel exists
-    const existingChannel = getChannel(body.channel_id);
-    if (!existingChannel) {
-      const channel: ChannelData = {
-        channel_id: body.channel_id,
-        tenant_id: body.tenant_id,
-        participants: [body.from_agent.id, body.to_agent.id],
-        created_at: now,
-      };
-      createChannel(channel);
-    }
-
-    console.log(`Created delegation: ${delegation_id} for tenant: ${body.tenant_id}`);
-
-    // Create receipt for delegation creation
+    // Create receipt for delegation
     try {
-      await receiptService.createQubeTalkReceipt({
-        delegationId: delegation_id,
-        fromAgent: body.from_agent,
-        toAgent: body.to_agent,
-        taskCompleted: `Delegation created: ${body.task.type}`,
+      await receiptService.createSmartTriadReceipt({
+        component: 'qubetalk',
+        action: 'create_delegation',
         tenantId: body.tenant_id,
+        result: {
+          delegationId: delegation.delegation_id,
+          requestId: body.request_id,
+          fromAgent: body.from_agent.id,
+          toAgent: body.to_agent.id,
+          status: delegation.status,
+        },
       });
-    } catch (receiptError) {
-      console.warn('Failed to create delegation receipt:', receiptError);
+    } catch (error) {
+      console.warn('Failed to create delegation receipt:', error);
     }
 
-    return NextResponse.json(delegation, { status: 201 });
-
-  } catch (error: any) {
-    console.error('QubeTalk delegation POST error:', error);
     return NextResponse.json({
-      error: error.message || 'Failed to create delegation',
-      code: 'INTERNAL_ERROR'
+      success: true,
+      delegation,
+    });
+  } catch (error) {
+    console.error('Error creating delegation:', error);
+    return NextResponse.json({
+      success: false,
+      error: 'Failed to create delegation',
     }, { status: 500 });
   }
 }
@@ -179,39 +155,37 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50');
     const offset = parseInt(searchParams.get('offset') || '0');
 
-    // Filter delegations
-    let filtered = getAllDelegations();
-    
-    if (tenant_id) {
-      filtered = filtered.filter(d => d.tenant_id === tenant_id);
-    }
-    
-    if (channel_id) {
-      filtered = filtered.filter(d => d.channel_id === channel_id);
-    }
-    
-    if (status) {
-      filtered = filtered.filter(d => d.status === status);
+    if (!tenant_id) {
+      return NextResponse.json({
+        success: false,
+        error: 'tenant_id is required',
+      }, { status: 400 });
     }
 
-    // Sort by created_at descending
-    filtered.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
-    // Apply pagination
-    const paginated = filtered.slice(offset, offset + limit);
-
-    return NextResponse.json({
-      delegations: paginated,
-      total: filtered.length,
+    const delegations = await getAllDelegations(tenant_id, {
+      channel_id: channel_id || undefined,
+      status: status || undefined,
       limit,
       offset,
     });
 
-  } catch (error: any) {
-    console.error('QubeTalk delegation GET error:', error);
     return NextResponse.json({
-      error: error.message || 'Failed to retrieve delegations',
-      code: 'INTERNAL_ERROR'
+      success: true,
+      delegations,
+      total: delegations.length,
+      limit,
+      offset,
+      filters: {
+        tenant_id,
+        channel_id,
+        status,
+      },
+    });
+  } catch (error) {
+    console.error('Error listing delegations:', error);
+    return NextResponse.json({
+      success: false,
+      error: 'Failed to list delegations',
     }, { status: 500 });
   }
 }

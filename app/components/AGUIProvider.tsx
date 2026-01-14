@@ -7,9 +7,10 @@
  * Enables ultra-thin clients to connect via SSE for server-authoritative UI.
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { CopilotKit } from "@copilotkit/react-core";
 import "@copilotkit/react-ui/styles.css";
+import { HttpAgent } from "@ag-ui/client";
 
 interface AGUIProviderProps {
   children: React.ReactNode;
@@ -18,6 +19,15 @@ interface AGUIProviderProps {
 
 export function AGUIProvider({ children, runtimeUrl = "/api/copilotkit" }: AGUIProviderProps) {
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const devAgents = useMemo(() => {
+    return {
+      default: new HttpAgent({
+        agentId: "default",
+        description: "Local dev agent",
+        url: "/api/agents/execute",
+      }),
+    } as Record<string, any>;
+  }, []);
 
   useEffect(() => {
     // Generate or retrieve session ID
@@ -30,7 +40,7 @@ export function AGUIProvider({ children, runtimeUrl = "/api/copilotkit" }: AGUIP
   }, []);
 
   return (
-    <CopilotKit runtimeUrl={runtimeUrl}>
+    <CopilotKit runtimeUrl={runtimeUrl} agents__unsafe_dev_only={devAgents}>
       {children}
     </CopilotKit>
   );

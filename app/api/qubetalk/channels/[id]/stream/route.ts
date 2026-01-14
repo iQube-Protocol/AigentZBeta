@@ -4,10 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-
-// Mock storage for development
-const channels = new Map();
-const messages = new Map();
+import { qubetalkPersistence } from '@/services/qubetalk/qubetalkPersistence';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -16,7 +13,11 @@ interface RouteParams {
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
+    const { searchParams } = new URL(request.url);
     
+    const tenant_id = searchParams.get('tenant_id');
+    const last_event_id = searchParams.get('last_event_id');
+
     if (!id) {
       return NextResponse.json({
         error: 'Channel ID is required',
@@ -24,81 +25,88 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       }, { status: 400 });
     }
 
-    // Verify channel exists
-    const channel = channels.get(id);
+    if (!tenant_id) {
+      return NextResponse.json({
+        error: 'tenant_id is required',
+        code: 'MISSING_TENANT'
+      }, { status: 400 });
+    }
+
+    // Verify channel exists using database
+    const channel = await qubetalkPersistence.getChannel(id, tenant_id);
     if (!channel) {
       return NextResponse.json({
-        error: 'Channel not found',
+        error: 'Channel not found or access denied',
         code: 'CHANNEL_NOT_FOUND'
       }, { status: 404 });
     }
 
-    // Create SSE stream
+    // Create Server-Sent Events stream
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       start(controller) {
-        console.log(`SSE stream started for channel: ${id}`);
-
         // Send initial connection event
-        const connectEvent = `event: connected\ndata: ${JSON.stringify({
+        const connectEvent = `event: connect\ndata: ${JSON.stringify({
+          type: 'connect',
           channel_id: id,
-          connected_at: new Date().toISOString(),
-          message: 'Connected to QubeTalk channel stream'
+          tenant_id,
+          timestamp: new Date().toISOString(),
+          message: 'Connected to QubeTalk channel',
         })}\n\n`;
         
         controller.enqueue(encoder.encode(connectEvent));
 
-        // Simulate real-time messages (in production, this would listen to actual events)
-        let messageCount = 0;
-        const interval = setInterval(() => {
-          messageCount++;
+        // Send recent messages if this is a new connection
+        if (!last_event_id) {
+          sendRecentMessages(controller, encoder, id, tenant_id);
+        }
 
-          // Get recent messages for this channel
-          const channelMessages = Array.from(messages.values())
-            .filter(msg => msg.channel_id === id)
-            .slice(-3); // Last 3 messages
-
-          if (channelMessages.length > 0) {
-            const messageEvent = `event: message\ndata: ${JSON.stringify({
-              type: 'message_batch',
-              channel_id: id,
-              messages: channelMessages,
-              timestamp: new Date().toISOString()
-            })}\n\n`;
-            
-            controller.enqueue(encoder.encode(messageEvent));
-          }
-
-          // Send heartbeat every 30 seconds
-          if (messageCount % 6 === 0) {
-            const heartbeat = `event: heartbeat\ndata: ${JSON.stringify({
-              channel_id: id,
-              timestamp: new Date().toISOString()
-            })}\n\n`;
-            
+        // Set up heartbeat to keep connection alive
+        const heartbeatInterval = setInterval(() => {
+          const heartbeat = `event: heartbeat\ndata: ${JSON.stringify({
+            type: 'heartbeat',
+            timestamp: new Date().toISOString(),
+          })}\n\n`;
+          
+          try {
             controller.enqueue(encoder.encode(heartbeat));
+          } catch (error) {
+            // Connection closed, stop heartbeat
+            clearInterval(heartbeatInterval);
           }
+        }, 30000); // 30 seconds
 
-          // Stop after 2 minutes for demo
-          if (messageCount >= 24) {
-            clearInterval(interval);
-            const closeEvent = `event: stream_closed\ndata: ${JSON.stringify({
-              channel_id: id,
-              closed_at: new Date().toISOString(),
-              reason: 'demo_timeout'
-            })}\n\n`;
-            
-            controller.enqueue(encoder.encode(closeEvent));
-            controller.close();
+        // Listen for new messages (polling for now, could use pub/sub later)
+        const pollInterval = setInterval(async () => {
+          try {
+            const messages = await qubetalkPersistence.listMessages(id, tenant_id, {
+              limit: 5,
+              offset: 0,
+            });
+
+            // Send new messages (simple approach - in production would track last sent)
+            for (const message of messages.items.slice(-1)) { // Only send latest
+              const messageEvent = `event: message\ndata: ${JSON.stringify({
+                type: 'message',
+                channel_id: id,
+                message: message,
+                timestamp: message.created_at,
+              })}\n\n`;
+              
+              controller.enqueue(encoder.encode(messageEvent));
+            }
+          } catch (error) {
+            console.error('Error polling for messages:', error);
           }
-        }, 5000); // Every 5 seconds
+        }, 5000);
 
-        // Clean up on disconnect
+        // Clean up when connection closes
         request.signal.addEventListener('abort', () => {
-          clearInterval(interval);
-          console.log(`SSE stream closed for channel: ${id}`);
+          clearInterval(heartbeatInterval);
+          clearInterval(pollInterval);
+          controller.close();
         });
-      }
+      },
     });
 
     return new Response(stream, {
@@ -110,12 +118,38 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         'Access-Control-Allow-Headers': 'Cache-Control',
       },
     });
-
-  } catch (error: any) {
-    console.error('QubeTalk stream error:', error);
+  } catch (error) {
+    console.error('Error setting up QubeTalk stream:', error);
     return NextResponse.json({
-      error: error.message || 'Failed to create stream',
-      code: 'INTERNAL_ERROR'
+      error: 'Failed to establish stream',
+      code: 'STREAM_ERROR'
     }, { status: 500 });
+  }
+}
+
+async function sendRecentMessages(
+  controller: ReadableStreamDefaultController,
+  encoder: TextEncoder,
+  channelId: string,
+  tenantId: string
+) {
+  try {
+    const messages = await qubetalkPersistence.listMessages(channelId, tenantId, {
+      limit: 50,
+      offset: 0,
+    });
+
+    // Send recent messages as history
+    const historyEvent = `event: history\ndata: ${JSON.stringify({
+      type: 'history',
+      channel_id: channelId,
+      messages: messages.items,
+      count: messages.items.length,
+      timestamp: new Date().toISOString(),
+    })}\n\n`;
+    
+    controller.enqueue(encoder.encode(historyEvent));
+  } catch (error) {
+    console.error('Error sending recent messages:', error);
   }
 }

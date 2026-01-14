@@ -92,6 +92,151 @@ export async function getTenant(idOrSlug: string): Promise<CrmTenant | null> {
 }
 
 // ============================================================================
+// AGENTIQ ANCHOR HIERARCHY OPERATIONS
+// ============================================================================
+
+/**
+ * Get AgentiQ anchor franchise (the mother ship)
+ */
+export async function getAgentiqAnchor(): Promise<CrmFranchise | null> {
+  return db.getFranchiseBySlug('agentiq');
+}
+
+/**
+ * Get complete franchise hierarchy under AgentiQ
+ */
+export async function getAgentiqHierarchy(): Promise<{
+  franchises: CrmFranchise[];
+  hierarchy: {
+    [franchiseId: string]: {
+      franchise: CrmFranchise;
+      children: string[];
+      tenants: CrmTenant[];
+      level: number;
+      path: string[];
+    };
+  };
+}> {
+  const franchises = await db.listFranchises(); // All active franchises
+  const tenants = await db.listAllTenants(); // All tenants
+  
+  // Build hierarchy
+  const hierarchy: any = {};
+  
+  // Try to get AgentiQ anchor from crm_franchises first, then regular franchises
+  let agentiqFranchise = await db.getFranchiseBySlug('agentiq');
+  
+  if (!agentiqFranchise) {
+    throw new Error('AgentiQ anchor franchise not found');
+  }
+  
+  // Initialize hierarchy
+  franchises.forEach(franchise => {
+    hierarchy[franchise.id] = {
+      franchise,
+      children: [],
+      tenants: tenants.filter(t => t.franchiseId === franchise.id),
+      level: franchise.config?.hierarchy_level || 1,
+      path: [], // Will be filled below
+    };
+  });
+  
+  // Build parent-child relationships
+  franchises.forEach(franchise => {
+    const parentId = franchise.config?.parent_franchise_id as string | undefined;
+    if (parentId && hierarchy[parentId]) {
+      hierarchy[parentId].children.push(franchise.id);
+    }
+  });
+  
+  // Calculate paths
+  const calculatePath = (franchiseId: string, currentPath: string[] = []): string[] => {
+    const franchise = hierarchy[franchiseId];
+    if (!franchise) return currentPath;
+    
+    const newPath = [franchise.franchise.slug, ...currentPath];
+    
+    if (franchise.franchise.config?.parent_franchise_id) {
+      return calculatePath(franchise.franchise.config?.parent_franchise_id, newPath);
+    }
+    
+    return newPath;
+  };
+  
+  Object.keys(hierarchy).forEach(franchiseId => {
+    hierarchy[franchiseId].path = calculatePath(franchiseId);
+  });
+  
+  return {
+    franchises,
+    hierarchy,
+  };
+}
+
+/**
+ * Check if a franchise can govern a tenant (hierarchy validation)
+ */
+export async function canFranchiseGovernTenant(
+  franchiseId: string, 
+  tenantId: string
+): Promise<boolean> {
+  const franchise = await db.getFranchise(franchiseId);
+  const tenant = await db.getTenant(tenantId);
+  
+  if (!franchise || !tenant) return false;
+  
+  // AgentiQ anchor can govern everyone
+  if (franchise.slug === 'agentiq') return true;
+  
+  // Direct ownership
+  if (tenant.franchiseId === franchiseId) return true;
+  
+  // Check hierarchy (franchise must be higher than tenant's franchise)
+  const franchiseLevel = franchise.config?.hierarchy_level || 1;
+  const tenantFranchise = await db.getFranchise(tenant.franchiseId);
+  const tenantFranchiseLevel = tenantFranchise?.config?.hierarchy_level || 1;
+  
+  return franchiseLevel < tenantFranchiseLevel;
+}
+
+/**
+ * Get all tenants under AgentiQ (directly or indirectly)
+ */
+export async function getAgentiqTenantHierarchy(): Promise<{
+  agentiq: CrmFranchise;
+  directTenants: CrmTenant[];
+  allTenants: CrmTenant[];
+  tenantByFranchise: { [franchiseId: string]: CrmTenant[] };
+}> {
+  const agentiq = await getAgentiqAnchor();
+  if (!agentiq) {
+    throw new Error('AgentiQ anchor franchise not found');
+  }
+  
+  const allTenants = await db.listAllTenants();
+  const franchises = await db.listFranchises();
+  
+  // Direct AgentiQ tenants
+  const directTenants = allTenants.filter(t => t.franchiseId === agentiq.id);
+  
+  // Group tenants by franchise
+  const tenantByFranchise: { [franchiseId: string]: CrmTenant[] } = {};
+  allTenants.forEach(tenant => {
+    if (!tenantByFranchise[tenant.franchiseId]) {
+      tenantByFranchise[tenant.franchiseId] = [];
+    }
+    tenantByFranchise[tenant.franchiseId].push(tenant);
+  });
+  
+  return {
+    agentiq,
+    directTenants,
+    allTenants,
+    tenantByFranchise,
+  };
+}
+
+// ============================================================================
 // PERSONA OPERATIONS
 // ============================================================================
 

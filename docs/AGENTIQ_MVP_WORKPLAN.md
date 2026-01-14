@@ -38,6 +38,19 @@ AgentiQ MVP is transforming the existing AigentZBeta codebase into a multi-tenan
 - ✅ **QubeTalk v0**: Agent-to-agent messaging - **API COMPLETE**
 - 🔄 **Composer v0**: Guided ExperienceQube builder - **NEXT PRIORITY**
 - 🔄 **Enhanced AA-API**: Codex endpoint mapping - **READY FOR INTEGRATION**
+- ✅ **AgentiQ Anchor Hierarchy**: Mother ship franchise structure - **COMPLETE**
+
+### Architecture Hierarchy
+```
+AgentiQ Platform (Anchor/Mother Ship)
+├── Direct Franchises
+│   ├── Franchise A → Tenants A1, A2, A3
+│   └── Franchise B → Tenants B1, B2, B3
+└── Direct AgentiQ Tenants
+    ├── Tenant X (Qriptonian)
+    ├── Tenant Y (KN0W1)
+    └── Tenant Z (Custom)
+```
 
 ---
 
@@ -336,6 +349,7 @@ Source of truth: `services/composer/composerStore.ts`
 2. **🔄 Database Integration** - Replace mock stores with persistent storage
 3. **🔄 QubeTalk Database Layer** - Move from in-memory to proper storage
 4. **🔄 Component Registry Frontend** - Complete UI for risk validation
+5. **🎯 CRM Tenant Applications** - Extend existing DIDQube system for tenant onboarding
 
 ### **Week 3 Focus (JAN 19-25)**
 **Primary Goal**: Complete Composer v0 foundation
@@ -343,6 +357,7 @@ Source of truth: `services/composer/composerStore.ts`
 - **Frontend**: Wizard UI, step-by-step guidance, component selection
 - **Integration**: QubeTalk messaging for agent handoffs
 - **Storage**: Persistent database implementation
+- **Tenant Onboarding**: CRM-based tenant application system using DIDQube
 
 ### **Week 4 Focus (JAN 26 - FEB 2)**
 **Primary Goal**: Integration and testing

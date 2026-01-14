@@ -15,11 +15,12 @@ import {
 export const runtime = 'nodejs';
 
 interface MessageRequest {
+  tenant_id: string;
   channel_id: string;
   message_id?: string;
   in_reply_to?: string;
   from_agent: AgentReference;
-  type: 'request' | 'response' | 'event' | 'error';
+  type: 'request' | 'response' | 'event' | 'error' | 'text' | 'delegation' | 'system' | 'receipt';
   content: string;
   iqube_refs?: string[];
   receipt_ref?: string;
@@ -46,13 +47,15 @@ export async function POST(request: NextRequest) {
     // Validate required fields
     const missingField = !body.channel_id
       ? 'channel_id'
-      : !body.from_agent
-        ? 'from_agent'
-        : !body.type
-          ? 'type'
-          : !body.content
-            ? 'content'
-            : null;
+      : !body.tenant_id
+        ? 'tenant_id'
+        : !body.from_agent
+          ? 'from_agent'
+          : !body.type
+            ? 'type'
+            : !body.content
+              ? 'content'
+              : null;
 
     if (missingField) {
       return NextResponse.json({
@@ -62,7 +65,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify channel exists
-    const channel = getChannel(body.channel_id);
+    const channel = await getChannel(body.channel_id, body.tenant_id);
     if (!channel) {
       return NextResponse.json({
         error: 'Channel not found',
@@ -82,12 +85,21 @@ export async function POST(request: NextRequest) {
     const message_id = body.message_id || `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const now = new Date().toISOString();
 
+    const normalizedType: MessageData['type'] =
+      body.type === 'request'
+        ? 'delegation'
+        : body.type === 'event'
+          ? 'system'
+          : body.type === 'error'
+            ? 'response'
+            : body.type;
+
     const message: MessageData = {
       message_id,
       channel_id: body.channel_id,
       in_reply_to: body.in_reply_to,
       from_agent: body.from_agent,
-      type: body.type,
+      type: normalizedType,
       content: body.content,
       created_at: now,
       iqube_refs: body.iqube_refs,
@@ -96,12 +108,12 @@ export async function POST(request: NextRequest) {
     };
 
     // Store message
-    createMessage(message);
+    await createMessage(message);
 
     console.log(`Created message: ${message_id} in channel: ${body.channel_id}`);
 
     // Create receipt for message
-    if (body.type === 'response' || body.type === 'error') {
+    if (normalizedType === 'response') {
       try {
         await receiptService.createQubeTalkReceipt({
           delegationId: body.metadata?.delegation_id || 'unknown',

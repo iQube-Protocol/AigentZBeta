@@ -3,6 +3,7 @@
 import React from "react";
 import { BookOpen, Play, Headphones, MessageSquare } from "lucide-react";
 import type { SmartContentQube, ContentModality } from "@/types/smartContent";
+import { ContentActionIcons } from "./ContentActionIcons";
 import type { IconStyle } from "./ContentActionIcons";
 
 const MODALITY_ICONS: Record<ContentModality, { icon: React.ReactNode; label: string }> = {
@@ -123,6 +124,12 @@ export default function SmartContentCard({
         .filter(([_, mod]) => mod?.enabled)
         .map(([key]) => key as ContentModality)
     : [];
+  const modalityState = {
+    read: Boolean(content.modalities?.read?.enabled),
+    watch: Boolean(content.modalities?.watch?.enabled),
+    listen: Boolean(content.modalities?.listen?.enabled),
+    interact: Boolean(content.modalities?.interact?.enabled),
+  };
 
   // Get primary pricing tier (handle missing pricingModel)
   const primaryTier = content.pricingModel?.tiers?.[0];
@@ -1015,16 +1022,11 @@ export default function SmartContentCard({
         <div className="p-4 space-y-3">
           <p className="text-sm text-slate-300 line-clamp-2">{content.description}</p>
 
-          <div className="flex items-center gap-2 flex-wrap">
-            {activeModalities.map((mod) => (
-              <span
-                key={mod}
-                className="text-xs px-2 py-1 rounded-full bg-white/5 ring-1 ring-white/10 text-slate-300 flex items-center gap-1"
-              >
-                {MODALITY_ICONS[mod].icon} {MODALITY_ICONS[mod].label}
-              </span>
-            ))}
-          </div>
+          <ContentActionIcons
+            modalities={modalityState}
+            size="sm"
+            className="flex-wrap gap-2"
+          />
 
           <div className="flex items-center justify-between pt-2 border-t border-white/10">
             <div>
@@ -1108,16 +1110,8 @@ export default function SmartContentCard({
           </div>
           <h4 className="text-sm font-medium text-slate-100 line-clamp-2">{content.title}</h4>
 
-          <div className="flex items-center gap-1.5 mt-2">
-            {activeModalities.map((mod) => (
-              <span
-                key={mod}
-                className="text-xs"
-                title={MODALITY_ICONS[mod].label}
-              >
-                {MODALITY_ICONS[mod].icon}
-              </span>
-            ))}
+          <div className="mt-2">
+            <ContentActionIcons modalities={modalityState} size="xs" />
           </div>
 
           {showProgress && progressPercentage > 0 && (

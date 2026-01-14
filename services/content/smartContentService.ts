@@ -656,6 +656,14 @@ export class SmartContentService {
   // ===========================================================================
   
   private mapDbToSmartContent(row: any): SmartContentQube {
+    const coverImageUri =
+      row.cover_image_uri ||
+      row.cover_image_url ||
+      row.thumbnail ||
+      row.image ||
+      row.cover ||
+      '';
+
     return {
       id: row.id,
       type: 'SmartContentQube',
@@ -664,7 +672,7 @@ export class SmartContentService {
       slug: row.slug,
       version: row.version,
       description: row.description || '',
-      coverImageUri: row.cover_image_uri || '',
+      coverImageUri: coverImageUri,
       creatorRootDid: row.creator_root_did,
       tenantId: row.tenant_id,
       identityRequirements: row.identity_requirements || {},

@@ -4,9 +4,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { 
-  getChannel, 
-  getChannelMessages
+import {
+  getChannel,
+  getChannelMessages,
 } from '@/services/qubetalk/qubetalkStore';
 
 interface RouteParams {
@@ -17,6 +17,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
     const { searchParams } = new URL(request.url);
+
+    const tenant_id = searchParams.get('tenant_id');
     
     if (!id) {
       return NextResponse.json({
@@ -25,8 +27,15 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       }, { status: 400 });
     }
 
+    if (!tenant_id) {
+      return NextResponse.json({
+        error: 'tenant_id is required',
+        code: 'MISSING_TENANT'
+      }, { status: 400 });
+    }
+
     // Verify channel exists
-    const channel = getChannel(id);
+    const channel = await getChannel(id, tenant_id);
     if (!channel) {
       return NextResponse.json({
         error: 'Channel not found',
@@ -40,12 +49,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const since = searchParams.get('since');
 
     // Get messages for this channel
-    let channelMessages = getChannelMessages(id);
+    let channelMessages = await getChannelMessages(id, tenant_id, { limit, offset });
 
     // Filter by timestamp if provided
     if (since) {
       const sinceDate = new Date(since);
-      channelMessages = channelMessages.filter(msg => 
+      channelMessages = channelMessages.filter(msg =>
         new Date(msg.created_at) > sinceDate
       );
     }
@@ -55,11 +64,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
     );
 
-    // Apply pagination
-    const paginated = channelMessages.slice(offset, offset + limit);
-
     return NextResponse.json({
-      messages: paginated,
+      messages: channelMessages,
       total: channelMessages.length,
       limit,
       offset,

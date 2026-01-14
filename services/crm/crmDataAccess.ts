@@ -2266,3 +2266,69 @@ export async function findIdentityPersonaForLinking(
     rootDid: row.root_identity?.did_uri,
   };
 }
+
+// Additional functions for AgentiQ hierarchy
+export async function getFranchiseBySlug(slug: string): Promise<CrmFranchise | null> {
+  const client = getCrmClient();
+  
+  // First try crm_franchises table (where AgentiQ anchor is stored)
+  let { data, error } = await client
+    .from('crm_franchises')
+    .select('*')
+    .eq('slug', slug)
+    .single();
+
+  if (error) {
+    // If not found in crm_franchises, try the main franchises table
+    const result = await client
+      .from('franchises')
+      .select('*')
+      .eq('slug', slug)
+      .single();
+    
+    if (result.error) return null;
+    data = result.data;
+  }
+  
+  // Map from table format to CrmFranchise format
+  const row = data as any;
+  return {
+    id: row.id,
+    name: row.name,
+    slug: row.slug,
+    description: row.description || '',
+    logoUrl: row.logo_url,
+    primaryColor: row.primary_color,
+    config: row.config || {},
+    isActive: row.is_active ?? row.active ?? true,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export async function listAllTenants(): Promise<CrmTenant[]> {
+  const client = getCrmClient();
+  
+  const { data, error } = await client
+    .from('crm_tenants')
+    .select('*')
+    .eq('is_active', true)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  
+  return data.map((row: any) => ({
+    id: row.id,
+    franchiseId: row.franchise_id,
+    slug: row.slug,
+    name: row.name,
+    description: row.description || '',
+    domain: row.domain,
+    config: row.config || {},
+    supportedTokens: row.supported_tokens || ['QCT'],
+    defaultModalities: row.default_modalities || ['content'],
+    isActive: row.is_active ?? true,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }));
+}

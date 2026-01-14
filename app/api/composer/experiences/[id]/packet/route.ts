@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { composerService } from "@/services/composer/composerService";
+import { getTemplateRegistry } from "@/services/agui/TemplateRegistry";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -12,12 +13,69 @@ interface RouteParams {
 
 export const runtime = "nodejs";
 
+const DRAWER_GRID_VARIANTS = new Set([
+  "1a",
+  "1b",
+  "1c",
+  "2a",
+  "2b",
+  "2c",
+  "3a",
+  "3b",
+]);
+
+function mapGoalToIntent(goal?: string) {
+  if (!goal) return "browse";
+  const normalized = goal.toLowerCase();
+  if (normalized.includes("watch")) return "watch";
+  if (normalized.includes("quest") || normalized.includes("reward")) return "questing";
+  if (normalized.includes("character")) return "character_deep_dive";
+  if (normalized.includes("realm")) return "realm_navigation";
+  return "browse";
+}
+
+function selectDrawerGridVariant(preference?: string, supportingCount = 0) {
+  const raw = String(preference || "").toLowerCase();
+  if (DRAWER_GRID_VARIANTS.has(raw)) {
+    return `liquidui:drawer_grid_${raw}`;
+  }
+  return "liquidui:drawer_grid_2a";
+}
+
+function selectPrimaryTemplate(experience: any) {
+  const config = experience.configuration || {};
+  const intent = config.intent_timebox || {};
+  const content = config.content_selection || {};
+  const uiPrefs = config.ui_preferences || {};
+
+  const registry = getTemplateRegistry();
+  const candidateTemplate = registry.selectTemplate({
+    userIntent: uiPrefs.user_intent || mapGoalToIntent(intent.goal),
+    device: uiPrefs.device || "desktop",
+    contentMix: uiPrefs.content_mix || "mixed",
+    realm: uiPrefs.realm,
+    taskState: uiPrefs.task_state,
+    businessGoal: uiPrefs.business_goal,
+  });
+
+  if (candidateTemplate === "liquidui:drawer_grid_v1") {
+    const supportingCount = Array.isArray(content.supporting_item_ids)
+      ? content.supporting_item_ids.length
+      : 0;
+    const variant = selectDrawerGridVariant(uiPrefs.layout_variant, supportingCount);
+    return { templateId: variant, reason: "TemplateRegistry drawer grid variant" };
+  }
+
+  return { templateId: candidateTemplate, reason: "TemplateRegistry selection" };
+}
+
 function buildPacket(experience: any) {
   const config = experience.configuration || {};
   const intent = config.intent_timebox || {};
   const content = config.content_selection || {};
   const wallet = config.wallet_rewards || {};
   const copilot = config.copilot_output || {};
+  const primaryTemplate = selectPrimaryTemplate(experience);
 
   const featureId = content.feature_item_id;
   const supportingIds = Array.isArray(content.supporting_item_ids) ? content.supporting_item_ids : [];
@@ -63,10 +121,14 @@ function buildPacket(experience: any) {
       },
     },
     ui: {
-      primary_template: "Reader",
+      primary_template: primaryTemplate.templateId,
       layout: "split",
       title: experience.name,
       subhead: "Reading Sprint",
+      template_selection: {
+        template_id: primaryTemplate.templateId,
+        reason: primaryTemplate.reason,
+      },
       components: [
         {
           type: "Reader",

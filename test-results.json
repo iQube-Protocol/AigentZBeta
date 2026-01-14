@@ -1,0 +1,41 @@
+{
+  "timestamp": "2026-01-14T19:29:57.117Z",
+  "summary": {
+    "total": 6,
+    "passed": 0,
+    "failed": 6,
+    "successRate": 0
+  },
+  "results": [
+    {
+      "name": "System Health",
+      "success": false,
+      "error": "Command failed: curl -s http://localhost:3001/api/system/status | jq .success\n/bin/sh: jq: command not found\n"
+    },
+    {
+      "name": "Composer Templates",
+      "success": false,
+      "error": "Command failed: curl -s http://localhost:3001/api/composer/templates | jq .success\n/bin/sh: jq: command not found\n"
+    },
+    {
+      "name": "QubeTalk Channels",
+      "success": false,
+      "error": "Command failed: curl -s -X POST http://localhost:3001/api/qubetalk/channels       -H \"Content-Type: application/json\"       -d '{\"tenant_id\": \"agentiq_main\", \"participants\": [\"system_copilot\"]}' | jq .success\n/bin/sh: jq: command not found\n"
+    },
+    {
+      "name": "CRM Applications",
+      "success": false,
+      "error": "Command failed: curl -s -X POST http://localhost:3001/api/crm/tenants/apply       -H \"Content-Type: application/json\"       -d '{\"organization_name\": \"Test Org\", \"contact_email\": \"test@example.com\"}' | jq .success\n/bin/sh: jq: command not found\n"
+    },
+    {
+      "name": "AgentiQ Hierarchy",
+      "success": false,
+      "error": "Command failed: curl -s http://localhost:3001/api/crm/agentiq/hierarchy | jq .success\n/bin/sh: jq: command not found\n"
+    },
+    {
+      "name": "AA-API External",
+      "success": false,
+      "error": "Command failed: curl -s -X POST http://localhost:3001/api/aa/qubetalk/channels       -H \"Content-Type: application/json\"       -H \"X-API-Key: demo-external-key\"       -H \"X-Agent-ID: test-agent\"       -d '{\"tenant_id\": \"agentiq_main\", \"channel_name\": \"Test\"}' | jq .success\n/bin/sh: jq: command not found\n"
+    }
+  ]
+}
