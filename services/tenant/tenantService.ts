@@ -4,7 +4,7 @@
  * Handles tenant creation, management, and user operations
  */
 
-import { createClient } from '@/lib/supabase/client';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createHash, randomBytes } from 'crypto';
 
@@ -100,7 +100,11 @@ class TenantService {
   private supabase: SupabaseClient;
 
   constructor() {
-    this.supabase = createClient();
+    const supabase = getSupabaseServer();
+    if (!supabase) {
+      throw new Error('Supabase configuration missing');
+    }
+    this.supabase = supabase;
   }
 
   // Helper functions
