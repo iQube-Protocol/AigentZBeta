@@ -27,7 +27,7 @@ const performanceMetrics = {
 };
 
 // Middleware to track performance
-export function trackPerformance(
+function trackPerformance(
   req: NextRequest,
   handler: (request: NextRequest) => Promise<Response>
 ) {
