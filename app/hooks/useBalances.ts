@@ -30,7 +30,10 @@ export type Balances = {
 const balanceCache = new Map<string, { balance: string; decimals: number; timestamp: number }>();
 const CACHE_DURATION = 30000; // 30 seconds
 
-export function useBalances(addresses: { sepolia?: `0x${string}`; arb?: `0x${string}`; btc?: string }) {
+export function useBalances(
+  addresses: { sepolia?: `0x${string}`; arb?: `0x${string}`; btc?: string },
+  options?: { refreshKey?: number }
+) {
   const [state, setState] = useState<Balances>({ qctSep: "0", qctArb: "0", knytSep: "0", btcQcent: "0", usdcSep: "0" });
 
   useEffect(() => {
@@ -131,7 +134,7 @@ export function useBalances(addresses: { sepolia?: `0x${string}`; arb?: `0x${str
     return () => {
       cancel = true;
     };
-  }, [addresses.sepolia, addresses.arb, addresses.btc]);
+  }, [addresses.sepolia, addresses.arb, addresses.btc, options?.refreshKey]);
 
   return state;
 }

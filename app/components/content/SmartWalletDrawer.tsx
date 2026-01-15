@@ -7,7 +7,8 @@
 
 import React, { useState, useEffect } from "react";
 import type { SmartWalletNode, WalletTask, PersonaState } from "@/types/smartWallet";
-import { useKnytBalance } from "@/hooks/useKnytBalance";
+import type { SmartContentQube } from "@/types/smartContent";
+import { useBalances } from "@/app/hooks/useBalances";
 import {
   Wallet, Library, Target, Award, Gift, X, Loader2, Coins, Send, Plus, RefreshCw,
   User, Book, Film, Trophy, Medal, BadgeCheck, Crown
@@ -31,6 +32,16 @@ interface SmartWalletDrawerProps {
   };
   personaId?: string;
   codexMode?: boolean;
+  recipientAddress?: string;
+  currentContent?: SmartContentQube;
+  walletNode?: SmartWalletNode;
+  onPurchaseComplete?: (...args: any[]) => void | Promise<void>;
+  onCreatePersona?: (...args: any[]) => void;
+  onContentSelect?: (...args: any[]) => void;
+  onPersonaChange?: (...args: any[]) => void;
+  onTaskAction?: (...args: any[]) => void;
+  onSubmitReputationClaim?: (...args: any[]) => void;
+  onOpenCopilot?: (...args: any[]) => void;
 }
 
 export default function SmartWalletDrawer({
@@ -39,7 +50,26 @@ export default function SmartWalletDrawer({
 }: SmartWalletDrawerProps) {
   const [activeTab, setActiveTab] = useState<DrawerTab>("wallet");
   const [loading, setLoading] = useState(true);
-  const { knytBalance, refreshKnytBalance } = useKnytBalance();
+  const [refreshKey, setRefreshKey] = useState(0);
+  const balances = useBalances(
+    { sepolia: agent.evmSepolia, arb: agent.evmArb, btc: agent.btcAddress },
+    { refreshKey }
+  );
+
+  const formatToken = (raw: string, decimals = 18) => {
+    if (!raw) return "0";
+    if (!/^\d+$/.test(raw)) return raw;
+    const padded = raw.padStart(decimals + 1, "0");
+    const whole = padded.slice(0, -decimals);
+    const fraction = padded.slice(-decimals).replace(/0+$/, "");
+    if (!fraction) return whole;
+    return `${whole}.${fraction.slice(0, 4)}`;
+  };
+
+  const qcRaw = balances.qctArb !== "0" ? balances.qctArb : balances.qctSep;
+  const qcDecimals = balances.qctArb !== "0" ? balances.qctArbDecimals : balances.qctSepDecimals;
+  const qcDisplay = formatToken(qcRaw, qcDecimals ?? 18);
+  const qcNumber = Number(qcDisplay);
 
   useEffect(() => {
     if (open) {
@@ -74,17 +104,17 @@ export default function SmartWalletDrawer({
               Q¢ Balance
             </h3>
             <button
-              onClick={refreshKnytBalance}
+              onClick={() => setRefreshKey((value) => value + 1)}
               className="p-2 hover:bg-white/10 rounded-lg transition-colors"
             >
               <RefreshCw className="w-4 h-4 text-white/70" />
             </button>
           </div>
           <div className="text-3xl font-bold text-white mb-2">
-            {knytBalance?.toLocaleString() || '0'} Q¢
+            {qcDisplay} Q¢
           </div>
           <div className="text-sm text-white/70">
-            ≈ ${((knytBalance || 0) * 1.40).toFixed(2)} USD
+            ≈ ${Number.isFinite(qcNumber) ? (qcNumber * 1.4).toFixed(2) : "0.00"} USD
           </div>
         </div>
 

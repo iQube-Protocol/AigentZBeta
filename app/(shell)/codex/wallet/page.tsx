@@ -1,12 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import SmartWalletPanel from "../../../triad/components/SmartWalletPanel";
+import SmartWalletDrawer from "../../../components/content/SmartWalletDrawer";
 import { Wallet, Settings, Code } from "lucide-react";
 
 export default function SmartWalletViewerPage() {
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [density, setDensity] = useState<'narrow' | 'wide'>('wide');
+
+  // Sample agent data - in real app this would come from context
+  const agent = {
+    id: "agent-123",
+    name: "Demo Agent",
+    fioHandle: "demo@agentiq",
+  };
 
   const embedUrl = `https://dev-beta.aigentz.me/triad/embed/wallet?theme=${theme}&density=${density}`;
 
@@ -18,13 +25,13 @@ export default function SmartWalletViewerPage() {
           <div className="flex items-center gap-3">
             <Wallet className="w-6 h-6 text-cyan-400" />
             <div>
-              <h1 className="text-xl font-bold text-white">SmartWallet Viewer</h1>
-              <p className="text-sm text-slate-400">Test and configure the SmartWallet embed component</p>
+              <h1 className="text-xl font-bold text-white">SmartWallet - Codex Integration</h1>
+              <p className="text-sm text-slate-400">Enhanced SmartWallet with Codex features</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <Settings className="w-5 h-5 text-slate-400" />
-            <span className="text-sm text-slate-400">Component Tester</span>
+            <span className="text-sm text-slate-400">Embedded Mode</span>
           </div>
         </div>
       </div>
@@ -68,7 +75,7 @@ export default function SmartWalletViewerPage() {
                   onClick={() => setDensity('narrow')}
                   className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                     density === 'narrow'
-                      ? 'bg-cyan-500 text-white'
+                      ? 'bg-indigo-500 text-white'
                       : 'bg-slate-700/50 text-slate-400 hover:bg-slate-700'
                   }`}
                 >
@@ -78,7 +85,7 @@ export default function SmartWalletViewerPage() {
                   onClick={() => setDensity('wide')}
                   className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                     density === 'wide'
-                      ? 'bg-cyan-500 text-white'
+                      ? 'bg-indigo-500 text-white'
                       : 'bg-slate-700/50 text-slate-400 hover:bg-slate-700'
                   }`}
                 >
@@ -87,26 +94,38 @@ export default function SmartWalletViewerPage() {
               </div>
             </div>
 
-            {/* Component Info */}
+            {/* Features */}
             <div>
-              <label className="block text-sm font-semibold text-slate-300 mb-3">Features</label>
+              <h3 className="text-sm font-semibold text-slate-300 mb-3">Codex Features</h3>
               <div className="space-y-2">
-                <div className="flex items-center gap-2 text-xs text-slate-400">
-                  <div className="w-2 h-2 rounded-full bg-emerald-400"></div>
-                  <span>Live Q¢ and KNYT balances</span>
+                <div className="flex items-center gap-2 text-sm text-slate-400">
+                  <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                  Embedded mode support
                 </div>
-                <div className="flex items-center gap-2 text-xs text-slate-400">
-                  <div className="w-2 h-2 rounded-full bg-emerald-400"></div>
-                  <span>DVN event monitoring</span>
+                <div className="flex items-center gap-2 text-sm text-slate-400">
+                  <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                  Codex integration
                 </div>
-                <div className="flex items-center gap-2 text-xs text-slate-400">
-                  <div className="w-2 h-2 rounded-full bg-emerald-400"></div>
-                  <span>5 tabs: Wallet, Library, Tasks, Reputation, Rewards</span>
+                <div className="flex items-center gap-2 text-sm text-slate-400">
+                  <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                  Enhanced UI from Netlify
                 </div>
-                <div className="flex items-center gap-2 text-xs text-slate-400">
-                  <div className="w-2 h-2 rounded-full bg-emerald-400"></div>
-                  <span>Quick actions: Send, Buy KNYT</span>
+                <div className="flex items-center gap-2 text-sm text-slate-400">
+                  <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                  Multi-variant support
                 </div>
+              </div>
+            </div>
+
+            {/* Instructions */}
+            <div>
+              <h3 className="text-sm font-semibold text-slate-300 mb-3">Usage</h3>
+              <div className="text-xs text-slate-400 space-y-1">
+                <p>• This SmartWallet is running in embedded mode</p>
+                <p>• Codex integration features are enabled</p>
+                <p>• All wallet functionality is available</p>
+                <p>• Theme and density can be adjusted</p>
+                <p>• Can be used in main app or Codex context</p>
               </div>
             </div>
 
@@ -152,7 +171,14 @@ export default function SmartWalletViewerPage() {
 
         {/* Component Preview */}
         <div className="flex-1 overflow-hidden">
-          <SmartWalletPanel theme={theme} density={density} />
+          <SmartWalletDrawer
+            open={true}
+            onClose={() => {}} // No-op in embedded mode
+            variant="embedded"
+            embeddedWidth={density === 'wide' ? 'fixed' : 'fill'}
+            agent={agent}
+            codexMode={true}
+          />
         </div>
       </div>
     </div>

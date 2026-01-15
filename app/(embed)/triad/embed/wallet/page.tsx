@@ -11,14 +11,30 @@
 
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
-import SmartWalletPanel from "../../../../triad/components/SmartWalletPanel";
+import SmartWalletDrawer from "../../../../components/content/SmartWalletDrawer";
 
 function SmartWalletContent() {
   const searchParams = useSearchParams();
   const theme = (searchParams.get('theme') as 'light' | 'dark') || 'dark';
   const density = (searchParams.get('density') as 'narrow' | 'wide') || 'wide';
 
-  return <SmartWalletPanel theme={theme} density={density} />;
+  // Sample agent data - in real embed this would come from context or params
+  const agent = {
+    id: "embed-agent",
+    name: "Embed User",
+    fioHandle: "embed@user",
+  };
+
+  return (
+    <SmartWalletDrawer
+      open={true}
+      onClose={() => {}} // No-op in embedded mode
+      variant="embedded"
+      embeddedWidth={density === 'wide' ? 'fixed' : 'fill'}
+      agent={agent}
+      codexMode={false} // Regular embed mode, not Codex
+    />
+  );
 }
 
 export default function WalletEmbedPage() {
