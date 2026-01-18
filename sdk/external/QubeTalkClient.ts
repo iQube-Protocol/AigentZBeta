@@ -28,25 +28,30 @@ export interface QubeTalkChannel {
   config?: any;
   created_at: string;
   allows_external?: boolean;
+  is_in_platform?: boolean;
+  is_optional?: boolean;
 }
 
 export class QubeTalkClient {
   private baseUrl: string;
   private apiKey: string;
   private agentId: string;
+  private personaId?: string;
 
   constructor(options: {
     baseUrl?: string;
     apiKey: string;
     agentId: string;
+    personaId?: string;
   }) {
-    this.baseUrl = options.baseUrl || 'https://your-agentiq-domain.com';
+    this.baseUrl = options.baseUrl ?? '';
     this.apiKey = options.apiKey;
     this.agentId = options.agentId;
+    this.personaId = options.personaId;
   }
 
   private async makeRequest(endpoint: string, options: RequestInit = {}) {
-    const url = `${this.baseUrl}/api/aa/qubetalk${endpoint}`;
+    const url = `${this.baseUrl}/api/marketa/qubetalk${endpoint}`;
     
     const response = await fetch(url, {
       ...options,
@@ -55,6 +60,7 @@ export class QubeTalkClient {
         'Authorization': `Bearer ${this.apiKey}`,
         'X-API-Key': this.apiKey,
         'X-Agent-ID': this.agentId,
+        ...(this.personaId ? { 'x-persona-id': this.personaId } : {}),
         ...options.headers,
       },
     });
@@ -90,7 +96,7 @@ export class QubeTalkClient {
       }),
     });
 
-    return response.data;
+    return response;
   }
 
   /**
@@ -145,7 +151,23 @@ export class QubeTalkClient {
       limit: (options.limit || 50).toString(),
     });
 
-    const response = await this.makeRequest(`/channels?${params}`);
+    const response = await this.makeRequest(`?${params}`);
+    return response;
+  }
+
+  /**
+   * Get content transfers for a tenant
+   */
+  async getTransfers(options: {
+    tenantId: string;
+    limit?: number;
+  }): Promise<{ success: boolean; transfers: any[]; total: number }> {
+    const params = new URLSearchParams({
+      tenant_id: options.tenantId,
+      limit: (options.limit || 50).toString(),
+    });
+
+    const response = await this.makeRequest(`/transfers?${params}`);
     return response;
   }
 

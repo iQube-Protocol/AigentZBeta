@@ -103,6 +103,7 @@ const sections: SidebarSection[] = [
       { href: "/aigents/aigent-moneypenny", label: "Aigent MoneyPenny", icon: <Bot size={14} className="text-purple-400" /> },
       { href: "/aigents/aigent-nakamoto", label: "Aigent Nakamoto", icon: <Bot size={14} className="text-orange-400" /> },
       { href: "/aigents/aigent-kn0w1", label: "Aigent Kn0w1", icon: <Bot size={14} className="text-green-400" /> },
+      { href: "/marketa", label: "Aigent Marketa (CMO)", icon: <TrendingUp size={14} className="text-rose-400" /> },
     ],
   },
   {

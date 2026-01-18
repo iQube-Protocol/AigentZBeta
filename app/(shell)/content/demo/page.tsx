@@ -563,7 +563,11 @@ export default function SmartContentDemoPage() {
     setWalletOpen(true);
   };
 
-  const handlePurchaseComplete = (content: SmartContentQube) => {
+  const handlePurchaseComplete = (content?: SmartContentQube) => {
+    if (!content) {
+      console.warn('Purchase complete called without content');
+      return;
+    }
     // Add to library after successful purchase
     addToLibrary(content, 'purchase');
     console.log('Purchase complete, added to library:', content.title);
@@ -577,7 +581,7 @@ export default function SmartContentDemoPage() {
   };
   
   // Handle task actions (complete/dismiss)
-  const handleTaskAction = (task: any, action: 'complete' | 'dismiss') => {
+  const handleTaskAction = (task: any, action: string) => {
     if (action === 'complete') {
       // Update task status and add reward
       setWalletState((prev: any) => {

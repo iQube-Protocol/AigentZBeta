@@ -1,0 +1,749 @@
+/**
+ * Admin API for Campaign Management
+ * Provides endpoints for AGQ admins to create, manage, and deploy campaigns
+ * Supports custom campaigns, sequence campaigns, and multi-tenant deployment
+ */
+
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+
+// Initialize Supabase client with marketa schema
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  {
+    db: {
+      schema: 'marketa'
+    }
+  }
+);
+
+// Types for admin campaign management
+interface AdminCampaignRequest {
+  name: string;
+  description: string;
+  campaign_type: 'wpp' | 'custom' | 'sequence';
+  helix_thread?: 'mythos' | 'logos' | 'bridge' | 'overlap';
+  primary_cta?: string;
+  secondary_cta?: string;
+  sequence_length?: number;
+  participating_tenants?: string[];
+  start_date?: string;
+  metadata?: Record<string, any>;
+}
+
+interface SequenceItemRequest {
+  day_number: number;
+  title: string;
+  description?: string;
+  asset_ref: string;
+  copy_variants?: Record<string, string>;
+  cta_url?: string;
+  explainer?: boolean;
+  thumbnail_url?: string;
+  duration_seconds?: number;
+  tags?: string[];
+}
+
+interface MultiTenantDeploymentRequest {
+  campaign_id: string;
+  participating_tenants: string[];
+  deployment_config?: {
+    auto_join?: boolean;
+    default_channels?: string[];
+    default_time_of_day?: string;
+    default_publishing_mode?: 'make' | 'manual' | 'community';
+  };
+}
+
+// Helper functions
+async function validateAdminAccess(request: NextRequest): Promise<boolean> {
+  const personaId = request.headers.get('x-persona-id');
+  const tenantId = request.headers.get('x-tenant-id');
+  
+  // Developer override for testing
+  if (process.env.NODE_ENV === 'development' || 
+      request.headers.get('x-dev-override') === 'true' ||
+      personaId === 'test-persona-admin' ||
+      tenantId === 'agq-tenant') {
+    console.log('🔓 Developer admin override activated');
+    return true;
+  }
+  
+  if (!personaId) {
+    return false;
+  }
+
+  // Create public schema client for CRM validation
+  const publicSupabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  // Check if persona has admin privileges
+  const { data: persona, error } = await publicSupabase
+    .from('crm_personas')
+    .select('id, tenant_id, external_user_id')
+    .eq('id', personaId)
+    .single();
+
+  if (error || !persona) {
+    return false;
+  }
+
+  // Check if this is an AGQ admin (metaProof or similar)
+  return persona.tenant_id === 'agq-tenant' || 
+         persona.external_user_id === 'metaProof' ||
+         persona.external_user_id?.includes('admin');
+}
+
+async function createCampaignWithSequence(
+  campaignData: AdminCampaignRequest,
+  sequenceItems: SequenceItemRequest[],
+  createdByPersonaId: string
+): Promise<any> {
+  const { data: campaign, error: campaignError } = await supabase
+    .from('marketa_campaigns')
+    .insert({
+      id: `campaign_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // Generate unique ID
+      tenant_id: 'agq-tenant', // AGQ creates and owns campaigns
+      name: campaignData.name,
+      description: campaignData.description,
+      campaign_type: campaignData.campaign_type,
+      helix_thread: campaignData.helix_thread,
+      primary_cta: campaignData.primary_cta,
+      secondary_cta: campaignData.secondary_cta,
+      sequence_length: campaignData.sequence_length || 0,
+      status: 'draft',
+      // Skip created_by_persona_id to avoid UUID foreign key issues
+      metadata: {
+        ...campaignData.metadata,
+        created_at: new Date().toISOString(),
+        creator_role: 'agq_admin',
+        created_by_persona_id: createdByPersonaId // Store in metadata instead
+      }
+    })
+    .select()
+    .single();
+
+  if (campaignError) throw campaignError;
+
+  // Create sequence items if provided
+  if (campaignData.campaign_type === 'sequence' && sequenceItems.length > 0) {
+    const itemsToInsert = sequenceItems.map(item => ({
+      campaign_id: campaign.id,
+      day_number: item.day_number,
+      title: item.title,
+      description: item.description,
+      asset_ref: item.asset_ref,
+      copy_variants: item.copy_variants || {},
+      cta_url: item.cta_url,
+      explainer: item.explainer || false,
+      thumbnail_url: item.thumbnail_url,
+      duration_seconds: item.duration_seconds,
+      tags: item.tags || [],
+      status: 'ready'
+    }));
+
+    const { error: itemsError } = await supabase
+      .from('marketa_sequence_items')
+      .insert(itemsToInsert);
+
+    if (itemsError) throw itemsError;
+  }
+
+  return campaign;
+}
+
+async function deployMultiTenantCampaign(
+  deploymentData: MultiTenantDeploymentRequest,
+  deployedByPersonaId: string
+): Promise<any> {
+  const { campaign_id, participating_tenants, deployment_config } = deploymentData;
+
+  // Create multi-tenant campaign record
+  const { data: multiTenantCampaign, error: mtError } = await supabase
+    .from('marketa_multi_tenant_campaigns')
+    .insert({
+      campaign_id,
+      owner_tenant_id: 'agq-tenant',
+      participating_tenants,
+      is_multi_tenant: true,
+      tenant_count: participating_tenants.length,
+      deployment_status: 'deployed',
+      deployment_config: deployment_config || {},
+      deployed_by_persona_id: deployedByPersonaId,
+      deployed_at: new Date().toISOString()
+    })
+    .select()
+    .single();
+
+  if (mtError) throw mtError;
+
+  // Auto-join tenants if configured
+  if (deployment_config?.auto_join) {
+    const tenantConfigs = participating_tenants.map(tenantId => ({
+      campaign_id,
+      tenant_id,
+      start_date: deployment_config.default_start_date || new Date().toISOString().split('T')[0],
+      time_of_day: deployment_config.default_time_of_day || '09:00',
+      channels: deployment_config.default_channels || ['linkedin', 'x'],
+      publishing_mode: deployment_config.default_publishing_mode || 'manual',
+      status: 'joined',
+      joined_by_persona_id: deployedByPersonaId
+    }));
+
+    const { error: configError } = await supabase
+      .from('marketa_tenant_campaign_config')
+      .insert(tenantConfigs);
+
+    if (configError) throw configError;
+  }
+
+  return multiTenantCampaign;
+}
+
+// Main API handlers
+export async function GET(request: NextRequest) {
+  try {
+    const isAdmin = await validateAdminAccess(request);
+    if (!isAdmin) {
+      return NextResponse.json(
+        { error: 'Admin access required' },
+        { status: 403 }
+      );
+    }
+
+    const { searchParams } = new URL(request.url);
+    const action = searchParams.get('action');
+
+    switch (action) {
+      case 'list':
+        const { data: campaigns, error: listError } = await supabase
+          .from('marketa_campaigns')
+          .select(`
+            *,
+            marketa_sequence_items(
+              id, day_number, title, description, asset_ref, 
+              cta_url, explainer, tags, status, thumbnail_url, 
+              duration_seconds, created_at, updated_at
+            )
+          `)
+          .order('created_at', { ascending: false });
+
+        if (listError) throw listError;
+
+        return NextResponse.json({
+          success: true,
+          campaigns: campaigns || []
+        });
+
+      case 'detail':
+        const campaignId = searchParams.get('campaignId');
+        if (!campaignId) {
+          return NextResponse.json(
+            { error: 'Campaign ID is required' },
+            { status: 400 }
+          );
+        }
+
+        const { data: campaign, error: detailError } = await supabase
+          .from('marketa_campaigns')
+          .select(`
+            *,
+            marketa_sequence_items(
+              day_number, title, description, asset_ref, 
+              copy_variants, cta_url, explainer, status, thumbnail_url
+            ),
+            marketa_partner_rewards(
+              tenant_id, reward_type, reward_value, active
+            )
+          `)
+          .eq('id', campaignId)
+          .single();
+
+        if (detailError) throw detailError;
+
+        return NextResponse.json({
+          success: true,
+          campaign
+        });
+
+      case 'tenants':
+        // Get available tenants for deployment
+        const publicSupabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!
+        );
+        
+        const { data: tenants, error: tenantsError } = await publicSupabase
+          .from('crm_tenants')
+          .select(`
+            id, name, type, status
+          `)
+          .eq('status', 'active')
+          .order('name');
+
+        if (tenantsError) throw tenantsError;
+
+        return NextResponse.json({
+          success: true,
+          tenants: tenants || []
+        });
+
+      case 'assets':
+        // Get available assets from QubeBase for sequence items
+        const assetType = searchParams.get('type') || 'video';
+        const limit = parseInt(searchParams.get('limit') || '50');
+
+        // This would query your QubeBase content system
+        // For now, return mock data structure
+        const mockAssets = {
+          videos: [
+            { id: 'metaknyts_scroll_1_1', title: 'Day 1: The Awakening', duration: 300 },
+            { id: 'metaknyts_scroll_1_2', title: 'Day 2: Inner Stillness', duration: 280 },
+            { id: 'metaknyts_scroll_1_3', title: 'Day 3: Mindful Awareness', duration: 320 }
+          ],
+          images: [
+            { id: 'awakenings_img_1', title: 'Consciousness Grid', dimensions: '1920x1080' },
+            { id: 'awakenings_img_2', title: 'Sacred Geometry', dimensions: '1080x1080' }
+          ]
+        };
+
+        return NextResponse.json({
+          success: true,
+          assets: mockAssets[assetType] || []
+        });
+
+      case 'delete':
+        const deleteCampaignId = searchParams.get('campaignId');
+        if (!deleteCampaignId) {
+          return NextResponse.json(
+            { error: 'Campaign ID is required' },
+            { status: 400 }
+          );
+        }
+
+        // Only allow deletion of draft campaigns
+        const { data: campaignToDelete, error: fetchError } = await supabase
+          .from('marketa_campaigns')
+          .select('status')
+          .eq('id', deleteCampaignId)
+          .single();
+
+        if (fetchError) throw fetchError;
+        
+        if (campaignToDelete.status !== 'draft') {
+          return NextResponse.json(
+            { error: 'Only draft campaigns can be deleted' },
+            { status: 400 }
+          );
+        }
+
+        // Delete sequence items first (foreign key constraint)
+        await supabase
+          .from('marketa_sequence_items')
+          .delete()
+          .eq('campaign_id', deleteCampaignId);
+
+        // Delete the campaign
+        const { error: deleteError } = await supabase
+          .from('marketa_campaigns')
+          .delete()
+          .eq('id', deleteCampaignId);
+
+        if (deleteError) throw deleteError;
+
+        return NextResponse.json({
+          success: true,
+          message: 'Campaign deleted successfully'
+        });
+
+      case 'archive':
+        const archiveCampaignId = searchParams.get('campaignId');
+        if (!archiveCampaignId) {
+          return NextResponse.json(
+            { error: 'Campaign ID is required' },
+            { status: 400 }
+          );
+        }
+
+        // Only allow archiving of completed campaigns
+        const { data: campaignToArchive, error: archiveFetchError } = await supabase
+          .from('marketa_campaigns')
+          .select('status')
+          .eq('id', archiveCampaignId)
+          .single();
+
+        if (archiveFetchError) throw archiveFetchError;
+        
+        if (campaignToArchive.status !== 'completed') {
+          return NextResponse.json(
+            { error: 'Only completed campaigns can be archived' },
+            { status: 400 }
+          );
+        }
+
+        // Archive the campaign
+        const { error: archiveError } = await supabase
+          .from('marketa_campaigns')
+          .update({ 
+            status: 'archived',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', archiveCampaignId);
+
+        if (archiveError) throw archiveError;
+
+        return NextResponse.json({
+          success: true,
+          message: 'Campaign archived successfully'
+        });
+
+      default:
+        return NextResponse.json(
+          { error: 'Unknown action' },
+          { status: 400 }
+        );
+    }
+
+  } catch (error: any) {
+    console.error('Admin campaigns API error:', error);
+    return NextResponse.json(
+      { error: error.message || 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const isAdmin = await validateAdminAccess(request);
+    if (!isAdmin) {
+      return NextResponse.json(
+        { error: 'Admin access required' },
+        { status: 403 }
+      );
+    }
+
+    const body = await request.json();
+    const { action } = body;
+
+    const personaId = request.headers.get('x-persona-id')!;
+
+    switch (action) {
+      case 'seed_21_awakenings':
+        // Create the 21 Awakenings campaign with proper sequence
+        const campaignData: AdminCampaignRequest = {
+          name: '21 Awakenings',
+          description: 'A 21-day consciousness expansion journey featuring Qriptopian Shard content. Share daily videos across social media to earn KNYT COIN rewards.',
+          campaign_type: 'sequence',
+          helix_thread: 'bridge',
+          primary_cta: 'Share today\'s awakening video to earn KNYT COIN',
+          secondary_cta: 'Join the community of conscious creators',
+          sequence_length: 21,
+          metadata: {
+            campaign_objective: 'Encourage consumers to share 21 Awakenings clips across social media and earn KNYT COIN',
+            target_audience: 'Social media users, content creators, consciousness seekers',
+            reward_mechanism: 'KNYT COIN for video shares',
+            partner_benefits: 'Community engagement, brand visibility, user acquisition',
+            content_type: 'video_sequence',
+            platform_focus: 'social_sharing',
+            created_for: 'partner_activation'
+          }
+        };
+
+        // Create sequence items for 21 days
+        const sequenceItems: SequenceItemRequest[] = Array.from({ length: 21 }, (_, i) => ({
+          day_number: i + 1,
+          title: `Awakening Day ${i + 1}`,
+          description: `Day ${i + 1} of your 21-day consciousness expansion journey`,
+          asset_ref: `smart_content_qubes:${i + 1}-awakening-shard`,
+          cta_url: 'https://knyt.ai/claim-reward',
+          explainer: i === 0, // First day is explainer
+          tags: ['21-awakenings', 'consciousness', 'knyt-coin', 'day-' + (i + 1)],
+          thumbnail_url: `/api/placeholder/400/300?text=Day+${i + 1}`,
+          duration_seconds: 300 // 5 minutes per video
+        }));
+
+        const campaign = await createCampaignWithSequence(
+          campaignData,
+          sequenceItems,
+          personaId
+        );
+
+        return NextResponse.json({
+          success: true,
+          campaign,
+          message: '21 Awakenings campaign created successfully with 21-day sequence'
+        });
+
+      case 'create_campaign':
+        const createCampaignData: AdminCampaignRequest = body.campaign;
+        const createSequenceItems: SequenceItemRequest[] = body.sequence_items || [];
+
+        if (!createCampaignData.name || !createCampaignData.campaign_type) {
+          return NextResponse.json(
+            { error: 'Campaign name and type are required' },
+            { status: 400 }
+          );
+        }
+
+        const createdCampaign = await createCampaignWithSequence(
+          createCampaignData,
+          createSequenceItems,
+          personaId
+        );
+
+        return NextResponse.json({
+          success: true,
+          campaign: createdCampaign,
+          message: 'Campaign created successfully'
+        });
+
+      case 'update_campaign':
+        const { campaignId, updates } = body;
+
+        if (!campaignId || !updates) {
+          return NextResponse.json(
+            { error: 'Campaign ID and updates are required' },
+            { status: 400 }
+          );
+        }
+
+        const { data: updatedCampaign, error: updateError } = await supabase
+          .from('marketa_campaigns')
+          .update({
+            ...updates,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', campaignId)
+          .select()
+          .single();
+
+        if (updateError) throw updateError;
+
+        return NextResponse.json({
+          success: true,
+          campaign: updatedCampaign,
+          message: 'Campaign updated successfully'
+        });
+
+      case 'add_sequence_item':
+        const sequenceItem: SequenceItemRequest = body.sequence_item;
+        const targetCampaignId = body.campaign_id;
+
+        if (!sequenceItem || !targetCampaignId) {
+          return NextResponse.json(
+            { error: 'Sequence item and campaign ID are required' },
+            { status: 400 }
+          );
+        }
+
+        const { data: newItem, error: itemError } = await supabase
+          .from('marketa_sequence_items')
+          .insert({
+            campaign_id: targetCampaignId,
+            ...sequenceItem,
+            status: 'ready'
+          })
+          .select()
+          .single();
+
+        if (itemError) throw itemError;
+
+        return NextResponse.json({
+          success: true,
+          sequence_item: newItem,
+          message: 'Sequence item added successfully'
+        });
+
+      case 'deploy_multi_tenant':
+        const deploymentData: MultiTenantDeploymentRequest = body.deployment;
+
+        if (!deploymentData.campaign_id || !deploymentData.participating_tenants?.length) {
+          return NextResponse.json(
+            { error: 'Campaign ID and participating tenants are required' },
+            { status: 400 }
+          );
+        }
+
+        const deployment = await deployMultiTenantCampaign(
+          deploymentData,
+          personaId
+        );
+
+        return NextResponse.json({
+          success: true,
+          deployment,
+          message: `Campaign deployed to ${deploymentData.participating_tenants.length} tenants`
+        });
+
+      case 'add_partner_reward':
+        const { rewardData } = body;
+
+        if (!rewardData.campaign_id || !rewardData.tenant_id || !rewardData.reward_type) {
+          return NextResponse.json(
+            { error: 'Campaign ID, tenant ID, and reward type are required' },
+            { status: 400 }
+          );
+        }
+
+        const { data: reward, error: rewardError } = await supabase
+          .from('marketa_partner_rewards')
+          .insert({
+            ...rewardData,
+            metadata: {
+              reward_type: rewardData.reward_type,
+              reward_value: rewardData.reward_value,
+              conditions: rewardData.conditions || {},
+              created_by_persona_id: personaId // Store in metadata instead
+            }
+          })
+          .select()
+          .single();
+
+        if (rewardError) throw rewardError;
+
+        return NextResponse.json({
+          success: true,
+          reward,
+          message: 'Partner reward added successfully'
+        });
+
+      case 'approve_campaign':
+        const { campaignId: approveId } = body;
+
+        if (!approveId) {
+          return NextResponse.json(
+            { error: 'Campaign ID is required' },
+            { status: 400 }
+          );
+        }
+
+        const { data: approvedCampaign, error: approveError } = await supabase
+          .from('marketa_campaigns')
+          .update({
+            status: 'active',
+            approved_by_persona_id: personaId,
+            approved_at: new Date().toISOString()
+          })
+          .eq('id', approveId)
+          .select()
+          .single();
+
+        if (approveError) throw approveError;
+
+        return NextResponse.json({
+          success: true,
+          campaign: approvedCampaign,
+          message: 'Campaign approved and activated'
+        });
+
+      default:
+        return NextResponse.json(
+          { error: 'Unknown action' },
+          { status: 400 }
+        );
+    }
+
+  } catch (error: any) {
+    console.error('Admin campaigns API error:', error);
+    return NextResponse.json(
+      { error: error.message || 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PUT(request: NextRequest) {
+  try {
+    const isAdmin = await validateAdminAccess(request);
+    if (!isAdmin) {
+      return NextResponse.json(
+        { error: 'Admin access required' },
+        { status: 403 }
+      );
+    }
+
+    const body = await request.json();
+    const { campaignId, updates } = body;
+
+    if (!campaignId || !updates) {
+      return NextResponse.json(
+        { error: 'Campaign ID and updates are required' },
+        { status: 400 }
+      );
+    }
+
+    const { data: updatedCampaign, error } = await supabase
+      .from('marketa_campaigns')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', campaignId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return NextResponse.json({
+      success: true,
+      campaign: updatedCampaign,
+      message: 'Campaign updated successfully'
+    });
+
+  } catch (error: any) {
+    console.error('Admin campaigns PUT error:', error);
+    return NextResponse.json(
+      { error: error.message || 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const isAdmin = await validateAdminAccess(request);
+    if (!isAdmin) {
+      return NextResponse.json(
+        { error: 'Admin access required' },
+        { status: 403 }
+      );
+    }
+
+    const { searchParams } = new URL(request.url);
+    const campaignId = searchParams.get('campaignId');
+
+    if (!campaignId) {
+      return NextResponse.json(
+        { error: 'Campaign ID is required' },
+        { status: 400 }
+      );
+    }
+
+    // Soft delete by updating status
+    const { error } = await supabase
+      .from('marketa_campaigns')
+      .update({
+        status: 'archived',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', campaignId);
+
+    if (error) throw error;
+
+    return NextResponse.json({
+      success: true,
+      message: 'Campaign archived successfully'
+    });
+
+  } catch (error: any) {
+    console.error('Admin campaigns DELETE error:', error);
+    return NextResponse.json(
+      { error: error.message || 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}

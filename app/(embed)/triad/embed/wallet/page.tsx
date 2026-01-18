@@ -26,14 +26,16 @@ function SmartWalletContent() {
   };
 
   return (
-    <SmartWalletDrawer
-      open={true}
-      onClose={() => {}} // No-op in embedded mode
-      variant="embedded"
-      embeddedWidth={density === 'wide' ? 'fixed' : 'fill'}
-      agent={agent}
-      codexMode={false} // Regular embed mode, not Codex
-    />
+    <div className="h-full">
+      <SmartWalletDrawer
+        open={true}
+        onClose={() => {}} // No-op in embedded mode
+        variant="embedded"
+        embeddedWidth={density === 'wide' ? 'fixed' : 'fill'}
+        agent={agent}
+        codexMode={false} // Regular embed mode, not Codex
+      />
+    </div>
   );
 }
 

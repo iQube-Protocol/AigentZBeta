@@ -137,9 +137,24 @@ ADD COLUMN IF NOT EXISTS last_synced_at TIMESTAMPTZ;
 
 CREATE OR REPLACE FUNCTION sync_registry_persona_link()
 RETURNS TRIGGER AS $$
+DECLARE
+  v_tenant_uuid UUID;
 BEGIN
   -- If CRM persona has identity link, ensure registry link exists
   IF NEW.identity_persona_id IS NOT NULL THEN
+    -- Resolve tenant UUID (crm_personas.tenant_id may be a UUID string or a slug like 'demo-tenant')
+    SELECT t.id
+    INTO v_tenant_uuid
+    FROM crm_tenants t
+    WHERE t.id::text = NEW.tenant_id
+       OR t.slug = NEW.tenant_id
+    LIMIT 1;
+
+    -- If tenant cannot be resolved, skip linking to avoid type mismatch / bad data
+    IF v_tenant_uuid IS NULL THEN
+      RETURN NEW;
+    END IF;
+
     INSERT INTO crm_registry_persona_links (
       registry_profile_id,
       persona_id,
@@ -149,7 +164,7 @@ BEGIN
     SELECT 
       rp.id,
       NEW.id,
-      NEW.tenant_id,
+      v_tenant_uuid,
       TRUE
     FROM crm_registry_profiles rp
     WHERE rp.kybe_did = NEW.kybe_did

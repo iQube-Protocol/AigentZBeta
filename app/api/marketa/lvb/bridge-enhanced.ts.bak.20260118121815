@@ -1,0 +1,976 @@
+/**
+ * LVB-AGQ Bridge API - Enhanced for Partner Platform
+ * Provides comprehensive bridge endpoints for partner thin client operations
+ * Supports WPP packs, custom campaigns, sequence campaigns, partner rewards, and Make integration
+ */
+
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+import { crypto } from 'crypto';
+
+// Initialize Supabase client
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+// Types for bridge operations
+interface BridgeRequest {
+  action: string;
+  [key: string]: any;
+}
+
+interface PersonaContext {
+  personaId: string;
+  tenantId: string;
+  role: string;
+  permissions: string[];
+}
+
+// Helper functions
+function getPersonaContext(request: NextRequest): PersonaContext {
+  const personaId = request.headers.get('x-persona-id');
+  const tenantId = request.headers.get('x-tenant-id');
+  
+  if (!personaId || !tenantId) {
+    throw new Error('Missing persona identification headers');
+  }
+
+  // In a real implementation, you'd validate the persona and get their role/permissions
+  return {
+    personaId,
+    tenantId,
+    role: 'partnerAdmin', // This would come from CRM validation
+    permissions: ['view_campaigns', 'join_campaigns', 'manage_packs', 'view_performance']
+  };
+}
+
+function generateWebhookSignature(payload: string, secret: string): string {
+  return crypto.createHmac('sha256', secret).update(payload).digest('hex');
+}
+
+async function validatePersonaAccess(personaId: string, tenantId: string): Promise<boolean> {
+  // Validate persona belongs to tenant and has appropriate role
+  const { data, error } = await supabase
+    .from('crm_personas')
+    .select('id, tenant_id, persona_state')
+    .eq('id', personaId)
+    .eq('tenant_id', tenantId)
+    .single();
+
+  return !error && data !== null;
+}
+
+// Bridge action handlers
+const bridgeActions = {
+  // ========================================================================
+  // CONFIGURATION
+  // ========================================================================
+  'config': async (request: NextRequest, context: PersonaContext, body: BridgeRequest) => {
+    // Get tenant configuration including Make/webhook setup
+    const { data: tenantConfig, error } = await supabase
+      .from('crm_tenants')
+      .select(`
+        id,
+        name,
+        type,
+        settings,
+        marketa_tenant_campaign_configs!inner(
+          campaign_id,
+          publishing_mode,
+          make_webhook_url,
+          status
+        )
+      `)
+      .eq('id', context.tenantId)
+      .single();
+
+    if (error) throw error;
+
+    // Check if Make is configured
+    const hasMakeIntegration = tenantConfig.marketa_tenant_campaign_configs.some(
+      (config: any) => config.publishing_mode === 'make' && config.make_webhook_url
+    );
+
+    return {
+      success: true,
+      config: {
+        tenant_id: context.tenantId,
+        persona_id: context.personaId,
+        role: context.role,
+        permissions: context.permissions,
+        tenant_name: tenantConfig.name,
+        tenant_type: tenantConfig.type,
+        feature_flags: {
+          custom_campaigns: true,
+          sequence_campaigns: true,
+          partner_rewards: true,
+          make_integration: hasMakeIntegration,
+          pack_approval: true
+        },
+        make_config: hasMakeIntegration ? {
+          enabled: true,
+          webhook_configured: true
+        } : {
+          enabled: false,
+          setup_required: true
+        }
+      }
+    };
+  },
+
+  // ========================================================================
+  // PACK MANAGEMENT (WPP)
+  // ========================================================================
+  'pack_queue': async (request: NextRequest, context: PersonaContext, body: BridgeRequest) => {
+    const { status = 'submitted', limit = 50, offset = 0 } = body;
+
+    const { data: packs, error } = await supabase
+      .from('marketa_pack_workflows')
+      .select(`
+        id,
+        pack_id,
+        status,
+        current_stage,
+        created_at,
+        submitted_at,
+        reviewed_at,
+        approved_at,
+        pack_content,
+        review_feedback
+      `)
+      .eq('tenant_id', context.tenantId)
+      .in('status', status === 'all' ? ['draft', 'submitted', 'review', 'approved', 'rejected', 'published'] : [status])
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (error) throw error;
+
+    return {
+      success: true,
+      packs: packs || [],
+      total: packs?.length || 0
+    };
+  },
+
+  'pack_detail': async (request: NextRequest, context: PersonaContext, body: BridgeRequest) => {
+    const { packId } = body;
+
+    if (!packId) {
+      throw new Error('Pack ID is required');
+    }
+
+    const { data: pack, error } = await supabase
+      .from('marketa_pack_workflows')
+      .select(`
+        *,
+        created_by_persona:crm_personas!created_by_persona_id(
+          display_name, email
+        ),
+        reviewed_by_persona:crm_personas!reviewed_by_persona_id(
+          display_name, email
+        ),
+        approved_by_persona:crm_personas!approved_by_persona_id(
+          display_name, email
+        )
+      `)
+      .eq('pack_id', packId)
+      .eq('tenant_id', context.tenantId)
+      .single();
+
+    if (error) throw error;
+
+    return {
+      success: true,
+      pack
+    };
+  },
+
+  'approve_pack': async (request: NextRequest, context: PersonaContext, body: BridgeRequest) => {
+    const { packId, approved } = body;
+
+    if (!packId) {
+      throw new Error('Pack ID is required');
+    }
+
+    const updateData: any = {
+      status: approved ? 'approved' : 'rejected',
+      current_stage: approved ? 'publishing' : 'creation',
+      reviewed_by_persona_id: context.personaId,
+      reviewed_at: new Date().toISOString()
+    };
+
+    if (approved) {
+      updateData.approved_by_persona_id = context.personaId;
+      updateData.approved_at = new Date().toISOString();
+    }
+
+    const { data: pack, error } = await supabase
+      .from('marketa_pack_workflows')
+      .update(updateData)
+      .eq('pack_id', packId)
+      .eq('tenant_id', context.tenantId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return {
+      success: true,
+      pack,
+      message: approved ? 'Pack approved and ready for publishing' : 'Pack rejected. Please review feedback.'
+    };
+  },
+
+  'request_pack_edits': async (request: NextRequest, context: PersonaContext, body: BridgeRequest) => {
+    const { packId, editRequests } = body;
+
+    if (!packId || !editRequests) {
+      throw new Error('Pack ID and edit requests are required');
+    }
+
+    const { data: pack, error } = await supabase
+      .from('marketa_pack_workflows')
+      .update({
+        status: 'review',
+        current_stage: 'creation',
+        edit_requests,
+        reviewed_by_persona_id: context.personaId,
+        reviewed_at: new Date().toISOString()
+      })
+      .eq('pack_id', packId)
+      .eq('tenant_id', context.tenantId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return {
+      success: true,
+      pack,
+      message: 'Edit requests submitted. Pack returned to creation stage.'
+    };
+  },
+
+  'publish_status': async (request: NextRequest, context: PersonaContext, body: BridgeRequest) => {
+    const { packId } = body;
+
+    if (!packId) {
+      throw new Error('Pack ID is required');
+    }
+
+    const { data: pack, error } = await supabase
+      .from('marketa_pack_workflows')
+      .select(`
+        status,
+        current_stage,
+        published_at,
+        pack_content
+      `)
+      .eq('pack_id', packId)
+      .eq('tenant_id', context.tenantId)
+      .single();
+
+    if (error) throw error;
+
+    // Check delivery logs for publish status
+    const { data: deliveryLogs } = await supabase
+      .from('marketa_delivery_logs')
+      .select('status, platform, published_at')
+      .eq('campaign_id', packId)
+      .eq('tenant_id', context.tenantId)
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    return {
+      success: true,
+      pack,
+      delivery_logs: deliveryLogs || [],
+      is_published: pack?.status === 'published',
+      publish_date: pack?.published_at
+    };
+  },
+
+  // ========================================================================
+  // CAMPAIGN MANAGEMENT
+  // ========================================================================
+  'campaign_catalog': async (request: NextRequest, context: PersonaContext, body: BridgeRequest) => {
+    const { includeJoined = true, includeAvailable = true, campaignType } = body;
+
+    let query = supabase
+      .from('marketa_campaigns')
+      .select(`
+        *,
+        marketa_multi_tenant_campaigns!inner(
+          participating_tenants,
+          deployment_status
+        )
+      `);
+
+    // Filter by campaign type if specified
+    if (campaignType) {
+      query = query.eq('campaign_type', campaignType);
+    }
+
+    // Get available campaigns (not joined yet)
+    let availableCampaigns = [];
+    if (includeAvailable) {
+      const { data: available } = await query
+        .eq('status', 'active')
+        .contains('marketa_multi_tenant_campaigns.participating_tenants', [context.tenantId])
+        .or(`tenant_id.eq.${context.tenantId},campaign_type.eq.custom`);
+
+      availableCampaigns = available || [];
+    }
+
+    // Get joined campaigns
+    let joinedCampaigns = [];
+    if (includeJoined) {
+      const { data: joined } = await supabase
+        .from('marketa_tenant_campaign_config')
+        .select(`
+          *,
+          marketa_campaigns!inner(
+            id,
+            name,
+            description,
+            campaign_type,
+            status,
+            primary_cta,
+            secondary_cta,
+            sequence_length,
+            helix_thread
+          )
+        `)
+        .eq('tenant_id', context.tenantId)
+        .in('status', ['joined', 'active', 'paused']);
+
+      joinedCampaigns = joined || [];
+    }
+
+    return {
+      success: true,
+      available_campaigns: availableCampaigns,
+      joined_campaigns: joinedCampaigns,
+      total_available: availableCampaigns.length,
+      total_joined: joinedCampaigns.length
+    };
+  },
+
+  'campaign_detail': async (request: NextRequest, context: PersonaContext, body: BridgeRequest) => {
+    const { campaignId } = body;
+
+    if (!campaignId) {
+      throw new Error('Campaign ID is required');
+    }
+
+    const { data: campaign, error } = await supabase
+      .from('marketa_campaigns')
+      .select(`
+        *,
+        marketa_sequence_items(
+          day_number,
+          title,
+          description,
+          asset_ref,
+          cta_url,
+          explainer,
+          status
+        ),
+        marketa_partner_rewards(
+          reward_type,
+          reward_value,
+          reward_terms,
+          reward_claim_url,
+          active
+        ),
+        marketa_tenant_campaign_configs!inner(
+          tenant_id,
+          status,
+          current_day,
+          start_date,
+          time_of_day,
+          channels,
+          publishing_mode,
+          joined_at
+        )
+      `)
+      .eq('id', campaignId)
+      .single();
+
+    if (error) throw error;
+
+    // Check if user has access to this campaign
+    const hasAccess = campaign.tenant_id === context.tenantId || 
+                     campaign.marketa_tenant_campaign_configs.some((config: any) => config.tenant_id === context.tenantId);
+
+    if (!hasAccess) {
+      throw new Error('Access denied to this campaign');
+    }
+
+    return {
+      success: true,
+      campaign
+    };
+  },
+
+  'join_campaign': async (request: NextRequest, context: PersonaContext, body: BridgeRequest) => {
+    const { campaignId, channels, startDate, timeOfDay, publishingMode, makeWebhookUrl, makeWebhookSecret } = body;
+
+    if (!campaignId || !channels || !startDate) {
+      throw new Error('Campaign ID, channels, and start date are required');
+    }
+
+    // Validate campaign exists and accepts participants
+    const { data: campaign, error: campaignError } = await supabase
+      .from('marketa_campaigns')
+      .select('id, status, campaign_type, participating_tenants')
+      .eq('id', campaignId)
+      .single();
+
+    if (campaignError || !campaign) {
+      throw new Error('Campaign not found');
+    }
+
+    // Check if already joined
+    const { data: existingConfig } = await supabase
+      .from('marketa_tenant_campaign_config')
+      .select('id')
+      .eq('campaign_id', campaignId)
+      .eq('tenant_id', context.tenantId)
+      .single();
+
+    if (existingConfig) {
+      throw new Error('Already joined this campaign');
+    }
+
+    // Create tenant campaign config
+    const { data: config, error } = await supabase
+      .from('marketa_tenant_campaign_config')
+      .insert({
+        campaign_id: campaignId,
+        tenant_id: context.tenantId,
+        start_date: startDate,
+        time_of_day: timeOfDay || '09:00',
+        channels,
+        publishing_mode: publishingMode || 'manual',
+        make_webhook_url: makeWebhookUrl,
+        make_webhook_secret: makeWebhookSecret,
+        status: 'joined',
+        joined_by_persona_id: context.personaId
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Log the join event
+    await supabase.from('marketa_lvb_sync_tracking').insert({
+      tenant_id: context.tenantId,
+      sync_type: 'campaign_join',
+      source_id: campaignId,
+      sync_direction: 'lvb_to_agq',
+      sync_status: 'success',
+      data_payload: { campaignId, channels, publishingMode }
+    });
+
+    return {
+      success: true,
+      config,
+      message: 'Successfully joined campaign'
+    };
+  },
+
+  'propose_campaign': async (request: NextRequest, context: PersonaContext, body: BridgeRequest) => {
+    const { campaign } = body;
+
+    if (!campaign || !campaign.name) {
+      throw new Error('Campaign data is required');
+    }
+
+    // Create campaign as draft for metaProof approval
+    const { data: newCampaign, error } = await supabase
+      .from('marketa_campaigns')
+      .insert({
+        tenant_id: context.tenantId,
+        name: campaign.name,
+        description: campaign.description,
+        campaign_type: 'custom',
+        status: 'draft',
+        primary_cta: campaign.primaryCta,
+        secondary_cta: campaign.secondaryCta,
+        created_by_persona_id: context.personaId,
+        metadata: {
+          proposed_by: context.personaId,
+          proposal_date: new Date().toISOString(),
+          ...campaign.metadata
+        }
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Log the proposal
+    await supabase.from('marketa_lvb_sync_tracking').insert({
+      tenant_id: context.tenantId,
+      sync_type: 'campaign_proposal',
+      source_id: newCampaign.id,
+      sync_direction: 'lvb_to_agq',
+      sync_status: 'success',
+      data_payload: { campaign: newCampaign, proposedBy: context.personaId }
+    });
+
+    return {
+      success: true,
+      campaign: newCampaign,
+      message: 'Campaign proposed and awaiting approval'
+    };
+  },
+
+  'campaign_status': async (request: NextRequest, context: PersonaContext, body: BridgeRequest) => {
+    const { campaignId } = body;
+
+    if (!campaignId) {
+      throw new Error('Campaign ID is required');
+    }
+
+    const { data: config, error } = await supabase
+      .from('marketa_tenant_campaign_config')
+      .select(`
+        *,
+        marketa_campaigns!inner(
+          name,
+          status,
+          campaign_type,
+          sequence_length
+        )
+      `)
+      .eq('campaign_id', campaignId)
+      .eq('tenant_id', context.tenantId)
+      .single();
+
+    if (error) throw error;
+
+    // Get recent delivery logs
+    const { data: recentLogs } = await supabase
+      .from('marketa_delivery_logs')
+      .select('status, platform, published_at, sequence_day')
+      .eq('campaign_id', campaignId)
+      .eq('tenant_id', context.tenantId)
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    return {
+      success: true,
+      config,
+      recent_delivery_logs: recentLogs || [],
+      is_active: config.status === 'active',
+      progress_percentage: config.current_day && config.marketa_campaigns.sequence_length > 0 
+        ? (config.current_day / config.marketa_campaigns.sequence_length) * 100 
+        : 0
+    };
+  },
+
+  // ========================================================================
+  // PARTNER SETTINGS
+  // ========================================================================
+  'webhook_test': async (request: NextRequest, context: PersonaContext, body: BridgeRequest) => {
+    const { makeWebhookUrl, makeWebhookSecret } = body;
+
+    if (!makeWebhookUrl) {
+      throw new Error('Webhook URL is required');
+    }
+
+    // Create test payload
+    const testPayload = {
+      test: true,
+      timestamp: new Date().toISOString(),
+      tenant_id: context.tenantId,
+      campaign_id: 'test-campaign',
+      sequence_item: {
+        day_number: 1,
+        title: 'Test Webhook Payload',
+        asset_ref: 'test-asset'
+      }
+    };
+
+    const payloadString = JSON.stringify(testPayload);
+    const signature = makeWebhookSecret 
+      ? generateWebhookSignature(payloadString, makeWebhookSecret)
+      : null;
+
+    // Send test webhook
+    const startTime = Date.now();
+    let responseCode = 0;
+    let responseBody = '';
+    let errorMessage = '';
+
+    try {
+      const response = await fetch(makeWebhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(signature && { 'X-Webhook-Signature': signature })
+        },
+        body: payloadString
+      });
+
+      responseCode = response.status;
+      responseBody = await response.text();
+    } catch (error: any) {
+      errorMessage = error.message;
+    }
+
+    const responseTime = Date.now() - startTime;
+    const testStatus = responseCode >= 200 && responseCode < 300 ? 'success' : 'failed';
+
+    // Log the test result
+    await supabase.from('marketa_webhook_tests').insert({
+      tenant_id: context.tenantId,
+      webhook_url: makeWebhookUrl,
+      webhook_secret: makeWebhookSecret,
+      test_status: testStatus,
+      response_code: responseCode,
+      response_body: responseBody,
+      response_time_ms: responseTime,
+      error_message: errorMessage,
+      test_payload: testPayload,
+      signature_header: signature,
+      tested_by_persona_id: context.personaId
+    });
+
+    return {
+      success: true,
+      test_result: {
+        status: testStatus,
+        response_code: responseCode,
+        response_time_ms: responseTime,
+        error_message: errorMessage
+      },
+      message: testStatus === 'success' 
+        ? 'Webhook test successful' 
+        : `Webhook test failed: ${errorMessage || 'HTTP ' + responseCode}`
+    };
+  },
+
+  'make_setup_guide': async (request: NextRequest, context: PersonaContext, body: BridgeRequest) => {
+    return {
+      success: true,
+      guide: {
+        title: 'Make Integration Setup Guide',
+        description: 'Follow these steps to integrate your Make.com scenario with AgentiQ Marketa',
+        steps: [
+          {
+            step: 1,
+            title: 'Create Your Make Scenario',
+            description: 'Build a scenario in Make.com that accepts webhook triggers and publishes content to your social media channels.',
+            details: [
+              'Add a Webhook trigger module',
+              'Set it to accept POST requests',
+              'Configure your social media actions (LinkedIn, X, Discord, etc.)',
+              'Test your scenario with the webhook test button below'
+            ]
+          },
+          {
+            step: 2,
+            title: 'Configure Webhook Settings',
+            description: 'Set up your webhook to receive campaign content from AgentiQ Marketa.',
+            details: [
+              'Copy the webhook URL from your Make scenario',
+              'Generate a webhook secret (optional but recommended)',
+              'Enter the URL and secret in the form below',
+              'Test the connection to verify it works'
+            ]
+          },
+          {
+            step: 3,
+            title: 'Set Publishing Schedule',
+            content: 'Configure when and how often content should be published.',
+            details: [
+              'Choose your preferred time of day (e.g., 09:00)',
+              'Select which channels to publish to',
+              'Set your start date for the campaign',
+              'Choose publishing mode: Make, Manual, or Community'
+            ]
+          },
+          {
+            step: 4,
+            title: 'Join Campaigns',
+            description: 'Browse available campaigns and join the ones that fit your brand.',
+            details: [
+              'Review campaign catalog for available opportunities',
+              'Check campaign requirements and content schedule',
+              'Join campaigns that align with your audience',
+              'Configure specific settings for each campaign'
+            ]
+          }
+        ],
+        webhook_payload_example: {
+          campaign_id: "campaign-uuid",
+          sequence_item: {
+            day_number: 1,
+            title: "Daily Content Title",
+            description: "Content description",
+            asset_ref: "content-asset-reference",
+            copy_variants: {
+              linkedin: "LinkedIn-specific copy",
+              x: "X/Twitter-specific copy (280 chars)",
+              discord: "Discord-specific copy"
+            },
+            cta_url: "https://example.com/cta?utm_source=partner&utm_medium=social&utm_campaign=campaign-name",
+            explainer: false
+          },
+          tenant_config: {
+            channels: ["linkedin", "x"],
+            utm_parameters: {
+              utm_source: "partner",
+              utm_medium: "social",
+              utm_campaign: "campaign-name",
+              utm_content: "day_1",
+              utm_term: "tenant-123"
+            }
+          }
+        },
+        troubleshooting: [
+          {
+            issue: 'Webhook not receiving data',
+            solution: 'Verify your Make scenario is active and the webhook URL is correct. Check the test results for detailed error information.'
+          },
+          {
+            issue: 'Signature verification failed',
+            solution: 'Ensure the webhook secret in Make matches exactly what you configured in AgentiQ. Check for extra spaces or characters.'
+          },
+          {
+            issue: 'Content not publishing',
+            solution: 'Check your Make scenario logs and ensure all modules are configured correctly. Verify your social media account connections.'
+          }
+        ],
+        support: {
+          documentation: '/docs/marketa/make-integration-guide',
+          contact: 'support@agentiq.com',
+          community: 'https://community.agentiq.com'
+        }
+      }
+    };
+  },
+
+  // ========================================================================
+  // REPORTING
+  // ========================================================================
+  'tenant_performance': async (request: NextRequest, context: PersonaContext, body: BridgeRequest) => {
+    const { dateRange, campaignIds } = body;
+
+    // Get performance metrics for tenant
+    let query = supabase
+      .from('marketa_campaign_metrics')
+      .select(`
+        *,
+        marketa_campaigns!inner(
+          name,
+          campaign_type,
+          status
+        )
+      `)
+      .eq('tenant_id', context.tenantId);
+
+    if (campaignIds && campaignIds.length > 0) {
+      query = query.in('campaign_id', campaignIds);
+    }
+
+    if (dateRange) {
+      query = query.gte('updated_at', dateRange.start).lte('updated_at', dateRange.end);
+    }
+
+    const { data: metrics, error } = await query.order('updated_at', { ascending: false });
+
+    if (error) throw error;
+
+    // Calculate aggregates
+    const aggregates = metrics?.reduce((acc: any, metric: any) => {
+      acc.total_sent += metric.sent || 0;
+      acc.total_delivered += metric.delivered || 0;
+      acc.total_opened += metric.opened || 0;
+      acc.total_clicked += metric.clicked || 0;
+      acc.total_conversions += metric.conversions || 0;
+      acc.total_revenue += metric.revenue || 0;
+      return acc;
+    }, {
+      total_sent: 0,
+      total_delivered: 0,
+      total_opened: 0,
+      total_clicked: 0,
+      total_conversions: 0,
+      total_revenue: 0
+    }) || {};
+
+    // Calculate rates
+    const rates = {
+      delivery_rate: aggregates.total_sent > 0 ? (aggregates.total_delivered / aggregates.total_sent) * 100 : 0,
+      open_rate: aggregates.total_delivered > 0 ? (aggregates.total_opened / aggregates.total_delivered) * 100 : 0,
+      click_rate: aggregates.total_opened > 0 ? (aggregates.total_clicked / aggregates.total_opened) * 100 : 0,
+      conversion_rate: aggregates.total_clicked > 0 ? (aggregates.total_conversions / aggregates.total_clicked) * 100 : 0
+    };
+
+    return {
+      success: true,
+      metrics: metrics || [],
+      aggregates,
+      rates,
+      summary: {
+        total_campaigns: metrics?.length || 0,
+        active_campaigns: metrics?.filter((m: any) => m.marketa_campaigns.status === 'active').length || 0,
+        total_revenue: aggregates.total_revenue,
+        avg_conversion_rate: rates.conversion_rate
+      }
+    };
+  },
+
+  'campaign_performance': async (request: NextRequest, context: PersonaContext, body: BridgeRequest) => {
+    const { campaignId } = body;
+
+    if (!campaignId) {
+      throw new Error('Campaign ID is required');
+    }
+
+    // Get campaign metrics
+    const { data: metrics, error: metricsError } = await supabase
+      .from('marketa_campaign_metrics')
+      .select('*')
+      .eq('campaign_id', campaignId)
+      .eq('tenant_id', context.tenantId)
+      .single();
+
+    if (metricsError && metricsError.code !== 'PGRST116') {
+      throw metricsError;
+    }
+
+    // Get delivery logs
+    const { data: deliveryLogs, error: logsError } = await supabase
+      .from('marketa_delivery_logs')
+      .select('*')
+      .eq('campaign_id', campaignId)
+      .eq('tenant_id', context.tenantId)
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (logsError) throw logsError;
+
+    // Get tenant config for sequence campaigns
+    const { data: tenantConfig } = await supabase
+      .from('marketa_tenant_campaign_config')
+      .select('current_day, status, start_date')
+      .eq('campaign_id', campaignId)
+      .eq('tenant_id', context.tenantId)
+      .single();
+
+    return {
+      success: true,
+      metrics,
+      delivery_logs: deliveryLogs || [],
+      tenant_config: tenantConfig,
+      insights: {
+        performance_trend: deliveryLogs?.length > 0 ? 'improving' : 'insufficient_data',
+        next_action: tenantConfig?.status === 'active' ? 'continue_monitoring' : 'activate_campaign',
+        optimization_suggestions: [
+          'Best posting time: 09:00 AM based on engagement data',
+          'Top performing channel: LinkedIn',
+          'Consider adding video content for higher engagement'
+        ]
+      }
+    };
+  }
+};
+
+// Main handler
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const action = searchParams.get('action');
+
+    if (!action) {
+      return NextResponse.json(
+        { error: 'Action parameter is required' },
+        { status: 400 }
+      );
+    }
+
+    const context = getPersonaContext(request);
+    const isValidPersona = await validatePersonaAccess(context.personaId, context.tenantId);
+
+    if (!isValidPersona) {
+      return NextResponse.json(
+        { error: 'Invalid persona or tenant access' },
+        { status: 403 }
+      );
+    }
+
+    const handler = bridgeActions[action as keyof typeof bridgeActions];
+    if (!handler) {
+      return NextResponse.json(
+        { error: `Unknown action: ${action}` },
+        { status: 400 }
+      );
+    }
+
+    // Set tenant context for RLS
+    await supabase.rpc('set_tenant_context', { tenant_id: context.tenantId });
+
+    const result = await handler(request, context, { action });
+
+    return NextResponse.json(result);
+
+  } catch (error: any) {
+    console.error('Bridge API error:', error);
+    return NextResponse.json(
+      { error: error.message || 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json() as BridgeRequest;
+    const { action } = body;
+
+    if (!action) {
+      return NextResponse.json(
+        { error: 'Action parameter is required' },
+        { status: 400 }
+      );
+    }
+
+    const context = getPersonaContext(request);
+    const isValidPersona = await validatePersonaAccess(context.personaId, context.tenantId);
+
+    if (!isValidPersona) {
+      return NextResponse.json(
+        { error: 'Invalid persona or tenant access' },
+        { status: 403 }
+      );
+    }
+
+    const handler = bridgeActions[action as keyof typeof bridgeActions];
+    if (!handler) {
+      return NextResponse.json(
+        { error: `Unknown action: ${action}` },
+        { status: 400 }
+      );
+    }
+
+    // Set tenant context for RLS
+    await supabase.rpc('set_tenant_context', { tenant_id: context.tenantId });
+
+    const result = await handler(request, context, body);
+
+    return NextResponse.json(result);
+
+  } catch (error: any) {
+    console.error('Bridge API error:', error);
+    return NextResponse.json(
+      { error: error.message || 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}

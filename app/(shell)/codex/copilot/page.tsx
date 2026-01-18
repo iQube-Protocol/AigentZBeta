@@ -1,11 +1,32 @@
 "use client";
 
 import { useState } from "react";
-import { Brain, Settings, Code, Sparkles } from "lucide-react";
+import { CodexCopilotLayer } from "@/app/components/codex/CodexCopilotLayer";
+import { Brain, Settings, Code, Sparkles, Bot, MessageSquare } from "lucide-react";
 
 export default function CopilotViewerPage() {
+  const [isCopilotOpen, setIsCopilotOpen] = useState(true); // Start open for testing
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [density, setDensity] = useState<'narrow' | 'wide'>('wide');
+
+  // Debug logging for copilot state
+  const handleOpenCopilot = () => {
+    console.log('🔥 Opening copilot - setting isCopilotOpen to true');
+    setIsCopilotOpen(true);
+  };
+
+  const handleCloseCopilot = () => {
+    console.log('🔥 Closing copilot - setting isCopilotOpen to false');
+    setIsCopilotOpen(false);
+  };
+
+  // Sample agent data - in real app this would come from context
+  const agent = {
+    id: "codex-agent",
+    name: "Codex Explorer",
+    fioHandle: "codex@explorer",
+    evmSepolia: "0x1234567890123456789012345678901234567890" as `0x${string}`,
+  };
 
   return (
     <div className="h-screen flex flex-col bg-slate-900">
@@ -15,13 +36,22 @@ export default function CopilotViewerPage() {
           <div className="flex items-center gap-3">
             <Brain className="w-6 h-6 text-emerald-400" />
             <div>
-              <h1 className="text-xl font-bold text-white">Copilot Interface</h1>
-              <p className="text-sm text-slate-400">Test and configure the Copilot embed component</p>
+              <h1 className="text-xl font-bold text-white">Codex Copilot</h1>
+              <p className="text-sm text-slate-400">Enhanced AI assistant with Codex knowledge base</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Settings className="w-5 h-5 text-slate-400" />
-            <span className="text-sm text-slate-400">Component Tester</span>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleOpenCopilot}
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition-colors"
+            >
+              <MessageSquare className="w-4 h-4" />
+              Open Copilot
+            </button>
+            <div className="flex items-center gap-2">
+              <Settings className="w-5 h-5 text-slate-400" />
+              <span className="text-sm text-slate-400">Enhanced Mode</span>
+            </div>
           </div>
         </div>
       </div>
@@ -65,7 +95,7 @@ export default function CopilotViewerPage() {
                   onClick={() => setDensity('narrow')}
                   className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                     density === 'narrow'
-                      ? 'bg-emerald-500 text-white'
+                      ? 'bg-indigo-500 text-white'
                       : 'bg-slate-700/50 text-slate-400 hover:bg-slate-700'
                   }`}
                 >
@@ -75,7 +105,7 @@ export default function CopilotViewerPage() {
                   onClick={() => setDensity('wide')}
                   className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                     density === 'wide'
-                      ? 'bg-emerald-500 text-white'
+                      ? 'bg-indigo-500 text-white'
                       : 'bg-slate-700/50 text-slate-400 hover:bg-slate-700'
                   }`}
                 >
@@ -84,89 +114,119 @@ export default function CopilotViewerPage() {
               </div>
             </div>
 
-            {/* Component Info */}
+            {/* Features */}
             <div>
-              <label className="block text-sm font-semibold text-slate-300 mb-3">Features</label>
+              <h3 className="text-sm font-semibold text-slate-300 mb-3">Enhanced Features</h3>
               <div className="space-y-2">
-                <div className="flex items-center gap-2 text-xs text-slate-400">
-                  <div className="w-2 h-2 rounded-full bg-emerald-400"></div>
-                  <span>AI-powered assistance</span>
+                <div className="flex items-center gap-2 text-sm text-slate-400">
+                  <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                  Codex knowledge base integration
                 </div>
-                <div className="flex items-center gap-2 text-xs text-slate-400">
-                  <div className="w-2 h-2 rounded-full bg-emerald-400"></div>
-                  <span>Context-aware suggestions</span>
+                <div className="flex items-center gap-2 text-sm text-slate-400">
+                  <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                  Context-aware responses
                 </div>
-                <div className="flex items-center gap-2 text-xs text-slate-400">
-                  <div className="w-2 h-2 rounded-full bg-emerald-400"></div>
-                  <span>Natural language interface</span>
+                <div className="flex items-center gap-2 text-sm text-slate-400">
+                  <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                  Smart Wallet integration
                 </div>
-                <div className="flex items-center gap-2 text-xs text-slate-400">
-                  <div className="w-2 h-2 rounded-full bg-emerald-400"></div>
-                  <span>Action execution</span>
+                <div className="flex items-center gap-2 text-sm text-slate-400">
+                  <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                  KNYT/Qriptopian mode switching
+                </div>
+                <div className="flex items-center gap-2 text-sm text-slate-400">
+                  <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                  MetaAvatar integration
+                </div>
+                <div className="flex items-center gap-2 text-sm text-slate-400">
+                  <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                  Enhanced UI from Netlify
                 </div>
               </div>
             </div>
 
-            {/* Status */}
-            <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Sparkles className="w-4 h-4 text-amber-400" />
-                <span className="text-sm font-semibold text-amber-300">Coming Soon</span>
-              </div>
-              <p className="text-xs text-amber-300">
-                The Copilot embed component is currently under development. This page will provide a full testing interface once the component is ready.
-              </p>
-            </div>
-
-            {/* Planned Features */}
+            {/* Knowledge Base */}
             <div>
-              <label className="block text-sm font-semibold text-slate-300 mb-3">Planned Features</label>
+              <h3 className="text-sm font-semibold text-slate-300 mb-3">Knowledge Sources</h3>
               <div className="space-y-2">
-                <div className="bg-slate-900/50 rounded-lg p-3 border border-slate-700/50">
-                  <div className="text-xs font-medium text-slate-300 mb-1">Chat Interface</div>
-                  <div className="text-xs text-slate-500">Natural language conversation with AI agents</div>
+                <div className="flex items-center gap-2 text-sm text-slate-400">
+                  <Code className="w-4 h-4" />
+                  Codex episodes & content
                 </div>
-                <div className="bg-slate-900/50 rounded-lg p-3 border border-slate-700/50">
-                  <div className="text-xs font-medium text-slate-300 mb-1">Action Cards</div>
-                  <div className="text-xs text-slate-500">Visual cards for suggested actions and workflows</div>
+                <div className="flex items-center gap-2 text-sm text-slate-400">
+                  <Bot className="w-4 h-4" />
+                  Character information
                 </div>
-                <div className="bg-slate-900/50 rounded-lg p-3 border border-slate-700/50">
-                  <div className="text-xs font-medium text-slate-300 mb-1">Context Panel</div>
-                  <div className="text-xs text-slate-500">Display relevant context and data</div>
+                <div className="flex items-center gap-2 text-sm text-slate-400">
+                  <Sparkles className="w-4 h-4" />
+                  Lore & world-building
                 </div>
-                <div className="bg-slate-900/50 rounded-lg p-3 border border-slate-700/50">
-                  <div className="text-xs font-medium text-slate-300 mb-1">History</div>
-                  <div className="text-xs text-slate-500">View and replay previous interactions</div>
+                <div className="flex items-center gap-2 text-sm text-slate-400">
+                  <Brain className="w-4 h-4" />
+                  MetaKnyts universe
                 </div>
               </div>
             </div>
 
-            {/* Info */}
-            <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-4">
-              <p className="text-xs text-emerald-300">
-                <strong>Testing Mode:</strong> This page will allow you to test and configure the Copilot interface before embedding in thin clients.
-              </p>
+            {/* Usage */}
+            <div>
+              <h3 className="text-sm font-semibold text-slate-300 mb-3">Usage Examples</h3>
+              <div className="space-y-2 text-xs text-slate-400">
+                <p>"Tell me about Episode 1"</p>
+                <p>"Who are the main characters?"</p>
+                <p>"What are rare editions?"</p>
+                <p>"How do I earn more KNYT?"</p>
+                <p>"What's the difference between motion and print?"</p>
+                <p>"Explain the metaKnyts story"</p>
+              </div>
+            </div>
+
+            {/* Instructions */}
+            <div>
+              <h3 className="text-sm font-semibold text-slate-300 mb-3">Instructions</h3>
+              <div className="text-xs text-slate-400 space-y-1">
+                <p>• Click "Open Copilot" to start chatting</p>
+                <p>• Switch between KNYT and Qriptopian modes</p>
+                <p>• Access Smart Wallet from copilot</p>
+                <p>• Ask about any Codex content</p>
+                <p>• Get personalized recommendations</p>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Component Preview */}
-        <div className="flex-1 overflow-hidden bg-slate-900 flex items-center justify-center">
-          <div className="text-center space-y-4 max-w-md">
-            <div className="w-20 h-20 mx-auto bg-emerald-500/10 rounded-full flex items-center justify-center">
-              <Brain className="w-10 h-10 text-emerald-400" />
+        {/* Preview Area */}
+        <div className="flex-1 bg-slate-900/50 flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-20 h-20 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Bot className="w-10 h-10 text-white" />
             </div>
-            <h2 className="text-2xl font-bold text-white">Copilot Interface</h2>
-            <p className="text-slate-400">
-              The Copilot embed component is currently under development. Check back soon for a full testing interface.
+            <h3 className="text-xl font-semibold text-white mb-3">Codex Copilot Ready</h3>
+            <p className="text-slate-400 mb-6 max-w-md">
+              Enhanced AI assistant with deep knowledge of the Codex content library. 
+              Ask questions about episodes, characters, lore, and more.
             </p>
-            <div className="flex items-center justify-center gap-2 text-sm text-slate-500">
-              <Sparkles className="w-4 h-4" />
-              <span>Coming Soon</span>
-            </div>
+            <button
+              onClick={handleOpenCopilot}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition-colors"
+            >
+              <MessageSquare className="w-5 h-5" />
+              Start Chatting
+            </button>
           </div>
         </div>
       </div>
+
+      {/* Codex Copilot Layer */}
+      <CodexCopilotLayer
+        isOpen={isCopilotOpen}
+        onClose={handleCloseCopilot}
+        agent={agent}
+        walletBalance={1000}
+        nftCount={5}
+        isFirstVisit={false}
+        visitCount={1}
+      />
     </div>
   );
 }
