@@ -144,7 +144,11 @@ export default function ArticlePage() {
     const params = new URLSearchParams(window.location.search);
     const preferredType = params.get('type');
     const hasText = !!article.modalities?.read?.text;
-    const hasVideo = !!article.modalities?.watch?.video_url;
+    const resolvedVideoUrl =
+      article.modalities?.watch?.video_url ||
+      article.modalities?.watch?.url ||
+      article.modalities?.watch?.videoUrl;
+    const hasVideo = !!resolvedVideoUrl;
 
     if (preferredType === 'video' && hasVideo) {
       setViewMode('video');
@@ -210,7 +214,11 @@ export default function ArticlePage() {
     );
   }
 
-  const hasVideo = !!article.modalities?.watch?.video_url;
+  const resolvedVideoUrl =
+    article.modalities?.watch?.video_url ||
+    article.modalities?.watch?.url ||
+    article.modalities?.watch?.videoUrl;
+  const hasVideo = !!resolvedVideoUrl;
   const hasText = !!article.modalities?.read?.text;
   const showToggle = hasVideo && hasText;
   const resolvedView = viewMode || (hasText ? 'text' : hasVideo ? 'video' : 'text');
@@ -258,7 +266,7 @@ export default function ArticlePage() {
 
             <div className="aspect-video bg-black rounded-lg overflow-hidden">
               <video
-                src={article.modalities.watch.video_url}
+                src={resolvedVideoUrl}
                 poster={article.image || undefined}
                 controls
                 loop
