@@ -13,6 +13,7 @@
  */
 
 import React, { useState, useRef, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import {
   X,
   Upload,
@@ -301,9 +302,19 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: CodexUpl
 
       updateItem(item.id, { progress: 30 });
 
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+
+      if (sessionError || !accessToken) {
+        throw new Error('Unauthorized: please sign in again');
+      }
+
       const response = await fetch(endpoint, {
         method: 'POST',
         body: formData,
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
       });
 
       updateItem(item.id, { progress: 80 });
