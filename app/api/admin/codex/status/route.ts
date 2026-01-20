@@ -9,6 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { randomUUID } from 'crypto';
 import { getSupabaseServer } from '../../../_lib/supabaseServer';
 
 // CORS headers for cross-origin requests from thin client
@@ -171,7 +172,7 @@ export async function GET(req: NextRequest) {
     const coverMap = new Map<number, { cid: string; thumbUrl?: string; isImage: boolean }>();
     if (covers) {
       for (const cover of covers) {
-        if (!cover.episode_number) continue;
+        if (cover.episode_number === null || cover.episode_number === undefined) continue;
         const existing = coverMap.get(cover.episode_number);
         const isImage = cover.asset_kind === 'cover_image';
         
@@ -191,10 +192,53 @@ export async function GET(req: NextRequest) {
     if (series === 'metaKnyts' && !coverMap.has(0)) {
       const fallbackThumbUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/content-media/covers/ep0/common.png`;
       coverMap.set(0, { cid: '', thumbUrl: fallbackThumbUrl, isImage: true });
+      try {
+        const { error: insertError } = await supabase
+          .from('codex_media_assets')
+          .insert({
+            title: 'Episode 0 Cover (Supabase fallback)',
+            episode_number: 0,
+            asset_kind: 'cover_image',
+            series,
+            auto_drive_cid: 'supabase:content-media/covers/ep0/common.png',
+            mime_type: 'image/png',
+            encryption_iv: randomUUID(),
+            variant_name: 'ep0_common_cover',
+            rarity_tier: 'common',
+            cover_thumb_url: fallbackThumbUrl,
+            status: 'active',
+          })
+          .select('id');
+        if (insertError) {
+          console.error('[CodexStatus] fallback insert error:', insertError);
+        }
+      } catch (insertError) {
+        console.error('[CodexStatus] Episode 0 fallback insert failed:', insertError);
+      }
     }
 
     // Build episode status map
     const episodeMap = new Map<number, EpisodeStatus>();
+
+    // If fallback cover was inserted, ensure Episode 0 has an entry so coverThumbUrl can surface
+    if (series === 'metaKnyts' && coverMap.has(0) && !episodeMap.has(0)) {
+      const meta = metadataMap.get(0);
+      episodeMap.set(0, {
+        episodeNumber: 0,
+        displayNumber: meta?.displayNumber || '#0',
+        title: meta?.title,
+        hasStillMaster: false,
+        hasMotionMaster: false,
+        hasPrintRare: false,
+        hasPrintEpic: false,
+        hasPrintLegendary: false,
+        coverCount: 1,
+        coverImageCid: coverMap.get(0)?.cid,
+        coverThumbUrl: coverMap.get(0)?.thumbUrl,
+        characterCount: 0,
+        totalAssets: 0,
+      });
+    }
 
     // Add masters to map
     if (masters) {
@@ -265,6 +309,7 @@ export async function GET(req: NextRequest) {
             hasPrintLegendary: false,
             coverCount: 0,
             coverImageCid: coverMap.get(ep)?.cid,
+            coverThumbUrl: coverMap.get(ep)?.thumbUrl,
             characterCount: 0,
             totalAssets: 0,
           });
