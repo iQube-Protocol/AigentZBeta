@@ -186,6 +186,13 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // Fallback: Episode 0 preorder cover can be served from Supabase Storage directly
+    // (bypasses Autonomys until canonical minting/content is available)
+    if (series === 'metaKnyts' && !coverMap.has(0)) {
+      const fallbackThumbUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/content-media/covers/ep0/common.png`;
+      coverMap.set(0, { cid: '', thumbUrl: fallbackThumbUrl, isImage: true });
+    }
+
     // Build episode status map
     const episodeMap = new Map<number, EpisodeStatus>();
 
