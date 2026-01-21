@@ -174,14 +174,19 @@ const normalizeAvailableCampaign = (campaign: any): CampaignCard => {
   };
 };
 
-const normalizeCampaignList = (payload: any): CampaignCard[] => {
+type CampaignCatalogPayload = {
+  joined_campaigns?: unknown[];
+  available_campaigns?: unknown[];
+};
+
+const normalizeCampaignList = (payload: CampaignCatalogPayload | null | undefined): CampaignCard[] => {
   const joinedCampaigns = Array.isArray(payload?.joined_campaigns) ? payload.joined_campaigns : [];
   const availableCampaigns = Array.isArray(payload?.available_campaigns) ? payload.available_campaigns : [];
 
-  const joinedNormalized = joinedCampaigns.map(normalizeJoinedCampaign);
-  const availableNormalized = availableCampaigns
-    .map(normalizeAvailableCampaign)
-    .filter((available) => !joinedNormalized.some((joined) => joined.id === available.id));
+  const joinedNormalized: CampaignCard[] = joinedCampaigns.map((joined) => normalizeJoinedCampaign(joined));
+  const availableNormalized: CampaignCard[] = availableCampaigns
+    .map((available) => normalizeAvailableCampaign(available))
+    .filter((available: CampaignCard) => !joinedNormalized.some((joined: CampaignCard) => joined.id === available.id));
 
   return [...joinedNormalized, ...availableNormalized];
 };
