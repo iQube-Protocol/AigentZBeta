@@ -10,6 +10,9 @@ interface Episode {
   episodeNumber: number;
   displayNumber: string;
   title?: string;
+  purchaseId?: string;
+  priceUsd?: number;
+  priceKnyt?: number;
   coverImageCid?: string;
   coverThumbUrl?: string;
   hasStillMaster: boolean;

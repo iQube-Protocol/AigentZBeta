@@ -15,6 +15,8 @@ const KNYT_DISCOUNT_PERCENT = 0.20;
 const FIAT_FEE_PERCENT = 0.03;
 const FIAT_PREMIUM_PERCENT = 0.07;
 const USDC_FEE_PERCENT = 0.01;
+const PREORDER_SHIPPING_USD = 20;
+const PREORDER_ID_PREFIX = 'metaKnyts_preorder_';
 
 export type ContentType = 
   | 'scroll_still' 
@@ -68,8 +70,8 @@ interface MultiRailPricing {
   };
 }
 
-function calculatePricing(baseKnyt: number): MultiRailPricing {
-  const usdBase = baseKnyt * KNYT_USD_RATE;
+function calculatePricing(baseKnyt: number, extraUsd: number = 0): MultiRailPricing {
+  const usdBase = baseKnyt * KNYT_USD_RATE + extraUsd;
   
   return {
     baseKnyt,
@@ -102,6 +104,8 @@ interface ContentPurchaseModalProps {
   contentId: string;
   contentTitle: string;
   contentImage?: string;
+  baseKnytOverride?: number;
+  priceUsdOverride?: number;
   knytBalance?: number;      // Total KNYT balance (DVN + EVM)
   spendableKnyt?: number;    // DVN balance only (Tier 0 spendable)
   onPurchaseComplete?: (entitlementId: string) => void;
@@ -116,6 +120,8 @@ export function ContentPurchaseModal({
   contentId,
   contentTitle,
   contentImage,
+  baseKnytOverride,
+  priceUsdOverride,
   knytBalance = 0,
   spendableKnyt,
   onPurchaseComplete,
@@ -157,8 +163,20 @@ export function ContentPurchaseModal({
   };
   
   const effectiveContentType = getEffectiveContentType();
-  const baseKnyt = CONTENT_PRICES[effectiveContentType];
-  const pricing = calculatePricing(baseKnyt);
+  const baseKnyt = baseKnytOverride ?? CONTENT_PRICES[effectiveContentType];
+
+  const isPreorder = contentId?.startsWith(PREORDER_ID_PREFIX);
+  const shippingUsd = isPreorder ? PREORDER_SHIPPING_USD : 0;
+
+  const baseUsd = priceUsdOverride
+    ? priceUsdOverride
+    : baseKnyt * KNYT_USD_RATE;
+
+  const totalUsd = baseUsd + shippingUsd;
+
+  const pricing = priceUsdOverride
+    ? calculatePricing(priceUsdOverride / KNYT_USD_RATE, shippingUsd)
+    : calculatePricing(baseKnyt, shippingUsd);
   const canAffordKnyt = effectiveSpendable >= pricing.rails.knyt.amount;
 
   // Use API URL from environment, fallback to relative path for local dev
@@ -359,13 +377,13 @@ export function ContentPurchaseModal({
   if (!open) return null;
 
   return (
-    <div 
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" 
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
       onClick={onClose}
     >
-      <div 
-        className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-md mx-4 overflow-hidden" 
-        onClick={e => e.stopPropagation()}
+      <div
+        className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-md mx-4 overflow-hidden max-h-[85vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
       >
         {/* Header with content preview */}
         <div className="relative h-32 bg-gradient-to-br from-purple-900 via-indigo-900 to-black">
@@ -389,7 +407,7 @@ export function ContentPurchaseModal({
           </div>
         </div>
 
-        <div className="p-5">
+        <div className="p-5 overflow-y-auto">
           {success ? (
             <div className="text-center py-6">
               <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-emerald-500/20 flex items-center justify-center">
@@ -492,9 +510,35 @@ export function ContentPurchaseModal({
                   <span className="text-white/60 text-sm">Base Price</span>
                   <div className="text-right">
                     <span className="text-lg font-bold text-white">{baseKnyt} KNYT</span>
-                    <span className="text-white/40 text-sm ml-2">(${pricing.usdBase.toFixed(2)})</span>
+                    <span className="text-white/40 text-sm ml-2">(${baseUsd.toFixed(2)})</span>
                   </div>
                 </div>
+
+                {isPreorder && (
+                  <>
+                    <div className="flex items-center justify-between mt-2">
+                      <span className="text-white/60 text-sm">Post & Packaging</span>
+                      <div className="text-right">
+                        <span className="text-sm font-medium text-white">
+                          ${PREORDER_SHIPPING_USD.toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/10">
+                      <span className="text-white/70 text-sm font-medium">Total</span>
+                      <div className="text-right">
+                        <span className="text-sm font-semibold text-white">
+                          ${totalUsd.toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <p className="text-[10px] text-white/50 mt-2">
+                      Shipping during presale is Continental US only.
+                    </p>
+                  </>
+                )}
               </div>
 
               {/* Payment rail selection */}

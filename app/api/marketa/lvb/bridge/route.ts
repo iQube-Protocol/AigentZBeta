@@ -7,6 +7,15 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+// Marketa schema client (partner platform tables live under `marketa.*`)
+const marketa = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  {
+    db: { schema: 'marketa' }
+  }
+);
+
 /**
  * LVB-AGQ Bridge API
  * Enables Lovable thin client to work with AGQ multi-tenant architecture
@@ -76,49 +85,50 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
-    const personaId = request.headers.get('x-persona-id');
 
-    if (!personaId) {
-      return NextResponse.json(
-        { error: 'Missing persona identification' },
-        { status: 401 }
-      );
+    // Partner-thin-client actions (newer contract): rely on tenant header (TEXT in `marketa_tenant_campaign_config`)
+    if (action === 'campaign_detail' || action === 'campaign_status' || action === 'campaign_catalog') {
+      const tenantId = request.headers.get('x-tenant-id');
+      const devOverride = request.headers.get('x-dev-override');
+
+      if (!tenantId && devOverride !== 'true') {
+        return NextResponse.json({ error: 'Missing tenant identification' }, { status: 401 });
+      }
+
+      const effectiveTenantId = tenantId || 'agq-tenant';
+
+      switch (action) {
+        case 'campaign_catalog':
+          return await getCampaignCatalogForTenant(effectiveTenantId);
+        case 'campaign_detail': {
+          const campaignId = searchParams.get('campaignId');
+          if (!campaignId) return NextResponse.json({ error: 'campaignId is required' }, { status: 400 });
+          return await getCampaignDetailForTenant(effectiveTenantId, campaignId);
+        }
+        case 'campaign_status': {
+          const campaignId = searchParams.get('campaignId');
+          if (!campaignId) return NextResponse.json({ error: 'campaignId is required' }, { status: 400 });
+          return await getCampaignStatusForTenant(effectiveTenantId, campaignId);
+        }
+      }
     }
 
-    // Get persona and tenant info
-    const { data: persona, error: personaError } = await supabase
-      .from('crm_personas')
-      .select(`
-        tenant_id: tenantId,
-        fio_handle,
-        default_identity_state,
-        crm_tenants(id, name, type, settings)
-      `)
-      .eq('id', personaId)
-      .single();
-
-    if (personaError || !persona) {
-      return NextResponse.json(
-        { error: 'Invalid persona' },
-        { status: 401 }
-      );
-    }
-
-    const tenant = Array.isArray(persona.crm_tenants) ? persona.crm_tenants[0] : persona.crm_tenants;
+    // Legacy v1 actions (config/campaigns/performance/partner-overview) still use persona context.
+    const { personaId, tenant } = await resolvePersonaContext(request);
 
     switch (action) {
       case 'config':
         return await getTenantConfig(personaId, tenant);
-      
+
       case 'campaigns':
         return await getCampaignSummaries(tenant.id, personaId);
-      
+
       case 'performance':
         return await getPerformanceData(tenant.id, personaId);
-      
+
       case 'partner-overview':
         return await getPartnerOverview(tenant.id, personaId);
-      
+
       default:
         return NextResponse.json(
           { error: 'Invalid action. Use: config, campaigns, performance, partner-overview' },
@@ -126,7 +136,10 @@ export async function GET(request: NextRequest) {
         );
     }
 
-  } catch (error) {
+  } catch (error: any) {
+    if (error instanceof BridgeAuthError) {
+      return NextResponse.json({ error: error.message }, { status: 401 });
+    }
     console.error('LVB Bridge error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
@@ -139,39 +152,46 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { action, data } = body;
-    const personaId = request.headers.get('x-persona-id');
 
-    if (!personaId) {
-      return NextResponse.json(
-        { error: 'Missing persona identification' },
-        { status: 401 }
-      );
+    // Partner-thin-client actions (newer contract)
+    if (action === 'join_campaign' || action === 'campaign_detail' || action === 'campaign_status' || action === 'campaign_catalog') {
+      const tenantId = request.headers.get('x-tenant-id');
+      const devOverride = request.headers.get('x-dev-override');
+
+      if (!tenantId && devOverride !== 'true') {
+        return NextResponse.json({ error: 'Missing tenant identification' }, { status: 401 });
+      }
+
+      const effectiveTenantId = tenantId || 'agq-tenant';
+
+      if (action === 'campaign_catalog') {
+        return await getCampaignCatalogForTenant(effectiveTenantId);
+      }
+      if (action === 'campaign_detail') {
+        if (!data?.campaignId) return NextResponse.json({ error: 'campaignId is required' }, { status: 400 });
+        return await getCampaignDetailForTenant(effectiveTenantId, data.campaignId);
+      }
+      if (action === 'campaign_status') {
+        if (!data?.campaignId) return NextResponse.json({ error: 'campaignId is required' }, { status: 400 });
+        return await getCampaignStatusForTenant(effectiveTenantId, data.campaignId);
+      }
+      if (action === 'join_campaign') {
+        return await joinCampaignForTenant(effectiveTenantId, request.headers.get('x-persona-id') || null, data);
+      }
     }
 
-    // Get persona and tenant info
-    const { data: persona, error: personaError } = await supabase
-      .from('crm_personas')
-      .select('tenant_id, crm_tenants(id, name, type)')
-      .eq('id', personaId)
-      .single();
-
-    if (personaError || !persona) {
-      return NextResponse.json(
-        { error: 'Invalid persona' },
-        { status: 401 }
-      );
-    }
+    const { personaId, tenant } = await resolvePersonaContext(request);
 
     switch (action) {
       case 'sync-campaign':
-        return await syncCampaignFromLVB(persona.tenant_id, personaId, data);
-      
+        return await syncCampaignFromLVB(tenant.id, personaId, data);
+
       case 'sync-performance':
-        return await syncPerformanceFromLVB(persona.tenant_id, personaId, data);
-      
+        return await syncPerformanceFromLVB(tenant.id, personaId, data);
+
       case 'update-config':
-        return await updateLVBConfig(persona.tenant_id, personaId, data);
-      
+        return await updateLVBConfig(tenant.id, personaId, data);
+
       default:
         return NextResponse.json(
           { error: 'Invalid action. Use: sync-campaign, sync-performance, update-config' },
@@ -179,13 +199,213 @@ export async function POST(request: NextRequest) {
         );
     }
 
-  } catch (error) {
+  } catch (error: any) {
+    if (error instanceof BridgeAuthError) {
+      return NextResponse.json({ error: error.message }, { status: 401 });
+    }
     console.error('LVB Bridge POST error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
     );
   }
+}
+
+async function getCampaignCatalogForTenant(tenantId: string): Promise<NextResponse> {
+  // "Joined" campaigns for the tenant
+  const { data: joined, error: joinedError } = await marketa
+    .from('marketa_tenant_campaign_config')
+    .select(`
+      campaign_id,
+      status,
+      current_day,
+      start_date,
+      time_of_day,
+      channels,
+      publishing_mode,
+      joined_at,
+      marketa_campaigns!inner(
+        id,
+        name,
+        description,
+        campaign_type,
+        status,
+        primary_cta,
+        secondary_cta,
+        sequence_length,
+        helix_thread,
+        metadata
+      )
+    `)
+    .eq('tenant_id', tenantId)
+    .in('status', ['joined', 'active', 'paused', 'completed']);
+
+  if (joinedError) {
+    console.error('[LVB Bridge] campaign_catalog joined error:', joinedError);
+    return NextResponse.json({ error: 'Failed to fetch joined campaigns' }, { status: 500 });
+  }
+
+  // "Available" campaigns (active, owned by agq-tenant) - simple catalog
+  const { data: available, error: availableError } = await marketa
+    .from('marketa_campaigns')
+    .select('*')
+    .eq('status', 'active')
+    .order('created_at', { ascending: false })
+    .limit(200);
+
+  if (availableError) {
+    console.error('[LVB Bridge] campaign_catalog available error:', availableError);
+    return NextResponse.json({ error: 'Failed to fetch available campaigns' }, { status: 500 });
+  }
+
+  return NextResponse.json({
+    success: true,
+    joined_campaigns: joined || [],
+    available_campaigns: available || [],
+    total_joined: (joined || []).length,
+    total_available: (available || []).length
+  });
+}
+
+async function getCampaignDetailForTenant(tenantId: string, campaignId: string): Promise<NextResponse> {
+  const { data: campaign, error: campaignError } = await marketa
+    .from('marketa_campaigns')
+    .select('*')
+    .eq('id', campaignId)
+    .single();
+
+  if (campaignError || !campaign) {
+    return NextResponse.json({ error: 'Campaign not found' }, { status: 404 });
+  }
+
+  const { data: sequenceItems, error: seqError } = await marketa
+    .from('marketa_sequence_items')
+    .select('day_number,title,description,asset_ref,cta_url,explainer,status,thumbnail_url,duration_seconds,tags')
+    .eq('campaign_id', campaignId)
+    .order('day_number', { ascending: true });
+
+  if (seqError) {
+    console.error('[LVB Bridge] campaign_detail sequence error:', seqError);
+    return NextResponse.json({ error: 'Failed to fetch sequence items' }, { status: 500 });
+  }
+
+  const { data: tenantConfig, error: cfgError } = await marketa
+    .from('marketa_tenant_campaign_config')
+    .select('tenant_id,status,current_day,start_date,time_of_day,channels,publishing_mode,joined_at,next_dispatch_at,last_dispatch_at,metadata')
+    .eq('campaign_id', campaignId)
+    .eq('tenant_id', tenantId)
+    .maybeSingle();
+
+  if (cfgError) {
+    console.error('[LVB Bridge] campaign_detail config error:', cfgError);
+    return NextResponse.json({ error: 'Failed to fetch tenant campaign config' }, { status: 500 });
+  }
+
+  const { data: rewards, error: rewardsError } = await marketa
+    .from('marketa_partner_rewards')
+    .select('reward_type,reward_value,reward_terms,reward_claim_url,active,expires_at,max_uses,current_uses,reward_code')
+    .eq('campaign_id', campaignId)
+    .eq('tenant_id', tenantId);
+
+  if (rewardsError) {
+    console.error('[LVB Bridge] campaign_detail rewards error:', rewardsError);
+    return NextResponse.json({ error: 'Failed to fetch partner rewards' }, { status: 500 });
+  }
+
+  return NextResponse.json({
+    success: true,
+    campaign: {
+      ...campaign,
+      marketa_sequence_items: sequenceItems || [],
+      marketa_tenant_campaign_config: tenantConfig || null,
+      marketa_partner_rewards: rewards || []
+    }
+  });
+}
+
+async function getCampaignStatusForTenant(tenantId: string, campaignId: string): Promise<NextResponse> {
+  const { data: config, error: cfgError } = await marketa
+    .from('marketa_tenant_campaign_config')
+    .select('tenant_id,status,current_day,start_date,time_of_day,channels,publishing_mode,joined_at,next_dispatch_at,last_dispatch_at,metadata')
+    .eq('campaign_id', campaignId)
+    .eq('tenant_id', tenantId)
+    .maybeSingle();
+
+  if (cfgError) {
+    console.error('[LVB Bridge] campaign_status config error:', cfgError);
+    return NextResponse.json({ error: 'Failed to fetch campaign status' }, { status: 500 });
+  }
+
+  const { data: campaign, error: campaignError } = await marketa
+    .from('marketa_campaigns')
+    .select('id,name,status,campaign_type,sequence_length')
+    .eq('id', campaignId)
+    .maybeSingle();
+
+  if (campaignError || !campaign) {
+    return NextResponse.json({ error: 'Campaign not found' }, { status: 404 });
+  }
+
+  const sequenceLength = campaign.sequence_length || 0;
+  const currentDay = config?.current_day || 0;
+  const progressPercentage = sequenceLength > 0 ? (currentDay / sequenceLength) * 100 : 0;
+
+  return NextResponse.json({
+    success: true,
+    campaign,
+    tenant_config: config || null,
+    progress_percentage: progressPercentage
+  });
+}
+
+async function joinCampaignForTenant(
+  tenantId: string,
+  personaId: string | null,
+  body: any
+): Promise<NextResponse> {
+  const { campaignId, channels, startDate, timeOfDay, publishingMode } = body || {};
+
+  if (!campaignId || !Array.isArray(channels) || !startDate) {
+    return NextResponse.json({ error: 'campaignId, channels, and startDate are required' }, { status: 400 });
+  }
+
+  const { data: existing } = await marketa
+    .from('marketa_tenant_campaign_config')
+    .select('id')
+    .eq('campaign_id', campaignId)
+    .eq('tenant_id', tenantId)
+    .maybeSingle();
+
+  if (existing) {
+    return NextResponse.json({ error: 'Already joined this campaign' }, { status: 400 });
+  }
+
+  const insertPayload: any = {
+    campaign_id: campaignId,
+    tenant_id: tenantId,
+    start_date: startDate,
+    time_of_day: timeOfDay || '09:00',
+    channels,
+    publishing_mode: publishingMode || 'manual',
+    status: 'joined'
+  };
+
+  if (personaId && /^[0-9a-f]{8}-/i.test(personaId)) {
+    insertPayload.joined_by_persona_id = personaId;
+  }
+
+  const { data: config, error } = await marketa
+    .from('marketa_tenant_campaign_config')
+    .insert(insertPayload)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('[LVB Bridge] join_campaign error:', error);
+    return NextResponse.json({ error: 'Failed to join campaign' }, { status: 500 });
+  }
+
+  return NextResponse.json({ success: true, config });
 }
 
 // Get tenant configuration for LVB
@@ -556,4 +776,87 @@ async function updateLVBConfig(tenantId: string, personaId: string, data: any): 
     updated_at: new Date().toISOString(),
     message: 'LVB configuration updated in AGQ'
   });
+}
+
+class BridgeAuthError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'BridgeAuthError';
+  }
+}
+
+async function resolvePersonaContext(request: NextRequest) {
+  const personaHeader = request.headers.get('x-persona-id');
+  const tenantHeader = request.headers.get('x-tenant-id');
+  const devOverride = request.headers.get('x-dev-override');
+
+  if (!personaHeader && !tenantHeader) {
+    throw new BridgeAuthError('Missing persona identification');
+  }
+
+  const query = supabase
+    .from('crm_personas')
+    .select(`
+      id,
+      tenant_id,
+      crm_tenants(id, name, type, settings)
+    `)
+    .limit(1);
+
+  if (personaHeader) {
+    query.eq('id', personaHeader);
+  } else if (tenantHeader) {
+    query.eq('tenant_id', tenantHeader);
+  }
+
+  const { data: persona, error } = await query.single();
+
+  if (error || !persona) {
+    if (devOverride === 'true' && process.env.LVB_BRIDGE_DEFAULT_PERSONA_ID) {
+      return resolvePersonaContextWithFallback(process.env.LVB_BRIDGE_DEFAULT_PERSONA_ID);
+    }
+    throw new BridgeAuthError('Invalid persona or tenant');
+  }
+
+  const tenant = Array.isArray(persona.crm_tenants)
+    ? persona.crm_tenants[0]
+    : persona.crm_tenants;
+
+  if (!tenant) {
+    throw new BridgeAuthError('Tenant configuration unavailable');
+  }
+
+  return {
+    personaId: persona.id,
+    tenant
+  };
+}
+
+async function resolvePersonaContextWithFallback(fallbackPersonaId: string) {
+  const { data: fallbackPersona, error } = await supabase
+    .from('crm_personas')
+    .select(`
+      id,
+      tenant_id,
+      crm_tenants(id, name, type, settings)
+    `)
+    .eq('id', fallbackPersonaId)
+    .single();
+
+  if (error || !fallbackPersona) {
+    throw new BridgeAuthError('Fallback persona lookup failed');
+  }
+
+  const tenant = Array.isArray(fallbackPersona.crm_tenants)
+    ? fallbackPersona.crm_tenants[0]
+    : fallbackPersona.crm_tenants;
+
+  if (!tenant) {
+    throw new BridgeAuthError('Fallback tenant configuration unavailable');
+  }
+
+  return {
+    personaId: fallbackPersona.id,
+    tenant
+  };
 }

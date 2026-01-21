@@ -193,6 +193,8 @@ interface Episode {
   displayNumber: string;
   title: string;
   description?: string;
+  purchaseId?: string;
+  priceUsd?: number;
   coverImageCid?: string;
   coverThumbUrl?: string;
   hasStillMaster: boolean;
@@ -286,6 +288,8 @@ export function KnytCodexTab({
     id: string;
     title: string;
     image?: string;
+    baseKnyt?: number;
+    priceUsd?: number;
   } | null>(null);
 
   const [visitedTabs, setVisitedTabs] = useState<Set<CodexTab>>(() => new Set([activeTab]));
@@ -339,9 +343,11 @@ export function KnytCodexTab({
             : 'scroll_still';
     setPurchaseContent({
       type: contentType,
-      id: `mk_ep${String(episode.episodeNumber).padStart(2, '0')}`,
+      id: episode.purchaseId || `mk_ep${String(episode.episodeNumber).padStart(2, '0')}`,
       title: episode.title || `Episode ${episode.displayNumber}`,
       image: episode.coverThumbUrl || (episode.coverImageCid ? `${import.meta.env.VITE_API_URL || ''}/api/content/cover/${episode.coverImageCid}?variant=thumb` : undefined),
+      baseKnyt: episode.priceKnyt,
+      priceUsd: episode.priceUsd,
     });
     setPurchaseModalOpen(true);
   }, []);
@@ -413,7 +419,7 @@ export function KnytCodexTab({
                 {isAvailable && !isOwned && (
                   <span className="px-2 py-1 bg-amber-500/90 text-white text-xs font-bold rounded flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <Coins className="w-3 h-3" />
-                    {episode.hasMotionMaster ? CONTENT_PRICES.scroll_motion : CONTENT_PRICES.scroll_still} KNYT
+                    {(episode.priceKnyt ?? (episode.hasMotionMaster ? CONTENT_PRICES.scroll_motion : CONTENT_PRICES.scroll_still))} KNYT
                   </span>
                 )}
               </div>
@@ -424,14 +430,16 @@ export function KnytCodexTab({
                 {isAvailable && !isOwned && (
                   <button
                     className="w-6 h-6 rounded-md bg-amber-500/80 backdrop-blur-sm flex items-center justify-center ring-1 ring-amber-400/40 text-white hover:bg-amber-400 transition-all"
-                    title={`Buy for ${episode.hasMotionMaster ? CONTENT_PRICES.scroll_motion : CONTENT_PRICES.scroll_still} KNYT`}
+                    title={`Buy for ${episode.priceKnyt ?? (episode.hasMotionMaster ? CONTENT_PRICES.scroll_motion : CONTENT_PRICES.scroll_still)} KNYT`}
                     onClick={(e) => {
                       e.stopPropagation();
                       setPurchaseContent({
                         type: episode.hasMotionMaster ? 'scroll_motion' : 'scroll_still',
-                        id: `mk_ep${String(episode.episodeNumber).padStart(2, '0')}`,
+                        id: episode.purchaseId || `mk_ep${String(episode.episodeNumber).padStart(2, '0')}`,
                         title: episode.title || `Episode ${episode.displayNumber}`,
                         image: episode.coverThumbUrl || (episode.coverImageCid ? `${import.meta.env.VITE_API_URL || ''}/api/content/cover/${episode.coverImageCid}?variant=thumb` : undefined),
+                        baseKnyt: episode.priceKnyt ?? (episode.hasMotionMaster ? CONTENT_PRICES.scroll_motion : CONTENT_PRICES.scroll_still),
+                        priceUsd: episode.priceUsd ?? (episode.hasMotionMaster ? CONTENT_PRICES.scroll_motion * KNYT_USD_RATE : CONTENT_PRICES.scroll_still * KNYT_USD_RATE),
                       });
                       setPurchaseModalOpen(true);
                     }}
@@ -506,17 +514,14 @@ export function KnytCodexTab({
                   <p className="text-xs text-cyan-400 mt-1">{owned.length} issue{owned.length > 1 ? 's' : ''} owned</p>
                 ) : isAvailable ? (
                   <div className="flex items-center gap-2 mt-1">
-                    {episode.hasMotionMaster ? (
-                      <>
-                        <span className="text-xs font-medium text-amber-300">{CONTENT_PRICES.scroll_motion} KNYT</span>
-                        <span className="text-[10px] text-white/40">(${(CONTENT_PRICES.scroll_motion * KNYT_USD_RATE).toFixed(2)})</span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="text-xs font-medium text-amber-300">{CONTENT_PRICES.scroll_still} KNYT</span>
-                        <span className="text-[10px] text-white/40">(${(CONTENT_PRICES.scroll_still * KNYT_USD_RATE).toFixed(2)})</span>
-                      </>
-                    )}
+                    <>
+                      <span className="text-xs font-medium text-amber-300">
+                        {(episode.priceKnyt ?? (episode.hasMotionMaster ? CONTENT_PRICES.scroll_motion : CONTENT_PRICES.scroll_still))} KNYT
+                      </span>
+                      <span className="text-[10px] text-white/40">
+                        (${(episode.priceUsd ?? ((episode.priceKnyt ?? (episode.hasMotionMaster ? CONTENT_PRICES.scroll_motion : CONTENT_PRICES.scroll_still)) * KNYT_USD_RATE)).toFixed(2)})
+                      </span>
+                    </>
                   </div>
                 ) : null}
               </div>
@@ -628,6 +633,8 @@ export function KnytCodexTab({
           contentId={purchaseContent.id}
           contentTitle={purchaseContent.title}
           contentImage={purchaseContent.image}
+          baseKnytOverride={purchaseContent.baseKnyt}
+          priceUsdOverride={purchaseContent.priceUsd}
           knytBalance={knytBalance}
           spendableKnyt={spendableKnyt}
           onPurchaseComplete={(entitlementId) => {

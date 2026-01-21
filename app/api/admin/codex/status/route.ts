@@ -32,6 +32,9 @@ interface EpisodeStatus {
   episodeNumber: number;
   displayNumber: string;  // Documentation number (e.g., "#0")
   title?: string;         // From metadata
+  purchaseId?: string;
+  priceUsd?: number;
+  priceKnyt?: number;
   hasStillMaster: boolean;
   hasMotionMaster: boolean;
   hasPrintRare: boolean;
@@ -104,7 +107,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Get asset counts by episode and kind
-    const { data: assetCounts, error: assetError } = await supabase
+    const { data: assetCountsData, error: assetError } = await supabase
       .from('codex_media_assets')
       .select('episode_number, asset_kind')
       .eq('series', series)
@@ -113,6 +116,7 @@ export async function GET(req: NextRequest) {
     if (assetError) {
       console.error('[CodexStatus] Asset counts error:', assetError);
     }
+    let assetCountsList = assetCountsData ?? [];
 
     // Get episode metadata
     const { data: metadataList, error: metadataError } = await supabase
@@ -127,7 +131,7 @@ export async function GET(req: NextRequest) {
 
     // Get cover images for display (prefer cover_image over cover_pdf)
     // Query all covers to see what's actually stored
-    const { data: covers, error: coversError } = await supabase
+    const { data: coversData, error: coversError } = await supabase
       .from('codex_media_assets')
       .select('episode_number, auto_drive_cid, cover_thumb_url, rarity_tier, asset_kind, mime_type')
       .eq('series', series)
@@ -138,6 +142,75 @@ export async function GET(req: NextRequest) {
 
     if (coversError) {
       console.error('[CodexStatus] Covers query error:', coversError);
+    }
+
+    let assetCountRows = assetCountsData;
+    let coverRows = coversData;
+    const fallbackEpisodeNumber = -1;
+   if (false && series === 'metaKnyts') {
+      const fallbackBaseUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/content-media/covers/ep0`;
+      const fallbackVariants = [
+        { rarity: 'common', key: 'common', file: 'common.png', label: 'Common' },
+        { rarity: 'rare', key: 'rare', file: 'rare.png', label: 'Rare' },
+        { rarity: 'epic', key: 'epic', file: 'epic.png', label: 'Epic' },
+        { rarity: 'legendary', key: 'legendary', file: 'legendary.png', label: 'Legendary' },
+      ];
+      const existingFallbackCovers = coverRows?.filter(c => c.episode_number === fallbackEpisodeNumber) || [];
+      const existingRarities = new Set(existingFallbackCovers.map(c => c.rarity_tier));
+      const missingVariants = fallbackVariants.filter(variant => !existingRarities.has(variant.rarity));
+
+      if (missingVariants.length > 0) {
+        const insertRecords = missingVariants.map(variant => ({
+          title: `Episode -1 ${variant.label} cover`,
+          episode_number: fallbackEpisodeNumber,
+          asset_kind: 'cover_image',
+          series,
+          auto_drive_cid: `supabase:content-media/covers/ep0/${variant.file}`,
+          mime_type: 'image/png',
+          encryption_iv: randomUUID(),
+          variant_name: `ep-1-${variant.key}-cover`,
+          rarity_tier: variant.rarity,
+          cover_thumb_url: `${fallbackBaseUrl}/${variant.file}`,
+          status: 'active',
+        }));
+
+        try {
+          const { error: insertError } = await supabase
+            .from('codex_media_assets')
+            .insert(insertRecords)
+            .select('id');
+          if (insertError) {
+            console.error('[CodexStatus] fallback insert error:', insertError);
+          } else {
+            const { data: refreshedAssetCounts, error: refreshedAssetError } = await supabase
+              .from('codex_media_assets')
+              .select('episode_number, asset_kind')
+              .eq('series', series)
+              .eq('status', 'active');
+            if (refreshedAssetError) {
+              console.error('[CodexStatus] Asset counts refresh error:', refreshedAssetError);
+            } else {
+              assetCountRows = refreshedAssetCounts;
+            }
+
+            const { data: refreshedCovers, error: refreshedCoversError } = await supabase
+              .from('codex_media_assets')
+              .select('episode_number, auto_drive_cid, cover_thumb_url, rarity_tier, asset_kind, mime_type')
+              .eq('series', series)
+              .eq('status', 'active')
+              .in('asset_kind', ['cover_image', 'cover_pdf'])
+              .order('asset_kind', { ascending: true })
+              .order('rarity_tier', { ascending: true });
+            if (refreshedCoversError) {
+              console.error('[CodexStatus] Covers refresh error:', refreshedCoversError);
+            } else {
+              coverRows = refreshedCovers;
+            }
+          }
+        } catch (insertError) {
+          console.error('[CodexStatus] Episode -1 fallback insert failed:', insertError);
+        }
+      }
     }
     
     // Build metadata lookup - check if episode_metadata table exists
@@ -168,10 +241,28 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    if (series === 'metaKnyts') {
+      const preorderVariants = [
+        { episodeNumber: -1, label: 'Common' },
+        { episodeNumber: -2, label: 'Rare' },
+        { episodeNumber: -3, label: 'Epic' },
+        { episodeNumber: -4, label: 'Legendary' },
+      ];
+
+      for (const variant of preorderVariants) {
+        if (!metadataMap.has(variant.episodeNumber)) {
+          metadataMap.set(variant.episodeNumber, {
+            displayNumber: `#${variant.episodeNumber}`,
+            title: `Episode -1 Preorder Drop (${variant.label})`,
+          });
+        }
+      }
+    }
+
     // Build cover lookup (prefer cover_image over cover_pdf for each episode)
     const coverMap = new Map<number, { cid: string; thumbUrl?: string; isImage: boolean }>();
-    if (covers) {
-      for (const cover of covers) {
+    if (coverRows) {
+      for (const cover of coverRows) {
         if (cover.episode_number === null || cover.episode_number === undefined) continue;
         const existing = coverMap.get(cover.episode_number);
         const isImage = cover.asset_kind === 'cover_image';
@@ -187,41 +278,126 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Fallback: Episode 0 preorder cover can be served from Supabase Storage directly
-    // (bypasses Autonomys until canonical minting/content is available)
-    if (series === 'metaKnyts' && !coverMap.has(0)) {
-      const fallbackThumbUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/content-media/covers/ep0/common.png`;
-      coverMap.set(0, { cid: '', thumbUrl: fallbackThumbUrl, isImage: true });
-      try {
-        const { error: insertError } = await supabase
-          .from('codex_media_assets')
-          .insert({
-            title: 'Episode 0 Cover (Supabase fallback)',
-            episode_number: 0,
-            asset_kind: 'cover_image',
-            series,
-            auto_drive_cid: 'supabase:content-media/covers/ep0/common.png',
-            mime_type: 'image/png',
-            encryption_iv: randomUUID(),
-            variant_name: 'ep0_common_cover',
-            rarity_tier: 'common',
-            cover_thumb_url: fallbackThumbUrl,
-            status: 'active',
-          })
-          .select('id');
-        if (insertError) {
-          console.error('[CodexStatus] fallback insert error:', insertError);
+    if (series === 'metaKnyts') {
+      const preorderBase = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/content-media/covers/ep0`;
+      coverMap.set(-1, { cid: '', thumbUrl: `${preorderBase}/common.png`, isImage: true });
+      coverMap.set(-2, { cid: '', thumbUrl: `${preorderBase}/rare.png`, isImage: true });
+      coverMap.set(-3, { cid: '', thumbUrl: `${preorderBase}/epic.png`, isImage: true });
+      coverMap.set(-4, { cid: '', thumbUrl: `${preorderBase}/legendary.png`, isImage: true });
+    }
+
+    // Fallback: Episode 0 preorder covers come from Supabase Storage directly
+    // Insert missing rarity rows so the UI can render four thumbnails
+    let insertedCoverRows = 0;
+    if (false && series === 'metaKnyts' && !coverMap.has(0)) {
+      const fallbackBase = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/content-media/covers/ep0`;
+      const fallbackVariants = [
+        { rarity: 'common', filename: 'common.png' },
+        { rarity: 'rare', filename: 'rare.png' },
+        { rarity: 'epic', filename: 'epic.png' },
+        { rarity: 'legendary', filename: 'legendary.png' },
+      ];
+      const commonThumbUrl = `${fallbackBase}/common.png`;
+      coverMap.set(0, { cid: '', thumbUrl: commonThumbUrl, isImage: true });
+
+      for (const variant of fallbackVariants) {
+        const coverThumbUrl = `${fallbackBase}/${variant.filename}`;
+        try {
+          const { error: insertError } = await supabase
+            .from('codex_media_assets')
+            .insert({
+              title: `Episode 0 Cover (${variant.rarity})`,
+              episode_number: 0,
+              asset_kind: 'cover_image',
+              series,
+              auto_drive_cid: `supabase:content-media/covers/ep0/${variant.filename}`,
+              mime_type: 'image/png',
+              encryption_alg: 'AES-256-GCM',
+              encryption_iv: randomUUID(),
+              variant_name: `ep0_${variant.rarity}_cover`,
+              rarity_tier: variant.rarity,
+              cover_thumb_url: coverThumbUrl,
+              status: 'active',
+            })
+            .select('id');
+          if (insertError) {
+            console.error('[CodexStatus] fallback insert error:', insertError);
+          } else {
+            insertedCoverRows += 1;
+          }
+        } catch (insertError) {
+          console.error('[CodexStatus] Episode 0 fallback insert failed:', insertError);
         }
-      } catch (insertError) {
-        console.error('[CodexStatus] Episode 0 fallback insert failed:', insertError);
       }
+    }
+
+    if (insertedCoverRows > 0) {
+      assetCountsList = assetCountsList.concat(
+        Array(insertedCoverRows).fill({ episode_number: 0, asset_kind: 'cover_image' })
+      );
     }
 
     // Build episode status map
     const episodeMap = new Map<number, EpisodeStatus>();
+if (series === 'metaKnyts') {
+  const preorderPricing = new Map<number, { usd: number; purchaseId: string }>([
+    [-1, { usd: 68, purchaseId: 'metaKnyts_preorder_common' }],
+    [-2, { usd: 86, purchaseId: 'metaKnyts_preorder_rare' }],
+    [-3, { usd: 186, purchaseId: 'metaKnyts_preorder_epic' }],
+    [-4, { usd: 2100, purchaseId: 'metaKnyts_preorder_legendary' }],
+  ]);
+  for (const epNum of [-1, -2, -3, -4]) {
+    if (!coverMap.has(epNum) || episodeMap.has(epNum)) continue;
+    const meta = metadataMap.get(epNum);
+    const pricing = preorderPricing.get(epNum);
+    episodeMap.set(epNum, {
+      episodeNumber: epNum,
+      displayNumber: meta?.displayNumber || `#${epNum}`,
+      title: meta?.title,
+      purchaseId: pricing?.purchaseId,
+      priceUsd: pricing?.usd,
+      priceKnyt: pricing ? Math.round(pricing.usd / 1.4) : undefined,
+      hasStillMaster: false,
+      hasMotionMaster: false,
+      hasPrintRare: true,
+      hasPrintEpic: false,
+      hasPrintLegendary: false,
+      coverCount: 1,
+      coverImageCid: coverMap.get(epNum)?.cid,
+      coverThumbUrl: coverMap.get(epNum)?.thumbUrl,
+      characterCount: 0,
+      totalAssets: 1,
+    });
+  }
+}
 
-    // If fallback cover was inserted, ensure Episode 0 has an entry so coverThumbUrl can surface
-    if (series === 'metaKnyts' && coverMap.has(0) && !episodeMap.has(0)) {
+
+    // Provide a minimal entry for Episode -1 when fallback covers exist
+    if (series === 'metaKnyts' && coverMap.has(fallbackEpisodeNumber) && !episodeMap.has(fallbackEpisodeNumber)) {
+      const meta = metadataMap.get(fallbackEpisodeNumber);
+      const coverCount = assetCountRows?.filter(
+        asset => asset.episode_number === fallbackEpisodeNumber && 
+          (asset.asset_kind === 'cover_image' || asset.asset_kind === 'cover_pdf')
+      ).length || 0;
+
+      episodeMap.set(fallbackEpisodeNumber, {
+        episodeNumber: fallbackEpisodeNumber,
+        displayNumber: meta?.displayNumber || '#-1',
+        title: meta?.title,
+        hasStillMaster: false,
+        hasMotionMaster: false,
+        hasPrintRare: false,
+        hasPrintEpic: false,
+        hasPrintLegendary: false,
+        coverCount,
+        coverImageCid: coverMap.get(fallbackEpisodeNumber)?.cid,
+        coverThumbUrl: coverMap.get(fallbackEpisodeNumber)?.thumbUrl,
+        characterCount: 0,
+        totalAssets: 0,
+      });
+    }
+
+    if (false && series === 'metaKnyts' && coverMap.has(0) && !episodeMap.has(0)) {
       const meta = metadataMap.get(0);
       episodeMap.set(0, {
         episodeNumber: 0,
@@ -248,7 +424,7 @@ export async function GET(req: NextRequest) {
           const meta = metadataMap.get(ep);
           episodeMap.set(ep, {
             episodeNumber: ep,
-            displayNumber: meta?.displayNumber || `#${ep - 1}`,
+            displayNumber: meta?.displayNumber || `#${ep}`,
             title: meta?.title,
             hasStillMaster: false,
             hasMotionMaster: false,
@@ -291,8 +467,8 @@ export async function GET(req: NextRequest) {
     }
 
     // Count assets by episode
-    if (assetCounts) {
-      for (const asset of assetCounts) {
+    if (assetCountRows) {
+      for (const asset of assetCountRows) {
         const ep = asset.episode_number;
         if (ep === null) continue;
 
@@ -300,7 +476,7 @@ export async function GET(req: NextRequest) {
           const meta = metadataMap.get(ep);
           episodeMap.set(ep, {
             episodeNumber: ep,
-            displayNumber: meta?.displayNumber || `#${ep - 1}`,
+            displayNumber: meta?.displayNumber || `#${ep}`,
             title: meta?.title,
             hasStillMaster: false,
             hasMotionMaster: false,
@@ -350,20 +526,20 @@ export async function GET(req: NextRequest) {
       totalPrintRare: masters?.filter(m => m.content_type === 'episode_print' && m.edition_tier === 'rare').length || 0,
       totalPrintEpic: masters?.filter(m => m.content_type === 'episode_print' && m.edition_tier === 'epic').length || 0,
       totalPrintLegendary: masters?.filter(m => m.content_type === 'episode_print' && m.edition_tier === 'legendary').length || 0,
-      totalCovers: assetCounts?.filter(a => 
+      totalCovers: (assetCountRows?.filter(a =>
         a.asset_kind === 'cover_pdf' || a.asset_kind === 'cover_image'
-      ).length || 0,
-      totalCharacters: assetCounts?.filter(a => a.asset_kind === 'character_poster').length || 0,
-      totalLoreDocs: assetCounts?.filter(a => 
+      ) ?? []).length,
+      totalCharacters: (assetCountRows?.filter(a => a.asset_kind === 'character_poster') ?? []).length,
+      totalLoreDocs: (assetCountRows?.filter(a =>
         ['background_lore_doc', 'powers_sheet', 'twenty_one_sats_concept'].includes(a.asset_kind)
-      ).length || 0,
-      totalGameAssets: assetCounts?.filter(a => 
+      ) ?? []).length,
+      totalGameAssets: (assetCountRows?.filter(a =>
         ['game_concept_doc', 'game_still', 'game_video'].includes(a.asset_kind)
-      ).length || 0,
-      totalSocialAssets: assetCounts?.filter(a => 
+      ) ?? []).length,
+      totalSocialAssets: (assetCountRows?.filter(a =>
         ['social_campaign_video', 'social_campaign_image'].includes(a.asset_kind)
-      ).length || 0,
-      totalAllAssets: assetCounts?.length || 0,
+      ) ?? []).length,
+      totalAllAssets: assetCountRows?.length || 0,
     };
 
     return NextResponse.json({
