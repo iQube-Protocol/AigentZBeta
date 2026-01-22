@@ -43,7 +43,8 @@ import {
   Target,
   TrendingUp,
   Eye,
-  BarChart3
+  BarChart3,
+  RefreshCw
 } from 'lucide-react';
 
 // Marketa styling constants
@@ -130,6 +131,8 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
   const [sequenceItems, setSequenceItems] = useState<SequenceItem[]>([]);
   const [deliveryLogs, setDeliveryLogs] = useState<DeliveryLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [id, setId] = useState<string>('');
   const [activeTab, setActiveTab] = useState('overview');
@@ -148,14 +151,17 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
     }
   }, [id]);
 
-  const loadCampaignData = async () => {
+  const loadCampaignData = async ({ showLoader }: { showLoader: boolean } = { showLoader: true }) => {
     try {
-      setLoading(true);
       setError(null);
+      if (showLoader) setLoading(true);
+      else setRefreshing(true);
       
       console.log('Loading campaign data for ID:', id);
       
-      const response = await fetch(`/api/marketa/admin/campaigns?action=detail&campaignId=${id}`, {
+      const cacheBust = Date.now().toString();
+      const response = await fetch(`/api/marketa/admin/campaigns?action=detail&campaignId=${id}&_ts=${cacheBust}`, {
+        cache: 'no-store',
         headers: {
           'x-persona-id': 'test-persona-admin',
           'x-tenant-id': 'agq-tenant',
@@ -173,14 +179,16 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
             .sort((a, b) => (a.day_number ?? 0) - (b.day_number ?? 0));
           setSequenceItems(sortedItems);
         }
+        setLastUpdatedAt(new Date().toISOString());
       } else {
         console.error('Campaign API error:', campaignData);
       }
 
       // Load participants
       const participantsResponse = await fetch(
-        `/api/marketa/admin/campaigns?action=participants&campaign_id=${id}`,
+        `/api/marketa/admin/campaigns?action=participants&campaign_id=${id}&_ts=${cacheBust}`,
         {
+          cache: 'no-store',
           headers: {
             'x-persona-id': 'test-persona-admin',
             'x-tenant-id': 'agq-tenant',
@@ -196,8 +204,9 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
 
       // Load delivery logs
       const deliveryResponse = await fetch(
-        `/api/marketa/admin/campaigns?action=delivery&campaign_id=${id}`,
+        `/api/marketa/admin/campaigns?action=delivery&campaign_id=${id}&_ts=${cacheBust}`,
         {
+          cache: 'no-store',
           headers: {
             'x-persona-id': 'test-persona-admin',
             'x-tenant-id': 'agq-tenant',
@@ -215,6 +224,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
       setError('Failed to load campaign data');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -296,9 +306,24 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
             <div>
               <h1 className="text-2xl font-bold text-white">{campaign.name}</h1>
               <p className="text-slate-400">{campaign.description}</p>
+              {lastUpdatedAt && (
+                <p className="text-xs text-slate-500 mt-1">
+                  Last refreshed: {new Date(lastUpdatedAt).toLocaleString()}
+                </p>
+              )}
             </div>
           </div>
           <div className="flex gap-2">
+            <Button
+              onClick={() => loadCampaignData({ showLoader: false })}
+              disabled={refreshing}
+              variant="outline"
+              className="bg-slate-800/50 border-white/20 text-slate-300 hover:bg-slate-700/50"
+              title="Refresh campaign data"
+            >
+              <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+              {refreshing ? 'Refreshing...' : 'Refresh'}
+            </Button>
             <Badge className={getCampaignTypeColor(campaign.campaign_type)}>
               {campaign.campaign_type}
             </Badge>

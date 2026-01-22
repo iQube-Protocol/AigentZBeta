@@ -27,7 +27,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Search, Plus, Eye, Users, Calendar, Filter, Target, TrendingUp, Trash2, Archive } from 'lucide-react';
+import { Search, Plus, Eye, Users, Calendar, Filter, Target, TrendingUp, Trash2, Archive, RefreshCw } from 'lucide-react';
 import { useToast } from '@/components/ui/toaster';
 
 // Marketa styling constants
@@ -67,6 +67,8 @@ interface ApiResponse {
 export default function MarketaCampaignsPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
@@ -74,13 +76,18 @@ export default function MarketaCampaignsPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    loadCampaigns();
+    loadCampaigns({ showLoader: true });
   }, []);
 
-  const loadCampaigns = async () => {
+  const loadCampaigns = async ({ showLoader }: { showLoader: boolean }) => {
     try {
-      setLoading(true);
-      const response = await fetch('/api/marketa/admin/campaigns?action=list', {
+      setError(null);
+      if (showLoader) setLoading(true);
+      else setRefreshing(true);
+
+      const cacheBust = Date.now().toString();
+      const response = await fetch(`/api/marketa/admin/campaigns?action=list&_ts=${cacheBust}`, {
+        cache: 'no-store',
         headers: {
           'x-persona-id': 'test-persona-admin',
           'x-tenant-id': 'agq-tenant',
@@ -92,6 +99,7 @@ export default function MarketaCampaignsPage() {
       
       if (data.success && data.campaigns) {
         setCampaigns(data.campaigns);
+        setLastUpdatedAt(new Date().toISOString());
       } else {
         setError(data.error || 'Failed to load campaigns');
       }
@@ -99,6 +107,7 @@ export default function MarketaCampaignsPage() {
       setError('Failed to connect to server');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -121,7 +130,7 @@ export default function MarketaCampaignsPage() {
       const data = await response.json();
       
       if (data.success) {
-        await loadCampaigns(); // Refresh the list
+        await loadCampaigns({ showLoader: false }); // Refresh the list
         // Show success message
         toast('21 Awakenings campaign created successfully! You can now view it in the campaigns list.', 'success');
       } else {
@@ -154,7 +163,7 @@ export default function MarketaCampaignsPage() {
       const data = await response.json();
       
       if (data.success) {
-        await loadCampaigns(); // Refresh the list
+        await loadCampaigns({ showLoader: false }); // Refresh the list
         toast(`Campaign "${campaignName}" deleted successfully`, 'success');
       } else {
         toast(data.error || 'Failed to delete campaign', 'error');
@@ -182,7 +191,7 @@ export default function MarketaCampaignsPage() {
       const data = await response.json();
       
       if (data.success) {
-        await loadCampaigns(); // Refresh the list
+        await loadCampaigns({ showLoader: false }); // Refresh the list
         toast(`Campaign "${campaignName}" archived successfully`, 'success');
       } else {
         toast(data.error || 'Failed to archive campaign', 'error');
@@ -245,8 +254,23 @@ export default function MarketaCampaignsPage() {
             <p className="text-slate-300">
               Manage partner campaigns and monitor participation
             </p>
+            {lastUpdatedAt && (
+              <p className="text-xs text-slate-500 mt-1">
+                Last refreshed: {new Date(lastUpdatedAt).toLocaleString()}
+              </p>
+            )}
           </div>
           <div className="flex gap-2">
+            <Button
+              onClick={() => loadCampaigns({ showLoader: false })}
+              disabled={refreshing || seeding}
+              variant="outline"
+              className="bg-slate-800/50 border-white/20 text-slate-300 hover:bg-slate-700/50"
+              title="Refresh campaigns"
+            >
+              <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+              {refreshing ? 'Refreshing...' : 'Refresh'}
+            </Button>
             <Button
               onClick={seed21Awakenings}
               disabled={seeding}
