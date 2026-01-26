@@ -12,7 +12,15 @@ const PAYPAL_API = process.env.PAYPAL_MODE === 'live'
   : 'https://api-m.sandbox.paypal.com';
 
 export async function OPTIONS() {
-  return new NextResponse(null);
+  return withCors(new NextResponse(null, { status: 204 }));
+}
+
+function withCors(response: NextResponse, origin?: string | null) {
+  response.headers.set('Access-Control-Allow-Origin', origin || '*');
+  response.headers.set('Access-Control-Allow-Methods', 'POST,OPTIONS');
+  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  response.headers.set('Access-Control-Max-Age', '86400');
+  return response;
 }
 
 async function getAccessToken(): Promise<string> {
@@ -65,13 +73,14 @@ async function getAccessToken(): Promise<string> {
 
 export async function POST(request: NextRequest) {
   try {
+    const origin = request.headers.get('origin');
     const { personaId, contentType, contentId, contentTitle, amount, version } = await request.json();
     
     if (!personaId || !contentType || !contentId || !amount) {
-      return NextResponse.json(
+      return withCors(NextResponse.json(
         { error: 'Missing required fields' },
-        { status: 400,  }
-      );
+        { status: 400 }
+      ), origin);
     }
     
     console.log('[PayPal Create Order] Creating order for:', {
@@ -136,16 +145,16 @@ export async function POST(request: NextRequest) {
     
     console.log('[PayPal Create Order] Order created:', order.id);
     
-    return NextResponse.json({
+    return withCors(NextResponse.json({
       orderId: order.id,
       approvalUrl,
-    });
+    }), origin);
     
   } catch (error) {
     console.error('[PayPal Create Order] Error:', error);
-    return NextResponse.json(
+    return withCors(NextResponse.json(
       { error: (error as Error).message },
-      { status: 500,  }
-    );
+      { status: 500 }
+    ));
   }
 }

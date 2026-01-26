@@ -19,7 +19,15 @@ export const runtime = 'nodejs';
 
 // CORS headers for cross-origin requests from thin client
 export async function OPTIONS() {
-  return new NextResponse(null);
+  return withCors(new NextResponse(null, { status: 204 }));
+}
+
+function withCors(response: NextResponse) {
+  response.headers.set('Access-Control-Allow-Origin', '*');
+  response.headers.set('Access-Control-Allow-Methods', 'GET,OPTIONS');
+  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, x-tenant-id, x-persona-id');
+  response.headers.set('Access-Control-Max-Age', '86400');
+  return response;
 }
 
 const supabase = createClient(
@@ -38,7 +46,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     const { cid } = params;
 
     if (!cid) {
-      return NextResponse.json({ error: 'CID required' }, { status: 400,  });
+      return withCors(NextResponse.json({ error: 'CID required' }, { status: 400 }));
     }
 
     // Get variant (default to thumb to avoid CloudFront 1MB limit)
@@ -49,14 +57,14 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     const cached = getCachedImage(cacheKey);
     if (cached) {
       console.log(`[CoverStream] Cache HIT for ${cid}`);
-      return new NextResponse(new Uint8Array(cached.data), {
+      return withCors(new NextResponse(new Uint8Array(cached.data), {
         headers: {
                     'Content-Type': cached.mimeType,
           'Content-Length': cached.data.length.toString(),
           'Cache-Control': 'public, max-age=3600',
           'X-Cache': 'HIT',
         },
-      });
+      }));
     }
     
     console.log(`[CoverStream] Cache MISS for ${cid}`);
@@ -93,7 +101,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
       if (masterError || !master) {
         console.log('[CoverStream] Asset not found in master_content_qubes either');
-        return NextResponse.json({ error: 'Asset not found' }, { status: 404 });
+        return withCors(NextResponse.json({ error: 'Asset not found' }, { status: 404 }));
       }
 
       // Use master content
@@ -106,10 +114,10 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
   } catch (error) {
     console.error('[CoverStream] Error:', error);
-    return NextResponse.json(
+    return withCors(NextResponse.json(
       { error: error instanceof Error ? error.message : 'Stream failed' },
       { status: 500 }
-    );
+    ));
   }
 }
 
@@ -126,7 +134,7 @@ async function streamDecryptedContent(
 ) {
   // Get the decryption key from token_qube
   if (!asset.token_qube_id) {
-    return NextResponse.json({ error: 'No token qube for decryption' }, { status: 400 });
+    return withCors(NextResponse.json({ error: 'No token qube for decryption' }, { status: 400 }));
   }
 
   const { data: tokenQube, error: tokenError } = await supabase
@@ -137,7 +145,7 @@ async function streamDecryptedContent(
 
   if (tokenError || !tokenQube) {
     console.error('[CoverStream] Token qube query error:', tokenError);
-    return NextResponse.json({ error: `Token qube not found: ${tokenError?.message || 'unknown'}` }, { status: 404 });
+    return withCors(NextResponse.json({ error: `Token qube not found: ${tokenError?.message || 'unknown'}` }, { status: 404 }));
   }
 
   // Unwrap the key using the encryption service
@@ -149,13 +157,13 @@ async function streamDecryptedContent(
     });
   } catch (unwrapError) {
     console.error('[CoverStream] Key unwrap failed:', unwrapError);
-    return NextResponse.json({ error: 'Key unwrap failed - check CODEX_MASTER_KEY' }, { status: 500 });
+    return withCors(NextResponse.json({ error: 'Key unwrap failed - check CODEX_MASTER_KEY' }, { status: 500 }));
   }
 
   // Fetch encrypted content from Autonomys
   const apiKey = process.env.AUTONOMYS_API_KEY;
   if (!apiKey) {
-    return NextResponse.json({ error: 'Autonomys not configured' }, { status: 500 });
+    return withCors(NextResponse.json({ error: 'Autonomys not configured' }, { status: 500 }));
   }
 
   // Use SDK v1.6.4+ with proper network support
@@ -174,7 +182,7 @@ async function streamDecryptedContent(
     console.log('[CoverStream] Downloaded', encryptedData.length, 'bytes');
   } catch (downloadError) {
     console.error('[CoverStream] Download failed:', downloadError);
-    return NextResponse.json({ error: 'Download failed' }, { status: 500 });
+    return withCors(NextResponse.json({ error: 'Download failed' }, { status: 500 }));
   }
 
   // Decrypt the content using the encryption service
@@ -188,7 +196,7 @@ async function streamDecryptedContent(
     });
   } catch (decryptError) {
     console.error('[CoverStream] Decryption failed:', decryptError);
-    return NextResponse.json({ error: 'Decryption failed' }, { status: 500,  });
+    return withCors(NextResponse.json({ error: 'Decryption failed' }, { status: 500 }));
   }
 
   // For covers, default to thumb to stay under CloudFront edge body limits (~1MB)
@@ -215,7 +223,7 @@ async function streamDecryptedContent(
   // Cache what we actually return
   setCachedImage(cacheKey, finalData, finalMime);
 
-  return new NextResponse(new Uint8Array(finalData), {
+  return withCors(new NextResponse(new Uint8Array(finalData), {
     headers: {
             'Content-Type': finalMime,
       'Content-Length': finalData.length.toString(),
@@ -224,7 +232,7 @@ async function streamDecryptedContent(
       'X-Variant': variant,
       'X-Thumb-OK': thumbOk ? '1' : '0',
     },
-  });
+  }));
 }
 
 // ============================================================================
