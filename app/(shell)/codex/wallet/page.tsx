@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import SmartWalletDrawer from "../../../components/content/SmartWalletDrawer";
 import { Wallet, Settings, Code } from "lucide-react";
 
-export default function SmartWalletViewerPage() {
+function SmartWalletViewerContent() {
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [density, setDensity] = useState<'narrow' | 'wide'>('wide');
   const searchParams = useSearchParams();
@@ -186,5 +186,13 @@ export default function SmartWalletViewerPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SmartWalletViewerPage() {
+  return (
+    <Suspense fallback={<div className="h-screen bg-slate-900" />}>
+      <SmartWalletViewerContent />
+    </Suspense>
   );
 }
