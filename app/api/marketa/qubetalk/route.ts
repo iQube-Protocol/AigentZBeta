@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { resolveCrmPersona } from './_lib';
 
 // Initialize Supabase client
 const supabase = createClient(
@@ -30,13 +31,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Get tenant info for validation
-    const { data: persona, error: personaError } = await supabase
-      .from('crm_personas')
-      .select('tenant_id')
-      .eq('id', personaId)
-      .single();
-
-    if (personaError || !persona) {
+    const persona = await resolveCrmPersona(supabase, personaId);
+    if (!persona) {
       return NextResponse.json(
         { error: 'Invalid persona' },
         { status: 401 }
@@ -70,7 +66,7 @@ export async function POST(request: NextRequest) {
         created_at: new Date().toISOString(),
         metadata: {
           agent_name: agent_name || 'Aigent Marketa',
-          persona_id: personaId
+          persona_id: persona.id
         }
       })
       .select()
@@ -136,13 +132,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Get tenant info for validation
-    const { data: persona, error: personaError } = await supabase
-      .from('crm_personas')
-      .select('tenant_id')
-      .eq('id', personaId)
-      .single();
-
-    if (personaError || !persona) {
+    const persona = await resolveCrmPersona(supabase, personaId);
+    if (!persona) {
       return NextResponse.json(
         { error: 'Invalid persona' },
         { status: 401 }

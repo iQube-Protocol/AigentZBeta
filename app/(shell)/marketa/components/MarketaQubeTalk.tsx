@@ -59,10 +59,20 @@ export default function MarketaQubeTalk() {
 
   const resolveContext = useCallback(() => {
     const params = new URLSearchParams(window.location.search);
-    const tenantId = params.get('tenant') || window.localStorage.getItem('marketa_tenant_id') || 'metaproof';
+    const tenantId =
+      params.get('tenant') ||
+      params.get('tenantId') ||
+      window.localStorage.getItem('marketa_tenant_id') ||
+      window.localStorage.getItem('currentTenantId') ||
+      window.localStorage.getItem('tenant_id') ||
+      'metaproof';
     const personaId =
       params.get('persona') ||
+      params.get('personaId') ||
       window.localStorage.getItem('marketa_persona_id') ||
+      window.localStorage.getItem('active_crm_persona_id') ||
+      window.localStorage.getItem('active_persona_id') ||
+      window.localStorage.getItem('persona_id') ||
       // Dev fallback only (requires CRM persona UUID that matches tenant_id)
       '5ffe87a0-bd7f-49ba-aa11-d45bc2f6a009';
     return { tenantId, personaId };
