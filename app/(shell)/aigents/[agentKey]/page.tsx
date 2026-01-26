@@ -1,10 +1,10 @@
 "use client";
 import { notFound } from "next/navigation";
 import React from "react";
-import { personas } from "../../../data/personas";
-import { ContextPanel } from "../../../../components/ContextPanel";
+import { personas } from "@/app/data/personas";
+import { ContextPanel } from "@/components/ContextPanel";
 import AgentWalletDrawer from "@/components/AgentWalletDrawer";
-import { getAgentConfig } from "../../../data/agentConfig";
+import { getAgentConfig } from "@/app/data/agentConfig";
 
 export default function AgentPage({ params }: { params: { agentKey: string } }) {
   const persona = personas[params.agentKey as keyof typeof personas];

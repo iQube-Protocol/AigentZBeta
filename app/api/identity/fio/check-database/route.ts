@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
     
     // Check if handle already exists in our database
     const { data: existingPersonas, error } = await supabase
-      .from('persona')
+      .from('personas')
       .select('id, fio_handle')
       .eq('fio_handle', handle)
       .limit(1);

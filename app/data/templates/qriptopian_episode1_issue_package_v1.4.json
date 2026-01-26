@@ -1,0 +1,44 @@
+{
+  "schema_version": "qriptopian.issue_package.v1.4",
+  "publication": {
+    "name": "The Qriptopian",
+    "domain": "qriptopian"
+  },
+  "issue": {
+    "issue_id": "QRIPTOPIAN_EPISODE_1",
+    "episode": "Episode 1 - Launch Edition",
+    "title": "The Qriptopian Launch Edition",
+    "generated_at": "2025-12-19",
+    "status": "published",
+    "theme": "QriptoCENT, Agentic AI, and the Convergence Era",
+    "notes": "Complete Issue 1 content transformed from Lovable export to Liquid UI v1.4 format."
+  },
+  "codex_import_context": {
+    "upsert_keys": {
+      "content_items": ["content_id"],
+      "assets": ["asset_id"],
+      "placements": ["placement_id"],
+      "sections": ["section_id", "tab_id"]
+    },
+    "routing_rules": {
+      "knyt": {
+        "realms": ["terra", "metaterra_or", "digiterra"],
+        "default_realm": "terra"
+      },
+      "qriptopian": {
+        "realms": ["macro", "terra"],
+        "default_realm": "macro"
+      }
+    }
+  },
+  "liquid_ui_profile": {
+    "template_pack_id": "knyt-liquid-ui-v1",
+    "device_support": ["mobile", "tablet", "desktop"],
+    "geometry": "fixed_viewport",
+    "intent_triggers": ["browse", "watch", "read", "character_deep_dive"]
+  },
+  "content_items": [],
+  "assets": [],
+  "placements": [],
+  "sections": []
+}

@@ -127,7 +127,7 @@ export async function GET(req: NextRequest) {
     
     // Run both simultaneously (real-world scenario)
     const [qubeResult, agentResult] = await Promise.all([
-      qubeClient.supabase.from('persona').select('id').limit(1),
+      qubeClient.supabase.from('personas').select('id').limit(1),
       keyService.getAgentKeys(agentId)
     ]);
 

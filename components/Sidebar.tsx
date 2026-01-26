@@ -812,7 +812,8 @@ export const Sidebar = () => {
       .find(section => section.label === "Orchestrator")
       ?.items.map(item => item.href) || [];
 
-    const genericAiHref = agentHrefs.find(h => h.includes('/aigents/generic-ai')) || '';
+    const genericAiHref =
+      agentHrefs.find(h => h.includes('/aigents/generic-ai')) || '/aigents/generic-ai';
 
     // Extract persona name if present as a query (e.g., /aigents/generic-ai?iqube=metaMe)
     let personaName: string | null = null;
@@ -838,6 +839,12 @@ export const Sidebar = () => {
     if (activeAgentHref && personaName) {
       console.log(`Navigating to ${activeAgentHref} with persona=${personaName}`);
       router.push(`${activeAgentHref}?persona=${personaName}`);
+      return;
+    }
+
+    if (personaHref) {
+      console.log(`Navigating directly to persona href: ${personaHref}`);
+      router.push(personaHref);
     }
   };
 
@@ -920,10 +927,14 @@ export const Sidebar = () => {
   };
 
   const handleSidebarNavigate = (href: string) => {
-    if (!href || href.startsWith('#')) return;
+    if (!href || href.startsWith('#')) {
+      return;
+    }
+    
     try {
       router.push(href);
-    } catch {
+    } catch (error) {
+      console.error('Router push failed:', error);
       // Fallback to hard navigation if router fails.
       if (typeof window !== 'undefined') {
         window.location.assign(href);
@@ -1226,7 +1237,7 @@ export const Sidebar = () => {
                                 (!isToggleable && !item.drawerAction && !item.href.startsWith('#')) ? (
                                   <Link
                                     href={item.href}
-                                    className="flex items-center w-full px-3 py-2"
+                                    className="flex items-center w-full px-3 py-2 hover:bg-slate-700/30 rounded-lg transition-colors"
                                   >
                                     <div className="flex items-center gap-2">
                                       <span>{item.icon}</span>
@@ -1236,7 +1247,7 @@ export const Sidebar = () => {
                                 ) : (
                                   <button
                                     type="button"
-                                    className="flex items-center w-full px-3 py-2"
+                                    className="flex items-center w-full px-3 py-2 hover:bg-slate-700/30 rounded-lg transition-colors"
                                     onClick={() => {
                                       if (isToggleable) {
                                         const sectionLabel = sections.find(section =>

@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
+import { getMyWalletPersonas } from "@/services/walletApi";
 
 interface TopHeaderProps {
   onMobileMenuClick?: () => void;
@@ -29,27 +30,14 @@ export function TopHeader({ onMobileMenuClick, isMobileMenuOpen }: TopHeaderProp
           return;
         }
 
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('persona_id')
-          .eq('id', user.id)
-          .maybeSingle();
-
-        if (profile?.persona_id) {
-          const { data: persona } = await supabase
-            .from('persona')
-            .select('fio_handle')
-            .eq('id', profile.persona_id)
-            .maybeSingle();
-          
-          if (persona?.fio_handle) {
-            setPersonaHandle(persona.fio_handle);
-          } else {
-            setPersonaHandle(null);
-          }
-        } else {
-          setPersonaHandle(null);
-        }
+        const { personas } = await getMyWalletPersonas();
+        const activeId =
+          localStorage.getItem('currentPersonaId') ||
+          sessionStorage.getItem('currentPersonaId') ||
+          localStorage.getItem('activePersonaId') ||
+          undefined;
+        const active = activeId ? personas.find((p) => p.id === activeId) : personas[0];
+        setPersonaHandle(active?.fioHandle || null);
       } catch (e) {
         console.error('[TopHeader] Error fetching persona:', e);
       } finally {

@@ -5,6 +5,16 @@ import ContentViewer from "./ContentViewer";
 import SmartWalletDrawer from "./SmartWalletDrawer";
 import { useSmartTriad } from "./SmartTriadProvider";
 import { agentConfigs } from "@/app/data/agentConfig";
+import { MoneyPennyChat } from "@/app/(shell)/moneypenny/components/MoneyPennyChat";
+import { PortfolioAnalytics } from "@/app/(shell)/moneypenny/components/PortfolioAnalytics";
+import { StrategyBuilder } from "@/app/(shell)/moneypenny/components/StrategyBuilder";
+import { X402Dashboard } from "@/app/(shell)/moneypenny/components/X402Dashboard";
+import { FIOManager } from "@/app/(shell)/moneypenny/components/FIOManager";
+import { CRMIntegration } from "@/app/(shell)/moneypenny/components/CRMIntegration";
+import { HFTConsole } from "@/app/(shell)/moneypenny/components/HFTConsole";
+import { KnytTab } from "@/app/triad/components/codex/tabs/KnytTab";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { X } from "lucide-react";
 
 interface SmartTriadSurfacesProps {
   personaId?: string;
@@ -18,6 +28,92 @@ export function SmartTriadSurfaces({ personaId }: SmartTriadSurfacesProps) {
 
   const viewerOpen = state.activeDrawer === "contentViewer" && !!state.currentContent;
   const hasAccess = state.currentContent ? actions.checkOwnership(state.currentContent.id) : false;
+
+  // Handle codex-specific drawers
+  const renderCodexDrawer = () => {
+    if (!state.activeDrawer || !state.activeDrawer.startsWith('moneypenny-')) {
+      return null;
+    }
+
+    const drawerType = state.activeDrawer.replace('moneypenny-', '');
+    
+    const drawerContent = {
+      console: <HFTConsole />,
+      chat: <MoneyPennyChat />,
+      portfolio: <PortfolioAnalytics />,
+      strategies: <StrategyBuilder />,
+      settlements: <X402Dashboard />,
+      fio: <FIOManager />,
+      crm: <CRMIntegration />,
+    }[drawerType];
+
+    if (!drawerContent) return null;
+
+    return (
+      <div className="fixed inset-0 z-50">
+        <div
+          className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+          onClick={() => {
+            actions.setActiveDrawer(null);
+          }}
+        />
+        <div className="absolute inset-0 p-4 flex items-center justify-center">
+          <div className="w-full max-w-4xl max-h-[85vh] rounded-2xl bg-slate-950/70 ring-1 ring-white/10 overflow-hidden flex flex-col">
+            <div className="flex-shrink-0 border-b border-slate-700/50 p-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-white capitalize">
+                {drawerType} Drawer
+              </h2>
+              <button
+                onClick={() => actions.setActiveDrawer(null)}
+                className="p-2 rounded-lg bg-slate-700/50 text-slate-200 hover:bg-slate-700 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
+              {drawerContent}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Handle KNYT codex drawer
+  const renderKnytDrawer = () => {
+    if (!state.activeDrawer || !state.activeDrawer.startsWith('knyt-')) {
+      return null;
+    }
+
+    return (
+      <div className="fixed inset-0 z-50">
+        <div
+          className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+          onClick={() => {
+            actions.setActiveDrawer(null);
+          }}
+        />
+        <div className="absolute inset-0 p-4 flex items-center justify-center">
+          <div className="w-full max-w-6xl max-h-[85vh] rounded-2xl bg-slate-950/70 ring-1 ring-white/10 overflow-hidden flex flex-col">
+            <div className="flex-shrink-0 border-b border-slate-700/50 p-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-white">
+                KNYT Codex
+              </h2>
+              <button
+                onClick={() => actions.setActiveDrawer(null)}
+                className="p-2 rounded-lg bg-slate-700/50 text-slate-200 hover:bg-slate-700 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
+              <KnytTab personaId={personaId} />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <>
@@ -43,6 +139,9 @@ export function SmartTriadSurfaces({ personaId }: SmartTriadSurfacesProps) {
           </div>
         </div>
       )}
+
+      {renderCodexDrawer()}
+      {renderKnytDrawer()}
 
       <SmartWalletDrawer
         open={state.walletOpen}

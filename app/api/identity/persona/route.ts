@@ -33,8 +33,8 @@ export async function GET(req: NextRequest) {
     if (id) {
       // Fetch single persona by ID
       const { data: persona, error } = await supabase
-        .from('persona_with_reputation')
-        .select('*')
+        .from('personas')
+        .select('id,tenant_id,auth_profile_id,display_name,avatar_uri,fio_handle,fio_domain,default_identity_state,world_id_status,app_origin,discoverable_within_tenant,reputation_score,reputation_bucket,badges,status,created_at,updated_at')
         .eq('id', id)
         .single();
 
@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
       const { data: personas, error } = await supabase
         .from('personas')
         .select('id, fio_handle')
-        .eq('fio_handle', fioHandle)
+        .ilike('fio_handle', fioHandle.toLowerCase())
         .limit(1);
 
       if (error) {
@@ -60,8 +60,8 @@ export async function GET(req: NextRequest) {
     } else {
       // Fetch all personas
       const { data: personas, error } = await supabase
-        .from('persona_with_reputation')
-        .select('*')
+        .from('personas')
+        .select('id,tenant_id,auth_profile_id,display_name,avatar_uri,fio_handle,fio_domain,default_identity_state,world_id_status,app_origin,discoverable_within_tenant,reputation_score,reputation_bucket,badges,status,created_at,updated_at')
         .order('created_at', { ascending: false })
         .limit(100);
 

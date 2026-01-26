@@ -20,8 +20,12 @@ function getRandomBytes(length: number): Uint8Array {
     return window.crypto.getRandomValues(new Uint8Array(length));
   }
   // Server-side fallback
-  const crypto = require('crypto');
-  return new Uint8Array(crypto.randomBytes(length));
+  if (typeof global !== 'undefined' && (global as any).crypto) {
+    const crypto = (global as any).crypto;
+    return new Uint8Array(crypto.randomBytes(length));
+  }
+  // Fallback for environments without crypto
+  throw new Error('Cryptographic random number generation not available');
 }
 
 /**

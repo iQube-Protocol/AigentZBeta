@@ -17,6 +17,7 @@ import { shareArticle, getCurrentPersonaId, SocialSharingModal } from '@agentiq/
 import type { ArticleQube } from '@agentiq/codex';
 import type { ContentModalities, ActionType, SmartContentItem } from '@agentiq/smarttriad';
 import { supabase } from '@/integrations/supabase/client';
+import { getMyWalletPersonas } from '@/services/walletApi';
 
 interface SmartContentActionContextValue {
   /**
@@ -61,17 +62,11 @@ export function SmartContentActionProvider({ children }: ProviderProps) {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
-
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('persona_id')
-          .eq('id', user.id)
-          .maybeSingle();
-
-        if (profile?.persona_id) {
-          localStorage.setItem('currentPersonaId', profile.persona_id);
-          sessionStorage.setItem('currentPersonaId', profile.persona_id);
-        }
+        const { personas } = await getMyWalletPersonas();
+        const first = personas[0];
+        if (!first?.id) return;
+        localStorage.setItem('currentPersonaId', first.id);
+        sessionStorage.setItem('currentPersonaId', first.id);
       } catch (error) {
         console.warn('[SmartContentAction] Failed to resolve persona:', error);
       }

@@ -18,6 +18,7 @@ import { createSmartWalletNode } from '@/types/smartWallet';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchBalances, getWalletAddress, type ChainBalances } from '@/services/balanceService';
 import type { CampaignStateView } from '@/types/campaign';
+import { getMyWalletPersonas, type WalletPersona } from '@/services/walletApi';
 
 interface WalletDrawerProps {
   isOpen: boolean;
@@ -25,13 +26,6 @@ interface WalletDrawerProps {
   initialTab?: 'wallet' | 'library' | 'tasks' | 'reputation' | 'rewards';
   variant?: 'overlay' | 'embedded';
   embeddedWidth?: 'fill' | 'fixed';
-}
-
-interface UserPersona {
-  id: string;
-  fio_handle: string | null;
-  default_identity_state: string;
-  world_id_status: string | null;
 }
 
 interface SavedPersona {
@@ -48,7 +42,7 @@ export function WalletDrawer({
   variant = 'overlay',
   embeddedWidth = 'fill',
 }: WalletDrawerProps) {
-  const [persona, setPersona] = useState<UserPersona | null>(null);
+  const [persona, setPersona] = useState<WalletPersona | null>(null);
   const [displayName, setDisplayName] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -63,7 +57,7 @@ export function WalletDrawer({
   const [totalRewardsEarned, setTotalRewardsEarned] = useState<number>(0);
   const [rewardMultiplier, setRewardMultiplier] = useState<number>(1);
 
-  // Fetch user's persona and saved list from Supabase
+  // Fetch user's personas via API (no direct table access)
   const fetchPersona = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -76,61 +70,31 @@ export function WalletDrawer({
 
       setIsAuthenticated(true);
 
-      // Get profile
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('persona_id, display_name, trading_preferences')
-        .eq('id', user.id)
-        .maybeSingle();
+      const { personas } = await getMyWalletPersonas();
+      const activeId =
+        localStorage.getItem('currentPersonaId') ||
+        sessionStorage.getItem('currentPersonaId') ||
+        localStorage.getItem('activePersonaId') ||
+        undefined;
+      const active = activeId ? personas.find((p) => p.id === activeId) : personas[0];
 
-      if (profile?.display_name) {
-        setDisplayName(profile.display_name);
-      }
+      setPersona(active || null);
+      setDisplayName(active?.displayName || active?.fioHandle?.split('@')[0] || '');
 
-      // Load saved personas from preferences
-      let currentSaved: SavedPersona[] = [];
-      if (profile?.trading_preferences && (profile.trading_preferences as any).saved_personas) {
-        currentSaved = (profile.trading_preferences as any).saved_personas;
-        setSavedPersonas(currentSaved);
-      }
+      const saved: SavedPersona[] = (personas || []).map((p) => ({
+        id: p.id,
+        name: p.displayName || p.fioHandle?.split('@')[0] || 'User',
+        fioHandle: p.fioHandle || undefined,
+        isAgent: p.worldIdStatus === 'agent_declared',
+      }));
+      setSavedPersonas(saved);
 
-      if (profile?.persona_id) {
-        // Get active persona details
-        const { data: personaData } = await supabase
-          .from('persona')
-          .select('id, fio_handle, default_identity_state, world_id_status')
-          .eq('id', profile.persona_id)
-          .maybeSingle();
-
-        if (personaData) {
-          setPersona(personaData);
-          try {
-            localStorage.setItem('currentPersonaId', personaData.id);
-            sessionStorage.setItem('currentPersonaId', personaData.id);
-          } catch {}
-
-          // Update saved personas if current is missing (e.g. first load or newly added)
-          const isAgent = personaData.world_id_status === 'verified_ai_agent' || personaData.world_id_status === 'agent_declared';
-          const personaEntry: SavedPersona = {
-            id: personaData.id,
-            name: profile.display_name || personaData.fio_handle?.split('@')[0] || 'User',
-            fioHandle: personaData.fio_handle || undefined,
-            isAgent
-          };
-
-          if (!currentSaved.some(p => p.id === personaData.id)) {
-            const newSaved = [...currentSaved, personaEntry];
-            setSavedPersonas(newSaved);
-            
-            // Persist to DB
-            await supabase.from('profiles').update({
-              trading_preferences: {
-                ...(profile.trading_preferences as any || {}),
-                saved_personas: newSaved
-              }
-            }).eq('id', user.id);
-          }
-        }
+      if (active?.id) {
+        try {
+          localStorage.setItem('currentPersonaId', active.id);
+          sessionStorage.setItem('currentPersonaId', active.id);
+          localStorage.setItem('activePersonaId', active.id);
+        } catch {}
       }
     } catch (e) {
       console.error('[WalletDrawer] Error fetching persona:', e);
@@ -157,13 +121,13 @@ export function WalletDrawer({
   // Fetch balances when persona changes
   useEffect(() => {
     const loadBalances = async () => {
-      if (!persona?.fio_handle) {
+      if (!persona?.fioHandle) {
         setBalances(null);
         return;
       }
 
       setIsLoadingWalletData(true);
-      const walletAddress = getWalletAddress(persona.fio_handle);
+      const walletAddress = getWalletAddress(persona.fioHandle);
       if (!walletAddress) {
         // console.log('[WalletDrawer] No wallet address found for:', persona.fio_handle);
         return;
@@ -184,7 +148,7 @@ export function WalletDrawer({
     if (isOpen && persona) {
       loadBalances();
     }
-  }, [isOpen, persona?.fio_handle]);
+  }, [isOpen, persona?.fioHandle]);
 
   // Fetch Base Q¢ balance when persona changes
   useEffect(() => {
@@ -374,17 +338,16 @@ export function WalletDrawer({
   const handlePersonaChange = async (personaId: string) => {
     setIsLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      
-      const targetPersona = savedPersonas.find(p => p.id === personaId);
-      
-      await supabase.from('profiles').update({
-        persona_id: personaId,
-        display_name: targetPersona?.name || displayName
-      }).eq('id', user.id);
-      
-      await fetchPersona();
+      const selected = personaId ? (await getMyWalletPersonas()).personas.find(p => p.id === personaId) : undefined;
+      if (selected) {
+        setPersona(selected);
+        setDisplayName(selected.displayName || selected.fioHandle?.split('@')[0] || '');
+        try {
+          localStorage.setItem('currentPersonaId', selected.id);
+          sessionStorage.setItem('currentPersonaId', selected.id);
+          localStorage.setItem('activePersonaId', selected.id);
+        } catch {}
+      }
     } catch (e) {
       console.error('Error switching persona:', e);
     } finally {
@@ -393,13 +356,13 @@ export function WalletDrawer({
   };
 
   // Get wallet address for the persona
-  const walletAddress = persona?.fio_handle ? getWalletAddress(persona.fio_handle) : null;
+  const walletAddress = persona?.fioHandle ? getWalletAddress(persona.fioHandle) : null;
 
   // Build agent config from real persona or show sign-in prompt
   const agentConfig = persona ? {
     id: persona.id,
-    name: displayName || persona.fio_handle?.split('@')[0] || 'User',
-    fioHandle: persona.fio_handle || undefined,
+    name: displayName || persona.fioHandle?.split('@')[0] || 'User',
+    fioHandle: persona.fioHandle || undefined,
     walletAddress: walletAddress || undefined,
   } : {
     id: 'guest',
@@ -414,13 +377,13 @@ export function WalletDrawer({
       activePersonaId: persona?.id || 'guest',
       activePersona: persona ? {
         id: persona.id,
-        displayName: displayName || persona.fio_handle?.split('@')[0] || 'User',
-        fioHandle: persona.fio_handle || undefined,
-        identifiability: persona.default_identity_state === 'anonymous' ? 'anon' : 'pseudo',
+        displayName: displayName || persona.fioHandle?.split('@')[0] || 'User',
+        fioHandle: persona.fioHandle || undefined,
+        identifiability: persona.defaultIdentityState === 'anonymous' ? 'anon' : 'pseudo',
         reputationBucket: 1,
         reputationScore: 0,
-        worldIdStatus: persona.world_id_status === 'verified_human' ? 'verified' : 'unverified',
-        isAgent: persona.world_id_status === 'verified_ai_agent' || persona.world_id_status === 'agent_declared',
+        worldIdStatus: persona.worldIdStatus === 'verified_human' ? 'verified' : 'unverified',
+        isAgent: persona.worldIdStatus === 'agent_declared',
         appOrigin: 'qriptopian',
         badges: [],
       } : undefined,

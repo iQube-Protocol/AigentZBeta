@@ -10,17 +10,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
-
-interface Persona {
-  id: string;
-  fio_handle: string | null;
-  default_identity_state: string;
-  created_at: string | null;
-}
+import { getMyWalletPersonas, type WalletPersona } from "@/services/walletApi";
 
 export function PersonaSelector() {
-  const [personas, setPersonas] = useState<Persona[]>([]);
-  const [activePersona, setActivePersona] = useState<Persona | null>(null);
+  const [personas, setPersonas] = useState<WalletPersona[]>([]);
+  const [activePersona, setActivePersona] = useState<WalletPersona | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -48,35 +42,23 @@ export function PersonaSelector() {
         return;
       }
 
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('persona_id, display_name')
-        .eq('id', user.id)
-        .maybeSingle();
+      const { personas: walletPersonas } = await getMyWalletPersonas();
+      setPersonas(walletPersonas);
 
-      console.log('[PersonaSelector] Profile:', profile, 'Error:', profileError);
+      const activeId =
+        localStorage.getItem('currentPersonaId') ||
+        sessionStorage.getItem('currentPersonaId') ||
+        localStorage.getItem('activePersonaId') ||
+        undefined;
 
-      if (!profile?.persona_id) {
-        setPersonas([]);
-        setActivePersona(null);
-        setIsLoading(false);
-        return;
-      }
-
-      const { data: persona, error } = await supabase
-        .from('persona')
-        .select('id, fio_handle, default_identity_state, created_at')
-        .eq('id', profile.persona_id)
-        .maybeSingle();
-
-      console.log('[PersonaSelector] Persona:', persona, 'Error:', error);
-
-      if (persona) {
-        setPersonas([persona]);
-        setActivePersona(persona);
-        localStorage.setItem('activePersonaId', persona.id);
+      const active = activeId ? walletPersonas.find((p) => p.id === activeId) : walletPersonas[0];
+      if (active) {
+        setActivePersona(active);
+        try {
+          localStorage.setItem('currentPersonaId', active.id);
+          localStorage.setItem('activePersonaId', active.id);
+        } catch {}
       } else {
-        setPersonas([]);
         setActivePersona(null);
       }
     } catch (error) {
@@ -86,13 +68,17 @@ export function PersonaSelector() {
     }
   };
 
-  const handlePersonaChange = (persona: Persona) => {
+  const handlePersonaChange = (persona: WalletPersona) => {
     setActivePersona(persona);
-    localStorage.setItem('activePersonaId', persona.id);
+    try {
+      localStorage.setItem('currentPersonaId', persona.id);
+      localStorage.setItem('activePersonaId', persona.id);
+      sessionStorage.setItem('currentPersonaId', persona.id);
+    } catch {}
   };
 
-  const getDisplayName = (persona: Persona) => {
-    return persona.fio_handle || `Persona ${persona.id.slice(0, 8)}`;
+  const getDisplayName = (persona: WalletPersona) => {
+    return persona.fioHandle || `Persona ${persona.id.slice(0, 8)}`;
   };
 
   // Always render something visible for debugging

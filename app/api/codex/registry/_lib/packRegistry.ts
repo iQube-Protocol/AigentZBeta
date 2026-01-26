@@ -52,6 +52,8 @@ const PACK_ICON_BY_ID: Record<string, string> = {
   knyt: "BookOpen",
   qripto: "Newspaper",
   qriptopian: "Newspaper",
+  marketa: "TrendingUp",
+  moneypenny: "DollarSign",
 };
 
 const PACK_COLOR_BY_ID: Record<string, string> = {
@@ -59,6 +61,8 @@ const PACK_COLOR_BY_ID: Record<string, string> = {
   knyt: "purple",
   qripto: "indigo",
   qriptopian: "indigo",
+  marketa: "rose",
+  moneypenny: "green",
 };
 
 const COLLECTION_ICON_BY_ID: Record<string, string> = {
@@ -108,6 +112,66 @@ function tabFromCollection(collection: PackCollection, packId: string, order: nu
   const icon = COLLECTION_ICON_BY_ID[collection.id] || "FileText";
 
   const hasNestedCollections = (collection.collections?.length ?? 0) > 0;
+
+  // Special handling for Marketa codex
+  if (packId === "marketa") {
+    return {
+      id: `${packId}-tab-${slug}`,
+      label: collection.title,
+      slug,
+      enabled: true,
+      order,
+      type: "static",
+      config: {
+        component: "MarketaTab",
+        props: {},
+      },
+      metadata: {
+        icon: "TrendingUp",
+        description: collection.title,
+      },
+    };
+  }
+
+  // Special handling for MoneyPenny codex
+  if (packId === "moneypenny") {
+    return {
+      id: `${packId}-tab-${slug}`,
+      label: collection.title,
+      slug,
+      enabled: true,
+      order,
+      type: "static",
+      config: {
+        component: "MoneyPennyTab",
+        props: {},
+      },
+      metadata: {
+        icon: "DollarSign",
+        description: collection.title,
+      },
+    };
+  }
+
+  // Special handling for KNYT codex
+  if (packId === "knyt") {
+    return {
+      id: `${packId}-tab-${slug}`,
+      label: collection.title,
+      slug,
+      enabled: true,
+      order,
+      type: "static",
+      config: {
+        component: "KnytTab",
+        props: {},
+      },
+      metadata: {
+        icon: "BookOpen",
+        description: collection.title,
+      },
+    };
+  }
 
   return {
     id: `${packId}-tab-${slug}`,

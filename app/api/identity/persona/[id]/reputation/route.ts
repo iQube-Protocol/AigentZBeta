@@ -40,8 +40,8 @@ export async function GET(
     // Get persona from Supabase
     const supabase = createClient(supabaseUrl, supabaseKey);
     const { data: persona, error: personaError } = await supabase
-      .from('persona')
-      .select('*')
+      .from('personas')
+      .select('id')
       .eq('id', personaId)
       .single();
 
@@ -78,7 +78,7 @@ export async function GET(
       return NextResponse.json({
         ok: true,
         data: {
-          persona,
+          persona: { id: persona.id },
           reputation: null,
           message: 'No reputation bucket found for this persona'
         }
@@ -112,7 +112,7 @@ export async function GET(
     return NextResponse.json({
       ok: true,
       data: {
-        persona,
+        persona: { id: persona.id },
         reputation: {
           ...reputationData,
           supabase_synced: !!reputationBucket,
@@ -157,7 +157,7 @@ export async function POST(
     // Verify persona exists
     const supabase = createClient(supabaseUrl, supabaseKey);
     const { data: persona, error: personaError } = await supabase
-      .from('persona')
+      .from('personas')
       .select('id')
       .eq('id', personaId)
       .single();

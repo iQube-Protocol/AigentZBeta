@@ -386,7 +386,7 @@ async function importInvitees(tenantId, franchiseId, existingHandles, options = 
     }));
 
     const { error: identityError } = await target
-      .from('persona')
+      .from('personas')
       .upsert(identityPayload, { onConflict: 'id' });
 
     if (identityError) throw identityError;

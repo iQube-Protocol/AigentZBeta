@@ -157,11 +157,15 @@ export class PersonaFioService {
     
     try {
       // Use direct API call instead of FIO SDK to avoid browser compatibility issues
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 4000);
       const response = await fetch(`${FIO_TESTNET_CONFIG.endpoint}/chain/avail_check`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fio_name: handle }),
+        signal: controller.signal,
       });
+      clearTimeout(timeout);
       
       if (!response.ok) {
         // If API fails, assume available (optimistic for testnet)
@@ -169,7 +173,7 @@ export class PersonaFioService {
         return { available: true, handle };
       }
       
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
       // FIO returns is_registered: 0 if available, 1 if taken
       const available = data.is_registered === 0;
       return { available, handle };

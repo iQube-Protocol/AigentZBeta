@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { PersonaQube } from '@/types/persona';
+import { getCallerAuthProfileId } from '@/services/wallet/personaRepo';
 
 // Initialize Supabase client
 const supabase = createClient(
@@ -20,6 +21,49 @@ interface RouteParams {
   params: { id: string };
 }
 
+function toOwnerSafePersona(record: any) {
+  return {
+    id: record.id,
+    tenantId: record.tenant_id,
+    authProfileId: record.auth_profile_id ?? null,
+    displayName: record.display_name,
+    avatarUri: record.avatar_uri ?? null,
+    fioHandle: record.fio_handle,
+    fioDomain: record.fio_domain ?? null,
+    discoverableWithinTenant: !!record.discoverable_within_tenant,
+    reputationScore: record.reputation_score ?? 0,
+    reputationBucket: record.reputation_bucket ?? 0,
+    badges: record.badges || [],
+    defaultIdentityState: record.default_identity_state ?? null,
+    worldIdStatus: record.world_id_status ?? null,
+    appOrigin: record.app_origin ?? null,
+    status: record.status,
+    createdAt: record.created_at,
+    updatedAt: record.updated_at,
+  };
+}
+
+function toPublicSafePersona(record: any, fioVisible: boolean) {
+  return {
+    id: record.id,
+    tenantId: record.tenant_id,
+    displayName: record.display_name,
+    avatarUri: record.avatar_uri ?? null,
+    fioHandle: fioVisible ? record.fio_handle : null,
+    fioDomain: record.fio_domain ?? null,
+    discoverableWithinTenant: !!record.discoverable_within_tenant,
+    reputationScore: record.reputation_score ?? 0,
+    reputationBucket: record.reputation_bucket ?? 0,
+    badges: record.badges || [],
+    defaultIdentityState: record.default_identity_state ?? null,
+    worldIdStatus: record.world_id_status ?? null,
+    appOrigin: record.app_origin ?? null,
+    status: record.status,
+    createdAt: record.created_at,
+    updatedAt: record.updated_at,
+  };
+}
+
 /**
  * GET /api/wallet/persona/[id]
  * Get a single persona by ID
@@ -29,11 +73,18 @@ export async function GET(
   { params }: RouteParams
 ) {
   try {
+    const callerAuthProfileId = await getCallerAuthProfileId(request);
+    if (!callerAuthProfileId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { id } = params;
     
     const { data, error } = await supabase
       .from('personas')
-      .select('*')
+      .select(
+        'id,tenant_id,auth_profile_id,display_name,avatar_uri,fio_handle,fio_domain,discoverable_within_tenant,reputation_score,reputation_bucket,badges,default_identity_state,world_id_status,app_origin,status,created_at,updated_at'
+      )
       .eq('id', id)
       .single();
     
@@ -51,7 +102,18 @@ export async function GET(
       );
     }
     
-    return NextResponse.json(transformPersona(data));
+    if (data.auth_profile_id && data.auth_profile_id === callerAuthProfileId) {
+      return NextResponse.json({ ok: true, persona: toOwnerSafePersona(data) });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const tenantId = searchParams.get('tenantId');
+    const canReveal =
+      !!tenantId &&
+      tenantId === data.tenant_id &&
+      data.discoverable_within_tenant === true;
+
+    return NextResponse.json({ ok: true, persona: toPublicSafePersona(data, !!canReveal) });
     
   } catch (error) {
     console.error('Error fetching persona:', error);
@@ -71,8 +133,28 @@ export async function PATCH(
   { params }: RouteParams
 ) {
   try {
+    const callerAuthProfileId = await getCallerAuthProfileId(request);
+    if (!callerAuthProfileId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { id } = params;
     const updates = await request.json();
+
+    const { data: existing, error: existingError } = await supabase
+      .from('personas')
+      .select('id,auth_profile_id')
+      .eq('id', id)
+      .maybeSingle();
+    if (existingError) {
+      return NextResponse.json({ error: 'Failed to fetch persona' }, { status: 500 });
+    }
+    if (!existing) {
+      return NextResponse.json({ error: 'Persona not found' }, { status: 404 });
+    }
+    if (!existing.auth_profile_id || existing.auth_profile_id !== callerAuthProfileId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
     
     // Transform camelCase to snake_case for database
     const dbUpdates: Record<string, any> = {};
@@ -84,6 +166,9 @@ export async function PATCH(
     if (updates.badges !== undefined) dbUpdates.badges = updates.badges;
     if (updates.status !== undefined) dbUpdates.status = updates.status;
     if (updates.updatedAt !== undefined) dbUpdates.updated_at = updates.updatedAt;
+    if (updates.discoverableWithinTenant !== undefined) {
+      dbUpdates.discoverable_within_tenant = !!updates.discoverableWithinTenant;
+    }
     
     // Always update the updated_at timestamp
     dbUpdates.updated_at = new Date().toISOString();
@@ -92,7 +177,9 @@ export async function PATCH(
       .from('personas')
       .update(dbUpdates)
       .eq('id', id)
-      .select()
+      .select(
+        'id,tenant_id,auth_profile_id,display_name,avatar_uri,fio_handle,fio_domain,discoverable_within_tenant,reputation_score,reputation_bucket,badges,default_identity_state,world_id_status,app_origin,status,created_at,updated_at'
+      )
       .single();
     
     if (error) {
@@ -109,7 +196,7 @@ export async function PATCH(
       );
     }
     
-    return NextResponse.json(transformPersona(data));
+    return NextResponse.json({ ok: true, persona: toOwnerSafePersona(data) });
     
   } catch (error) {
     console.error('Error updating persona:', error);
@@ -129,7 +216,27 @@ export async function DELETE(
   { params }: RouteParams
 ) {
   try {
+    const callerAuthProfileId = await getCallerAuthProfileId(request);
+    if (!callerAuthProfileId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { id } = params;
+
+    const { data: existing, error: existingError } = await supabase
+      .from('personas')
+      .select('id,auth_profile_id')
+      .eq('id', id)
+      .maybeSingle();
+    if (existingError) {
+      return NextResponse.json({ error: 'Failed to fetch persona' }, { status: 500 });
+    }
+    if (!existing) {
+      return NextResponse.json({ error: 'Persona not found' }, { status: 404 });
+    }
+    if (!existing.auth_profile_id || existing.auth_profile_id !== callerAuthProfileId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
     
     // Soft delete - just update status
     const { error } = await supabase
@@ -157,28 +264,4 @@ export async function DELETE(
       { status: 500 }
     );
   }
-}
-
-/**
- * Transform database record to PersonaQube
- */
-function transformPersona(record: any): PersonaQube {
-  return {
-    id: record.id,
-    type: record.type,
-    fioHandle: record.fio_handle,
-    fioDomain: record.fio_domain,
-    rootDid: record.root_did,
-    displayName: record.display_name,
-    avatarUri: record.avatar_uri,
-    evmKey: record.evm_key,
-    chainAddresses: record.chain_addresses,
-    reputationScore: record.reputation_score,
-    reputationBucket: record.reputation_bucket,
-    badges: record.badges || [],
-    status: record.status,
-    tenantId: record.tenant_id,
-    createdAt: record.created_at,
-    updatedAt: record.updated_at,
-  };
 }

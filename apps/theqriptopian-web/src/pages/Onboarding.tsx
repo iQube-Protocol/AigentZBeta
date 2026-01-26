@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { checkHandleAvailable, createWalletPersona } from '@/services/walletApi';
 import { 
   User, 
   AtSign, 
@@ -92,7 +93,7 @@ export default function Onboarding() {
   const currentStepIndex = steps.findIndex(s => s.key === step);
   const progress = ((currentStepIndex + 1) / steps.length) * 100;
 
-  // Check FIO handle availability - directly via Supabase
+  // Check FIO handle availability - API-only (no direct table access)
   const checkFioAvailability = async (handle: string, domain: HumanDomain = state.selectedDomain) => {
     if (!handle || handle.length < 3) {
       setState(prev => ({ ...prev, fioAvailable: null, fioChecking: false }));
@@ -103,27 +104,7 @@ export default function Onboarding() {
     
     try {
       const fullHandle = `${handle}@${domain}`;
-      
-      // Check directly in Supabase - no need for API proxy
-      const { data: existingPersona, error } = await supabase
-        .from('persona')
-        .select('id')
-        .eq('fio_handle', fullHandle)
-        .maybeSingle();
-
-      if (error) {
-        console.error('Supabase check error:', error);
-        // On error, allow progression
-        setState(prev => ({ 
-          ...prev, 
-          fioChecking: false, 
-          fioAvailable: true 
-        }));
-        return;
-      }
-
-      // Available if no existing persona found
-      const available = !existingPersona;
+      const { available } = await checkHandleAvailable(fullHandle);
       
       setState(prev => ({ 
         ...prev, 
@@ -176,32 +157,19 @@ export default function Onboarding() {
         }
         setStep('wallet');
       } else if (step === 'wallet') {
-        // Generate wallet and create persona
+        // Create persona via API (no direct table writes)
         setState(prev => ({ ...prev, walletGenerating: true }));
-        
-        // Generate wallet keys
-        const { Wallet } = await import('ethers');
-        const wallet = Wallet.createRandom();
         
         const fullHandle = `${state.fioHandle}@${state.selectedDomain}`;
         
-        // Create persona directly in Supabase
-        const { data: persona, error: personaError } = await supabase
-          .from('persona')
-          .insert({
-            fio_handle: fullHandle,
-            fio_public_key: wallet.publicKey,
-            default_identity_state: 'semi_anonymous',
-            world_id_status: state.identityType === 'human' ? 'verified_human' : 'verified_ai_agent',
-            app_origin: 'theqriptopian',
-          })
-          .select()
-          .single();
-
-        if (personaError) {
-          console.error('Persona creation error:', personaError);
-          throw new Error(personaError.message || 'Failed to create persona');
-        }
+        const persona = await createWalletPersona({
+          fioHandle: fullHandle,
+          fioDomain: state.selectedDomain,
+          displayName: state.displayName,
+          worldIdStatus: state.identityType === 'human' ? 'verified_human' : 'agent_declared',
+          defaultIdentityState: 'semi_anonymous',
+          appOrigin: 'theqriptopian',
+        });
 
         if (persona?.id && refParam) {
           try {
@@ -226,24 +194,6 @@ export default function Onboarding() {
             localStorage.setItem('currentPersonaId', persona.id);
             sessionStorage.setItem('currentPersonaId', persona.id);
           } catch {}
-        }
-
-        // Link persona to user profile
-        if (userId && persona?.id) {
-          const { error: profileError } = await supabase
-            .from('profiles')
-            .upsert({
-              id: userId,
-              persona_id: persona.id,
-              display_name: state.displayName,
-            }, {
-              onConflict: 'id'
-            });
-          
-          if (profileError) {
-            console.error('Profile update error:', profileError);
-            // Don't fail - persona was created successfully
-          }
         }
 
         setState(prev => ({ ...prev, walletGenerating: false, walletGenerated: true }));

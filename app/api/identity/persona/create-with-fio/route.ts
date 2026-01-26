@@ -71,9 +71,9 @@ export async function POST(req: NextRequest) {
 
     // STEP 1: Check if handle already exists in database
     const { data: existingPersona } = await supabase
-      .from('persona')
+      .from('personas')
       .select('id, fio_handle')
-      .eq('fio_handle', fioHandle)
+      .ilike('fio_handle', fioHandle.toLowerCase())
       .maybeSingle();
 
     if (existingPersona) {
@@ -159,8 +159,25 @@ export async function POST(req: NextRequest) {
     }
 
     // STEP 3: Create persona in database with FIO info
+    const tenantId = body?.tenantId || 'default';
+    const fioDomain = fioHandle.includes('@') ? fioHandle.split('@')[1] : 'qripto';
+    const displayName = body?.displayName || fioHandle.split('@')[0] || 'Persona';
     const personaData: any = {
+      type: 'PersonaQube',
       fio_handle: fioHandle,
+      fio_domain: fioDomain,
+      root_did: `did:fio:${fioHandle}`,
+      display_name: displayName,
+      avatar_uri: null,
+      evm_key: null,
+      chain_addresses: {},
+      reputation_score: 0,
+      reputation_bucket: 0,
+      badges: [],
+      status: fioResult.txId.startsWith('fallback_') ? 'pending' : 'active',
+      tenant_id: tenantId,
+      auth_profile_id: null,
+      discoverable_within_tenant: false,
       fio_public_key: publicKey,
       fio_tx_id: fioResult.txId,
       fio_handle_expiration: fioResult.expiration.toISOString(),
@@ -182,9 +199,9 @@ export async function POST(req: NextRequest) {
     }
 
     const { data: persona, error: createError } = await supabase
-      .from('persona')
+      .from('personas')
       .insert(personaData)
-      .select()
+      .select('id,fio_handle,tenant_id,display_name,discoverable_within_tenant,default_identity_state,world_id_status,app_origin,status,created_at,updated_at')
       .single();
 
     if (createError) {
@@ -284,7 +301,7 @@ export async function POST(req: NextRequest) {
       try {
         const supabase = createClient(supabaseUrl, supabaseKey);
         await supabase
-          .from('persona')
+          .from('personas')
           .delete()
           .eq('id', personaId);
         console.log('[Create with FIO] Cleaned up orphaned persona:', personaId);

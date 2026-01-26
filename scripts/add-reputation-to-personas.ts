@@ -35,7 +35,7 @@ async function addReputationToPersonas() {
     try {
       // Find persona by fio_handle
       const { data: persona, error: personaError } = await supabase
-        .from('persona')
+        .from('personas')
         .select('id')
         .eq('fio_handle', rep.fio_handle)
         .single();

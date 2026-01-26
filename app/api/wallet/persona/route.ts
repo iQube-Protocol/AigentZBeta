@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { PersonaQube } from '@/types/persona';
+import { getCallerAuthProfileId } from '@/services/wallet/personaRepo';
 
 // Initialize Supabase client
 const supabase = createClient(
@@ -15,12 +16,39 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 );
 
+function toOwnerSafePersona(record: any) {
+  return {
+    id: record.id,
+    tenantId: record.tenant_id,
+    authProfileId: record.auth_profile_id ?? null,
+    displayName: record.display_name,
+    avatarUri: record.avatar_uri ?? null,
+    fioHandle: record.fio_handle,
+    fioDomain: record.fio_domain ?? null,
+    discoverableWithinTenant: !!record.discoverable_within_tenant,
+    reputationScore: record.reputation_score ?? 0,
+    reputationBucket: record.reputation_bucket ?? 0,
+    badges: record.badges || [],
+    defaultIdentityState: record.default_identity_state ?? null,
+    worldIdStatus: record.world_id_status ?? null,
+    appOrigin: record.app_origin ?? null,
+    status: record.status,
+    createdAt: record.created_at,
+    updatedAt: record.updated_at,
+  };
+}
+
 /**
  * POST /api/wallet/persona
  * Create a new persona
  */
 export async function POST(request: NextRequest) {
   try {
+    const callerAuthProfileId = await getCallerAuthProfileId(request);
+    if (!callerAuthProfileId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const persona: PersonaQube = await request.json();
     
     // Validate required fields
@@ -63,10 +91,14 @@ export async function POST(request: NextRequest) {
         badges: persona.badges,
         status: persona.status,
         tenant_id: persona.tenantId,
+        auth_profile_id: callerAuthProfileId,
+        discoverable_within_tenant: false,
         created_at: persona.createdAt,
         updated_at: persona.updatedAt,
       })
-      .select()
+      .select(
+        'id,tenant_id,auth_profile_id,display_name,avatar_uri,fio_handle,fio_domain,discoverable_within_tenant,reputation_score,reputation_bucket,badges,default_identity_state,world_id_status,app_origin,status,created_at,updated_at'
+      )
       .single();
     
     if (error) {
@@ -77,7 +109,7 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    return NextResponse.json(data, { status: 201 });
+    return NextResponse.json(toOwnerSafePersona(data), { status: 201 });
     
   } catch (error) {
     console.error('Error creating persona:', error);
@@ -95,14 +127,18 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const authProfileId = searchParams.get('authProfileId');
+    const callerAuthProfileId = await getCallerAuthProfileId(request);
+    if (!callerAuthProfileId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     const tenantId = searchParams.get('tenantId');
     
-    let query = supabase.from('personas').select('*');
-    
-    if (authProfileId) {
-      query = query.eq('auth_profile_id', authProfileId);
-    }
+    let query = supabase
+      .from('personas')
+      .select(
+        'id,tenant_id,auth_profile_id,display_name,avatar_uri,fio_handle,fio_domain,discoverable_within_tenant,reputation_score,reputation_bucket,badges,default_identity_state,world_id_status,app_origin,status,created_at,updated_at'
+      )
+      .eq('auth_profile_id', callerAuthProfileId);
     
     if (tenantId) {
       query = query.eq('tenant_id', tenantId);
@@ -118,10 +154,7 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    // Transform snake_case to camelCase
-    const personas = data?.map(transformPersona) || [];
-    
-    return NextResponse.json(personas);
+    return NextResponse.json({ ok: true, personas: (data || []).map(toOwnerSafePersona) });
     
   } catch (error) {
     console.error('Error fetching personas:', error);
@@ -130,28 +163,4 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
-
-/**
- * Transform database record to PersonaQube
- */
-function transformPersona(record: any): PersonaQube {
-  return {
-    id: record.id,
-    type: record.type,
-    fioHandle: record.fio_handle,
-    fioDomain: record.fio_domain,
-    rootDid: record.root_did,
-    displayName: record.display_name,
-    avatarUri: record.avatar_uri,
-    evmKey: record.evm_key,
-    chainAddresses: record.chain_addresses,
-    reputationScore: record.reputation_score,
-    reputationBucket: record.reputation_bucket,
-    badges: record.badges || [],
-    status: record.status,
-    tenantId: record.tenant_id,
-    createdAt: record.created_at,
-    updatedAt: record.updated_at,
-  };
 }

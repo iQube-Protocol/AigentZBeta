@@ -94,6 +94,22 @@ This document tracks work items from sprint plans that have been deprioritized o
 
 ---
 
+### **Identity & FIO Reliability** (Deferred)
+**Status**: Not started  
+**Priority**: Medium
+
+- [ ] **FIO Handle Availability Service**
+  - Move handle availability checks to server API with strict timeout
+  - Retry against secondary FIO endpoint
+  - Return explicit status (available/unavailable/timeout/error)
+  - Cache results briefly to reduce external dependency stalls
+- [ ] **Tenant Discoverable Agent Directory**
+  - Add tenant-scoped agent lookup for Quick Add
+  - Surface discoverable agent personas in the wallet UI
+  - Support search, paging, and filtered retrieval
+
+---
+
 ## 🔗 Cross-Chain Infrastructure Backlog
 
 ### **DVN & Proof of State** (Partially Complete)

@@ -30,30 +30,12 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Fetch persona from database (try both tables)
-    let persona: any = null;
-    
-    // Try persona table first (singular)
-    const { data: p1 } = await supabase
-      .from('persona')
+    // Fetch canonical persona from database
+    const { data: persona } = await supabase
+      .from('personas')
       .select('id, fio_handle, evm_address, btc_address, sol_address')
       .eq('id', id)
       .single();
-    
-    if (p1) {
-      persona = p1;
-    } else {
-      // Fallback to personas table (plural)
-      const { data: p2 } = await supabase
-        .from('personas')
-        .select('id, fio_handle, evm_address, btc_address, sol_address')
-        .eq('id', id)
-        .single();
-      
-      if (p2) {
-        persona = p2;
-      }
-    }
 
     if (!persona) {
       return NextResponse.json(
@@ -139,27 +121,12 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Fetch persona to get FIO handle
-    let fioHandle: string | null = null;
-    
-    const { data: p1 } = await supabase
-      .from('persona')
+    const { data: p2 } = await supabase
+      .from('personas')
       .select('fio_handle')
       .eq('id', id)
       .single();
-    
-    if (p1?.fio_handle) {
-      fioHandle = p1.fio_handle;
-    } else {
-      const { data: p2 } = await supabase
-        .from('personas')
-        .select('fio_handle')
-        .eq('id', id)
-        .single();
-      
-      if (p2?.fio_handle) {
-        fioHandle = p2.fio_handle;
-      }
-    }
+    const fioHandle: string | null = p2?.fio_handle ?? null;
 
     if (!fioHandle) {
       return NextResponse.json(

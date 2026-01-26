@@ -9,6 +9,7 @@
 import { useState } from 'react';
 import { X, User, Bot, Check, Loader2, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { checkHandleAvailable, createWalletPersona, getMyWalletPersonas, apiFetch } from '@/services/walletApi';
 
 interface AddPersonaModalProps {
   isOpen: boolean;
@@ -96,14 +97,8 @@ export function AddPersonaModal({ isOpen, onClose, onPersonaCreated }: AddPerson
     setIsCheckingHandle(true);
     try {
       const fullHandle = `${handle}@${domain}`;
-      const { data, error } = await supabase
-        .from('persona')
-        .select('id')
-        .eq('fio_handle', fullHandle)
-        .maybeSingle();
-
-      if (error) throw error;
-      setHandleAvailable(!data); // Available if no existing persona found
+      const { available } = await checkHandleAvailable(fullHandle);
+      setHandleAvailable(available);
     } catch (e) {
       console.error('Error checking handle:', e);
       setHandleAvailable(null);
@@ -124,35 +119,20 @@ export function AddPersonaModal({ isOpen, onClose, onPersonaCreated }: AddPerson
       if (!user) throw new Error('Not authenticated');
 
       const fullHandle = `${fioHandle}@${selectedDomain}`;
+      const persona = await createWalletPersona({
+        fioHandle: fullHandle,
+        fioDomain: selectedDomain,
+        displayName: displayName || fioHandle,
+        worldIdStatus: 'verified_human',
+        defaultIdentityState: 'semi_anonymous',
+        appOrigin: 'theqriptopian',
+      });
 
-      // Generate wallet keys
-      const { Wallet } = await import('ethers');
-      const wallet = Wallet.createRandom();
-
-      // Create persona
-      const { data: persona, error: personaError } = await supabase
-        .from('persona')
-        .insert({
-          fio_handle: fullHandle,
-          fio_public_key: wallet.publicKey,
-          default_identity_state: 'semi_anonymous',
-          world_id_status: 'verified_human',
-          app_origin: 'theqriptopian',
-        })
-        .select()
-        .single();
-
-      if (personaError) throw personaError;
-
-      // Update profile to use new persona (optional - could keep existing)
       if (persona?.id) {
-        await supabase
-          .from('profiles')
-          .update({
-            persona_id: persona.id,
-            display_name: displayName || fioHandle,
-          })
-          .eq('id', user.id);
+        try {
+          localStorage.setItem('currentPersonaId', persona.id);
+          sessionStorage.setItem('currentPersonaId', persona.id);
+        } catch {}
       }
 
       onPersonaCreated();
@@ -178,48 +158,42 @@ export function AddPersonaModal({ isOpen, onClose, onPersonaCreated }: AddPerson
 
       const agent = AVAILABLE_AGENTS.find(a => a.id === selectedAgent);
       if (!agent) throw new Error('Agent not found');
+      // Prefer discoverable resolution first (tenant-scoped)
+      const tenantId =
+        localStorage.getItem('currentTenantId') ||
+        sessionStorage.getItem('currentTenantId') ||
+        import.meta.env.VITE_LVB_BRIDGE_TENANT_ID ||
+        'default';
 
-      // Check if this agent persona already exists
-      const { data: existingPersona } = await supabase
-        .from('persona')
-        .select('id')
-        .eq('fio_handle', agent.fioHandle)
-        .maybeSingle();
+      let personaId: string | null = null;
+      try {
+        const res = await apiFetch(
+          `/api/wallet/persona/resolve-handle?tenantId=${encodeURIComponent(tenantId)}&fioHandle=${encodeURIComponent(
+            agent.fioHandle
+          )}`
+        );
+        const json = await res.json().catch(() => ({}));
+        if (res.ok && json?.personaId) personaId = json.personaId;
+      } catch {}
 
-      let personaId: string;
-
-      if (existingPersona) {
-        // Use existing agent persona
-        personaId = existingPersona.id;
-      } else {
-        // Create new agent persona
-        const { Wallet } = await import('ethers');
-        const wallet = Wallet.createRandom();
-
-        const { data: newPersona, error: personaError } = await supabase
-          .from('persona')
-          .insert({
-            fio_handle: agent.fioHandle,
-            fio_public_key: wallet.publicKey,
-            default_identity_state: 'semi_anonymous',
-            world_id_status: 'agent_declared',
-            app_origin: 'theqriptopian',
-          })
-          .select()
-          .single();
-
-        if (personaError) throw personaError;
-        personaId = newPersona.id;
+      if (!personaId) {
+        const created = await createWalletPersona({
+          fioHandle: agent.fioHandle,
+          fioDomain: 'aigent' as any,
+          displayName: agent.name,
+          worldIdStatus: 'agent_declared',
+          defaultIdentityState: 'semi_anonymous',
+          appOrigin: 'theqriptopian',
+        });
+        personaId = created.id;
       }
 
-      // Update profile to use agent persona
-      await supabase
-        .from('profiles')
-        .update({
-          persona_id: personaId,
-          display_name: agent.name,
-        })
-        .eq('id', user.id);
+      if (personaId) {
+        try {
+          localStorage.setItem('currentPersonaId', personaId);
+          sessionStorage.setItem('currentPersonaId', personaId);
+        } catch {}
+      }
 
       onPersonaCreated();
       handleClose();

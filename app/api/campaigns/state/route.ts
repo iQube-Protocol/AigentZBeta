@@ -16,7 +16,7 @@ async function resolvePersonaId(personaId: string): Promise<string | null> {
   const normalized = personaId.trim().toLowerCase();
 
   const { data: personaRow } = await supabase
-    .from('persona')
+    .from('personas')
     .select('id')
     .eq('fio_handle', normalized)
     .maybeSingle();

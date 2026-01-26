@@ -277,6 +277,37 @@ export interface ClaimTaskResult {
   task: CrmTaskTemplate;
 }
 
+export interface GetTasksByPersonaInput {
+  tenantId: TenantId;
+  personaId: string;
+  statuses?: ContributionStatus[];
+  limit?: number;
+  offset?: number;
+}
+
+export async function getTasksByPersona(input: GetTasksByPersonaInput): Promise<CrmContribution[]> {
+  const client = getCrmClient();
+  const { tenantId, personaId, statuses, limit = 50, offset = 0 } = input;
+
+  let query = client
+    .from('crm_contributions')
+    .select('*')
+    .eq('tenant_id', tenantId)
+    .eq('persona_id', personaId)
+    .not('task_template_id', 'is', null)
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (statuses?.length) {
+    query = query.in('status', statuses);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  return (data as CrmContributionRow[]).map(rowToContribution);
+}
+
 /**
  * Claim a task for a persona
  * Creates a contribution in 'claimed' status
@@ -945,3 +976,21 @@ export async function getTaskStats(tenantId: TenantId): Promise<TaskStats> {
     byCategory,
   };
 }
+
+// Service export for API routes
+export const taskService = {
+  // Task template operations
+  createTaskTemplate,
+  updateTaskTemplate,
+  getTaskTemplate,
+  listTaskTemplates,
+  
+  getTasksByPersona,
+  
+  claimTask,
+  submitTask,
+  completeTask,
+  
+  // Stats
+  getTaskStats,
+};

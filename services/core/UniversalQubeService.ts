@@ -269,7 +269,7 @@ export class UniversalQubeService {
 
     try {
       if (this.anonClient) {
-        const { error } = await this.anonClient.from('persona').select('count').limit(1);
+        const { error } = await this.anonClient.from('personas').select('count').limit(1);
         health.anon = !error;
       }
     } catch (e) {
@@ -278,7 +278,7 @@ export class UniversalQubeService {
 
     try {
       if (this.qubeSDKClient) {
-        const { error } = await this.qubeSDKClient.supabase.from('persona').select('count').limit(1);
+        const { error } = await this.qubeSDKClient.supabase.from('personas').select('count').limit(1);
         health.qubeSDK = !error;
       }
     } catch (e) {

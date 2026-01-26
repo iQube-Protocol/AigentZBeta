@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { Mail, Lock, Eye, EyeOff, Loader2, ArrowRight, Wallet } from 'lucide-react';
 import { Label } from '@/components/ui/label';
+import { apiFetch } from '@/services/walletApi';
 
 type AuthMode = 'signin' | 'signup';
 
@@ -96,32 +97,11 @@ export default function Auth() {
             description: 'You have been signed in successfully.',
           });
           
-          // Check if user has completed onboarding (has persona with FIO handle)
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('persona_id')
-            .eq('id', data.user.id)
-            .single();
-
-          if (profile?.persona_id) {
-            // Check if persona has FIO handle
-            const { data: persona } = await supabase
-              .from('persona')
-              .select('fio_handle')
-              .eq('id', profile.persona_id)
-              .single();
-
-            if (persona?.fio_handle) {
-              // Onboarding complete, go to home
-              navigate('/');
-            } else {
-              // Need to complete onboarding
-              navigate('/onboarding');
-            }
-          } else {
-            // No profile/persona, need onboarding
-            navigate('/onboarding');
-          }
+          // API-only: use wallet personas endpoint to decide onboarding completion
+          const res = await apiFetch('/api/wallet/persona');
+          const json = await res.json().catch(() => ({}));
+          const personas = Array.isArray(json?.personas) ? json.personas : [];
+          navigate(personas.length > 0 ? '/' : '/onboarding');
         }
       }
     } catch (err: any) {

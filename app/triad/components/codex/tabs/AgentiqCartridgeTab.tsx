@@ -8,6 +8,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { AlertCircle, FileText, Loader2 } from "lucide-react";
+import { getCachedOrFetch } from "../cache";
 
 interface CollectionEntry {
   id: string;
@@ -51,13 +52,20 @@ export function AgentiqCartridgeTab({ packId, collectionId, defaultPath }: Cartr
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch(`/api/codex/packs/${packId}/file?path=collections.json`);
-        if (!response.ok) {
-          throw new Error(`Failed to load collections for ${packId}`);
-        }
-        const payload: FileResponse = await response.json();
-        const data = payload.data as { collections?: CollectionEntry[] } | undefined;
-        const match = data?.collections?.find((col) => col.id === collectionId) ?? null;
+        const collections = await getCachedOrFetch<CollectionEntry[]>(
+          `codex:pack:${packId}:collections`,
+          async () => {
+            const response = await fetch(`/api/codex/packs/${packId}/file?path=collections.json`);
+            if (!response.ok) {
+              throw new Error(`Failed to load collections for ${packId}`);
+            }
+            const payload: FileResponse = await response.json();
+            const data = payload.data as { collections?: CollectionEntry[] } | undefined;
+            return data?.collections ?? [];
+          },
+          30 * 60 * 1000
+        );
+        const match = collections.find((col) => col.id === collectionId) ?? null;
         if (!match) {
           throw new Error(`Collection not found: ${collectionId}`);
         }
@@ -87,11 +95,17 @@ export function AgentiqCartridgeTab({ packId, collectionId, defaultPath }: Cartr
       setError(null);
       try {
         const encoded = encodeURIComponent(activePath);
-        const response = await fetch(`/api/codex/packs/${packId}/file?path=${encoded}`);
-        if (!response.ok) {
-          throw new Error(`Failed to load ${activePath}`);
-        }
-        const payload: FileResponse = await response.json();
+        const payload = await getCachedOrFetch<FileResponse>(
+          `codex:pack:${packId}:file:${activePath}`,
+          async () => {
+            const response = await fetch(`/api/codex/packs/${packId}/file?path=${encoded}`);
+            if (!response.ok) {
+              throw new Error(`Failed to load ${activePath}`);
+            }
+            return response.json();
+          },
+          30 * 60 * 1000
+        );
         if (!isMounted) return;
         if (payload.format === "json") {
           setContent(JSON.stringify(payload.data ?? {}, null, 2));

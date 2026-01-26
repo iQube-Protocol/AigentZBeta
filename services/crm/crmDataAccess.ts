@@ -2245,7 +2245,7 @@ export async function findIdentityPersonaForLinking(
   
   // Search in persona table
   const { data, error } = await client
-    .from('persona')
+    .from('personas')
     .select(`
       id,
       fio_handle,

@@ -245,7 +245,7 @@ export async function listPersonas(tenantId?: string, limit = 50): Promise<{ suc
   }
 
   try {
-    let query = client.from('persona').select('*').order('created_at', { ascending: false }).limit(limit);
+    let query = client.from('personas').select('*').order('created_at', { ascending: false }).limit(limit);
     
     // Note: tenant filtering would require a join or tenant_id column on persona table
     // For now, return all personas
@@ -277,7 +277,7 @@ export async function createPersona(input: {
 
   try {
     const { data, error } = await client
-      .from('persona')
+      .from('personas')
       .insert({
         root_id: input.rootId || null,
         fio_handle: input.fioHandle || null,

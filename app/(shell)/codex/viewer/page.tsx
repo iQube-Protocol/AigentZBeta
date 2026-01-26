@@ -22,7 +22,7 @@ type ConfigSection = "codex" | "theme" | "density" | "tab" | "embed" | "iframe";
 type CodexOption = { id: string; label: string; color: string };
 type TabOption = { slug: string; label: string };
 
-const COLOR_SET = new Set(["purple", "indigo", "blue", "emerald", "cyan", "amber", "rose"]);
+const COLOR_SET = new Set(["purple", "indigo", "blue", "emerald", "cyan", "amber", "rose", "slate"]);
 
 function normalizeColor(color?: string) {
   if (!color) return "indigo";
@@ -66,6 +66,8 @@ export default function CodexViewerPage() {
     { id: "knyt-codex", label: "KNYT Codex", color: "purple" },
     { id: "qripto-codex", label: "Qriptopian Codex", color: "indigo" },
     { id: "aigentiq-codex", label: "AgentiQ Codex", color: "blue" },
+    { id: "marketa-codex", label: "Aigent Marketa", color: "rose" },
+    { id: "moneypenny-codex", label: "Aigent MoneyPenny", color: "green" },
   ]), []);
 
   const codexOptions = useMemo<CodexOption[]>(() => {

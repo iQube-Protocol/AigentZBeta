@@ -32,7 +32,8 @@ export async function getActor<T = Record<string, any>>(canisterId: string, idlF
   let identity: any = undefined;
   let pem: string | undefined = process.env.DFX_IDENTITY_PEM || process.env.NEXT_PUBLIC_DFX_IDENTITY_PEM;
   const pemPath = process.env.DFX_IDENTITY_PEM_PATH;
-  if (!pem && pemPath) {
+  if (!pem && pemPath && typeof window === 'undefined') {
+    // Only try to read file on server-side
     try {
       const { readFileSync } = await import('fs');
       pem = readFileSync(pemPath, 'utf8');

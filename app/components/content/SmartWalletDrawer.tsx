@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useBalances } from "@/app/hooks/useBalances";
 import { useDVNEvents } from "@/app/hooks/useDVNEvents";
+import { useKnytBalance } from "@/app/hooks/useKnytBalance";
+import { useEthPrice } from "@/app/hooks/useEthPrice";
 import { useMetaAvatar } from "@/app/contexts/MetaAvatarContext";
 import AliasConsentToggle from "../identity/AliasConsentToggle";
 import SettlementRetryButton from "../x402/SettlementRetryButton";
@@ -11,7 +13,17 @@ import SmartContentCard from "./SmartContentCard";
 import PurchaseFlow, { type PurchaseStep, type PaymentMethod } from "./PurchaseFlow";
 import type { SmartWalletNode, WalletTask, QuestProgress, RecentReward, PersonaState } from "@/types/smartWallet";
 import type { SmartContentQube } from "@/types/smartContent";
-import { PersonaSelector, UnlockModal } from "../wallet";
+import {
+  BuyKnytModal,
+  PaymentRequestsPanel,
+  PersonaEditModal,
+  PersonaSelector,
+  PersonaQuickAddModal,
+  PersonaSetupWizard,
+  TransactionModal,
+  UnlockModal,
+} from "../wallet";
+import type { TransactionTab, ChainId, TransactionResult, PaymentRequest } from "../wallet/TransactionModal";
 import { useSmartTriad } from "./SmartTriadProvider";
 import {
   Sparkles,
@@ -53,6 +65,7 @@ import {
   BadgeCheck,
   Flame,
   Crown,
+  Copy,
 } from "lucide-react";
 
 // Tooltip component for icon hints
@@ -127,8 +140,38 @@ export default function SmartWalletDrawer({
   codexMode = false,
 }: SmartWalletDrawerProps) {
   const [activeTab, setActiveTab] = useState<DrawerTab>(initialTab);
-  const bals = useBalances({ sepolia: agent.evmSepolia, arb: agent.evmArb, btc: agent.btcAddress });
+  const [localPersonaId, setLocalPersonaId] = useState<string | null>(null);
+  const [balanceRefreshKey, setBalanceRefreshKey] = useState(0);
+  const bals = useBalances(
+    {
+      sepolia: agent.evmSepolia,
+      arb: agent.evmArb,
+      base: agent.evmSepolia || agent.evmArb,
+      btc: agent.btcAddress,
+    },
+    { refreshKey: balanceRefreshKey }
+  );
+  const activePersona =
+    walletNode?.personaContext?.availablePersonas?.find(
+      (persona) => persona.id === walletNode?.personaContext?.activePersonaId
+    ) || walletNode?.personaContext?.activePersona || null;
+  const effectivePersonaId =
+    personaId || localPersonaId || walletNode?.personaContext?.activePersonaId || activePersona?.id;
+  const { balance: knytBalance, loading: knytLoading, refreshBalance: refreshKnyt } =
+    useKnytBalance(effectivePersonaId);
+  const { knytPriceUsd } = useEthPrice();
   const evs = useDVNEvents(agent.id);
+  const [transactionModalOpen, setTransactionModalOpen] = useState(false);
+  const [transactionTab, setTransactionTab] = useState<TransactionTab>('send');
+  const [prefillRecipient, setPrefillRecipient] = useState<string | undefined>();
+  const [prefillAmount, setPrefillAmount] = useState<number | undefined>();
+  const [prefillTxHash, setPrefillTxHash] = useState<string | undefined>();
+  const [prefillChainId, setPrefillChainId] = useState<ChainId | undefined>();
+  const [buyKnytModalOpen, setBuyKnytModalOpen] = useState(false);
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [personaSetupOpen, setPersonaSetupOpen] = useState(false);
+  const [personaEditModalOpen, setPersonaEditModalOpen] = useState(false);
+  const [editingPersona, setEditingPersona] = useState<PersonaState | null>(null);
   const [copilotOpen, setCopilotOpen] = useState(false);
   const [copilotPrompt, setCopilotPrompt] = useState("");
   const [copilotMessages, setCopilotMessages] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([
@@ -136,6 +179,11 @@ export default function SmartWalletDrawer({
   ]);
   const [copilotLoading, setCopilotLoading] = useState(false);
   const [copilotMode, setCopilotMode] = useState<'chat' | 'avatar'>('chat');
+  const [tenantId, setTenantId] = useState<string>(
+    process.env.NEXT_PUBLIC_TENANT_ID ||
+      process.env.NEXT_PUBLIC_LVB_BRIDGE_TENANT_ID ||
+      "default"
+  );
   
   // MetaAvatar context for persistent iframe
   const { requestAvatar, releaseAvatar, refreshAvatar } = useMetaAvatar();
@@ -149,6 +197,17 @@ export default function SmartWalletDrawer({
     setCopilotMessages(prev => [...prev, { role: 'user', content: messageToSend }]);
     setCopilotPrompt("");
     setCopilotLoading(true);
+
+    const localIntent = detectIntentAndSwitchTab(messageToSend);
+    const baseMessages = [...copilotMessages, { role: 'user', content: messageToSend }];
+    const localReply = localIntent.handled
+      ? { role: 'assistant' as const, content: localIntent.response }
+      : null;
+
+    if (localIntent.handled) {
+      if (localIntent.tab) setActiveTab(localIntent.tab);
+      setCopilotMessages(prev => [...prev, { role: 'assistant', content: localIntent.response }]);
+    }
     
     try {
       // Call the wallet copilot API
@@ -156,10 +215,10 @@ export default function SmartWalletDrawer({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          messages: [...copilotMessages, { role: 'user', content: messageToSend }],
+          messages: localReply ? [...baseMessages, localReply] : baseMessages,
           context: {
             walletBalance: bals.qctArb ? Number(bals.qctArb) / Math.pow(10, bals.qctArbDecimals || 18) : 0,
-            personaId,
+            personaId: effectivePersonaId,
             agentName: agent.name,
           }
         }),
@@ -167,7 +226,9 @@ export default function SmartWalletDrawer({
       
       if (response.ok) {
         const data = await response.json();
-        setCopilotMessages(prev => [...prev, { role: 'assistant', content: data.message || "I'm here to help! What would you like to know?" }]);
+        const message = data.message || "I'm here to help! What would you like to know?";
+        const content = localIntent.handled ? `More detail: ${message}` : message;
+        setCopilotMessages(prev => [...prev, { role: 'assistant', content }]);
       } else {
         setCopilotMessages(prev => [...prev, { role: 'assistant', content: "Sorry, I couldn't process that request. Please try again." }]);
       }
@@ -202,6 +263,45 @@ export default function SmartWalletDrawer({
     } catch {}
   }, [aliasConsent]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const stored =
+        window.localStorage.getItem("currentTenantId") ||
+        window.sessionStorage.getItem("currentTenantId");
+      if (stored) setTenantId(stored);
+    } catch {}
+  }, []);
+
+  const refreshWalletBalances = useCallback(() => {
+    setBalanceRefreshKey((key) => key + 1);
+    refreshKnyt();
+  }, [refreshKnyt]);
+
+  useEffect(() => {
+    const generateDid = async () => {
+      const fioHandle = agent?.fioHandle || activePersona?.fioHandle;
+      if (!fioHandle) {
+        setFioDid(null);
+        return;
+      }
+      try {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(fioHandle.toLowerCase());
+        const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+        const hashArray = new Uint8Array(hashBuffer);
+        const hashHex = Array.from(hashArray)
+          .map((b) => b.toString(16).padStart(2, "0"))
+          .join("");
+        setFioDid(`did:iq:${hashHex.slice(0, 32)}`);
+      } catch (err) {
+        console.warn("[SmartWallet] Failed to generate FIO DID:", err);
+        setFioDid(null);
+      }
+    };
+    generateDid();
+  }, [agent?.fioHandle, activePersona?.fioHandle]);
+
   // Request/release avatar based on copilot state and mode
   useEffect(() => {
     if (open && copilotOpen && copilotMode === 'avatar') {
@@ -218,6 +318,7 @@ export default function SmartWalletDrawer({
   const [retryMessageId, setRetryMessageId] = useState("");
   const [custodyCount, setCustodyCount] = useState(0);
   const [claimCount, setClaimCount] = useState(0);
+  const [fioDid, setFioDid] = useState<string | null>(null);
   
   // Purchase flow state
   const [purchaseStep, setPurchaseStep] = useState<PurchaseStep>("idle");
@@ -228,6 +329,58 @@ export default function SmartWalletDrawer({
   const [convertStep, setConvertStep] = useState<"idle" | "processing" | "success" | "error">("idle");
   const [convertError, setConvertError] = useState<string | null>(null);
   const [convertResult, setConvertResult] = useState<any>(null);
+
+  const openTransactionModal = (
+    tab: TransactionTab,
+    opts?: { recipient?: string; amount?: number; txHash?: string; chainId?: ChainId }
+  ) => {
+    setPrefillRecipient(opts?.recipient);
+    setPrefillAmount(opts?.amount);
+    setPrefillTxHash(opts?.txHash);
+    setPrefillChainId(opts?.chainId);
+    setTransactionTab(tab);
+    setTransactionModalOpen(true);
+  };
+
+  const handleTransactionComplete = (result: TransactionResult) => {
+    if (!result.success) return;
+    const content = result.txHash
+      ? `✅ Transaction sent! Hash: ${result.txHash.slice(0, 10)}...${result.txHash.slice(-8)}. Amount: ${result.amount} Q¢`
+      : `✅ ${result.deliveryMode === 'claim' ? 'Claim created' : 'Transaction completed'}! Amount: ${result.amount} Q¢`;
+    setCopilotMessages(prev => [...prev, { role: 'assistant', content }]);
+  };
+
+  const handleRequestCreated = (request: PaymentRequest) => {
+    setCopilotMessages(prev => [
+      ...prev,
+      {
+        role: 'assistant',
+        content: `💰 Payment request created for ${request.amount} Q¢. Share the link or QR code with the payer.`,
+      },
+    ]);
+  };
+
+  const handlePaymentExecuted = (txHash: string, requestId: string) => {
+    setCopilotMessages(prev => [
+      ...prev,
+      {
+        role: 'assistant',
+        content: `✅ Payment executed for request ${requestId}. Tx hash: ${txHash.slice(0, 10)}...${txHash.slice(-8)}.`,
+      },
+    ]);
+  };
+
+  const handleOpenPersonaEdit = () => {
+    if (!activePersona) return;
+    setEditingPersona(activePersona);
+    setPersonaEditModalOpen(true);
+  };
+
+  const handlePersonaCreated = (newPersonaId: string) => {
+    setLocalPersonaId(newPersonaId);
+    onPersonaChange?.(newPersonaId);
+    setPersonaSetupOpen(false);
+  };
   
   // Persona state
   const [showUnlockModal, setShowUnlockModal] = useState(false);
@@ -288,17 +441,286 @@ export default function SmartWalletDrawer({
   const formatUSDC = (raw?: string, decimals?: number) => formatToken(raw, decimals, 2);
   const formatQcent = (raw?: string, decimals?: number) => formatToken(raw, decimals, 0);
 
+  const detectIntentAndSwitchTab = (
+    message: string
+  ): { tab: DrawerTab | null; response: string; handled: boolean } => {
+    const lowerMsg = message.toLowerCase();
+
+    if (lowerMsg.includes('reward') || lowerMsg.includes('earn') || lowerMsg.includes('earning')) {
+      return {
+        tab: 'rewards',
+        response: `Here's your rewards overview! You've earned ${rewards?.totalEarned?.amount || 0} Q¢ total. ${
+          rewards?.recentRewards?.length
+            ? `Your most recent reward was for "${rewards.recentRewards[0].reason}".`
+            : 'Complete tasks to start earning rewards!'
+        }`,
+        handled: true,
+      };
+    }
+
+    if (
+      lowerMsg.includes('task') ||
+      lowerMsg.includes('todo') ||
+      lowerMsg.includes('what can i do') ||
+      lowerMsg.includes('how can i earn')
+    ) {
+      const pendingTasks = tasks.filter((t) => t.status === 'pending' || t.status === 'in_progress');
+      return {
+        tab: 'tasks',
+        response: `You have ${pendingTasks.length} active task${pendingTasks.length !== 1 ? 's' : ''}! ${
+          pendingTasks.length > 0
+            ? `Try "${pendingTasks[0].label}" to earn +${pendingTasks[0].rewardPreview?.amount || 0} Q¢.`
+            : 'Check back soon for new tasks.'
+        }`,
+        handled: true,
+      };
+    }
+
+    if (
+      lowerMsg.includes('balance') ||
+      lowerMsg.includes('afford') ||
+      lowerMsg.includes('how much') ||
+      lowerMsg.includes('wallet') ||
+      lowerMsg.includes('money')
+    ) {
+      return {
+        tab: 'wallet',
+        response: `Your current balance is ${walletNode?.balances?.totalQc?.toLocaleString() || 0} Q¢.${
+          walletNode?.balances?.pendingRewards
+            ? ` You also have ${walletNode.balances.pendingRewards} Q¢ in pending rewards!`
+            : ''
+        }`,
+        handled: true,
+      };
+    }
+
+    if (
+      lowerMsg.includes('library') ||
+      lowerMsg.includes('content') ||
+      lowerMsg.includes('own') ||
+      lowerMsg.includes('purchased') ||
+      lowerMsg.includes('read')
+    ) {
+      const entitlements = walletNode?.contentEntitlements || [];
+      return {
+        tab: 'library',
+        response: `You have ${entitlements.length} item${entitlements.length !== 1 ? 's' : ''} in your library. ${
+          entitlements.length > 0 ? 'Tap any item to continue reading!' : 'Purchase or earn content to build your library.'
+        }`,
+        handled: true,
+      };
+    }
+
+    if (
+      lowerMsg.includes('reputation') ||
+      lowerMsg.includes('score') ||
+      lowerMsg.includes('badge') ||
+      lowerMsg.includes('level') ||
+      lowerMsg.includes('rank')
+    ) {
+      const repScore = activePersona?.reputationScore || 0;
+      const badges = activePersona?.badges || [];
+      return {
+        tab: 'reputation',
+        response: `Your reputation score is ${repScore}. ${
+          badges.length > 0
+            ? `You've earned ${badges.length} badge${badges.length !== 1 ? 's' : ''}: ${badges.join(', ')}.`
+            : 'Complete tasks and engage with content to earn badges!'
+        }`,
+        handled: true,
+      };
+    }
+
+    if (lowerMsg.includes('send') || lowerMsg.includes('transfer') || lowerMsg.includes('pay ')) {
+      const amountMatch = lowerMsg.match(/(\d+(?:\.\d+)?)\s*(?:q¢|qc|qct|tokens?)?/i);
+      const extractedAmount = amountMatch ? parseFloat(amountMatch[1]) : undefined;
+      const fioMatch = lowerMsg.match(/(?:to\s+)?([a-z0-9]+@[a-z0-9]+)/i);
+      const addressMatch = lowerMsg.match(/(?:to\s+)?(0x[a-fA-F0-9]{40})/i);
+      const extractedRecipient = fioMatch?.[1] || addressMatch?.[1];
+      openTransactionModal('send', { amount: extractedAmount, recipient: extractedRecipient });
+      return {
+        tab: 'wallet',
+        response: extractedRecipient
+          ? `Opening send dialog${extractedAmount ? ` for ${extractedAmount} Q¢` : ''} to ${extractedRecipient}. Please confirm the transaction details.`
+          : `Opening send dialog${extractedAmount ? ` for ${extractedAmount} Q¢` : ''}. Enter the recipient address or Persona handle to continue.`,
+        handled: true,
+      };
+    }
+
+    if (lowerMsg.includes('receive') || lowerMsg.includes('request') || lowerMsg.includes('get paid') || lowerMsg.includes('invoice')) {
+      const amountMatch = lowerMsg.match(/(\d+(?:\.\d+)?)\s*(?:q¢|qc|qct|tokens?)?/i);
+      const extractedAmount = amountMatch ? parseFloat(amountMatch[1]) : undefined;
+      openTransactionModal('receive', { amount: extractedAmount });
+      return {
+        tab: 'wallet',
+        response: `Opening payment request dialog${extractedAmount ? ` for ${extractedAmount} Q¢` : ''}. You can generate a QR code or shareable link.`,
+        handled: true,
+      };
+    }
+
+    if (
+      lowerMsg.includes('verify') ||
+      lowerMsg.includes('check tx') ||
+      lowerMsg.includes('check transaction') ||
+      lowerMsg.includes('tx status') ||
+      lowerMsg.includes('transaction status')
+    ) {
+      const txMatch = lowerMsg.match(/(0x[a-fA-F0-9]{64})/i);
+      const extractedTxHash = txMatch?.[1];
+      openTransactionModal('verify', { txHash: extractedTxHash });
+      return {
+        tab: 'wallet',
+        response: extractedTxHash
+          ? `Verifying transaction ${extractedTxHash.slice(0, 10)}...${extractedTxHash.slice(-8)}. Please wait.`
+          : 'Opening transaction verification. Enter a transaction hash to check its status.',
+        handled: true,
+      };
+    }
+
+    if (lowerMsg.includes('convert') || lowerMsg.includes('swap') || lowerMsg.includes('usdc')) {
+      const amountMatch = lowerMsg.match(/(\d+(?:\.\d+)?)\s*usdc/i);
+      const extractedAmount = amountMatch ? amountMatch[1] : undefined;
+      if (extractedAmount) setConvertUsdcAmount(extractedAmount);
+      return {
+        tab: 'wallet',
+        response: `Opening USDC → Q¢ conversion${extractedAmount ? ` with ${extractedAmount} USDC prefilled` : ''}.`,
+        handled: true,
+      };
+    }
+
+    if (lowerMsg.includes('knyt')) {
+      const priceUsd = Number.isFinite(knytPriceUsd) ? knytPriceUsd : 0;
+      if (lowerMsg.includes('buy') || lowerMsg.includes('purchase') || lowerMsg.includes('get')) {
+        setBuyKnytModalOpen(true);
+        return {
+          tab: 'wallet',
+          response: `Opening KNYT purchase dialog. Current price: $${priceUsd.toFixed(2)} per KNYT (0.0005 ETH). You currently have ${knytBalance?.dvnKnyt?.toFixed(2) || '0'} KNYT.`,
+          handled: true,
+        };
+      }
+      if (lowerMsg.includes('price') || lowerMsg.includes('cost') || lowerMsg.includes('worth')) {
+        return {
+          tab: 'wallet',
+          response: `KNYT is priced at $${priceUsd.toFixed(2)} per token (0.0005 ETH). KNYT is used for DVN attestation fees, cross-chain messaging, and premium features.`,
+          handled: true,
+        };
+      }
+      if (lowerMsg.includes('balance') || lowerMsg.includes('how much') || lowerMsg.includes('have')) {
+        const balance = knytBalance?.dvnKnyt || 0;
+        return {
+          tab: 'wallet',
+          response: `You have ${balance.toFixed(2)} KNYT (worth ~$${(balance * priceUsd).toFixed(2)}). Use KNYT for DVN fees and cross-chain operations.`,
+          handled: true,
+        };
+      }
+      return {
+        tab: 'wallet',
+        response: `KNYT is the utility token for DVN attestation and cross-chain operations. Price: $${priceUsd.toFixed(2)}/KNYT. Your balance: ${knytBalance?.dvnKnyt?.toFixed(2) || '0'} KNYT. Say "buy KNYT" to purchase more.`,
+        handled: true,
+      };
+    }
+
+    if (lowerMsg.includes('dvn') || lowerMsg.includes('event') || lowerMsg.includes('attestation')) {
+      const events = evs || [];
+      return {
+        tab: 'wallet',
+        response: `DVN (Decentralized Verification Network) handles cross-chain attestations. ${
+          events.length > 0 ? `Recent events: ${events.slice(0, 2).map((e) => e.event).join(', ')}.` : 'No recent DVN events.'
+        } KNYT is used to pay DVN fees.`,
+        handled: true,
+      };
+    }
+
+    if (
+      lowerMsg.includes('x402') ||
+      lowerMsg.includes('settlement') ||
+      lowerMsg.includes('custody') ||
+      lowerMsg.includes('settlement id') ||
+      lowerMsg.includes('message id')
+    ) {
+      const settlementMatch =
+        lowerMsg.match(/settlement(?: id|_id)?[:\s]+([a-z0-9\-_]+)/i) ||
+        lowerMsg.match(/settle(?:ment)?[:\s]+([a-z0-9\-_]+)/i) ||
+        lowerMsg.match(/x402[:\s]+([a-z0-9\-_]+)/i);
+      const messageMatch =
+        lowerMsg.match(/message(?: id|_id)?[:\s]+([a-z0-9\-_]+)/i) ||
+        lowerMsg.match(/msg(?: id|_id)?[:\s]+([a-z0-9\-_]+)/i);
+      const uuidMatches = message.match(
+        /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi
+      );
+      const hashMatches = message.match(/\b[0-9a-f]{64}\b/gi);
+
+      if (settlementMatch?.[1]) setRetrySettlementId(settlementMatch[1]);
+      if (messageMatch?.[1]) setRetryMessageId(messageMatch[1]);
+      if (!settlementMatch?.[1] && !messageMatch?.[1]) {
+        if (uuidMatches?.length === 1) {
+          if (lowerMsg.includes('message') || lowerMsg.includes('msg')) {
+            setRetryMessageId(uuidMatches[0]);
+          } else {
+            setRetrySettlementId(uuidMatches[0]);
+          }
+        } else if (hashMatches?.length === 1) {
+          setRetryMessageId(hashMatches[0]);
+        }
+      }
+      return {
+        tab: 'wallet',
+        response: `x402 is the payment protocol for content monetization. You have ${custodyCount} custody sessions and ${claimCount} pending claims. ${
+          settlementMatch?.[1] || messageMatch?.[1] || uuidMatches?.length || hashMatches?.length
+            ? 'I prefilled the settlement fields for you. Review them and retry.'
+            : 'To retry a specific settlement, enter the Settlement ID and/or Message ID in the x402 Settlement section.'
+        }`,
+        handled: true,
+      };
+    }
+
+    if (
+      lowerMsg.includes('persona') ||
+      lowerMsg.includes('identity') ||
+      lowerMsg.includes('wallet address') ||
+      lowerMsg.includes('fio')
+    ) {
+      return {
+        tab: 'wallet',
+        response: `Your x402 Wallet ID (DID): ${fioDid ? fioDid.slice(0, 16) + '...' : 'Not set'}. Persona Handle: ${
+          agent.fioHandle || 'Not set'
+        }. Your DID maps to all your chain addresses (EVM, BTC, SOL) via FIO.`,
+        handled: true,
+      };
+    }
+
+    if (lowerMsg.includes('what can i buy') || lowerMsg.includes('buy')) {
+      return {
+        tab: 'library',
+        response: 'Browse available content in your library tab. You can purchase or unlock items with Q¢.',
+        handled: true,
+      };
+    }
+
+    return {
+      tab: null,
+      response:
+        "I'm here to help! Ask me about your balance, KNYT, rewards, tasks, library, or reputation. I can also help you send/receive payments, buy KNYT, or check DVN events.",
+      handled: false,
+    };
+  };
+
   const qctTotalStr = (() => {
     try {
       const ethQ = Number(BigInt(bals.qctSep || "0")) / 10 ** (bals.qctSepDecimals ?? 0);
       const arbQ = Number(BigInt(bals.qctArb || "0")) / 10 ** (bals.qctArbDecimals ?? 0);
+      const baseQ = Number(BigInt(bals.qctBase || "0")) / 10 ** (bals.qctBaseDecimals ?? 0);
       const btcQ = Number(BigInt(bals.btcQcent || "0"));
-      const total = ethQ + arbQ + btcQ;
+      const total = ethQ + arbQ + baseQ + btcQ;
       return total.toLocaleString(undefined, { maximumFractionDigits: 0 });
     } catch {
       return "0";
     }
   })();
+
+  const knytTotal = knytBalance?.totalKnyt ?? 0;
+  const knytUsd = knytPriceUsd ? (knytTotal * knytPriceUsd).toFixed(2) : "0.00";
+  const walletAddress = walletNode?.walletAddresses?.evm || agent.evmArb || agent.evmSepolia;
 
   // Get tasks from wallet node or use empty array
   const tasks = walletNode?.tasks || [];
@@ -316,7 +738,7 @@ export default function SmartWalletDrawer({
   };
 
   const handleConfirmPurchase = async () => {
-    if (!currentContent || !personaId) return;
+    if (!currentContent || !effectivePersonaId) return;
     
     setPurchaseStep("processing");
     setPurchaseError(null);
@@ -386,7 +808,7 @@ export default function SmartWalletDrawer({
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              personaId,
+              personaId: effectivePersonaId,
               scope: "full",
               acquiredVia: "purchase",
               txHash,
@@ -422,7 +844,7 @@ export default function SmartWalletDrawer({
   };
 
   const handleConvertUsdcToQc = async () => {
-    if (!personaId) return;
+    if (!effectivePersonaId) return;
     setConvertStep("processing");
     setConvertError(null);
     setConvertResult(null);
@@ -438,7 +860,7 @@ export default function SmartWalletDrawer({
       const r = await fetch("/api/wallet/qct/convert/usdc-to-qc", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ personaId, usdcAmount: n }),
+        body: JSON.stringify({ personaId: effectivePersonaId, usdcAmount: n }),
       });
 
       const j = await r.json().catch(() => ({}));
@@ -500,8 +922,16 @@ export default function SmartWalletDrawer({
             <PersonaSelector
               personas={walletNode?.personaContext?.availablePersonas || []}
               activePersonaId={walletNode?.personaContext?.activePersonaId}
-              onSelect={(id) => onPersonaChange?.(id)}
-              onCreateNew={onCreatePersona}
+              onSelect={(id) => {
+                setLocalPersonaId(id);
+                onPersonaChange?.(id);
+              }}
+              onQuickAdd={() => setQuickAddOpen(true)}
+              onEditActive={handleOpenPersonaEdit}
+              onCreateNew={() => {
+                onCreatePersona?.();
+                setPersonaSetupOpen(true);
+              }}
               isLoading={false}
               compact={true}
             />
@@ -634,9 +1064,15 @@ export default function SmartWalletDrawer({
                 {/* Quick Prompts - Click to inject and send */}
                 <div className="mt-3 flex flex-wrap gap-2">
                   {[
-                    "What can I afford?",
-                    "Earn more Q¢",
-                    "Best rewards",
+                    "My balance",
+                    "Show tasks",
+                    "My rewards",
+                    "My library",
+                    "My reputation",
+                    "How to earn Q¢",
+                    "What can I buy?",
+                    "Convert USDC",
+                    "Retry settlement",
                   ].map((prompt, i) => (
                     <button
                       key={i}
@@ -786,6 +1222,116 @@ export default function SmartWalletDrawer({
           {/* Wallet Tab */}
           {activeTab === "wallet" && (
             <div className="space-y-4">
+              {!effectivePersonaId && (
+                <section className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-3">
+                  <div className="text-sm text-white/80 mb-2">Create your first persona to unlock wallet features.</div>
+                  <button
+                    onClick={() => setPersonaSetupOpen(true)}
+                    className="w-full px-3 py-2 rounded-lg bg-gradient-to-r from-purple-500/20 to-cyan-500/20 border border-purple-500/30 text-white text-sm"
+                  >
+                    Create Persona
+                  </button>
+                </section>
+              )}
+              {effectivePersonaId && (
+                <section className="rounded-2xl bg-gradient-to-br from-amber-500/10 to-orange-500/10 ring-1 ring-amber-500/30 p-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-2xl font-bold text-amber-300">
+                        {knytLoading
+                          ? "Loading..."
+                          : `${knytTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} `}
+                        <span className="text-amber-400 text-lg">KNYT</span>
+                      </div>
+                      <div className="text-xs text-white/50 mt-0.5">≈ ${knytUsd} USD</div>
+                    </div>
+                    <button
+                      onClick={() => setBuyKnytModalOpen(true)}
+                      className="px-2 py-1 text-[10px] bg-amber-500/20 text-amber-300 rounded hover:bg-amber-500/30"
+                    >
+                      Buy
+                    </button>
+                  </div>
+                  <div className="flex gap-2 mt-3 pt-3 border-t border-white/10">
+                    <button
+                      onClick={() => openTransactionModal("send")}
+                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-xs font-medium transition-colors"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      Send
+                    </button>
+                    <button
+                      onClick={() => openTransactionModal("receive")}
+                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-500/10 ring-1 ring-emerald-500/20 hover:bg-emerald-500/20 text-emerald-300 text-xs font-medium transition-colors"
+                    >
+                      <Wallet className="w-3.5 h-3.5" />
+                      Receive
+                    </button>
+                  </div>
+                </section>
+              )}
+
+              <PaymentRequestsPanel
+                agentId={agent.id}
+                fioHandle={agent.fioHandle}
+                walletAddress={walletAddress}
+                onPaymentExecuted={(txHash, requestId) => {
+                  handlePaymentExecuted(txHash, requestId);
+                  refreshWalletBalances();
+                }}
+              />
+
+              {effectivePersonaId && (
+                <section className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-[11px] uppercase tracking-wider text-white/60">
+                      KNYT + USDC
+                    </div>
+                    {knytLoading ? (
+                      <div className="text-[10px] text-amber-400 flex items-center gap-1">
+                        <RefreshCw className="w-3 h-3 animate-spin" />
+                        Loading
+                      </div>
+                    ) : (
+                      <div className="text-[10px] text-emerald-400 flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                        Live
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-1.5 text-sm text-white/90">
+                    <div className="flex items-center justify-between p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                      <span className="flex items-center gap-2 text-xs">
+                        <Award className="w-4 h-4 text-amber-400" />
+                        <span className="text-amber-300">KNYT (DVN)</span>
+                        <span className="text-[9px] text-emerald-400 bg-emerald-500/20 px-1 rounded">Spendable</span>
+                      </span>
+                      <span className="font-mono text-xs text-amber-300">
+                        {knytBalance?.dvnKnyt?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00"}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between p-2 rounded-lg bg-amber-500/5 border border-amber-500/10">
+                      <span className="flex items-center gap-2 text-xs">
+                        <Award className="w-4 h-4 text-amber-400/60" />
+                        <span className="text-amber-300/60">KNYT (EVM)</span>
+                        <span className="text-[9px] text-white/40 bg-white/10 px-1 rounded">On-chain</span>
+                      </span>
+                      <span className="font-mono text-xs text-amber-300/60">
+                        {knytBalance?.evmKnyt?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00"}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between p-2 rounded-lg bg-green-500/10 border border-green-500/20">
+                      <span className="flex items-center gap-2 text-xs">
+                        <CircleDollarSign className="w-4 h-4 text-green-400" />
+                        <span className="text-green-300">USDC</span>
+                      </span>
+                      <span className="font-mono text-xs text-green-300">
+                        {formatUSDC(bals.usdcSep, bals.usdcSepDecimals)}
+                      </span>
+                    </div>
+                  </div>
+                </section>
+              )}
               {/* Balances - Show real blockchain Q¢ balances */}
               <section className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-3">
                 <div className="flex items-center justify-between mb-2">
@@ -823,6 +1369,19 @@ export default function SmartWalletDrawer({
                       </span>
                       <span className="font-mono text-white">
                         {formatQcent(bals.qctSep, bals.qctSepDecimals)} Q¢
+                      </span>
+                    </li>
+                  </Tooltip>
+
+                  {/* Base Q¢ */}
+                  <Tooltip text="Q¢ on Base Sepolia">
+                    <li className="flex items-center justify-between p-2 rounded-lg bg-white/5">
+                      <span className="flex items-center gap-2">
+                        <Coins className="w-4 h-4 text-cyan-400" />
+                        <span>Base</span>
+                      </span>
+                      <span className="font-mono text-white">
+                        {formatQcent(bals.qctBase, bals.qctBaseDecimals)} Q¢
                       </span>
                     </li>
                   </Tooltip>
@@ -998,6 +1557,34 @@ export default function SmartWalletDrawer({
                   </Tooltip>
                 </div>
                 <div className="text-xs text-white/70">FIO: {agent.fioHandle || "—"}</div>
+                <div className="mt-2 flex items-center justify-between text-[10px] text-white/60">
+                  <span className="uppercase tracking-wider">x402 Wallet ID</span>
+                  <div className="flex items-center gap-1">
+                    <span
+                      className="font-mono text-[10px] text-white/60 truncate max-w-[140px]"
+                      title={fioDid || undefined}
+                    >
+                      {fioDid ? `${fioDid.slice(0, 12)}...${fioDid.slice(-8)}` : "—"}
+                    </span>
+                    <button
+                      onClick={() => fioDid && navigator.clipboard.writeText(fioDid)}
+                      className="p-1 hover:bg-white/10 rounded"
+                      disabled={!fioDid}
+                      aria-label="Copy x402 Wallet ID"
+                    >
+                      <Copy className="w-3 h-3 text-white/50 hover:text-white" />
+                    </button>
+                  </div>
+                </div>
+                {activePersona && (
+                  <button
+                    onClick={handleOpenPersonaEdit}
+                    className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-white/5 px-2 py-1 text-[11px] text-white/70 hover:bg-white/10"
+                  >
+                    <Settings className="h-3 w-3 text-purple-300" />
+                    Edit persona
+                  </button>
+                )}
                 <div className="mt-3">
                   <AliasConsentToggle consented={aliasConsent} onChange={setAliasConsent} />
                 </div>
@@ -1097,9 +1684,9 @@ export default function SmartWalletDrawer({
                     ))}
                   </div>
                 </section>
-              ) : personaId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(personaId) ? (
+              ) : effectivePersonaId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(effectivePersonaId) ? (
                 // Only use LibraryShelf for valid UUID personaIds
-                <LibraryShelf personaId={personaId} onContentSelect={onContentSelect} variant="drawer" />
+                <LibraryShelf personaId={effectivePersonaId} onContentSelect={onContentSelect} variant="drawer" />
               ) : (
                 <div className="text-center py-8 text-white/50 text-sm">
                   <BookOpen className="w-8 h-8 mx-auto mb-2 text-purple-400" />
@@ -1406,6 +1993,84 @@ export default function SmartWalletDrawer({
             setShowUnlockModal(false);
             setPersonaToUnlock(null);
           }}
+        />
+      )}
+
+      {transactionModalOpen && (
+        <TransactionModal
+          isOpen={transactionModalOpen}
+          onClose={() => setTransactionModalOpen(false)}
+          initialTab={transactionTab}
+          walletAddress={walletAddress}
+          personaId={effectivePersonaId}
+          agentId={agent.id}
+          fioHandle={agent.fioHandle}
+          prefillRecipient={prefillRecipient}
+          prefillAmount={prefillAmount}
+          prefillTxHash={prefillTxHash}
+          prefillChainId={prefillChainId}
+          enableVerify={true}
+          enableCustody={true}
+          onTransactionComplete={(result) => {
+            handleTransactionComplete(result);
+            refreshWalletBalances();
+          }}
+          onRequestCreated={handleRequestCreated}
+        />
+      )}
+
+      {personaEditModalOpen && editingPersona && (
+        <PersonaEditModal
+          isOpen={personaEditModalOpen}
+          onClose={() => setPersonaEditModalOpen(false)}
+          persona={{
+            id: editingPersona.id,
+            fioHandle: editingPersona.fioHandle,
+            displayName: editingPersona.displayName,
+            reputationScore: editingPersona.reputationScore,
+          }}
+          onSave={(updated) => {
+            setEditingPersona({
+              ...editingPersona,
+              displayName: updated.displayName,
+              fioHandle: updated.fioHandle,
+            });
+            setPersonaEditModalOpen(false);
+          }}
+        />
+      )}
+
+      {personaSetupOpen && (
+        <PersonaSetupWizard
+          tenantId={tenantId}
+          onComplete={handlePersonaCreated}
+          onCancel={() => setPersonaSetupOpen(false)}
+        />
+      )}
+
+      {quickAddOpen && (
+        <PersonaQuickAddModal
+          isOpen={quickAddOpen}
+          tenantId={tenantId}
+          onClose={() => setQuickAddOpen(false)}
+          onCreated={(newPersonaId) => {
+            setLocalPersonaId(newPersonaId);
+            onPersonaChange?.(newPersonaId);
+            setQuickAddOpen(false);
+          }}
+          onAdvanced={() => {
+            setQuickAddOpen(false);
+            setPersonaSetupOpen(true);
+          }}
+        />
+      )}
+
+      {effectivePersonaId && (
+        <BuyKnytModal
+          open={buyKnytModalOpen}
+          onClose={() => setBuyKnytModalOpen(false)}
+          personaId={effectivePersonaId}
+          onPurchaseComplete={() => refreshWalletBalances()}
         />
       )}
     </div>

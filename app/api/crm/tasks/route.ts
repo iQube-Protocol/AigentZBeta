@@ -71,7 +71,7 @@ async function resolveCampaignPersonaId(rawPersonaId: string): Promise<string | 
     if (crmPersona?.identity_persona_id) return crmPersona.identity_persona_id;
 
     const { data: identityPersona } = await client
-      .from('persona')
+      .from('personas')
       .select('id')
       .eq('id', trimmed)
       .maybeSingle();
@@ -90,7 +90,7 @@ async function resolveCampaignPersonaId(rawPersonaId: string): Promise<string | 
   const normalized = trimmed.toLowerCase();
 
   const { data: identityByHandle } = await client
-    .from('persona')
+    .from('personas')
     .select('id')
     .eq('fio_handle', normalized)
     .maybeSingle();

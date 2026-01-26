@@ -15,6 +15,7 @@ import { Loader2, AlertCircle } from "lucide-react";
 import { SmartTriadProvider, SmartTriadSurfaces } from "@/app/components/content";
 import { TabRenderer } from "./codex/TabRenderer";
 import { getIconComponent } from "./codex/iconMap";
+import { getCachedOrFetch } from "./codex/cache";
 
 
 interface CodexPanelDynamicProps {
@@ -83,10 +84,16 @@ export default function CodexPanelDynamic({
     const fetchIssues = async () => {
       setIssueOptionsLoading(true);
       try {
-        const res = await fetch('/api/content/issues?scope=codex', { cache: 'no-store' });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        const options = Array.isArray(data?.issues) ? data.issues : [];
+        const options = await getCachedOrFetch<IssueOption[]>(
+          "codex:issues:qripto",
+          async () => {
+            const res = await fetch('/api/content/issues?scope=codex');
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            return Array.isArray(data?.issues) ? data.issues : [];
+          },
+          15 * 60 * 1000
+        );
         if (!cancelled && options.length > 0) {
           setIssueOptions(options);
         }

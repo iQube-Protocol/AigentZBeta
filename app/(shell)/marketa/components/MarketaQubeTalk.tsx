@@ -57,20 +57,32 @@ export default function MarketaQubeTalk() {
   const [qubetalkClient, setQubetalkClient] = useState<QubeTalkClient | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const resolveContext = useCallback(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tenantId = params.get('tenant') || window.localStorage.getItem('marketa_tenant_id') || 'metaproof';
+    const personaId =
+      params.get('persona') ||
+      window.localStorage.getItem('marketa_persona_id') ||
+      // Dev fallback only (requires CRM persona UUID that matches tenant_id)
+      '5ffe87a0-bd7f-49ba-aa11-d45bc2f6a009';
+    return { tenantId, personaId };
+  }, []);
+
   // Initialize QubeTalk client
   useEffect(() => {
+    const { personaId } = resolveContext();
     const client = new QubeTalkClient({
       baseUrl: '',
       apiKey: process.env.MARKETA_JWT_SECRET || 'demo-key',
       agentId: 'marketa-agq', // Updated to reflect AGQ agent
-      personaId: '5ffe87a0-bd7f-49ba-aa11-d45bc2f6a009'
+      personaId
     });
     setQubetalkClient(client);
     
     // Load initial data
     loadChannels(client);
     loadTransfers(client);
-  }, []);
+  }, [resolveContext]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -87,9 +99,10 @@ export default function MarketaQubeTalk() {
     try {
       // Use real API call
       if (qubetalkClient) {
+        const { tenantId } = resolveContext();
         const result = await qubetalkClient.getMessages({
           channelId: channelToLoad,
-          tenantId: 'demo-tenant'
+          tenantId
         });
         
         if (result.success) {
@@ -240,7 +253,8 @@ export default function MarketaQubeTalk() {
       const client = clientOverride || qubetalkClient;
 
       if (client) {
-        const result = await client.listChannels({ tenantId: 'demo-tenant', limit: 50 });
+        const { tenantId } = resolveContext();
+        const result = await client.listChannels({ tenantId, limit: 50 });
         if (result.success) {
           setChannels(result.channels || []);
           if ((result.channels || []).length > 0) {
@@ -255,7 +269,7 @@ export default function MarketaQubeTalk() {
         // In-platform channels (Aigent Z ecosystem) - Blue theme
         {
           channel_id: 'aigent-z-marketa-agq',
-          tenant_id: 'demo-tenant',
+          tenant_id: resolveContext().tenantId,
           participants: ['aigent-z', 'marketa-agq'],
           created_at: new Date().toISOString(),
           allows_external: false,
@@ -263,7 +277,7 @@ export default function MarketaQubeTalk() {
         },
         {
           channel_id: 'aigent-z-marketa-lvb',
-          tenant_id: 'demo-tenant',
+          tenant_id: resolveContext().tenantId,
           participants: ['aigent-z', 'marketa-lvb'],
           created_at: new Date().toISOString(),
           allows_external: false,
@@ -271,7 +285,7 @@ export default function MarketaQubeTalk() {
         },
         {
           channel_id: 'aigent-z-nextjs-app-cp',
-          tenant_id: 'demo-tenant',
+          tenant_id: resolveContext().tenantId,
           participants: ['aigent-z', 'nextjs-app-cp'],
           created_at: new Date().toISOString(),
           allows_external: false,
@@ -280,7 +294,7 @@ export default function MarketaQubeTalk() {
         // Off-platform channels (External communication) - Rose theme
         {
           channel_id: 'marketa-agq-marketa-lvb',
-          tenant_id: 'demo-tenant',
+          tenant_id: resolveContext().tenantId,
           participants: ['marketa-agq', 'marketa-lvb'],
           created_at: new Date().toISOString(),
           allows_external: true,
@@ -288,7 +302,7 @@ export default function MarketaQubeTalk() {
         },
         {
           channel_id: 'aigent-z-thin-client',
-          tenant_id: 'demo-tenant',
+          tenant_id: resolveContext().tenantId,
           participants: ['aigent-z', 'thin-client'],
           created_at: new Date().toISOString(),
           allows_external: true,
@@ -355,7 +369,8 @@ export default function MarketaQubeTalk() {
       const client = clientOverride || qubetalkClient;
 
       if (client) {
-        const result = await client.getTransfers({ tenantId: 'demo-tenant', limit: 50 });
+        const { tenantId } = resolveContext();
+        const result = await client.getTransfers({ tenantId, limit: 50 });
         if (result.success) {
           setTransfers(result.transfers || []);
           return;
@@ -468,7 +483,7 @@ export default function MarketaQubeTalk() {
       // Send message via QubeTalk
       const result = await qubetalkClient.sendMessage({
         channelId: selectedChannel,
-        tenantId: 'demo-tenant',
+        tenantId: resolveContext().tenantId,
         message: messageText,
         agentName: 'Marketa (AGQ)',
         priority: 'normal'
@@ -537,7 +552,7 @@ export default function MarketaQubeTalk() {
 
       await qubetalkClient.sendMessage({
         channelId: selectedChannel,
-        tenantId: 'demo-tenant',
+        tenantId: resolveContext().tenantId,
         message: contentMessage,
         agentName: 'Marketa (AGQ)',
         priority: 'high'

@@ -1,12 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import SmartWalletDrawer from "../../../components/content/SmartWalletDrawer";
 import { Wallet, Settings, Code } from "lucide-react";
 
 export default function SmartWalletViewerPage() {
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [density, setDensity] = useState<'narrow' | 'wide'>('wide');
+  const searchParams = useSearchParams();
+  const personaId = searchParams.get('personaId') || undefined;
 
   // Sample agent data - in real app this would come from context
   const agent = {
@@ -177,6 +180,7 @@ export default function SmartWalletViewerPage() {
             variant="embedded"
             embeddedWidth={density === 'wide' ? 'fixed' : 'fill'}
             agent={agent}
+            personaId={personaId}
             codexMode={true}
           />
         </div>

@@ -10,6 +10,7 @@ import {
   Lock,
   Unlock,
   Bot,
+  Settings,
 } from 'lucide-react';
 import { PersonaQube } from '@/types/persona';
 import { PersonaState } from '@/types/smartWallet';
@@ -40,6 +41,10 @@ interface PersonaSelectorProps {
   onSelect?: (personaId: string) => void;
   /** Callback to create new persona */
   onCreateNew?: () => void;
+  /** Quick add persona (lightweight flow) */
+  onQuickAdd?: () => void;
+  /** Edit currently active persona */
+  onEditActive?: () => void;
   /** Compact mode for smaller spaces */
   compact?: boolean;
   /** Loading state override */
@@ -57,6 +62,8 @@ export function PersonaSelector({
   onPersonaChange,
   onSelect,
   onCreateNew,
+  onQuickAdd,
+  onEditActive,
   compact = false,
   isLoading: externalLoading,
 }: PersonaSelectorProps) {
@@ -204,13 +211,26 @@ export function PersonaSelector({
   if (!activePersona && personas.length === 0) {
     // No personas - show create button
     return (
-      <button
-        onClick={onCreateNew}
-        className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-500/20 to-cyan-500/20 border border-purple-500/30 rounded-lg text-white hover:from-purple-500/30 hover:to-cyan-500/30 transition-all"
-      >
-        <Plus className="w-5 h-5" />
-        <span>Create Persona</span>
-      </button>
+      <div className="flex flex-col gap-2">
+        {onQuickAdd && (
+          <button
+            onClick={onQuickAdd}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-emerald-500/20 to-cyan-500/20 border border-emerald-500/30 rounded-lg text-white hover:from-emerald-500/30 hover:to-cyan-500/30 transition-all"
+          >
+            <Plus className="w-5 h-5" />
+            <span>Quick Add Persona</span>
+          </button>
+        )}
+        {onCreateNew && (
+          <button
+            onClick={onCreateNew}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-500/20 to-cyan-500/20 border border-purple-500/30 rounded-lg text-white hover:from-purple-500/30 hover:to-cyan-500/30 transition-all"
+          >
+            <Plus className="w-5 h-5" />
+            <span>Create with Wizard</span>
+          </button>
+        )}
+      </div>
     );
   }
 
@@ -293,20 +313,52 @@ export function PersonaSelector({
           
           {/* Divider */}
           <div className="border-t border-white/10" />
+
+          {onEditActive && activePersona && (
+            <button
+              onClick={() => {
+                setIsOpen(false);
+                onEditActive();
+              }}
+              className="w-full flex items-center gap-3 px-3 py-3 hover:bg-white/5 transition-colors text-cyan-400"
+            >
+              <div className="w-8 h-8 rounded-full border border-cyan-400/40 flex items-center justify-center">
+                <Settings className="w-4 h-4" />
+              </div>
+              <span className="font-medium">Edit Persona</span>
+            </button>
+          )}
+
+          {onQuickAdd && (
+            <button
+              onClick={() => {
+                setIsOpen(false);
+                onQuickAdd();
+              }}
+              className="w-full flex items-center gap-3 px-3 py-3 hover:bg-white/5 transition-colors text-emerald-400"
+            >
+              <div className="w-8 h-8 rounded-full border border-emerald-400/40 flex items-center justify-center">
+                <Plus className="w-4 h-4" />
+              </div>
+              <span className="font-medium">Quick Add Persona</span>
+            </button>
+          )}
           
           {/* Create new */}
-          <button
-            onClick={() => {
-              setIsOpen(false);
-              onCreateNew?.();
-            }}
-            className="w-full flex items-center gap-3 px-3 py-3 hover:bg-white/5 transition-colors text-purple-400"
-          >
-            <div className="w-8 h-8 rounded-full border-2 border-dashed border-purple-400/50 flex items-center justify-center">
-              <Plus className="w-4 h-4" />
-            </div>
-            <span className="font-medium">Create New Persona</span>
-          </button>
+          {onCreateNew && (
+            <button
+              onClick={() => {
+                setIsOpen(false);
+                onCreateNew?.();
+              }}
+              className="w-full flex items-center gap-3 px-3 py-3 hover:bg-white/5 transition-colors text-purple-400"
+            >
+              <div className="w-8 h-8 rounded-full border-2 border-dashed border-purple-400/50 flex items-center justify-center">
+                <Plus className="w-4 h-4" />
+              </div>
+              <span className="font-medium">Create with Wizard</span>
+            </button>
+          )}
         </div>
       )}
     </div>

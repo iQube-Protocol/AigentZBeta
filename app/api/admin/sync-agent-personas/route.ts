@@ -18,6 +18,7 @@ const AGENT_PERSONAS = [
   { agentId: 'aigent-moneypenny', fioHandle: 'moneypenny@aigent', name: 'Aigent MoneyPenny' },
   { agentId: 'aigent-kn0w1', fioHandle: 'kn0w1@aigent', name: 'Aigent Kn0w1' },
   { agentId: 'aigent-nakamoto', fioHandle: 'nakamoto@aigent', name: 'Aigent Nakamoto' },
+  { agentId: 'aigent-marketa', fioHandle: 'marketa@aigent', name: 'Aigent Marketa' },
 ];
 
 function getSupabase() {
@@ -39,7 +40,7 @@ export async function GET(req: NextRequest) {
     // Get all agent personas - query for exact @aigent handles
     const agentHandles = AGENT_PERSONAS.map(a => a.fioHandle);
     const { data: personas, error: personaError } = await supabase
-      .from('persona')
+      .from('personas')
       .select('id, fio_handle, world_id_status, created_at')
       .in('fio_handle', agentHandles);
 
@@ -115,11 +116,15 @@ export async function POST(req: NextRequest) {
     for (const agent of AGENT_PERSONAS) {
       const agentResult: any = { agentId: agent.agentId, fioHandle: agent.fioHandle, actions: [] };
 
-      // Step 1: Update any @qripto handles to @aigent
+      // Step 1: Update any @qripto handles to @aigent and set proper tenant
       const wrongHandle = agent.fioHandle.replace('@aigent', '@qripto');
       const { data: updatedPersona, error: updateError } = await supabase
-        .from('persona')
-        .update({ fio_handle: agent.fioHandle })
+        .from('personas')
+        .update({ 
+          fio_handle: agent.fioHandle,
+          tenant_id: 'metaproof',
+          discoverable_within_tenant: true
+        })
         .eq('fio_handle', wrongHandle)
         .select()
         .maybeSingle();
@@ -130,17 +135,41 @@ export async function POST(req: NextRequest) {
 
       // Step 2: Check if persona exists with correct handle
       let { data: persona, error: personaError } = await supabase
-        .from('persona')
-        .select('id, fio_handle')
+        .from('personas')
+        .select('id, fio_handle, tenant_id, discoverable_within_tenant')
         .eq('fio_handle', agent.fioHandle)
         .maybeSingle();
+
+      // Step 2.5: Update existing persona with proper tenant and discoverable flag if needed
+      if (persona && (persona.tenant_id !== 'metaproof' || !persona.discoverable_within_tenant)) {
+        const { data: updatedPersona, error: updateError } = await supabase
+          .from('personas')
+          .update({ 
+            tenant_id: 'metaproof',
+            discoverable_within_tenant: true,
+            fio_domain: 'aigent'
+          })
+          .eq('id', persona.id)
+          .select()
+          .single();
+
+        if (!updateError && updatedPersona) {
+          agentResult.actions.push(`Updated persona tenant and discoverable flag`);
+          persona = updatedPersona;
+        }
+      }
 
       // Step 3: Create persona if it doesn't exist
       if (!persona) {
         const { data: newPersona, error: createError } = await supabase
-          .from('persona')
+          .from('personas')
           .insert({
             fio_handle: agent.fioHandle,
+            fio_domain: 'aigent',
+            root_did: `did:fio:${agent.fioHandle}`,
+            display_name: agent.name,
+            tenant_id: 'metaproof',
+            discoverable_within_tenant: true,
             default_identity_state: 'semi_anonymous',
             world_id_status: 'agent_declared',
             app_origin: 'aigentiq',

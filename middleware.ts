@@ -153,5 +153,5 @@ export function getPerformanceMetrics() {
 }
 
 export const config = {
-  matcher: ['/api/:path*', '/triad/embed/:path*'],
+  matcher: ['/triad/embed/:path*'],
 };

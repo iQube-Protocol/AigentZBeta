@@ -185,7 +185,7 @@ export class PurchaseHandler {
           .update({ first_paid_purchase_at: firstPurchaseAt })
           .eq('id', personaId);
         await this.supabase
-          .from('persona')
+          .from('personas')
           .update({ first_paid_purchase_at: firstPurchaseAt })
           .eq('id', personaId);
         

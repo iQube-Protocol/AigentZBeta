@@ -5,7 +5,7 @@
  * Integrates with FIO, key management, and Supabase storage.
  */
 
-import { 
+import {
   PersonaQube, 
   CreatePersonaInput, 
   CreatePersonaResult,
@@ -13,19 +13,48 @@ import {
   PersonaStatus,
 } from '@/types/persona';
 import { ChainAddresses } from '@/types/persona';
-import { 
+import {
   generateEvmKeyPair, 
   importEvmKeyPair, 
   deriveChainAddresses,
   isValidPrivateKey,
   validatePassword,
 } from './keyService';
-import { 
+import {
   getPersonaFioService, 
   generateDidFromHandle, 
   buildFioHandle,
   isValidUsername,
 } from './personaFioService';
+
+function getAuthProfileIdFromStorage(): string | null {
+  if (typeof window === 'undefined') return null;
+  return (
+    window.localStorage.getItem('authProfileId') ||
+    window.localStorage.getItem('agentiq_auth_profile_id') ||
+    window.sessionStorage.getItem('authProfileId') ||
+    window.sessionStorage.getItem('agentiq_auth_profile_id')
+  );
+}
+
+function withAuthHeaders(init?: RequestInit): RequestInit {
+  const headers = new Headers(init?.headers || {});
+  const devAuthProfileId =
+    getAuthProfileIdFromStorage() || process.env.NEXT_PUBLIC_DEV_AUTH_PROFILE_ID || '';
+  if (devAuthProfileId) headers.set('x-auth-profile-id', devAuthProfileId);
+  return { ...init, headers };
+}
+
+function withAuthProfileParam(url: string): string {
+  const devAuthProfileId =
+    getAuthProfileIdFromStorage() || process.env.NEXT_PUBLIC_DEV_AUTH_PROFILE_ID;
+  if (!devAuthProfileId) return url;
+  const u = new URL(url, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
+  if (!u.searchParams.has('authProfileId')) {
+    u.searchParams.set('authProfileId', devAuthProfileId);
+  }
+  return u.pathname + u.search;
+}
 
 // =============================================================================
 // PERSONA STORAGE (Supabase)
@@ -36,11 +65,14 @@ import {
  */
 async function storePersona(persona: PersonaQube): Promise<void> {
   try {
-    const response = await fetch('/api/wallet/persona', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(persona),
-    });
+    const response = await fetch(
+      withAuthProfileParam('/api/wallet/persona'),
+      withAuthHeaders({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(persona),
+      })
+    );
     
     if (!response.ok) {
       const error = await response.json();
@@ -57,7 +89,10 @@ async function storePersona(persona: PersonaQube): Promise<void> {
  */
 export async function getPersonaById(id: string): Promise<PersonaQube | null> {
   try {
-    const response = await fetch(`/api/wallet/persona/${id}`);
+    const response = await fetch(
+      withAuthProfileParam(`/api/wallet/persona/${id}`),
+      withAuthHeaders()
+    );
     if (!response.ok) {
       if (response.status === 404) return null;
       throw new Error('Failed to fetch persona');
@@ -74,7 +109,10 @@ export async function getPersonaById(id: string): Promise<PersonaQube | null> {
  */
 export async function getPersonasByAuthProfile(authProfileId: string): Promise<PersonaQube[]> {
   try {
-    const response = await fetch(`/api/wallet/personas?authProfileId=${authProfileId}`);
+    const response = await fetch(
+      `/api/wallet/personas?authProfileId=${encodeURIComponent(authProfileId)}`,
+      withAuthHeaders()
+    );
     if (!response.ok) {
       throw new Error('Failed to fetch personas');
     }
@@ -90,7 +128,10 @@ export async function getPersonasByAuthProfile(authProfileId: string): Promise<P
  */
 export async function getPersonaByHandle(fioHandle: string): Promise<PersonaQube | null> {
   try {
-    const response = await fetch(`/api/wallet/persona/by-handle/${encodeURIComponent(fioHandle)}`);
+    const response = await fetch(
+      withAuthProfileParam(`/api/wallet/persona/by-handle/${encodeURIComponent(fioHandle)}`),
+      withAuthHeaders()
+    );
     if (!response.ok) {
       if (response.status === 404) return null;
       throw new Error('Failed to fetch persona');
@@ -107,11 +148,14 @@ export async function getPersonaByHandle(fioHandle: string): Promise<PersonaQube
  */
 export async function updatePersona(id: string, updates: Partial<PersonaQube>): Promise<PersonaQube | null> {
   try {
-    const response = await fetch(`/api/wallet/persona/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updates),
-    });
+    const response = await fetch(
+      withAuthProfileParam(`/api/wallet/persona/${id}`),
+      withAuthHeaders({
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      })
+    );
     
     if (!response.ok) {
       throw new Error('Failed to update persona');

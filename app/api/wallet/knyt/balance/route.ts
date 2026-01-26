@@ -63,11 +63,11 @@ export async function GET(request: NextRequest) {
         
         // Query persona table based on identifier type
         if (isUuid) {
-          const result = await supabase.from('persona').select('fio_handle, evm_address').eq('id', personaId).single();
+          const result = await supabase.from('personas').select('fio_handle, evm_address').eq('id', personaId).single();
           personaData = result.data;
           personaError = result.error;
         } else if (isFioHandle) {
-          const result = await supabase.from('persona').select('fio_handle, evm_address').eq('fio_handle', personaId).single();
+          const result = await supabase.from('personas').select('fio_handle, evm_address').eq('fio_handle', personaId).single();
           personaData = result.data;
           personaError = result.error;
         }

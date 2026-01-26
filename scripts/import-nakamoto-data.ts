@@ -285,7 +285,7 @@ async function importUsers(
     try {
       // Check if persona already exists by fio_handle
       const { data: existing } = await supabase
-        .from('persona')
+        .from('personas')
         .select('id')
         .eq('fio_handle', fioHandle)
         .single();
@@ -297,7 +297,7 @@ async function importUsers(
       }
 
       const { data: newPersona, error } = await supabase
-        .from('persona')
+        .from('personas')
         .insert({
           fio_handle: fioHandle,
           default_identity_state: personaType === 'knyt' ? 'semi_anonymous' : personaType,

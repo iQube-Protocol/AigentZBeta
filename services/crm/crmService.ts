@@ -1039,3 +1039,72 @@ export async function linkPersonaToAuthProfile(
 ): Promise<void> {
   await db.linkPersonaToAuthProfile(authProfileId, personaId, isPrimary);
 }
+
+// Service export for API routes
+export const crmService = {
+  // Franchise operations
+  listFranchises,
+  getFranchise,
+  getFranchiseTenants,
+  listTenants,
+  getTenant,
+  getAgentiqAnchor,
+  getAgentiqHierarchy,
+  canFranchiseGovernTenant,
+  getAgentiqTenantHierarchy,
+  
+  // Persona operations
+  getPersonaSummary,
+  listPersonas,
+  createPersona,
+  getPersonasByKybeDid,
+  
+  // Contribution operations
+  recordContribution,
+  listContributions,
+  getTopContributors,
+  
+  // Engagement operations
+  recordEngagement,
+  listEngagementEvents,
+  
+  // Reward operations
+  proposeRewards,
+  updateReward,
+  listRewards,
+  
+  // Entitlement operations
+  getPersonaEntitlements,
+  createEntitlement,
+  updateEntitlement,
+  
+  // Wallet operations
+  recordWalletEvent,
+  listWalletEvents,
+  
+  // Reputation operations
+  recordReputationEvent,
+  listReputationEvents,
+  
+  // Profile operations
+  getUnifiedProfile,
+  
+  // Audit operations
+  listAuditLogs,
+  
+  // Copilot operations
+  recordCopilotHistory,
+  listCopilotHistory,
+  
+  // Segment operations
+  createSegment,
+  listSegments,
+  addPersonaToSegment,
+  removePersonaFromSegment,
+  getSegmentMembers,
+  
+  // Auth operations
+  getAuthProfileByEmail,
+  getAuthProfilePersonas,
+  linkPersonaToAuthProfile,
+};

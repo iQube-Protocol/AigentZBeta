@@ -29,6 +29,9 @@ import { QriptoScrollsTab } from "./tabs/QriptoScrollsTab";
 import { PlaceholderTab } from "./tabs/PlaceholderTab";
 import { AgentiqCartridgeTab } from "./tabs/AgentiqCartridgeTab";
 import { PackBrowserTab } from "./tabs/PackBrowserTab";
+import { MarketaTab } from "./tabs/MarketaTab";
+import { KnytTab } from "./tabs/KnytTab";
+import { MoneyPennyTab } from "./tabs/MoneyPennyTab";
 
 interface TabRendererProps {
   tab: CodexTab;
@@ -53,7 +56,10 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   Kn0wdZTab,
   QriptoScrollsTab,
   AgentiqCartridgeTab,
+  MarketaTab,
+  KnytTab,
   PlaceholderTab,
+  MoneyPennyTab,
   RewardsTab: PlaceholderTab,
   DocsTab: PlaceholderTab,
   APITab: PlaceholderTab,

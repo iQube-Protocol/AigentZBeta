@@ -12,6 +12,7 @@ import { CodexMainLayer, CodexCopilotLayer } from "@/components/codex";
 import { X, Library, Sparkles, BookOpen, Users, Scroll, Gamepad2, Globe, Crown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useKnytBalance } from "@/hooks/useKnytBalance";
+import { getMyWalletPersonas } from "@/services/walletApi";
 
 interface CodexDrawerProps {
   isOpen: boolean;
@@ -41,16 +42,20 @@ function CodexDrawerContent({ isOpen, onClose }: CodexDrawerProps) {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('persona_id')
-        .eq('id', user.id)
-        .single();
-      
-      if (profile?.persona_id) {
-        setPersonaId(profile.persona_id);
+
+      const stored =
+        localStorage.getItem('currentPersonaId') ||
+        sessionStorage.getItem('currentPersonaId') ||
+        localStorage.getItem('activePersonaId') ||
+        '';
+
+      if (stored) {
+        setPersonaId(stored);
+        return;
       }
+
+      const { personas } = await getMyWalletPersonas();
+      if (personas[0]?.id) setPersonaId(personas[0].id);
     } catch (e) {
       console.error('[CodexDrawer] Error fetching persona:', e);
     }

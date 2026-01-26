@@ -1,0 +1,88 @@
+{
+  "pack_id": "knyt-liquid-ui-v1",
+  "name": "KNYT Liquid UI Template Pack",
+  "version": "1.0.0",
+  "description": "Liquid UI templates for KNYT Codex with Lovable integration",
+  "templates": [
+    {
+      "template_id": "knyt-codex-drawer",
+      "name": "KNYT Codex Drawer",
+      "description": "Main codex interface with tabs for browsing and purchasing",
+      "category": "codex",
+      "geometry": "drawer",
+      "device_support": ["desktop", "tablet", "mobile"],
+      "intent_triggers": ["browse_codex", "view_cards", "manage_collection"],
+      "ui_components": [
+        {
+          "component_id": "codex-header",
+          "type": "header",
+          "props": {
+            "title": "KNYT Codex",
+            "showBalance": true,
+            "showPersona": true
+          }
+        },
+        {
+          "component_id": "codex-tabs",
+          "type": "tabs",
+          "props": {
+            "tabs": ["codex", "cards", "purchases"],
+            "defaultTab": "cards"
+          }
+        },
+        {
+          "component_id": "cards-grid",
+          "type": "grid",
+          "props": {
+            "columns": "auto",
+            "aspectRatio": "1:1",
+            "showPricing": true,
+            "allowPurchase": true
+          }
+        }
+      ],
+      "liquid_template": "knyt-codex-template",
+      "fallback_react": "KnytTab"
+    },
+    {
+      "template_id": "knyt-card-detail-modal",
+      "name": "KNYT Card Detail Modal",
+      "description": "Detailed view of individual KNYT cards with purchase options",
+      "category": "card_detail",
+      "geometry": "modal",
+      "device_support": ["desktop", "tablet", "mobile"],
+      "intent_triggers": ["view_card_detail", "purchase_card", "preview_card"],
+      "ui_components": [
+        {
+          "component_id": "card-preview",
+          "type": "image",
+          "props": {
+            "aspectRatio": "1:1",
+            "allowZoom": true,
+            "showMetadata": true
+          }
+        },
+        {
+          "component_id": "card-info",
+          "type": "info_panel",
+          "props": {
+            "showPricing": true,
+            "showOwnership": true,
+            "showDescription": true
+          }
+        },
+        {
+          "component_id": "purchase-actions",
+          "type": "action_buttons",
+          "props": {
+            "primaryAction": "purchase",
+            "secondaryActions": ["preview", "share"]
+          }
+        }
+      ],
+      "liquid_template": "knyt-card-template",
+      "fallback_react": "KnytCardDetail"
+    }
+  ],
+  "last_updated": "2025-01-24T00:00:00.000Z"
+}

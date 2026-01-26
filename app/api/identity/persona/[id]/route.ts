@@ -1,9 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getPersonaFioService } from '@/services/wallet/personaFioService';
+import { getCallerAuthProfileId } from '@/services/wallet/personaRepo';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+
+function toIdentitySafePersona(record: any, fioVisible: boolean) {
+  return {
+    id: record.id,
+    tenant_id: record.tenant_id,
+    display_name: record.display_name,
+    avatar_uri: record.avatar_uri ?? null,
+    fio_handle: fioVisible ? record.fio_handle : null,
+    fio_domain: record.fio_domain ?? null,
+    default_identity_state: record.default_identity_state ?? null,
+    world_id_status: record.world_id_status ?? null,
+    app_origin: record.app_origin ?? null,
+    discoverable_within_tenant: !!record.discoverable_within_tenant,
+    evm_address: record.evm_address ?? null,
+    btc_address: record.btc_address ?? null,
+    sol_address: record.sol_address ?? null,
+    bio: record.bio ?? null,
+    fio_public_key: record.fio_public_key ?? null,
+    fio_tx_id: record.fio_tx_id ?? null,
+    fio_handle_expiration: record.fio_handle_expiration ?? null,
+    fio_registration_status: record.fio_registration_status ?? null,
+    fio_registered_at: record.fio_registered_at ?? null,
+    referred_by_persona_id: record.referred_by_persona_id ?? null,
+    referrer_persona_id: record.referrer_persona_id ?? null,
+    ref_campaign_id: record.ref_campaign_id ?? null,
+    first_paid_purchase_at: record.first_paid_purchase_at ?? null,
+    referral_locked_at: record.referral_locked_at ?? null,
+    referral_method: record.referral_method ?? null,
+    referral_identifier: record.referral_identifier ?? null,
+    created_at: record.created_at,
+    updated_at: record.updated_at,
+  };
+}
 
 /**
  * GET /api/identity/persona/[id]
@@ -24,67 +58,20 @@ export async function GET(
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
+    const callerAuthProfileId = await getCallerAuthProfileId(req);
 
     // Check if id looks like a UUID or a FIO handle
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
     const isFioHandle = id.includes('@');
 
-    // PRIORITY 1: Try persona table (singular) - has wallet addresses
-    let personaQuery = supabase.from('persona').select('*');
-    if (isUuid) {
-      personaQuery = personaQuery.eq('id', id);
-    } else if (isFioHandle) {
-      personaQuery = personaQuery.eq('fio_handle', id);
-    } else {
-      personaQuery = personaQuery.eq('id', id);
-    }
-
-    const { data: personaSingular, error: singularError } = await personaQuery.single();
-
-    if (!singularError && personaSingular) {
-      // Also try to get display_name from personas table if needed
-      let displayData: any = {};
-      if (isUuid) {
-        const { data: pd } = await supabase
-          .from('personas')
-          .select('display_name, avatar_uri')
-          .eq('id', id)
-          .single();
-        if (pd) displayData = pd;
-      }
-      
-      return NextResponse.json({ 
-        ok: true, 
-        data: { 
-          ...personaSingular, 
-          display_name: displayData.display_name,
-          avatar_uri: displayData.avatar_uri,
-        } 
-      });
-    }
-
-    // PRIORITY 2: Try persona_with_reputation view (includes reputation data)
-    let query = supabase.from('persona_with_reputation').select('*');
-    if (isUuid) {
-      query = query.eq('id', id);
-    } else if (isFioHandle) {
-      query = query.eq('fio_handle', id);
-    } else {
-      query = query.or(`id.eq.${id},fio_handle.ilike.%${id}%`);
-    }
-
-    const { data: personaWithRep, error: repError } = await query.single();
-
-    if (!repError && personaWithRep) {
-      return NextResponse.json({ ok: true, data: personaWithRep });
-    }
-
-    // PRIORITY 3: Fallback to basic personas table
-    let fallbackQuery = supabase.from('personas').select('*');
+    // Canonical: personas table (plural)
+    let fallbackQuery = supabase.from('personas').select(
+      'id,tenant_id,auth_profile_id,display_name,avatar_uri,fio_handle,fio_domain,default_identity_state,world_id_status,app_origin,discoverable_within_tenant,evm_address,btc_address,sol_address,bio,fio_public_key,fio_tx_id,fio_handle_expiration,fio_registration_status,fio_registered_at,referred_by_persona_id,referrer_persona_id,ref_campaign_id,first_paid_purchase_at,referral_locked_at,referral_method,referral_identifier,created_at,updated_at'
+    );
     if (isUuid) {
       fallbackQuery = fallbackQuery.eq('id', id);
     } else if (isFioHandle) {
-      fallbackQuery = fallbackQuery.eq('fio_handle', id);
+      fallbackQuery = fallbackQuery.ilike('fio_handle', id.toLowerCase());
     } else {
       fallbackQuery = fallbackQuery.or(`id.eq.${id},fio_handle.ilike.%${id}%`);
     }
@@ -101,7 +88,12 @@ export async function GET(
       throw new Error(error.message);
     }
 
-    return NextResponse.json({ ok: true, data: persona });
+    const { searchParams } = new URL(req.url);
+    const tenantId = searchParams.get('tenantId');
+    const isOwner = !!callerAuthProfileId && persona?.auth_profile_id === callerAuthProfileId;
+    const isDiscoverable =
+      !!tenantId && tenantId === persona?.tenant_id && persona?.discoverable_within_tenant === true;
+    return NextResponse.json({ ok: true, data: toIdentitySafePersona(persona, isOwner || isDiscoverable) });
   } catch (e: any) {
     console.error('[GET /api/identity/persona/[id]] Error:', e);
     return NextResponse.json(
@@ -134,57 +126,54 @@ export async function PATCH(
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
+    const callerAuthProfileId = await getCallerAuthProfileId(req);
 
     // Check if id looks like a UUID or a FIO handle
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
     const isFioHandle = id.includes('@');
 
-    // persona table (singular) has different columns than personas table (plural)
-    // persona: id, fio_handle, evm_address, btc_address, sol_address, bio, etc.
-    // personas: id, display_name, avatar_uri, evm_address, btc_address, sol_address, bio, etc.
-    
-    // Filter body to only include columns that exist in persona table
     const personaTableUpdates: Record<string, any> = {};
     if (body.evm_address !== undefined) personaTableUpdates.evm_address = body.evm_address;
     if (body.btc_address !== undefined) personaTableUpdates.btc_address = body.btc_address;
     if (body.sol_address !== undefined) personaTableUpdates.sol_address = body.sol_address;
     if (body.bio !== undefined) personaTableUpdates.bio = body.bio;
     if (body.fio_handle !== undefined) personaTableUpdates.fio_handle = body.fio_handle;
-
-    // Try persona table first (singular - where most data lives)
-    let data: any = null;
-    let error: any = null;
-    
-    if (Object.keys(personaTableUpdates).length > 0) {
-      let query = supabase.from('persona').update(personaTableUpdates);
-      if (isUuid) {
-        query = query.eq('id', id);
-      } else if (isFioHandle) {
-        query = query.eq('fio_handle', id);
-      } else {
-        query = query.eq('id', id);
-      }
-
-      const result = await query.select().single();
-      data = result.data;
-      error = result.error;
+    if (body.display_name !== undefined) personaTableUpdates.display_name = body.display_name;
+    if (body.avatar_uri !== undefined) personaTableUpdates.avatar_uri = body.avatar_uri;
+    if (body.discoverable_within_tenant !== undefined) {
+      personaTableUpdates.discoverable_within_tenant = !!body.discoverable_within_tenant;
     }
 
-    // If not found in persona table or no valid updates, try personas table (plural)
-    if (error?.code === 'PGRST116' || !data) {
-      // personas table supports all fields including display_name, avatar_uri
-      let fallbackQuery = supabase.from('personas').update(body);
-      if (isUuid) {
-        fallbackQuery = fallbackQuery.eq('id', id);
-      } else if (isFioHandle) {
-        fallbackQuery = fallbackQuery.eq('fio_handle', id);
-      } else {
-        fallbackQuery = fallbackQuery.eq('id', id);
-      }
-      const fallbackResult = await fallbackQuery.select().single();
-      data = fallbackResult.data;
-      error = fallbackResult.error;
+    if (Object.keys(personaTableUpdates).length === 0) {
+      return NextResponse.json({ ok: false, error: 'No valid fields to update' }, { status: 400 });
     }
+
+    // Enforce owner check for identity updates when auth is present
+    if (callerAuthProfileId) {
+      const { data: existing } = await supabase
+        .from('personas')
+        .select('id,auth_profile_id')
+        .eq(isUuid ? 'id' : 'fio_handle', id)
+        .maybeSingle();
+      if (existing?.auth_profile_id && existing.auth_profile_id !== callerAuthProfileId) {
+        return NextResponse.json({ ok: false, error: 'Forbidden' }, { status: 403 });
+      }
+    }
+
+    let query = supabase.from('personas').update(personaTableUpdates);
+    if (isUuid) {
+      query = query.eq('id', id);
+    } else if (isFioHandle) {
+      query = query.ilike('fio_handle', id.toLowerCase());
+    } else {
+      query = query.eq('id', id);
+    }
+
+    const { data, error } = await query
+      .select(
+        'id,tenant_id,auth_profile_id,display_name,avatar_uri,fio_handle,fio_domain,default_identity_state,world_id_status,app_origin,discoverable_within_tenant,evm_address,btc_address,sol_address,bio,fio_public_key,fio_tx_id,fio_handle_expiration,fio_registration_status,fio_registered_at,referred_by_persona_id,referrer_persona_id,ref_campaign_id,first_paid_purchase_at,referral_locked_at,referral_method,referral_identifier,created_at,updated_at'
+      )
+      .single();
 
     if (error) {
       if (error.code === 'PGRST116') {
@@ -240,7 +229,7 @@ export async function PATCH(
       // Include FIO sync status in response
       return NextResponse.json({ 
         ok: true, 
-        data,
+        data: toIdentitySafePersona(data, true),
         fioSync: {
           attempted: true,
           results: fioSyncResults,
@@ -248,7 +237,7 @@ export async function PATCH(
       });
     }
 
-    return NextResponse.json({ ok: true, data });
+    return NextResponse.json({ ok: true, data: toIdentitySafePersona(data, true) });
   } catch (e: any) {
     console.error('[PATCH /api/identity/persona/[id]] Error:', e);
     return NextResponse.json(

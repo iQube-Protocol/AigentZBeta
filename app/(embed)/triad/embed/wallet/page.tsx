@@ -17,6 +17,7 @@ function SmartWalletContent() {
   const searchParams = useSearchParams();
   const theme = (searchParams.get('theme') as 'light' | 'dark') || 'dark';
   const density = (searchParams.get('density') as 'narrow' | 'wide') || 'wide';
+  const personaId = searchParams.get('personaId') || undefined;
 
   // Sample agent data - in real embed this would come from context or params
   const agent = {
@@ -33,6 +34,7 @@ function SmartWalletContent() {
         variant="embedded"
         embeddedWidth={density === 'wide' ? 'fixed' : 'fill'}
         agent={agent}
+        personaId={personaId}
         codexMode={false} // Regular embed mode, not Codex
       />
     </div>
