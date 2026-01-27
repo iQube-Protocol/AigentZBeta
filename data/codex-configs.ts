@@ -28,7 +28,7 @@ import { CodexConfig } from '@/types/codex';
 export const KNYT_CODEX: CodexConfig = {
   id: 'knyt-codex',
   name: 'KNYT Codex',
-  slug: 'knyt',
+  slug: 'knyt-codex',
   enabled: true,
   version: '1.0.0',
   owner: 'aigent-kn0w1',
@@ -71,8 +71,9 @@ export const KNYT_CODEX: CodexConfig = {
       },
       metadata: {
         icon: 'Scroll',
-        description: 'Sacred scrolls and ancient texts',
-        badge: '12'
+        description: 'Episode scrolls and stories',
+        badge: '13 Episodes',
+        color: 'purple'
       }
     },
     {
@@ -89,7 +90,9 @@ export const KNYT_CODEX: CodexConfig = {
       },
       metadata: {
         icon: 'Users',
-        description: 'Key characters and personas'
+        description: 'Character cards and profiles',
+        badge: '13 Characters',
+        color: 'purple'
       }
     },
     {
@@ -100,11 +103,14 @@ export const KNYT_CODEX: CodexConfig = {
       order: 3,
       type: 'static',
       config: {
-        component: 'LoreTab'
+        component: 'LoreTab',
+        // Uses existing API: /api/content/assets?kinds=background_lore_doc,twenty_one_sats_concept
+        // Backward compatible with Qriptopian useCodexLore hook
       },
       metadata: {
-        icon: 'BookMarked',
-        description: 'World lore and mythology'
+        icon: 'FileText',
+        description: 'World lore and background',
+        color: 'purple'
       }
     },
     {
@@ -115,11 +121,13 @@ export const KNYT_CODEX: CodexConfig = {
       order: 4,
       type: 'static',
       config: {
-        component: 'DigiTerraTab'
+        component: 'DigiTerraTab',
+        // Digital realm content and interactions
       },
       metadata: {
-        icon: 'Globe',
-        description: 'Digital realm and territories'
+        icon: 'Cpu',
+        description: 'Digital realm interface',
+        color: 'cyan'
       }
     },
     {
@@ -130,11 +138,13 @@ export const KNYT_CODEX: CodexConfig = {
       order: 5,
       type: 'static',
       config: {
-        component: 'TerraTab'
+        component: 'TerraTab',
+        // Physical realm content and interactions
       },
       metadata: {
-        icon: 'Mountain',
-        description: 'Physical world and locations'
+        icon: 'Globe',
+        description: 'Physical realm interface',
+        color: 'green'
       }
     },
     {
@@ -145,37 +155,25 @@ export const KNYT_CODEX: CodexConfig = {
       order: 6,
       type: 'static',
       config: {
-        component: 'OrderTab'
+        component: 'OrderTab',
+        // Order system and governance
       },
       metadata: {
         icon: 'Shield',
-        description: 'Orders, factions, and organizations'
-      }
-    },
-    {
-      id: 'qriptopia',
-      label: 'Qriptopia',
-      slug: 'qriptopia',
-      enabled: true,
-      order: 7,
-      type: 'static',
-      config: {
-        component: 'QriptopiaTab'
-      },
-      metadata: {
-        icon: 'Sparkles',
-        description: 'The vision of Qriptopia'
+        description: 'Order system and governance',
+        color: 'purple'
       }
     }
   ],
   permissions: {
     view: ['*'],
-    edit: ['aigent-kn0w1', 'aigent-z'],
-    admin: ['aigent-z']
+    edit: ['admin', 'aigent-kn0w1'],
+    admin: ['admin', 'aigent-kn0w1']
   },
   liquidUI: {
     enabled: true,
-    templateId: 'knyt-codex-v1'
+    templateId: 'knyt-codex-home',
+    defaultTemplate: 'knyt:drawer_grid_v1'
   },
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString()

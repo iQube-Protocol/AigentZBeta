@@ -1,0 +1,9 @@
+{
+  "pack_id": "nakamoto",
+  "name": "Aigent Nakamoto",
+  "description": "Blockchain and decentralized technology expertise with rich visual aids",
+  "tags": ["blockchain", "mermaid", "diagrams", "code", "decentralized"],
+  "orientation": "pack",
+  "version": "1.0.0",
+  "owner": "system"
+}

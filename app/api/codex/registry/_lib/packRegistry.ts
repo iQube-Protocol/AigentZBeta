@@ -54,6 +54,7 @@ const PACK_ICON_BY_ID: Record<string, string> = {
   qriptopian: "Newspaper",
   marketa: "TrendingUp",
   moneypenny: "DollarSign",
+  nakamoto: "GitBranch",
 };
 
 const PACK_COLOR_BY_ID: Record<string, string> = {
@@ -63,6 +64,7 @@ const PACK_COLOR_BY_ID: Record<string, string> = {
   qriptopian: "indigo",
   marketa: "rose",
   moneypenny: "green",
+  nakamoto: "orange",
 };
 
 const COLLECTION_ICON_BY_ID: Record<string, string> = {
@@ -168,6 +170,26 @@ function tabFromCollection(collection: PackCollection, packId: string, order: nu
       },
       metadata: {
         icon: "BookOpen",
+        description: collection.title,
+      },
+    };
+  }
+
+  // Special handling for Nakamoto codex
+  if (packId === "nakamoto") {
+    return {
+      id: `${packId}-tab-${slug}`,
+      label: collection.title,
+      slug,
+      enabled: true,
+      order,
+      type: "static",
+      config: {
+        component: "NakamotoTab",
+        props: {},
+      },
+      metadata: {
+        icon: "GitBranch",
         description: collection.title,
       },
     };

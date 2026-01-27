@@ -32,6 +32,7 @@ import { PackBrowserTab } from "./tabs/PackBrowserTab";
 import { MarketaTab } from "./tabs/MarketaTab";
 import { KnytTab } from "./tabs/KnytTab";
 import { MoneyPennyTab } from "./tabs/MoneyPennyTab";
+import { NakamotoTab } from "./tabs/NakamotoTab";
 
 interface TabRendererProps {
   tab: CodexTab;
@@ -58,6 +59,7 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   AgentiqCartridgeTab,
   MarketaTab,
   KnytTab,
+  NakamotoTab,
   PlaceholderTab,
   MoneyPennyTab,
   RewardsTab: PlaceholderTab,

@@ -68,6 +68,7 @@ export default function CodexViewerPage() {
     { id: "aigentiq-codex", label: "AgentiQ Codex", color: "blue" },
     { id: "marketa-codex", label: "Aigent Marketa", color: "rose" },
     { id: "moneypenny-codex", label: "Aigent MoneyPenny", color: "green" },
+    { id: "nakamoto-codex", label: "Aigent Nakamoto", color: "orange" },
   ]), []);
 
   const codexOptions = useMemo<CodexOption[]>(() => {

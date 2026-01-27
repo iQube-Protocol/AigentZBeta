@@ -9,22 +9,186 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Loader2, BookOpen, Play, Lock, Check, Sparkles, Coins, ShoppingCart, AlertTriangle, RefreshCw, LogIn, UserPlus } from "lucide-react";
+import { Loader2, BookOpen, Play, Lock, Check, Sparkles, Coins, ShoppingCart, AlertTriangle, RefreshCw, LogIn, FileText, Cpu, Globe, Shield, Scroll, ArrowLeft, User, Zap } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useKnytBalance } from "@/app/hooks/useKnytBalance";
 import { useKnytCards } from "@/app/hooks/useKnytCards";
 import { useKnytPurchases } from "@/app/hooks/useKnytPurchases";
 import { useSmartTriad } from "@/app/components/content/SmartTriadProvider";
+import { useEthPrice } from "@/app/hooks/useEthPrice";
+import { useDVNEvents } from "@/app/hooks/useDVNEvents";
+import { tokenPricingService } from "@/app/services/token/pricingService";
+import { 
+  getActivePersonaId, 
+  getPersonasByAuthProfile,
+} from "@/services/wallet/personaService";
 import type { KnytCardAsset, EpisodeGroup } from "@/app/hooks/useKnytCards";
+import type { PersonaQube } from "@/types/persona";
+// Inline Character Detail Page Component to avoid import issues
+const InlineCharacterDetailPage = ({ characterId, onBack }: { characterId: string; onBack?: () => void }) => {
+  const [character, setCharacter] = useState<KnytCardAsset | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Mock character data for now
+    const mockCharacter: KnytCardAsset = {
+      id: characterId,
+      title: getCharacterName(characterId),
+      episodeNumber: getCharacterEpisode(characterId),
+      assetKind: 'character_poster',
+      autoDriveCid: getCharacterCid(characterId),
+      mimeType: 'image/jpeg',
+      characterName: getCharacterName(characterId),
+      digiterraName: getCharacterDigiterraName(characterId),
+      affiliation: getCharacterAffiliation(characterId),
+      powers: getCharacterPowers(characterId),
+      primaryWeapon: getCharacterWeapon(characterId),
+    };
+    setCharacter(mockCharacter);
+    setLoading(false);
+  }, [characterId]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center space-y-4">
+          <div className="w-8 h-8 animate-spin mx-auto text-purple-400">⟳</div>
+          <p className="text-white/60">Loading character details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!character) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center space-y-4">
+          <p className="text-red-400">Character not found</p>
+          <Button onClick={onBack} variant="outline" className="bg-white/5 border-white/10">
+            Back
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-full w-full bg-slate-900 overflow-y-auto">
+      <div className="p-6 space-y-6">
+        {/* Header */}
+        <div className="flex items-center gap-4">
+          <Button onClick={onBack} variant="outline" className="bg-white/5 border-white/10">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back
+          </Button>
+          <h1 className="text-3xl font-bold text-white">{character.characterName}</h1>
+        </div>
+
+        {/* Character Info */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Character Image */}
+          <div className="lg:col-span-1">
+            <Card className="backdrop-blur-xl bg-white/5 ring-1 ring-white/10 border-0">
+              <CardContent className="p-6">
+                <div className="aspect-square relative bg-slate-800/50 rounded-lg mb-4">
+                  <img
+                    src={`https://autonomys-ipfs.com/ipfs/${character.autoDriveCid}`}
+                    alt={character.characterName}
+                    className="w-full h-full object-cover rounded-lg"
+                  />
+                </div>
+                <div className="text-center">
+                  <Badge className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-purple-400 border-purple-500/30 mb-2">
+                    {getCharacterRarity(characterId)}
+                  </Badge>
+                  <h3 className="text-xl font-semibold text-white mb-2">{character.characterName}</h3>
+                  <p className="text-white/60">{character.affiliation}</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Character Details */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Quick Stats */}
+            <Card className="backdrop-blur-xl bg-white/5 ring-1 ring-white/10 border-0">
+              <CardHeader>
+                <CardTitle className="text-white flex items-center gap-2">
+                  <User className="w-5 h-5 text-purple-400" />
+                  Character Profile
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-white/60">Affiliation</p>
+                    <p className="text-white font-medium">{character.affiliation}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-white/60">DigiTerra</p>
+                    <p className="text-white font-medium">{character.digiterraName}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-white/60">Primary Weapon</p>
+                    <p className="text-white font-medium">{character.primaryWeapon}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-white/60">Episode</p>
+                    <p className="text-white font-medium">Episode {character.episodeNumber}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Powers & Abilities */}
+            <Card className="backdrop-blur-xl bg-white/5 ring-1 ring-white/10 border-0">
+              <CardHeader>
+                <CardTitle className="text-white flex items-center gap-2">
+                  <Zap className="w-5 h-5 text-purple-400" />
+                  Powers & Abilities
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-2">
+                  {(character.powers ?? '').split(', ').filter(Boolean).map((power, index) => (
+                    <Badge key={index} className="bg-purple-500/20 text-purple-400 border-purple-500/30">
+                      {power}
+                    </Badge>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Backstory */}
+            <Card className="backdrop-blur-xl bg-white/5 ring-1 ring-white/10 border-0">
+              <CardHeader>
+                <CardTitle className="text-white flex items-center gap-2">
+                  <BookOpen className="w-5 h-5 text-purple-400" />
+                  Backstory
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-white/80 leading-relaxed">
+                  {getCharacterDescription(characterId)}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // Liquid UI imports from Qriptopian
 import KnytTemplateRenderer from "@/app/triad/components/codex/templates/KnytTemplateRenderer";
 import { CopilotWalletDrawer } from "@/app/triad/components/codex/wallet/CopilotWalletDrawer";
-import { getKnytLiquidUIService } from "@/app/services/knyt/knytLiquidUIService";
+import { getKnytLiquidUIService, KnytLiquidUIService } from "@/app/services/knyt/knytLiquidUIService";
 import { getCachedOrFetch, setCachedValue, getCachedValue } from "../cache";
 import type {
   KnytTemplateId,
@@ -48,6 +212,9 @@ import { VideoPlayer } from "@/app/triad/components/content/VideoPlayer";
 import { VideoErrorBoundary } from "@/app/triad/components/content/VideoErrorBoundary";
 import { LoreTextReader } from "@/app/triad/components/content/LoreTextReader";
 import { ContentPurchaseModal, type ContentType } from "@/app/triad/components/content/ContentPurchaseModal";
+import { KnytCardsGrid } from "@/app/triad/components/content/KnytCardsGrid";
+import { CoverImage } from "@/app/triad/components/content/CoverImage";
+import { getImageLoaderStats } from "@/app/utils/image-loader";
 
 // API and data
 import { API_BASE_URL } from "@/app/config/api";
@@ -76,6 +243,10 @@ interface EpisodeFromAPI {
   episodeNumber: number;
   displayNumber: string;
   title?: string;
+  description?: string;
+  purchaseId?: string;
+  priceUsd?: number;
+  priceKnyt?: number;
   coverImageCid?: string;
   coverThumbUrl?: string;
   hasStillMaster: boolean;
@@ -90,8 +261,21 @@ interface EpisodeFromAPI {
   printEpicLiteUrl?: string;
   printLegendaryLiteUrl?: string;
   motionMasterCid?: string;
+  availableCovers?: number;
   coverCount: number;
   characterCount: number;
+}
+
+interface OwnedIssueFromAPI {
+  issueId: string;
+  episodeNumber: number;
+  coverTitle?: string;
+  coverVariant?: string;
+  rarityTier?: string;
+  editionSerial?: number;
+  editionMax?: number;
+  custodyMode?: 'custodial' | 'canonical';
+  mintedAt?: string;
 }
 
 interface CharacterFromAPI {
@@ -103,19 +287,82 @@ interface CharacterFromAPI {
   rarity?: string;
 }
 
+const PREORDER_VARIANTS = [
+  { id: 'legendary', label: 'Legendary (#-4)', priceUsd: 2100, tone: 'text-amber-400' },
+  { id: 'epic', label: 'Epic (#-3)', priceUsd: 186, tone: 'text-blue-400' },
+  { id: 'rare', label: 'Rare (#-2)', priceUsd: 86, tone: 'text-green-400' },
+  { id: 'common', label: 'Common (#-1)', priceUsd: 68, tone: 'text-gray-400' },
+];
+
+function getAuthProfileIdFromStorage(): string | null {
+  if (typeof window === 'undefined') return null;
+  return (
+    window.localStorage.getItem('authProfileId') ||
+    window.localStorage.getItem('agentiq_auth_profile_id') ||
+    window.sessionStorage.getItem('authProfileId') ||
+    window.sessionStorage.getItem('agentiq_auth_profile_id') ||
+    null
+  );
+}
+
 export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTabProps) {
+  // Real-time ETH pricing (exact from Netlify app)
+  const { ethPriceUsd, knytPriceUsd, knytEthRate } = useEthPrice();
+  
+  // DID Qube persona integration
+  const [activePersonaId, setActivePersonaIdState] = useState<string | null>(null);
+  const [personas, setPersonas] = useState<PersonaQube[]>([]);
+  const [loadingPersonas, setLoadingPersonas] = useState(true);
+  
+  // DVN integration for cross-chain messaging
+  const dvnEvents = useDVNEvents(activePersonaId || undefined);
+  const [dvnFilter, setDvnFilter] = useState<'all' | 'knyt'>('knyt');
+  const [dvnPersonaFilter, setDvnPersonaFilter] = useState<'all' | 'active'>('active');
+  const [dvnStatusFilter, setDvnStatusFilter] = useState<'all' | 'confirmed'>('confirmed');
+  const [dvnDrawerOpen, setDvnDrawerOpen] = useState(false);
+  
   // SmartTriad integration
   const { state: triadState, actions: triadActions } = useSmartTriad();
   
   // Legacy state for cards/purchases (maintained for compatibility)
   const [activeTab, setActiveTab] = useState("codex");
-  const [selectedCard, setSelectedCard] = useState<{ poster: KnytCardAsset; sheet?: KnytCardAsset } | null>(null);
   const [purchaseModalOpen, setPurchaseModalOpen] = useState(false);
-  const [loadingPurchase, setLoadingPurchase] = useState(false);
+  
+  // Character detail page state
+  const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
+  const [showCharacterDetail, setShowCharacterDetail] = useState(false);
+  
+  // Initialize pricing service and load personas
+  useEffect(() => {
+    tokenPricingService.initialize();
+    
+    // Load active persona and personas list
+    const loadPersonas = async () => {
+      try {
+        setLoadingPersonas(true);
+        const activeId = getActivePersonaId();
+        if (activeId) {
+          setActivePersonaIdState(activeId);
+        }
+        
+        const authProfileId = getAuthProfileIdFromStorage();
+        if (authProfileId) {
+          const personasList = await getPersonasByAuthProfile(authProfileId);
+          setPersonas(personasList);
+        }
+      } catch (error) {
+        console.error('[KnytTab] Failed to load personas:', error);
+      } finally {
+        setLoadingPersonas(false);
+      }
+    };
+    
+    loadPersonas();
+  }, []);
   
   // Liquid UI state (ported from CodexLiquidUITab)
   const service = useMemo(() => getKnytLiquidUIService(), []);
-  const [device, setDevice] = useState<DeviceType>(() => service.detectDevice());
+  const [device, setDevice] = useState<DeviceType>(() => KnytLiquidUIService.getDeviceType());
   const [templateResult, setTemplateResult] = useState<TemplateSelectionResult | null>(null);
   const [userIntent, setUserIntent] = useState<UserIntent>('browse');
   const [contentItems, setContentItems] = useState<KnytContentItem[]>([]);
@@ -124,11 +371,13 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
   const [curatedContent, setCuratedContent] = useState<KnytContentItem[] | null>(null);
   const [layoutVariant, setLayoutVariant] = useState<DrawerGridLayoutVariant>('auto');
   const [ownedEpisodeNumbers, setOwnedEpisodeNumbers] = useState<Set<number>>(new Set());
+  const [ownedIssues, setOwnedIssues] = useState<OwnedIssueFromAPI[]>([]);
+  const [episodesCatalog, setEpisodesCatalog] = useState<EpisodeFromAPI[]>([]);
+  const [loadedImages, setLoadedImages] = useState<Map<string, string>>(new Map());
   
   // Viewer state
+  const [videoPlayerOpen, setVideoPlayerOpen] = useState(false);
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
-  const [pdfLiteViewerOpen, setPdfLiteViewerOpen] = useState(false);
-  const [videoViewerOpen, setVideoViewerOpen] = useState(false);
   const [currentPdfCid, setCurrentPdfCid] = useState<string | null>(null);
   const [currentPdfLiteUrl, setCurrentPdfLiteUrl] = useState<string | null>(null);
   const [currentPdfTitle, setCurrentPdfTitle] = useState('');
@@ -141,6 +390,8 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
     id: string;
     title: string;
     image?: string;
+    baseKnyt?: number;
+    priceUsd?: number;
   } | null>(null);
   
   // Wallet drawer state
@@ -169,6 +420,35 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
   const { balance, spendableBalance, refreshBalance } = useKnytBalance(personaId);
   const { groups, loading: cardsLoading, error: cardsError, refreshCards } = useKnytCards();
   const { ownedCharacters, refreshPurchases } = useKnytPurchases(personaId);
+  const isSignedIn = !!personaId && personaId !== 'default' && personaId !== 'guest';
+  const filteredDVNEvents = useMemo(() => {
+    return dvnEvents.filter((event) => {
+      if (dvnStatusFilter === 'confirmed' && event.event !== 'PaymentConfirmed') {
+        return false;
+      }
+      if (dvnFilter === 'knyt') {
+        const asset = event.asset?.toLowerCase() || '';
+        const metaProduct = String(event.meta?.productType || '').toLowerCase();
+        const metaCurrency = String(event.meta?.currency || '').toLowerCase();
+        const isKnyt = asset.includes('knyt') || metaProduct.includes('knyt') || metaCurrency.includes('knyt');
+        if (!isKnyt) return false;
+      }
+      if (dvnPersonaFilter === 'active' && activePersonaId) {
+        const eventPersona = event.meta?.personaId || event.meta?.persona_id;
+        if (eventPersona && eventPersona !== activePersonaId) return false;
+      }
+      return true;
+    });
+  }, [dvnEvents, dvnFilter, dvnPersonaFilter, dvnStatusFilter, activePersonaId]);
+
+  const formatDVNTime = useCallback((timestamp?: number) => {
+    if (!timestamp) return '—';
+    try {
+      return new Date(timestamp).toLocaleString();
+    } catch {
+      return '—';
+    }
+  }, []);
 
   // Content transformation functions (ported from CodexLiquidUITab)
   const transformEpisodesToContentItems = useCallback((episodes: EpisodeFromAPI[]): KnytContentItem[] => {
@@ -362,6 +642,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
           if (episodesRes.ok) {
             const data = await episodesRes.json();
             if (data.episodes) {
+              setEpisodesCatalog(data.episodes);
               episodeItems = transformEpisodesToContentItems(data.episodes);
               console.log('[KnytTab] Loaded', episodeItems.length, 'episode items');
             }
@@ -412,6 +693,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
   const fetchOwnedEpisodes = useCallback(async () => {
     if (!personaId) {
       setOwnedEpisodeNumbers(new Set());
+      setOwnedIssues([]);
       return;
     }
     try {
@@ -425,6 +707,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
       const ownedRes = await fetch(`${apiBase}/api/codex/owned?personaId=${personaId}`);
       if (!ownedRes.ok) return;
       const ownedData = await ownedRes.json();
+      setOwnedIssues(ownedData.issues || []);
       const ownedEpisodesArray = (ownedData.issues || [])
         .map((issue: { episodeNumber?: number }) => issue.episodeNumber)
         .filter((episodeNumber: number | undefined) => typeof episodeNumber === 'number');
@@ -435,10 +718,29 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
     }
   }, [personaId]);
 
+  const fetchEpisodesCatalog = useCallback(async () => {
+    return getCachedOrFetch<EpisodeFromAPI[]>(
+      "codex:knyt:episodes",
+      async () => {
+        const apiBase = API_BASE_URL;
+        try {
+          const episodesRes = await fetch(`${apiBase}/api/admin/codex/status?series=metaKnyts`);
+          if (!episodesRes.ok) return [];
+          const data = await episodesRes.json();
+          return data.episodes || [];
+        } catch (error) {
+          console.error('[KnytTab] Failed to fetch episodes catalog:', error);
+          return [];
+        }
+      },
+      10 * 60 * 1000
+    );
+  }, []);
+
   // Handle window resize for device detection
   useEffect(() => {
     const handleResize = () => {
-      setDevice(service.detectDevice());
+      setDevice(KnytLiquidUIService.getDeviceType());
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
@@ -464,6 +766,14 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
   useEffect(() => {
     fetchOwnedEpisodes();
   }, [fetchOwnedEpisodes]);
+
+  useEffect(() => {
+    async function loadEpisodes() {
+      const episodes = await fetchEpisodesCatalog();
+      setEpisodesCatalog(episodes);
+    }
+    loadEpisodes();
+  }, [fetchEpisodesCatalog]);
 
   const contentWithOwnership = useMemo(() => {
     return contentItems.map((item) => {
@@ -536,23 +846,10 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
     }
   }, [loading, contentWithOwnership, userIntent, device, activeRealm, personaId, taskData, service, selectedItemId]);
 
-  // Computed values for legacy cards
-  const isOwned = useCallback((characterName: string) => {
-    return ownedCharacters.has(characterName);
-  }, [ownedCharacters]);
-
-  const getCardPrice = useCallback((assetKind: 'character_poster' | 'powers_sheet') => {
-    // Phase 1 Pricing Constants
-    const CARD_PRICE_STILL = 2;  // 2 KNYT for character card (still)
-    const CARD_PRICE_MOTION = 4; // 4 KNYT for character card (motion)
-    
-    return assetKind === 'character_poster' ? CARD_PRICE_STILL : CARD_PRICE_MOTION;
-  }, []);
-
-  const canAfford = useCallback((assetKind: 'character_poster' | 'powers_sheet') => {
-    const price = getCardPrice(assetKind);
-    return (spendableBalance || 0) >= price;
-  }, [spendableBalance, getCardPrice]);
+  const handleBackFromCharacterDetail = () => {
+    setShowCharacterDetail(false);
+    setSelectedCharacterId(null);
+  };
 
   // Event handlers for Liquid UI content
   const isEpisodeLocked = useCallback((item: KnytContentItem) => {
@@ -573,6 +870,41 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
       id: item.id.replace(/_motion$/, ''),
       title: item.title,
       image: item.thumbnail,
+    });
+    setPurchaseModalOpen(true);
+  }, []);
+
+  const getOwnedIssuesForEpisode = useCallback((episodeNumber: number) => {
+    return ownedIssues.filter((issue) => issue.episodeNumber === episodeNumber);
+  }, [ownedIssues]);
+
+  const openPurchaseForEpisode = useCallback((episode: EpisodeFromAPI, action: 'read' | 'watch' | 'default' = 'default') => {
+    const contentType: ContentType =
+      action === 'watch'
+        ? 'scroll_motion'
+        : action === 'read'
+          ? 'scroll_still'
+          : episode.hasMotionMaster
+            ? 'scroll_motion'
+            : 'scroll_still';
+    setPurchaseContent({
+      type: contentType,
+      id: episode.purchaseId || `mk_ep${String(episode.episodeNumber).padStart(2, '0')}`,
+      title: episode.title || `Episode ${episode.displayNumber}`,
+      image: episode.coverThumbUrl || (episode.coverImageCid ? `/api/content/cover/${episode.coverImageCid}?variant=thumb` : undefined),
+      baseKnyt: episode.priceKnyt ?? (episode.hasMotionMaster ? 5 : 3),
+      priceUsd: episode.priceUsd ?? ((episode.priceKnyt ?? (episode.hasMotionMaster ? 5 : 3)) * 1.4),
+    });
+    setPurchaseModalOpen(true);
+  }, []);
+
+  const openPreorder = useCallback((variantId: string, priceUsd: number) => {
+    setPurchaseContent({
+      type: 'scroll_still',
+      id: `metaKnyts_preorder_${variantId}`,
+      title: `Episode -1 Pre-order (${variantId})`,
+      baseKnyt: Number((priceUsd / 1.4).toFixed(2)),
+      priceUsd,
     });
     setPurchaseModalOpen(true);
   }, []);
@@ -606,7 +938,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
     } else if (action === 'watch' && item.media?.video_cid) {
       setCurrentVideoCid(item.media.video_cid);
       setCurrentVideoTitle(item.title);
-      setVideoViewerOpen(true);
+      setVideoPlayerOpen(true);
     }
   }, [isEpisodeLocked, openPurchaseForItem]);
 
@@ -633,7 +965,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
     } else if (type === 'video' && item.media?.video_cid) {
       setCurrentVideoCid(item.media.video_cid);
       setCurrentVideoTitle(item.title);
-      setVideoViewerOpen(true);
+      setVideoPlayerOpen(true);
     }
   }, [isEpisodeLocked, openPurchaseForItem]);
 
@@ -658,121 +990,6 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
       rewards: prev.rewards.filter(r => r.id !== rewardId),
     }));
   }, []);
-
-  // Purchase handlers
-  const handlePurchaseWithKnyt = async (asset: KnytCardAsset) => {
-    if (!personaId) {
-      toast({
-        title: "Authentication Required",
-        description: "Please connect your wallet to purchase KNYT cards",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setLoadingPurchase(true);
-    try {
-      const response = await fetch('/api/codex/knyt-purchase', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          personaId,
-          assetId: asset.id,
-          assetKind: asset.assetKind,
-          characterName: asset.characterName,
-        }),
-      });
-
-      const result = await response.json();
-      
-      if (result.success) {
-        toast({
-          title: "Purchase Successful!",
-          description: `You've purchased ${asset.title} for ${getCardPrice(asset.assetKind)} KNYT`,
-        });
-        
-        // Refresh all data
-        await Promise.all([
-          refreshBalance(),
-          refreshPurchases(),
-          refreshCards(),
-        ]);
-      } else {
-        toast({
-          title: "Purchase Failed",
-          description: result.error || "Failed to complete purchase",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "Purchase Error",
-        description: "An unexpected error occurred",
-        variant: "destructive",
-      });
-    } finally {
-      setLoadingPurchase(false);
-      setPurchaseModalOpen(false);
-    }
-  };
-
-  const handlePurchaseWithPaypal = async (asset: KnytCardAsset) => {
-    if (!personaId) {
-      toast({
-        title: "Authentication Required",
-        description: "Please connect your wallet to purchase KNYT cards",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setLoadingPurchase(true);
-    try {
-      const response = await fetch('/api/wallet/knyt/purchase/paypal', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          personaId,
-          assetId: asset.id,
-          assetKind: asset.assetKind,
-          paymentMethod: 'paypal',
-        }),
-      });
-
-      const result = await response.json();
-      
-      if (result.success) {
-        toast({
-          title: "PayPal Purchase Initiated",
-          description: "Redirecting to PayPal for payment...",
-        });
-        
-        // Redirect to PayPal if URL provided
-        if (result.redirectUrl) {
-          window.location.href = result.redirectUrl;
-        }
-      } else {
-        toast({
-          title: "PayPal Purchase Failed",
-          description: result.error || "Failed to initiate PayPal purchase",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "PayPal Error",
-        description: "An unexpected error occurred",
-        variant: "destructive",
-      });
-    } finally {
-      setLoadingPurchase(false);
-      setPurchaseModalOpen(false);
-    }
-  };
 
   // Loading state for Liquid UI
   if (loading) {
@@ -821,300 +1038,659 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
   }
 
   return (
-    <div className={`h-full w-full ${theme === 'dark' ? 'bg-slate-900' : 'bg-white'}`}>
-      {/* Main Liquid UI Template Renderer */}
-      <div className="h-full w-full overflow-hidden">
-        <KnytTemplateRenderer
-          templateId={templateResult.templateId}
-          device={device}
-          contentItems={curatedContent || contentWithOwnership}
-          userIntent={userIntent}
-          copilotMode={copilotMode}
-          onCopilotModeChange={handleCopilotModeChange}
-          copilotContent={null}
-          drawerMode={templateResult.drawerMode}
-          drawerOpen={drawerOpen}
-          walletUI={templateResult.walletUI}
-          onDrawerToggle={handleDrawerToggle}
-          onContentSelect={handleContentSelect}
-          onViewerOpen={handleViewerOpen}
-          onSmartAction={handleSmartAction}
-          selectedItemId={selectedItemId}
-          activeTask={taskData.activeTask || undefined}
-          rewards={taskData.rewards}
-          ascensionRank={taskData.ascensionRank}
-          activeRealm={activeRealm}
-          onRealmChange={handleRealmChange}
-          knytBalance={balance?.dvnKnyt || 0}
-          layoutVariant={layoutVariant}
-          walletDrawerContent={
-            <CopilotWalletDrawer
-              isOpen={drawerOpen}
-              onClose={() => setDrawerOpen(false)}
-              mode={templateResult.drawerMode}
-              walletUI={templateResult.walletUI}
-              device={device}
-              balance={balance?.dvnKnyt || 0}
-              spendableBalance={spendableBalance || 0}
-              pendingRewards={taskData.rewards}
-              activeTask={taskData.activeTask || undefined}
-              onClaimReward={handleClaimReward}
-            />
-          }
+    <div className="h-full w-full bg-slate-900">
+      {/* Show Character Detail Page if selected */}
+      {showCharacterDetail && selectedCharacterId ? (
+        <InlineCharacterDetailPage 
+          characterId={selectedCharacterId}
+          onBack={handleBackFromCharacterDetail}
         />
-      </div>
-
-      {/* Legacy fallback tabs for compatibility */}
-      {activeTab !== 'codex' && (
-        <div className="p-6 space-y-6">
-          {/* Header with balance */}
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold text-white mb-2">KNYT Codex</h2>
-              <p className="text-white/60">Collect character cards and unlock exclusive content</p>
-            </div>
-            <Card className="backdrop-blur-xl bg-white/5 ring-1 ring-white/10 border-0">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2">
-                  <Coins className="w-5 h-5 text-purple-400" />
-                  <div>
-                    <div className="text-lg font-bold text-white">{balance?.dvnKnyt || 0}</div>
-                    <div className="text-xs text-white/60">KNYT Balance</div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+      ) : (
+        <>
+          {/* Main Liquid UI Template Renderer */}
+          <div className="h-full w-full overflow-hidden">
+            <KnytTemplateRenderer
+              templateId={templateResult.templateId}
+              userIntent={userIntent}
+              contentItems={curatedContent || contentWithOwnership}
+              selectedItemId={selectedItemId}
+              device={device}
+              layoutVariant={layoutVariant}
+              onContentSelect={handleContentSelect}
+              onViewerOpen={handleViewerOpen}
+              onSmartAction={handleSmartAction}
+              copilotMode={copilotMode}
+              copilotContent={null}
+              drawerMode={templateResult.drawerMode}
+              drawerOpen={drawerOpen}
+              walletUI={templateResult.walletUI}
+              onDrawerToggle={handleDrawerToggle}
+              activeTask={taskData.activeTask || undefined}
+              rewards={taskData.rewards}
+              ascensionRank={taskData.ascensionRank}
+              activeRealm={activeRealm}
+              onRealmChange={handleRealmChange}
+              onCopilotModeChange={handleCopilotModeChange}
+              knytBalance={balance?.dvnKnyt || 0}
+              walletDrawerContent={
+                <CopilotWalletDrawer
+                  isOpen={drawerOpen}
+                  onClose={() => setDrawerOpen(false)}
+                  mode={templateResult.drawerMode}
+                  walletUI={templateResult.walletUI}
+                  device={device}
+                  balance={balance?.dvnKnyt || 0}
+                  spendableBalance={spendableBalance || 0}
+                  pendingRewards={taskData.rewards}
+                  activeTask={taskData.activeTask || undefined}
+                  onClaimReward={handleClaimReward}
+                />
+              }
+            />
           </div>
 
-          {/* Tabs */}
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-3 bg-white/5 border-white/10">
-              <TabsTrigger value="codex" className="text-white/80 data-[state=active]:text-white">
-                <BookOpen className="w-4 h-4 mr-2" />
-                Codex
-              </TabsTrigger>
-              <TabsTrigger value="cards" className="text-white/80 data-[state=active]:text-white">
-                <Sparkles className="w-4 h-4 mr-2" />
-                Cards
-              </TabsTrigger>
-              <TabsTrigger value="purchases" className="text-white/80 data-[state=active]:text-white">
-                <ShoppingCart className="w-4 h-4 mr-2" />
-                Purchases
-              </TabsTrigger>
-            </TabsList>
-
-            {/* Cards Tab - Legacy fallback */}
-            <TabsContent value="cards" className="space-y-4">
-              {groups.map((group) => (
-                <Card key={group.episodeNumber} className="backdrop-blur-xl bg-white/5 ring-1 ring-white/10 border-0">
-                  <CardHeader>
-                    <CardTitle className="text-white">
-                      Episode {group.displayNumber}
-                    </CardTitle>
-                    <CardDescription className="text-white/60">
-                      Character cards and powers sheets
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {/* Character Posters */}
-                      {group.posters.map((poster) => (
-                        <Card key={poster.id} className="backdrop-blur-xl bg-white/5 ring-1 ring-white/10 border-0 overflow-hidden">
-                          <div className="aspect-square relative bg-slate-800/50">
-                            <img
-                              src={`https://autonomys-ipfs.com/ipfs/${poster.autoDriveCid}`}
-                              alt={poster.title}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                e.currentTarget.src = '/api/placeholder/300/300';
-                              }}
-                            />
-                            {isOwned(poster.characterName || '') && (
-                              <div className="absolute top-2 right-2">
-                                <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
-                                  <Check className="w-3 h-3 mr-1" />
-                                  Owned
-                                </Badge>
-                              </div>
-                            )}
-                          </div>
-                          <CardContent className="p-4">
-                            <h3 className="font-semibold text-white mb-1">{poster.characterName}</h3>
-                            <p className="text-sm text-white/60 mb-3">{poster.affiliation}</p>
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-1">
-                                <Coins className="w-4 h-4 text-purple-400" />
-                                <span className="text-sm font-medium text-white">
-                                  {getCardPrice('character_poster')} KNYT
-                                </span>
-                              </div>
-                              {isOwned(poster.characterName || '') ? (
-                                <Button size="sm" disabled className="bg-emerald-500/20 text-emerald-400">
-                                  <Check className="w-4 h-4 mr-1" />
-                                  Owned
-                                </Button>
-                              ) : canAfford('character_poster') ? (
-                                <Button 
-                                  size="sm" 
-                                  onClick={() => handlePurchaseWithKnyt(poster)}
-                                  disabled={loadingPurchase}
-                                  className="bg-purple-500/20 text-purple-400 border-purple-500/30 hover:bg-purple-500/30"
-                                >
-                                  <Coins className="w-4 h-4 mr-1" />
-                                  Buy
-                                </Button>
-                              ) : (
-                                <Button 
-                                  size="sm" 
-                                  onClick={() => handlePurchaseWithPaypal(poster)}
-                                  disabled={loadingPurchase}
-                                  className="bg-blue-500/20 text-blue-400 border-blue-500/30 hover:bg-blue-500/30"
-                                >
-                                  <ShoppingCart className="w-4 h-4 mr-1" />
-                                  PayPal
-                                </Button>
-                              )}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
+          {/* Legacy fallback tabs for compatibility */}
+          {activeTab !== 'codex' && (
+            <div className="p-6 space-y-6">
+              {/* Header with balance */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-white mb-2">KNYT Codex</h2>
+                  <p className="text-white/60">Collect character cards and unlock exclusive content</p>
+                </div>
+                <Card className="backdrop-blur-xl bg-white/5 ring-1 ring-white/10 border-0">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2">
+                      <Coins className="w-5 h-5 text-purple-400" />
+                      <div>
+                        <div className="text-lg font-bold text-white">{balance?.dvnKnyt || 0}</div>
+                        <div className="text-xs text-white/60">KNYT Balance</div>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
-              ))}
-            </TabsContent>
+              </div>
 
-            {/* Purchases Tab - Legacy fallback */}
-            <TabsContent value="purchases" className="space-y-4">
-              <Card className="backdrop-blur-xl bg-white/5 ring-1 ring-white/10 border-0">
-                <CardHeader>
-                  <CardTitle className="text-white flex items-center gap-2">
-                    <ShoppingCart className="w-5 h-5 text-purple-400" />
-                    Your Purchases
-                  </CardTitle>
-                  <CardDescription className="text-white/60">
-                    KNYT cards and content you've purchased
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {ownedCharacters.size > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {Array.from(ownedCharacters).map((characterName) => (
-                        <Card key={characterName} className="backdrop-blur-xl bg-white/5 ring-1 ring-white/10 border-0">
-                          <CardContent className="p-4">
-                            <div className="flex items-center gap-3">
-                              <div className="w-12 h-12 rounded-full bg-purple-500/20 flex items-center justify-center">
-                                <UserPlus className="w-6 h-6 text-purple-400" />
-                              </div>
-                              <div>
-                                <h3 className="font-semibold text-white">{characterName}</h3>
-                                <p className="text-sm text-white/60">Character Card</p>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
+              {dvnEvents.length > 0 && (
+                <div className="flex items-center gap-3 flex-wrap text-xs text-white/60">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-white/5 px-2 py-1">
+                    DVN
+                    <span className="text-cyan-300">{filteredDVNEvents.length} events</span>
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      className={`rounded-full px-2 py-1 ${dvnFilter === 'knyt' ? 'bg-cyan-500/20 text-cyan-200' : 'bg-white/5 text-white/50'}`}
+                      onClick={() => setDvnFilter('knyt')}
+                    >
+                      KNYT
+                    </button>
+                    <button
+                      className={`rounded-full px-2 py-1 ${dvnFilter === 'all' ? 'bg-cyan-500/20 text-cyan-200' : 'bg-white/5 text-white/50'}`}
+                      onClick={() => setDvnFilter('all')}
+                    >
+                      All
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      className={`rounded-full px-2 py-1 ${dvnStatusFilter === 'confirmed' ? 'bg-purple-500/20 text-purple-200' : 'bg-white/5 text-white/50'}`}
+                      onClick={() => setDvnStatusFilter('confirmed')}
+                    >
+                      Confirmed
+                    </button>
+                    <button
+                      className={`rounded-full px-2 py-1 ${dvnStatusFilter === 'all' ? 'bg-purple-500/20 text-purple-200' : 'bg-white/5 text-white/50'}`}
+                      onClick={() => setDvnStatusFilter('all')}
+                    >
+                      All Status
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      className={`rounded-full px-2 py-1 ${dvnPersonaFilter === 'active' ? 'bg-emerald-500/20 text-emerald-200' : 'bg-white/5 text-white/50'}`}
+                      onClick={() => setDvnPersonaFilter('active')}
+                    >
+                      Active Persona
+                    </button>
+                    <button
+                      className={`rounded-full px-2 py-1 ${dvnPersonaFilter === 'all' ? 'bg-emerald-500/20 text-emerald-200' : 'bg-white/5 text-white/50'}`}
+                      onClick={() => setDvnPersonaFilter('all')}
+                    >
+                      All Personas
+                    </button>
+                  </div>
+                  <span className="truncate">
+                    Latest: {(filteredDVNEvents[0] || dvnEvents[0]).event}
+                    {(filteredDVNEvents[0] || dvnEvents[0]).asset ? ` • ${(filteredDVNEvents[0] || dvnEvents[0]).asset}` : ''}
+                  </span>
+                </div>
+              )}
+              {filteredDVNEvents.length > 0 && (
+                <div className="mt-2 grid gap-1 text-[11px] text-white/60">
+                  {filteredDVNEvents.slice(0, 5).map((event, idx) => (
+                    <div key={`${event.txHash || event.event}-${idx}`} className="flex items-center justify-between gap-3 rounded-md bg-white/5 px-2 py-1">
+                      <span className="truncate">
+                        {event.event} {event.asset ? `• ${event.asset}` : ''}
+                      </span>
+                      <span className="text-white/40">{formatDVNTime(event.timestamp)}</span>
                     </div>
-                  ) : (
-                    <div className="text-center py-8 space-y-4">
-                      <ShoppingCart className="w-12 h-12 mx-auto text-white/40" />
-                      <h3 className="text-lg font-semibold text-white">No Purchases Yet</h3>
-                      <p className="text-white/60">Start collecting KNYT cards to build your collection!</p>
-                      <Button onClick={() => setActiveTab('cards')} className="bg-purple-500/20 text-purple-400 border-purple-500/30 hover:bg-purple-500/30">
-                        Browse Cards
-                      </Button>
+                  ))}
+                  <button
+                    className="text-left text-cyan-300 hover:text-cyan-200 transition-colors"
+                    onClick={() => setDvnDrawerOpen(true)}
+                  >
+                    View all DVN events →
+                  </button>
+                </div>
+              )}
+
+              {!isSignedIn && (
+                <div className="flex items-center justify-between gap-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
+                  <div className="flex items-center gap-3">
+                    <LogIn className="h-5 w-5 text-amber-300" />
+                    <div>
+                      <p className="text-sm font-semibold text-white">Persona Required</p>
+                      <p className="text-xs text-white/60">
+                        Connect or create a persona in Smart Wallet to purchase and unlock content.
+                      </p>
+                    </div>
+                  </div>
+                  <Button className="bg-amber-500 hover:bg-amber-600">Open Wallet</Button>
+                </div>
+              )}
+
+              {/* Tabs */}
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <TabsList className="grid w-full grid-cols-7 bg-white/5 border-white/10">
+                  <TabsTrigger value="codex" className="text-white/80 data-[state=active]:text-white">
+                    <BookOpen className="w-4 h-4 mr-2" />
+                    Codex
+                  </TabsTrigger>
+                  <TabsTrigger value="scrolls" className="text-white/80 data-[state=active]:text-white">
+                    <Scroll className="w-4 h-4 mr-2" />
+                    Scrolls
+                  </TabsTrigger>
+                  <TabsTrigger value="characters" className="text-white/80 data-[state=active]:text-white">
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Characters
+                  </TabsTrigger>
+                  <TabsTrigger value="lore" className="text-white/80 data-[state=active]:text-white">
+                    <FileText className="w-4 h-4 mr-2" />
+                    Lore
+                  </TabsTrigger>
+                  <TabsTrigger value="digiterra" className="text-white/80 data-[state=active]:text-white">
+                    <Cpu className="w-4 h-4 mr-2" />
+                    DigiTerra
+                  </TabsTrigger>
+                  <TabsTrigger value="terra" className="text-white/80 data-[state=active]:text-white">
+                    <Globe className="w-4 h-4 mr-2" />
+                    Terra
+                  </TabsTrigger>
+                  <TabsTrigger value="order" className="text-white/80 data-[state=active]:text-white">
+                    <Shield className="w-4 h-4 mr-2" />
+                    Order
+                  </TabsTrigger>
+                </TabsList>
+
+                {/* Scrolls Tab - Episodes */}
+                <TabsContent value="scrolls" className="space-y-4">
+                  <div className="mb-4">
+                    <h3 className="text-xl font-bold text-white">Digital Scrolls</h3>
+                    <p className="text-sm text-white/60">Episodes and motion comics from the metaKnyts saga</p>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {episodesCatalog.map((episode) => {
+                      const owned = getOwnedIssuesForEpisode(episode.episodeNumber);
+                      const isOwned = owned.length > 0;
+                      const hasMaster =
+                        episode.hasStillMaster ||
+                        episode.hasMotionMaster ||
+                        episode.hasPrintRare ||
+                        episode.hasPrintEpic ||
+                        episode.hasPrintLegendary;
+                      const isAvailable = hasMaster;
+                      const priceKnyt = episode.priceKnyt ?? (episode.hasMotionMaster ? 5 : 3);
+                      const priceUsd = episode.priceUsd ?? priceKnyt * 1.4;
+
+                      return (
+                        <div
+                          key={episode.episodeNumber}
+                          className={`group relative aspect-[3/4] rounded-lg overflow-hidden cursor-pointer transition-all duration-300 ${
+                            isOwned ? 'ring-2 ring-cyan-400/50' : 'hover:ring-2 hover:ring-white/30'
+                          }`}
+                          onClick={() => {
+                            const printCid = episode.printRareCid || episode.printEpicCid || episode.printLegendaryCid;
+                            if (!isOwned && isAvailable) {
+                              openPurchaseForEpisode(episode);
+                              return;
+                            }
+                            if (printCid) {
+                              setCurrentPdfCid(printCid);
+                              setCurrentPdfLiteUrl(
+                                episode.printRareLiteUrl || episode.printEpicLiteUrl || episode.printLegendaryLiteUrl || null
+                              );
+                              setCurrentPdfTitle(episode.title || `Episode ${episode.displayNumber}`);
+                              setPdfViewerOpen(true);
+                            }
+                          }}
+                        >
+                          <div className="absolute inset-0 bg-gradient-to-br from-purple-900 via-indigo-900 to-black">
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <span className="text-6xl font-bold text-white/10">{episode.episodeNumber}</span>
+                            </div>
+                          </div>
+                          {(episode.coverThumbUrl || episode.coverImageCid) && (
+                            <CoverImage
+                              cid={episode.coverThumbUrl || episode.coverImageCid!}
+                              alt={episode.title || `Episode ${episode.displayNumber}`}
+                              loadedImages={loadedImages}
+                              setLoadedImages={setLoadedImages}
+                            />
+                          )}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent pointer-events-none" />
+
+                          <div className="absolute top-2 right-2 flex flex-col gap-1">
+                            {isOwned && (
+                              <span className="px-2 py-1 bg-cyan-500/80 text-white text-xs font-bold rounded flex items-center gap-1">
+                                <Check className="w-3 h-3" /> OWNED
+                              </span>
+                            )}
+                            {!isAvailable && !isOwned && (
+                              <span className="px-2 py-1 bg-gray-500/80 text-white text-xs font-bold rounded flex items-center gap-1">
+                                <Lock className="w-3 h-3" /> SOON
+                              </span>
+                            )}
+                            {isAvailable && !isOwned && (
+                              <span className="px-2 py-1 bg-amber-500/90 text-white text-xs font-bold rounded flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Coins className="w-3 h-3" />
+                                {priceKnyt} KNYT
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="absolute bottom-12 right-2 flex gap-1 z-10">
+                            {isAvailable && !isOwned && (
+                              <button
+                                className="w-6 h-6 rounded-md bg-amber-500/80 backdrop-blur-sm flex items-center justify-center ring-1 ring-amber-400/40 text-white hover:bg-amber-400 transition-all"
+                                title={`Buy for ${priceKnyt} KNYT`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setPurchaseContent({
+                                    type: episode.hasMotionMaster ? 'scroll_motion' : 'scroll_still',
+                                    id: episode.purchaseId || `mk_ep${String(episode.episodeNumber).padStart(2, '0')}`,
+                                    title: episode.title || `Episode ${episode.displayNumber}`,
+                                    image: episode.coverThumbUrl || (episode.coverImageCid ? `/api/content/cover/${episode.coverImageCid}?variant=thumb` : undefined),
+                                    baseKnyt: priceKnyt,
+                                    priceUsd,
+                                  });
+                                  setPurchaseModalOpen(true);
+                                }}
+                              >
+                                <ShoppingCart className="w-3 h-3" />
+                              </button>
+                            )}
+                            {(episode.hasPrintRare || episode.hasPrintEpic || episode.hasPrintLegendary) && (
+                              <button
+                                className="w-6 h-6 rounded-md bg-black/60 backdrop-blur-sm flex items-center justify-center ring-1 ring-cyan-500/40 text-cyan-400 hover:bg-cyan-500 hover:text-white transition-all"
+                                title="Read"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const printCid = episode.printRareCid || episode.printEpicCid || episode.printLegendaryCid;
+                                  if (!isOwned && isAvailable) {
+                                    openPurchaseForEpisode(episode, 'read');
+                                    return;
+                                  }
+                                  if (printCid) {
+                                    setCurrentPdfCid(printCid);
+                                    setCurrentPdfLiteUrl(
+                                      episode.printRareLiteUrl || episode.printEpicLiteUrl || episode.printLegendaryLiteUrl || null
+                                    );
+                                    setCurrentPdfTitle(episode.title || `Episode ${episode.displayNumber}`);
+                                    setPdfViewerOpen(true);
+                                  }
+                                }}
+                              >
+                                <BookOpen className="w-3 h-3" />
+                              </button>
+                            )}
+                            {episode.hasMotionMaster && episode.motionMasterCid && ![1, 3].includes(episode.episodeNumber) && (
+                              <button
+                                className="w-6 h-6 rounded-md bg-black/60 backdrop-blur-sm flex items-center justify-center ring-1 ring-cyan-500/40 text-cyan-400 hover:bg-cyan-500 hover:text-white transition-all"
+                                title="Watch"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  if (!isOwned && isAvailable) {
+                                    openPurchaseForEpisode(episode, 'watch');
+                                    return;
+                                  }
+                                  setCurrentVideoTitle(`${episode.title} - Motion Comic`);
+                                  setCurrentVideoCid(episode.motionMasterCid!);
+                                  setVideoPlayerOpen(true);
+                                }}
+                              >
+                                <Play className="w-3 h-3" />
+                              </button>
+                            )}
+                          </div>
+
+                          <div className="absolute bottom-0 left-0 right-0 p-3">
+                            <p className="text-xs text-cyan-400 font-medium">Episode {episode.displayNumber}</p>
+                            <p className="text-sm font-bold text-white line-clamp-2">{episode.title}</p>
+                            {isOwned ? (
+                              <p className="text-xs text-cyan-400 mt-1">{owned.length} issue{owned.length > 1 ? 's' : ''} owned</p>
+                            ) : isAvailable ? (
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="text-xs font-medium text-amber-300">{priceKnyt} KNYT</span>
+                                <span className="text-[10px] text-white/40">(${priceUsd.toFixed(2)})</span>
+                              </div>
+                            ) : null}
+                          </div>
+                          <div className="absolute inset-0 bg-cyan-500/0 group-hover:bg-cyan-500/10 transition-colors" />
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {episodesCatalog.length === 0 && (
+                    <div className="text-center py-12 text-white/60">
+                      <BookOpen className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <p>No episodes available yet</p>
+                      <p className="text-sm mt-1">Check back soon for new Digital Scrolls</p>
                     </div>
                   )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
-        </div>
-      )}
 
-      {/* PDF Viewer Modal - prefer pdf_lite_url, fallback to CID-based page viewer */}
-      {pdfViewerOpen && currentPdfLiteUrl && (
-        <>
-          {console.log('[KnytTab] Rendering PDFLiteReaderModal with URL:', currentPdfLiteUrl)}
-          <PDFLiteReaderModal
-            open={pdfViewerOpen}
-            pdfUrl={currentPdfLiteUrl}
-            title={currentPdfTitle}
-            onClose={() => {
-              setPdfViewerOpen(false);
-              setCurrentPdfLiteUrl(null);
-              setCurrentPdfCid(null);
-            }}
-          />
+                  <div className="mt-6 rounded-2xl border border-amber-400/30 bg-white/5 p-5 shadow-[0_0_40px_rgba(245,158,11,0.15)]">
+                    <div className="flex items-center justify-between gap-4 flex-wrap">
+                      <div className="flex items-center gap-3">
+                        <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30">
+                          Pre-order
+                        </Badge>
+                        <div>
+                          <h4 className="text-lg font-semibold text-white">Episode -1 Collector Print</h4>
+                          <p className="text-sm text-white/60">Limited edition physical graphic novel</p>
+                        </div>
+                      </div>
+                      <Button
+                        className="bg-amber-500 hover:bg-amber-600"
+                        onClick={() => openPreorder(PREORDER_VARIANTS[0].id, PREORDER_VARIANTS[0].priceUsd)}
+                      >
+                        Reserve a Copy
+                      </Button>
+                    </div>
+                    <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                      {PREORDER_VARIANTS.map((variant) => (
+                        <button
+                          key={variant.id}
+                          onClick={() => openPreorder(variant.id, variant.priceUsd)}
+                          className="flex items-center justify-between rounded-xl bg-black/30 px-3 py-2 text-left ring-1 ring-white/10 hover:ring-amber-400/60 transition-all"
+                        >
+                          <span className={`text-xs font-semibold ${variant.tone}`}>{variant.label}</span>
+                          <span className="text-sm font-bold text-white">${variant.priceUsd}</span>
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-[11px] text-white/50 mt-3">
+                      Shipping included for pre-order tiers. Limited run while supplies last.
+                    </p>
+                  </div>
+
+                  {process.env.NODE_ENV === 'development' && (
+                    <div className="text-xs text-white/40 mt-2">
+                      Image queue: {getImageLoaderStats().queueSize} queued / {getImageLoaderStats().activeLoads} active
+                    </div>
+                  )}
+                </TabsContent>
+
+                {/* Codex Tab - Main Content */}
+                <TabsContent value="codex" className="space-y-4">
+                  <div className="text-center py-8">
+                    <BookOpen className="w-16 h-16 mx-auto text-purple-400 mb-4" />
+                    <h3 className="text-xl font-semibold text-white mb-2">KNYT Codex</h3>
+                    <p className="text-white/60 max-w-md mx-auto">
+                      The complete collection of KNYT universe knowledge and artifacts.
+                    </p>
+                    <Button className="mt-4 bg-purple-500 hover:bg-purple-600">Explore Codex</Button>
+                  </div>
+                </TabsContent>
+
+                {/* Characters Tab */}
+                <TabsContent value="characters" className="space-y-4">
+                  <KnytCardsGrid
+                    groups={groups}
+                    ownedCharacters={ownedCharacters}
+                    personaId={personaId}
+                    knytBalance={balance?.dvnKnyt || 0}
+                    spendableKnyt={spendableBalance || 0}
+                    onBalanceRefresh={refreshBalance}
+                    onPurchaseComplete={refreshPurchases}
+                  />
+                </TabsContent>
+
+                {/* Lore Tab */}
+                <TabsContent value="lore" className="space-y-4">
+                  <div className="text-center py-8">
+                    <FileText className="w-16 h-16 mx-auto text-purple-400 mb-4" />
+                    <h3 className="text-xl font-semibold text-white mb-2">Lore Library</h3>
+                    <p className="text-white/60 max-w-md mx-auto">
+                      Deep dive into the rich history and mythology of the KNYT universe.
+                    </p>
+                    <Button className="mt-4 bg-purple-500 hover:bg-purple-600">Explore Lore</Button>
+                  </div>
+                </TabsContent>
+
+                {/* DigiTerra Tab */}
+                <TabsContent value="digiterra" className="space-y-4">
+                  <div className="text-center py-8">
+                    <Cpu className="w-16 h-16 mx-auto text-purple-400 mb-4" />
+                    <h3 className="text-xl font-semibold text-white mb-2">DigiTerra</h3>
+                    <p className="text-white/60 max-w-md mx-auto">
+                      Explore the digital realm where code and consciousness merge.
+                    </p>
+                    <Button className="mt-4 bg-purple-500 hover:bg-purple-600">Enter DigiTerra</Button>
+                  </div>
+                </TabsContent>
+
+                {/* Terra Tab */}
+                <TabsContent value="terra" className="space-y-4">
+                  <div className="text-center py-8">
+                    <Globe className="w-16 h-16 mx-auto text-purple-400 mb-4" />
+                    <h3 className="text-xl font-semibold text-white mb-2">Terra</h3>
+                    <p className="text-white/60 max-w-md mx-auto">
+                      The physical realm where ancient mysteries await discovery.
+                    </p>
+                    <Button className="mt-4 bg-green-500 hover:bg-green-600">Explore Terra</Button>
+                  </div>
+                </TabsContent>
+
+                {/* Order Tab */}
+                <TabsContent value="order" className="space-y-4">
+                  <Card className="backdrop-blur-xl bg-white/5 ring-1 ring-white/10 border-0">
+                    <CardHeader>
+                      <CardTitle className="text-white flex items-center gap-2">
+                        <Shield className="w-5 h-5 text-purple-400" />
+                        Order System
+                      </CardTitle>
+                      <CardDescription className="text-white/60">The governing order of the KNYT universe</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-center py-8">
+                        <Shield className="w-16 h-16 mx-auto text-purple-400 mb-4" />
+                        <h3 className="text-xl font-semibold text-white mb-2">The Order</h3>
+                        <p className="text-white/60 max-w-md mx-auto">
+                          Join the governing order that maintains balance across all realms of the KNYT universe.
+                        </p>
+                        <Button className="mt-4 bg-purple-500 hover:bg-purple-600">Join Order</Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+              </Tabs>
+            </div>
+          )}
+
+          {/* PDF Viewer Modal - prefer pdf_lite_url, fallback to CID-based page viewer */}
+          {pdfViewerOpen && currentPdfLiteUrl && (
+            <>
+              {console.log('[KnytTab] Rendering PDFLiteReaderModal with URL:', currentPdfLiteUrl)}
+              <PDFLiteReaderModal
+                open={pdfViewerOpen}
+                pdfUrl={currentPdfLiteUrl}
+                title={currentPdfTitle}
+                onClose={() => {
+                  setPdfViewerOpen(false);
+                  setCurrentPdfLiteUrl(null);
+                  setCurrentPdfTitle('');
+                }}
+              />
+            </>
+          )}
+          {pdfViewerOpen && !currentPdfLiteUrl && currentPdfCid && (
+            <>
+              {console.log('[KnytTab] Rendering PDFPageViewer with CID:', currentPdfCid, 'pdfLiteUrl:', currentPdfLiteUrl)}
+              <PDFPageViewer
+                cid={currentPdfCid}
+                title={currentPdfTitle}
+                onClose={() => {
+                  setPdfViewerOpen(false);
+                  setCurrentPdfCid(null);
+                  setCurrentPdfTitle('');
+                }}
+              />
+            </>
+          )}
+
+          {/* Video Player Modal */}
+          {videoPlayerOpen && currentVideoCid && (
+            <VideoErrorBoundary
+              onClose={() => {
+                setVideoPlayerOpen(false);
+                setCurrentVideoCid(null);
+                setCurrentVideoTitle('');
+              }}
+            >
+              <VideoPlayer
+                videoUrl={`/api/content/video/${currentVideoCid}`}
+                title={currentVideoTitle}
+                onClose={() => {
+                  setVideoPlayerOpen(false);
+                  setCurrentVideoCid(null);
+                  setCurrentVideoTitle('');
+                }}
+              />
+            </VideoErrorBoundary>
+          )}
+
+          {/* Text Reader Modal */}
+          {textReaderOpen && currentText && (
+            <LoreTextReader
+              title={currentText.title}
+              content={currentText.content}
+              onClose={() => {
+                setTextReaderOpen(false);
+                setCurrentText(null);
+              }}
+            />
+          )}
+
+          {/* Content Purchase Modal */}
+          {purchaseContent && (
+            <ContentPurchaseModal
+              open={purchaseModalOpen}
+              onClose={() => {
+                setPurchaseModalOpen(false);
+                setPurchaseContent(null);
+              }}
+              personaId={personaId}
+              contentType={purchaseContent.type}
+              contentId={purchaseContent.id}
+              contentTitle={purchaseContent.title}
+              contentImage={purchaseContent.image}
+              baseKnytOverride={purchaseContent.baseKnyt}
+              priceUsdOverride={purchaseContent.priceUsd}
+              knytBalance={balance?.dvnKnyt || 0}
+              spendableKnyt={spendableBalance || 0}
+              onPurchaseComplete={() => {
+                setPurchaseModalOpen(false);
+                setPurchaseContent(null);
+                fetchOwnedEpisodes();
+              }}
+              onBalanceRefresh={refreshBalance}
+            />
+          )}
         </>
       )}
-      {pdfViewerOpen && !currentPdfLiteUrl && currentPdfCid && (
-        <>
-          {console.log('[KnytTab] Rendering PDFPageViewer with CID:', currentPdfCid, 'pdfLiteUrl:', currentPdfLiteUrl)}
-          <PDFPageViewer
-            cid={currentPdfCid}
-            title={currentPdfTitle}
-            pdfLiteUrl={currentPdfLiteUrl}
-            onClose={() => {
-              setPdfViewerOpen(false);
-              setCurrentPdfCid(null);
-            }}
-          />
-        </>
-      )}
 
-      {/* Video Player Modal */}
-      {videoViewerOpen && currentVideoCid && (
-        <VideoErrorBoundary onClose={() => {
-          setVideoViewerOpen(false);
-          setCurrentVideoCid(null);
-        }}>
-          <VideoPlayer
-            videoUrl={`/api/content/video/${currentVideoCid}`}
-            title={currentVideoTitle}
-            onClose={() => {
-              setVideoViewerOpen(false);
-              setCurrentVideoCid(null);
-            }}
-          />
-        </VideoErrorBoundary>
-      )}
-
-      {/* Text Reader Modal */}
-      {textReaderOpen && currentText && (
-        <LoreTextReader
-          title={currentText.title}
-          content={currentText.content}
-          onClose={() => {
-            setTextReaderOpen(false);
-            setCurrentText(null);
-          }}
-        />
-      )}
-
-      {/* Content Purchase Modal */}
-      {purchaseContent && (
-        <ContentPurchaseModal
-          open={purchaseModalOpen}
-          onClose={() => {
-            setPurchaseModalOpen(false);
-            setPurchaseContent(null);
-          }}
-          personaId={personaId}
-          contentType={purchaseContent.type}
-          contentId={purchaseContent.id}
-          contentTitle={purchaseContent.title}
-          contentImage={purchaseContent.image}
-          knytBalance={balance?.dvnKnyt || 0}
-          spendableKnyt={spendableBalance || 0}
-          onPurchaseComplete={() => {
-            setPurchaseModalOpen(false);
-            setPurchaseContent(null);
-            fetchOwnedEpisodes();
-          }}
-          onBalanceRefresh={refreshBalance}
-        />
-      )}
+      <Dialog open={dvnDrawerOpen} onOpenChange={setDvnDrawerOpen}>
+        <DialogContent className="max-w-2xl bg-slate-950 text-white border-white/10">
+          <DialogHeader>
+            <DialogTitle>DVN Event Stream</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="flex flex-wrap gap-2 text-xs">
+              <button
+                className={`rounded-full px-3 py-1 ${dvnFilter === 'knyt' ? 'bg-cyan-500/20 text-cyan-200' : 'bg-white/5 text-white/50'}`}
+                onClick={() => setDvnFilter('knyt')}
+              >
+                KNYT
+              </button>
+              <button
+                className={`rounded-full px-3 py-1 ${dvnFilter === 'all' ? 'bg-cyan-500/20 text-cyan-200' : 'bg-white/5 text-white/50'}`}
+                onClick={() => setDvnFilter('all')}
+              >
+                All
+              </button>
+              <button
+                className={`rounded-full px-3 py-1 ${dvnStatusFilter === 'confirmed' ? 'bg-purple-500/20 text-purple-200' : 'bg-white/5 text-white/50'}`}
+                onClick={() => setDvnStatusFilter('confirmed')}
+              >
+                Confirmed
+              </button>
+              <button
+                className={`rounded-full px-3 py-1 ${dvnStatusFilter === 'all' ? 'bg-purple-500/20 text-purple-200' : 'bg-white/5 text-white/50'}`}
+                onClick={() => setDvnStatusFilter('all')}
+              >
+                All Status
+              </button>
+              <button
+                className={`rounded-full px-3 py-1 ${dvnPersonaFilter === 'active' ? 'bg-emerald-500/20 text-emerald-200' : 'bg-white/5 text-white/50'}`}
+                onClick={() => setDvnPersonaFilter('active')}
+              >
+                Active Persona
+              </button>
+              <button
+                className={`rounded-full px-3 py-1 ${dvnPersonaFilter === 'all' ? 'bg-emerald-500/20 text-emerald-200' : 'bg-white/5 text-white/50'}`}
+                onClick={() => setDvnPersonaFilter('all')}
+              >
+                All Personas
+              </button>
+            </div>
+            <div className="max-h-[60vh] overflow-y-auto space-y-2">
+              {filteredDVNEvents.slice(0, 50).map((event, idx) => (
+                <div key={`${event.txHash || event.event}-${idx}`} className="rounded-lg border border-white/5 bg-white/5 p-3 text-xs">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-semibold text-white">{event.event}</span>
+                    <span className="text-white/40">{formatDVNTime(event.timestamp)}</span>
+                  </div>
+                  <div className="mt-1 text-white/60">
+                    {event.asset ? `Asset: ${event.asset}` : 'Asset: —'} • Chain: {event.chain}
+                  </div>
+                  {event.txHash && (
+                    <div className="mt-1 text-white/40 truncate">Tx: {event.txHash}</div>
+                  )}
+                  {event.meta?.personaId && (
+                    <div className="mt-1 text-white/40 truncate">Persona: {event.meta.personaId}</div>
+                  )}
+                </div>
+              ))}
+              {filteredDVNEvents.length === 0 && (
+                <div className="text-sm text-white/50">No DVN events match the filters yet.</div>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Template Debug Info (development only) */}
       {process.env.NODE_ENV === 'development' && (
@@ -1122,6 +1698,113 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
           Template: {templateResult.templateId} | Intent: {userIntent} | Drawer: {templateResult.drawerMode}
         </div>
       )}
+
+      {/* DID Qube & DVN Status Indicators */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="absolute top-2 right-2 px-2 py-1 bg-black/80 rounded text-xs text-white/60 z-50 space-y-1">
+          <div>DID Qube: {loadingPersonas ? 'Loading...' : `${personas.length} personas`}</div>
+          <div>DVN Events: {dvnEvents.length} recent</div>
+          <div>Active Persona: {activePersonaId || 'None'}</div>
+          {dvnEvents.length > 0 && (
+            <div className="text-xs text-green-400">
+              Latest: {dvnEvents[0].event} - {dvnEvents[0].asset}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
+}
+
+// Helper functions for character data
+function getCharacterName(id: string): string {
+  const names: Record<string, string> = {
+    'char1': 'Void Walker',
+    'char2': 'Star Weaver',
+    'char3': 'Iron Guardian',
+    'char4': 'Moon Shadow',
+    'char5': 'Storm Caller',
+  };
+  return names[id] || 'Unknown Character';
+}
+
+function getCharacterEpisode(id: string): number {
+  const episodes: Record<string, number> = {
+    'char1': 1,
+    'char2': 1,
+    'char3': 2,
+    'char4': 2,
+    'char5': 3,
+  };
+  return episodes[id] || 1;
+}
+
+function getCharacterCid(id: string): string {
+  const cids: Record<string, string> = {
+    'char1': 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi',
+    'char2': 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi',
+    'char3': 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi',
+    'char4': 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi',
+    'char5': 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi',
+  };
+  return cids[id] || 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi';
+}
+
+function getCharacterDigiterraName(id: string): string {
+  const digiterras: Record<string, string> = {
+    'char1': 'Digital Void',
+    'char2': 'Celestial Realm',
+    'char3': 'Iron Fortress',
+    'char4': 'Lunar Sanctuary',
+    'char5': 'Storm Peak',
+  };
+  return digiterras[id] || 'Unknown DigiTerra';
+}
+
+function getCharacterAffiliation(id: string): string {
+  const affiliations: Record<string, string> = {
+    'char1': 'Shadow Order',
+    'char2': 'Light Council',
+    'char3': 'Iron Legion',
+    'char4': 'Moon Clan',
+    'char5': 'Storm Tribe',
+  };
+  return affiliations[id] || 'Unknown Affiliation';
+}
+
+function getCharacterRarity(id: string): string {
+  const rarities: Record<string, string> = {
+    'char1': 'Legendary',
+    'char2': 'Epic',
+    'char3': 'Rare',
+    'char4': 'Uncommon',
+    'char5': 'Common',
+  };
+  return rarities[id] || 'Common';
+}
+
+function getCharacterPowers(id: string): string {
+  const powers: Record<string, string> = {
+    'char1': 'Void Walk, Data Weave, Quantum Shield',
+    'char2': 'Star Weave, Celestial Light, Astral Projection',
+    'char3': 'Iron Will, Earth Shield, Forge Master',
+    'char4': 'Moon Whisper, Lunar Shield, Night Vision',
+    'char5': 'Storm Call, Lightning Strike, Wind Walk',
+  };
+  return powers[id] || 'Unknown Powers';
+}
+
+function getCharacterWeapon(id: string): string {
+  const weapons: Record<string, string> = {
+    'char1': 'Void Blade',
+    'char2': 'Star Staff',
+    'char3': 'Iron Hammer',
+    'char4': 'Moon Dagger',
+    'char5': 'Storm Sword',
+  };
+  return weapons[id] || 'Unknown Weapon';
+}
+
+function getCharacterDescription(id: string): string {
+  return `A mysterious figure from the KNYT universe, wielding powers that defy conventional understanding. This character plays a crucial role in the ongoing conflict between the digital and physical realms.`;
 }

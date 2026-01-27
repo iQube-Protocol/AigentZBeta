@@ -1,53 +1,293 @@
 /**
  * KNYT Liquid UI Types
- * 
- * Ported from Qriptopian Web App with SmartTriad integration
- * Defines types for Liquid UI templates and content rendering.
+ *
+ * Type definitions for the KNYT Codex Liquid UI template system.
+ * Supports fixed-viewport layouts with no page scrolling,
+ * copilot drawer integration, and Smart Wallet surfaces.
  */
 
-export type KnytTemplateId = 
+// ============================================================================
+// Core Template Types
+// ============================================================================
+
+export type KnytTemplateId =
   | 'knyt:drawer_grid_v1'
-  | 'knyt:character_detail_v1'
-  | 'knyt:episode_reader_v1'
-  | 'knyt:lore_browser_v1'
-  | 'knyt:realm_portal_v1';
+  | 'knyt:dual_poster_stage_v1'
+  | 'knyt:motion_stage_v1'
+  | 'knyt:quest_hud_hub_v1'
+  | 'knyt:realm_bridge_map_v1';
 
 export type DeviceType = 'mobile' | 'tablet' | 'desktop';
 
-export type GeometryVariant = 'fixed' | 'responsive' | 'adaptive';
+export type DrawerMode = 'narrow' | 'wide' | 'none';
 
-export type DrawerMode = 'none' | 'narrow' | 'wide' | 'full';
+export type CopilotOverlayMode = 'overlay' | 'docked' | 'collapsed';
 
-export type WalletUIComponent = 
-  | 'wallet_card.balance'
-  | 'wallet_card.reward_claim'
-  | 'wallet_card.quick_actions'
-  | 'wallet_card.send_receive'
-  | 'wallet_card.transaction_history';
+export type ZLayer = 'content' | 'chrome' | 'modal';
 
-export type CopilotOverlayMode = 'overlay' | 'sidebar' | 'minimal' | 'hidden';
+// ============================================================================
+// Content Types (metaKnyts-specific)
+// ============================================================================
+
+export type KnytContentType =
+  | 'comic_page_portrait'
+  | 'comic_cover_portrait'
+  | 'character_portrait'
+  | 'motion_comic_landscape'
+  | 'lore_snippet'
+  | 'terra_update';
+
+export type KnytContentAspect = 'portrait' | 'landscape' | 'mixed';
+
+// ============================================================================
+// User Intent & Context
+// ============================================================================
+
+export type UserIntent =
+  // Browsing intents
+  | 'browse'
+  | 'discover'
+  | 'quick_switch'
+  | 'library'
+  // Deep dive intents
+  | 'character_deep_dive'
+  | 'cover_art'
+  | 'page_review'
+  | 'collectible_display'
+  // Watch intents
+  | 'watch'
+  | 'immersive_review'
+  | 'motion_comics'
+  | 'trailers'
+  | 'scene_review'
+  // Quest/reward intents
+  | 'questing'
+  | 'ascension'
+  | 'earn_rewards'
+  | 'member_get_member'
+  | 'sales_partnerships'
+  | 'guided_paths'
+  // Realm navigation
+  | 'bridge_real_to_lore'
+  | 'realm_navigation'
+  // Wallet intents (drawer mode selection)
+  | 'claim'
+  | 'check_balance'
+  | 'quick_status'
+  | 'confirm'
+  | 'unlock'
+  | 'purchase'
+  | 'send'
+  | 'request'
+  | 'invite'
+  | 'referral_manage'
+  | 'permissions';
+
+export type ContentMix =
+  | 'mixed'
+  | 'mostly_portrait'
+  | 'portrait_focus'
+  | 'motion_focus'
+  | 'landscape_focus';
+
+export type TaskState = 'active' | 'needs_guidance' | 'idle' | 'completed';
 
 export type Realm = 'digiterra' | 'terra' | 'metaterra_or';
 
-export type UserIntent = 
-  | 'browse'
-  | 'watch'
-  | 'read'
-  | 'character_deep_dive'
-  | 'page_review'
-  | 'collectible_display'
-  | 'motion_comics'
-  | 'immersive_review'
-  | 'trailers'
-  | 'scene_review'
-  | 'cover_art'
-  | 'realm_navigation';
+export type BusinessGoal =
+  | 'engagement'
+  | 'conversion'
+  | 'retention'
+  | 'referral'
+  | 'ascension';
 
-export type DrawerGridLayoutVariant = 
-  | 'auto'
-  | '1A' | '1B' | '1C'
-  | '2A' | '2B' | '2C'
-  | '3A' | '3B';
+// ============================================================================
+// Template Selection Context
+// ============================================================================
+
+export interface TemplateSelectionContext {
+  userIntent: UserIntent;
+  device: DeviceType;
+  contentMix: ContentMix;
+  realm?: Realm;
+  attentionBudget?: 'low' | 'medium' | 'high';
+  ownershipState?: 'none' | 'partial' | 'full';
+  businessGoal?: BusinessGoal;
+  taskState?: TaskState;
+  isFirstVisit?: boolean;
+  personaId?: string;
+}
+
+export interface TemplateSelectionResult {
+  templateId: KnytTemplateId;
+  drawerMode: DrawerMode;
+  walletUI: WalletUIComponent[];
+  copilotMode: CopilotOverlayMode;
+  reason: string;
+}
+
+// ============================================================================
+// Region & Geometry Types
+// ============================================================================
+
+export interface RegionGeometry {
+  anchor: 'safe_viewport';
+  x: number; // 0-1 normalized
+  y: number; // 0-1 normalized
+  w: number; // 0-1 normalized width
+  h: number; // 0-1 normalized height
+  z: number; // z-index
+  layer: ZLayer;
+  entry?: 'slide_from_bottom' | 'dock_right' | 'float';
+  dismiss?: 'swipe_down_or_close' | 'click_outside_or_close' | 'close';
+}
+
+export interface GeometryVariant {
+  name: string;
+  when: {
+    device: DeviceType[];
+  };
+  layout: Record<string, RegionGeometry>;
+}
+
+export interface TemplateRegion {
+  region_id: string;
+  role: string;
+  cards?: string[];
+  modals?: string[];
+  components?: string[];
+  modes?: CopilotOverlayMode[];
+  default?: CopilotOverlayMode | string;
+  interaction?: string;
+  notes?: string;
+  mode?: DrawerMode;
+  viewer?: string;
+}
+
+// ============================================================================
+// Template Definition
+// ============================================================================
+
+export interface KnytTemplate {
+  template_id: KnytTemplateId;
+  name: string;
+  origin: string;
+  best_for: string[];
+  fixed_viewport: boolean;
+  regions: TemplateRegion[];
+  geometry_variants: GeometryVariant[];
+  viewer_bindings?: Record<string, string>;
+}
+
+// ============================================================================
+// Modal/Card Catalog
+// ============================================================================
+
+export interface ModalCatalogItem {
+  id: string;
+  label: string;
+  best_for: string[];
+  vh?: number;
+  rows?: number;
+}
+
+export interface FullScreenDrawer {
+  id: string;
+  label: string;
+  best_for: string[];
+}
+
+export interface ModalCatalog {
+  cards_and_blocks: ModalCatalogItem[];
+  full_screen_drawers: FullScreenDrawer[];
+}
+
+// ============================================================================
+// Wallet Surface Types
+// ============================================================================
+
+export type WalletCardType =
+  | 'wallet_card.balance'
+  | 'wallet_card.reward_claim'
+  | 'wallet_card.unlock_offer'
+  | 'wallet_card.referral_invite'
+  | 'wallet_card.task_step';
+
+export type WalletModalType =
+  | 'wallet_modal.checkout'
+  | 'wallet_modal.send_request'
+  | 'wallet_modal.receipt'
+  | 'wallet_modal.permissions';
+
+export type WalletUIComponent = WalletCardType | WalletModalType;
+
+export interface WalletUIItem {
+  id: WalletUIComponent;
+  best_for: string[];
+  prefers_drawer?: DrawerMode;
+}
+
+export interface WalletSurface {
+  surfaces: {
+    copilot_drawer_narrow: {
+      description: string;
+      default_anchor: string;
+      default_entry: string;
+      preferred_on: DeviceType[];
+    };
+    copilot_drawer_wide: {
+      description: string;
+      default_anchor: string;
+      default_entry: string;
+      preferred_on: DeviceType[];
+    };
+  };
+  drawer_modes: {
+    narrow: {
+      mobile_height_norm: number;
+      desktop_width_norm: number;
+      z: number;
+      layer: ZLayer;
+    };
+    wide: {
+      mobile_height_norm: number;
+      desktop_width_norm: number;
+      z: number;
+      layer: ZLayer;
+    };
+  };
+  wallet_ui_catalog: {
+    cards: WalletUIItem[];
+    modals: WalletUIItem[];
+  };
+  capability_gates: {
+    view_content?: { requires_user_confirm?: boolean };
+    propose_wallet_action?: { requires_user_confirm?: boolean };
+    execute_wallet_action?: { requires_user_confirm?: boolean };
+  };
+}
+
+// ============================================================================
+// Template Pack Types
+// ============================================================================
+
+export interface KnytLiquidUITemplatePack {
+  schema_version: string;
+  generated_at: string;
+  domain: string;
+  purpose: string;
+  sources?: Record<string, unknown>;
+  design_constraints?: Record<string, unknown>;
+  modal_catalog: ModalCatalog;
+  content_type_to_modal_defaults: Record<string, { primary_viewer?: string; viewer?: string; primary_cards?: string[]; fallback_cards?: string[] }>;
+  templates: KnytTemplate[];
+  wallet_surface: WalletSurface;
+  copilot_action_hooks?: Record<string, unknown>;
+}
+
+// ============================================================================
+// Content & Composition Types
+// ============================================================================
 
 export interface KnytContentItem {
   id: string;
@@ -80,68 +320,22 @@ export interface KnytContentItem {
   };
 }
 
-export type KnytContentType = 
-  | 'comic_page_portrait'
-  | 'motion_comic_landscape'
-  | 'character_portrait'
-  | 'lore_snippet'
-  | 'terra_update'
-  | 'comic_cover_portrait';
-
-export interface TemplateSelectionContext {
-  userIntent: UserIntent;
+export interface KnytComposedScreen {
+  templateId: KnytTemplateId;
   device: DeviceType;
-  contentMix: ContentMix;
-  realm: Realm;
-  taskState: 'idle' | 'active';
-  isFirstVisit: boolean;
-  personaId?: string;
-}
-
-export interface TemplateSelectionResult {
-  templateId: KnytTemplateId;
-  drawerMode: DrawerMode;
-  walletUI: WalletUIComponent[];
-  copilotMode: CopilotOverlayMode;
-}
-
-export interface ContentMix {
-  hasEpisodes: boolean;
-  hasCharacters: boolean;
-  hasLore: boolean;
-  hasMetaKnyts: boolean;
-  totalItems: number;
-  ownedCount: number;
-}
-
-export interface KnytTemplate {
-  id: KnytTemplateId;
-  name: string;
-  description: string;
   geometry: GeometryVariant;
-  supportedDevices: DeviceType[];
-  triggers: UserIntent[];
-  regions: TemplateRegion[];
+  regions: Record<string, { regionId: string; card?: string; items: KnytContentItem[] }>;
   meta?: {
+    maxVisibleItems?: number;
+    motionCap?: number;
+    strategy?: string;
     drawerGridLayoutVariant?: DrawerGridLayoutVariant;
   };
 }
 
-export interface TemplateRegion {
-  id: string;
-  type: 'drawer_grid' | 'hero_featured' | 'rail_quests' | 'rail_realms' | 'content_detail';
-  items: KnytContentItem[];
-  layout?: {
-    gridCols?: number;
-    aspectRatio?: string;
-  };
-}
+export type DrawerGridLayoutVariant =
+  | 'auto'
+  | '1A' | '1B' | '1C'
+  | '2A' | '2B' | '2C'
+  | '3A' | '3B';
 
-export interface TemplateComposition {
-  templateId: KnytTemplateId;
-  context: TemplateSelectionContext;
-  regions: Record<string, TemplateRegion>;
-  meta?: {
-    drawerGridLayoutVariant?: DrawerGridLayoutVariant;
-  };
-}

@@ -1,12 +1,11 @@
 /**
  * CopilotWalletDrawer - In-Codex Wallet Surface
- * 
- * Ported from Qriptopian Web App with SmartTriad integration
+ *
  * Renders wallet cards and modals within the Codex experience.
  * Supports narrow (glance + tap) and wide (multi-step flows) modes.
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { X, Wallet, Gift, Unlock, Users, CheckCircle, ArrowRight, Coins, Send, Receipt } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { DrawerMode, WalletUIComponent, DeviceType } from '@/app/types/knytLiquidUI';
@@ -107,53 +106,95 @@ export function CopilotWalletDrawer({
               </div>
               <span className="text-sm text-white/60">Pending Rewards</span>
             </div>
-            <div className="space-y-2">
-              {pendingRewards.slice(0, 3).map((reward) => (
-                <div key={reward.id} className="flex items-center justify-between">
-                  <span className="text-sm text-white">{reward.amount} KNYT</span>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="border-amber-500/30 text-amber-400 hover:bg-amber-500/20"
-                    onClick={() => onClaimReward?.(reward.id)}
-                  >
-                    Claim
-                  </Button>
-                </div>
-              ))}
-            </div>
+            {pendingRewards.length > 0 ? (
+              <div className="space-y-2">
+                {pendingRewards.slice(0, 3).map((reward) => (
+                  <div key={reward.id} className="flex items-center justify-between">
+                    <span className="text-sm text-white">{reward.amount} KNYT</span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-amber-500/30 text-amber-400 hover:bg-amber-500/20"
+                      onClick={() => onClaimReward?.(reward.id)}
+                    >
+                      Claim
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-white/50 text-sm">No pending rewards</div>
+            )}
           </div>
         );
 
-      case 'wallet_card.quick_actions':
-        return (
-          <div key={component} className="p-4 rounded-xl bg-gradient-to-br from-green-500/20 to-emerald-500/20 ring-1 ring-green-500/30">
+      case 'wallet_card.task_step':
+        return activeTask ? (
+          <div key={component} className="p-4 rounded-xl bg-gradient-to-br from-green-500/20 to-emerald-500/20 ring-1 ring-white/10">
             <div className="flex items-center gap-3 mb-3">
               <div className="p-2 rounded-lg bg-green-500/20">
-                <ArrowRight className="w-5 h-5 text-green-400" />
+                <CheckCircle className="w-5 h-5 text-green-400" />
               </div>
-              <span className="text-sm text-white/60">Quick Actions</span>
+              <span className="text-sm text-white/60">Active Quest</span>
             </div>
-            <div className="space-y-2">
+            <div className="text-white font-medium mb-2">{activeTask.title}</div>
+            <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden mb-2">
+              <div
+                className="h-full bg-gradient-to-r from-green-500 to-emerald-400"
+                style={{ width: `${activeTask.progress}%` }}
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-white/50">{activeTask.progress}% complete</span>
               <Button
                 size="sm"
-                variant="outline"
-                className="w-full border-green-500/30 text-green-400 hover:bg-green-500/20"
-                onClick={() => onInvite?.()}
+                variant="ghost"
+                className="text-green-400 hover:text-green-300 hover:bg-green-500/20 gap-1"
               >
-                <Users className="w-4 h-4 mr-2" />
-                Invite Friends
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="w-full border-green-500/30 text-green-400 hover:bg-green-500/20"
-                onClick={() => onSend?.(0, '')}
-              >
-                <Send className="w-4 h-4 mr-2" />
-                Send KNYT
+                {activeTask.nextStep} <ArrowRight className="w-3 h-3" />
               </Button>
             </div>
+          </div>
+        ) : null;
+
+      case 'wallet_card.unlock_offer':
+        return (
+          <div key={component} className="p-4 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 ring-1 ring-white/10">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="p-2 rounded-lg bg-purple-500/20">
+                <Unlock className="w-5 h-5 text-purple-400" />
+              </div>
+              <span className="text-sm text-white/60">Unlock Content</span>
+            </div>
+            <Button
+              className="w-full bg-purple-500 hover:bg-purple-400 text-white"
+              onClick={() => onUnlock?.('current')}
+            >
+              <Coins className="w-4 h-4 mr-2" />
+              Unlock with KNYT
+            </Button>
+          </div>
+        );
+
+      case 'wallet_card.referral_invite':
+        return (
+          <div key={component} className="p-4 rounded-xl bg-gradient-to-br from-blue-500/20 to-indigo-500/20 ring-1 ring-white/10">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="p-2 rounded-lg bg-blue-500/20">
+                <Users className="w-5 h-5 text-blue-400" />
+              </div>
+              <span className="text-sm text-white/60">Invite Friends</span>
+            </div>
+            <p className="text-sm text-white/70 mb-3">
+              Earn 5 KNYT for each friend who joins!
+            </p>
+            <Button
+              className="w-full bg-blue-500 hover:bg-blue-400 text-white"
+              onClick={onInvite}
+            >
+              <Users className="w-4 h-4 mr-2" />
+              Send Invite
+            </Button>
           </div>
         );
 
@@ -186,3 +227,4 @@ export function CopilotWalletDrawer({
     </div>
   );
 }
+
