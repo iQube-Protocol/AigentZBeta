@@ -55,6 +55,11 @@ export async function POST(request: NextRequest) {
   try {
     const body: ResolveRequest = await request.json();
 
+    const personaId = body.personaId ?? body.query?.personaId;
+    const appId = body.appId ?? body.query?.appId;
+    const tenantId = body.tenantId ?? body.query?.tenantId;
+    const device: Device = (body.device as Device) ?? 'mobile';
+
     // Get drawer set
     let drawerSet;
     if (body.drawerSetId) {
@@ -71,19 +76,19 @@ export async function POST(request: NextRequest) {
     }
 
     // Get wallet data (use fixtures for now)
-    const wallet = body.appId === 'metaKnyts' 
+    const wallet = appId === 'metaKnyts' 
       ? walletFixtures.metaKnyts 
-      : body.appId === 'Qriptopian'
+      : appId === 'Qriptopian'
         ? walletFixtures.qriptopian
         : undefined;
 
     // Build visibility context
     const visibilityCtx: VisibilityContext = {
-      personaId: body.personaId,
-      device: body.device,
+      personaId,
+      device,
       wallet,
-      appId: body.appId,
-      tenantId: body.tenantId,
+      appId,
+      tenantId,
       reputationScore: wallet?.rewards?.reduce((sum, r) => sum + r.progress * 100, 0) ?? 0,
       identityState: wallet?.identityState,
     };
@@ -99,10 +104,10 @@ export async function POST(request: NextRequest) {
         currentContentId: body.currentContentId,
         currentContent: body.currentContent,
         wallet,
-        device: body.device,
-        appId: body.appId,
-        personaId: body.personaId,
-        tenantId: body.tenantId,
+        device,
+        appId,
+        personaId,
+        tenantId,
       };
 
       // Resolve slots for specific drawer/tab or all
@@ -152,8 +157,8 @@ export async function POST(request: NextRequest) {
       },
       slotData: body.resolveSlotData ? slotData : undefined,
       context: {
-        personaId: body.personaId,
-        device: body.device,
+        personaId,
+        device,
         identityState: wallet?.identityState ?? 'anon',
         reputationScore: visibilityCtx.reputationScore,
       },

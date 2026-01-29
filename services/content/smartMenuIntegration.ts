@@ -131,6 +131,325 @@ export interface MenuAction {
   disabledReason?: string;
 }
 
+// =============================================================================
+// COMPASS MENU POLICY (Runtime/Studio)
+// =============================================================================
+
+export type CompassMode = 'runtime' | 'studio';
+
+export type CompassActionKey =
+  | 'pay'
+  | 'earn'
+  | 'play'
+  | 'make'
+  | 'compose'
+  | 'be'
+  | 'share';
+
+export interface CompassPolicyContext {
+  directive?: string;
+  personaStatus?: 'active' | 'inactive' | 'suspended' | 'pending' | string;
+  hasActivePersona?: boolean;
+  recentActions?: string[];
+  content?: SmartContentQube;
+  ownedContent?: boolean;
+  device?: 'mobile' | 'desktop' | 'tv';
+  mode?: CompassMode;
+}
+
+export interface CompassPolicyOptions {
+  mode?: CompassMode;
+  includeSecondary?: boolean;
+  handlerOverrides?: Partial<Record<CompassActionKey, string>>;
+}
+
+interface CompassCandidate {
+  key: CompassActionKey;
+  label: string;
+  type: MenuAction['type'];
+  handler: string;
+  score: number;
+  order: number;
+  isSecondary: boolean;
+  params?: Record<string, any>;
+  icon?: string;
+}
+
+const COMPASS_KEYWORDS = {
+  pay: ['pay', 'settle', 'checkout', 'upgrade', 'subscribe'],
+  buy: ['buy', 'purchase', 'order'],
+  earn: ['earn', 'reward', 'offer', 'claim', 'bounty', 'incentive'],
+  play: ['play', 'preview', 'test', 'try', 'run', 'explore', 'view'],
+  make: ['make', 'create', 'compose', 'build', 'edit', 'craft', 'design'],
+  share: ['share', 'invite', 'send', 'collab'],
+  be: ['be', 'identity', 'persona', 'profile', 'vault'],
+};
+
+const COMPASS_ICONS: Record<CompassActionKey, string> = {
+  pay: 'credit-card',
+  earn: 'sparkles',
+  play: 'play',
+  make: 'pen-tool',
+  compose: 'layers',
+  be: 'user',
+  share: 'share-2',
+};
+
+function includesAny(value: string, keywords: string[]): boolean {
+  if (!value) return false;
+  return keywords.some((word) => value.includes(word));
+}
+
+function hasPaidTier(content?: SmartContentQube): boolean {
+  if (!content?.pricingModel?.tiers?.length) return false;
+  return content.pricingModel.tiers.some((tier) => (tier.amount ?? 0) > 0);
+}
+
+function resolvePayLabel(directive: string, paidTier: boolean): string {
+  if (includesAny(directive, COMPASS_KEYWORDS.buy)) return 'Buy';
+  if (includesAny(directive, COMPASS_KEYWORDS.pay)) return 'Pay';
+  return paidTier ? 'Pay' : 'Pay';
+}
+
+function resolveMakeLabel(mode: CompassMode): string {
+  return mode === 'studio' ? 'Compose' : 'Make';
+}
+
+function resolveMakeKey(mode: CompassMode): CompassActionKey {
+  return mode === 'studio' ? 'compose' : 'make';
+}
+
+function baseScoresForMode(mode: CompassMode): Record<CompassActionKey, number> {
+  if (mode === 'studio') {
+    return {
+      compose: 50,
+      play: 30,
+      pay: 25,
+      earn: 22,
+      make: 0,
+      be: 0,
+      share: 0,
+    };
+  }
+  return {
+    pay: 30,
+    earn: 28,
+    play: 25,
+    make: 22,
+    compose: 0,
+    be: 0,
+    share: 0,
+  };
+}
+
+function scorePay(directive: string, paidTier: boolean, owned: boolean, recentActions: string[], base: number): number {
+  let score = base;
+  if (includesAny(directive, COMPASS_KEYWORDS.buy)) score += 40;
+  if (includesAny(directive, COMPASS_KEYWORDS.pay)) score += 30;
+  if (paidTier && !owned) score += 35;
+  if (owned) score -= 20;
+  if (recentActions.includes('pay') || recentActions.includes('buy')) score += 10;
+  return score;
+}
+
+function scoreEarn(directive: string, content: SmartContentQube | undefined, recentActions: string[], base: number): number {
+  let score = base;
+  if (includesAny(directive, COMPASS_KEYWORDS.earn)) score += 40;
+  if (content?.rewardOutcomes?.engagementRewards?.length) score += 20;
+  if (recentActions.includes('earn') || recentActions.includes('reward')) score += 8;
+  return score;
+}
+
+function scorePlay(directive: string, content: SmartContentQube | undefined, recentActions: string[], base: number): number {
+  let score = base;
+  if (includesAny(directive, COMPASS_KEYWORDS.play)) score += 35;
+  const modalities = content?.modalities;
+  const hasModalities =
+    !!modalities?.read?.enabled ||
+    !!modalities?.watch?.enabled ||
+    !!modalities?.listen?.enabled ||
+    !!modalities?.interact?.enabled;
+  if (hasModalities) score += 20;
+  if (modalities?.interact?.enabled) score += 10;
+  if (recentActions.includes('play') || recentActions.includes('preview')) score += 6;
+  return score;
+}
+
+function scoreMake(directive: string, recentActions: string[], base: number): number {
+  let score = base;
+  if (includesAny(directive, COMPASS_KEYWORDS.make)) score += 40;
+  if (recentActions.includes('make') || recentActions.includes('compose')) score += 8;
+  return score;
+}
+
+function buildCandidate(
+  key: CompassActionKey,
+  label: string,
+  type: MenuAction['type'],
+  handler: string,
+  score: number,
+  order: number,
+  isSecondary: boolean,
+  params?: Record<string, any>
+): CompassCandidate {
+  return {
+    key,
+    label,
+    type,
+    handler,
+    score,
+    order,
+    isSecondary,
+    params,
+    icon: COMPASS_ICONS[key],
+  };
+}
+
+function resolveHandler(key: CompassActionKey, overrides?: Partial<Record<CompassActionKey, string>>): string {
+  if (overrides?.[key]) return overrides[key] as string;
+  return `compass_${key}`;
+}
+
+export function selectCompassActions(
+  context: CompassPolicyContext,
+  options: CompassPolicyOptions = {}
+): MenuAction[] {
+  const mode = options.mode ?? context.mode ?? 'runtime';
+  const directive = (context.directive || '').toLowerCase();
+  const recentActions = (context.recentActions || []).map((action) => action.toLowerCase());
+  const paidTier = hasPaidTier(context.content);
+  const owned = !!context.ownedContent;
+  const baseScores = baseScoresForMode(mode);
+  const makeKey = resolveMakeKey(mode);
+  const makeLabel = resolveMakeLabel(mode);
+
+  const primaryOrder = mode === 'studio'
+    ? ['compose', 'play', 'pay', 'earn']
+    : ['pay', 'earn', 'play', 'make'];
+
+  const primaryCandidates: CompassCandidate[] = [];
+
+  primaryCandidates.push(
+    buildCandidate(
+      'pay',
+      resolvePayLabel(directive, paidTier),
+      'payment',
+      resolveHandler('pay', options.handlerOverrides),
+      scorePay(directive, paidTier, owned, recentActions, baseScores.pay),
+      primaryOrder.indexOf('pay'),
+      false,
+      context.content?.id ? { contentId: context.content.id } : undefined
+    )
+  );
+
+  primaryCandidates.push(
+    buildCandidate(
+      'earn',
+      'Earn',
+      'payment',
+      resolveHandler('earn', options.handlerOverrides),
+      scoreEarn(directive, context.content, recentActions, baseScores.earn),
+      primaryOrder.indexOf('earn'),
+      false,
+      context.content?.id ? { contentId: context.content.id } : undefined
+    )
+  );
+
+  primaryCandidates.push(
+    buildCandidate(
+      'play',
+      'Play',
+      'navigation',
+      resolveHandler('play', options.handlerOverrides),
+      scorePlay(directive, context.content, recentActions, baseScores.play),
+      primaryOrder.indexOf('play'),
+      false,
+      context.content?.id ? { contentId: context.content.id } : undefined
+    )
+  );
+
+  primaryCandidates.push(
+    buildCandidate(
+      makeKey,
+      makeLabel,
+      'navigation',
+      resolveHandler(makeKey, options.handlerOverrides),
+      scoreMake(directive, recentActions, baseScores[makeKey]),
+      primaryOrder.indexOf(makeKey),
+      false,
+      context.content?.id ? { contentId: context.content.id } : undefined
+    )
+  );
+
+  const sortedPrimary = primaryCandidates
+    .slice()
+    .sort((a, b) => (b.score - a.score) || (a.order - b.order));
+
+  const primaryActions = sortedPrimary.slice(0, 3).map((candidate) => ({
+    id: `compass_${candidate.key}`,
+    type: candidate.type,
+    label: candidate.label,
+    icon: candidate.icon || 'compass',
+    handler: candidate.handler,
+    params: candidate.params,
+    isPrimary: true,
+    isDisabled: false,
+  }));
+
+  if (options.includeSecondary === false) {
+    return primaryActions;
+  }
+
+  const secondaryCandidates: CompassCandidate[] = [];
+  const hasActivePersona = context.hasActivePersona ?? true;
+  const includeBe = !hasActivePersona ||
+    (context.personaStatus && context.personaStatus !== 'active') ||
+    includesAny(directive, COMPASS_KEYWORDS.be);
+
+  if (includeBe) {
+    secondaryCandidates.push(
+      buildCandidate(
+        'be',
+        'Be',
+        'navigation',
+        resolveHandler('be', options.handlerOverrides),
+        10,
+        0,
+        true
+      )
+    );
+  }
+
+  const includeShare = includesAny(directive, COMPASS_KEYWORDS.share) || !!context.content;
+  if (includeShare) {
+    secondaryCandidates.push(
+      buildCandidate(
+        'share',
+        'Share',
+        'share',
+        resolveHandler('share', options.handlerOverrides),
+        9,
+        1,
+        true,
+        context.content?.id ? { contentId: context.content.id } : undefined
+      )
+    );
+  }
+
+  const secondaryActions = secondaryCandidates.slice(0, 2).map((candidate) => ({
+    id: `compass_${candidate.key}`,
+    type: candidate.type,
+    label: candidate.label,
+    icon: candidate.icon || 'compass',
+    handler: candidate.handler,
+    params: candidate.params,
+    isPrimary: false,
+    isDisabled: false,
+  }));
+
+  return [...primaryActions, ...secondaryActions];
+}
+
 /**
  * Drawer size configuration for copilot mode
  */

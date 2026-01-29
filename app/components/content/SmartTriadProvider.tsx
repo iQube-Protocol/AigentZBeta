@@ -15,12 +15,33 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
 import type { SmartContentQube } from "@/types/smartContent";
 import type { SmartWalletNode } from "@/types/smartWallet";
+import { selectCompassActions } from "@/services/content/smartMenuIntegration";
 
 // =============================================================================
 // TYPES
 // =============================================================================
 
 export type PaymentChain = "arb" | "base" | "polygon" | "optimism" | "knyt";
+
+function deriveCompassDirective(
+  content: SmartContentQube | null,
+  hasAccess: boolean,
+  viewerModality: string | null
+): string | undefined {
+  if (!content) return undefined;
+  const hasPaidTier = !!content.pricingModel?.tiers?.some((tier) => (tier.amount ?? 0) > 0);
+  if (!hasAccess && hasPaidTier) return "buy";
+  if (viewerModality) return viewerModality;
+  if (content.modalities?.interact?.enabled) return "play";
+  if (
+    content.modalities?.read?.enabled ||
+    content.modalities?.watch?.enabled ||
+    content.modalities?.listen?.enabled
+  ) {
+    return "play";
+  }
+  return undefined;
+}
 
 export interface SmartMenuManifest {
   id: string;
@@ -101,7 +122,7 @@ export interface TriadActions {
   
   // Menu actions
   setActiveDrawer: (drawer: string | null) => void;
-  configureExperience: (contentId: string) => Promise<SmartMenuManifest | null>;
+  configureExperience: (contentId: string, directive?: string) => Promise<SmartMenuManifest | null>;
   
   // Purchase actions (Copilot-orchestrated)
   purchaseContent: (contentId: string, chain?: PaymentChain) => Promise<boolean>;
@@ -264,7 +285,10 @@ export function SmartTriadProvider({
     }));
   }, []);
 
-  const configureExperience = useCallback(async (contentId: string): Promise<SmartMenuManifest | null> => {
+  const configureExperience = useCallback(async (
+    contentId: string,
+    directiveOverride?: string
+  ): Promise<SmartMenuManifest | null> => {
     try {
       // Call Copilot triad action via API
       const res = await fetch("/api/copilotkit", {
@@ -282,6 +306,23 @@ export function SmartTriadProvider({
 
       const hasAccess = state.devGatingOverride || state.ownedContentIds.has(contentId);
       
+      const directive = directiveOverride || deriveCompassDirective(content, hasAccess, state.viewerModality);
+      const compassActions = selectCompassActions(
+        {
+          directive,
+          content,
+          ownedContent: hasAccess,
+          hasActivePersona: Boolean(personaId),
+          recentActions: state.lastPurchase ? ["pay"] : [],
+          mode: "runtime",
+        },
+        {
+          handlerOverrides: {
+            pay: "triad_purchase_content",
+          },
+        }
+      );
+
       const manifest: SmartMenuManifest = {
         id: `manifest_${contentId}_${Date.now()}`,
         contentId,
@@ -308,7 +349,13 @@ export function SmartTriadProvider({
           { type: "walletCompact", position: 1, isActive: false },
         ],
         walletMode: hasAccess ? "compact" : "full",
-        actions: [],
+        actions: compassActions.map(({ id, type, label, handler, isPrimary }) => ({
+          id,
+          type,
+          label,
+          handler,
+          isPrimary,
+        })),
         layout: {
           mode: "split",
           drawerPosition: "right",
@@ -316,18 +363,6 @@ export function SmartTriadProvider({
         },
         configSource: "content",
       };
-
-      // Add purchase action if not owned
-      if (!hasAccess && content.pricingModel?.tiers?.length) {
-        const tier = content.pricingModel.tiers[0];
-        manifest.actions.push({
-          id: "action_purchase",
-          type: "payment",
-          label: `Buy for ${tier.amount} ${tier.currency}`,
-          handler: "triad_purchase_content",
-          isPrimary: true,
-        });
-      }
 
       setState(prev => ({
         ...prev,
@@ -339,7 +374,14 @@ export function SmartTriadProvider({
       console.error("Failed to configure experience:", error);
       return null;
     }
-  }, [personaId, state.currentContent, state.ownedContentIds, state.devGatingOverride]);
+  }, [
+    personaId,
+    state.currentContent,
+    state.ownedContentIds,
+    state.devGatingOverride,
+    state.viewerModality,
+    state.lastPurchase,
+  ]);
 
   // ==========================================================================
   // PURCHASE ACTIONS (Copilot-orchestrated)

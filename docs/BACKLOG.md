@@ -204,6 +204,30 @@ This document tracks work items from sprint plans that have been deprioritized o
 
 ---
 
+### **Auto-Drive Payloads for Liquid UI Template Archetypes** (Deferred)
+**Status**: Not started  
+**Priority**: Medium
+
+- [ ] **Define canonical template payload schema**
+  - Define versioned payload for `LiquidUITemplateArchetypeQube` (e.g. `schemaVersion`, `liquid_template_id`, `archetype`, UI metadata, optional manifest/slots)
+  - Specify how payload maps to `metaExtras` vs stored payload blob
+
+- [ ] **Upload payload blobs to Auto-Drive and persist references**
+  - Use existing Auto-Drive upload service (chunked upload/retry)
+  - Store returned URL / CID / drive reference on the iQube registry record (e.g. `metaExtras.autodrive_payload_ref`)
+  - Establish size limits and content-type conventions
+
+- [ ] **Index + retrieval path (server API)**
+  - Add API support to fetch template payload by reference with caching
+  - Implement fallback order: Supabase payload ref → Auto-Drive → local seeded store
+  - Add basic validation + error shaping so gallery never hard-crashes
+
+- [ ] **Dev tooling**
+  - Add a script/endpoint to batch-publish the 20 template archetype payloads
+  - Add a script/endpoint to rebuild a lightweight index manifest for fast listing
+
+---
+
 ### **Operator & Audit Enhancements** (Deferred)
 **Status**: Basic functionality in place  
 **Priority**: Low

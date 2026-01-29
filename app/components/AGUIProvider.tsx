@@ -20,12 +20,19 @@ interface AGUIProviderProps {
 export function AGUIProvider({ children, runtimeUrl = "/api/copilotkit" }: AGUIProviderProps) {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const devAgents = useMemo(() => {
+    const baseAgent = new HttpAgent({
+      agentId: "default",
+      description: "Local dev agent",
+      url: "/api/agents/execute",
+    });
+
+    // CopilotKit expects detach/attach helpers on agents; shim for HttpAgent.
+    const safeAgent = Object.assign(baseAgent, {
+      detachActiveRun: async () => {},
+      attachActiveRun: async () => {},
+    });
     return {
-      default: new HttpAgent({
-        agentId: "default",
-        description: "Local dev agent",
-        url: "/api/agents/execute",
-      }),
+      default: safeAgent,
     } as Record<string, any>;
   }, []);
 

@@ -1,25 +1,28 @@
 'use client';
 
+import { PreviewFrame } from "@/components/preview/PreviewFrame";
+
 export default function DashboardPage() {
   return (
     <div className="space-y-4">
-      <h1 className="text-3xl font-semibold">Dashboard</h1>
-      <p className="text-slate-300">Welcome to Aigent Z. Use the left menu to navigate between Aigents, iQube Operations, and the Registry.</p>
-      
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
-        <div className="rounded-2xl p-5 bg-white/5 ring-1 ring-white/10 hover:bg-white/10 transition">
-          <h2 className="text-xl font-medium mb-2">Aigents</h2>
-          <p className="text-slate-300 text-sm">Access Context Transformation with 5 specialized personas</p>
+      <div>
+        <h1 className="text-3xl font-semibold">Runtime</h1>
+        <p className="text-slate-300">metaMe Runtime defaults to the Smart Offer flow with device previews.</p>
+      </div>
+      <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-white">Runtime Preview</h2>
+            <p className="text-sm text-slate-400">Switch between mobile, tablet, and desktop.</p>
+          </div>
         </div>
-        
-        <div className="rounded-2xl p-5 bg-white/5 ring-1 ring-white/10 hover:bg-white/10 transition">
-          <h2 className="text-xl font-medium mb-2">iQube Operations</h2>
-          <p className="text-slate-300 text-sm">Manage iQubes: Enter ID, Activate, View, Decrypt, and Mint</p>
-        </div>
-        
-        <div className="rounded-2xl p-5 bg-white/5 ring-1 ring-white/10 hover:bg-white/10 transition">
-          <h2 className="text-xl font-medium mb-2">Registry</h2>
-          <p className="text-slate-300 text-sm">Browse, add, and analyze iQubes in the registry</p>
+        <div className="mt-4 h-[720px]">
+          <PreviewFrame
+            src="/metame/runtime/offer?embed=1&stub=1"
+            defaultDevice="mobile"
+            chromeless
+            fallback={<div className="w-full h-full bg-slate-950 text-slate-200 flex items-center justify-center text-sm">Runtime preview unavailable.</div>}
+          />
         </div>
       </div>
     </div>

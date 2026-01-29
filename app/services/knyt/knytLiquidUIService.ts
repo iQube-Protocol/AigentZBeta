@@ -22,9 +22,9 @@ import type {
   KnytContentType,
   KnytComposedScreen,
   DrawerGridLayoutVariant,
-} from '@/app/types/knytLiquidUI';
+} from '../../types/knytLiquidUI';
 
-import templatePackData from '@/app/data/knyt_liquid_ui_template_pack.json';
+import templatePackData from '../../data/knyt_liquid_ui_template_pack.json';
 
 // Type assertion for the imported JSON
 const templatePack = templatePackData as KnytLiquidUITemplatePack;

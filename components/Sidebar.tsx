@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useState, useEffect, ReactNode } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRef, useState, useEffect, ReactNode } from "react";
 import { 
   ChevronDown, 
   ChevronRight, 
@@ -34,7 +34,8 @@ import {
   BookOpen,
   Library,
   Sparkles,
-  MessageSquare
+  MessageSquare,
+  Hexagon
 } from "lucide-react";
 import { SubmenuDrawer } from "./SubmenuDrawer";
 
@@ -81,9 +82,12 @@ const FEATURE_OPS = process.env.NEXT_PUBLIC_FEATURE_OPS !== 'false';
 
 const sections: SidebarSection[] = [
   {
-    label: "Dashboard",
-    icon: <Home size={16} />,
-    items: [{ href: "/dashboard", label: "Dashboard", icon: <Home size={14} /> }],
+    label: "metaMe",
+    icon: <Hexagon size={16} className="text-slate-400" />,
+    items: [
+      { href: "/dashboard", label: "Runtime", icon: <Hexagon size={14} className="text-slate-400" /> },
+      { href: "/studio/composer", label: "Studio", icon: <SlidersHorizontal size={14} className="text-slate-400" /> },
+    ],
   },
   {
     label: "Persona",
@@ -189,8 +193,12 @@ const safeLocalStorage = {
 
 export const Sidebar = () => {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const router = useRouter();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
+  const [hovering, setHovering] = useState(false);
+  const [pinnedOpen, setPinnedOpen] = useState(false);
+  const collapseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // CRITICAL FIX: Initialize with a default open section for immediate UX
   const [openSections, setOpenSections] = useState<string[]>(["Persona"]); // Default to first non-dashboard section
   const [toggleStates, setToggleStates] = useState<Record<string, boolean>>({});
@@ -258,15 +266,7 @@ export const Sidebar = () => {
       });
       
       // Load collapsed state
-      let sidebarCollapsed = false;
-      const savedCollapsed = safeLocalStorage.getItem('sidebarCollapsed');
-      if (savedCollapsed) {
-        try {
-          sidebarCollapsed = JSON.parse(savedCollapsed);
-        } catch (e) {
-          console.error('Error parsing sidebarCollapsed:', e);
-        }
-      }
+      const sidebarCollapsed = true;
       
       // Only include sections with active items or from localStorage
       let initialOpenSections: string[] = [];
@@ -280,12 +280,12 @@ export const Sidebar = () => {
       }
       
       // CRITICAL FIX: Ensure at least one section is open by default for better UX
-      // If no sections are open from localStorage, open the first non-dashboard section
+      // If no sections are open from localStorage, open the first non-runtime section
       if (initialOpenSections.length === 0) {
-        // Find the first non-dashboard section and open it
-        const firstNonDashboardSection = sections.find(section => section.label !== "Dashboard");
-        if (firstNonDashboardSection) {
-          initialOpenSections = [firstNonDashboardSection.label];
+        // Find the first non-runtime section and open it
+      const firstNonRuntimeSection = sections.find(section => section.label !== "metaMe");
+        if (firstNonRuntimeSection) {
+          initialOpenSections = [firstNonRuntimeSection.label];
         }
       }
 
@@ -586,10 +586,40 @@ export const Sidebar = () => {
     // Only save toggle states, don't modify section expansion
     safeLocalStorage.setItem('toggleStates', JSON.stringify(toggleStates));
   }, [toggleStates, initialized, isClient, storageAvailable]);
+
+  useEffect(() => {
+    if (!hovering && !pinnedOpen) {
+      setCollapsed(true);
+    }
+  }, [hovering, pinnedOpen]);
+
+  const scheduleCollapse = (delayMs = 4500) => {
+    if (collapseTimerRef.current) {
+      clearTimeout(collapseTimerRef.current);
+    }
+    setPinnedOpen(true);
+    collapseTimerRef.current = setTimeout(() => {
+      setPinnedOpen(false);
+      setCollapsed(true);
+    }, delayMs);
+  };
+
+  const handleHoverStart = () => {
+    setHovering(true);
+    setCollapsed(false);
+  };
+
+  const handleHoverEnd = () => {
+    setHovering(false);
+    if (!pinnedOpen) {
+      setCollapsed(true);
+    }
+  };
   
   const toggleSection = (label: string) => {
     if (collapsed) {
       setCollapsed(false);
+      scheduleCollapse();
       setShowOnlyActive(prev => ({
         ...prev,
         [label]: false,
@@ -907,6 +937,14 @@ export const Sidebar = () => {
   const toggleSidebar = () => {
     const newState = !collapsed;
     setCollapsed(newState);
+    if (!newState) {
+      scheduleCollapse();
+    } else {
+      setPinnedOpen(false);
+      if (collapseTimerRef.current) {
+        clearTimeout(collapseTimerRef.current);
+      }
+    }
     
     // When collapsing the sidebar, ensure all sections show only active items
     if (newState) { // newState is true when collapsing
@@ -922,7 +960,7 @@ export const Sidebar = () => {
     }
     
     if (storageAvailable) {
-      safeLocalStorage.setItem('sidebarCollapsed', JSON.stringify(newState));
+      safeLocalStorage.setItem('sidebarCollapsed', JSON.stringify(true));
     }
   };
 
@@ -930,6 +968,7 @@ export const Sidebar = () => {
     if (!href || href.startsWith('#')) {
       return;
     }
+    scheduleCollapse();
     
     try {
       router.push(href);
@@ -959,9 +998,19 @@ export const Sidebar = () => {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
   
+  const hideForEmbed = searchParams?.get("embed") === "1" && pathname?.startsWith("/metame/runtime");
+
+  if (hideForEmbed) {
+    return null;
+  }
+
   return (
     <>
-      <aside className={`${collapsed ? "w-16" : "w-72"} relative z-[90] pointer-events-auto transition-all duration-200 bg-black/30 ring-1 ring-white/10 backdrop-blur-xl p-4 md:p-6 flex-shrink-0 h-screen flex flex-col overflow-hidden`}>
+      <aside
+        className={`${collapsed ? "w-16" : "w-72"} relative z-[90] pointer-events-auto transition-all duration-200 bg-black/30 ring-1 ring-white/10 backdrop-blur-xl p-4 md:p-6 flex-shrink-0 h-screen flex flex-col overflow-hidden`}
+        onMouseEnter={handleHoverStart}
+        onMouseLeave={handleHoverEnd}
+      >
         <div className="flex-shrink-0">
           <button className="mb-6 text-sm font-semibold text-slate-200 hover:text-white flex items-center gap-2 uppercase tracking-wider" onClick={toggleSidebar}>
             <Bot size={18} className="text-blue-400" />
@@ -971,20 +1020,20 @@ export const Sidebar = () => {
         </div>
       <nav className="space-y-6 flex-1 overflow-y-auto pr-1 pb-6">
         {sections.map((section) => {
-          const isDashboard = section.label === "Dashboard";
+          const isMetaMe = section.label === "metaMe";
           
           return (
             <div key={section.label}>
-              {/* Dashboard section is always shown */}
-              {isDashboard ? (
+              {/* metaMe section is always shown */}
+              {isMetaMe ? (
                 <div className="uppercase text-[11px] tracking-wider text-slate-400 mb-3 flex items-center group">
                   <div className="flex items-center justify-between w-full">
                     <Link 
                       href="/dashboard"
-                      className="flex items-center gap-2 text-slate-100 hover:text-white transition-colors"
+                      className="flex items-center gap-2 text-slate-200 hover:text-white transition-colors"
                     >
                       <div className="flex items-center gap-2">
-                        <span className="text-gray-500">{section.icon}</span>
+                        <span className="text-slate-400 group-hover:text-white transition-colors">{section.icon}</span>
                         {!collapsed && <span className="font-medium">{section.label}</span>}
                       </div>
                     </Link>
@@ -997,7 +1046,7 @@ export const Sidebar = () => {
                 >
                   <div className="flex items-center justify-between w-full">
                     <div className="flex items-center gap-2">
-                      <span className="text-gray-500">{section.icon}</span>
+                      <span className="text-slate-400 group-hover:text-white transition-colors">{section.icon}</span>
                       {!collapsed && <span className="font-medium">{section.label}</span>}
                     </div>
                     {!collapsed && (openSections.includes(section.label) ? (
@@ -1009,8 +1058,31 @@ export const Sidebar = () => {
                 </div>
               )}
 
-              {/* Expanded view for non-Dashboard sections */}
-              {openSections.includes(section.label) && !collapsed && !isDashboard && (
+              {isMetaMe && !collapsed && (
+                <div className="mb-4">
+                  <ul className="space-y-1">
+                    {section.items.map((item: SidebarItem) => {
+                      const active = pathname ? pathname.startsWith(item.href) : false;
+                      return (
+                        <li key={item.href}>
+                          <Link
+                            href={item.href}
+                            className={`group flex items-center w-full px-3 py-2 rounded-lg transition-colors ${active ? "bg-slate-700/50 text-slate-100" : "text-slate-500 hover:text-slate-300 hover:bg-slate-700/30"}`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className={active ? "text-white" : "text-slate-400 group-hover:text-white"}>{item.icon}</span>
+                              <span className="text-[13px]">{item.label}</span>
+                            </div>
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
+
+              {/* Expanded view for non-metaMe sections */}
+              {openSections.includes(section.label) && !collapsed && !isMetaMe && (
                 <div className="mb-4">
                   {section.label === "iQubes" ? (
                     <div className="space-y-3">
@@ -1309,8 +1381,8 @@ export const Sidebar = () => {
                 </div>
               )}
               
-              {/* Collapsed view for non-Dashboard sections - only show filtered submenu items */}
-              {collapsed && !isDashboard && (
+              {/* Collapsed view for non-Runtime sections - only show filtered submenu items */}
+              {collapsed && !isMetaMe && (
                 <div>
                   {/* Only show submenu items, filtered based on showOnlyActive state */}
                   {section.items
@@ -1373,6 +1445,30 @@ export const Sidebar = () => {
                         </div>
                       );
                     })}
+                </div>
+              )}
+
+              {collapsed && isMetaMe && (
+                <div className="mb-4">
+                  {section.items
+                    .filter((item: SidebarItem) => {
+                      const active = pathname ? pathname.startsWith(item.href) : false;
+                      return active;
+                    })
+                    .map((item: SidebarItem) => {
+                    const active = pathname ? pathname.startsWith(item.href) : false;
+                    return (
+                      <div key={item.href} className="flex justify-center mb-2 relative">
+                        <Link
+                          href={item.href}
+                          className={`group flex items-center justify-center rounded-xl p-2 text-[13px] hover:bg-slate-700/50 ${active ? "bg-slate-700/50" : "bg-transparent"}`}
+                          title={item.label}
+                        >
+                          <span className={active ? "text-white" : "text-slate-400 hover:text-white"}>{item.icon}</span>
+                        </Link>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>

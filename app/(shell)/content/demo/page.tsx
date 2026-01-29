@@ -1,11 +1,17 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { SmartContentCard, ContentViewer, SmartWalletDrawer } from "@/app/components/content";
+import React, { useMemo, useState, useEffect } from "react";
+import { SmartContentCard, ContentViewer, SmartWalletDrawer, SmartTriadProvider } from "@/app/components/content";
 import { PersonaSetupWizard } from "@/app/components/wallet";
 import { agentConfigs } from "@/app/data/agentConfig";
 import type { SmartContentQube } from "@/types/smartContent";
 import type { SmartWalletNode } from "@/types/smartWallet";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { liquidTemplateRegistry } from "@/app/triad/components/codex/liquidTemplates/registry";
+import { DevicePreviewSwitcher, DeviceType } from "@/components/preview/DevicePreviewSwitcher";
+import { PreviewFrame } from "@/components/preview/PreviewFrame";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import type { IQubeTemplate } from "@/types/registry";
 import { 
   Wallet, 
   BookOpen, 
@@ -478,6 +484,7 @@ const DEMO_WALLET: any = {
 // =============================================================================
 
 export default function SmartContentDemoPage() {
+  const [demoTab, setDemoTab] = useState<"content" | "templates">("content");
   const [selectedContent, setSelectedContent] = useState<SmartContentQube | null>(null);
   const [walletOpen, setWalletOpen] = useState(false);
   const [viewerOpen, setViewerOpen] = useState(false);
@@ -486,6 +493,12 @@ export default function SmartContentDemoPage() {
   const [loadingLive, setLoadingLive] = useState(true);
   const [purchaseContent, setPurchaseContent] = useState<SmartContentQube | null>(null);
   const [showPersonaWizard, setShowPersonaWizard] = useState(false);
+  const [liquidTemplates, setLiquidTemplates] = useState<IQubeTemplate[]>([]);
+  const [loadingLiquidTemplates, setLoadingLiquidTemplates] = useState(true);
+  const [templateDeviceById, setTemplateDeviceById] = useState<Record<string, DeviceType>>({});
+  const [templateSeedById, setTemplateSeedById] = useState<Record<string, number>>({});
+  const [templateGroup, setTemplateGroup] = useState<"discovery" | "detail" | "utility">("discovery");
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
   
   // Dynamic wallet state - starts with DEMO_WALLET and updates on actions
   const [walletState, setWalletState] = useState<any>(DEMO_WALLET);
@@ -550,6 +563,81 @@ export default function SmartContentDemoPage() {
       }
     }
     fetchContent();
+  }, []);
+
+  const contentPool = liveContent.length > 0 ? liveContent : DEMO_CONTENTS;
+
+  const templateContentById = useMemo(() => {
+    const shuffleWithSeed = (items: any[], seed: number) => {
+      const result = [...items];
+      let nextSeed = seed || 1;
+      for (let i = result.length - 1; i > 0; i -= 1) {
+        nextSeed = (nextSeed * 9301 + 49297) % 233280;
+        const rand = nextSeed / 233280;
+        const j = Math.floor(rand * (i + 1));
+        [result[i], result[j]] = [result[j], result[i]];
+      }
+      return result;
+    };
+
+    const mapped: Record<string, SmartContentQube[]> = {};
+    liquidTemplates.forEach((template) => {
+      const seed = templateSeedById[template.id] ?? 0;
+      const shuffled = shuffleWithSeed(contentPool, seed);
+      mapped[template.id] = shuffled.slice(0, Math.min(6, shuffled.length));
+    });
+    return mapped;
+  }, [contentPool, liquidTemplates, templateSeedById]);
+
+  const templateGroups = useMemo(() => {
+    const groups: Record<"discovery" | "detail" | "utility", IQubeTemplate[]> = {
+      discovery: [],
+      detail: [],
+      utility: [],
+    };
+
+    liquidTemplates.forEach((template) => {
+      const liquidTemplateId = template.metaExtras?.find((kv) => kv.k === 'liquid_template_id')?.v;
+      const fingerprint = `${template.name} ${template.description ?? ""} ${liquidTemplateId ?? ""}`.toLowerCase();
+      if (/(feed|grid|catalog|gallery|list|stream|collection|browse)/.test(fingerprint)) {
+        groups.discovery.push(template);
+      } else if (/(detail|reader|viewer|article|story|offer|checkout|player|preview)/.test(fingerprint)) {
+        groups.detail.push(template);
+      } else {
+        groups.utility.push(template);
+      }
+    });
+
+    return groups;
+  }, [liquidTemplates]);
+
+  const templatesForGroup = templateGroups[templateGroup] || [];
+
+  useEffect(() => {
+    if (templatesForGroup.length === 0) {
+      setSelectedTemplateId("");
+      return;
+    }
+    if (!selectedTemplateId || !templatesForGroup.some((t) => t.id === selectedTemplateId)) {
+      setSelectedTemplateId(templatesForGroup[0].id);
+    }
+  }, [templatesForGroup, selectedTemplateId]);
+
+  // Fetch Liquid UI template archetypes from iQube registry
+  useEffect(() => {
+    async function fetchLiquidTemplates() {
+      try {
+        const res = await fetch('/api/registry/templates?type=LiquidUITemplateArchetypeQube&limit=50');
+        const json = await res.json();
+        const items: IQubeTemplate[] = Array.isArray(json?.data) ? json.data : [];
+        setLiquidTemplates(items);
+      } catch (error) {
+        console.error('Failed to fetch Liquid UI templates:', error);
+      } finally {
+        setLoadingLiquidTemplates(false);
+      }
+    }
+    fetchLiquidTemplates();
   }, []);
 
   const handleContentSelect = (content: SmartContentQube) => {
@@ -663,8 +751,25 @@ export default function SmartContentDemoPage() {
       {/* Header */}
       <header className="sticky top-0 z-40 bg-black/30 backdrop-blur-xl border-b border-white/10">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-white">Smart Content Demo</h1>
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-2 text-white">
+                {demoTab === "content" ? (
+                  <BookOpen className="h-5 w-5 text-emerald-300" />
+                ) : (
+                  <Layers className="h-5 w-5 text-purple-300" />
+                )}
+                <h1 className="text-xl font-bold text-white">
+                  {demoTab === "content" ? "Smart Content Demo" : "Smart Templates Demo"}
+                </h1>
+              </div>
+              <Tabs value={demoTab} onValueChange={(value) => setDemoTab(value as "content" | "templates")}>
+                <TabsList className="bg-white/5 p-1">
+                  <TabsTrigger value="content" className="px-3">Smart Content (Registry)</TabsTrigger>
+                  <TabsTrigger value="templates" className="px-3">Liquid UI Templates (Registry)</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
             <p className="text-sm text-slate-400">
               Payer: <span className="text-blue-400">{PAYER_AGENT.name}</span> → 
               Recipient: <span className="text-green-400">{RECIPIENT_AGENT.name}</span>
@@ -680,47 +785,49 @@ export default function SmartContentDemoPage() {
         </div>
       </header>
 
-      {/* Hero Full (100vh) */}
-      <section>
-        <SmartContentCard
-          content={DEMO_CONTENTS[0]}
-          variant="hero"
-          heroHeight="full"
-          onSelect={handleContentSelect}
-          onPurchase={handlePurchase}
-          onAddToLibrary={handleAddToLibrary}
-        />
-      </section>
-
-      <main className="max-w-7xl mx-auto px-4 py-8 space-y-12">
-        {/* LIVE CONTENT FROM DATABASE */}
-        {liveContent.length > 0 && (
-          <section className="rounded-2xl bg-gradient-to-r from-emerald-500/10 via-cyan-500/10 to-purple-500/10 ring-1 ring-emerald-500/30 p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <span className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse" />
-              <h2 className="text-lg font-semibold text-emerald-400">Live Content from Database ({liveContent.length})</h2>
-            </div>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {liveContent.map((content) => (
-                <SmartContentCard
-                  key={content.id}
-                  content={content}
-                  variant="standard"
-                  onSelect={handleContentSelect}
-                  onPurchase={handlePurchase}
-                  onAddToLibrary={handleAddToLibrary}
-                />
-              ))}
-            </div>
+      {demoTab === "content" && (
+        <>
+          {/* Hero Full (100vh) */}
+          <section>
+            <SmartContentCard
+              content={DEMO_CONTENTS[0]}
+              variant="hero"
+              heroHeight="full"
+              onSelect={handleContentSelect}
+              onPurchase={handlePurchase}
+              onAddToLibrary={handleAddToLibrary}
+            />
           </section>
-        )}
 
-        {loadingLive && (
-          <section className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-6 text-center">
-            <div className="w-8 h-8 border-2 border-slate-600 border-t-cyan-400 rounded-full animate-spin mx-auto mb-2" />
-            <p className="text-slate-400">Loading live content...</p>
-          </section>
-        )}
+          <main className="max-w-7xl mx-auto px-4 py-8 space-y-12">
+            {/* LIVE CONTENT FROM DATABASE */}
+            {liveContent.length > 0 && (
+              <section className="rounded-2xl bg-gradient-to-r from-emerald-500/10 via-cyan-500/10 to-purple-500/10 ring-1 ring-emerald-500/30 p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <span className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse" />
+                  <h2 className="text-lg font-semibold text-emerald-400">Live Content from Database ({liveContent.length})</h2>
+                </div>
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {liveContent.map((content) => (
+                    <SmartContentCard
+                      key={content.id}
+                      content={content}
+                      variant="standard"
+                      onSelect={handleContentSelect}
+                      onPurchase={handlePurchase}
+                      onAddToLibrary={handleAddToLibrary}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {loadingLive && (
+              <section className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-6 text-center">
+                <div className="w-8 h-8 border-2 border-slate-600 border-t-cyan-400 rounded-full animate-spin mx-auto mb-2" />
+                <p className="text-slate-400">Loading live content...</p>
+              </section>
+            )}
 
         {/* Hero Short (66vh) */}
         <section>
@@ -1318,6 +1425,136 @@ memo: 'Payment for services'
           </div>
         </section>
       </main>
+        </>
+      )}
+
+      {demoTab === "templates" && (
+        <main className="max-w-7xl mx-auto px-4 py-8 space-y-8">
+          <section className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-6">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+              <p className="text-sm text-slate-400">Browse template families and preview device-specific layouts.</p>
+              <div className="text-xs text-slate-500">
+                {liquidTemplates.length} templates loaded
+              </div>
+            </div>
+
+            {loadingLiquidTemplates ? (
+              <div className="text-slate-400">Loading templates…</div>
+            ) : liquidTemplates.length === 0 ? (
+              <div className="text-slate-400">No Liquid UI templates found in registry.</div>
+            ) : (
+              <div className="space-y-6">
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="space-y-1">
+                    <div className="text-xs uppercase tracking-wide text-slate-500">Template Group</div>
+                    <Select value={templateGroup} onValueChange={(value) => setTemplateGroup(value as "discovery" | "detail" | "utility")}>
+                      <SelectTrigger className="bg-slate-950/60 border-slate-800">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="discovery">Discovery</SelectItem>
+                        <SelectItem value="detail">Detail</SelectItem>
+                        <SelectItem value="utility">Utility</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="text-xs uppercase tracking-wide text-slate-500">Template</div>
+                    <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
+                      <SelectTrigger className="bg-slate-950/60 border-slate-800">
+                        <SelectValue placeholder="Select template" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {templatesForGroup.map((template) => (
+                          <SelectItem key={template.id} value={template.id}>
+                            {template.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="text-xs uppercase tracking-wide text-slate-500">Device</div>
+                    <DevicePreviewSwitcher
+                      value={templateDeviceById[selectedTemplateId] || "mobile"}
+                      onChange={(next) =>
+                        setTemplateDeviceById((prev) => ({ ...prev, [selectedTemplateId]: next }))
+                      }
+                      className="bg-slate-950/60 border border-slate-800"
+                    />
+                  </div>
+                </div>
+
+                {selectedTemplateId && (() => {
+                  const selectedTemplate = liquidTemplates.find((t) => t.id === selectedTemplateId);
+                  if (!selectedTemplate) return null;
+                  const liquidTemplateId = selectedTemplate.metaExtras?.find((kv) => kv.k === 'liquid_template_id')?.v;
+                  const FallbackComponent = liquidTemplateRegistry['liquidui:reader_viewer_v1'];
+                  const TemplateComponent = (liquidTemplateId && liquidTemplateRegistry[liquidTemplateId]) || FallbackComponent;
+                  const device = templateDeviceById[selectedTemplate.id] || "mobile";
+                  const templateContents = templateContentById[selectedTemplate.id] || contentPool;
+                  const primaryContent = templateContents[0] || DEMO_CONTENTS[0];
+
+                  return (
+                    <div className="rounded-2xl bg-black/20 ring-1 ring-white/10 p-4 space-y-3">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <div className="text-sm text-slate-400">{liquidTemplateId || 'unknown-template'}</div>
+                          <div className="text-white font-medium">{selectedTemplate.name}</div>
+                          <div className="text-xs text-slate-500">{selectedTemplate.description}</div>
+                        </div>
+                        <button
+                          className="rounded-lg border border-slate-700 px-3 py-1 text-xs text-slate-300 hover:text-white hover:border-slate-500"
+                          onClick={() =>
+                            setTemplateSeedById((prev) => ({ ...prev, [selectedTemplate.id]: Date.now() }))
+                          }
+                        >
+                          Refresh Modules
+                        </button>
+                      </div>
+
+                      <div className="h-[520px]">
+                        {TemplateComponent ? (
+                          <PreviewFrame
+                            key={`${selectedTemplate.id}-${device}-${templateSeedById[selectedTemplate.id] || 0}`}
+                            defaultDevice={device}
+                            showToolbar={false}
+                            chromeless
+                          >
+                            <div className="min-h-[520px]">
+                              <SmartTriadProvider initialContent={primaryContent}>
+                                <TemplateComponent
+                                  contentObjects={templateContents}
+                                  device={device}
+                                  contentObject={primaryContent}
+                                  messages={[]}
+                                  events={[]}
+                                  lineItems={[]}
+                                  listings={[]}
+                                  columns={[]}
+                                  points={[]}
+                                  session={{ intent: "template-demo" }}
+                                  document={{}}
+                                  nodes={[]}
+                                  project={{}}
+                                  cells={[]}
+                                  settings={{ device }}
+                                />
+                              </SmartTriadProvider>
+                            </div>
+                          </PreviewFrame>
+                        ) : (
+                          <div className="text-slate-400">Template component not registered.</div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+          </section>
+        </main>
+      )}
 
       {/* Content Viewer Modal */}
       {viewerOpen && selectedContent && (

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import { CacheManager, CDNCache, CacheInvalidation } from '../../../utils/cache';
 import { withMetrics, BusinessMetrics, HealthMetrics } from '../../../utils/metrics';
+import { getStore } from './store';
 
 // Minimal Supabase REST client using fetch so we avoid adding a new dependency.
 function buildUrl(base: string, path: string, params?: Record<string, string>) {
@@ -159,21 +160,54 @@ const getHandler = async (req: Request) => {
       });
     } catch (error) {
       console.error('[RegistryTemplates] Fetch failed:', error);
+      const search = url.searchParams.get('search') || '';
+      const type = url.searchParams.get('type') || '';
+      const instance = url.searchParams.get('instance') || '';
+      const businessModel = url.searchParams.get('businessModel') || '';
+      const sort = url.searchParams.get('sort');
+
+      const items = getStore();
+      const filtered = items
+        .filter(t => {
+          if (search) {
+            const s = search.toLowerCase();
+            if (!t.name.toLowerCase().includes(s) && !t.description.toLowerCase().includes(s)) return false;
+          }
+          if (type && t.iQubeType && t.iQubeType !== type) return false;
+          if (instance && t.iQubeInstanceType && t.iQubeInstanceType !== instance) return false;
+          if (businessModel && t.businessModel && t.businessModel !== businessModel) return false;
+          return true;
+        })
+        .sort((a, b) => {
+          const ta = Date.parse(a.createdAt || '') || 0;
+          const tb = Date.parse(b.createdAt || '') || 0;
+          return sort === 'oldest' ? ta - tb : tb - ta;
+        });
+
+      const offset = (page - 1) * limit;
+      const pageItems = filtered.slice(offset, offset + limit);
+      const totalCount = filtered.length;
+      const totalPages = Math.max(1, Math.ceil(totalCount / limit));
+      const hasNextPage = page < totalPages;
+      const hasPrevPage = page > 1;
+
       const fallbackPagination = {
         currentPage: page,
-        totalPages: 1,
-        totalCount: 0,
+        totalPages,
+        totalCount,
         limit,
-        hasNextPage: false,
-        hasPrevPage: false,
-        nextPage: null,
-        prevPage: null,
+        hasNextPage,
+        hasPrevPage,
+        nextPage: hasNextPage ? page + 1 : null,
+        prevPage: hasPrevPage ? page - 1 : null,
       };
+
       return NextResponse.json(
         {
-          data: [],
+          data: pageItems,
           pagination: fallbackPagination,
           error: error instanceof Error ? error.message : 'Registry fetch failed',
+          _devFallback: true,
         },
         { headers: CDNCache.getHeaders({ ttl: 0 }) }
       );

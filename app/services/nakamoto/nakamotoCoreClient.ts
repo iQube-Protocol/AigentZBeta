@@ -8,10 +8,10 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import type { TenantId, DocumentScope, NakamotoDocument, NakamotoPrompt, TenantInfo } from '@/app/types/nakamoto';
 
-// Core Hub configuration (from Nakamoto migration)
+// Core Hub configuration (Nakamoto-specific Core Hub)
 const CORE_HUB_URL = 'https://bsjhfvctmduxhohtllly.supabase.co';
-const CORE_HUB_ANON_KEY = process.env.NEXT_PUBLIC_CORE_SUPABASE_ANON_KEY || '';
-const CORE_HUB_SERVICE_ROLE_KEY = process.env.NEXT_PUBLIC_CORE_SUPABASE_SERVICE_ROLE_KEY || '';
+const CORE_HUB_ANON_KEY = process.env.NEXT_PUBLIC_CORE_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+const CORE_HUB_SERVICE_ROLE_KEY = process.env.NEXT_PUBLIC_CORE_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
 export type { TenantId, DocumentScope, NakamotoDocument, NakamotoPrompt, TenantInfo };
 
@@ -26,7 +26,7 @@ export class NakamotoCoreClient {
     const keyToUse = anonKey || (!isProd ? serviceKey : '');
 
     if (!keyToUse) {
-      console.warn('[NakamotoCoreClient] Missing CORE Hub Supabase key. Set NEXT_PUBLIC_CORE_SUPABASE_ANON_KEY.');
+      console.warn('[NakamotoCoreClient] Missing Supabase key. Set NEXT_PUBLIC_CORE_SUPABASE_ANON_KEY or NEXT_PUBLIC_SUPABASE_ANON_KEY.');
     }
 
     if (!anonKey && !isProd && serviceKey) {
@@ -60,7 +60,7 @@ export class NakamotoCoreClient {
   async checkConnection(): Promise<{ success: boolean; error?: string }> {
     try {
       if (!CORE_HUB_ANON_KEY && (process.env.NODE_ENV === 'production' || !CORE_HUB_SERVICE_ROLE_KEY)) {
-        return { success: false, error: 'Missing CORE Hub Supabase key (NEXT_PUBLIC_CORE_SUPABASE_ANON_KEY)' };
+        return { success: false, error: 'Missing Supabase key (NEXT_PUBLIC_CORE_SUPABASE_ANON_KEY or NEXT_PUBLIC_SUPABASE_ANON_KEY)' };
       }
       const { data, error } = await this.client
         .from('tenants')

@@ -10,7 +10,7 @@
  */
 
 import { getSmartContentService } from "@/services/content";
-import { getSmartMenuIntegrationService } from "@/services/content/smartMenuIntegration";
+import { getSmartMenuIntegrationService, selectCompassActions } from "@/services/content/smartMenuIntegration";
 import { agentConfigs } from "@/app/data/agentConfig";
 import type { SmartContentQube } from "@/types/smartContent";
 
@@ -353,37 +353,31 @@ Use when user opens content or says: "show me this content", "configure view", e
       // Determine wallet mode based on access
       const walletMode = hasAccess ? "compact" : "full"; // Show full wallet if purchase needed
 
-      // Build actions
-      const actions: Array<{ id: string; type: string; label: string; handler: string; isPrimary: boolean }> = [];
-      
-      if (!hasAccess && content.pricingModel?.tiers?.length) {
-        const tier = content.pricingModel.tiers[0];
-        actions.push({
-          id: "action_purchase",
-          type: "payment",
-          label: `Buy for ${tier.amount} ${tier.currency}`,
-          handler: "triad_purchase_content",
-          isPrimary: true,
-        });
-      }
+      // Build compass actions (deterministic ranking, 3 primary max)
+      const hasPaidTier = !!content.pricingModel?.tiers?.some((tier) => (tier.amount ?? 0) > 0);
+      const directive = !hasAccess && hasPaidTier ? "buy" : "play";
+      const compassActions = selectCompassActions(
+        {
+          directive,
+          content,
+          ownedContent: hasAccess,
+          hasActivePersona: Boolean(personaId),
+          mode: "runtime",
+        },
+        {
+          handlerOverrides: {
+            pay: "triad_purchase_content",
+          },
+        }
+      );
 
-      actions.push({
-        id: "action_bookmark",
-        type: "bookmark",
-        label: hasAccess ? "In Library" : "Add to Wishlist",
-        handler: "triad_add_to_library",
-        isPrimary: false,
-      });
-
-      if (content.modalities?.interact?.enabled) {
-        actions.push({
-          id: "action_chat",
-          type: "agent",
-          label: "Chat with Agent",
-          handler: "triad_agent_chat",
-          isPrimary: false,
-        });
-      }
+      const actions = compassActions.map(({ id, type, label, handler, isPrimary }) => ({
+        id,
+        type,
+        label,
+        handler,
+        isPrimary,
+      }));
 
       // Build manifest
       const manifest = {

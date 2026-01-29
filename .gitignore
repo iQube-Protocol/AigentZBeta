@@ -87,6 +87,9 @@ secrets/
 # Next.js
 .next/
 
+apps/metame/.local/
+apps/metame/KNYTDesignQube/source/*.xd
+
 # Ignore nested project copy if present
 AigentZBeta/
 

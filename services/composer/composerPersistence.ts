@@ -13,6 +13,16 @@ import {
   type ComposerSessionData,
   type ExperienceQubeData,
 } from "@/services/composer/composerStore";
+import {
+  deleteExperienceLocal,
+  deleteSessionLocal,
+  getExperienceLocal,
+  getSessionLocal,
+  listExperiencesLocal,
+  listSessionsLocal,
+  upsertExperienceLocal,
+  upsertSessionLocal,
+} from "@/services/composer/composerLocalDb";
 
 const EXPERIENCE_TABLE = "composer_experience_qubes";
 const SESSION_TABLE = "composer_sessions";
@@ -161,6 +171,7 @@ export async function createExperienceRecord(experience: ExperienceQubeData): Pr
   if (error || !data) {
     console.warn("Composer persistence fallback (create experience)", error?.message || error);
     createStoreExperienceQube(experience);
+    await upsertExperienceLocal(experience);
     return experience;
   }
 
@@ -170,7 +181,7 @@ export async function createExperienceRecord(experience: ExperienceQubeData): Pr
 export async function getExperienceRecord(id: string): Promise<ExperienceQubeData | null> {
   const supabase = getSupabase();
   if (!supabase) {
-    return getStoreExperienceQube(id) || null;
+    return (await getExperienceLocal(id)) || getStoreExperienceQube(id) || null;
   }
 
   const { data, error } = await supabase.from(EXPERIENCE_TABLE).select("*").eq("id", id).single();
@@ -178,7 +189,7 @@ export async function getExperienceRecord(id: string): Promise<ExperienceQubeDat
     if (error) {
       console.warn("Composer persistence fallback (get experience)", error.message);
     }
-    return getStoreExperienceQube(id) || null;
+    return (await getExperienceLocal(id)) || getStoreExperienceQube(id) || null;
   }
 
   return mapRowToExperience(data as ExperienceRow);
@@ -197,7 +208,10 @@ export async function listExperienceRecords(params: {
   const offset = params.offset || 0;
 
   if (!supabase) {
-    let items = getAllExperienceQubes();
+    let items = await listExperiencesLocal(params);
+    if (items.length === 0) {
+      items = getAllExperienceQubes();
+    }
     if (params.tenant_id) items = items.filter((exp) => exp.tenant_id === params.tenant_id);
     if (params.creator_id) items = items.filter((exp) => exp.creator_id === params.creator_id);
     if (params.status) items = items.filter((exp) => exp.status === params.status);
@@ -217,7 +231,11 @@ export async function listExperienceRecords(params: {
   const { data, error } = await query;
   if (error || !data) {
     console.warn("Composer persistence fallback (list experiences)", error?.message || error);
-    const items = getAllExperienceQubes();
+    const items = await listExperiencesLocal(params);
+    if (items.length === 0) {
+      const storeItems = getAllExperienceQubes();
+      return { items: storeItems, total: storeItems.length };
+    }
     return { items, total: items.length };
   }
 
@@ -235,6 +253,10 @@ export async function updateExperienceRecord(
   const supabase = getSupabase();
   if (!supabase) {
     const success = updateStoreExperienceQube(id, updates);
+    if (success) {
+      const next = getStoreExperienceQube(id);
+      if (next) await upsertExperienceLocal(next);
+    }
     return success ? getStoreExperienceQube(id) || null : null;
   }
 
@@ -261,6 +283,7 @@ export async function updateExperienceRecord(
   if (error || !data) {
     console.warn("Composer persistence fallback (update experience)", error?.message || error);
     const success = updateStoreExperienceQube(id, merged);
+    if (success) await upsertExperienceLocal(merged);
     return success ? getStoreExperienceQube(id) || null : null;
   }
 
@@ -270,13 +293,17 @@ export async function updateExperienceRecord(
 export async function deleteExperienceRecord(id: string): Promise<boolean> {
   const supabase = getSupabase();
   if (!supabase) {
-    return deleteStoreExperienceQube(id);
+    const deleted = deleteStoreExperienceQube(id);
+    if (deleted) await deleteExperienceLocal(id);
+    return deleted;
   }
 
   const { error } = await supabase.from(EXPERIENCE_TABLE).delete().eq("id", id);
   if (error) {
     console.warn("Composer persistence fallback (delete experience)", error.message);
-    return deleteStoreExperienceQube(id);
+    const deleted = deleteStoreExperienceQube(id);
+    if (deleted) await deleteExperienceLocal(id);
+    return deleted;
   }
 
   return true;
@@ -286,6 +313,7 @@ export async function createSessionRecord(session: ComposerSessionData): Promise
   const supabase = getSupabase();
   if (!supabase) {
     createStoreSession(session);
+    await upsertSessionLocal(session);
     return session;
   }
 
@@ -299,6 +327,7 @@ export async function createSessionRecord(session: ComposerSessionData): Promise
   if (error || !data) {
     console.warn("Composer persistence fallback (create session)", error?.message || error);
     createStoreSession(session);
+    await upsertSessionLocal(session);
     return session;
   }
 
@@ -308,13 +337,13 @@ export async function createSessionRecord(session: ComposerSessionData): Promise
 export async function getSessionRecord(id: string): Promise<ComposerSessionData | null> {
   const supabase = getSupabase();
   if (!supabase) {
-    return getStoreSession(id) || null;
+    return (await getSessionLocal(id)) || getStoreSession(id) || null;
   }
 
   const { data, error } = await supabase.from(SESSION_TABLE).select("*").eq("id", id).single();
   if (error || !data) {
     if (error) console.warn("Composer persistence fallback (get session)", error.message);
-    return getStoreSession(id) || null;
+    return (await getSessionLocal(id)) || getStoreSession(id) || null;
   }
 
   return mapRowToSession(data as SessionRow);
@@ -327,6 +356,10 @@ export async function updateSessionRecord(
   const supabase = getSupabase();
   if (!supabase) {
     const success = updateStoreSession(id, updates);
+    if (success) {
+      const next = getStoreSession(id);
+      if (next) await upsertSessionLocal(next);
+    }
     return success ? getStoreSession(id) || null : null;
   }
 
@@ -348,6 +381,7 @@ export async function updateSessionRecord(
   if (error || !data) {
     console.warn("Composer persistence fallback (update session)", error?.message || error);
     const success = updateStoreSession(id, merged);
+    if (success) await upsertSessionLocal(merged);
     return success ? getStoreSession(id) || null : null;
   }
 
@@ -357,13 +391,17 @@ export async function updateSessionRecord(
 export async function deleteSessionRecord(id: string): Promise<boolean> {
   const supabase = getSupabase();
   if (!supabase) {
-    return deleteStoreSession(id);
+    const deleted = deleteStoreSession(id);
+    if (deleted) await deleteSessionLocal(id);
+    return deleted;
   }
 
   const { error } = await supabase.from(SESSION_TABLE).delete().eq("id", id);
   if (error) {
     console.warn("Composer persistence fallback (delete session)", error.message);
-    return deleteStoreSession(id);
+    const deleted = deleteStoreSession(id);
+    if (deleted) await deleteSessionLocal(id);
+    return deleted;
   }
 
   return true;
@@ -376,7 +414,8 @@ export async function listSessionRecords(params: {
 }): Promise<ComposerSessionData[]> {
   const supabase = getSupabase();
   if (!supabase) {
-    let sessions = getAllSessions();
+    let sessions = await listSessionsLocal(params);
+    if (sessions.length === 0) sessions = getAllSessions();
     if (params.user_id) sessions = sessions.filter((s) => s.user_id === params.user_id);
     if (params.tenant_id) sessions = sessions.filter((s) => s.tenant_id === params.tenant_id);
     if (params.status) sessions = sessions.filter((s) => s.status === params.status);
@@ -391,7 +430,9 @@ export async function listSessionRecords(params: {
   const { data, error } = await query;
   if (error || !data) {
     console.warn("Composer persistence fallback (list sessions)", error?.message || error);
-    return getAllSessions();
+    const sessions = await listSessionsLocal(params);
+    if (sessions.length === 0) return getAllSessions();
+    return sessions;
   }
 
   return (data as SessionRow[]).map(mapRowToSession);
