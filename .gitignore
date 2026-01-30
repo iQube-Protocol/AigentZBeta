@@ -87,6 +87,9 @@ secrets/
 # Next.js
 .next/
 
+# TypeScript incremental build info
+*.tsbuildinfo
+
 apps/metame/.local/
 apps/metame/KNYTDesignQube/source/*.xd
 

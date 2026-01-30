@@ -2,7 +2,7 @@
 
 import "../globals.css";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { ToastProvider } from "../../components/ui/toaster";
 import { AGUIProvider } from "../components/AGUIProvider";
 import { Sidebar } from "../../components/Sidebar";
@@ -52,7 +52,7 @@ function ShellLayoutContent({ children }: { children: React.ReactNode }) {
               {/* Content Area */}
               <main className="flex-1 overflow-y-auto">
                 <div className="p-6 md:p-8 lg:p-10">
-                  {children}
+                  <Suspense fallback={null}>{children}</Suspense>
                 </div>
               </main>
             </div>
