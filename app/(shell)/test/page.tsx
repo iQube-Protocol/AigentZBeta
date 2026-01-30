@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RefreshCw, Play, CheckCircle, XCircle, AlertCircle } from "lucide-react";
@@ -165,6 +165,7 @@ export default function TestPage() {
   }
 
   return (
+    <Suspense fallback={null}>
     <div className="space-y-6 max-w-4xl">
       <div>
         <h1 className="text-3xl font-semibold">Testing Dashboard</h1>
@@ -267,5 +268,6 @@ export default function TestPage() {
         </div>
       )}
     </div>
+    </Suspense>
   );
 }

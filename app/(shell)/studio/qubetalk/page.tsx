@@ -1,5 +1,10 @@
 import QubeTalkConsole from "@/components/qubetalk/QubeTalkConsole";
+import { Suspense } from "react";
 
 export default function QubeTalkStudioPage() {
-  return <QubeTalkConsole mode="studio" />;
+  return (
+    <Suspense fallback={null}>
+      <QubeTalkConsole mode="studio" />
+    </Suspense>
+  );
 }

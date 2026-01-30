@@ -1,4 +1,5 @@
 import { AddIQuBeForm } from "../../../../components/registry/AddIQuBeForm";
+import { Suspense } from "react";
 
 export default function RegistryAddPage() {
   return (
@@ -7,7 +8,9 @@ export default function RegistryAddPage() {
       <p className="text-slate-300 mb-4">
         Create and register a new iQube. This form allows you to configure MetaQube, BlakQube, and optionally mint a TokenQube.
       </p>
-      <AddIQuBeForm />
+      <Suspense fallback={null}>
+        <AddIQuBeForm />
+      </Suspense>
     </div>
   );
 }
