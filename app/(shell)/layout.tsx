@@ -2,7 +2,7 @@
 
 import "../globals.css";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Suspense, useState } from 'react';
+import { Suspense, useState, useMemo } from 'react';
 import { ToastProvider } from "../../components/ui/toaster";
 import { AGUIProvider } from "../components/AGUIProvider";
 import { Sidebar } from "../../components/Sidebar";
@@ -10,6 +10,7 @@ import { MetaAvatarProvider } from "../contexts/MetaAvatarContext";
 import MetaAvatar from "../components/metaVatar/MetaAvatar";
 import { useMetaAvatar } from "../contexts/MetaAvatarContext";
 import AgentiQBootstrap from "../providers/AgentiQBootstrap";
+import { usePathname, useSearchParams } from "next/navigation";
 
 function ShellLayoutContent({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient({
@@ -22,6 +23,12 @@ function ShellLayoutContent({ children }: { children: React.ReactNode }) {
   }));
   
   const { avatarInitialized, activeContainer, avatarRefreshKey } = useMetaAvatar();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const isRuntimeEmbed = useMemo(
+    () => searchParams?.get("embed") === "1" && pathname?.startsWith("/metame/runtime"),
+    [searchParams, pathname]
+  );
 
   // CSS positioning classes for each MetaAvatar container type
   const METAAVATAR_POSITION_CLASSES = {
@@ -44,14 +51,23 @@ function ShellLayoutContent({ children }: { children: React.ReactNode }) {
       <AGUIProvider runtimeUrl="/api/copilotkit">
         <ToastProvider>
           <div className="h-full bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-slate-100">
+            {pathname?.startsWith("/metame/runtime") && (
+              <style jsx global>{`
+                .copilotkit-launcher,
+                .copilotkit-button,
+                .copilotkit-floating-button {
+                  display: none !important;
+                }
+              `}</style>
+            )}
             <div className="flex h-screen overflow-hidden">
-              {/* Original Sidebar */}
-              <div className="flex-shrink-0">
-                <Sidebar />
-              </div>
-              {/* Content Area */}
+              {!isRuntimeEmbed && (
+                <div className="flex-shrink-0">
+                  <Sidebar />
+                </div>
+              )}
               <main className="flex-1 overflow-y-auto">
-                <div className="p-6 md:p-8 lg:p-10">
+                <div className={isRuntimeEmbed ? "h-full w-full p-0" : "p-6 md:p-8 lg:p-10"}>
                   <Suspense fallback={null}>{children}</Suspense>
                 </div>
               </main>

@@ -288,6 +288,10 @@ This document tracks work items from sprint plans that have been deprioritized o
   - Fine-grained spacing adjustments
   - Pixel-perfect alignment passes
 
+- [ ] **Active Cartridge → Tenant Binding**
+  - Use the active cartridge context to set the QubeTalk tenant id
+  - Default to `metame` when no cartridge is active
+
 - [ ] **Documentation with Screenshots**
   - Add screenshots to OPERATORS_MANUAL.md
   - Create workflow diagrams

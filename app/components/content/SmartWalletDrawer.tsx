@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { useBalances } from "@/app/hooks/useBalances";
 import { useDVNEvents } from "@/app/hooks/useDVNEvents";
 import { useKnytBalance } from "@/app/hooks/useKnytBalance";
@@ -67,6 +68,11 @@ import {
   Crown,
   Copy,
 } from "lucide-react";
+const CodexCopilotLayer = dynamic(
+  () => import("@/app/components/codex/CodexCopilotLayer").then((m) => m.CodexCopilotLayer),
+  { ssr: false }
+);
+
 
 // Tooltip component for icon hints
 const Tooltip = ({ children, text }: { children: React.ReactNode; text: string }) => (
@@ -105,9 +111,11 @@ interface SmartWalletDrawerProps {
   onSubmitReputationClaim?: (claimData: any) => void;
   onOpenCopilot?: () => void;
   showCopilot?: boolean;
+  onCopilotPrompt?: (prompt: string) => void;
   variant?: 'overlay' | 'embedded';
   embeddedWidth?: 'fill' | 'fixed';
   codexMode?: boolean;
+  onTabChange?: (tab: DrawerTab) => void;
 }
 
 const TAB_CONFIG: Array<{ key: DrawerTab; label: string; icon: React.ReactNode }> = [
@@ -135,6 +143,7 @@ export default function SmartWalletDrawer({
   onSubmitReputationClaim,
   onOpenCopilot,
   showCopilot = false,
+  onTabChange,
   variant = 'overlay',
   embeddedWidth = 'fill',
   codexMode = false,
@@ -184,6 +193,14 @@ export default function SmartWalletDrawer({
       process.env.NEXT_PUBLIC_LVB_BRIDGE_TENANT_ID ||
       "default"
   );
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
+
+  useEffect(() => {
+    onTabChange?.(activeTab);
+  }, [activeTab, onTabChange]);
   
   // MetaAvatar context for persistent iframe
   const { requestAvatar, releaseAvatar, refreshAvatar } = useMetaAvatar();
@@ -881,36 +898,31 @@ export default function SmartWalletDrawer({
 
   // Variant-based styling
   const getDrawerClasses = () => {
-    if (variant === 'embedded') {
+    if (variant === "embedded") {
       // For embedded mode, always use contained width
       const baseClasses = `h-full bg-slate-900 text-white border-l border-slate-800`;
-      
+
       // Codex mode: expand to 28rem when wallet copilot opens, right-justified, contained
       if (codexMode) {
         const drawerWidth = copilotOpen ? "w-[28rem]" : "w-96";
         return `${baseClasses} ${drawerWidth} border-indigo-500/30 ml-auto`;
       }
-      
+
       // Regular embedded mode
-      if (embeddedWidth === 'fill') {
+      if (embeddedWidth === "fill") {
         return `${baseClasses} w-full`;
-      } else {
-        return `${baseClasses} w-96 ml-auto`;
       }
+      return `${baseClasses} w-96 ml-auto`;
     }
     // Overlay mode
     // In codex mode, prevent expansion when copilot is open
-    const drawerWidth = (copilotOpen && !codexMode) ? "w-[28rem]" : "w-[21.6rem]";
+    const drawerWidth = copilotOpen && !codexMode ? "w-[28rem]" : "w-[21.6rem]";
     const baseClasses = `fixed inset-y-0 right-0 ${drawerWidth} shadow-2xl bg-black/30 backdrop-blur-xl ring-1 ring-white/10 border-l border-white/10`;
     return codexMode ? `${baseClasses} ring-indigo-500/30 border-l-indigo-500/30` : baseClasses;
   };
 
-  const getBackdropClasses = () => {
-    return variant === 'overlay' ? 'fixed inset-0 z-50' : '';
-  };
-
   return (
-    <div className={variant === 'overlay' ? 'fixed inset-0 z-50' : ''}>
+    <div className={variant === "overlay" ? "fixed inset-0 z-50" : ""}>
       {variant === 'overlay' && (
         <div className="absolute inset-0 drawer-backdrop bg-black/60 backdrop-blur-sm" onClick={onClose} />
       )}
@@ -980,7 +992,27 @@ export default function SmartWalletDrawer({
         </div>
 
         {/* Copilot Panel (slides over content when active) - Subtle styling */}
-        {copilotOpen && (
+        {copilotOpen && codexMode ? (
+          <div className="absolute inset-x-0 top-[88px] bottom-0 z-10 overflow-hidden">
+            <style jsx global>{`
+              .copilotkit-launcher,
+              .copilotkit-button,
+              .copilotkit-floating-button {
+                display: none !important;
+              }
+            `}</style>
+            <CodexCopilotLayer
+              isOpen
+              onClose={() => setCopilotOpen(false)}
+              variant="embedded"
+              panelClassName="w-full"
+              showNavMenu={false}
+              showWalletMenu={false}
+              disableActivationButton
+              className="h-full"
+            />
+          </div>
+        ) : (
           <div className="absolute inset-x-0 top-[88px] bottom-0 bg-slate-950/90 backdrop-blur-2xl z-10 flex flex-col animate-fade-in">
             {/* Header - minimal purple accent */}
             <div className="flex items-center justify-between px-4 py-2 bg-white/5 border-b border-white/10 backdrop-blur-xl">

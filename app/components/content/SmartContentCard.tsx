@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { BookOpen, Play, Headphones, MessageSquare } from "lucide-react";
+import { BookOpen, Play, Headphones, MessageSquare, Pill, Eye, Share2 } from "lucide-react";
 import type { SmartContentQube, ContentModality } from "@/types/smartContent";
 import { ContentActionIcons } from "./ContentActionIcons";
 import type { IconStyle } from "./ContentActionIcons";
@@ -58,6 +58,8 @@ interface SmartContentCardProps {
   iframeSrc?: string;
   /** Show limited/exclusive badge */
   isLimited?: boolean;
+  /** Selected state (for capsule highlights) */
+  isSelected?: boolean;
   /** Compound card links (for compound variant) */
   compoundLinks?: CompoundLink[];
   /** Code snippet to display (for compound variant) */
@@ -65,6 +67,9 @@ interface SmartContentCardProps {
   showProgress?: boolean;
   progressPercentage?: number;
   onSelect?: (content: SmartContentQube) => void;
+  onOpen?: (content: SmartContentQube) => void;
+  onPreview?: (content: SmartContentQube) => void;
+  onShare?: (content: SmartContentQube) => void;
   onPurchase?: (content: SmartContentQube) => void;
   onAddToLibrary?: (content: SmartContentQube) => void;
   isOwned?: boolean;
@@ -91,6 +96,15 @@ const APP_COLORS: Record<string, string> = {
   AgentiQ: "from-emerald-500/20 to-teal-500/20 ring-emerald-500/30",
 };
 
+const hashString = (value: string) => {
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash << 5) - hash + value.charCodeAt(i);
+    hash |= 0;
+  }
+  return hash;
+};
+
 export default function SmartContentCard({
   content,
   variant = "standard",
@@ -99,11 +113,15 @@ export default function SmartContentCard({
   iframeHeight = "short",
   iframeSrc,
   isLimited = false,
+  isSelected = false,
   compoundLinks = [],
   codeSnippet,
   showProgress = false,
   progressPercentage = 0,
   onSelect,
+  onOpen,
+  onPreview,
+  onShare,
   onPurchase,
   onAddToLibrary,
   isOwned = false,
@@ -285,25 +303,45 @@ export default function SmartContentCard({
   }
 
   if (variant === "compact") {
+    const hasCapsuleBadge = content.libraryMetadata?.tags?.includes("capsule");
+    const handleOpen = () => (onOpen || onSelect)?.(content);
+    const handlePreview = () => (onPreview || onSelect)?.(content);
+    const handleShare = () => (onShare || onSelect)?.(content);
+    const fallbackImages = [
+      "https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=800&q=80",
+      "https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?w=800&q=80",
+      "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=800&q=80",
+      "https://images.unsplash.com/photo-1452457807411-4979b707c5be?w=800&q=80",
+      "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=800&q=80",
+    ];
+    const fallbackImage = fallbackImages[Math.abs(hashString(content.id || content.title)) % fallbackImages.length];
+    const coverSrc = content.coverImageUri || fallbackImage;
     return (
       <button
         onClick={() => onSelect?.(content)}
-        className={`w-full text-left rounded-xl bg-gradient-to-br ${appColor} ring-1 ring-white/10 p-3 hover:ring-white/20 transition-all group`}
+        className={`w-full text-left rounded-xl bg-gradient-to-br ${appColor} ring-1 p-3 transition-all group ${
+          isSelected ? "ring-cyan-400/60 bg-cyan-500/10" : "ring-white/10 hover:ring-white/20"
+        }`}
       >
         <div className="flex items-start gap-3">
-          {content.coverImageUri && (
-            <div className="w-12 h-12 rounded-lg bg-black/30 overflow-hidden flex-shrink-0">
-              <img
-                src={content.coverImageUri}
-                alt={content.title}
-                className="w-full h-full object-cover"
-              />
-            </div>
-          )}
+          <div className="w-12 h-12 rounded-lg bg-black/30 overflow-hidden flex-shrink-0">
+            <img
+              src={coverSrc}
+              alt={content.title}
+              className="w-full h-full object-cover"
+            />
+          </div>
           <div className="flex-1 min-w-0">
-            <h4 className="text-sm font-medium text-slate-100 truncate group-hover:text-white">
-              {content.title}
-            </h4>
+            <div className="flex items-center justify-between gap-2">
+              <h4 className="text-sm font-medium text-slate-100 truncate group-hover:text-white">
+                {content.title}
+              </h4>
+              {hasCapsuleBadge && (
+                <span className="inline-flex items-center justify-center rounded-full bg-white/10 ring-1 ring-white/10 p-1 text-cyan-300">
+                  <Pill className="h-3 w-3" />
+                </span>
+              )}
+            </div>
             <div className="flex items-center gap-2 mt-1">
               {activeModalities.slice(0, 2).map((mod) => (
                 <span key={mod} className="text-xs">
@@ -329,6 +367,43 @@ export default function SmartContentCard({
               className="h-full bg-gradient-to-r from-fuchsia-500 to-purple-500"
               style={{ width: `${progressPercentage}%` }}
             />
+          </div>
+        )}
+        {hasCapsuleBadge && (
+          <div className="mt-2 flex items-center gap-2 text-[10px] text-white/70">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleOpen();
+              }}
+              title="Open"
+              className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 p-1.5 hover:border-white/30 hover:text-white"
+            >
+              <Play className="h-3 w-3" />
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handlePreview();
+              }}
+              title="Preview"
+              className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 p-1.5 hover:border-white/30 hover:text-white"
+            >
+              <Eye className="h-3 w-3" />
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleShare();
+              }}
+              title="Share"
+              className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 p-1.5 hover:border-white/30 hover:text-white"
+            >
+              <Share2 className="h-3 w-3" />
+            </button>
           </div>
         )}
       </button>

@@ -2,16 +2,18 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Circle, Loader2 } from "lucide-react";
-import { CopilotChat } from "@copilotkit/react-ui";
+import { CheckCircle2, ChevronDown, ChevronUp, Circle, LayoutGrid, List, Loader2, Moon, ShieldCheck, Sun } from "lucide-react";
+import { useCopilotAction } from "@copilotkit/react-core";
 import { PreviewFrame } from "@/components/preview/PreviewFrame";
 import type { DeviceType } from "@/components/preview/DevicePreviewSwitcher";
 import { SmartTriadProvider } from "@/app/components/content";
+import { agentConfigs } from "@/app/data/agentConfig";
 import { liquidTemplateRegistry } from "@/app/triad/components/codex/liquidTemplates/registry";
 import { resolveLiquidTemplateId } from "@/services/composer/composerRegistryMapping";
 import type { SmartContentQube } from "@/types/smartContent";
 import { useDesignQubeTheme } from "@/components/metame/useDesignQubeTheme";
 import type { DesignQube, DesignQubeThemeMode } from "@/types/designQube";
+import { CodexCopilotLayer } from "@/app/components/codex/CodexCopilotLayer";
 
 type ComposerField = {
   id: string;
@@ -95,6 +97,17 @@ export const ComposerStudio = () => {
   const [designQubeLoading, setDesignQubeLoading] = useState(false);
   const [designQubeError, setDesignQubeError] = useState<string | null>(null);
   const [designTheme, setDesignTheme] = useState<DesignQubeThemeMode>("dark");
+  const [designQubeCollapsed, setDesignQubeCollapsed] = useState(true);
+  const [designQubeSummaryLayout, setDesignQubeSummaryLayout] = useState<"compact" | "grid">("compact");
+
+  const styleQubeThemeTokens = designQube?.tokens?.themes?.[designTheme];
+  const styleQubeColors = styleQubeThemeTokens?.color || {};
+  const styleQubeThemeBg =
+    styleQubeColors.surface || styleQubeColors.bg || "rgba(15,23,42,0.6)";
+  const styleQubeThemeBorder = styleQubeColors.border || "rgba(148,163,184,0.2)";
+  const styleQubeThemeText = styleQubeColors.text || "#e2e8f0";
+  const [templateIntent, setTemplateIntent] = useState<"micro-episode" | "article" | "tutorial" | "task" | null>(null);
+  const [templateQuery, setTemplateQuery] = useState("");
   const [selectedExperienceId, setSelectedExperienceId] = useState<string | null>(null);
   const [previewDevice, setPreviewDevice] = useState<DeviceType>("mobile");
   const [previewAction, setPreviewAction] = useState<string | null>(null);
@@ -128,7 +141,7 @@ export const ComposerStudio = () => {
     const fetchDesignQube = async () => {
       try {
         setDesignQubeLoading(true);
-        const res = await fetch("/api/metame/design-qube?includeImages=1");
+        const res = await fetch("/api/metame/design-qube?includeImages=0");
         if (!res.ok) throw new Error("Failed to load DesignQube");
         const data = await res.json();
         if (!data.success) throw new Error(data.error || "Failed to load DesignQube");
@@ -279,9 +292,88 @@ export const ComposerStudio = () => {
     };
   }, [tenantId, experience?.id]);
 
+  const filteredTemplates = useMemo(() => {
+    const query = templateQuery.trim().toLowerCase();
+    const intentKeywords: Record<string, string[]> = {
+      "micro-episode": ["episode", "story", "series", "micro", "narrative", "serial"],
+      article: ["article", "reader", "read", "essay", "news", "editorial"],
+      tutorial: ["tutorial", "guide", "how", "lesson", "learn", "training"],
+      task: ["task", "workflow", "checklist", "action", "runbook", "ops"],
+    };
+
+    const keywords = templateIntent ? intentKeywords[templateIntent] || [] : [];
+
+    return templates.filter((template) => {
+      const haystack = [
+        template.name,
+        template.description,
+        template.category,
+        template.complexity,
+        ...(template.tags || []),
+        ...(template.required_components || []),
+        ...(template.optional_components || []),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      const intentMatch = keywords.length === 0 || keywords.some((word) => haystack.includes(word));
+      const queryMatch = query.length === 0 || haystack.includes(query);
+      return intentMatch && queryMatch;
+    });
+  }, [templates, templateIntent, templateQuery]);
+
+  useCopilotAction({
+    name: "composer_set_template_intent",
+    description: "Set the template intent and filter query for Studio composition.",
+    parameters: [
+      { name: "intent", type: "string", description: "micro-episode, article, tutorial, or task", required: false },
+      { name: "query", type: "string", description: "Filter query for templates", required: false },
+    ],
+    handler: async ({ intent, query }) => {
+      if (intent === "micro-episode" || intent === "article" || intent === "tutorial" || intent === "task") {
+        setTemplateIntent(intent);
+      }
+      if (query) {
+        setTemplateQuery(query);
+      }
+      return "Template filters updated.";
+    },
+  });
+
+  const composerAgent = agentConfigs["aigent-z"];
+  const handleCopilotPrompt = (prompt: string) => {
+    const lower = prompt.toLowerCase();
+    if (/(show|view|browse).*(all|templates)|all templates/.test(lower)) {
+      setTemplateIntent(null);
+      setTemplateQuery("");
+      return;
+    }
+    if (/(micro|episode|story|series|serial)/.test(lower)) {
+      setTemplateIntent("micro-episode");
+    } else if (/(article|reader|read|essay|news)/.test(lower)) {
+      setTemplateIntent("article");
+    } else if (/(tutorial|guide|how|lesson|learn)/.test(lower)) {
+      setTemplateIntent("tutorial");
+    } else if (/(task|workflow|checklist|runbook|ops)/.test(lower)) {
+      setTemplateIntent("task");
+    }
+    setTemplateQuery(prompt);
+  };
+
+  useEffect(() => {
+    if (filteredTemplates.length === 0) {
+      setSelectedTemplateId(null);
+      return;
+    }
+    if (!selectedTemplateId || !filteredTemplates.some((t) => t.id === selectedTemplateId)) {
+      setSelectedTemplateId(filteredTemplates[0].id);
+    }
+  }, [filteredTemplates, selectedTemplateId]);
+
   const selectedTemplate = useMemo(
-    () => templates.find((t) => t.id === selectedTemplateId) || null,
-    [templates, selectedTemplateId]
+    () => filteredTemplates.find((t) => t.id === selectedTemplateId) || null,
+    [filteredTemplates, selectedTemplateId]
   );
 
   const currentStep = useMemo(() => {
@@ -463,8 +555,6 @@ export const ComposerStudio = () => {
 
   const cardClass = "rounded-2xl border border-slate-800 bg-slate-900/60 p-6";
   const summaryCardClass = "rounded-xl border border-slate-800 bg-slate-950/60 p-4";
-  const copilotInstructions = `You are the Studio Compose Copilot. Help the user define the next micro-experience to compose.\nFocus on intent, audience, template choice, and required modules. Provide short, decisive prompts.`;
-
   const getMergedValue = (stepId: string, fieldId: string) => mergedData?.[stepId]?.[fieldId];
   const summary = useMemo(() => {
     if (!sessionTemplate) return [];
@@ -513,23 +603,51 @@ export const ComposerStudio = () => {
         </div>
 
         <div className="grid gap-6 xl:grid-cols-[1fr_1.2fr_1fr]">
-          <div className={cardClass}>
+          <div
+            className={cardClass}
+            style={
+              designQube
+                ? {
+                    backgroundColor: styleQubeThemeBg,
+                    borderColor: styleQubeThemeBorder,
+                    color: styleQubeThemeText,
+                  }
+                : undefined
+            }
+          >
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-white">Compose Copilot</h2>
                 <p className="text-sm text-slate-400">What would you like to compose?</p>
               </div>
             </div>
-            <div className="mt-4 h-[520px] overflow-hidden rounded-xl border border-slate-800 bg-slate-950/60">
-              <CopilotChat
-                instructions={copilotInstructions}
-                labels={{
-                  title: "Compose Copilot",
-                  initial: "What would you like to compose?",
-                  placeholder: "Describe the experience you want to build...",
-                }}
-                className="h-full"
-              />
+            <div className="mt-4 h-[640px] w-96 overflow-hidden rounded-2xl border border-slate-800 bg-slate-950/60 backdrop-blur-xl flex flex-col">
+              <div className="h-full overflow-hidden">
+                <CodexCopilotLayer
+                  isOpen
+                  onClose={() => {}}
+                  variant="embedded"
+                  showNavMenu
+                  showWalletMenu
+                  quickPrompts={[
+                    "Show all templates",
+                    "Micro-episode experience",
+                    "Smart wallet + offer",
+                    "Article reading flow",
+                    "Tutorial walkthrough",
+                    "Task runbook with rewards",
+                  ]}
+                  onPrompt={handleCopilotPrompt}
+                  agent={{
+                    id: composerAgent.id,
+                    name: composerAgent.name,
+                    evmSepolia: composerAgent.walletAddresses?.evmAddress as `0x${string}`,
+                    evmArb: composerAgent.walletAddresses?.evmAddress as `0x${string}`,
+                    btcAddress: composerAgent.walletAddresses?.btcAddress,
+                    fioHandle: composerAgent.fioId,
+                  }}
+                />
+              </div>
             </div>
           </div>
 
@@ -547,7 +665,7 @@ export const ComposerStudio = () => {
               </div>
             )}
             <div className="mt-4 max-h-[460px] space-y-3 overflow-y-auto pr-1">
-              {templates.map((template) => (
+              {filteredTemplates.map((template) => (
                 <button
                   key={template.id}
                   onClick={() => setSelectedTemplateId(template.id)}
@@ -579,9 +697,9 @@ export const ComposerStudio = () => {
                   </div>
                 </button>
               ))}
-              {!templatesLoading && templates.length === 0 && (
+              {!templatesLoading && filteredTemplates.length === 0 && (
                 <div className="rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-6 text-sm text-slate-400">
-                  No templates available yet.
+                  No templates match that intent yet. Try a different prompt or clear filters.
                 </div>
               )}
             </div>
@@ -843,7 +961,10 @@ export const ComposerStudio = () => {
                     </div>
                     <div className="mt-3 flex items-center gap-2">
                       <button
-                        onClick={() => setSelectedExperienceId(exp.id)}
+                        onClick={() => {
+                          setSelectedExperienceId(exp.id);
+                          setPreviewAction(`Preview ${exp.name}`);
+                        }}
                         className={`rounded-lg border px-3 py-1.5 text-xs font-semibold ${
                           selectedExperienceId === exp.id
                             ? "border-cyan-400/60 bg-cyan-400/10 text-cyan-200"
@@ -871,24 +992,12 @@ export const ComposerStudio = () => {
           </div>
 
           <div className={cardClass}>
-            <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-white">DesignQube</h2>
-                <p className="text-sm text-slate-400">Guidance cartridge for Runtime and Studio composition.</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <label className="text-xs uppercase tracking-wider text-slate-500">Theme</label>
-                <select
-                  value={designTheme}
-                  onChange={(event) => setDesignTheme(event.target.value as DesignQubeThemeMode)}
-                  className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200"
-                >
-                  <option value="dark">Dark (KNYT glass)</option>
-                  <option value="light">Light (metaMe beige)</option>
-                </select>
+                <h2 className="text-lg font-semibold text-white">StyleQube</h2>
+                <p className="text-sm text-slate-400">Active styling profile for Runtime + Studio.</p>
               </div>
             </div>
-
             {designQubeLoading && (
               <div className="mt-4 text-sm text-slate-400">Loading DesignQube references...</div>
             )}
@@ -900,47 +1009,245 @@ export const ComposerStudio = () => {
 
             {designQube && (
               <div className="mt-4">
-                <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400">
-                  <span>{designQube.name}</span>
-                  <span>{designQube.references?.length || 0} reference screens</span>
-                </div>
-                {designQube.manifest && (
-                  <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
-                    <span className="rounded-full border border-slate-700 px-2 py-0.5">
-                      {designQube.manifest.authorityLevel || "guidance"}
-                    </span>
-                    {designQube.manifest.themes?.map((theme) => (
-                      <span key={theme} className="rounded-full border border-slate-700 px-2 py-0.5">
-                        {theme}
-                      </span>
-                    ))}
-                  </div>
-                )}
-                {designQube.styleBrief && (
-                  <div className="mt-2 max-h-[160px] overflow-y-auto pr-1 text-sm text-slate-300">
-                    {designQube.styleBrief}
-                  </div>
-                )}
-                <div className="mt-4 max-h-[420px] overflow-y-auto pr-1">
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {designQube.references?.slice(0, 6).map((ref) => (
-                      <div key={ref.id} className="rounded-xl border border-slate-800 bg-slate-950/70 p-2">
-                        {ref.dataUrl ? (
-                          <img
-                            src={ref.dataUrl}
-                            alt={ref.title || ref.file}
-                            className="h-32 w-full rounded-lg object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-32 items-center justify-center rounded-lg border border-dashed border-slate-700 text-xs text-slate-500">
-                            {ref.file}
-                          </div>
-                        )}
-                        <div className="mt-2 text-xs text-slate-400">{ref.title || ref.file}</div>
+                {(() => {
+                  const themeTokens = designQube.tokens?.themes?.[designTheme];
+                  const colors = themeTokens?.color || {};
+                  const palette = [
+                    colors.bg,
+                    colors.surface,
+                    colors.accent,
+                    colors.text,
+                    colors.muted,
+                    colors.border,
+                  ].filter(Boolean) as string[];
+                  const radiusValues = designQube.tokens?.radius
+                    ? Object.values(designQube.tokens.radius).slice(0, 3)
+                    : [];
+                  const fontFamily = designQube.tokens?.typography?.fontFamily?.sans || "system-ui";
+                  const scale = designQube.tokens?.typography?.scale || {};
+                  const glassEnabled = designQube.constraints?.material?.glass?.enabled;
+                  const references = designQube.references?.slice(0, 4) || [];
+                  const summaryBadges = designQube.manifest?.themes || [];
+                  const themeBg = colors.surface || colors.bg || "rgba(15,23,42,0.6)";
+                  const themeBorder = colors.border || "rgba(148,163,184,0.2)";
+                  const themeText = colors.text || "#e2e8f0";
+
+                  return (
+                    <>
+                      <div
+                        className="flex flex-wrap items-center justify-between gap-3 rounded-xl border px-3 py-2"
+                        style={{ backgroundColor: themeBg, borderColor: themeBorder }}
+                      >
+                        <div className="flex items-center gap-2 text-xs" style={{ color: themeText }}>
+                          <span className="text-slate-200">KNYT Guidance DesignQube</span>
+                          <button
+                            className="inline-flex items-center rounded-full border px-2 py-0.5"
+                            title={designQube.manifest?.authorityLevel || "guidance"}
+                            style={{ borderColor: themeBorder }}
+                          >
+                            <ShieldCheck className="h-3.5 w-3.5 text-emerald-300" />
+                          </button>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setDesignTheme("light")}
+                            className={`inline-flex items-center rounded-full border px-2 py-0.5 ${designTheme === "light" ? "border-amber-300/60 bg-amber-500/10" : ""}`}
+                            title="Light theme"
+                            style={designTheme === "light" ? undefined : { borderColor: themeBorder }}
+                          >
+                            <Sun className="h-3.5 w-3.5 text-amber-300" />
+                          </button>
+                          <button
+                            onClick={() => setDesignTheme("dark")}
+                            className={`inline-flex items-center rounded-full border px-2 py-0.5 ${designTheme === "dark" ? "border-slate-300/60 bg-slate-500/10" : ""}`}
+                            title="Dark theme"
+                            style={designTheme === "dark" ? undefined : { borderColor: themeBorder }}
+                          >
+                            <Moon className="h-3.5 w-3.5 text-slate-300" />
+                          </button>
+                          <button
+                            onClick={() => setDesignQubeSummaryLayout("compact")}
+                            className={`inline-flex items-center rounded-full border px-2 py-0.5 ${designQubeSummaryLayout === "compact" ? "border-cyan-300/60 bg-cyan-500/10" : ""}`}
+                            title="Row view"
+                            style={designQubeSummaryLayout === "compact" ? undefined : { borderColor: themeBorder }}
+                          >
+                            <List size={14} className="text-cyan-300" />
+                          </button>
+                          <button
+                            onClick={() => setDesignQubeSummaryLayout("grid")}
+                            className={`inline-flex items-center rounded-full border px-2 py-0.5 ${designQubeSummaryLayout === "grid" ? "border-cyan-300/60 bg-cyan-500/10" : ""}`}
+                            title="Grid view"
+                            style={designQubeSummaryLayout === "grid" ? undefined : { borderColor: themeBorder }}
+                          >
+                            <LayoutGrid size={14} className="text-cyan-300" />
+                          </button>
+                          <button
+                            onClick={() => setDesignQubeCollapsed((prev) => !prev)}
+                            className="inline-flex items-center rounded-full border px-2 py-0.5"
+                            title={designQubeCollapsed ? "Expand details" : "Collapse details"}
+                            style={{ borderColor: themeBorder }}
+                          >
+                            {designQubeCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                          </button>
+                        </div>
                       </div>
-                    ))}
-                  </div>
-                </div>
+
+                      {!designQubeCollapsed ? (
+                        <>
+                          {designQube.styleBrief && (
+                            <div className="mt-3 max-h-[160px] overflow-y-auto pr-1 text-sm" style={{ color: themeText }}>
+                              {designQube.styleBrief}
+                            </div>
+                          )}
+                          <div className="mt-4 max-h-[420px] overflow-y-auto pr-1">
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              {designQube.references?.slice(0, 6).map((ref) => (
+                                <div
+                                  key={ref.id}
+                                  className="rounded-xl border p-2"
+                                  style={{ backgroundColor: themeBg, borderColor: themeBorder }}
+                                >
+                                  {ref.dataUrl ? (
+                                    <img
+                                      src={ref.dataUrl}
+                                      alt={ref.title || ref.file}
+                                      className="h-32 w-full rounded-lg object-cover"
+                                    />
+                                  ) : (
+                                    <div className="flex h-32 items-center justify-center rounded-lg border border-dashed text-xs text-slate-500">
+                                      {ref.file}
+                                    </div>
+                                  )}
+                                  <div className="mt-2 text-xs text-slate-400">{ref.title || ref.file}</div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </>
+                      ) : designQubeSummaryLayout === "compact" ? (
+                        <div className="mt-4 rounded-xl border p-3" style={{ backgroundColor: themeBg, borderColor: themeBorder }}>
+                          <div className="flex flex-wrap items-center justify-between gap-4">
+                            <div className="flex items-center gap-2">
+                              {references.map((ref) => (
+                                <div
+                                  key={ref.id}
+                                  className="h-12 w-16 overflow-hidden rounded-lg border"
+                                  style={{ backgroundColor: colors.bg || themeBg, borderColor: themeBorder }}
+                                >
+                                  {ref.dataUrl ? (
+                                    <img src={ref.dataUrl} alt={ref.title || ref.file} className="h-full w-full object-cover" />
+                                  ) : null}
+                                </div>
+                              ))}
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2 text-[11px]" style={{ color: themeText }}>
+                              <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5" style={{ borderColor: themeBorder }}>
+                                <ShieldCheck className="h-3.5 w-3.5 text-emerald-300" />
+                              </span>
+                              {summaryBadges.map((theme) => (
+                                <span key={theme} className="inline-flex items-center rounded-full border px-2 py-0.5" style={{ borderColor: themeBorder }}>
+                                  {theme.toLowerCase().includes("light") ? (
+                                    <Sun className="h-3.5 w-3.5 text-amber-300" />
+                                  ) : (
+                                    <Moon className="h-3.5 w-3.5 text-slate-300" />
+                                  )}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="mt-3 flex flex-wrap items-center gap-2">
+                            {palette.slice(0, 6).map((color, idx) => (
+                              <span
+                                key={`${color}-${idx}`}
+                                className="h-4 w-4 rounded-full border"
+                                style={{ backgroundColor: color, borderColor: themeBorder }}
+                                title={color}
+                              />
+                            ))}
+                            {glassEnabled && (
+                              <span className="inline-flex items-center rounded-full border px-2 py-0.5" style={{ borderColor: themeBorder }} title="Glass material">
+                                <Moon className="h-3.5 w-3.5 text-slate-400" />
+                              </span>
+                            )}
+                          </div>
+                          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs" style={{ color: themeText }}>
+                            <div className="flex items-center gap-2">
+                              <span style={{ fontFamily, fontSize: scale.lg || 18 }} className="text-white">Aa</span>
+                              <span style={{ fontFamily, fontSize: scale.sm || 14 }} className="text-slate-400">Aa</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {radiusValues.map((radius, idx) => (
+                                <div
+                                  key={`radius-${idx}`}
+                                  className="h-6 w-10 border"
+                                  style={{ borderRadius: `${radius}px`, backgroundColor: themeBg, borderColor: themeBorder }}
+                                  title={`radius ${radius}`}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="mt-4 grid gap-4 rounded-xl border p-4 md:grid-cols-[1.2fr,1fr]" style={{ backgroundColor: themeBg, borderColor: themeBorder }}>
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            {references.map((ref) => (
+                              <div key={ref.id} className="h-24 overflow-hidden rounded-lg border" style={{ borderColor: themeBorder }}>
+                                {ref.dataUrl ? (
+                                  <img src={ref.dataUrl} alt={ref.title || ref.file} className="h-full w-full object-cover" />
+                                ) : null}
+                              </div>
+                            ))}
+                          </div>
+                          <div className="space-y-3">
+                            <div className="flex flex-wrap items-center gap-2 text-[11px]" style={{ color: themeText }}>
+                              <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5" style={{ borderColor: themeBorder }}>
+                                <ShieldCheck className="h-3.5 w-3.5 text-emerald-300" />
+                              </span>
+                              {summaryBadges.map((theme) => (
+                                <span key={theme} className="inline-flex items-center rounded-full border px-2 py-0.5" style={{ borderColor: themeBorder }}>
+                                  {theme.toLowerCase().includes("light") ? (
+                                    <Sun className="h-3.5 w-3.5 text-amber-300" />
+                                  ) : (
+                                    <Moon className="h-3.5 w-3.5 text-slate-300" />
+                                  )}
+                                </span>
+                              ))}
+                              {glassEnabled && (
+                                <span className="inline-flex items-center rounded-full border px-2 py-0.5" style={{ borderColor: themeBorder }} title="Glass material">
+                                  <Moon className="h-3.5 w-3.5 text-slate-400" />
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              {palette.slice(0, 6).map((color, idx) => (
+                                <span
+                                  key={`${color}-${idx}`}
+                                  className="h-5 w-5 rounded-md border"
+                                  style={{ backgroundColor: color, borderColor: themeBorder }}
+                                  title={color}
+                                />
+                              ))}
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span style={{ fontFamily, fontSize: scale.xl || 22 }} className="text-white">Aa</span>
+                              <span style={{ fontFamily, fontSize: scale.sm || 14 }} className="text-slate-400">Aa</span>
+                              <div className="ml-auto flex items-center gap-2">
+                                {radiusValues.map((radius, idx) => (
+                                  <div
+                                    key={`radius-grid-${idx}`}
+                                    className="h-6 w-12 border"
+                                    style={{ borderRadius: `${radius}px`, backgroundColor: themeBg, borderColor: themeBorder }}
+                                    title={`radius ${radius}`}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
             )}
           </div>
@@ -956,65 +1263,14 @@ export const ComposerStudio = () => {
                 <span className="text-xs text-slate-400">Last action: {previewAction}</span>
               )}
             </div>
-            <div className="mt-4 h-[620px]">
-              {PreviewTemplate ? (
-                <PreviewFrame
-                  defaultDevice="mobile"
-                  chromeless
-                  deviceQueryParam="device"
-                  onDeviceChange={(device) => setPreviewDevice(device)}
-                >
-                  <div className="relative min-h-[600px]">
-                    <SmartTriadProvider initialContent={demoContent[0]}>
-                      <PreviewTemplate
-                        contentObjects={demoContent}
-                        contentObject={demoContent[0]}
-                        device={previewTemplateDevice}
-                        messages={[]}
-                        events={[]}
-                        lineItems={[]}
-                        listings={[]}
-                        columns={[]}
-                        points={[]}
-                        session={previewSettings}
-                        document={{}}
-                        nodes={[]}
-                        project={{}}
-                        cells={[]}
-                        settings={previewSettings}
-                      />
-                    </SmartTriadProvider>
-                    <PreviewStatus />
-                    <RuntimePreviewMenu
-                      onBe={() => setPreviewAction("Be")}
-                      onEarn={() => {
-                        setPreviewAction("Earn");
-                        setPreviewSession((prev) => ({
-                          ...prev,
-                          consentGiven: true,
-                          iqubeCreated: true,
-                          settlementComplete: true,
-                        }));
-                      }}
-                      onPlay={() => setPreviewAction("Play")}
-                      onMake={() => {
-                        setPreviewAction("Make");
-                        setPreviewSession((prev) => ({ ...prev, consentGiven: true, iqubeCreated: true }));
-                      }}
-                      onShare={() => {
-                        setPreviewAction("Share");
-                        setPreviewSession((prev) => ({ ...prev, shared: true }));
-                      }}
-                    />
-                  </div>
-                </PreviewFrame>
-              ) : (
-                <PreviewFrame
-                  src={`/metame/runtime/offer?embed=1&stub=1&theme=${designTheme}`}
-                  defaultDevice="mobile"
-                  chromeless
-                />
-              )}
+            <div className="mt-4 h-[760px]">
+              <PreviewFrame
+                src={`/metame/runtime?preview=1&capsule=${selectedExperienceId || previewExperience?.id || "capsule-metaknyt-play"}&theme=${designTheme}&embed=1`}
+                defaultDevice="mobile"
+                chromeless
+                deviceQueryParam="device"
+                onDeviceChange={(device) => setPreviewDevice(device)}
+              />
             </div>
           </div>
       </div>

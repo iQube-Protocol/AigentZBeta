@@ -85,7 +85,7 @@ const sections: SidebarSection[] = [
     label: "metaMe",
     icon: <Hexagon size={16} className="text-slate-400" />,
     items: [
-      { href: "/dashboard", label: "Runtime", icon: <Hexagon size={14} className="text-slate-400" /> },
+      { href: "/metame/runtime", label: "Runtime", icon: <Hexagon size={14} className="text-slate-400" /> },
       { href: "/studio/composer", label: "Studio", icon: <SlidersHorizontal size={14} className="text-slate-400" /> },
     ],
   },
@@ -987,7 +987,7 @@ export const Sidebar = () => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key.toLowerCase() === "g") { gPressed = true; return; }
       if (gPressed) {
-        if (e.key.toLowerCase() === "d") location.href = "/dashboard";
+        if (e.key.toLowerCase() === "d") location.href = "/metame/runtime";
         if (e.key.toLowerCase() === "r") location.href = "/registry";
         if (e.key.toLowerCase() === "s") location.href = "/settings/profile";
         if (e.key.toLowerCase() === "a") location.href = "/aigents";
@@ -1029,7 +1029,8 @@ export const Sidebar = () => {
                 <div className="uppercase text-[11px] tracking-wider text-slate-400 mb-3 flex items-center group">
                   <div className="flex items-center justify-between w-full">
                     <Link 
-                      href="/dashboard"
+                      href="/metame/runtime"
+                      prefetch={false}
                       className="flex items-center gap-2 text-slate-200 hover:text-white transition-colors"
                     >
                       <div className="flex items-center gap-2">
@@ -1067,6 +1068,7 @@ export const Sidebar = () => {
                         <li key={item.href}>
                           <Link
                             href={item.href}
+                            prefetch={false}
                             className={`group flex items-center w-full px-3 py-2 rounded-lg transition-colors ${active ? "bg-slate-700/50 text-slate-100" : "text-slate-500 hover:text-slate-300 hover:bg-slate-700/30"}`}
                           >
                             <div className="flex items-center gap-2">
@@ -1112,6 +1114,7 @@ export const Sidebar = () => {
                                 <div className={`flex items-center justify-between w-full ${active || isItemActive ? 'bg-slate-700/50 text-slate-100 rounded-xl' : 'text-slate-500 hover:text-slate-300'}`}>
                                   <Link
                                     href={item.href}
+                                    prefetch={false}
                                     className="flex items-center w-full px-3 py-2"
                                     onClick={(e) => {
                                       if (isToggleable) { e.preventDefault(); handleModelQubeClick(item.href); }
@@ -1199,6 +1202,7 @@ export const Sidebar = () => {
                                   ) : (
                                     <Link
                                       href={item.href}
+                                      prefetch={false}
                                       className="flex items-center w-full px-3 py-2"
                                       onClick={(e) => {
                                         if (isToggleable || item.href.startsWith('#iqube-')) { e.preventDefault(); handleIQubeOperationsClick(item.href); }
@@ -1246,7 +1250,7 @@ export const Sidebar = () => {
                             return (
                               <li key={item.href} className="flex items-center justify-between">
                                 <div className={`flex items-center justify-between w-full ${active ? 'bg-slate-700/50 text-slate-100 rounded-xl' : 'text-slate-500 hover:text-slate-300'}`}>
-                                  <Link href={item.href} className="flex items-center w-full px-3 py-2">
+                                  <Link href={item.href} prefetch={false} className="flex items-center w-full px-3 py-2">
                                     <div className="flex items-center gap-2">
                                       <span>{item.icon}</span>
                                       <span className="text-[13px]">{item.label}</span>
@@ -1309,6 +1313,7 @@ export const Sidebar = () => {
                                 (!isToggleable && !item.drawerAction && !item.href.startsWith('#')) ? (
                                   <Link
                                     href={item.href}
+                                    prefetch={false}
                                     className="flex items-center w-full px-3 py-2 hover:bg-slate-700/30 rounded-lg transition-colors"
                                   >
                                     <div className="flex items-center gap-2">
@@ -1405,6 +1410,7 @@ export const Sidebar = () => {
                           {(!isToggleable && !item.drawerAction && !item.href.startsWith('#')) ? (
                             <Link
                               href={item.href}
+                              prefetch={false}
                               className={`flex items-center justify-center rounded-xl p-2 text-[13px] hover:bg-slate-700/50 ${active || isItemActive ? "bg-slate-700/50" : "bg-transparent"}`}
                               title={item.label}
                             >
@@ -1461,6 +1467,7 @@ export const Sidebar = () => {
                       <div key={item.href} className="flex justify-center mb-2 relative">
                         <Link
                           href={item.href}
+                          prefetch={false}
                           className={`group flex items-center justify-center rounded-xl p-2 text-[13px] hover:bg-slate-700/50 ${active ? "bg-slate-700/50" : "bg-transparent"}`}
                           title={item.label}
                         >

@@ -131,7 +131,7 @@ export function PreviewFrame({
               }}
             />
           ) : (
-            <div className="w-full min-h-[600px]">
+            <div className="w-full h-full min-h-[600px] overflow-hidden">
               {fallback || children}
             </div>
           )}

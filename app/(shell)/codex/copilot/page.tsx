@@ -221,6 +221,14 @@ export default function CopilotViewerPage() {
       <CodexCopilotLayer
         isOpen={isCopilotOpen}
         onClose={handleCloseCopilot}
+        onOpen={handleOpenCopilot}
+        quickPrompts={[
+          "Summarize the latest Codex lore",
+          "Show the metaKNYT episode catalog",
+          "Find experience cartridges for onboarding",
+          "Best templates for a rewards flow",
+          "Explain KNYT personas and identity modes",
+        ]}
         agent={agent}
         walletBalance={1000}
         nftCount={5}
