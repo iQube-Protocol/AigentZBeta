@@ -61,7 +61,7 @@ export default function PersonaDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { currentTenantId } = useCrmContext();
-  const personaId = params.id as string;
+  const personaId = params?.id as string | undefined;
 
   const [persona, setPersona] = useState<PersonaDetail | null>(null);
   const [contributions, setContributions] = useState<Contribution[]>([]);
@@ -71,6 +71,12 @@ export default function PersonaDetailPage() {
   const [activeTab, setActiveTab] = useState<'overview' | 'contributions' | 'rewards' | 'activity'>('overview');
 
   useEffect(() => {
+    if (!personaId) {
+      setLoading(false);
+      setError("Missing persona id parameter.");
+      return;
+    }
+
     async function fetchPersonaDetails() {
       if (!currentTenantId || !personaId) return;
       

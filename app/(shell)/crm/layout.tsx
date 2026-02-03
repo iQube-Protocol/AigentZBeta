@@ -35,8 +35,8 @@ function CrmLayoutContent({ children }: { children: React.ReactNode }) {
               {/* Navigation */}
               <nav className="hidden md:flex items-center gap-1">
                 {NAV_ITEMS.map((item) => {
-                  const isActive = pathname === item.href || 
-                    (item.href !== '/crm' && pathname.startsWith(item.href));
+                  const isActive = pathname === item.href ||
+                    (item.href !== '/crm' && !!pathname?.startsWith(item.href));
                   return (
                     <Link
                       key={item.href}

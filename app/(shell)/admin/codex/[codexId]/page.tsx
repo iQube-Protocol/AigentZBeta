@@ -12,7 +12,28 @@ import Link from 'next/link';
 export default function CodexDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const codexId = params.codexId as string;
+  const codexId = params?.codexId as string | undefined;
+
+  if (!codexId) {
+    return (
+      <div className="min-h-screen bg-slate-900 p-8">
+        <div className="max-w-4xl mx-auto">
+          <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-6">
+            <AlertCircle className="w-8 h-8 text-red-400 mb-2" />
+            <h2 className="text-xl font-semibold text-red-400 mb-2">Invalid Codex Route</h2>
+            <p className="text-red-300 mb-4">Missing codex id parameter.</p>
+            <Link
+              href="/admin/codex"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back to Codex List
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
   
   const { data: codex, isLoading, error } = useCodexConfig({ codexId, useDefaults: false });
   const [isSaving, setIsSaving] = useState(false);

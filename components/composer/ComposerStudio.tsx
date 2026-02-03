@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, ChevronDown, ChevronUp, Circle, LayoutGrid, List, Loader2, Moon, ShieldCheck, Sun } from "lucide-react";
+import { Bot, CheckCircle2, ChevronDown, ChevronUp, Circle, Hexagon, LayoutGrid, List, Loader2, Monitor, Moon, Palette, ShieldCheck, SlidersHorizontal, Sun } from "lucide-react";
 import { useCopilotAction } from "@copilotkit/react-core";
 import { PreviewFrame } from "@/components/preview/PreviewFrame";
+import { DevicePreviewSwitcher } from "@/components/preview/DevicePreviewSwitcher";
 import type { DeviceType } from "@/components/preview/DevicePreviewSwitcher";
 import { SmartTriadProvider } from "@/app/components/content";
 import { agentConfigs } from "@/app/data/agentConfig";
@@ -12,6 +13,8 @@ import { liquidTemplateRegistry } from "@/app/triad/components/codex/liquidTempl
 import { resolveLiquidTemplateId } from "@/services/composer/composerRegistryMapping";
 import type { SmartContentQube } from "@/types/smartContent";
 import { useDesignQubeTheme } from "@/components/metame/useDesignQubeTheme";
+import { useCodexList } from "@/app/hooks/useCodexConfig";
+import type { CodexListItem } from "@/types/codex";
 import type { DesignQube, DesignQubeThemeMode } from "@/types/designQube";
 import { CodexCopilotLayer } from "@/app/components/codex/CodexCopilotLayer";
 
@@ -73,8 +76,308 @@ type ExperienceQube = {
   metadata?: { tags?: string[]; category?: string; version?: string };
 };
 
-const DEFAULT_TENANT = "t_demo_001";
-const DEFAULT_USER = "u_demo_001";
+const DEFAULT_TENANT = "qripto-codex";
+const DEFAULT_USER = "aigentz@aigent:u_demo_001";
+
+const QRIPTO_FALLBACK_CODEXES = [
+  { id: "knyt-codex", label: "KNYT Codex" },
+  { id: "qripto-codex", label: "Qriptopian Codex" },
+  { id: "aigentiq-codex", label: "AgentiQ Codex" },
+  { id: "marketa-codex", label: "Aigent Marketa" },
+  { id: "moneypenny-codex", label: "Aigent MoneyPenny" },
+  { id: "nakamoto-codex", label: "Aigent Nakamoto" },
+];
+
+const QRIPTO_CONTENT_TAGS = [
+  { value: "hero", label: "Hero Feature" },
+  { value: "second-hero", label: "Second Hero" },
+  { value: "latest-news", label: "Latest News" },
+  { value: "penny-drops", label: "Penny Drops" },
+  { value: "scrolls-metaknyts", label: "Scrolls: metaKnyts" },
+  { value: "scrolls-synthsimms", label: "Scrolls: SynthSimms" },
+  { value: "knowdz-exec", label: "Knowdz: Exec" },
+  { value: "knowdz-creative", label: "Knowdz: Creative" },
+  { value: "knowdz-devs", label: "Knowdz: Devs" },
+];
+
+const QRIPTO_CONTENT_ITEMS = [
+  {
+    id: "qripto-hero-1",
+    label: "Hero Feature: The Genesis Block",
+    tag: "hero",
+    mediaType: "image",
+    mediaUri: "",
+  },
+  {
+    id: "qripto-news-1",
+    label: "Latest News: Protocol Briefing",
+    tag: "latest-news",
+    mediaType: "image",
+    mediaUri: "",
+  },
+  {
+    id: "qripto-penny-1",
+    label: "Penny Drops: Q¢ Explained",
+    tag: "penny-drops",
+    mediaType: "image",
+    mediaUri: "",
+  },
+  {
+    id: "qripto-scrolls-mk",
+    label: "Scrolls: metaKnyts Micro-Episode",
+    tag: "scrolls-metaknyts",
+    mediaType: "video",
+    mediaUri: "",
+  },
+  {
+    id: "qripto-scrolls-ss",
+    label: "Scrolls: SynthSimms Micro-Episode",
+    tag: "scrolls-synthsimms",
+    mediaType: "video",
+    mediaUri: "",
+  },
+  {
+    id: "qripto-knowdz-exec",
+    label: "Knowdz Exec: Leadership Sprint",
+    tag: "knowdz-exec",
+    mediaType: "audio",
+    mediaUri: "",
+  },
+  {
+    id: "qripto-knowdz-creative",
+    label: "Knowdz Creative: Concept Lab",
+    tag: "knowdz-creative",
+    mediaType: "audio",
+    mediaUri: "",
+  },
+  {
+    id: "qripto-knowdz-devs",
+    label: "Knowdz Devs: Protocol Builder",
+    tag: "knowdz-devs",
+    mediaType: "audio",
+    mediaUri: "",
+  },
+];
+
+const QRIPTO_TEMPLATE_SEEDS: ExperienceTemplate[] = [
+  {
+    id: "qripto-micro-episode",
+    name: "Micro-Episode Capsule",
+    description: "7–20s episode clips with rewards, metaKnyts or SynthSimms.",
+    category: "micro-episode",
+    complexity: "beginner",
+    estimated_time: 10,
+    required_components: ["capsule", "media_clip"],
+    optional_components: ["rewards", "share"],
+    tags: ["micro-episode", "scrolls-metaknyts", "scrolls-synthsimms"],
+    steps: [
+      {
+        id: "intent_timebox",
+        title: "Intent + Timebox",
+        description: "Define the micro-episode goal and timebox.",
+        type: "selection",
+        required: true,
+        ui_config: {
+          layout: "form",
+          fields: [
+            { id: "experience_name", name: "Experience name", type: "text", required: true },
+            { id: "goal", name: "Goal", type: "textarea", required: false },
+            { id: "time_available", name: "Time available (min)", type: "slider", required: false, validation: { min: 5, max: 20, step: 1 } },
+          ],
+        },
+      },
+      {
+        id: "content_selection",
+        title: "Content Selection",
+        description: "Choose metaKnyts or SynthSimms episode material.",
+        type: "selection",
+        required: true,
+        ui_config: {
+          layout: "form",
+          fields: [
+            { id: "content_tag", name: "Scrolls Track", type: "select", required: true },
+            { id: "content_items", name: "Content items", type: "multiselect", required: true },
+          ],
+        },
+      },
+      {
+        id: "wallet_rewards",
+        title: "Rewards (Optional)",
+        description: "Configure optional rewards for completion.",
+        type: "configuration",
+        required: false,
+        ui_config: {
+          layout: "form",
+          fields: [
+            { id: "reward_amount", name: "Reward amount (Q¢)", type: "text", required: false },
+            { id: "require_wallet_connect", name: "Require wallet connect", type: "checkbox", required: false },
+          ],
+        },
+      },
+    ],
+  },
+  {
+    id: "qripto-feature-article",
+    name: "Feature Article Experience",
+    description: "Hero/Second Hero deep reads with optional companion capsules.",
+    category: "article",
+    complexity: "intermediate",
+    estimated_time: 25,
+    required_components: ["article_reader"],
+    optional_components: ["capsule", "share"],
+    tags: ["article", "hero", "second-hero", "latest-news"],
+    steps: [
+      {
+        id: "content_selection",
+        title: "Content Selection",
+        description: "Select a feature article or latest news item.",
+        type: "selection",
+        required: true,
+        ui_config: {
+          layout: "form",
+          fields: [
+            { id: "content_tag", name: "Content Tag", type: "select", required: true },
+            { id: "feature_item_id", name: "Feature item", type: "text", required: false },
+            { id: "content_items", name: "Content items", type: "multiselect", required: true },
+          ],
+        },
+      },
+      {
+        id: "wallet_rewards",
+        title: "Rewards (Optional)",
+        description: "Set optional reward after completion.",
+        type: "configuration",
+        required: false,
+        ui_config: {
+          layout: "form",
+          fields: [
+            { id: "reward_amount", name: "Reward amount (Q¢)", type: "text", required: false },
+          ],
+        },
+      },
+    ],
+  },
+  {
+    id: "qripto-penny-drops",
+    name: "Penny Drops Learning Flow",
+    description: "Learning modules, guided explanations, and optional rewards.",
+    category: "tutorial",
+    complexity: "beginner",
+    estimated_time: 20,
+    required_components: ["lesson", "takeaways"],
+    optional_components: ["rewards"],
+    tags: ["tutorial", "penny-drops"],
+    steps: [
+      {
+        id: "content_selection",
+        title: "Learning Content",
+        description: "Pick Penny Drops material or Knowdz training content.",
+        type: "selection",
+        required: true,
+        ui_config: {
+          layout: "form",
+          fields: [
+            { id: "content_tag", name: "Content Tag", type: "select", required: true },
+            { id: "content_items", name: "Content items", type: "multiselect", required: true },
+          ],
+        },
+      },
+      {
+        id: "copilot_output",
+        title: "Copilot Takeaways",
+        description: "Define summary/takeaway outputs.",
+        type: "configuration",
+        required: false,
+        ui_config: {
+          layout: "form",
+          fields: [
+            { id: "takeaways_count", name: "Takeaway count", type: "slider", required: false, validation: { min: 1, max: 6, step: 1 } },
+          ],
+        },
+      },
+    ],
+  },
+  {
+    id: "qripto-knowdz-sprint",
+    name: "Knowdz Specialist Sprint",
+    description: "Exec/Creative/Dev focused micro-sprints.",
+    category: "task",
+    complexity: "intermediate",
+    estimated_time: 30,
+    required_components: ["task_list"],
+    optional_components: ["rewards"],
+    tags: ["task", "knowdz-exec", "knowdz-creative", "knowdz-devs"],
+    steps: [
+      {
+        id: "content_selection",
+        title: "Knowdz Track",
+        description: "Choose Exec, Creative, or Dev track.",
+        type: "selection",
+        required: true,
+        ui_config: {
+          layout: "form",
+          fields: [
+            { id: "content_tag", name: "Knowdz Track", type: "select", required: true },
+            { id: "content_items", name: "Content items", type: "multiselect", required: true },
+          ],
+        },
+      },
+      {
+        id: "wallet_rewards",
+        title: "Rewards (Optional)",
+        description: "Configure optional rewards without gating access.",
+        type: "configuration",
+        required: false,
+        ui_config: {
+          layout: "form",
+          fields: [
+            { id: "reward_amount", name: "Reward amount (Q¢)", type: "text", required: false },
+          ],
+        },
+      },
+    ],
+  },
+  {
+    id: "qripto-smart-offer",
+    name: "Smart Wallet + Offer",
+    description: "Offer flow with optional rewards and sharing.",
+    category: "task",
+    complexity: "intermediate",
+    estimated_time: 15,
+    required_components: ["offer", "consent"],
+    optional_components: ["wallet", "receipt"],
+    tags: ["offer", "wallet", "rewards"],
+    steps: [
+      {
+        id: "intent_timebox",
+        title: "Offer Intent",
+        description: "Define the offer objective and duration.",
+        type: "selection",
+        required: true,
+        ui_config: {
+          layout: "form",
+          fields: [
+            { id: "experience_name", name: "Experience name", type: "text", required: true },
+            { id: "time_available", name: "Time available (min)", type: "slider", required: false, validation: { min: 5, max: 30, step: 1 } },
+          ],
+        },
+      },
+      {
+        id: "wallet_rewards",
+        title: "Rewards",
+        description: "Set optional reward (not required for access).",
+        type: "configuration",
+        required: false,
+        ui_config: {
+          layout: "form",
+          fields: [
+            { id: "reward_amount", name: "Reward amount (Q¢)", type: "text", required: false },
+          ],
+        },
+      },
+    ],
+  },
+];
 
 export const ComposerStudio = () => {
   const router = useRouter();
@@ -99,6 +402,13 @@ export const ComposerStudio = () => {
   const [designTheme, setDesignTheme] = useState<DesignQubeThemeMode>("dark");
   const [designQubeCollapsed, setDesignQubeCollapsed] = useState(true);
   const [designQubeSummaryLayout, setDesignQubeSummaryLayout] = useState<"compact" | "grid">("compact");
+  const [activeStyleQubeId, setActiveStyleQubeId] = useState("knyt-guidance-v1");
+  const { data: codexList } = useCodexList({ useDefaults: true });
+  const [copilotContextId, setCopilotContextId] = useState("qripto-codex");
+  const [codexContentItems, setCodexContentItems] = useState<
+    Array<{ id: string; label: string; tag: string; mediaType: string; mediaUri: string }>
+  >([]);
+  const [codexContentLoading, setCodexContentLoading] = useState(false);
 
   const styleQubeThemeTokens = designQube?.tokens?.themes?.[designTheme];
   const styleQubeColors = styleQubeThemeTokens?.color || {};
@@ -106,6 +416,82 @@ export const ComposerStudio = () => {
     styleQubeColors.surface || styleQubeColors.bg || "rgba(15,23,42,0.6)";
   const styleQubeThemeBorder = styleQubeColors.border || "rgba(148,163,184,0.2)";
   const styleQubeThemeText = styleQubeColors.text || "#e2e8f0";
+
+  const copilotContextOptions = useMemo<Array<{ id: string; label: string }>>(() => {
+    if (!codexList || codexList.length === 0) {
+      return QRIPTO_FALLBACK_CODEXES as Array<{ id: string; label: string }>;
+    }
+    return codexList.map((codex: CodexListItem) => ({
+      id: codex.id,
+      label: codex.name,
+    }));
+  }, [codexList]);
+
+  useEffect(() => {
+    if (!copilotContextOptions.length) return;
+    if (!copilotContextOptions.some((opt) => opt.id === copilotContextId)) {
+      setCopilotContextId(copilotContextOptions[0].id);
+    }
+  }, [copilotContextOptions, copilotContextId]);
+
+  useEffect(() => {
+    if (!copilotContextId) return;
+    setTenantId(copilotContextId);
+    setUserId((prev) => prev || DEFAULT_USER);
+  }, [copilotContextId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (copilotContextId !== "qripto-codex") {
+      setCodexContentItems([]);
+      return;
+    }
+    let cancelled = false;
+    const loadContent = async () => {
+      setCodexContentLoading(true);
+      try {
+        const origin = window.location.origin;
+        const issueParam = "issue=issue-1&scope=codex";
+        const sections = await Promise.all([
+          fetch(`${origin}/api/content/section/home-hero?${issueParam}`).then((r) => r.json()),
+          fetch(`${origin}/api/content/section/latest-news?${issueParam}`).then((r) => r.json()),
+          fetch(`${origin}/api/content/section/second-hero?${issueParam}`).then((r) => r.json()),
+          fetch(`${origin}/api/content/section/pennydrops?${issueParam}`).then((r) => r.json()),
+          fetch(`${origin}/api/content/section/scrolls?${issueParam}`).then((r) => r.json()),
+          fetch(`${origin}/api/content/section/21knowdz?${issueParam}`).then((r) => r.json()),
+        ]);
+
+        const tagged = [
+          { items: sections[0]?.content || [], tag: "hero" },
+          { items: sections[1]?.content || [], tag: "latest-news" },
+          { items: sections[2]?.content || [], tag: "second-hero" },
+          { items: sections[3]?.content || [], tag: "penny-drops" },
+          { items: sections[4]?.content || [], tag: "scrolls-metaknyts" },
+          { items: sections[5]?.content || [], tag: "knowdz-exec" },
+        ];
+
+        const mapped = tagged.flatMap(({ items, tag }) =>
+          (items || []).slice(0, 4).map((item: any) => ({
+            id: item.id || `${tag}-${item.title}`,
+            label: item.title || item.name || tag,
+            tag,
+            mediaType: item.modalities?.watch ? "video" : item.modalities?.listen ? "audio" : "image",
+            mediaUri: item.image || item.thumbnail || item.cover || item.heroImage || "",
+          }))
+        );
+
+        if (!cancelled) setCodexContentItems(mapped.filter((item) => item.mediaUri));
+      } catch {
+        if (!cancelled) setCodexContentItems([]);
+      } finally {
+        if (!cancelled) setCodexContentLoading(false);
+      }
+    };
+    loadContent();
+    return () => {
+      cancelled = true;
+    };
+  }, [copilotContextId]);
   const [templateIntent, setTemplateIntent] = useState<"micro-episode" | "article" | "tutorial" | "task" | null>(null);
   const [templateQuery, setTemplateQuery] = useState("");
   const [selectedExperienceId, setSelectedExperienceId] = useState<string | null>(null);
@@ -121,7 +507,14 @@ export const ComposerStudio = () => {
         if (!res.ok) throw new Error("Failed to load templates");
         const data = await res.json();
         if (active) {
-          setTemplates(data.templates || []);
+          const apiTemplates: ExperienceTemplate[] = data.templates || [];
+          const merged = [...apiTemplates];
+          QRIPTO_TEMPLATE_SEEDS.forEach((seed) => {
+            if (!merged.some((t) => t.id === seed.id)) {
+              merged.push(seed);
+            }
+          });
+          setTemplates(merged);
           setTemplatesError(null);
         }
       } catch (err: any) {
@@ -344,6 +737,9 @@ export const ComposerStudio = () => {
   const composerAgent = agentConfigs["aigent-z"];
   const handleCopilotPrompt = (prompt: string) => {
     const lower = prompt.toLowerCase();
+    const contextLabel =
+      copilotContextOptions.find((opt) => opt.id === copilotContextId)?.label || "The Qriptopian";
+    let promptWithContext = `${contextLabel}: ${prompt}`;
     if (/(show|view|browse).*(all|templates)|all templates/.test(lower)) {
       setTemplateIntent(null);
       setTemplateQuery("");
@@ -351,15 +747,40 @@ export const ComposerStudio = () => {
     }
     if (/(micro|episode|story|series|serial)/.test(lower)) {
       setTemplateIntent("micro-episode");
+      if (/(synth|synthsimms)/.test(lower)) {
+        promptWithContext += " scrolls-synthsimms";
+      } else if (/(knyt|metaknyt)/.test(lower)) {
+        promptWithContext += " scrolls-metaknyts";
+      } else {
+        promptWithContext += " scrolls-metaknyts";
+      }
     } else if (/(article|reader|read|essay|news)/.test(lower)) {
       setTemplateIntent("article");
+      if (/(hero|feature)/.test(lower)) promptWithContext += " hero";
+      if (/news/.test(lower)) promptWithContext += " latest-news";
     } else if (/(tutorial|guide|how|lesson|learn)/.test(lower)) {
       setTemplateIntent("tutorial");
+      if (/penny/.test(lower)) promptWithContext += " penny-drops";
     } else if (/(task|workflow|checklist|runbook|ops)/.test(lower)) {
       setTemplateIntent("task");
+      if (/exec/.test(lower)) promptWithContext += " knowdz-exec";
+      if (/creative/.test(lower)) promptWithContext += " knowdz-creative";
+      if (/dev/.test(lower)) promptWithContext += " knowdz-devs";
     }
-    setTemplateQuery(prompt);
+    setTemplateQuery(promptWithContext);
   };
+
+  const qriptoContentOptions = useMemo(() => {
+    if (codexContentItems.length > 0) {
+      return codexContentItems.map((item) => ({ value: item.id, label: item.label }));
+    }
+    return QRIPTO_CONTENT_ITEMS.map((item) => ({ value: item.id, label: item.label }));
+  }, [codexContentItems]);
+
+  const selectContentDefaults = useMemo(() => {
+    const source = codexContentItems.length > 0 ? codexContentItems : QRIPTO_CONTENT_ITEMS;
+    return source.slice(0, 3).map((item) => item.id);
+  }, [codexContentItems]);
 
   useEffect(() => {
     if (filteredTemplates.length === 0) {
@@ -425,7 +846,17 @@ export const ComposerStudio = () => {
       if (prev[currentStep.id]) return prev;
       const defaults: Record<string, any> = {};
       currentStep.ui_config.fields.forEach((field) => {
-        if (field.default_value !== undefined) defaults[field.id] = field.default_value;
+        if (field.default_value !== undefined) {
+          defaults[field.id] = field.default_value;
+          return;
+        }
+        if (field.id === "content_items") {
+          defaults[field.id] = selectContentDefaults;
+          return;
+        }
+        if (field.id === "content_tag") {
+          defaults[field.id] = QRIPTO_CONTENT_TAGS[0]?.value;
+        }
       });
       if (Object.keys(defaults).length === 0) return prev;
       return { ...prev, [currentStep.id]: defaults };
@@ -593,13 +1024,16 @@ export const ComposerStudio = () => {
   }, [mergedData, sessionTemplate]);
 
   return (
-    <div className="min-h-screen bg-slate-900 p-8">
-      <div className="max-w-6xl mx-auto space-y-8">
-        <div className="space-y-2">
-          <h1 className="text-3xl font-semibold text-white">Composer v0</h1>
-          <p className="text-slate-400">
-            Build ExperienceQubes using guided templates. This uses the existing Composer API and receipt pipeline.
-          </p>
+    <div className="min-h-screen bg-slate-900 px-6 py-6">
+      <div className="w-full space-y-8">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Hexagon className="h-6 w-6 text-rose-400" />
+            <h1 className="text-xl font-bold text-white">metaMe Studio</h1>
+            <span className="text-sm text-slate-400">
+              Build ExperienceQubes using guided templates. This uses the existing Composer API and receipt pipeline.
+            </span>
+          </div>
         </div>
 
         <div className="grid gap-6 xl:grid-cols-[1fr_1.2fr_1fr]">
@@ -617,11 +1051,14 @@ export const ComposerStudio = () => {
           >
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-white">Compose Copilot</h2>
+                <div className="flex items-center gap-2">
+                  <Bot className="h-4 w-4 text-cyan-300" />
+                  <h2 className="text-lg font-semibold text-white">Composer Copilot</h2>
+                </div>
                 <p className="text-sm text-slate-400">What would you like to compose?</p>
               </div>
             </div>
-            <div className="mt-4 h-[640px] w-96 overflow-hidden rounded-2xl border border-slate-800 bg-slate-950/60 backdrop-blur-xl flex flex-col">
+            <div className="mt-4 h-[640px] w-96 overflow-hidden rounded-2xl border border-transparent bg-slate-950/60 backdrop-blur-xl flex flex-col">
               <div className="h-full overflow-hidden">
                 <CodexCopilotLayer
                   isOpen
@@ -629,6 +1066,13 @@ export const ComposerStudio = () => {
                   variant="embedded"
                   showNavMenu
                   showWalletMenu
+                  hideAvatarToggle
+                  contextOptions={copilotContextOptions}
+                  contextId={copilotContextId}
+                  onContextChange={setCopilotContextId}
+                  inputPanelClassName="rounded-2xl border border-white/10 bg-slate-950/95 backdrop-blur-xl px-3 py-3 shadow-lg"
+                  inputPanelInputClassName="flex-1 px-3 py-2 bg-slate-900/80 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500 text-sm"
+                  panelBorder={false}
                   quickPrompts={[
                     "Show all templates",
                     "Micro-episode experience",
@@ -654,7 +1098,10 @@ export const ComposerStudio = () => {
           <div className={cardClass}>
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-white">Templates</h2>
+                <div className="flex items-center gap-2">
+                  <LayoutGrid className="h-4 w-4 text-emerald-300" />
+                  <h2 className="text-lg font-semibold text-white">Experience Templates</h2>
+                </div>
                 <p className="text-sm text-slate-400">Select a template to begin a new session.</p>
               </div>
               {templatesLoading && <Loader2 className="h-4 w-4 animate-spin text-slate-400" />}
@@ -733,7 +1180,10 @@ export const ComposerStudio = () => {
           <div className={cardClass}>
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-white">Session</h2>
+                <div className="flex items-center gap-2">
+                  <SlidersHorizontal className="h-4 w-4 text-violet-300" />
+                  <h2 className="text-lg font-semibold text-white">Template Customizer</h2>
+                </div>
                 <p className="text-sm text-slate-400">Follow the guided steps and publish an ExperienceQube.</p>
               </div>
               {session && (
@@ -773,6 +1223,21 @@ export const ComposerStudio = () => {
                       {currentStep.ui_config.fields.map((field) => {
                         const value = stepValues[field.id];
                         const error = getFieldError(field, value);
+                        const isContentItemsField = field.id === "content_items";
+                        const isContentTagField =
+                          field.id.includes("content_tag") || field.name.toLowerCase().includes("content tag");
+                        const options = isContentItemsField
+                          ? qriptoContentOptions
+                          : isContentTagField && field.options
+                            ? [
+                                ...field.options,
+                                ...QRIPTO_CONTENT_TAGS.filter(
+                                  (tag) => !field.options?.some((opt) => opt.value === tag.value)
+                                ),
+                              ]
+                            : isContentTagField
+                              ? QRIPTO_CONTENT_TAGS
+                              : field.options;
                         return (
                           <div key={field.id}>
                             <label className="text-xs text-slate-400">
@@ -806,7 +1271,7 @@ export const ComposerStudio = () => {
                                 }`}
                               >
                                 <option value="">Select...</option>
-                                {field.options?.map((opt) => (
+                                {options?.map((opt) => (
                                   <option key={opt.value} value={opt.value}>
                                     {opt.label}
                                   </option>
@@ -815,7 +1280,7 @@ export const ComposerStudio = () => {
                             )}
                             {field.type === "multiselect" && (
                               <div className="mt-2 grid gap-2">
-                                {field.options?.map((opt) => {
+                                {options?.map((opt) => {
                                   const selected = Array.isArray(value) && value.includes(opt.value);
                                   return (
                                     <label key={opt.value} className="flex items-center gap-2 text-xs text-slate-300">
@@ -931,7 +1396,10 @@ export const ComposerStudio = () => {
           <div className={cardClass}>
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-white">ExperienceQubes</h2>
+                <div className="flex items-center gap-2">
+                  <Hexagon className="h-4 w-4 text-cyan-300" />
+                  <h2 className="text-lg font-semibold text-white">ExperienceQubes</h2>
+                </div>
                 <p className="text-sm text-slate-400">Latest experiences for the current tenant.</p>
               </div>
               {experience && (
@@ -991,10 +1459,24 @@ export const ComposerStudio = () => {
             </div>
           </div>
 
-          <div className={cardClass}>
+          <div
+            className={cardClass}
+            style={
+              designQube
+                ? {
+                    backgroundColor: styleQubeThemeBg,
+                    borderColor: styleQubeThemeBorder,
+                    color: styleQubeThemeText,
+                  }
+                : undefined
+            }
+          >
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-white">StyleQube</h2>
+                <div className="flex items-center gap-2">
+                  <Palette className="h-4 w-4 text-rose-300" />
+                  <h2 className="text-lg font-semibold text-white">StyleQube</h2>
+                </div>
                 <p className="text-sm text-slate-400">Active styling profile for Runtime + Studio.</p>
               </div>
             </div>
@@ -1038,8 +1520,15 @@ export const ComposerStudio = () => {
                         className="flex flex-wrap items-center justify-between gap-3 rounded-xl border px-3 py-2"
                         style={{ backgroundColor: themeBg, borderColor: themeBorder }}
                       >
-                        <div className="flex items-center gap-2 text-xs" style={{ color: themeText }}>
-                          <span className="text-slate-200">KNYT Guidance DesignQube</span>
+                        <div className="flex flex-wrap items-center gap-2 text-xs" style={{ color: themeText }}>
+                          <select
+                            value={activeStyleQubeId}
+                            onChange={(e) => setActiveStyleQubeId(e.target.value)}
+                            className="rounded-md border border-white/10 bg-slate-950/40 px-2 py-1 text-xs text-white/90"
+                            style={{ borderColor: themeBorder, backgroundColor: themeBg }}
+                          >
+                            <option value="knyt-guidance-v1">KNYT Guidance</option>
+                          </select>
                           <button
                             className="inline-flex items-center rounded-full border px-2 py-0.5"
                             title={designQube.manifest?.authorityLevel || "guidance"}
@@ -1254,22 +1743,26 @@ export const ComposerStudio = () => {
         </div>
 
           <div className={cardClass}>
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-white">Runtime Preview</h2>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <Hexagon className="h-5 w-5 text-rose-400" />
+                <h2 className="text-lg font-semibold text-white">metaMe Runtime Preview</h2>
                 <p className="text-sm text-slate-400">Toggle device sizes to validate the Runtime flow.</p>
               </div>
-              {previewAction && (
-                <span className="text-xs text-slate-400">Last action: {previewAction}</span>
-              )}
+              <div className="flex items-center gap-3">
+                {previewAction && (
+                  <span className="text-xs text-slate-400">Last action: {previewAction}</span>
+                )}
+                <DevicePreviewSwitcher value={previewDevice} onChange={setPreviewDevice} />
+              </div>
             </div>
-            <div className="mt-4 h-[760px]">
+            <div className="mt-4 h-[760px] max-h-[760px] overflow-hidden">
               <PreviewFrame
-                src={`/metame/runtime?preview=1&capsule=${selectedExperienceId || previewExperience?.id || "capsule-metaknyt-play"}&theme=${designTheme}&embed=1`}
+                src={`/metame/runtime?preview=1&capsule=${selectedExperienceId || previewExperience?.id || "capsule-metaknyt-play"}&theme=${designTheme}&embed=1&device=${previewDevice}`}
                 defaultDevice="mobile"
                 chromeless
                 deviceQueryParam="device"
-                onDeviceChange={(device) => setPreviewDevice(device)}
+                showToolbar={false}
               />
             </div>
           </div>

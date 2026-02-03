@@ -164,7 +164,12 @@ export function VideoPlayer({
 
   const togglePlay = () => {
     const v = videoRef.current;
-    if (v) (v.paused ? v.play() : v.pause());
+    if (!v) return;
+    if (v.paused) {
+      void v.play();
+      return;
+    }
+    v.pause();
   };
   const toggleMute = () => {
     const v = videoRef.current;

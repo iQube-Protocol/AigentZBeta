@@ -7,7 +7,8 @@ import SmartContentCard from "@/app/components/content/SmartContentCard";
 import { PreviewFrame } from "@/components/preview/PreviewFrame";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toaster";
-import { Sparkles, Users, PlayCircle, Coins, Pencil, BookOpen, Headphones, Tv, Compass } from "lucide-react";
+import { Sparkles, Users, PlayCircle, Coins, Pencil, BookOpen, Headphones, Tv, Compass, Hexagon } from "lucide-react";
+import { DevicePreviewSwitcher } from "@/components/preview/DevicePreviewSwitcher";
 
 type Capsule = {
   id: string;
@@ -25,7 +26,7 @@ const CAPSULE_CONTENTS: any[] = [
     slug: "read-qriptopian",
     version: 1,
     description: "Launch an immersive article experience from the Qriptopian codex.",
-    coverImageUri: "/images/demo/qripto-chronicles.jpg",
+    coverImageUri: "",
     creatorRootDid: "did:iq:creator2",
     tenantId: "qriptopian",
     modalities: {
@@ -58,7 +59,7 @@ const CAPSULE_CONTENTS: any[] = [
     slug: "play-metaknyt",
     version: 1,
     description: "Jump into an episode experience with smart modules and rewards.",
-    coverImageUri: "/images/demo/penny-digital.jpg",
+    coverImageUri: "",
     creatorRootDid: "did:iq:creator1",
     tenantId: "metaknyts",
     modalities: {
@@ -91,7 +92,7 @@ const CAPSULE_CONTENTS: any[] = [
     slug: "earn-rewards",
     version: 1,
     description: "Complete a short task flow to earn Q¢ and unlock content.",
-    coverImageUri: "/images/demo/agentiq-tutorial.jpg",
+    coverImageUri: "",
     creatorRootDid: "did:iq:creator3",
     tenantId: "agentiq",
     modalities: {
@@ -142,6 +143,7 @@ const DEFAULT_CAPSULES: Capsule[] = [
 export default function MetaMeRuntimeWelcome() {
   const searchParams = useSearchParams();
   const [capsules, setCapsules] = useState<Capsule[]>(DEFAULT_CAPSULES);
+  const [capsuleContents, setCapsuleContents] = useState<any[]>(CAPSULE_CONTENTS);
   const [selectedCapsuleLocal, setSelectedCapsuleLocal] = useState<string | null>(null);
   const selectedCapsuleId = searchParams?.get("capsule");
   const embedMode = searchParams?.get("embed") === "1";
@@ -169,6 +171,52 @@ export default function MetaMeRuntimeWelcome() {
     loadChannels();
     return () => {
       mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let cancelled = false;
+    const loadCapsuleContent = async () => {
+      try {
+        const origin = window.location.origin;
+        const issueParam = "issue=issue-1&scope=codex";
+        const [hero, news, scrolls, pennydrops] = await Promise.all([
+          fetch(`${origin}/api/content/section/home-hero?${issueParam}`).then((r) => r.json()),
+          fetch(`${origin}/api/content/section/latest-news?${issueParam}`).then((r) => r.json()),
+          fetch(`${origin}/api/content/section/scrolls?${issueParam}`).then((r) => r.json()),
+          fetch(`${origin}/api/content/section/pennydrops?${issueParam}`).then((r) => r.json()),
+        ]);
+        const heroItem = hero?.content?.[0] || news?.content?.[0];
+        const scrollItem = scrolls?.content?.[0];
+        const pennyItem = pennydrops?.content?.[0];
+        const pickImage = (item: any) =>
+          item?.image || item?.thumbnail || item?.cover || item?.heroImage || item?.coverImageUri || "";
+
+        const nextContents = CAPSULE_CONTENTS.map((capsule) => {
+          if (capsule.id === "capsule-qriptopian-read" && heroItem) {
+            const image = pickImage(heroItem);
+            return { ...capsule, title: heroItem.title || capsule.title, coverImageUri: image || capsule.coverImageUri };
+          }
+          if (capsule.id === "capsule-metaknyt-play" && scrollItem) {
+            const image = pickImage(scrollItem);
+            return { ...capsule, title: scrollItem.title || capsule.title, coverImageUri: image || capsule.coverImageUri };
+          }
+          if (capsule.id === "capsule-earn-reward" && pennyItem) {
+            const image = pickImage(pennyItem);
+            return { ...capsule, title: pennyItem.title || capsule.title, coverImageUri: image || capsule.coverImageUri };
+          }
+          return capsule;
+        });
+
+        if (!cancelled) setCapsuleContents(nextContents);
+      } catch {
+        if (!cancelled) setCapsuleContents(CAPSULE_CONTENTS);
+      }
+    };
+    loadCapsuleContent();
+    return () => {
+      cancelled = true;
     };
   }, []);
 
@@ -264,7 +312,7 @@ export default function MetaMeRuntimeWelcome() {
     () => (
       <div className="space-y-3">
         <div className="space-y-2">
-          {CAPSULE_CONTENTS.map((content) => (
+          {capsuleContents.map((content) => (
             <SmartContentCard
               key={content.id}
               content={content}
@@ -351,13 +399,13 @@ export default function MetaMeRuntimeWelcome() {
       id: "welcome-message",
       role: "assistant",
       content: "Welcome to metaMe. What do you want to do today?",
-      timestamp: new Date(),
+      timestamp: new Date(0),
     },
     {
       id: "capsule-panel",
       role: "assistant",
       content: capsulePanel,
-      timestamp: new Date(),
+      timestamp: new Date(0),
       variant: "panel",
     },
   ]);
@@ -370,13 +418,13 @@ export default function MetaMeRuntimeWelcome() {
             id: "welcome-message",
             role: "assistant",
             content: "Welcome to metaMe. What do you want to do today?",
-            timestamp: new Date(),
+            timestamp: new Date(0),
           },
           {
             id: "capsule-panel",
             role: "assistant",
             content: capsulePanel,
-            timestamp: new Date(),
+            timestamp: new Date(0),
             variant: "panel",
           },
         ];
@@ -388,7 +436,7 @@ export default function MetaMeRuntimeWelcome() {
   }, [capsulePanel]);
 
   const runtimeSurface = (
-    <div className="relative h-[720px] bg-slate-950 text-white overflow-hidden flex flex-col">
+    <div className="relative h-full w-full bg-slate-950 text-white overflow-hidden flex flex-col">
       <style jsx global>{`
         .copilotkit-launcher,
         .copilotkit-button,
@@ -400,9 +448,10 @@ export default function MetaMeRuntimeWelcome() {
         isOpen
         onClose={() => {}}
         variant="embedded"
-        panelClassName="w-full"
+        panelClassName="w-full h-full"
         showNavMenu={false}
         showWalletMenu={false}
+        panelBorder={false}
         promptPlaceholder="What do you want to do today?"
         messages={messages}
         onMessagesChange={setMessages}
@@ -420,10 +469,27 @@ export default function MetaMeRuntimeWelcome() {
     return runtimeSurface;
   }
 
+  const runtimeToolbar = (device: any, onChange: (device: any) => void) => (
+    <div className="flex items-center justify-between px-2 py-2">
+      <div className="flex items-center gap-3">
+        <Hexagon className="h-6 w-6 text-rose-400" />
+        <span className="text-xl font-bold text-white">metaMe Runtime</span>
+      </div>
+      <DevicePreviewSwitcher value={device} onChange={onChange} />
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-slate-950 text-white px-4 py-6">
-      <div className="mx-auto w-full max-w-5xl">
-        <PreviewFrame defaultDevice="mobile" showToolbar toolbarPosition="top" deviceQueryParam="device">
+      <div className="mx-auto w-full max-w-5xl h-[760px]">
+        <PreviewFrame
+          defaultDevice="mobile"
+          showToolbar
+          toolbarPosition="top"
+          deviceQueryParam="device"
+          chromeless
+          renderToolbar={runtimeToolbar}
+        >
           {runtimeSurface}
         </PreviewFrame>
       </div>

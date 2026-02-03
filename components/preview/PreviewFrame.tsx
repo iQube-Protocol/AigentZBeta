@@ -30,6 +30,8 @@ interface PreviewFrameProps {
   deviceQueryParam?: string;
   /** Fallback content if iframe fails to load */
   fallback?: React.ReactNode;
+  /** Custom toolbar renderer */
+  renderToolbar?: (device: DeviceType, onChange: (device: DeviceType) => void) => React.ReactNode;
 }
 
 /**
@@ -47,6 +49,7 @@ export function PreviewFrame({
   chromeless = false,
   deviceQueryParam = "device",
   fallback,
+  renderToolbar,
 }: PreviewFrameProps) {
   const { device, setDevice, width } = useDevicePreview(defaultDevice);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -76,11 +79,15 @@ export function PreviewFrame({
     onDeviceChange?.(newDevice, getDeviceWidth(newDevice));
   };
 
-  const toolbar = showToolbar && (
-    <div className="flex items-center justify-center py-2">
-      <DevicePreviewSwitcher value={device} onChange={handleDeviceChange} />
-    </div>
-  );
+  const toolbar = showToolbar
+    ? renderToolbar
+      ? renderToolbar(device, handleDeviceChange)
+      : (
+        <div className="flex items-center justify-center py-2">
+          <DevicePreviewSwitcher value={device} onChange={handleDeviceChange} />
+        </div>
+      )
+    : null;
 
   const resolvedSrc = (() => {
     if (!src || typeof window === "undefined") return src;
@@ -117,6 +124,7 @@ export function PreviewFrame({
             width: `${targetWidth}px`,
             transform: device === "desktop" ? undefined : `scale(${scale})`,
             maxWidth: "100%",
+            height: "100%",
             minHeight: "100%",
           }}
         >

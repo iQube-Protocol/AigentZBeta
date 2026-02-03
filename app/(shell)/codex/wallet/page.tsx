@@ -9,7 +9,7 @@ function SmartWalletViewerContent() {
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [density, setDensity] = useState<'narrow' | 'wide'>('wide');
   const searchParams = useSearchParams();
-  const personaId = searchParams.get('personaId') || undefined;
+  const personaId = searchParams?.get('personaId') || undefined;
 
   // Sample agent data - in real app this would come from context
   const agent = {

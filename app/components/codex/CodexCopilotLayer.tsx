@@ -30,6 +30,12 @@ interface CodexCopilotLayerProps {
   onOpen?: () => void;
   variant?: "floating" | "embedded";
   className?: string;
+  hideAvatarToggle?: boolean;
+  contextOptions?: Array<{ id: string; label: string }>;
+  contextId?: string;
+  onContextChange?: (contextId: string) => void;
+  inputPanelClassName?: string;
+  inputPanelInputClassName?: string;
   quickPrompts?: Array<
     | string
     | {
@@ -57,6 +63,7 @@ interface CodexCopilotLayerProps {
   nftCount?: number;
   isFirstVisit?: boolean;
   visitCount?: number;
+  panelBorder?: boolean;
   agent?: {
     id: string;
     name: string;
@@ -86,6 +93,12 @@ export function CodexCopilotLayer({
   onOpen,
   variant = "floating",
   className,
+  hideAvatarToggle = false,
+  contextOptions,
+  contextId,
+  onContextChange,
+  inputPanelClassName,
+  inputPanelInputClassName,
   quickPrompts,
   onPrompt,
   initialMessage,
@@ -100,6 +113,7 @@ export function CodexCopilotLayer({
   trustProvider,
   showNavMenu = true,
   showWalletMenu = true,
+  panelBorder = true,
   agent,
 }: CodexCopilotLayerProps) {
   const isMobile = useIsMobile();
@@ -118,6 +132,13 @@ export function CodexCopilotLayer({
   const [walletMenuVisible, setWalletMenuVisible] = useState(true);
   const [walletMenuHover, setWalletMenuHover] = useState(false);
   const [inputPanelVisible, setInputPanelVisible] = useState(false);
+  const [contextMenuOpen, setContextMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (hideAvatarToggle && copilotMode !== "chat") {
+      setCopilotMode("chat");
+    }
+  }, [hideAvatarToggle, copilotMode]);
   const [inputPanelHover, setInputPanelHover] = useState(false);
   const headerHeight = 44;
   const footerHeight = 88;
@@ -142,7 +163,7 @@ export function CodexCopilotLayer({
         id: "welcome-message",
         role: "assistant",
         content: initialMessage,
-        timestamp: new Date(),
+        timestamp: new Date(0),
       },
     ]);
     seededRef.current = true;
@@ -376,13 +397,13 @@ export function CodexCopilotLayer({
               variant === "embedded" ? "h-full" : "h-full md:h-[calc(100vh-100px)] md:max-h-[600px]"
             } transition-all duration-300 ease-out`}
           >
-            <div className="h-full bg-black/30 backdrop-blur-xl ring-1 ring-white/10 rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+            <div className={`h-full bg-black/30 backdrop-blur-xl rounded-2xl shadow-2xl flex flex-col overflow-hidden ${panelBorder ? "ring-1 ring-white/10" : ""}`}>
               <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
                 {copilotMode === "chat" ? (
                   <>
                     <div className="flex-1 relative overflow-hidden">
                       <div
-                        className="absolute top-0 left-0 right-0 z-20 bg-slate-950 px-3 pr-4 py-2 flex items-center gap-4 border-b border-white/10 justify-end"
+                        className="absolute top-0 left-0 right-0 z-20 bg-slate-950 px-3 pr-6 py-2 flex items-center gap-4 border-b border-white/10 justify-end"
                         style={{ height: `${headerHeight}px` }}
                       >
                         <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-white/70">
@@ -508,7 +529,11 @@ export function CodexCopilotLayer({
                       )}
                     </div>
 
-                    <div className="absolute inset-x-0 bottom-0 bg-white/5 px-3 pb-3 pt-0 z-20">
+                    <div
+                      className={`absolute inset-x-0 bottom-0 px-3 pb-3 pt-0 z-20 ${
+                        floatingInput ? "bg-transparent" : "bg-white/5"
+                      }`}
+                    >
                       {floatingInput && (
                         <>
                           <div
@@ -530,7 +555,7 @@ export function CodexCopilotLayer({
                               showInputPanelWithTimeout();
                             }}
                           >
-                            <div className="rounded-2xl border border-white/10 bg-slate-950/80 backdrop-blur-xl px-3 py-3 shadow-lg">
+                            <div className={inputPanelClassName ?? "rounded-2xl border border-white/10 bg-slate-950/80 backdrop-blur-xl px-3 py-3 shadow-lg"}>
                               {quickPrompts && quickPrompts.length > 0 && (
                                 <div className="mb-3 flex w-full gap-2 overflow-x-auto no-scrollbar">
                                   {quickPrompts.map((promptItem, index) => {
@@ -569,7 +594,7 @@ export function CodexCopilotLayer({
                                   onKeyPress={(e) => e.key === "Enter" && sendMessage()}
                                   onFocus={() => showInputPanelWithTimeout()}
                                   placeholder={promptPlaceholder}
-                                  className="flex-1 px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500 text-sm"
+                                  className={inputPanelInputClassName ?? "flex-1 px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500 text-sm"}
                                   disabled={isLoading}
                                 />
                                 <button
@@ -650,34 +675,73 @@ export function CodexCopilotLayer({
                         <div className={floatingInput ? "pt-3" : "mt-3"}>{footerContent}</div>
                       ) : showNavMenu ? (
                         <div className="mt-3 flex items-center justify-between border-t border-white/10 pt-3">
-                          <div className="flex items-center gap-0.5 bg-white/5 rounded-lg p-0.5 ring-1 ring-white/10 flex-shrink-0">
+                          {hideAvatarToggle ? (
+                            <div className="flex items-center gap-2">
+                              <span className="rounded-sm border border-cyan-400/40 bg-cyan-500/20 px-3 py-1 text-[11px] font-semibold text-cyan-100 backdrop-blur-md shadow-sm">
+                                {contextOptions?.find((opt) => opt.id === contextId)?.label || "Qriptopian Codex"}
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-0.5 bg-white/5 rounded-lg p-0.5 ring-1 ring-white/10 flex-shrink-0">
+                              <button
+                                onClick={() => setCopilotMode("avatar")}
+                                className={`flex items-center gap-1 px-1.5 py-1 rounded-md text-xs transition-all ${
+                                  (copilotMode as CopilotMode) === "avatar"
+                                    ? "bg-purple-500/20 text-purple-400"
+                                    : "text-white/50 hover:text-white/80"
+                                }`}
+                              >
+                                <User className="w-3 h-3" />
+                              </button>
+                              <button
+                                onClick={() => setCopilotMode("chat")}
+                                className={`flex items-center gap-1 px-1.5 py-1 rounded-md text-xs transition-all ${
+                                  (copilotMode as CopilotMode) === "chat"
+                                    ? "bg-cyan-500/20 text-cyan-400"
+                                    : "text-white/50 hover:text-white/80"
+                                }`}
+                              >
+                                <MessageSquare className="w-3 h-3" />
+                              </button>
+                            </div>
+                          )}
+                          {contextOptions && contextOptions.length > 0 ? (
+                            <div className="relative">
+                              <button
+                                onClick={() => setContextMenuOpen((prev) => !prev)}
+                                className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 ring-1 ring-white/10 transition-colors"
+                              >
+                                <ChevronDown className="w-4 h-4" />
+                              </button>
+                              {contextMenuOpen && (
+                                <div className="absolute right-0 bottom-10 min-w-[180px] rounded-xl border border-white/10 bg-slate-950/90 p-2 shadow-xl backdrop-blur">
+                                  {contextOptions.map((opt) => (
+                                    <button
+                                      key={opt.id}
+                                      onClick={() => {
+                                        onContextChange?.(opt.id);
+                                        setContextMenuOpen(false);
+                                      }}
+                                      className={`w-full rounded-lg px-3 py-2 text-left text-xs transition ${
+                                        opt.id === contextId
+                                          ? "bg-cyan-500/15 text-cyan-200"
+                                          : "text-white/70 hover:bg-white/5"
+                                      }`}
+                                    >
+                                      {opt.label}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ) : (
                             <button
-                              onClick={() => setCopilotMode("avatar")}
-                              className={`flex items-center gap-1 px-1.5 py-1 rounded-md text-xs transition-all ${
-                                (copilotMode as CopilotMode) === "avatar"
-                                  ? "bg-purple-500/20 text-purple-400"
-                                  : "text-white/50 hover:text-white/80"
-                              }`}
+                              onClick={onClose}
+                              className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 ring-1 ring-white/10 transition-colors"
                             >
-                              <User className="w-3 h-3" />
+                              <ChevronDown className="w-4 h-4" />
                             </button>
-                            <button
-                              onClick={() => setCopilotMode("chat")}
-                              className={`flex items-center gap-1 px-1.5 py-1 rounded-md text-xs transition-all ${
-                                (copilotMode as CopilotMode) === "chat"
-                                  ? "bg-cyan-500/20 text-cyan-400"
-                                  : "text-white/50 hover:text-white/80"
-                              }`}
-                            >
-                              <MessageSquare className="w-3 h-3" />
-                            </button>
-                          </div>
-                          <button
-                            onClick={onClose}
-                            className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 ring-1 ring-white/10 transition-colors"
-                          >
-                            <ChevronDown className="w-4 h-4" />
-                          </button>
+                          )}
                         </div>
                       ) : null}
                     </div>

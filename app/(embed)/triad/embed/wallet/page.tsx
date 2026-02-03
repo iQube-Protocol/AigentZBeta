@@ -15,9 +15,9 @@ import SmartWalletDrawer from "../../../../components/content/SmartWalletDrawer"
 
 function SmartWalletContent() {
   const searchParams = useSearchParams();
-  const theme = (searchParams.get('theme') as 'light' | 'dark') || 'dark';
-  const density = (searchParams.get('density') as 'narrow' | 'wide') || 'wide';
-  const personaId = searchParams.get('personaId') || undefined;
+  const theme = (searchParams?.get('theme') as 'light' | 'dark') || 'dark';
+  const density = (searchParams?.get('density') as 'narrow' | 'wide') || 'wide';
+  const personaId = searchParams?.get('personaId') || undefined;
 
   // Sample agent data - in real embed this would come from context or params
   const agent = {

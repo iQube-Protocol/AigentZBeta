@@ -66,7 +66,7 @@ function ShellLayoutContent({ children }: { children: React.ReactNode }) {
                   <Sidebar />
                 </div>
               )}
-              <main className="flex-1 overflow-y-auto">
+              <main className={`flex-1 ${isRuntimeEmbed ? "overflow-hidden" : "overflow-y-auto"}` }>
                 <div className={isRuntimeEmbed ? "h-full w-full p-0" : "p-6 md:p-8 lg:p-10"}>
                   <Suspense fallback={null}>{children}</Suspense>
                 </div>
