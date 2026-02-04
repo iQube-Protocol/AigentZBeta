@@ -190,7 +190,7 @@ export async function loadDesignQube({
     ];
     references = references.map((ref, idx) => ({
       ...ref,
-      thumbnailUrl: ref.thumbnailUrl ?? thumbnails[idx % thumbnails.length],
+      thumbnailUrl: thumbnails[idx % thumbnails.length],
     }));
   }
 
