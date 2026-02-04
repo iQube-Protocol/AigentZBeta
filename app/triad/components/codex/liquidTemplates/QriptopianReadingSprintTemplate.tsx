@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Loader2, Sparkles, Target, Timer, Layers } from "lucide-react";
 import type { SmartContentQube } from "@/types/smartContent";
+import type { WalletUIComponent } from "@/app/types/knytLiquidUI";
 import { SmartContentCard, useSmartTriad } from "@/app/components/content";
 
 type ExperienceQube = {
@@ -126,7 +127,7 @@ export function QriptopianReadingSprintTemplate({
   const handlePurchase = async (content: SmartContentQube) => {
     await actions.loadContent(content.id);
     // Open Liquid UI SmartWallet instead of Layered SmartWallet
-    const walletUI = [];
+    const walletUI: WalletUIComponent[] = [];
     
     // Add balance card
     walletUI.push('wallet_card.balance');
