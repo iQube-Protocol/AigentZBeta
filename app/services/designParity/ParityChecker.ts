@@ -553,7 +553,7 @@ export class ParityChecker {
   }
 
   private static calculateVisualScore(differences: VisualDifference[], breakpoint: string): number {
-    const breakpointDifferences = visualDifferences.filter(d => d.breakpoint === breakpoint);
+    const breakpointDifferences = differences.filter(d => d.breakpoint === breakpoint);
     if (breakpointDifferences.length === 0) return 100;
     
     const avgSimilarity = breakpointDifferences.reduce((sum, diff) => sum + diff.similarity, 0) / breakpointDifferences.length;
