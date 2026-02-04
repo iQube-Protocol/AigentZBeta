@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Bot, CheckCircle2, ChevronDown, ChevronUp, Circle, Hexagon, LayoutGrid, List, Loader2, Monitor, Moon, Palette, ShieldCheck, SlidersHorizontal, Sun } from "lucide-react";
 import { useCopilotAction } from "@copilotkit/react-core";
+import { Button } from "@/components/ui/button";
 import { PreviewFrame } from "@/components/preview/PreviewFrame";
 import { DevicePreviewSwitcher } from "@/components/preview/DevicePreviewSwitcher";
 import type { DeviceType } from "@/components/preview/DevicePreviewSwitcher";
