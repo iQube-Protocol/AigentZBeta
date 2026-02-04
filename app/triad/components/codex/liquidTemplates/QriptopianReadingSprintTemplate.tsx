@@ -138,7 +138,7 @@ export function QriptopianReadingSprintTemplate({
     }
     
     // Add permission card for consent
-    walletUI.push('wallet_card.confirm_action');
+    walletUI.push('wallet_card.task_step');
     
     // Set wallet UI and open in narrow mode
     actions.setWalletUI(walletUI);
