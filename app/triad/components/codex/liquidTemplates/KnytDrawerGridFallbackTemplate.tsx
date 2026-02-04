@@ -17,6 +17,10 @@ interface KnytDrawerGridFallbackTemplateProps {
   packet?: Record<string, any> | null;
   theme?: "light" | "dark";
   personaId?: string;
+  contentObjects?: SmartContentQube[];
+  contentObject?: SmartContentQube;
+  mediaVariantOverridesEnabled?: boolean;
+  mediaRatioOverrides?: Record<string, import("@/types/smartContent").MediaRatio>;
 }
 
 const fetchContent = async (id: string): Promise<SmartContentQube | null> => {
@@ -30,6 +34,10 @@ export function KnytDrawerGridFallbackTemplate({
   experience,
   packet,
   theme = "dark",
+  contentObjects,
+  contentObject,
+  mediaVariantOverridesEnabled,
+  mediaRatioOverrides,
 }: KnytDrawerGridFallbackTemplateProps) {
   const { actions } = useSmartTriad();
   const [items, setItems] = useState<SmartContentQube[]>([]);
@@ -65,6 +73,8 @@ export function KnytDrawerGridFallbackTemplate({
   const rewardAmount = Number(walletConfig.reward_amount || 0);
   const requiresConnect = walletConfig.require_wallet_connect !== false;
   const isDashboard = templateId.includes("drawer_grid_2a");
+  const getRatioOverride = (variant?: string) =>
+    variant && mediaVariantOverridesEnabled ? mediaRatioOverrides?.[variant] : undefined;
 
   useEffect(() => {
     let active = true;
@@ -72,6 +82,13 @@ export function KnytDrawerGridFallbackTemplate({
       try {
         setLoading(true);
         setError(null);
+        if (Array.isArray(contentObjects) && contentObjects.length > 0) {
+          if (active) {
+            setItems(contentObjects);
+            setLoading(false);
+          }
+          return;
+        }
         const ids = [featureId, ...supportingIds].filter(Boolean) as string[];
         if (ids.length === 0) {
           setItems([]);
@@ -94,7 +111,7 @@ export function KnytDrawerGridFallbackTemplate({
     return () => {
       active = false;
     };
-  }, [featureId, supportingIds]);
+  }, [featureId, supportingIds, contentObjects]);
 
   const handleOpen = async (content: SmartContentQube) => {
     await actions.loadContent(content.id);
@@ -162,6 +179,10 @@ export function KnytDrawerGridFallbackTemplate({
                     <SmartContentCard
                       content={items[0]}
                       variant="featured"
+                      templateVariant="featured"
+                      device="desktop"
+                      useTemplateRatioOverrides={mediaVariantOverridesEnabled}
+                      mediaRatioOverride={getRatioOverride("featured")}
                       onSelect={handleOpen}
                       onPurchase={handlePurchase}
                       isOwned={actions.checkOwnership(items[0].id)}
@@ -173,6 +194,10 @@ export function KnytDrawerGridFallbackTemplate({
                             key={item.id}
                             content={item}
                             variant="standard"
+                            templateVariant="standard"
+                            device="desktop"
+                            useTemplateRatioOverrides={mediaVariantOverridesEnabled}
+                            mediaRatioOverride={getRatioOverride("standard")}
                             onSelect={handleOpen}
                             onPurchase={handlePurchase}
                             isOwned={actions.checkOwnership(item.id)}
@@ -238,7 +263,11 @@ export function KnytDrawerGridFallbackTemplate({
                   <SmartContentCard
                     key={item.id}
                     content={item}
+                    templateVariant={isDashboard ? "standard" : "grid"}
+                    device="desktop"
                     variant={index === 0 ? "featured" : "standard"}
+                    useTemplateRatioOverrides={mediaVariantOverridesEnabled}
+                    mediaRatioOverride={getRatioOverride(isDashboard ? "standard" : "grid")}
                     onSelect={handleOpen}
                     onPurchase={handlePurchase}
                     isOwned={actions.checkOwnership(item.id)}

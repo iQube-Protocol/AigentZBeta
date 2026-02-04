@@ -35,537 +35,8 @@ const RECIPIENT_AGENT = agentConfigs["aigent-kn0w1"];
 // =============================================================================
 
 // Demo data uses simplified mock structure - cast to any to bypass strict typing
-const DEMO_CONTENTS: any[] = [
-  {
-    id: "capsule-qriptopian-read",
-    type: "SmartContentQube",
-    app: "Qriptopian",
-    title: "Experience Capsule: Read Qriptopian",
-    slug: "capsule-qriptopian-read",
-    version: 1,
-    description: "Launch a curated reading experience from the Qriptopian codex.",
-    coverImageUri: "https://images.unsplash.com/photo-1452457807411-4979b707c5be?w=800&q=80",
-    creatorRootDid: "did:iq:capsule-qriptopian",
-    tenantId: "qriptopian",
-    identityRequirements: {
-      minimumState: "anonymous",
-      requiredClaims: [],
-      allowAgents: true,
-      requireHumanProof: false,
-    },
-    reputationRequirements: {
-      minimumBucket: 0,
-      requiredBadges: [],
-      minimumScore: 0,
-    },
-    rewardOutcomes: {
-      engagementRewards: [],
-      creatorRoyalties: [],
-      rewardHubTenantId: "qriptopian",
-    },
-    modalities: {
-      read: { enabled: true, panels: [], textAssets: [] },
-      watch: { enabled: false, assets: [] },
-      listen: { enabled: false, assets: [] },
-      interact: { enabled: false, actions: [] },
-    },
-    structure: {
-      kind: "article",
-    },
-    pricingModel: {
-      tiers: [{ kind: "free", amount: 0, currency: "QCT", covers: 1 }],
-      acceptedTokens: [],
-    },
-    accessPolicy: {
-      visibility: "public",
-      allowAgents: true,
-      allowAnonymous: true,
-      requireWallet: false,
-      requirePersona: false,
-      allowOverrides: true,
-    },
-    layoutHints: {
-      defaultCard: "compact",
-      thumbnail: { size: "small", floating: false, position: "top-left" },
-      carousels: { enabled: true, groupBy: "none", itemsPerView: 3 },
-      responsive: {},
-      iframe: { allowEmbed: false, allowFullscreen: false },
-    },
-    menuIntegration: {
-      preferredDrawers: ["contentViewer", "agentChat"],
-      optionalDrawers: ["walletCompact"],
-      showWalletSummary: false,
-      showLibraryStatus: true,
-      showQuestProgress: false,
-      allowUserOverrides: true,
-    },
-    libraryMetadata: {
-      category: "capsule",
-      tags: ["capsule", "experience"],
-      recommendedShelf: "capsules",
-      expiry: { model: "permanent" },
-      ownership: { status: "available", libraryStatus: "not_owned" },
-      discovery: { featured: true, curated: true, priority: 1 },
-    },
-    createdAt: new Date().toISOString(),
-    status: "published",
-  },
-  {
-    id: "capsule-metaknyt-play",
-    type: "SmartContentQube",
-    app: "metaKnyts",
-    title: "Experience Capsule: Play metaKNYT",
-    slug: "capsule-metaknyt-play",
-    version: 1,
-    description: "Jump into a narrative capsule with smart modules and rewards.",
-    coverImageUri: "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=800&q=80",
-    creatorRootDid: "did:iq:capsule-metaknyt",
-    tenantId: "metaknyts",
-    identityRequirements: {
-      minimumState: "anonymous",
-      requiredClaims: [],
-      allowAgents: true,
-      requireHumanProof: false,
-    },
-    reputationRequirements: {
-      minimumBucket: 0,
-      requiredBadges: [],
-      minimumScore: 0,
-    },
-    rewardOutcomes: {
-      engagementRewards: [{ trigger: "complete", amount: 20, currency: "QCT", cooldownMinutes: 1440 }],
-      creatorRoyalties: [],
-      rewardHubTenantId: "metaknyts",
-    },
-    modalities: {
-      read: { enabled: true, panels: [], textAssets: [] },
-      watch: { enabled: false, assets: [] },
-      listen: { enabled: false, assets: [] },
-      interact: { enabled: true, actions: [] },
-    },
-    structure: {
-      kind: "episode",
-      panelCount: 6,
-    },
-    pricingModel: {
-      tiers: [{ kind: "payPerEpisode", amount: 50, currency: "QCT", covers: 6 }],
-      acceptedTokens: ["QCT"],
-    },
-    accessPolicy: {
-      visibility: "public",
-      allowAgents: true,
-      allowAnonymous: true,
-      requireWallet: false,
-      requirePersona: false,
-      allowOverrides: true,
-    },
-    layoutHints: {
-      defaultCard: "compact",
-      thumbnail: { size: "small", floating: false, position: "top-left" },
-      carousels: { enabled: true, groupBy: "none", itemsPerView: 3 },
-      responsive: {},
-      iframe: { allowEmbed: false, allowFullscreen: false },
-    },
-    menuIntegration: {
-      preferredDrawers: ["contentViewer", "agentChat", "walletCompact"],
-      optionalDrawers: ["walletCompact"],
-      showWalletSummary: true,
-      showLibraryStatus: true,
-      showQuestProgress: true,
-      allowUserOverrides: true,
-    },
-    libraryMetadata: {
-      category: "capsule",
-      tags: ["capsule", "experience"],
-      recommendedShelf: "capsules",
-      expiry: { model: "permanent" },
-      ownership: { status: "available", libraryStatus: "not_owned" },
-      discovery: { featured: true, curated: true, priority: 2 },
-    },
-    createdAt: new Date().toISOString(),
-    status: "published",
-  },
-  {
-    id: "capsule-earn-reward",
-    type: "SmartContentQube",
-    app: "AgentiQ",
-    title: "Experience Capsule: Earn Rewards",
-    slug: "capsule-earn-reward",
-    version: 1,
-    description: "Complete a task flow and earn Q¢ rewards.",
-    coverImageUri: "https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?w=800&q=80",
-    creatorRootDid: "did:iq:capsule-agentiq",
-    tenantId: "agentiq",
-    identityRequirements: {
-      minimumState: "anonymous",
-      requiredClaims: [],
-      allowAgents: true,
-      requireHumanProof: false,
-    },
-    reputationRequirements: {
-      minimumBucket: 0,
-      requiredBadges: [],
-      minimumScore: 0,
-    },
-    rewardOutcomes: {
-      engagementRewards: [{ trigger: "questComplete", amount: 15, currency: "QCT", cooldownMinutes: 1440 }],
-      creatorRoyalties: [],
-      rewardHubTenantId: "agentiq",
-    },
-    modalities: {
-      read: { enabled: true, panels: [], textAssets: [] },
-      watch: { enabled: true, assets: [] },
-      listen: { enabled: false, assets: [] },
-      interact: { enabled: true, actions: [] },
-    },
-    structure: {
-      kind: "article",
-    },
-    pricingModel: {
-      tiers: [{ kind: "free", amount: 0, currency: "QCT", covers: 1 }],
-      acceptedTokens: [],
-    },
-    accessPolicy: {
-      visibility: "public",
-      allowAgents: true,
-      allowAnonymous: true,
-      requireWallet: false,
-      requirePersona: false,
-      allowOverrides: true,
-    },
-    layoutHints: {
-      defaultCard: "compact",
-      thumbnail: { size: "small", floating: false, position: "top-left" },
-      carousels: { enabled: true, groupBy: "none", itemsPerView: 3 },
-      responsive: {},
-      iframe: { allowEmbed: false, allowFullscreen: false },
-    },
-    menuIntegration: {
-      preferredDrawers: ["contentViewer", "questTracker", "rewardsPanel"],
-      optionalDrawers: ["walletCompact"],
-      showWalletSummary: true,
-      showLibraryStatus: true,
-      showQuestProgress: true,
-      allowUserOverrides: true,
-    },
-    libraryMetadata: {
-      category: "capsule",
-      tags: ["capsule", "experience"],
-      recommendedShelf: "capsules",
-      expiry: { model: "permanent" },
-      ownership: { status: "available", libraryStatus: "not_owned" },
-      discovery: { featured: true, curated: true, priority: 3 },
-    },
-    createdAt: new Date().toISOString(),
-    status: "published",
-  },
-  {
-    id: "demo-metaknyts-ep1",
-    type: "SmartContentQube",
-    app: "metaKnyts",
-    title: "Episode 1: The Awakening",
-    slug: "episode-1-awakening",
-    version: 1,
-    description: "Kn0w1 discovers the hidden world of decentralized identity and begins their journey into the metaverse. A 6-panel micro-episode introducing the core concepts.",
-    coverImageUri: "https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=800&q=80",
-    creatorRootDid: "did:iq:creator-metaknyts",
-    tenantId: "metaknyts",
-    identityRequirements: {
-      minimumState: "anonymous",
-      requiredClaims: [],
-      allowAgents: true,
-      requireHumanProof: false,
-    },
-    reputationRequirements: {
-      minimumBucket: 0,
-      requiredBadges: [],
-      minimumScore: 0,
-    },
-    rewardOutcomes: {
-      engagementRewards: [{ trigger: "complete", amount: 10, currency: "QCT", cooldownMinutes: 1440 }],
-      creatorRoyalties: [{ percentage: 85, asset: "QCT", recipientDid: "did:iq:creator-metaknyts" }],
-      rewardHubTenantId: "metaknyts",
-    },
-    modalities: {
-      read: {
-        enabled: true,
-        panels: [
-          { index: 0, assetUri: "https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?w=800&q=80", caption: "The city sleeps, unaware of the digital revolution brewing beneath." },
-          { index: 1, assetUri: "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=800&q=80", caption: "Kn0w1 receives the first signal..." },
-          { index: 2, assetUri: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=800&q=80", caption: "The blockchain reveals its secrets." },
-          { index: 3, assetUri: "https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=800&q=80", caption: "Identity fragments coalesce into meaning." },
-          { index: 4, assetUri: "https://images.unsplash.com/photo-1642104704074-907c0698cbd9?w=800&q=80", caption: "The first iQube materializes." },
-          { index: 5, assetUri: "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=800&q=80", caption: "Kn0w1 awakens to a new reality." },
-        ],
-        textAssets: [],
-      },
-      watch: { enabled: false, assets: [] },
-      listen: { enabled: false, assets: [] },
-      interact: {
-        enabled: true,
-        agents: ["Kn0w1", "MoneyPenny"],
-        tools: ["identity-verify", "reputation-check"],
-        contextPrompt: "You are Kn0w1, guiding the reader through the metaKnyts universe.",
-      },
-    },
-    structure: {
-      kind: "episode",
-      seriesId: "metaknyts-book-1",
-      seasonNumber: 1,
-      episodeNumber: 1,
-      positionInSeries: 1,
-    },
-    pricingModel: {
-      tiers: [
-        { kind: "payPerPanel", amount: 5, currency: "QCT", covers: ["panel"], durationSeconds: undefined },
-        { kind: "payPerEpisode", amount: 25, currency: "QCT", covers: ["all_panels", "interact"] },
-      ],
-      creatorWalletAddress: "0x1234567890abcdef1234567890abcdef12345678",
-      platformFeePercentage: 15,
-      allowBundling: true,
-    },
-    accessPolicy: {
-      gatingType: "token",
-      previewPanels: 2,
-      requiresEntitlement: true,
-      expiryModel: "perpetual",
-    },
-    layoutHints: {
-      preferredLayout: "split",
-      panelAspectRatio: "16:9",
-      responsive: {
-        mobile: { layout: "stack", columns: 1 },
-        tablet: { layout: "grid", columns: 2 },
-        desktop: { layout: "split", columns: 1 },
-      },
-    },
-    menuIntegration: {
-      preferredDrawers: ["contentViewer", "walletCompact", "agentChat"],
-      optionalDrawers: ["libraryShelf", "questTracker"],
-      showWalletSummary: true,
-      showLibraryStatus: true,
-      showQuestProgress: false,
-      allowUserOverrides: true,
-    },
-    libraryMetadata: {
-      category: "Graphic Novel",
-      tags: ["sci-fi", "identity", "blockchain", "metaverse"],
-      estimatedDuration: 300,
-      difficulty: "beginner",
-      featured: true,
-      curatorNotes: "Perfect introduction to the metaKnyts universe",
-    },
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    publishedAt: new Date().toISOString(),
-    status: "published",
-  },
-  {
-    id: "demo-qriptopian-article",
-    type: "SmartContentQube",
-    app: "Qriptopian",
-    title: "The Penny is Dead: Why Micropayments Finally Work",
-    slug: "the-penny-is-dead",
-    version: 1,
-    description: "An in-depth analysis of how x402 and blockchain technology have finally solved the micropayment problem that has plagued the internet for decades.",
-    coverImageUri: "https://images.unsplash.com/photo-1621761191319-c6fb62004040?w=800&q=80",
-    creatorRootDid: "did:iq:creator-qriptopian",
-    tenantId: "qriptopian",
-    identityRequirements: {
-      minimumState: "pseudo",
-      requiredClaims: [],
-      allowAgents: true,
-      requireHumanProof: false,
-    },
-    reputationRequirements: {
-      minimumBucket: 1,
-      requiredBadges: [],
-      minimumScore: 10,
-    },
-    rewardOutcomes: {
-      engagementRewards: [{ trigger: "complete", amount: 5, currency: "QCT", cooldownMinutes: 1440 }],
-      creatorRoyalties: [{ percentage: 80, asset: "QCT", recipientDid: "did:iq:creator-qriptopian" }],
-      rewardHubTenantId: "qriptopian",
-    },
-    modalities: {
-      read: {
-        enabled: true,
-        panels: [
-          { index: 0, assetUri: "https://images.unsplash.com/photo-1621761191319-c6fb62004040?w=800&q=80", caption: "The evolution of digital payments" },
-        ],
-        textAssets: [
-          { uri: "", format: "markdown", wordCount: 2500 },
-        ],
-      },
-      watch: { enabled: false, assets: [] },
-      listen: {
-        enabled: true,
-        assets: [{ uri: "https://example.com/audio/penny-is-dead.mp3", format: "mp3", durationSeconds: 900 }],
-      },
-      interact: {
-        enabled: true,
-        agents: ["MoneyPenny"],
-        tools: ["payment-simulator"],
-        contextPrompt: "You are MoneyPenny, explaining micropayment concepts to the reader.",
-      },
-    },
-    structure: {
-      kind: "article",
-      headline: "The Penny is Dead",
-      subheadline: "Why Micropayments Finally Work",
-      byline: "Qriptopian Research Team",
-      seriesId: "future-of-money",
-      positionInSeries: 1,
-    },
-    pricingModel: {
-      tiers: [
-        { kind: "payPerArticle", amount: 50, currency: "QCT", covers: ["full_article", "audio", "interact"] },
-        { kind: "subscription", amount: 500, currency: "QCT", covers: ["all_content"], durationSeconds: 2592000 },
-      ],
-      creatorWalletAddress: "0xabcdef1234567890abcdef1234567890abcdef12",
-      platformFeePercentage: 20,
-      allowBundling: true,
-    },
-    accessPolicy: {
-      gatingType: "paywall",
-      previewPanels: 1,
-      requiresEntitlement: true,
-      expiryModel: "perpetual",
-    },
-    layoutHints: {
-      preferredLayout: "stack",
-      panelAspectRatio: "16:9",
-      responsive: {
-        mobile: { layout: "stack", columns: 1 },
-        tablet: { layout: "stack", columns: 1 },
-        desktop: { layout: "split", columns: 1 },
-      },
-    },
-    menuIntegration: {
-      preferredDrawers: ["contentViewer", "walletCompact"],
-      optionalDrawers: ["agentChat", "libraryShelf"],
-      showWalletSummary: true,
-      showLibraryStatus: true,
-      showQuestProgress: false,
-      allowUserOverrides: true,
-    },
-    libraryMetadata: {
-      category: "Finance",
-      tags: ["micropayments", "x402", "blockchain", "economics"],
-      estimatedDuration: 900,
-      difficulty: "intermediate",
-      featured: true,
-      curatorNotes: "Essential reading for understanding the new payment paradigm",
-    },
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    publishedAt: new Date().toISOString(),
-    status: "published",
-  },
-  {
-    id: "demo-agentiq-tutorial",
-    type: "SmartContentQube",
-    app: "AgentiQ",
-    title: "Building Your First AI Agent",
-    slug: "building-first-ai-agent",
-    version: 1,
-    description: "A hands-on tutorial for creating and deploying your first AI agent on the AgentiQ platform. Learn the fundamentals of agent design and iQube integration.",
-    coverImageUri: "https://images.unsplash.com/photo-1677442136019-21780ecad995?w=800&q=80",
-    creatorRootDid: "did:iq:creator-agentiq",
-    tenantId: "agentiq",
-    identityRequirements: {
-      minimumState: "semi",
-      requiredClaims: ["developer"],
-      allowAgents: false,
-      requireHumanProof: true,
-    },
-    reputationRequirements: {
-      minimumBucket: 2,
-      requiredBadges: [],
-      minimumScore: 25,
-    },
-    rewardOutcomes: {
-      engagementRewards: [
-        { trigger: "complete", amount: 50, currency: "QCT", cooldownMinutes: 0 },
-        { trigger: "share", amount: 10, currency: "QCT", cooldownMinutes: 1440 },
-      ],
-      creatorRoyalties: [{ percentage: 70, asset: "QCT", recipientDid: "did:iq:creator-agentiq" }],
-      rewardHubTenantId: "agentiq",
-    },
-    modalities: {
-      read: {
-        enabled: true,
-        panels: [
-          { index: 0, assetUri: "https://images.unsplash.com/photo-1677442136019-21780ecad995?w=800&q=80", caption: "Introduction to AI Agents" },
-          { index: 1, assetUri: "https://images.unsplash.com/photo-1555949963-aa79dcee981c?w=800&q=80", caption: "Setting up your development environment" },
-          { index: 2, assetUri: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&q=80", caption: "Designing agent capabilities" },
-        ],
-        textAssets: [],
-      },
-      watch: {
-        enabled: true,
-        assets: [
-          { uri: "https://example.com/video/agent-tutorial.mp4", format: "mp4", durationSeconds: 1800, thumbnailUri: "https://images.unsplash.com/photo-1677442136019-21780ecad995?w=400&q=80" },
-        ],
-      },
-      listen: { enabled: false, assets: [] },
-      interact: {
-        enabled: true,
-        agents: ["AgentBuilder", "CodeAssist"],
-        tools: ["code-sandbox", "agent-tester"],
-        contextPrompt: "You are AgentBuilder, helping users create their first AI agent step by step.",
-      },
-    },
-    structure: {
-      kind: "episode",
-      seriesId: "agentiq-tutorials",
-      seasonNumber: 1,
-      episodeNumber: 1,
-      positionInSeries: 1,
-    },
-    pricingModel: {
-      tiers: [{ kind: "free", amount: 0, currency: "QCT", covers: ["all"] }],
-      creatorWalletAddress: "0x9876543210fedcba9876543210fedcba98765432",
-      platformFeePercentage: 0,
-      allowBundling: false,
-    },
-    accessPolicy: {
-      gatingType: "identity",
-      previewPanels: 3,
-      requiresEntitlement: false,
-      expiryModel: "perpetual",
-    },
-    layoutHints: {
-      preferredLayout: "grid",
-      panelAspectRatio: "16:9",
-      responsive: {
-        mobile: { layout: "stack", columns: 1 },
-        tablet: { layout: "grid", columns: 2 },
-        desktop: { layout: "grid", columns: 3 },
-      },
-    },
-    menuIntegration: {
-      preferredDrawers: ["contentViewer", "agentChat"],
-      optionalDrawers: ["walletCompact", "questTracker"],
-      showWalletSummary: false,
-      showLibraryStatus: true,
-      showQuestProgress: true,
-      allowUserOverrides: true,
-    },
-    libraryMetadata: {
-      category: "Tutorial",
-      tags: ["ai", "agents", "development", "tutorial"],
-      estimatedDuration: 1800,
-      difficulty: "intermediate",
-      featured: false,
-      curatorNotes: "Great starting point for developers new to AI agents",
-    },
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    publishedAt: new Date().toISOString(),
-    status: "published",
-  },
-];
+const DEMO_CONTENTS_FALLBACK: any[] = []
+
 
 // Demo wallet uses simplified mock structure - cast to any to bypass strict typing
 // Aigent Z is the primary persona with real wallet for payments
@@ -716,12 +187,15 @@ export default function SmartContentDemoPage() {
   const [loadingLive, setLoadingLive] = useState(true);
   const [purchaseContent, setPurchaseContent] = useState<SmartContentQube | null>(null);
   const [showPersonaWizard, setShowPersonaWizard] = useState(false);
+  const [registryContents, setRegistryContents] = useState<SmartContentQube[]>([]);
+  const [loadingRegistry, setLoadingRegistry] = useState(true);
   const [liquidTemplates, setLiquidTemplates] = useState<IQubeTemplate[]>([]);
   const [loadingLiquidTemplates, setLoadingLiquidTemplates] = useState(true);
   const [templateDeviceById, setTemplateDeviceById] = useState<Record<string, DeviceType>>({});
   const [templateSeedById, setTemplateSeedById] = useState<Record<string, number>>({});
   const [templateGroup, setTemplateGroup] = useState<"discovery" | "detail" | "utility">("discovery");
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+  const [useTemplateRatioOverrides, setUseTemplateRatioOverrides] = useState(true);
   
   // Dynamic wallet state - starts with DEMO_WALLET and updates on actions
   const [walletState, setWalletState] = useState<any>(DEMO_WALLET);
@@ -788,7 +262,29 @@ export default function SmartContentDemoPage() {
     fetchContent();
   }, []);
 
-  const contentPool = liveContent.length > 0 ? liveContent : DEMO_CONTENTS;
+  useEffect(() => {
+    let active = true;
+    const fetchRegistry = async () => {
+      try {
+        const res = await fetch("/api/content/registry");
+        const data = await res.json();
+        if (active && data?.success && Array.isArray(data.data)) {
+          setRegistryContents(data.data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch content registry:", error);
+      } finally {
+        if (active) setLoadingRegistry(false);
+      }
+    };
+    fetchRegistry();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const demoContents = registryContents.length > 0 ? registryContents : DEMO_CONTENTS_FALLBACK;
+  const contentPool = liveContent.length > 0 ? liveContent : demoContents;
 
   const templateContentById = useMemo(() => {
     const shuffleWithSeed = (items: any[], seed: number) => {
@@ -835,6 +331,41 @@ export default function SmartContentDemoPage() {
   }, [liquidTemplates]);
 
   const templatesForGroup = templateGroups[templateGroup] || [];
+  const templateStatusById = useMemo(() => {
+    const status: Record<string, "live" | "placeholder"> = {};
+    liquidTemplates.forEach((template) => {
+      const liquidTemplateId = template.metaExtras?.find((kv) => kv.k === "liquid_template_id")?.v;
+      const component = (liquidTemplateId && liquidTemplateRegistry[liquidTemplateId]) || liquidTemplateRegistry["liquidui:reader_viewer_v1"];
+      status[template.id] = component === liquidTemplateRegistry["liquidui:reader_viewer_v1"] ? "placeholder" : "live";
+    });
+    return status;
+  }, [liquidTemplates]);
+
+  const shuffleWithSeed = (arr: SmartContentQube[], seed: number) => {
+    const result = [...arr];
+    let seedValue = seed;
+    for (let i = result.length - 1; i > 0; i -= 1) {
+      seedValue = (seedValue * 9301 + 49297) % 233280;
+      const rand = seedValue / 233280;
+      const j = Math.floor(rand * (i + 1));
+      [result[i], result[j]] = [result[j], result[i]];
+    }
+    return result;
+  };
+
+  const getDeviceContentPool = (device: DeviceType) => {
+    const score = (content: SmartContentQube) => {
+      let weight = 0;
+      const imageDevice = content.mediaVariants?.image?.device;
+      const videoDevice = content.mediaVariants?.video?.device;
+      if (imageDevice?.[device]) weight += 2;
+      if (videoDevice?.[device]) weight += 2;
+      if (content.mediaVariants?.image?.default) weight += 1;
+      return weight;
+    };
+    const sorted = [...contentPool].sort((a, b) => score(b) - score(a));
+    return sorted;
+  };
 
   useEffect(() => {
     if (templatesForGroup.length === 0) {
@@ -852,7 +383,12 @@ export default function SmartContentDemoPage() {
       try {
         const res = await fetch('/api/registry/templates?type=LiquidUITemplateArchetypeQube&limit=50');
         const json = await res.json();
-        const items: IQubeTemplate[] = Array.isArray(json?.data) ? json.data : [];
+        let items: IQubeTemplate[] = Array.isArray(json?.data) ? json.data : [];
+        if (!items.length) {
+          const fallbackRes = await fetch('/api/registry/templates?type=LiquidUITemplateArchetypeQube&limit=50&forceFallback=1');
+          const fallbackJson = await fallbackRes.json();
+          items = Array.isArray(fallbackJson?.data) ? fallbackJson.data : [];
+        }
         setLiquidTemplates(items);
       } catch (error) {
         console.error('Failed to fetch Liquid UI templates:', error);
@@ -989,7 +525,7 @@ export default function SmartContentDemoPage() {
               <Tabs value={demoTab} onValueChange={(value) => setDemoTab(value as "content" | "templates")}>
                 <TabsList className="bg-white/5 p-1">
                   <TabsTrigger value="content" className="px-3">Smart Content (Registry)</TabsTrigger>
-                  <TabsTrigger value="templates" className="px-3">Liquid UI Templates (Registry)</TabsTrigger>
+                  <TabsTrigger value="templates" className="px-3">Smart Templates (Registry)</TabsTrigger>
                 </TabsList>
               </Tabs>
             </div>
@@ -1013,8 +549,8 @@ export default function SmartContentDemoPage() {
           {/* Hero Full (100vh) */}
           <section>
             <SmartContentCard
-              content={DEMO_CONTENTS[0]}
-              variant="hero"
+              content={demoContents[0]}
+              variant="hero" templateVariant="hero" device="desktop"
               heroHeight="full"
               onSelect={handleContentSelect}
               onPurchase={handlePurchase}
@@ -1035,7 +571,7 @@ export default function SmartContentDemoPage() {
                     <SmartContentCard
                       key={content.id}
                       content={content}
-                      variant="standard"
+                      variant="standard" templateVariant="standard" device="desktop"
                       onSelect={handleContentSelect}
                       onPurchase={handlePurchase}
                       onAddToLibrary={handleAddToLibrary}
@@ -1056,8 +592,8 @@ export default function SmartContentDemoPage() {
         <section>
           <h2 className="text-lg font-semibold text-white mb-4">Hero Short (66vh)</h2>
           <SmartContentCard
-            content={DEMO_CONTENTS[1]}
-            variant="hero"
+            content={demoContents[1]}
+            variant="hero" templateVariant="hero" device="desktop"
             heroHeight="short"
             onSelect={handleContentSelect}
             onPurchase={handlePurchase}
@@ -1075,11 +611,11 @@ export default function SmartContentDemoPage() {
             </div>
           </div>
           <div className="grid grid-cols-3 gap-4">
-            {DEMO_CONTENTS.map((content, i) => (
+            {demoContents.map((content, i) => (
               <SmartContentCard
                 key={content.id}
                 content={content}
-                variant="poster3"
+                variant="poster3" templateVariant="poster3" device="desktop"
                 isLimited={i === 0}
                 showProgress={i === 2}
                 progressPercentage={i === 2 ? 65 : 0}
@@ -1094,13 +630,13 @@ export default function SmartContentDemoPage() {
           <h2 className="text-lg font-semibold text-white mb-4">poster2 - Large Posters (2/row)</h2>
           <div className="grid grid-cols-2 gap-6">
             <SmartContentCard
-              content={DEMO_CONTENTS[0]}
-              variant="poster2"
+              content={demoContents[0]}
+              variant="poster2" templateVariant="poster2" device="desktop"
               onSelect={handleContentSelect}
             />
             <SmartContentCard
-              content={DEMO_CONTENTS[1]}
-              variant="poster2"
+              content={demoContents[1]}
+              variant="poster2" templateVariant="poster2" device="desktop"
               onSelect={handleContentSelect}
             />
           </div>
@@ -1116,11 +652,11 @@ export default function SmartContentDemoPage() {
             </div>
           </div>
           <div className="flex gap-4 overflow-x-auto pb-4">
-            {[...DEMO_CONTENTS, DEMO_CONTENTS[0]].map((content, i) => (
+            {[...demoContents, demoContents[0]].map((content, i) => (
               <div key={`${content.id}-${i}`} className="flex-shrink-0 w-[calc(25%-12px)]">
                 <SmartContentCard
                   content={content}
-                  variant="carousel3"
+                  variant="carousel3" templateVariant="carousel3" device="desktop"
                   onSelect={handleContentSelect}
                 />
               </div>
@@ -1132,11 +668,11 @@ export default function SmartContentDemoPage() {
         <section>
           <h2 className="text-lg font-semibold text-white mb-4">carousel4 - Narrow Thumbnails (4/row)</h2>
           <div className="grid grid-cols-4 gap-4">
-            {[...DEMO_CONTENTS, DEMO_CONTENTS[0]].slice(0, 4).map((content, i) => (
+            {[...demoContents, demoContents[0]].slice(0, 4).map((content, i) => (
               <SmartContentCard
                 key={`${content.id}-c4-${i}`}
                 content={content}
-                variant="carousel4"
+                variant="carousel4" templateVariant="carousel4" device="desktop"
                 onSelect={handleContentSelect}
               />
             ))}
@@ -1147,11 +683,11 @@ export default function SmartContentDemoPage() {
         <section>
           <h2 className="text-lg font-semibold text-white mb-4">thumbnail6 - Small Squares (6+/row)</h2>
           <div className="grid grid-cols-6 md:grid-cols-8 gap-2">
-            {[...DEMO_CONTENTS, ...DEMO_CONTENTS, ...DEMO_CONTENTS].slice(0, 8).map((content, i) => (
+            {[...demoContents, ...demoContents, ...demoContents].slice(0, 8).map((content, i) => (
               <SmartContentCard
                 key={`${content.id}-t6-${i}`}
                 content={content}
-                variant="thumbnail6"
+                variant="thumbnail6" templateVariant="thumbnail6" device="desktop"
                 onSelect={handleContentSelect}
               />
             ))}
@@ -1162,11 +698,11 @@ export default function SmartContentDemoPage() {
         <section>
           <h2 className="text-lg font-semibold text-white mb-4">thumbnailRect - Short Rectangles (6+/row)</h2>
           <div className="grid grid-cols-6 md:grid-cols-8 gap-2">
-            {[...DEMO_CONTENTS, ...DEMO_CONTENTS, ...DEMO_CONTENTS].slice(0, 8).map((content, i) => (
+            {[...demoContents, ...demoContents, ...demoContents].slice(0, 8).map((content, i) => (
               <SmartContentCard
                 key={`${content.id}-tr-${i}`}
                 content={content}
-                variant="thumbnailRect"
+                variant="thumbnailRect" templateVariant="thumbnailRect" device="desktop"
                 onSelect={handleContentSelect}
               />
             ))}
@@ -1177,8 +713,8 @@ export default function SmartContentDemoPage() {
         <section>
           <h2 className="text-lg font-semibold text-white mb-4">compound - Full Width</h2>
           <SmartContentCard
-            content={DEMO_CONTENTS[2]}
-            variant="compound"
+            content={demoContents[2]}
+            variant="compound" templateVariant="compound" device="desktop"
             codeSnippet={`to: 'did:qiri:recipient',
 amount: 100, // Q¢
 memo: 'Payment for services'
@@ -1197,8 +733,8 @@ memo: 'Payment for services'
           <h2 className="text-lg font-semibold text-white mb-4">compound2 & compound1 - Column Width Variants (3/row)</h2>
           <div className="grid md:grid-cols-3 gap-4">
             <SmartContentCard
-              content={DEMO_CONTENTS[0]}
-              variant="compound1"
+              content={demoContents[0]}
+              variant="compound1" templateVariant="compound1" device="desktop"
               compoundLinks={[
                 { label: "Docs", icon: "API reference" },
                 { label: "GitHub", icon: "Source code" },
@@ -1206,8 +742,8 @@ memo: 'Payment for services'
               onSelect={handleContentSelect}
             />
             <SmartContentCard
-              content={DEMO_CONTENTS[1]}
-              variant="compound1"
+              content={demoContents[1]}
+              variant="compound1" templateVariant="compound1" device="desktop"
               compoundLinks={[
                 { label: "Watch", icon: "Video tutorial" },
                 { label: "Read", icon: "Documentation" },
@@ -1215,8 +751,8 @@ memo: 'Payment for services'
               onSelect={handleContentSelect}
             />
             <SmartContentCard
-              content={DEMO_CONTENTS[2]}
-              variant="compound1"
+              content={demoContents[2]}
+              variant="compound1" templateVariant="compound1" device="desktop"
               compoundLinks={[
                 { label: "Learn", icon: "Tutorial" },
                 { label: "Try", icon: "Demo" },
@@ -1233,7 +769,7 @@ memo: 'Payment for services'
             {/* Row 1: 1-col iframe + 2-col contentWide (cinematic) */}
             <div className="grid grid-cols-3 gap-4">
               <SmartContentCard
-                content={DEMO_CONTENTS[0]}
+                content={demoContents[0]}
                 variant="iframe"
                 iframeWidth="col1"
                 iframeHeight="short"
@@ -1241,7 +777,7 @@ memo: 'Payment for services'
               />
               <div className="col-span-2">
                 <SmartContentCard
-                  content={DEMO_CONTENTS[1]}
+                  content={demoContents[1]}
                   variant="contentWide"
                   onSelect={handleContentSelect}
                 />
@@ -1251,7 +787,7 @@ memo: 'Payment for services'
             <div className="grid grid-cols-3 gap-4">
               <div className="col-span-2">
                 <SmartContentCard
-                  content={DEMO_CONTENTS[1]}
+                  content={demoContents[1]}
                   variant="iframe"
                   iframeWidth="col2"
                   iframeHeight="short"
@@ -1259,7 +795,7 @@ memo: 'Payment for services'
                 />
               </div>
               <SmartContentCard
-                content={DEMO_CONTENTS[2]}
+                content={demoContents[2]}
                 variant="iframe"
                 iframeWidth="col1"
                 iframeHeight="short"
@@ -1268,7 +804,7 @@ memo: 'Payment for services'
             </div>
             {/* Row 3: Full width */}
             <SmartContentCard
-              content={DEMO_CONTENTS[2]}
+              content={demoContents[2]}
               variant="iframe"
               iframeWidth="full"
               iframeHeight="short"
@@ -1282,14 +818,14 @@ memo: 'Payment for services'
           <h2 className="text-lg font-semibold text-white mb-4">featured - Large Cards (2/row)</h2>
           <div className="grid md:grid-cols-2 gap-6">
             <SmartContentCard
-              content={DEMO_CONTENTS[0]}
+              content={demoContents[0]}
               variant="featured"
               onSelect={handleContentSelect}
               onPurchase={handlePurchase}
               onAddToLibrary={handleAddToLibrary}
             />
             <SmartContentCard
-              content={DEMO_CONTENTS[1]}
+              content={demoContents[1]}
               variant="featured"
               onSelect={handleContentSelect}
               onPurchase={handlePurchase}
@@ -1302,7 +838,7 @@ memo: 'Payment for services'
         <section>
           <h2 className="text-lg font-semibold text-white mb-4">standard - Grid Cards (3/row)</h2>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {DEMO_CONTENTS.map((content) => (
+            {demoContents.map((content) => (
               <SmartContentCard
                 key={content.id}
                 content={content}
@@ -1320,7 +856,7 @@ memo: 'Payment for services'
         <section>
           <h2 className="text-lg font-semibold text-white mb-4">compact - List Rows</h2>
           <div className="max-w-md space-y-2">
-            {DEMO_CONTENTS.map((content) => (
+            {demoContents.map((content) => (
               <SmartContentCard
                 key={content.id}
                 content={content}
@@ -1361,8 +897,8 @@ memo: 'Payment for services'
                   {/* Content */}
                   <div className="px-3 pb-3">
                     <SmartContentCard
-                      content={DEMO_CONTENTS[0]}
-                      variant="mobileHero"
+                      content={demoContents[0]}
+                      variant="mobileHero" templateVariant="mobileHero" device="mobile"
                       onSelect={handleContentSelect}
                     />
                   </div>
@@ -1385,8 +921,8 @@ memo: 'Payment for services'
                   </div>
                   <div className="px-3 pb-3">
                     <SmartContentCard
-                      content={DEMO_CONTENTS[1]}
-                      variant="mobileFeatured"
+                      content={demoContents[1]}
+                      variant="mobileFeatured" templateVariant="mobileFeatured" device="mobile"
                       onSelect={handleContentSelect}
                     />
                   </div>
@@ -1409,8 +945,8 @@ memo: 'Payment for services'
                   </div>
                   <div className="px-3 pb-3">
                     <SmartContentCard
-                      content={DEMO_CONTENTS[2]}
-                      variant="mobileSplit"
+                      content={demoContents[2]}
+                      variant="mobileSplit" templateVariant="mobileSplit" device="mobile"
                       onSelect={handleContentSelect}
                     />
                   </div>
@@ -1438,13 +974,13 @@ memo: 'Payment for services'
                   </div>
                   <div className="px-3 pb-3 space-y-3">
                     <SmartContentCard
-                      content={DEMO_CONTENTS[0]}
-                      variant="mobileCard"
+                      content={demoContents[0]}
+                      variant="mobileCard" templateVariant="mobileCard" device="mobile"
                       onSelect={handleContentSelect}
                     />
                     <SmartContentCard
-                      content={DEMO_CONTENTS[1]}
-                      variant="mobileCard"
+                      content={demoContents[1]}
+                      variant="mobileCard" templateVariant="mobileCard" device="mobile"
                       onSelect={handleContentSelect}
                     />
                   </div>
@@ -1469,18 +1005,18 @@ memo: 'Payment for services'
                     {/* Hero at top */}
                     <div className="mb-3">
                       <SmartContentCard
-                        content={DEMO_CONTENTS[0]}
-                        variant="mobileHero"
+                        content={demoContents[0]}
+                        variant="mobileHero" templateVariant="mobileHero" device="mobile"
                         onSelect={handleContentSelect}
                       />
                     </div>
                     {/* Thumbnail carousel - 2.25 visible */}
                     <div className="flex gap-2 overflow-hidden">
-                      {[...DEMO_CONTENTS, DEMO_CONTENTS[0]].slice(0, 3).map((content, i) => (
+                      {[...demoContents, demoContents[0]].slice(0, 3).map((content, i) => (
                         <div key={`thumb-${i}`} className="flex-shrink-0" style={{ width: 'calc((100% - 8px) / 2.25)' }}>
                           <SmartContentCard
                             content={content}
-                            variant="mobileThumb"
+                            variant="mobileThumb" templateVariant="mobileThumb" device="mobile"
                             onSelect={handleContentSelect}
                           />
                         </div>
@@ -1506,17 +1042,17 @@ memo: 'Payment for services'
                   </div>
                   <div className="px-3 pb-3 space-y-3">
                     <SmartContentCard
-                      content={DEMO_CONTENTS[1]}
-                      variant="mobileFeatured"
+                      content={demoContents[1]}
+                      variant="mobileFeatured" templateVariant="mobileFeatured" device="mobile"
                       onSelect={handleContentSelect}
                     />
                     {/* Thumbnail row */}
                     <div className="flex gap-2 overflow-hidden">
-                      {DEMO_CONTENTS.slice(0, 2).map((content, i) => (
+                      {demoContents.slice(0, 2).map((content, i) => (
                         <div key={`thumb2-${i}`} className="flex-shrink-0" style={{ width: 'calc((100% - 8px) / 2.25)' }}>
                           <SmartContentCard
                             content={content}
-                            variant="mobileThumb"
+                            variant="mobileThumb" templateVariant="mobileThumb" device="mobile"
                             onSelect={handleContentSelect}
                           />
                         </div>
@@ -1667,7 +1203,7 @@ memo: 'Payment for services'
               <div className="text-slate-400">No Liquid UI templates found in registry.</div>
             ) : (
               <div className="space-y-6">
-                <div className="grid gap-3 sm:grid-cols-3">
+                <div className="grid gap-3 sm:grid-cols-4">
                   <div className="space-y-1">
                     <div className="text-xs uppercase tracking-wide text-slate-500">Template Group</div>
                     <Select value={templateGroup} onValueChange={(value) => setTemplateGroup(value as "discovery" | "detail" | "utility")}>
@@ -1690,7 +1226,16 @@ memo: 'Payment for services'
                       <SelectContent>
                         {templatesForGroup.map((template) => (
                           <SelectItem key={template.id} value={template.id}>
-                            {template.name}
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`inline-flex h-2 w-2 rounded-full ${
+                                  templateStatusById[template.id] === "placeholder"
+                                    ? "bg-amber-400"
+                                    : "bg-emerald-400"
+                                }`}
+                              />
+                              <span>{template.name}</span>
+                            </div>
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -1706,26 +1251,75 @@ memo: 'Payment for services'
                       className="bg-slate-950/60 border border-slate-800"
                     />
                   </div>
+                  <div className="space-y-1">
+                    <div className="text-xs uppercase tracking-wide text-slate-500">Ratio Overrides</div>
+                    <button
+                      type="button"
+                      aria-pressed={useTemplateRatioOverrides}
+                      onClick={() => setUseTemplateRatioOverrides((prev) => !prev)}
+                      className={`w-full rounded-md border px-3 py-2 text-left text-xs transition ${
+                        useTemplateRatioOverrides
+                          ? "border-cyan-500/60 bg-cyan-500/10 text-cyan-200"
+                          : "border-slate-800 bg-slate-950/60 text-slate-400"
+                      }`}
+                    >
+                      {useTemplateRatioOverrides ? "Template ratios: On" : "Template ratios: Off"}
+                    </button>
+                  </div>
                 </div>
 
                 {selectedTemplateId && (() => {
                   const selectedTemplate = liquidTemplates.find((t) => t.id === selectedTemplateId);
                   if (!selectedTemplate) return null;
                   const liquidTemplateId = selectedTemplate.metaExtras?.find((kv) => kv.k === 'liquid_template_id')?.v;
+                  const ratioOverrideRaw = selectedTemplate.metaExtras?.find((kv) => kv.k === 'ratio_overrides')?.v;
+                  const ratioOverrides = useTemplateRatioOverrides
+                    ? (() => {
+                        if (!ratioOverrideRaw) return undefined;
+                        try {
+                          return JSON.parse(ratioOverrideRaw) as Record<string, import("@/types/smartContent").MediaRatio>;
+                        } catch {
+                          return undefined;
+                        }
+                      })()
+                    : undefined;
                   const FallbackComponent = liquidTemplateRegistry['liquidui:reader_viewer_v1'];
                   const TemplateComponent = (liquidTemplateId && liquidTemplateRegistry[liquidTemplateId]) || FallbackComponent;
                   const device = templateDeviceById[selectedTemplate.id] || "mobile";
-                  const templateContents = templateContentById[selectedTemplate.id] || contentPool;
-                  const primaryContent = templateContents[0] || DEMO_CONTENTS[0];
+                  const devicePool = getDeviceContentPool(device);
+                  const seed = templateSeedById[selectedTemplate.id] ?? 0;
+                  const templateContents = shuffleWithSeed(
+                    devicePool.length ? devicePool : contentPool,
+                    seed
+                  );
+                  const primaryContent = templateContents[0] || demoContents[0];
+                  const isPlaceholder = TemplateComponent === FallbackComponent;
 
                   return (
                     <div className="rounded-2xl bg-black/20 ring-1 ring-white/10 p-4 space-y-3">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div>
-                          <div className="text-sm text-slate-400">{liquidTemplateId || 'unknown-template'}</div>
-                          <div className="text-white font-medium">{selectedTemplate.name}</div>
-                          <div className="text-xs text-slate-500">{selectedTemplate.description}</div>
-                        </div>
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <div className="text-sm text-slate-400">{liquidTemplateId || 'unknown-template'}</div>
+                            <div className="text-white font-medium">{selectedTemplate.name}</div>
+                            <div className="text-xs text-slate-500">{selectedTemplate.description}</div>
+                            {ratioOverrides && (
+                              <div className="mt-2 flex flex-wrap gap-1 text-[10px] text-slate-400">
+                                <span className="px-2 py-0.5 rounded-full bg-slate-800/70">
+                                  ratios: {Object.entries(ratioOverrides).map(([k, v]) => `${k}→${v}`).join(", ")}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`text-[11px] px-2 py-1 rounded-full ${
+                              isPlaceholder
+                                ? "bg-amber-500/20 text-amber-200 ring-1 ring-amber-500/40"
+                                : "bg-emerald-500/20 text-emerald-200 ring-1 ring-emerald-500/40"
+                            }`}
+                          >
+                            {isPlaceholder ? "Placeholder" : "Live"}
+                          </span>
                         <button
                           className="rounded-lg border border-slate-700 px-3 py-1 text-xs text-slate-300 hover:text-white hover:border-slate-500"
                           onClick={() =>
@@ -1734,9 +1328,10 @@ memo: 'Payment for services'
                         >
                           Refresh Modules
                         </button>
+                        </div>
                       </div>
 
-                      <div className="h-[520px]">
+                      <div className="h-[760px]">
                         {TemplateComponent ? (
                           <PreviewFrame
                             key={`${selectedTemplate.id}-${device}-${templateSeedById[selectedTemplate.id] || 0}`}
@@ -1744,12 +1339,14 @@ memo: 'Payment for services'
                             showToolbar={false}
                             chromeless
                           >
-                            <div className="min-h-[520px]">
+                            <div className="min-h-[760px]">
                               <SmartTriadProvider initialContent={primaryContent}>
                                 <TemplateComponent
                                   contentObjects={templateContents}
                                   device={device}
                                   contentObject={primaryContent}
+                                  mediaVariantOverridesEnabled={useTemplateRatioOverrides}
+                                  mediaRatioOverrides={ratioOverrides}
                                   messages={[]}
                                   events={[]}
                                   lineItems={[]}

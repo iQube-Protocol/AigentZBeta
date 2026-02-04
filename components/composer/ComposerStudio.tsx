@@ -497,6 +497,21 @@ export const ComposerStudio = () => {
   const [selectedExperienceId, setSelectedExperienceId] = useState<string | null>(null);
   const [previewDevice, setPreviewDevice] = useState<DeviceType>("mobile");
   const [previewAction, setPreviewAction] = useState<string | null>(null);
+  const [previewTimestamp, setPreviewTimestamp] = useState(Date.now());
+
+  // Auto-refresh preview every 30 seconds to prevent caching
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setPreviewTimestamp(Date.now());
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Force refresh when preview device or experience changes
+  useEffect(() => {
+    setPreviewTimestamp(Date.now());
+  }, [previewDevice, selectedExperienceId, designTheme]);
 
   useEffect(() => {
     let active = true;
@@ -1596,9 +1611,9 @@ export const ComposerStudio = () => {
                                   className="rounded-xl border p-2"
                                   style={{ backgroundColor: themeBg, borderColor: themeBorder }}
                                 >
-                                  {ref.dataUrl ? (
+                                  {ref.dataUrl || ref.thumbnailUrl ? (
                                     <img
-                                      src={ref.dataUrl}
+                                      src={ref.dataUrl || ref.thumbnailUrl}
                                       alt={ref.title || ref.file}
                                       className="h-32 w-full rounded-lg object-cover"
                                     />
@@ -1616,19 +1631,6 @@ export const ComposerStudio = () => {
                       ) : designQubeSummaryLayout === "compact" ? (
                         <div className="mt-4 rounded-xl border p-3" style={{ backgroundColor: themeBg, borderColor: themeBorder }}>
                           <div className="flex flex-wrap items-center justify-between gap-4">
-                            <div className="flex items-center gap-2">
-                              {references.map((ref) => (
-                                <div
-                                  key={ref.id}
-                                  className="h-12 w-16 overflow-hidden rounded-lg border"
-                                  style={{ backgroundColor: colors.bg || themeBg, borderColor: themeBorder }}
-                                >
-                                  {ref.dataUrl ? (
-                                    <img src={ref.dataUrl} alt={ref.title || ref.file} className="h-full w-full object-cover" />
-                                  ) : null}
-                                </div>
-                              ))}
-                            </div>
                             <div className="flex flex-wrap items-center gap-2 text-[11px]" style={{ color: themeText }}>
                               <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5" style={{ borderColor: themeBorder }}>
                                 <ShieldCheck className="h-3.5 w-3.5 text-emerald-300" />
@@ -1679,13 +1681,21 @@ export const ComposerStudio = () => {
                       ) : (
                         <div className="mt-4 grid gap-4 rounded-xl border p-4 md:grid-cols-[1.2fr,1fr]" style={{ backgroundColor: themeBg, borderColor: themeBorder }}>
                           <div className="grid gap-2 sm:grid-cols-2">
-                            {references.map((ref) => (
-                              <div key={ref.id} className="h-24 overflow-hidden rounded-lg border" style={{ borderColor: themeBorder }}>
-                                {ref.dataUrl ? (
-                                  <img src={ref.dataUrl} alt={ref.title || ref.file} className="h-full w-full object-cover" />
-                                ) : null}
-                              </div>
-                            ))}
+                            <div className="flex flex-wrap items-center gap-2">
+                              {palette.slice(0, 6).map((color, idx) => (
+                                <span
+                                  key={`${color}-${idx}`}
+                                  className="h-4 w-4 rounded-full border"
+                                  style={{ backgroundColor: color, borderColor: themeBorder }}
+                                  title={color}
+                                />
+                              ))}
+                              {glassEnabled && (
+                                <span className="inline-flex items-center rounded-full border px-2 py-0.5" style={{ borderColor: themeBorder }} title="Glass material">
+                                  <Moon className="h-3.5 w-3.5 text-slate-400" />
+                                </span>
+                              )}
+                            </div>
                           </div>
                           <div className="space-y-3">
                             <div className="flex flex-wrap items-center gap-2 text-[11px]" style={{ color: themeText }}>
@@ -1754,15 +1764,24 @@ export const ComposerStudio = () => {
                   <span className="text-xs text-slate-400">Last action: {previewAction}</span>
                 )}
                 <DevicePreviewSwitcher value={previewDevice} onChange={setPreviewDevice} />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPreviewTimestamp(Date.now())}
+                  className="text-xs"
+                >
+                  Refresh Preview
+                </Button>
               </div>
             </div>
             <div className="mt-4 h-[760px] max-h-[760px] overflow-hidden">
               <PreviewFrame
-                src={`/metame/runtime?preview=1&capsule=${selectedExperienceId || previewExperience?.id || "capsule-metaknyt-play"}&theme=${designTheme}&embed=1&device=${previewDevice}`}
+                src={`/metame/runtime?preview=1&capsule=${selectedExperienceId || previewExperience?.id || "capsule-metaknyt-play"}&theme=${designTheme}&embed=1&device=${previewDevice}&t=${previewTimestamp}`}
                 defaultDevice="mobile"
                 chromeless
                 deviceQueryParam="device"
                 showToolbar={false}
+                className="h-full"
               />
             </div>
           </div>

@@ -228,6 +228,14 @@ This document tracks work items from sprint plans that have been deprioritized o
 
 ---
 
+### **Smart Content Variant Tooling** (Planned)
+**Status**: Not started  
+**Priority**: Medium
+
+- [ ] Add image variants inspector to Smart Content modal (preview ratios + device selection + resolver output)
+
+---
+
 ### **Operator & Audit Enhancements** (Deferred)
 **Status**: Basic functionality in place  
 **Priority**: Low

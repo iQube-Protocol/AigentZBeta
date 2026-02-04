@@ -17,6 +17,8 @@ interface QriptopianReadingSprintTemplateProps {
   packet?: Record<string, any> | null;
   theme?: "light" | "dark";
   personaId?: string;
+  mediaVariantOverridesEnabled?: boolean;
+  mediaRatioOverrides?: Record<string, import("@/types/smartContent").MediaRatio>;
 }
 
 const fetchContent = async (id: string): Promise<SmartContentQube | null> => {
@@ -30,6 +32,8 @@ export function QriptopianReadingSprintTemplate({
   experience,
   packet,
   theme = "dark",
+  mediaVariantOverridesEnabled,
+  mediaRatioOverrides,
 }: QriptopianReadingSprintTemplateProps) {
   const { actions } = useSmartTriad();
   const [feature, setFeature] = useState<SmartContentQube | null>(null);
@@ -67,6 +71,8 @@ export function QriptopianReadingSprintTemplate({
   const unlockPrice = Number(walletConfig.unlock_price || 0);
   const rewardAmount = Number(walletConfig.reward_amount || 0);
   const requiresConnect = walletConfig.require_wallet_connect !== false;
+  const getRatioOverride = (variant?: string) =>
+    variant && mediaVariantOverridesEnabled ? mediaRatioOverrides?.[variant] : undefined;
 
   const gates = useMemo(() => {
     const list = [];
@@ -119,7 +125,24 @@ export function QriptopianReadingSprintTemplate({
 
   const handlePurchase = async (content: SmartContentQube) => {
     await actions.loadContent(content.id);
-    actions.openWallet("full");
+    // Open Liquid UI SmartWallet instead of Layered SmartWallet
+    const walletUI = [];
+    
+    // Add balance card
+    walletUI.push('wallet_card.balance');
+    
+    // Add unlock card if there's a price
+    if (content.pricingModel?.tiers?.some((tier) => (tier.amount ?? 0) > 0)) {
+      walletUI.push('wallet_card.unlock_offer');
+    }
+    
+    // Add permission card for consent
+    walletUI.push('wallet_card.confirm_action');
+    
+    // Set wallet UI and open in narrow mode
+    actions.setWalletUI(walletUI);
+    actions.setWalletDrawerMode('narrow');
+    actions.openWallet('compact');
   };
 
   const isDark = theme === "dark";
@@ -185,6 +208,10 @@ export function QriptopianReadingSprintTemplate({
               <SmartContentCard
                 content={feature}
                 variant="featured"
+                templateVariant="featured"
+                device="desktop"
+                useTemplateRatioOverrides={mediaVariantOverridesEnabled}
+                mediaRatioOverride={getRatioOverride("featured")}
                 onSelect={handleOpen}
                 onPurchase={handlePurchase}
                 isOwned={actions.checkOwnership(feature.id)}
@@ -202,6 +229,10 @@ export function QriptopianReadingSprintTemplate({
                     key={item.id}
                     content={item}
                     variant="compact"
+                    templateVariant="compact"
+                    device="desktop"
+                    useTemplateRatioOverrides={mediaVariantOverridesEnabled}
+                    mediaRatioOverride={getRatioOverride("compact")}
                     onSelect={handleOpen}
                     onPurchase={handlePurchase}
                     isOwned={actions.checkOwnership(item.id)}

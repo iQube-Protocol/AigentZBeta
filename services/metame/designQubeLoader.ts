@@ -83,6 +83,10 @@ const FILES = {
   constraints: "constraints.json",
   components: "components.json",
   templates: "template-map.json",
+  dis: "design-intent.json",
+  constraintManifest: "constraint-manifest.json",
+  styleQube: "style-qube.json",
+  layoutQube: "layout-qube.json",
   references: path.join("references", "index.json"),
   styleBrief: "style-brief.md",
 };
@@ -162,6 +166,10 @@ export async function loadDesignQube({
   const constraintsRaw = await readJsonIfExists<DesignQubeConstraints>(path.join(sourcePath, paths.constraints));
   const componentsRaw = await readJsonIfExists<Record<string, any>>(path.join(sourcePath, paths.components));
   const templatesRaw = await readJsonIfExists<Record<string, any>>(path.join(sourcePath, paths.templates));
+  const disRaw = await readJsonIfExists<Record<string, any>>(path.join(sourcePath, FILES.dis));
+  const cmRaw = await readJsonIfExists<Record<string, any>>(path.join(sourcePath, FILES.constraintManifest));
+  const styleQubeRaw = await readJsonIfExists<Record<string, any>>(path.join(sourcePath, FILES.styleQube));
+  const layoutQubeRaw = await readJsonIfExists<Record<string, any>>(path.join(sourcePath, FILES.layoutQube));
   const referencesRaw = await readJsonIfExists<DesignQubeReference[]>(path.join(sourcePath, paths.references));
   const styleBrief = await readTextIfExists(path.join(sourcePath, paths.styleBrief));
 
@@ -172,6 +180,18 @@ export async function loadDesignQube({
   let references = referencesParsed;
   if (!references || references.length === 0) {
     references = await listReferenceImages(sourcePath);
+  }
+
+  if (references && references.length > 0) {
+    const thumbnails = [
+      "/images/designqube/thumb-qripto.jpg",
+      "/images/designqube/thumb-penny.jpg",
+      "/images/designqube/thumb-agentiq.jpg",
+    ];
+    references = references.map((ref, idx) => ({
+      ...ref,
+      thumbnailUrl: ref.thumbnailUrl ?? thumbnails[idx % thumbnails.length],
+    }));
   }
 
   if (includeImages && references && references.length > 0) {
@@ -203,6 +223,10 @@ export async function loadDesignQube({
     constraints,
     components: componentsRaw,
     templates: templatesRaw,
+    designIntent: disRaw,
+    constraintManifest: cmRaw,
+    styleQube: styleQubeRaw,
+    layoutQube: layoutQubeRaw,
     references,
     styleBrief,
     updatedAt: new Date().toISOString(),

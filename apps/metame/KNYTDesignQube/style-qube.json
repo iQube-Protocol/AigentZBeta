@@ -1,0 +1,35 @@
+{
+  "id": "styleqube-knyt-guidance-v1",
+  "name": "KNYT Guidance StyleQube",
+  "source": "tokens.guidance.json",
+  "themes": [
+    "light.metame",
+    "dark.knytGlass"
+  ],
+  "summary": {
+    "primaryAccent": "coral",
+    "surface": "glass-on-dark",
+    "typography": "modern sans",
+    "radius": "soft",
+    "motion": "subtle"
+  },
+  "tokenRefs": {
+    "colors": [
+      "color.bg",
+      "color.surface",
+      "color.text",
+      "color.accent"
+    ],
+    "typography": [
+      "fontFamily.sans",
+      "scale"
+    ],
+    "radius": [
+      "xs",
+      "sm",
+      "md",
+      "lg"
+    ]
+  },
+  "version": "1.0.0"
+}

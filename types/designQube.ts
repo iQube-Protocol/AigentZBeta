@@ -25,6 +25,7 @@ export type DesignQubeReference = {
   notes?: string;
   templateId?: string;
   dataUrl?: string;
+  thumbnailUrl?: string;
 };
 
 export type DesignQubeTokens = {
@@ -73,6 +74,10 @@ export type DesignQube = {
   constraints?: DesignQubeConstraints;
   components?: Record<string, any>;
   templates?: Record<string, any>;
+  designIntent?: Record<string, any>;
+  constraintManifest?: Record<string, any>;
+  styleQube?: Record<string, any>;
+  layoutQube?: Record<string, any>;
   references?: DesignQubeReference[];
   styleBrief?: string;
   updatedAt?: string;

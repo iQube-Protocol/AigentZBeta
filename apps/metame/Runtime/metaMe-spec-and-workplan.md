@@ -216,7 +216,45 @@ Phase 6: Verification (Codex)
 - Add tests or lightweight verification script per existing repo pattern
 - Produce reuse audit summary
 
-## 17) Coordination rules
+## 17) SmartWallet Canonicalization (Layered, Embedded, Liquid UI)
+
+### 17.1) Wallet Core vs Wallet Surfaces
+- **Wallet Core**: Shared domain model and command layer for wallet operations (balances, payments, personas, receipts, permissions, rewards). Implemented via `SmartTriadProvider` and `executeTriadAction` as the command facade.
+- **Wallet Surfaces**: Three distinct UI implementations that consume Wallet Core:
+  - **Layered SmartWallet**: Full wallet drawer overlay, multi-tab, for broad wallet management. Canonical entry: `/codex/wallet`.
+  - **Embedded SmartWallet**: Full wallet experience rendered as an embedded panel inside Codex/Copilot surfaces, contextually opened with an initial tab and narrower layout. Canonical entry: `/codex/copilot`.
+  - **Liquid UI SmartWallet**: Card/modal-driven micro-surface for specific intents within fixed-viewport Liquid UI experiences, optimized for "smart actions" and ultra-thin clients. Uses `CopilotWalletDrawer` with `walletUI[]` components and `DrawerMode` (`narrow`, `wide`, `none`).
+
+### 17.2) Activation Points and Responsibilities
+- **Layered SmartWallet** (`/codex/wallet`):
+  - Activation: Sidebar "SmartWallet (Layered)" link, content hub actions, deep links.
+  - Responsibilities: Full wallet management, multi-tab operations, detailed balance views, transaction history, persona switching, reward management, receipt viewing.
+- **Embedded SmartWallet** (Codex Copilot):
+  - Activation: Within `/codex/copilot`, wallet panel flows, initial-tab targeting.
+  - Responsibilities: Contextual wallet operations during copilot sessions, quick balance checks, in-flow payments and permissions, focused task completion.
+- **Liquid UI SmartWallet** (SmartTriad/Demo Gallery):
+  - Activation: Smart actions in Demo Gallery/SmartTriad flows, checkout/unlock intents, reward claims.
+  - Responsibilities: Intent-specific micro-interactions (balance glance, unlock/checkout, permissions/confirm, receipt, reward claim), template-driven UI composition via `KnytLiquidUIService`.
+
+### 17.3) API Strategy
+- **Internal (AgentiQ)**: Deep integration via `SmartTriadProvider` and direct `executeTriadAction` calls for full wallet state management.
+- **External (Thin Clients/MCPApps)**: Stable API endpoints (`/api/content/triad/*`) for Liquid UI wallet operations, with minimal state exposure and security boundaries.
+
+### 17.4) MVP Features per Surface
+- **Layered**: All wallet features (balance, unlock, checkout, permissions, receipt, reward claim, transaction history, persona management).
+- **Embedded**: Core features with contextual focus (balance, unlock, checkout, permissions, receipt).
+- **Liquid UI**: Essential micro-actions (balance glance, unlock/checkout, permissions/confirm, receipt, reward claim).
+
+### 17.5) Qriptopian UX Porting
+- Port Qriptopian wallet UX patterns and styling into AgentiQ SmartWallet surfaces while preserving existing AgentiQ functionality.
+- Iterative approach: start with layout and tab sections, then incorporate visual design patterns.
+
+### 17.6) Implementation Status
+- **Layered SmartWallet**: `/codex/wallet` page updated to canonical layered entry. Sidebar link renamed to "SmartWallet (Layered)".
+- **Embedded SmartWallet**: Integrated into Codex Copilot (`/codex/copilot`) with wallet panel flows.
+- **Liquid UI SmartWallet**: `CopilotWalletDrawer` component available with `walletUI` component system and `KnytLiquidUIService` integration. Wired into Demo Gallery smart actions.
+
+## 18) Coordination rules
 - Wait for Cascade to assign tasks with explicit file paths.
 - Implement small, coherent increments only.
 - Do not redesign architecture.

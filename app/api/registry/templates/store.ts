@@ -58,6 +58,7 @@ function seed(): IQubeTemplate[] {
       metaExtras: [
         { k: 'liquid_template_id', v: 'liquidui:drawer_grid_v1' },
         { k: 'archetype', v: 'catalog_gallery' },
+        { k: 'ratio_overrides', v: '{"featured":"16:9","standard":"4:3","grid":"1:1"}' },
       ],
     },
     {
@@ -75,6 +76,7 @@ function seed(): IQubeTemplate[] {
       metaExtras: [
         { k: 'liquid_template_id', v: 'liquidui:drawer_grid_1a' },
         { k: 'archetype', v: 'feed_stream' },
+        { k: 'ratio_overrides', v: '{"featured":"16:9","standard":"4:3"}' },
       ],
     },
     {
@@ -92,6 +94,7 @@ function seed(): IQubeTemplate[] {
       metaExtras: [
         { k: 'liquid_template_id', v: 'liquidui:drawer_grid_1b' },
         { k: 'archetype', v: 'search_filter' },
+        { k: 'ratio_overrides', v: '{"standard":"4:3","grid":"1:1"}' },
       ],
     },
     {
@@ -109,6 +112,7 @@ function seed(): IQubeTemplate[] {
       metaExtras: [
         { k: 'liquid_template_id', v: 'liquidui:drawer_grid_1c' },
         { k: 'archetype', v: 'compare_decision' },
+        { k: 'ratio_overrides', v: '{"featured":"16:9","standard":"4:3"}' },
       ],
     },
     {
@@ -126,6 +130,7 @@ function seed(): IQubeTemplate[] {
       metaExtras: [
         { k: 'liquid_template_id', v: 'liquidui:drawer_grid_2a' },
         { k: 'archetype', v: 'dashboard_kpi' },
+        { k: 'ratio_overrides', v: '{"featured":"16:9","standard":"4:3","grid":"1:1"}' },
       ],
     },
     {

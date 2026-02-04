@@ -88,6 +88,8 @@ export interface TriadState {
   // Wallet state
   walletOpen: boolean;
   walletMode: "compact" | "full";
+  walletUI: Array<import("@/app/types/knytLiquidUI").WalletUIComponent>;
+  walletDrawerMode: import("@/app/types/knytLiquidUI").DrawerMode;
   
   // Menu state
   menuManifest: SmartMenuManifest | null;
@@ -119,6 +121,8 @@ export interface TriadActions {
   // Wallet actions
   openWallet: (mode?: "compact" | "full") => void;
   closeWallet: () => void;
+  setWalletUI: (components: Array<import("@/app/types/knytLiquidUI").WalletUIComponent>) => void;
+  setWalletDrawerMode: (mode: import("@/app/types/knytLiquidUI").DrawerMode) => void;
   
   // Menu actions
   setActiveDrawer: (drawer: string | null) => void;
@@ -177,6 +181,8 @@ export function SmartTriadProvider({
     viewerModality: null,
     walletOpen: false,
     walletMode: "compact",
+    walletUI: [],
+    walletDrawerMode: "narrow",
     menuManifest: null,
     activeDrawer: "contentViewer",
     purchaseInProgress: false,
@@ -271,6 +277,20 @@ export function SmartTriadProvider({
     setState(prev => ({
       ...prev,
       walletOpen: false,
+    }));
+  }, []);
+
+  const setWalletUI = useCallback((components: Array<import("@/app/types/knytLiquidUI").WalletUIComponent>) => {
+    setState(prev => ({
+      ...prev,
+      walletUI: components,
+    }));
+  }, []);
+
+  const setWalletDrawerMode = useCallback((mode: import("@/app/types/knytLiquidUI").DrawerMode) => {
+    setState(prev => ({
+      ...prev,
+      walletDrawerMode: mode,
     }));
   }, []);
 
@@ -601,6 +621,8 @@ export function SmartTriadProvider({
       setViewerModality,
       openWallet,
       closeWallet,
+      setWalletUI,
+      setWalletDrawerMode,
       setActiveDrawer,
       configureExperience,
       purchaseContent,

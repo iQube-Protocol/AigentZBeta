@@ -68,6 +68,7 @@ const getHandler = async (req: Request) => {
       const instance = url.searchParams.get('instance') || '';
       const businessModel = url.searchParams.get('businessModel') || '';
       const sort = url.searchParams.get('sort'); // newest|oldest
+      const forceFallback = url.searchParams.get('forceFallback') === '1';
       
       // Pagination parameters
       const offset = (page - 1) * limit;
@@ -87,25 +88,28 @@ const getHandler = async (req: Request) => {
       if (instance) qp['instance_type'] = `eq.${instance}`;
       if (businessModel) qp['business_model'] = `eq.${businessModel}`;
 
-      const endpoint = buildUrl(supabaseUrl, 'rest/v1/iqube_templates', qp);
-      const res = await fetch(endpoint, {
-        headers: {
-          apikey: anonKey,
-          Authorization: `Bearer ${anonKey}`,
-          Accept: 'application/json',
-          // Add Prefer header for count
-          Prefer: 'count=exact',
-        },
-        cache: 'no-store',
-      });
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`Supabase error: ${res.status} ${text}`);
+      let rows: any[] = [];
+      let totalCount = 0;
+      if (!forceFallback) {
+        const endpoint = buildUrl(supabaseUrl, 'rest/v1/iqube_templates', qp);
+        const res = await fetch(endpoint, {
+          headers: {
+            apikey: anonKey,
+            Authorization: `Bearer ${anonKey}`,
+            Accept: 'application/json',
+            // Add Prefer header for count
+            Prefer: 'count=exact',
+          },
+          cache: 'no-store',
+        });
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(`Supabase error: ${res.status} ${text}`);
+        }
+        // Get total count from response headers
+        totalCount = parseInt(res.headers.get('content-range')?.split('/')[1] || '0');
+        rows = await res.json();
       }
-      
-      // Get total count from response headers
-      const totalCount = parseInt(res.headers.get('content-range')?.split('/')[1] || '0');
-      const rows = await res.json();
 
       // Map DB rows to frontend IQubeTemplate shape
       const mapped = (rows || []).map((r: any) => ({
@@ -128,6 +132,48 @@ const getHandler = async (req: Request) => {
         userId: r.user_id || null,
         createdAt: r.created_at,
       }));
+
+      // If Supabase returns empty but local store has seed templates, fall back
+      if (mapped.length === 0) {
+        const items = getStore();
+        const fallbackFiltered = items
+          .filter(t => {
+            if (search) {
+              const s = search.toLowerCase();
+              if (!t.name.toLowerCase().includes(s) && !t.description.toLowerCase().includes(s)) return false;
+            }
+            if (type && t.iQubeType && t.iQubeType !== type) return false;
+            if (instance && t.iQubeInstanceType && t.iQubeInstanceType !== instance) return false;
+            if (businessModel && t.businessModel && t.businessModel !== businessModel) return false;
+            return true;
+          })
+          .sort((a, b) => {
+            const ta = Date.parse(a.createdAt || '') || 0;
+            const tb = Date.parse(b.createdAt || '') || 0;
+            return sort === 'oldest' ? ta - tb : tb - ta;
+          });
+        const offset = (page - 1) * limit;
+        const pageItems = fallbackFiltered.slice(offset, offset + limit);
+        const totalCount = fallbackFiltered.length;
+        const totalPages = Math.max(1, Math.ceil(totalCount / limit));
+        const hasNextPage = page < totalPages;
+        const hasPrevPage = page > 1;
+        const fallbackPagination = {
+          currentPage: page,
+          totalPages,
+          totalCount,
+          limit,
+          hasNextPage,
+          hasPrevPage,
+          nextPage: hasNextPage ? page + 1 : null,
+          prevPage: hasPrevPage ? page - 1 : null,
+        };
+        return {
+          data: pageItems,
+          pagination: fallbackPagination,
+          _devFallback: true,
+        };
+      }
 
       // Calculate pagination metadata
       const totalPages = Math.ceil(totalCount / limit);

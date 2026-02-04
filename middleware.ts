@@ -17,6 +17,18 @@ export function middleware(request: NextRequest) {
   const startTime = performance.now();
   const urlPath = request.nextUrl.pathname;
   
+  // Handle metaMe runtime page - prevent caching
+  if (urlPath.startsWith('/metame/runtime')) {
+    const response = NextResponse.next();
+    
+    // Prevent caching of the runtime page
+    response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    response.headers.set('Pragma', 'no-cache');
+    response.headers.set('Expires', '0');
+    
+    return response;
+  }
+  
   // Handle SmartTriad embed routes - allow embedding in Lovable
   if (urlPath.startsWith(EMBED_PREFIX)) {
     const response = NextResponse.next();
@@ -153,5 +165,5 @@ export function getPerformanceMetrics() {
 }
 
 export const config = {
-  matcher: ['/triad/embed/:path*'],
+  matcher: ['/triad/embed/:path*', '/metame/runtime/:path*'],
 };
