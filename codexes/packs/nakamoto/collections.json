@@ -1,0 +1,18 @@
+{
+  "collections": [
+    {
+      "id": "col_nakamoto_main",
+      "title": "Nakamoto",
+      "description": "Blockchain expertise with Mermaid diagrams, code examples, and visualizations",
+      "type": "static",
+      "order": 0,
+      "enabled": true,
+      "metadata": {
+        "icon": "GitBranch",
+        "category": "main",
+        "requiresAuth": false,
+        "supportsTenantSwitching": true
+      }
+    }
+  ]
+}

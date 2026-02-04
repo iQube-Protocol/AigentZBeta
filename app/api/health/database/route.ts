@@ -149,7 +149,7 @@ export async function GET() {
     // Check persona table (DIDQube)
     try {
       const { count: personaCount, error: personaError } = await supabase
-        .from('persona')
+        .from('personas')
         .select('*', { count: 'exact', head: true });
       
       health.tables.persona = {

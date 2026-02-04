@@ -1,8 +1,13 @@
 import { HttpAgent, Actor } from '@dfinity/agent';
 import fetch from 'cross-fetch';
 
+const IS_BUILD = process.env.NEXT_PHASE === 'phase-production-build';
+
 // Generic actor factory using a provided idlFactory
 export async function getActor<T = Record<string, any>>(canisterId: string, idlFactory: any) {
+  if (IS_BUILD) {
+    throw new Error('IC agent disabled during build');
+  }
   const isLocal = (process.env.DFX_NETWORK || '').toLowerCase() === 'local';
   const isMainnet = (process.env.DFX_NETWORK || 'ic').toLowerCase() === 'ic';
   
@@ -27,7 +32,8 @@ export async function getActor<T = Record<string, any>>(canisterId: string, idlF
   let identity: any = undefined;
   let pem: string | undefined = process.env.DFX_IDENTITY_PEM || process.env.NEXT_PUBLIC_DFX_IDENTITY_PEM;
   const pemPath = process.env.DFX_IDENTITY_PEM_PATH;
-  if (!pem && pemPath) {
+  if (!pem && pemPath && typeof window === 'undefined') {
+    // Only try to read file on server-side
     try {
       const { readFileSync } = await import('fs');
       pem = readFileSync(pemPath, 'utf8');
@@ -65,6 +71,9 @@ export async function getActor<T = Record<string, any>>(canisterId: string, idlF
 
 // Anonymous actor factory for testing access control issues
 export async function getAnonymousActor<T = Record<string, any>>(canisterId: string, idlFactory: any) {
+  if (IS_BUILD) {
+    throw new Error('IC agent disabled during build');
+  }
   const isLocal = (process.env.DFX_NETWORK || '').toLowerCase() === 'local';
   const isMainnet = (process.env.DFX_NETWORK || 'ic').toLowerCase() === 'ic';
   

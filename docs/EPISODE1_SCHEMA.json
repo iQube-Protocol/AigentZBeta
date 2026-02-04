@@ -1,0 +1,49 @@
+{
+  "home-hero": {
+    "domain": "home",
+    "placement": { "section": "home-hero", "position": 1 },
+    "required": ["title", "slug", "excerpt", "thumbnail", "image", "badge", "type", "format", "status", "modalities"]
+  },
+  "latest-news": {
+    "domain": "home",
+    "placement": { "section": "latest-news", "position": 1 },
+    "required": ["title", "slug", "excerpt", "thumbnail", "badge", "type", "format", "status", "modalities"]
+  },
+  "second-hero": {
+    "domain": "home",
+    "placement": { "section": "second-hero", "position": 1 },
+    "required": ["title", "slug", "excerpt", "thumbnail", "image", "badge", "type", "format", "status", "modalities"]
+  },
+  "pennydrops": {
+    "domain": "pennydrops",
+    "placement": { "section": "pennydrops", "position": 1 },
+    "required": ["title", "slug", "excerpt", "thumbnail", "image", "badge", "type", "format", "status", "modalities"]
+  },
+  "knowdz-dev": {
+    "domain": "qriptopian",
+    "placement": { "section": "21knowdz", "tab": "dev", "position": 1 },
+    "badge": "DEV",
+    "type": "tutorial",
+    "required": ["title", "slug", "excerpt", "thumbnail", "format", "status", "modalities"]
+  },
+  "knowdz-creative": {
+    "domain": "qriptopian",
+    "placement": { "section": "21knowdz", "tab": "creative", "position": 1 },
+    "badge": "CREATIVE",
+    "type": "article"
+  },
+  "knowdz-exec": {
+    "domain": "qriptopian",
+    "placement": { "section": "21knowdz", "tab": "exec", "position": 1 },
+    "badge": "EXEC",
+    "type": "tutorial"
+  },
+  "modalities": {
+    "read": { "available": true, "text": "markdown content", "duration": "5 min" },
+    "watch": { "available": true, "url": "video url", "duration": "3:45" },
+    "listen": { "available": true, "url": "audio url", "duration": "10:00" },
+    "link": { "available": true, "url": "external url", "allow_embed": false }
+  },
+  "valid_formats": ["article", "comic", "video", "audio", "interactive", "mixed"],
+  "valid_status": ["draft", "published", "archived"]
+}

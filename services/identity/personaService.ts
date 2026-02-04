@@ -1,4 +1,4 @@
-import { initAgentiqClient, AgentiqCoreClient } from '@qriptoagentiq/core-client';
+import { initAgentiqClient, AgentiqCoreClient } from '@/services/core/agentiqClient';
 import { SupabaseClient } from '@supabase/supabase-js';
 
 export interface Persona {
@@ -42,10 +42,24 @@ export class PersonaService {
 
   async createPersona(input: { rootId?: string; fioHandle?: string; defaultState?: Persona['default_identity_state']; appOrigin?: string; worldIdStatus?: Persona['world_id_status'] }) {
     const { data, error } = await this.supabase
-      .from('persona')
+      .from('personas')
       .insert({
-        root_id: input.rootId ?? null,
+        type: 'PersonaQube',
         fio_handle: input.fioHandle ?? null,
+        fio_domain: (input.fioHandle || '').includes('@') ? (input.fioHandle || '').split('@')[1] : 'qripto',
+        root_did: input.fioHandle ? `did:fio:${input.fioHandle}` : `did:fio:unknown`,
+        display_name: (input.fioHandle || '').includes('@') ? (input.fioHandle || '').split('@')[0] : 'Persona',
+        avatar_uri: null,
+        evm_key: null,
+        chain_addresses: {},
+        reputation_score: 0,
+        reputation_bucket: 0,
+        badges: [],
+        status: 'active',
+        tenant_id: 'default',
+        auth_profile_id: null,
+        discoverable_within_tenant: false,
+        root_id: input.rootId ?? null,
         default_identity_state: input.defaultState ?? 'semi_anonymous',
         app_origin: input.appOrigin ?? 'aigent-z',
         world_id_status: input.worldIdStatus === 'not_verified' ? 'unverified' : (input.worldIdStatus ?? 'unverified')
@@ -68,12 +82,20 @@ export class PersonaService {
       throw new Error(error.message || 'Failed to create persona');
     }
     
-    return data as Persona;
+    return {
+      id: (data as any).id,
+      root_id: (data as any).root_id ?? null,
+      fio_handle: (data as any).fio_handle ?? null,
+      default_identity_state: (data as any).default_identity_state,
+      app_origin: (data as any).app_origin ?? null,
+      world_id_status: (data as any).world_id_status,
+      created_at: (data as any).created_at,
+    } as Persona;
   }
 
   async listPersonas(limit = 50) {
     const { data, error } = await this.supabase
-      .from('persona')
+      .from('personas')
       .select('*')
       .order('created_at', { ascending: false })
       .limit(limit);

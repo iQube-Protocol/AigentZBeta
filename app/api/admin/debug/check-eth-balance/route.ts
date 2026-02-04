@@ -73,14 +73,14 @@ export async function GET(req: NextRequest) {
       }), { status: 404 });
     }
 
-    // Get RPC URL for chain
+    // Get RPC URL for chain with fallbacks
     const rpc = (cid: number) => {
       switch (cid) {
-        case 11155111: return process.env.NEXT_PUBLIC_RPC_SEPOLIA;
-        case 421614: return process.env.NEXT_PUBLIC_RPC_ARB_SEPOLIA;
-        case 84532: return process.env.NEXT_PUBLIC_RPC_BASE_SEPOLIA;
-        case 11155420: return process.env.NEXT_PUBLIC_RPC_OPTIMISM_SEPOLIA;
-        case 80002: return process.env.NEXT_PUBLIC_RPC_POLYGON_AMOY;
+        case 11155111: return process.env.NEXT_PUBLIC_RPC_SEPOLIA || process.env.NEXT_PUBLIC_RPC_ETHEREUM_SEPOLIA || 'https://ethereum-sepolia-rpc.publicnode.com';
+        case 421614: return process.env.NEXT_PUBLIC_RPC_ARB_SEPOLIA || process.env.NEXT_PUBLIC_RPC_ARBITRUM_SEPOLIA || 'https://sepolia-rollup.arbitrum.io/rpc';
+        case 84532: return process.env.NEXT_PUBLIC_RPC_BASE_SEPOLIA || 'https://sepolia.base.org';
+        case 11155420: return process.env.NEXT_PUBLIC_RPC_OPTIMISM_SEPOLIA || 'https://sepolia.optimism.io';
+        case 80002: return process.env.NEXT_PUBLIC_RPC_POLYGON_AMOY || 'https://rpc-amoy.polygon.technology';
         default: return undefined;
       }
     };

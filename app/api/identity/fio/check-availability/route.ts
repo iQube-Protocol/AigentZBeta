@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
     // FIRST: Check our database to prevent duplicates
     const supabase = createClient(supabaseUrl, supabaseKey);
     const { data: existingPersona, error: dbError } = await supabase
-      .from('persona')
+      .from('personas')
       .select('id, fio_handle')
       .eq('fio_handle', handle)
       .maybeSingle();

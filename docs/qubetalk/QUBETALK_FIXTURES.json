@@ -1,0 +1,153 @@
+{
+  "tenant_id": "t_demo_001",
+  "channel_id": "ch_demo_001",
+  "agents": {
+    "system": { "id": "agent_system", "role": "system" },
+    "tenant": { "id": "agent_tenant_001", "role": "tenant" }
+  },
+  "delegation_request": {
+    "tenant_id": "t_demo_001",
+    "channel_id": "ch_demo_001",
+    "request_id": "req_demo_001",
+    "from_agent": { "id": "agent_system", "role": "system" },
+    "to_agent": { "id": "agent_tenant_001", "role": "tenant" },
+    "task": {
+      "type": "summarize",
+      "prompt": "Summarize item it_demo_001 for a first-time reader.",
+      "iqube_refs": ["pack_knyt_v0", "it_demo_001"],
+      "constraints": { "risk_tier": "low", "max_tokens": 250 }
+    },
+    "context": {
+      "user_iq_refs": ["ent_item_it_demo_001"],
+      "receipt_refs": []
+    },
+    "metadata": {
+      "intent": "read",
+      "source": "runtime"
+    }
+  },
+  "delegation_response": {
+    "delegation_id": "del_demo_001",
+    "request_id": "req_demo_001",
+    "status": "in_progress",
+    "created_at": "2026-01-12T12:00:00Z",
+    "channel_id": "ch_demo_001",
+    "receipt_ref": {
+      "receipt_id": "rcpt_demo_001",
+      "type": {
+        "category": "qubetalk",
+        "sub_type": "delegation"
+      },
+      "status": {
+        "state": "pending",
+        "verified": false
+      },
+      "created_at": "2026-01-12T12:00:00Z",
+      "updated_at": "2026-01-12T12:00:00Z",
+      "tenant_id": "t_demo_001",
+      "delegation_id": "del_demo_001",
+      "metadata": {
+        "request_id": "req_demo_001",
+        "channel_id": "ch_demo_001"
+      }
+    }
+  },
+  "message_response": {
+    "message_id": "msg_demo_001",
+    "channel_id": "ch_demo_001",
+    "in_reply_to": "req_demo_001",
+    "from_agent": { "id": "agent_tenant_001", "role": "tenant" },
+    "type": "response",
+    "content": "This item introduces the core thesis of the pack and sets the context for Issue Zero.",
+    "iqube_refs": ["it_demo_001"],
+    "receipt_ref": {
+      "receipt_id": "rcpt_demo_001",
+      "type": {
+        "category": "qubetalk",
+        "sub_type": "delegation"
+      },
+      "status": {
+        "state": "completed",
+        "verified": true
+      },
+      "created_at": "2026-01-12T12:00:00Z",
+      "updated_at": "2026-01-12T12:00:05Z",
+      "tenant_id": "t_demo_001",
+      "delegation_id": "del_demo_001",
+      "metadata": {
+        "request_id": "req_demo_001",
+        "channel_id": "ch_demo_001"
+      }
+    },
+    "status": "complete",
+    "created_at": "2026-01-12T12:00:05Z"
+  },
+  "messages_stream": [
+    {
+      "event_id": "evt_demo_001",
+      "event_type": "message",
+      "payload": {
+        "message_id": "msg_demo_000",
+        "channel_id": "ch_demo_001",
+        "from_agent": { "id": "agent_system", "role": "system" },
+        "type": "request",
+        "content": "Delegation req_demo_001 created.",
+        "status": "partial",
+        "created_at": "2026-01-12T12:00:01Z"
+      }
+    },
+    {
+      "event_id": "evt_demo_002",
+      "event_type": "message",
+      "payload": {
+        "message_id": "msg_demo_001",
+        "channel_id": "ch_demo_001",
+        "in_reply_to": "req_demo_001",
+        "from_agent": { "id": "agent_tenant_001", "role": "tenant" },
+        "type": "response",
+        "content": "This item introduces the core thesis of the pack and sets the context for Issue Zero.",
+        "iqube_refs": ["it_demo_001"],
+        "receipt_ref": {
+          "receipt_id": "rcpt_demo_001",
+          "type": {
+            "category": "qubetalk",
+            "sub_type": "delegation"
+          },
+          "status": {
+            "state": "completed",
+            "verified": true
+          },
+          "created_at": "2026-01-12T12:00:00Z",
+          "updated_at": "2026-01-12T12:00:05Z",
+          "tenant_id": "t_demo_001",
+          "delegation_id": "del_demo_001",
+          "metadata": {
+            "request_id": "req_demo_001",
+            "channel_id": "ch_demo_001"
+          }
+        },
+        "status": "complete",
+        "created_at": "2026-01-12T12:00:05Z"
+      }
+    }
+  ],
+  "receipt_stub": {
+    "receipt_id": "rcpt_demo_001",
+    "type": {
+      "category": "qubetalk",
+      "sub_type": "delegation"
+    },
+    "status": {
+      "state": "completed",
+      "verified": true
+    },
+    "created_at": "2026-01-12T12:00:00Z",
+    "updated_at": "2026-01-12T12:00:05Z",
+    "tenant_id": "t_demo_001",
+    "delegation_id": "del_demo_001",
+    "metadata": {
+      "request_id": "req_demo_001",
+      "message_id": "msg_demo_001"
+    }
+  }
+}

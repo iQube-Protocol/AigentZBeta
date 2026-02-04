@@ -86,7 +86,7 @@ export async function GET(req: NextRequest) {
   // Test 3: QubeBase SDK Client
   console.log('3️⃣ Testing QubeBase SDK Client...');
   try {
-    const { initAgentiqClient } = await import('@qriptoagentiq/core-client');
+    const { initAgentiqClient } = await import('@/services/core/agentiqClient');
     const client = initAgentiqClient({
       supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL,
       supabaseAnonKey: process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -116,7 +116,7 @@ export async function GET(req: NextRequest) {
   console.log('4️⃣ Testing Concurrent Usage (AgentiQBootstrap + A2A)...');
   try {
     // Initialize QubeBase SDK globally (like AgentiQBootstrap does)
-    const { initAgentiqClient } = await import('@qriptoagentiq/core-client');
+    const { initAgentiqClient } = await import('@/services/core/agentiqClient');
     const qubeClient = initAgentiqClient({
       supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL,
       supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
@@ -127,7 +127,7 @@ export async function GET(req: NextRequest) {
     
     // Run both simultaneously (real-world scenario)
     const [qubeResult, agentResult] = await Promise.all([
-      qubeClient.supabase.from('persona').select('id').limit(1),
+      qubeClient.supabase.from('personas').select('id').limit(1),
       keyService.getAgentKeys(agentId)
     ]);
 

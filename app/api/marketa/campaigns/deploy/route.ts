@@ -1,0 +1,463 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+
+// Initialize Supabase client
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+/**
+ * Multi-Tenant Campaign Deployment API
+ * Enables AGQ to create campaigns that can be deployed across multiple partner tenants
+ * with performance data aggregation back to AGQ as source of truth
+ */
+
+interface MultiTenantDeploymentRequest {
+  campaign_id: string;
+  campaign: {
+    name: string;
+    phase: string;
+    budget: number;
+    start_date?: string;
+    end_date?: string;
+    primary_cta: string;
+    themes: string[];
+    content: any;
+  };
+  deployment_config: {
+    participating_tenants: string[];
+    deployment_strategy: 'parallel' | 'sequential' | 'staggered';
+    rollout_schedule?: {
+      [tenant_id: string]: string; // tenant_id -> ISO datetime
+    };
+  };
+}
+
+interface TenantPerformanceReport {
+  tenant_id: string;
+  tenant_name: string;
+  metrics: {
+    sent: number;
+    delivered: number;
+    opened: number;
+    clicked: number;
+    conversions: number;
+    revenue: number;
+    delivery_rate: number;
+    open_rate: number;
+    click_rate: number;
+  };
+  status: 'pending' | 'deploying' | 'active' | 'completed' | 'failed';
+  last_updated: string;
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const body: MultiTenantDeploymentRequest = await request.json();
+    const personaId = request.headers.get('x-persona-id');
+
+    if (!personaId) {
+      return NextResponse.json(
+        { error: 'Missing persona identification' },
+        { status: 401 }
+      );
+    }
+
+    // Get persona and tenant info (must be admin or partner role)
+    const { data: persona, error: personaError } = await supabase
+      .from('crm_personas')
+      .select(`
+        tenant_id,
+        fio_handle,
+        crm_tenants(id, name, type, settings)
+      `)
+      .eq('id', personaId)
+      .single();
+
+    if (personaError || !persona) {
+      return NextResponse.json(
+        { error: 'Invalid persona' },
+        { status: 401 }
+      );
+    }
+
+
+    const tenant = Array.isArray(persona.crm_tenants)
+      ? persona.crm_tenants[0]
+      : persona.crm_tenants;
+    // Validate tenant can create multi-tenant campaigns
+    if (!['admin', 'partner'].includes(tenant?.type)) {
+      return NextResponse.json(
+        { error: 'Insufficient permissions for multi-tenant deployment' },
+        { status: 403 }
+      );
+    }
+
+    const { campaign_id, campaign, deployment_config } = body;
+
+    // Validate required fields
+    if (!campaign_id || !campaign || !deployment_config?.participating_tenants) {
+      return NextResponse.json(
+        { error: 'Missing required fields: campaign_id, campaign, deployment_config.participating_tenants' },
+        { status: 400 }
+      );
+    }
+
+    // Validate participating tenants exist
+    const { data: tenantValidation, error: tenantError } = await supabase
+      .from('crm_tenants')
+      .select('id, name, type')
+      .in('id', deployment_config.participating_tenants);
+
+    if (tenantError || !tenantValidation || tenantValidation.length !== deployment_config.participating_tenants.length) {
+      return NextResponse.json(
+        { error: 'One or more participating tenants are invalid' },
+        { status: 400 }
+      );
+    }
+
+    // Create the campaign in AGQ as source of truth
+    const { data: createdCampaign, error: campaignError } = await supabase
+      .from('marketa_campaigns')
+      .insert({
+        id: campaign_id,
+        tenant_id: persona.tenant_id, // Owner tenant
+        name: campaign.name,
+        status: 'active',
+        phase: campaign.phase,
+        budget: campaign.budget,
+        start_date: campaign.start_date,
+        end_date: campaign.end_date,
+        primary_cta: campaign.primary_cta,
+        themes: campaign.themes,
+        metadata: {
+          ...campaign.content,
+          multi_tenant: true,
+          created_by: personaId,
+          deployment_strategy: deployment_config.deployment_strategy,
+          participating_tenants: deployment_config.participating_tenants,
+          created_at: new Date().toISOString()
+        }
+      })
+      .select()
+      .single();
+
+    if (campaignError) {
+      console.error('Campaign creation error:', campaignError);
+      return NextResponse.json(
+        { error: 'Failed to create campaign' },
+        { status: 500 }
+      );
+    }
+
+    // Create multi-tenant deployment using the database function
+    const { data: deploymentResult, error: deploymentError } = await supabase
+      .rpc('create_multi_tenant_deployment', {
+        p_campaign_id: campaign_id,
+        p_owner_tenant_id: persona.tenant_id,
+        p_participating_tenants: deployment_config.participating_tenants
+      });
+
+    if (deploymentError) {
+      console.error('Multi-tenant deployment error:', deploymentError);
+      return NextResponse.json(
+        { error: 'Failed to create multi-tenant deployment' },
+        { status: 500 }
+      );
+    }
+
+    // Initialize metrics for all participating tenants
+    const metricsInit = deployment_config.participating_tenants.map(tenant_id => ({
+      campaign_id,
+      tenant_id,
+      sent: 0,
+      delivered: 0,
+      opened: 0,
+      clicked: 0,
+      conversions: 0,
+      revenue: 0,
+      cost: 0
+    }));
+
+    const { error: metricsError } = await supabase
+      .from('marketa_campaign_metrics')
+      .insert(metricsInit);
+
+    if (metricsError) {
+      console.error('Metrics initialization error:', metricsError);
+      // Don't fail the whole operation, but log it
+    }
+
+    // Create deployment logs for tracking
+    const deploymentLogs = deployment_config.participating_tenants.map(tenant_id => ({
+      campaign_id,
+      tenant_id,
+      platform: 'multi_tenant',
+      status: 'deploying',
+      recipient_count: 0,
+      metadata: {
+        deployment_strategy: deployment_config.deployment_strategy,
+        rollout_schedule: deployment_config.rollout_schedule?.[tenant_id],
+        owner_tenant_id: persona.tenant_id
+      }
+    }));
+
+    await supabase
+      .from('marketa_delivery_logs')
+      .insert(deploymentLogs);
+
+    // Update deployment status to active
+    await supabase
+      .from('marketa_multi_tenant_campaigns')
+      .update({ deployment_status: 'deployed' })
+      .eq('campaign_id', campaign_id);
+
+    return NextResponse.json({
+      success: true,
+      campaign: createdCampaign,
+      deployment: deploymentResult[0],
+      participating_tenants: tenantValidation.map(t => ({
+        tenant_id: t.id,
+        tenant_name: t.name,
+        tenant_type: t.type
+      })),
+      deployment_summary: {
+        total_tenants: deployment_config.participating_tenants.length + 1, // Include owner
+        deployment_strategy: deployment_config.deployment_strategy,
+        estimated_budget: campaign.budget * (deployment_config.participating_tenants.length + 1),
+        rollout_schedule: deployment_config.rollout_schedule
+      },
+      next_steps: [
+        'Campaign deployed to all participating tenants',
+        'Performance data will be aggregated in real-time',
+        'Each tenant can view their specific performance metrics',
+        'Aggregate performance available in AGQ dashboard'
+      ]
+    });
+
+  } catch (error) {
+    console.error('Multi-tenant deployment error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const campaign_id = searchParams.get('campaign_id');
+    const personaId = request.headers.get('x-persona-id');
+
+    if (!personaId) {
+      return NextResponse.json(
+        { error: 'Missing persona identification' },
+        { status: 401 }
+      );
+    }
+
+    // Get persona and tenant info
+    const { data: persona, error: personaError } = await supabase
+      .from('crm_personas')
+      .select('tenant_id, crm_tenants(id, name, type)')
+      .eq('id', personaId)
+      .single();
+
+    if (personaError || !persona) {
+      return NextResponse.json(
+        { error: 'Invalid persona' },
+        { status: 401 }
+      );
+    }
+
+    if (campaign_id) {
+      // Get specific multi-tenant campaign performance
+      return await getCampaignPerformance(campaign_id, persona.tenant_id);
+    } else {
+      // Get all multi-tenant campaigns for this tenant
+      return await getMultiTenantCampaigns(persona.tenant_id);
+    }
+
+  } catch (error) {
+    console.error('Multi-tenant campaign fetch error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+async function getCampaignPerformance(campaignId: string, tenantId: string): Promise<NextResponse> {
+  // Get campaign details
+  const { data: campaign, error: campaignError } = await supabase
+    .from('marketa_campaigns')
+    .select('*')
+    .eq('id', campaignId)
+    .single();
+
+  if (campaignError) {
+    return NextResponse.json(
+      { error: 'Campaign not found' },
+      { status: 404 }
+    );
+  }
+
+  // Get multi-tenant deployment info
+  const { data: deployment, error: deploymentError } = await supabase
+    .from('marketa_multi_tenant_campaigns')
+    .select('*')
+    .eq('campaign_id', campaignId)
+    .single();
+
+  if (deploymentError) {
+    return NextResponse.json(
+      { error: 'Multi-tenant deployment not found' },
+      { status: 404 }
+    );
+  }
+
+  // Verify tenant is owner or participant
+  if (deployment.owner_tenant_id !== tenantId && 
+      !deployment.participating_tenants.includes(tenantId)) {
+    return NextResponse.json(
+      { error: 'Access denied' },
+      { status: 403 }
+    );
+  }
+
+  // Get aggregated performance across all tenants
+  const { data: aggregatedPerformance, error: perfError } = await supabase
+    .rpc('get_multi_tenant_performance', { p_campaign_id: campaignId });
+
+  if (perfError) {
+    console.error('Performance aggregation error:', perfError);
+  }
+
+  // Get individual tenant performance
+  const { data: tenantPerformance, error: tenantPerfError } = await supabase
+    .from('marketa_campaign_metrics')
+    .select(`
+      tenant_id,
+      sent,
+      delivered,
+      opened,
+      clicked,
+      conversions,
+      revenue,
+      delivery_rate,
+      open_rate,
+      click_rate,
+      updated_at,
+      crm_tenants(id, name)
+    `)
+    .eq('campaign_id', campaignId);
+
+  if (tenantPerfError) {
+    console.error('Tenant performance error:', tenantPerfError);
+  }
+
+  const performanceReports: TenantPerformanceReport[] = tenantPerformance?.map(tp => ({
+    tenant_id: tp.tenant_id,
+    tenant_name: tp.crm_tenants?.[0]?.name || 'Unknown Tenant',
+    metrics: {
+      sent: tp.sent,
+      delivered: tp.delivered,
+      opened: tp.opened,
+      clicked: tp.clicked,
+      conversions: tp.conversions,
+      revenue: tp.revenue,
+      delivery_rate: tp.delivery_rate,
+      open_rate: tp.open_rate,
+      click_rate: tp.click_rate
+    },
+    status: 'active', // Could be determined from delivery logs
+    last_updated: tp.updated_at
+  })) || [];
+
+  return NextResponse.json({
+    success: true,
+    campaign,
+    deployment,
+    aggregated_performance: aggregatedPerformance?.[0] || null,
+    tenant_performance: performanceReports,
+    insights: {
+      top_performing_tenant: performanceReports.reduce((max, current) => 
+        current.metrics.conversions > max.metrics.conversions ? current : max, 
+        performanceReports[0] || null
+      ),
+      total_revenue: aggregatedPerformance?.[0]?.total_revenue || 0,
+      average_conversion_rate: performanceReports.length > 0 
+        ? performanceReports.reduce((sum, tp) => sum + (tp.metrics.conversions / Math.max(tp.metrics.sent, 1)), 0) / performanceReports.length 
+        : 0
+    }
+  });
+}
+
+async function getMultiTenantCampaigns(tenantId: string): Promise<NextResponse> {
+  // Get all multi-tenant campaigns where this tenant is owner or participant
+  const { data: campaigns, error: campaignsError } = await supabase
+    .from('marketa_multi_tenant_campaigns')
+    .select(`
+      id,
+      campaign_id,
+      owner_tenant_id,
+      is_multi_tenant,
+      tenant_count,
+      participating_tenants,
+      deployment_status,
+      created_at,
+      marketa_campaigns(id, name, status, phase, budget, created_at)
+    `)
+    .or(`owner_tenant_id.eq.${tenantId},participating_tenants.cs.{${tenantId}}`)
+    .eq('is_multi_tenant', true)
+    .order('created_at', { ascending: false });
+
+  if (campaignsError) {
+    console.error('Multi-tenant campaigns fetch error:', campaignsError);
+    return NextResponse.json(
+      { error: 'Failed to fetch campaigns' },
+      { status: 500 }
+    );
+  }
+
+  // Get performance summary for each campaign
+  const campaignIds = campaigns.map(c => c.campaign_id);
+  const { data: performanceSummaries } = await supabase
+    .from('marketa_campaign_metrics')
+    .select('campaign_id, tenant_id, sent, delivered, conversions, revenue')
+    .in('campaign_id', campaignIds);
+
+  const campaignsWithPerformance = campaigns.map(campaign => {
+    const campaignMetrics = performanceSummaries?.filter(m => m.campaign_id === campaign.campaign_id) || [];
+    const totalMetrics = campaignMetrics.reduce((acc, metric) => ({
+      total_sent: acc.total_sent + metric.sent,
+      total_delivered: acc.total_delivered + metric.delivered,
+      total_conversions: acc.total_conversions + metric.conversions,
+      total_revenue: acc.total_revenue + metric.revenue
+    }), { total_sent: 0, total_delivered: 0, total_conversions: 0, total_revenue: 0 });
+
+    return {
+      ...campaign,
+      performance_summary: {
+        ...totalMetrics,
+        total_tenants: campaign.tenant_count,
+        active_tenants: campaignMetrics.length,
+        delivery_rate: totalMetrics.total_sent > 0 ? totalMetrics.total_delivered / totalMetrics.total_sent : 0
+      },
+      is_owner: campaign.owner_tenant_id === tenantId
+    };
+  });
+
+  return NextResponse.json({
+    success: true,
+    campaigns: campaignsWithPerformance,
+    summary: {
+      total_campaigns: campaigns.length,
+      owned_campaigns: campaigns.filter(c => c.owner_tenant_id === tenantId).length,
+      participating_campaigns: campaigns.filter(c => c.owner_tenant_id !== tenantId).length,
+      total_budget: campaigns.reduce((sum, c) => sum + (c.marketa_campaigns?.[0]?.budget || 0), 0)
+    }
+  });
+}

@@ -83,7 +83,7 @@ async function createTestPersonas() {
     try {
       // Create persona
       const { data: persona, error: personaError } = await supabase
-        .from('persona')
+        .from('personas')
         .insert({
           fio_handle: personaData.fio_handle,
           default_identity_state: personaData.default_identity_state,

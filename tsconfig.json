@@ -26,5 +26,16 @@
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "**/*.d.ts", ".next/types/**/*.ts"],
-  "exclude": ["node_modules", "AigentZBeta/**/*", "scripts/**/*"]
+  "exclude": [
+    "node_modules",
+    "AigentZBeta/**/*",
+    "qriptopian/**/*",
+    "scripts/**/*",
+    "services/aa-api/**/*",
+    "services/agentiq-wallet/**/*",
+    "apps/theqriptopian-web/**/*",
+    "packages/article-reader/**/*",
+    "netlify/**/*",
+    "tests/**/*"
+  ]
 }

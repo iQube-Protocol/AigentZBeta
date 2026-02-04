@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SmartTriad Embed Test</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+      color: white;
+      padding: 20px;
+    }
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 30px;
+      font-size: 2rem;
+    }
+    .embed-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+    .embed-section {
+      background: rgba(30, 41, 59, 0.5);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 12px;
+      padding: 20px;
+    }
+    .embed-section h2 {
+      margin-bottom: 15px;
+      font-size: 1.25rem;
+      color: #a78bfa;
+    }
+    .embed-frame {
+      width: 100%;
+      height: 600px;
+      border: 2px solid rgba(139, 92, 246, 0.3);
+      border-radius: 8px;
+      background: #0f172a;
+    }
+    .controls {
+      margin-top: 15px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .controls button {
+      padding: 8px 16px;
+      background: rgba(139, 92, 246, 0.2);
+      border: 1px solid rgba(139, 92, 246, 0.5);
+      border-radius: 6px;
+      color: white;
+      cursor: pointer;
+      font-size: 0.875rem;
+      transition: all 0.2s;
+    }
+    .controls button:hover {
+      background: rgba(139, 92, 246, 0.3);
+      border-color: rgba(139, 92, 246, 0.7);
+    }
+    .info {
+      background: rgba(59, 130, 246, 0.1);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 20px;
+    }
+    .info code {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.875rem;
+    }
+    @media (max-width: 768px) {
+      .embed-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎯 SmartTriad Embed Test</h1>
+    
+    <div class="info">
+      <p><strong>Testing:</strong> SmartWallet and KNYT Codex embeds with CSP headers for Lovable integration</p>
+      <p><strong>Base URL:</strong> <code>http://localhost:3000</code></p>
+    </div>
+
+    <div class="embed-grid">
+      <!-- SmartWallet Embed -->
+      <div class="embed-section">
+        <h2>💰 SmartWallet</h2>
+        <iframe 
+          id="wallet-frame"
+          src="http://localhost:3000/triad/embed/wallet?theme=dark&density=wide"
+          class="embed-frame"
+          title="SmartWallet"
+        ></iframe>
+        <div class="controls">
+          <button onclick="updateWallet('dark', 'wide')">Dark / Wide</button>
+          <button onclick="updateWallet('dark', 'narrow')">Dark / Narrow</button>
+          <button onclick="updateWallet('light', 'wide')">Light / Wide</button>
+        </div>
+      </div>
+
+      <!-- KNYT Codex Embed -->
+      <div class="embed-section">
+        <h2>📚 KNYT Codex</h2>
+        <iframe 
+          id="codex-frame"
+          src="http://localhost:3000/triad/embed/codex?tab=scrolls&theme=dark&density=wide"
+          class="embed-frame"
+          title="KNYT Codex"
+        ></iframe>
+        <div class="controls">
+          <button onclick="updateCodex('scrolls')">Scrolls</button>
+          <button onclick="updateCodex('characters')">Characters</button>
+          <button onclick="updateCodex('lore')">Lore</button>
+          <button onclick="updateCodex('digiterra')">DigiTerra</button>
+          <button onclick="updateCodex('terra')">Terra</button>
+          <button onclick="updateCodex('order')">Order</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function updateWallet(theme, density) {
+      const frame = document.getElementById('wallet-frame');
+      frame.src = `http://localhost:3000/triad/embed/wallet?theme=${theme}&density=${density}`;
+    }
+
+    function updateCodex(tab) {
+      const frame = document.getElementById('codex-frame');
+      frame.src = `http://localhost:3000/triad/embed/codex?tab=${tab}&theme=dark&density=wide`;
+    }
+
+    // Log iframe load events
+    document.getElementById('wallet-frame').addEventListener('load', () => {
+      console.log('✅ SmartWallet iframe loaded');
+    });
+    document.getElementById('codex-frame').addEventListener('load', () => {
+      console.log('✅ KNYT Codex iframe loaded');
+    });
+  </script>
+</body>
+</html>

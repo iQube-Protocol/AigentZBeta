@@ -1,0 +1,7 @@
+{
+  "app": "Qriptopian Thin Client",
+  "port": 8080,
+  "framework": "Vite + React",
+  "hasCopilotKit": false,
+  "message": "You are viewing the CORRECT app for the Codex!"
+}

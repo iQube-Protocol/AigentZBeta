@@ -1,74 +1,66 @@
 version: 1
-applications:
-  - appRoot: .
-    frontend:
-      phases:
-        preBuild:
-          commands:
-            - echo "Installing Node.js 20.18.0..."
-            - nvm install 20.18.0
-            - nvm use 20.18.0
-            - echo "Node.js version:"
-            - node --version
-            - echo "Installing dependencies..."
-            - npm ci
-        build:
-          commands:
-            - echo "Creating .env.production with runtime env vars..."
-            - |
-              cat > .env.production << EOF
-              FIO_API_ENDPOINT=${FIO_API_ENDPOINT}
-              FIO_CHAIN_ID=${FIO_CHAIN_ID}
-              FIO_SYSTEM_PUBLIC_KEY=${FIO_SYSTEM_PUBLIC_KEY}
-              FIO_SYSTEM_PRIVATE_KEY=${FIO_SYSTEM_PRIVATE_KEY}
-              FIO_MOCK_MODE=${FIO_MOCK_MODE}
-              NEXT_PUBLIC_FIO_NETWORK=${NEXT_PUBLIC_FIO_NETWORK}
-              SUPABASE_URL=${SUPABASE_URL}
-              SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
-              SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
-              AGENT_KEY_ENCRYPTION_SECRET=${AGENT_KEY_ENCRYPTION_SECRET}
-              TREASURY_PRIVATE_KEY=${TREASURY_PRIVATE_KEY}
-              NEXTAUTH_URL=${NEXTAUTH_URL}
-              NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
-              NEXT_PUBLIC_DVN_SSE_URL=${NEXT_PUBLIC_DVN_SSE_URL}
-              NEXT_PUBLIC_QCT_SEPOLIA=${NEXT_PUBLIC_QCT_SEPOLIA}
-              NEXT_PUBLIC_QCT_ARB_SEPOLIA=${NEXT_PUBLIC_QCT_ARB_SEPOLIA}
-              NEXT_PUBLIC_RPC_SEPOLIA=${NEXT_PUBLIC_RPC_SEPOLIA}
-              NEXT_PUBLIC_RPC_ARB_SEPOLIA=${NEXT_PUBLIC_RPC_ARB_SEPOLIA}
-              NEXT_PUBLIC_USDC_SEPOLIA=${NEXT_PUBLIC_USDC_SEPOLIA}
-              EOF
-            - echo ".env.production created, building Next.js app..."
-            - npm run build
-      artifacts:
-        # .next contains the SSR build output
-        baseDirectory: .next
-        files:
-          - '**/*'
-      cache:
-        paths:
-          - node_modules/**/*
-          - .next/cache/**/*
-    # SSR environment variables - inject at build time for runtime availability
-    compute:
-      type: ssr
-      environment:
-        FIO_API_ENDPOINT: ${FIO_API_ENDPOINT}
-        FIO_CHAIN_ID: ${FIO_CHAIN_ID}
-        FIO_SYSTEM_PUBLIC_KEY: ${FIO_SYSTEM_PUBLIC_KEY}
-        FIO_SYSTEM_PRIVATE_KEY: ${FIO_SYSTEM_PRIVATE_KEY}
-        FIO_MOCK_MODE: ${FIO_MOCK_MODE}
-        NEXT_PUBLIC_FIO_NETWORK: ${NEXT_PUBLIC_FIO_NETWORK}
-        SUPABASE_URL: ${SUPABASE_URL}
-        SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
-        SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
-        AGENT_KEY_ENCRYPTION_SECRET: ${AGENT_KEY_ENCRYPTION_SECRET}
-        TREASURY_PRIVATE_KEY: ${TREASURY_PRIVATE_KEY}
-        NEXTAUTH_URL: ${NEXTAUTH_URL}
-        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
-        NEXT_PUBLIC_DVN_SSE_URL: ${NEXT_PUBLIC_DVN_SSE_URL}
-        NEXT_PUBLIC_QCT_SEPOLIA: ${NEXT_PUBLIC_QCT_SEPOLIA}
-        NEXT_PUBLIC_QCT_ARB_SEPOLIA: ${NEXT_PUBLIC_QCT_ARB_SEPOLIA}
-        NEXT_PUBLIC_RPC_SEPOLIA: ${NEXT_PUBLIC_RPC_SEPOLIA}
-        NEXT_PUBLIC_RPC_ARB_SEPOLIA: ${NEXT_PUBLIC_RPC_ARB_SEPOLIA}
-        NEXT_PUBLIC_USDC_SEPOLIA: ${NEXT_PUBLIC_USDC_SEPOLIA}
-    
+
+frontend:
+  phases:
+    preBuild:
+      commands:
+        - echo "Installing Node.js 20.18.0..."
+        - nvm install 20.18.0
+        - nvm use 20.18.0
+        - node --version
+        - echo "Installing dependencies..."
+        - npm install --legacy-peer-deps --include=optional
+
+        # Issue 3 dependency (Ghostscript) — AL2023 uses dnf (yum may be a shim)
+        - echo "Installing Ghostscript..."
+        - sudo dnf install -y ghostscript || sudo yum install -y ghostscript
+        - gs --version
+        
+        # Install Sharp for Linux x64 platform
+        - echo "Installing Sharp for Linux..."
+        - npm install --os=linux --cpu=x64 sharp
+    build:
+      commands:
+        - echo "Creating .env.production with required SSR env vars..."
+        - rm -f .env.production
+
+        # Use Node.js to write .env.production because Amplify env vars are accessible to Node.js but not shell
+        - node scripts/create-env-production.js
+
+        # Add backend version for debugging
+        - echo "Setting BACKEND_VERSION..."
+        - export BACKEND_VERSION="${AWS_BRANCH:-unknown}-${AWS_COMMIT_ID:-$(git rev-parse --short HEAD)}"
+        - echo "BACKEND_VERSION=$BACKEND_VERSION" >> .env.production
+        
+        # Cache busting - force fresh build
+        - echo "Busting caches..."
+        - rm -rf .next/cache
+        - rm -rf node_modules/.cache
+        - npm install --legacy-peer-deps --include=optional --force
+
+        # SAFE DIAGNOSTIC: print only keys + whether empty, never values
+        - echo "=== .env.production keys + empty-check (REDACTED) ==="
+        - node scripts/check-env-production.js
+
+        # Hard fail if PayPal creds missing
+        - node -e "if(!process.env.PAYPAL_CLIENT_ID||!process.env.PAYPAL_CLIENT_SECRET){console.error('PAYPAL env vars missing in build env');process.exit(1)}"
+
+        - echo ".env.production created. Building Next.js..."
+        - export NODE_OPTIONS="--max-old-space-size=8192"
+        - npm run build
+
+        - echo "Copying .env.production into standalone bundle..."
+        - cp .env.production .next/standalone/.env.production || true
+
+        - echo "Patching standalone server.js to load dotenv at runtime..."
+        - node scripts/patch-standalone-dotenv.js
+
+  artifacts:
+    baseDirectory: .next
+    files:
+      - '**/*'
+  cache:
+    paths:
+      # Temporarily disable caching to force fresh build
+      # - node_modules/**/*
+      # - .next/cache/**/*

@@ -392,6 +392,105 @@ export class FIOService {
   }
 
   /**
+   * Add a public address mapping to a FIO handle
+   * This allows the FIO handle to resolve to different addresses on different chains
+   * 
+   * @param fioHandle - The FIO handle (e.g., "alice@qripto")
+   * @param chainCode - The chain code (e.g., "ETH", "BTC", "SOL")
+   * @param tokenCode - The token code (e.g., "ETH", "BTC", "SOL") - usually same as chainCode
+   * @param publicAddress - The wallet address on that chain
+   */
+  async addPublicAddress(
+    fioHandle: string,
+    chainCode: string,
+    tokenCode: string,
+    publicAddress: string
+  ): Promise<{ txId: string; success: boolean }> {
+    if (!this.sdk) {
+      throw new Error('FIO SDK not initialized');
+    }
+
+    if (!this.config?.privateKey) {
+      throw new Error('Private key required for adding public address');
+    }
+
+    try {
+      console.log('[FIO] Adding public address:', { fioHandle, chainCode, tokenCode, publicAddress });
+      
+      // Use FIO SDK's addPublicAddress method
+      const result = await this.sdk.addPublicAddress(
+        fioHandle,
+        chainCode,
+        tokenCode,
+        publicAddress,
+        0, // maxFee - use default (0 means calculate automatically)
+        '' // tpid
+      );
+
+      console.log('[FIO] addPublicAddress result:', result);
+
+      return {
+        txId: result.transaction_id || '',
+        success: result.status === 'OK' || result.status === 'sent_to_blockchain',
+      };
+    } catch (error: any) {
+      console.error('[FIO] addPublicAddress error:', error);
+      
+      // If the address is already mapped, consider it a success
+      if (error.message?.includes('already mapped') || error.message?.includes('duplicate')) {
+        return { txId: '', success: true };
+      }
+      
+      throw new Error(`Failed to add public address to FIO: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get all public addresses mapped to a FIO handle
+   * 
+   * @param fioHandle - The FIO handle to lookup
+   * @returns Record of chainCode -> address mappings
+   */
+  async getPublicAddresses(fioHandle: string): Promise<Record<string, string>> {
+    if (!this.sdk) {
+      throw new Error('FIO SDK not initialized');
+    }
+
+    try {
+      // Use FIO API directly for getpubaddress
+      const response = await fetch(`${this.config?.endpoint}/chain/get_pub_addresses`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fio_address: fioHandle,
+          limit: 100,
+          offset: 0,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`FIO API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const addresses: Record<string, string> = {};
+
+      if (data.public_addresses && Array.isArray(data.public_addresses)) {
+        for (const addr of data.public_addresses) {
+          // Use chainCode as key (e.g., "ETH", "BTC")
+          addresses[addr.chain_code] = addr.public_address;
+        }
+      }
+
+      return addresses;
+    } catch (error: any) {
+      console.error('[FIO] getPublicAddresses error:', error);
+      // Return empty object on error - handle may not have any addresses yet
+      return {};
+    }
+  }
+
+  /**
    * Check if handle is expired
    */
   static isHandleExpired(expiration: Date): boolean {

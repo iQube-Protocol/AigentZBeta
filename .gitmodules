@@ -1,0 +1,3 @@
+[submodule "qriptopian"]
+	path = qriptopian
+	url = git@github.com:iQube-Protocol/qriptopian.git

@@ -1,0 +1,37 @@
+{
+  "pack_id": "pack_agentiq_v0",
+  "name": "Agentiq Cartridge",
+  "version": "0.1.1",
+  "orientation": "agentic",
+  "description": "Living, queryable memory and spec layer for AgentiQ engineering work.",
+  "tags": [
+    "AgentiQ",
+    "Aigent Z",
+    "Aigent C",
+    "Agentiq Cartridge",
+    "SmartTriad",
+    "Liquid UI",
+    "iQubes",
+    "QubeTalk",
+    "Autodrive"
+  ],
+  "default_nav": [
+    "Start Here",
+    "System Map",
+    "Decisions",
+    "Work Allocation",
+    "PR Briefs",
+    "Retrieval Index"
+  ],
+  "supported_views": [
+    "HomeShelves",
+    "Collection",
+    "Reader",
+    "Timeline",
+    "Workspace"
+  ],
+  "owner": {
+    "system": "Aigent Z",
+    "customer_counterweight": "Aigent C"
+  }
+}

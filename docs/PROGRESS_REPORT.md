@@ -1,6 +1,6 @@
 # Aigent Z Progress Report (Inception → Current)
 
-Date: 2025-09-22 (Updated)
+Date: 2025-11-30 (Updated)
 
 ## Executive Summary
 
@@ -50,6 +50,24 @@ Aigent Z has evolved from an initial exploratory agent UX into a working Next.js
    - Implemented reliable BTC testnet monitoring with dual-API approach
    - Resolved anchor functionality diagnostics and error handling
    - Enhanced cross-chain transaction monitoring with graceful degradation
+8. **CRM Module & RewardHub Canister (November 2025)**
+   - Built comprehensive CRM module with multi-tenant support (personas, contributions, rewards, segments, franchises)
+   - Implemented persona linking migration for data consistency between CRM and Identity systems
+   - Deployed RewardHub canister (`lvo2w-jqaaa-aaaas-qc2wa-cai`) for reward proposals, approvals, and distributions with multi-sig verification
+   - Integrated DVN for cross-chain reward distribution verification
+   - Added ReputationHub (RQH) and RewardHub to Ops Health and Gas Status monitoring cards
+   - Created admin role management with uber-admin, tenant-admin, and contributor tiers
+9. **Task-Based Contribution Engine (November 2025)**
+   - Built complete task template system with categories (technical, creative, entrepreneurial, data, iqube_design, community)
+   - Implemented task claiming, submission, review, and approval workflow
+   - Created CVS (Contribution Value Score) calculation with difficulty, impact, and quality factors
+   - Built automatic reward generation (QCT, QOYN, KNYT tokens) on task completion
+   - Implemented reputation updates across 5 dimensions based on task weights
+   - Added self-review prevention (contributors cannot approve their own submissions)
+   - Created Task Administration page for creating/editing/deactivating tasks
+   - Added Knowledge Pillar task support for special knowledge dimension contributions
+   - Integrated RQH Canister Sync for on-chain reputation synchronization
+   - Built RewardsDisplay component showing earned tokens and reward history
 
 ## Completed Work (What and How)
 
@@ -93,6 +111,40 @@ Aigent Z has evolved from an initial exploratory agent UX into a working Next.js
   - Added client-side caching for block height persistence during API outages
   - Fixed canister ID mismatches and environment configuration issues
   - Enhanced anchor functionality diagnostics with detailed error reporting
+- **CRM Module Implementation (November 2025)**
+  - Built multi-tenant CRM with Supabase backend (`services/crm/crmDataAccess.ts`, `services/crm/crmService.ts`)
+  - Created CRM pages: Dashboard, Personas, Contributions, Rewards, Segments, Franchises, Admin
+  - Implemented persona linking to connect CRM personas with DiDQube identity system
+  - Built contribution tracking with category management and PoKW score calculation
+  - Created segment builder for dynamic persona grouping
+  - Implemented franchise management for multi-tenant hierarchies
+- **RewardHub Canister Deployment**
+  - Deployed RewardHub canister to IC mainnet (`lvo2w-jqaaa-aaaas-qc2wa-cai`)
+  - Implemented multi-sig approval workflow for reward distributions
+  - Added Root DID verification for admin operations (DiDQube Identity Policy)
+  - Created TypeScript IDL for frontend integration (`services/ops/idl/reward_hub.ts`)
+- **DVN Reward Verification Integration**
+  - Built `rewardVerificationService.ts` for cross-chain reward distribution verification
+  - Created API route `/api/crm/rewards/distribute` for DVN-verified distributions
+  - Integrated ReputationHub for reputation-weighted reward calculations
+- **Ops Monitoring Enhancements**
+  - Added ReputationHub (RQH) and RewardHub to Canister Health card
+  - Added RewardHub to Ops Gas Status card for cycles monitoring
+  - Fixed case-insensitive health check for RQH canister
+- **Task-Based Contribution Engine (November 2025)**
+  - Created `crm_task_templates` table for defining reusable task definitions
+  - Built task claiming system that creates `crm_contributions` with status tracking
+  - Implemented submission workflow with artifact URL and notes support
+  - Created review system with score sliders (final score, quality score)
+  - Built CVS calculation: `CVS = baseScore × difficultyMultiplier × impactMultiplier × qualityFactor`
+  - Automatic reward creation in `crm_rewards` table on task approval
+  - Reputation event logging in `crm_reputation_events` for audit trail
+  - Built `TaskList`, `MyTasks`, `TaskReview` components for full workflow UI
+  - Created `ReputationDisplay` component with 5-dimension visualization
+  - Added RQH sync button to push reputation to on-chain canister
+  - Built `RewardsDisplay` component showing QCT/QOYN/KNYT totals and history
+  - Created Task Admin page at `/crm/tasks/admin` for task management
+  - Added Knowledge Pillar flag for tasks that contribute to knowledge dimensions
 
 ## Key Problems Encountered and Resolutions
 
@@ -126,6 +178,24 @@ Aigent Z has evolved from an initial exploratory agent UX into a working Next.js
 - **Anchor Functionality Missing Methods**
   - Cause: proof_of_state canister deployed with incomplete IDL (missing issue_receipt, batch, anchor methods)
   - Fix: Enhanced error handling to show available methods and provide clear diagnostic information
+- **RewardHub Rust Compilation Errors**
+  - Cause: Missing `serde::Serialize` derive on structs and incorrect `time` import
+  - Fix: Added `#[derive(serde::Serialize)]` to data structs, changed import to `ic_cdk::api::time`
+- **RQH Health Check Showing Unhealthy**
+  - Cause: Health check looked for lowercase "healthy" but RQH returns "Healthy" with capital H
+  - Fix: Changed to case-insensitive check using `health.toLowerCase().includes('healthy')`
+- **RewardHub Showing as "Unknown" in Gas Status**
+  - Cause: RewardHub canister ID not in the canister names map
+  - Fix: Added `'lvo2w-jqaaa-aaaas-qc2wa-cai': 'RewardHub'` to canister names
+- **Task Contribution Status Not Updating in UI**
+  - Cause: UI components not refreshing after task actions (claim, submit, approve)
+  - Fix: Added `refreshKey` state and `onRefresh` callbacks to propagate updates through component tree
+- **Review Modal Not Closing After Approval**
+  - Cause: State updates conflicting with data refresh
+  - Fix: Close modal and clear selection before triggering background refresh with setTimeout
+- **Missing Lucide Icons in Tasks Page**
+  - Cause: Icons used but not imported (ListTodo, ClipboardList)
+  - Fix: Added missing imports to lucide-react import statement
 
 ## Current Architecture Snapshot
 
@@ -136,6 +206,11 @@ Aigent Z has evolved from an initial exploratory agent UX into a working Next.js
 - Client State: Local library and active flags in `localStorage` for responsiveness
 - **Cross-Chain Infrastructure**: ICP canisters, EVM networks, BTC testnet, DVN monitoring
 - **Operations Console**: Real-time monitoring at `/ops` with live data feeds and transaction creation
+- **CRM Module**: Multi-tenant CRM at `/crm` with personas, contributions, rewards, segments, franchises
+- **Task Contribution Engine**: Task-based workflow at `/crm/tasks` with claiming, submission, review, rewards
+- **ICP Canisters**:
+  - ReputationHub (RQH): `zdjf3-2qaaa-aaaas-qck4q-cai` - reputation buckets and evidence
+  - RewardHub: `lvo2w-jqaaa-aaaas-qc2wa-cai` - reward proposals, approvals, distributions
 
 ## Detailed Project TODO (Backlog)
 
@@ -219,3 +294,140 @@ Aigent Z has evolved from an initial exploratory agent UX into a working Next.js
 - `README.md` — new sections: Minting UX summary + Restore from Backup
 - `docs/OPERATORS_MANUAL.md` — operator guide for minting and visibility
 - `scripts/restore_from_backup.sh` — restore script for backups
+- `app/crm/*` — CRM module pages (dashboard, personas, contributions, rewards, segments, franchises, admin)
+- `services/crm/crmDataAccess.ts` — Supabase data access layer for CRM
+- `services/crm/crmService.ts` — CRM business logic service
+- `services/crm/rewardVerificationService.ts` — DVN reward verification integration
+- `services/ops/idl/reward_hub.ts` — TypeScript IDL for RewardHub canister
+- `src/reward_hub/src/lib.rs` — RewardHub canister Rust implementation
+- `types/crm.ts` — CRM TypeScript type definitions
+- `components/crm/*` — CRM UI components (ContributionForm, SegmentBuilder, AdminRoleModal, etc.)
+- `supabase/migrations/20251128*.sql` — CRM database migrations
+- `supabase/migrations/20251129030000_crm_persona_linking.sql` — Persona linking migration
+- `supabase/migrations/20251130010000_task_contribution_engine.sql` — Task templates and contribution engine
+- `supabase/migrations/20251130020000_add_contribution_notes.sql` — Additional contribution fields
+- `docs/DIDQUBE_IDENTITY_POLICY.md` — DiDQube Identity Policy documentation
+- `docs/DATA_ARCHITECTURE_ASSESSMENT.md` — Data architecture assessment
+- `app/crm/tasks/page.tsx` — Tasks page with browse, my tasks, and review tabs
+- `app/crm/tasks/admin/page.tsx` — Task administration page for creating/editing tasks
+- `app/api/crm/tasks/route.ts` — Task templates API (list, create)
+- `app/api/crm/tasks/[taskId]/route.ts` — Task template detail API (get, update, delete)
+- `app/api/crm/tasks/claim/route.ts` — Task claiming API
+- `app/api/crm/tasks/complete/route.ts` — Task submission and completion API
+- `app/api/crm/reputation/sync/route.ts` — RQH canister sync API
+- `services/crm/taskService.ts` — Task business logic and CVS calculation
+- `services/crm/taskCanisterService.ts` — RewardHub and RQH canister integration
+- `components/crm/TaskList.tsx` — Browse available tasks component
+- `components/crm/TaskCard.tsx` — Individual task card with claim button
+- `components/crm/MyTasks.tsx` — User's claimed tasks with submission form
+- `components/crm/TaskReview.tsx` — Review and approve submitted tasks
+- `components/crm/ReputationDisplay.tsx` — 5-dimension reputation visualization with RQH sync
+- `components/crm/RewardsDisplay.tsx` — Token rewards summary and history
+
+## Progress Addendum: 2025-12-03 → 2025-12-15
+ 
+### Executive Summary
+ 
+ Work completed from Dec 3–15 spans four major tracks:
+ - **SmartWallet & Copilot:** Wallet drawer UI refinement and Copilot chat UX.
+ - **Smart Triad System:** Orchestration and contract/type hardening for dynamic “smart drawers”.
+ - **Admin Portal & QubeBase:** CMS import + hardening, RLS workarounds, and content integration.
+ - **Wallet Enhancements (12/15):** TransactionModal cleanup, persona UX improvements, KNYT pricing, and bug fixes.
+ 
+ ### References
+ 
+ - `docs/PROGRESS_REPORT_2025-12-03.md`
+ - `docs/PROGRESS_REPORT_2025-12-15.md` (legacy session-level report; may be empty depending on local edits)
+ - `docs/SUMMARY_DEC3-15.md`
+
+### Sprint 1 (Dec 3–4): SmartWallet UI & Copilot
+
+**Delivered:** Wallet drawer UX refinement + embedded Copilot.
+
+- **Lucide icon standardization**
+  - Replaced emoji icons with Lucide components across the wallet.
+  - Affected areas include wallet tab icons, DVN Events, Identity, x402 Settlement, quick actions, and Copilot chat UI.
+- **Copilot API + UI wiring**
+  - Added wallet-specific chat endpoint (`/app/api/wallet-copilot/route.ts`).
+  - Implemented chat state and message flow in the SmartWallet drawer UI (prompt input, send handler, loading state, message history).
+  - Added “quick prompts” that inject predefined prompts and send immediately.
+- **Interaction + styling enhancements**
+  - Implemented a horizontal “thinking” dots animation for Copilot loading.
+  - Converted quick actions into a horizontal swipeable carousel with scroll snapping and hidden scrollbar.
+
+**Key files / areas:**
+
+- `apps/theqriptopian-web/src/components/wallet/SmartWalletDrawer.tsx`
+- `app/api/wallet-copilot/route.ts`
+- `styles/drawer.css`
+
+### Sprint 2 (Dec 6): Smart Triad System
+
+**Delivered:** Core “smart drawer” orchestration + contract hardening.
+
+- **Orchestration framework completion**
+  - Finalized the Smart Triad / Smart Drawer Console behavior and supporting types.
+  - Hardened the drawer set ↔ triad set mapping and defaulting logic to prevent runtime undefined branches.
+- **Type-system stabilization (extensive TS fixes)**
+  - Added guards and default mappings for optional properties and union-type access.
+  - Standardized/normalized side + dynamic mode mappings.
+  - Corrected content/wallet slot typing and resolver expectations.
+- **Resolver + evaluator correctness**
+  - Improved slot data resolution safety (e.g., curated list listId/limit checks, query id guards).
+  - Improved visibility evaluation by removing invalid checks and ensuring the correct rule scope.
+
+**Key files / areas (representative):**
+- Slot data resolution and visibility evaluation utilities
+- Smart drawer demo/console pages
+- Shared Smart Triad type definitions
+
+### Sprint 3 (Dec 7): Admin Portal & QubeBase
+
+**Delivered:** Content management UI + live content integration + ops hardening.
+
+- **Admin portal import and hardening**
+  - Imported admin portal UI and aligned routing to match manager navigation.
+  - Added development-mode auth bypass to support local iteration.
+  - Enabled page scrolling and addressed UI alignment issues between monorepo UI and live site.
+- **RLS + publish/unpublish reliability**
+  - Added detailed logging for publish/unpublish actions to isolate failures.
+  - Implemented RLS workarounds to unblock publish/unpublish and documented findings in gap analysis updates.
+  - Added an RLS policy script to support local admin portal development.
+- **QubeBase integration**
+  - Added live content fetching and synced content from QubeBase (notably a bulk sync of 47 items).
+  - Added/updated content import tooling with modality support and duplicate detection.
+
+**Key files / areas (representative):**
+- Admin portal routes and UI components
+- Content import scripts + modality mapping
+- Documentation: gap analysis updates
+
+### Sprint 4 (Dec 15): SmartWallet + Persona + KNYT Enhancements
+
+**Delivered:** Wallet UX cleanups, persona creation/editing fixes, and live KNYT pricing.
+
+- **TransactionModal UX cleanup**
+  - Removed/hid chain selector button rows from the Send/Receive/Verify tabs (token dropdown is now the primary chain selection UX).
+  - Renamed user-facing "FIO Handle" to "Persona Handle" for consistency.
+  - Made Q¢ unselectable in the token dropdown (disabled state with "SOON" label).
+- **SmartWalletDrawer UI updates**
+  - Persona Identity card: removed persona name; display handle only as a small glass-styled badge aligned on the title row.
+  - Renamed "x402 Persona Wallet" to "x402 Wallet ID".
+  - Added optional Settlement ID + Message ID inputs to the x402 Settlement section and updated the embedded Copilot KB intent text accordingly.
+  - Adjusted quicklinks carousel padding so buttons don’t scroll flush to the card edge.
+  - Fixed a stray rendered `0` in the narrow view caused by truthy checks on numeric state:
+    - Changed `{pendingRewards && ...}` to `{pendingRewards != null && pendingRewards > 0 && ...}`.
+- **Persona API hardening**
+  - `/api/identity/persona/[id]` GET/PATCH now accept either UUID or FIO handle for lookup.
+  - `/api/identity/persona` GET now supports `fio_handle` query param for the persona creation wizard availability check.
+- **KNYT pricing updates**
+  - Implemented live ETH price fetching (CoinGecko) and derived KNYT pricing from an ETH conversion constant.
+  - Added an async package builder (`getKnytPackagesAsync`) to ensure PayPal/checkout UI renders with current prices.
+
+**Key files / areas:**
+- `apps/theqriptopian-web/src/components/wallet/SmartWalletDrawer.tsx`
+- `apps/theqriptopian-web/src/components/wallet/TransactionModal.tsx`
+- `apps/theqriptopian-web/src/components/wallet/PersonaSetupWizard.tsx`
+- `app/api/identity/persona/route.ts`
+- `app/api/identity/persona/[id]/route.ts`
+- `services/wallet/knyt/knytPricingService.ts`

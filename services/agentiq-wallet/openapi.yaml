@@ -1,0 +1,267 @@
+openapi: 3.0.3
+info:
+  title: AgentiQ Wallet Service API
+  version: 0.1.0
+servers:
+  - url: http://localhost:8090
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: DID-JWS
+  parameters:
+    IdentityStateHeader:
+      in: header
+      name: x-identity-state
+      required: false
+      schema:
+        type: string
+        enum: [anonymous, persona, root, kybe]
+      description: Desired identity level for this request.
+paths:
+  /wallet/init:
+    post:
+      summary: Initialize wallet context
+      x-require-level: persona
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdentityStateHeader'
+      responses:
+        '200': { description: OK }
+  /wallet/whoami:
+    get:
+      summary: Resolve current DID/persona context
+      x-require-level: persona
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdentityStateHeader'
+      responses:
+        '200': { description: OK }
+  /wallet/link-fio:
+    post:
+      summary: Link FIO handle to DID/persona
+      x-require-level: persona
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdentityStateHeader'
+      responses:
+        '200': { description: OK }
+  /wallet/balances:
+    get:
+      summary: Get balances for DID/persona across chains
+      x-require-level: persona
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdentityStateHeader'
+      responses:
+        '200': { description: OK }
+  /wallet/transactions:
+    get:
+      summary: Get transactions for DID/persona
+      x-require-level: persona
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdentityStateHeader'
+      responses:
+        '200': { description: OK }
+  /wallet/request-payment:
+    post:
+      summary: Create a request-to-pay (x402/FIO)
+      x-require-level: persona
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdentityStateHeader'
+      responses:
+        '200': { description: OK }
+  /wallet/nl/plan:
+    post:
+      summary: Produce a safe execution plan from NL instruction
+      x-require-level: persona
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdentityStateHeader'
+      responses:
+        '200': { description: OK }
+  /wallet/nl/execute:
+    post:
+      summary: Execute a pre-approved plan with consent tokens
+      x-require-level: persona
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdentityStateHeader'
+      responses:
+        '200': { description: OK }
+  /x402/quote:
+    post:
+      summary: Create an x402 quote
+      x-require-level: persona
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdentityStateHeader'
+      responses:
+        '200': { description: OK }
+  /x402/sign:
+    post:
+      summary: Sign an x402 payload
+      x-require-level: persona
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdentityStateHeader'
+      responses:
+        '200': { description: OK }
+  /x402/send:
+    post:
+      summary: Submit an x402 transfer
+      x-require-level: persona
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdentityStateHeader'
+      responses:
+        '200': { description: OK }
+  /x402/request:
+    post:
+      summary: Create an x402 request-to-pay
+      x-require-level: persona
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdentityStateHeader'
+      responses:
+        '200': { description: OK }
+  /x402/status/{txId}:
+    get:
+      summary: Get x402 status
+      x-require-level: persona
+      parameters:
+        - in: path
+          name: txId
+          schema: { type: string }
+          required: true
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdentityStateHeader'
+      responses:
+        '200': { description: OK }
+  /x402/remote/session:
+    post:
+      summary: Create Remote Custody session
+      x-require-level: persona
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ttlSec: { type: integer, minimum: 1, default: 900 }
+                caps:
+                  type: array
+                  items: { type: string }
+      responses:
+        '200':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sessionId: { type: string }
+                  did: { type: string }
+                  persona: { type: string }
+                  expiresIn: { type: integer }
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdentityStateHeader'
+  /x402/remote/status/{id}:
+    get:
+      summary: Remote Custody session status
+      x-require-level: persona
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string }
+                  status: { type: string, enum: [active, expired, revoked, completed, not_found] }
+                  expiresAt: { type: integer, nullable: true }
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdentityStateHeader'
+  /webhooks/dvn/attest:
+    post:
+      summary: DVN attestation webhook
+      parameters:
+        - in: header
+          name: x-dvn-signature
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200': { description: OK }
+        '401': { description: Unauthorized }
+  /iqube/send:
+    post:
+      summary: Transfer iQube or initiate canonical sale
+      security:
+        - bearerAuth: []
+      responses:
+        '200': { description: OK }
+  /iqube/authorize:
+    post:
+      summary: Grant iQube access entitlement
+      security:
+        - bearerAuth: []
+      responses:
+        '200': { description: OK }
+  /iqube/entitlements:
+    get:
+      summary: List entitlements for DID/persona
+      security:
+        - bearerAuth: []
+      responses:
+        '200': { description: OK }
+  /entitlements/{txId}:
+    post:
+      summary: Issue entitlements after DVN attestation
+      parameters:
+        - in: path
+          name: txId
+          schema: { type: string }
+          required: true
+      security:
+        - bearerAuth: []
+      responses:
+        '200': { description: OK }
+  /sse:
+    get:
+      summary: Server-Sent Events stream for live updates
+      responses:
+        '200': { description: OK }

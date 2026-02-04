@@ -1,0 +1,22 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "incremental": false,
+    "skipLibCheck": true
+  },
+  "include": [
+    "app/triad/components/codex/tabs/NakamotoTab.tsx",
+    "app/triad/components/codex/nakamoto/**/*.tsx",
+    "app/services/nakamoto/**/*.ts",
+    "app/types/nakamoto.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "apps/**/*",
+    "packages/**/*",
+    "services/**/*",
+    "scripts/**/*",
+    ".next/**/*"
+  ]
+}

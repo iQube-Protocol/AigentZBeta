@@ -6,7 +6,8 @@ __pycache__/
 .Python
 build/
 develop-eggs/
-dist/
+# dist/ - temporarily allow SmartTriad dist folder for Netlify deployment
+# dist/
 downloads/
 eggs/
 .eggs/
@@ -86,8 +87,22 @@ secrets/
 # Next.js
 .next/
 
+# TypeScript incremental build info
+*.tsbuildinfo
+
+apps/metame/.local/
+apps/metame/KNYTDesignQube/source/*.xd
+
 # Ignore nested project copy if present
 AigentZBeta/
 
 # Local backups (tarballs and snapshots)
 backups/
+
+# Local Netlify folder
+.netlify
+
+# Local artifacts from debugging
+apps/aigent-z/services/
+apps/theqriptopian-web/src/pages/ArticleTest.tsx
+

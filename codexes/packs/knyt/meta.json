@@ -1,0 +1,41 @@
+{
+  "id": "knyt",
+  "title": "KNYT Codex",
+  "description": "Collect character cards and unlock exclusive content with KNYT tokens",
+  "owner": "iQube-Protocol",
+  "version": "1.0.0",
+  "category": "gaming",
+  "tags": ["knyt", "cards", "collectibles", "commerce"],
+  "featured": true,
+  "published": true,
+  "createdAt": "2025-01-24T00:00:00.000Z",
+  "updatedAt": "2025-01-24T00:00:00.000Z",
+  "thumbnail": "/images/codexes/knyt-thumbnail.png",
+  "banner": "/images/codexes/knyt-banner.png",
+  "metadata": {
+    "tokenSymbol": "KNYT",
+    "tokenDescription": "KNYT is the native token for the Qriptopian ecosystem",
+    "pricing": {
+      "knytUsdRate": 1.4,
+      "cardPriceStill": 2,
+      "cardPriceMotion": 4,
+      "fiatFeePercent": 0.03,
+      "fiatPremiumPercent": 0.07,
+      "knytDiscountPercent": 0.2
+    },
+    "lovable": {
+      "enabled": true,
+      "thinClient": true,
+      "liquidUI": true,
+      "webhooks": [
+        "/api/webhooks/lovable/knyt-purchase",
+        "/api/webhooks/lovable/knyt-balance-update"
+      ]
+    },
+    "commerce": {
+      "supportedCurrencies": ["knyt", "paypal"],
+      "autoPurchase": true,
+      "entitlementSystem": true
+    }
+  }
+}

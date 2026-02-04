@@ -1,0 +1,6 @@
+# Note: /triad/embed/* headers are handled by Edge Function (embed-headers.ts)
+# This file only configures non-embed routes
+
+# All routes - Strict frame protection (Edge Function overrides for /triad/embed/*)
+/*
+  X-Frame-Options: SAMEORIGIN

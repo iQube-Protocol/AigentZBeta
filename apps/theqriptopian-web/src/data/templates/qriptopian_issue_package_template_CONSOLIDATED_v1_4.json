@@ -1,0 +1,937 @@
+{
+  "schema_version": "qriptopian.issue_package.v1.4",
+  "publication": {
+    "name": "The Qriptopian",
+    "domain": "qriptopian"
+  },
+  "issue": {
+    "issue_id": "TEMPLATE_EPISODE_0_OR_1",
+    "episode": "Episode #0 or Episode 1",
+    "title": "TEMPLATE_TITLE",
+    "generated_at": "2025-12-18",
+    "status": "draft",
+    "theme": "TEMPLATE_THEME",
+    "notes": "Issue cartridge template: content objects + placements + assets + indexes + Liquid UI layout contracts."
+  },
+  "codex_import_context": {
+    "upsert_keys": {
+      "content_items": [
+        "content_id"
+      ],
+      "assets": [
+        "asset_id"
+      ],
+      "placements": [
+        "placement_id"
+      ],
+      "sections": [
+        "section_id",
+        "tab_id"
+      ]
+    },
+    "routing_rules": {
+      "knyt": {
+        "realms": [
+          "terra",
+          "metaterra_or",
+          "digiterra"
+        ],
+        "default_realm": "terra"
+      },
+      "qriptopian": {
+        "realms": [
+          "macro",
+          "terra"
+        ],
+        "default_realm": "macro"
+      }
+    }
+  },
+  "liquid_ui_profile": {
+    "default_layout_mode": "contextual_grid",
+    "priority_order": [
+      "user_intent",
+      "device",
+      "realm",
+      "recency",
+      "business_goal",
+      "attention_budget"
+    ],
+    "safe_area_policy": "strict",
+    "max_concurrent_modals": 1,
+    "z_layers": [
+      "background",
+      "media",
+      "content",
+      "chrome",
+      "modal",
+      "system"
+    ],
+    "layout_tokens": {
+      "gutter_px": {
+        "mobile": 12,
+        "tablet": 16,
+        "desktop": 20
+      },
+      "radius_px": {
+        "mobile": 14,
+        "desktop": 18
+      },
+      "max_columns": {
+        "mobile": 1,
+        "tablet": 2,
+        "desktop": 4
+      }
+    }
+  },
+  "templates": {
+    "content_object_base": {
+      "content_id": "content:TEMPLATE",
+      "slug": null,
+      "title": "TEMPLATE_TITLE",
+      "excerpt": null,
+      "status": "draft",
+      "content_type": "long_form_article",
+      "tags": [],
+      "taxonomy": {
+        "codex": "qriptopian",
+        "realm": "macro",
+        "series": null,
+        "dimension": null,
+        "granularity": {
+          "unit": "article",
+          "equivalents": {}
+        }
+      },
+      "modalities": {
+        "read": {
+          "available": true,
+          "duration": null,
+          "word_count_approx": null,
+          "content_preview": null
+        },
+        "watch": {
+          "available": false,
+          "type": null,
+          "url": null,
+          "duration": null
+        },
+        "listen": {
+          "available": false,
+          "audio_url": null,
+          "duration": null
+        },
+        "link": {
+          "available": false,
+          "url": null,
+          "allow_embed": false
+        }
+      },
+      "thumbnail_asset_id": null,
+      "content_note": null,
+      "relationships": {
+        "prequels": [],
+        "sequels": [],
+        "bridges_to": [],
+        "references": [],
+        "contains": [],
+        "contained_by": []
+      },
+      "smartmedia": {
+        "directives": {
+          "best_consumed_as": [
+            "read"
+          ],
+          "best_context": {
+            "device": [
+              "mobile",
+              "desktop"
+            ],
+            "mode": [
+              "browse",
+              "lean_back",
+              "social"
+            ],
+            "time_of_day": [
+              "any"
+            ]
+          },
+          "audience_targets": [],
+          "business_goal": "awareness"
+        }
+      },
+      "render": {
+        "preferred_slots": [],
+        "modal_preferences": {
+          "default_modal": "sheet",
+          "modal_sizes": [
+            "sm",
+            "md",
+            "lg",
+            "xl"
+          ],
+          "open_behavior": "inline_to_modal",
+          "close_behavior": "swipe_or_click"
+        },
+        "breakpoints": {
+          "mobile": {
+            "preferred_slot_types": [
+              "stack_card",
+              "full_bleed_media",
+              "sheet"
+            ],
+            "max_columns": 1
+          },
+          "tablet": {
+            "preferred_slot_types": [
+              "hero",
+              "grid_card",
+              "drawer_item"
+            ],
+            "max_columns": 2
+          },
+          "desktop": {
+            "preferred_slot_types": [
+              "hero",
+              "grid_card",
+              "wide_row",
+              "drawer_item"
+            ],
+            "max_columns": 4
+          }
+        },
+        "geometry_variants": [],
+        "payloads": {
+          "thumbnail": [],
+          "video": [],
+          "audio": []
+        },
+        "realm_style_hint": {
+          "realm": "macro",
+          "motion_bias": "medium",
+          "text_density": "medium",
+          "preferred_aspect_ratios": [
+            "16:9",
+            "4:5",
+            "9:16"
+          ]
+        },
+        "spatial": {
+          "coordinate_space": "normalized",
+          "anchor": "safe_viewport",
+          "x": 0.0,
+          "y": 0.0,
+          "w": 1.0,
+          "h": 1.0,
+          "z": 1,
+          "layer": "content",
+          "alignment": {
+            "horizontal": "center",
+            "vertical": "top"
+          }
+        }
+      },
+      "composition": {
+        "pairing_rules": {
+          "prefers_with": [],
+          "avoids_with": [],
+          "max_neighbors": 2
+        },
+        "sequence_rules": {
+          "good_as_intro": false,
+          "good_as_interstitial": true,
+          "good_as_closer": false
+        },
+        "attention_budget": {
+          "estimated_seconds": 45,
+          "intensity": "medium"
+        }
+      },
+      "intelligence": {
+        "clustered_aigent_id": null,
+        "capabilities": []
+      },
+      "monetization": {
+        "qcent_pricing": null,
+        "rev_split": [],
+        "reward_hooks": []
+      },
+      "source": {
+        "system": "template",
+        "raw_section_refs": []
+      }
+    },
+    "hero_feature": {
+      "$extends": "content_object_base",
+      "content_type": "long_form_article",
+      "render": {
+        "preferred_slots": [
+          {
+            "slot_type": "hero",
+            "priority": 1,
+            "min_width_px": 900,
+            "min_height_px": 420,
+            "aspect_ratio": "21:9",
+            "supports_overlay_text": true,
+            "safe_area_pct": {
+              "top": 10,
+              "right": 8,
+              "bottom": 12,
+              "left": 8
+            }
+          }
+        ],
+        "geometry_variants": [
+          {
+            "name": "hero_wide",
+            "when": {
+              "device": [
+                "desktop",
+                "tablet"
+              ],
+              "context": [
+                "browse"
+              ]
+            },
+            "spatial": {
+              "anchor": "safe_viewport",
+              "x": 0.05,
+              "y": 0.1,
+              "w": 0.9,
+              "h": 0.42,
+              "z": 2
+            },
+            "aspect_ratio": "21:9"
+          },
+          {
+            "name": "hero_mobile_full_bleed",
+            "when": {
+              "device": [
+                "mobile"
+              ],
+              "context": [
+                "browse",
+                "lean_back"
+              ]
+            },
+            "spatial": {
+              "anchor": "safe_viewport",
+              "x": 0.0,
+              "y": 0.0,
+              "w": 1.0,
+              "h": 0.55,
+              "z": 2
+            },
+            "aspect_ratio": "9:16"
+          }
+        ]
+      },
+      "composition": {
+        "sequence_rules": {
+          "good_as_intro": true,
+          "good_as_interstitial": false,
+          "good_as_closer": false
+        },
+        "attention_budget": {
+          "estimated_seconds": 120,
+          "intensity": "high"
+        }
+      }
+    },
+    "latest_news_item": {
+      "$extends": "content_object_base",
+      "content_type": "news_card",
+      "render": {
+        "preferred_slots": [
+          {
+            "slot_type": "news_carousel_card",
+            "priority": 1,
+            "min_width_px": 260,
+            "min_height_px": 220,
+            "aspect_ratio": "4:3",
+            "supports_overlay_text": false
+          }
+        ]
+      },
+      "composition": {
+        "attention_budget": {
+          "estimated_seconds": 15,
+          "intensity": "low"
+        }
+      }
+    },
+    "scroll_item": {
+      "$extends": "content_object_base",
+      "content_type": "scroll_item",
+      "render": {
+        "preferred_slots": [
+          {
+            "slot_type": "drawer_item",
+            "priority": 1,
+            "min_width_px": 260,
+            "min_height_px": 320,
+            "aspect_ratio": "4:5",
+            "supports_overlay_text": false
+          }
+        ],
+        "modal_preferences": {
+          "default_modal": "modal",
+          "modal_sizes": [
+            "md",
+            "lg",
+            "xl"
+          ],
+          "open_behavior": "drawer_to_modal",
+          "close_behavior": "swipe_or_click"
+        }
+      }
+    },
+    "pennydrop_story": {
+      "$extends": "content_object_base",
+      "content_type": "short_fiction",
+      "render": {
+        "preferred_slots": [
+          {
+            "slot_type": "drawer_item",
+            "priority": 1,
+            "min_width_px": 260,
+            "min_height_px": 340,
+            "aspect_ratio": "4:5",
+            "supports_overlay_text": false
+          },
+          {
+            "slot_type": "grid_card",
+            "priority": 2,
+            "min_width_px": 280,
+            "min_height_px": 360,
+            "aspect_ratio": "4:5",
+            "supports_overlay_text": false
+          }
+        ]
+      },
+      "composition": {
+        "sequence_rules": {
+          "good_as_intro": false,
+          "good_as_interstitial": true,
+          "good_as_closer": true
+        },
+        "attention_budget": {
+          "estimated_seconds": 240,
+          "intensity": "medium"
+        }
+      }
+    },
+    "kn0wdz_doc": {
+      "$extends": "content_object_base",
+      "content_type": "reference_doc",
+      "taxonomy": {
+        "codex": "qriptopian",
+        "realm": "terra",
+        "series": "21KnowdZ",
+        "dimension": null,
+        "granularity": {
+          "unit": "doc",
+          "equivalents": {}
+        }
+      },
+      "render": {
+        "preferred_slots": [
+          {
+            "slot_type": "drawer_item",
+            "priority": 1,
+            "min_width_px": 260,
+            "min_height_px": 300,
+            "aspect_ratio": "4:5",
+            "supports_overlay_text": false
+          },
+          {
+            "slot_type": "grid_card",
+            "priority": 2,
+            "min_width_px": 280,
+            "min_height_px": 320,
+            "aspect_ratio": "4:5",
+            "supports_overlay_text": false
+          }
+        ],
+        "modal_preferences": {
+          "default_modal": "modal",
+          "modal_sizes": [
+            "md",
+            "lg",
+            "xl"
+          ],
+          "open_behavior": "drawer_to_modal",
+          "close_behavior": "swipe_or_click"
+        }
+      },
+      "composition": {
+        "attention_budget": {
+          "estimated_seconds": 180,
+          "intensity": "low"
+        }
+      }
+    },
+    "placement_template": {
+      "placement_id": "place:TEMPLATE",
+      "issue_id": "TEMPLATE_EPISODE_0_OR_1",
+      "section_id": "home-hero",
+      "tab_id": null,
+      "position": 1,
+      "content_id": "content:TEMPLATE"
+    }
+  },
+  "collections": {
+    "sections": [
+      {
+        "section_id": "home-hero",
+        "description": "Main hero carousel",
+        "display": "Hero carousel",
+        "type": "carousel",
+        "tabs": []
+      },
+      {
+        "section_id": "latest-news",
+        "description": "Terra pulse / news carousel",
+        "display": "Horizontal carousel",
+        "type": "carousel",
+        "tabs": []
+      },
+      {
+        "section_id": "second-hero",
+        "description": "Secondary hero / anchors",
+        "display": "Hero carousel",
+        "type": "carousel",
+        "tabs": []
+      },
+      {
+        "section_id": "scrolls",
+        "description": "Drawer section with tabbed navigation",
+        "display": "Drawer + tabbed grid",
+        "type": "drawer_tabs",
+        "tabs": [
+          {
+            "tab_id": "metaknyts",
+            "description": "KNYT Codex content",
+            "display": "Grid"
+          },
+          {
+            "tab_id": "aigents",
+            "description": "Aigent profiles",
+            "display": "Grid"
+          },
+          {
+            "tab_id": "memes",
+            "description": "Memes + context",
+            "display": "Grid"
+          }
+        ]
+      },
+      {
+        "section_id": "pennydrops",
+        "description": "Short fiction demos",
+        "display": "Drawer grid",
+        "type": "drawer",
+        "tabs": []
+      },
+      {
+        "section_id": "21knowdz",
+        "description": "Kn0wdZ educational/reference drawer with audience tabs",
+        "display": "Drawer + tabbed grid",
+        "type": "drawer_tabs",
+        "tabs": [
+          {
+            "tab_id": "executive",
+            "description": "Business/executive",
+            "display": "Grid"
+          },
+          {
+            "tab_id": "marketing",
+            "description": "Marketing/growth",
+            "display": "Grid"
+          },
+          {
+            "tab_id": "developer",
+            "description": "Developer docs",
+            "display": "Grid"
+          },
+          {
+            "tab_id": "operator",
+            "description": "Ops/scale",
+            "display": "Grid"
+          },
+          {
+            "tab_id": "creative",
+            "description": "Creators/storytelling",
+            "display": "Grid"
+          }
+        ]
+      }
+    ],
+    "content_items": [
+      {
+        "content_id": "content:example",
+        "slug": "example-with-text-reader",
+        "title": "Example (with Text Reader)",
+        "excerpt": "Example excerpt…",
+        "status": "draft",
+        "content_type": "long_form_article",
+        "tags": [
+          "template",
+          "text_reader"
+        ],
+        "taxonomy": {
+          "codex": "qriptopian",
+          "realm": "macro",
+          "series": "Template",
+          "dimension": null,
+          "granularity": {
+            "unit": "article",
+            "equivalents": {}
+          }
+        },
+        "modalities": {
+          "read": {
+            "available": true,
+            "duration": "5 min read",
+            "word_count_approx": 1200,
+            "content_preview": "Preview…",
+            "content_ref": {
+              "type": "inline_blocks",
+              "ref_id": "content_blocks:content:example"
+            }
+          },
+          "watch": {
+            "available": false
+          },
+          "listen": {
+            "available": false
+          },
+          "link": {
+            "available": false
+          }
+        },
+        "content_blocks": [
+          {
+            "type": "heading",
+            "level": 1,
+            "text": "Example H1"
+          },
+          {
+            "type": "paragraph",
+            "text": "Example paragraph…"
+          }
+        ],
+        "thumbnail_asset_id": "asset:example_thumb",
+        "relationships": {
+          "prequels": [],
+          "sequels": [],
+          "bridges_to": [],
+          "references": [],
+          "contains": [],
+          "contained_by": []
+        },
+        "smartmedia": {
+          "directives": {
+            "best_consumed_as": [
+              "read"
+            ],
+            "best_context": {
+              "device": [
+                "mobile",
+                "desktop"
+              ],
+              "mode": [
+                "browse",
+                "read"
+              ],
+              "time_of_day": [
+                "any"
+              ]
+            },
+            "audience_targets": [],
+            "business_goal": "awareness"
+          }
+        },
+        "render": {
+          "preferred_slots": [
+            {
+              "slot_type": "grid_card",
+              "priority": 1,
+              "min_width_px": 280,
+              "min_height_px": 320,
+              "aspect_ratio": "4:5",
+              "supports_overlay_text": false
+            }
+          ],
+          "modal_preferences": {
+            "default_modal": "sheet",
+            "modal_sizes": [
+              "md",
+              "lg"
+            ],
+            "open_behavior": "inline_to_modal",
+            "close_behavior": "swipe_or_click"
+          },
+          "text_reader": {
+            "enabled": true,
+            "default_mode": "sheet_reader",
+            "typography_preset": "serif",
+            "scroll_behavior": "continuous",
+            "controls": {
+              "show_progress": true,
+              "show_font_controls": true,
+              "show_share": true
+            },
+            "content_display_overrides": {
+              "show_title": true,
+              "show_cover_image": true,
+              "show_toc": false
+            },
+            "geometry_variants": [
+              {
+                "name": "mobile_sheet_reader_below_header",
+                "when": {
+                  "device": [
+                    "mobile"
+                  ],
+                  "context": [
+                    "read"
+                  ]
+                },
+                "spatial": {
+                  "coordinate_space": "normalized",
+                  "anchor": "header",
+                  "x": 0.0,
+                  "y": 1.0,
+                  "w": 1.0,
+                  "h": 4.0,
+                  "z": 9,
+                  "layer": "modal",
+                  "alignment": {
+                    "horizontal": "center",
+                    "vertical": "top"
+                  }
+                },
+                "notes": "Starts below header; scrollable region."
+              },
+              {
+                "name": "desktop_centered_reader",
+                "when": {
+                  "device": [
+                    "desktop"
+                  ],
+                  "context": [
+                    "read",
+                    "work"
+                  ]
+                },
+                "spatial": {
+                  "coordinate_space": "normalized",
+                  "anchor": "safe_viewport",
+                  "x": 0.18,
+                  "y": 0.1,
+                  "w": 0.64,
+                  "h": 0.8,
+                  "z": 9,
+                  "layer": "modal",
+                  "alignment": {
+                    "horizontal": "center",
+                    "vertical": "top"
+                  }
+                },
+                "notes": "Centered reader; enforce max-width with typography preset."
+              }
+            ]
+          },
+          "breakpoints": {
+            "mobile": {
+              "preferred_slot_types": [
+                "grid_card"
+              ],
+              "max_columns": 1
+            },
+            "tablet": {
+              "preferred_slot_types": [
+                "grid_card"
+              ],
+              "max_columns": 2
+            },
+            "desktop": {
+              "preferred_slot_types": [
+                "grid_card"
+              ],
+              "max_columns": 4
+            }
+          },
+          "payloads": {
+            "thumbnail": [],
+            "video": [],
+            "audio": []
+          },
+          "realm_style_hint": {
+            "realm": "macro",
+            "motion_bias": "low",
+            "text_density": "high",
+            "preferred_aspect_ratios": [
+              "4:5",
+              "16:9"
+            ]
+          },
+          "spatial": {
+            "coordinate_space": "normalized",
+            "anchor": "safe_viewport",
+            "x": 0.0,
+            "y": 0.0,
+            "w": 1.0,
+            "h": 1.0,
+            "z": 1,
+            "layer": "content",
+            "alignment": {
+              "horizontal": "center",
+              "vertical": "top"
+            }
+          }
+        },
+        "composition": {
+          "pairing_rules": {
+            "prefers_with": [],
+            "avoids_with": [],
+            "max_neighbors": 2
+          },
+          "sequence_rules": {
+            "good_as_intro": false,
+            "good_as_interstitial": true,
+            "good_as_closer": false
+          },
+          "attention_budget": {
+            "estimated_seconds": 120,
+            "intensity": "medium"
+          }
+        },
+        "intelligence": {
+          "clustered_aigent_id": null,
+          "capabilities": []
+        },
+        "monetization": {
+          "qcent_pricing": null,
+          "rev_split": [],
+          "reward_hooks": []
+        },
+        "source": {
+          "system": "template",
+          "raw_section_refs": []
+        }
+      }
+    ],
+    "placements": [
+      {
+        "placement_id": "place:example",
+        "issue_id": "TEMPLATE",
+        "section_id": "home-hero",
+        "tab_id": null,
+        "position": 1,
+        "content_id": "content:example"
+      }
+    ],
+    "assets": [
+      {
+        "asset_id": "asset:example_thumb",
+        "kind": "image",
+        "url": "https://example.cdn/thumb.jpg",
+        "provider": "example",
+        "meta": {
+          "w": 1200,
+          "h": 900,
+          "type": "image/jpeg"
+        }
+      }
+    ],
+    "indexes": {
+      "by_section_tab": {},
+      "by_taxonomy": {},
+      "by_slug": {},
+      "by_content_id": {}
+    },
+    "stats": null,
+    "editorial_notes": {
+      "text_reader": "v1.4: For any item with modalities.read.available=true, include render.text_reader.enabled=true, modalities.read.content_ref, and content_blocks (or another resolvable content_ref)."
+    }
+  },
+  "compatibility": {
+    "supported_versions": [
+      "v1.0",
+      "v1.1",
+      "v1.2",
+      "v1.3",
+      "v1.4"
+    ],
+    "supersedes": "qriptopian.issue_package.v1.3",
+    "notes": [
+      "v1.0: baseline inventory/sections/modalities structure",
+      "v1.1: metaKnyts identification + codex/realm hints",
+      "v1.2: indexes + import-ready collections structure",
+      "v1.3: Liquid UI spatial model (anchors, normalized geometry variants)",
+      "v1.4: Text Reader modal contract + content_blocks + modalities.read.content_ref"
+    ]
+  },
+  "world_model": {
+    "knyt_codex_realms": {
+      "DigiTerra": {
+        "alias": "DigiTerra",
+        "tone": "lunapunk counter-world",
+        "purpose": "in-world lore, immersive narrative, mythos-first experiences",
+        "primary_surface": "KNYT Codex"
+      },
+      "Terra": {
+        "alias": "Terra",
+        "tone": "real-world bridge",
+        "purpose": "updates/news/patch-notes and bridges to real world context",
+        "primary_surface": "KNYT Codex + Qriptopian"
+      },
+      "metaTerra/or": {
+        "alias": "metaTerra/or",
+        "tone": "convergence realm (utopia metaTerra vs dystopia metaTerror)",
+        "purpose": "where DigiTerra and Terra converge; future-facing solarpunk vs cautionary dystopia",
+        "primary_surface": "Both codexes"
+      }
+    }
+  },
+  "text_reader_profile": {
+    "default_reader": "sheet_reader",
+    "reader_modes": [
+      "sheet_reader",
+      "fullscreen_reader"
+    ],
+    "typography_presets": {
+      "serif": {
+        "base_font": "Serif",
+        "base_px": {
+          "mobile": 17,
+          "desktop": 18
+        },
+        "line_height": 1.55,
+        "max_width_px": 780
+      },
+      "sans": {
+        "base_font": "Sans",
+        "base_px": {
+          "mobile": 16,
+          "desktop": 17
+        },
+        "line_height": 1.6,
+        "max_width_px": 840
+      }
+    },
+    "content_display_defaults": {
+      "show_title": true,
+      "show_subtitle": false,
+      "show_byline": false,
+      "show_cover_image": true,
+      "show_toc": false,
+      "paragraph_spacing": "md",
+      "link_style": "underline",
+      "quote_style": "pullquote",
+      "code_style": "mono_block"
+    }
+  }
+}

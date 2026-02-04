@@ -77,7 +77,8 @@ export function FundingStatusCard({ title }: { title: string }) {
 
   const canisters = [
     { canisterId: 'sp5ye-2qaaa-aaaao-qkqla-cai', name: 'DVN' },
-    { canisterId: 'zdjf3-2qaaa-aaaas-qck4q-cai', name: 'RQH' }
+    { canisterId: 'zdjf3-2qaaa-aaaas-qck4q-cai', name: 'RQH' },
+    { canisterId: 'lvo2w-jqaaa-aaaas-qc2wa-cai', name: 'RewardHub' }
   ];
 
   const fetchChainBalances = async () => {
@@ -401,7 +402,7 @@ export function FundingStatusCard({ title }: { title: string }) {
               <StatusIndicator status={overallCanisterStatus} />
             </div>
             
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-3">
               {canisterStatuses.map((canister) => (
                 <div 
                   key={canister.canisterId}

@@ -1,0 +1,30 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "incremental": false,
+    "skipLibCheck": true
+  },
+  "include": [
+    "app/triad/components/codex/tabs/KnytTab.tsx",
+    "app/triad/components/codex/templates/KnytTemplateRenderer.tsx",
+    "app/triad/components/codex/liquidTemplates/**/*.tsx",
+    "app/triad/components/codex/wallet/CopilotWalletDrawer.tsx",
+    "app/triad/components/content/KnytCardsGrid.tsx",
+    "app/triad/components/content/ContentPurchaseModal.tsx",
+    "app/triad/components/content/CoverImage.tsx",
+    "app/triad/components/content/VideoPlayer.tsx",
+    "app/services/knyt/**/*.ts",
+    "app/types/knytLiquidUI.ts",
+    "app/data/knyt_liquid_ui_template_pack.json",
+    "app/utils/image-loader.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "apps/**/*",
+    "packages/**/*",
+    "services/**/*",
+    "scripts/**/*",
+    ".next/**/*"
+  ]
+}

@@ -39,5 +39,530 @@
 /* Drawer Content */
 .drawer-content {
   box-shadow: -5px 0 15px rgba(0, 0, 0, 0.3);
-  transition: transform 0.3s ease;
+  transition: transform 0.3s ease, width 0.3s ease;
+}
+
+/* =============================================================================
+   SMART WALLET COPILOT STYLES
+   Glass-like translucent aesthetic with high legibility
+   ============================================================================= */
+
+.wallet-copilot-chat {
+  --copilot-glass-bg: rgba(15, 23, 42, 0.6);
+  --copilot-glass-border: rgba(255, 255, 255, 0.08);
+  --copilot-glass-highlight: rgba(255, 255, 255, 0.05);
+  --copilot-fuchsia: rgb(217, 70, 239);
+  --copilot-fuchsia-glow: rgba(217, 70, 239, 0.15);
+  --copilot-text-primary: rgba(255, 255, 255, 0.95);
+  --copilot-text-secondary: rgba(255, 255, 255, 0.7);
+  --copilot-text-muted: rgba(255, 255, 255, 0.5);
+}
+
+/* Main chat container */
+.wallet-copilot-chat {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: transparent;
+}
+
+/* Override CopilotKit default styles for glass effect */
+.wallet-copilot-chat [class*="copilotKitChat"],
+.wallet-copilot-chat [class*="CopilotChat"] {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* Messages container - glass panel */
+.wallet-copilot-chat [class*="copilotKitMessages"],
+.wallet-copilot-chat [class*="Messages"] {
+  background: var(--copilot-glass-bg) !important;
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+  border: 1px solid var(--copilot-glass-border) !important;
+  border-radius: 12px !important;
+  margin: 12px !important;
+  padding: 12px !important;
+  box-shadow: 
+    0 4px 24px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 var(--copilot-glass-highlight) !important;
+}
+
+/* Individual message bubbles */
+.wallet-copilot-chat [class*="copilotKitMessage"],
+.wallet-copilot-chat [class*="Message"] {
+  background: var(--copilot-glass-bg) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border: 1px solid var(--copilot-glass-border) !important;
+  border-radius: 10px !important;
+  padding: 10px 14px !important;
+  margin-bottom: 8px !important;
+  color: var(--copilot-text-primary) !important;
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* User messages - subtle fuchsia tint */
+.wallet-copilot-chat [class*="copilotKitUserMessage"],
+.wallet-copilot-chat [class*="UserMessage"],
+.wallet-copilot-chat [class*="user"] {
+  background: linear-gradient(
+    135deg,
+    rgba(217, 70, 239, 0.15) 0%,
+    rgba(147, 51, 234, 0.1) 100%
+  ) !important;
+  border-color: rgba(217, 70, 239, 0.2) !important;
+  margin-left: 24px !important;
+}
+
+/* Assistant messages - glass with subtle glow */
+.wallet-copilot-chat [class*="copilotKitAssistantMessage"],
+.wallet-copilot-chat [class*="AssistantMessage"],
+.wallet-copilot-chat [class*="assistant"] {
+  background: linear-gradient(
+    135deg,
+    rgba(30, 41, 59, 0.8) 0%,
+    rgba(15, 23, 42, 0.7) 100%
+  ) !important;
+  border-color: var(--copilot-glass-border) !important;
+  margin-right: 24px !important;
+  box-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 var(--copilot-glass-highlight) !important;
+}
+
+/* Input container - glass effect */
+.wallet-copilot-chat [class*="copilotKitInput"],
+.wallet-copilot-chat [class*="InputContainer"],
+.wallet-copilot-chat form {
+  background: var(--copilot-glass-bg) !important;
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+  border: 1px solid var(--copilot-glass-border) !important;
+  border-radius: 12px !important;
+  margin: 0 12px 12px 12px !important;
+  padding: 8px !important;
+  box-shadow: 
+    0 4px 16px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 var(--copilot-glass-highlight) !important;
+}
+
+/* Text input field */
+.wallet-copilot-chat input[type="text"],
+.wallet-copilot-chat textarea,
+.wallet-copilot-chat [class*="copilotKitTextarea"],
+.wallet-copilot-chat [class*="Textarea"] {
+  background: rgba(255, 255, 255, 0.03) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 8px !important;
+  color: var(--copilot-text-primary) !important;
+  font-size: 14px !important;
+  padding: 10px 14px !important;
+  transition: all 0.2s ease !important;
+}
+
+.wallet-copilot-chat input[type="text"]:focus,
+.wallet-copilot-chat textarea:focus,
+.wallet-copilot-chat [class*="copilotKitTextarea"]:focus {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(217, 70, 239, 0.4) !important;
+  box-shadow: 0 0 0 3px rgba(217, 70, 239, 0.1) !important;
+  outline: none !important;
+}
+
+.wallet-copilot-chat input::placeholder,
+.wallet-copilot-chat textarea::placeholder {
+  color: var(--copilot-text-muted) !important;
+}
+
+/* Send button - fuchsia glass */
+.wallet-copilot-chat button[type="submit"],
+.wallet-copilot-chat [class*="copilotKitButton"],
+.wallet-copilot-chat [class*="SendButton"] {
+  background: linear-gradient(
+    135deg,
+    rgba(217, 70, 239, 0.25) 0%,
+    rgba(147, 51, 234, 0.2) 100%
+  ) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  border: 1px solid rgba(217, 70, 239, 0.3) !important;
+  border-radius: 8px !important;
+  color: rgb(245, 208, 254) !important;
+  font-weight: 500 !important;
+  padding: 8px 16px !important;
+  transition: all 0.2s ease !important;
+  cursor: pointer !important;
+}
+
+.wallet-copilot-chat button[type="submit"]:hover,
+.wallet-copilot-chat [class*="copilotKitButton"]:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(217, 70, 239, 0.35) 0%,
+    rgba(147, 51, 234, 0.3) 100%
+  ) !important;
+  border-color: rgba(217, 70, 239, 0.5) !important;
+  box-shadow: 0 4px 12px rgba(217, 70, 239, 0.2) !important;
+  transform: translateY(-1px) !important;
+}
+
+.wallet-copilot-chat button[type="submit"]:active {
+  transform: translateY(0) !important;
+}
+
+/* Loading/thinking indicator */
+.wallet-copilot-chat [class*="copilotKitLoading"],
+.wallet-copilot-chat [class*="Loading"],
+.wallet-copilot-chat [class*="Thinking"] {
+  color: var(--copilot-fuchsia) !important;
+}
+
+/* Typing dots animation */
+.wallet-copilot-chat [class*="TypingIndicator"] span,
+.wallet-copilot-chat [class*="typing"] span {
+  background: var(--copilot-fuchsia) !important;
+}
+
+/* Header/title area */
+.wallet-copilot-chat [class*="copilotKitHeader"],
+.wallet-copilot-chat [class*="Header"] {
+  background: transparent !important;
+  border: none !important;
+  color: var(--copilot-text-primary) !important;
+}
+
+/* Scrollbar styling for chat */
+.wallet-copilot-chat [class*="copilotKitMessages"]::-webkit-scrollbar,
+.wallet-copilot-chat [class*="Messages"]::-webkit-scrollbar {
+  width: 6px;
+}
+
+.wallet-copilot-chat [class*="copilotKitMessages"]::-webkit-scrollbar-track,
+.wallet-copilot-chat [class*="Messages"]::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 3px;
+}
+
+.wallet-copilot-chat [class*="copilotKitMessages"]::-webkit-scrollbar-thumb,
+.wallet-copilot-chat [class*="Messages"]::-webkit-scrollbar-thumb {
+  background: rgba(217, 70, 239, 0.3);
+  border-radius: 3px;
+}
+
+.wallet-copilot-chat [class*="copilotKitMessages"]::-webkit-scrollbar-thumb:hover,
+.wallet-copilot-chat [class*="Messages"]::-webkit-scrollbar-thumb:hover {
+  background: rgba(217, 70, 239, 0.5);
+}
+
+/* Code blocks in messages */
+.wallet-copilot-chat pre,
+.wallet-copilot-chat code {
+  background: rgba(0, 0, 0, 0.3) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 6px !important;
+  font-family: 'SF Mono', 'Fira Code', monospace !important;
+  font-size: 13px !important;
+}
+
+.wallet-copilot-chat pre {
+  padding: 12px !important;
+  overflow-x: auto !important;
+}
+
+.wallet-copilot-chat code {
+  padding: 2px 6px !important;
+}
+
+/* Links in messages */
+.wallet-copilot-chat a {
+  color: rgb(192, 132, 252) !important;
+  text-decoration: underline !important;
+  text-underline-offset: 2px !important;
+}
+
+.wallet-copilot-chat a:hover {
+  color: rgb(217, 70, 239) !important;
+}
+
+/* Fade-in animation for copilot panel */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.25s ease-out forwards;
+}
+
+/* Ensure text remains legible with text shadows */
+.wallet-copilot-chat * {
+  text-rendering: optimizeLegibility !important;
+  -webkit-font-smoothing: antialiased !important;
+  -moz-osx-font-smoothing: grayscale !important;
+}
+
+/* =============================================================================
+   COPILOT THINKING INDICATOR - Horizontal Pulsing Animation
+   Progressive dot enlargement moving right, smooth continuous effect
+   ============================================================================= */
+
+/* Thinking dots container */
+.copilot-thinking-dots {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+}
+
+/* Individual dot - base state is small and dim */
+.copilot-thinking-dots .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: rgb(74, 222, 128); /* green-400 */
+  opacity: 0.3;
+  transform: scale(0.8);
+  animation: copilot-pulse-right 1.5s ease-in-out infinite;
+}
+
+/* Staggered animation delays for left-to-right pulse effect */
+.copilot-thinking-dots .dot:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.copilot-thinking-dots .dot:nth-child(2) {
+  animation-delay: 0.25s;
+}
+
+.copilot-thinking-dots .dot:nth-child(3) {
+  animation-delay: 0.5s;
+}
+
+/* Horizontal pulsing animation - dot enlarges then shrinks as pulse moves right */
+@keyframes copilot-pulse-right {
+  0%, 100% {
+    transform: scale(0.8);
+    opacity: 0.3;
+  }
+  25% {
+    transform: scale(1.4);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(0.8);
+    opacity: 0.3;
+  }
+}
+
+/* Color variants */
+.copilot-thinking-dots.green .dot {
+  background-color: rgb(74, 222, 128); /* green-400 */
+}
+
+.copilot-thinking-dots.emerald .dot {
+  background-color: rgb(52, 211, 153); /* emerald-400 */
+}
+
+.copilot-thinking-dots.purple .dot {
+  background-color: rgb(192, 132, 252); /* purple-400 */
+}
+
+.copilot-thinking-dots.fuchsia .dot {
+  background-color: rgb(232, 121, 249); /* fuchsia-400 */
+}
+
+/* =============================================================================
+   QUICK ACTIONS CAROUSEL
+   Horizontal swipeable carousel showing 3.25 items
+   ============================================================================= */
+
+.quick-actions-carousel {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+  padding-bottom: 4px;
+}
+
+.quick-actions-carousel::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
+.quick-actions-carousel .quick-action-item {
+  flex: 0 0 calc((100% - 24px) / 3.25); /* 3.25 items visible, accounting for gaps */
+  min-width: calc((100% - 24px) / 3.25);
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: all 0.2s ease;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.quick-actions-carousel .quick-action-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.quick-actions-carousel .quick-action-item svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.quick-actions-carousel .quick-action-item span {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.8);
+  line-height: 1.2;
+}
+
+/* =============================================================================
+   WALLET & DRAWER ICON ACTIVE STATES
+   Use color changes instead of background boxes for active icons
+   ============================================================================= */
+
+/* Tab navigation - equidistant spacing */
+.wallet-tab-nav {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  gap: 0;
+}
+
+.wallet-tab-nav > * {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Icon button base styles */
+.wallet-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  transition: all 0.2s ease;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+/* Icon default state - muted */
+.wallet-icon-btn svg,
+.wallet-icon-btn .icon {
+  color: rgba(255, 255, 255, 0.4);
+  transition: color 0.2s ease, transform 0.15s ease;
+}
+
+/* Icon hover state */
+.wallet-icon-btn:hover svg,
+.wallet-icon-btn:hover .icon {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Icon active state - use accent color, no background box */
+.wallet-icon-btn.active svg,
+.wallet-icon-btn.active .icon,
+.wallet-icon-btn[data-active="true"] svg,
+.wallet-icon-btn[data-active="true"] .icon {
+  color: rgb(192, 132, 252); /* purple-400 */
+}
+
+/* Fuchsia/magenta active variant */
+.wallet-icon-btn.active-fuchsia svg,
+.wallet-icon-btn[data-active-color="fuchsia"] svg {
+  color: rgb(232, 121, 249); /* fuchsia-400 */
+}
+
+/* Cyan active variant */
+.wallet-icon-btn.active-cyan svg,
+.wallet-icon-btn[data-active-color="cyan"] svg {
+  color: rgb(34, 211, 238); /* cyan-400 */
+}
+
+/* Amber active variant */
+.wallet-icon-btn.active-amber svg,
+.wallet-icon-btn[data-active-color="amber"] svg {
+  color: rgb(251, 191, 36); /* amber-400 */
+}
+
+/* Emerald active variant */
+.wallet-icon-btn.active-emerald svg,
+.wallet-icon-btn[data-active-color="emerald"] svg {
+  color: rgb(52, 211, 153); /* emerald-400 */
+}
+
+/* Badge/chip active states - no background, just color */
+.wallet-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  background: transparent;
+  border: 1px solid transparent;
+}
+
+.wallet-badge.active,
+.wallet-badge[data-active="true"] {
+  color: rgb(192, 132, 252);
+  border-color: rgba(192, 132, 252, 0.3);
+}
+
+/* Quick action buttons - subtle hover, no heavy backgrounds */
+.wallet-action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.wallet-action-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.wallet-action-btn svg {
+  color: rgba(255, 255, 255, 0.5);
+  transition: color 0.2s ease;
+}
+
+.wallet-action-btn:hover svg {
+  color: rgb(192, 132, 252);
+}
+
+.wallet-action-btn span {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.75rem;
+  margin-top: 0.25rem;
 }

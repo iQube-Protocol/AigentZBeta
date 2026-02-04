@@ -482,6 +482,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "reward_hub"
+version = "0.1.0"
+dependencies = [
+ "candid",
+ "ic-cdk",
+ "ic-cdk-macros 0.9.0",
+ "ic-stable-structures",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "rqh"
 version = "0.1.0"
 dependencies = [

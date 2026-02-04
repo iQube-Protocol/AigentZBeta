@@ -6,6 +6,12 @@
       "candid": "src/rqh/rqh.did",
       "package": "rqh",
       "build": ["cargo", "build", "--target", "wasm32-unknown-unknown", "--release", "-p", "rqh"]
+    },
+    "reward_hub": {
+      "type": "rust",
+      "candid": "src/reward_hub/reward_hub.did",
+      "package": "reward_hub",
+      "build": ["cargo", "build", "--target", "wasm32-unknown-unknown", "--release", "-p", "reward_hub"]
     }
   },
   "defaults": {

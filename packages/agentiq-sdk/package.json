@@ -1,0 +1,33 @@
+{
+  "name": "@agentiq/agentiq-sdk",
+  "version": "0.1.0",
+  "description": "AA-API and A2A client SDK for AgentiQ platform",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": {
+      "import": "./src/index.ts",
+      "types": "./src/index.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "agentiq",
+    "aa-api",
+    "a2a",
+    "sdk"
+  ],
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "author": "iQube Protocol",
+  "license": "PROPRIETARY"
+}
