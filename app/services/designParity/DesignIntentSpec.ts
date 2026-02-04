@@ -505,8 +505,7 @@ export class DISGenerator {
         },
         grid: {
           columns: 12,
-          gap: tokens.spacing.lg,
-          padding: tokens.spacing.lg
+          gap: tokens.spacing.lg
         },
         section: {
           padding: tokens.spacing['3xl'],
