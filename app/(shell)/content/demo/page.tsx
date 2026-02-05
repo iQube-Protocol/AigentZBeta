@@ -35,7 +35,101 @@ const RECIPIENT_AGENT = agentConfigs["aigent-kn0w1"];
 // =============================================================================
 
 // Demo data uses simplified mock structure - cast to any to bypass strict typing
-const DEMO_CONTENTS_FALLBACK: any[] = []
+const DEMO_CONTENTS_FALLBACK: any[] = [
+  {
+    id: "demo-fallback-1",
+    title: "Sample Content 1",
+    description: "Fallback demo content",
+    type: "SmartContentQube",
+    app: "Demo",
+    slug: "sample-1",
+    version: 1,
+    coverImageUri: "",
+    creatorRootDid: "did:iq:demo",
+    tenantId: "demo",
+    modalities: {
+      read: { enabled: true },
+      watch: { enabled: false },
+      listen: { enabled: false },
+      interact: { enabled: false },
+    },
+    structure: { kind: "article" },
+    pricingModel: {
+      tiers: [{ kind: "free", amount: 0, currency: "QCT", covers: 1 }],
+      acceptedTokens: [],
+    },
+    libraryMetadata: {
+      category: "demo",
+      tags: ["demo", "content"],
+      recommendedShelf: "demo",
+      expiry: { model: "permanent" },
+      ownership: { status: "available", libraryStatus: "not_owned" },
+      discovery: { featured: true, curated: true, priority: 1 },
+    },
+  },
+  {
+    id: "demo-fallback-2",
+    title: "Sample Content 2",
+    description: "Another fallback demo content",
+    type: "SmartContentQube",
+    app: "Demo",
+    slug: "sample-2",
+    version: 1,
+    coverImageUri: "",
+    creatorRootDid: "did:iq:demo",
+    tenantId: "demo",
+    modalities: {
+      read: { enabled: true },
+      watch: { enabled: false },
+      listen: { enabled: false },
+      interact: { enabled: false },
+    },
+    structure: { kind: "article" },
+    pricingModel: {
+      tiers: [{ kind: "free", amount: 0, currency: "QCT", covers: 1 }],
+      acceptedTokens: [],
+    },
+    libraryMetadata: {
+      category: "demo",
+      tags: ["demo", "content"],
+      recommendedShelf: "demo",
+      expiry: { model: "permanent" },
+      ownership: { status: "available", libraryStatus: "not_owned" },
+      discovery: { featured: true, curated: true, priority: 1 },
+    },
+  },
+  {
+    id: "demo-fallback-3",
+    title: "Sample Content 3",
+    description: "Third fallback demo content",
+    type: "SmartContentQube",
+    app: "Demo",
+    slug: "sample-3",
+    version: 1,
+    coverImageUri: "",
+    creatorRootDid: "did:iq:demo",
+    tenantId: "demo",
+    modalities: {
+      read: { enabled: true },
+      watch: { enabled: false },
+      listen: { enabled: false },
+      interact: { enabled: false },
+    },
+    structure: { kind: "article" },
+    pricingModel: {
+      tiers: [{ kind: "free", amount: 0, currency: "QCT", covers: 1 }],
+      acceptedTokens: [],
+    },
+    libraryMetadata: {
+      category: "demo",
+      tags: ["demo", "content"],
+      recommendedShelf: "demo",
+      expiry: { model: "permanent" },
+      ownership: { status: "available", libraryStatus: "not_owned" },
+      discovery: { featured: true, curated: true, priority: 1 },
+    },
+  },
+];
 
 
 // Demo wallet uses simplified mock structure - cast to any to bypass strict typing
@@ -285,6 +379,11 @@ export default function SmartContentDemoPage() {
 
   const demoContents = registryContents.length > 0 ? registryContents : DEMO_CONTENTS_FALLBACK;
   const contentPool = liveContent.length > 0 ? liveContent : demoContents;
+
+  // Safety function to get content by index with fallback
+  const getContent = (arr: any[], index: number) => {
+    return arr && arr.length > index ? arr[index] : demoContents[index % demoContents.length];
+  };
 
   const templateContentById = useMemo(() => {
     const shuffleWithSeed = (items: any[], seed: number) => {
@@ -549,7 +648,7 @@ export default function SmartContentDemoPage() {
           {/* Hero Full (100vh) */}
           <section>
             <SmartContentCard
-              content={demoContents[0]}
+              content={getContent(demoContents, 0)}
               variant="hero" templateVariant="hero" device="desktop"
               heroHeight="full"
               onSelect={handleContentSelect}
@@ -577,22 +676,12 @@ export default function SmartContentDemoPage() {
                       onAddToLibrary={handleAddToLibrary}
                     />
                   ))}
-                </div>
-              </section>
-            )}
-
-            {loadingLive && (
-              <section className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-6 text-center">
-                <div className="w-8 h-8 border-2 border-slate-600 border-t-cyan-400 rounded-full animate-spin mx-auto mb-2" />
-                <p className="text-slate-400">Loading live content...</p>
-              </section>
-            )}
 
         {/* Hero Short (66vh) */}
         <section>
           <h2 className="text-lg font-semibold text-white mb-4">Hero Short (66vh)</h2>
           <SmartContentCard
-            content={demoContents[1]}
+            content={getContent(demoContents, 1)}
             variant="hero" templateVariant="hero" device="desktop"
             heroHeight="short"
             onSelect={handleContentSelect}
@@ -630,12 +719,12 @@ export default function SmartContentDemoPage() {
           <h2 className="text-lg font-semibold text-white mb-4">poster2 - Large Posters (2/row)</h2>
           <div className="grid grid-cols-2 gap-6">
             <SmartContentCard
-              content={demoContents[0]}
+              content={getContent(demoContents, 0)}
               variant="poster2" templateVariant="poster2" device="desktop"
               onSelect={handleContentSelect}
             />
             <SmartContentCard
-              content={demoContents[1]}
+              content={getContent(demoContents, 1)}
               variant="poster2" templateVariant="poster2" device="desktop"
               onSelect={handleContentSelect}
             />
@@ -713,7 +802,7 @@ export default function SmartContentDemoPage() {
         <section>
           <h2 className="text-lg font-semibold text-white mb-4">compound - Full Width</h2>
           <SmartContentCard
-            content={demoContents[2]}
+            content={getContent(demoContents, 2)}
             variant="compound" templateVariant="compound" device="desktop"
             codeSnippet={`to: 'did:qiri:recipient',
 amount: 100, // Q¢
@@ -726,6 +815,8 @@ memo: 'Payment for services'
               { label: "Video Tutorials", icon: "Step-by-step guides" },
             ]}
             onSelect={handleContentSelect}
+            onPurchase={handlePurchase}
+            onAddToLibrary={handleAddToLibrary}
           />
         </section>
 
@@ -733,7 +824,7 @@ memo: 'Payment for services'
           <h2 className="text-lg font-semibold text-white mb-4">compound2 & compound1 - Column Width Variants (3/row)</h2>
           <div className="grid md:grid-cols-3 gap-4">
             <SmartContentCard
-              content={demoContents[0]}
+              content={getContent(demoContents, 0)}
               variant="compound1" templateVariant="compound1" device="desktop"
               compoundLinks={[
                 { label: "Docs", icon: "API reference" },
@@ -742,7 +833,7 @@ memo: 'Payment for services'
               onSelect={handleContentSelect}
             />
             <SmartContentCard
-              content={demoContents[1]}
+              content={getContent(demoContents, 1)}
               variant="compound1" templateVariant="compound1" device="desktop"
               compoundLinks={[
                 { label: "Watch", icon: "Video tutorial" },
@@ -751,7 +842,7 @@ memo: 'Payment for services'
               onSelect={handleContentSelect}
             />
             <SmartContentCard
-              content={demoContents[2]}
+              content={getContent(demoContents, 2)}
               variant="compound1" templateVariant="compound1" device="desktop"
               compoundLinks={[
                 { label: "Learn", icon: "Tutorial" },
