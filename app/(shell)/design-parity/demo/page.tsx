@@ -40,7 +40,10 @@ interface DemoState {
 export default function DesignParityDemo() {
   const [demoState, setDemoState] = useState<DemoState>({ status: 'idle' });
   const [activeTab, setActiveTab] = useState('pipeline');
-  const GLASS_CARD = "bg-slate-950/60 backdrop-blur-xl ring-1 ring-white/10 border-0";
+  const GLASS_CARD = "bg-slate-900/70 backdrop-blur-xl border border-slate-700/60";
+  const PANEL_CARD = "bg-slate-950/60 backdrop-blur-xl border border-slate-800/80";
+  const textClass = "text-white";
+  const mutedClass = "text-slate-400";
 
   const runPipeline = useCallback(async () => {
     setDemoState({ status: 'loading' });
@@ -164,15 +167,15 @@ export default function DesignParityDemo() {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl text-slate-100">
-      <div className="mb-8 rounded-2xl bg-slate-950/60 backdrop-blur-xl ring-1 ring-white/10 p-6">
-        <h1 className="text-3xl font-bold mb-2 text-white">Design → Agentic UI Parity Demo</h1>
-        <p className="text-slate-300">
+      <div className={`mb-8 rounded-2xl p-6 ${PANEL_CARD}`}>
+        <h1 className={`text-3xl font-bold mb-2 ${textClass}`}>Design → Agentic UI Parity Demo</h1>
+        <p className={mutedClass}>
           Verifiable pipeline that proves generated UI honors design intent across breakpoints
         </p>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 bg-slate-950/60 backdrop-blur-xl ring-1 ring-white/10 border-0">
+        <TabsList className={`grid w-full grid-cols-4 ${PANEL_CARD}`}>
           <TabsTrigger value="pipeline" className="flex items-center gap-2">
             <Zap className="h-4 w-4" />
             Pipeline
@@ -192,7 +195,7 @@ export default function DesignParityDemo() {
         </TabsList>
 
         <TabsContent value="pipeline" className="space-y-6">
-          <Card className={GLASS_CARD}>
+          <Card className={PANEL_CARD}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Play className="h-5 w-5" />
@@ -201,24 +204,24 @@ export default function DesignParityDemo() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="text-center p-4 rounded-lg bg-slate-950/60 backdrop-blur ring-1 ring-white/10">
+                <div className={`text-center p-4 rounded-lg ${GLASS_CARD}`}>
                   <div className="font-semibold mb-2">1. Design Ingestion</div>
-                  <p className="text-sm text-slate-300">DesignQube + Templates</p>
+                  <p className={`text-sm ${mutedClass}`}>DesignQube + Templates</p>
                   {demoState.dis && getStatusIcon('success')}
                 </div>
-                <div className="text-center p-4 rounded-lg bg-slate-950/60 backdrop-blur ring-1 ring-white/10">
+                <div className={`text-center p-4 rounded-lg ${GLASS_CARD}`}>
                   <div className="font-semibold mb-2">2. DIS Generation</div>
-                  <p className="text-sm text-slate-300">Design Intent Spec</p>
+                  <p className={`text-sm ${mutedClass}`}>Design Intent Spec</p>
                   {demoState.dis && getStatusIcon('success')}
                 </div>
-                <div className="text-center p-4 rounded-lg bg-slate-950/60 backdrop-blur ring-1 ring-white/10">
+                <div className={`text-center p-4 rounded-lg ${GLASS_CARD}`}>
                   <div className="font-semibold mb-2">3. CM Generation</div>
-                  <p className="text-sm text-slate-300">Constraint Manifest</p>
+                  <p className={`text-sm ${mutedClass}`}>Constraint Manifest</p>
                   {demoState.cm && getStatusIcon('success')}
                 </div>
-                <div className="text-center p-4 rounded-lg bg-slate-950/60 backdrop-blur ring-1 ring-white/10">
+                <div className={`text-center p-4 rounded-lg ${GLASS_CARD}`}>
                   <div className="font-semibold mb-2">4. Parity Check</div>
-                  <p className="text-sm text-slate-300">Verification Report</p>
+                  <p className={`text-sm ${mutedClass}`}>Verification Report</p>
                   {demoState.parityReport && getStatusIcon('success')}
                 </div>
               </div>

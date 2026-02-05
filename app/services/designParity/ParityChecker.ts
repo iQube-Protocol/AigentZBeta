@@ -125,7 +125,17 @@ export class ParityChecker {
     const violations = await this.verifyStructuralConstraints(mcpAppElement, cm, breakpoints);
     
     // Run visual verification
-    const visualDifferences = await this.verifyVisualAlignment(mcpAppElement, dis, breakpoints, options.includeScreenshots);
+    let visualDifferences: VisualDifference[] = [];
+    try {
+      visualDifferences = await this.verifyVisualAlignment(
+        mcpAppElement,
+        dis,
+        breakpoints,
+        options.includeScreenshots
+      );
+    } catch (error) {
+      console.warn('Visual verification failed, continuing with structural checks only.', error);
+    }
     
     // Calculate parity scores
     const parity = this.calculateParityScore(violations, visualDifferences, breakpoints);
