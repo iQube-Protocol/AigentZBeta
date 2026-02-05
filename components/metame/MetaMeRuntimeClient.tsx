@@ -2,497 +2,292 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { CodexCopilotLayer, type CopilotMessage } from "@/app/components/codex/CodexCopilotLayer";
-import SmartContentCard from "@/app/components/content/SmartContentCard";
-import { PreviewFrame } from "@/components/preview/PreviewFrame";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/components/ui/toaster";
-import { Sparkles, Users, PlayCircle, Coins, Pencil, BookOpen, Headphones, Tv, Compass, Hexagon } from "lucide-react";
-import { DevicePreviewSwitcher } from "@/components/preview/DevicePreviewSwitcher";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PreviewFrame } from "@/components/preview/PreviewFrame";
+import { useDesignQubeTheme } from "@/components/metame/useDesignQubeTheme";
+import { ValueChip } from "@/components/metame/ValueChip";
+import { SmartTriadProvider } from "@/app/components/content";
+import { CopilotWalletDrawer } from "@/app/triad/components/codex/wallet/CopilotWalletDrawer";
+import type { DesignQube, DesignQubeThemeMode } from "@/types/designQube";
+import type { WalletUIComponent, DrawerMode } from "@/app/types/knytLiquidUI";
+import { Copy, CheckCircle2, Share2, Wallet, UserCircle2, Sparkles, List, ChevronRight, Gift, PlayCircle } from "lucide-react";
 
-type Capsule = {
-  id: string;
-  title: string;
-  description: string;
-  verb: string;
+const DEFAULT_EXPERIENCE = {
+  id: "reading-sprint-default",
+  name: "Reading Sprint Experience",
+  description: "Complete a focused reading sprint with wallet integration",
+  rewardAmount: 40,
+  currency: "Q¢",
 };
 
-const CAPSULE_CONTENTS: any[] = [
-  {
-    id: "capsule-qriptopian-read",
-    type: "SmartContentQube",
-    app: "Qriptopian",
-    title: "Read Qriptopian",
-    slug: "read-qriptopian",
-    version: 1,
-    description: "Launch an immersive article experience from the Qriptopian codex.",
-    coverImageUri: "",
-    creatorRootDid: "did:iq:creator2",
-    tenantId: "qriptopian",
-    modalities: {
-      read: { enabled: true },
-      watch: { enabled: false },
-      listen: { enabled: false },
-      interact: { enabled: false },
-    },
-    structure: { kind: "article" },
-    pricingModel: {
-      tiers: [{ kind: "free", amount: 0, currency: "QCT", covers: 1 }],
-      acceptedTokens: [],
-    },
-    libraryMetadata: {
-      category: "capsule",
-      tags: ["capsule", "experience"],
-      recommendedShelf: "capsules",
-      expiry: { model: "permanent" },
-      ownership: { status: "available", libraryStatus: "not_owned" },
-      discovery: { featured: true, curated: true, priority: 1 },
-    },
-    status: "published",
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: "capsule-metaknyt-play",
-    type: "SmartContentQube",
-    app: "metaKnyts",
-    title: "Play metaKNYT",
-    slug: "play-metaknyt",
-    version: 1,
-    description: "Jump into an episode experience with smart modules and rewards.",
-    coverImageUri: "",
-    creatorRootDid: "did:iq:creator1",
-    tenantId: "metaknyts",
-    modalities: {
-      read: { enabled: true },
-      watch: { enabled: false },
-      listen: { enabled: false },
-      interact: { enabled: true },
-    },
-    structure: { kind: "episode", panelCount: 6 },
-    pricingModel: {
-      tiers: [{ kind: "payPerEpisode", amount: 50, currency: "QCT", covers: 6 }],
-      acceptedTokens: ["QCT"],
-    },
-    libraryMetadata: {
-      category: "capsule",
-      tags: ["capsule", "experience"],
-      recommendedShelf: "capsules",
-      expiry: { model: "permanent" },
-      ownership: { status: "available", libraryStatus: "not_owned" },
-      discovery: { featured: true, curated: true, priority: 2 },
-    },
-    status: "published",
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: "capsule-earn-reward",
-    type: "SmartContentQube",
-    app: "AgentiQ",
-    title: "Earn rewards",
-    slug: "earn-rewards",
-    version: 1,
-    description: "Complete a short task flow to earn Q¢ and unlock content.",
-    coverImageUri: "",
-    creatorRootDid: "did:iq:creator3",
-    tenantId: "agentiq",
-    modalities: {
-      read: { enabled: true },
-      watch: { enabled: true },
-      listen: { enabled: false },
-      interact: { enabled: true },
-    },
-    structure: { kind: "tutorial" },
-    pricingModel: {
-      tiers: [{ kind: "free", amount: 0, currency: "QCT", covers: 1 }],
-      acceptedTokens: [],
-    },
-    libraryMetadata: {
-      category: "capsule",
-      tags: ["capsule", "experience"],
-      recommendedShelf: "capsules",
-      expiry: { model: "permanent" },
-      ownership: { status: "available", libraryStatus: "not_owned" },
-      discovery: { featured: true, curated: true, priority: 3 },
-    },
-    status: "published",
-    createdAt: new Date().toISOString(),
-  },
-];
-
-const DEFAULT_CAPSULES: Capsule[] = [
-  {
-    id: "capsule-qriptopian-read",
-    title: "Read Qriptopian",
-    description: "Launch an immersive article experience from the Qriptopian codex.",
-    verb: "Read",
-  },
-  {
-    id: "capsule-metaknyt-play",
-    title: "Play metaKNYT",
-    description: "Jump into an episode experience with smart modules and rewards.",
-    verb: "Play",
-  },
-  {
-    id: "capsule-earn-reward",
-    title: "Earn rewards",
-    description: "Complete a short task flow to earn Q¢ and unlock content.",
-    verb: "Earn",
-  },
-];
+type RuntimeSession = {
+  id: string;
+  experienceId: string;
+  walletUI: WalletUIComponent[];
+  walletDrawerMode: DrawerMode;
+  walletOpen: boolean;
+  consentGiven: boolean;
+  iqubeCreated: boolean;
+  settlementComplete: boolean;
+  shared: boolean;
+  receipts: Array<{ id: string; action: string; createdAt: string; receiptId: string }>;
+};
 
 export default function MetaMeRuntimeClient() {
   const searchParams = useSearchParams();
-  const [capsules, setCapsules] = useState<Capsule[]>(DEFAULT_CAPSULES);
-  const [capsuleContents, setCapsuleContents] = useState<any[]>(CAPSULE_CONTENTS);
-  const [selectedCapsuleLocal, setSelectedCapsuleLocal] = useState<string | null>(null);
-  const selectedCapsuleId = searchParams?.get("capsule");
-  const embedMode = searchParams?.get("embed") === "1";
-  const activeCapsuleId = selectedCapsuleLocal || selectedCapsuleId;
-  const { toast } = useToast();
-  const [channels, setChannels] = useState<Array<{ channel_id: string; participants: string[] }>>([]);
-  const [channelsLoading, setChannelsLoading] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [previewMode, setPreviewMode] = useState(false);
+  const [embedMode, setEmbedMode] = useState(false);
+  const [capsuleId, setCapsuleId] = useState(DEFAULT_EXPERIENCE.id);
+  const [themeMode, setThemeMode] = useState<DesignQubeThemeMode>("dark");
+  const [deviceMode, setDeviceMode] = useState("mobile");
+  
+  const [session, setSession] = useState<RuntimeSession | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [copySuccess, setCopySuccess] = useState(false);
+  const [designQube, setDesignQube] = useState<DesignQube | null>(null);
+  const [lastAction, setLastAction] = useState<string | null>(null);
 
   useEffect(() => {
-    let mounted = true;
-    const loadChannels = async () => {
-      setChannelsLoading(true);
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted || !searchParams) return;
+    setPreviewMode(searchParams.get("preview") === "1");
+    setEmbedMode(searchParams.get("embed") === "1");
+    setCapsuleId(searchParams.get("capsule") || DEFAULT_EXPERIENCE.id);
+    setThemeMode(searchParams.get("theme") === "light" ? "light" : "dark");
+    setDeviceMode(searchParams.get("device") || "mobile");
+  }, [mounted, searchParams]);
+
+  useEffect(() => {
+    let active = true;
+    const fetchDesignQube = async () => {
       try {
-        const res = await fetch("/api/qubetalk/channels?tenant_id=metame");
+        const res = await fetch("/api/metame/design-qube");
+        if (!res.ok) return;
         const data = await res.json();
-        if (mounted && data?.success && Array.isArray(data.channels)) {
-          setChannels(data.channels);
+        if (active && data?.success) {
+          setDesignQube(data.designQube || null);
         }
-      } catch (error) {
-        console.warn("QubeTalk channels fetch failed:", error);
-      } finally {
-        if (mounted) setChannelsLoading(false);
+      } catch {
+        // ignore design qube errors in runtime flow
       }
     };
-    loadChannels();
+    fetchDesignQube();
     return () => {
-      mounted = false;
+      active = false;
     };
   }, []);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    let cancelled = false;
-    const loadCapsuleContent = async () => {
+    if (!mounted) return;
+    
+    let active = true;
+    const initSession = async () => {
       try {
-        const origin = window.location.origin;
-        const issueParam = "issue=issue-1&scope=codex";
-        const [hero, news, scrolls, pennydrops] = await Promise.all([
-          fetch(`${origin}/api/content/section/home-hero?${issueParam}`).then((r) => r.json()),
-          fetch(`${origin}/api/content/section/latest-news?${issueParam}`).then((r) => r.json()),
-          fetch(`${origin}/api/content/section/scrolls?${issueParam}`).then((r) => r.json()),
-          fetch(`${origin}/api/content/section/pennydrops?${issueParam}`).then((r) => r.json()),
-        ]);
-        const heroItem = hero?.content?.[0] || news?.content?.[0];
-        const scrollItem = scrolls?.content?.[0];
-        const pennyItem = pennydrops?.content?.[0];
-        const pickImage = (item: any) =>
-          item?.image || item?.thumbnail || item?.cover || item?.heroImage || item?.coverImageUri || "";
-
-        const nextContents = CAPSULE_CONTENTS.map((capsule) => {
-          if (capsule.id === "capsule-qriptopian-read" && heroItem) {
-            const image = pickImage(heroItem);
-            return { ...capsule, title: heroItem.title || capsule.title, coverImageUri: image || capsule.coverImageUri };
-          }
-          if (capsule.id === "capsule-metaknyt-play" && scrollItem) {
-            const image = pickImage(scrollItem);
-            return { ...capsule, title: scrollItem.title || capsule.title, coverImageUri: image || capsule.coverImageUri };
-          }
-          if (capsule.id === "capsule-earn-reward" && pennyItem) {
-            const image = pickImage(pennyItem);
-            return { ...capsule, title: pennyItem.title || capsule.title, coverImageUri: image || capsule.coverImageUri };
-          }
-          return capsule;
+        setLoading(true);
+        setError(null);
+        
+        // Initialize session
+        const sessionId = `runtime-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        
+        setSession({
+          id: sessionId,
+          experienceId: capsuleId,
+          walletUI: [],
+          walletDrawerMode: "narrow",
+          walletOpen: false,
+          consentGiven: false,
+          iqubeCreated: false,
+          settlementComplete: false,
+          shared: false,
+          receipts: [],
         });
-
-        if (!cancelled) setCapsuleContents(nextContents);
-      } catch {
-        if (!cancelled) setCapsuleContents(CAPSULE_CONTENTS);
+        
+      } catch (err) {
+        if (active) {
+          setError(err instanceof Error ? err.message : "Failed to initialize session");
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
       }
     };
-    loadCapsuleContent();
+    
+    initSession();
     return () => {
-      cancelled = true;
+      active = false;
     };
+  }, [mounted, capsuleId]);
+
+  const handleCopyShareLink = useCallback(async () => {
+    if (!session) return;
+    
+    const shareUrl = `${window.location.origin}/metame/runtime?capsule=${session.experienceId}`;
+    
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy link:", err);
+    }
+  }, [session]);
+
+  const handleLastAction = useCallback((action: string) => {
+    setLastAction(action);
+    setTimeout(() => setLastAction(null), 3000);
   }, []);
 
-  const handlePrompt = (prompt: string) => {
-    const trimmed = prompt.trim();
-    if (!trimmed) return;
-    setCapsules((prev) => [
-      {
-        id: `capsule-${Date.now()}`,
-        title: trimmed,
-        description: "Suggested experience capsule based on your intent.",
-        verb: trimmed.split(" ")[0] || "Play",
-      },
-      ...prev,
-    ]);
-  };
-
-  const quickPrompts = useMemo(
-    () => [
-      { label: "Play", icon: <PlayCircle className="h-4 w-4" />, iconOnly: true },
-      { label: "Read", icon: <BookOpen className="h-4 w-4" />, iconOnly: true },
-      { label: "Listen", icon: <Headphones className="h-4 w-4" />, iconOnly: true },
-      { label: "Watch", icon: <Tv className="h-4 w-4" />, iconOnly: true },
-      { label: "Explore", icon: <Compass className="h-4 w-4" />, iconOnly: true },
-    ],
-    []
-  );
-
-  const buildSharePanel = useCallback((capsuleTitle: string) => {
-    const channelLabels =
-      channels.length > 0
-        ? channels.map((channel) => channel.channel_id)
-        : ["KNYT Crew", "Agentic Designers", "metaMe Studio"];
+  if (!mounted) {
     return (
-      <div className="rounded-2xl border border-white/10 bg-slate-950/80 p-3 space-y-3">
-        <p className="text-sm text-slate-200">
-          Who would you like to share <span className="text-white font-semibold">{capsuleTitle}</span> with?
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {channelLabels.map((channel) => (
-            <button
-              key={channel}
-              className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/70 hover:border-white/30 hover:text-white"
-              onClick={() => {
-                setMessages((prev) => [
-                  ...prev,
-                  {
-                    id: `share-select-${Date.now()}`,
-                    role: "user",
-                    content: channel,
-                    timestamp: new Date(),
-                  },
-                  {
-                    id: `share-confirm-${Date.now() + 1}`,
-                    role: "assistant",
-                    content: `Shared with ${channel}. Want to add another channel or invite someone new?`,
-                    timestamp: new Date(),
-                  },
-                ]);
-                toast(`Shared "${capsuleTitle}" with ${channel}`, "success");
-              }}
-            >
-              {channel}
-            </button>
-          ))}
-          <button
-            className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/70 hover:border-white/30 hover:text-white"
-            onClick={() => {
-              setMessages((prev) => [
-                ...prev,
-                {
-                  id: `share-create-${Date.now()}`,
-                  role: "assistant",
-                  content: "Creating a new QubeTalk channel. What should we call it?",
-                  timestamp: new Date(),
-                },
-              ]);
-            }}
-          >
-            Create new QubeTalk channel
-          </button>
-          {channelsLoading && (
-            <span className="text-[10px] uppercase tracking-wider text-white/40">
-              Loading channels…
-            </span>
-          )}
+      <div className="min-h-screen bg-slate-950 text-white px-4 py-6 flex items-center justify-center">
+        <div className="text-sm text-slate-400">Loading metaMe Runtime…</div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-white px-4 py-6 flex items-center justify-center">
+        <div className="text-sm text-slate-400">Initializing Runtime…</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-white px-4 py-6 flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <div className="text-red-400 mb-4">Error</div>
+          <div className="text-sm text-slate-400">{error}</div>
         </div>
       </div>
     );
-  }, [channels, channelsLoading, toast]);
-
-  const capsulePanel = useMemo(
-    () => (
-      <div className="space-y-3">
-        <div className="space-y-2">
-          {capsuleContents.map((content) => (
-            <SmartContentCard
-              key={content.id}
-              content={content}
-              variant="compact"
-              showProgress={content.id === "capsule-metaknyt-play"}
-              progressPercentage={content.id === "capsule-metaknyt-play" ? 33 : 0}
-              isSelected={content.id === activeCapsuleId}
-              onOpen={() => {
-                setSelectedCapsuleLocal(content.id);
-                setMessages((prev) => [
-                  ...prev,
-                  {
-                    id: `open-${Date.now()}`,
-                    role: "assistant",
-                    content: `Opening ${content.title}.`,
-                    timestamp: new Date(),
-                  },
-                ]);
-              }}
-              onPreview={() => {
-                setSelectedCapsuleLocal(content.id);
-                setMessages((prev) => [
-                  ...prev,
-                  {
-                    id: `preview-${Date.now()}`,
-                    role: "assistant",
-                    content: `Previewing ${content.title}.`,
-                    timestamp: new Date(),
-                  },
-                ]);
-                toast(`Previewing "${content.title}"`, "info");
-              }}
-              onShare={() => {
-                setMessages((prev) => [
-                  ...prev,
-                  {
-                    id: `share-${Date.now()}`,
-                    role: "assistant",
-                    content: buildSharePanel(content.title),
-                    timestamp: new Date(),
-                    variant: "panel",
-                  },
-                ]);
-              }}
-            />
-          ))}
-        </div>
-      </div>
-    ),
-    [activeCapsuleId, buildSharePanel, toast]
-  );
-
-  const runtimeMenu = (
-    <div className="border-t border-white/10 pt-3">
-      <div className="flex items-center justify-between px-4">
-        <div className="flex flex-col items-center text-[11px] text-slate-300">
-          <Users className="h-4 w-4 text-slate-200" />
-          Be
-        </div>
-        <div className="flex flex-1 items-center justify-center gap-12">
-          <div className="flex flex-col items-center text-[11px] text-slate-300">
-            <Coins className="h-5 w-5 text-emerald-300" />
-            Earn
-          </div>
-          <div className="flex flex-col items-center text-[11px] text-slate-300">
-            <PlayCircle className="h-5 w-5 text-cyan-300" />
-            Play
-          </div>
-          <div className="flex flex-col items-center text-[11px] text-slate-300">
-            <Pencil className="h-5 w-5 text-purple-300" />
-            Make
-          </div>
-        </div>
-        <div className="flex flex-col items-center text-[11px] text-slate-300">
-          <Users className="h-4 w-4 text-slate-200" />
-          Share
-        </div>
-      </div>
-    </div>
-  );
-
-  const [messages, setMessages] = useState<CopilotMessage[]>(() => [
-    {
-      id: "welcome-message",
-      role: "assistant",
-      content: "Welcome to metaMe. What do you want to do today?",
-      timestamp: new Date(0),
-    },
-    {
-      id: "capsule-panel",
-      role: "assistant",
-      content: capsulePanel,
-      timestamp: new Date(0),
-      variant: "panel",
-    },
-  ]);
-
-  useEffect(() => {
-    setMessages((prev) => {
-      if (prev.length === 0) {
-        return [
-          {
-            id: "welcome-message",
-            role: "assistant",
-            content: "Welcome to metaMe. What do you want to do today?",
-            timestamp: new Date(0),
-          },
-          {
-            id: "capsule-panel",
-            role: "assistant",
-            content: capsulePanel,
-            timestamp: new Date(0),
-            variant: "panel",
-          },
-        ];
-      }
-      return prev.map((message) =>
-        message.id === "capsule-panel" ? { ...message, content: capsulePanel } : message
-      );
-    });
-  }, [capsulePanel]);
-
-  const runtimeSurface = (
-    <div className="relative h-full w-full bg-slate-950 text-white overflow-hidden flex flex-col">
-      <style jsx global>{`
-        .copilotkit-launcher,
-        .copilotkit-button,
-        .copilotkit-floating-button {
-          display: none !important;
-        }
-      `}</style>
-      <CodexCopilotLayer
-        isOpen
-        onClose={() => {}}
-        variant="embedded"
-        panelClassName="w-full h-full"
-        showNavMenu={false}
-        showWalletMenu={false}
-        panelBorder={false}
-        promptPlaceholder="What do you want to do today?"
-        messages={messages}
-        onMessagesChange={setMessages}
-        quickPrompts={quickPrompts}
-        onPrompt={handlePrompt}
-        footerContent={runtimeMenu}
-        floatingInput
-        disableActivationButton
-        className="h-full"
-      />
-    </div>
-  );
-
-  if (embedMode) {
-    return runtimeSurface;
   }
 
-  const runtimeToolbar = (device: any, onChange: (device: any) => void) => (
-    <div className="flex items-center justify-between px-2 py-2">
-      <div className="flex items-center gap-3">
-        <Hexagon className="h-6 w-6 text-rose-400" />
-        <span className="text-xl font-bold text-white">metaMe Runtime</span>
+  if (previewMode) {
+    // Preview mode - show the experience in a preview frame
+    return (
+      <div className="min-h-screen bg-slate-950">
+        <PreviewFrame
+          src={`/studio/composer/experience/${capsuleId}?preview=1&theme=${themeMode}&device=${deviceMode}`}
+          defaultDevice={deviceMode as any}
+          deviceQueryParam="device"
+          showToolbar={!embedMode}
+          className={embedMode ? "h-screen" : "h-[calc(100vh-80px)]"}
+        />
       </div>
-      <DevicePreviewSwitcher value={device} onChange={onChange} />
-    </div>
-  );
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white px-4 py-6">
-      <div className="mx-auto w-full max-w-5xl h-[760px]">
-        <PreviewFrame
-          defaultDevice="mobile"
-          showToolbar
-          toolbarPosition="top"
-          deviceQueryParam="device"
-          chromeless
-          renderToolbar={runtimeToolbar}
-        >
-          {runtimeSurface}
-        </PreviewFrame>
+    <SmartTriadProvider>
+      <div className="min-h-screen bg-slate-950 text-white">
+        {/* Header */}
+        <div className="border-b border-slate-800 px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-blue-400" />
+                <h1 className="text-lg font-semibold">metaMe Runtime</h1>
+              </div>
+              {lastAction && (
+                <div className="text-xs text-green-400">
+                  {lastAction}
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleCopyShareLink}
+                className="text-slate-400 hover:text-white"
+              >
+                {copySuccess ? (
+                  <CheckCircle2 className="h-4 w-4" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <div className="p-6">
+          <div className="max-w-4xl mx-auto">
+            {/* Experience Card */}
+            <Card className="bg-slate-900 border-slate-800 mb-6">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-3">
+                  <Gift className="h-5 w-5 text-blue-400" />
+                  {DEFAULT_EXPERIENCE.name}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-slate-400 mb-4">{DEFAULT_EXPERIENCE.description}</p>
+                <div className="flex items-center gap-4">
+                  <ValueChip
+                    label="Reward"
+                    value={`${DEFAULT_EXPERIENCE.rewardAmount} ${DEFAULT_EXPERIENCE.currency}`}
+                    variant="blue"
+                  />
+                  <ValueChip
+                    label="Duration"
+                    value="25 min"
+                    variant="green"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Action Buttons */}
+            <div className="flex gap-4 mb-6">
+              <Button
+                className="bg-blue-600 hover:bg-blue-700"
+                onClick={() => handleLastAction("Experience started")}
+              >
+                <PlayCircle className="h-4 w-4 mr-2" />
+                Start Experience
+              </Button>
+              <Button
+                variant="outline"
+                className="border-slate-700 text-slate-300 hover:bg-slate-800"
+                onClick={() => handleLastAction("Wallet opened")}
+              >
+                <Wallet className="h-4 w-4 mr-2" />
+                Connect Wallet
+              </Button>
+            </div>
+
+            {/* Design Qube Info */}
+            {designQube && (
+              <Card className="bg-slate-900 border-slate-800">
+                <CardHeader>
+                  <CardTitle className="text-sm">Design System</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-sm text-slate-400">
+                    <p>Theme: {designQube.name}</p>
+                    <p>Colors: {Object.keys(designQube.tokens.themes.dark?.color || {}).length}</p>
+                    <p>Components: {Object.keys(designQube.components || {}).length}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
+
+        {/* Liquid UI Wallet Drawer */}
+        <CopilotWalletDrawer />
       </div>
-    </div>
+    </SmartTriadProvider>
   );
 }
