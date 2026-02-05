@@ -30,9 +30,8 @@ const nextConfig = {
       if (Array.isArray(config.externals)) {
         config.externals.push('pdf-parse');
         config.externals.push('@napi-rs/canvas');
-        // Avoid Next vendor-chunk resolution issues for OpenTelemetry in some environments.
-        // Use an explicit commonjs mapping because scoped package names are not valid JS identifiers.
-        config.externals.push({ '@opentelemetry/api': 'commonjs @opentelemetry/api' });
+        // Avoid externalizing OpenTelemetry for edge/middleware bundles.
+        // (External requires can break middleware in dev with "Native module not found".)
       }
     }
     return config;
