@@ -1046,7 +1046,9 @@ export const ComposerStudio = () => {
     if (Array.isArray(copilotStep.outputs) && copilotStep.outputs.length > 0) {
       list.push({ label: getLabel("copilot_output", "outputs"), value: copilotStep.outputs.join(", ") });
     }
-    if (copilotStep.takeaways_count !== undefined) list.push({ label: getLabel("copilot_output", "takeaways_count"), value: String(copilotStep.takeaways_count) });
+    if (copilotStep.takeaways_count !== undefined) {
+      list.push({ label: getLabel("copilot_output", "takeaways_count"), value: String(copilotStep.takeaways_count) });
+    }
 
     return list;
   }, [mergedData, sessionTemplate]);
