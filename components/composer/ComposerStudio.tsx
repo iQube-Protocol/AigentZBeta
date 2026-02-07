@@ -405,12 +405,13 @@ export const ComposerStudio = () => {
   const [designQubeLoading, setDesignQubeLoading] = useState(false);
   const [designQubeError, setDesignQubeError] = useState<string | null>(null);
   const [designTheme, setDesignTheme] = useState<DesignQubeThemeMode>("dark");
-  const [designQubeCollapsed, setDesignQubeCollapsed] = useState(false);
+  const [designQubeCollapsed, setDesignQubeCollapsed] = useState(true);
   const [designQubeActivePanel, setDesignQubeActivePanel] = useState("style");
   const [designQubeActiveSubPanel, setDesignQubeActiveSubPanel] = useState("visual");
   const [styleQubeActiveTab, setStyleQubeActiveTab] = useState("visual");
   const [structureQubeActiveTab, setStructureQubeActiveTab] = useState("templates");
-  const [guidesActiveTab, setGuidesActiveTab] = useState("who");
+  const [guidesActiveTab, setGuidesActiveTab] = useState("style-guide");
+  const [styleGuideActiveTab, setStyleGuideActiveTab] = useState("css");
   const [designQubeSummaryLayout, setDesignQubeSummaryLayout] = useState<"compact" | "grid">("compact");
   const [activeStyleQubeId, setActiveStyleQubeId] = useState("knyt-guidance-v1");
   const [selectedExperience, setSelectedExperience] = useState<ExperienceQube | null>(null);
@@ -1663,24 +1664,16 @@ export const ComposerStudio = () => {
                                 {designQube.styleBrief}
                               </div>
                             )}
-                            
                             <Tabs value={guidesActiveTab} onValueChange={setGuidesActiveTab} className="w-full">
-                              <TabsList className="grid w-full grid-cols-4 h-auto p-1 bg-slate-800/50 border border-slate-700/50 rounded-lg">
-                                <TabsTrigger value="who" className="flex items-center gap-1 px-2 py-1 text-xs data-[state=active]:bg-slate-700 data-[state=active]:text-white">
-                                  <Bot className="h-3 w-3" />
-                                  Who
+                              <TabsList className="grid w-full grid-cols-2 h-auto p-1 bg-slate-800/50 border border-slate-700/50 rounded-lg mb-4">
+                                <TabsTrigger value="style-guide" className="flex items-center gap-2 px-3 py-2 text-xs data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+                                  <Palette className="h-3 w-3" />
+                                  Style Guide
                                 </TabsTrigger>
-                                <TabsTrigger value="what" className="flex items-center gap-1 px-2 py-1 text-xs data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+                                <TabsTrigger value="experience-guide" className="flex items-center gap-2 px-3 py-2 text-xs data-[state=active]:bg-slate-700 data-[state=active]:text-white">
                                   <Hexagon className="h-3 w-3" />
-                                  What
+                                  Experience Guide
                                 </TabsTrigger>
-                                <TabsTrigger value="wow" className="flex items-center gap-1 px-2 py-1 text-xs data-[state=active]:bg-slate-700 data-[state=active]:text-white">
-                                  <ShieldCheck className="h-3 w-3" />
-                                  Wow
-                                </TabsTrigger>
-                                <TabsTrigger value="metrics" className="flex items-center gap-1 px-2 py-1 text-xs data-[state=active]:bg-slate-700 data-[state=active]:text-white">
-                                  <LayoutGrid className="h-3 w-3" />
-                                  Metrics
                                 </TabsTrigger>
                               </TabsList>
 
@@ -2370,21 +2363,17 @@ Example: 'What template works best for a dashboard layout?'"
                               ))}
                             </div>
                             <div className="flex items-center gap-3">
-                              {/* Experience Modalities */}
-                              <div className="flex items-center gap-1" title="Experience Modalities">
-                                <Eye className="h-3 w-3 text-blue-400" />
-                                <Volume2 className="h-3 w-3 text-green-400" />
-                                <LayoutGrid className="h-3 w-3 text-purple-400" />
-                              </div>
-                              {/* Costs */}
-                              <div className="flex items-center gap-1" title="Costs in Q¢">
-                                <span className="text-slate-400">Cost:</span>
-                                <span className="text-orange-400 font-medium">250 Q¢</span>
-                              </div>
-                              {/* Rewards */}
-                              <div className="flex items-center gap-1" title="Rewards in Q¢">
-                                <span className="text-slate-400">Reward:</span>
-                                <span className="text-emerald-400 font-medium">100 Q¢</span>
+                              {/* Experience Modalities - Larger Icons */}
+                              <div className="flex items-center gap-2" title="Experience Modalities">
+                                <div className="rounded-lg border border-blue-400/60 bg-blue-400/10 p-2">
+                                  <Eye className="h-4 w-4 text-blue-300" />
+                                </div>
+                                <div className="rounded-lg border border-green-400/60 bg-green-400/10 p-2">
+                                  <Volume2 className="h-4 w-4 text-green-300" />
+                                </div>
+                                <div className="rounded-lg border border-purple-400/60 bg-purple-400/10 p-2">
+                                  <LayoutGrid className="h-4 w-4 text-purple-300" />
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -2566,6 +2555,22 @@ Example: 'What template works best for a dashboard layout?'"
                     <div className="rounded-xl border border-slate-700 bg-slate-800/30 p-4">
                       <h4 className="text-sm font-medium text-white mb-2">Category</h4>
                       <span className="text-sm text-slate-300">{selectedExperience.metadata?.category || 'General'}</span>
+                    </div>
+                    <div className="rounded-xl border border-slate-700 bg-slate-800/30 p-4">
+                      <h4 className="text-sm font-medium text-white mb-2">Cost</h4>
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-full border border-orange-400/60 bg-orange-400/10 px-2 py-1 text-xs font-medium text-orange-300">
+                          25 Q¢
+                        </span>
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-slate-700 bg-slate-800/30 p-4">
+                      <h4 className="text-sm font-medium text-white mb-2">Reward</h4>
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-full border border-emerald-400/60 bg-emerald-400/10 px-2 py-1 text-xs font-medium text-emerald-300">
+                          10 Q¢
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </TabsContent>
