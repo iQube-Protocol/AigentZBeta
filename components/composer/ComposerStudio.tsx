@@ -2679,3 +2679,5 @@ Example: 'What template works best for a dashboard layout?'"
     </div>
   );
 };
+
+export default ComposerStudio;
