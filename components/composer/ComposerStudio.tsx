@@ -1675,14 +1675,13 @@ export const ComposerStudio = () => {
                                   <Hexagon className="h-3 w-3" />
                                   Experience Guide
                                 </TabsTrigger>
-                                </TabsTrigger>
                               </TabsList>
 
                               {/* Who Tab Content */}
                               <TabsContent value="who" className="mt-3 space-y-3">
                                 <div className="space-y-2">
                                   <span className="text-slate-400 text-xs">Audience:</span>
-                                  <div style={{ color: themeText }} className="mt-1 p-2 rounded" style={{ backgroundColor: 'rgba(51, 65, 85, 0.3)' }}>
+                                  <div className="mt-1 p-2 rounded" style={{ color: themeText, backgroundColor: 'rgba(51, 65, 85, 0.3)' }}>
                                     {designQube.guidesBriefs?.experienceGuide?.who?.audience}
                                   </div>
                                 </div>
