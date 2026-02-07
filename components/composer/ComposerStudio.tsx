@@ -1052,7 +1052,7 @@ export const ComposerStudio = () => {
 
     return list;
   }, [mergedData, sessionTemplate]);
-return (
+  return (
     <div className="min-h-screen bg-slate-900 px-6 py-6">
       <div className="w-full space-y-8">
         <div className="flex flex-wrap items-center justify-between gap-4">
