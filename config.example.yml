@@ -1,0 +1,36 @@
+# QubeAgent Configuration Example
+
+# Blockchain Configuration
+web3_provider_url: https://mainnet.infura.io/v3/YOUR_PROJECT_ID
+wallet_private_key: replace_with_your_private_key
+default_network: ethereum
+
+# iQube Registry Configuration
+iqube_registry_contract_address: '0x0000000000000000000000000000000000000000'
+token_contract_address: '0x0000000000000000000000000000000000000000'
+
+# Content Storage
+ipfs_endpoint: '/ip4/127.0.0.1/tcp/5001'
+blakqube_local_storage: './blakqube_cache'
+
+# Logging
+log_level: INFO
+
+# Security
+encryption_key: generate_a_secure_random_key_here
+
+# Optional External Services
+openai_api_key: your_openai_api_key
+anthropic_api_key: your_anthropic_api_key
+tavily_api_key: your_tavily_api_key
+
+# Agent Configuration
+agent_capabilities:
+  - web_search
+  - blockchain_interaction
+  - content_resolution
+
+# Advanced Settings
+performance:
+  max_concurrent_tasks: 5
+  timeout_seconds: 60

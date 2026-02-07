@@ -1,0 +1,53 @@
+{
+  "id": "structureqube-knyt-guidance-v1",
+  "name": "KNYT Guidance StructureQube",
+  "source": "template-map.json",
+  "breakpoints": {
+    "mobile": { "maxWidth": 640, "columns": 1 },
+    "tablet": { "maxWidth": 1024, "columns": 2 },
+    "desktop": { "minWidth": 1025, "columns": 3 }
+  },
+  "templates": [
+    "liquidui:drawer_grid_v1",
+    "liquidui:drawer_grid_1a",
+    "liquidui:drawer_grid_1b",
+    "liquidui:drawer_grid_1c",
+    "liquidui:drawer_grid_2a",
+    "liquidui:drawer_grid_2b",
+    "liquidui:drawer_grid_2c",
+    "liquidui:drawer_grid_3a",
+    "liquidui:drawer_grid_3b",
+    "liquidui:reader_viewer_v1"
+  ],
+  "templateSelection": {
+    "priority": [
+      "liquidui:reader_viewer_v1",
+      "liquidui:drawer_grid_v1",
+      "liquidui:drawer_grid_2a",
+      "liquidui:drawer_grid_3a"
+    ],
+    "byModality": {
+      "read": ["liquidui:reader_viewer_v1"],
+      "browse": ["liquidui:drawer_grid_v1", "liquidui:drawer_grid_2a", "liquidui:drawer_grid_3a"],
+      "watch": ["liquidui:drawer_grid_2b", "liquidui:drawer_grid_3b"],
+      "listen": ["liquidui:drawer_grid_1b", "liquidui:drawer_grid_2c"]
+    },
+    "byDensity": {
+      "compact": ["liquidui:drawer_grid_1a", "liquidui:drawer_grid_1b"],
+      "balanced": ["liquidui:drawer_grid_2a", "liquidui:drawer_grid_2b"],
+      "rich": ["liquidui:drawer_grid_3a", "liquidui:drawer_grid_3b"]
+    },
+    "bySurface": {
+      "drawer": ["liquidui:drawer_grid_v1", "liquidui:drawer_grid_2a", "liquidui:drawer_grid_3a"],
+      "reader": ["liquidui:reader_viewer_v1"]
+    }
+  },
+  "layoutRules": [
+    "primary CTA above fold on mobile",
+    "cards reflow to single column under 640px",
+    "grid density increases with breakpoint",
+    "tabs collapse to underline style",
+    "reader layout uses max-width container"
+  ],
+  "version": "1.0.0"
+}

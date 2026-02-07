@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bot, CheckCircle2, ChevronDown, ChevronUp, Circle, Hexagon, LayoutGrid, List, Loader2, Monitor, Moon, Palette, ShieldCheck, SlidersHorizontal, Sun } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Bot, CheckCircle2, ChevronDown, ChevronUp, Circle, FileText, Hexagon, LayoutGrid, List, Loader2, Monitor, Moon, Palette, ShieldCheck, SlidersHorizontal, Sun, BookOpen, Eye, Volume2, Type, MonitorIcon, Smartphone, Tablet, Tv, Upload, Play } from "lucide-react";
 import { useCopilotAction } from "@copilotkit/react-core";
 import { Button } from "@/components/ui/button";
 import { PreviewFrame } from "@/components/preview/PreviewFrame";
@@ -70,11 +71,14 @@ type ExperienceQube = {
   id: string;
   name: string;
   description: string;
+  goal: string;
+  mechanics: string;
+  metrics: string;
   tenant_id: string;
   creator_id: string;
   template_id: string;
   status: string;
-  metadata?: { tags?: string[]; category?: string; version?: string };
+  metadata?: { category?: string; version?: string };
 };
 
 const DEFAULT_TENANT = "qripto-codex";
@@ -401,9 +405,16 @@ export const ComposerStudio = () => {
   const [designQubeLoading, setDesignQubeLoading] = useState(false);
   const [designQubeError, setDesignQubeError] = useState<string | null>(null);
   const [designTheme, setDesignTheme] = useState<DesignQubeThemeMode>("dark");
-  const [designQubeCollapsed, setDesignQubeCollapsed] = useState(true);
+  const [designQubeCollapsed, setDesignQubeCollapsed] = useState(false);
+  const [designQubeActivePanel, setDesignQubeActivePanel] = useState("style");
+  const [designQubeActiveSubPanel, setDesignQubeActiveSubPanel] = useState("visual");
+  const [styleQubeActiveTab, setStyleQubeActiveTab] = useState("visual");
+  const [structureQubeActiveTab, setStructureQubeActiveTab] = useState("templates");
+  const [guidesActiveTab, setGuidesActiveTab] = useState("who");
   const [designQubeSummaryLayout, setDesignQubeSummaryLayout] = useState<"compact" | "grid">("compact");
   const [activeStyleQubeId, setActiveStyleQubeId] = useState("knyt-guidance-v1");
+  const [selectedExperience, setSelectedExperience] = useState<ExperienceQube | null>(null);
+  const [showExperienceModal, setShowExperienceModal] = useState(false);
   const { data: codexList } = useCodexList({ useDefaults: true });
   const [copilotContextId, setCopilotContextId] = useState("qripto-codex");
   const [codexContentItems, setCodexContentItems] = useState<
@@ -1429,7 +1440,7 @@ export const ComposerStudio = () => {
                 {experiences.map((exp) => (
                   <div key={exp.id} className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
                     <div className="text-sm font-semibold text-white">{exp.name}</div>
-                    <div className="text-xs text-slate-400">{exp.description}</div>
+                    <div className="text-xs text-slate-400 mt-1 line-clamp-2">{exp.description}</div>
                     <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-400">
                       <span className="rounded-full border border-slate-700 px-2 py-0.5">{exp.status}</span>
                       {exp.metadata?.category && (
@@ -1437,31 +1448,41 @@ export const ComposerStudio = () => {
                           {exp.metadata.category}
                         </span>
                       )}
-                      {exp.metadata?.tags?.slice(0, 2).map((tag) => (
-                        <span key={tag} className="rounded-full border border-slate-700 px-2 py-0.5">
-                          {tag}
-                        </span>
-                      ))}
                     </div>
                     <div className="mt-3 flex items-center gap-2">
                       <button
                         onClick={() => {
                           setSelectedExperienceId(exp.id);
+                          setPreviewAction(`Launch ${exp.name}`);
+                        }}
+                        className="rounded-lg border border-emerald-400/60 bg-emerald-400/10 p-2 text-emerald-200 hover:bg-emerald-400/20"
+                        title="Launch Experience"
+                      >
+                        <Play className="h-3 w-3" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSelectedExperienceId(exp.id);
                           setPreviewAction(`Preview ${exp.name}`);
                         }}
-                        className={`rounded-lg border px-3 py-1.5 text-xs font-semibold ${
+                        className={`rounded-lg border p-2 ${
                           selectedExperienceId === exp.id
                             ? "border-cyan-400/60 bg-cyan-400/10 text-cyan-200"
                             : "border-slate-700 bg-slate-900/40 text-slate-300 hover:bg-slate-800/60"
                         }`}
+                        title="Preview Experience"
                       >
-                        Preview
+                        <Eye className="h-3 w-3" />
                       </button>
                       <button
-                        onClick={() => router.push(`/studio/composer/experience/${exp.id}`)}
-                        className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-200 hover:bg-emerald-500/20"
+                        onClick={() => {
+                          setSelectedExperience(exp);
+                          setShowExperienceModal(true);
+                        }}
+                        className="rounded-lg border border-blue-400/60 bg-blue-400/10 p-2 text-blue-200 hover:bg-blue-400/20"
+                        title="View Details"
                       >
-                        Launch Experience
+                        <FileText className="h-3 w-3" />
                       </button>
                     </div>
                   </div>
@@ -1491,9 +1512,9 @@ export const ComposerStudio = () => {
               <div>
                 <div className="flex items-center gap-2">
                   <Palette className="h-4 w-4 text-rose-300" />
-                  <h2 className="text-lg font-semibold text-white">StyleQube</h2>
+                  <h2 className="text-lg font-semibold text-white">DesignQube</h2>
                 </div>
-                <p className="text-sm text-slate-400">Active styling profile for Runtime + Studio.</p>
+                <p className="text-sm text-slate-400">Enhanced design system with style, structure, and guidance panels.</p>
               </div>
             </div>
             {designQubeLoading && (
@@ -1598,12 +1619,683 @@ export const ComposerStudio = () => {
                       </div>
 
                       {!designQubeCollapsed ? (
-                        <>
-                          {designQube.styleBrief && (
-                            <div className="mt-3 max-h-[160px] overflow-y-auto pr-1 text-sm" style={{ color: themeText }}>
-                              {designQube.styleBrief}
+                        <div className="mt-4 max-h-[500px] overflow-y-auto pr-2 space-y-4">
+                          {/* Enhanced Data Loading Test Section */}
+                          <div className="mt-4 rounded-xl border p-3" style={{ backgroundColor: themeBg, borderColor: themeBorder }}>
+                            <h4 className="text-sm font-medium text-white mb-2 flex items-center gap-2">
+                              <BookOpen className="h-4 w-4 text-indigo-300" />
+                              Enhanced Data Loading
+                            </h4>
+                            <div className="grid grid-cols-2 gap-4 text-xs">
+                              <div className="space-y-1" style={{ color: themeText }}>
+                                <div>✅ StyleQube: {designQube.styleQube ? 'Loaded' : 'Missing'}</div>
+                                <div>✅ StructureQube: {designQube.structureQube ? 'Loaded' : 'Missing'}</div>
+                                <div>✅ GuidesBriefs: {designQube.guidesBriefs ? 'Loaded' : 'Missing'}</div>
+                                <div>✅ Sources: {designQube.sources?.length || 0} files</div>
+                                <div>✅ Visual Sub-Groups: {designQube.styleQube?.visual ? 'Available' : 'Missing'}</div>
+                              </div>
+                              <div className="space-y-1" style={{ color: themeText }}>
+                                <div>✅ Audio Sub-Groups: {designQube.styleQube?.audio ? 'Available' : 'Missing'}</div>
+                                <div>✅ Text Sub-Groups: {designQube.styleQube?.text ? 'Available' : 'Missing'}</div>
+                                <div>✅ Spatial Sub-Groups: {designQube.styleQube?.spatial ? 'Available' : 'Missing'}</div>
+                                <div>✅ Content Modules: {designQube.structureQube?.contentModules?.length || 0} available</div>
+                                <div>✅ Big-Screen Support: {designQube.structureQube?.breakpoints?.bigScreen ? 'Enabled' : 'Missing'}</div>
+                              </div>
                             </div>
-                          )}
+                          </div>
+
+                          {/* Guides/Briefs Panel - Integrated with styleBrief */}
+                          <div className="mt-4 rounded-xl border p-4" style={{ backgroundColor: themeBg, borderColor: themeBorder }}>
+                            <div className="flex items-center justify-between mb-3">
+                              <h4 className="text-sm font-medium text-white flex items-center gap-2">
+                                <BookOpen className="h-4 w-4 text-indigo-300" />
+                                Guides & Briefs
+                              </h4>
+                              <button className="flex items-center gap-1 px-2 py-1 text-xs bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 rounded-md border border-indigo-500/30">
+                                <Upload className="h-3 w-3" />
+                                Upload
+                              </button>
+                            </div>
+                            
+                            {/* styleBrief text integrated here */}
+                            {designQube.styleBrief && (
+                              <div className="mb-4 max-h-[120px] overflow-y-auto pr-1 text-sm" style={{ color: themeText }}>
+                                {designQube.styleBrief}
+                              </div>
+                            )}
+                            
+                            <Tabs value={guidesActiveTab} onValueChange={setGuidesActiveTab} className="w-full">
+                              <TabsList className="grid w-full grid-cols-4 h-auto p-1 bg-slate-800/50 border border-slate-700/50 rounded-lg">
+                                <TabsTrigger value="who" className="flex items-center gap-1 px-2 py-1 text-xs data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+                                  <Bot className="h-3 w-3" />
+                                  Who
+                                </TabsTrigger>
+                                <TabsTrigger value="what" className="flex items-center gap-1 px-2 py-1 text-xs data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+                                  <Hexagon className="h-3 w-3" />
+                                  What
+                                </TabsTrigger>
+                                <TabsTrigger value="wow" className="flex items-center gap-1 px-2 py-1 text-xs data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+                                  <ShieldCheck className="h-3 w-3" />
+                                  Wow
+                                </TabsTrigger>
+                                <TabsTrigger value="metrics" className="flex items-center gap-1 px-2 py-1 text-xs data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+                                  <LayoutGrid className="h-3 w-3" />
+                                  Metrics
+                                </TabsTrigger>
+                              </TabsList>
+
+                              {/* Who Tab Content */}
+                              <TabsContent value="who" className="mt-3 space-y-3">
+                                <div className="space-y-2">
+                                  <span className="text-slate-400 text-xs">Audience:</span>
+                                  <div style={{ color: themeText }} className="mt-1 p-2 rounded" style={{ backgroundColor: 'rgba(51, 65, 85, 0.3)' }}>
+                                    {designQube.guidesBriefs?.experienceGuide?.who?.audience}
+                                  </div>
+                                </div>
+                                <div className="space-y-2">
+                                  <span className="text-slate-400 text-xs">Demographics:</span>
+                                  <div className="space-y-1 mt-1">
+                                    {designQube.guidesBriefs?.experienceGuide?.who?.demographics?.slice(0, 3).map((item, idx) => (
+                                      <div key={idx} className="text-xs p-2 rounded" style={{ backgroundColor: 'rgba(51, 65, 85, 0.3)', color: themeText }}>
+                                        {item}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </TabsContent>
+
+                              {/* What Tab Content */}
+                              <TabsContent value="what" className="mt-3 space-y-3">
+                                <div className="space-y-2">
+                                  <span className="text-slate-400 text-xs">Delivery Methods:</span>
+                                  <div className="space-y-1 mt-1">
+                                    {designQube.guidesBriefs?.experienceGuide?.what?.delivery?.slice(0, 3).map((item, idx) => (
+                                      <div key={idx} className="text-xs p-2 rounded" style={{ backgroundColor: 'rgba(51, 65, 85, 0.3)', color: themeText }}>
+                                        {item}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                                <div className="space-y-2">
+                                  <span className="text-slate-400 text-xs">Mechanics:</span>
+                                  <div className="space-y-1 mt-1">
+                                    {designQube.guidesBriefs?.experienceGuide?.what?.mechanics?.slice(0, 3).map((item, idx) => (
+                                      <div key={idx} className="text-xs p-2 rounded" style={{ backgroundColor: 'rgba(51, 65, 85, 0.3)', color: themeText }}>
+                                        {item}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </TabsContent>
+
+                              {/* Wow Tab Content */}
+                              <TabsContent value="wow" className="mt-3 space-y-3">
+                                <div className="space-y-2">
+                                  <span className="text-slate-400 text-xs">Differentiators:</span>
+                                  <div className="space-y-1 mt-1">
+                                    {designQube.guidesBriefs?.experienceGuide?.wow?.differentiators?.slice(0, 3).map((item, idx) => (
+                                      <div key={idx} className="text-xs p-2 rounded" style={{ backgroundColor: 'rgba(51, 65, 85, 0.3)', color: themeText }}>
+                                        {item}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                                <div className="space-y-2">
+                                  <span className="text-slate-400 text-xs">Innovations:</span>
+                                  <div className="space-y-1 mt-1">
+                                    {designQube.guidesBriefs?.experienceGuide?.wow?.innovations?.slice(0, 3).map((item, idx) => (
+                                      <div key={idx} className="text-xs p-2 rounded" style={{ backgroundColor: 'rgba(51, 65, 85, 0.3)', color: themeText }}>
+                                        {item}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </TabsContent>
+
+                              {/* Metrics Tab Content */}
+                              <TabsContent value="metrics" className="mt-3 space-y-3">
+                                <div className="space-y-2">
+                                  <span className="text-slate-400 text-xs">Success Metrics:</span>
+                                  <div className="space-y-1 max-h-24 overflow-y-auto">
+                                    {designQube.guidesBriefs?.experienceGuide?.metrics?.success?.slice(0, 3).map((metric, idx) => (
+                                      <div key={idx} className="text-xs p-2 rounded" style={{ backgroundColor: 'rgba(51, 65, 85, 0.3)', color: themeText }}>
+                                        {metric}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                                <div className="space-y-2">
+                                  <span className="text-slate-400 text-xs">Key Performance Indicators:</span>
+                                  <div className="space-y-1 max-h-24 overflow-y-auto">
+                                    {designQube.guidesBriefs?.experienceGuide?.metrics?.kpis?.slice(0, 3).map((kpi, idx) => (
+                                      <div key={idx} className="text-xs p-2 rounded" style={{ backgroundColor: 'rgba(51, 65, 85, 0.3)', color: themeText }}>
+                                        {kpi}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </TabsContent>
+                            </Tabs>
+                          </div>
+
+                          {/* Enhanced StyleQube Panel */}
+                          <div className="mt-4 rounded-xl border p-4" style={{ backgroundColor: themeBg, borderColor: themeBorder }}>
+                            <h4 className="text-sm font-medium text-white mb-3 flex items-center gap-2">
+                              <Palette className="h-4 w-4 text-rose-300" />
+                              StyleQube
+                            </h4>
+                            <Tabs value={styleQubeActiveTab} onValueChange={setStyleQubeActiveTab} className="w-full">
+                              <TabsList className="grid w-full grid-cols-4 h-auto p-1 bg-slate-800/50 border border-slate-700/50 rounded-lg">
+                                <TabsTrigger value="visual" className="flex items-center gap-1 px-2 py-1 text-xs data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+                                  <Eye className="h-3 w-3" />
+                                  Visual
+                                </TabsTrigger>
+                                <TabsTrigger value="audio" className="flex items-center gap-1 px-2 py-1 text-xs data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+                                  <Volume2 className="h-3 w-3" />
+                                  Audio
+                                </TabsTrigger>
+                                <TabsTrigger value="text" className="flex items-center gap-1 px-2 py-1 text-xs data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+                                  <Type className="h-3 w-3" />
+                                  Text
+                                </TabsTrigger>
+                                <TabsTrigger value="spatial" className="flex items-center gap-1 px-2 py-1 text-xs data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+                                  <LayoutGrid className="h-3 w-3" />
+                                  Spatial
+                                </TabsTrigger>
+                              </TabsList>
+
+                              {/* Visual Tab Content */}
+                              <TabsContent value="visual" className="mt-3 space-y-3">
+                                <div className="grid grid-cols-3 gap-3 text-xs">
+                                  <div>
+                                    <span className="text-slate-400">Primary Color:</span>
+                                    <div className="flex items-center gap-2 mt-1">
+                                      <div 
+                                        className="w-3 h-3 rounded border border-slate-600" 
+                                        style={{ backgroundColor: designQube.styleQube?.visual?.colors?.primary }}
+                                      />
+                                      <span style={{ color: themeText }}>{designQube.styleQube?.visual?.colors?.primary}</span>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400">Secondary Color:</span>
+                                    <div className="flex items-center gap-2 mt-1">
+                                      <div 
+                                        className="w-3 h-3 rounded border border-slate-600" 
+                                        style={{ backgroundColor: designQube.styleQube?.visual?.colors?.secondary }}
+                                      />
+                                      <span style={{ color: themeText }}>{designQube.styleQube?.visual?.colors?.secondary}</span>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400">Accent Color:</span>
+                                    <div className="flex items-center gap-2 mt-1">
+                                      <div 
+                                        className="w-3 h-3 rounded border border-slate-600" 
+                                        style={{ backgroundColor: designQube.styleQube?.visual?.colors?.accent }}
+                                      />
+                                      <span style={{ color: themeText }}>{designQube.styleQube?.visual?.colors?.accent}</span>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400">Font Family:</span>
+                                    <div style={{ color: themeText }} className="mt-1">
+                                      {designQube.styleQube?.visual?.typography?.fontFamily?.primary}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400">Border Radius:</span>
+                                    <div style={{ color: themeText }} className="mt-1">
+                                      {designQube.styleQube?.visual?.radius?.md}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400">Shadow:</span>
+                                    <div style={{ color: themeText }} className="mt-1">
+                                      {designQube.styleQube?.visual?.shadows?.md}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="space-y-2">
+                                  <span className="text-slate-400 text-xs">Animation Duration:</span>
+                                  <div className="grid grid-cols-3 gap-2 text-xs">
+                                    <div style={{ color: themeText }}>Fast: {designQube.styleQube?.visual?.animations?.duration?.fast}</div>
+                                    <div style={{ color: themeText }}>Normal: {designQube.styleQube?.visual?.animations?.duration?.normal}</div>
+                                    <div style={{ color: themeText }}>Slow: {designQube.styleQube?.visual?.animations?.duration?.slow}</div>
+                                  </div>
+                                </div>
+                              </TabsContent>
+
+                              {/* Audio Tab Content */}
+                              <TabsContent value="audio" className="mt-3 space-y-3">
+                                <div className="grid grid-cols-3 gap-3 text-xs">
+                                  <div>
+                                    <span className="text-slate-400">Voice Persona:</span>
+                                    <div style={{ color: themeText }} className="mt-1">
+                                      {designQube.styleQube?.audio?.voice?.persona}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400">Accent:</span>
+                                    <div style={{ color: themeText }} className="mt-1">
+                                      {designQube.styleQube?.audio?.voice?.accent}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400">Pace:</span>
+                                    <div style={{ color: themeText }} className="mt-1">
+                                      {designQube.styleQube?.audio?.voice?.pace}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400">Sound Effects:</span>
+                                    <div style={{ color: themeText }} className="mt-1">
+                                      {designQube.styleQube?.audio?.soundEffects?.enabled ? 'Enabled' : 'Disabled'}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400">TTS Provider:</span>
+                                    <div style={{ color: themeText }} className="mt-1">
+                                      {designQube.styleQube?.audio?.voice?.ttsHints?.provider}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400">Voice ID:</span>
+                                    <div style={{ color: themeText }} className="mt-1">
+                                      {designQube.styleQube?.audio?.voice?.ttsHints?.voiceId}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="space-y-2">
+                                  <span className="text-slate-400 text-xs">Audio Settings:</span>
+                                  <div className="grid grid-cols-3 gap-2 text-xs">
+                                    <div style={{ color: themeText }}>Volume: {designQube.styleQube?.audio?.volume || '80%'}</div>
+                                    <div style={{ color: themeText }}>Pitch: {designQube.styleQube?.audio?.pitch || 'Normal'}</div>
+                                    <div style={{ color: themeText }}>Quality: {designQube.styleQube?.audio?.quality || 'High'}</div>
+                                  </div>
+                                </div>
+                              </TabsContent>
+
+                              {/* Text Tab Content */}
+                              <TabsContent value="text" className="mt-3 space-y-3">
+                                <div className="grid grid-cols-3 gap-3 text-xs">
+                                  <div>
+                                    <span className="text-slate-400">Font Family:</span>
+                                    <div style={{ color: themeText }} className="mt-1">
+                                      {designQube.styleQube?.text?.formatting?.fontFamily}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400">Font Size:</span>
+                                    <div style={{ color: themeText }} className="mt-1">
+                                      {designQube.styleQube?.text?.formatting?.fontSize}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400">Line Height:</span>
+                                    <div style={{ color: themeText }} className="mt-1">
+                                      {designQube.styleQube?.text?.formatting?.lineHeight}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400">Max Width:</span>
+                                    <div style={{ color: themeText }} className="mt-1">
+                                      {designQube.styleQube?.text?.formatting?.maxWidth}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400">Personality:</span>
+                                    <div style={{ color: themeText }} className="mt-1">
+                                      {designQube.styleQube?.text?.tone?.personality}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400">Formality:</span>
+                                    <div style={{ color: themeText }} className="mt-1">
+                                      {designQube.styleQube?.text?.tone?.formality}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="space-y-2">
+                                  <span className="text-slate-400 text-xs">Text Settings:</span>
+                                  <div className="grid grid-cols-3 gap-2 text-xs">
+                                    <div style={{ color: themeText }}>Weight: {designQube.styleQube?.text?.formatting?.fontWeight || 'Medium'}</div>
+                                    <div style={{ color: themeText }}>Spacing: {designQube.styleQube?.text?.formatting?.letterSpacing || 'Normal'}</div>
+                                    <div style={{ color: themeText }}>Transform: {designQube.styleQube?.text?.formatting?.textTransform || 'None'}</div>
+                                  </div>
+                                </div>
+                              </TabsContent>
+
+                              {/* Spatial Tab Content */}
+                              <TabsContent value="spatial" className="mt-3 space-y-3">
+                                <div className="grid grid-cols-2 gap-3 text-xs">
+                                  <div>
+                                    <span className="text-slate-400">3D Transforms:</span>
+                                    <div style={{ color: themeText }} className="mt-1">
+                                      {designQube.styleQube?.spatial?.threeD?.enabled ? 'Enabled' : 'Disabled'}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400">Z-Axis Stacking:</span>
+                                    <div style={{ color: themeText }} className="mt-1">
+                                      {designQube.styleQube?.spatial?.zAxis?.enabled ? 'Enabled' : 'Disabled'}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400">AR Support:</span>
+                                    <div style={{ color: themeText }} className="mt-1">
+                                      {designQube.styleQube?.spatial?.ar?.enabled ? 'Enabled' : 'Disabled'}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400">VR Support:</span>
+                                    <div style={{ color: themeText }} className="mt-1">
+                                      {designQube.styleQube?.spatial?.vr?.enabled ? 'Enabled' : 'Disabled'}
+                                    </div>
+                                  </div>
+                                </div>
+                                {designQube.styleQube?.spatial?.threeD?.enabled && (
+                                  <div className="space-y-2">
+                                    <span className="text-slate-400 text-xs">3D Settings:</span>
+                                    <div className="grid grid-cols-2 gap-2 text-xs">
+                                      <div style={{ color: themeText }}>Perspective: {designQube.styleQube.spatial.threeD.perspective}px</div>
+                                      <div style={{ color: themeText }}>Depth: {designQube.styleQube.spatial.threeD.depth}px</div>
+                                    </div>
+                                  </div>
+                                )}
+                              </TabsContent>
+                            </Tabs>
+                          </div>
+
+                          {/* Enhanced StructureQube Panel */}
+                          <div className="mt-4 rounded-xl border p-4" style={{ backgroundColor: themeBg, borderColor: themeBorder }}>
+                            <h4 className="text-sm font-medium text-white mb-3 flex items-center gap-2">
+                              <LayoutGrid className="h-4 w-4 text-cyan-300" />
+                              StructureQube
+                            </h4>
+                            <Tabs value={structureQubeActiveTab} onValueChange={setStructureQubeActiveTab} className="w-full">
+                              <TabsList className="grid w-full grid-cols-4 h-auto p-1 bg-slate-800/50 border border-slate-700/50 rounded-lg">
+                                <TabsTrigger value="templates" className="flex items-center gap-1 px-2 py-1 text-xs data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+                                  <LayoutGrid className="h-3 w-3" />
+                                  Templates
+                                </TabsTrigger>
+                                <TabsTrigger value="modules" className="flex items-center gap-1 px-2 py-1 text-xs data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+                                  <Hexagon className="h-3 w-3" />
+                                  Modules
+                                </TabsTrigger>
+                                <TabsTrigger value="breakpoints" className="flex items-center gap-1 px-2 py-1 text-xs data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+                                  <MonitorIcon className="h-3 w-3" />
+                                  Breakpoints
+                                </TabsTrigger>
+                                <TabsTrigger value="priorities" className="flex items-center gap-1 px-2 py-1 text-xs data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+                                  <ShieldCheck className="h-3 w-3" />
+                                  Priority
+                                </TabsTrigger>
+                              </TabsList>
+
+                              {/* Templates Tab Content */}
+                              <TabsContent value="templates" className="mt-3 space-y-3">
+                                <div className="space-y-2">
+                                  <span className="text-slate-400 text-xs">Priority Templates:</span>
+                                  <div className="grid grid-cols-3 gap-2">
+                                    {designQube.structureQube?.templateSelection?.priority?.slice(0, 6).map((template, idx) => (
+                                      <div key={idx} className="flex items-center gap-2 text-xs p-2 rounded" style={{ backgroundColor: 'rgba(51, 65, 85, 0.3)' }}>
+                                        <div className="w-2 h-2 rounded-full bg-cyan-400" />
+                                        <span style={{ color: themeText }}>{template}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                                <div className="grid grid-cols-3 gap-3 text-xs">
+                                  <div>
+                                    <span className="text-slate-400">Total Templates:</span>
+                                    <div style={{ color: themeText }} className="mt-1">
+                                      {designQube.structureQube?.templates?.length || 0} available
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400">By Modality:</span>
+                                    <div style={{ color: themeText }} className="mt-1">
+                                      {Object.keys(designQube.structureQube?.templateSelection?.byModality || {}).length} categories
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400">By Density:</span>
+                                    <div style={{ color: themeText }} className="mt-1">
+                                      {Object.keys(designQube.structureQube?.templateSelection?.byDensity || {}).length} types
+                                    </div>
+                                  </div>
+                                </div>
+                              </TabsContent>
+
+                              {/* Modules Tab Content */}
+                              <TabsContent value="modules" className="mt-3 space-y-3">
+                                <div className="space-y-2">
+                                  <span className="text-slate-400 text-xs">Content Modules (Priority Order):</span>
+                                  <div className="space-y-1 max-h-32 overflow-y-auto">
+                                    {designQube.structureQube?.contentModules?.map((module, idx) => (
+                                      <div key={module.id} className="flex items-center justify-between text-xs p-2 rounded" style={{ backgroundColor: 'rgba(51, 65, 85, 0.3)' }}>
+                                        <div className="flex items-center gap-2" style={{ color: themeText }}>
+                                          <div className="w-2 h-2 rounded-full bg-purple-400" />
+                                          {module.name}
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-slate-400">Priority:</span>
+                                          <span style={{ color: themeText }}>{module.priority}</span>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </TabsContent>
+
+                              {/* Breakpoints Tab Content */}
+                              <TabsContent value="breakpoints" className="mt-3 space-y-3">
+                                <div className="space-y-2">
+                                  <span className="text-slate-400 text-xs">Responsive Breakpoints:</span>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    {Object.entries(designQube.structureQube?.breakpoints || {}).map(([breakpoint, config]) => (
+                                      <div key={breakpoint} className="flex items-center gap-2 text-xs p-2 rounded" style={{ backgroundColor: 'rgba(51, 65, 85, 0.3)' }}>
+                                        {breakpoint === 'mobile' && <Smartphone className="h-3 w-3 text-blue-400" />}
+                                        {breakpoint === 'tablet' && <Tablet className="h-3 w-3 text-green-400" />}
+                                        {breakpoint === 'desktop' && <MonitorIcon className="h-3 w-3 text-purple-400" />}
+                                        {breakpoint === 'bigScreen' && <Tv className="h-3 w-3 text-orange-400" />}
+                                        <div style={{ color: themeText }}>
+                                          <div className="font-medium capitalize">{breakpoint.replace('bigScreen', 'Big Screen')}</div>
+                                          <div className="text-slate-400">
+                                            {config.minWidth && `≥${config.minWidth}px`}
+                                            {config.maxWidth && ` ≤${config.maxWidth}px`}
+                                            {!config.minWidth && !config.maxWidth && 'Any'}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </TabsContent>
+
+                              {/* Priority Tab Content */}
+                              <TabsContent value="priorities" className="mt-3 space-y-3">
+                                <div className="space-y-2">
+                                  <span className="text-slate-400 text-xs">Component Priority Order:</span>
+                                  <div className="space-y-1">
+                                    {Object.entries(designQube.structureQube?.componentPriorities || {}).map(([component, priority]) => (
+                                      <div key={component} className="flex items-center justify-between text-xs p-2 rounded" style={{ backgroundColor: 'rgba(51, 65, 85, 0.3)' }}>
+                                        <div className="flex items-center gap-2" style={{ color: themeText }}>
+                                          <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                                          {component}
+                                        </div>
+                                        <div style={{ color: themeText }}>Priority {priority}</div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                                <div className="space-y-2">
+                                  <span className="text-slate-400 text-xs">Layout Rules:</span>
+                                  <div className="space-y-1 max-h-24 overflow-y-auto">
+                                    {designQube.structureQube?.layoutRules?.slice(0, 3).map((rule, idx) => (
+                                      <div key={idx} className="text-xs p-2 rounded" style={{ backgroundColor: 'rgba(51, 65, 85, 0.3)', color: themeText }}>
+                                        {rule}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </TabsContent>
+                            </Tabs>
+                          </div>
+
+                          {/* Enhanced Micro-Copilot Customization System */}
+                          <div className="mt-4 rounded-xl border p-4" style={{ backgroundColor: themeBg, borderColor: themeBorder }}>
+                            <h4 className="text-sm font-medium text-white mb-3 flex items-center gap-2">
+                              <Bot className="h-4 w-4 text-emerald-300" />
+                              Customization Guidance
+                            </h4>
+                            <div className="space-y-4">
+                              <div className="text-xs" style={{ color: themeText }}>
+                                Get real-time guidance as you customize templates. These copilots provide explanations, options, and automatically capture decisions in your DesignQube and ExperienceQube.
+                              </div>
+                              
+                              <div className="grid grid-cols-2 gap-4">
+                                {/* Visual Customization Assistant */}
+                                <div className="space-y-2">
+                                  <div className="flex items-center gap-2">
+                                    <Eye className="h-4 w-4 text-blue-300" />
+                                    <span className="text-xs font-medium text-white">Visual Customization</span>
+                                  </div>
+                                  <div className="relative">
+                                    <textarea
+                                      placeholder="Ask about colors, typography, spacing, animations... 
+Example: 'What colors work best for a professional tech theme?'"
+                                      className="w-full px-3 py-2 text-xs bg-slate-800/50 border border-slate-700/50 rounded-md text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none h-16"
+                                    />
+                                    <div className="absolute top-1 right-1">
+                                      <button className="p-1 rounded bg-blue-500/20 hover:bg-blue-500/30 text-blue-300">
+                                        <Bot className="h-3 w-3" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                  <div className="text-xs text-slate-400">
+                                    Provides color suggestions, typography recommendations, animation timing
+                                  </div>
+                                </div>
+
+                                {/* Audio Customization Assistant */}
+                                <div className="space-y-2">
+                                  <div className="flex items-center gap-2">
+                                    <Volume2 className="h-4 w-4 text-green-300" />
+                                    <span className="text-xs font-medium text-white">Audio Customization</span>
+                                  </div>
+                                  <div className="relative">
+                                    <textarea
+                                      placeholder="Ask about voice personas, sound effects, audio feedback...
+Example: 'What voice persona works for educational content?'"
+                                      className="w-full px-3 py-2 text-xs bg-slate-800/50 border border-slate-700/50 rounded-md text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-green-500/50 resize-none h-16"
+                                    />
+                                    <div className="absolute top-1 right-1">
+                                      <button className="p-1 rounded bg-green-500/20 hover:bg-green-500/30 text-green-300">
+                                        <Bot className="h-3 w-3" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                  <div className="text-xs text-slate-400">
+                                    Voice persona selection, sound effect timing, TTS configuration
+                                  </div>
+                                </div>
+
+                                {/* Text & Content Assistant */}
+                                <div className="space-y-2">
+                                  <div className="flex items-center gap-2">
+                                    <Type className="h-4 w-4 text-purple-300" />
+                                    <span className="text-xs font-medium text-white">Text & Content</span>
+                                  </div>
+                                  <div className="relative">
+                                    <textarea
+                                      placeholder="Ask about tone, readability, content structure...
+Example: 'How should I write for a technical audience?'"
+                                      className="w-full px-3 py-2 text-xs bg-slate-800/50 border border-slate-700/50 rounded-md text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 resize-none h-16"
+                                    />
+                                    <div className="absolute top-1 right-1">
+                                      <button className="p-1 rounded bg-purple-500/20 hover:bg-purple-500/30 text-purple-300">
+                                        <Bot className="h-3 w-3" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                  <div className="text-xs text-slate-400">
+                                    Tone adjustment, readability optimization, content structure
+                                  </div>
+                                </div>
+
+                                {/* Layout & Structure Assistant */}
+                                <div className="space-y-2">
+                                  <div className="flex items-center gap-2">
+                                    <LayoutGrid className="h-4 w-4 text-cyan-300" />
+                                    <span className="text-xs font-medium text-white">Layout & Structure</span>
+                                  </div>
+                                  <div className="relative">
+                                    <textarea
+                                      placeholder="Ask about templates, breakpoints, component arrangement...
+Example: 'What template works best for a dashboard layout?'"
+                                      className="w-full px-3 py-2 text-xs bg-slate-800/50 border border-slate-700/50 rounded-md text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 resize-none h-16"
+                                    />
+                                    <div className="absolute top-1 right-1">
+                                      <button className="p-1 rounded bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300">
+                                        <Bot className="h-3 w-3" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                  <div className="text-xs text-slate-400">
+                                    Template selection, responsive design, component priorities
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Auto-Capture Notice */}
+                              <div className="mt-4 p-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10">
+                                <div className="flex items-center gap-2 text-xs text-emerald-200">
+                                  <ShieldCheck className="h-3 w-3" />
+                                  <span className="font-medium">Auto-Capture Enabled</span>
+                                </div>
+                                <div className="text-xs text-emerald-300 mt-1">
+                                  All customization decisions are automatically captured and stored in your DesignQube and ExperienceQube for consistency and future reference.
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Screens Panel */}
+                          <div className="mt-4 rounded-xl border p-4" style={{ backgroundColor: themeBg, borderColor: themeBorder }}>
+                            <div className="flex items-center justify-between mb-3">
+                              <h4 className="text-sm font-medium text-white flex items-center gap-2">
+                                <MonitorIcon className="h-4 w-4 text-orange-300" />
+                                Screens
+                              </h4>
+                              <button className="flex items-center gap-1 px-2 py-1 text-xs bg-orange-500/20 hover:bg-orange-500/30 text-orange-300 rounded-md border border-orange-500/30">
+                                <Upload className="h-3 w-3" />
+                                Upload
+                              </button>
+                            </div>
+                            <div className="text-xs" style={{ color: themeText }}>
+                              Upload and manage design screens from Screenshots, Adobe XD, Figma, or other design tools.
+                            </div>
+                            <div className="mt-3 grid grid-cols-2 gap-3">
+                              <div className="text-center p-4 rounded-lg border border-dashed border-slate-600">
+                                <MonitorIcon className="h-6 w-6 text-slate-400 mx-auto mb-2" />
+                                <div className="text-xs text-slate-400">Screenshots</div>
+                              </div>
+                              <div className="text-center p-4 rounded-lg border border-dashed border-slate-600">
+                                <Hexagon className="h-6 w-6 text-slate-400 mx-auto mb-2" />
+                                <div className="text-xs text-slate-400">Adobe XD</div>
+                              </div>
+                              <div className="text-center p-4 rounded-lg border border-dashed border-slate-600">
+                                <LayoutGrid className="h-6 w-6 text-slate-400 mx-auto mb-2" />
+                                <div className="text-xs text-slate-400">Figma</div>
+                              </div>
+                              <div className="text-center p-4 rounded-lg border border-dashed border-slate-600">
+                                <FileText className="h-6 w-6 text-slate-400 mx-auto mb-2" />
+                                <div className="text-xs text-slate-400">Other Tools</div>
+                              </div>
+                            </div>
+                          </div>
                           <div className="mt-4 max-h-[420px] overflow-y-auto pr-1">
                             <div className="grid gap-3 sm:grid-cols-2">
                               {designQube.references?.slice(0, 6).map((ref) => (
@@ -1628,7 +2320,7 @@ export const ComposerStudio = () => {
                               ))}
                             </div>
                           </div>
-                        </>
+                        </div>
                       ) : designQubeSummaryLayout === "compact" ? (
                         <div className="mt-4 rounded-xl border p-3" style={{ backgroundColor: themeBg, borderColor: themeBorder }}>
                           <div className="flex flex-wrap items-center justify-between gap-4">
@@ -1663,19 +2355,37 @@ export const ComposerStudio = () => {
                             )}
                           </div>
                           <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs" style={{ color: themeText }}>
-                            <div className="flex items-center gap-2">
-                              <span style={{ fontFamily, fontSize: scale.lg || 18 }} className="text-white">Aa</span>
-                              <span style={{ fontFamily, fontSize: scale.sm || 14 }} className="text-slate-400">Aa</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {radiusValues.map((radius, idx) => (
+                            <div className="flex items-center gap-3">
+                              <div className="flex items-center gap-2">
+                                <span style={{ fontFamily, fontSize: scale.lg || 18 }} className="text-white">Aa</span>
+                                <span style={{ fontFamily, fontSize: scale.sm || 14 }} className="text-slate-400">Aa</span>
+                              </div>
+                              {radiusValues.slice(0, 2).map((radius, idx) => (
                                 <div
                                   key={`radius-${idx}`}
-                                  className="h-6 w-10 border"
+                                  className="h-6 w-8 border"
                                   style={{ borderRadius: `${radius}px`, backgroundColor: themeBg, borderColor: themeBorder }}
                                   title={`radius ${radius}`}
                                 />
                               ))}
+                            </div>
+                            <div className="flex items-center gap-3">
+                              {/* Experience Modalities */}
+                              <div className="flex items-center gap-1" title="Experience Modalities">
+                                <Eye className="h-3 w-3 text-blue-400" />
+                                <Volume2 className="h-3 w-3 text-green-400" />
+                                <LayoutGrid className="h-3 w-3 text-purple-400" />
+                              </div>
+                              {/* Costs */}
+                              <div className="flex items-center gap-1" title="Costs in Q¢">
+                                <span className="text-slate-400">Cost:</span>
+                                <span className="text-orange-400 font-medium">250 Q¢</span>
+                              </div>
+                              {/* Rewards */}
+                              <div className="flex items-center gap-1" title="Rewards in Q¢">
+                                <span className="text-slate-400">Reward:</span>
+                                <span className="text-emerald-400 font-medium">100 Q¢</span>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -1787,6 +2497,180 @@ export const ComposerStudio = () => {
             </div>
           </div>
       </div>
+
+      {/* Enhanced ExperienceQube Modal */}
+      {showExperienceModal && selectedExperience && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+          <div className="max-w-4xl w-full max-h-[90vh] overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-800 p-6">
+              <div className="flex items-center gap-3">
+                <Hexagon className="h-6 w-6 text-cyan-400" />
+                <div>
+                  <h2 className="text-xl font-bold text-white">{selectedExperience.name}</h2>
+                  <p className="text-sm text-slate-400">Experience Details</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowExperienceModal(false);
+                  setSelectedExperience(null);
+                }}
+                className="rounded-lg border border-slate-700 bg-slate-800/50 p-2 text-slate-400 hover:bg-slate-700 hover:text-white"
+              >
+                <ChevronUp className="h-5 w-5 rotate-45" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+              <Tabs defaultValue="goal" className="w-full">
+                <TabsList className="grid w-full grid-cols-3 h-auto p-1 bg-slate-800/50 border border-slate-700/50 rounded-lg mb-6">
+                  <TabsTrigger value="goal" className="flex items-center gap-2 px-4 py-2 text-sm data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+                    <ShieldCheck className="h-4 w-4" />
+                    Goal
+                  </TabsTrigger>
+                  <TabsTrigger value="mechanics" className="flex items-center gap-2 px-4 py-2 text-sm data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+                    <SlidersHorizontal className="h-4 w-4" />
+                    Mechanics
+                  </TabsTrigger>
+                  <TabsTrigger value="metrics" className="flex items-center gap-2 px-4 py-2 text-sm data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+                    <LayoutGrid className="h-4 w-4" />
+                    Metrics
+                  </TabsTrigger>
+                </TabsList>
+
+                {/* Goal Tab */}
+                <TabsContent value="goal" className="space-y-4">
+                  <div className="rounded-xl border border-slate-700 bg-slate-800/30 p-6">
+                    <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+                      <ShieldCheck className="h-5 w-5 text-emerald-400" />
+                      Primary Goal
+                    </h3>
+                    <p className="text-sm text-slate-300 leading-relaxed">
+                      {selectedExperience.goal}
+                    </p>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="rounded-xl border border-slate-700 bg-slate-800/30 p-4">
+                      <h4 className="text-sm font-medium text-white mb-2">Experience Status</h4>
+                      <div className="flex items-center gap-2">
+                        <div className={`h-2 w-2 rounded-full ${
+                          selectedExperience.status === 'active' ? 'bg-emerald-400' : 
+                          selectedExperience.status === 'completed' ? 'bg-blue-400' : 'bg-slate-400'
+                        }`} />
+                        <span className="text-sm text-slate-300 capitalize">{selectedExperience.status}</span>
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-slate-700 bg-slate-800/30 p-4">
+                      <h4 className="text-sm font-medium text-white mb-2">Category</h4>
+                      <span className="text-sm text-slate-300">{selectedExperience.metadata?.category || 'General'}</span>
+                    </div>
+                  </div>
+                </TabsContent>
+
+                {/* Mechanics Tab */}
+                <TabsContent value="mechanics" className="space-y-4">
+                  <div className="rounded-xl border border-slate-700 bg-slate-800/30 p-6">
+                    <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+                      <SlidersHorizontal className="h-5 w-5 text-violet-400" />
+                      Experience Mechanics
+                    </h3>
+                    <div className="space-y-4">
+                      <p className="text-sm text-slate-300 leading-relaxed">
+                        {selectedExperience.mechanics}
+                      </p>
+                      
+                      <div className="grid grid-cols-3 gap-4 mt-6">
+                        <div className="text-center p-4 rounded-lg border border-slate-600 bg-slate-800/20">
+                          <Eye className="h-6 w-6 text-blue-400 mx-auto mb-2" />
+                          <div className="text-xs text-slate-400">Visual</div>
+                          <div className="text-sm font-medium text-white">Enabled</div>
+                        </div>
+                        <div className="text-center p-4 rounded-lg border border-slate-600 bg-slate-800/20">
+                          <Volume2 className="h-6 w-6 text-green-400 mx-auto mb-2" />
+                          <div className="text-xs text-slate-400">Audio</div>
+                          <div className="text-sm font-medium text-white">Enabled</div>
+                        </div>
+                        <div className="text-center p-4 rounded-lg border border-slate-600 bg-slate-800/20">
+                          <LayoutGrid className="h-6 w-6 text-purple-400 mx-auto mb-2" />
+                          <div className="text-xs text-slate-400">Spatial</div>
+                          <div className="text-sm font-medium text-white">Enabled</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </TabsContent>
+
+                {/* Metrics Tab */}
+                <TabsContent value="metrics" className="space-y-4">
+                  <div className="rounded-xl border border-slate-700 bg-slate-800/30 p-6">
+                    <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+                      <LayoutGrid className="h-5 w-5 text-orange-400" />
+                      Success Metrics
+                    </h3>
+                    <p className="text-sm text-slate-300 leading-relaxed mb-6">
+                      {selectedExperience.metrics}
+                    </p>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="rounded-lg border border-slate-600 bg-slate-800/20 p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm text-slate-400">Engagement Rate</span>
+                          <span className="text-sm font-medium text-emerald-400">85%</span>
+                        </div>
+                        <div className="w-full bg-slate-700 rounded-full h-2">
+                          <div className="bg-emerald-400 h-2 rounded-full" style={{ width: '85%' }}></div>
+                        </div>
+                      </div>
+                      <div className="rounded-lg border border-slate-600 bg-slate-800/20 p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm text-slate-400">Completion Rate</span>
+                          <span className="text-sm font-medium text-blue-400">72%</span>
+                        </div>
+                        <div className="w-full bg-slate-700 rounded-full h-2">
+                          <div className="bg-blue-400 h-2 rounded-full" style={{ width: '72%' }}></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </TabsContent>
+              </Tabs>
+
+              {/* Modal Actions */}
+              <div className="flex items-center justify-between mt-6 pt-6 border-t border-slate-800">
+                <div className="flex items-center gap-4 text-sm text-slate-400">
+                  <span>ID: {selectedExperience.id}</span>
+                  <span>•</span>
+                  <span>Template: {selectedExperience.template_id}</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => {
+                      setSelectedExperienceId(selectedExperience.id);
+                      setPreviewAction(`Preview ${selectedExperience.name}`);
+                      setShowExperienceModal(false);
+                    }}
+                    className="rounded-lg border border-cyan-400/60 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-200 hover:bg-cyan-400/20"
+                  >
+                    Preview Experience
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowExperienceModal(false);
+                      setSelectedExperience(null);
+                    }}
+                    className="rounded-lg border border-slate-700 bg-slate-800/50 px-4 py-2 text-sm font-semibold text-slate-300 hover:bg-slate-700"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -1,0 +1,47 @@
+{
+  "id": "dis-metame-v1",
+  "name": "Design Intent Spec (metaMe)",
+  "styleQube": "styleqube-metame-v1",
+  "structureQube": "structureqube-metame-v1",
+  "intent": {
+    "primaryGoal": "card-forward browsing with bottom-sheet depth",
+    "primaryCTA": "visible above the fold on mobile",
+    "navigation": "overlay bottom nav + drawer",
+    "materials": "glass/translucent overlays in dark mode"
+  },
+  "components": {
+    "cards": [
+      "asset",
+      "offer",
+      "episode"
+    ],
+    "tabs": [
+      "underline"
+    ],
+    "chips": [
+      "filter",
+      "owned",
+      "reward"
+    ],
+    "sheets": [
+      "bottom",
+      "drawer"
+    ]
+  },
+  "responsive": {
+    "mobile": [
+      "single column",
+      "bottom nav",
+      "drawer overlays"
+    ],
+    "tablet": [
+      "two column",
+      "side rails optional"
+    ],
+    "desktop": [
+      "three column",
+      "hero + grid"
+    ]
+  },
+  "version": "1.0.0"
+}

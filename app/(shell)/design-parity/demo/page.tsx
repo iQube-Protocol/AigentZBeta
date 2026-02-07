@@ -73,7 +73,64 @@ export default function DesignParityDemo() {
               primary: 'Inter, sans-serif'
             }
           }
-        }
+        },
+        // New multi-modal additions
+        styleQube: {
+          id: 'demo-styleqube',
+          name: 'Demo StyleQube',
+          voice: {
+            persona: 'Demo Assistant',
+            accent: 'neutral American',
+            pace: 'normal',
+            pitch: 'medium',
+            tone: 'professional'
+          },
+          text: {
+            fontFamily: 'Inter, system-ui, sans-serif',
+            fontSize: '16px',
+            lineHeight: '1.6',
+            maxWidth: '65ch',
+            textAlign: 'left',
+            textRendering: 'optimizeLegibility'
+          }
+        },
+        structureQube: {
+          id: 'demo-structureqube',
+          name: 'Demo StructureQube',
+          breakpoints: {
+            mobile: { maxWidth: 640, columns: 1 },
+            tablet: { maxWidth: 1024, columns: 2 },
+            desktop: { minWidth: 1025, columns: 3 }
+          },
+          templates: ['button-primary', 'card-default', 'navigation-header'],
+          templateSelection: {
+            priority: ['button-primary', 'card-default'],
+            byModality: {
+              read: ['card-reader'],
+              browse: ['card-grid', 'navigation-header']
+            },
+            byDensity: {
+              compact: ['button-compact'],
+              balanced: ['button-primary', 'card-default'],
+              rich: ['card-elevated']
+            }
+          },
+          layoutRules: [
+            'Primary buttons above fold on mobile',
+            'Cards reflow to single column under 640px',
+            'Navigation remains fixed at top'
+          ]
+        },
+        sources: [
+          {
+            id: 'demo-style-guide',
+            type: 'style-guide',
+            label: 'Demo Style Guide',
+            location: 'demo/style-guide.md',
+            extractedAt: '2026-02-06T00:00:00Z',
+            coverage: ['tokens', 'voice', 'text']
+          }
+        ]
       };
 
       const mockTemplateRegistry = [

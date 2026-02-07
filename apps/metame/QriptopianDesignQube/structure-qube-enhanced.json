@@ -1,0 +1,131 @@
+{
+  "id": "structureqube-qriptopian-v1",
+  "name": "Qriptopian StructureQube",
+  "source": "template-map.json",
+  "breakpoints": {
+    "mobile": { "maxWidth": 640, "columns": 1 },
+    "tablet": { "maxWidth": 1024, "minWidth": 641, "columns": 2 },
+    "desktop": { "maxWidth": 1919, "minWidth": 1025, "columns": 3 },
+    "bigScreen": { "minWidth": 1920, "columns": 4 }
+  },
+  "templates": [
+    "qripto:hero_article_v1",
+    "qripto:news_grid_v1",
+    "qripto:feature_card_v1",
+    "qripto:pennydrop_card_v1",
+    "qripto:scroll_item_v1",
+    "qripto:knowdz_card_v1",
+    "qripto:navigation_header_v1",
+    "qripto:sidebar_layout_v1",
+    "qripto:content_drawer_v1",
+    "qripto:modal_overlay_v1"
+  ],
+  "contentModules": [
+    {
+      "id": "hero-module",
+      "name": "Hero Article Module",
+      "type": "header",
+      "responsive": true,
+      "breakpoints": ["mobile", "tablet", "desktop", "bigScreen"],
+      "priority": 1
+    },
+    {
+      "id": "news-module",
+      "name": "News Grid Module",
+      "type": "content",
+      "responsive": true,
+      "breakpoints": ["mobile", "tablet", "desktop", "bigScreen"],
+      "priority": 2
+    },
+    {
+      "id": "features-module",
+      "name": "Features Module",
+      "type": "content",
+      "responsive": true,
+      "breakpoints": ["tablet", "desktop", "bigScreen"],
+      "priority": 3
+    },
+    {
+      "id": "pennydrops-module",
+      "name": "PennyDrops Module",
+      "type": "content",
+      "responsive": true,
+      "breakpoints": ["mobile", "tablet", "desktop"],
+      "priority": 4
+    },
+    {
+      "id": "navigation-module",
+      "name": "Navigation Module",
+      "type": "header",
+      "responsive": true,
+      "breakpoints": ["mobile", "tablet", "desktop", "bigScreen"],
+      "priority": 1
+    },
+    {
+      "id": "sidebar-module",
+      "name": "Sidebar Module",
+      "type": "sidebar",
+      "responsive": true,
+      "breakpoints": ["tablet", "desktop", "bigScreen"],
+      "priority": 5
+    },
+    {
+      "id": "footer-module",
+      "name": "Footer Module",
+      "type": "footer",
+      "responsive": true,
+      "breakpoints": ["mobile", "tablet", "desktop", "bigScreen"],
+      "priority": 6
+    },
+    {
+      "id": "modal-module",
+      "name": "Modal Overlay Module",
+      "type": "modal",
+      "responsive": true,
+      "breakpoints": ["mobile", "tablet", "desktop", "bigScreen"],
+      "priority": 10
+    }
+  ],
+  "templateSelection": {
+    "priority": [
+      "qripto:hero_article_v1",
+      "qripto:news_grid_v1",
+      "qripto:navigation_header_v1",
+      "qripto:feature_card_v1"
+    ],
+    "byModality": {
+      "read": ["qripto:hero_article_v1", "qripto:scroll_item_v1"],
+      "browse": ["qripto:news_grid_v1", "qripto:feature_card_v1", "qripto:pennydrop_card_v1"],
+      "interact": ["qripto:knowdz_card_v1", "qripto:content_drawer_v1"],
+      "watch": ["qripto:hero_article_v1", "qripto:feature_card_v1"]
+    },
+    "byDensity": {
+      "compact": ["qripto:news_grid_v1", "qripto:pennydrop_card_v1"],
+      "balanced": ["qripto:hero_article_v1", "qripto:feature_card_v1", "qripto:navigation_header_v1"],
+      "rich": ["qripto:scroll_item_v1", "qripto:knowdz_card_v1", "qripto:content_drawer_v1"]
+    },
+    "bySurface": {
+      "drawer": ["qripto:content_drawer_v1", "qripto:sidebar_layout_v1"],
+      "grid": ["qripto:news_grid_v1", "qripto:feature_card_v1"],
+      "hero": ["qripto:hero_article_v1"],
+      "overlay": ["qripto:modal_overlay_v1"]
+    }
+  },
+  "layoutRules": [
+    "Hero articles always above fold on all breakpoints",
+    "Navigation remains fixed at top on desktop and tablet",
+    "News grid reflows from 4 columns (bigScreen) to 1 (mobile)",
+    "PennyDrops use card layout with consistent spacing",
+    "Sidebars appear only on tablet and larger screens",
+    "Modals overlay content with backdrop blur",
+    "Content drawers slide from right on larger screens",
+    "Footer spans full width with consistent padding"
+  ],
+  "componentPriorities": {
+    "navigation": 1,
+    "content": 2,
+    "interactive": 3,
+    "decorative": 4
+  },
+  "version": "1.0.0"
+}

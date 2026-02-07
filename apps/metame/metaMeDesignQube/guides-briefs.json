@@ -1,0 +1,101 @@
+{
+  "id": "guides-briefs-metame-v1",
+  "name": "metaMe Guides & Briefs",
+  "source": "metame-system",
+  "styleGuide": {
+    "css": [
+      "metaMe primary: #14b8a6",
+      "metaMe secondary: #0d9488",
+      "metaMe accent: #06b6d4",
+      "Glass surface: rgba(15, 23, 42, 0.8)",
+      "Typography: Inter primary, Geist secondary"
+    ],
+    "brandGuidelines": [
+      "Professional experience creation platform",
+      "Glass morphism with teal/cyan accents",
+      "Clean, modern aesthetic",
+      "Excellent readability for long sessions",
+      "Subtle animations for user feedback"
+    ],
+    "lookBooks": [
+      "Experience cards with rich previews",
+      "Composer layouts with intuitive controls",
+      "Runtime previews with device switching",
+      "Design panels with comprehensive controls",
+      "Component libraries with visual organization"
+    ]
+  },
+  "experienceGuide": {
+    "who": {
+      "audience": "Experience creators and metaMe platform users",
+      "demographics": ["Experience designers", "Content creators", "Developers", "Creative professionals"],
+      "needs": ["Intuitive creation tools", "Real-time preview", "Component libraries", "Design guidance"]
+    },
+    "what": {
+      "delivery": [
+        "Web-based experience composer",
+        "Real-time runtime preview",
+        "Component-based architecture",
+        "Design system integration"
+      ],
+      "mechanics": [
+        "Drag-and-drop composer interface",
+        "Live preview synchronization",
+        "Component library system",
+        "Design panel controls"
+      ],
+      "touchpoints": [
+        "Experience creation workflow",
+        "Design system integration",
+        "Component selection and configuration",
+        "Runtime testing and preview",
+        "Experience deployment and sharing"
+      ]
+    },
+    "wow": {
+      "differentiators": [
+        "Real-time preview synchronization",
+        "Comprehensive design system",
+        "Intuitive composer interface",
+        "Component-based architecture"
+      ],
+      "innovations": [
+        "Live preview across devices",
+        "Drag-and-drop experience creation",
+        "Integrated design guidance",
+        "Component library with visual organization"
+      ],
+      "emotionalImpact": [
+        "Empowerment through creation",
+        "Confidence in design decisions",
+        "Satisfaction from real-time feedback",
+        "Creative flow state support"
+      ]
+    },
+    "metrics": {
+      "success": [
+        "Experience creation completion rates",
+        "Design system adoption metrics",
+        "Component library usage statistics",
+        "User satisfaction scores"
+      ],
+      "kpis": [
+        "Daily active creators",
+        "Experiences created per session",
+        "Component reuse rates",
+        "Preview interaction frequency"
+      ],
+      "measurement": [
+        "Creation workflow analytics",
+        "Design interaction tracking",
+        "Component usage monitoring",
+        "User feedback collection"
+      ]
+    }
+  },
+  "smartTriadFormatting": {
+    "cssSystem": "SmartTriad CSS System v1.0 - Professional creation interface with glass morphism",
+    "systemPrompt": "metaMe creation guide with confident, precise tone and intuitive design guidance"
+  },
+  "version": "1.0.0"
+}

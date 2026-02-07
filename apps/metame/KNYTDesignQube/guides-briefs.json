@@ -1,0 +1,101 @@
+{
+  "id": "guides-briefs-knyt-v1",
+  "name": "KNYT Guides & Briefs",
+  "source": "knyt-codex",
+  "styleGuide": {
+    "css": [
+      "KNYT primary: #f97316",
+      "KNYT secondary: #ea580c",
+      "KNYT accent: #fbbf24",
+      "Glass surface: rgba(15, 23, 42, 0.8)",
+      "Typography: Inter primary, Geist secondary"
+    ],
+    "brandGuidelines": [
+      "Professional protocol documentation theme",
+      "Glass morphism with coral/orange accents",
+      "Clean, technical aesthetic",
+      "Modern sans-serif with excellent readability",
+      "Subtle parallax and depth effects"
+    ],
+    "lookBooks": [
+      "Protocol cards with technical specifications",
+      "Lore articles with immersive storytelling",
+      "Character profiles with detailed backstories",
+      "Scroll items with chronological presentation",
+      "Knowledge nodes with interactive exploration"
+    ]
+  },
+  "experienceGuide": {
+    "who": {
+      "audience": "KNYT Protocol participants and knowledge explorers",
+      "demographics": ["Protocol developers", "World-building enthusiasts", "Knowledge seekers", "Community members"],
+      "needs": ["Protocol understanding", "World immersion", "Character connection", "Knowledge discovery"]
+    },
+    "what": {
+      "delivery": [
+        "Comprehensive codex system",
+        "Multi-format content presentation",
+        "Interactive knowledge exploration",
+        "Community-driven storytelling"
+      ],
+      "mechanics": [
+        "Modular content architecture",
+        "Dynamic template system",
+        "Responsive content modules",
+        "Interactive knowledge nodes"
+      ],
+      "touchpoints": [
+        "Protocol documentation and cards",
+        "Immersive lore articles",
+        "Character development profiles",
+        "Chronological scroll exploration",
+        "Interactive knowledge discovery"
+      ]
+    },
+    "wow": {
+      "differentiators": [
+        "Deep world-building integration",
+        "Professional protocol documentation",
+        "Interactive knowledge exploration",
+        "Community-driven narrative development"
+      ],
+      "innovations": [
+        "Knowledge node interactivity",
+        "Dynamic content templates",
+        "Responsive storytelling layouts",
+        "Protocol-world integration"
+      ],
+      "emotionalImpact": [
+        "Immersion in KNYT world",
+        "Connection to protocol purpose",
+        "Engagement with character stories",
+        "Discovery of hidden knowledge"
+      ]
+    },
+    "metrics": {
+      "success": [
+        "Knowledge exploration depth",
+        "Protocol understanding rates",
+        "Character engagement metrics",
+        "Community narrative contributions"
+      ],
+      "kpis": [
+        "Knowledge node interaction rates",
+        "Lore article completion rates",
+        "Character profile views",
+        "Scroll progression metrics"
+      ],
+      "measurement": [
+        "Content interaction tracking",
+        "Knowledge path analysis",
+        "Character relationship mapping",
+        "Community contribution monitoring"
+      ]
+    }
+  },
+  "smartTriadFormatting": {
+    "cssSystem": "SmartTriad CSS System v1.0 - Professional protocol layout with glass morphism",
+    "systemPrompt": "KNYT protocol guide with professional tone, technical clarity, and immersive world-building"
+  },
+  "version": "1.0.0"
+}

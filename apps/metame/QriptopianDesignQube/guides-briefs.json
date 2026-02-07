@@ -1,0 +1,100 @@
+{
+  "id": "guides-briefs-qriptopian-v1",
+  "name": "Qriptopian Guides & Briefs",
+  "source": "qripto-codex",
+  "styleGuide": {
+    "css": [
+      "Qriptopian primary: #6366f1",
+      "Qriptopian secondary: #8b5cf6", 
+      "Qriptopian accent: #f59e0b",
+      "Glass surface: rgba(30, 41, 59, 0.8)",
+      "Typography: Inter primary, Space Grotesk secondary"
+    ],
+    "brandGuidelines": [
+      "Cosmic knowledge theme with warm, approachable tone",
+      "Glass morphism effects with backdrop blur",
+      "Indigo/violet color palette with gold accents",
+      "Modern sans-serif typography with good readability",
+      "Subtle animations and micro-interactions"
+    ],
+    "lookBooks": [
+      "Home hero articles with featured imagery",
+      "News grid layouts with card-based design",
+      "PennyDrops wisdom cards with consistent styling",
+      "Scroll items with chronological presentation",
+      "Kn0wdZ cards with interactive elements"
+    ]
+  },
+  "experienceGuide": {
+    "who": {
+      "audience": "Qriptopian community members and knowledge seekers",
+      "demographics": ["Tech enthusiasts", "Crypto curious", "Knowledge learners", "Community participants"],
+      "needs": ["Accessible knowledge", "Community connection", "Learning resources", "Engaging content"]
+    },
+    "what": {
+      "delivery": [
+        "Web-based content platform",
+        "Mobile-responsive design",
+        "Interactive codex system",
+        "Multi-tab content organization"
+      ],
+      "mechanics": [
+        "Liquid UI template system",
+        "Dynamic content loading",
+        "Modular content sections",
+        "Responsive grid layouts"
+      ],
+      "touchpoints": [
+        "Home page hero articles",
+        "Featured content sections",
+        "PennyDrops wisdom delivery",
+        "Scroll and Kn0wdZ exploration"
+      ]
+    },
+    "wow": {
+      "differentiators": [
+        "Unique Qriptopian cosmic theme",
+        "Glass morphism design aesthetic",
+        "Community-driven content curation",
+        "Multi-modal content presentation"
+      ],
+      "innovations": [
+        "Liquid UI template architecture",
+        "Dynamic codex loading system",
+        "Responsive content modules",
+        "Integrated community features"
+      ],
+      "emotionalImpact": [
+        "Wonder and curiosity about cosmic knowledge",
+        "Connection to Qriptopian community",
+        "Empowerment through learning",
+        "Engagement with interactive content"
+      ]
+    },
+    "metrics": {
+      "success": [
+        "Content engagement rates",
+        "Time spent on codex sections",
+        "Community interaction metrics",
+        "Knowledge retention indicators"
+      ],
+      "kpis": [
+        "Daily active users",
+        "Article read completion rates",
+        "PennyDrops engagement",
+        "Community comment participation"
+      ],
+      "measurement": [
+        "Analytics tracking on content views",
+        "User session duration analysis",
+        "Interaction event monitoring",
+        "Community feature usage statistics"
+      ]
+    }
+  },
+  "smartTriadFormatting": {
+    "cssSystem": "SmartTriad CSS System v1.0 - Responsive grid with glass morphism effects",
+    "systemPrompt": "Qriptopian knowledge guide with warm, cosmic tone and clear, accessible content presentation"
+  },
+  "version": "1.0.0"
+}

@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "0.1",
+  "designQubeId": "qriptopian-v1",
+  "name": "Qriptopian DesignQube",
+  "authorityLevel": "guidance",
+  "themes": [
+    "light.qriptopian",
+    "dark.qriptopianGlass"
+  ],
+  "paths": {
+    "tokens": "tokens.guidance.json",
+    "components": "components.json",
+    "constraints": "constraints.json",
+    "templateMap": "template-map.json",
+    "referencesIndex": "references/index.json",
+    "styleBrief": "style-brief.md",
+    "styleQube": "style-qube.json",
+    "structureQube": "structure-qube.json",
+    "sources": "sources.json",
+    "copilotHints": "copilot-hints.json"
+  }
+}

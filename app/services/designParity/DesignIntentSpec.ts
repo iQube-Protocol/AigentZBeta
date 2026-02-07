@@ -282,6 +282,39 @@ export interface DesignIntentSpec {
   semantics: ComponentSemantics;
   layout: LayoutIntent;
   responsive: ResponsiveRules;
+  // New multi-modal additions
+  style: {
+    voice: {
+      persona?: string;
+      accent?: string;
+      pace?: 'slow' | 'normal' | 'fast';
+      pitch?: 'low' | 'medium' | 'high';
+      tone?: 'neutral' | 'warm' | 'professional' | 'casual' | 'energetic';
+      ttsHints?: Record<string, any>;
+    };
+    text: {
+      fontFamily?: string;
+      fontSize?: string;
+      lineHeight?: string;
+      maxWidth?: string;
+      paragraphSpacing?: string;
+      hyphenation?: 'none' | 'auto' | 'manual';
+      textAlign?: 'left' | 'center' | 'right' | 'justify';
+      textRendering?: 'optimizeSpeed' | 'optimizeLegibility' | 'geometricPrecision';
+      fontSmoothing?: 'auto' | 'never' | 'always';
+      cssText?: string;
+    };
+  };
+  structure: {
+    templateSelection: {
+      priority: string[];
+      byModality: Record<string, string[]>;
+      byDensity: Record<string, string[]>;
+      bySurface: Record<string, string[]>;
+    };
+    breakpoints: Record<string, { maxWidth?: number; minWidth?: number; columns: number }>;
+    layoutRules: string[];
+  };
   metadata: {
     name: string;
     description: string;
@@ -291,6 +324,15 @@ export interface DesignIntentSpec {
       allowFallbacks: boolean;
       priorityOrdering: string[];
     };
+    sources: Array<{
+      id: string;
+      type: 'style-guide' | 'css' | 'figma' | 'xd' | 'freeform';
+      label: string;
+      location: string;
+      extractedAt: string;
+      coverage: string[];
+    }>;
+    copilotHints?: Record<string, any>;
   };
 }
 
@@ -334,6 +376,16 @@ export class DISGenerator {
       semantics,
       layout,
       responsive,
+      // New multi-modal additions
+      style: {
+        voice: designQube.styleQube?.voice || {},
+        text: designQube.styleQube?.text || {}
+      },
+      structure: {
+        templateSelection: designQube.structureQube?.templateSelection || { priority: [], byModality: {}, byDensity: {}, bySurface: {} },
+        breakpoints: designQube.structureQube?.breakpoints || {},
+        layoutRules: designQube.structureQube?.layoutRules || []
+      },
       metadata: {
         name: designQube.name || 'Generated DIS',
         description: designQube.description || 'Design Intent Spec generated from DesignQube',
@@ -342,7 +394,9 @@ export class DISGenerator {
           strict: options.strictMode || false,
           allowFallbacks: true,
           priorityOrdering: ['layout', 'typography', 'color', 'interaction']
-        }
+        },
+        sources: designQube.sources || [],
+        copilotHints: designQube.copilotHints || {}
       }
     };
   }

@@ -1,0 +1,132 @@
+{
+  "id": "structureqube-metame-v1",
+  "name": "metaMe StructureQube",
+  "source": "template-map.json",
+  "breakpoints": {
+    "mobile": { "maxWidth": 640, "columns": 1 },
+    "tablet": { "maxWidth": 1024, "minWidth": 641, "columns": 2 },
+    "desktop": { "maxWidth": 1919, "minWidth": 1025, "columns": 3 },
+    "bigScreen": { "minWidth": 1920, "columns": 4 }
+  },
+  "templates": [
+    "metame:experience_card_v1",
+    "metame:composer_layout_v1",
+    "metame:runtime_preview_v1",
+    "metame:design_panel_v1",
+    "metame:component_library_v1",
+    "metame:navigation_header_v1",
+    "metame:sidebar_layout_v1",
+    "metame:content_drawer_v1",
+    "metame:modal_overlay_v1",
+    "metame:dashboard_grid_v1"
+  ],
+  "contentModules": [
+    {
+      "id": "experience-module",
+      "name": "Experience Cards Module",
+      "type": "content",
+      "responsive": true,
+      "breakpoints": ["mobile", "tablet", "desktop", "bigScreen"],
+      "priority": 1
+    },
+    {
+      "id": "composer-module",
+      "name": "Composer Layout Module",
+      "type": "content",
+      "responsive": true,
+      "breakpoints": ["tablet", "desktop", "bigScreen"],
+      "priority": 2
+    },
+    {
+      "id": "runtime-module",
+      "name": "Runtime Preview Module",
+      "type": "content",
+      "responsive": true,
+      "breakpoints": ["mobile", "tablet", "desktop", "bigScreen"],
+      "priority": 3
+    },
+    {
+      "id": "design-module",
+      "name": "Design Panel Module",
+      "type": "sidebar",
+      "responsive": true,
+      "breakpoints": ["desktop", "bigScreen"],
+      "priority": 4
+    },
+    {
+      "id": "navigation-module",
+      "name": "Navigation Module",
+      "type": "header",
+      "responsive": true,
+      "breakpoints": ["mobile", "tablet", "desktop", "bigScreen"],
+      "priority": 1
+    },
+    {
+      "id": "component-module",
+      "name": "Component Library Module",
+      "type": "content",
+      "responsive": true,
+      "breakpoints": ["tablet", "desktop", "bigScreen"],
+      "priority": 5
+    },
+    {
+      "id": "dashboard-module",
+      "name": "Dashboard Grid Module",
+      "type": "content",
+      "responsive": true,
+      "breakpoints": ["tablet", "desktop", "bigScreen"],
+      "priority": 6
+    },
+    {
+      "id": "modal-module",
+      "name": "Modal Overlay Module",
+      "type": "modal",
+      "responsive": true,
+      "breakpoints": ["mobile", "tablet", "desktop", "bigScreen"],
+      "priority": 10
+    }
+  ],
+  "templateSelection": {
+    "priority": [
+      "metame:experience_card_v1",
+      "metame:composer_layout_v1",
+      "metame:navigation_header_v1",
+      "metame:runtime_preview_v1"
+    ],
+    "byModality": {
+      "create": ["metame:composer_layout_v1", "metame:design_panel_v1"],
+      "preview": ["metame:runtime_preview_v1", "metame:experience_card_v1"],
+      "browse": ["metame:component_library_v1", "metame:dashboard_grid_v1"],
+      "interact": ["metame:experience_card_v1", "metame:modal_overlay_v1"]
+    },
+    "byDensity": {
+      "compact": ["metame:experience_card_v1", "metame:component_library_v1"],
+      "balanced": ["metame:composer_layout_v1", "metame:runtime_preview_v1", "metame:navigation_header_v1"],
+      "rich": ["metame:design_panel_v1", "metame:dashboard_grid_v1", "metame:content_drawer_v1"]
+    },
+    "bySurface": {
+      "drawer": ["metame:content_drawer_v1", "metame:sidebar_layout_v1"],
+      "grid": ["metame:component_library_v1", "metame:dashboard_grid_v1"],
+      "canvas": ["metame:composer_layout_v1"],
+      "preview": ["metame:runtime_preview_v1"],
+      "overlay": ["metame:modal_overlay_v1"]
+    }
+  },
+  "layoutRules": [
+    "Experience cards prominently displayed in dashboard",
+    "Composer layout optimizes for tablet and desktop",
+    "Runtime preview maintains aspect ratio across devices",
+    "Design panels slide from right on desktop only",
+    "Navigation remains fixed with quick access",
+    "Component library uses searchable grid layout",
+    "Dashboard adapts from 4 columns (bigScreen) to 1 (mobile)",
+    "Modals overlay with backdrop blur effect"
+  ],
+  "componentPriorities": {
+    "navigation": 1,
+    "content": 2,
+    "interactive": 3,
+    "decorative": 4
+  },
+  "version": "1.0.0"
+}
