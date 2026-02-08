@@ -195,7 +195,7 @@ export function importFromCSS({
       id: `css-${Date.now()}`,
       type: "css",
       label: sourceLabel,
-      location: sourceLocation,
+      location: sourceLocation || "unknown",
       extractedAt: new Date().toISOString(),
       coverage: ["tokens", "text"],
     },
