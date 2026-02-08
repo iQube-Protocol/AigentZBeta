@@ -145,7 +145,6 @@ function buildCssTextSpec(vars: Record<string, string>): TextStyleSpec | undefin
   if (!fontFamily && !fontSize && !lineHeight) return undefined;
 
   return {
-    copyTone: vars["copy-tone"] || vars["text-tone"],
     readerCss: {
       fontFamily,
       fontSize,
