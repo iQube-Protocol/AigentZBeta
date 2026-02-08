@@ -2035,14 +2035,11 @@ export const ComposerStudio = () => {
                                     <div style={{ color: themeText }} className="mt-1">
                                       {designQube.styleQube?.text?.tone?.formality}
                                     </div>
-                                  </div>
-                                </div>
-                                <div className="space-y-2">
                                   <span className="text-slate-400 text-xs">Text Settings:</span>
                                   <div className="grid grid-cols-3 gap-2 text-xs">
-                                    <div style={{ color: themeText }}>Weight: {designQube.styleQube?.text?.formatting?.fontWeight || 'Medium'}</div>
-                                    <div style={{ color: themeText }}>Spacing: {designQube.styleQube?.text?.formatting?.letterSpacing || 'Normal'}</div>
-                                    <div style={{ color: themeText }}>Transform: {designQube.styleQube?.text?.formatting?.textTransform || 'None'}</div>
+                                    <div style={{ color: themeText }}>Weight: {(designQube.styleQube?.text?.formatting as any)?.fontWeight || 'Medium'}</div>
+                                    <div style={{ color: themeText }}>Spacing: {(designQube.styleQube?.text?.formatting as any)?.letterSpacing || 'Normal'}</div>
+                                    <div style={{ color: themeText }}>Transform: {(designQube.styleQube?.text?.formatting as any)?.textTransform || 'None'}</div>
                                   </div>
                                 </div>
                               </TabsContent>
