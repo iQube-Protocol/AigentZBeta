@@ -117,9 +117,9 @@ function mapRowToExperience(row: ExperienceRow): ExperienceQubeData {
       max_concurrent_users: 10,
     },
     access: normalizeAccess(row.token_qube),
-    goal: {},
-    mechanics: {},
-    metrics: {},
+    goal: "",
+    mechanics: "",
+    metrics: "",
   };
 }
 
