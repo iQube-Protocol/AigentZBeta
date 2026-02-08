@@ -107,7 +107,7 @@ function mapRowToExperience(row: ExperienceRow): ExperienceQubeData {
       created_at: meta.created_at || row.created_at,
       updated_at: meta.updated_at || row.updated_at,
       version: meta.version || "1.0.0",
-      tags: meta.tags || [],
+      tags: (meta as any).tags || [],
       category: meta.category || "content",
     },
     execution: blak.execution || {
