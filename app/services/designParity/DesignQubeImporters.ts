@@ -333,7 +333,7 @@ export async function importFromFigma({
       id: fileKey ? `figma-${fileKey}` : `figma-${Date.now()}`,
       type: "figma",
       label: sourceLabel,
-      location: fileKey ? `https://www.figma.com/file/${fileKey}` : undefined,
+      location: fileKey ? `https://www.figma.com/file/${fileKey}` : "unknown",
       extractedAt: new Date().toISOString(),
       coverage: ["tokens", "typography", "colors"],
     },
