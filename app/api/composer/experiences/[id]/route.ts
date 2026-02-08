@@ -82,7 +82,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       metadata: {
         ...existingExperience.metadata,
         ...body.metadata,
-        tags: body.metadata?.tags || existingExperience.metadata.tags,
+        tags: body.metadata?.tags || (existingExperience.metadata as any).tags,
       },
     };
 
