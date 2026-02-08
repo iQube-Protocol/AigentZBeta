@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bot, CheckCircle2, ChevronDown, ChevronUp, Circle, FileText, Hexagon, LayoutGrid, List, Loader2, Monitor, Moon, Palette, ShieldCheck, SlidersHorizontal, Sun, BookOpen, Eye, Volume2, Type, MonitorIcon, Smartphone, Tablet, Tv, Upload, Play } from "lucide-react";
+import { Bot, CheckCircle2, ChevronDown, ChevronUp, Circle, FileText, Hexagon, LayoutGrid, List, Loader2, Monitor, Moon, Palette, ShieldCheck, SlidersHorizontal, Sun, BookOpen, Eye, Volume2, Type, MonitorIcon, Smartphone, Tablet, Tv, Upload, Play, Code, Shield, Book, Users, Target, Sparkles, BarChart } from "lucide-react";
 import { useCopilotAction } from "@copilotkit/react-core";
 import { Button } from "@/components/ui/button";
 import { PreviewFrame } from "@/components/preview/PreviewFrame";
@@ -412,6 +412,7 @@ export const ComposerStudio = () => {
   const [structureQubeActiveTab, setStructureQubeActiveTab] = useState("templates");
   const [guidesActiveTab, setGuidesActiveTab] = useState("style-guide");
   const [styleGuideActiveTab, setStyleGuideActiveTab] = useState("css");
+  const [experienceGuideActiveTab, setExperienceGuideActiveTab] = useState("who");
   const [designQubeSummaryLayout, setDesignQubeSummaryLayout] = useState<"compact" | "grid">("compact");
   const [activeStyleQubeId, setActiveStyleQubeId] = useState("knyt-guidance-v1");
   const [selectedExperience, setSelectedExperience] = useState<ExperienceQube | null>(null);
@@ -1646,7 +1647,7 @@ export const ComposerStudio = () => {
                             </div>
                           </div>
 
-                          {/* Guides/Briefs Panel - Integrated with styleBrief */}
+                          {/* Guides/Briefs Panel - Two-Level Tab Structure */}
                           <div className="mt-4 rounded-xl border p-4" style={{ backgroundColor: themeBg, borderColor: themeBorder }}>
                             <div className="flex items-center justify-between mb-3">
                               <h4 className="text-sm font-medium text-white flex items-center gap-2">
@@ -1677,8 +1678,93 @@ export const ComposerStudio = () => {
                                 </TabsTrigger>
                               </TabsList>
 
-                              {/* Who Tab Content */}
-                              <TabsContent value="who" className="mt-3 space-y-3">
+                              {/* Style Guide Content */}
+                              <TabsContent value="style-guide" className="mt-3">
+                                <Tabs value={styleGuideActiveTab} onValueChange={setStyleGuideActiveTab} className="w-full">
+                                  <TabsList className="grid w-full grid-cols-3 h-auto p-1 bg-slate-800/30 border border-slate-700/30 rounded-lg mb-3">
+                                    <TabsTrigger value="css" className="flex items-center gap-1 px-2 py-1 text-xs data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+                                      <Code className="h-3 w-3" />
+                                      CSS
+                                    </TabsTrigger>
+                                    <TabsTrigger value="brand-guide" className="flex items-center gap-1 px-2 py-1 text-xs data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+                                      <Shield className="h-3 w-3" />
+                                      Brand Guide
+                                    </TabsTrigger>
+                                    <TabsTrigger value="look-book" className="flex items-center gap-1 px-2 py-1 text-xs data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+                                      <Book className="h-3 w-3" />
+                                      Look Book
+                                    </TabsTrigger>
+                                  </TabsList>
+
+                                  {/* CSS Tab Content */}
+                                  <TabsContent value="css" className="space-y-3">
+                                    <div className="space-y-2">
+                                      <span className="text-slate-400 text-xs">CSS Styles:</span>
+                                      <div className="mt-1 p-3 rounded" style={{ backgroundColor: 'rgba(51, 65, 85, 0.3)', color: themeText }}>
+                                        <div className="text-xs font-mono space-y-1">
+                                          <div>/* Primary Colors */</div>
+                                          <div>--primary: {themeText};</div>
+                                          <div>--background: {themeBg};</div>
+                                          <div>--border: {themeBorder};</div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </TabsContent>
+
+                                  {/* Brand Guide Tab Content */}
+                                  <TabsContent value="brand-guide" className="space-y-3">
+                                    <div className="space-y-2">
+                                      <span className="text-slate-400 text-xs">Brand Guidelines:</span>
+                                      <div className="mt-1 p-3 rounded" style={{ backgroundColor: 'rgba(51, 65, 85, 0.3)', color: themeText }}>
+                                        <div className="text-xs space-y-2">
+                                          <div><strong>Voice:</strong> Professional, innovative, user-centric</div>
+                                          <div><strong>Tone:</strong> Helpful, confident, approachable</div>
+                                          <div><strong>Values:</strong> Quality, creativity, accessibility</div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </TabsContent>
+
+                                  {/* Look Book Tab Content */}
+                                  <TabsContent value="look-book" className="space-y-3">
+                                    <div className="space-y-2">
+                                      <span className="text-slate-400 text-xs">Visual Examples:</span>
+                                      <div className="mt-1 p-3 rounded" style={{ backgroundColor: 'rgba(51, 65, 85, 0.3)', color: themeText }}>
+                                        <div className="text-xs space-y-2">
+                                          <div><strong>Typography:</strong> Clean, modern sans-serif</div>
+                                          <div><strong>Imagery:</strong> High-quality, contextual</div>
+                                          <div><strong>Layout:</strong> Balanced, responsive, intuitive</div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </TabsContent>
+                                </Tabs>
+                              </TabsContent>
+
+                              {/* Experience Guide Content */}
+                              <TabsContent value="experience-guide" className="mt-3">
+                                <Tabs value={experienceGuideActiveTab} onValueChange={setExperienceGuideActiveTab} className="w-full">
+                                  <TabsList className="grid w-full grid-cols-4 h-auto p-1 bg-slate-800/30 border border-slate-700/30 rounded-lg mb-3">
+                                    <TabsTrigger value="who" className="flex items-center gap-1 px-2 py-1 text-xs data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+                                      <Users className="h-3 w-3" />
+                                      Who
+                                    </TabsTrigger>
+                                    <TabsTrigger value="what" className="flex items-center gap-1 px-2 py-1 text-xs data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+                                      <Target className="h-3 w-3" />
+                                      What
+                                    </TabsTrigger>
+                                    <TabsTrigger value="wow" className="flex items-center gap-1 px-2 py-1 text-xs data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+                                      <Sparkles className="h-3 w-3" />
+                                      Wow
+                                    </TabsTrigger>
+                                    <TabsTrigger value="metrics" className="flex items-center gap-1 px-2 py-1 text-xs data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+                                      <BarChart className="h-3 w-3" />
+                                      Metrics
+                                    </TabsTrigger>
+                                  </TabsList>
+
+                                  {/* Who Tab Content */}
+                                  <TabsContent value="who" className="space-y-3">
                                 <div className="space-y-2">
                                   <span className="text-slate-400 text-xs">Audience:</span>
                                   <div className="mt-1 p-2 rounded" style={{ color: themeText, backgroundColor: 'rgba(51, 65, 85, 0.3)' }}>
@@ -1767,6 +1853,8 @@ export const ComposerStudio = () => {
                                     ))}
                                   </div>
                                 </div>
+                              </TabsContent>
+                                </Tabs>
                               </TabsContent>
                             </Tabs>
                           </div>
