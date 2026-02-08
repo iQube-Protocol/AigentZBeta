@@ -187,7 +187,7 @@ export function importFromCSS({
   const styleQube: StyleQube | undefined = textSpec
     ? {
         text: textSpec,
-      }
+      } as StyleQube
     : undefined;
 
   const sources: DesignQubeSource[] = [
