@@ -145,18 +145,16 @@ function buildCssTextSpec(vars: Record<string, string>): TextStyleSpec | undefin
   if (!fontFamily && !fontSize && !lineHeight) return undefined;
 
   return {
-    readerCss: {
-      fontFamily,
-      fontSize,
-      lineHeight,
-      maxWidth: vars["reader-max-width"],
-      paragraphSpacing: vars["reader-paragraph-spacing"] || vars["paragraph-spacing"],
-      letterSpacing: vars["letter-spacing"],
-      textAlign: vars["text-align"],
-      hyphens: vars["hyphens"],
-      textRendering: vars["text-rendering"],
-      fontSmoothing: vars["font-smoothing"],
-    },
+    fontFamily,
+    fontSize,
+    lineHeight,
+    maxWidth: vars["reader-max-width"],
+    paragraphSpacing: vars["reader-paragraph-spacing"] || vars["paragraph-spacing"],
+    letterSpacing: vars["letter-spacing"],
+    textAlign: vars["text-align"],
+    hyphens: vars["hyphens"],
+    textRendering: vars["text-rendering"],
+    fontSmoothing: vars["font-smoothing"],
   };
 }
 
