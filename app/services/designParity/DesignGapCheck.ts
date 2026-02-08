@@ -44,8 +44,8 @@ export function analyzeDesignGap(params: {
 
   const styleQube = designQube?.styleQube;
   const structureQube = designQube?.structureQube;
-  const voice = styleQube?.voice;
-  const text = styleQube?.text;
+  const voice = (styleQube as any)?.voice;
+  const text = (styleQube as any)?.text;
   const sources = Array.isArray(designQube?.sources) ? designQube?.sources : [];
   const copilotHints = designQube?.copilotHints;
 
