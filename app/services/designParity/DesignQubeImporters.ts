@@ -153,7 +153,7 @@ function buildCssTextSpec(vars: Record<string, string>): TextStyleSpec | undefin
     letterSpacing: vars["letter-spacing"],
     textAlign: vars["text-align"] as "center" | "left" | "right" | "justify" | undefined,
     hyphens: vars["hyphens"],
-    textRendering: vars["text-rendering"],
+    textRendering: vars["text-rendering"] as "optimizeLegibility" | "optimizeSpeed" | "geometricPrecision" | undefined,
     fontSmoothing: vars["font-smoothing"],
   };
 }
