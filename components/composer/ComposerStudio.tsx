@@ -1990,9 +1990,9 @@ export const ComposerStudio = () => {
                                 <div className="space-y-2">
                                   <span className="text-slate-400 text-xs">Audio Settings:</span>
                                   <div className="grid grid-cols-3 gap-2 text-xs">
-                                    <div style={{ color: themeText }}>Volume: {designQube.styleQube?.audio?.volume || '80%'}</div>
-                                    <div style={{ color: themeText }}>Pitch: {designQube.styleQube?.audio?.pitch || 'Normal'}</div>
-                                    <div style={{ color: themeText }}>Quality: {designQube.styleQube?.audio?.quality || 'High'}</div>
+                                    <div style={{ color: themeText }}>Volume: {(designQube.styleQube?.audio as any)?.volume || '80%'}</div>
+                                    <div style={{ color: themeText }}>Pitch: {(designQube.styleQube?.audio as any)?.pitch || 'Normal'}</div>
+                                    <div style={{ color: themeText }}>Quality: {(designQube.styleQube?.audio as any)?.quality || 'High'}</div>
                                   </div>
                                 </div>
                               </TabsContent>
