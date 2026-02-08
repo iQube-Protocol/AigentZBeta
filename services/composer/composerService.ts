@@ -268,7 +268,7 @@ export class ComposerService {
         version: '1.0.0',
         tags: template.tags,
         category: template.category,
-      },
+      } as any,
       execution: {
         auto_start: false,
         retry_policy: 'none',
