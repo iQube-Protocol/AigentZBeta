@@ -410,6 +410,7 @@ export function importFromXD({
       id: `xd-${Date.now()}`,
       type: "xd",
       label: sourceLabel,
+      location: "unknown",
       extractedAt: new Date().toISOString(),
       coverage: ["tokens", "typography", "colors"],
     },
