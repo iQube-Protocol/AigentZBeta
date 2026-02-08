@@ -148,13 +148,6 @@ function buildCssTextSpec(vars: Record<string, string>): TextStyleSpec | undefin
     fontFamily,
     fontSize,
     lineHeight,
-    maxWidth: vars["reader-max-width"],
-    paragraphSpacing: vars["reader-paragraph-spacing"] || vars["paragraph-spacing"],
-    letterSpacing: vars["letter-spacing"],
-    textAlign: vars["text-align"] as "center" | "left" | "right" | "justify" | undefined,
-    hyphens: vars["hyphens"] as "auto" | "never" | "always" | undefined,
-    textRendering: vars["text-rendering"] as "optimizeLegibility" | "optimizeSpeed" | "geometricPrecision" | undefined,
-    fontSmoothing: vars["font-smoothing"] as "auto" | "never" | "always" | undefined,
   };
 }
 
