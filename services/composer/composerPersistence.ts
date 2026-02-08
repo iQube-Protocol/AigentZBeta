@@ -64,7 +64,7 @@ function mapExperienceToRow(experience: ExperienceQubeData): ExperienceRow {
       name: experience.name,
       description: experience.description,
       category: experience.metadata.category,
-      tags: experience.metadata.tags,
+      tags: (experience.metadata as any).tags,
       version: experience.metadata.version,
       created_at: experience.metadata.created_at,
       updated_at: experience.metadata.updated_at,
