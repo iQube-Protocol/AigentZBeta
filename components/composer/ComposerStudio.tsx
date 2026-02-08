@@ -79,6 +79,15 @@ type ExperienceQube = {
   template_id: string;
   status: string;
   metadata?: { category?: string; version?: string };
+  configuration?: Record<string, any>;
+  components?: Array<{
+    component_type: 'DataQube' | 'ContentQube' | 'ToolQube' | 'ModelQube' | 'AgentQube';
+  }>;
+  access?: {
+    visibility: 'private' | 'tenant' | 'public';
+    required_entitlements: string[];
+    allowed_roles: string[];
+  };
 };
 
 const DEFAULT_TENANT = "qripto-codex";
@@ -1489,44 +1498,76 @@ export const ComposerStudio = () => {
               )}
             </div>
             <div className={`mt-4 ${experienceQubeCollapsed ? 'max-h-[140px] overflow-y-auto pr-1' : 'max-h-[420px] overflow-y-auto pr-1'}`}>
-              <div className={`gap-3 ${experienceQubeCollapsed ? 'grid grid-cols-1' : 'grid md:grid-cols-2'}`}>
+              <div className={`gap-3 ${experienceQubeCollapsed ? 'grid grid-cols-2' : 'grid md:grid-cols-2'}`}>
                 {experiences.map((exp) => (
                   <div key={exp.id} className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
                     <div className="text-sm font-semibold text-white">{exp.name}</div>
                     <div className="text-xs text-slate-400 mt-1 line-clamp-2">{exp.description}</div>
                     <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-400">
                       <span className="rounded-full border border-slate-700 px-2 py-0.5">{exp.status}</span>
-                      {exp.metadata?.category && (
-                        <span className="rounded-full border border-slate-700 px-2 py-0.5">
-                          {exp.metadata.category}
+                      {exp.configuration?.wallet_rewards?.unlock_price && (
+                        <span className="rounded-full border border-amber-600/60 bg-amber-600/10 px-2 py-0.5 text-amber-300">
+                          💰 {exp.configuration.wallet_rewards.unlock_price} Q¢
+                        </span>
+                      )}
+                      {exp.configuration?.wallet_rewards?.reward_amount && (
+                        <span className="rounded-full border border-emerald-600/60 bg-emerald-600/10 px-2 py-0.5 text-emerald-300">
+                          🎁 +{exp.configuration.wallet_rewards.reward_amount} Q¢
                         </span>
                       )}
                     </div>
-                    <div className="mt-3 flex items-center gap-2">
+                    <div className="mt-3 flex flex-wrap gap-2">
                       <button
                         onClick={() => {
-                          setSelectedExperienceId(exp.id);
-                          setPreviewAction(`Launch ${exp.name}`);
+                          // Navigate to experience player
+                          window.open(`/studio/composer/experience/${exp.id}`, '_blank');
                         }}
                         className="rounded-lg border border-emerald-400/60 bg-emerald-400/10 p-2 text-emerald-200 hover:bg-emerald-400/20"
                         title="Launch Experience"
                       >
                         <Play className="h-3 w-3" />
                       </button>
-                      <button
-                        onClick={() => {
-                          setSelectedExperienceId(exp.id);
-                          setPreviewAction(`Preview ${exp.name}`);
-                        }}
-                        className={`rounded-lg border p-2 ${
-                          selectedExperienceId === exp.id
-                            ? "border-cyan-400/60 bg-cyan-400/10 text-cyan-200"
-                            : "border-slate-700 bg-slate-900/40 text-slate-300 hover:bg-slate-800/60"
-                        }`}
-                        title="Preview Experience"
-                      >
-                        <Eye className="h-3 w-3" />
-                      </button>
+                      
+                      {/* SmartActions based on component types */}
+                      {exp.components?.some((comp: any) => comp.component_type === 'ContentQube') && (
+                        <button
+                          onClick={() => {
+                            setSelectedExperience(exp);
+                            setShowExperienceModal(true);
+                          }}
+                          className="rounded-lg border border-purple-400/60 bg-purple-400/10 p-2 text-purple-200 hover:bg-purple-400/20"
+                          title="View Content"
+                        >
+                          <BookOpen className="h-3 w-3" />
+                        </button>
+                      )}
+                      
+                      {exp.components?.some((comp: any) => comp.component_type === 'ToolQube') && (
+                        <button
+                          onClick={() => {
+                            setSelectedExperience(exp);
+                            setShowExperienceModal(true);
+                          }}
+                          className="rounded-lg border border-blue-400/60 bg-blue-400/10 p-2 text-blue-200 hover:bg-blue-400/20"
+                          title="View Tools"
+                        >
+                          <Code className="h-3 w-3" />
+                        </button>
+                      )}
+                      
+                      {exp.components?.some((comp: any) => comp.component_type === 'DataQube') && (
+                        <button
+                          onClick={() => {
+                            setSelectedExperience(exp);
+                            setShowExperienceModal(true);
+                          }}
+                          className="rounded-lg border border-cyan-400/60 bg-cyan-400/10 p-2 text-cyan-200 hover:bg-cyan-400/20"
+                          title="View Data"
+                        >
+                          <BarChart className="h-3 w-3" />
+                        </button>
+                      )}
+                      
                       <button
                         onClick={() => handleEditExperience(exp)}
                         className="rounded-lg border border-amber-400/60 bg-amber-400/10 p-2 text-amber-200 hover:bg-amber-400/20"
@@ -1543,16 +1584,6 @@ export const ComposerStudio = () => {
                         title="Delete Experience"
                       >
                         <Trash2 className="h-3 w-3" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          setSelectedExperience(exp);
-                          setShowExperienceModal(true);
-                        }}
-                        className="rounded-lg border border-blue-400/60 bg-blue-400/10 p-2 text-blue-200 hover:bg-blue-400/20"
-                        title="View Details"
-                      >
-                        <FileText className="h-3 w-3" />
                       </button>
                     </div>
                   </div>
