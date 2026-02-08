@@ -2182,9 +2182,9 @@ export const ComposerStudio = () => {
                                         <div style={{ color: themeText }}>
                                           <div className="font-medium capitalize">{breakpoint.replace('bigScreen', 'Big Screen')}</div>
                                           <div className="text-slate-400">
-                                            {config.minWidth && `≥${config.minWidth}px`}
-                                            {config.maxWidth && ` ≤${config.maxWidth}px`}
-                                            {!config.minWidth && !config.maxWidth && 'Any'}
+                                            {(config as any).minWidth && `≥${(config as any).minWidth}px`}
+                                            {(config as any).maxWidth && ` ≤${(config as any).maxWidth}px`}
+                                            {!(config as any).minWidth && !(config as any).maxWidth && 'Any'}
                                           </div>
                                         </div>
                                       </div>
