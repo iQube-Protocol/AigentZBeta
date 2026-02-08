@@ -109,7 +109,7 @@ function mapRowToExperience(row: ExperienceRow): ExperienceQubeData {
       version: meta.version || "1.0.0",
       tags: (meta as any).tags || [],
       category: meta.category || "content",
-    },
+    } as any,
     execution: blak.execution || {
       auto_start: false,
       retry_policy: "none",
