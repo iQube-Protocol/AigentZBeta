@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bot, CheckCircle2, ChevronDown, ChevronUp, Circle, FileText, Hexagon, LayoutGrid, List, Loader2, Monitor, Moon, Palette, ShieldCheck, SlidersHorizontal, Sun, BookOpen, Eye, Volume2, Type, MonitorIcon, Smartphone, Tablet, Tv, Upload, Play, Code, Shield, Book, Users, Target, Sparkles, BarChart } from "lucide-react";
+import { Bot, CheckCircle2, ChevronDown, ChevronUp, Circle, FileText, Hexagon, LayoutGrid, List, Loader2, Monitor, Moon, Palette, ShieldCheck, SlidersHorizontal, Sun, BookOpen, Eye, Volume2, Type, MonitorIcon, Smartphone, Tablet, Tv, Upload, Play, Code, Shield, Book, Users, Target, Sparkles, BarChart, Edit, Trash2, AlertTriangle } from "lucide-react";
 import { useCopilotAction } from "@copilotkit/react-core";
 import { Button } from "@/components/ui/button";
 import { PreviewFrame } from "@/components/preview/PreviewFrame";
@@ -406,6 +406,7 @@ export const ComposerStudio = () => {
   const [designQubeError, setDesignQubeError] = useState<string | null>(null);
   const [designTheme, setDesignTheme] = useState<DesignQubeThemeMode>("dark");
   const [designQubeCollapsed, setDesignQubeCollapsed] = useState(true);
+  const [experienceQubeCollapsed, setExperienceQubeCollapsed] = useState(true);
   const [designQubeActivePanel, setDesignQubeActivePanel] = useState("style");
   const [designQubeActiveSubPanel, setDesignQubeActiveSubPanel] = useState("visual");
   const [styleQubeActiveTab, setStyleQubeActiveTab] = useState("visual");
@@ -417,12 +418,52 @@ export const ComposerStudio = () => {
   const [activeStyleQubeId, setActiveStyleQubeId] = useState("knyt-guidance-v1");
   const [selectedExperience, setSelectedExperience] = useState<ExperienceQube | null>(null);
   const [showExperienceModal, setShowExperienceModal] = useState(false);
+  const [experienceToDelete, setExperienceToDelete] = useState<ExperienceQube | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { data: codexList } = useCodexList({ useDefaults: true });
   const [copilotContextId, setCopilotContextId] = useState("qripto-codex");
   const [codexContentItems, setCodexContentItems] = useState<
     Array<{ id: string; label: string; tag: string; mediaType: string; mediaUri: string }>
   >([]);
   const [codexContentLoading, setCodexContentLoading] = useState(false);
+
+  // Sync Experience Qube collapse state with Design Qube
+  useEffect(() => {
+    setExperienceQubeCollapsed(designQubeCollapsed);
+  }, [designQubeCollapsed]);
+
+  // Delete experience function
+  const handleDeleteExperience = async (experience: ExperienceQube) => {
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/composer/experiences/${experience.id}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) throw new Error('Failed to delete experience');
+      
+      // Remove from local state
+      setExperiences(prev => prev.filter(exp => exp.id !== experience.id));
+      
+      // Close modal and reset state
+      setShowDeleteConfirm(false);
+      setExperienceToDelete(null);
+      
+      // Show success message (you could add a toast notification here)
+      console.log('Experience deleted successfully');
+    } catch (error) {
+      console.error('Error deleting experience:', error);
+      // Handle error (show error message)
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // Edit experience function - navigate to template customization
+  const handleEditExperience = (experience: ExperienceQube) => {
+    // Navigate to template customization with the experience's template
+    router.push(`/studio/composer/experience/${experience.id}`);
+  };
 
   const styleQubeThemeTokens = designQube?.tokens?.themes?.[designTheme];
   const styleQubeColors = styleQubeThemeTokens?.color || {};
@@ -1426,9 +1467,18 @@ export const ComposerStudio = () => {
           <div className={cardClass}>
             <div className="flex items-center justify-between">
               <div>
-                <div className="flex items-center gap-2">
-                  <Hexagon className="h-4 w-4 text-cyan-300" />
-                  <h2 className="text-lg font-semibold text-white">ExperienceQubes</h2>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Hexagon className="h-4 w-4 text-cyan-300" />
+                    <h2 className="text-lg font-semibold text-white">ExperienceQubes</h2>
+                  </div>
+                  <button
+                    onClick={() => setExperienceQubeCollapsed(prev => !prev)}
+                    className="inline-flex items-center rounded-full border px-2 py-0.5"
+                    title={experienceQubeCollapsed ? "Expand details" : "Collapse details"}
+                  >
+                    {experienceQubeCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                  </button>
                 </div>
                 <p className="text-sm text-slate-400">Latest experiences for the current tenant.</p>
               </div>
@@ -1438,8 +1488,8 @@ export const ComposerStudio = () => {
                 </span>
               )}
             </div>
-            <div className="mt-4 max-h-[420px] overflow-y-auto pr-1">
-              <div className="grid gap-3 md:grid-cols-2">
+            <div className={`mt-4 ${experienceQubeCollapsed ? 'max-h-[140px] overflow-y-auto pr-1' : 'max-h-[420px] overflow-y-auto pr-1'}`}>
+              <div className={`gap-3 ${experienceQubeCollapsed ? 'grid grid-cols-1' : 'grid md:grid-cols-2'}`}>
                 {experiences.map((exp) => (
                   <div key={exp.id} className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
                     <div className="text-sm font-semibold text-white">{exp.name}</div>
@@ -1476,6 +1526,23 @@ export const ComposerStudio = () => {
                         title="Preview Experience"
                       >
                         <Eye className="h-3 w-3" />
+                      </button>
+                      <button
+                        onClick={() => handleEditExperience(exp)}
+                        className="rounded-lg border border-amber-400/60 bg-amber-400/10 p-2 text-amber-200 hover:bg-amber-400/20"
+                        title="Edit Experience"
+                      >
+                        <Edit className="h-3 w-3" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setExperienceToDelete(exp);
+                          setShowDeleteConfirm(true);
+                        }}
+                        className="rounded-lg border border-red-400/60 bg-red-400/10 p-2 text-red-200 hover:bg-red-400/20"
+                        title="Delete Experience"
+                      >
+                        <Trash2 className="h-3 w-3" />
                       </button>
                       <button
                         onClick={() => {
@@ -2758,6 +2825,59 @@ Example: 'What template works best for a dashboard layout?'"
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && experienceToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+          <div className="max-w-md w-full rounded-2xl border border-red-800/50 bg-slate-900 shadow-2xl p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="rounded-full bg-red-500/10 p-2">
+                <AlertTriangle className="h-6 w-6 text-red-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-white">Delete Experience</h3>
+                <p className="text-sm text-slate-400">This action cannot be undone</p>
+              </div>
+            </div>
+            
+            <div className="mb-6">
+              <p className="text-sm text-slate-300 mb-2">
+                Are you sure you want to delete <span className="font-semibold text-white">"{experienceToDelete.name}"</span>?
+              </p>
+              <p className="text-xs text-slate-400">
+                This will permanently remove the experience and all associated data from the database.
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setExperienceToDelete(null);
+                }}
+                className="flex-1 rounded-lg border border-slate-700 bg-slate-800/50 px-4 py-2 text-sm font-semibold text-slate-300 hover:bg-slate-700"
+                disabled={isDeleting}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDeleteExperience(experienceToDelete)}
+                className="flex-1 rounded-lg border border-red-500/60 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-200 hover:bg-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isDeleting}
+              >
+                {isDeleting ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Deleting...
+                  </div>
+                ) : (
+                  'Delete Experience'
+                )}
+              </button>
             </div>
           </div>
         </div>
