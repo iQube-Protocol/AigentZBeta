@@ -2035,6 +2035,7 @@ export const ComposerStudio = () => {
                                     <div style={{ color: themeText }} className="mt-1">
                                       {designQube.styleQube?.text?.tone?.formality}
                                     </div>
+                                  </div>
                                   <span className="text-slate-400 text-xs">Text Settings:</span>
                                   <div className="grid grid-cols-3 gap-2 text-xs">
                                     <div style={{ color: themeText }}>Weight: {(designQube.styleQube?.text?.formatting as any)?.fontWeight || 'Medium'}</div>
