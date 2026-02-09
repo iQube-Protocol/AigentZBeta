@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
-import { SmartTriadProvider, SmartTriadSurfaces } from "@/app/components/content";
+import { SmartTriadProvider } from "@/app/components/content/SmartTriadProvider";
+import { SmartTriadSurfaces } from "@/app/components/content/SmartTriadSurfaces";
 import { ExperienceLiquidRenderer } from "./ExperienceLiquidRenderer";
 
 type ExperienceQube = {

@@ -25,7 +25,10 @@ export function ExperienceLiquidRenderer({
 }: ExperienceLiquidRendererProps) {
   const templateKey = packet?.ui?.primary_template as string | undefined;
   const Template = templateKey ? liquidTemplateRegistry[templateKey] : undefined;
-  const fallbackTemplate = liquidTemplateRegistry["liquidui:drawer_grid_2a"];
+  const fallbackTemplate =
+    liquidTemplateRegistry["liquidui:drawer_grid_2a"] ||
+    liquidTemplateRegistry["liquidui:drawer_grid_v1"] ||
+    liquidTemplateRegistry["knyt:drawer_grid_v1"];
   const useFallback = !Template || Template === LiquidUIPlaceholderTemplate;
   const ResolvedTemplate = useFallback ? fallbackTemplate : Template;
 

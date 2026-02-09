@@ -1,11 +1,12 @@
 /** @type {import('next').NextConfig} */
 const isDev = process.env.NODE_ENV !== 'production';
+const isAmplifyBuild = Boolean(process.env.AWS_BRANCH || process.env.AMPLIFY_APP_ID);
 const nextConfig = {
   // Disable double-invocation and extra checks in dev to speed up refresh
   reactStrictMode: !isDev,
   swcMinify: true,
-  // Use standalone output for better Amplify compatibility
-  output: 'standalone',
+  // Keep standalone only for Amplify build environments to avoid local tracing edge-cases.
+  output: isAmplifyBuild ? 'standalone' : undefined,
   transpilePackages: [
     '@qriptoagentiq/core-client',
     '@qriptoagentiq/a2a-client',

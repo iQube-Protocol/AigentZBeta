@@ -92,6 +92,47 @@ type ExperienceQube = {
 
 const DEFAULT_TENANT = "qripto-codex";
 const DEFAULT_USER = "aigentz@aigent:u_demo_001";
+const COMPOSER_CACHE_TTL_MS = 5 * 60 * 1000;
+const EXPERIENCE_CACHE_TTL_MS = 2 * 60 * 1000;
+const MAX_EXPERIENCE_CACHE_TENANTS = 8;
+
+type ComposerStudioCache = {
+  templates: ExperienceTemplate[] | null;
+  templatesFetchedAt: number;
+  designQube: DesignQube | null;
+  designQubeFetchedAt: number;
+  experiencesByTenant: Record<string, { items: ExperienceQube[]; fetchedAt: number }>;
+};
+
+let composerStudioCache: ComposerStudioCache = {
+  templates: null,
+  templatesFetchedAt: 0,
+  designQube: null,
+  designQubeFetchedAt: 0,
+  experiencesByTenant: {},
+};
+
+const isCacheFresh = (fetchedAt: number, ttlMs: number) =>
+  fetchedAt > 0 && Date.now() - fetchedAt < ttlMs;
+
+const pruneExperienceCache = () => {
+  const entries = Object.entries(composerStudioCache.experiencesByTenant);
+  if (entries.length <= MAX_EXPERIENCE_CACHE_TENANTS) return;
+  entries
+    .sort((a, b) => a[1].fetchedAt - b[1].fetchedAt)
+    .slice(0, entries.length - MAX_EXPERIENCE_CACHE_TENANTS)
+    .forEach(([tenant]) => {
+      delete composerStudioCache.experiencesByTenant[tenant];
+    });
+};
+
+const cacheExperiencesForTenant = (tenantId: string, items: ExperienceQube[]) => {
+  composerStudioCache.experiencesByTenant[tenantId] = {
+    items,
+    fetchedAt: Date.now(),
+  };
+  pruneExperienceCache();
+};
 
 const QRIPTO_FALLBACK_CODEXES = [
   { id: "knyt-codex", label: "KNYT Codex" },
@@ -395,8 +436,10 @@ const QRIPTO_TEMPLATE_SEEDS: ExperienceTemplate[] = [
 
 export const ComposerStudio = () => {
   const router = useRouter();
-  const [templates, setTemplates] = useState<ExperienceTemplate[]>([]);
-  const [templatesLoading, setTemplatesLoading] = useState(true);
+  const [templates, setTemplates] = useState<ExperienceTemplate[]>(() => composerStudioCache.templates || []);
+  const [templatesLoading, setTemplatesLoading] = useState(
+    () => !isCacheFresh(composerStudioCache.templatesFetchedAt, COMPOSER_CACHE_TTL_MS)
+  );
   const [templatesError, setTemplatesError] = useState<string | null>(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [tenantId, setTenantId] = useState(DEFAULT_TENANT);
@@ -410,8 +453,10 @@ export const ComposerStudio = () => {
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [experience, setExperience] = useState<ExperienceQube | null>(null);
   const [experiences, setExperiences] = useState<ExperienceQube[]>([]);
-  const [designQube, setDesignQube] = useState<DesignQube | null>(null);
-  const [designQubeLoading, setDesignQubeLoading] = useState(false);
+  const [designQube, setDesignQube] = useState<DesignQube | null>(() => composerStudioCache.designQube);
+  const [designQubeLoading, setDesignQubeLoading] = useState(
+    () => !isCacheFresh(composerStudioCache.designQubeFetchedAt, COMPOSER_CACHE_TTL_MS)
+  );
   const [designQubeError, setDesignQubeError] = useState<string | null>(null);
   const [designTheme, setDesignTheme] = useState<DesignQubeThemeMode>("dark");
   const [designQubeCollapsed, setDesignQubeCollapsed] = useState(true);
@@ -427,6 +472,8 @@ export const ComposerStudio = () => {
   const [activeStyleQubeId, setActiveStyleQubeId] = useState("knyt-guidance-v1");
   const [selectedExperience, setSelectedExperience] = useState<ExperienceQube | null>(null);
   const [showExperienceModal, setShowExperienceModal] = useState(false);
+  const [showRuntimePreviewModal, setShowRuntimePreviewModal] = useState(false);
+  const [experienceModalTab, setExperienceModalTab] = useState<"goal" | "mechanics" | "metrics">("goal");
   const [experienceToDelete, setExperienceToDelete] = useState<ExperienceQube | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -452,7 +499,11 @@ export const ComposerStudio = () => {
       if (!res.ok) throw new Error('Failed to delete experience');
       
       // Remove from local state
-      setExperiences(prev => prev.filter(exp => exp.id !== experience.id));
+      setExperiences(prev => {
+        const next = prev.filter(exp => exp.id !== experience.id);
+        cacheExperiencesForTenant(tenantId, next);
+        return next;
+      });
       
       // Close modal and reset state
       setShowDeleteConfirm(false);
@@ -469,9 +520,38 @@ export const ComposerStudio = () => {
   };
 
   // Edit experience function - navigate to template customization
-  const handleEditExperience = (experience: ExperienceQube) => {
-    // Navigate to template customization with the experience's template
-    router.push(`/studio/composer/experience/${experience.id}`);
+  const openRuntimePreviewForExperience = (exp: ExperienceQube | null, actionPrefix: string = "Preview") => {
+    const fallbackId = exp?.id || selectedExperienceId || experience?.id || null;
+    if (fallbackId) setSelectedExperienceId(fallbackId);
+    setPreviewAction(`${actionPrefix} ${exp?.name || "Experience"}`);
+    setShowRuntimePreviewModal(true);
+  };
+
+  const launchExperience = async (exp: ExperienceQube | null) => {
+    const experienceId = exp?.id?.toString().trim();
+    if (!experienceId) {
+      openRuntimePreviewForExperience(exp, "Launch fallback");
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/composer/experiences/${encodeURIComponent(experienceId)}`, {
+        cache: "no-store",
+      });
+
+      if (!res.ok) {
+        openRuntimePreviewForExperience(exp, "Launch fallback");
+        return;
+      }
+
+      router.push(`/studio/composer/experience/${encodeURIComponent(experienceId)}`);
+    } catch {
+      openRuntimePreviewForExperience(exp, "Launch fallback");
+    }
+  };
+
+  const handleEditExperience = async (experience: ExperienceQube) => {
+    await launchExperience(experience);
   };
 
   const styleQubeThemeTokens = designQube?.tokens?.themes?.[designTheme];
@@ -579,25 +659,49 @@ export const ComposerStudio = () => {
 
   useEffect(() => {
     let active = true;
+    const mergeTemplates = (apiTemplates: ExperienceTemplate[]) => {
+      const merged = [...apiTemplates];
+      QRIPTO_TEMPLATE_SEEDS.forEach((seed) => {
+        if (!merged.some((t) => t.id === seed.id)) {
+          merged.push(seed);
+        }
+      });
+      return merged;
+    };
+
+    const cachedTemplates = composerStudioCache.templates;
+    const templatesAreFresh = isCacheFresh(composerStudioCache.templatesFetchedAt, COMPOSER_CACHE_TTL_MS);
+    if (cachedTemplates && templatesAreFresh) {
+      setTemplates(cachedTemplates);
+      setTemplatesError(null);
+      setTemplatesLoading(false);
+      return () => {
+        active = false;
+      };
+    }
+
     const fetchTemplates = async () => {
       try {
         setTemplatesLoading(true);
         const res = await fetch("/api/composer/templates");
         if (!res.ok) throw new Error("Failed to load templates");
         const data = await res.json();
+        const merged = mergeTemplates(data.templates || []);
+        composerStudioCache.templates = merged;
+        composerStudioCache.templatesFetchedAt = Date.now();
         if (active) {
-          const apiTemplates: ExperienceTemplate[] = data.templates || [];
-          const merged = [...apiTemplates];
-          QRIPTO_TEMPLATE_SEEDS.forEach((seed) => {
-            if (!merged.some((t) => t.id === seed.id)) {
-              merged.push(seed);
-            }
-          });
           setTemplates(merged);
           setTemplatesError(null);
         }
       } catch (err: any) {
-        if (active) setTemplatesError(err.message || "Failed to load templates");
+        if (active) {
+          if (cachedTemplates) {
+            setTemplates(cachedTemplates);
+            setTemplatesError(null);
+          } else {
+            setTemplatesError(err.message || "Failed to load templates");
+          }
+        }
       } finally {
         if (active) setTemplatesLoading(false);
       }
@@ -610,6 +714,16 @@ export const ComposerStudio = () => {
 
   useEffect(() => {
     let active = true;
+    const designIsFresh = isCacheFresh(composerStudioCache.designQubeFetchedAt, COMPOSER_CACHE_TTL_MS);
+    if (designIsFresh) {
+      setDesignQube(composerStudioCache.designQube || null);
+      setDesignQubeError(null);
+      setDesignQubeLoading(false);
+      return () => {
+        active = false;
+      };
+    }
+
     const fetchDesignQube = async () => {
       try {
         setDesignQubeLoading(true);
@@ -617,12 +731,21 @@ export const ComposerStudio = () => {
         if (!res.ok) throw new Error("Failed to load DesignQube");
         const data = await res.json();
         if (!data.success) throw new Error(data.error || "Failed to load DesignQube");
+        composerStudioCache.designQube = data.designQube || null;
+        composerStudioCache.designQubeFetchedAt = Date.now();
         if (active) {
           setDesignQube(data.designQube || null);
           setDesignQubeError(null);
         }
       } catch (err: any) {
-        if (active) setDesignQubeError(err.message || "Failed to load DesignQube");
+        if (active) {
+          if (composerStudioCache.designQube) {
+            setDesignQube(composerStudioCache.designQube);
+            setDesignQubeError(null);
+          } else {
+            setDesignQubeError(err.message || "Failed to load DesignQube");
+          }
+        }
       } finally {
         if (active) setDesignQubeLoading(false);
       }
@@ -748,14 +871,30 @@ export const ComposerStudio = () => {
   useEffect(() => {
     if (!tenantId) return;
     let active = true;
+    const tenantCache = composerStudioCache.experiencesByTenant[tenantId];
+    if (tenantCache && isCacheFresh(tenantCache.fetchedAt, EXPERIENCE_CACHE_TTL_MS)) {
+      setExperiences(tenantCache.items);
+      return () => {
+        active = false;
+      };
+    }
+
     const fetchExperiences = async () => {
       try {
         const res = await fetch(`/api/composer/experiences?tenant_id=${encodeURIComponent(tenantId)}`);
         if (!res.ok) throw new Error("Failed to load experiences");
         const data = await res.json();
-        if (active) setExperiences(data.experience_qubes || []);
+        const next = data.experience_qubes || [];
+        cacheExperiencesForTenant(tenantId, next);
+        if (active) setExperiences(next);
       } catch {
-        if (active) setExperiences([]);
+        if (active) {
+          if (tenantCache?.items) {
+            setExperiences(tenantCache.items);
+          } else {
+            setExperiences([]);
+          }
+        }
       }
     };
     fetchExperiences();
@@ -1461,7 +1600,9 @@ export const ComposerStudio = () => {
                   </button>
                   {experience && (
                     <button
-                      onClick={() => router.push(`/studio/composer/experience/${experience.id}`)}
+                      onClick={() => {
+                        void launchExperience(experience);
+                      }}
                       className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-200"
                     >
                       Open Experience
@@ -1497,7 +1638,7 @@ export const ComposerStudio = () => {
                 </span>
               )}
             </div>
-            <div className={`mt-4 ${experienceQubeCollapsed ? 'max-h-[140px] overflow-y-auto pr-1' : 'max-h-[420px] overflow-y-auto pr-1'}`}>
+            <div className={`mt-4 ${experienceQubeCollapsed ? 'max-h-[170px] overflow-y-auto pr-1' : 'max-h-[420px] overflow-y-auto pr-1'}`}>
               <div className={`gap-3 ${experienceQubeCollapsed ? 'grid grid-cols-2' : 'grid md:grid-cols-2'}`}>
                 {experiences.map((exp) => (
                   <div key={exp.id} className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
@@ -1516,76 +1657,57 @@ export const ComposerStudio = () => {
                         </span>
                       )}
                     </div>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <button
-                        onClick={() => {
-                          // Navigate to experience player
-                          setSelectedExperienceId(exp.id);
-                          setPreviewAction(`Launch ${exp.name}`);
-                        }}
-                        className="rounded-lg border border-emerald-400/60 bg-emerald-400/10 p-2 text-emerald-200 hover:bg-emerald-400/20"
-                        title="Launch Experience"
-                      >
-                        <Play className="h-3 w-3" />
-                      </button>
-                      
-                      {/* SmartActions based on component types */}
-                      {exp.components?.some((comp: any) => comp.component_type === 'ContentQube') && (
+                    <div className="mt-3 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
                         <button
                           onClick={() => {
-                            setSelectedExperience(exp);
-                            setShowExperienceModal(true);
+                            void launchExperience(exp);
                           }}
-                          className="rounded-lg border border-purple-400/60 bg-purple-400/10 p-2 text-purple-200 hover:bg-purple-400/20"
-                          title="View Content"
+                          className="rounded-lg border border-emerald-400/60 bg-emerald-400/10 p-2 text-emerald-200 hover:bg-emerald-400/20"
+                          title="Launch Experience"
                         >
-                          <BookOpen className="h-3 w-3" />
+                          <Play className="h-3 w-3" />
                         </button>
-                      )}
-                      
-                      {exp.components?.some((comp: any) => comp.component_type === 'ToolQube') && (
                         <button
                           onClick={() => {
-                            setSelectedExperience(exp);
-                            setShowExperienceModal(true);
-                          }}
-                          className="rounded-lg border border-blue-400/60 bg-blue-400/10 p-2 text-blue-200 hover:bg-blue-400/20"
-                          title="View Tools"
-                        >
-                          <Code className="h-3 w-3" />
-                        </button>
-                      )}
-                      
-                      {exp.components?.some((comp: any) => comp.component_type === 'DataQube') && (
-                        <button
-                          onClick={() => {
-                            setSelectedExperience(exp);
-                            setShowExperienceModal(true);
+                            openRuntimePreviewForExperience(exp, "Preview");
                           }}
                           className="rounded-lg border border-cyan-400/60 bg-cyan-400/10 p-2 text-cyan-200 hover:bg-cyan-400/20"
-                          title="View Data"
+                          title="Preview Experience"
+                        >
+                          <Eye className="h-3 w-3" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedExperience(exp);
+                            setExperienceModalTab("metrics");
+                            setShowExperienceModal(true);
+                          }}
+                          className="rounded-lg border border-violet-400/60 bg-violet-400/10 p-2 text-violet-200 hover:bg-violet-400/20"
+                          title="View Metrics"
                         >
                           <BarChart className="h-3 w-3" />
                         </button>
-                      )}
-                      
-                      <button
-                        onClick={() => handleEditExperience(exp)}
-                        className="rounded-lg border border-amber-400/60 bg-amber-400/10 p-2 text-amber-200 hover:bg-amber-400/20"
-                        title="Edit Experience"
-                      >
-                        <Edit className="h-3 w-3" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          setExperienceToDelete(exp);
-                          setShowDeleteConfirm(true);
-                        }}
-                        className="rounded-lg border border-red-400/60 bg-red-400/10 p-2 text-red-200 hover:bg-red-400/20"
-                        title="Delete Experience"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </button>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleEditExperience(exp)}
+                          className="rounded-lg border border-amber-400/60 bg-amber-400/10 p-2 text-amber-200 hover:bg-amber-400/20"
+                          title="Edit Experience"
+                        >
+                          <Edit className="h-3 w-3" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            setExperienceToDelete(exp);
+                            setShowDeleteConfirm(true);
+                          }}
+                          className="rounded-lg border border-red-400/60 bg-red-400/10 p-2 text-red-200 hover:bg-red-400/20"
+                          title="Delete Experience"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -2661,11 +2783,23 @@ Example: 'What template works best for a dashboard layout?'"
             </div>
             <div className="mt-4 h-[760px] max-h-[760px] overflow-hidden">
               <PreviewFrame
-                src={`/metame/runtime?preview=1&capsule=${selectedExperienceId || previewExperience?.id || "capsule-metaknyt-play"}&theme=${designTheme}&embed=1&device=${previewDevice}&t=${previewTimestamp}`}
+                src={`/metame/runtime?preview=1&capsule=${selectedExperienceId || previewExperience?.id || "capsule-metaknyt-play"}&experienceId=${selectedExperienceId || previewExperience?.id || ""}&theme=${designTheme}&embed=1&device=${previewDevice}&t=${previewTimestamp}`}
                 defaultDevice="mobile"
                 chromeless
                 deviceQueryParam="device"
                 showToolbar={false}
+                fallback={(
+                  <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-slate-950 text-slate-300">
+                    <p className="text-sm">Runtime preview failed to load.</p>
+                    <button
+                      type="button"
+                      onClick={() => setPreviewTimestamp(Date.now())}
+                      className="rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-700"
+                    >
+                      Retry Preview
+                    </button>
+                  </div>
+                )}
                 className="h-full"
               />
             </div>
@@ -2698,7 +2832,7 @@ Example: 'What template works best for a dashboard layout?'"
 
             {/* Modal Content */}
             <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
-              <Tabs defaultValue="goal" className="w-full">
+              <Tabs value={experienceModalTab} onValueChange={(value) => setExperienceModalTab(value as "goal" | "mechanics" | "metrics")} className="w-full">
                 <TabsList className="grid w-full grid-cols-3 h-auto p-1 bg-slate-800/50 border border-slate-700/50 rounded-lg mb-6">
                   <TabsTrigger value="goal" className="flex items-center gap-2 px-4 py-2 text-sm data-[state=active]:bg-slate-700 data-[state=active]:text-white">
                     <ShieldCheck className="h-4 w-4" />
@@ -2838,8 +2972,7 @@ Example: 'What template works best for a dashboard layout?'"
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => {
-                      setSelectedExperienceId(selectedExperience.id);
-                      setPreviewAction(`Preview ${selectedExperience.name}`);
+                      openRuntimePreviewForExperience(selectedExperience, "Preview");
                       setShowExperienceModal(false);
                     }}
                     className="rounded-lg border border-cyan-400/60 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-200 hover:bg-cyan-400/20"
@@ -2856,6 +2989,58 @@ Example: 'What template works best for a dashboard layout?'"
                     Close
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Runtime Preview Modal */}
+      {showRuntimePreviewModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+          <div className="max-w-4xl w-full max-h-[90vh] overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 p-6">
+              <div className="flex items-center gap-3">
+                <Hexagon className="h-6 w-6 text-cyan-400" />
+                <div>
+                  <h2 className="text-xl font-bold text-white">metaMe Runtime Preview</h2>
+                  <p className="text-sm text-slate-400">Copilot panel preview for selected ExperienceQube</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <DevicePreviewSwitcher value={previewDevice} onChange={setPreviewDevice} />
+                <button
+                  onClick={() => {
+                    setShowRuntimePreviewModal(false);
+                  }}
+                  className="rounded-lg border border-slate-700 bg-slate-800/50 p-2 text-slate-400 hover:bg-slate-700 hover:text-white"
+                >
+                  <ChevronUp className="h-5 w-5 rotate-45" />
+                </button>
+              </div>
+            </div>
+            <div className="p-6">
+              <div className="h-[680px] max-h-[68vh] overflow-hidden rounded-xl border border-slate-800">
+                <PreviewFrame
+                  src={`/metame/runtime?preview=1&capsule=${selectedExperienceId || previewExperience?.id || "capsule-metaknyt-play"}&experienceId=${selectedExperienceId || previewExperience?.id || ""}&theme=${designTheme}&embed=1&device=${previewDevice}&t=${previewTimestamp}`}
+                  defaultDevice="mobile"
+                  chromeless
+                  deviceQueryParam="device"
+                  showToolbar={false}
+                  fallback={(
+                    <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-slate-950 text-slate-300">
+                      <p className="text-sm">Runtime preview failed to load.</p>
+                      <button
+                        type="button"
+                        onClick={() => setPreviewTimestamp(Date.now())}
+                        className="rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-700"
+                      >
+                        Retry Preview
+                      </button>
+                    </div>
+                  )}
+                  className="h-full"
+                />
               </div>
             </div>
           </div>

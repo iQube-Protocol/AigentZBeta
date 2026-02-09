@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * Smart Content UI Components
  * 

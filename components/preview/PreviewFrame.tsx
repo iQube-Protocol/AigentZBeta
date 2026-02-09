@@ -55,6 +55,8 @@ export function PreviewFrame({
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
   const [containerWidth, setContainerWidth] = useState(0);
+  const [iframeFailed, setIframeFailed] = useState(false);
+  const [iframeLoaded, setIframeLoaded] = useState(false);
   useEffect(() => {
     const updateScale = () => {
       if (!containerRef.current) return;
@@ -100,9 +102,21 @@ export function PreviewFrame({
     }
   })();
 
-  const [iframeFailed, setIframeFailed] = useState(false);
   const targetWidth =
     device === "desktop" && containerWidth > 0 ? containerWidth : width;
+
+  useEffect(() => {
+    setIframeFailed(false);
+    setIframeLoaded(false);
+  }, [resolvedSrc, device]);
+
+  useEffect(() => {
+    if (!resolvedSrc || iframeFailed || iframeLoaded) return;
+    const timer = window.setTimeout(() => {
+      setIframeFailed(true);
+    }, 12000);
+    return () => window.clearTimeout(timer);
+  }, [resolvedSrc, iframeFailed, iframeLoaded]);
 
   return (
     <div className={cn("flex flex-col h-full", className)}>
@@ -117,7 +131,7 @@ export function PreviewFrame({
       >
         <div
           className={cn(
-            "bg-background overflow-hidden transition-all duration-300 ease-out origin-top",
+            "relative bg-background overflow-hidden transition-all duration-300 ease-out origin-top",
             chromeless ? "rounded-none shadow-none" : "rounded-lg shadow-lg"
           )}
           style={{
@@ -129,18 +143,30 @@ export function PreviewFrame({
           }}
         >
           {resolvedSrc && !iframeFailed ? (
-            <iframe
-              src={resolvedSrc}
-              className="w-full h-full min-h-[600px] border-0"
-              title="Preview"
-              onError={(e) => {
-                console.error("Preview iframe load error", e);
-                setIframeFailed(true);
-              }}
-            />
+            <>
+              {!iframeLoaded && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-900/70 text-xs text-slate-300">
+                  Loading preview...
+                </div>
+              )}
+              <iframe
+                src={resolvedSrc}
+                className="w-full h-full min-h-[600px] border-0"
+                title="Preview"
+                onLoad={() => setIframeLoaded(true)}
+                onError={(e) => {
+                  console.error("Preview iframe load error", e);
+                  setIframeFailed(true);
+                }}
+              />
+            </>
           ) : (
             <div className="w-full h-full min-h-[600px] overflow-hidden">
-              {fallback || children}
+              {fallback || children || (
+                <div className="flex h-full w-full items-center justify-center bg-slate-950 text-sm text-slate-300">
+                  Preview could not load.
+                </div>
+              )}
             </div>
           )}
         </div>
