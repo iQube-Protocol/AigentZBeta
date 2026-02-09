@@ -1520,7 +1520,8 @@ export const ComposerStudio = () => {
                       <button
                         onClick={() => {
                           // Navigate to experience player
-                          window.open(`/studio/composer/experience/${exp.id}`, '_blank');
+                          setSelectedExperienceId(exp.id);
+                          setPreviewAction(`Launch ${exp.name}`);
                         }}
                         className="rounded-lg border border-emerald-400/60 bg-emerald-400/10 p-2 text-emerald-200 hover:bg-emerald-400/20"
                         title="Launch Experience"
