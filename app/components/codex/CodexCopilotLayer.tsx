@@ -56,6 +56,7 @@ interface CodexCopilotLayerProps {
   panelClassName?: string;
   floatingInput?: boolean;
   disableActivationButton?: boolean;
+  showQuickPromptsToggle?: boolean;
   trustProvider?: "openai" | "venice" | "chaingpt";
   showNavMenu?: boolean;
   showWalletMenu?: boolean;
@@ -110,6 +111,7 @@ export function CodexCopilotLayer({
   panelClassName,
   floatingInput = false,
   disableActivationButton = false,
+  showQuickPromptsToggle = false,
   trustProvider,
   showNavMenu = true,
   showWalletMenu = true,
@@ -132,6 +134,7 @@ export function CodexCopilotLayer({
   const [walletMenuVisible, setWalletMenuVisible] = useState(true);
   const [walletMenuHover, setWalletMenuHover] = useState(false);
   const [inputPanelVisible, setInputPanelVisible] = useState(false);
+  const [quickPromptsCollapsed, setQuickPromptsCollapsed] = useState(false);
   const [contextMenuOpen, setContextMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -556,7 +559,7 @@ export function CodexCopilotLayer({
                             }}
                           >
                             <div className={inputPanelClassName ?? "rounded-2xl border border-white/10 bg-slate-950/80 backdrop-blur-xl px-3 py-3 shadow-lg"}>
-                              {quickPrompts && quickPrompts.length > 0 && (
+                              {quickPrompts && quickPrompts.length > 0 && !quickPromptsCollapsed && (
                                 <div className="mb-3 flex w-full gap-2 overflow-x-auto no-scrollbar">
                                   {quickPrompts.map((promptItem, index) => {
                                     if (typeof promptItem === "string") {
@@ -608,6 +611,19 @@ export function CodexCopilotLayer({
                                     <Send className="w-4 h-4" />
                                   )}
                                 </button>
+                                {showQuickPromptsToggle && quickPrompts && quickPrompts.length > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setQuickPromptsCollapsed((prev) => !prev)}
+                                    className="p-2 rounded-lg border border-slate-700 bg-slate-800/50 text-white/80 hover:bg-slate-700 transition-colors"
+                                    title={quickPromptsCollapsed ? "Show quick links" : "Hide quick links"}
+                                    aria-label={quickPromptsCollapsed ? "Show quick links" : "Hide quick links"}
+                                  >
+                                    <ChevronDown
+                                      className={`w-4 h-4 transition-transform ${quickPromptsCollapsed ? "-rotate-90" : "rotate-0"}`}
+                                    />
+                                  </button>
+                                )}
                               </div>
                             </div>
                           </div>

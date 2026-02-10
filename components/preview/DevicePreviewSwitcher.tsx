@@ -17,9 +17,9 @@ interface DeviceConfig {
 }
 
 const devices: DeviceConfig[] = [
-  { type: "desktop", label: "Desktop", icon: Monitor, width: 1920 },
-  { type: "tablet", label: "Tablet", icon: Tablet, width: 768 },
   { type: "mobile", label: "Mobile", icon: Smartphone, width: 375 },
+  { type: "tablet", label: "Tablet", icon: Tablet, width: 768 },
+  { type: "desktop", label: "Desktop", icon: Monitor, width: 1920 },
 ];
 
 interface DevicePreviewSwitcherProps {

@@ -553,7 +553,7 @@ export default function MetaMeRuntimeClient() {
             <Users className="h-4 w-4 text-slate-200" />
             Be
           </button>
-          <div className="flex flex-1 items-center justify-center gap-12">
+          <div className="flex flex-1 items-center justify-center gap-6">
             <button type="button" onClick={() => handlePrompt("How can I earn...")} className={menuButtonClass} title="How can I earn...">
               <Coins className="h-5 w-5 text-emerald-300" />
               Earn
@@ -642,6 +642,7 @@ export default function MetaMeRuntimeClient() {
         footerContent={runtimeMenu}
         floatingInput
         disableActivationButton
+        showQuickPromptsToggle
         className="h-full"
       />
     </div>

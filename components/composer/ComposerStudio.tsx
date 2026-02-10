@@ -931,7 +931,7 @@ export const ComposerStudio = () => {
     previewDevice === "desktop" ? "max-w-[1280px]" : "max-w-[920px]";
   const runtimePreviewViewportClass =
     previewDevice === "mobile"
-      ? "mx-auto h-full w-[430px] max-w-[430px]"
+      ? "mx-auto h-full w-[375px] max-w-[375px]"
       : previewDevice === "tablet"
         ? "mx-auto h-full w-full max-w-[860px]"
         : "h-full w-full";
@@ -3480,11 +3480,9 @@ Example: 'What template works best for a dashboard layout?'"
           <div className={`${runtimePreviewModalWidthClass} w-full max-h-[90vh] overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl`}>
             <div className="flex items-center justify-between border-b border-slate-800 p-6">
               <div className="flex items-center gap-3">
-                <Hexagon className="h-6 w-6 text-cyan-400" />
-                <div>
-                  <h2 className="text-xl font-bold text-white">metaMe Runtime Preview</h2>
-                  <p className="text-sm text-slate-400">Copilot panel preview for selected ExperienceQube</p>
-                </div>
+                <Hexagon className="h-6 w-6 text-[#ff7f50]" />
+                <h2 className="text-xl font-bold text-white">metaMe Runtime Preview</h2>
+                <p className="text-sm text-slate-400">Runtime preview selected ExperienceQube</p>
               </div>
               <div className="flex items-center gap-3">
                 <DevicePreviewSwitcher value={previewDevice} onChange={setPreviewDevice} />
