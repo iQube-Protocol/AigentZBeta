@@ -374,11 +374,11 @@ export default function SmartContentCard({
             </div>
           </div>
         </div>
-        {showProgress && progressPercentage > 0 && (
+        {showProgress && (
           <div className="mt-2 h-1 bg-black/30 rounded-full overflow-hidden">
             <div
               className="h-full bg-gradient-to-r from-fuchsia-500 to-purple-500"
-              style={{ width: `${progressPercentage}%` }}
+              style={{ width: `${Math.max(0, Math.min(100, progressPercentage))}%` }}
             />
           </div>
         )}

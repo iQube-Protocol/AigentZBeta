@@ -6,7 +6,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Bot, CheckCircle2, ChevronDown, ChevronUp, Circle, FileText, Hexagon, LayoutGrid, List, Loader2, Monitor, Moon, Palette, ShieldCheck, SlidersHorizontal, Sun, BookOpen, Eye, Volume2, Type, MonitorIcon, Smartphone, Tablet, Tv, Upload, Play, Code, Shield, Book, Users, Target, Sparkles, BarChart, Edit, Trash2, AlertTriangle } from "lucide-react";
 import { useCopilotAction } from "@copilotkit/react-core";
 import { Button } from "@/components/ui/button";
-import { PreviewFrame } from "@/components/preview/PreviewFrame";
 import { DevicePreviewSwitcher } from "@/components/preview/DevicePreviewSwitcher";
 import type { DeviceType } from "@/components/preview/DevicePreviewSwitcher";
 import { SmartTriadProvider } from "@/app/components/content";
@@ -795,21 +794,9 @@ export const ComposerStudio = () => {
   const [selectedExperienceId, setSelectedExperienceId] = useState<string | null>(null);
   const [previewDevice, setPreviewDevice] = useState<DeviceType>("mobile");
   const [previewAction, setPreviewAction] = useState<string | null>(null);
-  const [previewTimestamp, setPreviewTimestamp] = useState(Date.now());
-
-  // Auto-refresh preview every 30 seconds to prevent caching
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setPreviewTimestamp(Date.now());
-    }, 30000); // 30 seconds
-
-    return () => clearInterval(interval);
-  }, []);
-
-  // Force refresh when preview device or experience changes
-  useEffect(() => {
-    setPreviewTimestamp(Date.now());
-  }, [previewDevice, selectedExperienceId, designTheme]);
+  const [previewNonce, setPreviewNonce] = useState(0);
+  const [runtimePreviewLoaded, setRuntimePreviewLoaded] = useState(false);
+  const [runtimePreviewErrored, setRuntimePreviewErrored] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -927,6 +914,34 @@ export const ComposerStudio = () => {
     if (!selectedExperienceId) return experience;
     return experiences.find((exp) => exp.id === selectedExperienceId) || experience;
   }, [selectedExperienceId, experiences, experience]);
+  const runtimePreviewSrc = useMemo(() => {
+    const capsuleId = selectedExperienceId || previewExperience?.id || "capsule-metaknyt-play";
+    const experienceId = selectedExperienceId || previewExperience?.id || "";
+    const params = new URLSearchParams({
+      preview: "1",
+      capsule: capsuleId,
+      experienceId,
+      embed: "1",
+      device: previewDevice,
+    });
+    if (previewNonce > 0) params.set("nonce", String(previewNonce));
+    return `/metame/runtime?${params.toString()}`;
+  }, [previewDevice, previewNonce, previewExperience?.id, selectedExperienceId]);
+  const runtimePreviewModalWidthClass =
+    previewDevice === "desktop" ? "max-w-[1280px]" : "max-w-[920px]";
+  const runtimePreviewViewportClass =
+    previewDevice === "mobile"
+      ? "mx-auto h-full w-[430px] max-w-[430px]"
+      : previewDevice === "tablet"
+        ? "mx-auto h-full w-full max-w-[860px]"
+        : "h-full w-full";
+
+  useEffect(() => {
+    if (!showRuntimePreviewModal) return;
+    setRuntimePreviewLoaded(false);
+    setRuntimePreviewErrored(false);
+    setPreviewNonce(Date.now());
+  }, [previewDevice, showRuntimePreviewModal]);
 
   const liquidTemplateId = resolveLiquidTemplateId((previewExperience as any) || null);
   const PreviewTemplate = liquidTemplateRegistry[liquidTemplateId] || liquidTemplateRegistry["liquidui:drawer_grid_v1"];
@@ -2400,7 +2415,7 @@ export const ComposerStudio = () => {
                                       <span className="text-slate-400 text-xs">CSS Styles:</span>
                                       <div className="mt-1 p-3 rounded" style={{ backgroundColor: 'rgba(51, 65, 85, 0.3)', color: themeText }}>
                                         <div className="text-xs font-mono space-y-1">
-                                          <div>/* Primary Colors */</div>
+                                          <div>{"/* Primary Colors */"}</div>
                                           <div>--primary: {themeText};</div>
                                           <div>--background: {themeBg};</div>
                                           <div>--border: {themeBorder};</div>
@@ -3461,8 +3476,8 @@ Example: 'What template works best for a dashboard layout?'"
 
       {/* Runtime Preview Modal */}
       {showRuntimePreviewModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
-          <div className="max-w-4xl w-full max-h-[90vh] overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4 pt-4 pb-6">
+          <div className={`${runtimePreviewModalWidthClass} w-full max-h-[90vh] overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl`}>
             <div className="flex items-center justify-between border-b border-slate-800 p-6">
               <div className="flex items-center gap-3">
                 <Hexagon className="h-6 w-6 text-cyan-400" />
@@ -3483,28 +3498,49 @@ Example: 'What template works best for a dashboard layout?'"
                 </button>
               </div>
             </div>
-            <div className="p-6">
-              <div className="h-[680px] max-h-[68vh] overflow-hidden rounded-xl border border-slate-800">
-                <PreviewFrame
-                  src={`/metame/runtime?preview=1&capsule=${selectedExperienceId || previewExperience?.id || "capsule-metaknyt-play"}&experienceId=${selectedExperienceId || previewExperience?.id || ""}&theme=${designTheme}&embed=1&device=${previewDevice}&t=${previewTimestamp}`}
-                  defaultDevice="mobile"
-                  chromeless
-                  deviceQueryParam="device"
-                  showToolbar={false}
-                  fallback={(
-                    <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-slate-950 text-slate-300">
+            <div className="px-4 pt-4 pb-6">
+              <div
+                className="relative overflow-hidden rounded-[5px] bg-slate-950/70"
+                style={{ height: "min(760px, calc(100vh - 190px))" }}
+              >
+                {!runtimePreviewLoaded && !runtimePreviewErrored && (
+                  <div className="absolute inset-x-0 mt-3 flex justify-center pointer-events-none">
+                    <div className="rounded-md border border-slate-700 bg-slate-900/90 px-3 py-1 text-xs text-slate-300">
+                      Loading runtime preview...
+                    </div>
+                  </div>
+                )}
+                {runtimePreviewErrored && (
+                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-950/90">
+                    <div className="flex flex-col items-center gap-3 text-slate-300">
                       <p className="text-sm">Runtime preview failed to load.</p>
                       <button
                         type="button"
-                        onClick={() => setPreviewTimestamp(Date.now())}
+                        onClick={() => setPreviewNonce(Date.now())}
                         className="rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-700"
                       >
                         Retry Preview
                       </button>
                     </div>
-                  )}
-                  className="h-full"
-                />
+                  </div>
+                )}
+                <div className={runtimePreviewViewportClass}>
+                  <iframe
+                    key={`${runtimePreviewSrc}-${previewNonce}`}
+                    src={runtimePreviewSrc}
+                    title="metaMe Runtime Preview"
+                    className="h-full w-full border-0"
+                    loading="eager"
+                    onLoad={() => {
+                      setRuntimePreviewLoaded(true);
+                      setRuntimePreviewErrored(false);
+                    }}
+                    onError={() => {
+                      setRuntimePreviewLoaded(false);
+                      setRuntimePreviewErrored(true);
+                    }}
+                  />
+                </div>
               </div>
             </div>
           </div>
