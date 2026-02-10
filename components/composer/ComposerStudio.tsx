@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Bot, CheckCircle2, ChevronDown, ChevronUp, Circle, FileText, Hexagon, LayoutGrid, List, Loader2, Monitor, Moon, Palette, ShieldCheck, SlidersHorizontal, Sun, BookOpen, Eye, Volume2, Type, MonitorIcon, Smartphone, Tablet, Tv, Upload, Play, Code, Shield, Book, Users, Target, Sparkles, BarChart, Edit, Trash2, AlertTriangle } from "lucide-react";
@@ -19,6 +19,7 @@ import { useCodexList } from "@/app/hooks/useCodexConfig";
 import type { CodexListItem } from "@/types/codex";
 import type { DesignQube, DesignQubeThemeMode } from "@/types/designQube";
 import { CodexCopilotLayer } from "@/app/components/codex/CodexCopilotLayer";
+import { AgenticDesignParityPanel } from "@/components/composer/AgenticDesignParityPanel";
 
 type ComposerField = {
   id: string;
@@ -100,6 +101,7 @@ type ComposerStudioCache = {
   templates: ExperienceTemplate[] | null;
   templatesFetchedAt: number;
   designQube: DesignQube | null;
+  designQubeId: string | null;
   designQubeFetchedAt: number;
   experiencesByTenant: Record<string, { items: ExperienceQube[]; fetchedAt: number }>;
 };
@@ -108,6 +110,7 @@ let composerStudioCache: ComposerStudioCache = {
   templates: null,
   templatesFetchedAt: 0,
   designQube: null,
+  designQubeId: null,
   designQubeFetchedAt: 0,
   experiencesByTenant: {},
 };
@@ -141,6 +144,34 @@ const QRIPTO_FALLBACK_CODEXES = [
   { id: "marketa-codex", label: "Aigent Marketa" },
   { id: "moneypenny-codex", label: "Aigent MoneyPenny" },
   { id: "nakamoto-codex", label: "Aigent Nakamoto" },
+];
+
+const DESIGN_QUBE_OPTIONS = [
+  { id: "knyt-guidance-v1", label: "KNYT Guidance", contextId: "knyt-codex" },
+  { id: "qriptopian-guidance-v1", label: "Qriptopian Guidance", contextId: "qripto-codex" },
+  { id: "metame-guidance-v1", label: "metaMe Guidance", contextId: "metame-codex" },
+];
+
+const DESIGN_QUBE_ID_TO_CONTEXT: Record<string, string> = DESIGN_QUBE_OPTIONS.reduce(
+  (acc, option) => {
+    acc[option.id] = option.contextId;
+    return acc;
+  },
+  {} as Record<string, string>
+);
+
+const CONTEXT_TO_DESIGN_QUBE_ID: Record<string, string> = DESIGN_QUBE_OPTIONS.reduce(
+  (acc, option) => {
+    acc[option.contextId] = option.id;
+    return acc;
+  },
+  {} as Record<string, string>
+);
+
+const DESIGN_QUBE_IMAGE_FALLBACKS = [
+  "/images/designqube/thumb-qripto.jpg",
+  "/images/designqube/thumb-penny.jpg",
+  "/images/designqube/thumb-agentiq.jpg",
 ];
 
 const QRIPTO_CONTENT_TAGS = [
@@ -436,6 +467,7 @@ const QRIPTO_TEMPLATE_SEEDS: ExperienceTemplate[] = [
 
 export const ComposerStudio = () => {
   const router = useRouter();
+  const templateCustomizerRef = useRef<HTMLDivElement | null>(null);
   const [templates, setTemplates] = useState<ExperienceTemplate[]>(() => composerStudioCache.templates || []);
   const [templatesLoading, setTemplatesLoading] = useState(
     () => !isCacheFresh(composerStudioCache.templatesFetchedAt, COMPOSER_CACHE_TTL_MS)
@@ -469,7 +501,9 @@ export const ComposerStudio = () => {
   const [styleGuideActiveTab, setStyleGuideActiveTab] = useState("css");
   const [experienceGuideActiveTab, setExperienceGuideActiveTab] = useState("who");
   const [designQubeSummaryLayout, setDesignQubeSummaryLayout] = useState<"compact" | "grid">("compact");
-  const [activeStyleQubeId, setActiveStyleQubeId] = useState("knyt-guidance-v1");
+  const [activeStyleQubeId, setActiveStyleQubeId] = useState(
+    () => CONTEXT_TO_DESIGN_QUBE_ID[DEFAULT_TENANT] || "knyt-guidance-v1"
+  );
   const [selectedExperience, setSelectedExperience] = useState<ExperienceQube | null>(null);
   const [showExperienceModal, setShowExperienceModal] = useState(false);
   const [showRuntimePreviewModal, setShowRuntimePreviewModal] = useState(false);
@@ -551,7 +585,77 @@ export const ComposerStudio = () => {
   };
 
   const handleEditExperience = async (experience: ExperienceQube) => {
-    await launchExperience(experience);
+    const templateId = experience.template_id?.trim();
+    if (!templateId) {
+      setSessionError("This ExperienceQube is missing a template id and cannot be edited.");
+      return;
+    }
+
+    const safeConfig =
+      experience.configuration && typeof experience.configuration === "object"
+        ? { ...experience.configuration }
+        : {};
+    const seedData: Record<string, any> = {
+      ...safeConfig,
+      intent_timebox: {
+        ...(safeConfig.intent_timebox || {}),
+        experience_name: safeConfig.intent_timebox?.experience_name || experience.name || "",
+        goal: safeConfig.intent_timebox?.goal || experience.goal || experience.description || "",
+      },
+      description: safeConfig.description || experience.description || "",
+      goal: safeConfig.goal || experience.goal || "",
+      mechanics: safeConfig.mechanics || experience.mechanics || "",
+      metrics: safeConfig.metrics || experience.metrics || "",
+    };
+
+    setIsSaving(true);
+    setSessionError(null);
+    try {
+      const createRes = await fetch("/api/composer/sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tenant_id: experience.tenant_id || tenantId,
+          user_id: experience.creator_id || userId,
+          template_id: templateId,
+        }),
+      });
+      if (!createRes.ok) throw new Error("Failed to open a template customization session");
+      const createData = await createRes.json();
+
+      const updateRes = await fetch(`/api/composer/sessions/${createData.session.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          current_step: 0,
+          status: "active",
+          data: seedData,
+        }),
+      });
+      if (!updateRes.ok) throw new Error("Failed to seed template customization values");
+      const updateData = await updateRes.json();
+
+      setSelectedTemplateId(templateId);
+      setSession(updateData.session || { ...createData.session, current_step: 0, data: seedData });
+      setSessionTemplate({
+        ...(createData.template || {}),
+        steps: createData.template?.steps || [],
+      });
+      setSessionData(seedData);
+      setStepData(seedData);
+      setExperience(experience);
+      setSelectedExperience(experience);
+      setTemplateQuery("");
+      setTemplateIntent(null);
+
+      setTimeout(() => {
+        templateCustomizerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 0);
+    } catch (error: any) {
+      setSessionError(error?.message || "Failed to open template customizer for this ExperienceQube");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const styleQubeThemeTokens = designQube?.tokens?.themes?.[designTheme];
@@ -571,12 +675,42 @@ export const ComposerStudio = () => {
     }));
   }, [codexList]);
 
+  const designQubeOptions = useMemo<Array<{ id: string; label: string; contextId: string }>>(() => {
+    const contextLabelById = new Map(copilotContextOptions.map((option) => [option.id, option.label]));
+    return DESIGN_QUBE_OPTIONS.map((option) => ({
+      ...option,
+      label: option.label || contextLabelById.get(option.contextId) || option.id,
+    }));
+  }, [copilotContextOptions]);
+
   useEffect(() => {
     if (!copilotContextOptions.length) return;
     if (!copilotContextOptions.some((opt) => opt.id === copilotContextId)) {
       setCopilotContextId(copilotContextOptions[0].id);
     }
   }, [copilotContextOptions, copilotContextId]);
+
+  useEffect(() => {
+    if (!designQubeOptions.length) return;
+    if (!designQubeOptions.some((option) => option.id === activeStyleQubeId)) {
+      setActiveStyleQubeId(designQubeOptions[0].id);
+    }
+  }, [designQubeOptions, activeStyleQubeId]);
+
+  useEffect(() => {
+    const mappedDesignQubeId = CONTEXT_TO_DESIGN_QUBE_ID[copilotContextId];
+    if (mappedDesignQubeId && mappedDesignQubeId !== activeStyleQubeId) {
+      setActiveStyleQubeId(mappedDesignQubeId);
+    }
+  }, [copilotContextId, activeStyleQubeId]);
+
+  useEffect(() => {
+    const mappedContextId = DESIGN_QUBE_ID_TO_CONTEXT[activeStyleQubeId];
+    if (!mappedContextId || mappedContextId === copilotContextId) return;
+    if (copilotContextOptions.some((option) => option.id === mappedContextId)) {
+      setCopilotContextId(mappedContextId);
+    }
+  }, [activeStyleQubeId, copilotContextId, copilotContextOptions]);
 
   useEffect(() => {
     if (!copilotContextId) return;
@@ -715,7 +849,8 @@ export const ComposerStudio = () => {
   useEffect(() => {
     let active = true;
     const designIsFresh = isCacheFresh(composerStudioCache.designQubeFetchedAt, COMPOSER_CACHE_TTL_MS);
-    if (designIsFresh) {
+    const cacheMatchesSelectedQube = composerStudioCache.designQubeId === activeStyleQubeId;
+    if (designIsFresh && cacheMatchesSelectedQube) {
       setDesignQube(composerStudioCache.designQube || null);
       setDesignQubeError(null);
       setDesignQubeLoading(false);
@@ -727,11 +862,14 @@ export const ComposerStudio = () => {
     const fetchDesignQube = async () => {
       try {
         setDesignQubeLoading(true);
-        const res = await fetch("/api/metame/design-qube?includeImages=0");
+        const res = await fetch(
+          `/api/metame/design-qube?includeImages=0&id=${encodeURIComponent(activeStyleQubeId)}`
+        );
         if (!res.ok) throw new Error("Failed to load DesignQube");
         const data = await res.json();
         if (!data.success) throw new Error(data.error || "Failed to load DesignQube");
         composerStudioCache.designQube = data.designQube || null;
+        composerStudioCache.designQubeId = activeStyleQubeId;
         composerStudioCache.designQubeFetchedAt = Date.now();
         if (active) {
           setDesignQube(data.designQube || null);
@@ -739,7 +877,7 @@ export const ComposerStudio = () => {
         }
       } catch (err: any) {
         if (active) {
-          if (composerStudioCache.designQube) {
+          if (cacheMatchesSelectedQube && composerStudioCache.designQube) {
             setDesignQube(composerStudioCache.designQube);
             setDesignQubeError(null);
           } else {
@@ -754,7 +892,7 @@ export const ComposerStudio = () => {
     return () => {
       active = false;
     };
-  }, []);
+  }, [activeStyleQubeId]);
 
   useDesignQubeTheme(designQube?.tokens, designQube?.constraints, designTheme);
 
@@ -1314,7 +1452,7 @@ export const ComposerStudio = () => {
             </div>
           </div>
 
-          <div className={cardClass}>
+          <div ref={templateCustomizerRef} className={cardClass}>
             <div className="flex items-center justify-between">
               <div>
                 <div className="flex items-center gap-2">
@@ -1616,15 +1754,15 @@ export const ComposerStudio = () => {
         <div className="grid gap-6 lg:grid-cols-[1.1fr_1fr]">
           <div className={cardClass}>
             <div className="flex items-center justify-between">
-              <div>
-                <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <div className="flex w-full items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Hexagon className="h-4 w-4 text-cyan-300" />
                     <h2 className="text-lg font-semibold text-white">ExperienceQubes</h2>
                   </div>
                   <button
                     onClick={() => setExperienceQubeCollapsed(prev => !prev)}
-                    className="inline-flex items-center rounded-full border px-2 py-0.5"
+                    className="inline-flex items-center rounded-full border border-slate-700 px-2 py-0.5 text-slate-300 transition hover:bg-slate-800/60"
                     title={experienceQubeCollapsed ? "Expand details" : "Collapse details"}
                   >
                     {experienceQubeCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
@@ -1763,13 +1901,26 @@ export const ComposerStudio = () => {
                     colors.muted,
                     colors.border,
                   ].filter(Boolean) as string[];
+                  const resolvedPalette =
+                    palette.length > 0
+                      ? palette
+                      : ["#020617", "#0f172a", "#1d4ed8", "#f8fafc", "#94a3b8", "rgba(148,163,184,0.2)"];
                   const radiusValues = designQube.tokens?.radius
                     ? Object.values(designQube.tokens.radius).slice(0, 3)
                     : [];
                   const fontFamily = designQube.tokens?.typography?.fontFamily?.sans || "system-ui";
                   const scale = designQube.tokens?.typography?.scale || {};
                   const glassEnabled = designQube.constraints?.material?.glass?.enabled;
-                  const references = designQube.references?.slice(0, 4) || [];
+                  const references =
+                    designQube.references && designQube.references.length > 0
+                      ? designQube.references.slice(0, 6)
+                      : DESIGN_QUBE_IMAGE_FALLBACKS.map((thumbnailUrl, idx) => ({
+                          id: `fallback-ref-${idx + 1}`,
+                          file: `fallback-${idx + 1}.png`,
+                          title: `Reference ${idx + 1}`,
+                          dataUrl: undefined,
+                          thumbnailUrl,
+                        }));
                   const summaryBadges = designQube.manifest?.themes || [];
                   const themeBg = colors.surface || colors.bg || "rgba(15,23,42,0.6)";
                   const themeBorder = colors.border || "rgba(148,163,184,0.2)";
@@ -1788,7 +1939,11 @@ export const ComposerStudio = () => {
                             className="rounded-md border border-white/10 bg-slate-950/40 px-2 py-1 text-xs text-white/90"
                             style={{ borderColor: themeBorder, backgroundColor: themeBg }}
                           >
-                            <option value="knyt-guidance-v1">KNYT Guidance</option>
+                            {designQubeOptions.map((option) => (
+                              <option key={option.id} value={option.id}>
+                                {option.label}
+                              </option>
+                            ))}
                           </select>
                           <button
                             className="inline-flex items-center rounded-full border px-2 py-0.5"
@@ -2598,7 +2753,7 @@ Example: 'What template works best for a dashboard layout?'"
                           </div>
                           <div className="mt-4 max-h-[420px] overflow-y-auto pr-1">
                             <div className="grid gap-3 sm:grid-cols-2">
-                              {designQube.references?.slice(0, 6).map((ref) => (
+                              {references.map((ref, idx) => (
                                 <div
                                   key={ref.id}
                                   className="rounded-xl border p-2"
@@ -2606,9 +2761,14 @@ Example: 'What template works best for a dashboard layout?'"
                                 >
                                   {ref.dataUrl || ref.thumbnailUrl ? (
                                     <img
-                                      src={ref.dataUrl || ref.thumbnailUrl}
+                                      src={ref.dataUrl || ref.thumbnailUrl || DESIGN_QUBE_IMAGE_FALLBACKS[idx % DESIGN_QUBE_IMAGE_FALLBACKS.length]}
                                       alt={ref.title || ref.file}
                                       className="h-32 w-full rounded-lg object-cover"
+                                      onError={(event) => {
+                                        event.currentTarget.onerror = null;
+                                        event.currentTarget.src =
+                                          DESIGN_QUBE_IMAGE_FALLBACKS[idx % DESIGN_QUBE_IMAGE_FALLBACKS.length];
+                                      }}
                                     />
                                   ) : (
                                     <div className="flex h-32 items-center justify-center rounded-lg border border-dashed text-xs text-slate-500">
@@ -2640,7 +2800,7 @@ Example: 'What template works best for a dashboard layout?'"
                             </div>
                           </div>
                           <div className="mt-3 flex flex-wrap items-center gap-2">
-                            {palette.slice(0, 6).map((color, idx) => (
+                            {resolvedPalette.slice(0, 6).map((color, idx) => (
                               <span
                                 key={`${color}-${idx}`}
                                 className="h-4 w-4 rounded-full border"
@@ -2689,7 +2849,7 @@ Example: 'What template works best for a dashboard layout?'"
                         <div className="mt-4 grid gap-4 rounded-xl border p-4 md:grid-cols-[1.2fr,1fr]" style={{ backgroundColor: themeBg, borderColor: themeBorder }}>
                           <div className="grid gap-2 sm:grid-cols-2">
                             <div className="flex flex-wrap items-center gap-2">
-                              {palette.slice(0, 6).map((color, idx) => (
+                              {resolvedPalette.slice(0, 6).map((color, idx) => (
                                 <span
                                   key={`${color}-${idx}`}
                                   className="h-4 w-4 rounded-full border"
@@ -2725,7 +2885,7 @@ Example: 'What template works best for a dashboard layout?'"
                               )}
                             </div>
                             <div className="flex flex-wrap items-center gap-2">
-                              {palette.slice(0, 6).map((color, idx) => (
+                              {resolvedPalette.slice(0, 6).map((color, idx) => (
                                 <span
                                   key={`${color}-${idx}`}
                                   className="h-5 w-5 rounded-md border"
@@ -2748,6 +2908,17 @@ Example: 'What template works best for a dashboard layout?'"
                                 ))}
                               </div>
                             </div>
+                            <div className="flex items-center justify-end gap-2" title="Experience Modalities">
+                              <div className="rounded-lg border border-blue-400/60 bg-blue-400/10 p-2">
+                                <Eye className="h-4 w-4 text-blue-300" />
+                              </div>
+                              <div className="rounded-lg border border-green-400/60 bg-green-400/10 p-2">
+                                <Volume2 className="h-4 w-4 text-green-300" />
+                              </div>
+                              <div className="rounded-lg border border-purple-400/60 bg-purple-400/10 p-2">
+                                <LayoutGrid className="h-4 w-4 text-purple-300" />
+                              </div>
+                            </div>
                           </div>
                         </div>
                       )}
@@ -2759,51 +2930,20 @@ Example: 'What template works best for a dashboard layout?'"
           </div>
         </div>
 
-          <div className={cardClass}>
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <Hexagon className="h-5 w-5 text-rose-400" />
-                <h2 className="text-lg font-semibold text-white">metaMe Runtime Preview</h2>
-                <p className="text-sm text-slate-400">Toggle device sizes to validate the Runtime flow.</p>
-              </div>
-              <div className="flex items-center gap-3">
-                {previewAction && (
-                  <span className="text-xs text-slate-400">Last action: {previewAction}</span>
-                )}
-                <DevicePreviewSwitcher value={previewDevice} onChange={setPreviewDevice} />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPreviewTimestamp(Date.now())}
-                  className="text-xs"
-                >
-                  Refresh Preview
-                </Button>
-              </div>
-            </div>
-            <div className="mt-4 h-[760px] max-h-[760px] overflow-hidden">
-              <PreviewFrame
-                src={`/metame/runtime?preview=1&capsule=${selectedExperienceId || previewExperience?.id || "capsule-metaknyt-play"}&experienceId=${selectedExperienceId || previewExperience?.id || ""}&theme=${designTheme}&embed=1&device=${previewDevice}&t=${previewTimestamp}`}
-                defaultDevice="mobile"
-                chromeless
-                deviceQueryParam="device"
-                showToolbar={false}
-                fallback={(
-                  <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-slate-950 text-slate-300">
-                    <p className="text-sm">Runtime preview failed to load.</p>
-                    <button
-                      type="button"
-                      onClick={() => setPreviewTimestamp(Date.now())}
-                      className="rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-700"
-                    >
-                      Retry Preview
-                    </button>
-                  </div>
-                )}
-                className="h-full"
-              />
-            </div>
-          </div>
+          <AgenticDesignParityPanel
+            designQube={designQube}
+            activeDesignQubeId={activeStyleQubeId}
+            designTheme={designTheme}
+            experiences={experiences}
+            previewExperience={previewExperience}
+            previewAction={previewAction}
+            onOpenExperience={(experienceId) => {
+              router.push(`/studio/composer/experience/${encodeURIComponent(experienceId)}`);
+            }}
+            onOpenRuntimePreview={() => {
+              openRuntimePreviewForExperience(previewExperience, "Preview");
+            }}
+          />
       </div>
 
       {/* Enhanced ExperienceQube Modal */}
