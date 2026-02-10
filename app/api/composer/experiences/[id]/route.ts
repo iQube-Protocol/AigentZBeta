@@ -72,13 +72,17 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     // Update allowed fields only
     const allowedUpdates = {
-      name: body.name,
-      description: body.description,
-      status: body.status,
-      configuration: body.configuration,
-      components: body.components,
-      execution: body.execution,
-      access: body.access,
+      name: body.name ?? existingExperience.name,
+      description: body.description ?? existingExperience.description,
+      goal: body.goal ?? existingExperience.goal,
+      mechanics: body.mechanics ?? existingExperience.mechanics,
+      metrics: body.metrics ?? existingExperience.metrics,
+      template_id: body.template_id ?? existingExperience.template_id,
+      status: body.status ?? existingExperience.status,
+      configuration: body.configuration ?? existingExperience.configuration,
+      components: body.components ?? existingExperience.components,
+      execution: body.execution ?? existingExperience.execution,
+      access: body.access ?? existingExperience.access,
       metadata: {
         ...existingExperience.metadata,
         ...body.metadata,

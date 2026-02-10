@@ -10,6 +10,7 @@ type ExperienceQube = {
   name: string;
   description?: string;
   configuration?: Record<string, any>;
+  metadata?: Record<string, any>;
 };
 
 interface KnytDrawerGridFallbackTemplateProps {
@@ -48,6 +49,15 @@ export function KnytDrawerGridFallbackTemplate({
   const intentConfig = config.intent_timebox || {};
   const walletConfig = config.wallet_rewards || {};
   const copilotConfig = config.copilot_output || {};
+  const dprLatest = experience?.metadata?.dprLatest || null;
+  const dprReceipts = Array.isArray(experience?.metadata?.dprReceipts)
+    ? experience?.metadata?.dprReceipts
+    : [];
+  const dprDvnEvents = Array.isArray(experience?.metadata?.dprDvnEvents)
+    ? experience?.metadata?.dprDvnEvents
+    : [];
+  const latestDprReceipt = dprReceipts[dprReceipts.length - 1] || null;
+  const latestDvnEvent = dprDvnEvents[dprDvnEvents.length - 1] || null;
 
   const workingSet = packet?.context?.working_set || {};
   const contentConfig = experience?.configuration?.content_selection || {};
@@ -253,6 +263,25 @@ export function KnytDrawerGridFallbackTemplate({
                     <li>3. Capture copilot takeaways</li>
                     <li>4. Save the takeaways card</li>
                   </ul>
+                </div>
+                <div className={`rounded-xl border ${isDark ? "border-indigo-500/30 bg-indigo-500/10" : "border-indigo-200 bg-indigo-50"} p-4`}>
+                  <div className={`text-xs uppercase tracking-wide ${mutedClass}`}>DPR Summary</div>
+                  {dprLatest ? (
+                    <div className={`mt-2 space-y-1 text-xs ${textClass}`}>
+                      <div>Score: {dprLatest.score ?? "n/a"}/100</div>
+                      <div>Violations: {dprLatest.violations ?? "n/a"}</div>
+                      <div>Checks: {dprLatest.checks?.totalChecks ?? "n/a"}</div>
+                      <div className={mutedClass}>{dprLatest.summary || "Latest parity run recorded."}</div>
+                    </div>
+                  ) : (
+                    <div className={`mt-2 text-xs ${mutedClass}`}>No DPR run recorded yet.</div>
+                  )}
+                  <div className={`mt-3 text-[11px] ${mutedClass}`}>
+                    DVN Event: {latestDvnEvent?.id || "pending"}
+                  </div>
+                  <div className={`text-[11px] ${mutedClass}`}>
+                    Receipt: {latestDprReceipt?.receiptId || "pending"}
+                  </div>
                 </div>
               </aside>
             </div>

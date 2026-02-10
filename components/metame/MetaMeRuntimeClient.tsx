@@ -200,14 +200,14 @@ export default function MetaMeRuntimeClient() {
 
   if (!mounted) {
     return (
-      <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center">
+      <div data-parity-root="metame-runtime" className="min-h-screen bg-slate-950 text-white flex items-center justify-center">
         <div className="text-sm text-slate-400">Loading metaMe Runtime…</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white flex flex-col">
+    <div data-parity-root="metame-runtime" className="min-h-screen bg-slate-950 text-white flex flex-col">
       {/* Header */}
       <header className="bg-slate-900/50 backdrop-blur-xl border-b border-slate-800/50 px-6 py-4">
         <div className="flex items-center justify-between">

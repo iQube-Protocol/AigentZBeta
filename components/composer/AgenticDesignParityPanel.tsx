@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -30,7 +30,7 @@ type ExperienceQubeLike = {
   template_id: string;
   status: string;
   configuration?: Record<string, any>;
-  metadata?: { category?: string; version?: string };
+  metadata?: Record<string, any>;
 };
 
 type PipelineState = {
@@ -51,12 +51,20 @@ type AgenticDesignParityPanelProps = {
   previewAction: string | null;
   onOpenExperience?: (experienceId: string) => void;
   onOpenRuntimePreview?: () => void;
+  onApplyRemedy?: (experienceId: string, patch: Partial<ExperienceQubeLike>, summary: string) => Promise<void>;
+  onLogAuditEvent?: (
+    experienceId: string,
+    action: "pipeline_run" | "pipeline_error" | "remedy_proposed" | "remedy_rejected",
+    summary: string,
+    details?: Record<string, any>
+  ) => Promise<void>;
 };
 
-const toPx = (value: unknown, fallback: string) => {
-  if (typeof value === "number") return `${value}px`;
-  if (typeof value === "string" && value.trim().length > 0) return value;
-  return fallback;
+type RemedyState = {
+  status: "idle" | "proposed" | "applying" | "applied" | "error";
+  summary?: string;
+  proposals?: string[];
+  error?: string;
 };
 
 const toHex = (input: string | undefined, fallback: string) => {
@@ -216,63 +224,225 @@ const normalizeDesignQubeForDIS = (
   };
 };
 
-const createParityEvaluationElement = (
-  previewExperience: ExperienceQubeLike,
-  designQube: DesignQube,
-  designTheme: DesignQubeThemeMode
-) => {
+const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+const loadParityTargetFromIframe = async (params: {
+  url: string;
+  width: number;
+  height: number;
+  rootSelector: string;
+  timeoutMs?: number;
+}) => {
+  const { url, width, height, rootSelector, timeoutMs = 15000 } = params;
   const host = document.createElement("div");
   host.style.position = "fixed";
   host.style.left = "-10000px";
   host.style.top = "-10000px";
-  host.style.pointerEvents = "none";
+  host.style.width = `${width}px`;
+  host.style.height = `${height}px`;
   host.style.opacity = "0";
+  host.style.pointerEvents = "none";
+  host.style.overflow = "hidden";
+  host.style.zIndex = "-1";
+
+  const iframe = document.createElement("iframe");
+  iframe.src = url;
+  iframe.width = String(width);
+  iframe.height = String(height);
+  iframe.style.border = "0";
+  iframe.style.width = `${width}px`;
+  iframe.style.height = `${height}px`;
+
+  host.appendChild(iframe);
+  document.body.appendChild(host);
+
+  const cleanup = () => {
+    if (host.parentNode) host.parentNode.removeChild(host);
+  };
+
+  await new Promise<void>((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      cleanup();
+      reject(new Error(`Timed out loading parity target iframe: ${url}`));
+    }, timeoutMs);
+
+    iframe.onload = () => {
+      window.clearTimeout(timer);
+      resolve();
+    };
+    iframe.onerror = () => {
+      window.clearTimeout(timer);
+      cleanup();
+      reject(new Error(`Failed to load parity target iframe: ${url}`));
+    };
+  });
+
+  await delay(700);
+  const doc = iframe.contentDocument;
+  if (!doc) {
+    cleanup();
+    throw new Error(`No iframe document available for parity target: ${url}`);
+  }
+  const target = (doc.querySelector(rootSelector) as HTMLElement | null) || (doc.body as HTMLElement | null);
+  if (!target) {
+    cleanup();
+    throw new Error(`No parity DOM root found for selector ${rootSelector}`);
+  }
+
+  // Clone iframe DOM into current document so getComputedStyle/layout APIs work reliably.
+  const mirrorHost = document.createElement("div");
+  mirrorHost.style.position = "fixed";
+  mirrorHost.style.left = "-20000px";
+  mirrorHost.style.top = "-20000px";
+  mirrorHost.style.width = `${width}px`;
+  mirrorHost.style.height = `${height}px`;
+  mirrorHost.style.opacity = "0";
+  mirrorHost.style.pointerEvents = "none";
+  mirrorHost.style.overflow = "hidden";
+  const cloned = target.cloneNode(true) as HTMLElement;
+  mirrorHost.appendChild(cloned);
+  document.body.appendChild(mirrorHost);
+
+  return {
+    element: cloned,
+    cleanup: () => {
+      cleanup();
+      if (mirrorHost.parentNode) mirrorHost.parentNode.removeChild(mirrorHost);
+    },
+  };
+};
+
+const createSyntheticParityFallback = (experience: ExperienceQubeLike) => {
+  const host = document.createElement("div");
+  host.style.position = "fixed";
+  host.style.left = "-10000px";
+  host.style.top = "-10000px";
   host.style.width = "1200px";
   host.style.height = "900px";
-
-  const themeTokens = designQube.tokens?.themes?.[designTheme] || designQube.tokens?.themes?.dark || {};
-  const color = themeTokens?.color || {};
-  const typography = designQube.tokens?.typography || {};
-  const radius = designQube.tokens?.radius || {};
-  const spacing = designQube.tokens?.spacing || {};
-
-  const root = document.createElement("div");
-  root.className = "mcp-app container";
-  root.style.maxWidth = "1200px";
-  root.style.margin = "0 auto";
-  root.style.background = toHex(color.bg, "#020617");
-  root.style.color = toHex(color.text, "#f8fafc");
-  root.style.fontFamily = typography?.fontFamily?.sans || "Inter, system-ui, sans-serif";
-  root.style.border = `1px solid ${toHex(color.border, "rgba(148,163,184,0.2)")}`;
-
-  root.innerHTML = `
-    <header class="header navigation-header" style="background:${toHex(color.surface, "#0f172a")};height:64px;padding:${toPx(spacing.sm, "10px")} ${toPx(spacing.lg, "18px")};border-bottom:1px solid ${toHex(color.border, "rgba(148,163,184,0.2)")};display:flex;align-items:center;justify-content:space-between;">
-      <nav class="flex nav-row" style="display:flex;gap:10px;align-items:center;">
-        <button class="primary btn-primary" style="background:${toHex(color.accent, "#22d3ee")};color:${toHex((color as any).accentText, "#ffffff")};padding:8px 14px;border-radius:${toPx(radius.md, "10px")};font-size:14px;border:1px solid transparent;">Launch</button>
-        <button class="secondary btn-secondary" style="background:transparent;color:${toHex(color.text, "#f8fafc")};padding:8px 14px;border-radius:${toPx(radius.md, "10px")};font-size:14px;border:1px solid ${toHex(color.border, "rgba(148,163,184,0.2)")};">Preview</button>
-      </nav>
-      <div style="font-size:12px;opacity:.85">${previewExperience.template_id}</div>
+  host.style.opacity = "0";
+  host.style.pointerEvents = "none";
+  host.className = "bg-slate-950 text-slate-100";
+  host.innerHTML = `
+    <header class="navigation-header border-b border-slate-700 p-4 flex items-center justify-between">
+      <div class="flex gap-2">
+        <button class="btn-primary primary rounded-md px-3 py-2 bg-cyan-500 text-white">Launch</button>
+        <button class="btn-secondary rounded-md px-3 py-2 border border-slate-600">Preview</button>
+      </div>
+      <span class="text-xs">${experience.template_id}</span>
     </header>
-    <main class="main-grid grid" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:${toPx(spacing.lg, "18px")};padding:${toPx(spacing.lg, "18px")};">
-      <section class="card default card-default" style="grid-column:span 2;background:${toHex(color.surface, "#0f172a")};border:1px solid ${toHex(color.border, "rgba(148,163,184,0.2)")};border-radius:${toPx(radius.lg, "14px")};padding:${toPx(spacing.lg, "18px")};">
-        <h2 style="margin:0 0 8px;font-size:20px;">${previewExperience.name}</h2>
-        <p style="margin:0 0 8px;opacity:.9;">${previewExperience.description || ""}</p>
-        <p style="margin:0 0 8px;opacity:.85;"><strong>Goal:</strong> ${previewExperience.goal || ""}</p>
-        <p style="margin:0;opacity:.8;"><strong>Mechanics:</strong> ${previewExperience.mechanics || ""}</p>
+    <main class="grid p-4 gap-3" style="grid-template-columns: repeat(3,minmax(0,1fr));">
+      <section class="card-default card rounded-xl border border-slate-700 p-4" style="grid-column: span 2;">
+        <h2 class="text-xl font-semibold">${experience.name}</h2>
+        <p class="mt-2">${experience.description || ""}</p>
+        <p class="mt-2"><strong>Goal:</strong> ${experience.goal || ""}</p>
+        <p class="mt-2"><strong>Mechanics:</strong> ${experience.mechanics || ""}</p>
       </section>
-      <aside class="card elevated card-elevated" style="background:${toHex((color as any).surface2 || color.surface, "#111827")};border:1px solid ${toHex(color.border, "rgba(148,163,184,0.2)")};border-radius:${toPx(radius.lg, "14px")};padding:${toPx(spacing.md, "14px")};">
-        <h3 style="margin:0 0 6px;font-size:14px;">Metrics</h3>
-        <p style="margin:0;font-size:12px;opacity:.85;">${previewExperience.metrics || ""}</p>
+      <aside class="card-elevated card rounded-xl border border-slate-700 p-4">
+        <h3 class="text-sm font-semibold">Metrics</h3>
+        <p class="mt-2 text-xs">${experience.metrics || ""}</p>
       </aside>
     </main>
   `;
-
-  host.appendChild(root);
   document.body.appendChild(host);
   return {
-    element: root,
+    element: host as HTMLElement,
     cleanup: () => {
       if (host.parentNode) host.parentNode.removeChild(host);
+    },
+  };
+};
+
+const mergeParityReports = (
+  reports: Array<{ source: "runtime" | "experience"; report: DesignParityReport }>
+): DesignParityReport => {
+  if (reports.length === 1) return reports[0].report;
+
+  const first = reports[0].report;
+  const avg = (values: number[]) =>
+    values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+  const unique = (values: string[]) => Array.from(new Set(values.filter(Boolean)));
+  const structuralKeys: Array<keyof DesignParityReport["parity"]["structural"]> = [
+    "layout",
+    "typography",
+    "spacing",
+    "components",
+    "accessibility",
+  ];
+  const visualKeys: Array<keyof DesignParityReport["parity"]["visual"]> = ["mobile", "tablet", "desktop"];
+
+  const breakdownKeys = Array.from(
+    new Set(reports.flatMap((item) => Object.keys(item.report.parity.breakdown || {})))
+  );
+  const breakdown = breakdownKeys.reduce<Record<string, { score: number; weight: number; issues: number }>>(
+    (acc, key) => {
+      const entries = reports
+        .map((item) => item.report.parity.breakdown?.[key])
+        .filter(Boolean) as Array<{ score: number; weight: number; issues: number }>;
+      if (entries.length === 0) return acc;
+      acc[key] = {
+        score: Math.round(avg(entries.map((entry) => entry.score))),
+        weight: entries[0].weight,
+        issues: entries.reduce((sum, entry) => sum + entry.issues, 0),
+      };
+      return acc;
+    },
+    {}
+  );
+
+  return {
+    ...first,
+    generatedAt: new Date().toISOString(),
+    source: {
+      ...first.source,
+      mcpAppId: reports.map((item) => item.source).join("+"),
+      verificationMethod: "hybrid",
+    },
+    parity: {
+      overall: Math.round(avg(reports.map((item) => item.report.parity.overall))),
+      structural: structuralKeys.reduce(
+        (acc, key) => {
+          acc[key] = Math.round(avg(reports.map((item) => item.report.parity.structural[key])));
+          return acc;
+        },
+        {} as DesignParityReport["parity"]["structural"]
+      ),
+      visual: visualKeys.reduce(
+        (acc, key) => {
+          acc[key] = Math.round(avg(reports.map((item) => item.report.parity.visual[key])));
+          return acc;
+        },
+        {} as DesignParityReport["parity"]["visual"]
+      ),
+      breakdown,
+    },
+    violations: reports.flatMap((item) =>
+      item.report.violations.map((violation) => ({
+        ...violation,
+        component: `${item.source}:${violation.component || "unknown"}`,
+        message: `[${item.source}] ${violation.message}`,
+      }))
+    ),
+    visualDifferences: reports.flatMap((item) =>
+      item.report.visualDifferences.map((difference) => ({
+        ...difference,
+        component: `${item.source}:${difference.component}`,
+      }))
+    ),
+    recommendations: {
+      immediate: unique(reports.flatMap((item) => item.report.recommendations.immediate)),
+      shortTerm: unique(reports.flatMap((item) => item.report.recommendations.shortTerm)),
+      longTerm: unique(reports.flatMap((item) => item.report.recommendations.longTerm)),
+    },
+    audit: {
+      totalChecks: reports.reduce((sum, item) => sum + item.report.audit.totalChecks, 0),
+      passedChecks: reports.reduce((sum, item) => sum + item.report.audit.passedChecks, 0),
+      failedChecks: reports.reduce((sum, item) => sum + item.report.audit.failedChecks, 0),
+      skippedChecks: reports.reduce((sum, item) => sum + item.report.audit.skippedChecks, 0),
+      executionTime: reports.reduce((sum, item) => sum + item.report.audit.executionTime, 0),
+    },
+    metadata: {
+      ...first.metadata,
+      lastValidated: new Date().toISOString(),
     },
   };
 };
@@ -286,17 +456,55 @@ export function AgenticDesignParityPanel({
   previewAction,
   onOpenExperience,
   onOpenRuntimePreview,
+  onApplyRemedy,
+  onLogAuditEvent,
 }: AgenticDesignParityPanelProps) {
   const [activeTab, setActiveTab] = useState("pipeline");
   const [state, setState] = useState<PipelineState>({ status: "idle" });
+  const [remedyState, setRemedyState] = useState<RemedyState>({ status: "idle" });
+  const onLogAuditEventRef = useRef(onLogAuditEvent);
 
-  const templateRegistry = useMemo(
-    () => buildTemplateRegistry(designQube, experiences),
-    [designQube, experiences]
-  );
+  useEffect(() => {
+    onLogAuditEventRef.current = onLogAuditEvent;
+  }, [onLogAuditEvent]);
+
+  const templateRegistrySeed = useMemo(() => {
+    const ids = experiences
+      .map((experience) => experience.template_id)
+      .filter(Boolean)
+      .sort();
+    return ids.join("|");
+  }, [experiences]);
+
+  const templateRegistry = useMemo(() => buildTemplateRegistry(designQube, experiences), [designQube, templateRegistrySeed]);
+
+  const parityExperience = useMemo(() => {
+    if (!previewExperience) return null;
+    return {
+      id: previewExperience.id,
+      name: previewExperience.name,
+      description: previewExperience.description,
+      goal: previewExperience.goal,
+      mechanics: previewExperience.mechanics,
+      metrics: previewExperience.metrics,
+      template_id: previewExperience.template_id,
+      status: previewExperience.status,
+      metadata: { category: previewExperience.metadata?.category },
+    } as ExperienceQubeLike;
+  }, [
+    previewExperience?.id,
+    previewExperience?.name,
+    previewExperience?.description,
+    previewExperience?.goal,
+    previewExperience?.mechanics,
+    previewExperience?.metrics,
+    previewExperience?.template_id,
+    previewExperience?.status,
+    previewExperience?.metadata?.category,
+  ]);
 
   const runPipeline = useCallback(async () => {
-    if (!designQube || !previewExperience) {
+    if (!designQube || !parityExperience) {
       setState({
         status: "error",
         error: "Select an ExperienceQube and DesignQube to run parity analysis.",
@@ -304,57 +512,220 @@ export function AgenticDesignParityPanel({
       return;
     }
 
-    setState({ status: "loading", appraisedExperienceId: previewExperience.id });
+    setState({ status: "loading", appraisedExperienceId: parityExperience.id });
 
-    let cleanup: (() => void) | undefined;
     try {
       const normalizedDesignQube = normalizeDesignQubeForDIS(
         designQube,
         activeDesignQubeId,
         designTheme,
-        previewExperience
+        parityExperience
       );
       const dis = await DISGenerator.generateFromDesignQube(normalizedDesignQube, templateRegistry, {
         strictMode: false,
       });
       const cm = ConstraintManifestGenerator.generateFromDIS(dis);
+      const baseUrl = window.location.origin;
+      const cacheBust = Date.now();
+      const targets: Array<{
+        source: "runtime" | "experience";
+        url: string;
+        rootSelector: string;
+      }> = [
+        {
+          source: "runtime",
+          url: `${baseUrl}/metame/runtime?embed=1&preview=1&experienceId=${encodeURIComponent(
+            parityExperience.id
+          )}&capsule=${encodeURIComponent(parityExperience.id)}&device=desktop&parity=1&t=${cacheBust}`,
+          rootSelector: '[data-parity-root="metame-runtime"]',
+        },
+        {
+          source: "experience",
+          url: `${baseUrl}/studio/composer/experience/${encodeURIComponent(parityExperience.id)}?parity=1&t=${cacheBust}`,
+          rootSelector: '[data-parity-root="experience-viewer"]',
+        },
+      ];
 
-      const parityElement = createParityEvaluationElement(previewExperience, designQube, designTheme);
-      cleanup = parityElement.cleanup;
+      const sourceReports: Array<{ source: "runtime" | "experience"; report: DesignParityReport }> = [];
+      const sourceErrors: Array<{ source: "runtime" | "experience"; error: string }> = [];
+      for (const target of targets) {
+        try {
+          const loaded = await loadParityTargetFromIframe({
+            url: target.url,
+            width: 1280,
+            height: 900,
+            rootSelector: target.rootSelector,
+          });
+          try {
+            const report = await ParityChecker.generateReport(loaded.element, dis, cm, {
+              includeScreenshots: false,
+              strictMode: false,
+              breakpoints: ["mobile", "tablet", "desktop"],
+            });
+            sourceReports.push({ source: target.source, report });
+          } finally {
+            loaded.cleanup();
+          }
+        } catch (targetError: any) {
+          console.warn(`[DesignParity] ${target.source} target failed`, targetError);
+          sourceErrors.push({
+            source: target.source,
+            error: targetError?.message || "Unknown DOM target failure",
+          });
+        }
+      }
 
-      const parityReport = await ParityChecker.generateReport(parityElement.element, dis, cm, {
-        includeScreenshots: false,
-        strictMode: false,
-        breakpoints: ["mobile", "tablet", "desktop"],
-      });
+      if (sourceReports.length === 0) {
+        const fallback = createSyntheticParityFallback(parityExperience);
+        try {
+          const fallbackReport = await ParityChecker.generateReport(fallback.element, dis, cm, {
+            includeScreenshots: false,
+            strictMode: false,
+            breakpoints: ["mobile", "tablet", "desktop"],
+          });
+          sourceReports.push({ source: "experience", report: fallbackReport });
+        } finally {
+          fallback.cleanup();
+        }
+      }
+
+      const parityReport = mergeParityReports(sourceReports);
 
       setState({
         status: "success",
         dis,
         cm,
         parityReport,
-        appraisedExperienceId: previewExperience.id,
+        appraisedExperienceId: parityExperience.id,
       });
+      if (onLogAuditEventRef.current) {
+        await onLogAuditEventRef.current(
+          parityExperience.id,
+          "pipeline_run",
+          `DPR ${parityReport.parity.overall}/100 with ${parityReport.violations.length} violations.`,
+          {
+            overall: parityReport.parity.overall,
+            structural: parityReport.parity.structural,
+            audit: parityReport.audit,
+            violationCount: parityReport.violations.length,
+            topViolation: parityReport.violations[0]?.message || null,
+            sources: sourceReports.map((item) => item.source),
+            sourceErrors,
+          }
+        );
+      }
     } catch (error: any) {
       setState({
         status: "error",
         error: error?.message || "Failed to run Design Parity pipeline.",
-        appraisedExperienceId: previewExperience?.id,
+        appraisedExperienceId: parityExperience?.id,
       });
-    } finally {
-      cleanup?.();
+      if (parityExperience && onLogAuditEventRef.current) {
+        await onLogAuditEventRef.current(
+          parityExperience.id,
+          "pipeline_error",
+          error?.message || "Failed to run Design Parity pipeline.",
+          {
+            designQubeId: designQube?.id,
+            templateId: parityExperience.template_id,
+          }
+        );
+      }
     }
-  }, [designQube, previewExperience, activeDesignQubeId, designTheme, templateRegistry]);
+  }, [designQube, parityExperience, activeDesignQubeId, designTheme, templateRegistry]);
 
   useEffect(() => {
-    if (!designQube || !previewExperience) return;
+    if (!designQube || !parityExperience) return;
     void runPipeline();
-  }, [designQube, previewExperience, runPipeline]);
+  }, [designQube, parityExperience, runPipeline]);
+
+  useEffect(() => {
+    setRemedyState({ status: "idle" });
+  }, [previewExperience?.id]);
 
   const scoreColor = (score: number) => {
     if (score >= 90) return "text-emerald-300";
     if (score >= 70) return "text-amber-300";
     return "text-rose-300";
+  };
+
+  const pipelineReady =
+    !!state.parityReport &&
+    !!parityExperience &&
+    state.appraisedExperienceId === parityExperience.id;
+
+  const proposeRemedy = async () => {
+    if (!state.parityReport || !previewExperience) return;
+    const proposals = state.parityReport.violations.slice(0, 6).map((violation) => {
+      if (violation.suggestion) return violation.suggestion;
+      return `Adjust ${violation.type} for ${violation.component || "component"} at ${violation.breakpoint}.`;
+    });
+    const summary = `Proposed ${proposals.length} remedy actions for ${previewExperience.name}.`;
+    setRemedyState({
+      status: "proposed",
+      summary,
+      proposals,
+    });
+    if (onLogAuditEvent) {
+      await onLogAuditEvent(previewExperience.id, "remedy_proposed", summary, {
+        proposalCount: proposals.length,
+        proposals,
+        currentDpr: state.parityReport.parity.overall,
+      });
+    }
+  };
+
+  const applyRemedy = async () => {
+    if (!previewExperience || !onApplyRemedy || !remedyState.proposals?.length) return;
+    setRemedyState((prev) => ({ ...prev, status: "applying" }));
+    const summary = remedyState.summary || "Applied parity remediation updates.";
+    const remedyText = remedyState.proposals.join(" ");
+    const nextMetadata = {
+      ...(previewExperience.metadata || {}),
+      parityRemedies: [
+        ...((previewExperience.metadata?.parityRemedies as string[]) || []),
+        ...remedyState.proposals,
+      ],
+      paritySummary: summary,
+      parityStatus: "applied",
+      parityUpdatedAt: new Date().toISOString(),
+    };
+    const patch: Partial<ExperienceQubeLike> = {
+      mechanics: previewExperience.mechanics
+        ? `${previewExperience.mechanics}\n\nRemedy: ${remedyText}`
+        : `Remedy: ${remedyText}`,
+      metrics: previewExperience.metrics
+        ? `${previewExperience.metrics}\n\nRemedy: ${remedyText}`
+        : `Remedy: ${remedyText}`,
+      metadata: nextMetadata,
+    };
+    try {
+      await onApplyRemedy(previewExperience.id, patch, summary);
+      setRemedyState((prev) => ({ ...prev, status: "applied", error: undefined }));
+    } catch (error: any) {
+      setRemedyState((prev) => ({
+        ...prev,
+        status: "error",
+        error: error?.message || "Failed to apply remediation.",
+      }));
+    }
+  };
+
+  const rejectRemedy = async () => {
+    if (!previewExperience) return;
+    if (onLogAuditEvent) {
+      await onLogAuditEvent(
+        previewExperience.id,
+        "remedy_rejected",
+        `Rejected remedy proposal for ${previewExperience.name}.`,
+        {
+          proposalCount: remedyState.proposals?.length || 0,
+          proposals: remedyState.proposals || [],
+          currentDpr: state.parityReport?.parity?.overall,
+        }
+      );
+    }
+    setRemedyState({ status: "idle" });
   };
 
   return (
@@ -373,7 +744,7 @@ export function AgenticDesignParityPanel({
             variant="outline"
             size="sm"
             onClick={() => void runPipeline()}
-            disabled={state.status === "loading"}
+            disabled={state.status === "loading" || !previewExperience || !designQube}
             className="text-xs"
           >
             {state.status === "loading" ? (
@@ -384,7 +755,7 @@ export function AgenticDesignParityPanel({
             ) : (
               <>
                 <Play className="mr-1 h-3.5 w-3.5" />
-                Run Pipeline
+                {pipelineReady ? "Review DPR" : "Run Pipeline"}
               </>
             )}
           </Button>
@@ -480,41 +851,132 @@ export function AgenticDesignParityPanel({
 
         <TabsContent value="dis">
           <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-sm text-slate-200">
-            {state.dis ? (
-              <div className="space-y-3">
-                <div className="grid gap-3 md:grid-cols-2">
-                  <div>
-                    <div className="text-xs text-slate-400">Name</div>
-                    <div>{state.dis.metadata.name}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-slate-400">Source</div>
-                    <div>{state.dis.source.designQubeId}</div>
-                  </div>
-                </div>
-                <div className="grid gap-3 md:grid-cols-2">
-                  <div>
-                    <div className="text-xs text-slate-400">Voice Schema</div>
+            {state.dis ? (() => {
+              const dis = state.dis;
+              const tokens = dis.tokens;
+              const sources = dis.metadata.sources || [];
+              const templateSelection = dis.structure.templateSelection || { priority: [], byModality: {}, byDensity: {}, bySurface: {} };
+              return (
+                <div className="space-y-4">
+                  <div className="grid gap-3 md:grid-cols-3">
                     <div>
-                      persona `{state.dis.style.voice.persona || "n/a"}`, accent `{state.dis.style.voice.accent || "n/a"}`,
-                      pace `{state.dis.style.voice.pace || "n/a"}`, pitch `{state.dis.style.voice.pitch || "n/a"}`,
-                      tone `{state.dis.style.voice.tone || "n/a"}`
+                      <div className="text-xs text-slate-400">DIS Name</div>
+                      <div>{dis.metadata.name}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-slate-400">DesignQube</div>
+                      <div>{dis.source.designQubeId}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-slate-400">Ingestion</div>
+                      <div className="capitalize">{dis.source.ingestionMethod}</div>
                     </div>
                   </div>
-                  <div>
-                    <div className="text-xs text-slate-400">Text Styling</div>
-                    <div>
-                      {state.dis.style.text.fontFamily || "n/a"} • {state.dis.style.text.fontSize || "n/a"} •{" "}
-                      {state.dis.style.text.lineHeight || "n/a"}
+
+                  <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-3">
+                    <div className="text-xs uppercase tracking-wide text-slate-400">Experience Guidance</div>
+                    <div className="mt-2 grid gap-2 md:grid-cols-2">
+                      <div>
+                        <div className="text-xs text-slate-400">Experience</div>
+                        <div>{previewExperience?.name || "n/a"}</div>
+                        <div className="text-xs text-slate-500">{previewExperience?.template_id || "n/a"}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-slate-400">Status</div>
+                        <div className="capitalize">{previewExperience?.status || "n/a"}</div>
+                      </div>
+                      <div className="md:col-span-2">
+                        <div className="text-xs text-slate-400">Goal</div>
+                        <div className="text-xs text-slate-300">{previewExperience?.goal || "n/a"}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-slate-400">Mechanics</div>
+                        <div className="text-xs text-slate-300">{previewExperience?.mechanics || "n/a"}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-slate-400">Metrics</div>
+                        <div className="text-xs text-slate-300">{previewExperience?.metrics || "n/a"}</div>
+                      </div>
                     </div>
                   </div>
+
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-3">
+                      <div className="text-xs uppercase tracking-wide text-slate-400">Voice and Text</div>
+                      <div className="mt-2 text-xs text-slate-300">
+                        Voice: persona {dis.style.voice.persona || "n/a"}, accent {dis.style.voice.accent || "n/a"}, pace{" "}
+                        {dis.style.voice.pace || "n/a"}, pitch {dis.style.voice.pitch || "n/a"}, tone {dis.style.voice.tone || "n/a"}
+                      </div>
+                      <div className="mt-2 text-xs text-slate-300">
+                        Text: {dis.style.text.fontFamily || "n/a"} • {dis.style.text.fontSize || "n/a"} •{" "}
+                        {dis.style.text.lineHeight || "n/a"} • {dis.style.text.textAlign || "n/a"} •{" "}
+                        {dis.style.text.textRendering || "n/a"}
+                      </div>
+                      {dis.style.text.cssText && (
+                        <div className="mt-2 rounded-md border border-slate-700 bg-slate-950/60 p-2 text-[11px] text-slate-400">
+                          {dis.style.text.cssText}
+                        </div>
+                      )}
+                    </div>
+                    <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-3">
+                      <div className="text-xs uppercase tracking-wide text-slate-400">Tokens</div>
+                      <div className="mt-2 text-xs text-slate-300">
+                        Colors: primary {tokens.colors.primary}, accent {tokens.colors.accent}, surface {tokens.colors.surface}
+                      </div>
+                      <div className="mt-2 text-xs text-slate-300">
+                        Typography: {tokens.typography.fontFamily.primary} • {tokens.typography.fontSize.base} •{" "}
+                        {tokens.typography.lineHeight.normal}
+                      </div>
+                      <div className="mt-2 text-xs text-slate-300">
+                        Spacing: {tokens.spacing.sm} • {tokens.spacing.md} • {tokens.spacing.lg} • Radius: {tokens.borderRadius.md}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-3">
+                      <div className="text-xs uppercase tracking-wide text-slate-400">Structure</div>
+                      <div className="mt-2 text-xs text-slate-300">
+                        Layout rules: {(dis.structure.layoutRules || []).slice(0, 4).join(" • ") || "n/a"}
+                      </div>
+                      <div className="mt-2 text-xs text-slate-300">
+                        Breakpoints: {Object.keys(dis.structure.breakpoints || {}).join(" • ") || "n/a"}
+                      </div>
+                    </div>
+                    <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-3">
+                      <div className="text-xs uppercase tracking-wide text-slate-400">Template Selection</div>
+                      <div className="mt-2 text-xs text-slate-300">
+                        Priority: {(templateSelection.priority || []).slice(0, 4).join(" • ") || "n/a"}
+                      </div>
+                      <div className="mt-2 text-xs text-slate-400">
+                        By modality: {Object.keys(templateSelection.byModality || {}).join(" • ") || "n/a"}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-3 text-xs text-slate-300">
+                    Sources: {sources.length} references
+                    {sources.length > 0 && (
+                      <div className="mt-2 grid gap-2 md:grid-cols-2">
+                        {sources.slice(0, 4).map((source) => (
+                          <div key={source.id} className="rounded-md border border-slate-800 bg-slate-950/60 p-2">
+                            <div className="text-slate-200">{source.label}</div>
+                            <div className="text-[11px] text-slate-400">
+                              {source.type} • {source.coverage?.slice(0, 3).join(", ") || "general"}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="text-xs text-slate-400">
+                    Experience alignment: {dis.metadata.copilotHints?.experience?.id || "n/a"} •{" "}
+                    {dis.metadata.copilotHints?.experience?.templateId || "n/a"}
+                  </div>
                 </div>
-                <div className="text-xs text-slate-400">
-                  Experience alignment: {state.dis.metadata.copilotHints?.experience?.id || "n/a"} •{" "}
-                  {state.dis.metadata.copilotHints?.experience?.templateId || "n/a"}
-                </div>
-              </div>
-            ) : (
+              );
+            })() : (
               <div className="text-slate-400">Run pipeline to generate DIS.</div>
             )}
           </div>
@@ -522,39 +984,76 @@ export function AgenticDesignParityPanel({
 
         <TabsContent value="cm">
           <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-sm text-slate-200">
-            {state.cm ? (
-              <div className="space-y-3">
-                <div className="grid gap-3 md:grid-cols-2">
-                  <div>
-                    <div className="text-xs text-slate-400">Strict Mode</div>
-                    <div>{state.cm.verification.strictMode ? "Yes" : "No"}</div>
+            {state.cm ? (() => {
+              const cm = state.cm;
+              const gridKeys = Object.keys(cm.layout.grids || {});
+              const gridSample = gridKeys[0] ? cm.layout.grids[gridKeys[0]] : null;
+              const containerKeys = Object.keys(cm.layout.containers || {});
+              const sectionKeys = Object.keys(cm.layout.sections || {});
+              return (
+                <div className="space-y-4">
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <div>
+                      <div className="text-xs text-slate-400">Strict Mode</div>
+                      <div>{cm.verification.strictMode ? "Yes" : "No"}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-slate-400">Priority Ordering</div>
+                      <div>{cm.verification.priorityOrdering.join(" • ")}</div>
+                    </div>
                   </div>
-                  <div>
-                    <div className="text-xs text-slate-400">Priority Ordering</div>
-                    <div>{state.cm.verification.priorityOrdering.join(" • ")}</div>
+                  <div className="grid gap-3 md:grid-cols-3">
+                    <div>
+                      <div className="text-xs text-slate-400">Color Tolerance</div>
+                      <div>{Math.round(cm.verification.toleranceLevels.color * 100)}%</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-slate-400">Spacing Tolerance</div>
+                      <div>{Math.round(cm.verification.toleranceLevels.spacing * 100)}%</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-slate-400">Typography Tolerance</div>
+                      <div>{Math.round(cm.verification.toleranceLevels.typography * 100)}%</div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-3">
+                    <div className="text-xs uppercase tracking-wide text-slate-400">Layout Constraints</div>
+                    <div className="mt-2 text-xs text-slate-300">
+                      Grids: {gridKeys.length} • Containers: {containerKeys.length} • Sections: {sectionKeys.length}
+                    </div>
+                    {gridSample && (
+                      <div className="mt-2 text-xs text-slate-300">
+                        Grid sample: columns {gridSample.columns.desktop.min} • gap {gridSample.gap.min} • padding {gridSample.padding.min}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-3">
+                    <div className="text-xs uppercase tracking-wide text-slate-400">Responsive Rules</div>
+                    <div className="mt-2 grid gap-2 md:grid-cols-3 text-xs text-slate-300">
+                      {(["mobile", "tablet", "desktop"] as const).map((bp) => (
+                        <div key={bp} className="rounded-md border border-slate-800 bg-slate-950/60 p-2">
+                          <div className="text-slate-200 capitalize">{bp}</div>
+                          <div className="text-[11px] text-slate-400">
+                            Grid columns {cm.responsive.layout[bp].gridColumns.min} to {cm.responsive.layout[bp].gridColumns.max}
+                          </div>
+                          <div className="text-[11px] text-slate-400">
+                            Font size {cm.responsive.typography[bp].fontSize.min} to {cm.responsive.typography[bp].fontSize.max}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-3 text-xs text-slate-300">
+                    Component contracts: {Object.keys(cm.components.buttons).length} buttons •{" "}
+                    {Object.keys(cm.components.cards).length} cards •{" "}
+                    {Object.keys(cm.components.navigation).length} navigation items
                   </div>
                 </div>
-                <div className="grid gap-3 md:grid-cols-3">
-                  <div>
-                    <div className="text-xs text-slate-400">Color Tolerance</div>
-                    <div>{Math.round(state.cm.verification.toleranceLevels.color * 100)}%</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-slate-400">Spacing Tolerance</div>
-                    <div>{Math.round(state.cm.verification.toleranceLevels.spacing * 100)}%</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-slate-400">Typography Tolerance</div>
-                    <div>{Math.round(state.cm.verification.toleranceLevels.typography * 100)}%</div>
-                  </div>
-                </div>
-                <div className="text-xs text-slate-400">
-                  Component contracts: {Object.keys(state.cm.components.buttons).length} buttons •{" "}
-                  {Object.keys(state.cm.components.cards).length} cards •{" "}
-                  {Object.keys(state.cm.components.navigation).length} navigation items
-                </div>
-              </div>
-            ) : (
+              );
+            })() : (
               <div className="text-slate-400">Run pipeline to generate CM.</div>
             )}
           </div>
@@ -593,6 +1092,66 @@ export function AgenticDesignParityPanel({
                     {state.parityReport.violations[0].message}
                   </div>
                 )}
+                <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-3 text-xs text-slate-300">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void proposeRemedy()}
+                      disabled={!state.parityReport.violations.length || remedyState.status === "applying"}
+                      className="text-xs"
+                    >
+                      Remedy Infringements
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void applyRemedy()}
+                      disabled={!remedyState.proposals?.length || remedyState.status === "applying"}
+                      className="text-xs"
+                    >
+                      Apply Remedy
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void runPipeline()}
+                      disabled={state.status === "loading" || !previewExperience || !designQube}
+                      className="text-xs"
+                    >
+                      Re-run DPR
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void rejectRemedy()}
+                      disabled={remedyState.status === "applying"}
+                      className="text-xs"
+                    >
+                      Reject Remedy
+                    </Button>
+                    {remedyState.status === "applied" && (
+                      <Badge variant="outline" className="border-emerald-400/50 text-emerald-300">
+                        Remedy applied
+                      </Badge>
+                    )}
+                  </div>
+                  {remedyState.summary && (
+                    <div className="mt-2 text-[11px] text-slate-400">{remedyState.summary}</div>
+                  )}
+                  {remedyState.proposals && remedyState.proposals.length > 0 && (
+                    <div className="mt-2 grid gap-2 md:grid-cols-2">
+                      {remedyState.proposals.map((proposal, idx) => (
+                        <div key={`${proposal}-${idx}`} className="rounded-md border border-slate-800 bg-slate-950/60 p-2">
+                          {proposal}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {remedyState.status === "error" && (
+                    <div className="mt-2 text-[11px] text-rose-300">{remedyState.error}</div>
+                  )}
+                </div>
               </div>
             ) : (
               <div className="text-slate-400">Run pipeline to generate DPR.</div>

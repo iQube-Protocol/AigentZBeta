@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Bot, CheckCircle2, ChevronDown, ChevronUp, Circle, FileText, Hexagon, LayoutGrid, List, Loader2, Monitor, Moon, Palette, ShieldCheck, SlidersHorizontal, Sun, BookOpen, Eye, Volume2, Type, MonitorIcon, Smartphone, Tablet, Tv, Upload, Play, Code, Shield, Book, Users, Target, Sparkles, BarChart, Edit, Trash2, AlertTriangle } from "lucide-react";
@@ -79,7 +79,7 @@ type ExperienceQube = {
   creator_id: string;
   template_id: string;
   status: string;
-  metadata?: { category?: string; version?: string };
+  metadata?: Record<string, any>;
   configuration?: Record<string, any>;
   components?: Array<{
     component_type: 'DataQube' | 'ContentQube' | 'ToolQube' | 'ModelQube' | 'AgentQube';
@@ -511,6 +511,7 @@ export const ComposerStudio = () => {
   const [experienceToDelete, setExperienceToDelete] = useState<ExperienceQube | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [editingExperienceId, setEditingExperienceId] = useState<string | null>(null);
   const { data: codexList } = useCodexList({ useDefaults: true });
   const [copilotContextId, setCopilotContextId] = useState("qripto-codex");
   const [codexContentItems, setCodexContentItems] = useState<
@@ -585,6 +586,7 @@ export const ComposerStudio = () => {
   };
 
   const handleEditExperience = async (experience: ExperienceQube) => {
+    setEditingExperienceId(experience.id);
     const templateId = experience.template_id?.trim();
     if (!templateId) {
       setSessionError("This ExperienceQube is missing a template id and cannot be edited.");
@@ -666,13 +668,24 @@ export const ComposerStudio = () => {
   const styleQubeThemeText = styleQubeColors.text || "#e2e8f0";
 
   const copilotContextOptions = useMemo<Array<{ id: string; label: string }>>(() => {
-    if (!codexList || codexList.length === 0) {
-      return QRIPTO_FALLBACK_CODEXES as Array<{ id: string; label: string }>;
-    }
-    return codexList.map((codex: CodexListItem) => ({
-      id: codex.id,
-      label: codex.name,
-    }));
+    const byId = new Map<string, string>();
+    const baseOptions: Array<{ id: string; label: string }> =
+      codexList && codexList.length > 0
+        ? codexList.map((codex: CodexListItem) => ({
+            id: codex.id,
+            label: codex.name,
+          }))
+        : (QRIPTO_FALLBACK_CODEXES as Array<{ id: string; label: string }>);
+
+    baseOptions.forEach((option) => {
+      byId.set(option.id, option.label || option.id);
+    });
+    DESIGN_QUBE_OPTIONS.forEach((option) => {
+      if (!byId.has(option.contextId)) {
+        byId.set(option.contextId, option.label || option.contextId);
+      }
+    });
+    return Array.from(byId.entries()).map(([id, label]) => ({ id, label }));
   }, [codexList]);
 
   const designQubeOptions = useMemo<Array<{ id: string; label: string; contextId: string }>>(() => {
@@ -697,20 +710,27 @@ export const ComposerStudio = () => {
     }
   }, [designQubeOptions, activeStyleQubeId]);
 
-  useEffect(() => {
-    const mappedDesignQubeId = CONTEXT_TO_DESIGN_QUBE_ID[copilotContextId];
-    if (mappedDesignQubeId && mappedDesignQubeId !== activeStyleQubeId) {
-      setActiveStyleQubeId(mappedDesignQubeId);
-    }
-  }, [copilotContextId, activeStyleQubeId]);
+  const handleCopilotContextChange = useCallback(
+    (nextContextId: string) => {
+      setCopilotContextId(nextContextId);
+      const mappedDesignQubeId = CONTEXT_TO_DESIGN_QUBE_ID[nextContextId];
+      if (mappedDesignQubeId && mappedDesignQubeId !== activeStyleQubeId) {
+        setActiveStyleQubeId(mappedDesignQubeId);
+      }
+    },
+    [activeStyleQubeId]
+  );
 
-  useEffect(() => {
-    const mappedContextId = DESIGN_QUBE_ID_TO_CONTEXT[activeStyleQubeId];
-    if (!mappedContextId || mappedContextId === copilotContextId) return;
-    if (copilotContextOptions.some((option) => option.id === mappedContextId)) {
-      setCopilotContextId(mappedContextId);
-    }
-  }, [activeStyleQubeId, copilotContextId, copilotContextOptions]);
+  const handleDesignQubeSelection = useCallback(
+    (nextDesignQubeId: string) => {
+      setActiveStyleQubeId(nextDesignQubeId);
+      const mappedContextId = DESIGN_QUBE_ID_TO_CONTEXT[nextDesignQubeId];
+      if (mappedContextId && mappedContextId !== copilotContextId) {
+        setCopilotContextId(mappedContextId);
+      }
+    },
+    [copilotContextId]
+  );
 
   useEffect(() => {
     if (!copilotContextId) return;
@@ -1321,13 +1341,286 @@ export const ComposerStudio = () => {
       });
       if (!res.ok) throw new Error("Failed to complete session");
       const data = await res.json();
-      setExperience(data.experience_qube || null);
+      const completedExperience = data.experience_qube || null;
+      setExperience(completedExperience);
       setSession((prev) => (prev ? { ...prev, status: "completed" } : prev));
+
+      if (editingExperienceId && completedExperience) {
+        try {
+          const updateRes = await fetch(`/api/composer/experiences/${editingExperienceId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                name: completedExperience.name,
+                description: completedExperience.description,
+                goal: completedExperience.goal,
+                mechanics: completedExperience.mechanics,
+                metrics: completedExperience.metrics,
+                template_id: completedExperience.template_id,
+                status: completedExperience.status,
+                configuration: completedExperience.configuration,
+                components: completedExperience.components,
+                execution: completedExperience.execution,
+                access: completedExperience.access,
+                metadata: completedExperience.metadata,
+              }),
+          });
+          if (!updateRes.ok) throw new Error("Failed to update ExperienceQube after edit.");
+          const updatedData = await updateRes.json();
+          const updatedExperience = updatedData.experience_qube || completedExperience;
+          setExperiences((prev) => {
+            const next = prev.map((exp) => (exp.id === editingExperienceId ? updatedExperience : exp));
+            cacheExperiencesForTenant(tenantId, next);
+            return next;
+          });
+          setSelectedExperience(updatedExperience);
+          setSelectedExperienceId(updatedExperience.id);
+          setEditingExperienceId(null);
+
+          if (completedExperience.id !== editingExperienceId) {
+            await fetch(`/api/composer/experiences/${completedExperience.id}`, {
+              method: "DELETE",
+            }).catch(() => {});
+          }
+        } catch (updateErr: any) {
+          console.warn("Failed to update edited ExperienceQube:", updateErr);
+        }
+      }
     } catch (err: any) {
       setSessionError(err.message || "Failed to complete session");
     } finally {
       setIsCompleting(false);
     }
+  };
+
+  const createDprAuditReceipt = async (
+    experienceId: string,
+    action: "pipeline_run" | "pipeline_error" | "remedy_proposed" | "remedy_applied" | "remedy_rejected",
+    summary: string,
+    details?: Record<string, any>
+  ) => {
+    const response = await fetch("/api/design-parity/audit-log", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        experienceId,
+        tenantId,
+        userId,
+        action,
+        summary,
+        details: details || {},
+      }),
+    });
+    if (!response.ok) {
+      return { receipt: null, dvnEvent: null };
+    }
+    const data = await response.json();
+    return {
+      receipt: data?.receipt || null,
+      dvnEvent: data?.dvnEvent || null,
+    };
+  };
+
+  const persistExperienceUpdate = async (experienceId: string, payload: Record<string, any>, errorMessage: string) => {
+    const updateRes = await fetch(`/api/composer/experiences/${experienceId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!updateRes.ok) {
+      throw new Error(errorMessage);
+    }
+    const updatedData = await updateRes.json();
+    const updatedExperience = updatedData.experience_qube || null;
+    setExperiences((prev) => {
+      const next = prev.map((exp) => (exp.id === experienceId ? updatedExperience || exp : exp));
+      cacheExperiencesForTenant(tenantId, next);
+      return next;
+    });
+    if (selectedExperienceId === experienceId && updatedExperience) {
+      setSelectedExperience(updatedExperience);
+    }
+    if (experience?.id === experienceId && updatedExperience) {
+      setExperience(updatedExperience);
+    }
+  };
+
+  const handleLogAuditEvent = async (
+    experienceId: string,
+    action: "pipeline_run" | "pipeline_error" | "remedy_proposed" | "remedy_rejected",
+    summary: string,
+    details?: Record<string, any>
+  ) => {
+    const existing = experiences.find((exp) => exp.id === experienceId) || selectedExperience || experience;
+    if (!existing) return;
+    const { receipt, dvnEvent } = await createDprAuditReceipt(experienceId, action, summary, details);
+    const now = new Date().toISOString();
+    const eventRecord = {
+      id: `dpr_evt_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      action,
+      summary,
+      details: details || {},
+      createdAt: now,
+      receiptId: receipt?.receiptId || null,
+      dvnEventId: dvnEvent?.id || null,
+      status: dvnEvent?.status || "logged",
+    };
+    const previousMetadata = existing.metadata || {};
+    const previousAuditTrail = Array.isArray(previousMetadata.dprAuditTrail)
+      ? previousMetadata.dprAuditTrail
+      : [];
+    const previousCopilotLog = Array.isArray(previousMetadata.copilotLog)
+      ? previousMetadata.copilotLog
+      : [];
+    const nextMetadata = {
+      ...previousMetadata,
+      dprLastAction: action,
+      dprUpdatedAt: now,
+      dprAuditTrail: [...previousAuditTrail, eventRecord].slice(-60),
+      dprReceipts: [...(Array.isArray(previousMetadata.dprReceipts) ? previousMetadata.dprReceipts : []), receipt]
+        .filter(Boolean)
+        .slice(-25),
+      dprDvnEvents: [...(Array.isArray(previousMetadata.dprDvnEvents) ? previousMetadata.dprDvnEvents : []), dvnEvent]
+        .filter(Boolean)
+        .slice(-25),
+      dprLatest:
+        action === "pipeline_run"
+          ? {
+              score: details?.overall ?? null,
+              structural: details?.structural ?? null,
+              checks: details?.audit || null,
+              violations: details?.violationCount ?? null,
+              summary,
+              updatedAt: now,
+            }
+          : previousMetadata.dprLatest,
+      copilotLog: [
+        ...previousCopilotLog,
+        {
+          id: `copilot_dpr_${Date.now()}`,
+          type: "design-parity",
+          action,
+          summary,
+          createdAt: now,
+          receiptId: receipt?.receiptId || null,
+          dvnEventId: dvnEvent?.id || null,
+        },
+      ].slice(-100),
+    };
+    const baseConfiguration = existing.configuration || {};
+    const baseCopilotOutput = (baseConfiguration as any).copilot_output || {};
+    const dprLog = Array.isArray(baseCopilotOutput.dpr_log) ? baseCopilotOutput.dpr_log : [];
+    const nextConfiguration = {
+      ...baseConfiguration,
+      copilot_output: {
+        ...baseCopilotOutput,
+        dpr_log: [...dprLog, eventRecord].slice(-50),
+      },
+    };
+
+    await persistExperienceUpdate(
+      experienceId,
+      {
+        name: existing.name,
+        description: existing.description,
+        goal: existing.goal,
+        mechanics: existing.mechanics,
+        metrics: existing.metrics,
+        template_id: existing.template_id,
+        status: existing.status,
+        configuration: nextConfiguration,
+        components: existing.components,
+        access: existing.access,
+        metadata: nextMetadata,
+      },
+      "Failed to log DPR event."
+    );
+  };
+
+  const handleApplyRemedy = async (
+    experienceId: string,
+    patch: Partial<ExperienceQube>,
+    summary: string
+  ) => {
+    const existing = experiences.find((exp) => exp.id === experienceId) || selectedExperience || experience;
+    if (!existing) {
+      throw new Error("ExperienceQube not found for remedy.");
+    }
+    const { receipt, dvnEvent } = await createDprAuditReceipt(experienceId, "remedy_applied", summary, {
+      patch,
+      proposalCount: Array.isArray((patch.metadata as any)?.parityRemedies)
+        ? (patch.metadata as any).parityRemedies.length
+        : undefined,
+    });
+    const now = new Date().toISOString();
+    const previousMetadata = existing.metadata || {};
+    const previousAuditTrail = Array.isArray(previousMetadata.dprAuditTrail)
+      ? previousMetadata.dprAuditTrail
+      : [];
+    const previousCopilotLog = Array.isArray(previousMetadata.copilotLog)
+      ? previousMetadata.copilotLog
+      : [];
+    const eventRecord = {
+      id: `dpr_evt_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      action: "remedy_applied",
+      summary,
+      createdAt: now,
+      receiptId: receipt?.receiptId || null,
+      dvnEventId: dvnEvent?.id || null,
+      status: dvnEvent?.status || "logged",
+    };
+    const nextMetadata = {
+      ...previousMetadata,
+      ...(patch.metadata || {}),
+      dprLastAction: "remedy_applied",
+      dprUpdatedAt: now,
+      dprAuditTrail: [...previousAuditTrail, eventRecord].slice(-60),
+      dprReceipts: [...(Array.isArray(previousMetadata.dprReceipts) ? previousMetadata.dprReceipts : []), receipt]
+        .filter(Boolean)
+        .slice(-25),
+      dprDvnEvents: [...(Array.isArray(previousMetadata.dprDvnEvents) ? previousMetadata.dprDvnEvents : []), dvnEvent]
+        .filter(Boolean)
+        .slice(-25),
+      copilotLog: [
+        ...previousCopilotLog,
+        {
+          id: `copilot_dpr_${Date.now()}`,
+          type: "design-parity",
+          action: "remedy_applied",
+          summary,
+          createdAt: now,
+          receiptId: receipt?.receiptId || null,
+          dvnEventId: dvnEvent?.id || null,
+        },
+      ].slice(-100),
+    };
+    const baseConfiguration = patch.configuration ?? existing.configuration ?? {};
+    const baseCopilotOutput = (baseConfiguration as any).copilot_output || {};
+    const dprLog = Array.isArray(baseCopilotOutput.dpr_log) ? baseCopilotOutput.dpr_log : [];
+    const nextConfiguration = {
+      ...baseConfiguration,
+      copilot_output: {
+        ...baseCopilotOutput,
+        dpr_log: [...dprLog, eventRecord].slice(-50),
+      },
+    };
+    const payload = {
+      name: patch.name ?? existing.name,
+      description: patch.description ?? existing.description,
+      goal: patch.goal ?? existing.goal,
+      mechanics: patch.mechanics ?? existing.mechanics,
+      metrics: patch.metrics ?? existing.metrics,
+      template_id: patch.template_id ?? existing.template_id,
+      status: patch.status ?? existing.status,
+      configuration: nextConfiguration,
+      components: patch.components ?? existing.components,
+      access: patch.access ?? existing.access,
+      execution: (patch as any).execution ?? (existing as any)?.execution,
+      metadata: nextMetadata,
+    };
+
+    await persistExperienceUpdate(experienceId, payload, "Failed to apply ExperienceQube remedy.");
+    setPreviewAction(`Remedy applied: ${summary}`);
   };
 
   const updateField = (stepId: string, fieldId: string, value: any) => {
@@ -1426,7 +1719,7 @@ export const ComposerStudio = () => {
                   hideAvatarToggle
                   contextOptions={copilotContextOptions}
                   contextId={copilotContextId}
-                  onContextChange={setCopilotContextId}
+                  onContextChange={handleCopilotContextChange}
                   inputPanelClassName="rounded-2xl border border-white/10 bg-slate-950/95 backdrop-blur-xl px-3 py-3 shadow-lg"
                   inputPanelInputClassName="flex-1 px-3 py-2 bg-slate-900/80 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500 text-sm"
                   panelBorder={false}
@@ -1778,8 +2071,30 @@ export const ComposerStudio = () => {
             </div>
             <div className={`mt-4 ${experienceQubeCollapsed ? 'max-h-[170px] overflow-y-auto pr-1' : 'max-h-[420px] overflow-y-auto pr-1'}`}>
               <div className={`gap-3 ${experienceQubeCollapsed ? 'grid grid-cols-2' : 'grid md:grid-cols-2'}`}>
-                {experiences.map((exp) => (
-                  <div key={exp.id} className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                {experiences.map((exp) => {
+                  const isSelected = selectedExperienceId === exp.id;
+                  return (
+                  <div
+                    key={exp.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => {
+                      setSelectedExperience(exp);
+                      setSelectedExperienceId(exp.id);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        setSelectedExperience(exp);
+                        setSelectedExperienceId(exp.id);
+                      }
+                    }}
+                    className={`rounded-xl border bg-slate-950/60 p-4 transition ${
+                      isSelected
+                        ? "border-purple-400/60 bg-purple-500/10 shadow-[0_0_0_1px_rgba(168,85,247,0.4)]"
+                        : "border-slate-800 hover:border-slate-600/60"
+                    }`}
+                  >
                     <div className="text-sm font-semibold text-white">{exp.name}</div>
                     <div className="text-xs text-slate-400 mt-1 line-clamp-2">{exp.description}</div>
                     <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-400">
@@ -1798,7 +2113,8 @@ export const ComposerStudio = () => {
                     <div className="mt-3 flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => {
+                          onClick={(event) => {
+                            event.stopPropagation();
                             void launchExperience(exp);
                           }}
                           className="rounded-lg border border-emerald-400/60 bg-emerald-400/10 p-2 text-emerald-200 hover:bg-emerald-400/20"
@@ -1807,7 +2123,8 @@ export const ComposerStudio = () => {
                           <Play className="h-3 w-3" />
                         </button>
                         <button
-                          onClick={() => {
+                          onClick={(event) => {
+                            event.stopPropagation();
                             openRuntimePreviewForExperience(exp, "Preview");
                           }}
                           className="rounded-lg border border-cyan-400/60 bg-cyan-400/10 p-2 text-cyan-200 hover:bg-cyan-400/20"
@@ -1816,7 +2133,8 @@ export const ComposerStudio = () => {
                           <Eye className="h-3 w-3" />
                         </button>
                         <button
-                          onClick={() => {
+                          onClick={(event) => {
+                            event.stopPropagation();
                             setSelectedExperience(exp);
                             setExperienceModalTab("metrics");
                             setShowExperienceModal(true);
@@ -1829,14 +2147,18 @@ export const ComposerStudio = () => {
                       </div>
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => handleEditExperience(exp)}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleEditExperience(exp);
+                          }}
                           className="rounded-lg border border-amber-400/60 bg-amber-400/10 p-2 text-amber-200 hover:bg-amber-400/20"
                           title="Edit Experience"
                         >
                           <Edit className="h-3 w-3" />
                         </button>
                         <button
-                          onClick={() => {
+                          onClick={(event) => {
+                            event.stopPropagation();
                             setExperienceToDelete(exp);
                             setShowDeleteConfirm(true);
                           }}
@@ -1848,7 +2170,7 @@ export const ComposerStudio = () => {
                       </div>
                     </div>
                   </div>
-                ))}
+                )})}
               </div>
               {experiences.length === 0 && (
                 <div className="rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-6 text-sm text-slate-400">
@@ -1935,7 +2257,7 @@ export const ComposerStudio = () => {
                         <div className="flex flex-wrap items-center gap-2 text-xs" style={{ color: themeText }}>
                           <select
                             value={activeStyleQubeId}
-                            onChange={(e) => setActiveStyleQubeId(e.target.value)}
+                            onChange={(e) => handleDesignQubeSelection(e.target.value)}
                             className="rounded-md border border-white/10 bg-slate-950/40 px-2 py-1 text-xs text-white/90"
                             style={{ borderColor: themeBorder, backgroundColor: themeBg }}
                           >
@@ -2943,6 +3265,8 @@ Example: 'What template works best for a dashboard layout?'"
             onOpenRuntimePreview={() => {
               openRuntimePreviewForExperience(previewExperience, "Preview");
             }}
+            onApplyRemedy={handleApplyRemedy}
+            onLogAuditEvent={handleLogAuditEvent}
           />
       </div>
 
