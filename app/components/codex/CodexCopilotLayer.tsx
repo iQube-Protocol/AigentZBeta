@@ -57,7 +57,7 @@ interface CodexCopilotLayerProps {
   floatingInput?: boolean;
   disableActivationButton?: boolean;
   showQuickPromptsToggle?: boolean;
-  trustProvider?: "openai" | "venice" | "chaingpt";
+  trustProvider?: "openai" | "venice" | "chaingpt" | "thirdweb";
   showNavMenu?: boolean;
   showWalletMenu?: boolean;
   walletBalance?: number;
@@ -246,11 +246,12 @@ export function CodexCopilotLayer({
     hoverTimeoutRef.current = setTimeout(() => setInputPanelVisible(false), timeoutMs);
   };
 
-  const resolveProvider = (): "openai" | "venice" | "chaingpt" => {
+  const resolveProvider = (): "openai" | "venice" | "chaingpt" | "thirdweb" => {
     if (trustProvider) return trustProvider;
     const name = agent?.name?.toLowerCase() || "";
     if (name.includes("venice")) return "venice";
     if (name.includes("chaingpt") || name.includes("chain")) return "chaingpt";
+    if (name.includes("thirdweb") || name.includes("web3")) return "thirdweb";
     return "openai";
   };
 
@@ -260,13 +261,14 @@ export function CodexCopilotLayer({
     const provider = resolveProvider();
     if (provider === "venice") return 7.8;
     if (provider === "chaingpt") return 8.0;
+    if (provider === "thirdweb") return 7.6;
     return 5.0;
   };
 
   const getReliabilityScore = () => {
     const provider = resolveProvider();
     let score = getBaseScore();
-    if (provider === "venice" || provider === "chaingpt") score += 0.8;
+    if (provider === "venice" || provider === "chaingpt" || provider === "thirdweb") score += 0.8;
     if (isLoading) score -= 0.3;
     return clampScore(score);
   };

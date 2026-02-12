@@ -8,16 +8,26 @@ import { PreviewFrame } from "@/components/preview/PreviewFrame";
 import { DevicePreviewSwitcher, type DeviceType } from "@/components/preview/DevicePreviewSwitcher";
 import { useToast } from "@/components/ui/toaster";
 import {
+  getStaticAgentLlmProviders,
+  type AgentModelSelection,
+  type AgentProviderOption,
+  type LlmProviderId,
+} from "@/services/metame/agentLlmOrchestra";
+import {
   BookOpen,
   Bot,
   ChevronDown,
   Coins,
   Compass,
+  Globe,
   Headphones,
   Hexagon,
+  Link2,
   Pencil,
   PlayCircle,
   Send,
+  Sparkles,
+  Shield,
   Tv,
   Users,
 } from "lucide-react";
@@ -31,6 +41,8 @@ type RuntimeAgent = {
   colorClass: string;
 };
 
+type RuntimeAgentModelMap = Record<string, AgentModelSelection | null>;
+
 const RUNTIME_AGENTS: RuntimeAgent[] = [
   { id: "aigent-z", label: "Aigent Z", colorClass: "text-cyan-300" },
   { id: "aigent-kn0w1", label: "Kn0w1", colorClass: "text-emerald-300" },
@@ -38,6 +50,48 @@ const RUNTIME_AGENTS: RuntimeAgent[] = [
   { id: "aigent-nakamoto", label: "Nakamoto", colorClass: "text-amber-300" },
   { id: "aigent-marketa", label: "Marketa", colorClass: "text-rose-300" },
 ];
+
+const PROVIDER_ACCENT: Record<LlmProviderId, string> = {
+  openai: "text-emerald-300",
+  venice: "text-blue-300",
+  chaingpt: "text-amber-300",
+  thirdweb: "text-fuchsia-300",
+};
+
+const PROVIDER_BG: Record<LlmProviderId, string> = {
+  openai: "bg-emerald-500/20 ring-emerald-400/30",
+  venice: "bg-blue-500/20 ring-blue-400/30",
+  chaingpt: "bg-amber-500/20 ring-amber-400/30",
+  thirdweb: "bg-fuchsia-500/20 ring-fuchsia-400/30",
+};
+
+function providerIcon(providerId: LlmProviderId) {
+  if (providerId === "openai") return <Sparkles className={`h-3.5 w-3.5 ${PROVIDER_ACCENT[providerId]}`} />;
+  if (providerId === "venice") return <Shield className={`h-3.5 w-3.5 ${PROVIDER_ACCENT[providerId]}`} />;
+  if (providerId === "chaingpt") return <Link2 className={`h-3.5 w-3.5 ${PROVIDER_ACCENT[providerId]}`} />;
+  return <Globe className={`h-3.5 w-3.5 ${PROVIDER_ACCENT[providerId]}`} />;
+}
+
+function defaultSelectionFromProviders(providers: AgentProviderOption[]): AgentModelSelection | null {
+  const provider = providers[0];
+  const model = provider?.models?.[0];
+  if (!provider || !model) return null;
+  return {
+    providerId: provider.id,
+    providerLabel: provider.label,
+    modelId: model.id,
+    modelLabel: model.label,
+    sourceIQubeId: model.sourceIQubeId,
+  };
+}
+
+function initialModelMap(providerMap: Record<string, AgentProviderOption[]>): RuntimeAgentModelMap {
+  const map: RuntimeAgentModelMap = {};
+  for (const agent of RUNTIME_AGENTS) {
+    map[agent.id] = defaultSelectionFromProviders(providerMap[agent.id] || []);
+  }
+  return map;
+}
 
 const DEFAULT_CONTENTS: SmartContentQube[] = [
   {
@@ -257,10 +311,76 @@ export default function MetaMeRuntimeClient() {
 
   const [selectedAgent, setSelectedAgent] = useState<RuntimeAgent>(RUNTIME_AGENTS[0]);
   const [showAgentSelector, setShowAgentSelector] = useState(false);
+  const [showModelSelector, setShowModelSelector] = useState(false);
   const [showWelcome, setShowWelcome] = useState(true);
   const [welcomePrompt, setWelcomePrompt] = useState("");
   const [showWelcomeQuickLinks, setShowWelcomeQuickLinks] = useState(false);
   const quickLinksHideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const staticProviderMap = useMemo<Record<string, AgentProviderOption[]>>(() => getStaticAgentLlmProviders(), []);
+  const [agentProviderMap, setAgentProviderMap] = useState<Record<string, AgentProviderOption[]>>(staticProviderMap);
+  const [selectedModelByAgent, setSelectedModelByAgent] = useState<RuntimeAgentModelMap>(() =>
+    initialModelMap(staticProviderMap)
+  );
+
+  const activeAgentProviders = agentProviderMap[selectedAgent.id] || [];
+  const activeModel = selectedModelByAgent[selectedAgent.id] || defaultSelectionFromProviders(activeAgentProviders);
+  const trustProvider = activeModel?.providerId;
+
+  const applyModelSelection = useCallback(
+    (provider: AgentProviderOption, model: AgentProviderOption["models"][number]) => {
+      setSelectedModelByAgent((prev) => ({
+        ...prev,
+        [selectedAgent.id]: {
+          providerId: provider.id,
+          providerLabel: provider.label,
+          modelId: model.id,
+          modelLabel: model.label,
+          sourceIQubeId: model.sourceIQubeId,
+        },
+      }));
+      setShowModelSelector(false);
+      setShowAgentSelector(false);
+    },
+    [selectedAgent.id]
+  );
+
+  useEffect(() => {
+    let mounted = true;
+    const loadAgentLlmOptions = async () => {
+      try {
+        const response = await fetch("/api/metame/agent-llm-options", { cache: "no-store" });
+        if (!response.ok) return;
+        const payload = await response.json();
+        const liveMap = payload?.providerMap as Record<string, AgentProviderOption[]> | undefined;
+        if (!mounted || !liveMap || typeof liveMap !== "object") return;
+
+        setAgentProviderMap(liveMap);
+        setSelectedModelByAgent((prev) => {
+          const next: RuntimeAgentModelMap = { ...prev };
+          for (const agent of RUNTIME_AGENTS) {
+            const providers = liveMap[agent.id] || [];
+            const current = next[agent.id];
+            const valid =
+              !!current &&
+              providers.some(
+                (provider) =>
+                  provider.id === current.providerId &&
+                  provider.models.some((model) => model.id === current.modelId)
+              );
+            if (!valid) next[agent.id] = defaultSelectionFromProviders(providers);
+          }
+          return next;
+        });
+      } catch {
+        // Keep static fallback map if live source is unavailable.
+      }
+    };
+    loadAgentLlmOptions();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const [messages, setMessages] = useState<CopilotMessage[]>([]);
   const [channels, setChannels] = useState<Array<{ channel_id: string; participants: string[] }>>([]);
@@ -509,6 +629,40 @@ export default function MetaMeRuntimeClient() {
     []
   );
 
+  const providerBaseScore = useMemo(() => {
+    if (trustProvider === "venice") return 7.8;
+    if (trustProvider === "chaingpt") return 8.0;
+    if (trustProvider === "thirdweb") return 7.6;
+    return 5.0;
+  }, [trustProvider]);
+
+  const reliabilityScore = Math.max(1, Math.min(10, providerBaseScore + 0.8));
+  const trustScore = Math.max(1, Math.min(10, providerBaseScore));
+
+  const renderIndicatorDots = (value: number, type: "trust" | "reliability") => {
+    const dotCount = Math.ceil(value / 2);
+    return (
+      <div className="flex items-center gap-1">
+        {Array.from({ length: 5 }, (_, index) => {
+          const active = index < dotCount;
+          const activeClass =
+            type === "reliability"
+              ? value <= 3
+                ? "bg-red-500"
+                : value <= 6
+                  ? "bg-yellow-500"
+                  : "bg-purple-500"
+              : value <= 3
+                ? "bg-red-500"
+                : value <= 6
+                  ? "bg-yellow-500"
+                  : "bg-green-500";
+          return <span key={`${type}-${index}`} className={`h-1.5 w-1.5 rounded-full ${active ? activeClass : "bg-slate-600"}`} />;
+        })}
+      </div>
+    );
+  };
+
   const menuButtonClass =
     "flex flex-col items-center rounded-md px-2 py-1 text-[11px] text-slate-300 transition hover:bg-white/10 hover:text-white";
 
@@ -586,33 +740,103 @@ export default function MetaMeRuntimeClient() {
     </div>
   );
 
-  const agentSelector = (
-    <div className="absolute left-3 top-[8px] z-30">
-      <button
-        onClick={() => setShowAgentSelector((prev) => !prev)}
-        className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-slate-950/80 px-2 py-1.5 text-[11px] text-slate-200"
-        title="Select Aigent"
-      >
-        <Bot className={`h-4 w-4 ${selectedAgent.colorClass}`} />
-        <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
-      </button>
-      {showAgentSelector && (
-        <div className="absolute left-0 top-full mt-1 min-w-[170px] rounded-xl border border-white/10 bg-slate-950/95 p-1.5 backdrop-blur-xl">
-          {RUNTIME_AGENTS.map((agent) => (
-            <button
-              key={agent.id}
-              onClick={() => {
-                setSelectedAgent(agent);
-                setShowAgentSelector(false);
-              }}
-              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-slate-200 hover:bg-white/10"
-            >
-              <Bot className={`h-4 w-4 ${agent.colorClass}`} />
-              <span>{agent.label}</span>
-            </button>
-          ))}
-        </div>
+  const modelOptionsPanel = (
+    <div className="space-y-2">
+      {activeAgentProviders.length === 0 ? (
+        <p className="px-2 py-1 text-[11px] text-slate-400">No active LLM iQubes for this Aigent.</p>
+      ) : (
+        activeAgentProviders.map((provider) => (
+          <div key={provider.id} className="rounded-lg border border-white/10 bg-white/[0.02] p-1.5">
+            <div className="mb-1 flex items-center gap-1.5 px-1 text-[11px] text-slate-300">
+              {providerIcon(provider.id)}
+              <span>{provider.label}</span>
+            </div>
+            <div className="space-y-1">
+              {provider.models.map((model) => {
+                const selected = activeModel?.providerId === provider.id && activeModel?.modelId === model.id;
+                return (
+                  <button
+                    key={`${provider.id}-${model.id}`}
+                    onClick={() => applyModelSelection(provider, model)}
+                    className={`flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-[11px] transition ${
+                      selected ? "bg-cyan-500/20 text-cyan-100" : "text-slate-200 hover:bg-white/10"
+                    }`}
+                  >
+                    <span className="truncate">{model.label}</span>
+                    {selected ? <span className="text-[10px] uppercase tracking-wide text-cyan-200">Active</span> : null}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))
       )}
+    </div>
+  );
+
+  const agentSelector = (
+    <div className="absolute left-3 top-[8px] z-30 flex items-center gap-2">
+      <div className="relative">
+        <button
+          onClick={() => {
+            setShowAgentSelector((prev) => !prev);
+            setShowModelSelector(false);
+          }}
+          className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-slate-950/80 px-2 py-1.5 text-[11px] text-slate-200"
+          title="Select Aigent"
+        >
+          <Bot className={`h-4 w-4 ${selectedAgent.colorClass}`} />
+          <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+        </button>
+        {showAgentSelector && (
+          <div className="absolute left-0 top-full mt-1 w-[280px] rounded-xl border border-white/10 bg-slate-950/95 p-1.5 backdrop-blur-xl">
+            <div className="space-y-1">
+              {RUNTIME_AGENTS.map((agent) => (
+                <button
+                  key={agent.id}
+                  onClick={() => {
+                    setSelectedAgent(agent);
+                    setShowAgentSelector(false);
+                  }}
+                  className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs ${
+                    selectedAgent.id === agent.id ? "bg-white/10 text-white" : "text-slate-200 hover:bg-white/10"
+                  }`}
+                >
+                  <Bot className={`h-4 w-4 ${agent.colorClass}`} />
+                  <span>{agent.label}</span>
+                </button>
+              ))}
+            </div>
+            <div className="my-2 h-px bg-white/10" />
+            <div className="px-1 pb-1">
+              <p className="mb-1 text-[10px] uppercase tracking-wide text-slate-400">Active ModelQubes (LLM only)</p>
+              {modelOptionsPanel}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="relative">
+        <button
+          onClick={() => {
+            setShowModelSelector((prev) => !prev);
+            setShowAgentSelector(false);
+          }}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-slate-950/80 px-2 py-1.5 text-[11px] text-slate-200"
+          title={activeModel ? `${activeModel.providerLabel} ${activeModel.modelLabel}` : "Select model"}
+        >
+          <span className={`rounded-md px-1.5 py-1 ring-1 ${activeModel ? PROVIDER_BG[activeModel.providerId] : "bg-white/10 ring-white/15"}`}>
+            {activeModel ? providerIcon(activeModel.providerId) : <Bot className="h-3.5 w-3.5 text-slate-300" />}
+          </span>
+          <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+        </button>
+        {showModelSelector && (
+          <div className="absolute left-0 top-full mt-1 w-[280px] rounded-xl border border-white/10 bg-slate-950/95 p-2 backdrop-blur-xl">
+            <p className="mb-2 px-1 text-[10px] uppercase tracking-wide text-slate-400">{selectedAgent.label} models</p>
+            {modelOptionsPanel}
+          </div>
+        )}
+      </div>
     </div>
   );
 
@@ -643,6 +867,7 @@ export default function MetaMeRuntimeClient() {
         floatingInput
         disableActivationButton
         showQuickPromptsToggle
+        trustProvider={trustProvider}
         className="h-full"
       />
     </div>
@@ -701,23 +926,11 @@ export default function MetaMeRuntimeClient() {
       <div className="h-[44px] flex items-center justify-end gap-4 border-b border-white/10 bg-white/[0.03] px-4 pr-6">
         <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-white/70">
           <span className="text-[10px] text-white/60">R</span>
-          <div className="flex items-center gap-1">
-            <span className="h-1.5 w-1.5 rounded-full bg-yellow-400" />
-            <span className="h-1.5 w-1.5 rounded-full bg-yellow-400" />
-            <span className="h-1.5 w-1.5 rounded-full bg-yellow-400" />
-            <span className="h-1.5 w-1.5 rounded-full bg-yellow-400" />
-            <span className="h-1.5 w-1.5 rounded-full bg-slate-600" />
-          </div>
+          {renderIndicatorDots(reliabilityScore, "reliability")}
         </div>
         <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-white/70">
           <span className="text-[10px] text-white/60">T</span>
-          <div className="flex items-center gap-1">
-            <span className="h-1.5 w-1.5 rounded-full bg-yellow-400" />
-            <span className="h-1.5 w-1.5 rounded-full bg-yellow-400" />
-            <span className="h-1.5 w-1.5 rounded-full bg-yellow-400" />
-            <span className="h-1.5 w-1.5 rounded-full bg-yellow-400" />
-            <span className="h-1.5 w-1.5 rounded-full bg-slate-600" />
-          </div>
+          {renderIndicatorDots(trustScore, "trust")}
         </div>
       </div>
 
