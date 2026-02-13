@@ -10,7 +10,7 @@
     "node": ">=20.x"
   },
   "scripts": {
-    "dev": "NEXT_TELEMETRY_DISABLED=1 next dev",
+    "dev": "node scripts/dev-start.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
