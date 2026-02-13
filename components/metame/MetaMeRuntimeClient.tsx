@@ -19,15 +19,11 @@ import {
   ChevronDown,
   Coins,
   Compass,
-  Globe,
   Headphones,
   Hexagon,
-  Link2,
   Pencil,
   PlayCircle,
   Send,
-  Sparkles,
-  Shield,
   Tv,
   Users,
 } from "lucide-react";
@@ -51,25 +47,25 @@ const RUNTIME_AGENTS: RuntimeAgent[] = [
   { id: "aigent-marketa", label: "Marketa", colorClass: "text-rose-300" },
 ];
 
-const PROVIDER_ACCENT: Record<LlmProviderId, string> = {
-  openai: "text-emerald-300",
-  venice: "text-blue-300",
-  chaingpt: "text-amber-300",
-  thirdweb: "text-fuchsia-300",
-};
-
-const PROVIDER_BG: Record<LlmProviderId, string> = {
-  openai: "bg-emerald-500/20 ring-emerald-400/30",
-  venice: "bg-blue-500/20 ring-blue-400/30",
-  chaingpt: "bg-amber-500/20 ring-amber-400/30",
-  thirdweb: "bg-fuchsia-500/20 ring-fuchsia-400/30",
+const PROVIDER_ICON_URL: Record<LlmProviderId, string> = {
+  openai: "/llm_model_logos/openai.png",
+  venice: "/llm_model_logos/venice.png",
+  chaingpt: "/llm_model_logos/chaingpt.png",
+  thirdweb: "/llm_model_logos/thirdweb.png",
 };
 
 function providerIcon(providerId: LlmProviderId) {
-  if (providerId === "openai") return <Sparkles className={`h-3.5 w-3.5 ${PROVIDER_ACCENT[providerId]}`} />;
-  if (providerId === "venice") return <Shield className={`h-3.5 w-3.5 ${PROVIDER_ACCENT[providerId]}`} />;
-  if (providerId === "chaingpt") return <Link2 className={`h-3.5 w-3.5 ${PROVIDER_ACCENT[providerId]}`} />;
-  return <Globe className={`h-3.5 w-3.5 ${PROVIDER_ACCENT[providerId]}`} />;
+  const darkModeClass =
+    providerId === "openai" ? "dark:invert dark:brightness-200 dark:contrast-200" : "";
+  return (
+    <img
+      src={PROVIDER_ICON_URL[providerId]}
+      alt={`${providerId} logo`}
+      className={`h-3.5 w-3.5 rounded-[2px] object-contain ${darkModeClass}`}
+      loading="lazy"
+      decoding="async"
+    />
+  );
 }
 
 function defaultSelectionFromProviders(providers: AgentProviderOption[]): AgentModelSelection | null {
@@ -307,7 +303,8 @@ export default function MetaMeRuntimeClient() {
   const deviceParam = (searchParams?.get("device") as DeviceType) || "mobile";
   const defaultDevice: DeviceType =
     deviceParam === "desktop" || deviceParam === "tablet" || deviceParam === "mobile" ? deviceParam : "mobile";
-  const isMobileLayout = defaultDevice === "mobile";
+  const [activeDevice, setActiveDevice] = useState<DeviceType>(defaultDevice);
+  const isMobileLayout = activeDevice === "mobile";
 
   const [selectedAgent, setSelectedAgent] = useState<RuntimeAgent>(RUNTIME_AGENTS[0]);
   const [showAgentSelector, setShowAgentSelector] = useState(false);
@@ -316,6 +313,13 @@ export default function MetaMeRuntimeClient() {
   const [welcomePrompt, setWelcomePrompt] = useState("");
   const [showWelcomeQuickLinks, setShowWelcomeQuickLinks] = useState(false);
   const quickLinksHideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const selectorHideTimeoutsRef = useRef<{
+    agent: ReturnType<typeof setTimeout> | null;
+    model: ReturnType<typeof setTimeout> | null;
+  }>({
+    agent: null,
+    model: null,
+  });
 
   const staticProviderMap = useMemo<Record<string, AgentProviderOption[]>>(() => getStaticAgentLlmProviders(), []);
   const [agentProviderMap, setAgentProviderMap] = useState<Record<string, AgentProviderOption[]>>(staticProviderMap);
@@ -343,6 +347,26 @@ export default function MetaMeRuntimeClient() {
       setShowAgentSelector(false);
     },
     [selectedAgent.id]
+  );
+
+  const clearSelectorHideTimeout = useCallback((kind: "agent" | "model") => {
+    const timeoutId = selectorHideTimeoutsRef.current[kind];
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+      selectorHideTimeoutsRef.current[kind] = null;
+    }
+  }, []);
+
+  const scheduleSelectorHideTimeout = useCallback(
+    (kind: "agent" | "model") => {
+      clearSelectorHideTimeout(kind);
+      selectorHideTimeoutsRef.current[kind] = setTimeout(() => {
+        if (kind === "agent") setShowAgentSelector(false);
+        if (kind === "model") setShowModelSelector(false);
+        selectorHideTimeoutsRef.current[kind] = null;
+      }, 3000);
+    },
+    [clearSelectorHideTimeout]
   );
 
   useEffect(() => {
@@ -381,6 +405,18 @@ export default function MetaMeRuntimeClient() {
       mounted = false;
     };
   }, []);
+
+  useEffect(
+    () => () => {
+      clearSelectorHideTimeout("agent");
+      clearSelectorHideTimeout("model");
+    },
+    [clearSelectorHideTimeout]
+  );
+
+  useEffect(() => {
+    setActiveDevice(defaultDevice);
+  }, [defaultDevice]);
 
   const [messages, setMessages] = useState<CopilotMessage[]>([]);
   const [channels, setChannels] = useState<Array<{ channel_id: string; participants: string[] }>>([]);
@@ -776,9 +812,14 @@ export default function MetaMeRuntimeClient() {
 
   const agentSelector = (
     <div className="absolute left-3 top-[8px] z-30 flex items-center gap-2">
-      <div className="relative">
+      <div
+        className="relative"
+        onMouseEnter={() => clearSelectorHideTimeout("agent")}
+        onMouseLeave={() => scheduleSelectorHideTimeout("agent")}
+      >
         <button
           onClick={() => {
+            clearSelectorHideTimeout("agent");
             setShowAgentSelector((prev) => !prev);
             setShowModelSelector(false);
           }}
@@ -816,18 +857,21 @@ export default function MetaMeRuntimeClient() {
         )}
       </div>
 
-      <div className="relative">
+      <div
+        className="relative"
+        onMouseEnter={() => clearSelectorHideTimeout("model")}
+        onMouseLeave={() => scheduleSelectorHideTimeout("model")}
+      >
         <button
           onClick={() => {
+            clearSelectorHideTimeout("model");
             setShowModelSelector((prev) => !prev);
             setShowAgentSelector(false);
           }}
           className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-slate-950/80 px-2 py-1.5 text-[11px] text-slate-200"
           title={activeModel ? `${activeModel.providerLabel} ${activeModel.modelLabel}` : "Select model"}
         >
-          <span className={`rounded-md px-1.5 py-1 ring-1 ${activeModel ? PROVIDER_BG[activeModel.providerId] : "bg-white/10 ring-white/15"}`}>
-            {activeModel ? providerIcon(activeModel.providerId) : <Bot className="h-3.5 w-3.5 text-slate-300" />}
-          </span>
+          {activeModel ? providerIcon(activeModel.providerId) : <span className="inline-block h-3.5 w-3.5 rounded-[2px] bg-white/20" />}
           <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
         </button>
         {showModelSelector && (
@@ -1003,6 +1047,7 @@ export default function MetaMeRuntimeClient() {
       <div className="mx-auto w-full h-[760px]">
         <PreviewFrame
           defaultDevice={defaultDevice}
+          onDeviceChange={(device) => setActiveDevice(device)}
           showToolbar
           toolbarPosition="top"
           deviceQueryParam="device"
