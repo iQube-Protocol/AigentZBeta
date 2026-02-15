@@ -502,6 +502,28 @@ function resolveRuntimeModule(device: DeviceType, intent: RuntimeIntent): Runtim
   return preset.secondary;
 }
 
+function resolveSmartMediaPanelStyles(
+  device: DeviceType,
+  intent: RuntimeIntent
+): { videoStyle: React.CSSProperties | undefined; imageStyle: React.CSSProperties | undefined } {
+  if (device === "mobile") {
+    return { videoStyle: undefined, imageStyle: undefined };
+  }
+
+  // For smart-content playback, desktop should favor 3/4 and tablet full-height behavior.
+  const moduleConfig = intent === "play" || intent === "watch" ? RUNTIME_CODEX_MODULES[device].secondary : resolveRuntimeModule(device, intent);
+  const videoHeight =
+    moduleConfig.screenFraction === "screen-full"
+      ? "min(82vh, 820px)"
+      : moduleConfig.screenFraction === "screen-3-4"
+        ? "min(74vh, 760px)"
+        : "min(62vh, 660px)";
+  return {
+    videoStyle: { height: videoHeight },
+    imageStyle: { height: "min(24vh, 240px)" },
+  };
+}
+
 function withDeviceParam(href: string, device: DeviceType): string {
   if (!href) return href;
   const [path, hashPart] = href.split("#");
@@ -1049,10 +1071,7 @@ export default function MetaMeRuntimeClient() {
       if (content.runtimeSource === "smart-content") {
         const heroImage = resolveCapsuleCoverImage(content);
         const videoUri = content.runtimePreviewMediaUri || null;
-        const videoStyle =
-          activeDevice === "mobile" ? undefined : ({ height: "min(74vh, 720px)" } as React.CSSProperties);
-        const imageStyle =
-          activeDevice === "mobile" ? undefined : ({ height: "min(24vh, 240px)" } as React.CSSProperties);
+        const { videoStyle, imageStyle } = resolveSmartMediaPanelStyles(activeDevice, intent);
         return (
           <div className="rounded-2xl border border-emerald-400/25 bg-slate-950/85 p-3 space-y-3">
             <div className="flex items-start justify-between gap-3">
@@ -1079,14 +1098,14 @@ export default function MetaMeRuntimeClient() {
                 src={videoUri || undefined}
                 poster={heroImage || undefined}
                 controls
-                className="h-52 w-full rounded-xl border border-white/10 bg-slate-950 object-cover"
+                className="w-full rounded-xl border border-white/10 bg-slate-950 object-cover"
                 style={videoStyle}
               />
             ) : heroImage ? (
               <img
                 src={heroImage}
                 alt={content.title}
-                className="h-52 w-full rounded-xl border border-white/10 object-cover"
+                className="w-full rounded-xl border border-white/10 object-cover"
                 style={imageStyle}
                 loading="lazy"
               />
