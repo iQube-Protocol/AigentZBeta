@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
     const ownerFilter = searchParams.get('owner');
     const useDefaults = searchParams.get('defaults') === 'true';
 
-    // If defaults flag is set, return pack-scanned + hardcoded definitions
+    // If defaults flag is set, return defaults with DB overrides when available
     if (useDefaults) {
       const packCodexes = await loadPackCodexes();
       const packIds = new Set(packCodexes.map(codex => codex.id));
@@ -52,10 +52,57 @@ export async function GET(request: NextRequest) {
       }
 
       const listItems: CodexListItem[] = codexes.map(codexToListItem);
+      const mergedById = new Map(listItems.map((item) => [item.id, item]));
+
+      try {
+        const supabase = createServerClient();
+        let dbQuery = supabase
+          .from('codex_configs')
+          .select('*');
+
+        if (enabledFilter !== null) {
+          dbQuery = dbQuery.eq('enabled', enabledFilter === 'true');
+        }
+
+        if (ownerFilter) {
+          dbQuery = dbQuery.eq('owner', ownerFilter);
+        }
+
+        const { data: dbConfigs } = await dbQuery.order('created_at', { ascending: false });
+
+        const dbCodexIds = dbConfigs?.map((c) => c.id) || [];
+        const { data: tabCounts } = dbCodexIds.length
+          ? await supabase
+              .from('codex_tabs')
+              .select('codex_id')
+              .in('codex_id', dbCodexIds)
+          : { data: [] as Array<{ codex_id: string }> };
+
+        const tabCountMap = (tabCounts || []).reduce((acc, tab) => {
+          acc[tab.codex_id] = (acc[tab.codex_id] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
+
+        (dbConfigs || []).forEach((c) => {
+          mergedById.set(c.id, {
+            id: c.id,
+            name: c.name,
+            slug: c.slug,
+            enabled: c.enabled,
+            owner: c.owner,
+            metadata: c.metadata,
+            tabCount: tabCountMap[c.id] || 0,
+            createdAt: c.created_at,
+            updatedAt: c.updated_at,
+          });
+        });
+      } catch {
+        // Ignore DB errors in defaults mode and return static defaults
+      }
 
       return NextResponse.json<CodexRegistryResponse<CodexListItem[]>>({
         success: true,
-        data: listItems
+        data: Array.from(mergedById.values())
       });
     }
 

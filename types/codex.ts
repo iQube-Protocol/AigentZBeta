@@ -93,6 +93,7 @@ export interface CreateCodexRequest {
 export interface UpdateCodexRequest {
   name?: string;
   slug?: string;
+  enabled?: boolean;
   metadata?: Partial<CodexMetadata>;
   permissions?: Partial<CodexPermissions>;
   liquidUI?: Partial<CodexLiquidUIConfig>;

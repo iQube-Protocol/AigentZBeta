@@ -3,7 +3,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { CodexCopilotLayer, type CopilotMessage } from "@/app/components/codex/CodexCopilotLayer";
-import SmartContentCard from "@/app/components/content/SmartContentCard";
 import { PreviewFrame } from "@/components/preview/PreviewFrame";
 import { DevicePreviewSwitcher, type DeviceType } from "@/components/preview/DevicePreviewSwitcher";
 import { useToast } from "@/components/ui/toaster";
@@ -19,17 +18,23 @@ import {
   ChevronDown,
   Coins,
   Compass,
+  Eye,
   Headphones,
   Hexagon,
   Pencil,
   PlayCircle,
+  RefreshCw,
+  RotateCcw,
   Send,
+  Share2,
   Tv,
   Users,
 } from "lucide-react";
-import type { SmartContentQube } from "@/types/smartContent";
+import type { ScreenFraction, SmartContentQube } from "@/types/smartContent";
+import type { RuntimeCapsuleRecord } from "@/types/runtimeCapsules";
 
 type RuntimeIntent = "watch" | "listen" | "read" | "play" | "find" | "earn" | "make" | "be";
+type RuntimeContentSource = "experience" | "smart-content" | "codex";
 
 type RuntimeAgent = {
   id: string;
@@ -38,6 +43,90 @@ type RuntimeAgent = {
 };
 
 type RuntimeAgentModelMap = Record<string, AgentModelSelection | null>;
+type RuntimeCapsule = SmartContentQube & {
+  runtimeSource: RuntimeContentSource;
+  runtimeCodexSlug?: string;
+  runtimeCodexInitialTab?: string;
+  runtimeLaunchHref?: string;
+  runtimeLaunchType?: "experience" | "codex" | "content";
+  runtimeAssetStatus?: "resolved" | "missing";
+  runtimeModalityHints?: string[];
+  runtimeDurationMinutes?: number | null;
+  runtimePriceLabel?: string | null;
+  runtimeStatus?: string | null;
+  runtimeContentKind?: "article" | "video" | "character" | "episode" | "generic" | null;
+  runtimePreviewMediaUri?: string | null;
+};
+
+type RuntimeModuleConfig = {
+  id: string;
+  label: string;
+  summaryVariant: "compact" | "mobileCard";
+  runtimeDensity: "narrow" | "wide";
+  screenFraction: ScreenFraction;
+};
+
+const RUNTIME_CODEX_MODULES: Record<DeviceType, { primary: RuntimeModuleConfig; secondary: RuntimeModuleConfig }> = {
+  mobile: {
+    primary: {
+      id: "mobile_portrait_full",
+      label: "Mobile portrait full",
+      summaryVariant: "mobileCard",
+      runtimeDensity: "narrow",
+      screenFraction: "screen-full",
+    },
+    secondary: {
+      id: "mobile_portrait_half",
+      label: "Mobile portrait half",
+      summaryVariant: "compact",
+      runtimeDensity: "narrow",
+      screenFraction: "screen-1-2",
+    },
+  },
+  tablet: {
+    primary: {
+      id: "tablet_split_half",
+      label: "Tablet split half",
+      summaryVariant: "compact",
+      runtimeDensity: "wide",
+      screenFraction: "screen-1-2",
+    },
+    secondary: {
+      id: "tablet_split_full",
+      label: "Tablet split full",
+      summaryVariant: "compact",
+      runtimeDensity: "wide",
+      screenFraction: "screen-full",
+    },
+  },
+  desktop: {
+    primary: {
+      id: "desktop_split_half",
+      label: "Desktop split half",
+      summaryVariant: "compact",
+      runtimeDensity: "wide",
+      screenFraction: "screen-1-2",
+    },
+    secondary: {
+      id: "desktop_split_three_quarter",
+      label: "Desktop split 3/4",
+      summaryVariant: "compact",
+      runtimeDensity: "wide",
+      screenFraction: "screen-3-4",
+    },
+  },
+};
+
+const SOURCE_PRIORITY_BY_INTENT: Record<RuntimeIntent, RuntimeContentSource[]> = {
+  play: ["smart-content", "experience", "codex"],
+  read: ["smart-content", "experience", "codex"],
+  watch: ["smart-content", "experience", "codex"],
+  listen: ["smart-content", "experience", "codex"],
+  find: ["smart-content", "experience", "codex"],
+  earn: ["smart-content", "experience", "codex"],
+  make: ["smart-content", "experience", "codex"],
+  be: ["smart-content", "experience", "codex"],
+};
 
 const RUNTIME_AGENTS: RuntimeAgent[] = [
   { id: "aigent-z", label: "Aigent Z", colorClass: "text-cyan-300" },
@@ -46,6 +135,9 @@ const RUNTIME_AGENTS: RuntimeAgent[] = [
   { id: "aigent-nakamoto", label: "Nakamoto", colorClass: "text-amber-300" },
   { id: "aigent-marketa", label: "Marketa", colorClass: "text-rose-300" },
 ];
+
+const FAILSAFE_QRIPTO_IMAGE =
+  "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1763852402194-hswrqa.png";
 
 const PROVIDER_ICON_URL: Record<LlmProviderId, string> = {
   openai: "/llm_model_logos/openai.png",
@@ -89,7 +181,7 @@ function initialModelMap(providerMap: Record<string, AgentProviderOption[]>): Ru
   return map;
 }
 
-const DEFAULT_CONTENTS: SmartContentQube[] = [
+const DEFAULT_CONTENTS: RuntimeCapsule[] = [
   {
     id: "capsule-qriptopian-read",
     type: "SmartContentQube",
@@ -98,7 +190,7 @@ const DEFAULT_CONTENTS: SmartContentQube[] = [
     slug: "read-qriptopian",
     version: 1,
     description: "Launch an immersive article experience from the Qriptopian codex.",
-    coverImageUri: "",
+    coverImageUri: FAILSAFE_QRIPTO_IMAGE,
     creatorRootDid: "did:iq:creator2",
     tenantId: "qriptopian",
     modalities: {
@@ -122,7 +214,8 @@ const DEFAULT_CONTENTS: SmartContentQube[] = [
     },
     status: "published",
     createdAt: new Date().toISOString(),
-  } as unknown as SmartContentQube,
+    runtimeSource: "experience",
+  } as unknown as RuntimeCapsule,
   {
     id: "capsule-metaknyt-play",
     type: "SmartContentQube",
@@ -131,7 +224,7 @@ const DEFAULT_CONTENTS: SmartContentQube[] = [
     slug: "play-metaknyt",
     version: 1,
     description: "Jump into an episode experience with smart modules and rewards.",
-    coverImageUri: "",
+    coverImageUri: FAILSAFE_QRIPTO_IMAGE,
     creatorRootDid: "did:iq:creator1",
     tenantId: "metaknyts",
     modalities: {
@@ -155,7 +248,42 @@ const DEFAULT_CONTENTS: SmartContentQube[] = [
     },
     status: "published",
     createdAt: new Date().toISOString(),
-  } as unknown as SmartContentQube,
+    runtimeSource: "experience",
+  } as unknown as RuntimeCapsule,
+  {
+    id: "capsule-qriptopian-reading-sprint",
+    type: "SmartContentQube",
+    app: "Qriptopian",
+    title: "Qriptopian Reading Sprint",
+    slug: "qriptopian-reading-sprint",
+    version: 1,
+    description: "Guided 15-20 minute reading sprint with takeaways and rewards.",
+    coverImageUri: FAILSAFE_QRIPTO_IMAGE,
+    creatorRootDid: "did:iq:creator4",
+    tenantId: "qriptopian",
+    modalities: {
+      read: { enabled: true },
+      watch: { enabled: false },
+      listen: { enabled: false },
+      interact: { enabled: true },
+    },
+    structure: { kind: "episode", panelCount: 8 },
+    pricingModel: {
+      tiers: [{ kind: "payPerEpisode", amount: 0.05, currency: "QCT", covers: 1 }],
+      acceptedTokens: ["QCT"],
+    },
+    libraryMetadata: {
+      category: "capsule",
+      tags: ["capsule", "experience", "read", "play", "qriptopian", "sprint"],
+      recommendedShelf: "capsules",
+      expiry: { model: "permanent" },
+      ownership: { status: "available", libraryStatus: "not_owned" },
+      discovery: { featured: true, curated: true, priority: 2 },
+    },
+    status: "published",
+    createdAt: new Date().toISOString(),
+    runtimeSource: "experience",
+  } as unknown as RuntimeCapsule,
   {
     id: "capsule-earn-reward",
     type: "SmartContentQube",
@@ -164,7 +292,7 @@ const DEFAULT_CONTENTS: SmartContentQube[] = [
     slug: "earn-rewards",
     version: 1,
     description: "Complete a short task flow to earn Q and unlock content.",
-    coverImageUri: "",
+    coverImageUri: FAILSAFE_QRIPTO_IMAGE,
     creatorRootDid: "did:iq:creator3",
     tenantId: "agentiq",
     modalities: {
@@ -188,8 +316,12 @@ const DEFAULT_CONTENTS: SmartContentQube[] = [
     },
     status: "published",
     createdAt: new Date().toISOString(),
-  } as unknown as SmartContentQube,
+    runtimeSource: "experience",
+  } as unknown as RuntimeCapsule,
 ];
+
+const SHOWCASE_CODEX_SLUGS = new Set(["qripto", "knyt"]);
+const SHOWCASE_MATCHERS = ["qripto", "qriptopian", "knyt", "metaknyt", "metaknyts"];
 
 const INTENT_KEYWORDS: Record<RuntimeIntent, string[]> = {
   watch: ["watch", "video", "clip", "tv"],
@@ -212,11 +344,151 @@ function inferIntent(prompt: string): RuntimeIntent {
   return scored[0]?.score ? scored[0].intent : "find";
 }
 
-function modalityEnabled(content: SmartContentQube, intent: RuntimeIntent): boolean {
+function resolveCapsuleCoverImage(content: RuntimeCapsule) {
+  if (content.coverImageUri && content.coverImageUri.trim().length > 0) return content.coverImageUri;
+  return "";
+}
+
+function isLikelyVideoUri(uri: string | null | undefined): boolean {
+  if (!uri) return false;
+  return /(\.mp4|\.mov|\.webm|\.m3u8)(\?.*)?$/i.test(uri) || uri.includes("/api/content/video/");
+}
+
+function normalizeImageCandidate(candidate: unknown): string | null {
+  if (typeof candidate !== "string") return null;
+  const value = candidate.trim();
+  if (!value) return null;
+  if (value.startsWith("http://") || value.startsWith("https://") || value.startsWith("/")) return value;
+  if (/\.(png|jpg|jpeg|webp|gif|avif|svg)$/i.test(value)) return value;
+  return null;
+}
+
+function extractImageFromMediaAsset(asset: any): string | null {
+  return (
+    normalizeImageCandidate(asset?.thumbnailUri) ||
+    normalizeImageCandidate(asset?.thumbnail_uri) ||
+    normalizeImageCandidate(asset?.poster) ||
+    normalizeImageCandidate(asset?.posterUrl) ||
+    normalizeImageCandidate(asset?.storageUri) ||
+    null
+  );
+}
+
+function findNestedImageCandidate(node: unknown, depth = 0): string | null {
+  if (depth > 3 || node == null) return null;
+  if (typeof node === "string") return normalizeImageCandidate(node);
+  if (Array.isArray(node)) {
+    for (const entry of node) {
+      const found = findNestedImageCandidate(entry, depth + 1);
+      if (found) return found;
+    }
+    return null;
+  }
+  if (typeof node !== "object") return null;
+
+  const record = node as Record<string, unknown>;
+  const preferredKeys = [
+    "coverImageUri",
+    "cover_image_uri",
+    "preview_image",
+    "heroImage",
+    "hero_image",
+    "thumbnailUri",
+    "thumbnail_uri",
+    "thumbnail",
+    "imageUri",
+    "image_uri",
+    "imageUrl",
+    "image_url",
+    "image",
+    "poster",
+    "posterUrl",
+    "banner",
+    "mediaUri",
+    "media_uri",
+  ];
+  for (const key of preferredKeys) {
+    const found = normalizeImageCandidate(record[key]);
+    if (found) return found;
+  }
+  for (const value of Object.values(record)) {
+    const found = findNestedImageCandidate(value, depth + 1);
+    if (found) return found;
+  }
+  return null;
+}
+
+function resolveAssociatedImage(raw: any): string {
+  const config = raw?.configuration || {};
+  const mediaCandidates = [
+    ...(config?.modalities?.read?.panels || []),
+    ...(config?.modalities?.watch?.videoAssets || []),
+    ...(config?.modalities?.watch?.assets || []),
+    ...(raw?.modalities?.read?.panels || []),
+    ...(raw?.modalities?.watch?.videoAssets || []),
+    ...(raw?.components || []),
+  ];
+  for (const candidate of mediaCandidates) {
+    const image = extractImageFromMediaAsset(candidate) || findNestedImageCandidate(candidate);
+    if (image) return image;
+  }
+
+  const directCandidates = [
+    raw?.coverImageUri,
+    raw?.cover_image_uri,
+    raw?.preview_image,
+    raw?.heroImage,
+    raw?.hero_image,
+    raw?.thumbnailUri,
+    raw?.thumbnail_uri,
+    raw?.image,
+    raw?.imageUrl,
+    config?.coverImageUri,
+    config?.cover_image_uri,
+    config?.preview_image,
+    config?.heroImage,
+    config?.hero_image,
+    config?.thumbnail,
+    config?.thumbnailUri,
+  ];
+  for (const candidate of directCandidates) {
+    const image = normalizeImageCandidate(candidate);
+    if (image) return image;
+  }
+
+  const deepMatch = findNestedImageCandidate(config) || findNestedImageCandidate(raw);
+  if (deepMatch) return deepMatch;
+
+  return "";
+}
+
+function isShowcaseCapsule(content: RuntimeCapsule) {
+  if (content.runtimeSource === "codex") {
+    return SHOWCASE_CODEX_SLUGS.has((content.runtimeCodexSlug || "").toLowerCase());
+  }
+
+  const searchable = [
+    content.app,
+    content.tenantId,
+    content.title,
+    content.slug,
+    content.description,
+    ...(content.libraryMetadata?.tags || []),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return SHOWCASE_MATCHERS.some((token) => searchable.includes(token));
+}
+
+function modalityEnabled(content: RuntimeCapsule, intent: RuntimeIntent): boolean {
   if (intent === "watch") return Boolean(content.modalities?.watch?.enabled);
   if (intent === "listen") return Boolean(content.modalities?.listen?.enabled);
   if (intent === "read") return Boolean(content.modalities?.read?.enabled);
-  if (intent === "play") return Boolean(content.modalities?.interact?.enabled);
+  if (intent === "play") {
+    return Boolean(content.modalities?.interact?.enabled || content.modalities?.watch?.enabled || content.modalities?.read?.enabled);
+  }
   if (intent === "earn") {
     const pricing = content.pricingModel?.tiers?.[0]?.kind;
     return pricing !== "free";
@@ -224,20 +496,97 @@ function modalityEnabled(content: SmartContentQube, intent: RuntimeIntent): bool
   return true;
 }
 
-function scoreContent(content: SmartContentQube, prompt: string, intent: RuntimeIntent): number {
+function resolveRuntimeModule(device: DeviceType, intent: RuntimeIntent): RuntimeModuleConfig {
+  const preset = RUNTIME_CODEX_MODULES[device];
+  if (intent === "play") return preset.primary;
+  return preset.secondary;
+}
+
+function withDeviceParam(href: string, device: DeviceType): string {
+  if (!href) return href;
+  const [path, hashPart] = href.split("#");
+  const separator = path.includes("?") ? "&" : "?";
+  const hasDevice = /(?:\?|&)device=/.test(path);
+  const nextPath = hasDevice ? path.replace(/([?&]device=)[^&]*/g, `$1${device}`) : `${path}${separator}device=${device}`;
+  return hashPart ? `${nextPath}#${hashPart}` : nextPath;
+}
+
+function scoreContent(content: RuntimeCapsule, prompt: string, intent: RuntimeIntent): number {
   let score = 0;
   if (modalityEnabled(content, intent)) score += 5;
+  if (content.runtimeAssetStatus === "resolved" || resolveCapsuleCoverImage(content)) score += 4;
   const searchable = `${content.title} ${content.description} ${content.slug} ${content.libraryMetadata?.tags?.join(" ") || ""}`.toLowerCase();
   const words = prompt.toLowerCase().split(/[^a-z0-9]+/).filter((word) => word.length > 2);
   for (const word of words) {
     if (searchable.includes(word)) score += 1;
   }
+  if (isShowcaseCapsule(content)) score += 3;
+  if (content.modalities?.read?.enabled) score += 1;
+  if (content.modalities?.watch?.enabled) score += 1;
+  if (intent === "play" && content.runtimeSource === "smart-content") score += 5;
+  if (intent === "watch" && isLikelyVideoUri(content.runtimePreviewMediaUri || null)) score += 3;
+  if (intent !== "play" && content.runtimeSource === "experience") score += 1;
   return score;
 }
 
-function toSmartContentFromExperience(raw: any): SmartContentQube {
+function applySmartTriadIntentRules(contents: RuntimeCapsule[], prompt: string, intent: RuntimeIntent) {
+  return contents.map((content) => ({
+    content,
+    score: scoreContent(content, prompt, intent),
+  }));
+}
+
+function applyRuntimeCopilotFilter(
+  rows: Array<{ content: RuntimeCapsule; score: number }>,
+  intent: RuntimeIntent,
+  device: DeviceType
+) {
+  const sourcePriority = SOURCE_PRIORITY_BY_INTENT[intent];
+  return [...rows]
+    .map((row) => {
+      const sourceRank = sourcePriority.indexOf(row.content.runtimeSource);
+      const sourceBonus = sourceRank === -1 ? 0 : (sourcePriority.length - sourceRank) * 2;
+      const moduleBonus =
+        row.content.runtimeSource === "codex" ? (resolveRuntimeModule(device, intent).screenFraction === "screen-full" ? 2 : 1) : 0;
+      return {
+        content: row.content,
+        score: row.score + sourceBonus + moduleBonus,
+      };
+    })
+    .sort((a, b) => b.score - a.score)
+    .map((row) => row.content);
+}
+
+function selectCapsulesForDisplay(ranked: RuntimeCapsule[], limit = 6): RuntimeCapsule[] {
+  const unique = ranked.filter((content, index, array) => array.findIndex((item) => item.id === content.id) === index);
+  const withAssets = unique.filter((content) => resolveCapsuleCoverImage(content).length > 0);
+  const pool = withAssets.length > 0 ? withAssets : unique;
+  return pool.slice(0, limit);
+}
+
+function shuffleArray<T>(rows: T[]): T[] {
+  const next = [...rows];
+  for (let index = next.length - 1; index > 0; index -= 1) {
+    const randomIndex = Math.floor(Math.random() * (index + 1));
+    [next[index], next[randomIndex]] = [next[randomIndex], next[index]];
+  }
+  return next;
+}
+
+function diversifyPlayCapsules(rows: RuntimeCapsule[], previousLeadId: string | null): RuntimeCapsule[] {
+  const shuffled = shuffleArray(rows);
+  if (!previousLeadId || shuffled.length < 2) return shuffled;
+  if (shuffled[0]?.id !== previousLeadId) return shuffled;
+  const alternateIndex = shuffled.findIndex((row) => row.id !== previousLeadId);
+  if (alternateIndex <= 0) return shuffled;
+  [shuffled[0], shuffled[alternateIndex]] = [shuffled[alternateIndex], shuffled[0]];
+  return shuffled;
+}
+
+function toSmartContentFromExperience(raw: any): RuntimeCapsule {
   const config = raw?.configuration || {};
   const modalityFlags = config?.modalities || {};
+  const associatedImage = resolveAssociatedImage(raw);
   const tags: string[] = [];
   if (raw?.metadata?.category) tags.push(String(raw.metadata.category));
   if (raw?.template_id) tags.push(String(raw.template_id));
@@ -257,7 +606,7 @@ function toSmartContentFromExperience(raw: any): SmartContentQube {
     slug: String(raw?.id || "experience-qube"),
     version: 1,
     description: String(raw?.description || raw?.goal || "Experience capsule"),
-    coverImageUri: "",
+    coverImageUri: associatedImage,
     creatorRootDid: `did:iq:${raw?.creator_id || "creator"}`,
     tenantId: String(raw?.tenant_id || "metame"),
     modalities: {
@@ -281,17 +630,123 @@ function toSmartContentFromExperience(raw: any): SmartContentQube {
     },
     status: "published",
     createdAt: new Date().toISOString(),
-  } as unknown as SmartContentQube;
+    runtimeSource: "experience",
+  } as unknown as RuntimeCapsule;
 }
 
-function toSmartContentFromRegistry(raw: any): SmartContentQube {
+function toSmartContentFromRegistry(raw: any): RuntimeCapsule {
+  const associatedImage = resolveAssociatedImage(raw);
+  const tags = [...(raw?.libraryMetadata?.tags || []), "capsule"];
+  const hasCodexTag = tags.some((tag) => /codex/i.test(String(tag)));
+  const slug = String(raw?.slug || "");
   return {
     ...raw,
+    coverImageUri: raw?.coverImageUri || associatedImage,
     libraryMetadata: {
       ...(raw?.libraryMetadata || {}),
-      tags: [...(raw?.libraryMetadata?.tags || []), "capsule"],
+      tags,
     },
-  } as SmartContentQube;
+    runtimeSource: hasCodexTag ? "codex" : "smart-content",
+    runtimeCodexSlug: hasCodexTag ? slug.replace(/-codex$/i, "") : undefined,
+    runtimeCodexInitialTab: hasCodexTag ? "codex" : undefined,
+  } as RuntimeCapsule;
+}
+
+function toSmartContentFromCodex(raw: any): RuntimeCapsule {
+  const codexId = String(raw?.id || `codex-${Date.now()}`);
+  const codexSlug = String(raw?.slug || codexId).replace(/-codex$/i, "");
+  const codexName = String(raw?.name || "Codex");
+  const metadata = raw?.metadata || {};
+  const tags = Array.isArray(metadata?.tags) ? metadata.tags.map((tag: unknown) => String(tag)) : [];
+  const associatedImage = resolveAssociatedImage(raw);
+  return {
+    id: `capsule-${codexId}`,
+    type: "SmartContentQube",
+    app: codexName,
+    title: `${codexName} Capsule`,
+    slug: `${codexSlug}-capsule`,
+    version: 1,
+    description: String(metadata?.description || `Launch ${codexName} from the SmartTriad runtime shell.`),
+    coverImageUri: associatedImage,
+    creatorRootDid: `did:iq:${raw?.owner || "codex"}`,
+    tenantId: String(raw?.owner || "metame"),
+    modalities: {
+      read: { enabled: true },
+      watch: { enabled: false },
+      listen: { enabled: false },
+      interact: { enabled: true },
+    },
+    structure: { kind: "collection" },
+    pricingModel: {
+      tiers: [{ kind: "free", amount: 0, currency: "QCT", covers: 1 }],
+      acceptedTokens: [],
+    },
+    libraryMetadata: {
+      category: "capsule",
+      tags: [...tags, "capsule", "codex", "play", "smarttriad", "runtime"],
+      recommendedShelf: "capsules",
+      expiry: { model: "permanent" },
+      ownership: { status: "available", libraryStatus: "not_owned" },
+      discovery: { featured: true, curated: true, priority: 1 },
+    },
+    status: raw?.enabled === false ? "draft" : "published",
+    createdAt: raw?.createdAt || new Date().toISOString(),
+    runtimeSource: "codex",
+    runtimeCodexSlug: codexSlug,
+    runtimeCodexInitialTab: "codex",
+  } as unknown as RuntimeCapsule;
+}
+
+function fromRuntimeCapsuleRecord(record: RuntimeCapsuleRecord): RuntimeCapsule {
+  const runtimeSource: RuntimeContentSource = record.sourceType;
+  const modalityHints = record.metadata?.modalityHints || [];
+  const slug = record.metadata?.codexSlug || record.id;
+  const sourceLabel = record.sourceType;
+  return {
+    id: record.id,
+    type: "SmartContentQube",
+    app: record.metadata?.codexSlug ? record.metadata.codexSlug : "metaMe",
+    title: record.title,
+    slug,
+    version: 1,
+    description: record.description,
+    coverImageUri: record.heroAsset?.uri || record.thumbnailAsset?.uri || "",
+    creatorRootDid: "did:iq:runtime",
+    tenantId: record.metadata?.tenantId || "metame",
+    modalities: {
+      read: { enabled: modalityHints.includes("read") },
+      watch: { enabled: modalityHints.includes("watch") },
+      listen: { enabled: modalityHints.includes("listen") },
+      interact: { enabled: modalityHints.includes("play") || record.sourceType === "experience" },
+    },
+    structure: { kind: "episode" },
+    pricingModel: {
+      tiers: [{ kind: "free", amount: 0, currency: "QCT", covers: 1 }],
+      acceptedTokens: [],
+    },
+    libraryMetadata: {
+      category: "capsule",
+      tags: ["capsule", sourceLabel, ...(record.metadata?.modalityHints || [])],
+      recommendedShelf: "capsules",
+      expiry: { model: "permanent" },
+      ownership: { status: "available", libraryStatus: "not_owned" },
+      discovery: { featured: true, curated: true, priority: 1 },
+    },
+    status: (record.metadata?.status as "draft" | "published" | "archived" | "scheduled") || "published",
+    createdAt: new Date().toISOString(),
+    runtimeSource,
+    runtimeCodexSlug: record.metadata?.codexSlug,
+    runtimeCodexInitialTab: record.sourceType === "codex" ? "codex" : undefined,
+    runtimeLaunchHref: record.launchTarget?.href,
+    runtimeLaunchType: record.launchTarget?.type,
+    runtimeAssetStatus: record.assetStatus,
+    runtimeModalityHints: record.metadata?.modalityHints || [],
+    runtimeDurationMinutes: record.metadata?.durationMinutes ?? null,
+    runtimePriceLabel: record.metadata?.priceLabel ?? null,
+    runtimeStatus: record.metadata?.status ?? null,
+    runtimeContentKind: record.metadata?.contentKind ?? null,
+    runtimePreviewMediaUri: record.metadata?.previewMediaUri ?? null,
+  } as unknown as RuntimeCapsule;
 }
 
 export default function MetaMeRuntimeClient() {
@@ -422,51 +877,49 @@ export default function MetaMeRuntimeClient() {
   const [channels, setChannels] = useState<Array<{ channel_id: string; participants: string[] }>>([]);
   const [channelsLoading, setChannelsLoading] = useState(false);
 
-  const [allContents, setAllContents] = useState<SmartContentQube[]>(DEFAULT_CONTENTS);
-  const [capsuleContents, setCapsuleContents] = useState<SmartContentQube[]>(DEFAULT_CONTENTS);
+  const [allContents, setAllContents] = useState<RuntimeCapsule[]>([]);
+  const [capsuleContents, setCapsuleContents] = useState<RuntimeCapsule[]>([]);
   const [selectedCapsuleLocal, setSelectedCapsuleLocal] = useState<string | null>(null);
+  const [lastIntent, setLastIntent] = useState<RuntimeIntent>("find");
   const activeCapsuleId = selectedCapsuleLocal || selectedCapsuleId;
 
-  useEffect(() => {
-    let active = true;
-    const fetchRuntimeData = async () => {
-      try {
-        const [experienceRes, smartRes] = await Promise.allSettled([
-          fetch("/api/composer/experiences?limit=40", { cache: "no-store" }),
-          fetch("/api/content/smart?status=published&limit=40", { cache: "no-store" }),
-        ]);
+  const fetchRuntimeCapsules = useCallback(
+    async (options?: { intent?: RuntimeIntent; query?: string; allowFallback?: boolean; nonce?: number }): Promise<RuntimeCapsule[]> => {
+      const params = new URLSearchParams();
+      params.set("limit", "60");
+      if (options?.intent) params.set("intent", options.intent);
+      if (options?.query) params.set("q", options.query);
+      if (options?.nonce) params.set("nonce", String(options.nonce));
+      const response = await fetch(`/api/runtime/capsules?${params.toString()}`, { cache: "no-store" });
+      if (!response.ok) throw new Error(`Runtime capsules API failed with ${response.status}`);
+      const payload = await response.json();
+      const records = Array.isArray(payload?.capsules) ? (payload.capsules as RuntimeCapsuleRecord[]) : [];
+      const mapped = records.map(fromRuntimeCapsuleRecord);
+      if (mapped.length > 0) return mapped;
+      return options?.allowFallback ? DEFAULT_CONTENTS : [];
+    },
+    []
+  );
 
-        const experienceRows: any[] =
-          experienceRes.status === "fulfilled" && experienceRes.value.ok
-            ? ((await experienceRes.value.json())?.experience_qubes || [])
-            : [];
-
-        const smartRows: any[] =
-          smartRes.status === "fulfilled" && smartRes.value.ok
-            ? ((await smartRes.value.json())?.data || [])
-            : [];
-
-        const next = [
-          ...experienceRows.map(toSmartContentFromExperience),
-          ...smartRows.map(toSmartContentFromRegistry),
-        ];
-
-        if (!active) return;
-        if (next.length > 0) {
-          setAllContents(next);
-          setCapsuleContents(next.slice(0, 6));
-        }
-      } catch {
-        if (!active) return;
-        setAllContents(DEFAULT_CONTENTS);
-        setCapsuleContents(DEFAULT_CONTENTS);
+  const fetchRuntimeData = useCallback(async () => {
+    try {
+      const activeSet = await fetchRuntimeCapsules({ allowFallback: false });
+      if (activeSet.length > 0) {
+        setAllContents(activeSet);
+        setCapsuleContents(selectCapsulesForDisplay(activeSet, 6));
+      } else {
+        setAllContents([]);
+        setCapsuleContents([]);
       }
-    };
+    } catch {
+      setAllContents((prev) => prev);
+      setCapsuleContents((prev) => prev);
+    }
+  }, [fetchRuntimeCapsules]);
+
+  useEffect(() => {
     fetchRuntimeData();
-    return () => {
-      active = false;
-    };
-  }, []);
+  }, [fetchRuntimeData]);
 
   useEffect(() => {
     let mounted = true;
@@ -489,6 +942,22 @@ export default function MetaMeRuntimeClient() {
       mounted = false;
     };
   }, []);
+
+  const refreshRuntime = useCallback(async () => {
+    await fetchRuntimeData();
+    toast("Runtime refreshed", "info");
+  }, [fetchRuntimeData, toast]);
+
+  const resetRuntime = useCallback(async () => {
+    await fetchRuntimeData();
+    setMessages([]);
+    setShowWelcome(true);
+    setWelcomePrompt("");
+    setShowWelcomeQuickLinks(false);
+    setSelectedCapsuleLocal(null);
+    setLastIntent("find");
+    toast("Runtime reset to welcome", "info");
+  }, [fetchRuntimeData, toast]);
 
   const buildSharePanel = useCallback(
     (capsuleTitle: string) => {
@@ -528,55 +997,315 @@ export default function MetaMeRuntimeClient() {
     [channels, channelsLoading, toast]
   );
 
+  const renderRuntimeFramePanel = useCallback(
+    (content: RuntimeCapsule, intent: RuntimeIntent, options: { label: string; frameSrc: string }) => {
+      const moduleConfig = resolveRuntimeModule(activeDevice, intent);
+      const heroImage = resolveCapsuleCoverImage(content);
+      const frameHeight =
+        activeDevice === "mobile" ? "min(66vh, 560px)" : activeDevice === "tablet" ? "min(62vh, 620px)" : "min(60vh, 680px)";
+      return (
+        <div className="rounded-2xl border border-cyan-400/25 bg-slate-950/85 p-3 space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.18em] text-cyan-300/80">{options.label}</p>
+              <p className="text-sm font-semibold text-white">{content.title}</p>
+            </div>
+            <div className="flex flex-wrap justify-end gap-1.5">
+              <span className="rounded-full border border-cyan-400/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] text-cyan-200">{moduleConfig.label}</span>
+              <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-slate-300">{moduleConfig.screenFraction}</span>
+            </div>
+          </div>
+          {heroImage ? (
+            <div className="relative overflow-hidden rounded-xl border border-white/10">
+              <img src={heroImage} alt={`${content.title} hero`} className="h-28 w-full object-cover" loading="lazy" />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent" />
+            </div>
+          ) : (
+            <div className="rounded-xl border border-amber-400/25 bg-amber-500/10 p-2 text-[11px] text-amber-100">
+              Asset unavailable: no first-class hero image on this capsule yet.
+            </div>
+          )}
+          <div className="rounded-xl border border-white/10 bg-slate-900/70 overflow-hidden">
+            <iframe
+              src={options.frameSrc}
+              title={`${content.title} runtime`}
+              className="w-full border-0"
+              style={{ height: frameHeight }}
+              loading="lazy"
+            />
+          </div>
+          <p className="text-[11px] text-slate-400">
+            Runtime capsule framework active. Device module <span className="text-slate-200">{moduleConfig.id}</span> applied for{" "}
+            <span className="text-slate-200">{activeDevice}</span>.
+          </p>
+        </div>
+      );
+    },
+    [activeDevice]
+  );
+
+  const buildRuntimeCapsulePanel = useCallback(
+    (content: RuntimeCapsule, intent: RuntimeIntent) => {
+      if (content.runtimeSource === "smart-content") {
+        const heroImage = resolveCapsuleCoverImage(content);
+        const videoUri = content.runtimePreviewMediaUri || null;
+        const videoStyle =
+          activeDevice === "mobile" ? undefined : ({ height: "min(74vh, 720px)" } as React.CSSProperties);
+        const imageStyle =
+          activeDevice === "mobile" ? undefined : ({ height: "min(24vh, 240px)" } as React.CSSProperties);
+        return (
+          <div className="rounded-2xl border border-emerald-400/25 bg-slate-950/85 p-3 space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.18em] text-emerald-300/80">Visual Capsule Runtime</p>
+                <p className="text-sm font-semibold text-white">{content.title}</p>
+              </div>
+              <div className="flex items-center gap-1.5">
+                {content.runtimeContentKind ? (
+                  <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-slate-200">
+                    {content.runtimeContentKind}
+                  </span>
+                ) : null}
+                {content.runtimePriceLabel ? (
+                  <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-slate-200">
+                    {content.runtimePriceLabel}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+
+            {isLikelyVideoUri(videoUri) ? (
+              <video
+                src={videoUri || undefined}
+                poster={heroImage || undefined}
+                controls
+                className="h-52 w-full rounded-xl border border-white/10 bg-slate-950 object-cover"
+                style={videoStyle}
+              />
+            ) : heroImage ? (
+              <img
+                src={heroImage}
+                alt={content.title}
+                className="h-52 w-full rounded-xl border border-white/10 object-cover"
+                style={imageStyle}
+                loading="lazy"
+              />
+            ) : (
+              <div className="rounded-xl border border-amber-400/25 bg-amber-500/10 p-2 text-[11px] text-amber-100">
+                Asset unavailable for this capsule.
+              </div>
+            )}
+
+            {content.runtimeLaunchHref ? (
+              <a
+                href={content.runtimeLaunchHref}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex rounded-lg border border-emerald-300/30 bg-emerald-500/15 px-3 py-1.5 text-[11px] text-emerald-100 hover:bg-emerald-500/25"
+              >
+                Open Source Capsule
+              </a>
+            ) : null}
+          </div>
+        );
+      }
+
+      if (content.runtimeSource === "codex") {
+        const moduleConfig = resolveRuntimeModule(activeDevice, intent);
+        const codexSlug = content.runtimeCodexSlug || "knyt";
+        const initialTab = content.runtimeCodexInitialTab || "codex";
+        const frameSrc =
+          content.runtimeLaunchHref ||
+          `/triad/embed/codex/${codexSlug}?tab=${initialTab}&theme=dark&density=${moduleConfig.runtimeDensity}`;
+        return renderRuntimeFramePanel(content, intent, {
+          label: "Codex Capsule Runtime",
+          frameSrc,
+        });
+      }
+
+      if (content.runtimeSource === "experience") {
+        const frameSrc =
+          withDeviceParam(content.runtimeLaunchHref || "", activeDevice) ||
+          `/studio/composer/experience/${encodeURIComponent(content.id)}?embed=1&device=${activeDevice}`;
+        return renderRuntimeFramePanel(content, intent, {
+          label: "ExperienceQube Runtime",
+          frameSrc,
+        });
+      }
+
+      return (
+        <div className="rounded-2xl border border-white/15 bg-slate-950/85 p-3 space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.18em] text-white/60">Runtime Capsule Adapter Stub</p>
+              <p className="text-sm font-semibold text-white">{content.title}</p>
+            </div>
+            <span className="rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[10px] text-white/70">source: {content.runtimeSource}</span>
+          </div>
+          {resolveCapsuleCoverImage(content) ? (
+            <img src={resolveCapsuleCoverImage(content)} alt={content.title} className="h-40 w-full rounded-xl object-cover opacity-85" loading="lazy" />
+          ) : (
+            <div className="rounded-xl border border-amber-400/25 bg-amber-500/10 p-2 text-[11px] text-amber-100">
+              Asset unavailable: adapter pending for this capsule source.
+            </div>
+          )}
+          <p className="text-[11px] text-slate-400">
+            Runtime capsule framework is active for this source. A dedicated renderer will be wired next.
+          </p>
+        </div>
+      );
+    },
+    [activeDevice, renderRuntimeFramePanel]
+  );
+
+  const launchCapsule = useCallback(
+    (content: RuntimeCapsule, intent: RuntimeIntent = lastIntent) => {
+      setSelectedCapsuleLocal(content.id);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `capsule-launch-${Date.now()}`,
+          role: "assistant",
+          content: buildRuntimeCapsulePanel(content, intent),
+          timestamp: new Date(),
+          variant: "panel",
+        },
+      ]);
+    },
+    [buildRuntimeCapsulePanel, lastIntent]
+  );
+
   const capsulePanel = useMemo(
     () => (
       <div className="space-y-3">
+        {capsuleContents.length === 0 ? (
+          <div className="rounded-xl border border-white/10 bg-slate-900/70 p-3 text-[12px] text-slate-300">
+            No visual capsules available yet. Try `read`, `watch`, or `find`.
+          </div>
+        ) : null}
         <div className="overflow-x-auto pb-1 no-scrollbar">
           <div className="flex snap-x snap-mandatory gap-3">
-          {capsuleContents.map((content) => (
-            <div key={content.id} className="snap-start shrink-0 basis-[78%] min-w-[280px] max-w-[360px] h-[172px] [&>button]:h-full">
-              <SmartContentCard
-                content={content}
-                variant="compact"
-                showProgress
-                progressPercentage={/awakenings|play|episode/i.test(content.title) ? 33 : 0}
-                isSelected={content.id === activeCapsuleId}
-                onOpen={() => {
-                  setSelectedCapsuleLocal(content.id);
-                  setMessages((prev) => [
-                    ...prev,
-                    {
-                      id: `open-${Date.now()}`,
-                      role: "assistant",
-                      content: `Opening ${content.title}.`,
-                      timestamp: new Date(),
-                    },
-                  ]);
-                }}
-                onPreview={() => {
-                  setSelectedCapsuleLocal(content.id);
-                  toast(`Previewing "${content.title}"`, "info");
-                }}
-                onShare={() => {
-                  setMessages((prev) => [
-                    ...prev,
-                    {
-                      id: `share-panel-${Date.now()}`,
-                      role: "assistant",
-                      content: buildSharePanel(content.title),
-                      timestamp: new Date(),
-                      variant: "panel",
-                    },
-                  ]);
-                }}
-              />
-            </div>
-          ))}
+            {capsuleContents.map((content) => {
+              const isSelected = content.id === activeCapsuleId;
+              const progressValue = /awakenings|play|episode/i.test(content.title) ? 33 : 0;
+              const heroImage = resolveCapsuleCoverImage(content);
+              const modalityLabel = content.runtimeModalityHints?.slice(0, 2).join(" · ") || "details";
+              const sourceBadgeClass =
+                content.runtimeSource === "codex"
+                  ? "border-cyan-300/45 bg-cyan-500/20 text-cyan-100"
+                  : content.runtimeSource === "experience"
+                    ? "border-violet-300/45 bg-violet-500/20 text-violet-100"
+                    : "border-emerald-300/45 bg-emerald-500/20 text-emerald-100";
+              const sourceLabel =
+                content.runtimeSource === "experience"
+                  ? "ExperienceQube"
+                  : content.runtimeSource === "smart-content"
+                    ? content.runtimeContentKind === "character"
+                      ? "Character"
+                      : content.runtimeContentKind === "video"
+                        ? "Video"
+                        : "Article"
+                    : "Codex";
+              return (
+                <div
+                  key={content.id}
+                  className={`snap-start shrink-0 basis-[78%] min-w-[280px] max-w-[360px] h-[206px] rounded-2xl overflow-hidden border transition ${
+                    isSelected ? "border-cyan-300/60 ring-1 ring-cyan-300/35" : "border-white/15 hover:border-white/30"
+                  }`}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => launchCapsule(content)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      launchCapsule(content);
+                    }
+                  }}
+                >
+                  <div className="relative h-full w-full">
+                    {heroImage ? (
+                      <img src={heroImage} alt={content.title} className="h-full w-full object-cover" loading="lazy" />
+                    ) : (
+                      <div className="h-full w-full bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" />
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-900/35 to-slate-900/20" />
+                    <div className="absolute inset-x-0 top-0 p-3 flex items-start justify-between gap-2">
+                      <span className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide ${sourceBadgeClass}`}>
+                        {sourceLabel}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            launchCapsule(content);
+                          }}
+                          className="rounded-full border border-white/20 bg-slate-900/60 p-1.5 text-white/80 hover:text-white"
+                          title="Launch"
+                        >
+                          <PlayCircle className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            launchCapsule(content);
+                          }}
+                          className="rounded-full border border-white/20 bg-slate-900/60 p-1.5 text-white/80 hover:text-white"
+                          title="Preview"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setMessages((prev) => [
+                              ...prev,
+                              {
+                                id: `share-panel-${Date.now()}`,
+                                role: "assistant",
+                                content: buildSharePanel(content.title),
+                                timestamp: new Date(),
+                                variant: "panel",
+                              },
+                            ]);
+                          }}
+                          className="rounded-full border border-white/20 bg-slate-900/60 p-1.5 text-white/80 hover:text-white"
+                          title="Share"
+                        >
+                          <Share2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="absolute inset-x-0 bottom-0 p-3 space-y-2">
+                      <h4 className="line-clamp-1 text-sm font-semibold text-white">{content.title}</h4>
+                      <p className="line-clamp-2 text-[11px] text-slate-200/85">{content.description}</p>
+                      <div className="flex items-center gap-2 text-[10px] text-slate-200/75">
+                        <span className="rounded-full border border-white/15 bg-white/10 px-2 py-0.5 uppercase tracking-wide">{modalityLabel}</span>
+                        {content.runtimeDurationMinutes ? (
+                          <span className="rounded-full border border-white/15 bg-white/10 px-2 py-0.5">{content.runtimeDurationMinutes} min</span>
+                        ) : null}
+                        {content.runtimePriceLabel ? (
+                          <span className="rounded-full border border-white/15 bg-white/10 px-2 py-0.5">{content.runtimePriceLabel}</span>
+                        ) : null}
+                        {content.runtimeAssetStatus === "missing" ? (
+                          <span className="rounded-full border border-amber-300/35 bg-amber-500/20 px-2 py-0.5 text-amber-100">no asset</span>
+                        ) : null}
+                      </div>
+                      <div className="h-1 w-full overflow-hidden rounded-full bg-white/15">
+                        <div className="h-full bg-gradient-to-r from-cyan-400 to-violet-400" style={{ width: `${progressValue}%` }} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
     ),
-    [activeCapsuleId, buildSharePanel, capsuleContents, toast]
+    [activeCapsuleId, buildSharePanel, capsuleContents, launchCapsule]
   );
 
   useEffect(() => {
@@ -597,24 +1326,63 @@ export default function MetaMeRuntimeClient() {
   }, [capsulePanel, showWelcome]);
 
   const handlePrompt = useCallback(
-    (prompt: string) => {
+    async (prompt: string) => {
       const trimmed = prompt.trim();
       if (!trimmed) return;
+      if (trimmed === "__runtime_refresh__") {
+        void refreshRuntime();
+        return;
+      }
+      if (trimmed === "__runtime_reset__") {
+        void resetRuntime();
+        return;
+      }
 
       const intent = inferIntent(trimmed);
-      const ranked = [...allContents]
-        .map((content) => ({ content, score: scoreContent(content, trimmed, intent) }))
-        .sort((a, b) => b.score - a.score)
-        .map((row) => row.content);
+      let workingContents = allContents;
+      const shouldRefetchForIntent = intent === "play" || workingContents.length === 0;
+      if (shouldRefetchForIntent) {
+        try {
+          workingContents = await fetchRuntimeCapsules({
+            intent,
+            query: trimmed,
+            allowFallback: intent !== "play",
+            nonce: Date.now(),
+          });
+          if (workingContents.length > 0) {
+            setAllContents(workingContents);
+          } else {
+            setAllContents([]);
+          }
+        } catch {
+          workingContents = allContents;
+        }
+      }
 
-      setCapsuleContents((ranked.length > 0 ? ranked : DEFAULT_CONTENTS).slice(0, 6));
+      const triadRanked = applySmartTriadIntentRules(workingContents, trimmed, intent);
+      let runtimeFiltered = applyRuntimeCopilotFilter(triadRanked, intent, activeDevice);
+      if (intent === "play") {
+        runtimeFiltered = diversifyPlayCapsules(runtimeFiltered, selectedCapsuleLocal || null);
+      }
+      let ranked = selectCapsulesForDisplay(runtimeFiltered, 6);
+      if (intent === "play") {
+        ranked = diversifyPlayCapsules(ranked, selectedCapsuleLocal || null);
+      }
+
+      setCapsuleContents(ranked);
+      setLastIntent(intent);
       setShowWelcome(false);
       setWelcomePrompt("");
-      setMessages([
+      const leadCapsule = ranked[0] || null;
+      if (leadCapsule?.id) setSelectedCapsuleLocal(leadCapsule.id);
+      const immediateMessages: CopilotMessage[] = [
         {
           id: `intent-msg-${Date.now()}`,
           role: "assistant",
-          content: `Opening ${intent} experiences.`,
+          content:
+            ranked.length > 0
+              ? `Mapped intent to ${intent} capsules using SmartTriad runtime filters.`
+              : "No visual capsules were resolved for this intent yet. Try read/watch/find.",
           timestamp: new Date(),
         },
         {
@@ -624,9 +1392,28 @@ export default function MetaMeRuntimeClient() {
           timestamp: new Date(),
           variant: "panel",
         },
-      ]);
+      ];
+      if (intent === "play" && leadCapsule && leadCapsule.runtimeSource === "experience") {
+        immediateMessages.push({
+          id: `runtime-launch-auto-${Date.now()}`,
+          role: "assistant",
+          content: buildRuntimeCapsulePanel(leadCapsule, intent),
+          timestamp: new Date(),
+          variant: "panel",
+        });
+      }
+      setMessages(immediateMessages);
     },
-    [allContents, capsulePanel]
+    [
+      activeDevice,
+      allContents,
+      buildRuntimeCapsulePanel,
+      capsulePanel,
+      fetchRuntimeCapsules,
+      refreshRuntime,
+      resetRuntime,
+      selectedCapsuleLocal,
+    ]
   );
 
   const quickPrompts = useMemo(
@@ -635,12 +1422,6 @@ export default function MetaMeRuntimeClient() {
         label: "I'd like to watch experiences.",
         prompt: "I'd like to watch experiences.",
         icon: <Tv className="h-4 w-4" />,
-        iconOnly: true,
-      },
-      {
-        label: "I'd like to play experiences.",
-        prompt: "I'd like to play experiences.",
-        icon: <PlayCircle className="h-4 w-4" />,
         iconOnly: true,
       },
       {
@@ -660,6 +1441,20 @@ export default function MetaMeRuntimeClient() {
         prompt: "Help me find experiences.",
         icon: <Compass className="h-4 w-4" />,
         iconOnly: true,
+      },
+      {
+        label: "Refresh runtime",
+        prompt: "__runtime_refresh__",
+        icon: <RefreshCw className="h-4 w-4" />,
+        iconOnly: true,
+        skipInference: true,
+      },
+      {
+        label: "Reset runtime",
+        prompt: "__runtime_reset__",
+        icon: <RotateCcw className="h-4 w-4" />,
+        iconOnly: true,
+        skipInference: true,
       },
     ],
     []
@@ -699,39 +1494,68 @@ export default function MetaMeRuntimeClient() {
     );
   };
 
-  const menuButtonClass =
-    "flex flex-col items-center rounded-md px-2 py-1 text-[11px] text-slate-300 transition hover:bg-white/10 hover:text-white";
+  const menuButtonClass = (intent: RuntimeIntent) =>
+    `flex flex-col items-center rounded-md px-2 py-1 text-[11px] transition ${
+      lastIntent === intent
+        ? "bg-white/12 text-white ring-1 ring-cyan-300/35"
+        : "text-slate-300 hover:bg-white/10 hover:text-white"
+    }`;
+
+  const handleRuntimeMenuIntent = (intent: RuntimeIntent, prompt: string) => {
+    setLastIntent(intent);
+    void handlePrompt(prompt);
+  };
 
   const runtimeMenu = (
-    <div className="border-t border-white/10 bg-white/[0.03] pt-3">
+    <div className="relative z-30 pointer-events-auto border-t border-white/10 bg-white/[0.03] pt-3">
       {isMobileLayout ? (
         <div className="flex items-center justify-between px-4">
-          <button type="button" onClick={() => handlePrompt("I want to be...")} className={menuButtonClass} title="I want to be...">
+          <button
+            type="button"
+            onClick={() => handleRuntimeMenuIntent("be", "I want to be...")}
+            className={menuButtonClass("be")}
+            title="I want to be..."
+            aria-pressed={lastIntent === "be"}
+          >
             <Users className="h-4 w-4 text-slate-200" />
             Be
           </button>
-          <button type="button" onClick={() => handlePrompt("How can I earn...")} className={menuButtonClass} title="How can I earn...">
+          <button
+            type="button"
+            onClick={() => handleRuntimeMenuIntent("earn", "How can I earn...")}
+            className={menuButtonClass("earn")}
+            title="How can I earn..."
+            aria-pressed={lastIntent === "earn"}
+          >
             <Coins className="h-5 w-5 text-emerald-300" />
             Earn
           </button>
           <button
             type="button"
-            onClick={() => handlePrompt("I'd like to play experiences.")}
-            className={menuButtonClass}
+            onClick={() => handleRuntimeMenuIntent("play", "I'd like to play experiences.")}
+            className={menuButtonClass("play")}
             title="I'd like to play experiences."
+            aria-pressed={lastIntent === "play"}
           >
             <PlayCircle className="h-5 w-5 text-cyan-300" />
             Play
           </button>
-          <button type="button" onClick={() => handlePrompt("I want to make...")} className={menuButtonClass} title="I want to make...">
+          <button
+            type="button"
+            onClick={() => handleRuntimeMenuIntent("make", "I want to make...")}
+            className={menuButtonClass("make")}
+            title="I want to make..."
+            aria-pressed={lastIntent === "make"}
+          >
             <Pencil className="h-5 w-5 text-purple-300" />
             Make
           </button>
           <button
             type="button"
-            onClick={() => handlePrompt("Help me find experiences to share.")}
-            className={menuButtonClass}
+            onClick={() => handleRuntimeMenuIntent("find", "Help me find experiences to share.")}
+            className={menuButtonClass("find")}
             title="Help me find experiences to share."
+            aria-pressed={lastIntent === "find"}
           >
             <Users className="h-4 w-4 text-slate-200" />
             Share
@@ -739,34 +1563,54 @@ export default function MetaMeRuntimeClient() {
         </div>
       ) : (
         <div className="flex items-center justify-between px-4">
-          <button type="button" onClick={() => handlePrompt("I want to be...")} className={menuButtonClass} title="I want to be...">
+          <button
+            type="button"
+            onClick={() => handleRuntimeMenuIntent("be", "I want to be...")}
+            className={menuButtonClass("be")}
+            title="I want to be..."
+            aria-pressed={lastIntent === "be"}
+          >
             <Users className="h-4 w-4 text-slate-200" />
             Be
           </button>
           <div className="flex flex-1 items-center justify-center gap-6">
-            <button type="button" onClick={() => handlePrompt("How can I earn...")} className={menuButtonClass} title="How can I earn...">
+            <button
+              type="button"
+              onClick={() => handleRuntimeMenuIntent("earn", "How can I earn...")}
+              className={menuButtonClass("earn")}
+              title="How can I earn..."
+              aria-pressed={lastIntent === "earn"}
+            >
               <Coins className="h-5 w-5 text-emerald-300" />
               Earn
             </button>
             <button
               type="button"
-              onClick={() => handlePrompt("I'd like to play experiences.")}
-              className={menuButtonClass}
+              onClick={() => handleRuntimeMenuIntent("play", "I'd like to play experiences.")}
+              className={menuButtonClass("play")}
               title="I'd like to play experiences."
+              aria-pressed={lastIntent === "play"}
             >
               <PlayCircle className="h-5 w-5 text-cyan-300" />
               Play
             </button>
-            <button type="button" onClick={() => handlePrompt("I want to make...")} className={menuButtonClass} title="I want to make...">
+            <button
+              type="button"
+              onClick={() => handleRuntimeMenuIntent("make", "I want to make...")}
+              className={menuButtonClass("make")}
+              title="I want to make..."
+              aria-pressed={lastIntent === "make"}
+            >
               <Pencil className="h-5 w-5 text-purple-300" />
               Make
             </button>
           </div>
           <button
             type="button"
-            onClick={() => handlePrompt("Help me find experiences to share.")}
-            className={menuButtonClass}
+            onClick={() => handleRuntimeMenuIntent("find", "Help me find experiences to share.")}
+            className={menuButtonClass("find")}
             title="Help me find experiences to share."
+            aria-pressed={lastIntent === "find"}
           >
             <Users className="h-4 w-4 text-slate-200" />
             Share
@@ -919,17 +1763,17 @@ export default function MetaMeRuntimeClient() {
 
   const welcomeQuickLinks = (
     <div
-      className={`absolute left-3 right-3 bottom-[70px] transition-opacity duration-200 ${
-        showWelcomeQuickLinks ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+      className={`pointer-events-none absolute left-3 right-3 bottom-[70px] z-20 transition-opacity duration-200 ${
+        showWelcomeQuickLinks ? "opacity-100" : "opacity-0"
       }`}
     >
-      <div className="mx-auto flex w-full items-center justify-between rounded-2xl border border-white/10 bg-slate-950/80 px-3 py-2">
+      <div className="pointer-events-auto mx-auto flex w-full items-center justify-between rounded-2xl border border-white/10 bg-slate-950/80 px-3 py-2">
         {quickPrompts.map((promptItem, index) => (
           <button
             key={`welcome-quick-${index}`}
             title={promptItem.label}
             className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-white/70 transition hover:border-white/30 hover:text-white"
-            onClick={() => handlePrompt(promptItem.prompt ?? promptItem.label)}
+            onClick={() => void handlePrompt(promptItem.prompt ?? promptItem.label)}
           >
             {promptItem.icon}
           </button>
@@ -983,7 +1827,7 @@ export default function MetaMeRuntimeClient() {
           className="w-full max-w-[760px]"
           onSubmit={(event) => {
             event.preventDefault();
-            handlePrompt(welcomePrompt);
+            void handlePrompt(welcomePrompt);
           }}
         >
           <div className="rounded-[24px] border border-white/10 bg-white/[0.03] px-3 py-3">

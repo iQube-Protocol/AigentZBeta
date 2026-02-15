@@ -44,6 +44,7 @@ interface CodexCopilotLayerProps {
         prompt?: string;
         icon?: React.ReactNode;
         iconOnly?: boolean;
+        skipInference?: boolean;
       }
   >;
   onPrompt?: (prompt: string) => void;
@@ -321,7 +322,17 @@ export function CodexCopilotLayer({
     hoverTimeoutRef.current = setTimeout(() => setWalletMenuVisible(false), 4000);
   };
 
-  const sendMessage = async (override?: string) => {
+  const shouldBypassInference = (message: string, skipInference?: boolean) => {
+    if (skipInference) return true;
+    const normalized = message.trim().toLowerCase();
+    return (
+      normalized.startsWith("__runtime_") ||
+      normalized === "reset runtime" ||
+      normalized === "refresh runtime"
+    );
+  };
+
+  const sendMessage = async (override?: string, options?: { skipInference?: boolean }) => {
     const message = (override ?? inputValue).trim();
     if (!message || isLoading) return;
 
@@ -330,8 +341,11 @@ export function CodexCopilotLayer({
       { id: Date.now().toString(), role: "user", content: message, timestamp: new Date() },
     ]);
     setInputValue("");
-    setIsLoading(true);
     onPrompt?.(message);
+    if (shouldBypassInference(message, options?.skipInference)) {
+      return;
+    }
+    setIsLoading(true);
 
     try {
       const response = await fetch("/api/codex/chat", {
@@ -580,7 +594,7 @@ export function CodexCopilotLayer({
                                     return (
                                       <button
                                         key={promptItem.id || `${label}-${index}`}
-                                        onClick={() => sendMessage(promptValue)}
+                                        onClick={() => sendMessage(promptValue, { skipInference: promptItem.skipInference })}
                                         title={label}
                                         className="flex-1 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/70 hover:text-white hover:border-white/30 flex items-center justify-center gap-2"
                                       >
@@ -653,7 +667,7 @@ export function CodexCopilotLayer({
                                 return (
                                   <button
                                     key={promptItem.id || `${label}-${index}`}
-                                    onClick={() => sendMessage(promptValue)}
+                                    onClick={() => sendMessage(promptValue, { skipInference: promptItem.skipInference })}
                                     title={label}
                                     className="flex-shrink-0 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/70 hover:text-white hover:border-white/30 flex items-center gap-2"
                                   >

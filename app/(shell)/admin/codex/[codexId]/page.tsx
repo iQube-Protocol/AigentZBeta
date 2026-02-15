@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { useCodexConfig } from '@/app/hooks/useCodexConfig';
 import { 
   ArrowLeft, Save, Plus, Trash2, Eye, EyeOff, GripVertical, 
@@ -11,7 +12,7 @@ import Link from 'next/link';
 
 export default function CodexDetailPage() {
   const params = useParams();
-  const router = useRouter();
+  const queryClient = useQueryClient();
   const codexId = params?.codexId as string | undefined;
 
   if (!codexId) {
@@ -34,10 +35,22 @@ export default function CodexDetailPage() {
       </div>
     );
   }
-  
-  const { data: codex, isLoading, error } = useCodexConfig({ codexId, useDefaults: false });
+
+  const { data: codex, isLoading, error, refetch } = useCodexConfig({ codexId, useDefaults: true });
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [draftName, setDraftName] = useState('');
+  const [draftSlug, setDraftSlug] = useState('');
+  const [draftDescription, setDraftDescription] = useState('');
+  const [draftEnabled, setDraftEnabled] = useState(false);
+
+  useEffect(() => {
+    if (!codex) return;
+    setDraftName(codex.name ?? '');
+    setDraftSlug(codex.slug ?? '');
+    setDraftDescription(codex.metadata?.description ?? '');
+    setDraftEnabled(Boolean(codex.enabled));
+  }, [codex]);
 
   if (isLoading) {
     return (
@@ -69,13 +82,40 @@ export default function CodexDetailPage() {
     );
   }
 
+  const hasUnsavedChanges =
+    draftName !== (codex.name ?? '') ||
+    draftSlug !== (codex.slug ?? '') ||
+    draftDescription !== (codex.metadata?.description ?? '') ||
+    draftEnabled !== Boolean(codex.enabled);
+
   const handleSave = async () => {
     setIsSaving(true);
     setSaveStatus('idle');
     
     try {
-      // TODO: Implement save functionality via API
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
+      const response = await fetch(`/api/codex/registry/${codex.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: draftName,
+          slug: draftSlug,
+          metadata: {
+            ...codex.metadata,
+            description: draftDescription,
+          },
+          enabled: draftEnabled,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Failed to update codex');
+      }
+
+      await refetch();
+      await queryClient.invalidateQueries({ queryKey: ['codex-list'] });
       setSaveStatus('success');
       setTimeout(() => setSaveStatus('idle'), 3000);
     } catch (err) {
@@ -86,8 +126,7 @@ export default function CodexDetailPage() {
   };
 
   const handleToggleEnabled = async () => {
-    // TODO: Implement toggle via API
-    console.log('Toggle enabled:', codex.id);
+    setDraftEnabled((value) => !value);
   };
 
   return (
@@ -105,7 +144,7 @@ export default function CodexDetailPage() {
             <div>
               <h1 className="text-3xl font-bold text-white flex items-center gap-3">
                 <BookOpen className="w-8 h-8 text-purple-400" />
-                {codex.name}
+                {draftName || codex.name}
               </h1>
               <p className="text-slate-400 mt-1">
                 Manage codex configuration, tabs, and settings
@@ -127,7 +166,7 @@ export default function CodexDetailPage() {
             )}
             <button
               onClick={handleSave}
-              disabled={isSaving}
+              disabled={isSaving || !hasUnsavedChanges}
               className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg transition-colors"
             >
               <Save className="w-5 h-5" />
@@ -153,9 +192,9 @@ export default function CodexDetailPage() {
                   </label>
                   <input
                     type="text"
-                    value={codex.name}
+                    value={draftName}
+                    onChange={(event) => setDraftName(event.target.value)}
                     className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:border-purple-500 focus:outline-none"
-                    readOnly
                   />
                 </div>
 
@@ -165,12 +204,12 @@ export default function CodexDetailPage() {
                   </label>
                   <input
                     type="text"
-                    value={codex.slug}
+                    value={draftSlug}
+                    onChange={(event) => setDraftSlug(event.target.value)}
                     className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:border-purple-500 focus:outline-none"
-                    readOnly
                   />
                   <p className="text-xs text-slate-500 mt-1">
-                    Used in URLs: /triad/embed/codex/{codex.slug}
+                    Used in URLs: /triad/embed/codex/{draftSlug || codex.slug}
                   </p>
                 </div>
 
@@ -179,10 +218,10 @@ export default function CodexDetailPage() {
                     Description
                   </label>
                   <textarea
-                    value={codex.metadata.description}
+                    value={draftDescription}
+                    onChange={(event) => setDraftDescription(event.target.value)}
                     rows={3}
                     className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:border-purple-500 focus:outline-none"
-                    readOnly
                   />
                 </div>
 
@@ -190,18 +229,18 @@ export default function CodexDetailPage() {
                   <div>
                     <div className="text-sm font-medium text-white">Codex Status</div>
                     <div className="text-xs text-slate-400 mt-1">
-                      {codex.enabled ? 'Visible to users' : 'Hidden from users'}
+                      {draftEnabled ? 'Visible to users' : 'Hidden from users'}
                     </div>
                   </div>
                   <button
                     onClick={handleToggleEnabled}
                     className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                      codex.enabled
+                      draftEnabled
                         ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
                         : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
                     }`}
                   >
-                    {codex.enabled ? (
+                    {draftEnabled ? (
                       <>
                         <Eye className="w-4 h-4" />
                         Enabled
@@ -281,7 +320,7 @@ export default function CodexDetailPage() {
               <h3 className="text-lg font-semibold text-white mb-4">Quick Actions</h3>
               <div className="space-y-2">
                 <Link
-                  href={`/triad/embed/codex/${codex.slug}`}
+                  href={`/triad/embed/codex/${draftSlug || codex.slug}`}
                   target="_blank"
                   className="flex items-center gap-2 w-full px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg transition-colors text-sm"
                 >

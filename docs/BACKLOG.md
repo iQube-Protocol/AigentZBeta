@@ -233,6 +233,9 @@ This document tracks work items from sprint plans that have been deprioritized o
 **Priority**: Medium
 
 - [ ] Add image variants inspector to Smart Content modal (preview ratios + device selection + resolver output)
+- [ ] Add Studio Codex authoring flow for Runtime capsules (design Codex layouts/summaries directly in Composer and publish capsule-ready presets)
+- [ ] Extend Runtime Capsule Framework adapters beyond Codex + ExperienceQube (unified summary/runtime rendering for additional source types from SmartContent/Liquid UI registry)
+- [ ] Author Runtime DIS baseline from implemented visual/runtime capsule requirements and run DPR audit profile for Runtime shell
 
 ---
 

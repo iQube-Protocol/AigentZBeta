@@ -733,7 +733,6 @@ export const ComposerStudio = () => {
 
   useEffect(() => {
     if (!copilotContextId) return;
-    setTenantId(copilotContextId);
     setUserId((prev) => prev || DEFAULT_USER);
   }, [copilotContextId]);
 
@@ -1057,7 +1056,17 @@ export const ComposerStudio = () => {
         const res = await fetch(`/api/composer/experiences?tenant_id=${encodeURIComponent(tenantId)}`);
         if (!res.ok) throw new Error("Failed to load experiences");
         const data = await res.json();
-        const next = data.experience_qubes || [];
+        let next = data.experience_qubes || [];
+        if (next.length === 0) {
+          const fallbackRes = await fetch(`/api/composer/experiences?limit=50`);
+          if (fallbackRes.ok) {
+            const fallbackData = await fallbackRes.json();
+            const fallbackItems = fallbackData.experience_qubes || [];
+            if (fallbackItems.length > 0) {
+              next = fallbackItems;
+            }
+          }
+        }
         cacheExperiencesForTenant(tenantId, next);
         if (active) setExperiences(next);
       } catch {

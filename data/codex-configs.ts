@@ -48,7 +48,7 @@ export const KNYT_CODEX: CodexConfig = {
       order: 0,
       type: 'liquid-ui',
       config: {
-        liquidTemplate: 'knyt-codex-home',
+        liquidTemplate: 'knyt:drawer_grid_v1',
         dataSource: '/api/codex/knyt/home'
       },
       metadata: {
@@ -63,9 +63,10 @@ export const KNYT_CODEX: CodexConfig = {
       slug: 'scrolls',
       enabled: true,
       order: 1,
-      type: 'static',
+      type: 'liquid-ui',
       config: {
-        component: 'ScrollsTab',
+        liquidTemplate: 'knyt:motion_stage_v1',
+        dataSource: '/api/admin/codex/status?series=metaKnyts',
         // Uses existing API: /api/admin/codex/status?series=metaKnyts
         // Backward compatible with Qriptopian useCodexEpisodes hook
       },
@@ -82,9 +83,10 @@ export const KNYT_CODEX: CodexConfig = {
       slug: 'characters',
       enabled: true,
       order: 2,
-      type: 'static',
+      type: 'liquid-ui',
       config: {
-        component: 'CharactersTab',
+        liquidTemplate: 'knyt:dual_poster_stage_v1',
+        dataSource: '/api/codex/knyt-cards',
         // Uses existing API: /api/codex/knyt-cards
         // Backward compatible with Qriptopian useCodexCharacters hook
       },
@@ -101,9 +103,10 @@ export const KNYT_CODEX: CodexConfig = {
       slug: 'lore',
       enabled: true,
       order: 3,
-      type: 'static',
+      type: 'liquid-ui',
       config: {
-        component: 'LoreTab',
+        liquidTemplate: 'knyt:drawer_grid_v1',
+        dataSource: '/api/content/assets?kinds=background_lore_doc,twenty_one_sats_concept',
         // Uses existing API: /api/content/assets?kinds=background_lore_doc,twenty_one_sats_concept
         // Backward compatible with Qriptopian useCodexLore hook
       },
@@ -119,9 +122,10 @@ export const KNYT_CODEX: CodexConfig = {
       slug: 'digiterra',
       enabled: true,
       order: 4,
-      type: 'static',
+      type: 'liquid-ui',
       config: {
-        component: 'DigiTerraTab',
+        liquidTemplate: 'knyt:motion_stage_v1',
+        dataSource: '/api/codex/knyt/digiterra',
         // Digital realm content and interactions
       },
       metadata: {
@@ -136,9 +140,10 @@ export const KNYT_CODEX: CodexConfig = {
       slug: 'terra',
       enabled: true,
       order: 5,
-      type: 'static',
+      type: 'liquid-ui',
       config: {
-        component: 'TerraTab',
+        liquidTemplate: 'knyt:realm_bridge_map_v1',
+        dataSource: '/api/codex/knyt/terra',
         // Physical realm content and interactions
       },
       metadata: {
@@ -153,9 +158,10 @@ export const KNYT_CODEX: CodexConfig = {
       slug: 'order',
       enabled: true,
       order: 6,
-      type: 'static',
+      type: 'liquid-ui',
       config: {
-        component: 'OrderTab',
+        liquidTemplate: 'knyt:quest_hud_hub_v1',
+        dataSource: '/api/codex/knyt/order',
         // Order system and governance
       },
       metadata: {
@@ -172,7 +178,7 @@ export const KNYT_CODEX: CodexConfig = {
   },
   liquidUI: {
     enabled: true,
-    templateId: 'knyt-codex-home',
+    templateId: 'knyt:drawer_grid_v1',
     defaultTemplate: 'knyt:drawer_grid_v1'
   },
   createdAt: new Date().toISOString(),

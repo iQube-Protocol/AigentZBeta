@@ -2,6 +2,12 @@ import type React from 'react';
 
 import { QriptoLiquidCodexTab } from '../tabs/QriptoLiquidCodexTab';
 import { KnytDrawerGridFallbackTemplate } from './KnytDrawerGridFallbackTemplate';
+import {
+  KnytDualPosterStageTemplate,
+  KnytMotionStageTemplate,
+  KnytQuestHudHubTemplate,
+  KnytRealmBridgeMapTemplate,
+} from './KnytStageTemplates';
 import { LiquidUIPlaceholderTemplate } from './LiquidUIPlaceholderTemplate';
 
 export type LiquidTemplateComponent = React.ComponentType<any>;
@@ -39,8 +45,8 @@ export const liquidTemplateRegistry: Record<string, LiquidTemplateComponent> = {
   'knyt:drawer_grid_2c': KnytDrawerGridFallbackTemplate,
   'knyt:drawer_grid_3a': KnytDrawerGridFallbackTemplate,
   'knyt:drawer_grid_3b': KnytDrawerGridFallbackTemplate,
-  'knyt:dual_poster_stage_v1': LiquidUIPlaceholderTemplate,
-  'knyt:motion_stage_v1': LiquidUIPlaceholderTemplate,
-  'knyt:quest_hud_hub_v1': LiquidUIPlaceholderTemplate,
-  'knyt:realm_bridge_map_v1': LiquidUIPlaceholderTemplate,
+  'knyt:dual_poster_stage_v1': KnytDualPosterStageTemplate,
+  'knyt:motion_stage_v1': KnytMotionStageTemplate,
+  'knyt:quest_hud_hub_v1': KnytQuestHudHubTemplate,
+  'knyt:realm_bridge_map_v1': KnytRealmBridgeMapTemplate,
 };
