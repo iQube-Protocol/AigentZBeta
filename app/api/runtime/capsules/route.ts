@@ -19,6 +19,7 @@ const NO_STORE_HEADERS = {
 const SHOWCASE_FOCUS = ["qripto", "knyt"];
 const SHOWCASE_TOKENS = ["qripto", "qriptopian", "knyt", "metaknyt", "metaknyts"];
 const UI_IMAGE_PATTERNS = [/^\/images\/demo\//i, /^\/icons\//i, /^\/assets\/ui\//i];
+const PLACEHOLDER_IMAGE_PATTERNS = [/^https?:\/\/images\.unsplash\.com\//i];
 const MEDIA_EXTENSIONS = /\.(png|jpg|jpeg|webp|gif|avif|svg|mp4|mov|webm|m3u8)(\?.*)?$/i;
 
 type QriptoHomeResponse = {
@@ -84,6 +85,7 @@ function normalizeAssetUri(value: unknown): string | null {
 
   if (!explicitlyValid && !inferredValid) return null;
   if (UI_IMAGE_PATTERNS.some((pattern) => pattern.test(uri))) return null;
+  if (PLACEHOLDER_IMAGE_PATTERNS.some((pattern) => pattern.test(uri))) return null;
   return uri;
 }
 
@@ -223,15 +225,53 @@ function mapSmartContentCapsules(contents: SmartContentQube[], codexSlug: "qript
   return mapped;
 }
 
+function buildCandidateOrigins(request: NextRequest): string[] {
+  const candidates = new Set<string>();
+  const addCandidate = (value: string | null | undefined) => {
+    const candidate = normalizeString(value);
+    if (!candidate) return;
+    try {
+      const parsed = new URL(candidate.includes("://") ? candidate : `https://${candidate}`);
+      candidates.add(parsed.origin);
+    } catch {
+      // Ignore invalid origin fragments.
+    }
+  };
+
+  addCandidate(request.nextUrl.origin);
+  addCandidate(request.headers.get("origin"));
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  const forwardedProto = normalizeString(request.headers.get("x-forwarded-proto")) || "https";
+  if (forwardedHost) addCandidate(`${forwardedProto}://${forwardedHost}`);
+  addCandidate(request.headers.get("host"));
+
+  return [...candidates];
+}
+
 async function fetchInternalJson<T>(request: NextRequest, path: string): Promise<T | null> {
-  try {
-    const url = new URL(path, request.nextUrl.origin);
-    const response = await fetch(url.toString(), { cache: "no-store" });
-    if (!response.ok) return null;
-    return (await response.json()) as T;
-  } catch {
-    return null;
+  const origins = buildCandidateOrigins(request);
+  const cookieHeader = request.headers.get("cookie");
+  const authHeader = request.headers.get("authorization");
+
+  for (const origin of origins) {
+    try {
+      const url = new URL(path, origin);
+      const response = await fetch(url.toString(), {
+        cache: "no-store",
+        headers: {
+          ...(cookieHeader ? { cookie: cookieHeader } : {}),
+          ...(authHeader ? { authorization: authHeader } : {}),
+        },
+      });
+      if (!response.ok) continue;
+      const payload = (await response.json()) as T;
+      if (payload && typeof payload === "object") return payload;
+    } catch {
+      // Try next origin candidate.
+    }
   }
+
+  return null;
 }
 
 function mapQriptoSectionCapsules(payload: QriptoHomeResponse | null): RuntimeCapsuleRecord[] {
@@ -444,11 +484,13 @@ function dedupeCapsules(rows: RuntimeCapsuleRecord[]): RuntimeCapsuleRecord[] {
 
 function shuffleWithSeed<T>(rows: T[], seed: number): T[] {
   const next = [...rows];
-  let value = Math.abs(seed || Date.now()) % 2147483647;
-  if (value === 0) value = 1;
+  let state = (Math.abs(seed || Date.now()) >>> 0) || 0x9e3779b9;
   const rand = () => {
-    value = (value * 48271) % 2147483647;
-    return value / 2147483647;
+    state += 0x6d2b79f5;
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
   for (let index = next.length - 1; index > 0; index -= 1) {
     const swapIndex = Math.floor(rand() * (index + 1));
@@ -483,7 +525,7 @@ export async function GET(request: NextRequest) {
       fetchInternalJson<KnytCardsResponse>(request, "/api/codex/knyt-cards?series=metaKnyts"),
     ]);
 
-    const capsules = [
+    const primaryCapsules = [
       ...mapQriptoSectionCapsules(qriptoHome),
       ...mapQriptoSectionCapsules({
         sections: {
@@ -495,8 +537,8 @@ export async function GET(request: NextRequest) {
       ...mapKnytCharacterCapsules(knytCards),
       ...mapSmartContentCapsules(qriptoSmart.data || [], "qripto"),
       ...mapSmartContentCapsules(knytSmart.data || [], "knyt"),
-      ...mapFallbackExportCapsules(),
     ];
+    const capsules = primaryCapsules.length > 0 ? primaryCapsules : mapFallbackExportCapsules();
 
     const byId = capsules.filter(
       (capsule, index, rows) =>
