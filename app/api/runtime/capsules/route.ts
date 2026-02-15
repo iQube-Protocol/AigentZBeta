@@ -6,6 +6,15 @@ import fallbackContent from "@/qriptopian-content-export.json";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+const NO_STORE_HEADERS = {
+  "Cache-Control": "no-store, no-cache, max-age=0, must-revalidate",
+  Pragma: "no-cache",
+  Expires: "0",
+  "CDN-Cache-Control": "no-store",
+  "Vercel-CDN-Cache-Control": "no-store",
+};
 
 const SHOWCASE_FOCUS = ["qripto", "knyt"];
 const SHOWCASE_TOKENS = ["qripto", "qriptopian", "knyt", "metaknyt", "metaknyts"];
@@ -514,12 +523,20 @@ export async function GET(request: NextRequest) {
             .map((entry) => entry.capsule)
             .slice(0, limit);
 
-    return NextResponse.json<RuntimeCapsulesResponse>({
-      success: true,
-      capsules: scored,
-      total: scored.length,
-      focus: SHOWCASE_FOCUS,
-    });
+    return NextResponse.json<RuntimeCapsulesResponse>(
+      {
+        success: true,
+        capsules: scored,
+        total: scored.length,
+        focus: SHOWCASE_FOCUS,
+      },
+      {
+        headers: {
+          ...NO_STORE_HEADERS,
+          "X-Runtime-Seed": String(nonce),
+        },
+      }
+    );
   } catch (error: any) {
     console.error("Runtime capsules route failed:", error);
     return NextResponse.json<RuntimeCapsulesResponse>(
@@ -529,7 +546,7 @@ export async function GET(request: NextRequest) {
         total: 0,
         focus: SHOWCASE_FOCUS,
       },
-      { status: 500 }
+      { status: 500, headers: NO_STORE_HEADERS }
     );
   }
 }
