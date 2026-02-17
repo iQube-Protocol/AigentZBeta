@@ -11,16 +11,20 @@ import { CodexConfig, CodexRegistryResponse } from '@/types/codex';
 interface UseCodexConfigOptions {
   codexId: string;
   useDefaults?: boolean;  // Use hardcoded defaults instead of database
+  allowOverrides?: boolean; // Allow DB/pack overrides on top of defaults
   enabled?: boolean;      // Enable/disable the query
 }
 
-export function useCodexConfig({ codexId, useDefaults = true, enabled = true }: UseCodexConfigOptions) {
+export function useCodexConfig({ codexId, useDefaults = true, allowOverrides = false, enabled = true }: UseCodexConfigOptions) {
   return useQuery<CodexConfig, Error>({
-    queryKey: ['codex-config', codexId, useDefaults],
+    queryKey: ['codex-config', codexId, useDefaults, allowOverrides],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (useDefaults) {
         params.set('defaults', 'true');
+      }
+      if (allowOverrides) {
+        params.set('allowOverrides', 'true');
       }
 
       const response = await fetch(`/api/codex/registry/${codexId}?${params.toString()}`);
@@ -49,16 +53,17 @@ export function useCodexConfig({ codexId, useDefaults = true, enabled = true }: 
  * 
  * Fetches list of all available codexes
  */
-export function useCodexList(options?: { enabled?: boolean; owner?: string; useDefaults?: boolean }) {
-  const { enabled = true, owner, useDefaults = true } = options || {};
+export function useCodexList(options?: { enabled?: boolean; owner?: string; useDefaults?: boolean; allowOverrides?: boolean }) {
+  const { enabled = true, owner, useDefaults = true, allowOverrides = false } = options || {};
 
   return useQuery({
-    queryKey: ['codex-list', owner, useDefaults],
+    queryKey: ['codex-list', owner, useDefaults, allowOverrides],
     queryFn: async () => {
       const params = new URLSearchParams();
       params.set('enabled', 'true'); // Only fetch enabled codexes
       if (owner) params.set('owner', owner);
       if (useDefaults) params.set('defaults', 'true');
+      if (allowOverrides) params.set('allowOverrides', 'true');
 
       const response = await fetch(`/api/codex/registry?${params.toString()}`);
       

@@ -40,9 +40,21 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     const { codexId } = params;
     const searchParams = request.nextUrl.searchParams;
     const useDefaults = searchParams.get('defaults') === 'true';
+    const allowOverrides = searchParams.get('allowOverrides') === 'true';
+    const isKnytCodex = codexId === 'knyt-codex';
 
     // If defaults flag is set, prefer DB-backed config and fall back to defaults
     if (useDefaults) {
+      if (isKnytCodex && !allowOverrides) {
+        const knytDefaults = getCodexById(codexId);
+        if (knytDefaults) {
+          return NextResponse.json<CodexRegistryResponse<CodexConfig>>({
+            success: true,
+            data: knytDefaults,
+          });
+        }
+      }
+
       try {
         const supabase = createServerClient();
 
@@ -54,7 +66,9 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
 
         if (config) {
           const packCodex = await getPackCodexById(codexId);
-          const fallbackCodex = packCodex ?? getCodexById(codexId);
+          const fallbackCodex = isKnytCodex
+            ? (getCodexById(codexId) ?? packCodex)
+            : (packCodex ?? getCodexById(codexId));
           const { data: tabs, error: tabsError } = await supabase
             .from('codex_tabs')
             .select('*')
@@ -107,7 +121,9 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       }
 
       const packCodex = await getPackCodexById(codexId);
-      const codex = packCodex ?? getCodexById(codexId);
+      const codex = isKnytCodex
+        ? (getCodexById(codexId) ?? packCodex)
+        : (packCodex ?? getCodexById(codexId));
       if (!codex) {
         return NextResponse.json<CodexRegistryResponse>({
           success: false,

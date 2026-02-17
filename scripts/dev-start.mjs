@@ -104,7 +104,15 @@ async function main() {
   process.on("SIGTERM", forwardSignal);
   process.on("SIGHUP", forwardSignal);
 
-  void prewarmRoutes(port);
+  const shouldPrewarm = ["1", "true", "yes"].includes(
+    String(process.env.DEV_PREWARM || "").toLowerCase()
+  );
+
+  if (shouldPrewarm) {
+    void prewarmRoutes(port);
+  } else {
+    console.log("[dev] Prewarm skipped. Set DEV_PREWARM=1 to enable.");
+  }
 
   child.on("exit", (code, signal) => {
     if (signal) {

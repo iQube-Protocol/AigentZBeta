@@ -122,6 +122,16 @@ export async function POST(request: NextRequest) {
           taskCompleted: `Message sent: ${body.type}`,
           resultData: { message_id, content_length: body.content.length },
           tenantId: channel.tenant_id,
+          policyContext: {
+            tenantId: channel.tenant_id,
+            personaId: typeof body.metadata?.persona_id === 'string' ? body.metadata.persona_id : undefined,
+            rootDid: typeof body.metadata?.root_did === 'string' ? body.metadata.root_did : undefined,
+            policyTags: Array.isArray(body.metadata?.policy_tags) ? body.metadata.policy_tags : [],
+            requiredIQubes: Array.isArray(body.metadata?.required_iqubes) ? body.metadata.required_iqubes : [],
+            iqubeRefs: Array.isArray(body.iqube_refs) ? body.iqube_refs : [],
+            requiresVerifiedPersona: Boolean(body.metadata?.requires_persona),
+            requiresRootDid: Boolean(body.metadata?.requires_root_did),
+          },
         });
       } catch (receiptError) {
         console.warn('Failed to create message receipt:', receiptError);

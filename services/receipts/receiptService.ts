@@ -9,6 +9,11 @@
  */
 
 import { createHash } from 'crypto';
+import {
+  type QubeTalkReceiptPolicyContext,
+  evaluateQubeTalkReceiptPolicy,
+} from '@/services/policy/qubetalkPolicyGate';
+import { submitQubeTalkReceiptToDvn } from '@/services/dvn/qubetalkReceiptPipeline';
 
 export interface BaseReceipt {
   receiptId: string;
@@ -189,21 +194,33 @@ export class ReceiptService {
     resultData?: any;
     processingTimeMs?: number;
     tenantId?: string;
+    policyContext?: QubeTalkReceiptPolicyContext;
   }): Promise<QubeTalkReceipt> {
     const receiptId = this.generateReceiptId('qubetalk', { 
       delegationId: params.delegationId 
     });
     const now = new Date().toISOString();
+    const policyEvaluation = evaluateQubeTalkReceiptPolicy({
+      tenantId: params.tenantId,
+      ...params.policyContext,
+    });
 
     const receipt: QubeTalkReceipt = {
       receiptId,
       tenantId: params.tenantId,
       type: { category: 'qubetalk', subType: 'delegation_completion' },
-      status: { state: 'completed', verified: true },
+      status: policyEvaluation.allowed
+        ? { state: 'pending', verified: false }
+        : {
+            state: 'failed',
+            verified: false,
+            error: policyEvaluation.reasons.join(' ') || 'QubeTalk policy validation failed.',
+          },
       createdAt: now,
       updatedAt: now,
       metadata: {
         processingTimeMs: params.processingTimeMs,
+        policy: policyEvaluation,
       },
       delegationId: params.delegationId,
       fromAgent: params.fromAgent,
@@ -212,6 +229,40 @@ export class ReceiptService {
       resultData: params.resultData,
       processingTimeMs: params.processingTimeMs,
     };
+
+    const dvnResult = await submitQubeTalkReceiptToDvn({
+      receiptId: receipt.receiptId,
+      delegationId: receipt.delegationId,
+      tenantId: receipt.tenantId,
+      status: policyEvaluation.allowed ? 'completed' : 'failed',
+      taskCompleted: receipt.taskCompleted,
+      fromAgentId: receipt.fromAgent.id,
+      toAgentId: receipt.toAgent.id,
+      policyEvaluation,
+      resultData: receipt.resultData,
+    });
+
+    receipt.metadata = {
+      ...receipt.metadata,
+      dvn: {
+        submitted: dvnResult.ok,
+        messageId: dvnResult.messageId || null,
+        error: dvnResult.error || null,
+      },
+    };
+
+    if (!dvnResult.ok) {
+      receipt.status = {
+        state: 'failed',
+        verified: false,
+        error: dvnResult.error || 'DVN submission failed.',
+      };
+    } else if (policyEvaluation.allowed) {
+      receipt.status = {
+        state: 'completed',
+        verified: true,
+      };
+    }
 
     await this.storeReceipt(receipt);
     return receipt;

@@ -773,12 +773,69 @@ function fromRuntimeCapsuleRecord(record: RuntimeCapsuleRecord): RuntimeCapsule 
   } as unknown as RuntimeCapsule;
 }
 
+function buildPreviewExperienceCapsule(input: {
+  experienceId: string;
+  selectedCapsuleId: string | null;
+  title?: string | null;
+  description?: string | null;
+  imageUri?: string | null;
+}): RuntimeCapsule {
+  const capsuleId = input.selectedCapsuleId || input.experienceId;
+  const title = (input.title || "").trim() || "Experience Preview";
+  const description = (input.description || "").trim() || "Runtime preview launched from Studio ExperienceQube.";
+  const imageUri = (input.imageUri || "").trim();
+  return {
+    id: capsuleId,
+    type: "SmartContentQube",
+    app: "metaMe",
+    title,
+    slug: `experience-preview-${input.experienceId}`,
+    version: 1,
+    description,
+    coverImageUri: imageUri || FAILSAFE_QRIPTO_IMAGE,
+    creatorRootDid: "did:iq:composer",
+    tenantId: "metame",
+    modalities: {
+      read: { enabled: true },
+      watch: { enabled: false },
+      listen: { enabled: false },
+      interact: { enabled: true },
+    },
+    structure: { kind: "episode", panelCount: 1 },
+    pricingModel: {
+      tiers: [{ kind: "free", amount: 0, currency: "QCT", covers: 1 }],
+      acceptedTokens: [],
+    },
+    libraryMetadata: {
+      category: "capsule",
+      tags: ["capsule", "experience", "preview"],
+      recommendedShelf: "capsules",
+      expiry: { model: "permanent" },
+      ownership: { status: "available", libraryStatus: "owned" },
+      discovery: { featured: true, curated: true, priority: 1 },
+    },
+    status: "published",
+    createdAt: new Date().toISOString(),
+    runtimeSource: "experience",
+    runtimeLaunchHref: `/studio/composer/experience/${encodeURIComponent(input.experienceId)}?embed=1`,
+    runtimeLaunchType: "experience",
+    runtimeAssetStatus: "resolved",
+    runtimeModalityHints: ["play", "read"],
+    runtimeContentKind: "episode",
+    runtimePreviewMediaUri: null,
+  } as unknown as RuntimeCapsule;
+}
+
 export default function MetaMeRuntimeClient() {
   const searchParams = useSearchParams();
   const { toast } = useToast();
 
   const embedMode = searchParams?.get("embed") === "1";
-  const selectedCapsuleId = searchParams?.get("capsule");
+  const selectedCapsuleId = searchParams?.get("capsule") ?? null;
+  const selectedExperienceId = searchParams?.get("experienceId")?.trim() || null;
+  const selectedExperienceName = searchParams?.get("experienceName");
+  const selectedExperienceDescription = searchParams?.get("experienceDescription");
+  const selectedExperienceImage = searchParams?.get("experienceImage");
   const deviceParam = (searchParams?.get("device") as DeviceType) || "mobile";
   const defaultDevice: DeviceType =
     deviceParam === "desktop" || deviceParam === "tablet" || deviceParam === "mobile" ? deviceParam : "mobile";
@@ -906,7 +963,24 @@ export default function MetaMeRuntimeClient() {
   const [capsuleContents, setCapsuleContents] = useState<RuntimeCapsule[]>([]);
   const [selectedCapsuleLocal, setSelectedCapsuleLocal] = useState<string | null>(null);
   const [lastIntent, setLastIntent] = useState<RuntimeIntent>("find");
+  const autoLaunchedCapsuleRef = useRef<string | null>(null);
   const activeCapsuleId = selectedCapsuleLocal || selectedCapsuleId;
+  const queryPreviewCapsule = useMemo(() => {
+    if (!selectedExperienceId) return null;
+    return buildPreviewExperienceCapsule({
+      experienceId: selectedExperienceId,
+      selectedCapsuleId,
+      title: selectedExperienceName,
+      description: selectedExperienceDescription,
+      imageUri: selectedExperienceImage,
+    });
+  }, [
+    selectedCapsuleId,
+    selectedExperienceDescription,
+    selectedExperienceId,
+    selectedExperienceImage,
+    selectedExperienceName,
+  ]);
 
   const fetchRuntimeCapsules = useCallback(
     async (options?: { intent?: RuntimeIntent; query?: string; allowFallback?: boolean; nonce?: number }): Promise<RuntimeCapsule[]> => {
@@ -945,6 +1019,28 @@ export default function MetaMeRuntimeClient() {
   useEffect(() => {
     fetchRuntimeData();
   }, [fetchRuntimeData]);
+
+  useEffect(() => {
+    if (!queryPreviewCapsule) return;
+    setAllContents((prev) => {
+      const existing = prev.find((item) => item.id === queryPreviewCapsule.id);
+      if (
+        existing &&
+        existing.title === queryPreviewCapsule.title &&
+        existing.description === queryPreviewCapsule.description &&
+        existing.coverImageUri === queryPreviewCapsule.coverImageUri &&
+        existing.runtimeLaunchHref === queryPreviewCapsule.runtimeLaunchHref
+      ) {
+        return prev;
+      }
+      const next = prev.filter((item) => item.id !== queryPreviewCapsule.id);
+      return [queryPreviewCapsule, ...next];
+    });
+    setCapsuleContents((prev) => {
+      const withoutQueryCapsule = prev.filter((item) => item.id !== queryPreviewCapsule.id);
+      return selectCapsulesForDisplay([queryPreviewCapsule, ...withoutQueryCapsule], 6);
+    });
+  }, [queryPreviewCapsule]);
 
   useEffect(() => {
     let mounted = true;
@@ -1197,6 +1293,19 @@ export default function MetaMeRuntimeClient() {
     },
     [buildRuntimeCapsulePanel, lastIntent]
   );
+
+  useEffect(() => {
+    if (!queryPreviewCapsule) {
+      autoLaunchedCapsuleRef.current = null;
+      return;
+    }
+    if (autoLaunchedCapsuleRef.current === queryPreviewCapsule.id) return;
+    autoLaunchedCapsuleRef.current = queryPreviewCapsule.id;
+    setShowWelcome(false);
+    setLastIntent("play");
+    setSelectedCapsuleLocal(queryPreviewCapsule.id);
+    launchCapsule(queryPreviewCapsule, "play");
+  }, [launchCapsule, queryPreviewCapsule]);
 
   const capsulePanel = useMemo(
     () => (

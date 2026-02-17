@@ -16,6 +16,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect, Rea
 import type { SmartContentQube } from "@/types/smartContent";
 import type { SmartWalletNode } from "@/types/smartWallet";
 import { selectCompassActions } from "@/services/content/smartMenuIntegration";
+import { getSmartTriadPrimitiveByAction } from "@/services/smarttriad/primitiveRegistry";
 
 // =============================================================================
 // TYPES
@@ -512,17 +513,24 @@ export function SmartTriadProvider({
     params: Record<string, any>
   ): Promise<any> => {
     try {
-      // Direct API call to execute triad action
-      // In production, this would go through CopilotKit
-      const actionMap: Record<string, string> = {
-        triad_purchase_content: "/api/content/triad/purchase",
-        triad_configure_experience: "/api/content/triad/configure",
-        triad_browse_library: "/api/content/triad/library",
-        triad_recommend_content: "/api/content/triad/recommend",
-        triad_agent_chat: "/api/content/triad/chat",
-      };
+      const primitive = getSmartTriadPrimitiveByAction(actionName);
 
-      const endpoint = actionMap[actionName];
+      if (primitive?.class === "iqube_mcp_app" && primitive.endpoint && primitive.mcpTool) {
+        const res = await fetch(primitive.endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            tool: primitive.mcpTool,
+            input: params,
+            tenantId: params.tenantId,
+            personaId: params.personaId,
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok) {
+          return data;
+        }
+      }
       
       // Fallback: execute action handler directly
       // This simulates what Copilot would do

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bot, CheckCircle2, ChevronDown, ChevronUp, Circle, FileText, Hexagon, LayoutGrid, List, Loader2, Monitor, Moon, Palette, ShieldCheck, SlidersHorizontal, Sun, BookOpen, Eye, Volume2, Type, MonitorIcon, Smartphone, Tablet, Tv, Upload, Play, Code, Shield, Book, Users, Target, Sparkles, BarChart, Edit, Trash2, AlertTriangle } from "lucide-react";
+import { Bot, CheckCircle2, ChevronDown, ChevronUp, Circle, FileText, Hexagon, LayoutGrid, List, Loader2, Monitor, Moon, Palette, ShieldCheck, SlidersHorizontal, Sun, BookOpen, Eye, Volume2, Type, MonitorIcon, Smartphone, Tablet, Tv, Upload, Play, PlayCircle, Share2, Code, Shield, Book, Users, Target, Sparkles, BarChart, Edit, Trash2, AlertTriangle } from "lucide-react";
 import { useCopilotAction } from "@copilotkit/react-core";
 import { Button } from "@/components/ui/button";
 import { DevicePreviewSwitcher } from "@/components/preview/DevicePreviewSwitcher";
@@ -89,6 +89,241 @@ type ExperienceQube = {
     allowed_roles: string[];
   };
 };
+
+type ComposerMediaItem = {
+  id: string;
+  label: string;
+  tag: string;
+  mediaType: string;
+  mediaUri: string;
+};
+
+type InspectorMediaPreview = {
+  uri: string;
+  mediaType: "image" | "video";
+};
+
+type InspectorSourceBadge = "Experience" | "Article" | "Video" | "Codex";
+
+type ContentSectionLookupPlan = {
+  section: string;
+  tab?: string;
+};
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
+}
+
+function firstNonEmptyString(values: unknown[]): string | null {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+  return null;
+}
+
+function inferMediaType(uri: string, preferred?: string | null): "image" | "video" {
+  if (preferred === "video") return "video";
+  if (preferred === "image") return "image";
+  if (/\.(mp4|m4v|webm|mov|m3u8)(\?|$)/i.test(uri)) return "video";
+  return "image";
+}
+
+function resolveExperiencePrimaryMedia(
+  experience: ExperienceQube | null,
+  codexItems: ComposerMediaItem[]
+): InspectorMediaPreview | null {
+  if (!experience) return null;
+
+  const config = asRecord(experience.configuration) ?? {};
+  const metadata = asRecord(experience.metadata) ?? {};
+  const contentSelection = asRecord(config.content_selection) ?? {};
+
+  const mediaById = new Map<string, ComposerMediaItem>();
+  [...codexItems, ...QRIPTO_CONTENT_ITEMS].forEach((item) => {
+    if (!item?.id) return;
+    if (!mediaById.has(item.id)) {
+      mediaById.set(item.id, item);
+    }
+  });
+
+  const selectedIds: string[] = [];
+  const addSelectedId = (value: unknown) => {
+    if (typeof value === "string" && value.trim().length > 0) {
+      selectedIds.push(value.trim());
+    }
+  };
+  if (Array.isArray(contentSelection.content_items)) {
+    contentSelection.content_items.forEach(addSelectedId);
+  }
+  addSelectedId(contentSelection.feature_item_id);
+  addSelectedId(contentSelection.primary_content_id);
+  addSelectedId(config.primary_content_id);
+  addSelectedId(metadata.primary_content_id);
+
+  for (const id of selectedIds) {
+    const item = mediaById.get(id);
+    if (item?.mediaUri) {
+      return {
+        uri: item.mediaUri,
+        mediaType: inferMediaType(item.mediaUri, item.mediaType),
+      };
+    }
+  }
+
+  const selectedTag = firstNonEmptyString([
+    contentSelection.content_tag,
+    config.content_tag,
+    metadata.content_tag,
+  ]);
+  if (selectedTag) {
+    const item = [...codexItems, ...QRIPTO_CONTENT_ITEMS].find(
+      (candidate) => candidate.tag === selectedTag && candidate.mediaUri
+    );
+    if (item?.mediaUri) {
+      return {
+        uri: item.mediaUri,
+        mediaType: inferMediaType(item.mediaUri, item.mediaType),
+      };
+    }
+  }
+
+  const candidateContainers = [
+    contentSelection,
+    config,
+    metadata,
+    asRecord(config.runtime),
+    asRecord(config.card),
+    asRecord(config.modalities),
+    asRecord(metadata.modalities),
+    asRecord(asRecord(config.modalities)?.watch),
+    asRecord(asRecord(metadata.modalities)?.watch),
+  ].filter(Boolean) as Record<string, unknown>[];
+
+  const videoKeys = [
+    "primary_video_uri",
+    "video_uri",
+    "videoUrl",
+    "video_url",
+    "watch_video_url",
+    "trailer_url",
+  ];
+  for (const container of candidateContainers) {
+    const uri = firstNonEmptyString(videoKeys.map((key) => container[key]));
+    if (uri) return { uri, mediaType: "video" };
+  }
+
+  const imageKeys = [
+    "primary_image_uri",
+    "image_uri",
+    "imageUrl",
+    "image_url",
+    "thumbnail",
+    "thumbnailUrl",
+    "thumbnail_url",
+    "cover",
+    "coverImageUri",
+    "cover_image_uri",
+    "cover_image_url",
+    "heroImage",
+    "hero_image",
+    "poster",
+    "poster_url",
+    "image",
+  ];
+  for (const container of candidateContainers) {
+    const uri = firstNonEmptyString(imageKeys.map((key) => container[key]));
+    if (uri) return { uri, mediaType: "image" };
+  }
+
+  const firstCodexMedia = [...codexItems, ...QRIPTO_CONTENT_ITEMS].find((item) => Boolean(item.mediaUri));
+  if (firstCodexMedia?.mediaUri) {
+    return {
+      uri: firstCodexMedia.mediaUri,
+      mediaType: inferMediaType(firstCodexMedia.mediaUri, firstCodexMedia.mediaType),
+    };
+  }
+
+  return null;
+}
+
+function buildSectionLookupPlans(tag: string | null): ContentSectionLookupPlan[] {
+  const normalized = (tag || "").trim().toLowerCase();
+  if (!normalized) {
+    return [
+      { section: "home-hero" },
+      { section: "latest-news" },
+      { section: "second-hero" },
+      { section: "pennydrops" },
+      { section: "scrolls" },
+      { section: "21knowdz" },
+    ];
+  }
+  if (normalized === "hero") return [{ section: "home-hero" }];
+  if (normalized === "second-hero") return [{ section: "second-hero" }];
+  if (normalized === "latest-news") return [{ section: "latest-news" }];
+  if (normalized === "penny-drops") return [{ section: "pennydrops" }];
+  if (normalized === "scrolls-metaknyts") return [{ section: "scrolls", tab: "metaknyts" }, { section: "scrolls" }];
+  if (normalized === "scrolls-synthsimms") return [{ section: "scrolls", tab: "synthsims" }, { section: "scrolls" }];
+  if (normalized === "knowdz-exec") return [{ section: "21knowdz", tab: "exec" }, { section: "21knowdz" }];
+  if (normalized === "knowdz-creative") return [{ section: "21knowdz", tab: "creative" }, { section: "21knowdz" }];
+  if (normalized === "knowdz-devs") return [{ section: "21knowdz", tab: "dev" }, { section: "21knowdz" }];
+  return [{ section: normalized }];
+}
+
+function pickMediaFromSectionContent(items: any[], preferredIds: string[]): InspectorMediaPreview | null {
+  if (!Array.isArray(items) || items.length === 0) return null;
+  const normalizedIds = preferredIds.map((id) => id.toLowerCase());
+  const sorted = [...items].sort((a, b) => {
+    const aId = String(a?.id || a?.content_id || a?.slug || "").toLowerCase();
+    const bId = String(b?.id || b?.content_id || b?.slug || "").toLowerCase();
+    const aPreferred = normalizedIds.includes(aId) ? 1 : 0;
+    const bPreferred = normalizedIds.includes(bId) ? 1 : 0;
+    return bPreferred - aPreferred;
+  });
+
+  for (const item of sorted) {
+    const imageUri = firstNonEmptyString([item?.image, item?.thumbnail, item?.cover_image_url, item?.cover_image_uri]);
+    const videoUri = firstNonEmptyString([item?.modalities?.watch?.video_url]);
+    const uri = imageUri || videoUri;
+    if (!uri) continue;
+    return {
+      uri,
+      mediaType: videoUri ? "video" : "image",
+    };
+  }
+  return null;
+}
+
+function resolveInspectorSourceBadge(params: {
+  mcpResult: any;
+  fallbackMediaType: string;
+}): InspectorSourceBadge {
+  const textPool: string[] = [];
+  const addText = (value: unknown) => {
+    if (typeof value === "string" && value.trim().length > 0) {
+      textPool.push(value.trim().toLowerCase());
+    }
+  };
+
+  const response = params.mcpResult?.output?.mcpResponse || params.mcpResult?.output || {};
+  const artifact = response?.artifact || {};
+  const dispatch = params.mcpResult?.output?.providerDispatch || {};
+
+  addText(artifact?.title);
+  addText(artifact?.body);
+  addText(dispatch?.text);
+  if (Array.isArray(artifact?.tags)) {
+    artifact.tags.forEach(addText);
+  }
+
+  const textBlob = textPool.join(" ");
+  if (/\bcodex\b/.test(textBlob)) return "Codex";
+  if (/\b(video|watch|clip|trailer)\b/.test(textBlob) || params.fallbackMediaType === "video") return "Video";
+  if (/\b(article|read|news|feature)\b/.test(textBlob)) return "Article";
+  return "Experience";
+}
 
 const DEFAULT_TENANT = "qripto-codex";
 const DEFAULT_USER = "aigentz@aigent:u_demo_001";
@@ -513,9 +748,7 @@ export const ComposerStudio = () => {
   const [editingExperienceId, setEditingExperienceId] = useState<string | null>(null);
   const { data: codexList } = useCodexList({ useDefaults: true });
   const [copilotContextId, setCopilotContextId] = useState("qripto-codex");
-  const [codexContentItems, setCodexContentItems] = useState<
-    Array<{ id: string; label: string; tag: string; mediaType: string; mediaUri: string }>
-  >([]);
+  const [codexContentItems, setCodexContentItems] = useState<ComposerMediaItem[]>([]);
   const [codexContentLoading, setCodexContentLoading] = useState(false);
 
   // Sync Experience Qube collapse state with Design Qube
@@ -581,6 +814,119 @@ export const ComposerStudio = () => {
       router.push(`/studio/composer/experience/${encodeURIComponent(experienceId)}`);
     } catch {
       openRuntimePreviewForExperience(exp, "Launch fallback");
+    }
+  };
+
+  const openMcpInspector = (exp: ExperienceQube | null) => {
+    if (!exp) return;
+    setMcpExperience(exp);
+    setMcpError(null);
+    setMcpResult(null);
+    setInspectorFetchedMedia(null);
+    setShowMcpInspectorModal(true);
+  };
+
+  const runMcpToolFromInspector = async () => {
+    if (!mcpExperience) return;
+    setMcpLoading(true);
+    setMcpError(null);
+    try {
+      const input =
+        mcpTool === "next.best"
+          ? {
+              event: {
+                content: { text: mcpMessage },
+                tenant_id: tenantId,
+                experience_id: mcpExperience.id,
+              },
+            }
+          : {
+              experience_id: mcpExperience.id,
+              topic: mcpMessage,
+              intent: "collect",
+              provider: mcpProvider,
+            };
+
+      const res = await fetch("/api/mcp/experience-qube", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tool: mcpTool,
+          input,
+          tenantId,
+          personaId: userId,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error || "Failed to execute MCP tool");
+      }
+      setMcpResult({
+        mode: "mcp-tool",
+        tool: mcpTool,
+        output: data.response,
+      });
+    } catch (error: any) {
+      setMcpError(error?.message || "Failed to execute MCP tool");
+    } finally {
+      setMcpLoading(false);
+    }
+  };
+
+  const runProviderDispatchSimulation = async () => {
+    if (!mcpExperience) return;
+    setMcpLoading(true);
+    setMcpError(null);
+    try {
+      const res = await fetch("/api/messenger/dispatch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          provider: mcpProvider,
+          mode: mcpDispatchMode,
+          tenantId,
+          experienceId: mcpExperience.id,
+          personaId: userId,
+          message: mcpMessage,
+          channelId: mcpChannelId,
+          inviteUrl: mcpDiscordInvite,
+          campaignId: "experience-distribution-demo",
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error || "Failed to dispatch provider payload");
+      }
+      setMcpResult({
+        mode: "provider-dispatch",
+        provider: mcpProvider,
+        output: data,
+      });
+    } catch (error: any) {
+      setMcpError(error?.message || "Failed to dispatch provider payload");
+    } finally {
+      setMcpLoading(false);
+    }
+  };
+
+  const checkDiscordConnectionStatus = async () => {
+    setMcpDiscordStatusLoading(true);
+    setMcpError(null);
+    try {
+      const params = new URLSearchParams();
+      if (mcpChannelId.trim().length > 0) params.set("channelId", mcpChannelId.trim());
+      if (mcpDiscordInvite.trim().length > 0) params.set("inviteUrl", mcpDiscordInvite.trim());
+      const res = await fetch(`/api/messenger/discord/status?${params.toString()}`, { cache: "no-store" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.error || "Failed to check Discord connection");
+      }
+      setMcpDiscordStatus(data);
+    } catch (error: any) {
+      setMcpDiscordStatus(null);
+      setMcpError(error?.message || "Failed to check Discord connection");
+    } finally {
+      setMcpDiscordStatusLoading(false);
     }
   };
 
@@ -796,6 +1142,162 @@ export const ComposerStudio = () => {
   const [previewNonce, setPreviewNonce] = useState(0);
   const [runtimePreviewLoaded, setRuntimePreviewLoaded] = useState(false);
   const [runtimePreviewErrored, setRuntimePreviewErrored] = useState(false);
+  const [showMcpInspectorModal, setShowMcpInspectorModal] = useState(false);
+  const [mcpExperience, setMcpExperience] = useState<ExperienceQube | null>(null);
+  const [mcpTool, setMcpTool] = useState<
+    "pill.get" | "capsule.get" | "mini_runtime.get" | "codex.entry" | "invite.create" | "share.compose" | "next.best"
+  >("next.best");
+  const [mcpProvider, setMcpProvider] = useState<"discord" | "whatsapp" | "telegram">("discord");
+  const [mcpDispatchMode, setMcpDispatchMode] = useState<"simulate" | "live">("simulate");
+  const [mcpChannelId, setMcpChannelId] = useState("metaknyts-discord-demo");
+  const [mcpDiscordInvite, setMcpDiscordInvite] = useState("https://discord.gg/Gzg9wDMVSB");
+  const [mcpMessage, setMcpMessage] = useState("Show me a visual-first Qriptopian reading sprint.");
+  const [mcpResult, setMcpResult] = useState<any>(null);
+  const [mcpError, setMcpError] = useState<string | null>(null);
+  const [mcpLoading, setMcpLoading] = useState(false);
+  const [mcpDiscordStatusLoading, setMcpDiscordStatusLoading] = useState(false);
+  const [mcpDiscordStatus, setMcpDiscordStatus] = useState<any>(null);
+  const [inspectorFetchedMedia, setInspectorFetchedMedia] = useState<InspectorMediaPreview | null>(null);
+  const [inspectorRenderMode, setInspectorRenderMode] = useState<"card" | "thread">("card");
+  const inspectorMediaPreview = useMemo(() => {
+    const local = resolveExperiencePrimaryMedia(mcpExperience, codexContentItems);
+    return local || inspectorFetchedMedia;
+  }, [mcpExperience, codexContentItems, inspectorFetchedMedia]);
+  const inspectorSourceBadge = useMemo(
+    () =>
+      resolveInspectorSourceBadge({
+        mcpResult,
+        fallbackMediaType: inspectorMediaPreview?.mediaType || "",
+      }),
+    [mcpResult, inspectorMediaPreview?.mediaType]
+  );
+  const inspectorPreview = useMemo(() => {
+    const base = {
+      title: mcpExperience?.name || "ExperienceQube",
+      body: mcpMessage || "No output yet.",
+      shareText: "",
+      depth: "",
+      ctaLabel: "",
+      providerLabel: mcpProvider.toUpperCase(),
+      thumbnailUri: inspectorMediaPreview?.uri || "",
+      thumbnailType: inspectorMediaPreview?.mediaType || "",
+    };
+
+    if (!mcpResult) return base;
+
+    if (mcpResult.mode === "provider-dispatch") {
+      const dispatch = mcpResult.output?.providerDispatch || {};
+      const response = mcpResult.output?.mcpResponse || {};
+      const responseArtifact = response?.artifact || {};
+      const responseThumbnailUri = firstNonEmptyString([
+        responseArtifact?.thumbnail,
+        responseArtifact?.thumbnail_uri,
+        responseArtifact?.image,
+        responseArtifact?.image_uri,
+        responseArtifact?.video_url,
+        responseArtifact?.media_uri,
+      ]);
+      const responseThumbnailType = inferMediaType(
+        responseThumbnailUri || base.thumbnailUri,
+        typeof responseArtifact?.media_type === "string" ? responseArtifact.media_type : undefined
+      );
+      return {
+        title: responseArtifact?.title || base.title,
+        body: responseArtifact?.body || dispatch?.text || base.body,
+        shareText: responseArtifact?.share_text || "",
+        depth: response?.depth || "",
+        ctaLabel: dispatch?.cta?.label || "",
+        providerLabel: String(dispatch?.provider || mcpProvider).toUpperCase(),
+        thumbnailUri: responseThumbnailUri || base.thumbnailUri,
+        thumbnailType: responseThumbnailUri ? responseThumbnailType : base.thumbnailType,
+      };
+    }
+
+    if (mcpResult.mode === "mcp-tool") {
+      const response = mcpResult.output || {};
+      const responseArtifact = response?.artifact || {};
+      const responseThumbnailUri = firstNonEmptyString([
+        responseArtifact?.thumbnail,
+        responseArtifact?.thumbnail_uri,
+        responseArtifact?.image,
+        responseArtifact?.image_uri,
+        responseArtifact?.video_url,
+        responseArtifact?.media_uri,
+      ]);
+      const responseThumbnailType = inferMediaType(
+        responseThumbnailUri || base.thumbnailUri,
+        typeof responseArtifact?.media_type === "string" ? responseArtifact.media_type : undefined
+      );
+      return {
+        title: responseArtifact?.title || base.title,
+        body: responseArtifact?.body || base.body,
+        shareText: responseArtifact?.share_text || "",
+        depth: response?.depth || "",
+        ctaLabel: response?.cta?.primary?.label || "",
+        providerLabel: mcpProvider.toUpperCase(),
+        thumbnailUri: responseThumbnailUri || base.thumbnailUri,
+        thumbnailType: responseThumbnailUri ? responseThumbnailType : base.thumbnailType,
+      };
+    }
+
+    return base;
+  }, [mcpResult, mcpExperience?.name, mcpMessage, mcpProvider, inspectorMediaPreview]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadInspectorMedia = async () => {
+      if (!mcpExperience) {
+        setInspectorFetchedMedia(null);
+        return;
+      }
+
+      const local = resolveExperiencePrimaryMedia(mcpExperience, codexContentItems);
+      if (local) {
+        setInspectorFetchedMedia(null);
+        return;
+      }
+
+      const config = asRecord(mcpExperience.configuration) ?? {};
+      const contentSelection = asRecord(config.content_selection) ?? {};
+      const selectedTag = firstNonEmptyString([
+        contentSelection.content_tag,
+        config.content_tag,
+      ]);
+      const selectedIds = [
+        ...(Array.isArray(contentSelection.content_items)
+          ? contentSelection.content_items.filter((id) => typeof id === "string")
+          : []),
+        firstNonEmptyString([contentSelection.feature_item_id, contentSelection.primary_content_id, config.primary_content_id]),
+      ].filter((value): value is string => typeof value === "string" && value.trim().length > 0);
+
+      const plans = buildSectionLookupPlans(selectedTag);
+      for (const plan of plans) {
+        try {
+          const params = new URLSearchParams();
+          params.set("scope", "codex");
+          if (plan.tab) params.set("tab", plan.tab);
+          const res = await fetch(`/api/content/section/${encodeURIComponent(plan.section)}?${params.toString()}`, {
+            cache: "no-store",
+          });
+          if (!res.ok) continue;
+          const payload = await res.json().catch(() => ({}));
+          const media = pickMediaFromSectionContent(payload?.content || [], selectedIds);
+          if (media) {
+            if (!cancelled) setInspectorFetchedMedia(media);
+            return;
+          }
+        } catch {
+          // Try next lookup plan.
+        }
+      }
+      if (!cancelled) setInspectorFetchedMedia(null);
+    };
+
+    loadInspectorMedia();
+    return () => {
+      cancelled = true;
+    };
+  }, [mcpExperience, codexContentItems]);
 
   useEffect(() => {
     let active = true;
@@ -913,6 +1415,10 @@ export const ComposerStudio = () => {
     if (!selectedExperienceId) return experience;
     return experiences.find((exp) => exp.id === selectedExperienceId) || experience;
   }, [selectedExperienceId, experiences, experience]);
+  const previewExperienceMedia = useMemo(
+    () => resolveExperiencePrimaryMedia(previewExperience, codexContentItems),
+    [previewExperience, codexContentItems]
+  );
   const runtimePreviewSrc = useMemo(() => {
     const capsuleId = selectedExperienceId || previewExperience?.id || "capsule-metaknyt-play";
     const experienceId = selectedExperienceId || previewExperience?.id || "";
@@ -923,9 +1429,20 @@ export const ComposerStudio = () => {
       embed: "1",
       device: previewDevice,
     });
+    if (previewExperience?.name) params.set("experienceName", previewExperience.name);
+    if (previewExperience?.description) params.set("experienceDescription", previewExperience.description);
+    if (previewExperienceMedia?.uri) params.set("experienceImage", previewExperienceMedia.uri);
     if (previewNonce > 0) params.set("nonce", String(previewNonce));
     return `/metame/runtime?${params.toString()}`;
-  }, [previewDevice, previewNonce, previewExperience?.id, selectedExperienceId]);
+  }, [
+    previewDevice,
+    previewNonce,
+    previewExperience?.description,
+    previewExperience?.id,
+    previewExperience?.name,
+    previewExperienceMedia?.uri,
+    selectedExperienceId,
+  ]);
   const runtimePreviewModalWidthClass =
     previewDevice === "desktop" ? "max-w-[1280px]" : "max-w-[920px]";
   const runtimePreviewViewportClass =
@@ -2155,6 +2672,16 @@ export const ComposerStudio = () => {
                           title="Preview Experience"
                         >
                           <Eye className="h-3 w-3" />
+                        </button>
+                        <button
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openMcpInspector(exp);
+                          }}
+                          className="rounded-lg border border-fuchsia-400/60 bg-fuchsia-400/10 p-2 text-fuchsia-200 hover:bg-fuchsia-400/20"
+                          title="MCP Inspector"
+                        >
+                          <Code className="h-3 w-3" />
                         </button>
                         <button
                           onClick={(event) => {
@@ -3469,6 +3996,15 @@ Example: 'What template works best for a dashboard layout?'"
                   </button>
                   <button
                     onClick={() => {
+                      openMcpInspector(selectedExperience);
+                      setShowExperienceModal(false);
+                    }}
+                    className="rounded-lg border border-fuchsia-400/60 bg-fuchsia-400/10 px-4 py-2 text-sm font-semibold text-fuchsia-200 hover:bg-fuchsia-400/20"
+                  >
+                    MCP Inspector
+                  </button>
+                  <button
+                    onClick={() => {
                       setShowExperienceModal(false);
                       setSelectedExperience(null);
                     }}
@@ -3476,6 +4012,352 @@ Example: 'What template works best for a dashboard layout?'"
                   >
                     Close
                   </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showMcpInspectorModal && mcpExperience && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+          <div className="max-w-5xl w-full max-h-[92vh] overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 p-5">
+              <div className="flex items-center gap-3">
+                <Code className="h-5 w-5 text-fuchsia-300" />
+                <div>
+                  <h2 className="text-lg font-semibold text-white">ExperienceQube MCP App Inspector</h2>
+                  <p className="text-xs text-slate-400">Experience: {mcpExperience.name}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowMcpInspectorModal(false)}
+                className="rounded-lg border border-slate-700 bg-slate-800/50 p-2 text-slate-400 hover:bg-slate-700 hover:text-white"
+              >
+                <ChevronUp className="h-5 w-5 rotate-45" />
+              </button>
+            </div>
+
+            <div className="grid max-h-[calc(92vh-90px)] gap-4 overflow-hidden p-5 lg:grid-cols-[420px_1fr]">
+              <div className="space-y-4 overflow-y-auto rounded-xl border border-slate-800 bg-slate-950/40 p-4">
+                <div>
+                  <label className="mb-1 block text-xs text-slate-400">Provider</label>
+                  <select
+                    value={mcpProvider}
+                    onChange={(e) => setMcpProvider(e.target.value as "discord" | "whatsapp" | "telegram")}
+                    className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
+                  >
+                    <option value="discord">Discord</option>
+                    <option value="whatsapp">WhatsApp</option>
+                    <option value="telegram">Telegram</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs text-slate-400">Dispatch Mode</label>
+                  <select
+                    value={mcpDispatchMode}
+                    onChange={(e) => setMcpDispatchMode(e.target.value as "simulate" | "live")}
+                    className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
+                  >
+                    <option value="simulate">Simulation</option>
+                    <option value="live">Live Dispatch</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs text-slate-400">Channel ID (Discord)</label>
+                  <input
+                    value={mcpChannelId}
+                    onChange={(e) => setMcpChannelId(e.target.value)}
+                    className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
+                    placeholder="e.g. 1234567890123456789"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs text-slate-400">Discord Invite (optional)</label>
+                  <input
+                    value={mcpDiscordInvite}
+                    onChange={(e) => setMcpDiscordInvite(e.target.value)}
+                    className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
+                    placeholder="https://discord.gg/..."
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs text-slate-400">MCP Tool</label>
+                  <select
+                    value={mcpTool}
+                    onChange={(e) =>
+                      setMcpTool(
+                        e.target.value as
+                          | "pill.get"
+                          | "capsule.get"
+                          | "mini_runtime.get"
+                          | "codex.entry"
+                          | "invite.create"
+                          | "share.compose"
+                          | "next.best"
+                      )
+                    }
+                    className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
+                  >
+                    <option value="next.best">next.best</option>
+                    <option value="pill.get">pill.get</option>
+                    <option value="capsule.get">capsule.get</option>
+                    <option value="mini_runtime.get">mini_runtime.get</option>
+                    <option value="codex.entry">codex.entry</option>
+                    <option value="invite.create">invite.create</option>
+                    <option value="share.compose">share.compose</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs text-slate-400">Intent / Message</label>
+                  <textarea
+                    value={mcpMessage}
+                    onChange={(e) => setMcpMessage(e.target.value)}
+                    className="h-28 w-full resize-none rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
+                    placeholder="I'd like to watch Qriptopian visual content."
+                  />
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => void runMcpToolFromInspector()}
+                    disabled={mcpLoading}
+                    className="rounded-lg border border-cyan-400/60 bg-cyan-400/10 px-3 py-2 text-sm font-semibold text-cyan-200 hover:bg-cyan-400/20 disabled:opacity-60"
+                  >
+                    Run MCP Tool
+                  </button>
+                  <button
+                    onClick={() => void runProviderDispatchSimulation()}
+                    disabled={mcpLoading}
+                    className="rounded-lg border border-emerald-400/60 bg-emerald-400/10 px-3 py-2 text-sm font-semibold text-emerald-200 hover:bg-emerald-400/20 disabled:opacity-60"
+                  >
+                    {mcpDispatchMode === "live" ? "Dispatch to Provider" : "Simulate Provider Dispatch"}
+                  </button>
+                  {mcpProvider === "discord" ? (
+                    <button
+                      onClick={() => void checkDiscordConnectionStatus()}
+                      disabled={mcpDiscordStatusLoading}
+                      className="rounded-lg border border-violet-400/60 bg-violet-400/10 px-3 py-2 text-sm font-semibold text-violet-200 hover:bg-violet-400/20 disabled:opacity-60"
+                    >
+                      {mcpDiscordStatusLoading ? "Checking Discord..." : "Check Discord Connection"}
+                    </button>
+                  ) : null}
+                </div>
+
+                {mcpProvider === "discord" && mcpDiscordStatus ? (
+                  <div className="rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-xs">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-slate-300">
+                        Discord status:{" "}
+                        <span className={mcpDiscordStatus.ready ? "text-emerald-300" : "text-amber-300"}>
+                          {mcpDiscordStatus.ready ? "Ready" : "Not ready"}
+                        </span>
+                      </span>
+                      {mcpDiscordStatus.details?.channelId ? (
+                        <span className="text-slate-400">Channel: {mcpDiscordStatus.details.channelId}</span>
+                      ) : null}
+                    </div>
+                    <div className="mt-1 text-slate-400">
+                      Bot: {mcpDiscordStatus.details?.botName || "unknown"} · Channel Access:{" "}
+                      {mcpDiscordStatus.checks?.channelAccess ? "yes" : "no"}
+                    </div>
+                    {mcpDiscordStatus.errors?.channelAccess ? (
+                      <div className="mt-1 text-rose-300">{mcpDiscordStatus.errors.channelAccess}</div>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {mcpError && (
+                  <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
+                    {mcpError}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex min-h-[420px] max-h-[calc(92vh-130px)] flex-col overflow-hidden rounded-xl border border-slate-800 bg-slate-950/50 p-4">
+                <div className="mb-2 flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-white">Inspector Output</h3>
+                  <div className="flex items-center gap-2">
+                    <div className="inline-flex rounded-md border border-slate-700 bg-slate-900/70 p-0.5">
+                      <button
+                        type="button"
+                        onClick={() => setInspectorRenderMode("card")}
+                        className={`rounded px-2 py-1 text-[11px] ${
+                          inspectorRenderMode === "card"
+                            ? "bg-cyan-500/20 text-cyan-200"
+                            : "text-slate-400 hover:text-slate-200"
+                        }`}
+                      >
+                        Card
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setInspectorRenderMode("thread")}
+                        className={`rounded px-2 py-1 text-[11px] ${
+                          inspectorRenderMode === "thread"
+                            ? "bg-cyan-500/20 text-cyan-200"
+                            : "text-slate-400 hover:text-slate-200"
+                        }`}
+                      >
+                        Thread Mock
+                      </button>
+                    </div>
+                    {mcpLoading && <span className="text-xs text-slate-400">Running...</span>}
+                  </div>
+                </div>
+                <div className="mb-3 rounded-xl border border-slate-700/80 bg-slate-900/80 p-4">
+                  <div className="mb-2 flex items-center justify-between">
+                    <div className="text-[11px] uppercase tracking-wider text-slate-400">
+                      Destination Preview · {inspectorPreview.providerLabel}
+                    </div>
+                    {inspectorPreview.depth ? (
+                      <span className="rounded-full border border-cyan-500/40 bg-cyan-500/10 px-2 py-0.5 text-[10px] uppercase text-cyan-200">
+                        {inspectorPreview.depth}
+                      </span>
+                    ) : null}
+                  </div>
+                  {inspectorRenderMode === "card" ? (
+                    <div className="min-w-[280px] max-w-[360px] h-[206px] overflow-hidden rounded-2xl border border-white/15">
+                      <div className="relative h-full w-full">
+                        {inspectorPreview.thumbnailUri ? (
+                          inspectorPreview.thumbnailType === "video" ? (
+                            <video
+                              src={inspectorPreview.thumbnailUri}
+                              className="h-full w-full object-cover"
+                              muted
+                              playsInline
+                              preload="metadata"
+                            />
+                          ) : (
+                            <img
+                              src={inspectorPreview.thumbnailUri}
+                              alt={`${inspectorPreview.title} thumbnail`}
+                              className="h-full w-full object-cover"
+                              loading="lazy"
+                            />
+                          )
+                        ) : (
+                          <div className="h-full w-full bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" />
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-900/35 to-slate-900/20" />
+                        <div className="absolute inset-x-0 top-0 p-3 flex items-start justify-between gap-2">
+                          <span
+                            className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide ${
+                              inspectorSourceBadge === "Codex"
+                                ? "border-cyan-300/45 bg-cyan-500/20 text-cyan-100"
+                              : inspectorSourceBadge === "Experience"
+                                  ? "border-violet-300/45 bg-violet-500/20 text-violet-100"
+                                  : "border-emerald-300/45 bg-emerald-500/20 text-emerald-100"
+                            }`}
+                          >
+                            {inspectorSourceBadge}
+                          </span>
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              className="rounded-full border border-white/20 bg-slate-900/60 p-1.5 text-white/80 hover:text-white"
+                              title="Launch"
+                            >
+                              <PlayCircle className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              className="rounded-full border border-white/20 bg-slate-900/60 p-1.5 text-white/80 hover:text-white"
+                              title="Preview"
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              className="rounded-full border border-white/20 bg-slate-900/60 p-1.5 text-white/80 hover:text-white"
+                              title="Share"
+                            >
+                              <Share2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                        <div className="absolute inset-x-0 bottom-0 p-3 space-y-2">
+                          <h4 className="line-clamp-1 text-sm font-semibold text-white">{inspectorPreview.title}</h4>
+                          <p className="line-clamp-2 text-[11px] text-slate-200/85">{inspectorPreview.body}</p>
+                          <div className="flex items-center gap-2 text-[10px] text-slate-200/75">
+                            <span className="rounded-full border border-white/15 bg-white/10 px-2 py-0.5 uppercase tracking-wide">
+                              {inspectorPreview.providerLabel}
+                            </span>
+                            {inspectorPreview.depth ? (
+                              <span className="rounded-full border border-cyan-300/35 bg-cyan-500/15 px-2 py-0.5 text-cyan-100">
+                                {inspectorPreview.depth}
+                              </span>
+                            ) : null}
+                            {inspectorPreview.ctaLabel ? (
+                              <span className="rounded-full border border-emerald-300/35 bg-emerald-500/15 px-2 py-0.5 text-emerald-100">
+                                {inspectorPreview.ctaLabel}
+                              </span>
+                            ) : null}
+                          </div>
+                          <div className="h-1 w-full overflow-hidden rounded-full bg-white/15">
+                            <div className="h-full w-1/3 bg-gradient-to-r from-cyan-400 to-violet-400" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border border-slate-700 bg-slate-950/80 p-3">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-[11px] text-slate-400">
+                          <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-indigo-500/30 text-[10px] font-semibold text-indigo-200">
+                            M
+                          </span>
+                          <span className="font-medium text-slate-300">metaMe Bot</span>
+                          <span>just now</span>
+                        </div>
+                        <div className="max-w-[95%] rounded-xl border border-slate-700 bg-slate-900/90 px-3 py-2">
+                          {inspectorPreview.thumbnailUri ? (
+                            <div className="mb-2 overflow-hidden rounded-md border border-slate-700/90 bg-slate-900">
+                              {inspectorPreview.thumbnailType === "video" ? (
+                                <video
+                                  src={inspectorPreview.thumbnailUri}
+                                  className="h-24 w-full object-cover"
+                                  muted
+                                  playsInline
+                                  preload="metadata"
+                                />
+                              ) : (
+                                <img
+                                  src={inspectorPreview.thumbnailUri}
+                                  alt={`${inspectorPreview.title} thumbnail`}
+                                  className="h-24 w-full object-cover"
+                                  loading="lazy"
+                                />
+                              )}
+                            </div>
+                          ) : null}
+                          <div className="text-sm font-semibold text-white">{inspectorPreview.title}</div>
+                          <div className="mt-1 text-xs leading-relaxed text-slate-300">{inspectorPreview.body}</div>
+                          {inspectorPreview.shareText ? (
+                            <div className="mt-2 text-[11px] text-slate-400">{inspectorPreview.shareText}</div>
+                          ) : null}
+                          {inspectorPreview.ctaLabel ? (
+                            <button
+                              type="button"
+                              className="mt-3 rounded-md border border-emerald-500/50 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-200"
+                            >
+                              {inspectorPreview.ctaLabel}
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 overflow-y-auto rounded-lg border border-slate-800 bg-slate-950/70 p-3">
+                  <pre className="whitespace-pre-wrap break-words text-xs text-slate-200">
+                    {mcpResult ? JSON.stringify(mcpResult, null, 2) : "Run a tool or dispatch simulation to inspect payloads."}
+                  </pre>
                 </div>
               </div>
             </div>

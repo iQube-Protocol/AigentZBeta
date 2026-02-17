@@ -35,10 +35,14 @@ export async function GET(request: NextRequest) {
     const enabledFilter = searchParams.get('enabled');
     const ownerFilter = searchParams.get('owner');
     const useDefaults = searchParams.get('defaults') === 'true';
+    const allowOverrides = searchParams.get('allowOverrides') === 'true';
 
     // If defaults flag is set, return defaults with DB overrides when available
     if (useDefaults) {
-      const packCodexes = await loadPackCodexes();
+      let packCodexes = await loadPackCodexes();
+      if (!allowOverrides) {
+        packCodexes = packCodexes.filter((codex) => codex.id !== 'knyt-codex');
+      }
       const packIds = new Set(packCodexes.map(codex => codex.id));
       let codexes = [...packCodexes, ...CODEX_DEFINITIONS.filter(codex => !packIds.has(codex.id))];
       
@@ -84,6 +88,9 @@ export async function GET(request: NextRequest) {
         }, {} as Record<string, number>);
 
         (dbConfigs || []).forEach((c) => {
+          if (!allowOverrides && c.id === 'knyt-codex') {
+            return;
+          }
           mergedById.set(c.id, {
             id: c.id,
             name: c.name,
