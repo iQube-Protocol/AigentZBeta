@@ -21,6 +21,8 @@ import {
   Eye,
   Headphones,
   Hexagon,
+  Maximize2,
+  Minimize2,
   Pencil,
   PlayCircle,
   RefreshCw,
@@ -787,6 +789,7 @@ export default function MetaMeRuntimeClient() {
   const [showAgentSelector, setShowAgentSelector] = useState(false);
   const [showModelSelector, setShowModelSelector] = useState(false);
   const [showWelcome, setShowWelcome] = useState(true);
+  const [isRuntimeFullscreen, setIsRuntimeFullscreen] = useState(false);
   const [welcomePrompt, setWelcomePrompt] = useState("");
   const [showWelcomeQuickLinks, setShowWelcomeQuickLinks] = useState(false);
   const quickLinksHideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -974,6 +977,7 @@ export default function MetaMeRuntimeClient() {
     await fetchRuntimeData();
     setMessages([]);
     setShowWelcome(true);
+    setIsRuntimeFullscreen(false);
     setWelcomePrompt("");
     setShowWelcomeQuickLinks(false);
     setSelectedCapsuleLocal(null);
@@ -1356,6 +1360,12 @@ export default function MetaMeRuntimeClient() {
         void resetRuntime();
         return;
       }
+      if (trimmed === "__runtime_toggle_fullscreen__") {
+        const nextFullscreen = !isRuntimeFullscreen;
+        setIsRuntimeFullscreen(nextFullscreen);
+        toast(nextFullscreen ? "Native preview enabled" : "Native preview disabled", "info");
+        return;
+      }
 
       const intent = inferIntent(trimmed);
       let workingContents = allContents;
@@ -1429,9 +1439,11 @@ export default function MetaMeRuntimeClient() {
       buildRuntimeCapsulePanel,
       capsulePanel,
       fetchRuntimeCapsules,
+      isRuntimeFullscreen,
       refreshRuntime,
       resetRuntime,
       selectedCapsuleLocal,
+      toast,
     ]
   );
 
@@ -1475,8 +1487,15 @@ export default function MetaMeRuntimeClient() {
         iconOnly: true,
         skipInference: true,
       },
+      {
+        label: isRuntimeFullscreen ? "Exit native preview" : "Open native preview",
+        prompt: "__runtime_toggle_fullscreen__",
+        icon: isRuntimeFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />,
+        iconOnly: true,
+        skipInference: true,
+      },
     ],
-    []
+    [isRuntimeFullscreen]
   );
 
   const providerBaseScore = useMemo(() => {
@@ -1786,17 +1805,21 @@ export default function MetaMeRuntimeClient() {
         showWelcomeQuickLinks ? "opacity-100" : "opacity-0"
       }`}
     >
-      <div className="pointer-events-auto mx-auto flex w-full items-center justify-between rounded-2xl border border-white/10 bg-slate-950/80 px-3 py-2">
-        {quickPrompts.map((promptItem, index) => (
-          <button
-            key={`welcome-quick-${index}`}
-            title={promptItem.label}
-            className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-white/70 transition hover:border-white/30 hover:text-white"
-            onClick={() => void handlePrompt(promptItem.prompt ?? promptItem.label)}
-          >
-            {promptItem.icon}
-          </button>
-        ))}
+      <div className="pointer-events-auto mx-auto w-full rounded-2xl border border-white/10 bg-slate-950/80 px-3 py-2">
+        <div className="overflow-x-auto no-scrollbar md:overflow-visible">
+          <div className="flex w-max min-w-full snap-x snap-mandatory items-center gap-2 md:w-full md:min-w-0 md:snap-none">
+            {quickPrompts.map((promptItem, index) => (
+              <button
+                key={`welcome-quick-${index}`}
+                title={promptItem.label}
+                className="snap-start shrink-0 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-white/70 transition hover:border-white/30 hover:text-white md:min-w-0 md:flex-1"
+                onClick={() => void handlePrompt(promptItem.prompt ?? promptItem.label)}
+              >
+                {promptItem.icon}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -1826,6 +1849,17 @@ export default function MetaMeRuntimeClient() {
       clearQuickLinksHideTimeout();
     };
   }, [clearQuickLinksHideTimeout]);
+
+  useEffect(() => {
+    if (!isRuntimeFullscreen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsRuntimeFullscreen(false);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isRuntimeFullscreen]);
 
   const welcomeSurface = (
     <div className="relative h-full w-full rounded-[5px] bg-slate-950 text-white overflow-hidden flex flex-col">
@@ -1881,16 +1915,26 @@ export default function MetaMeRuntimeClient() {
     </div>
   );
 
+  const runtimeDeviceWidthClass =
+    activeDevice === "desktop"
+      ? "w-full"
+      : activeDevice === "tablet"
+        ? "mx-auto w-full max-w-[860px]"
+        : "mx-auto w-full max-w-[430px]";
+
   if (embedMode) {
-    const embedWidthClass =
-      defaultDevice === "desktop"
-        ? "w-full"
-        : defaultDevice === "tablet"
-          ? "mx-auto w-full max-w-[860px]"
-          : "mx-auto w-full max-w-[430px]";
+    const embedWidthClass = isRuntimeFullscreen ? "w-full" : runtimeDeviceWidthClass;
     return (
       <div className="h-full w-full bg-slate-950 p-0">
         <div className={`h-full ${embedWidthClass}`}>{showWelcome ? welcomeSurface : runtimeSurface}</div>
+      </div>
+    );
+  }
+
+  if (isRuntimeFullscreen) {
+    return (
+      <div className="fixed inset-0 z-[120] bg-slate-950 p-0">
+        <div className={`h-full ${runtimeDeviceWidthClass}`}>{showWelcome ? welcomeSurface : runtimeSurface}</div>
       </div>
     );
   }

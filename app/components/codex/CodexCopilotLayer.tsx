@@ -576,14 +576,15 @@ export function CodexCopilotLayer({
                           >
                             <div className={inputPanelClassName ?? "rounded-2xl border border-white/10 bg-slate-950/80 backdrop-blur-xl px-3 py-3 shadow-lg"}>
                               {quickPrompts && quickPrompts.length > 0 && !quickPromptsCollapsed && (
-                                <div className="mb-3 flex w-full gap-2 overflow-x-auto no-scrollbar">
+                                <div className="mb-3 overflow-x-auto no-scrollbar md:overflow-visible">
+                                  <div className="flex w-max min-w-full snap-x snap-mandatory gap-2 md:w-full md:min-w-0 md:snap-none">
                                   {quickPrompts.map((promptItem, index) => {
                                     if (typeof promptItem === "string") {
                                       return (
                                         <button
                                           key={`${promptItem}-${index}`}
                                           onClick={() => sendMessage(promptItem)}
-                                          className="flex-1 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/70 hover:text-white hover:border-white/30 flex items-center justify-center"
+                                          className="snap-start shrink-0 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/70 hover:text-white hover:border-white/30 flex items-center justify-center md:min-w-0 md:flex-1"
                                         >
                                           {promptItem}
                                         </button>
@@ -596,13 +597,14 @@ export function CodexCopilotLayer({
                                         key={promptItem.id || `${label}-${index}`}
                                         onClick={() => sendMessage(promptValue, { skipInference: promptItem.skipInference })}
                                         title={label}
-                                        className="flex-1 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/70 hover:text-white hover:border-white/30 flex items-center justify-center gap-2"
+                                        className="snap-start shrink-0 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/70 hover:text-white hover:border-white/30 flex items-center justify-center gap-2 min-w-[42px] md:min-w-0 md:flex-1"
                                       >
                                         {promptItem.icon ? promptItem.icon : label}
                                         {promptItem.iconOnly ? <span className="sr-only">{label}</span> : label}
                                       </button>
                                     );
                                   })}
+                                  </div>
                                 </div>
                               )}
                               <div className="flex gap-2">
