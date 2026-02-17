@@ -1171,7 +1171,7 @@ export const ComposerStudio = () => {
   >("next.best");
   const [mcpProvider, setMcpProvider] = useState<"discord" | "whatsapp" | "telegram">("discord");
   const [mcpDispatchMode, setMcpDispatchMode] = useState<"simulate" | "live">("simulate");
-  const [mcpChannelId, setMcpChannelId] = useState("");
+  const [mcpChannelId, setMcpChannelId] = useState("886793716273119252");
   const [mcpDiscordInvite, setMcpDiscordInvite] = useState("https://discord.gg/Gzg9wDMVSB");
   const [mcpMessage, setMcpMessage] = useState("Show me a visual-first Qriptopian reading sprint.");
   const [mcpResult, setMcpResult] = useState<any>(null);

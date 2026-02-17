@@ -38,6 +38,7 @@ async function fetchJson(url: string, init?: RequestInit) {
 
 export async function GET(request: NextRequest) {
   try {
+    const routeVersion = "discord-status-v2";
     const botToken = normalizeString(process.env.DISCORD_BOT_TOKEN);
     const queryChannelRaw = normalizeString(request.nextUrl.searchParams.get("channelId"));
     const queryChannelId = isDiscordSnowflake(queryChannelRaw) ? queryChannelRaw : "";
@@ -62,6 +63,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         success: false,
         provider: "discord",
+        routeVersion,
         ready: false,
         checks: {
           botToken: false,
@@ -76,6 +78,10 @@ export async function GET(request: NextRequest) {
         },
         warnings: {
           invalidChannelIdInput: invalidChannelIdInput ? "Ignoring non-numeric channelId override." : null,
+        },
+        debug: {
+          queryChannelRaw: queryChannelRaw || null,
+          envChannelRaw: envChannelRaw || null,
         },
         error: "DISCORD_BOT_TOKEN is missing.",
       });
@@ -107,6 +113,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       provider: "discord",
+      routeVersion,
       ready,
       checks: {
         botToken: true,
@@ -125,6 +132,10 @@ export async function GET(request: NextRequest) {
       },
       warnings: {
         invalidChannelIdInput: invalidChannelIdInput ? "Ignoring non-numeric channelId override." : null,
+      },
+      debug: {
+        queryChannelRaw: queryChannelRaw || null,
+        envChannelRaw: envChannelRaw || null,
       },
       errors: {
         botIdentity: botIdentityOk ? null : normalizeString(me.data?.message) || "Failed to validate bot token.",
