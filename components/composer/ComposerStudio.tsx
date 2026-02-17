@@ -912,18 +912,36 @@ export const ComposerStudio = () => {
   const checkDiscordConnectionStatus = async () => {
     setMcpDiscordStatusLoading(true);
     setMcpError(null);
+    setMcpDiscordStatusMessage("Checking Discord connection...");
     try {
       const params = new URLSearchParams();
       if (mcpChannelId.trim().length > 0) params.set("channelId", mcpChannelId.trim());
       if (mcpDiscordInvite.trim().length > 0) params.set("inviteUrl", mcpDiscordInvite.trim());
       const res = await fetch(`/api/messenger/discord/status?${params.toString()}`, { cache: "no-store" });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data?.error || "Failed to check Discord connection");
+      if (!res.ok || data?.success === false) {
+        const err = data?.error || "Failed to check Discord connection";
+        setMcpDiscordStatus(data || null);
+        setMcpDiscordStatusState("fail");
+        setMcpDiscordStatusMessage(`Discord check failed: ${err}`);
+        setMcpResult({
+          mode: "discord-status",
+          output: data,
+        });
+        throw new Error(err);
       }
       setMcpDiscordStatus(data);
+      setMcpDiscordStatusState(data?.ready ? "ok" : "fail");
+      setMcpDiscordStatusMessage(
+        data?.ready
+          ? "Discord connection verified. Ready for live dispatch."
+          : "Discord reachable but not fully ready. See details below."
+      );
+      setMcpResult({
+        mode: "discord-status",
+        output: data,
+      });
     } catch (error: any) {
-      setMcpDiscordStatus(null);
       setMcpError(error?.message || "Failed to check Discord connection");
     } finally {
       setMcpDiscordStatusLoading(false);
@@ -1157,6 +1175,8 @@ export const ComposerStudio = () => {
   const [mcpLoading, setMcpLoading] = useState(false);
   const [mcpDiscordStatusLoading, setMcpDiscordStatusLoading] = useState(false);
   const [mcpDiscordStatus, setMcpDiscordStatus] = useState<any>(null);
+  const [mcpDiscordStatusState, setMcpDiscordStatusState] = useState<"idle" | "ok" | "fail">("idle");
+  const [mcpDiscordStatusMessage, setMcpDiscordStatusMessage] = useState("Not checked yet.");
   const [inspectorFetchedMedia, setInspectorFetchedMedia] = useState<InspectorMediaPreview | null>(null);
   const [inspectorRenderMode, setInspectorRenderMode] = useState<"card" | "thread">("card");
   const inspectorMediaPreview = useMemo(() => {
@@ -1242,6 +1262,13 @@ export const ComposerStudio = () => {
 
     return base;
   }, [mcpResult, mcpExperience?.name, mcpMessage, mcpProvider, inspectorMediaPreview]);
+
+  useEffect(() => {
+    if (mcpProvider !== "discord") return;
+    setMcpDiscordStatusState("idle");
+    setMcpDiscordStatusMessage("Not checked yet.");
+    setMcpDiscordStatus(null);
+  }, [mcpProvider, mcpChannelId, mcpDiscordInvite]);
 
   useEffect(() => {
     let cancelled = false;
@@ -4039,7 +4066,7 @@ Example: 'What template works best for a dashboard layout?'"
             </div>
 
             <div className="grid max-h-[calc(92vh-90px)] gap-4 overflow-hidden p-5 lg:grid-cols-[420px_1fr]">
-              <div className="space-y-4 overflow-y-auto rounded-xl border border-slate-800 bg-slate-950/40 p-4">
+              <div className="max-h-[calc(92vh-130px)] space-y-4 overflow-y-auto rounded-xl border border-slate-800 bg-slate-950/40 p-4">
                 <div>
                   <label className="mb-1 block text-xs text-slate-400">Provider</label>
                   <select
@@ -4125,6 +4152,7 @@ Example: 'What template works best for a dashboard layout?'"
 
                 <div className="flex flex-wrap gap-2">
                   <button
+                    type="button"
                     onClick={() => void runMcpToolFromInspector()}
                     disabled={mcpLoading}
                     className="rounded-lg border border-cyan-400/60 bg-cyan-400/10 px-3 py-2 text-sm font-semibold text-cyan-200 hover:bg-cyan-400/20 disabled:opacity-60"
@@ -4132,6 +4160,7 @@ Example: 'What template works best for a dashboard layout?'"
                     Run MCP Tool
                   </button>
                   <button
+                    type="button"
                     onClick={() => void runProviderDispatchSimulation()}
                     disabled={mcpLoading}
                     className="rounded-lg border border-emerald-400/60 bg-emerald-400/10 px-3 py-2 text-sm font-semibold text-emerald-200 hover:bg-emerald-400/20 disabled:opacity-60"
@@ -4140,6 +4169,7 @@ Example: 'What template works best for a dashboard layout?'"
                   </button>
                   {mcpProvider === "discord" ? (
                     <button
+                      type="button"
                       onClick={() => void checkDiscordConnectionStatus()}
                       disabled={mcpDiscordStatusLoading}
                       className="rounded-lg border border-violet-400/60 bg-violet-400/10 px-3 py-2 text-sm font-semibold text-violet-200 hover:bg-violet-400/20 disabled:opacity-60"
@@ -4169,6 +4199,20 @@ Example: 'What template works best for a dashboard layout?'"
                     {mcpDiscordStatus.errors?.channelAccess ? (
                       <div className="mt-1 text-rose-300">{mcpDiscordStatus.errors.channelAccess}</div>
                     ) : null}
+                  </div>
+                ) : null}
+
+                {mcpProvider === "discord" ? (
+                  <div
+                    className={`rounded-lg border px-3 py-2 text-xs ${
+                      mcpDiscordStatusState === "ok"
+                        ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
+                        : mcpDiscordStatusState === "fail"
+                          ? "border-amber-500/30 bg-amber-500/10 text-amber-200"
+                          : "border-slate-700 bg-slate-900/60 text-slate-300"
+                    }`}
+                  >
+                    {mcpDiscordStatusMessage}
                   </div>
                 ) : null}
 
