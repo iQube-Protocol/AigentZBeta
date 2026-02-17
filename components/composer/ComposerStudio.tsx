@@ -878,6 +878,8 @@ export const ComposerStudio = () => {
     setMcpLoading(true);
     setMcpError(null);
     try {
+      const manualChannelId = mcpChannelId.trim();
+      const normalizedChannelId = /^\d+$/.test(manualChannelId) ? manualChannelId : "";
       const res = await fetch("/api/messenger/dispatch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -888,7 +890,7 @@ export const ComposerStudio = () => {
           experienceId: mcpExperience.id,
           personaId: userId,
           message: mcpMessage,
-          channelId: mcpChannelId,
+          channelId: normalizedChannelId,
           inviteUrl: mcpDiscordInvite,
           campaignId: "experience-distribution-demo",
         }),
@@ -914,8 +916,10 @@ export const ComposerStudio = () => {
     setMcpError(null);
     setMcpDiscordStatusMessage("Checking Discord connection...");
     try {
+      const manualChannelId = mcpChannelId.trim();
+      const normalizedChannelId = /^\d+$/.test(manualChannelId) ? manualChannelId : "";
       const params = new URLSearchParams();
-      if (mcpChannelId.trim().length > 0) params.set("channelId", mcpChannelId.trim());
+      if (normalizedChannelId.length > 0) params.set("channelId", normalizedChannelId);
       if (mcpDiscordInvite.trim().length > 0) params.set("inviteUrl", mcpDiscordInvite.trim());
       const res = await fetch(`/api/messenger/discord/status?${params.toString()}`, { cache: "no-store" });
       const data = await res.json().catch(() => ({}));
@@ -1167,7 +1171,7 @@ export const ComposerStudio = () => {
   >("next.best");
   const [mcpProvider, setMcpProvider] = useState<"discord" | "whatsapp" | "telegram">("discord");
   const [mcpDispatchMode, setMcpDispatchMode] = useState<"simulate" | "live">("simulate");
-  const [mcpChannelId, setMcpChannelId] = useState("metaknyts-discord-demo");
+  const [mcpChannelId, setMcpChannelId] = useState("");
   const [mcpDiscordInvite, setMcpDiscordInvite] = useState("https://discord.gg/Gzg9wDMVSB");
   const [mcpMessage, setMcpMessage] = useState("Show me a visual-first Qriptopian reading sprint.");
   const [mcpResult, setMcpResult] = useState<any>(null);
@@ -4093,12 +4097,12 @@ Example: 'What template works best for a dashboard layout?'"
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-xs text-slate-400">Channel ID (Discord)</label>
+                  <label className="mb-1 block text-xs text-slate-400">Channel ID (Discord, numeric)</label>
                   <input
                     value={mcpChannelId}
                     onChange={(e) => setMcpChannelId(e.target.value)}
                     className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
-                    placeholder="e.g. 1234567890123456789"
+                    placeholder="Optional override, e.g. 1234567890123456789"
                   />
                 </div>
 

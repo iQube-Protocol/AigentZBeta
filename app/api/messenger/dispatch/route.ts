@@ -16,6 +16,10 @@ function normalizeString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+function isDiscordSnowflake(value: string): boolean {
+  return /^\d{17,20}$/.test(value);
+}
+
 function extractDiscordInviteCode(value: string): string | null {
   const raw = normalizeString(value);
   if (!raw) return null;
@@ -209,18 +213,24 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      let channelId = normalizeString(body?.channelId) || normalizeString(process.env.DISCORD_METAKNYTS_CHANNEL_ID);
+      const inputChannelRaw = normalizeString(body?.channelId);
+      const inputChannelId = isDiscordSnowflake(inputChannelRaw) ? inputChannelRaw : '';
+      const envChannelRaw = normalizeString(process.env.DISCORD_METAKNYTS_CHANNEL_ID);
+      const envChannelId = isDiscordSnowflake(envChannelRaw) ? envChannelRaw : '';
+      let channelId = inputChannelId || envChannelId;
       const inviteCode = extractDiscordInviteCode(String(body?.inviteUrl || body?.inviteCode || ''));
       if (!channelId && inviteCode) {
         channelId = (await resolveDiscordChannelFromInvite(inviteCode)) || '';
       }
 
       if (!channelId) {
+        const hasInvalidInput = Boolean(inputChannelRaw) && !inputChannelId;
         return NextResponse.json(
           {
             success: false,
-            error:
-              'Missing Discord channel id. Provide channelId in request or set DISCORD_METAKNYTS_CHANNEL_ID.',
+            error: hasInvalidInput
+              ? 'Invalid Discord channel id format. Use a numeric channel id (Snowflake) or clear the field to use DISCORD_METAKNYTS_CHANNEL_ID.'
+              : 'Missing Discord channel id. Provide channelId in request or set DISCORD_METAKNYTS_CHANNEL_ID.',
           },
           { status: 400 }
         );

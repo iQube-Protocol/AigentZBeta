@@ -8,6 +8,10 @@ function normalizeString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function isDiscordSnowflake(value: string): boolean {
+  return /^\d{17,20}$/.test(value);
+}
+
 function extractDiscordInviteCode(value: string): string | null {
   const raw = normalizeString(value);
   if (!raw) return null;
@@ -35,9 +39,12 @@ async function fetchJson(url: string, init?: RequestInit) {
 export async function GET(request: NextRequest) {
   try {
     const botToken = normalizeString(process.env.DISCORD_BOT_TOKEN);
-    const queryChannelId = normalizeString(request.nextUrl.searchParams.get("channelId"));
+    const queryChannelRaw = normalizeString(request.nextUrl.searchParams.get("channelId"));
+    const queryChannelId = isDiscordSnowflake(queryChannelRaw) ? queryChannelRaw : "";
+    const invalidChannelIdInput = Boolean(queryChannelRaw) && !queryChannelId;
     const queryInvite = normalizeString(request.nextUrl.searchParams.get("inviteUrl"));
-    const envChannelId = normalizeString(process.env.DISCORD_METAKNYTS_CHANNEL_ID);
+    const envChannelRaw = normalizeString(process.env.DISCORD_METAKNYTS_CHANNEL_ID);
+    const envChannelId = isDiscordSnowflake(envChannelRaw) ? envChannelRaw : "";
 
     const inviteCode = extractDiscordInviteCode(queryInvite);
     let resolvedChannelId = queryChannelId || envChannelId;
@@ -66,6 +73,9 @@ export async function GET(request: NextRequest) {
           channelId: resolvedChannelId || null,
           inviteChannelId,
           inviteGuildId,
+        },
+        warnings: {
+          invalidChannelIdInput: invalidChannelIdInput ? "Ignoring non-numeric channelId override." : null,
         },
         error: "DISCORD_BOT_TOKEN is missing.",
       });
@@ -113,6 +123,9 @@ export async function GET(request: NextRequest) {
         inviteChannelId,
         inviteGuildId,
       },
+      warnings: {
+        invalidChannelIdInput: invalidChannelIdInput ? "Ignoring non-numeric channelId override." : null,
+      },
       errors: {
         botIdentity: botIdentityOk ? null : normalizeString(me.data?.message) || "Failed to validate bot token.",
         channelAccess: channelError,
@@ -130,4 +143,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-
