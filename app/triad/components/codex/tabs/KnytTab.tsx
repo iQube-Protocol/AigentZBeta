@@ -1038,8 +1038,8 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
     );
   }
 
-  // Legacy cards loading/error states
-  if (cardsLoading) {
+  // Legacy cards loading/error states (legacy fallback only)
+  if (activeTab !== 'codex' && cardsLoading) {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center space-y-4">
@@ -1050,7 +1050,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
     );
   }
 
-  if (cardsError) {
+  if (activeTab !== 'codex' && cardsError) {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center space-y-4">
