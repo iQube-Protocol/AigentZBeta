@@ -893,6 +893,9 @@ export const ComposerStudio = () => {
           message: mcpMessage,
           channelId: normalizedChannelId,
           inviteUrl: mcpDiscordInvite,
+          publishUrl: `/studio/composer/experience/${encodeURIComponent(mcpExperience.id)}`,
+          thumbnailUrl: inspectorMediaPreview?.uri || "",
+          titleOverride: mcpExperience.name || "",
           campaignId: "experience-distribution-demo",
         }),
       });

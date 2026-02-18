@@ -86,22 +86,34 @@ async function postDiscordMessages(params: {
   channelId: string;
   botToken: string;
   content: string;
+  embed?: {
+    title?: string;
+    description?: string;
+    url?: string;
+    image?: { url: string };
+    footer?: { text: string };
+  } | null;
 }): Promise<{ messageIds: string[] }> {
   const segments = chunkDiscordContent(params.content);
   if (segments.length === 0) return { messageIds: [] };
 
   const messageIds: string[] = [];
-  for (const segment of segments) {
+  for (let index = 0; index < segments.length; index += 1) {
+    const segment = segments[index];
+    const payload: Record<string, unknown> = {
+      content: segment,
+      allowed_mentions: { parse: [] },
+    };
+    if (index === 0 && params.embed) {
+      payload.embeds = [params.embed];
+    }
     const res = await fetch(`${DISCORD_API_BASE}/channels/${params.channelId}/messages`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bot ${params.botToken}`,
       },
-      body: JSON.stringify({
-        content: segment,
-        allowed_mentions: { parse: [] },
-      }),
+      body: JSON.stringify(payload),
       cache: 'no-store',
     });
     const data = await res.json().catch(() => ({}));
@@ -206,6 +218,18 @@ export async function POST(request: NextRequest) {
       primaryCta?.target === 'url'
         ? toAbsoluteUrl(request.nextUrl.origin, String(primaryCta.value || ''))
         : `${request.nextUrl.origin}/studio/composer/experience/${encodeURIComponent(experienceId)}`;
+    const publishUrlInput = normalizeString(body?.publishUrl);
+    const publishUrl = publishUrlInput ? toAbsoluteUrl(request.nextUrl.origin, publishUrlInput) : ctaUrl;
+    const thumbnailInput = normalizeString(body?.thumbnailUrl);
+    const thumbnailUrlRaw = thumbnailInput ? toAbsoluteUrl(request.nextUrl.origin, thumbnailInput) : '';
+    const thumbnailUrl = /^https?:\/\//i.test(thumbnailUrlRaw) ? thumbnailUrlRaw : '';
+    const embed = {
+      title: normalizeString(body?.titleOverride) || mcpResponse.artifact.title || `ExperienceQube ${experienceId}`,
+      description: mcpResponse.artifact.body?.slice(0, 4000) || undefined,
+      url: publishUrl || undefined,
+      image: thumbnailUrl ? { url: thumbnailUrl } : undefined,
+      footer: { text: `ExperienceQube • ${experienceId}` },
+    };
     const openLine = ctaUrl ? `Open ExperienceQube: ${ctaUrl}` : '';
 
     const providerDispatch = {
@@ -214,6 +238,8 @@ export async function POST(request: NextRequest) {
       kind: 'experience_qube',
       tool,
       ctaUrl,
+      publishUrl,
+      embed,
       text: [mcpResponse.artifact.title, mcpResponse.artifact.body, openLine, mcpResponse.artifact.share_text]
         .filter(Boolean)
         .join('\n\n'),
@@ -273,6 +299,7 @@ export async function POST(request: NextRequest) {
         channelId,
         botToken,
         content: providerDispatch.text,
+        embed,
       });
 
       liveDispatch = {
