@@ -172,72 +172,80 @@ export default function CodexPanelDynamic({
     );
   }
 
+  const displayCodexName = codex.name.replace(/\s+codex$/i, '').trim() || codex.name;
+  const tabBadgeText = (tab: CodexTab) => {
+    const rawBadge = typeof tab.metadata?.badge === 'string' ? tab.metadata.badge : '';
+    if (codexId === 'knyt-codex' && (tab.slug === 'scrolls' || tab.slug === 'characters')) {
+      const numeric = rawBadge.match(/\d+/)?.[0];
+      return numeric || '';
+    }
+    return rawBadge;
+  };
+
   return (
     <SmartTriadProvider personaId={personaId}>
       <div className={`flex flex-col h-full w-full ${theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'}`}>
-        <div className="flex-shrink-0 border-b border-slate-700/50 p-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold flex items-center gap-2">
-              {codex.metadata.icon && React.createElement(
-                getIconComponent(codex.metadata.icon),
-                { className: `w-5 h-5 text-${codex.metadata.color || 'indigo'}-400` }
-              )}
-              {codex.name}
-            </h2>
-            <div className="flex items-center gap-3">
-              {isQriptopian && (
-                <select
-                  value={issueSlug}
-                  onChange={(e) => {
-                    const next = e.target.value;
-                    setIssueSlug(next);
-                    const params = new URLSearchParams(window.location.search);
-                    params.set('issue', next);
-                    router.replace(`${pathname}?${params.toString()}`);
-                  }}
-                  disabled={issueOptionsLoading && issueOptions.length === 0}
-                  className="rounded-md border border-slate-700 bg-slate-900/60 px-2 py-1 text-sm text-slate-200"
-                >
-                  {(issueOptions.length > 0 ? issueOptions : fallbackIssueOptions).map((opt) => (
-                    <option key={opt.slug} value={opt.slug}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              )}
-              {codex.metadata.description && density === 'wide' && (
-                <p className="text-sm text-slate-400">{codex.metadata.description}</p>
-              )}
-            </div>
-          </div>
-        </div>
-
         <div className="flex-shrink-0 border-b border-slate-700/50 px-4">
-          <div className="flex gap-1 overflow-x-auto">
-            {enabledTabs.map((tab) => {
-              const Icon = getIconComponent(tab.metadata?.icon || 'Circle');
-              const isActive = tab.slug === activeTabSlug;
+          <div className="flex items-center justify-between gap-3 py-3">
+            <div className="flex min-w-0 items-center gap-4">
+              <h2
+                className="text-xl font-bold flex items-center gap-2 whitespace-nowrap"
+                title={codex.metadata.description || undefined}
+              >
+                {codex.metadata.icon && React.createElement(
+                  getIconComponent(codex.metadata.icon),
+                  { className: `w-5 h-5 text-${codex.metadata.color || 'indigo'}-400` }
+                )}
+                {displayCodexName}
+              </h2>
+              <div className="flex gap-1 overflow-x-auto">
+                {enabledTabs.map((tab) => {
+                  const Icon = getIconComponent(tab.metadata?.icon || 'Circle');
+                  const isActive = tab.slug === activeTabSlug;
+                  const badge = tabBadgeText(tab);
 
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTabSlug(tab.slug)}
-                  className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${
-                    isActive
-                      ? `border-${codex.metadata.color || 'indigo'}-500 text-${codex.metadata.color || 'indigo'}-400`
-                      : 'border-transparent text-slate-400 hover:text-slate-300'
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  {density === 'wide' && tab.label}
-                  {tab.metadata?.badge && (
-                    <span className="ml-1 px-1.5 py-0.5 text-xs bg-indigo-500/20 text-indigo-300 rounded">
-                      {tab.metadata.badge}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTabSlug(tab.slug)}
+                      className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${
+                        isActive
+                          ? `border-${codex.metadata.color || 'indigo'}-500 text-${codex.metadata.color || 'indigo'}-400`
+                          : 'border-transparent text-slate-400 hover:text-slate-300'
+                      }`}
+                    >
+                      <Icon className="w-4 h-4" />
+                      {density === 'wide' && tab.label}
+                      {badge && (
+                        <span className="ml-1 px-1.5 py-0.5 text-xs bg-indigo-500/20 text-indigo-300 rounded">
+                          {badge}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            {isQriptopian && (
+              <select
+                value={issueSlug}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setIssueSlug(next);
+                  const params = new URLSearchParams(window.location.search);
+                  params.set('issue', next);
+                  router.replace(`${pathname}?${params.toString()}`);
+                }}
+                disabled={issueOptionsLoading && issueOptions.length === 0}
+                className="rounded-md border border-slate-700 bg-slate-900/60 px-2 py-1 text-sm text-slate-200"
+              >
+                {(issueOptions.length > 0 ? issueOptions : fallbackIssueOptions).map((opt) => (
+                  <option key={opt.slug} value={opt.slug}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
         </div>
 

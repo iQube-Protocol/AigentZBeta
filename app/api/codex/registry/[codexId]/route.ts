@@ -31,6 +31,23 @@ interface RouteContext {
   params: { codexId: string };
 }
 
+function withKnytStaticTabs(codex: CodexConfig): CodexConfig {
+  return {
+    ...codex,
+    tabs: codex.tabs.map((tab) => ({
+      ...tab,
+      type: 'static',
+      config: {
+        component: 'KnytTab',
+        props: {
+          ...(tab.config?.props || {}),
+          tabSlug: tab.slug,
+        },
+      },
+    })),
+  };
+}
+
 /**
  * GET /api/codex/registry/[codexId]
  * Get complete codex configuration including tabs
@@ -50,7 +67,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
         if (knytDefaults) {
           return NextResponse.json<CodexRegistryResponse<CodexConfig>>({
             success: true,
-            data: knytDefaults,
+            data: withKnytStaticTabs(knytDefaults),
           });
         }
       }
@@ -66,9 +83,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
 
         if (config) {
           const packCodex = await getPackCodexById(codexId);
-          const fallbackCodex = isKnytCodex
-            ? (getCodexById(codexId) ?? packCodex)
-            : (packCodex ?? getCodexById(codexId));
+          const fallbackCodex = packCodex ?? getCodexById(codexId);
           const { data: tabs, error: tabsError } = await supabase
             .from('codex_tabs')
             .select('*')
@@ -113,7 +128,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
 
           return NextResponse.json<CodexRegistryResponse<CodexConfig>>({
             success: true,
-            data: codex
+            data: isKnytCodex ? withKnytStaticTabs(codex) : codex
           });
         }
       } catch {
@@ -121,9 +136,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       }
 
       const packCodex = await getPackCodexById(codexId);
-      const codex = isKnytCodex
-        ? (getCodexById(codexId) ?? packCodex)
-        : (packCodex ?? getCodexById(codexId));
+      const codex = packCodex ?? getCodexById(codexId);
       if (!codex) {
         return NextResponse.json<CodexRegistryResponse>({
           success: false,
@@ -132,7 +145,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       }
       return NextResponse.json<CodexRegistryResponse<CodexConfig>>({
         success: true,
-        data: codex
+        data: isKnytCodex ? withKnytStaticTabs(codex) : codex
       });
     }
 
@@ -201,7 +214,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
 
     return NextResponse.json<CodexRegistryResponse<CodexConfig>>({
       success: true,
-      data: codex
+      data: isKnytCodex ? withKnytStaticTabs(codex) : codex
     });
 
   } catch (error) {

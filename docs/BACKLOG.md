@@ -236,6 +236,10 @@ This document tracks work items from sprint plans that have been deprioritized o
 - [ ] Add Studio Codex authoring flow for Runtime capsules (design Codex layouts/summaries directly in Composer and publish capsule-ready presets)
 - [ ] Extend Runtime Capsule Framework adapters beyond Codex + ExperienceQube (unified summary/runtime rendering for additional source types from SmartContent/Liquid UI registry)
 - [ ] Author Runtime DIS baseline from implemented visual/runtime capsule requirements and run DPR audit profile for Runtime shell
+- [ ] Update Liquid template fallback resolution so Codex tabs can hydrate from SmartContent modules as well as ExperienceQube modules
+  - Do not require ExperienceQube packet/context IDs (`feature_item_id`, `supporting_item_ids`) for fallback rendering
+  - Add fallback SmartContent sourcing by intent/realm/tags when packet context is absent
+  - Preserve ExperienceQube packet hydration when packet/context IDs are present
 
 ---
 

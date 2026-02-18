@@ -225,6 +225,7 @@ interface KnytTabProps {
   density?: 'narrow' | 'wide';
   personaId?: string;
   issueSlug?: string;
+  tabSlug?: string;
 }
 
 // Types for content transformation (ported from Qriptopian)
@@ -316,7 +317,18 @@ function getAuthProfileIdFromStorage(): string | null {
   );
 }
 
-export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTabProps) {
+function parseAdminAllowlist(raw: string | undefined): Set<string> {
+  const defaults = ['admin', 'aigent-kn0w1', 'aigentz', 'aigentz@aigent:u_demo'];
+  const values = raw
+    ? raw
+        .split(',')
+        .map((value) => value.trim().toLowerCase())
+        .filter(Boolean)
+    : defaults;
+  return new Set(values);
+}
+
+export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug }: KnytTabProps) {
   // Real-time ETH pricing (exact from Netlify app)
   const { ethPriceUsd, knytPriceUsd, knytEthRate } = useEthPrice();
   
@@ -335,9 +347,31 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
   // SmartTriad integration
   const { state: triadState, actions: triadActions } = useSmartTriad();
   
+  const resolvedInitialTab = useMemo(() => {
+    const normalized = (tabSlug || 'codex').toLowerCase();
+    switch (normalized) {
+      case 'scrolls':
+      case 'characters':
+      case 'lore':
+      case 'digiterra':
+      case 'terra':
+      case 'order':
+      case 'codex':
+        return normalized;
+      default:
+        return 'codex';
+    }
+  }, [tabSlug]);
+
   // Legacy state for cards/purchases (maintained for compatibility)
-  const [activeTab, setActiveTab] = useState("codex");
+  const [activeTab, setActiveTab] = useState(resolvedInitialTab);
+  const isExternallyScopedTab = Boolean(tabSlug);
+  const isLegacyFallbackTab = activeTab !== 'codex';
   const [purchaseModalOpen, setPurchaseModalOpen] = useState(false);
+
+  useEffect(() => {
+    setActiveTab(resolvedInitialTab);
+  }, [resolvedInitialTab]);
   
   // Character detail page state
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
@@ -429,9 +463,23 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
   
   // KNYT balance and cards data
   const { balance, spendableBalance, refreshBalance } = useKnytBalance(personaId);
-  const { groups, loading: cardsLoading, error: cardsError, refreshCards } = useKnytCards();
+  const { groups, loading: cardsLoading, error: cardsError, refreshCards } = useKnytCards({ enabled: isLegacyFallbackTab });
   const { ownedCharacters, refreshPurchases } = useKnytPurchases(personaId);
   const isSignedIn = !!personaId && personaId !== 'default' && personaId !== 'guest';
+  const showLayoutPreviewControls = useMemo(() => {
+    const allowlist = parseAdminAllowlist(process.env.NEXT_PUBLIC_KNYT_LAYOUT_PREVIEW_ADMINS);
+    const forceFromEnv = process.env.NEXT_PUBLIC_KNYT_LAYOUT_PREVIEW_ENABLED === 'true';
+    if (forceFromEnv) return true;
+
+    const candidates: string[] = [
+      personaId || '',
+      activePersonaId || '',
+      ...personas.map((persona) => persona.id || ''),
+      ...personas.map((persona) => persona.fioHandle || ''),
+      ...personas.map((persona) => persona.displayName || ''),
+    ];
+    return candidates.some((candidate) => allowlist.has(candidate.toLowerCase()));
+  }, [personaId, activePersonaId, personas]);
   const filteredDVNEvents = useMemo(() => {
     return dvnEvents.filter((event) => {
       if (dvnStatusFilter === 'confirmed' && event.event !== 'PaymentConfirmed') {
@@ -472,6 +520,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
       const printCid = ep.printRareCid || ep.printEpicCid || ep.printLegendaryCid;
       const printLiteUrl = ep.printRareLiteUrl || ep.printEpicLiteUrl || ep.printLegendaryLiteUrl;
       const hasReadable = !!printCid;
+      const hasCover = !!(ep.coverThumbUrl || ep.coverImageCid);
       // Hide watch for episodes without compressed video (Episode #0 = ep1, Episode #2 = ep3)
       const hideWatchEpisodes = [1, 3];
       const hasWatchable = ep.hasMotionMaster && !!ep.motionMasterCid && !hideWatchEpisodes.includes(ep.episodeNumber);
@@ -817,11 +866,38 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
     });
   }, [contentItems, ownedEpisodeNumbers]);
 
+  const contentForActiveTab = useMemo(() => {
+    switch (activeTab) {
+      case 'scrolls':
+        return contentWithOwnership.filter(
+          (item) =>
+            item.type === 'comic_page_portrait' ||
+            item.type === 'comic_cover_portrait' ||
+            item.type === 'motion_comic_landscape'
+        );
+      case 'characters':
+        return contentWithOwnership.filter((item) => item.type === 'character_portrait');
+      case 'lore':
+        return contentWithOwnership.filter((item) => item.type === 'lore_snippet');
+      case 'digiterra':
+        return contentWithOwnership.filter((item) => item.metadata?.realm === 'digiterra');
+      case 'terra':
+        return contentWithOwnership.filter(
+          (item) => item.metadata?.realm === 'terra' || item.type === 'terra_update'
+        );
+      case 'order':
+        return contentWithOwnership;
+      case 'codex':
+      default:
+        return contentWithOwnership;
+    }
+  }, [contentWithOwnership, activeTab]);
+
   // Select template based on context
   useEffect(() => {
     if (loading) return;
 
-    const contentMix = service.inferContentMix(contentWithOwnership);
+    const contentMix = service.inferContentMix(contentForActiveTab);
     const hasActiveTasks = !!taskData.activeTask;
 
     const context: TemplateSelectionContext = {
@@ -835,18 +911,31 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
     };
 
     const result = service.selectTemplate(context);
-    setTemplateResult(result);
+    const forcedTemplateByTab: Partial<Record<string, KnytTemplateId>> = {
+      scrolls: 'knyt:motion_stage_v1',
+      characters: 'knyt:dual_poster_stage_v1',
+      lore: 'knyt:drawer_grid_v1',
+      digiterra: 'knyt:motion_stage_v1',
+      terra: 'knyt:realm_bridge_map_v1',
+      order: 'knyt:quest_hud_hub_v1',
+    };
+    const scopedTemplate = forcedTemplateByTab[activeTab];
+    const finalResult =
+      activeTab !== 'codex' && scopedTemplate
+        ? { ...result, templateId: scopedTemplate }
+        : result;
+    setTemplateResult(finalResult);
 
     const composed = service.composeScreen({
-      templateId: result.templateId,
+      templateId: finalResult.templateId,
       context,
-      contentItems: contentWithOwnership,
+      contentItems: contentForActiveTab,
       selectedItemId,
     });
 
     if (composed) {
       const drawerRegion = composed.regions?.drawer_grid;
-      if (result.templateId === 'knyt:drawer_grid_v1' && drawerRegion?.items?.length) {
+      if (finalResult.templateId === 'knyt:drawer_grid_v1' && drawerRegion?.items?.length) {
         setCuratedContent(drawerRegion.items);
         // Set layout variant from composition
         if (composed.meta?.drawerGridLayoutVariant) {
@@ -869,10 +958,10 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
     }
 
     // Update copilot mode
-    if (result.copilotMode !== copilotMode) {
-      setCopilotMode(result.copilotMode);
+    if (finalResult.copilotMode !== copilotMode) {
+      setCopilotMode(finalResult.copilotMode);
     }
-  }, [loading, contentWithOwnership, userIntent, device, activeRealm, personaId, taskData, service, selectedItemId]);
+  }, [loading, contentForActiveTab, userIntent, device, activeRealm, personaId, taskData, service, selectedItemId, activeTab, copilotMode]);
 
   const handleBackFromCharacterDetail = () => {
     setShowCharacterDetail(false);
@@ -967,8 +1056,14 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
       setCurrentVideoCid(item.media.video_cid);
       setCurrentVideoTitle(item.title);
       setVideoPlayerOpen(true);
+    } else if (action === 'copilot') {
+      setDrawerOpen(true);
+      toast({
+        title: 'Copilot ready',
+        description: 'Wallet + Copilot drawer opened for this content item.',
+      });
     }
-  }, [isEpisodeLocked, openPurchaseForItem]);
+  }, [isEpisodeLocked, openPurchaseForItem, toast]);
 
   const handleViewerOpen = useCallback((item: KnytContentItem, type: 'pdf' | 'video' | 'poster') => {
     if (isEpisodeLocked(item)) {
@@ -1038,8 +1133,8 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
     );
   }
 
-  // Legacy cards loading/error states (legacy fallback only)
-  if (activeTab !== 'codex' && cardsLoading) {
+  // Legacy cards loading/error states
+  if (isLegacyFallbackTab && cardsLoading) {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center space-y-4">
@@ -1050,7 +1145,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
     );
   }
 
-  if (activeTab !== 'codex' && cardsError) {
+  if (isLegacyFallbackTab && cardsError) {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center space-y-4">
@@ -1080,7 +1175,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
             <KnytTemplateRenderer
               templateId={templateResult.templateId}
               userIntent={userIntent}
-              contentItems={curatedContent || contentWithOwnership}
+              contentItems={curatedContent && curatedContent.length > 0 ? curatedContent : contentForActiveTab}
               selectedItemId={selectedItemId}
               device={device}
               layoutVariant={layoutVariant}
@@ -1100,6 +1195,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
               onRealmChange={handleRealmChange}
               onCopilotModeChange={handleCopilotModeChange}
               knytBalance={balance?.dvnKnyt || 0}
+              showLayoutPreviewControls={showLayoutPreviewControls}
               walletDrawerContent={
                 <CopilotWalletDrawer
                   isOpen={drawerOpen}
@@ -1118,7 +1214,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
           </div>
 
           {/* Legacy fallback tabs for compatibility */}
-          {activeTab !== 'codex' && (
+          {!isExternallyScopedTab && activeTab !== 'codex' && (
             <div className="p-6 space-y-6">
               {/* Header with balance */}
               <div className="flex items-center justify-between">
@@ -1229,36 +1325,38 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
 
               {/* Tabs */}
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid w-full grid-cols-7 bg-white/5 border-white/10">
-                  <TabsTrigger value="codex" className="text-white/80 data-[state=active]:text-white">
-                    <BookOpen className="w-4 h-4 mr-2" />
-                    Codex
-                  </TabsTrigger>
-                  <TabsTrigger value="scrolls" className="text-white/80 data-[state=active]:text-white">
-                    <Scroll className="w-4 h-4 mr-2" />
-                    Scrolls
-                  </TabsTrigger>
-                  <TabsTrigger value="characters" className="text-white/80 data-[state=active]:text-white">
-                    <Sparkles className="w-4 h-4 mr-2" />
-                    Characters
-                  </TabsTrigger>
-                  <TabsTrigger value="lore" className="text-white/80 data-[state=active]:text-white">
-                    <FileText className="w-4 h-4 mr-2" />
-                    Lore
-                  </TabsTrigger>
-                  <TabsTrigger value="digiterra" className="text-white/80 data-[state=active]:text-white">
-                    <Cpu className="w-4 h-4 mr-2" />
-                    DigiTerra
-                  </TabsTrigger>
-                  <TabsTrigger value="terra" className="text-white/80 data-[state=active]:text-white">
-                    <Globe className="w-4 h-4 mr-2" />
-                    Terra
-                  </TabsTrigger>
-                  <TabsTrigger value="order" className="text-white/80 data-[state=active]:text-white">
-                    <Shield className="w-4 h-4 mr-2" />
-                    Order
-                  </TabsTrigger>
-                </TabsList>
+                {!isExternallyScopedTab && (
+                  <TabsList className="grid w-full grid-cols-7 bg-white/5 border-white/10">
+                    <TabsTrigger value="codex" className="text-white/80 data-[state=active]:text-white">
+                      <BookOpen className="w-4 h-4 mr-2" />
+                      Codex
+                    </TabsTrigger>
+                    <TabsTrigger value="scrolls" className="text-white/80 data-[state=active]:text-white">
+                      <Scroll className="w-4 h-4 mr-2" />
+                      Scrolls
+                    </TabsTrigger>
+                    <TabsTrigger value="characters" className="text-white/80 data-[state=active]:text-white">
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      Characters
+                    </TabsTrigger>
+                    <TabsTrigger value="lore" className="text-white/80 data-[state=active]:text-white">
+                      <FileText className="w-4 h-4 mr-2" />
+                      Lore
+                    </TabsTrigger>
+                    <TabsTrigger value="digiterra" className="text-white/80 data-[state=active]:text-white">
+                      <Cpu className="w-4 h-4 mr-2" />
+                      DigiTerra
+                    </TabsTrigger>
+                    <TabsTrigger value="terra" className="text-white/80 data-[state=active]:text-white">
+                      <Globe className="w-4 h-4 mr-2" />
+                      Terra
+                    </TabsTrigger>
+                    <TabsTrigger value="order" className="text-white/80 data-[state=active]:text-white">
+                      <Shield className="w-4 h-4 mr-2" />
+                      Order
+                    </TabsTrigger>
+                  </TabsList>
+                )}
 
                 {/* Scrolls Tab - Episodes */}
                 <TabsContent value="scrolls" className="space-y-4">
