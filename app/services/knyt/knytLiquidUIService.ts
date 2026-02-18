@@ -657,7 +657,7 @@ export class KnytLiquidUIService {
    */
   private selectDrawerMode(
     userIntent: UserIntent,
-    taskState?: string
+    taskState?: TemplateSelectionContext['taskState']
   ): { drawerMode: DrawerMode; walletUI: WalletUIComponent[] } {
     // Check drawer rules
     for (const rule of this.pack.template_selection_policy.drawer_rules) {
