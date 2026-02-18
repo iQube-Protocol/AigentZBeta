@@ -287,6 +287,17 @@ interface CharacterFromAPI {
   rarity?: string;
 }
 
+interface KnytCardsApiCharacter {
+  id: string;
+  title?: string;
+  episodeNumber?: number | null;
+  assetKind?: 'character_poster' | 'powers_sheet';
+  autoDriveCid?: string;
+  characterId?: string;
+  characterName?: string;
+  digiterraName?: string;
+}
+
 const PREORDER_VARIANTS = [
   { id: 'legendary', label: 'Legendary (#-4)', priceUsd: 2100, tone: 'text-amber-400' },
   { id: 'epic', label: 'Epic (#-3)', priceUsd: 186, tone: 'text-blue-400' },
@@ -631,7 +642,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
   // Content fetching function (ported from CodexLiquidUITab)
   const fetchCodexContent = useCallback(async (): Promise<KnytContentItem[]> => {
     return getCachedOrFetch<KnytContentItem[]>(
-      "codex:knyt:content",
+      "codex:knyt:content:v2",
       async () => {
         const apiBase = API_BASE_URL;
         try {
@@ -654,8 +665,22 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
           
           if (charactersRes.ok) {
             const data = await charactersRes.json();
-            if (data.characters) {
-              characterItems = transformCharactersToContentItems(data.characters);
+            const normalizedCharacters: CharacterFromAPI[] = Array.isArray(data.characters)
+              ? data.characters
+              : Array.isArray(data.cards)
+                ? (data.cards as KnytCardsApiCharacter[])
+                    .filter((card) => card.assetKind !== 'powers_sheet')
+                    .map((card) => ({
+                      id: card.characterId || card.id,
+                      name: card.characterName || card.digiterraName || card.title || 'Unknown Character',
+                      episode_number: card.episodeNumber ?? 0,
+                      front_cid: card.autoDriveCid,
+                      rarity: 'common',
+                    }))
+                : [];
+
+            if (normalizedCharacters.length > 0) {
+              characterItems = transformCharactersToContentItems(normalizedCharacters);
               console.log('[KnytTab] Loaded', characterItems.length, 'character items');
             }
           }
@@ -685,7 +710,10 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
           return [];
         }
       },
-      20 * 60 * 1000
+      20 * 60 * 1000,
+      {
+        shouldCache: (items) => Array.isArray(items) && items.length > 0,
+      }
     );
   }, [transformEpisodesToContentItems, transformCharactersToContentItems, transformLoreAssetsToContentItems, transformIssuePackageMetaKnytsToContentItems]);
 
