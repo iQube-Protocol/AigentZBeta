@@ -21,14 +21,25 @@ export function setCachedValue<T>(key: string, value: T, ttlMs = DEFAULT_TTL_MS)
   cache.set(key, { value, expiresAt: Date.now() + ttlMs });
 }
 
+type CacheFetchOptions<T> = {
+  shouldCache?: (value: T) => boolean;
+  fallbackTtlMs?: number;
+};
+
 export async function getCachedOrFetch<T>(
   key: string,
   fetcher: () => Promise<T>,
-  ttlMs = DEFAULT_TTL_MS
+  ttlMs = DEFAULT_TTL_MS,
+  options?: CacheFetchOptions<T>
 ): Promise<T> {
   const cached = getCachedValue<T>(key);
   if (cached !== null) return cached;
   const value = await fetcher();
-  setCachedValue(key, value, ttlMs);
+  const shouldCache = options?.shouldCache ? options.shouldCache(value) : true;
+  if (shouldCache) {
+    setCachedValue(key, value, ttlMs);
+  } else if (typeof options?.fallbackTtlMs === "number" && options.fallbackTtlMs > 0) {
+    setCachedValue(key, value, options.fallbackTtlMs);
+  }
   return value;
 }
