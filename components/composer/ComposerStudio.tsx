@@ -886,6 +886,7 @@ export const ComposerStudio = () => {
         body: JSON.stringify({
           provider: mcpProvider,
           mode: mcpDispatchMode,
+          tool: mcpTool,
           tenantId,
           experienceId: mcpExperience.id,
           personaId: userId,

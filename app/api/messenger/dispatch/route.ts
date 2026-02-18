@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { runExperienceQubeTool } from '@/services/mcp/experienceQubeTools';
+import { runExperienceQubeTool, type ExperienceQubeTool } from '@/services/mcp/experienceQubeTools';
 import {
   type MessengerProvider,
   type QubeTalkEnvelope,
@@ -11,6 +11,15 @@ export const runtime = 'nodejs';
 
 const SUPPORTED_PROVIDERS = new Set<MessengerProvider>(['discord', 'whatsapp', 'telegram', 'email', 'sms']);
 const DISCORD_API_BASE = 'https://discord.com/api/v10';
+const SUPPORTED_TOOLS = new Set<ExperienceQubeTool>([
+  'pill.get',
+  'capsule.get',
+  'mini_runtime.get',
+  'codex.entry',
+  'invite.create',
+  'share.compose',
+  'next.best',
+]);
 
 function normalizeString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
@@ -36,6 +45,13 @@ function extractDiscordInviteCode(value: string): string | null {
     return null;
   }
   return null;
+}
+
+function toAbsoluteUrl(origin: string, value: string): string {
+  if (!value) return value;
+  if (/^https?:\/\//i.test(value)) return value;
+  if (value.startsWith('/')) return `${origin}${value}`;
+  return value;
 }
 
 async function resolveDiscordChannelFromInvite(inviteCode: string): Promise<string | null> {
@@ -111,6 +127,8 @@ export async function POST(request: NextRequest) {
     const experienceId = String(body?.experienceId || 'exp_metaknyt');
     const personaId = String(body?.personaId || 'prs_demo_guest');
     const dispatchMode = String(body?.mode || 'simulate').toLowerCase() === 'live' ? 'live' : 'simulate';
+    const requestedTool = String(body?.tool || 'next.best') as ExperienceQubeTool;
+    const tool: ExperienceQubeTool = SUPPORTED_TOOLS.has(requestedTool) ? requestedTool : 'next.best';
     const messageText = String(body?.message || '').trim();
     if (!messageText) {
       return NextResponse.json({ success: false, error: 'message is required' }, { status: 400 });
@@ -172,16 +190,31 @@ export async function POST(request: NextRequest) {
     };
 
     const mcpResponse = runExperienceQubeTool({
-      tool: 'next.best',
-      input: { event: envelope },
+      tool,
+      input: {
+        event: envelope,
+        experience_id: experienceId,
+        provider,
+        intent: inferIntentHint(messageText),
+      },
       tenantId,
       personaId,
     });
 
+    const primaryCta = mcpResponse.cta.primary;
+    const ctaUrl =
+      primaryCta?.target === 'url'
+        ? toAbsoluteUrl(request.nextUrl.origin, String(primaryCta.value || ''))
+        : `${request.nextUrl.origin}/studio/composer/experience/${encodeURIComponent(experienceId)}`;
+    const openLine = ctaUrl ? `Open ExperienceQube: ${ctaUrl}` : '';
+
     const providerDispatch = {
       provider,
       destination: envelope.channel.channel_id,
-      text: [mcpResponse.artifact.title, mcpResponse.artifact.body, mcpResponse.artifact.share_text]
+      kind: 'experience_qube',
+      tool,
+      ctaUrl,
+      text: [mcpResponse.artifact.title, mcpResponse.artifact.body, openLine, mcpResponse.artifact.share_text]
         .filter(Boolean)
         .join('\n\n'),
       cta: mcpResponse.cta.primary || null,
