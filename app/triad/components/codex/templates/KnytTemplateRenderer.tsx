@@ -1361,3 +1361,5 @@ export function KnytTemplateRenderer({
     </div>
   );
 }
+
+export default KnytTemplateRenderer;

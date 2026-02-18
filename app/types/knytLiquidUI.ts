@@ -314,6 +314,11 @@ export interface KnytContentItem {
     drawerGridLayout?: 'featured_left' | 'featured_right';
     modalities?: any;
   };
+  group?: {
+    groupId: string;
+    label: string;
+    variantIds: string[];
+  };
   modalities: {
     read?: { available: boolean; cid?: string; duration?: string };
     watch?: { available: boolean; cid?: string; duration?: string };
@@ -338,4 +343,3 @@ export type DrawerGridLayoutVariant =
   | '1A' | '1B' | '1C'
   | '2A' | '2B' | '2C'
   | '3A' | '3B';
-
