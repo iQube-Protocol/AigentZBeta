@@ -18,6 +18,7 @@ import {
   Sparkles,
   ShoppingCart,
   LogIn,
+  UserPlus,
 } from 'lucide-react';
 
 // Phase 1 Pricing Constants
@@ -111,6 +112,7 @@ interface ContentPurchaseModalProps {
   open: boolean;
   onClose: () => void;
   personaId?: string;
+  onRequestPersona?: (mode: 'signin' | 'signup') => void;
   contentType: ContentType;
   contentId: string;
   contentTitle: string;
@@ -127,6 +129,7 @@ export function ContentPurchaseModal({
   open,
   onClose,
   personaId,
+  onRequestPersona,
   contentType,
   contentId,
   contentTitle,
@@ -356,6 +359,11 @@ export function ContentPurchaseModal({
     }
   };
 
+  const handlePersonaAction = (mode: 'signin' | 'signup') => {
+    onClose();
+    onRequestPersona?.(mode);
+  };
+
   if (!open) return null;
 
   return (
@@ -429,15 +437,22 @@ export function ContentPurchaseModal({
               </div>
               <h3 className="text-lg font-semibold text-white mb-2">Persona Required</h3>
               <p className="text-white/60 text-sm mb-6">
-                Connect or create a persona in Smart Wallet to purchase content.
+                Connect or create a persona in Smart Wallet to purchase content and track your collection.
               </p>
-              <div className="flex justify-center">
+              <div className="flex gap-3 justify-center">
                 <button
-                  onClick={onClose}
+                  onClick={() => handlePersonaAction('signin')}
                   className="px-5 py-2.5 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold flex items-center gap-2 hover:from-amber-400 hover:to-orange-400 transition-all"
                 >
                   <LogIn className="w-4 h-4" />
-                  Open Wallet
+                  Connect Persona
+                </button>
+                <button
+                  onClick={() => handlePersonaAction('signup')}
+                  className="px-5 py-2.5 rounded-lg bg-white/10 text-white font-medium flex items-center gap-2 hover:bg-white/20 transition-all"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  Create Persona
                 </button>
               </div>
             </div>

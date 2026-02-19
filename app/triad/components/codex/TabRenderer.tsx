@@ -11,6 +11,7 @@
 
 import React from "react";
 import { CodexTab } from "@/types/codex";
+import type { DeviceType } from "@/app/types/knytLiquidUI";
 import { AlertCircle } from "lucide-react";
 import { liquidTemplateRegistry } from "./liquidTemplates/registry";
 
@@ -41,6 +42,7 @@ interface TabRendererProps {
   density?: 'narrow' | 'wide';
   personaId?: string;
   issueSlug?: string;
+  previewDevice?: DeviceType;
 }
 
 // Component registry for static tabs
@@ -68,7 +70,7 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   TutorialsTab: PlaceholderTab,
 };
 
-export function TabRenderer({ tab, codexId, theme, density, personaId, issueSlug }: TabRendererProps) {
+export function TabRenderer({ tab, codexId, theme, density, personaId, issueSlug, previewDevice }: TabRendererProps) {
   // Handle static tabs
   if (tab.type === 'static') {
     const componentName = tab.config.component;
@@ -94,7 +96,17 @@ export function TabRenderer({ tab, codexId, theme, density, personaId, issueSlug
       );
     }
 
-    return <Component theme={theme} density={density} personaId={personaId} issueSlug={issueSlug} {...tab.config.props} />;
+    return (
+      <Component
+        theme={theme}
+        density={density}
+        personaId={personaId}
+        issueSlug={issueSlug}
+        forcedDevice={previewDevice}
+        tabSlug={tab.slug}
+        {...tab.config.props}
+      />
+    );
   }
 
   // Handle dynamic tabs (fetch data from API)
@@ -124,6 +136,7 @@ export function TabRenderer({ tab, codexId, theme, density, personaId, issueSlug
           density={density}
           personaId={personaId}
           issueSlug={issueSlug}
+          forcedDevice={previewDevice}
           dataSource={dataSource}
           {...tab.config.props}
         />
@@ -166,6 +179,7 @@ export function TabRenderer({ tab, codexId, theme, density, personaId, issueSlug
           density={density}
           personaId={personaId}
           issueSlug={issueSlug}
+          forcedDevice={previewDevice}
           dataSource={dataSource}
           {...tab.config.props}
         />

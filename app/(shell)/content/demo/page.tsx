@@ -359,11 +359,11 @@ export default function ContentDemoPage() {
         </TabsContent>
 
         <TabsContent value="drawer" className="mt-0">
-          <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+          <div className="overflow-hidden rounded-xl border border-white/10 bg-white/5 p-0">
             <iframe
-              src="/demo/smart-drawer-new"
+              src="/demo/smart-drawer-new?embed=1"
               title="Smart Drawer Framework"
-              className="h-[78vh] w-full rounded-lg border border-white/10 bg-black"
+              className="h-[80vh] w-full border-0 bg-black"
             />
           </div>
         </TabsContent>

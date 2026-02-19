@@ -25,10 +25,14 @@ function ShellLayoutContent({ children }: { children: React.ReactNode }) {
   const { avatarInitialized, activeContainer, avatarRefreshKey } = useMetaAvatar();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const isRuntimeEmbed = useMemo(
-    () => searchParams?.get("embed") === "1" && pathname?.startsWith("/metame/runtime"),
-    [searchParams, pathname]
-  );
+  const isEmbeddedSurface = useMemo(() => {
+    if (searchParams?.get("embed") !== "1") return false;
+    return (
+      pathname?.startsWith("/metame/runtime") ||
+      pathname?.startsWith("/demo/smart-drawer") ||
+      pathname?.startsWith("/demo/smart-drawer-new")
+    );
+  }, [searchParams, pathname]);
 
   // CSS positioning classes for each MetaAvatar container type
   const METAAVATAR_POSITION_CLASSES = {
@@ -61,13 +65,13 @@ function ShellLayoutContent({ children }: { children: React.ReactNode }) {
               `}</style>
             )}
             <div className="flex h-screen overflow-hidden">
-              {!isRuntimeEmbed && (
+              {!isEmbeddedSurface && (
                 <div className="flex-shrink-0">
                   <Sidebar />
                 </div>
               )}
-              <main className={`flex-1 ${isRuntimeEmbed ? "overflow-hidden" : "overflow-y-auto"}` }>
-                <div className={isRuntimeEmbed ? "h-full w-full p-0" : "p-6 md:p-8 lg:p-10"}>
+              <main className={`flex-1 ${isEmbeddedSurface ? "overflow-hidden" : "overflow-y-auto"}` }>
+                <div className={isEmbeddedSurface ? "h-full w-full p-0" : "p-6 md:p-8 lg:p-10"}>
                   <Suspense fallback={null}>{children}</Suspense>
                 </div>
               </main>

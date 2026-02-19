@@ -124,26 +124,14 @@ export function VideoPlayer({
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
-    const onLoad = () => setIsLoading(false);
-    const onError = () => setError('Failed to load video');
     const onTime = () => video.duration && setProgress((video.currentTime / video.duration) * 100);
-    const onPlay = () => setIsPlaying(true);
-    const onPause = () => setIsPlaying(false);
     const onEnded = () => {
       if (canGoNext) goToSegment(currentSegmentIndex + 1);
     };
-    video.addEventListener('loadeddata', onLoad);
-    video.addEventListener('error', onError);
     video.addEventListener('timeupdate', onTime);
-    video.addEventListener('play', onPlay);
-    video.addEventListener('pause', onPause);
     video.addEventListener('ended', onEnded);
     return () => {
-      video.removeEventListener('loadeddata', onLoad);
-      video.removeEventListener('error', onError);
       video.removeEventListener('timeupdate', onTime);
-      video.removeEventListener('play', onPlay);
-      video.removeEventListener('pause', onPause);
       video.removeEventListener('ended', onEnded);
     };
   }, [currentSegmentIndex, canGoNext]);
@@ -210,7 +198,7 @@ export function VideoPlayer({
           </button>
         </div>
         <div className="relative aspect-video bg-black rounded-lg overflow-hidden group">
-          {isLoading && (
+          {isLoading && !isPlaying && (
             <div className="absolute inset-0 flex items-center justify-center">
               <Loader2 className="w-12 h-12 animate-spin text-cyan-400" />
             </div>
@@ -227,6 +215,17 @@ export function VideoPlayer({
               className="w-full h-full"
               playsInline
               controls={false}
+              onLoadedData={() => setIsLoading(false)}
+              onCanPlay={() => setIsLoading(false)}
+              onPlay={() => {
+                setIsPlaying(true);
+                setIsLoading(false);
+              }}
+              onPause={() => setIsPlaying(false)}
+              onError={() => {
+                setError('Failed to load video');
+                setIsLoading(false);
+              }}
             />
           )}
 
@@ -277,4 +276,3 @@ export function VideoPlayer({
     </div>
   );
 }
-

@@ -327,6 +327,7 @@ export interface KnytContentItem {
     pdf_cid?: string;
     pdf_lite_url?: string;
     video_cid?: string;
+    video_url?: string;
     text?: string;
   };
   metadata: {
@@ -347,7 +348,7 @@ export interface KnytContentItem {
   };
   modalities: {
     read?: { available: boolean; cid?: string; duration?: string };
-    watch?: { available: boolean; cid?: string; duration?: string };
+    watch?: { available: boolean; cid?: string; url?: string; duration?: string };
   };
 }
 
