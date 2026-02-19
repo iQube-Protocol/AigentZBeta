@@ -299,6 +299,22 @@ interface KnytCardsApiCharacter {
   digiterraName?: string;
 }
 
+type KnytTabSlug = 'codex' | 'scrolls' | 'characters' | 'lore' | 'digiterra' | 'terra' | 'order';
+
+const KNYT_TAB_SLUGS = new Set<KnytTabSlug>([
+  'codex',
+  'scrolls',
+  'characters',
+  'lore',
+  'digiterra',
+  'terra',
+  'order',
+]);
+
+function isKnytTabSlug(value: string): value is KnytTabSlug {
+  return KNYT_TAB_SLUGS.has(value as KnytTabSlug);
+}
+
 const PREORDER_VARIANTS = [
   { id: 'legendary', label: 'Legendary (#-4)', priceUsd: 2100, tone: 'text-amber-400' },
   { id: 'epic', label: 'Epic (#-3)', priceUsd: 186, tone: 'text-blue-400' },
@@ -347,7 +363,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug }
   // SmartTriad integration
   const { state: triadState, actions: triadActions } = useSmartTriad();
   
-  const resolvedInitialTab = useMemo(() => {
+  const resolvedInitialTab = useMemo<KnytTabSlug>(() => {
     const normalized = (tabSlug || 'codex').toLowerCase();
     switch (normalized) {
       case 'scrolls':
@@ -364,7 +380,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug }
   }, [tabSlug]);
 
   // Legacy state for cards/purchases (maintained for compatibility)
-  const [activeTab, setActiveTab] = useState(resolvedInitialTab);
+  const [activeTab, setActiveTab] = useState<KnytTabSlug>(resolvedInitialTab);
   const isExternallyScopedTab = Boolean(tabSlug);
   const isLegacyFallbackTab = activeTab !== 'codex';
   const [purchaseModalOpen, setPurchaseModalOpen] = useState(false);
@@ -372,6 +388,12 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug }
   useEffect(() => {
     setActiveTab(resolvedInitialTab);
   }, [resolvedInitialTab]);
+
+  const handleLegacyTabChange = useCallback((value: string) => {
+    if (isKnytTabSlug(value)) {
+      setActiveTab(value);
+    }
+  }, []);
   
   // Character detail page state
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
@@ -1324,7 +1346,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug }
               )}
 
               {/* Tabs */}
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <Tabs value={activeTab} onValueChange={handleLegacyTabChange} className="w-full">
                 {!isExternallyScopedTab && (
                   <TabsList className="grid w-full grid-cols-7 bg-white/5 border-white/10">
                     <TabsTrigger value="codex" className="text-white/80 data-[state=active]:text-white">
