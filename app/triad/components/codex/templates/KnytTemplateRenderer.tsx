@@ -617,8 +617,10 @@ function DrawerGridTemplate({
       const posterCol2 = featuredLeft ? 4 : 2;
 
       // Use portrait items for the non-featured side as 2-row posters
-      const p0 = cyclePick(tallCandidates, 0);
-      const p1 = cyclePick(tallCandidates, 1);
+      const posterPool = tallCandidates.filter((item) => item.id !== f.id);
+      const fallbackPosterPool = contentItems.filter((item) => item.id !== f.id);
+      const p0 = cyclePick(posterPool.length ? posterPool : fallbackPosterPool, 0);
+      const p1 = cyclePick(posterPool.length > 1 ? posterPool : fallbackPosterPool, 1);
       if (!p0 || !p1) return null;
 
       const usedIds = new Set([f.id, p0.id, p1.id]);

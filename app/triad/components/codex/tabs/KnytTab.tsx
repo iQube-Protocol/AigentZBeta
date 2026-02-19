@@ -1258,6 +1258,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
 
     const result = service.selectTemplate(context);
     const forcedTemplateByTab: Partial<Record<string, KnytTemplateId>> = {
+      codex: 'knyt:drawer_grid_v1',
       scrolls: 'knyt:drawer_grid_v1',
       characters: 'knyt:dual_poster_stage_v1',
       lore: 'knyt:drawer_grid_v1',
@@ -1302,11 +1303,11 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
           }
         }
         setCuratedContent(combined);
-        setLayoutVariant('auto');
+        setLayoutVariant(activeTab === 'codex' || activeTab === 'lore' ? '1C' : 'auto');
       }
     } else {
       setCuratedContent(null);
-      setLayoutVariant('auto');
+      setLayoutVariant(activeTab === 'codex' || activeTab === 'lore' ? '1C' : 'auto');
     }
 
     // Update copilot mode
@@ -1554,7 +1555,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
               templateId={templateResult.templateId}
               userIntent={userIntent}
               contentItems={
-                activeTab !== 'codex' && activeTab !== 'lore'
+                activeTab !== 'codex'
                   ? contentForActiveTab
                   : curatedContent && curatedContent.length > 0
                     ? curatedContent
