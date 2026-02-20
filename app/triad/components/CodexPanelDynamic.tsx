@@ -7,7 +7,7 @@
 
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useCodexConfig, getEnabledTabs } from "@/app/hooks/useCodexConfig";
 import { CodexTab } from "@/types/codex";
@@ -49,6 +49,7 @@ export default function CodexPanelDynamic({
   const { data: codex, isLoading, error } = useCodexConfig({ codexId, useDefaults });
   const resolvedTheme: 'light' | 'dark' = theme === 'light' ? 'light' : 'dark';
   const normalizedInitialTab = (initialTab || '').trim().toLowerCase();
+  const lastAppliedInitialTabRef = useRef<string>("");
   
   const enabledTabs = useMemo(() => getEnabledTabs(codex), [codex]);
   
@@ -58,9 +59,14 @@ export default function CodexPanelDynamic({
 
   useEffect(() => {
     if (!normalizedInitialTab) return;
-    if (activeTabSlug === normalizedInitialTab) return;
+    if (lastAppliedInitialTabRef.current === normalizedInitialTab) return;
+    if (enabledTabs.length > 0 && !enabledTabs.some((tab) => tab.slug === normalizedInitialTab)) {
+      lastAppliedInitialTabRef.current = normalizedInitialTab;
+      return;
+    }
     setActiveTabSlug(normalizedInitialTab);
-  }, [normalizedInitialTab, activeTabSlug]);
+    lastAppliedInitialTabRef.current = normalizedInitialTab;
+  }, [normalizedInitialTab, enabledTabs]);
 
   useEffect(() => {
     if (!enabledTabs.length) return;
