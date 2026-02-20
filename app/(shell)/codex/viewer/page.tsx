@@ -12,15 +12,19 @@ import {
   List,
   Maximize2,
   Minimize2,
+  Monitor,
   Palette,
   PanelLeftClose,
   PanelLeftOpen,
   Settings,
+  Smartphone,
+  Tablet,
 } from "lucide-react";
 
 type ConfigSection = "codex" | "theme" | "density" | "tab" | "embed" | "iframe";
 type CodexOption = { id: string; label: string; color: string };
 type TabOption = { slug: string; label: string };
+type PreviewDevice = "mobile" | "tablet" | "desktop";
 
 const COLOR_SET = new Set(["purple", "indigo", "blue", "emerald", "cyan", "amber", "rose", "slate"]);
 
@@ -44,6 +48,7 @@ export default function CodexViewerPage() {
   const [configCollapsed, setConfigCollapsed] = useState(false);
   const [activeSection, setActiveSection] = useState<ConfigSection>("codex");
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [previewDevice, setPreviewDevice] = useState<PreviewDevice>("desktop");
 
   const { data: codexList } = useCodexList({ useDefaults: true });
   const { data: codexConfig } = useCodexConfig({ codexId, useDefaults: true });
@@ -225,6 +230,12 @@ export default function CodexViewerPage() {
   ];
 
   const activeSectionConfig = sections.find(section => section.id === activeSection) ?? sections[0];
+  const previewViewportClass = {
+    mobile: "w-[390px]",
+    tablet: "w-[900px]",
+    desktop: "w-full",
+  }[previewDevice];
+  const useFramedViewport = previewDevice !== "desktop";
 
   return (
     <div
@@ -242,7 +253,34 @@ export default function CodexViewerPage() {
           </div>
           <div className="flex items-center gap-2">
             <Settings className="w-5 h-5 text-slate-400" />
-            <span className="text-sm text-slate-400">Component Tester</span>
+            <div className="inline-flex items-center rounded-lg border border-slate-700/60 bg-slate-900/70 p-1">
+              {(
+                [
+                  { id: "mobile", label: "Mobile", icon: Smartphone },
+                  { id: "tablet", label: "Tablet", icon: Tablet },
+                  { id: "desktop", label: "Desktop", icon: Monitor },
+                ] as const
+              ).map((option) => {
+                const Icon = option.icon;
+                const active = previewDevice === option.id;
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => setPreviewDevice(option.id)}
+                    className={`inline-flex items-center justify-center rounded-md px-2 py-1 transition-colors ${
+                      active
+                        ? "bg-cyan-500/20 text-cyan-200"
+                        : "text-slate-400 hover:bg-slate-800/80 hover:text-slate-200"
+                    }`}
+                    title={option.label}
+                    aria-label={option.label}
+                  >
+                    <Icon className="h-4 w-4" />
+                  </button>
+                );
+              })}
+            </div>
             <button
               type="button"
               onClick={() => setIsFullscreen((prev) => !prev)}
@@ -319,14 +357,23 @@ export default function CodexViewerPage() {
         </div>
 
         {/* Component Preview */}
-        <div className="flex-1 overflow-hidden">
-          <CodexPanelDynamic 
-            codexId={codexId}
-            theme={theme} 
-            density={density} 
-            initialTab={activeTab}
-            useDefaults={true}
-          />
+        <div className="flex-1 overflow-auto bg-slate-900/40 p-4">
+          <div className={`mx-auto h-full max-w-full ${previewViewportClass}`}>
+            <div
+              className={`h-full overflow-hidden ${
+                useFramedViewport ? "rounded-xl border border-slate-700/60 shadow-2xl shadow-black/50" : ""
+              }`}
+            >
+              <CodexPanelDynamic
+                codexId={codexId}
+                theme={theme}
+                density={density}
+                initialTab={activeTab}
+                useDefaults={true}
+                previewDevice={previewDevice}
+              />
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -11,6 +11,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useCodexConfig, getEnabledTabs } from "@/app/hooks/useCodexConfig";
 import { CodexTab } from "@/types/codex";
+import type { DeviceType } from "@/app/types/knytLiquidUI";
 import { Loader2, AlertCircle } from "lucide-react";
 import { SmartTriadProvider, SmartTriadSurfaces } from "@/app/components/content";
 import { TabRenderer } from "./codex/TabRenderer";
@@ -25,6 +26,7 @@ interface CodexPanelDynamicProps {
   initialTab?: string;
   personaId?: string;
   useDefaults?: boolean;        // Use hardcoded configs vs database
+  previewDevice?: DeviceType;
 }
 
 type IssueOption = {
@@ -39,7 +41,8 @@ export default function CodexPanelDynamic({
   density = 'wide',
   initialTab,
   personaId,
-  useDefaults = true
+  useDefaults = true,
+  previewDevice,
 }: CodexPanelDynamicProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -175,7 +178,10 @@ export default function CodexPanelDynamic({
   const displayCodexName = codex.name.replace(/\s+codex$/i, '').trim() || codex.name;
   const tabBadgeText = (tab: CodexTab) => {
     const rawBadge = typeof tab.metadata?.badge === 'string' ? tab.metadata.badge : '';
-    if (codexId === 'knyt-codex' && (tab.slug === 'scrolls' || tab.slug === 'characters')) {
+    if (codexId === 'knyt-codex' && tab.slug === 'scrolls') {
+      return '14';
+    }
+    if (codexId === 'knyt-codex' && tab.slug === 'characters') {
       const numeric = rawBadge.match(/\d+/)?.[0];
       return numeric || '';
     }
@@ -258,6 +264,7 @@ export default function CodexPanelDynamic({
               density={density}
               personaId={personaId}
               issueSlug={isQriptopian ? issueSlug : undefined}
+              previewDevice={previewDevice}
             />
           )}
         </div>

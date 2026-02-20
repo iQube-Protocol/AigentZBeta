@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SmartContentActions, type ContentModalities } from '@/app/components/content/SmartContentActions';
+import { KnytCardsGrid } from '@/app/triad/components/content/KnytCardsGrid';
+import type { EpisodeGroup } from '@/app/hooks/useKnytCards';
 import type {
   KnytTemplateId,
   KnytTemplate,
@@ -60,6 +62,15 @@ interface KnytTemplateRendererProps {
   onRealmChange?: (realm: Realm) => void;
   // Balance
   knytBalance?: number;
+  spendableKnyt?: number;
+  personaId?: string;
+  onBalanceRefresh?: () => void;
+  onPurchaseComplete?: () => void;
+  // Tab-specific rendering modes
+  fullCatalogGrid?: boolean;
+  characterGridMode?: boolean;
+  characterGroups?: EpisodeGroup[];
+  ownedCharacters?: Set<string>;
   // Layout variant (copilot-selected)
   layoutVariant?: DrawerGridLayoutVariant;
   // Admin-only layout preview controls
@@ -380,6 +391,7 @@ function DrawerGridTemplate({
   copilotMode,
   userIntent,
   layoutVariant: copilotLayoutVariant,
+  fullCatalogGrid = false,
   showLayoutPreviewControls = false,
 }: {
   contentItems: KnytContentItem[];
@@ -391,6 +403,7 @@ function DrawerGridTemplate({
   copilotMode: CopilotOverlayMode;
   userIntent: UserIntent;
   layoutVariant?: DrawerGridLayoutVariant;
+  fullCatalogGrid?: boolean;
   showLayoutPreviewControls?: boolean;
 }) {
   // Template pack defines drawer_grid with poster3 (3/row) and standard (3/row) card types
@@ -470,6 +483,18 @@ function DrawerGridTemplate({
       </div>
     );
   };
+
+  if (fullCatalogGrid) {
+    return (
+      <div className="h-full overflow-y-auto p-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {contentItems.map((item) =>
+            renderCard(item, (item.type || '').includes('portrait') ? 'poster' : 'card')
+          )}
+        </div>
+      </div>
+    );
+  }
 
   const getProductionDesktopPlacements = () => {
     // Featured / 1C style (2x2 stage) + optional row-3 fillers
@@ -1123,6 +1148,7 @@ function RealmBridgeMapTemplate({
   contentItems,
   onContentSelect,
   onViewerOpen,
+  onSmartAction,
   selectedItemId,
   activeRealm,
   onRealmChange,
@@ -1132,6 +1158,7 @@ function RealmBridgeMapTemplate({
   contentItems: KnytContentItem[];
   onContentSelect: (item: KnytContentItem) => void;
   onViewerOpen: (item: KnytContentItem, type: 'pdf' | 'video' | 'poster') => void;
+  onSmartAction?: (item: KnytContentItem, action: string) => void;
   selectedItemId?: string;
   activeRealm?: Realm;
   onRealmChange?: (realm: Realm) => void;
@@ -1163,20 +1190,22 @@ function RealmBridgeMapTemplate({
       )}
 
       {/* Bridge Stage */}
-      <div className="flex-1 flex flex-col p-4">
-        <div className="flex-1 overflow-y-auto">
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+      <div className="flex-1 min-h-0 p-4">
+        <div className="h-full overflow-y-auto pr-1">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 auto-rows-fr">
             {realmContent.map((item) => (
               <ContentCard
                 key={item.id}
                 item={item}
-                variant="featured"
+                variant={item.type === 'motion_comic_landscape' ? 'featured' : 'card'}
                 isSelected={selectedItemId === item.id}
                 onSelect={() => {
                   onContentSelect(item);
                   const hasPdf = item.modalities?.read?.available;
                   const hasVideo = item.modalities?.watch?.available;
-                  if ((userIntent === 'watch' || userIntent === 'motion_comics') && hasVideo) {
+                  if (item.media?.text && !hasPdf && !hasVideo) {
+                    onSmartAction?.(item, 'read');
+                  } else if ((userIntent === 'watch' || userIntent === 'motion_comics') && hasVideo) {
                     onViewerOpen(item, 'video');
                   } else if (hasPdf) {
                     onViewerOpen(item, 'pdf');
@@ -1184,8 +1213,15 @@ function RealmBridgeMapTemplate({
                     onViewerOpen(item, 'video');
                   }
                 }}
-                onRead={() => onViewerOpen(item, 'pdf')}
+                onRead={() => {
+                  if (item.media?.text && !item.media?.pdf_cid && !item.media?.pdf_lite_url) {
+                    onSmartAction?.(item, 'read');
+                    return;
+                  }
+                  onViewerOpen(item, 'pdf');
+                }}
                 onWatch={() => onViewerOpen(item, 'video')}
+                onAction={(action) => onSmartAction?.(item, action)}
               />
             ))}
           </div>
@@ -1195,21 +1231,6 @@ function RealmBridgeMapTemplate({
               <p>No content in this realm yet</p>
             </div>
           )}
-        </div>
-
-        {/* Related Strip */}
-        <div className="h-20 mt-4 flex gap-2 overflow-x-auto">
-          {contentItems.filter(i => i.metadata?.realm !== activeRealm).slice(0, 6).map((item) => (
-            <button
-              key={item.id}
-              onClick={() => onContentSelect(item)}
-              className="flex-shrink-0 h-full aspect-square rounded-lg overflow-hidden ring-1 ring-white/10 hover:ring-white/30 transition-all"
-            >
-              {item.thumbnail && (
-                <img src={item.thumbnail} alt={item.title} className="w-full h-full object-cover" />
-              )}
-            </button>
-          ))}
         </div>
       </div>
     </div>
@@ -1243,6 +1264,14 @@ export function KnytTemplateRenderer({
   activeRealm,
   onRealmChange,
   knytBalance,
+  spendableKnyt,
+  personaId,
+  onBalanceRefresh,
+  onPurchaseComplete,
+  fullCatalogGrid = false,
+  characterGridMode = false,
+  characterGroups = [],
+  ownedCharacters = new Set<string>(),
   layoutVariant: copilotLayoutVariant,
   showLayoutPreviewControls = false,
 }: KnytTemplateRendererProps) {
@@ -1273,11 +1302,28 @@ export function KnytTemplateRenderer({
             copilotMode={copilotMode}
             userIntent={userIntent}
             layoutVariant={copilotLayoutVariant}
+            fullCatalogGrid={fullCatalogGrid}
             showLayoutPreviewControls={showLayoutPreviewControls}
           />
         );
 
       case 'knyt:dual_poster_stage_v1':
+        if (characterGridMode) {
+          return (
+            <div className="h-full overflow-y-auto p-4">
+              <KnytCardsGrid
+                groups={characterGroups}
+                ownedCharacters={ownedCharacters}
+                personaId={personaId}
+                knytBalance={knytBalance || 0}
+                spendableKnyt={spendableKnyt}
+                onBalanceRefresh={onBalanceRefresh}
+                onPurchaseComplete={onPurchaseComplete}
+                onOpenWallet={() => onDrawerToggle(true)}
+              />
+            </div>
+          );
+        }
         return (
           <DualPosterStageTemplate
             contentItems={contentItems}
@@ -1327,6 +1373,7 @@ export function KnytTemplateRenderer({
             contentItems={contentItems}
             onContentSelect={onContentSelect}
             onViewerOpen={onViewerOpen}
+            onSmartAction={onSmartAction}
             selectedItemId={selectedItemId}
             activeRealm={activeRealm}
             onRealmChange={onRealmChange}
