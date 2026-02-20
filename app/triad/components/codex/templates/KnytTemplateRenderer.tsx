@@ -1287,8 +1287,9 @@ function RealmBridgeMapTemplate({
   device: DeviceType;
   userIntent: UserIntent;
 }) {
-  // Filter content by realm
-  const realmContent = contentItems.filter(i => i.metadata?.realm === activeRealm);
+  // Filter content by realm; fall back to full set if realm-tagged items are missing.
+  const realmContentForActiveRealm = contentItems.filter(i => i.metadata?.realm === activeRealm);
+  const realmContent = realmContentForActiveRealm.length ? realmContentForActiveRealm : contentItems;
 
   return (
     <div className="h-full flex">
@@ -1523,7 +1524,7 @@ export function KnytTemplateRenderer({
   };
 
   return (
-    <div className="h-full w-full overflow-hidden relative">
+    <div className="h-full w-full overflow-x-hidden overflow-y-auto relative">
       {/* Main template content */}
       {renderTemplateContent()}
 

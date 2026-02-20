@@ -1283,9 +1283,10 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       const drawerRegion = composed.regions?.drawer_grid;
       if (finalResult.templateId === 'knyt:drawer_grid_v1' && drawerRegion?.items?.length) {
         setCuratedContent(drawerRegion.items);
-        // Keep codex and lore on the same production drawer geometry.
-        if (activeTab === 'codex' || activeTab === 'lore') {
+        if (activeTab === 'lore') {
           setLayoutVariant('1C');
+        } else if (activeTab === 'codex') {
+          setLayoutVariant(composed.meta?.drawerGridLayoutVariant || 'auto');
         } else if (composed.meta?.drawerGridLayoutVariant) {
           setLayoutVariant(composed.meta.drawerGridLayoutVariant);
         } else {
