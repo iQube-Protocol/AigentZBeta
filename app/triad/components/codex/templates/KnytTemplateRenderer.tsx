@@ -8,7 +8,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   BookOpen, Play, Users, Scroll, Globe, Crown, Gamepad2, 
-  ChevronRight, Sparkles, Gift, ArrowRight, Lock, Check, Coins
+  ChevronRight, Sparkles, Gift, ArrowRight, Lock, Check, Coins, ShoppingCart
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SmartContentActions, type ContentModalities } from '@/app/components/content/SmartContentActions';
@@ -189,13 +189,13 @@ function ContentCard({ item, variant, onSelect, onWatch, onRead, isSelected, onA
             {onAction && (
               <button
                 className="w-7 h-7 rounded-lg bg-black/60 backdrop-blur-sm flex items-center justify-center ring-1 ring-fuchsia-500/40 text-fuchsia-300 hover:bg-fuchsia-500 hover:text-white transition-all"
-                title="Copilot"
+                title="Purchase"
                 onClick={(e) => {
                   e.stopPropagation();
-                  onAction('copilot');
+                  onAction('buy');
                 }}
               >
-                <Sparkles className="w-4 h-4" />
+                <ShoppingCart className="w-4 h-4" />
               </button>
             )}
           </div>
@@ -222,13 +222,13 @@ function ContentCard({ item, variant, onSelect, onWatch, onRead, isSelected, onA
             {onAction && (
               <button
                 className="w-7 h-7 rounded-lg bg-black/60 backdrop-blur-sm flex items-center justify-center ring-1 ring-fuchsia-500/40 text-fuchsia-300 hover:bg-fuchsia-500 hover:text-white transition-all"
-                title="Copilot"
+                title="Purchase"
                 onClick={(e) => {
                   e.stopPropagation();
-                  onAction('copilot');
+                  onAction('buy');
                 }}
               >
-                <Sparkles className="w-4 h-4" />
+                <ShoppingCart className="w-4 h-4" />
               </button>
             )}
           </div>
