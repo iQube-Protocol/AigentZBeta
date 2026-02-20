@@ -75,6 +75,7 @@ interface CodexCopilotLayerProps {
     fioHandle?: string;
     walletAddress?: string;
   };
+  personaId?: string;
 }
 
 type CopilotMode = "chat" | "avatar";
@@ -118,6 +119,7 @@ export function CodexCopilotLayer({
   showWalletMenu = true,
   panelBorder = true,
   agent,
+  personaId,
 }: CodexCopilotLayerProps) {
   const isMobile = useIsMobile();
   const { requestAvatar, releaseAvatar } = useMetaAvatar();
@@ -351,7 +353,12 @@ export function CodexCopilotLayer({
       const response = await fetch("/api/codex/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message, persona: "kn0w1" }),
+        body: JSON.stringify({
+          message,
+          persona: personaId || "kn0w1",
+          personaId: personaId || null,
+          contextId: contextId || null,
+        }),
       });
       const data = await response.json().catch(() => ({}));
       updateMessages((prev) => [
