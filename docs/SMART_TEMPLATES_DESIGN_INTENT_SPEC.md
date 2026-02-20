@@ -29,6 +29,17 @@ Define layout behavior and non-negotiable constraints for SmartTemplates used by
 - When Codex and Lore both use `drawer_grid_v1`, they must follow the same geometric rules for stage symmetry and fallback behavior.
 - Content can differ by tab; layout constraints do not.
 
+### 5) Mobile Geometry for `1C` (`drawer_grid_v1`)
+- Mobile uses an explicit `4x5` stage grid (20 cells), not a simple responsive shrink.
+- Rows 1-2 (`8` cells): featured landscape module spans full width (`4x2`).
+- Rows 3-4 (`8` cells): two side modules rendered side-by-side, each occupying `2x2`.
+- Row 5 (`4` cells): thumbnail rail where each item is `2x1`, rendered as horizontal swipe carousel.
+
+### 6) Tablet Orientation Rules for `1C`
+- Tablet landscape mirrors desktop `1C` geometry and hierarchy.
+- Tablet portrait mirrors mobile `1C` geometry (`4x5` stage + thumbnail carousel).
+- Module sizing must fill available viewport space for the active orientation rather than simply shrinking desktop cards.
+
 ## Implementation Notes (Current)
 - Template: `knyt:drawer_grid_v1`
 - Primary variant in Codex/Lore: `1C` (when selected by orchestration)
