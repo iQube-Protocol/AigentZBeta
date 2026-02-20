@@ -5,7 +5,7 @@
  * handling fixed-viewport layouts, copilot overlay positioning, and wallet drawer integration.
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   BookOpen, Play, Users, Scroll, Globe, Crown, Gamepad2, 
   ChevronRight, Sparkles, Gift, ArrowRight, Lock, Check, Coins
@@ -89,9 +89,10 @@ interface ContentCardProps {
   onRead?: () => void;
   isSelected?: boolean;
   onAction?: (action: string) => void;
+  className?: string;
 }
 
-function ContentCard({ item, variant, onSelect, onWatch, onRead, isSelected, onAction }: ContentCardProps) {
+function ContentCard({ item, variant, onSelect, onWatch, onRead, isSelected, onAction, className }: ContentCardProps) {
   const itemType = item.type || '';
   const isPortrait = itemType.includes('portrait');
   const hasVideo = item.modalities?.watch?.available;
@@ -133,6 +134,7 @@ function ContentCard({ item, variant, onSelect, onWatch, onRead, isSelected, onA
         group relative ${aspectClass} ${sizeClass} rounded-xl overflow-hidden cursor-pointer
         transition-all duration-300 ring-1 ring-white/10
         ${isSelected ? 'ring-2 ring-cyan-400 scale-[1.02]' : 'hover:ring-white/30 hover:scale-[1.01]'}
+        ${className || ''}
       `}
       onClick={onSelect}
     >
@@ -390,6 +392,7 @@ function DrawerGridTemplate({
   copilotContent,
   copilotMode,
   userIntent,
+  device,
   layoutVariant: copilotLayoutVariant,
   fullCatalogGrid = false,
   showLayoutPreviewControls = false,
@@ -402,10 +405,45 @@ function DrawerGridTemplate({
   copilotContent?: React.ReactNode;
   copilotMode: CopilotOverlayMode;
   userIntent: UserIntent;
+  device: DeviceType;
   layoutVariant?: DrawerGridLayoutVariant;
   fullCatalogGrid?: boolean;
   showLayoutPreviewControls?: boolean;
 }) {
+  const viewportRef = useRef<HTMLDivElement | null>(null);
+  const [isTabletPortrait, setIsTabletPortrait] = useState(false);
+
+  useEffect(() => {
+    if (device !== 'tablet') {
+      setIsTabletPortrait(false);
+      return;
+    }
+
+    const resolvePortrait = () => {
+      const el = viewportRef.current;
+      const width = el?.clientWidth ?? window.innerWidth;
+      const height = el?.clientHeight ?? window.innerHeight;
+      setIsTabletPortrait(height > width);
+    };
+
+    resolvePortrait();
+
+    const el = viewportRef.current;
+    const observer = typeof ResizeObserver !== 'undefined' && el
+      ? new ResizeObserver(() => resolvePortrait())
+      : null;
+    if (observer && el) observer.observe(el);
+    window.addEventListener('resize', resolvePortrait);
+
+    return () => {
+      window.removeEventListener('resize', resolvePortrait);
+      observer?.disconnect();
+    };
+  }, [device]);
+
+  const isMobileLikeLayout = device === 'mobile' || (device === 'tablet' && isTabletPortrait);
+  const isDesktopLikeLayout = device === 'desktop' || (device === 'tablet' && !isTabletPortrait);
+
   // Template pack defines drawer_grid with poster3 (3/row) and standard (3/row) card types
   // Fixed viewport with internal scroll only
   const featured = contentItems[0] as KnytContentItem | undefined;
@@ -421,7 +459,11 @@ function DrawerGridTemplate({
       ? devPreviewMode 
       : (copilotLayoutVariant || 'auto');
 
-  const renderCard = (item: KnytContentItem, variantOverride?: ContentCardProps['variant']) => {
+  const renderCard = (
+    item: KnytContentItem,
+    variantOverride?: ContentCardProps['variant'],
+    className?: string
+  ) => {
     const hasPdf = item.modalities?.read?.available;
     const hasVideo = item.modalities?.watch?.available;
     const itemType = item.type || '';
@@ -461,13 +503,17 @@ function DrawerGridTemplate({
         onRead={() => onViewerOpen(item, 'pdf')}
         onWatch={() => onViewerOpen(item, 'video')}
         onAction={(action) => onSmartAction?.(item, action)}
+        className={className}
       />
     );
   };
 
-  const renderPlacedGrid = (placements: Array<{ key: string; item: KnytContentItem; col: number; row: number; colSpan: number; rowSpan: number; variant?: ContentCardProps['variant'] }>) => {
+  const renderPlacedGrid = (
+    placements: Array<{ key: string; item: KnytContentItem; col: number; row: number; colSpan: number; rowSpan: number; variant?: ContentCardProps['variant'] }>
+  ) => {
+    const visibilityClass = isDesktopLikeLayout ? 'grid' : 'hidden lg:grid';
     return (
-      <div className="hidden lg:grid lg:grid-cols-4 lg:grid-rows-3 lg:auto-rows-fr gap-4 h-full">
+      <div className={`${visibilityClass} grid-cols-4 grid-rows-3 auto-rows-fr gap-4 h-full`}>
         {placements.map((p) => (
           <div
             key={p.key}
@@ -838,8 +884,34 @@ function DrawerGridTemplate({
     : null;
   const showProductionDesktopGrid = !showDevPreviewGrid && !!productionDesktopPlacements;
 
+  const getMobile1CItems = () => {
+    const featuredItem = cyclePick(wideCandidates, 0) || cyclePick(contentItems, 0);
+    if (!featuredItem) return null;
+
+    const portraits = contentItems.filter((x) => (x.type || '').includes('portrait') && x.id !== featuredItem.id);
+    const sidePool = contentItems.filter((x) => x.id !== featuredItem.id);
+
+    const leftPoster = portraits[0] || sidePool[0] || featuredItem;
+    const rightPoster = portraits[1] || portraits[0] || sidePool[1] || sidePool[0] || leftPoster;
+
+    const usedIds = new Set([featuredItem.id, leftPoster.id, rightPoster.id]);
+    const thumbsRaw = contentItems.filter((x) => !usedIds.has(x.id));
+    const thumbSource = thumbsRaw.length ? thumbsRaw : sidePool.length ? sidePool : [featuredItem];
+    const thumbs: KnytContentItem[] = [];
+
+    if (thumbSource.length) {
+      for (let i = 0; i < Math.max(4, thumbSource.length); i += 1) {
+        thumbs.push(thumbSource[i % thumbSource.length]);
+      }
+    }
+
+    return { featuredItem, leftPoster, rightPoster, thumbs };
+  };
+
+  const mobile1CItems = effectiveLayout === '1C' && isMobileLikeLayout ? getMobile1CItems() : null;
+
   return (
-    <div className="h-full flex flex-col overflow-hidden">
+    <div ref={viewportRef} className="h-full flex flex-col overflow-hidden">
       {/* Content Grid - poster3 layout (3 cards per row) with internal scroll */}
       <div className="flex-1 p-4">
         {shouldShowDevPreview ? (
@@ -856,16 +928,41 @@ function DrawerGridTemplate({
           </div>
         ) : null}
 
+        {mobile1CItems ? (
+          <div>
+            <div className="grid grid-cols-4 grid-rows-5 gap-3 h-full min-h-[28rem]">
+              <div className="col-span-4 row-span-2 h-full">
+                {renderCard(mobile1CItems.featuredItem, 'featured', 'h-full !aspect-auto')}
+              </div>
+              <div className="col-span-2 row-span-2 h-full">
+                {renderCard(mobile1CItems.leftPoster, 'poster', 'h-full !aspect-auto')}
+              </div>
+              <div className="col-span-2 row-span-2 h-full">
+                {renderCard(mobile1CItems.rightPoster, 'poster', 'h-full !aspect-auto')}
+              </div>
+              <div className="col-span-4 row-span-1 h-full min-h-0">
+                <div className="h-full flex gap-3 overflow-x-auto pb-1 snap-x snap-mandatory">
+                  {mobile1CItems.thumbs.map((item, index) => (
+                    <div key={`${item.id}-thumb-${index}`} className="snap-start shrink-0 basis-[calc(50%-0.375rem)] h-full">
+                      {renderCard(item, 'card', 'h-full !aspect-auto')}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         {showDevPreviewGrid ? renderPlacedGrid(devPlacements!) : null}
         {showProductionDesktopGrid ? renderPlacedGrid(productionDesktopPlacements!) : null}
 
-        {!showDevPreviewGrid && !showProductionDesktopGrid ? (
+        {!mobile1CItems && !showDevPreviewGrid && !showProductionDesktopGrid ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 lg:grid-rows-2 lg:auto-rows-fr gap-4">
             {contentItems.map((item) => renderCard(item))}
           </div>
         ) : null}
 
-        {hasFeatured ? (
+        {hasFeatured && !mobile1CItems ? (
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 lg:hidden">
             {contentItems.map((item) => renderCard(item))}
           </div>
@@ -1326,6 +1423,7 @@ export function KnytTemplateRenderer({
             copilotContent={copilotContent}
             copilotMode={copilotMode}
             userIntent={userIntent}
+            device={device}
             layoutVariant={copilotLayoutVariant}
             fullCatalogGrid={fullCatalogGrid}
             showLayoutPreviewControls={showLayoutPreviewControls}
@@ -1417,6 +1515,7 @@ export function KnytTemplateRenderer({
             copilotContent={copilotContent}
             copilotMode={copilotMode}
             userIntent={userIntent}
+            device={device}
             showLayoutPreviewControls={showLayoutPreviewControls}
           />
         );
