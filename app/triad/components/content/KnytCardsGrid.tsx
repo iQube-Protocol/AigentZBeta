@@ -26,6 +26,7 @@ interface KnytCardsGridProps {
   loading?: boolean;
   error?: string | null;
   onRetry?: () => void;
+  showHeader?: boolean;
 }
 
 export function KnytCardsGrid({
@@ -40,6 +41,7 @@ export function KnytCardsGrid({
   loading = false,
   error = null,
   onRetry,
+  showHeader = true,
 }: KnytCardsGridProps) {
   const [selected, setSelected] = useState<{ poster: KnytCardAsset; sheet?: KnytCardAsset } | null>(null);
   const [purchaseModalOpen, setPurchaseModalOpen] = useState(false);
@@ -158,18 +160,20 @@ export function KnytCardsGrid({
 
   return (
     <div className="space-y-6">
-      <div className="mb-4">
-        <div className="flex items-center gap-2 min-w-0">
-          <Users className="w-5 h-5 text-cyan-400" />
-          <h3 className="text-xl font-bold text-white whitespace-nowrap">KNYT Cards</h3>
-          <p
-            className="min-w-0 flex-1 truncate text-xs text-white/60 sm:text-sm"
-            title={`Meet the heroes and villains of the metaKnyts universe (${cardsCount} cards)`}
-          >
-            Meet the heroes and villains of the metaKnyts universe ({cardsCount} cards)
-          </p>
+      {showHeader && (
+        <div className="mb-4">
+          <div className="flex items-center gap-2 min-w-0">
+            <Users className="w-5 h-5 text-cyan-400" />
+            <h3 className="text-xl font-bold text-white whitespace-nowrap">KNYT Cards</h3>
+            <p
+              className="min-w-0 flex-1 truncate text-xs text-white/60 sm:text-sm"
+              title={`Meet the heroes and villains of the metaKnyts universe (${cardsCount} cards)`}
+            >
+              Meet the heroes and villains of the metaKnyts universe ({cardsCount} cards)
+            </p>
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {characterCards.map(({ poster, sheet }) => {

@@ -1295,10 +1295,8 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       const drawerRegion = composed.regions?.drawer_grid;
       if (finalResult.templateId === 'knyt:drawer_grid_v1' && drawerRegion?.items?.length) {
         setCuratedContent(drawerRegion.items);
-        if (activeTab === 'lore') {
+        if (activeTab === 'lore' || activeTab === 'codex') {
           setLayoutVariant('1C');
-        } else if (activeTab === 'codex') {
-          setLayoutVariant(composed.meta?.drawerGridLayoutVariant || 'auto');
         } else if (composed.meta?.drawerGridLayoutVariant) {
           setLayoutVariant(composed.meta.drawerGridLayoutVariant);
         } else {
@@ -1315,11 +1313,11 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
           }
         }
         setCuratedContent(combined);
-        setLayoutVariant('auto');
+        setLayoutVariant(activeTab === 'lore' || activeTab === 'codex' ? '1C' : 'auto');
       }
     } else {
       setCuratedContent(null);
-      setLayoutVariant('auto');
+      setLayoutVariant(activeTab === 'lore' || activeTab === 'codex' ? '1C' : 'auto');
     }
 
     // Update copilot mode
