@@ -1325,7 +1325,7 @@ function RealmBridgeMapTemplate({
               <ContentCard
                 key={item.id}
                 item={item}
-                variant={item.type === 'motion_comic_landscape' ? 'featured' : 'card'}
+                variant="card"
                 isSelected={selectedItemId === item.id}
                 onSelect={() => {
                   onContentSelect(item);
@@ -1446,12 +1446,13 @@ export function KnytTemplateRenderer({
                 personaId={personaId}
                 knytBalance={knytBalance || 0}
                 spendableKnyt={spendableKnyt}
-                onBalanceRefresh={onBalanceRefresh}
-                onPurchaseComplete={onPurchaseComplete}
-                onOpenWallet={() => onDrawerToggle(true)}
-              />
-            </div>
-          );
+              onBalanceRefresh={onBalanceRefresh}
+              onPurchaseComplete={onPurchaseComplete}
+              onOpenWallet={() => onDrawerToggle(true)}
+              showHeader={false}
+            />
+          </div>
+        );
         }
         return (
           <DualPosterStageTemplate

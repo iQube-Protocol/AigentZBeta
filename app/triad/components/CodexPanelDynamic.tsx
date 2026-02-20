@@ -47,6 +47,12 @@ const TAB_DESCRIPTION_OVERRIDES: Record<string, Record<string, string>> = {
   },
 };
 
+const TAB_TITLE_OVERRIDES: Record<string, Record<string, string>> = {
+  'knyt-codex': {
+    characters: 'KNYT Cards',
+  },
+};
+
 export default function CodexPanelDynamic({
   codexId,
   theme = 'dark',
@@ -213,6 +219,10 @@ export default function CodexPanelDynamic({
   }
 
   const displayCodexName = codex.name.replace(/\s+codex$/i, '').trim() || codex.name;
+  const activeTabTitle = activeTab
+    ? TAB_TITLE_OVERRIDES[codexId]?.[activeTab.slug] || activeTab.label
+    : '';
+  const ActiveTabIcon = getIconComponent(activeTab?.metadata?.icon || 'Circle');
   const activeTabDescription = activeTab
     ? TAB_DESCRIPTION_OVERRIDES[codexId]?.[activeTab.slug] ||
       activeTab.metadata?.description ||
@@ -301,7 +311,8 @@ export default function CodexPanelDynamic({
         {activeTab && (
           <div className="flex-shrink-0 border-b border-slate-800/80 px-4 py-2">
             <div className="flex items-center gap-3 min-w-0">
-              <h3 className="text-sm font-semibold text-white whitespace-nowrap">{activeTab.label}</h3>
+              <ActiveTabIcon className="h-4 w-4 flex-shrink-0 text-slate-300" />
+              <h3 className="text-sm font-semibold text-white whitespace-nowrap">{activeTabTitle}</h3>
               {activeTabDescription ? (
                 <p
                   className="min-w-0 flex-1 truncate text-xs text-slate-400 sm:text-sm"
