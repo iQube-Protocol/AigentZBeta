@@ -16,6 +16,7 @@
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import CodexPanelDynamic from "../../../../triad/components/CodexPanelDynamic";
+import { useCodexEmbedAuthBridge } from "./_lib/useCodexEmbedAuthBridge";
 
 const readFirst = (searchParams: URLSearchParams | null, keys: string[]) => {
   if (!searchParams) return undefined;
@@ -44,7 +45,17 @@ function CodexContent() {
   const tab = readFirst(searchParams, ["tab", "initialTab", "tabSlug", "section"]);
   const theme = normalizeTheme(readFirst(searchParams, ["theme", "mode", "colorMode", "appearance"]));
   const density = normalizeDensity(readFirst(searchParams, ["density", "layoutDensity"]));
-  const personaId = readFirst(searchParams, ["personaId"]);
+  const queryPersonaId = readFirst(searchParams, ["personaId"]);
+  const queryAuthProfileId = readFirst(searchParams, [
+    "authProfileId",
+    "auth_profile_id",
+    "profileId",
+    "aaAuthProfileId",
+  ]);
+  const { personaId } = useCodexEmbedAuthBridge({
+    initialPersonaId: queryPersonaId,
+    initialAuthProfileId: queryAuthProfileId,
+  });
 
   const codexId = codexParam
     ? (codexParam.endsWith('-codex') ? codexParam : `${codexParam}-codex`)
