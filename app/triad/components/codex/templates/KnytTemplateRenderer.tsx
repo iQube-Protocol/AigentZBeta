@@ -343,10 +343,15 @@ interface RealmRailProps {
 }
 
 function RealmRail({ activeRealm = 'digiterra', onRealmChange, vertical = true }: RealmRailProps) {
-  const realms: { id: Realm; label: string; icon: React.ComponentType<{ className?: string }>; color: string }[] = [
-    { id: 'digiterra', label: 'DigiTerra', icon: Gamepad2, color: 'cyan' },
-    { id: 'terra', label: 'Terra', icon: Globe, color: 'green' },
-    { id: 'metaterra_or', label: 'metaTerra/or', icon: Crown, color: 'purple' },
+  const realms: {
+    id: Realm;
+    label: string;
+    icon: React.ComponentType<{ className?: string }>;
+    activeClass: string;
+  }[] = [
+    { id: 'digiterra', label: 'DigiTerra', icon: Gamepad2, activeClass: 'bg-cyan-500/20 text-cyan-400 ring-1 ring-cyan-500/40' },
+    { id: 'terra', label: 'Terra', icon: Globe, activeClass: 'bg-green-500/20 text-green-400 ring-1 ring-green-500/40' },
+    { id: 'metaterra_or', label: 'metaTerra/or', icon: Crown, activeClass: 'bg-purple-500/20 text-purple-400 ring-1 ring-purple-500/40' },
   ];
 
   return (
@@ -362,7 +367,7 @@ function RealmRail({ activeRealm = 'digiterra', onRealmChange, vertical = true }
               flex items-center gap-2 px-3 py-2 rounded-lg transition-all
               ${vertical ? 'w-full' : ''}
               ${isActive 
-                ? `bg-${realm.color}-500/20 text-${realm.color}-400 ring-1 ring-${realm.color}-500/40` 
+                ? realm.activeClass
                 : 'text-white/60 hover:text-white hover:bg-white/5'
               }
             `}

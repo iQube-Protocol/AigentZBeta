@@ -35,6 +35,18 @@ type IssueOption = {
   count?: number;
 };
 
+const TAB_DESCRIPTION_OVERRIDES: Record<string, Record<string, string>> = {
+  'knyt-codex': {
+    codex: 'Featured KNYT drops, character cards, and lore snapshots.',
+    scrolls: 'Episodes and collectible preorder drops from the metaKnyts saga.',
+    characters: 'Meet the heroes and villains of the metaKnyts universe.',
+    lore: 'Background lore documents and world-building context.',
+    digiterra: 'Digital-realm stories, clips, and character-linked moments.',
+    terra: 'Cross-realm feeds for Terra and metaTerra updates.',
+    order: 'Order progression, tasks, and status context.',
+  },
+};
+
 export default function CodexPanelDynamic({
   codexId,
   theme = 'dark',
@@ -201,6 +213,12 @@ export default function CodexPanelDynamic({
   }
 
   const displayCodexName = codex.name.replace(/\s+codex$/i, '').trim() || codex.name;
+  const activeTabDescription = activeTab
+    ? TAB_DESCRIPTION_OVERRIDES[codexId]?.[activeTab.slug] ||
+      activeTab.metadata?.description ||
+      codex.metadata.description ||
+      ''
+    : '';
   const tabBadgeText = (tab: CodexTab) => {
     const rawBadge = typeof tab.metadata?.badge === 'string' ? tab.metadata.badge : '';
     if (codexId === 'knyt-codex' && tab.slug === 'scrolls') {
@@ -279,6 +297,22 @@ export default function CodexPanelDynamic({
             )}
           </div>
         </div>
+
+        {activeTab && (
+          <div className="flex-shrink-0 border-b border-slate-800/80 px-4 py-2">
+            <div className="flex items-center gap-3 min-w-0">
+              <h3 className="text-sm font-semibold text-white whitespace-nowrap">{activeTab.label}</h3>
+              {activeTabDescription ? (
+                <p
+                  className="min-w-0 flex-1 truncate text-xs text-slate-400 sm:text-sm"
+                  title={activeTabDescription}
+                >
+                  {activeTabDescription}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        )}
 
         <div className="flex-1 overflow-y-auto">
           {activeTab && (
