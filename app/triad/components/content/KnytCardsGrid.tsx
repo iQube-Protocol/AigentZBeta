@@ -159,13 +159,16 @@ export function KnytCardsGrid({
   return (
     <div className="space-y-6">
       <div className="mb-4">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           <Users className="w-5 h-5 text-cyan-400" />
-          <h3 className="text-xl font-bold text-white">KNYT Cards</h3>
+          <h3 className="text-xl font-bold text-white whitespace-nowrap">KNYT Cards</h3>
+          <p
+            className="min-w-0 flex-1 truncate text-xs text-white/60 sm:text-sm"
+            title={`Meet the heroes and villains of the metaKnyts universe (${cardsCount} cards)`}
+          >
+            Meet the heroes and villains of the metaKnyts universe ({cardsCount} cards)
+          </p>
         </div>
-        <p className="text-sm text-white/60 mt-1">
-          Meet the heroes and villains of the metaKnyts universe ({cardsCount} cards)
-        </p>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">

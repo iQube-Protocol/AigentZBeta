@@ -1201,12 +1201,24 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
           (item) => item.metadata?.realm === 'digiterra' && item.type !== 'motion_comic_landscape'
         );
       case 'terra':
-        return contentWithOwnership.filter(
+      {
+        const realmScoped = contentWithOwnership.filter(
           (item) =>
             item.metadata?.realm === 'terra' ||
             item.metadata?.realm === 'metaterra_or' ||
             item.type === 'terra_update'
         );
+        if (realmScoped.length > 0) return realmScoped;
+
+        // Fail-safe: preserve rendering if realm tags are missing in upstream payloads.
+        const inferred = contentWithOwnership.filter(
+          (item) =>
+            item.id.startsWith('terra_') ||
+            item.id.startsWith('metaterra_') ||
+            item.type === 'motion_comic_landscape'
+        );
+        return inferred.length > 0 ? inferred : contentWithOwnership;
+      }
       case 'order':
         return contentWithOwnership;
       case 'codex':
