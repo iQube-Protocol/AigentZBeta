@@ -47,12 +47,31 @@ export default function CodexPanelDynamic({
   const router = useRouter();
   const pathname = usePathname();
   const { data: codex, isLoading, error } = useCodexConfig({ codexId, useDefaults });
+  const resolvedTheme: 'light' | 'dark' = theme === 'light' ? 'light' : 'dark';
+  const normalizedInitialTab = (initialTab || '').trim().toLowerCase();
   
   const enabledTabs = useMemo(() => getEnabledTabs(codex), [codex]);
   
   const [activeTabSlug, setActiveTabSlug] = useState<string>(
-    initialTab || enabledTabs[0]?.slug || 'codex'
+    normalizedInitialTab || enabledTabs[0]?.slug || 'codex'
   );
+
+  useEffect(() => {
+    if (!normalizedInitialTab) return;
+    if (activeTabSlug === normalizedInitialTab) return;
+    setActiveTabSlug(normalizedInitialTab);
+  }, [normalizedInitialTab, activeTabSlug]);
+
+  useEffect(() => {
+    if (!enabledTabs.length) return;
+    const exists = enabledTabs.some((tab) => tab.slug === activeTabSlug);
+    if (exists) return;
+    if (normalizedInitialTab && enabledTabs.some((tab) => tab.slug === normalizedInitialTab)) {
+      setActiveTabSlug(normalizedInitialTab);
+      return;
+    }
+    setActiveTabSlug(enabledTabs[0].slug);
+  }, [enabledTabs, activeTabSlug, normalizedInitialTab]);
 
   const isQriptopian = codexId === 'qripto-codex';
   const [issueSlug, setIssueSlug] = useState<string>(() => {
@@ -135,7 +154,7 @@ export default function CodexPanelDynamic({
   // Loading state
   if (isLoading) {
     return (
-      <div className={`flex flex-col h-full w-full ${theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'}`}>
+      <div className={`flex flex-col h-full w-full ${resolvedTheme === 'dark' ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'}`}>
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center space-y-4">
             <Loader2 className="w-8 h-8 animate-spin mx-auto text-indigo-400" />
@@ -149,7 +168,7 @@ export default function CodexPanelDynamic({
   // Error state
   if (error || !codex) {
     return (
-      <div className={`flex flex-col h-full w-full ${theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'}`}>
+      <div className={`flex flex-col h-full w-full ${resolvedTheme === 'dark' ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'}`}>
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center space-y-4">
             <AlertCircle className="w-8 h-8 mx-auto text-red-400" />
@@ -164,7 +183,7 @@ export default function CodexPanelDynamic({
   // No tabs available
   if (enabledTabs.length === 0) {
     return (
-      <div className={`flex flex-col h-full w-full ${theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'}`}>
+      <div className={`flex flex-col h-full w-full ${resolvedTheme === 'dark' ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'}`}>
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center space-y-4">
             <AlertCircle className="w-8 h-8 mx-auto text-amber-400" />
@@ -190,7 +209,7 @@ export default function CodexPanelDynamic({
 
   return (
     <SmartTriadProvider personaId={personaId}>
-      <div className={`flex flex-col h-full w-full ${theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'}`}>
+      <div className={`flex flex-col h-full w-full ${resolvedTheme === 'dark' ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'}`}>
         <div className="flex-shrink-0 border-b border-slate-700/50 px-4">
           <div className="flex items-center justify-between gap-3 py-3">
             <div className="flex min-w-0 items-center gap-4">
@@ -260,7 +279,7 @@ export default function CodexPanelDynamic({
             <TabRenderer
               tab={activeTab}
               codexId={codexId}
-              theme={theme}
+              theme={resolvedTheme}
               density={density}
               personaId={personaId}
               issueSlug={isQriptopian ? issueSlug : undefined}
