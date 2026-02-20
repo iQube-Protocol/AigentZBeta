@@ -117,7 +117,7 @@ function ContentCard({ item, variant, onSelect, onWatch, onRead, isSelected, onA
     poster: isPortrait ? 'aspect-[3/4]' : 'aspect-video',
     card: 'aspect-video',
     thumbnail: 'aspect-square',
-    featured: 'aspect-[16/9]',
+    featured: 'aspect-[16/9] lg:aspect-auto lg:h-full',
   }[variant];
 
   const sizeClass = {
@@ -510,11 +510,11 @@ function DrawerGridTemplate({
       const remaining = contentItems.slice(1);
       const portraits = remaining.filter((x) => (x.type || '').includes('portrait'));
 
-      // If we have at least 2 portrait tiles, lock them into the non-featured side as true posters
-      // so a poster never “falls” to row 3 (especially column 2).
-      if (portraits.length >= 2) {
+      // Prefer true poster treatment on the non-featured side whenever any portrait exists.
+      // If only one portrait exists, mirror it into both poster slots to preserve symmetry.
+      if (portraits.length >= 1) {
         const p0 = portraits[0];
-        const p1 = portraits[1];
+        const p1 = portraits[1] ?? portraits[0];
         const usedIds = new Set([f.id, p0.id, p1.id]);
         const fillers = contentItems
           .filter((x) => !usedIds.has(x.id))
@@ -531,11 +531,13 @@ function DrawerGridTemplate({
         ];
       }
 
-      // Fallback: keep the prior 2x2 non-featured side when not enough portraits exist.
-      const a = contentItems[1];
-      const b = contentItems[2];
-      const c = contentItems[3];
-      const d = contentItems[4];
+      // Fallback: force a symmetric 2x2 short-card side when portrait candidates are sparse.
+      const sidePool = remaining.length ? remaining : [f];
+      const pickSide = (idx: number) => sidePool[idx % sidePool.length];
+      const a = pickSide(0);
+      const b = pickSide(1);
+      const c = pickSide(2);
+      const d = pickSide(3);
       if (!a || !b || !c || !d) return null;
 
       const nonFeaturedSideCol1 = featuredLeft ? 3 : 1;
@@ -546,10 +548,10 @@ function DrawerGridTemplate({
 
       return [
         { key: 'f', item: f, col: featuredCol, row: 1, colSpan: 2, rowSpan: 2, variant: 'featured' as const },
-        { key: 'a', item: a, col: nonFeaturedSideCol1, row: 1, colSpan: 1, rowSpan: 1 },
-        { key: 'b', item: b, col: nonFeaturedSideCol2, row: 1, colSpan: 1, rowSpan: 1 },
-        { key: 'c', item: c, col: nonFeaturedSideCol1, row: 2, colSpan: 1, rowSpan: 1 },
-        { key: 'd', item: d, col: nonFeaturedSideCol2, row: 2, colSpan: 1, rowSpan: 1 },
+        { key: 'a', item: a, col: nonFeaturedSideCol1, row: 1, colSpan: 1, rowSpan: 1, variant: 'card' as const },
+        { key: 'b', item: b, col: nonFeaturedSideCol2, row: 1, colSpan: 1, rowSpan: 1, variant: 'card' as const },
+        { key: 'c', item: c, col: nonFeaturedSideCol1, row: 2, colSpan: 1, rowSpan: 1, variant: 'card' as const },
+        { key: 'd', item: d, col: nonFeaturedSideCol2, row: 2, colSpan: 1, rowSpan: 1, variant: 'card' as const },
         ...(fillers[0] ? [{ key: 'r3c1', item: fillers[0], col: 1, row: 3, colSpan: 1, rowSpan: 1 }] : []),
         ...(fillers[1] ? [{ key: 'r3c2', item: fillers[1], col: 2, row: 3, colSpan: 1, rowSpan: 1 }] : []),
         ...(fillers[2] ? [{ key: 'r3c3', item: fillers[2], col: 3, row: 3, colSpan: 1, rowSpan: 1 }] : []),
@@ -615,19 +617,42 @@ function DrawerGridTemplate({
       const featuredCol = featuredLeft ? 1 : 3;
       const posterCol1 = featuredLeft ? 3 : 1;
       const posterCol2 = featuredLeft ? 4 : 2;
+      const portraitCandidates = contentItems.filter((x) => (x.type || '').includes('portrait'));
 
-      // Use portrait items for the non-featured side as 2-row posters
-      const p0 = cyclePick(tallCandidates, 0);
-      const p1 = cyclePick(tallCandidates, 1);
-      if (!p0 || !p1) return null;
+      if (portraitCandidates.length >= 1) {
+        const p0 = portraitCandidates[0];
+        const p1 = portraitCandidates[1] ?? portraitCandidates[0];
+        const usedIds = new Set([f.id, p0.id, p1.id]);
+        const fillers = contentItems.filter((x) => !usedIds.has(x.id)).slice(0, 4);
 
-      const usedIds = new Set([f.id, p0.id, p1.id]);
+        return [
+          { key: 'f', item: f, col: featuredCol, row: 1, colSpan: 2, rowSpan: 2, variant: 'featured' as const },
+          { key: 'p0', item: p0, col: posterCol1, row: 1, colSpan: 1, rowSpan: 2, variant: 'poster' as const },
+          { key: 'p1', item: p1, col: posterCol2, row: 1, colSpan: 1, rowSpan: 2, variant: 'poster' as const },
+          ...(fillers[0] ? [{ key: 'r3c1', item: fillers[0], col: 1, row: 3, colSpan: 1, rowSpan: 1, variant: 'card' as const }] : []),
+          ...(fillers[1] ? [{ key: 'r3c2', item: fillers[1], col: 2, row: 3, colSpan: 1, rowSpan: 1, variant: 'card' as const }] : []),
+          ...(fillers[2] ? [{ key: 'r3c3', item: fillers[2], col: 3, row: 3, colSpan: 1, rowSpan: 1, variant: 'card' as const }] : []),
+          ...(fillers[3] ? [{ key: 'r3c4', item: fillers[3], col: 4, row: 3, colSpan: 1, rowSpan: 1, variant: 'card' as const }] : []),
+        ];
+      }
+
+      const sidePoolRaw = contentItems.filter((x) => x.id !== f.id);
+      const sidePool = sidePoolRaw.length ? sidePoolRaw : [f];
+      const a = cyclePick(sidePool, 0);
+      const b = cyclePick(sidePool, 1);
+      const c = cyclePick(sidePool, 2);
+      const d = cyclePick(sidePool, 3);
+      if (!a || !b || !c || !d) return null;
+
+      const usedIds = new Set([f.id, a.id, b.id, c.id, d.id]);
       const fillers = contentItems.filter((x) => !usedIds.has(x.id)).slice(0, 4);
 
       return [
         { key: 'f', item: f, col: featuredCol, row: 1, colSpan: 2, rowSpan: 2, variant: 'featured' as const },
-        { key: 'p0', item: p0, col: posterCol1, row: 1, colSpan: 1, rowSpan: 2, variant: 'poster' as const },
-        { key: 'p1', item: p1, col: posterCol2, row: 1, colSpan: 1, rowSpan: 2, variant: 'poster' as const },
+        { key: 'a', item: a, col: posterCol1, row: 1, colSpan: 1, rowSpan: 1, variant: 'card' as const },
+        { key: 'b', item: b, col: posterCol2, row: 1, colSpan: 1, rowSpan: 1, variant: 'card' as const },
+        { key: 'c', item: c, col: posterCol1, row: 2, colSpan: 1, rowSpan: 1, variant: 'card' as const },
+        { key: 'd', item: d, col: posterCol2, row: 2, colSpan: 1, rowSpan: 1, variant: 'card' as const },
         ...(fillers[0] ? [{ key: 'r3c1', item: fillers[0], col: 1, row: 3, colSpan: 1, rowSpan: 1, variant: 'card' as const }] : []),
         ...(fillers[1] ? [{ key: 'r3c2', item: fillers[1], col: 2, row: 3, colSpan: 1, rowSpan: 1, variant: 'card' as const }] : []),
         ...(fillers[2] ? [{ key: 'r3c3', item: fillers[2], col: 3, row: 3, colSpan: 1, rowSpan: 1, variant: 'card' as const }] : []),
