@@ -511,7 +511,7 @@ function DrawerGridTemplate({
   const renderPlacedGrid = (
     placements: Array<{ key: string; item: KnytContentItem; col: number; row: number; colSpan: number; rowSpan: number; variant?: ContentCardProps['variant'] }>
   ) => {
-    const visibilityClass = isDesktopLikeLayout ? 'grid' : 'hidden lg:grid';
+    const visibilityClass = isDesktopLikeLayout ? 'grid' : 'hidden';
     return (
       <div className={`${visibilityClass} grid-cols-4 grid-rows-3 auto-rows-fr gap-4 h-full`}>
         {placements.map((p) => (
