@@ -495,20 +495,31 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   const [copilotMode, setCopilotMode] = useState<CopilotOverlayMode>('overlay');
   
   const { toast } = useToast();
+  const effectivePersonaId = useMemo(() => {
+    const candidates = [personaId, activePersonaId, personas[0]?.id];
+    for (const candidate of candidates) {
+      if (typeof candidate !== 'string') continue;
+      const trimmed = candidate.trim();
+      if (!trimmed || trimmed === 'default' || trimmed === 'guest') continue;
+      return trimmed;
+    }
+    return undefined;
+  }, [personaId, activePersonaId, personas]);
   
   // KNYT balance and cards data
-  const { balance, spendableBalance, refreshBalance } = useKnytBalance(personaId);
+  const { balance, spendableBalance, refreshBalance } = useKnytBalance(effectivePersonaId);
   const { groups, loading: cardsLoading, error: cardsError, refreshCards } = useKnytCards({
     enabled: activeTab === 'characters' || showLegacyFallbackUI,
   });
-  const { ownedCharacters, refreshPurchases } = useKnytPurchases(personaId);
-  const isSignedIn = !!personaId && personaId !== 'default' && personaId !== 'guest';
+  const { ownedCharacters, refreshPurchases } = useKnytPurchases(effectivePersonaId);
+  const isSignedIn = !!effectivePersonaId;
   const showLayoutPreviewControls = useMemo(() => {
     const allowlist = parseAdminAllowlist(process.env.NEXT_PUBLIC_KNYT_LAYOUT_PREVIEW_ADMINS);
     const forceFromEnv = process.env.NEXT_PUBLIC_KNYT_LAYOUT_PREVIEW_ENABLED === 'true';
     if (forceFromEnv) return true;
 
     const candidates: string[] = [
+      effectivePersonaId || '',
       personaId || '',
       activePersonaId || '',
       ...personas.map((persona) => persona.id || ''),
@@ -516,7 +527,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       ...personas.map((persona) => persona.displayName || ''),
     ];
     return candidates.some((candidate) => allowlist.has(candidate.toLowerCase()));
-  }, [personaId, activePersonaId, personas]);
+  }, [effectivePersonaId, personaId, activePersonaId, personas]);
   const filteredDVNEvents = useMemo(() => {
     return dvnEvents.filter((event) => {
       if (dvnStatusFilter === 'confirmed' && event.event !== 'PaymentConfirmed') {
@@ -1031,20 +1042,20 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
 
   // Fetch owned episodes
   const fetchOwnedEpisodes = useCallback(async () => {
-    if (!personaId) {
+    if (!effectivePersonaId) {
       setOwnedEpisodeNumbers(new Set());
       setOwnedIssues([]);
       return;
     }
     try {
       const apiBase = API_BASE_URL;
-      const cacheKey = `codex:knyt:owned:${personaId}`;
+      const cacheKey = `codex:knyt:owned:${effectivePersonaId}`;
       const cached = getCachedValue<number[]>(cacheKey);
       if (cached) {
         setOwnedEpisodeNumbers(new Set(cached));
         return;
       }
-      const ownedRes = await fetch(`${apiBase}/api/codex/owned?personaId=${personaId}`);
+      const ownedRes = await fetch(`${apiBase}/api/codex/owned?personaId=${effectivePersonaId}`);
       if (!ownedRes.ok) return;
       const ownedData = await ownedRes.json();
       setOwnedIssues(ownedData.issues || []);
@@ -1056,7 +1067,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     } catch (error) {
       console.warn('[KnytTab] Failed to load owned episodes:', error);
     }
-  }, [personaId]);
+  }, [effectivePersonaId]);
 
   const fetchEpisodesCatalog = useCallback(async () => {
     return getCachedOrFetch<EpisodeFromAPI[]>(
@@ -1265,7 +1276,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       realm: scopedRealm,
       taskState: hasActiveTasks ? 'active' : 'idle',
       isFirstVisit: false,
-      personaId,
+      personaId: effectivePersonaId,
     };
 
     const result = service.selectTemplate(context);
@@ -1324,7 +1335,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     if (finalResult.copilotMode !== copilotMode) {
       setCopilotMode(finalResult.copilotMode);
     }
-  }, [loading, contentForActiveTab, userIntent, device, activeRealm, personaId, taskData, service, selectedItemId, activeTab, copilotMode]);
+  }, [loading, contentForActiveTab, userIntent, device, activeRealm, effectivePersonaId, taskData, service, selectedItemId, activeTab, copilotMode]);
 
   const handleBackFromCharacterDetail = () => {
     setShowCharacterDetail(false);
@@ -1593,7 +1604,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
               characterGridMode={activeTab === 'characters'}
               characterGroups={effectiveCharacterGroups}
               ownedCharacters={ownedCharacters}
-              personaId={personaId}
+              personaId={effectivePersonaId}
               knytBalance={balance?.dvnKnyt || 0}
               spendableKnyt={spendableBalance || 0}
               onBalanceRefresh={refreshBalance}
@@ -1998,7 +2009,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                   <KnytCardsGrid
                     groups={effectiveCharacterGroups}
                     ownedCharacters={ownedCharacters}
-                    personaId={personaId}
+                    personaId={effectivePersonaId}
                     knytBalance={balance?.dvnKnyt || 0}
                     spendableKnyt={spendableBalance || 0}
                     onBalanceRefresh={refreshBalance}
@@ -2146,7 +2157,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                 setPurchaseModalOpen(false);
                 setPurchaseContent(null);
               }}
-              personaId={personaId}
+              personaId={effectivePersonaId}
               onRequestPersona={handleOpenWallet}
               contentType={purchaseContent.type}
               contentId={purchaseContent.id}
