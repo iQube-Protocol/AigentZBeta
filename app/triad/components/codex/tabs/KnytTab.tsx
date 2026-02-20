@@ -214,6 +214,7 @@ import { LoreTextReader } from "@/app/triad/components/content/LoreTextReader";
 import { ContentPurchaseModal, type ContentType } from "@/app/triad/components/content/ContentPurchaseModal";
 import { KnytCardsGrid } from "@/app/triad/components/content/KnytCardsGrid";
 import { CoverImage } from "@/app/triad/components/content/CoverImage";
+import { CodexCopilotLayer, type CopilotMessage } from "@/app/components/codex/CodexCopilotLayer";
 import { getImageLoaderStats } from "@/app/utils/image-loader";
 
 // API and data
@@ -329,6 +330,16 @@ const PREORDER_CONTENT_VARIANTS = [
   { id: 'rare', subtitle: 'Episode #-2', title: 'Episode -1 Preorder Drop (Rare)', priceKnyt: 61 },
   { id: 'common', subtitle: 'Episode #-1', title: 'Episode -1 Preorder Drop (Common)', priceKnyt: 49 },
 ] as const;
+
+function createCodexCopilotWelcomeMessage(): CopilotMessage {
+  return {
+    id: 'knyt-copilot-welcome',
+    role: 'assistant',
+    content:
+      'KNYT Copilot is ready. Ask for summaries, compare editions, or request checkout guidance for the selected item.',
+    timestamp: new Date(0),
+  };
+}
 
 function getAuthProfileIdFromStorage(): string | null {
   if (typeof window === 'undefined') return null;
@@ -476,6 +487,10 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   const handleOpenWallet = useCallback((_mode: 'signin' | 'signup') => {
     setDrawerOpen(true);
   }, []);
+  const [codexCopilotOpen, setCodexCopilotOpen] = useState(false);
+  const [codexCopilotMessages, setCodexCopilotMessages] = useState<CopilotMessage[]>(() => [
+    createCodexCopilotWelcomeMessage(),
+  ]);
   
   // Quest/Task state
   const [taskData, setTaskData] = useState({
@@ -1418,6 +1433,27 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     }
   }, []);
 
+  const openCopilotWithContext = useCallback((item: KnytContentItem) => {
+    const actionHints: string[] = [];
+    if (item.modalities?.read?.available || item.media?.text) actionHints.push('read');
+    if (item.modalities?.watch?.available || item.media?.video_cid || item.media?.video_url) actionHints.push('watch');
+    actionHints.push('buy');
+
+    setCodexCopilotMessages((prev) => {
+      const base = prev.length > 0 ? prev : [createCodexCopilotWelcomeMessage()];
+      return [
+        ...base,
+        {
+          id: `knyt-copilot-context-${item.id}-${Date.now()}`,
+          role: 'assistant',
+          content: `Context loaded: ${item.title} (${activeTab}). Available actions: ${actionHints.join(', ')}.`,
+          timestamp: new Date(),
+        },
+      ];
+    });
+    setCodexCopilotOpen(true);
+  }, [activeTab]);
+
   const handleSmartAction = useCallback((item: KnytContentItem, action: string) => {
     if (action === 'buy') {
       if (item.type === 'character_portrait') {
@@ -1456,13 +1492,13 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       setCurrentVideoTitle(item.title);
       setVideoPlayerOpen(true);
     } else if (action === 'copilot') {
-      setDrawerOpen(true);
+      openCopilotWithContext(item);
       toast({
         title: 'Copilot ready',
-        description: 'Wallet + Copilot drawer opened for this content item.',
+        description: `KNYT Copilot opened with ${item.title} context.`,
       });
     }
-  }, [getVideoPlaybackUrl, isEpisodeLocked, openPurchaseForItem, toast]);
+  }, [getVideoPlaybackUrl, isEpisodeLocked, openPurchaseForItem, openCopilotWithContext, toast]);
 
   const handleViewerOpen = useCallback((item: KnytContentItem, type: 'pdf' | 'video' | 'poster') => {
     if (isEpisodeLocked(item)) {
@@ -2177,6 +2213,29 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
           )}
         </>
       )}
+
+      <CodexCopilotLayer
+        isOpen={codexCopilotOpen}
+        onClose={() => setCodexCopilotOpen(false)}
+        onOpen={() => setCodexCopilotOpen(true)}
+        variant="floating"
+        personaId={effectivePersonaId}
+        contextId={`knyt-${activeTab}`}
+        messages={codexCopilotMessages}
+        onMessagesChange={setCodexCopilotMessages}
+        promptPlaceholder="Ask KNYT Copilot about this content..."
+        quickPrompts={[
+          { label: 'Summarize selected content', prompt: 'Summarize the currently selected KNYT content and key takeaways.' },
+          { label: 'Compare still vs motion', prompt: 'Compare still and motion versions for the selected content and recommend one.' },
+          { label: 'Open wallet checkout', prompt: 'Open wallet checkout for the selected item.' },
+        ]}
+        onPrompt={(prompt) => {
+          const normalized = prompt.toLowerCase();
+          if (normalized.includes('wallet') || normalized.includes('checkout') || normalized.includes('purchase')) {
+            setDrawerOpen(true);
+          }
+        }}
+      />
 
       <Dialog open={dvnDrawerOpen} onOpenChange={setDvnDrawerOpen}>
         <DialogContent className="max-w-2xl bg-slate-950 text-white border-white/10">
