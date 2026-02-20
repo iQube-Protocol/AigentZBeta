@@ -6,8 +6,8 @@
  * Phase 1 Pricing: Character cards are 2 KNYT (still) or 4 KNYT (motion)
  */
 
-import { useMemo, useState } from 'react';
-import { X, Coins, ShoppingCart, Check, Users, Loader2, AlertTriangle, RefreshCw } from 'lucide-react';
+import { useState } from 'react';
+import { X, Coins, ShoppingCart, Check, Users } from 'lucide-react';
 import { ContentPurchaseModal } from '@/app/triad/components/content/ContentPurchaseModal';
 import type { EpisodeGroup, KnytCardAsset } from '@/app/hooks/useKnytCards';
 
@@ -22,10 +22,6 @@ interface KnytCardsGridProps {
   spendableKnyt?: number;
   onBalanceRefresh?: () => void;
   onPurchaseComplete?: () => void;
-  onOpenWallet?: (mode: 'signin' | 'signup') => void;
-  loading?: boolean;
-  error?: string | null;
-  onRetry?: () => void;
 }
 
 export function KnytCardsGrid({
@@ -36,79 +32,12 @@ export function KnytCardsGrid({
   spendableKnyt,
   onBalanceRefresh,
   onPurchaseComplete,
-  onOpenWallet,
-  loading = false,
-  error = null,
-  onRetry,
 }: KnytCardsGridProps) {
   const [selected, setSelected] = useState<{ poster: KnytCardAsset; sheet?: KnytCardAsset } | null>(null);
   const [purchaseModalOpen, setPurchaseModalOpen] = useState(false);
   const [purchaseCard, setPurchaseCard] = useState<KnytCardAsset | null>(null);
 
-  const normalizeLabel = (value?: string): string =>
-    (value || '')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, ' ')
-      .trim();
-
-  const findMatchingSheet = (poster: KnytCardAsset, sheets: KnytCardAsset[]): KnytCardAsset | undefined => {
-    if (!sheets.length) return undefined;
-    const posterTitle = normalizeLabel(poster.title.replace(/\bfront\b/gi, ''));
-    const characterName = normalizeLabel(poster.characterName);
-    const digiterraName = normalizeLabel(poster.digiterraName);
-
-    return sheets.find((sheet) => {
-      const sheetTitle = normalizeLabel(sheet.title);
-      if (!sheetTitle) return false;
-      if (posterTitle && (sheetTitle.includes(posterTitle) || posterTitle.includes(sheetTitle))) return true;
-      if (characterName && sheetTitle.includes(characterName)) return true;
-      if (digiterraName && sheetTitle.includes(digiterraName)) return true;
-      return false;
-    });
-  };
-
-  const characterCards = useMemo(() => {
-    const pairedCards: Array<{ poster: KnytCardAsset; sheet: KnytCardAsset }> = [];
-    for (const group of groups) {
-      const sortedPosters = [...group.posters].sort((a, b) => (a.title || '').localeCompare(b.title || ''));
-      const availableSheets = [...group.sheets];
-      const usedSheetIds = new Set<string>();
-
-      for (const poster of sortedPosters) {
-        let sheet =
-          poster.characterId
-            ? availableSheets.find(
-                (candidate) => candidate.characterId === poster.characterId && !usedSheetIds.has(candidate.id)
-              )
-            : undefined;
-
-        if (!sheet) {
-          sheet = findMatchingSheet(
-            poster,
-            availableSheets.filter((candidate) => !usedSheetIds.has(candidate.id))
-          );
-        }
-
-        if (!sheet) {
-          const remainingSheets = availableSheets.filter((candidate) => !usedSheetIds.has(candidate.id));
-          if (remainingSheets.length === 1) {
-            sheet = remainingSheets[0];
-          }
-        }
-
-        if (!sheet) {
-          // Omit cards that do not have a corresponding back panel.
-          continue;
-        }
-
-        usedSheetIds.add(sheet.id);
-        pairedCards.push({ poster, sheet });
-      }
-    }
-    return pairedCards;
-  }, [groups]);
-
-  const cardsCount = characterCards.length;
+  const cardsCount = groups.reduce((acc, group) => acc + group.posters.length, 0);
 
   const getOwnedStatus = (poster: KnytCardAsset) => {
     const key = poster.characterName || poster.id;
@@ -116,37 +45,6 @@ export function KnytCardsGrid({
   };
 
   const coverUrl = (cid?: string) => (cid ? `/api/content/cover/${cid}?variant=thumb` : '');
-
-  if (loading && !groups.length) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center space-y-3">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto text-cyan-400" />
-          <p className="text-white/60">Loading character cards...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error && !groups.length) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center space-y-3">
-          <AlertTriangle className="w-8 h-8 mx-auto text-red-400" />
-          <p className="text-red-300">{error}</p>
-          {onRetry && (
-            <button
-              className="inline-flex items-center gap-2 rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white/80 hover:bg-white/10"
-              onClick={onRetry}
-            >
-              <RefreshCw className="w-4 h-4" />
-              Retry
-            </button>
-          )}
-        </div>
-      </div>
-    );
-  }
 
   if (!groups.length) {
     return (
@@ -169,72 +67,79 @@ export function KnytCardsGrid({
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {characterCards.map(({ poster, sheet }) => {
-          const isOwned = getOwnedStatus(poster);
+        {groups.flatMap((group) =>
+          group.posters.map((poster) => {
+            const sheet =
+              group.sheets.find((s) =>
+                s.title.toLowerCase().includes(poster.title.toLowerCase().replace(' front', ''))
+              ) || group.sheets[0];
 
-          return (
-            <div
-              key={poster.id}
-              onClick={() => setSelected({ poster, sheet })}
-              className="relative aspect-[3/4] rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-cyan-400 transition-all bg-gray-800 group"
-            >
-              <img
-                src={coverUrl(poster.autoDriveCid)}
-                alt={poster.title}
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = 'none';
-                }}
-              />
+            const isOwned = getOwnedStatus(poster);
 
-              {isOwned && (
-                <div className="absolute top-2 left-2 z-10">
-                  <span className="flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-500/90 text-white text-xs font-bold">
-                    <Check className="w-3 h-3" />
-                    Owned
-                  </span>
-                </div>
-              )}
+            return (
+              <div
+                key={poster.id}
+                onClick={() => setSelected({ poster, sheet })}
+                className="relative aspect-[3/4] rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-cyan-400 transition-all bg-gray-800 group"
+              >
+                <img
+                  src={coverUrl(poster.autoDriveCid)}
+                  alt={poster.title}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
 
-              {!isOwned && (
-                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <span className="flex items-center gap-1 px-2 py-1 rounded-md bg-amber-500/90 text-white text-xs font-bold">
-                    <Coins className="w-3 h-3" />
-                    {CARD_PRICE_STILL} KNYT
-                  </span>
-                </div>
-              )}
+                {isOwned && (
+                  <div className="absolute top-2 left-2 z-10">
+                    <span className="flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-500/90 text-white text-xs font-bold">
+                      <Check className="w-3 h-3" />
+                      Owned
+                    </span>
+                  </div>
+                )}
 
-              {!isOwned && (
-                <div className="absolute bottom-12 right-2 flex gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button
-                    className="w-6 h-6 rounded-md bg-amber-500/80 backdrop-blur-sm flex items-center justify-center ring-1 ring-amber-400/40 text-white hover:bg-amber-400 transition-all"
-                    title={`Buy for ${CARD_PRICE_STILL} KNYT`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setPurchaseCard(poster);
-                      setPurchaseModalOpen(true);
-                    }}
-                  >
-                    <ShoppingCart className="w-3 h-3" />
-                  </button>
-                </div>
-              )}
+                {!isOwned && (
+                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span className="flex items-center gap-1 px-2 py-1 rounded-md bg-amber-500/90 text-white text-xs font-bold">
+                      <Coins className="w-3 h-3" />
+                      {CARD_PRICE_STILL} KNYT
+                    </span>
+                  </div>
+                )}
 
-              <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black">
-                <p className="text-xs text-cyan-400 font-medium">
-                  {poster.digiterraName || poster.title}
-                </p>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <span className="text-[10px] text-amber-300">{CARD_PRICE_STILL} KNYT</span>
-                  <span className="text-[10px] text-white/40">
-                    (${(CARD_PRICE_STILL * KNYT_USD_RATE).toFixed(2)})
-                  </span>
+                {!isOwned && (
+                  <div className="absolute bottom-12 right-2 flex gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      className="w-6 h-6 rounded-md bg-amber-500/80 backdrop-blur-sm flex items-center justify-center ring-1 ring-amber-400/40 text-white hover:bg-amber-400 transition-all"
+                      title={`Buy for ${CARD_PRICE_STILL} KNYT`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPurchaseCard(poster);
+                        setPurchaseModalOpen(true);
+                      }}
+                    >
+                      <ShoppingCart className="w-3 h-3" />
+                    </button>
+                  </div>
+                )}
+
+                <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black">
+                  <p className="text-xs text-cyan-400 font-medium">
+                    {poster.digiterraName || poster.title}
+                  </p>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <span className="text-[10px] text-amber-300">{CARD_PRICE_STILL} KNYT</span>
+                    <span className="text-[10px] text-white/40">
+                      (${(CARD_PRICE_STILL * KNYT_USD_RATE).toFixed(2)})
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })
+        )}
       </div>
 
       {selected && (
@@ -359,7 +264,6 @@ export function KnytCardsGrid({
             setPurchaseCard(null);
           }}
           personaId={personaId}
-          onRequestPersona={onOpenWallet}
           contentType="character_card"
           contentId={purchaseCard.id}
           contentTitle={purchaseCard.digiterraName || purchaseCard.title}

@@ -40,18 +40,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const episodeNumber = searchParams.get('episode');
-    const requestedSeries = searchParams.get('series') || 'metaKnyts';
-    const normalizedSeries = requestedSeries.trim();
-    const seriesCandidates = Array.from(
-      new Set([
-        normalizedSeries,
-        'metaKnyts',
-        'metaknyts',
-        'metaKNYTS',
-      ].filter(Boolean))
-    );
-    const parsedEpisodeNumber = episodeNumber ? Number.parseInt(episodeNumber, 10) : null;
-    const hasEpisodeFilter = parsedEpisodeNumber !== null && !Number.isNaN(parsedEpisodeNumber);
+    const series = searchParams.get('series') || 'metaKnyts';
 
     // Fetch character_poster and powers_sheet assets
     let query = supabase
@@ -65,96 +54,34 @@ export async function GET(request: NextRequest) {
         mime_type,
         series
       `)
-      .in('series', seriesCandidates)
+      .eq('series', series)
       .eq('status', 'active')
       .in('asset_kind', ['character_poster', 'powers_sheet'])
       .order('episode_number', { ascending: true })
       .order('title', { ascending: true });
 
-    if (hasEpisodeFilter) {
-      query = query.eq('episode_number', parsedEpisodeNumber);
+    if (episodeNumber) {
+      query = query.eq('episode_number', parseInt(episodeNumber, 10));
     }
 
-    let { data: assets, error: assetsError } = await query;
-    let usedUnscopedAssetsFallback = false;
+    const { data: assets, error: assetsError } = await query;
 
     if (assetsError) {
       console.error('[KnytCards] Assets query error:', assetsError);
       throw assetsError;
     }
 
-    if (!assets?.length) {
-      let fallbackQuery = supabase
-        .from('codex_media_assets')
-        .select(`
-          id,
-          title,
-          episode_number,
-          asset_kind,
-          auto_drive_cid,
-          mime_type,
-          series
-        `)
-        .in('asset_kind', ['character_poster', 'powers_sheet'])
-        .order('episode_number', { ascending: true })
-        .order('title', { ascending: true });
-
-      if (hasEpisodeFilter) {
-        fallbackQuery = fallbackQuery.eq('episode_number', parsedEpisodeNumber);
-      }
-
-      const { data: fallbackAssets, error: fallbackError } = await fallbackQuery;
-      if (fallbackError) {
-        console.error('[KnytCards] Fallback assets query error:', fallbackError);
-      } else {
-        assets = fallbackAssets ?? [];
-        usedUnscopedAssetsFallback = true;
-      }
-    }
-
     // Fetch all characters for matching
-    let { data: characters } = await supabase
+    const { data: characters } = await supabase
       .from('codex_characters')
       .select('id, terra_name, digiterra_name, affiliation')
-      .in('series', seriesCandidates);
-
-    if (!characters?.length) {
-      const { data: fallbackCharacters } = await supabase
-        .from('codex_characters')
-        .select('id, terra_name, digiterra_name, affiliation');
-      characters = fallbackCharacters ?? [];
-    }
+      .eq('series', series);
 
     // Fetch all KNYT cards for powers/weapons
-    let { data: knytCards } = await supabase
+    const { data: knytCards } = await supabase
       .from('codex_knyt_cards')
       .select('id, character_id, powers, primary_weapon')
-      .in('series', seriesCandidates);
-
-    if (!knytCards?.length) {
-      const { data: fallbackKnytCards } = await supabase
-        .from('codex_knyt_cards')
-        .select('id, character_id, powers, primary_weapon');
-      knytCards = fallbackKnytCards ?? [];
-    }
-
-    if (usedUnscopedAssetsFallback && (assets?.length ?? 0) > 0 && (characters?.length ?? 0) > 0) {
-      const nameNeedles = new Set(
-        (characters ?? [])
-          .flatMap((character) => [character.terra_name, character.digiterra_name])
-          .map((value) => (value || '').trim().toLowerCase())
-          .filter(Boolean)
-      );
-      if (nameNeedles.size > 0) {
-        assets = assets!.filter((asset) => {
-          const titleLower = (asset.title || '').toLowerCase();
-          for (const needle of nameNeedles) {
-            if (titleLower.includes(needle) || needle.includes(titleLower)) return true;
-          }
-          return false;
-        });
-      }
-    }
+      .eq('series', series);
 
     // Build character lookup maps
     const characterMap = new Map(
@@ -228,7 +155,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      series: normalizedSeries,
+      series,
       totalPosters: knytCardAssets.filter(a => a.assetKind === 'character_poster').length,
       totalSheets: knytCardAssets.filter(a => a.assetKind === 'powers_sheet').length,
       totalCards: knytCardAssets.length,
