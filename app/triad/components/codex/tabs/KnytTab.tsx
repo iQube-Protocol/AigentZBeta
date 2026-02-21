@@ -214,8 +214,10 @@ import { LoreTextReader } from "@/app/triad/components/content/LoreTextReader";
 import { ContentPurchaseModal, type ContentType } from "@/app/triad/components/content/ContentPurchaseModal";
 import { KnytCardsGrid } from "@/app/triad/components/content/KnytCardsGrid";
 import { CoverImage } from "@/app/triad/components/content/CoverImage";
+import SmartWalletDrawer from "@/app/components/content/SmartWalletDrawer";
 import { CodexCopilotLayer, type CopilotMessage } from "@/app/components/codex/CodexCopilotLayer";
 import { getImageLoaderStats } from "@/app/utils/image-loader";
+import type { SmartContentQube } from "@/types/smartContent";
 
 // API and data
 import { API_BASE_URL } from "@/app/config/api";
@@ -1493,18 +1495,57 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       setCurrentVideoTitle(item.title);
       setVideoPlayerOpen(true);
     } else if (action === 'copilot') {
-      openCopilotWithContext(item);
+      if (templateResult?.drawerMode === 'wide') {
+        setDrawerOpen(true);
+        setSelectedItemId(item.id);
+      } else {
+        openCopilotWithContext(item);
+      }
       toast({
         title: 'Copilot ready',
-        description: `KNYT Copilot opened with ${item.title} context.`,
+        description:
+          templateResult?.drawerMode === 'wide'
+            ? `Wallet Copilot opened for ${item.title}.`
+            : `KNYT Copilot opened with ${item.title} context.`,
       });
     }
-  }, [getVideoPlaybackUrl, isEpisodeLocked, openPurchaseForItem, openCopilotWithContext, toast]);
+  }, [getVideoPlaybackUrl, isEpisodeLocked, openPurchaseForItem, openCopilotWithContext, toast, templateResult]);
 
   const selectedContentItem = useMemo(() => {
     if (!selectedItemId) return undefined;
     return contentForActiveTab.find((item) => item.id === selectedItemId);
   }, [contentForActiveTab, selectedItemId]);
+
+  const selectedSmartContent = useMemo<SmartContentQube | undefined>(() => {
+    const source = selectedContentItem || contentForActiveTab[0];
+    if (!source) return undefined;
+    const basePrice = Number(source.metadata?.price ?? (source.type === 'motion_comic_landscape' ? 5 : 3));
+    return {
+      id: source.id,
+      app: 'metaKnyts',
+      title: source.title,
+      creatorRootDid: process.env.NEXT_PUBLIC_KNYT_CREATOR_DID || '',
+      pricingModel: {
+        kind: 'payPerIssue',
+        tiers: [
+          {
+            amount: Number.isFinite(basePrice) ? basePrice : 0,
+            currency: 'QCT',
+            kind: 'fixed',
+          },
+        ],
+      },
+    } as unknown as SmartContentQube;
+  }, [selectedContentItem, contentForActiveTab]);
+
+  const codexWalletAgent = useMemo(() => {
+    return {
+      id: 'knyt-codex',
+      name: 'KNYT Copilot',
+      fioHandle: 'knyt@aigentz',
+      evmArb: process.env.NEXT_PUBLIC_KNYT_CREATOR_EVM as `0x${string}` | undefined,
+    };
+  }, []);
 
   useEffect(() => {
     if (!codexCopilotOpen || !selectedContentItem) return;
@@ -1671,18 +1712,35 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
               onPurchaseComplete={refreshPurchases}
               showLayoutPreviewControls={showLayoutPreviewControls}
               walletDrawerContent={
-                <CopilotWalletDrawer
-                  isOpen={drawerOpen}
-                  onClose={() => setDrawerOpen(false)}
-                  mode={templateResult.drawerMode}
-                  walletUI={templateResult.walletUI}
-                  device={device}
-                  balance={balance?.dvnKnyt || 0}
-                  spendableBalance={spendableBalance || 0}
-                  pendingRewards={taskData.rewards}
-                  activeTask={taskData.activeTask || undefined}
-                  onClaimReward={handleClaimReward}
-                />
+                templateResult.drawerMode === 'wide' ? (
+                  <SmartWalletDrawer
+                    open={drawerOpen}
+                    onClose={() => setDrawerOpen(false)}
+                    variant="overlay"
+                    codexMode={true}
+                    agent={codexWalletAgent}
+                    personaId={effectivePersonaId}
+                    currentContent={selectedSmartContent}
+                    onPurchaseComplete={() => {
+                      refreshPurchases();
+                      fetchOwnedEpisodes();
+                    }}
+                    onOpenCopilot={() => setCodexCopilotOpen(true)}
+                  />
+                ) : (
+                  <CopilotWalletDrawer
+                    isOpen={drawerOpen}
+                    onClose={() => setDrawerOpen(false)}
+                    mode={templateResult.drawerMode}
+                    walletUI={templateResult.walletUI}
+                    device={device}
+                    balance={balance?.dvnKnyt || 0}
+                    spendableBalance={spendableBalance || 0}
+                    pendingRewards={taskData.rewards}
+                    activeTask={taskData.activeTask || undefined}
+                    onClaimReward={handleClaimReward}
+                  />
+                )
               }
             />
           </div>
