@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getPersonaFioService } from '@/services/wallet/personaFioService';
 import { getCallerAuthProfileId } from '@/services/wallet/personaRepo';
+import { getActiveUserIQube, hasActivePersonaGrant } from '@/services/wallet/userIQubeAccess';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -91,9 +92,21 @@ export async function GET(
     const { searchParams } = new URL(req.url);
     const tenantId = searchParams.get('tenantId');
     const isOwner = !!callerAuthProfileId && persona?.auth_profile_id === callerAuthProfileId;
+    const iqube = callerAuthProfileId ? await getActiveUserIQube(callerAuthProfileId) : null;
+    const isGranted =
+      !!callerAuthProfileId &&
+      !!persona?.id &&
+      hasActivePersonaGrant(iqube, String(persona.id), persona?.tenant_id || null);
     const isDiscoverable =
       !!tenantId && tenantId === persona?.tenant_id && persona?.discoverable_within_tenant === true;
-    return NextResponse.json({ ok: true, data: toIdentitySafePersona(persona, isOwner || isDiscoverable) });
+    if (!isOwner && !isGranted && !isDiscoverable) {
+      return NextResponse.json(
+        { ok: false, error: 'Persona not found' },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({ ok: true, data: toIdentitySafePersona(persona, isOwner || isGranted || isDiscoverable) });
   } catch (e: any) {
     console.error('[GET /api/identity/persona/[id]] Error:', e);
     return NextResponse.json(
