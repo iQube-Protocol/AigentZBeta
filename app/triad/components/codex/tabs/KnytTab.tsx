@@ -8,7 +8,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Loader2, BookOpen, Play, Lock, Check, Sparkles, Coins, ShoppingCart, AlertTriangle, RefreshCw, LogIn, FileText, Cpu, Globe, Shield, Scroll, ArrowLeft, User, Zap } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -491,6 +491,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   const [codexCopilotMessages, setCodexCopilotMessages] = useState<CopilotMessage[]>(() => [
     createCodexCopilotWelcomeMessage(),
   ]);
+  const lastCopilotContextRef = useRef<string | null>(null);
   
   // Quest/Task state
   const [taskData, setTaskData] = useState({
@@ -1500,6 +1501,29 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     }
   }, [getVideoPlaybackUrl, isEpisodeLocked, openPurchaseForItem, openCopilotWithContext, toast]);
 
+  const selectedContentItem = useMemo(() => {
+    if (!selectedItemId) return undefined;
+    return contentForActiveTab.find((item) => item.id === selectedItemId);
+  }, [contentForActiveTab, selectedItemId]);
+
+  useEffect(() => {
+    if (!codexCopilotOpen || !selectedContentItem) return;
+    if (lastCopilotContextRef.current === selectedContentItem.id) return;
+    lastCopilotContextRef.current = selectedContentItem.id;
+    setCodexCopilotMessages((prev) => {
+      const base = prev.length > 0 ? prev : [createCodexCopilotWelcomeMessage()];
+      return [
+        ...base,
+        {
+          id: `knyt-copilot-selection-${selectedContentItem.id}-${Date.now()}`,
+          role: 'assistant',
+          content: `Selected content updated: ${selectedContentItem.title}.`,
+          timestamp: new Date(),
+        },
+      ];
+    });
+  }, [codexCopilotOpen, selectedContentItem]);
+
   const handleViewerOpen = useCallback((item: KnytContentItem, type: 'pdf' | 'video' | 'poster') => {
     if (isEpisodeLocked(item)) {
       openPurchaseForItem(item, type === 'video' ? 'watch' : 'read');
@@ -2231,8 +2255,20 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
         ]}
         onPrompt={(prompt) => {
           const normalized = prompt.toLowerCase();
-          if (normalized.includes('wallet') || normalized.includes('checkout') || normalized.includes('purchase')) {
+          if (normalized.includes('wallet')) {
             setDrawerOpen(true);
+            return;
+          }
+          if ((normalized.includes('checkout') || normalized.includes('purchase') || normalized.includes('buy')) && selectedContentItem) {
+            handleSmartAction(selectedContentItem, 'buy');
+            return;
+          }
+          if ((normalized.includes('watch') || normalized.includes('play') || normalized.includes('video')) && selectedContentItem) {
+            handleSmartAction(selectedContentItem, 'watch');
+            return;
+          }
+          if ((normalized.includes('read') || normalized.includes('open') || normalized.includes('pdf')) && selectedContentItem) {
+            handleSmartAction(selectedContentItem, 'read');
           }
         }}
       />
