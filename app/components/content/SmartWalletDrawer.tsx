@@ -72,6 +72,7 @@ const CodexCopilotLayer = dynamic(
   () => import("@/app/components/codex/CodexCopilotLayer").then((m) => m.CodexCopilotLayer),
   { ssr: false }
 );
+import type { CopilotMessage } from "@/app/components/codex/CodexCopilotLayer";
 
 
 // Tooltip component for icon hints
@@ -188,6 +189,7 @@ export default function SmartWalletDrawer({
   ]);
   const [copilotLoading, setCopilotLoading] = useState(false);
   const [copilotMode, setCopilotMode] = useState<'chat' | 'avatar'>('chat');
+  const [codexCopilotMessages, setCodexCopilotMessages] = useState<CopilotMessage[]>([]);
   const [tenantId, setTenantId] = useState<string>(
     process.env.NEXT_PUBLIC_TENANT_ID ||
       process.env.NEXT_PUBLIC_LVB_BRIDGE_TENANT_ID ||
@@ -201,6 +203,35 @@ export default function SmartWalletDrawer({
   useEffect(() => {
     onTabChange?.(activeTab);
   }, [activeTab, onTabChange]);
+
+  useEffect(() => {
+    if (!codexMode) return;
+    if (!currentContent) return;
+    setCodexCopilotMessages((prev) => {
+      if (prev.length > 0) return prev;
+      return [
+        {
+          id: "codex-wallet-welcome",
+          role: "assistant",
+          content: `Wallet Copilot ready for ${currentContent.title}. Ask me to compare editions, open checkout, or verify access.`,
+          timestamp: new Date(),
+        },
+      ];
+    });
+  }, [codexMode, currentContent]);
+
+  useEffect(() => {
+    if (!codexMode || !copilotOpen || !currentContent) return;
+    setCodexCopilotMessages((prev) => [
+      ...prev,
+      {
+        id: `codex-wallet-context-${currentContent.id}-${Date.now()}`,
+        role: "assistant",
+        content: `Selected content: ${currentContent.title}. Pricing rail: ${currentContent.pricingModel?.tiers?.[0]?.currency || "QCT"}.`,
+        timestamp: new Date(),
+      },
+    ]);
+  }, [codexMode, copilotOpen, currentContent?.id, currentContent?.title, currentContent?.pricingModel?.tiers]);
   
   // MetaAvatar context for persistent iframe
   const { requestAvatar, releaseAvatar, refreshAvatar } = useMetaAvatar();
@@ -722,6 +753,38 @@ export default function SmartWalletDrawer({
     };
   };
 
+  const handleCodexCopilotPrompt = useCallback(
+    (prompt: string) => {
+      const localIntent = detectIntentAndSwitchTab(prompt);
+      if (localIntent.tab) {
+        setActiveTab(localIntent.tab);
+      }
+
+      const normalized = prompt.toLowerCase();
+      if (
+        currentContent &&
+        (normalized.includes("checkout") || normalized.includes("purchase") || normalized.includes("buy"))
+      ) {
+        setActiveTab("wallet");
+        setPurchaseStep("confirm");
+        setPurchaseError(null);
+      }
+
+      if (localIntent.handled) {
+        setCodexCopilotMessages((prev) => [
+          ...prev,
+          {
+            id: `codex-wallet-intent-${Date.now()}`,
+            role: "assistant",
+            content: localIntent.response,
+            timestamp: new Date(),
+          },
+        ]);
+      }
+    },
+    [currentContent]
+  );
+
   const qctTotalStr = (() => {
     try {
       const ethQ = Number(BigInt(bals.qctSep || "0")) / 10 ** (bals.qctSepDecimals ?? 0);
@@ -1010,6 +1073,21 @@ export default function SmartWalletDrawer({
               showWalletMenu={false}
               disableActivationButton
               className="h-full"
+              personaId={effectivePersonaId}
+              contextId={`wallet-${activeTab}`}
+              messages={codexCopilotMessages}
+              onMessagesChange={setCodexCopilotMessages}
+              promptPlaceholder={
+                currentContent
+                  ? `Ask about ${currentContent.title}...`
+                  : "Ask wallet copilot..."
+              }
+              quickPrompts={[
+                { label: "Open checkout", prompt: "Open wallet checkout for selected content." },
+                { label: "Show balances", prompt: "Show my wallet balances and available rails." },
+                { label: "Rewards + tasks", prompt: "Show rewards and top earning tasks." },
+              ]}
+              onPrompt={handleCodexCopilotPrompt}
             />
           </div>
         ) : (
