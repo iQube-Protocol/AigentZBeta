@@ -2,6 +2,20 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 const EMBED_PREFIX = '/triad/embed';
+const EMBED_FRAME_ANCESTORS = [
+  "'self'",
+  'https://lovable.app',
+  'https://*.lovable.app',
+  'https://*.lovable.dev',
+  'https://qriptopia.com',
+  'https://www.qriptopia.com',
+  'https://*.qriptopia.com',
+  'https://*.aigentz.me',
+  'https://*.netlify.app',
+  'http://localhost:*',
+  'http://127.0.0.1:*',
+].join(' ');
+const EMBED_CSP = `frame-ancestors ${EMBED_FRAME_ANCESTORS};`;
 
 // Performance tracking
 const performanceMetrics = new Map<string, {
@@ -29,7 +43,7 @@ export function middleware(request: NextRequest) {
     return response;
   }
   
-  // Handle SmartTriad embed routes - allow embedding in Lovable
+  // Handle SmartTriad embed routes - allow embedding in approved thin clients.
   if (urlPath.startsWith(EMBED_PREFIX)) {
     const response = NextResponse.next();
     
@@ -37,9 +51,8 @@ export function middleware(request: NextRequest) {
     response.headers.delete('X-Frame-Options');
     response.headers.delete('x-frame-options');
     
-    // Set CSP with frame-ancestors for Lovable + self
-    const csp = "frame-ancestors 'self' https://qriptopian.lovable.app https://preview--qriptopian.lovable.app;";
-    response.headers.set('Content-Security-Policy', csp);
+    // Keep frame-ancestors in sync with next.config.js headers() to avoid policy conflicts.
+    response.headers.set('Content-Security-Policy', EMBED_CSP);
     
     return response;
   }

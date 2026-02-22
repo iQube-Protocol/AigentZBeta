@@ -22,12 +22,30 @@ type AuthBridgeMessage = {
   };
 };
 
+const DEFAULT_ALLOWED_ORIGINS = [
+  "https://qriptopia.com",
+  "https://www.qriptopia.com",
+  "https://*.qriptopia.com",
+  "https://lovable.app",
+  "https://*.lovable.app",
+  "https://*.lovable.dev",
+  "https://*.aigentz.me",
+  "https://*.netlify.app",
+  "http://localhost:*",
+  "http://127.0.0.1:*",
+] as const;
+
+function normalizeOriginPattern(value: string): string {
+  return value.trim().replace(/\/+$/, "");
+}
+
 function parseAllowedOrigins(): string[] {
-  const raw = process.env.NEXT_PUBLIC_EMBED_AUTH_ALLOWED_ORIGINS || "";
-  return raw
+  const configured = (process.env.NEXT_PUBLIC_EMBED_AUTH_ALLOWED_ORIGINS || "")
     .split(",")
-    .map((value) => value.trim())
+    .map(normalizeOriginPattern)
     .filter(Boolean);
+  const defaults = DEFAULT_ALLOWED_ORIGINS.map(normalizeOriginPattern);
+  return Array.from(new Set([...defaults, ...configured]));
 }
 
 function firstStoredValue(keys: readonly string[]): string | undefined {
@@ -54,9 +72,44 @@ function sanitizeValue(value: unknown): string | undefined {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
 }
 
+function matchesSubdomainWildcard(origin: string, pattern: string): boolean {
+  const wildcard = pattern.match(/^(https?):\/\/\*\.(.+)$/i);
+  if (!wildcard) return false;
+  try {
+    const originUrl = new URL(origin);
+    const protocol = `${wildcard[1].toLowerCase()}:`;
+    const suffix = wildcard[2].toLowerCase();
+    if (originUrl.protocol.toLowerCase() !== protocol) return false;
+    const host = originUrl.hostname.toLowerCase();
+    return host === suffix || host.endsWith(`.${suffix}`);
+  } catch {
+    return false;
+  }
+}
+
+function matchesPortWildcard(origin: string, pattern: string): boolean {
+  const wildcard = pattern.match(/^(https?):\/\/([^:/?#]+):\*$/i);
+  if (!wildcard) return false;
+  try {
+    const originUrl = new URL(origin);
+    const protocol = `${wildcard[1].toLowerCase()}:`;
+    const host = wildcard[2].toLowerCase();
+    return originUrl.protocol.toLowerCase() === protocol && originUrl.hostname.toLowerCase() === host;
+  } catch {
+    return false;
+  }
+}
+
 function isOriginAllowed(origin: string, allowedOrigins: string[]) {
   if (allowedOrigins.length === 0) return true;
-  return allowedOrigins.includes(origin);
+  const normalizedOrigin = normalizeOriginPattern(origin);
+  return allowedOrigins.some((pattern) => {
+    if (pattern === "*") return true;
+    if (pattern === normalizedOrigin) return true;
+    if (pattern.includes("*.")) return matchesSubdomainWildcard(normalizedOrigin, pattern);
+    if (pattern.endsWith(":*")) return matchesPortWildcard(normalizedOrigin, pattern);
+    return false;
+  });
 }
 
 async function resolvePersonaFromAuthProfile(authProfileId: string): Promise<string | undefined> {
