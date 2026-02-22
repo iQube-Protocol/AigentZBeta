@@ -1,0 +1,85 @@
+{
+  "scenario": "mobile_portrait_make",
+  "device_context": { "device_class": "mobile", "orientation": "portrait", "interaction": "touch", "real_estate": "s" },
+  "intent_mode": "make",
+  "surface_plan_snapshot": {
+    "placements": [
+      { "module_id": "mod_badge_01", "module_type": "KNYT.BadgePortal", "surface": "embed", "density": "micro", "overrides": null },
+      { "module_id": "mod_story_01", "module_type": "Qriptopian.StoryCard", "surface": "drawer", "density": "standard", "overrides": null },
+      { "module_id": "mod_thread_01", "module_type": "KNYT.CanonThread", "surface": "overlay", "density": "full", "overrides": null },
+      { "module_id": "mod_quote_01", "module_type": "KNYT.QuotePanel", "surface": "drawer", "density": "compact", "overrides": null },
+      { "module_id": "mod_share_01", "module_type": "metaMe.ShareGate", "surface": "drawer", "density": "standard", "overrides": { "collapse_sections": true } }
+    ]
+  },
+  "parity_snapshot": {
+    "schema_version": "0.1.0",
+    "parity_report_id": "parity_mobile_portrait_make",
+    "plan_id": "plan_mobile_portrait_make",
+    "cartridge": "Qriptopian",
+    "device": "mobile/portrait/s",
+    "mode": "make",
+    "results": [
+      {
+        "module_id": "mod_badge_01",
+        "module_type": "KNYT.BadgePortal",
+        "chosen_surface": "embed",
+        "chosen_density": "micro",
+        "within_profile_bounds": true,
+        "profile_preferred_surfaces": ["liquid_ui"],
+        "profile_density_bounds": { "min": "micro", "preferred": "micro", "max": "compact" },
+        "responsive_overrides_applied": [],
+        "matrix_rules_applied": [],
+        "notes": []
+      },
+      {
+        "module_id": "mod_story_01",
+        "module_type": "Qriptopian.StoryCard",
+        "chosen_surface": "drawer",
+        "chosen_density": "standard",
+        "within_profile_bounds": true,
+        "profile_preferred_surfaces": ["embed", "drawer"],
+        "profile_density_bounds": { "min": "compact", "preferred": "standard", "max": "expanded" },
+        "responsive_overrides_applied": [],
+        "matrix_rules_applied": [],
+        "notes": []
+      },
+      {
+        "module_id": "mod_thread_01",
+        "module_type": "KNYT.CanonThread",
+        "chosen_surface": "overlay",
+        "chosen_density": "full",
+        "within_profile_bounds": true,
+        "profile_preferred_surfaces": ["drawer", "overlay"],
+        "profile_density_bounds": { "min": "standard", "preferred": "expanded", "max": "full" },
+        "responsive_overrides_applied": ["autofix:overlay_default_density"],
+        "matrix_rules_applied": [],
+        "notes": []
+      },
+      {
+        "module_id": "mod_quote_01",
+        "module_type": "KNYT.QuotePanel",
+        "chosen_surface": "drawer",
+        "chosen_density": "compact",
+        "within_profile_bounds": true,
+        "profile_preferred_surfaces": ["embed", "drawer"],
+        "profile_density_bounds": { "min": "micro", "preferred": "compact", "max": "standard" },
+        "responsive_overrides_applied": [],
+        "matrix_rules_applied": [],
+        "notes": []
+      },
+      {
+        "module_id": "mod_share_01",
+        "module_type": "metaMe.ShareGate",
+        "chosen_surface": "drawer",
+        "chosen_density": "standard",
+        "within_profile_bounds": true,
+        "profile_preferred_surfaces": ["drawer"],
+        "profile_density_bounds": { "min": "standard", "preferred": "standard", "max": "expanded" },
+        "responsive_overrides_applied": ["collapse_sections"],
+        "matrix_rules_applied": [],
+        "notes": []
+      }
+    ],
+    "summary": { "pass": true, "violations": [], "warnings": [] }
+  }
+}

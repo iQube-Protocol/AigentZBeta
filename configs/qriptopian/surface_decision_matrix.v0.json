@@ -1,0 +1,57 @@
+{
+  "schema_version": "0.1.0",
+  "cartridge": "Qriptopian",
+
+  "fractal_ladder": ["liquid_ui", "embed", "drawer", "overlay"],
+
+  "default_surface_by_mode": {
+    "be": "embed",
+    "make": "drawer",
+    "play": "overlay",
+    "earn": "drawer",
+    "share": "drawer"
+  },
+
+  "device_surface_bias": {
+    "mobile": ["embed", "drawer", "liquid_ui", "overlay"],
+    "tablet": ["embed", "drawer", "overlay", "liquid_ui"],
+    "desktop": ["embed", "drawer", "liquid_ui", "overlay"],
+    "large_screen": ["embed", "overlay", "drawer", "liquid_ui"]
+  },
+
+  "density_policy": {
+    "default_by_real_estate": {
+      "xs": "compact",
+      "s": "standard",
+      "m": "standard",
+      "l": "expanded",
+      "xl": "expanded"
+    },
+    "overlay_default_density": "full",
+    "mobile_max_density_unless_preferred": "expanded"
+  },
+
+  "surface_rules": [
+    {
+      "id": "no_overlay_everywhere_on_mobile",
+      "when": { "device_class": "mobile", "surface": "overlay" },
+      "then": { "action": "prefer_drawer_unless_surface_preferred" }
+    },
+    {
+      "id": "share_is_drawer_first",
+      "when": { "mode": "share" },
+      "then": { "action": "force_surface_if_allowed", "params": { "surface": "drawer" } }
+    },
+    {
+      "id": "play_promote_one_step",
+      "when": { "mode": "play" },
+      "then": { "action": "promote_one_step" }
+    }
+  ],
+
+  "parity_expectations": {
+    "require_reasoning_tags": true,
+    "require_ladder_progression": true,
+    "require_density_within_profile_bounds": true
+  }
+}
