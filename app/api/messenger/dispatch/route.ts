@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { runExperienceQubeTool, type ExperienceQubeTool } from '@/services/mcp/experienceQubeTools';
+import { createChannel, createMessage, getChannel } from '@/services/qubetalk/qubetalkStore';
 import {
   type MessengerProvider,
   type QubeTalkEnvelope,
@@ -246,6 +247,33 @@ export async function POST(request: NextRequest) {
       cta: mcpResponse.cta.primary || null,
     };
 
+    const qubetalkSender = {
+      id: normalizeString(body?.fromAgentId) || `mymessenger:${provider}`,
+      role: 'agent',
+      name: normalizeString(body?.fromAgentName) || `myMessenger ${provider}`,
+    };
+
+    const qubetalkParticipants = Array.from(
+      new Set(
+        [
+          qubetalkSender.id,
+          `mcp:${tool}`,
+          providerUserId,
+          personaId,
+          normalizeString(body?.toAgentId),
+        ].filter(Boolean)
+      )
+    );
+
+    const existingChannel = await getChannel(envelope.channel.channel_id, tenantId);
+    if (!existingChannel) {
+      await createChannel({
+        channel_id: envelope.channel.channel_id,
+        tenant_id: tenantId,
+        participants: qubetalkParticipants,
+      });
+    }
+
     let liveDispatch: null | {
       provider: 'discord';
       channelId: string;
@@ -309,6 +337,41 @@ export async function POST(request: NextRequest) {
         mode: 'live',
       };
     }
+
+    const qubetalkReceiptRef = normalizeString(mcpResponse?.cta?.primary?.value)
+      ? `qt_receipt_${Date.now()}`
+      : undefined;
+
+    await createMessage({
+      message_id: envelope.channel.message_id,
+      channel_id: envelope.channel.channel_id,
+      in_reply_to: envelope.channel.reply_to || undefined,
+      from_agent: qubetalkSender,
+      type: 'text',
+      content: providerDispatch.text,
+      iqube_refs: [experienceId],
+      receipt_ref: qubetalkReceiptRef,
+      metadata: {
+        source: 'mymessenger-dispatch',
+        provider,
+        mode: dispatchMode,
+        tool,
+        thread_key: threadKey,
+        intent_hint: envelope.intent_hint,
+        depth_hint: envelope.depth_hint,
+        tenant_id: tenantId,
+        persona_id: personaId,
+        provider_user_id: providerUserId,
+        dispatch: {
+          cta_url: providerDispatch.ctaUrl,
+          publish_url: providerDispatch.publishUrl,
+          destination: providerDispatch.destination,
+        },
+        envelope,
+        mcpResponse,
+        liveDispatch,
+      },
+    });
 
     return NextResponse.json({
       success: true,

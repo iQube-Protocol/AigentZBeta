@@ -19,6 +19,7 @@ import type { CodexListItem } from "@/types/codex";
 import type { DesignQube, DesignQubeThemeMode } from "@/types/designQube";
 import { CodexCopilotLayer } from "@/app/components/codex/CodexCopilotLayer";
 import { AgenticDesignParityPanel } from "@/components/composer/AgenticDesignParityPanel";
+import SurfacePlanningPanel from "@/components/composer/SurfacePlanningPanel";
 
 type ComposerField = {
   id: string;
@@ -746,6 +747,7 @@ export const ComposerStudio = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [editingExperienceId, setEditingExperienceId] = useState<string | null>(null);
+  const [studioAnalysisTab, setStudioAnalysisTab] = useState<"parity" | "surfaces">("parity");
   const { data: codexList } = useCodexList({ useDefaults: true });
   const [copilotContextId, setCopilotContextId] = useState("qripto-codex");
   const [codexContentItems, setCodexContentItems] = useState<ComposerMediaItem[]>([]);
@@ -3838,22 +3840,51 @@ Example: 'What template works best for a dashboard layout?'"
           </div>
         </div>
 
-          <AgenticDesignParityPanel
-            designQube={designQube}
-            activeDesignQubeId={activeStyleQubeId}
-            designTheme={designTheme}
-            experiences={experiences}
-            previewExperience={previewExperience}
-            previewAction={previewAction}
-            onOpenExperience={(experienceId) => {
-              router.push(`/studio/composer/experience/${encodeURIComponent(experienceId)}`);
-            }}
-            onOpenRuntimePreview={() => {
-              openRuntimePreviewForExperience(previewExperience, "Preview");
-            }}
-            onApplyRemedy={handleApplyRemedy}
-            onLogAuditEvent={handleLogAuditEvent}
-          />
+          <div className="rounded-2xl border border-slate-800/70 bg-slate-900/40 p-3 sm:p-4">
+            <Tabs
+              value={studioAnalysisTab}
+              onValueChange={(value) => setStudioAnalysisTab(value as "parity" | "surfaces")}
+              className="w-full"
+            >
+              <TabsList className="mb-4 grid w-full grid-cols-2 bg-slate-900/70">
+                <TabsTrigger value="parity" className="text-xs sm:text-sm">
+                  Agentic UI Design Parity
+                </TabsTrigger>
+                <TabsTrigger value="surfaces" className="text-xs sm:text-sm">
+                  Surface Planning
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="parity" className="mt-0">
+                <AgenticDesignParityPanel
+                  designQube={designQube}
+                  activeDesignQubeId={activeStyleQubeId}
+                  designTheme={designTheme}
+                  experiences={experiences}
+                  previewExperience={previewExperience}
+                  previewAction={previewAction}
+                  onOpenExperience={(experienceId) => {
+                    router.push(`/studio/composer/experience/${encodeURIComponent(experienceId)}`);
+                  }}
+                  onOpenRuntimePreview={() => {
+                    openRuntimePreviewForExperience(previewExperience, "Preview");
+                  }}
+                  onApplyRemedy={handleApplyRemedy}
+                  onLogAuditEvent={handleLogAuditEvent}
+                />
+              </TabsContent>
+
+              <TabsContent value="surfaces" className="mt-0">
+                <SurfacePlanningPanel
+                  experienceId={previewExperience?.id || selectedExperienceId || undefined}
+                  cartridge={tenantId}
+                  onSurfacePlanGenerated={() => {
+                    // Stub hook for future runtime preview integration.
+                  }}
+                />
+              </TabsContent>
+            </Tabs>
+          </div>
       </div>
 
       {/* Enhanced ExperienceQube Modal */}
