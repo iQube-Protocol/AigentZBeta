@@ -2,8 +2,11 @@
   "name": "@metame/contracts",
   "version": "0.1.0",
   "description": "metaMe Runtime Experience contracts and types",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
@@ -16,7 +19,7 @@
     "typescript": "^5.0.0"
   },
   "files": [
-    "dist"
+    "src"
   ],
   "publishConfig": {
     "access": "public"

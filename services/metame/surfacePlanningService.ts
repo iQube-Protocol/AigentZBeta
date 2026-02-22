@@ -1,7 +1,12 @@
 import { buildSurfacePlanV0 } from "./surfaceSelector";
-import { ContentModuleRenderProfileV0, SurfacePlanV0, type DeviceContext, type Intent } from "@metame/contracts";
+import type { SurfacePlanV0, DeviceContext, Intent } from "@metame/contracts";
 import type { DeviceType } from "@/components/preview/DevicePreviewSwitcher";
-import type { RuntimeCapsule } from "@/types/smartContent";
+
+type RuntimeCapsuleLike = {
+  id: string;
+  app?: string;
+  title?: string;
+};
 
 // Map existing device types to surface plan device context
 export function mapDeviceTypeToDeviceContext(deviceType: DeviceType): DeviceContext {
@@ -55,7 +60,7 @@ export function mapRuntimeIntent(intent: string): Intent {
 
 // Convert runtime capsules to surface plan modules
 export async function convertCapsulesToModules(
-  capsules: RuntimeCapsule[],
+  capsules: RuntimeCapsuleLike[],
   cartridge: string = "Qriptopian"
 ) {
   // Load available render profiles
@@ -108,7 +113,7 @@ export async function convertCapsulesToModules(
 
 // Generate surface plan for runtime capsules
 export async function generateRuntimeSurfacePlan(args: {
-  capsules: RuntimeCapsule[];
+  capsules: RuntimeCapsuleLike[];
   deviceType: DeviceType;
   runtimeIntent: string;
   sessionId: string;

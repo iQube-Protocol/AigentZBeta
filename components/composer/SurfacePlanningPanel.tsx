@@ -8,15 +8,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DevicePreviewSwitcher, type DeviceType } from "@/components/preview/DevicePreviewSwitcher";
 import { 
   Layers, 
-  Monitor, 
-  Smartphone, 
-  Tablet, 
+  Monitor,
   Layout,
   Eye,
   Settings,
   CheckCircle,
-  AlertTriangle,
-  Info
 } from "lucide-react";
 import { useToast } from "@/components/ui/toaster";
 import { getSurfacePlanningInfo, generateRuntimeSurfacePlan } from "@/services/metame/surfacePlanningService";
@@ -72,11 +68,10 @@ export default function SurfacePlanningPanel({
       setPlanningInfo(info);
     } catch (error) {
       console.error("Failed to load planning info:", error);
-      toast({
-        title: "Failed to load surface planning info",
-        description: error instanceof Error ? error.message : "Unknown error",
-        variant: "destructive",
-      });
+      toast(
+        `Failed to load surface planning info: ${error instanceof Error ? error.message : "Unknown error"}`,
+        "error"
+      );
     }
   };
 
@@ -124,17 +119,13 @@ export default function SurfacePlanningPanel({
       setSurfacePlan(plan);
       onSurfacePlanGenerated?.(plan);
 
-      toast({
-        title: "Surface plan generated",
-        description: `Generated plan for ${activeDevice} with ${plan.placements.length} modules`,
-      });
+      toast(`Surface plan generated for ${activeDevice} with ${plan.placements.length} modules`, "success");
     } catch (error) {
       console.error("Failed to generate surface plan:", error);
-      toast({
-        title: "Failed to generate surface plan",
-        description: error instanceof Error ? error.message : "Unknown error",
-        variant: "destructive",
-      });
+      toast(
+        `Failed to generate surface plan: ${error instanceof Error ? error.message : "Unknown error"}`,
+        "error"
+      );
     } finally {
       setLoading(false);
     }
@@ -178,8 +169,8 @@ export default function SurfacePlanningPanel({
         <CardContent>
           <div className="flex gap-4 items-center">
             <DevicePreviewSwitcher
-              activeDevice={activeDevice}
-              onDeviceChange={setActiveDevice}
+              value={activeDevice}
+              onChange={setActiveDevice}
             />
             <select
               value={selectedIntent}
@@ -253,7 +244,7 @@ export default function SurfacePlanningPanel({
               </TabsList>
               
               <TabsContent value="placements" className="space-y-4">
-                {surfacePlan.placements.map((placement, index) => (
+                {surfacePlan.placements.map((placement: SurfacePlanV0["placements"][number]) => (
                   <div key={placement.module_id} className="border rounded-lg p-4">
                     <div className="flex items-start justify-between">
                       <div>
@@ -288,7 +279,7 @@ export default function SurfacePlanningPanel({
                     {placement.reasoning_tags && (
                       <div className="mt-3">
                         <div className="flex flex-wrap gap-1">
-                          {placement.reasoning_tags.map((tag, tagIndex) => (
+                          {placement.reasoning_tags.map((tag: string, tagIndex: number) => (
                             <Badge key={tagIndex} variant="secondary" className="text-xs">
                               {tag}
                             </Badge>
@@ -304,7 +295,7 @@ export default function SurfacePlanningPanel({
                 <div className="border rounded-lg p-4">
                   <h4 className="font-medium mb-3">Navigation Flow</h4>
                   <div className="flex items-center gap-2">
-                    {surfacePlan.navigation.progression.map((surface, index) => (
+                    {surfacePlan.navigation.progression.map((surface: string, index: number) => (
                       <React.Fragment key={surface}>
                         <div className={`px-3 py-2 rounded border ${
                           surface === surfacePlan.navigation.entry_surface 

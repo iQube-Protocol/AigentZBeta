@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { buildSurfacePlanV0 } from "@/services/metame/surfaceSelector";
-import { ContentModuleRenderProfileV0, SurfacePlanV0 } from "@metame/contracts";
+import { ContentModuleRenderProfileV0Schema, type ContentModuleRenderProfileV0 } from "@metame/contracts";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -24,17 +24,17 @@ function loadMatrix() {
   return matrixCache;
 }
 
-function loadProfiles() {
+function loadProfiles(): ContentModuleRenderProfileV0[] {
   if (!profilesCache) {
     try {
       const profilesRaw = JSON.parse(fs.readFileSync(PROFILES_PATH, "utf-8"));
-      profilesCache = profilesRaw.map((p: any) => ContentModuleRenderProfileV0.parse(p));
+      profilesCache = profilesRaw.map((p: unknown) => ContentModuleRenderProfileV0Schema.parse(p));
     } catch (error) {
       console.error("Failed to load module render profiles:", error);
       throw new Error("Module render profiles not available");
     }
   }
-  return profilesCache;
+  return profilesCache ?? [];
 }
 
 function getProfileByType(moduleType: string): ContentModuleRenderProfileV0 | null {

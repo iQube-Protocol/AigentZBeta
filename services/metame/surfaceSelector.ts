@@ -1,7 +1,7 @@
 import { z } from "zod";
 import {
-  ContentModuleRenderProfileV0 as ContentProfileZ,
-  SurfacePlanV0 as SurfacePlanZ,
+  ContentModuleRenderProfileV0Schema as ContentProfileZ,
+  SurfacePlanV0Schema as SurfacePlanZ,
 } from "@metame/contracts";
 
 // Types inferred from zod in @metame/contracts

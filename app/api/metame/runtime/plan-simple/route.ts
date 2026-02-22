@@ -44,7 +44,7 @@ function loadProfiles() {
   if (!profilesCache) {
     profilesCache = JSON.parse(fs.readFileSync(PROFILES_PATH, "utf-8"));
   }
-  return profilesCache;
+  return profilesCache ?? [];
 }
 
 function getProfileByType(moduleType: string): any | null {

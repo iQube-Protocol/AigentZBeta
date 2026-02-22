@@ -22,7 +22,9 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@metame/contracts": ["./packages/metame-contracts/src/index.ts"],
+      "@metame/contracts/*": ["./packages/metame-contracts/src/*"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "**/*.d.ts", ".next/types/**/*.ts"],
