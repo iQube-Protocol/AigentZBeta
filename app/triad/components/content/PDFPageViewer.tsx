@@ -1,8 +1,9 @@
 /**
  * PDFPageViewer - Lazy-loading page-based PDF viewer
  *
- * Uses pdf_lite/object mode when available.
- * Falls back to page-image streaming (/api/content/pdf-page) to avoid large PDF payload limits.
+ * Custody-safe page-image renderer.
+ * Uses page manifests + page image streaming (/api/content/pdf-page) to avoid
+ * exposing raw PDF URLs to clients.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -13,14 +14,12 @@ import { API_BASE_URL } from "@/app/config/api";
 interface PDFPageViewerProps {
   cid: string;
   title?: string;
-  pdfLiteUrl?: string | null;
   onClose: () => void;
 }
 
 interface PageMeta {
   pages: number;
   suggestedWidth?: number;
-  pdfLiteUrl?: string;
 }
 
 interface PageManifest {
@@ -30,7 +29,7 @@ interface PageManifest {
   cached?: boolean;
 }
 
-export function PDFPageViewer({ cid, title, pdfLiteUrl, onClose }: PDFPageViewerProps) {
+export function PDFPageViewer({ cid, title, onClose }: PDFPageViewerProps) {
   const [manifest, setManifest] = useState<PageManifest | null>(null);
   const [meta, setMeta] = useState<PageMeta | null>(null);
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -177,37 +176,6 @@ export function PDFPageViewer({ cid, title, pdfLiteUrl, onClose }: PDFPageViewer
   }
 
   if (!meta) return null;
-
-  const rawPdfLiteUrl = pdfLiteUrl || meta.pdfLiteUrl;
-  const effectivePdfLiteUrl =
-    rawPdfLiteUrl && !/\/api\/content\/pdf\//i.test(rawPdfLiteUrl) ? rawPdfLiteUrl : null;
-  if (effectivePdfLiteUrl) {
-    return (
-      <div className="fixed inset-0 z-50 bg-black/95 flex flex-col">
-        <div className="flex items-center justify-between px-4 py-3 bg-gray-900 border-b border-gray-800">
-          <h2 className="text-lg font-semibold text-white">{title || "PDF Viewer"}</h2>
-          <Button variant="ghost" size="sm" onClick={onClose} className="text-gray-400 hover:text-white">
-            <X className="w-5 h-5" />
-          </Button>
-        </div>
-        <div className="flex-1 w-full min-h-[80vh] bg-black">
-          <object data={effectivePdfLiteUrl} type="application/pdf" className="w-full h-full touch-pan-y">
-            <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-              <p className="text-white mb-4">PDF preview not available in this browser.</p>
-              <a
-                href={effectivePdfLiteUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="px-4 py-2 bg-cyan-500 text-white rounded"
-              >
-                Open PDF in new tab
-              </a>
-            </div>
-          </object>
-        </div>
-      </div>
-    );
-  }
 
   const width = Math.min(meta.suggestedWidth || 1200, 1200);
   return (
