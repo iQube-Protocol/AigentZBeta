@@ -207,6 +207,7 @@ import type {
 
 // Content viewers
 import { PDFPageViewer } from "@/app/triad/components/content/PDFPageViewer";
+import { PDFLiteReaderModal } from "@/app/triad/components/content/PDFLiteReaderModal";
 import { VideoPlayer } from "@/app/triad/components/content/VideoPlayer";
 import { VideoErrorBoundary } from "@/app/triad/components/content/VideoErrorBoundary";
 import { LoreTextReader } from "@/app/triad/components/content/LoreTextReader";
@@ -519,6 +520,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   const [videoPlayerOpen, setVideoPlayerOpen] = useState(false);
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
   const [currentPdfCid, setCurrentPdfCid] = useState<string | null>(null);
+  const [currentPdfLiteUrl, setCurrentPdfLiteUrl] = useState<string | null>(null);
   const [currentPdfTitle, setCurrentPdfTitle] = useState('');
   const [currentVideoCid, setCurrentVideoCid] = useState<string | null>(null);
   const [currentVideoUrl, setCurrentVideoUrl] = useState<string | null>(null);
@@ -1658,19 +1660,12 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       return;
     }
     if (type === 'pdf' && (item.media?.pdf_lite_url || item.media?.pdf_cid)) {
-      if (!item.media?.pdf_cid) {
-        toast({
-          title: 'Preview unavailable',
-          description: 'This protected asset is not ready for in-app custody-safe preview yet.',
-          variant: 'destructive',
-        });
-        return;
-      }
       console.log('[KnytTab] Opening PDF viewer:', {
         pdf_lite_url: item.media.pdf_lite_url,
         pdf_cid: item.media.pdf_cid,
         title: item.title
       });
+      setCurrentPdfLiteUrl(item.media.pdf_lite_url || null);
       setCurrentPdfCid(item.media.pdf_cid || null);
       setCurrentPdfTitle(item.title);
       setPdfViewerOpen(true);
@@ -1680,7 +1675,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       setCurrentVideoTitle(item.title);
       setVideoPlayerOpen(true);
     }
-  }, [getVideoPlaybackUrl, isEpisodeLocked, openPurchaseForItem, toast]);
+  }, [getVideoPlaybackUrl, isEpisodeLocked, openPurchaseForItem]);
 
   const handleCopilotModeChange = useCallback((mode: CopilotOverlayMode) => {
     setCopilotMode(mode);
@@ -2021,6 +2016,9 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                               return;
                             }
                             if (printCid) {
+                              setCurrentPdfLiteUrl(
+                                episode.printRareLiteUrl || episode.printEpicLiteUrl || episode.printLegendaryLiteUrl || null
+                              );
                               setCurrentPdfCid(printCid);
                               setCurrentPdfTitle(episode.title || `Episode ${episode.displayNumber}`);
                               setPdfViewerOpen(true);
@@ -2094,6 +2092,9 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                                     return;
                                   }
                                   if (printCid) {
+                                    setCurrentPdfLiteUrl(
+                                      episode.printRareLiteUrl || episode.printEpicLiteUrl || episode.printLegendaryLiteUrl || null
+                                    );
                                     setCurrentPdfCid(printCid);
                                     setCurrentPdfTitle(episode.title || `Episode ${episode.displayNumber}`);
                                     setPdfViewerOpen(true);
@@ -2284,8 +2285,23 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
             </div>
           )}
 
-          {/* Custody-safe PDF viewer (page-image mode) */}
-          {pdfViewerOpen && currentPdfCid && (
+          {/* PDF Lite modal (preferred when URL is available) */}
+          {pdfViewerOpen && currentPdfLiteUrl && (
+            <PDFLiteReaderModal
+              open={pdfViewerOpen}
+              pdfUrl={currentPdfLiteUrl}
+              title={currentPdfTitle}
+              onClose={() => {
+                setPdfViewerOpen(false);
+                setCurrentPdfLiteUrl(null);
+                setCurrentPdfCid(null);
+                setCurrentPdfTitle('');
+              }}
+            />
+          )}
+
+          {/* Custody-safe PDF viewer (page-image fallback) */}
+          {pdfViewerOpen && !currentPdfLiteUrl && currentPdfCid && (
             <>
               {console.log('[KnytTab] Rendering PDFPageViewer with CID:', currentPdfCid)}
               <PDFPageViewer
@@ -2293,6 +2309,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                 title={currentPdfTitle}
                 onClose={() => {
                   setPdfViewerOpen(false);
+                  setCurrentPdfLiteUrl(null);
                   setCurrentPdfCid(null);
                   setCurrentPdfTitle('');
                 }}
