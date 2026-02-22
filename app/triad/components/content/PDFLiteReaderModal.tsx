@@ -14,12 +14,21 @@ interface PDFLiteReaderModalProps {
   onClose: () => void;
 }
 
+function buildSecureViewerUrl(rawUrl: string): string {
+  const [base, hash = ''] = rawUrl.split('#');
+  const params = new URLSearchParams(hash);
+  // Browser support varies, but these are the native viewer controls we can hint off.
+  params.set('toolbar', '0');
+  params.set('navpanes', '0');
+  params.set('statusbar', '0');
+  params.set('messages', '0');
+  return `${base}#${params.toString()}`;
+}
+
 export function PDFLiteReaderModal({ open, pdfUrl, title, onClose }: PDFLiteReaderModalProps) {
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState<string | null>(null);
-  const safePdfUrl = pdfUrl.includes('#')
-    ? pdfUrl
-    : `${pdfUrl}#toolbar=0&navpanes=0&statusbar=0&messages=0`;
+  const safePdfUrl = buildSecureViewerUrl(pdfUrl);
 
   useEffect(() => {
     if (!open) return;
@@ -31,9 +40,21 @@ export function PDFLiteReaderModal({ open, pdfUrl, title, onClose }: PDFLiteRead
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
+      // Disable common print/save/download shortcuts while preview is open.
+      if ((e.metaKey || e.ctrlKey) && ['s', 'p', 'd'].includes(e.key.toLowerCase())) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    const onContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
     };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener('contextmenu', onContextMenu);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('contextmenu', onContextMenu);
+    };
   }, [open, onClose]);
 
   useEffect(() => {
@@ -108,6 +129,8 @@ export function PDFLiteReaderModal({ open, pdfUrl, title, onClose }: PDFLiteRead
               <p className="text-white mb-4">PDF preview not supported in this browser.</p>
             </div>
           </object>
+          {/* Toolbar guard rail: hides and blocks top native controls when browser ignores toolbar=0 */}
+          <div className="pointer-events-auto absolute top-0 left-0 right-0 h-11 bg-zinc-950/95" />
         </div>
       </div>
     </div>
