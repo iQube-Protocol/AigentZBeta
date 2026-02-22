@@ -210,6 +210,13 @@ export function PDFPageViewer({ cid, title, onClose }: PDFPageViewerProps) {
                   return next;
                 })
               }
+              onRetry={() =>
+                setFailedPages((prev) => {
+                  const next = new Set(prev);
+                  next.delete(pageNum);
+                  return next;
+                })
+              }
               isFailed={failedPages.has(pageNum)}
               pageUrl={manifest?.pages[pageNum - 1]}
             />
@@ -266,6 +273,7 @@ interface PDFPageImageProps {
   shouldLoad: boolean;
   onInView: (pageNum: number) => void;
   onError: () => void;
+  onRetry: () => void;
   isFailed: boolean;
   pageUrl?: string;
 }
@@ -278,6 +286,7 @@ function PDFPageImage({
   shouldLoad,
   onInView,
   onError,
+  onRetry,
   isFailed,
   pageUrl: prerenderedUrl,
 }: PDFPageImageProps) {
@@ -328,7 +337,8 @@ function PDFPageImage({
             <p className="text-sm">Failed to load page {pageNum}</p>
             <button
               onClick={() => {
-                onError();
+                onRetry();
+                setLoaded(false);
                 setLoading(true);
               }}
               className="text-xs text-cyan-400 hover:underline mt-2"
@@ -339,7 +349,7 @@ function PDFPageImage({
         </div>
       )}
 
-      {loading && (
+      {(shouldLoad || loaded || loading) && !isFailed && (
         <img
           src={pageUrl}
           alt={`Page ${pageNum}`}
