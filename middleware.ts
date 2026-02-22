@@ -1,20 +1,9 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import embedPolicy from '@/configs/embed/policy.v1.json';
 
 const EMBED_PREFIX = '/triad/embed';
-const EMBED_FRAME_ANCESTORS = [
-  "'self'",
-  'https://lovable.app',
-  'https://*.lovable.app',
-  'https://*.lovable.dev',
-  'https://qriptopia.com',
-  'https://www.qriptopia.com',
-  'https://*.qriptopia.com',
-  'https://*.aigentz.me',
-  'https://*.netlify.app',
-  'http://localhost:*',
-  'http://127.0.0.1:*',
-].join(' ');
+const EMBED_FRAME_ANCESTORS = embedPolicy.frameAncestors.join(' ');
 const EMBED_CSP = `frame-ancestors ${EMBED_FRAME_ANCESTORS};`;
 
 // Performance tracking
@@ -111,7 +100,16 @@ export function middleware(request: NextRequest) {
     
     // Add security headers
     response.headers.set('X-Content-Type-Options', 'nosniff');
-    response.headers.set('X-Frame-Options', 'DENY');
+    const isPdfViewerApi =
+      urlPath.startsWith('/api/content/pdf/') ||
+      urlPath.startsWith('/api/content/pdf-page/');
+    if (isPdfViewerApi) {
+      response.headers.delete('X-Frame-Options');
+      response.headers.delete('x-frame-options');
+      response.headers.set('Content-Security-Policy', EMBED_CSP);
+    } else {
+      response.headers.set('X-Frame-Options', 'DENY');
+    }
     response.headers.set('X-XSS-Protection', '1; mode=block');
     response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
     

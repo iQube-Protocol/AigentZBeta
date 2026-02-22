@@ -102,7 +102,6 @@ async function streamDecryptedContent(asset: {
       'Content-Disposition': 'inline', // Display in browser, not download
       'Cache-Control': 'no-store, no-cache, must-revalidate, private',
       'X-Content-Type-Options': 'nosniff',
-      'X-Frame-Options': 'SAMEORIGIN',
     },
   });
 }

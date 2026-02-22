@@ -18,6 +18,8 @@
     "lint:fix": "next lint --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "verify:embed-policy": "node scripts/verify-embed-policy.mjs",
+    "check:embed-headers": "node scripts/check-embed-headers.mjs",
     "setup-marketa": "echo '🔧 Setting up Marketa database tables...' && psql $SUPABASE_URL -f scripts/setup-marketa-tables.sql",
     "setup-marketa-simple": "echo '🔧 Setting up Marketa database tables (simple version)...' && psql $SUPABASE_URL -f scripts/setup-marketa-tables-simple.sql",
     "type-check": "tsc --noEmit",

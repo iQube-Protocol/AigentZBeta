@@ -333,6 +333,58 @@ const PREORDER_CONTENT_VARIANTS = [
   { id: 'common', subtitle: 'Episode #-1', title: 'Episode -1 Preorder Drop (Common)', priceKnyt: 49 },
 ] as const;
 
+const KNYT_CONTENT_CACHE_KEY = "codex:knyt:content:v2";
+const KNYT_EPISODES_CACHE_KEY = "codex:knyt:episodes";
+const KNYT_SESSION_CACHE_KEY = "codex:knyt:session:v1";
+const KNYT_SESSION_CACHE_TTL_MS = 30 * 60 * 1000;
+
+type KnytSessionSnapshot = {
+  version: 1;
+  cachedAt: number;
+  contentItems: KnytContentItem[];
+  episodesCatalog: EpisodeFromAPI[];
+};
+
+function readKnytSessionSnapshot(): KnytSessionSnapshot | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.sessionStorage.getItem(KNYT_SESSION_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<KnytSessionSnapshot>;
+    if (parsed.version !== 1 || !Array.isArray(parsed.contentItems) || !Array.isArray(parsed.episodesCatalog)) {
+      return null;
+    }
+    const cachedAt = typeof parsed.cachedAt === 'number' ? parsed.cachedAt : 0;
+    if (!cachedAt || Date.now() - cachedAt > KNYT_SESSION_CACHE_TTL_MS) {
+      window.sessionStorage.removeItem(KNYT_SESSION_CACHE_KEY);
+      return null;
+    }
+    return {
+      version: 1,
+      cachedAt,
+      contentItems: parsed.contentItems as KnytContentItem[],
+      episodesCatalog: parsed.episodesCatalog as EpisodeFromAPI[],
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeKnytSessionSnapshot(contentItems: KnytContentItem[], episodesCatalog: EpisodeFromAPI[]) {
+  if (typeof window === 'undefined') return;
+  try {
+    const snapshot: KnytSessionSnapshot = {
+      version: 1,
+      cachedAt: Date.now(),
+      contentItems,
+      episodesCatalog,
+    };
+    window.sessionStorage.setItem(KNYT_SESSION_CACHE_KEY, JSON.stringify(snapshot));
+  } catch {
+    // Ignore storage quota/serialization failures.
+  }
+}
+
 function createCodexCopilotWelcomeMessage(): CopilotMessage {
   return {
     id: 'knyt-copilot-welcome',
@@ -603,6 +655,16 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       return source;
     }
     return `/api/content/video/${encodeURIComponent(source)}`;
+  }, []);
+
+  const getPdfViewerUrl = useCallback((pdfCid?: string | null, pdfLiteUrl?: string | null) => {
+    if (pdfCid && pdfCid.trim().length > 0) {
+      return `/api/content/pdf/${encodeURIComponent(pdfCid)}`;
+    }
+    if (pdfLiteUrl && pdfLiteUrl.trim().length > 0) {
+      return pdfLiteUrl;
+    }
+    return null;
   }, []);
 
   // Content transformation functions (ported from CodexLiquidUITab)
@@ -924,7 +986,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   // Content fetching function (ported from CodexLiquidUITab)
   const fetchCodexContent = useCallback(async (): Promise<KnytContentItem[]> => {
     return getCachedOrFetch<KnytContentItem[]>(
-      "codex:knyt:content:v2",
+      KNYT_CONTENT_CACHE_KEY,
       async () => {
         const apiBase = API_BASE_URL;
         try {
@@ -1089,7 +1151,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
 
   const fetchEpisodesCatalog = useCallback(async () => {
     return getCachedOrFetch<EpisodeFromAPI[]>(
-      "codex:knyt:episodes",
+      KNYT_EPISODES_CACHE_KEY,
       async () => {
         const apiBase = API_BASE_URL;
         try {
@@ -1123,6 +1185,23 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
 
   // Load content from real API
   useEffect(() => {
+    const memoryCached = getCachedValue<KnytContentItem[]>(KNYT_CONTENT_CACHE_KEY);
+    if (memoryCached && memoryCached.length > 0) {
+      setContentItems(memoryCached);
+      setLoading(false);
+      return;
+    }
+
+    const sessionSnapshot = readKnytSessionSnapshot();
+    if (sessionSnapshot && sessionSnapshot.contentItems.length > 0) {
+      setContentItems(sessionSnapshot.contentItems);
+      if (sessionSnapshot.episodesCatalog.length > 0) {
+        setEpisodesCatalog(sessionSnapshot.episodesCatalog);
+      }
+      setLoading(false);
+      return;
+    }
+
     async function loadContent() {
       setLoading(true);
       try {
@@ -1144,11 +1223,26 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
 
   useEffect(() => {
     async function loadEpisodes() {
+      const memoryCached = getCachedValue<EpisodeFromAPI[]>(KNYT_EPISODES_CACHE_KEY);
+      if (memoryCached && memoryCached.length > 0) {
+        setEpisodesCatalog(memoryCached);
+        return;
+      }
+      const sessionSnapshot = readKnytSessionSnapshot();
+      if (sessionSnapshot && sessionSnapshot.episodesCatalog.length > 0) {
+        setEpisodesCatalog(sessionSnapshot.episodesCatalog);
+        return;
+      }
       const episodes = await fetchEpisodesCatalog();
       setEpisodesCatalog(episodes);
     }
     loadEpisodes();
   }, [fetchEpisodesCatalog]);
+
+  useEffect(() => {
+    if (!contentItems.length && !episodesCatalog.length) return;
+    writeKnytSessionSnapshot(contentItems, episodesCatalog);
+  }, [contentItems, episodesCatalog]);
 
   const contentWithOwnership = useMemo(() => {
     return contentItems.map((item) => {
@@ -1576,12 +1670,14 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       return;
     }
     if (type === 'pdf' && (item.media?.pdf_lite_url || item.media?.pdf_cid)) {
+      const viewerUrl = getPdfViewerUrl(item.media?.pdf_cid, item.media?.pdf_lite_url);
       console.log('[KnytTab] Opening PDF viewer:', {
+        viewer_url: viewerUrl,
         pdf_lite_url: item.media.pdf_lite_url,
         pdf_cid: item.media.pdf_cid,
         title: item.title
       });
-      setCurrentPdfLiteUrl(item.media.pdf_lite_url || null);
+      setCurrentPdfLiteUrl(viewerUrl);
       setCurrentPdfCid(item.media.pdf_cid || null);
       setCurrentPdfTitle(item.title);
       setPdfViewerOpen(true);
@@ -1591,7 +1687,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       setCurrentVideoTitle(item.title);
       setVideoPlayerOpen(true);
     }
-  }, [getVideoPlaybackUrl, isEpisodeLocked, openPurchaseForItem]);
+  }, [getPdfViewerUrl, getVideoPlaybackUrl, isEpisodeLocked, openPurchaseForItem]);
 
   const handleCopilotModeChange = useCallback((mode: CopilotOverlayMode) => {
     setCopilotMode(mode);
@@ -1934,7 +2030,10 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                             if (printCid) {
                               setCurrentPdfCid(printCid);
                               setCurrentPdfLiteUrl(
-                                episode.printRareLiteUrl || episode.printEpicLiteUrl || episode.printLegendaryLiteUrl || null
+                                getPdfViewerUrl(
+                                  printCid,
+                                  episode.printRareLiteUrl || episode.printEpicLiteUrl || episode.printLegendaryLiteUrl || null
+                                )
                               );
                               setCurrentPdfTitle(episode.title || `Episode ${episode.displayNumber}`);
                               setPdfViewerOpen(true);
@@ -2010,7 +2109,10 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                                   if (printCid) {
                                     setCurrentPdfCid(printCid);
                                     setCurrentPdfLiteUrl(
-                                      episode.printRareLiteUrl || episode.printEpicLiteUrl || episode.printLegendaryLiteUrl || null
+                                      getPdfViewerUrl(
+                                        printCid,
+                                        episode.printRareLiteUrl || episode.printEpicLiteUrl || episode.printLegendaryLiteUrl || null
+                                      )
                                     );
                                     setCurrentPdfTitle(episode.title || `Episode ${episode.displayNumber}`);
                                     setPdfViewerOpen(true);

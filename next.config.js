@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
 const isDev = process.env.NODE_ENV !== "production";
 const isAmplifyBuild = Boolean(process.env.AWS_BRANCH || process.env.AMPLIFY_APP_ID);
+const embedPolicy = require("./configs/embed/policy.v1.json");
+const EMBED_CSP = `frame-ancestors ${embedPolicy.frameAncestors.join(" ")};`;
 
 const nextConfig = {
   // Disable double-invocation and extra checks in dev to speed up refresh
@@ -75,8 +77,7 @@ const nextConfig = {
         headers: [
           {
             key: "Content-Security-Policy",
-            value:
-              "frame-ancestors 'self' https://lovable.app https://*.lovable.app https://*.lovable.dev https://qriptopia.com https://www.qriptopia.com https://*.qriptopia.com https://*.aigentz.me https://*.netlify.app http://localhost:* http://127.0.0.1:*;",
+            value: EMBED_CSP,
           },
         ],
       },

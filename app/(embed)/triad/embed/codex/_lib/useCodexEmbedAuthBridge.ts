@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import embedPolicy from "@/configs/embed/policy.v1.json";
 
 const AUTH_PROFILE_STORAGE_KEYS = [
   "authProfileId",
@@ -22,19 +23,6 @@ type AuthBridgeMessage = {
   };
 };
 
-const DEFAULT_ALLOWED_ORIGINS = [
-  "https://qriptopia.com",
-  "https://www.qriptopia.com",
-  "https://*.qriptopia.com",
-  "https://lovable.app",
-  "https://*.lovable.app",
-  "https://*.lovable.dev",
-  "https://*.aigentz.me",
-  "https://*.netlify.app",
-  "http://localhost:*",
-  "http://127.0.0.1:*",
-] as const;
-
 function normalizeOriginPattern(value: string): string {
   return value.trim().replace(/\/+$/, "");
 }
@@ -44,7 +32,7 @@ function parseAllowedOrigins(): string[] {
     .split(",")
     .map(normalizeOriginPattern)
     .filter(Boolean);
-  const defaults = DEFAULT_ALLOWED_ORIGINS.map(normalizeOriginPattern);
+  const defaults = (embedPolicy.authAllowedOrigins || []).map(normalizeOriginPattern);
   return Array.from(new Set([...defaults, ...configured]));
 }
 
