@@ -208,7 +208,7 @@ import type {
 // Content viewers
 import { PDFPageViewer } from "@/app/triad/components/content/PDFPageViewer";
 import { PDFLiteReaderModal } from "@/app/triad/components/content/PDFLiteReaderModal";
-import { VideoPlayer } from "@/app/triad/components/content/VideoPlayer";
+import { VideoPlayer, type VideoSegment } from "@/app/triad/components/content/VideoPlayer";
 import { VideoErrorBoundary } from "@/app/triad/components/content/VideoErrorBoundary";
 import { LoreTextReader } from "@/app/triad/components/content/LoreTextReader";
 import { ContentPurchaseModal, type ContentType } from "@/app/triad/components/content/ContentPurchaseModal";
@@ -266,6 +266,7 @@ interface EpisodeFromAPI {
   printEpicLiteUrl?: string;
   printLegendaryLiteUrl?: string;
   motionMasterCid?: string;
+  motionMasterId?: string;
   availableCovers?: number;
   coverCount: number;
   characterCount: number;
@@ -525,6 +526,10 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   const [currentVideoCid, setCurrentVideoCid] = useState<string | null>(null);
   const [currentVideoUrl, setCurrentVideoUrl] = useState<string | null>(null);
   const [currentVideoTitle, setCurrentVideoTitle] = useState('');
+  const [currentVideoSegments, setCurrentVideoSegments] = useState<VideoSegment[]>([]);
+  const [currentVideoSegmentIndex, setCurrentVideoSegmentIndex] = useState(0);
+  const [currentVideoUseDirectStream, setCurrentVideoUseDirectStream] = useState(false);
+  const episodeSegmentsCacheRef = useRef<Map<string, VideoSegment[]>>(new Map());
   const [textReaderOpen, setTextReaderOpen] = useState(false);
   const [currentText, setCurrentText] = useState<{ title: string; content: string } | null>(null);
   const [purchaseContent, setPurchaseContent] = useState<{
@@ -1229,6 +1234,58 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     loadEpisodes();
   }, [fetchEpisodesCatalog]);
 
+  const fetchEpisodeSegments = useCallback(async (episodeId?: string | null): Promise<VideoSegment[]> => {
+    if (!episodeId) return [];
+    const cached = episodeSegmentsCacheRef.current.get(episodeId);
+    if (cached) return cached;
+    try {
+      const apiBase = API_BASE_URL;
+      const response = await fetch(`${apiBase}/api/content/video/segments?episodeId=${encodeURIComponent(episodeId)}`);
+      if (!response.ok) return [];
+      const segments = (await response.json()) as VideoSegment[];
+      const normalized = Array.isArray(segments) ? segments.filter((segment) => !!segment?.auto_drive_cid) : [];
+      episodeSegmentsCacheRef.current.set(episodeId, normalized);
+      return normalized;
+    } catch (error) {
+      console.warn('[KnytTab] Failed to fetch episode segments:', error);
+      return [];
+    }
+  }, []);
+
+  const openEpisodeVideo = useCallback(async (episode: EpisodeFromAPI, fallbackVideoCid?: string | null, fallbackVideoUrl?: string | null) => {
+    const motionSource = normalizeVideoSource(
+      fallbackVideoCid ||
+      fallbackVideoUrl ||
+      episode.motionMasterCid ||
+      (episode as EpisodeFromAPI & { motionMasterUrl?: string; motionMasterPath?: string }).motionMasterUrl ||
+      (episode as EpisodeFromAPI & { motionMasterUrl?: string; motionMasterPath?: string }).motionMasterPath ||
+      null
+    );
+
+    const segments = await fetchEpisodeSegments(episode.motionMasterId || null);
+    if (segments.length > 0) {
+      const first = segments[0];
+      setCurrentVideoSegments(segments);
+      setCurrentVideoSegmentIndex(0);
+      setCurrentVideoCid(first.auto_drive_cid);
+      setCurrentVideoUrl(`/api/content/video/${encodeURIComponent(first.auto_drive_cid)}`);
+      setCurrentVideoTitle(episode.title || `Episode ${episode.displayNumber} - Motion Comic`);
+      setCurrentVideoUseDirectStream(true);
+      setVideoPlayerOpen(true);
+      return;
+    }
+
+    if (motionSource.cid || motionSource.url) {
+      setCurrentVideoSegments([]);
+      setCurrentVideoSegmentIndex(0);
+      setCurrentVideoCid(motionSource.cid || null);
+      setCurrentVideoUrl(motionSource.url || getVideoPlaybackUrl(motionSource.cid) || null);
+      setCurrentVideoTitle(episode.title || `Episode ${episode.displayNumber} - Motion Comic`);
+      setCurrentVideoUseDirectStream(true);
+      setVideoPlayerOpen(true);
+    }
+  }, [fetchEpisodeSegments, getVideoPlaybackUrl, normalizeVideoSource]);
+
   useEffect(() => {
     if (!contentItems.length && !episodesCatalog.length) return;
     writeKnytSessionSnapshot(contentItems, episodesCatalog);
@@ -1670,12 +1727,23 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       setCurrentPdfTitle(item.title);
       setPdfViewerOpen(true);
     } else if (type === 'video' && (item.media?.video_cid || item.media?.video_url)) {
+      const episodeNumber = typeof item.metadata?.episodeNumber === 'number' ? item.metadata.episodeNumber : null;
+      if (episodeNumber !== null) {
+        const matchedEpisode = episodesCatalog.find((episode) => episode.episodeNumber === episodeNumber);
+        if (matchedEpisode) {
+          void openEpisodeVideo(matchedEpisode, item.media?.video_cid || null, item.media?.video_url || null);
+          return;
+        }
+      }
+      setCurrentVideoSegments([]);
+      setCurrentVideoSegmentIndex(0);
+      setCurrentVideoUseDirectStream(false);
       setCurrentVideoCid(item.media?.video_cid || null);
       setCurrentVideoUrl(item.media?.video_url || getVideoPlaybackUrl(item.media?.video_cid) || null);
       setCurrentVideoTitle(item.title);
       setVideoPlayerOpen(true);
     }
-  }, [getVideoPlaybackUrl, isEpisodeLocked, openPurchaseForItem]);
+  }, [episodesCatalog, getVideoPlaybackUrl, isEpisodeLocked, openEpisodeVideo, openPurchaseForItem]);
 
   const handleCopilotModeChange = useCallback((mode: CopilotOverlayMode) => {
     setCopilotMode(mode);
@@ -2115,10 +2183,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                                     openPurchaseForEpisode(episode, 'watch');
                                     return;
                                   }
-                                  setCurrentVideoTitle(`${episode.title} - Motion Comic`);
-                                  setCurrentVideoCid(episodeVideo.cid || null);
-                                  setCurrentVideoUrl(episodeVideo.url || getVideoPlaybackUrl(episodeVideo.cid) || null);
-                                  setVideoPlayerOpen(true);
+                                  void openEpisodeVideo(episode, episodeVideo.cid || null, episodeVideo.url || null);
                                 }}
                               >
                                 <Play className="w-3 h-3" />
@@ -2325,16 +2390,32 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                 setCurrentVideoCid(null);
                 setCurrentVideoUrl(null);
                 setCurrentVideoTitle('');
+                setCurrentVideoSegments([]);
+                setCurrentVideoSegmentIndex(0);
+                setCurrentVideoUseDirectStream(false);
               }}
             >
               <VideoPlayer
                 videoUrl={currentVideoUrl || getVideoPlaybackUrl(currentVideoCid) || ''}
                 title={currentVideoTitle}
+                segments={currentVideoSegments}
+                currentSegmentIndex={currentVideoSegmentIndex}
+                streamMode={currentVideoUseDirectStream ? 'direct' : 'blob'}
+                onSegmentChange={(index) => {
+                  const segment = currentVideoSegments[index];
+                  if (!segment?.auto_drive_cid) return;
+                  setCurrentVideoSegmentIndex(index);
+                  setCurrentVideoCid(segment.auto_drive_cid);
+                  setCurrentVideoUrl(`/api/content/video/${encodeURIComponent(segment.auto_drive_cid)}`);
+                }}
                 onClose={() => {
                   setVideoPlayerOpen(false);
                   setCurrentVideoCid(null);
                   setCurrentVideoUrl(null);
                   setCurrentVideoTitle('');
+                  setCurrentVideoSegments([]);
+                  setCurrentVideoSegmentIndex(0);
+                  setCurrentVideoUseDirectStream(false);
                 }}
               />
             </VideoErrorBoundary>

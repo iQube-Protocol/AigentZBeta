@@ -16,6 +16,7 @@ interface VideoPlayerProps {
   segments?: VideoSegment[];
   currentSegmentIndex?: number;
   onSegmentChange?: (index: number) => void;
+  streamMode?: 'blob' | 'direct';
 }
 
 // Global cache for preloaded video blobs - persists across component renders
@@ -28,6 +29,7 @@ export function VideoPlayer({
   segments = [],
   currentSegmentIndex = 0,
   onSegmentChange,
+  streamMode = 'blob',
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -49,8 +51,9 @@ export function VideoPlayer({
     }
   };
 
-  // Preload video as blob and cache it
+  // Preload video as blob and cache it (blob mode only)
   const preloadVideo = async (url: string) => {
+    if (streamMode !== 'blob') return;
     if (videoCache.has(url) || preloadingRef.current.has(url)) return;
     preloadingRef.current.add(url);
 
@@ -68,6 +71,10 @@ export function VideoPlayer({
 
   // Load current video (from cache or fetch)
   useEffect(() => {
+    if (streamMode !== 'blob') {
+      setCurrentBlobUrl(null);
+      return;
+    }
     let cancelled = false;
 
     const loadCurrentVideo = async () => {
@@ -96,10 +103,11 @@ export function VideoPlayer({
     return () => {
       cancelled = true;
     };
-  }, [videoUrl]);
+  }, [streamMode, videoUrl]);
 
   // Preload adjacent segments when current video starts playing
   useEffect(() => {
+    if (streamMode !== 'blob') return;
     if (segments.length <= 1 || !currentBlobUrl) return;
 
     if (currentSegmentIndex < segments.length - 1) {
@@ -113,13 +121,13 @@ export function VideoPlayer({
         preloadVideo(`/api/content/video/${prevCid}`);
       }, 2000);
     }
-  }, [currentSegmentIndex, segments, currentBlobUrl]);
+  }, [currentSegmentIndex, segments, currentBlobUrl, streamMode]);
 
   useEffect(() => {
     setIsLoading(true);
     setError(null);
     setProgress(0);
-  }, [videoUrl, currentBlobUrl]);
+  }, [videoUrl, currentBlobUrl, streamMode]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -181,6 +189,8 @@ export function VideoPlayer({
     v.currentTime = ((e.clientX - rect.left) / rect.width) * v.duration;
   };
 
+  const effectiveVideoSrc = streamMode === 'direct' ? videoUrl : currentBlobUrl;
+
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/95" onClick={onClose}>
       <div className="relative w-full max-w-5xl mx-4" onClick={(e) => e.stopPropagation()}>
@@ -208,10 +218,10 @@ export function VideoPlayer({
               <p className="text-red-400">{error}</p>
             </div>
           )}
-          {currentBlobUrl && (
+          {effectiveVideoSrc && (
             <video
               ref={videoRef}
-              src={currentBlobUrl}
+              src={effectiveVideoSrc}
               className="w-full h-full"
               playsInline
               controls={false}
