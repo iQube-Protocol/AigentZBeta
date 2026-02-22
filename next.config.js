@@ -75,7 +75,8 @@ const nextConfig = {
         headers: [
           {
             key: "Content-Security-Policy",
-            value: "frame-ancestors 'self' https://qriptopian.lovable.app https://preview--qriptopian.lovable.app;",
+            value:
+              "frame-ancestors 'self' https://lovable.app https://*.lovable.app https://*.lovable.dev https://*.aigentz.me https://*.netlify.app http://localhost:* http://127.0.0.1:*;",
           },
         ],
       },
