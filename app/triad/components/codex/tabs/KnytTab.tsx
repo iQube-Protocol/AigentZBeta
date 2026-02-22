@@ -657,16 +657,6 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     return `/api/content/video/${encodeURIComponent(source)}`;
   }, []);
 
-  const getPdfViewerUrl = useCallback((pdfCid?: string | null, pdfLiteUrl?: string | null) => {
-    if (pdfCid && pdfCid.trim().length > 0) {
-      return `/api/content/pdf/${encodeURIComponent(pdfCid)}`;
-    }
-    if (pdfLiteUrl && pdfLiteUrl.trim().length > 0) {
-      return pdfLiteUrl;
-    }
-    return null;
-  }, []);
-
   // Content transformation functions (ported from CodexLiquidUITab)
   const transformEpisodesToContentItems = useCallback((episodes: EpisodeFromAPI[]): KnytContentItem[] => {
     const items: KnytContentItem[] = [];
@@ -1670,14 +1660,12 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       return;
     }
     if (type === 'pdf' && (item.media?.pdf_lite_url || item.media?.pdf_cid)) {
-      const viewerUrl = getPdfViewerUrl(item.media?.pdf_cid, item.media?.pdf_lite_url);
       console.log('[KnytTab] Opening PDF viewer:', {
-        viewer_url: viewerUrl,
         pdf_lite_url: item.media.pdf_lite_url,
         pdf_cid: item.media.pdf_cid,
         title: item.title
       });
-      setCurrentPdfLiteUrl(viewerUrl);
+      setCurrentPdfLiteUrl(item.media.pdf_lite_url || null);
       setCurrentPdfCid(item.media.pdf_cid || null);
       setCurrentPdfTitle(item.title);
       setPdfViewerOpen(true);
@@ -1687,7 +1675,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       setCurrentVideoTitle(item.title);
       setVideoPlayerOpen(true);
     }
-  }, [getPdfViewerUrl, getVideoPlaybackUrl, isEpisodeLocked, openPurchaseForItem]);
+  }, [getVideoPlaybackUrl, isEpisodeLocked, openPurchaseForItem]);
 
   const handleCopilotModeChange = useCallback((mode: CopilotOverlayMode) => {
     setCopilotMode(mode);
@@ -2030,10 +2018,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                             if (printCid) {
                               setCurrentPdfCid(printCid);
                               setCurrentPdfLiteUrl(
-                                getPdfViewerUrl(
-                                  printCid,
-                                  episode.printRareLiteUrl || episode.printEpicLiteUrl || episode.printLegendaryLiteUrl || null
-                                )
+                                episode.printRareLiteUrl || episode.printEpicLiteUrl || episode.printLegendaryLiteUrl || null
                               );
                               setCurrentPdfTitle(episode.title || `Episode ${episode.displayNumber}`);
                               setPdfViewerOpen(true);
@@ -2109,10 +2094,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                                   if (printCid) {
                                     setCurrentPdfCid(printCid);
                                     setCurrentPdfLiteUrl(
-                                      getPdfViewerUrl(
-                                        printCid,
-                                        episode.printRareLiteUrl || episode.printEpicLiteUrl || episode.printLegendaryLiteUrl || null
-                                      )
+                                      episode.printRareLiteUrl || episode.printEpicLiteUrl || episode.printLegendaryLiteUrl || null
                                     );
                                     setCurrentPdfTitle(episode.title || `Episode ${episode.displayNumber}`);
                                     setPdfViewerOpen(true);
