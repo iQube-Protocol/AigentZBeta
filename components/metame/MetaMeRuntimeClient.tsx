@@ -146,11 +146,12 @@ const PROVIDER_ICON_URL: Record<LlmProviderId, string> = {
   venice: "/llm_model_logos/venice.png",
   chaingpt: "/llm_model_logos/chaingpt.png",
   thirdweb: "/llm_model_logos/thirdweb.png",
+  anthropic: "/llm_model_logos/anthropic.png",
 };
 
 function providerIcon(providerId: LlmProviderId) {
   const darkModeClass =
-    providerId === "openai" ? "dark:invert dark:brightness-200 dark:contrast-200" : "";
+    providerId === "openai" || providerId === "anthropic" ? "dark:invert dark:brightness-200 dark:contrast-200" : "";
   return (
     <img
       src={PROVIDER_ICON_URL[providerId]}
@@ -1608,6 +1609,7 @@ export default function MetaMeRuntimeClient() {
   );
 
   const providerBaseScore = useMemo(() => {
+    if (trustProvider === "anthropic") return 8.3;
     if (trustProvider === "venice") return 7.8;
     if (trustProvider === "chaingpt") return 8.0;
     if (trustProvider === "thirdweb") return 7.6;

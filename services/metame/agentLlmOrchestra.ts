@@ -1,6 +1,6 @@
 import type { IQubeType } from "@/types/registry";
 
-export type LlmProviderId = "openai" | "venice" | "chaingpt" | "thirdweb";
+export type LlmProviderId = "openai" | "venice" | "chaingpt" | "thirdweb" | "anthropic";
 
 export interface ActiveIQubeRecord {
   id: string;
@@ -40,9 +40,10 @@ const LLM_PROVIDER_LABELS: Record<LlmProviderId, string> = {
   venice: "Venice AI",
   chaingpt: "ChainGPT",
   thirdweb: "ThirdWeb",
+  anthropic: "Anthropic",
 };
 
-const LLM_PROVIDERS = new Set<LlmProviderId>(["openai", "venice", "chaingpt", "thirdweb"]);
+const LLM_PROVIDERS = new Set<LlmProviderId>(["openai", "venice", "chaingpt", "thirdweb", "anthropic"]);
 
 export const RUNTIME_AGENT_IDS = [
   "aigent-z",
@@ -74,6 +75,7 @@ function normalizeProviderId(raw?: string): LlmProviderId | null {
   if (normalized === "venice" || normalized === "venice ai") return "venice";
   if (normalized === "chaingpt" || normalized === "chain gpt") return "chaingpt";
   if (normalized === "thirdweb" || normalized === "third web") return "thirdweb";
+  if (normalized === "anthropic" || normalized === "anthropic ai" || normalized === "claude") return "anthropic";
   return null;
 }
 
@@ -141,15 +143,18 @@ const ACTIVE_IQUBES: ActiveIQubeRecord[] = [
   { id: "iq_venice_uncensored", agentId: "aigent-z", iQubeType: "ModelQube", enabled: true, providerId: "venice", providerKind: "llm", modelId: "venice-uncensored", modelLabel: "Venice Uncensored" },
   { id: "iq_chaingpt_general", agentId: "aigent-z", iQubeType: "ModelQube", enabled: true, providerId: "chaingpt", providerKind: "llm", modelId: "chaingpt-general", modelLabel: "ChainGPT General" },
   { id: "iq_thirdweb_llm", agentId: "aigent-z", iQubeType: "ModelQube", enabled: true, providerId: "thirdweb", providerKind: "llm", modelId: "thirdweb-web3-llm", modelLabel: "ThirdWeb Web3 LLM" },
+  { id: "iq_anthropic_sonnet", agentId: "aigent-z", iQubeType: "ModelQube", enabled: true, providerId: "anthropic", providerKind: "llm", modelId: "claude-3-5-sonnet", modelLabel: "Claude 3.5 Sonnet" },
 
   // Kn0w1
   { id: "iq_kn0w1_openai_gpt4o_mini", agentId: "aigent-kn0w1", iQubeType: "ModelQube", enabled: true, providerId: "openai", providerKind: "llm", modelId: "gpt-4o-mini", modelLabel: "GPT-4o Mini" },
   { id: "iq_kn0w1_venice_reasoning", agentId: "aigent-kn0w1", iQubeType: "ModelQube", enabled: true, providerId: "venice", providerKind: "llm", modelId: "venice-reasoning", modelLabel: "Venice Reasoning" },
+  { id: "iq_kn0w1_anthropic_haiku", agentId: "aigent-kn0w1", iQubeType: "ModelQube", enabled: true, providerId: "anthropic", providerKind: "llm", modelId: "claude-3-5-haiku", modelLabel: "Claude 3.5 Haiku" },
   { id: "iq_kn0w1_google_drive", agentId: "aigent-kn0w1", iQubeType: "ToolQube", enabled: true, providerId: "google", providerKind: "mcp" },
 
   // MoneyPenny
   { id: "iq_mp_openai_gpt4o_mini", agentId: "aigent-moneypenny", iQubeType: "ModelQube", enabled: true, providerId: "openai", providerKind: "llm", modelId: "gpt-4o-mini", modelLabel: "GPT-4o Mini" },
   { id: "iq_mp_chaingpt_crypto", agentId: "aigent-moneypenny", iQubeType: "ModelQube", enabled: true, providerId: "chaingpt", providerKind: "llm", modelId: "chaingpt-crypto", modelLabel: "ChainGPT Crypto" },
+  { id: "iq_mp_anthropic_sonnet", agentId: "aigent-moneypenny", iQubeType: "ModelQube", enabled: true, providerId: "anthropic", providerKind: "llm", modelId: "claude-3-5-sonnet", modelLabel: "Claude 3.5 Sonnet" },
   { id: "iq_mp_google_workspace", agentId: "aigent-moneypenny", iQubeType: "ToolQube", enabled: true, providerId: "google", providerKind: "mcp" },
 
   // Nakamoto
@@ -159,11 +164,13 @@ const ACTIVE_IQUBES: ActiveIQubeRecord[] = [
   { id: "iq_nak_venice_reasoning", agentId: "aigent-nakamoto", iQubeType: "ModelQube", enabled: true, providerId: "venice", providerKind: "llm", modelId: "venice-reasoning", modelLabel: "Venice Reasoning" },
   { id: "iq_nak_chaingpt_general", agentId: "aigent-nakamoto", iQubeType: "ModelQube", enabled: true, providerId: "chaingpt", providerKind: "llm", modelId: "chaingpt-general", modelLabel: "ChainGPT General" },
   { id: "iq_nak_chaingpt_code", agentId: "aigent-nakamoto", iQubeType: "ModelQube", enabled: true, providerId: "chaingpt", providerKind: "llm", modelId: "chaingpt-code", modelLabel: "ChainGPT Code" },
+  { id: "iq_nak_anthropic_opus", agentId: "aigent-nakamoto", iQubeType: "ModelQube", enabled: true, providerId: "anthropic", providerKind: "llm", modelId: "claude-3-opus", modelLabel: "Claude 3 Opus" },
   { id: "iq_nak_drive_connector", agentId: "aigent-nakamoto", iQubeType: "ToolQube", enabled: true, providerId: "google", providerKind: "mcp" },
 
   // Marketa
   { id: "iq_marketa_openai_gpt4o_mini", agentId: "aigent-marketa", iQubeType: "ModelQube", enabled: true, providerId: "openai", providerKind: "llm", modelId: "gpt-4o-mini", modelLabel: "GPT-4o Mini" },
   { id: "iq_marketa_thirdweb_llm", agentId: "aigent-marketa", iQubeType: "ModelQube", enabled: true, providerId: "thirdweb", providerKind: "llm", modelId: "thirdweb-web3-llm", modelLabel: "ThirdWeb Web3 LLM" },
+  { id: "iq_marketa_anthropic_haiku", agentId: "aigent-marketa", iQubeType: "ModelQube", enabled: true, providerId: "anthropic", providerKind: "llm", modelId: "claude-3-5-haiku", modelLabel: "Claude 3.5 Haiku" },
   { id: "iq_marketa_gdrive", agentId: "aigent-marketa", iQubeType: "ToolQube", enabled: true, providerId: "google", providerKind: "mcp" },
 ];
 

@@ -58,7 +58,7 @@ interface CodexCopilotLayerProps {
   floatingInput?: boolean;
   disableActivationButton?: boolean;
   showQuickPromptsToggle?: boolean;
-  trustProvider?: "openai" | "venice" | "chaingpt" | "thirdweb";
+  trustProvider?: "openai" | "venice" | "chaingpt" | "thirdweb" | "anthropic";
   showNavMenu?: boolean;
   showWalletMenu?: boolean;
   walletBalance?: number;
@@ -249,9 +249,10 @@ export function CodexCopilotLayer({
     hoverTimeoutRef.current = setTimeout(() => setInputPanelVisible(false), timeoutMs);
   };
 
-  const resolveProvider = (): "openai" | "venice" | "chaingpt" | "thirdweb" => {
+  const resolveProvider = (): "openai" | "venice" | "chaingpt" | "thirdweb" | "anthropic" => {
     if (trustProvider) return trustProvider;
     const name = agent?.name?.toLowerCase() || "";
+    if (name.includes("anthropic") || name.includes("claude")) return "anthropic";
     if (name.includes("venice")) return "venice";
     if (name.includes("chaingpt") || name.includes("chain")) return "chaingpt";
     if (name.includes("thirdweb") || name.includes("web3")) return "thirdweb";
@@ -262,6 +263,7 @@ export function CodexCopilotLayer({
 
   const getBaseScore = () => {
     const provider = resolveProvider();
+    if (provider === "anthropic") return 8.3;
     if (provider === "venice") return 7.8;
     if (provider === "chaingpt") return 8.0;
     if (provider === "thirdweb") return 7.6;
@@ -271,7 +273,7 @@ export function CodexCopilotLayer({
   const getReliabilityScore = () => {
     const provider = resolveProvider();
     let score = getBaseScore();
-    if (provider === "venice" || provider === "chaingpt" || provider === "thirdweb") score += 0.8;
+    if (provider === "anthropic" || provider === "venice" || provider === "chaingpt" || provider === "thirdweb") score += 0.8;
     if (isLoading) score -= 0.3;
     return clampScore(score);
   };

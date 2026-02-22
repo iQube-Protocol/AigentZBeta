@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { PersonaQube } from '@/types/persona';
 import { getCallerAuthProfileId } from '@/services/wallet/personaRepo';
+import { getActiveUserIQube, hasActivePersonaGrant } from '@/services/wallet/userIQubeAccess';
 
 // Initialize Supabase client
 const supabase = createClient(
@@ -79,6 +80,8 @@ export async function GET(
     }
 
     const { id } = params;
+    const { searchParams } = new URL(request.url);
+    const tenantId = searchParams.get('tenantId');
     
     const { data, error } = await supabase
       .from('personas')
@@ -106,8 +109,11 @@ export async function GET(
       return NextResponse.json({ ok: true, persona: toOwnerSafePersona(data) });
     }
 
-    const { searchParams } = new URL(request.url);
-    const tenantId = searchParams.get('tenantId');
+    const iqube = await getActiveUserIQube(callerAuthProfileId);
+    if (hasActivePersonaGrant(iqube, data.id, data.tenant_id)) {
+      return NextResponse.json({ ok: true, persona: toOwnerSafePersona(data) });
+    }
+
     const canReveal =
       !!tenantId &&
       tenantId === data.tenant_id &&
