@@ -10,7 +10,6 @@ import { useMetaAvatar } from "@/app/contexts/MetaAvatarContext";
 import AliasConsentToggle from "../identity/AliasConsentToggle";
 import SettlementRetryButton from "../x402/SettlementRetryButton";
 import LibraryShelf from "./LibraryShelf";
-import SmartContentCard from "./SmartContentCard";
 import PurchaseFlow, { type PurchaseStep, type PaymentMethod } from "./PurchaseFlow";
 import type { SmartWalletNode, WalletTask, QuestProgress, RecentReward, PersonaState } from "@/types/smartWallet";
 import type { SmartContentQube } from "@/types/smartContent";
@@ -67,6 +66,8 @@ import {
   Flame,
   Crown,
   Copy,
+  Book,
+  Film,
 } from "lucide-react";
 const CodexCopilotLayer = dynamic(
   () => import("@/app/components/codex/CodexCopilotLayer").then((m) => m.CodexCopilotLayer),
@@ -84,6 +85,37 @@ const Tooltip = ({ children, text }: { children: React.ReactNode; text: string }
     </div>
   </div>
 );
+
+// Rarity knight icon paths: bronze = rare, silver = epic, gold = legendary
+const RARITY_ICONS: Record<string, string> = {
+  RARE: "/icons/knight-bronze.png",
+  EPIC: "/icons/knight-silver.png",
+  LEGENDARY: "/icons/knight-gold.png",
+};
+
+const getRarityIcon = (coverType: string | undefined): string | null => {
+  if (!coverType) return null;
+  const upper = coverType.toUpperCase();
+  if (upper === "RARE" || upper === "PRINT_RARE") return RARITY_ICONS.RARE;
+  if (upper === "EPIC" || upper === "PRINT_EPIC") return RARITY_ICONS.EPIC;
+  if (upper === "LEGENDARY" || upper === "PRINT_LEGENDARY") return RARITY_ICONS.LEGENDARY;
+  return null;
+};
+
+const getRarityTooltip = (coverType: string | undefined): string => {
+  if (!coverType) return "";
+  const upper = coverType.toUpperCase();
+  if (upper === "RARE" || upper === "PRINT_RARE") return "Rare Edition";
+  if (upper === "EPIC" || upper === "PRINT_EPIC") return "Epic Edition";
+  if (upper === "LEGENDARY" || upper === "PRINT_LEGENDARY") return "Legendary Edition";
+  return "";
+};
+
+const isMotionContent = (ent: any): boolean => {
+  const assetId = ent?.contentId || ent?.assetId || "";
+  const coverType = ent?.coverType || "";
+  return assetId.toLowerCase().includes("motion") || String(coverType).toUpperCase() === "MOTION";
+};
 
 type DrawerTab = "wallet" | "library" | "tasks" | "reputation" | "rewards";
 
@@ -190,6 +222,7 @@ export default function SmartWalletDrawer({
   const [copilotLoading, setCopilotLoading] = useState(false);
   const [copilotMode, setCopilotMode] = useState<'chat' | 'avatar'>('chat');
   const [codexCopilotMessages, setCodexCopilotMessages] = useState<CopilotMessage[]>([]);
+  const [selectedLibraryItem, setSelectedLibraryItem] = useState<any>(null);
   const [tenantId, setTenantId] = useState<string>(
     process.env.NEXT_PUBLIC_TENANT_ID ||
       process.env.NEXT_PUBLIC_LVB_BRIDGE_TENANT_ID ||
@@ -203,6 +236,12 @@ export default function SmartWalletDrawer({
   useEffect(() => {
     onTabChange?.(activeTab);
   }, [activeTab, onTabChange]);
+
+  useEffect(() => {
+    if (activeTab !== "library" && selectedLibraryItem) {
+      setSelectedLibraryItem(null);
+    }
+  }, [activeTab, selectedLibraryItem]);
 
   useEffect(() => {
     if (!codexMode) return;
@@ -1728,69 +1767,100 @@ export default function SmartWalletDrawer({
           {/* Library Tab */}
           {activeTab === "library" && (
             <div className="space-y-4">
-              {/* Show entitlements from walletNode if available */}
-              {walletNode?.contentEntitlements && walletNode.contentEntitlements.length > 0 ? (
+              {selectedLibraryItem ? (
+                <section className="rounded-2xl bg-purple-500/10 ring-1 ring-purple-500/20 p-4">
+                  <button onClick={() => setSelectedLibraryItem(null)} className="text-xs text-white/50 mb-3">← Back</button>
+                  <div className="aspect-[3/4] w-40 mx-auto rounded-xl overflow-hidden bg-black/40 mb-3 relative">
+                    {selectedLibraryItem.coverCid ? (
+                      <img
+                        src={`/api/content/cover/${selectedLibraryItem.coverCid}?variant=thumb`}
+                        alt={selectedLibraryItem.contentTitle}
+                        className="w-full h-full object-cover absolute inset-0"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = "none";
+                          (e.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden");
+                        }}
+                      />
+                    ) : null}
+                    <div className={`w-full h-full items-center justify-center ${selectedLibraryItem.coverCid ? "hidden" : "flex"}`}>
+                      {isMotionContent(selectedLibraryItem) ? (
+                        <Film className="w-16 h-16 text-purple-400/50" />
+                      ) : (
+                        <Book className="w-16 h-16 text-purple-400/50" />
+                      )}
+                    </div>
+                    {getRarityIcon((selectedLibraryItem as any).coverType) && (
+                      <Tooltip text={getRarityTooltip((selectedLibraryItem as any).coverType)}>
+                        <img
+                          src={getRarityIcon((selectedLibraryItem as any).coverType)!}
+                          alt="rarity"
+                          className="absolute bottom-2 left-2 w-8 h-8 object-contain drop-shadow-lg cursor-help"
+                        />
+                      </Tooltip>
+                    )}
+                    <Tooltip text={isMotionContent(selectedLibraryItem) ? "Motion Comic" : "Digital Still"}>
+                      <div className="absolute top-2 right-2 p-1.5 rounded bg-black/50 cursor-help">
+                        {isMotionContent(selectedLibraryItem) ? (
+                          <Film className="w-4 h-4 text-cyan-400" />
+                        ) : (
+                          <Book className="w-4 h-4 text-amber-400" />
+                        )}
+                      </div>
+                    </Tooltip>
+                  </div>
+                  <div className="text-center text-sm text-white">{selectedLibraryItem.contentTitle}</div>
+                  {(selectedLibraryItem as any).coverType && (
+                    <div className="text-center text-[10px] text-amber-400 mt-1">{(selectedLibraryItem as any).coverType} Edition</div>
+                  )}
+                </section>
+              ) : walletNode?.contentEntitlements && walletNode.contentEntitlements.length > 0 ? (
                 <section className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-3">
                   <div className="text-[11px] uppercase tracking-wider text-white/60 mb-2">
                     Your Library ({walletNode.contentEntitlements.length})
                   </div>
-                  <div className="space-y-1">
+                  <div className="grid grid-cols-3 gap-2">
                     {walletNode.contentEntitlements.map((ent: any) => (
-                      ent.content ? (
-                        // Use SmartContentCard compact variant for full content objects
-                        <SmartContentCard
-                          key={ent.id}
-                          content={ent.content}
-                          variant="compact"
-                          onSelect={onContentSelect}
-                          isOwned={true}
-                          isInLibrary={true}
-                        />
-                      ) : (
-                        // Fallback for entitlements without full content (legacy/reference only)
-                        <div
-                          key={ent.id}
-                          className="flex items-center gap-3 p-2 rounded-lg bg-white/5 ring-1 ring-white/10 hover:bg-white/10 transition-colors cursor-pointer"
-                          onClick={() => {
-                            // Fetch content from QubeBase reference if available
-                            if (ent.qubeBaseRef) {
-                              console.log('Fetching from QubeBase:', ent.qubeBaseRef);
-                              // TODO: Implement QubeBase content fetch
-                            }
-                          }}
-                        >
-                          <div className="w-10 h-10 rounded bg-gradient-to-br from-purple-500/20 to-fuchsia-500/20 flex items-center justify-center">
-                            <FileText className="w-5 h-5 text-purple-400" />
+                      <div key={ent.id} onClick={() => setSelectedLibraryItem(ent)} className="cursor-pointer group">
+                        <div className="aspect-[3/4] rounded-lg overflow-hidden bg-purple-500/10 ring-1 ring-white/10 group-hover:ring-purple-500/50 relative">
+                          {ent.coverCid ? (
+                            <img
+                              src={`/api/content/cover/${ent.coverCid}?variant=thumb`}
+                              alt={ent.contentTitle || "Library item"}
+                              className="w-full h-full object-cover absolute inset-0"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = "none";
+                                (e.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden");
+                              }}
+                            />
+                          ) : null}
+                          <div className={`w-full h-full items-center justify-center ${ent.coverCid ? "hidden" : "flex"}`}>
+                            {isMotionContent(ent) ? (
+                              <Film className="w-8 h-8 text-purple-400/50" />
+                            ) : (
+                              <Book className="w-8 h-8 text-purple-400/50" />
+                            )}
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm text-white/90 truncate">{ent.contentTitle}</div>
-                            <div className="text-xs text-white/50 flex items-center gap-2">
-                              <Tooltip text={ent.scope === 'full' ? 'Full access' : 'Partial access'}>
-                                <span className={`px-1.5 py-0.5 rounded text-[10px] ${
-                                  ent.scope === 'full' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'
-                                }`}>
-                                  {ent.scope}
-                                </span>
-                              </Tooltip>
-                              <Tooltip text={ent.acquiredVia === 'purchase' ? 'Purchased' : ent.acquiredVia === 'free' ? 'Free content' : 'Subscription'}>
-                                <span className="flex items-center">
-                                  {ent.acquiredVia === 'purchase' && <CreditCard className="w-3 h-3 text-amber-400" />}
-                                  {ent.acquiredVia === 'free' && <Gift className="w-3 h-3 text-emerald-400" />}
-                                  {ent.acquiredVia !== 'purchase' && ent.acquiredVia !== 'free' && <Award className="w-3 h-3 text-purple-400" />}
-                                </span>
-                              </Tooltip>
-                              {ent.qubeBaseRef && (
-                                <Tooltip text={ent.qubeBaseRef.type === 'ipfs' ? 'Stored on IPFS' : 'Stored on QubeBase'}>
-                                  <span className="flex items-center gap-1 text-[10px] text-white/40">
-                                    {ent.qubeBaseRef.type === 'ipfs' ? <Link className="w-3 h-3" /> : <Cloud className="w-3 h-3" />}
-                                    {ent.qubeBaseRef.type === 'ipfs' ? 'IPFS' : 'QubeBase'}
-                                  </span>
-                                </Tooltip>
+                          {getRarityIcon((ent as any).coverType) && (
+                            <Tooltip text={getRarityTooltip((ent as any).coverType)}>
+                              <img
+                                src={getRarityIcon((ent as any).coverType)!}
+                                alt="rarity"
+                                className="absolute bottom-0.5 left-0.5 w-5 h-5 object-contain drop-shadow-lg cursor-help"
+                              />
+                            </Tooltip>
+                          )}
+                          <Tooltip text={isMotionContent(ent) ? "Motion Comic" : "Digital Still"}>
+                            <div className="absolute top-0.5 right-0.5 p-0.5 rounded bg-black/50 cursor-help">
+                              {isMotionContent(ent) ? (
+                                <Film className="w-2.5 h-2.5 text-cyan-400" />
+                              ) : (
+                                <Book className="w-2.5 h-2.5 text-amber-400" />
                               )}
                             </div>
-                          </div>
+                          </Tooltip>
                         </div>
-                      )
+                        <div className="text-[10px] text-white/70 truncate mt-1">{ent.contentTitle || ent.id}</div>
+                      </div>
                     ))}
                   </div>
                 </section>
