@@ -153,6 +153,7 @@ export function CodexCopilotLayer({
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const activationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const initialActivationShownRef = useRef(false);
   const copilotPanelRef = useRef<HTMLDivElement>(null);
   const metaAvatarFrameRef = useRef<HTMLDivElement>(null);
 
@@ -188,6 +189,13 @@ export function CodexCopilotLayer({
       setShowActivationButton(false);
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (variant !== "floating" || disableActivationButton || isOpen) return;
+    if (initialActivationShownRef.current) return;
+    initialActivationShownRef.current = true;
+    showActivationButtonWithTimeout(4000);
+  }, [variant, disableActivationButton, isOpen]);
 
   useEffect(() => {
     return () => {
@@ -408,7 +416,7 @@ export function CodexCopilotLayer({
     <>
       {variant === "floating" && !isOpen && !disableActivationButton && (
         <div
-          className="fixed bottom-0 left-0 z-[109] h-24 w-24 md:h-32 md:w-32"
+          className={`fixed bottom-0 z-[179] h-24 w-24 md:h-32 md:w-32 ${isMobile ? "left-0" : "left-24"}`}
           onMouseEnter={() => showActivationButtonWithTimeout(4000)}
         />
       )}
@@ -416,7 +424,7 @@ export function CodexCopilotLayer({
       {variant === "floating" && !isOpen && showActivationButton && !disableActivationButton && (
         <button
           onClick={onOpen || (() => {})}
-          className="fixed bottom-6 left-6 z-[110] p-3 bg-gradient-to-br from-cyan-500 to-purple-600 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+          className={`fixed bottom-6 z-[180] p-3 bg-gradient-to-br from-cyan-500 to-purple-600 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 ${isMobile ? "left-4" : "left-28"}`}
         >
           <Bot className="w-6 h-6 text-white" />
         </button>

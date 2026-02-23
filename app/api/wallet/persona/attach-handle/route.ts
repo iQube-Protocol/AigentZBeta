@@ -30,20 +30,44 @@ export async function POST(request: NextRequest) {
 
     const normalizedHandle = (fioHandle || '').trim().toLowerCase();
     const normalizedTenant = (tenantId || '').trim();
-    if (!normalizedTenant || !normalizedHandle) {
+    if (!normalizedHandle) {
       return NextResponse.json(
-        { ok: false, error: 'tenantId and fioHandle are required' },
+        { ok: false, error: 'fioHandle is required' },
         { status: 400 }
       );
     }
 
-    const { data: persona, error: personaError } = await supabase
-      .from('personas')
-      .select('id, tenant_id, auth_profile_id, fio_handle, status')
-      .eq('tenant_id', normalizedTenant)
-      .ilike('fio_handle', normalizedHandle)
-      .neq('status', 'deleted')
-      .maybeSingle();
+    const findPersona = async (scopedTenant?: string) => {
+      let query = supabase
+        .from('personas')
+        .select('id, tenant_id, auth_profile_id, fio_handle, status, updated_at, created_at')
+        .ilike('fio_handle', normalizedHandle)
+        .neq('status', 'deleted')
+        .order('updated_at', { ascending: false, nullsFirst: false })
+        .order('created_at', { ascending: false, nullsFirst: false })
+        .limit(10);
+      if (scopedTenant) {
+        query = query.eq('tenant_id', scopedTenant);
+      }
+      const { data, error } = await query;
+      return { data: data || [], error };
+    };
+
+    const scopedSearch = normalizedTenant ? await findPersona(normalizedTenant) : await findPersona();
+    const unscopedSearch =
+      normalizedTenant && (!scopedSearch.data || scopedSearch.data.length === 0)
+        ? await findPersona()
+        : null;
+
+    const personaRows = (unscopedSearch?.data?.length ? unscopedSearch.data : scopedSearch.data) as Array<{
+      id: string;
+      tenant_id: string;
+      auth_profile_id: string | null;
+      fio_handle: string;
+      status: string;
+    }>;
+    const persona = personaRows[0];
+    const personaError = unscopedSearch?.error || scopedSearch.error;
 
     if (personaError) {
       return NextResponse.json({ ok: false, error: personaError.message }, { status: 500 });
@@ -72,20 +96,20 @@ export async function POST(request: NextRequest) {
       ...otherGrants,
       {
         personaId: String(persona.id),
-        tenantId: String(persona.tenant_id || normalizedTenant),
+        tenantId: String(persona.tenant_id || normalizedTenant || ''),
         role,
         active: true,
       },
     ];
 
     const allowedTenantIds = Array.from(
-      new Set([...(existingIQube?.allowed_tenant_ids || []), String(persona.tenant_id || normalizedTenant)].filter(Boolean))
+      new Set([...(existingIQube?.allowed_tenant_ids || []), String(persona.tenant_id || normalizedTenant || '')].filter(Boolean))
     );
 
     const defaultPersonaByTenant = {
       ...((existingIQube?.default_persona_by_tenant || {}) as Record<string, string>),
-      [String(persona.tenant_id || normalizedTenant)]:
-        ((existingIQube?.default_persona_by_tenant || {}) as Record<string, string>)[String(persona.tenant_id || normalizedTenant)] ||
+      [String(persona.tenant_id || normalizedTenant || '')]:
+        ((existingIQube?.default_persona_by_tenant || {}) as Record<string, string>)[String(persona.tenant_id || normalizedTenant || '')] ||
         String(persona.id),
     };
 
@@ -124,4 +148,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
