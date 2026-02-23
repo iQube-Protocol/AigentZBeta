@@ -510,7 +510,13 @@ export function CodexCopilotLayer({
 
                       {showWalletMenu && (
                         <div
-                          className={`absolute bottom-3 left-3 right-3 transition-opacity duration-200 ${
+                          className={`absolute left-3 right-3 transition-opacity duration-200 ${
+                            floatingInput
+                              ? quickPromptsCollapsed
+                                ? "bottom-[92px] z-30"
+                                : "bottom-[132px] z-30"
+                              : "bottom-3 z-10"
+                          } ${
                             walletMenuVisible || walletMenuHover
                               ? "opacity-100 pointer-events-auto"
                               : "opacity-0 pointer-events-none"

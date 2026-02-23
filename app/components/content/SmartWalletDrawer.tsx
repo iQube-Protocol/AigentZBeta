@@ -1070,7 +1070,7 @@ export default function SmartWalletDrawer({
               variant="embedded"
               panelClassName="w-full"
               showNavMenu={false}
-              showWalletMenu={false}
+              showWalletMenu
               disableActivationButton
               className="h-full"
               personaId={effectivePersonaId}
