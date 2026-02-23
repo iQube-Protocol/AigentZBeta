@@ -354,7 +354,7 @@ export function PersonaQuickAddModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-      <div className="w-full max-w-lg mx-4 bg-slate-900/95 rounded-2xl border border-white/10 shadow-2xl overflow-hidden">
+      <div className="w-full max-w-lg max-h-[88vh] mx-4 bg-slate-900/95 rounded-2xl border border-white/10 shadow-2xl overflow-hidden flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
           <div className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-emerald-400" />
@@ -365,7 +365,7 @@ export function PersonaQuickAddModal({
           </button>
         </div>
 
-        <div className="p-6 space-y-5">
+        <div className="flex-1 overflow-y-auto p-6 space-y-5">
           {error && (
             <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center gap-2 text-red-400">
               <AlertCircle className="w-5 h-5 flex-shrink-0" />

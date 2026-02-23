@@ -698,6 +698,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
           media: { 
             pdf_cid: printCid,
             pdf_lite_url: printLiteUrl,
+            video_cid: motionSource.cid,
             video_url: motionSource.url,
           },
           metadata: { 
@@ -1630,9 +1631,35 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     if (action === 'read' && item.media?.text) {
       setCurrentText({ title: item.title, content: item.media.text });
       setTextReaderOpen(true);
-    } else if (action === 'watch' && (item.media?.video_cid || item.media?.video_url)) {
-      setCurrentVideoCid(item.media.video_cid || null);
-      setCurrentVideoUrl(item.media.video_url || getVideoPlaybackUrl(item.media.video_cid) || null);
+    } else if (action === 'watch') {
+      const episodeNumber = typeof item.metadata?.episodeNumber === 'number' ? item.metadata.episodeNumber : null;
+      if (episodeNumber !== null) {
+        const matchedEpisode = episodesCatalog.find((episode) => episode.episodeNumber === episodeNumber);
+        if (matchedEpisode) {
+          const videoSource = normalizeVideoSource(
+            item.media?.video_cid ||
+            item.media?.video_url ||
+            item.modalities?.watch?.cid ||
+            item.modalities?.watch?.url ||
+            null
+          );
+          void openEpisodeVideo(matchedEpisode, videoSource.cid || null, videoSource.url || null);
+          return;
+        }
+      }
+      const videoSource = normalizeVideoSource(
+        item.media?.video_cid ||
+        item.media?.video_url ||
+        item.modalities?.watch?.cid ||
+        item.modalities?.watch?.url ||
+        null
+      );
+      if (!(videoSource.cid || videoSource.url)) return;
+      setCurrentVideoSegments([]);
+      setCurrentVideoSegmentIndex(0);
+      setCurrentVideoUseDirectStream(false);
+      setCurrentVideoCid(videoSource.cid || null);
+      setCurrentVideoUrl(videoSource.url || getVideoPlaybackUrl(videoSource.cid) || null);
       setCurrentVideoTitle(item.title);
       setVideoPlayerOpen(true);
     } else if (action === 'copilot') {
@@ -1650,7 +1677,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
             : `KNYT Copilot opened with ${item.title} context.`,
       });
     }
-  }, [getVideoPlaybackUrl, isEpisodeLocked, openPurchaseForItem, openCopilotWithContext, toast, templateResult]);
+  }, [episodesCatalog, getVideoPlaybackUrl, isEpisodeLocked, normalizeVideoSource, openEpisodeVideo, openPurchaseForItem, openCopilotWithContext, toast, templateResult]);
 
   const selectedContentItem = useMemo(() => {
     if (!selectedItemId) return undefined;
@@ -1726,24 +1753,39 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       setCurrentPdfCid(item.media.pdf_cid || null);
       setCurrentPdfTitle(item.title);
       setPdfViewerOpen(true);
-    } else if (type === 'video' && (item.media?.video_cid || item.media?.video_url)) {
+    } else if (type === 'video') {
       const episodeNumber = typeof item.metadata?.episodeNumber === 'number' ? item.metadata.episodeNumber : null;
       if (episodeNumber !== null) {
         const matchedEpisode = episodesCatalog.find((episode) => episode.episodeNumber === episodeNumber);
         if (matchedEpisode) {
-          void openEpisodeVideo(matchedEpisode, item.media?.video_cid || null, item.media?.video_url || null);
+          const videoSource = normalizeVideoSource(
+            item.media?.video_cid ||
+            item.media?.video_url ||
+            item.modalities?.watch?.cid ||
+            item.modalities?.watch?.url ||
+            null
+          );
+          void openEpisodeVideo(matchedEpisode, videoSource.cid || null, videoSource.url || null);
           return;
         }
       }
+      const videoSource = normalizeVideoSource(
+        item.media?.video_cid ||
+        item.media?.video_url ||
+        item.modalities?.watch?.cid ||
+        item.modalities?.watch?.url ||
+        null
+      );
+      if (!(videoSource.cid || videoSource.url)) return;
       setCurrentVideoSegments([]);
       setCurrentVideoSegmentIndex(0);
       setCurrentVideoUseDirectStream(false);
-      setCurrentVideoCid(item.media?.video_cid || null);
-      setCurrentVideoUrl(item.media?.video_url || getVideoPlaybackUrl(item.media?.video_cid) || null);
+      setCurrentVideoCid(videoSource.cid || null);
+      setCurrentVideoUrl(videoSource.url || getVideoPlaybackUrl(videoSource.cid) || null);
       setCurrentVideoTitle(item.title);
       setVideoPlayerOpen(true);
     }
-  }, [episodesCatalog, getVideoPlaybackUrl, isEpisodeLocked, openEpisodeVideo, openPurchaseForItem]);
+  }, [episodesCatalog, getVideoPlaybackUrl, isEpisodeLocked, normalizeVideoSource, openEpisodeVideo, openPurchaseForItem]);
 
   const handleCopilotModeChange = useCallback((mode: CopilotOverlayMode) => {
     setCopilotMode(mode);
