@@ -1255,11 +1255,11 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
 
   const openEpisodeVideo = useCallback(async (episode: EpisodeFromAPI, fallbackVideoCid?: string | null, fallbackVideoUrl?: string | null) => {
     const motionSource = normalizeVideoSource(
-      fallbackVideoCid ||
       fallbackVideoUrl ||
-      episode.motionMasterCid ||
+      fallbackVideoCid ||
       (episode as EpisodeFromAPI & { motionMasterUrl?: string; motionMasterPath?: string }).motionMasterUrl ||
       (episode as EpisodeFromAPI & { motionMasterUrl?: string; motionMasterPath?: string }).motionMasterPath ||
+      episode.motionMasterCid ||
       null
     );
 
@@ -1637,10 +1637,10 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
         const matchedEpisode = episodesCatalog.find((episode) => episode.episodeNumber === episodeNumber);
         if (matchedEpisode) {
           const videoSource = normalizeVideoSource(
-            item.media?.video_cid ||
             item.media?.video_url ||
-            item.modalities?.watch?.cid ||
+            item.media?.video_cid ||
             item.modalities?.watch?.url ||
+            item.modalities?.watch?.cid ||
             null
           );
           void openEpisodeVideo(matchedEpisode, videoSource.cid || null, videoSource.url || null);
@@ -1648,10 +1648,10 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
         }
       }
       const videoSource = normalizeVideoSource(
-        item.media?.video_cid ||
         item.media?.video_url ||
-        item.modalities?.watch?.cid ||
+        item.media?.video_cid ||
         item.modalities?.watch?.url ||
+        item.modalities?.watch?.cid ||
         null
       );
       if (!(videoSource.cid || videoSource.url)) return;
@@ -1759,10 +1759,10 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
         const matchedEpisode = episodesCatalog.find((episode) => episode.episodeNumber === episodeNumber);
         if (matchedEpisode) {
           const videoSource = normalizeVideoSource(
-            item.media?.video_cid ||
             item.media?.video_url ||
-            item.modalities?.watch?.cid ||
+            item.media?.video_cid ||
             item.modalities?.watch?.url ||
+            item.modalities?.watch?.cid ||
             null
           );
           void openEpisodeVideo(matchedEpisode, videoSource.cid || null, videoSource.url || null);
@@ -1770,10 +1770,10 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
         }
       }
       const videoSource = normalizeVideoSource(
-        item.media?.video_cid ||
         item.media?.video_url ||
-        item.modalities?.watch?.cid ||
+        item.media?.video_cid ||
         item.modalities?.watch?.url ||
+        item.modalities?.watch?.cid ||
         null
       );
       if (!(videoSource.cid || videoSource.url)) return;

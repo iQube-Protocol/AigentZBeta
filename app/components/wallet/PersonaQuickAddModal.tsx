@@ -276,6 +276,19 @@ export function PersonaQuickAddModal({
         return;
       }
 
+      // Fallback: if persona is already associated with this auth profile but not discoverable,
+      // resolve via owner-safe by-handle endpoint before attempting creation.
+      const byHandleRes = await fetch(
+        `/api/wallet/persona/by-handle/${encodeURIComponent(fioHandle)}?tenantId=${encodeURIComponent(tenantId)}`,
+        { headers: buildAuthHeaders() }
+      );
+      const byHandleJson = await byHandleRes.json().catch(() => ({}));
+      if (byHandleRes.ok && byHandleJson?.id) {
+        onCreated(byHandleJson.id);
+        onClose();
+        return;
+      }
+
       const now = new Date().toISOString();
       const payload = {
         id: crypto.randomUUID(),
@@ -305,7 +318,23 @@ export function PersonaQuickAddModal({
         body: JSON.stringify(payload),
       });
       const json = await createRes.json().catch(() => ({}));
-      if (!createRes.ok) throw new Error(json?.error || json?.details || "Failed to create agent persona");
+      if (!createRes.ok) {
+        // If handle already exists, try one more owner-safe resolve pass and activate it.
+        if (createRes.status === 409) {
+          const retryRes = await fetch(
+            `/api/wallet/persona/by-handle/${encodeURIComponent(fioHandle)}?tenantId=${encodeURIComponent(tenantId)}`,
+            { headers: buildAuthHeaders() }
+          );
+          const retryJson = await retryRes.json().catch(() => ({}));
+          if (retryRes.ok && retryJson?.id) {
+            onCreated(retryJson.id);
+            onClose();
+            return;
+          }
+          throw new Error("FIO handle already registered to another profile");
+        }
+        throw new Error(json?.error || json?.details || "Failed to create agent persona");
+      }
 
       const personaId = json?.id || json?.persona?.id;
       if (!personaId) throw new Error("Agent persona created but ID missing");

@@ -20,6 +20,8 @@ const supabase = createClient(
 
 const videoCache = new Map<string, { data: Buffer; timestamp: number }>();
 const CACHE_TTL = 10 * 60 * 1000;
+// Keep each response body safely below typical SSR edge/body limits.
+const MAX_CHUNK_BYTES = 4 * 1024 * 1024; // 4 MB
 
 export async function OPTIONS() {
   return new NextResponse(null);
@@ -152,14 +154,32 @@ export async function GET(req: NextRequest, { params }: { params: { cid: string 
     const mimeType = asset?.mime_type || 'video/mp4';
     const rangeHeader = req.headers.get('range');
 
+    const clampChunkEnd = (start: number, requestedEnd?: number) => {
+      const maxEnd = Math.min(start + MAX_CHUNK_BYTES - 1, videoData.length - 1);
+      if (typeof requestedEnd === 'number' && Number.isFinite(requestedEnd)) {
+        return Math.max(start, Math.min(requestedEnd, maxEnd));
+      }
+      return maxEnd;
+    };
+
     if (rangeHeader) {
       const parts = rangeHeader.replace(/bytes=/, '').split('-');
-      const start = parseInt(parts[0], 10);
-      const end = parts[1] ? parseInt(parts[1], 10) : videoData.length - 1;
+      const start = Number.parseInt(parts[0], 10);
+      const requestedEnd = parts[1] ? Number.parseInt(parts[1], 10) : undefined;
+      if (!Number.isFinite(start) || start < 0 || start >= videoData.length) {
+        return new NextResponse(null, {
+          status: 416,
+          headers: {
+            'Content-Range': `bytes */${videoData.length}`,
+            'Accept-Ranges': 'bytes',
+          },
+        });
+      }
+      const end = clampChunkEnd(start, requestedEnd);
       return new NextResponse(new Uint8Array(videoData.slice(start, end + 1)), {
         status: 206,
         headers: {
-                    'Content-Type': mimeType,
+          'Content-Type': mimeType,
           'Content-Range': `bytes ${start}-${end}/${videoData.length}`,
           'Accept-Ranges': 'bytes',
           'Content-Length': String(end - start + 1),
@@ -168,11 +188,17 @@ export async function GET(req: NextRequest, { params }: { params: { cid: string 
       });
     }
 
-    return new NextResponse(new Uint8Array(videoData), {
+    // When no Range header is sent, return the first chunk as partial content.
+    // This avoids oversized full-body responses that can trigger 413 on hosted edge.
+    const start = 0;
+    const end = clampChunkEnd(start);
+    return new NextResponse(new Uint8Array(videoData.slice(start, end + 1)), {
+      status: 206,
       headers: {
-                'Content-Type': mimeType,
-        'Content-Length': String(videoData.length),
+        'Content-Type': mimeType,
+        'Content-Range': `bytes ${start}-${end}/${videoData.length}`,
         'Accept-Ranges': 'bytes',
+        'Content-Length': String(end - start + 1),
         'Cache-Control': 'no-store',
       },
     });
