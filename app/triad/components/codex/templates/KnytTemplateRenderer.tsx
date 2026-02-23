@@ -107,11 +107,15 @@ function ContentCard({ item, variant, onSelect, onWatch, onRead, isSelected, onA
   const imagePosition = isCharacter ? 'object-center' : 'object-top';
 
   const handleReadAction = () => {
+    // Prefer canonical PDF viewer when available (episode/read behavior).
+    if (hasPdf) {
+      onRead?.();
+      return;
+    }
     if (hasText) {
       onAction?.('read');
       return;
     }
-    onRead?.();
   };
 
   const aspectClass = {

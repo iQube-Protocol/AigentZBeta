@@ -103,7 +103,10 @@ export function SmartContentActions({
               key={action.type}
               className={buttonClasses}
               title={action.label}
-              onClick={() => onAction(action.type)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onAction(action.type);
+              }}
             >
               <Icon className="w-4 h-4" />
             </button>
@@ -119,7 +122,10 @@ export function SmartContentActions({
               key={action.type}
               className={buttonClasses}
               title={action.label}
-              onClick={() => onAction(action.type)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onAction(action.type);
+              }}
             >
               <Icon className="w-4 h-4" />
             </button>
