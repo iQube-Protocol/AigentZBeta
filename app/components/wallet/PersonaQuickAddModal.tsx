@@ -289,6 +289,20 @@ export function PersonaQuickAddModal({
         return;
       }
 
+      // If the persona exists but is not yet mapped into this user's iQube grants,
+      // attach it by handle and activate it.
+      const attachRes = await fetch('/api/wallet/persona/attach-handle', {
+        method: 'POST',
+        headers: buildAuthHeaders(),
+        body: JSON.stringify({ tenantId, fioHandle }),
+      });
+      const attachJson = await attachRes.json().catch(() => ({}));
+      if (attachRes.ok && attachJson?.personaId) {
+        onCreated(attachJson.personaId);
+        onClose();
+        return;
+      }
+
       const now = new Date().toISOString();
       const payload = {
         id: crypto.randomUUID(),
@@ -321,6 +335,18 @@ export function PersonaQuickAddModal({
       if (!createRes.ok) {
         // If handle already exists, try one more owner-safe resolve pass and activate it.
         if (createRes.status === 409) {
+          const attachRes = await fetch('/api/wallet/persona/attach-handle', {
+            method: 'POST',
+            headers: buildAuthHeaders(),
+            body: JSON.stringify({ tenantId, fioHandle }),
+          });
+          const attachJson = await attachRes.json().catch(() => ({}));
+          if (attachRes.ok && attachJson?.personaId) {
+            onCreated(attachJson.personaId);
+            onClose();
+            return;
+          }
+
           const retryRes = await fetch(
             `/api/wallet/persona/by-handle/${encodeURIComponent(fioHandle)}?tenantId=${encodeURIComponent(tenantId)}`,
             { headers: buildAuthHeaders() }
