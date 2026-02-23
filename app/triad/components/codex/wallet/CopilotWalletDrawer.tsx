@@ -1,11 +1,10 @@
 /**
  * CopilotWalletDrawer - In-Codex Wallet Surface
- *
+ * 
  * Renders wallet cards and modals within the Codex experience.
  * Supports narrow (glance + tap) and wide (multi-step flows) modes.
  */
 
-import { useState } from 'react';
 import { X, Wallet, Gift, Unlock, Users, CheckCircle, ArrowRight, Coins, Send, Receipt } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { DrawerMode, WalletUIComponent, DeviceType } from '@/app/types/knytLiquidUI';
@@ -99,7 +98,7 @@ export function CopilotWalletDrawer({
 
       case 'wallet_card.reward_claim':
         return (
-          <div key={component} className="p-4 rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 ring-1 ring-amber-500/30">
+          <div key={component} className="p-4 rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 ring-1 ring-white/10">
             <div className="flex items-center gap-3 mb-3">
               <div className="p-2 rounded-lg bg-amber-500/20">
                 <Gift className="w-5 h-5 text-amber-400" />
@@ -110,11 +109,14 @@ export function CopilotWalletDrawer({
               <div className="space-y-2">
                 {pendingRewards.slice(0, 3).map((reward) => (
                   <div key={reward.id} className="flex items-center justify-between">
-                    <span className="text-sm text-white">{reward.amount} KNYT</span>
+                    <div>
+                      <span className="text-white font-medium">{reward.amount} KNYT</span>
+                      <span className="text-white/50 text-sm ml-2">{reward.source}</span>
+                    </div>
                     <Button
                       size="sm"
-                      variant="outline"
-                      className="border-amber-500/30 text-amber-400 hover:bg-amber-500/20"
+                      variant="ghost"
+                      className="text-amber-400 hover:text-amber-300 hover:bg-amber-500/20"
                       onClick={() => onClaimReward?.(reward.id)}
                     >
                       Claim
@@ -139,7 +141,7 @@ export function CopilotWalletDrawer({
             </div>
             <div className="text-white font-medium mb-2">{activeTask.title}</div>
             <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden mb-2">
-              <div
+              <div 
                 className="h-full bg-gradient-to-r from-green-500 to-emerald-400"
                 style={{ width: `${activeTask.progress}%` }}
               />
@@ -203,28 +205,171 @@ export function CopilotWalletDrawer({
     }
   };
 
-  const drawerStyles = getDrawerStyles();
+  const renderWalletModal = (component: WalletUIComponent) => {
+    switch (component) {
+      case 'wallet_modal.checkout':
+        return (
+          <div key={component} className="p-6 space-y-4">
+            <h3 className="text-lg font-bold text-white">Complete Purchase</h3>
+            <div className="p-4 rounded-xl bg-white/5 ring-1 ring-white/10">
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-white/60">Item</span>
+                <span className="text-white font-medium">Digital Scroll #1</span>
+              </div>
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-white/60">Price</span>
+                <span className="text-amber-400 font-bold">5 KNYT</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-white/60">Your Balance</span>
+                <span className="text-white">{balance} KNYT</span>
+              </div>
+            </div>
+            <Button className="w-full bg-cyan-500 hover:bg-cyan-400 text-white">
+              Confirm Purchase
+            </Button>
+          </div>
+        );
+
+      case 'wallet_modal.send_request':
+        return (
+          <div key={component} className="p-6 space-y-4">
+            <h3 className="text-lg font-bold text-white">Send KNYT</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="text-sm text-white/60 mb-1 block">Recipient</label>
+                <input
+                  type="text"
+                  placeholder="Enter handle or address"
+                  className="w-full px-4 py-2 rounded-lg bg-white/5 ring-1 ring-white/10 text-white placeholder:text-white/30 focus:ring-cyan-500/50 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="text-sm text-white/60 mb-1 block">Amount</label>
+                <input
+                  type="number"
+                  placeholder="0"
+                  className="w-full px-4 py-2 rounded-lg bg-white/5 ring-1 ring-white/10 text-white placeholder:text-white/30 focus:ring-cyan-500/50 focus:outline-none"
+                />
+              </div>
+            </div>
+            <Button className="w-full bg-cyan-500 hover:bg-cyan-400 text-white">
+              <Send className="w-4 h-4 mr-2" />
+              Send KNYT
+            </Button>
+          </div>
+        );
+
+      case 'wallet_modal.receipt':
+        return (
+          <div key={component} className="p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="p-3 rounded-full bg-green-500/20">
+                <CheckCircle className="w-6 h-6 text-green-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white">Transaction Complete</h3>
+                <p className="text-sm text-white/60">Your purchase was successful</p>
+              </div>
+            </div>
+            <div className="p-4 rounded-xl bg-white/5 ring-1 ring-white/10 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-white/60">Amount</span>
+                <span className="text-white font-medium">5 KNYT</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-white/60">Transaction ID</span>
+                <span className="text-white/80 text-sm font-mono">0x1234...5678</span>
+              </div>
+            </div>
+            <Button variant="outline" className="w-full" onClick={onClose}>
+              <Receipt className="w-4 h-4 mr-2" />
+              View Receipt
+            </Button>
+          </div>
+        );
+
+      case 'wallet_modal.permissions':
+        return (
+          <div key={component} className="p-6 space-y-4">
+            <h3 className="text-lg font-bold text-white">Confirm Action</h3>
+            <p className="text-white/70">
+              This action requires your confirmation to proceed.
+            </p>
+            <div className="p-4 rounded-xl bg-amber-500/10 ring-1 ring-amber-500/30">
+              <p className="text-amber-400 text-sm">
+                You are about to authorize a transaction. Please review the details carefully.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button 
+                className="flex-1 bg-cyan-500 hover:bg-cyan-400 text-white"
+                onClick={() => onConfirmAction?.('current')}
+              >
+                Confirm
+              </Button>
+            </div>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  const isModal = safeWalletUI.some(ui => ui.startsWith('wallet_modal.'));
 
   return (
-    <div style={drawerStyles} className="bg-slate-950/95 backdrop-blur-xl rounded-t-2xl ring-1 ring-white/10 overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-white/10">
-        <h3 className="text-lg font-semibold text-white">Wallet</h3>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-white/60 hover:text-white hover:bg-white/10"
+    <>
+      {/* Backdrop for wide mode */}
+      {mode === 'wide' && (
+        <div 
+          className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50"
           onClick={onClose}
-        >
-          <X className="w-4 h-4" />
-        </Button>
-      </div>
+        />
+      )}
 
-      {/* Content */}
-      <div className="p-4 space-y-4 overflow-y-auto" style={{ maxHeight: 'calc(100% - 80px)' }}>
-        {safeWalletUI.map(renderWalletCard)}
+      {/* Drawer */}
+      <div
+        style={getDrawerStyles()}
+        className={`
+          bg-black/90 backdrop-blur-xl ring-1 ring-white/10 
+          ${device === 'mobile' ? 'rounded-t-2xl' : 'rounded-l-2xl'}
+          overflow-hidden flex flex-col
+          transition-transform duration-300 ease-out
+          ${isOpen ? 'translate-y-0 translate-x-0' : device === 'mobile' ? 'translate-y-full' : 'translate-x-full'}
+        `}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-white/10">
+          <div className="flex items-center gap-2">
+            <Wallet className="w-5 h-5 text-cyan-400" />
+            <span className="font-medium text-white">
+              {isModal ? 'Action Required' : 'Wallet'}
+            </span>
+          </div>
+          <button
+            onClick={onClose}
+            title="Close wallet drawer"
+            aria-label="Close wallet drawer"
+            className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {safeWalletUI.map((component) => 
+            component.startsWith('wallet_modal.') 
+              ? renderWalletModal(component)
+              : renderWalletCard(component)
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
-
