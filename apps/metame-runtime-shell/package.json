@@ -1,0 +1,27 @@
+{
+  "name": "@metame/runtime-shell",
+  "private": true,
+  "version": "0.1.0",
+  "description": "metaMe Runtime Thin Client shell",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@metame/aa-client": "workspace:*",
+    "@metame/iframe-bridge": "workspace:*",
+    "@metame/qubetalk-client": "workspace:*",
+    "next": "^14.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.25",
+    "@types/react": "^18.2.24",
+    "@types/react-dom": "^18.2.8",
+    "typescript": "^5.2.2"
+  }
+}

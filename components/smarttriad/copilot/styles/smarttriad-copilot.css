@@ -1,0 +1,538 @@
+/**
+ * SmartTriad Copilot Inference Rendering System
+ * Global default styling for all SmartTriad copilot implementations
+ * Replaces Aigent Nakamoto orange with system Cyan
+ */
+
+/* ========================================
+   CSS Custom Properties (Tenant Customizable)
+   ======================================== */
+:root {
+  /* Primary Colors - Cyan based system default */
+  --smarttriad-primary: hsl(188, 94%, 43%);
+  --smarttriad-primary-foreground: hsl(0, 0%, 98%);
+  --smarttriad-primary-light: hsl(188, 94%, 53%);
+  --smarttriad-primary-dark: hsl(188, 94%, 33%);
+  
+  /* Accent Colors */
+  --smarttriad-accent: hsl(188, 94%, 43%);
+  --smarttriad-accent-foreground: hsl(0, 0%, 98%);
+  --smarttriad-accent-hover: hsl(188, 94%, 38%);
+  
+  /* Message Container Colors */
+  --smarttriad-user-bg: hsla(188, 94%, 43%, 0.1);
+  --smarttriad-user-border: hsla(188, 94%, 43%, 0.2);
+  --smarttriad-agent-bg: hsla(220, 14%, 96%, 0.1);
+  --smarttriad-agent-border: hsla(220, 14%, 71%, 0.2);
+  --smarttriad-system-bg: hsla(45, 93%, 47%, 0.1);
+  --smarttriad-system-border: hsla(45, 93%, 47%, 0.5);
+  
+  /* Content Colors */
+  --smarttriad-foreground: hsl(220, 14%, 11%);
+  --smarttriad-foreground-muted: hsl(220, 9%, 46%);
+  --smarttriad-foreground-muted-foreground: hsl(220, 9%, 64%);
+  
+  /* Key Term Highlighting */
+  --smarttriad-key-term-bg: hsla(188, 94%, 43%, 0.08);
+  --smarttriad-key-term-bg-hover: hsla(188, 94%, 43%, 0.15);
+  --smarttriad-key-term-color: hsl(188, 94%, 43%);
+  
+  /* Score Indicators */
+  --smarttriad-score-red: hsl(0, 84%, 60%);
+  --smarttriad-score-yellow: hsl(45, 93%, 47%);
+  --smarttriad-score-green: hsl(142, 76%, 36%);
+  --smarttriad-score-purple: hsl(262, 83%, 58%);
+  
+  /* Border & Background */
+  --smarttriad-border: hsl(220, 13%, 91%);
+  --smarttriad-card: hsl(0, 0%, 100%);
+  --smarttriad-muted: hsl(220, 14%, 96%);
+  --smarttriad-muted-foreground: hsl(220, 9%, 46%);
+  
+  /* Typography */
+  --smarttriad-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --smarttriad-line-height: 1.7;
+  --smarttriad-font-size: 0.95rem;
+}
+
+/* ========================================
+   Message Container Structure
+   ======================================== */
+.smarttriad-message-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  font-family: var(--smarttriad-font-family);
+  line-height: var(--smarttriad-line-height);
+  font-size: var(--smarttriad-font-size);
+  color: var(--smarttriad-foreground);
+}
+
+.smarttriad-user-message {
+  padding: 0.75rem;
+  margin-bottom: 0.75rem;
+  background-color: var(--smarttriad-user-bg);
+  border: 1px solid var(--smarttriad-user-border);
+  border-radius: 0.375rem;
+  border-left: 3px solid var(--smarttriad-primary);
+}
+
+.smarttriad-agent-message {
+  padding: 0.75rem;
+  margin-bottom: 0.75rem;
+  background-color: var(--smarttriad-agent-bg);
+  border: 1px solid var(--smarttriad-agent-border);
+  border-radius: 0.375rem;
+  border-left: 3px solid var(--smarttriad-accent);
+}
+
+.smarttriad-system-message {
+  padding: 0.75rem;
+  margin-bottom: 0.75rem;
+  background-color: var(--smarttriad-system-bg);
+  border-left: 3px solid var(--smarttriad-system-border);
+  border-radius: 0.375rem;
+  color: var(--smarttriad-foreground-muted);
+}
+
+/* ========================================
+   Conversational Content Base
+   ======================================== */
+.smarttriad-conversational-content {
+  max-width: none;
+  font-family: var(--smarttriad-font-family);
+  line-height: var(--smarttriad-line-height);
+  color: inherit;
+}
+
+.smarttriad-conversational-content p {
+  margin-bottom: 0.75rem;
+  font-size: var(--smarttriad-font-size);
+}
+
+.smarttriad-conversational-content p:last-child {
+  margin-bottom: 1rem;
+}
+
+.smarttriad-conversational-content * {
+  transition: color 0.2s ease;
+}
+
+/* ========================================
+   Inline Formatting & Key Terms
+   ======================================== */
+.smarttriad-key-term {
+  color: var(--smarttriad-key-term-color);
+  font-weight: 500;
+  padding: 0 2px;
+  border-radius: 3px;
+  background: var(--smarttriad-key-term-bg);
+  transition: background 0.2s ease;
+}
+
+.smarttriad-key-term:hover {
+  background: var(--smarttriad-key-term-bg-hover);
+}
+
+.smarttriad-bold {
+  font-weight: 600;
+}
+
+/* ========================================
+   Line-Level Rendering Rules
+   ======================================== */
+.smarttriad-empty-line {
+  height: 0.5rem;
+}
+
+.smarttriad-bullet-point {
+  display: flex;
+  align-items: flex-start;
+  margin-top: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.smarttriad-bullet-point .bullet {
+  color: var(--smarttriad-accent);
+  margin-right: 0.75rem;
+  margin-top: 0.125rem;
+  flex-shrink: 0;
+  font-size: 1.125rem;
+}
+
+.smarttriad-bullet-point .text {
+  flex: 1;
+  color: var(--smarttriad-foreground);
+}
+
+.smarttriad-numbered-list {
+  display: flex;
+  align-items: flex-start;
+  margin-top: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.smarttriad-numbered-list .number {
+  color: var(--smarttriad-accent);
+  font-weight: 500;
+  margin-right: 0.75rem;
+  margin-top: 0.125rem;
+  flex-shrink: 0;
+  background: var(--smarttriad-key-term-bg);
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+}
+
+.smarttriad-numbered-list .text {
+  flex: 1;
+  color: var(--smarttriad-foreground);
+}
+
+.smarttriad-conversational-intro {
+  margin: 1rem 0;
+  padding: 0.75rem;
+  background: var(--smarttriad-muted);
+  border-left: 4px solid var(--smarttriad-accent);
+  border-radius: 0 0.5rem 0.5rem 0;
+  color: var(--smarttriad-accent);
+  font-weight: 500;
+  font-size: 1rem;
+}
+
+.smarttriad-callout {
+  margin: 0.75rem 0;
+  padding: 0.75rem;
+  background: hsla(45, 93%, 47%, 0.1);
+  border-left: 4px solid var(--smarttriad-score-yellow);
+  border-radius: 0 0.5rem 0.5rem 0;
+  color: hsla(45, 93%, 27%, 1);
+  font-weight: 500;
+}
+
+.smarttriad-blockquote {
+  border-left: 3px solid var(--smarttriad-accent);
+  padding-left: 1rem;
+  margin: 0.75rem 0;
+  background: var(--smarttriad-muted);
+  padding: 0.5rem 1rem;
+  border-radius: 0 0.375rem 0.375rem 0;
+  color: var(--smarttriad-accent);
+  font-style: italic;
+}
+
+.smarttriad-paragraph {
+  margin-bottom: 0.75rem;
+  color: var(--smarttriad-foreground);
+  line-height: var(--smarttriad-line-height);
+}
+
+.smarttriad-paragraph:last-child {
+  margin-bottom: 0;
+}
+
+/* ========================================
+   Code Blocks & Syntax Highlighting
+   ======================================== */
+.smarttriad-code-block {
+  border-radius: 0.375rem;
+  margin: 1rem 0;
+  overflow: hidden;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.smarttriad-code-block pre {
+  margin: 0 !important;
+  padding: 1rem !important;
+  background: hsl(220, 14%, 8%) !important;
+  color: hsl(220, 14%, 96%) !important;
+}
+
+.smarttriad-inline-code {
+  background: var(--smarttriad-muted);
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.875em;
+  color: var(--smarttriad-accent);
+}
+
+/* ========================================
+   Mermaid Diagram Container
+   ======================================== */
+.smarttriad-mermaid-container {
+  margin: 1rem 0;
+  padding: 1rem;
+  border: 1px solid var(--smarttriad-border);
+  border-radius: 0.5rem;
+  background: var(--smarttriad-card);
+  overflow: auto;
+}
+
+.smarttriad-mermaid-loading {
+  padding: 2rem;
+  text-align: center;
+  color: var(--smarttriad-foreground-muted);
+  font-style: italic;
+}
+
+.smarttriad-mermaid-error {
+  padding: 1rem;
+  background: hsla(0, 84%, 60%, 0.1);
+  border: 1px solid hsla(0, 84%, 60%, 0.3);
+  border-radius: 0.375rem;
+  color: var(--smarttriad-score-red);
+}
+
+/* ========================================
+   Images
+   ======================================== */
+.smarttriad-image-container {
+  margin: 1rem 0;
+  width: 100%;
+}
+
+.smarttriad-image {
+  width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 6px -1px hsl(0, 0%, 0%, 0.1);
+  border: 1px solid var(--smarttriad-border);
+  object-fit: contain;
+  max-height: 80vh;
+}
+
+.smarttriad-image-caption {
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--smarttriad-foreground-muted);
+  margin-top: 0.75rem;
+  padding: 0 0.5rem;
+  font-style: italic;
+}
+
+/* ========================================
+   Metadata Badge Row
+   ======================================== */
+.smarttriad-metadata-badges {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--smarttriad-border);
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.smarttriad-metadata-badges:hover {
+  opacity: 1;
+}
+
+.smarttriad-badge {
+  font-size: 0.625rem;
+  padding: 0 0.5rem;
+  height: 1rem;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  background: var(--smarttriad-muted);
+  color: var(--smarttriad-foreground-muted);
+  border: 1px solid var(--smarttriad-border);
+}
+
+.smarttriad-badge-outline {
+  background: transparent;
+  border: 1px solid var(--smarttriad-border);
+}
+
+.smarttriad-timestamp {
+  font-size: 0.75rem;
+  color: var(--smarttriad-foreground-muted);
+  margin-left: auto;
+}
+
+/* ========================================
+   Dot Score Indicators
+   ======================================== */
+.smarttriad-score-container {
+  background: var(--smarttriad-muted);
+  opacity: 0.2;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+  transition: all 300ms ease-in-out;
+}
+
+.smarttriad-score-container.active {
+  opacity: 1;
+}
+
+.smarttriad-score-dots {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.smarttriad-score-dot {
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 50%;
+  background: var(--smarttriad-foreground-muted);
+  transition: all 300ms ease-in-out;
+}
+
+.smarttriad-score-dot.filled {
+  background: var(--smarttriad-score-green);
+}
+
+.smarttriad-score-dot.filled.yellow {
+  background: var(--smarttriad-score-yellow);
+}
+
+.smarttriad-score-dot.filled.red {
+  background: var(--smarttriad-score-red);
+}
+
+.smarttriad-score-dot.filled.purple {
+  background: var(--smarttriad-score-purple);
+}
+
+.smarttriad-score-dot.animate-pulse {
+  animation: smarttriad-pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes smarttriad-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* ========================================
+   Profile Card Stub
+   ======================================== */
+.smarttriad-profile-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  background: var(--smarttriad-muted);
+  border: 1px solid var(--smarttriad-border);
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  color: var(--smarttriad-foreground);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.smarttriad-profile-card:hover {
+  background: var(--smarttriad-key-term-bg);
+  border-color: var(--smarttriad-accent);
+}
+
+.smarttriad-profile-avatar {
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 50%;
+  background: var(--smarttriad-accent);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* ========================================
+   Historic Response Themes
+   ======================================== */
+.smarttriad-historic-response {
+  opacity: 0.8;
+}
+
+.smarttriad-historic-response.iqubes {
+  background: hsla(217, 91%, 60%, 0.03);
+  border-left-color: hsla(217, 91%, 60%, 0.3);
+}
+
+.smarttriad-historic-response.coyn {
+  background: hsla(25, 95%, 53%, 0.03);
+  border-left-color: hsla(25, 95%, 53%, 0.3);
+}
+
+.smarttriad-historic-response.learn {
+  background: hsla(142, 76%, 36%, 0.03);
+  border-left-color: hsla(142, 76%, 36%, 0.3);
+}
+
+.smarttriad-historic-response.earn {
+  background: hsla(262, 83%, 58%, 0.03);
+  border-left-color: hsla(262, 83%, 58%, 0.3);
+}
+
+.smarttriad-historic-response.connect {
+  background: hsla(188, 94%, 43%, 0.03);
+  border-left-color: hsla(188, 94%, 43%, 0.3);
+}
+
+.smarttriad-historic-response.aigent {
+  background: hsla(45, 93%, 47%, 0.03);
+  border-left-color: hsla(45, 93%, 47%, 0.3);
+}
+
+.smarttriad-historic-response.default {
+  background: hsla(220, 14%, 96%, 0.03);
+  border-left-color: hsla(220, 14%, 71%, 0.3);
+}
+
+/* ========================================
+   Responsive Design
+   ======================================== */
+@media (max-width: 640px) {
+  .smarttriad-conversational-content {
+    font-size: 0.9rem;
+  }
+  
+  .smarttriad-conversational-content p {
+    font-size: 0.9rem;
+  }
+  
+  .smarttriad-metadata-badges {
+    flex-wrap: wrap;
+    gap: 0.125rem;
+  }
+  
+  .smarttriad-score-container {
+    padding: 0.375rem 0.5rem;
+    gap: 0.75rem;
+  }
+}
+
+/* ========================================
+   Tenant Override Support
+   ======================================== */
+.smarttriad-tenant-custom {
+  /* Tenants can override these CSS variables */
+  --smarttriad-primary: initial;
+  --smarttriad-accent: initial;
+  --smarttriad-key-term-color: initial;
+  --smarttriad-key-term-bg: initial;
+}
+
+/* ========================================
+   Feature Flag Support
+   ======================================== */
+.smarttriad-copilot-v2 {
+  /* Applied when NEXT_PUBLIC_SMARTTRIAD_COPILOT_V2 is enabled */
+}
+
+.smarttriad-copilot-legacy {
+  /* Fallback styles for legacy compatibility */
+}

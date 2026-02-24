@@ -221,3 +221,10 @@ Phase 6: Verification (Codex)
 - Implement small, coherent increments only.
 - Do not redesign architecture.
 
+## 18) Persistent QubeTalk memory for runtime/studio coordination
+- Use channel `metame-runtime-thinclient` as the canonical coordination channel.
+- Use thread keys `spec`, `api-wiring`, `ui-shell`, `dev-exec`, `ops` via `metadata.thread`.
+- If WS fails, use the REST fallback command instead of blocking:
+  - `bash scripts/qubetalk-post-runtime-memory.sh --thread <thread> --title "<title>" --content "<message>"`
+- Permanent runbook source:
+  - `docs/qubetalk/METAME_RUNTIME_CHANNEL_MEMORY.md`

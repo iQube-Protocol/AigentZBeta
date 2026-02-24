@@ -259,3 +259,12 @@ Phase 6: Verification (Codex)
 - Implement small, coherent increments only.
 - Do not redesign architecture.
 
+## 19) Persistent QubeTalk memory for this runtime
+- This runtime always uses QubeTalk channel `metame-runtime-thinclient`.
+- Canonical tenant for this channel is `agentiq_main`.
+- Canonical thread keys are `spec`, `api-wiring`, `ui-shell`, `dev-exec`, and `ops` (stored as `metadata.thread` on channel messages).
+- If WS transport is unavailable, do not pause coordination. Use the direct REST fallback command:
+  - `bash scripts/qubetalk-post-runtime-memory.sh --thread <thread> --title "<title>" --content "<message>"`
+  - `bash scripts/qubetalk-post-runtime-memory.sh --thread ui-shell --title "Full handoff brief" --content-file LOVABLE_RUNTIME_HEADER_MENU_BRIEF.md`
+- Permanent runbook source for this memory is:
+  - `docs/qubetalk/METAME_RUNTIME_CHANNEL_MEMORY.md`

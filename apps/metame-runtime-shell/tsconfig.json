@@ -1,0 +1,43 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@metame/aa-client": [
+        "../../packages/aa-client/src/index.ts"
+      ],
+      "@metame/aa-client/*": [
+        "../../packages/aa-client/src/*"
+      ],
+      "@metame/iframe-bridge": [
+        "../../packages/iframe-bridge/src/index.ts"
+      ],
+      "@metame/iframe-bridge/*": [
+        "../../packages/iframe-bridge/src/*"
+      ],
+      "@metame/qubetalk-client": [
+        "../../packages/qubetalk-client/src/index.ts"
+      ],
+      "@metame/qubetalk-client/*": [
+        "../../packages/qubetalk-client/src/*"
+      ]
+    },
+    "types": [
+      "node"
+    ],
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}

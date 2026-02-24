@@ -216,6 +216,7 @@ import { KnytCardsGrid } from "@/app/triad/components/content/KnytCardsGrid";
 import { CoverImage } from "@/app/triad/components/content/CoverImage";
 import SmartWalletDrawer from "@/app/components/content/SmartWalletDrawer";
 import { CodexCopilotLayer, type CopilotMessage } from "@/app/components/codex/CodexCopilotLayer";
+import { SmartTriadCopilotLayer, type SmartTriadMessage, isSmartTriadCopilotEnabled } from "@/components/smarttriad/copilot";
 import { getImageLoaderStats } from "@/app/utils/image-loader";
 import type { SmartContentQube } from "@/types/smartContent";
 
@@ -452,6 +453,25 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
         return 'codex';
     }
   }, [tabSlug]);
+
+  // Convert CopilotMessage to SmartTriadMessage for compatibility
+  const convertToSmartTriadMessages = useCallback((copilotMessages: CopilotMessage[]): SmartTriadMessage[] => {
+    return copilotMessages.map(msg => ({
+      id: msg.id,
+      role: msg.role as 'user' | 'assistant' | 'system',
+      content: typeof msg.content === 'string' ? msg.content : React.isValidElement(msg.content) ? '' : String(msg.content),
+      timestamp: msg.timestamp,
+      variant: msg.variant,
+      metadata: {
+        model: 'knyt-copilot',
+        provider: 'system',
+        theme: activeTab === 'scrolls' ? 'connect' : activeTab === 'characters' ? 'iqubes' : 'default'
+      }
+    }));
+  }, [activeTab]);
+
+  const smartTriadMessages = convertToSmartTriadMessages(codexCopilotMessages);
+  const useSmartTriadCopilot = isSmartTriadCopilotEnabled();
 
   // Legacy state for cards/purchases (maintained for compatibility)
   const [activeTab, setActiveTab] = useState<KnytTabSlug>(resolvedInitialTab);
@@ -2544,40 +2564,94 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
         </>
       )}
 
-      <CodexCopilotLayer
-        isOpen={codexCopilotOpen}
-        onClose={() => setCodexCopilotOpen(false)}
-        onOpen={() => setCodexCopilotOpen(true)}
-        variant="floating"
-        personaId={effectivePersonaId}
-        contextId={`knyt-${activeTab}`}
-        messages={codexCopilotMessages}
-        onMessagesChange={setCodexCopilotMessages}
-        promptPlaceholder="Ask KNYT Copilot about this content..."
-        quickPrompts={[
-          { label: 'Summarize selected content', prompt: 'Summarize the currently selected KNYT content and key takeaways.' },
-          { label: 'Compare still vs motion', prompt: 'Compare still and motion versions for the selected content and recommend one.' },
-          { label: 'Open wallet checkout', prompt: 'Open wallet checkout for the selected item.' },
-        ]}
-        onPrompt={(prompt) => {
-          const normalized = prompt.toLowerCase();
-          if (normalized.includes('wallet')) {
-            setDrawerOpen(true);
-            return;
-          }
-          if ((normalized.includes('checkout') || normalized.includes('purchase') || normalized.includes('buy')) && selectedContentItem) {
-            handleSmartAction(selectedContentItem, 'buy');
-            return;
-          }
-          if ((normalized.includes('watch') || normalized.includes('play') || normalized.includes('video')) && selectedContentItem) {
-            handleSmartAction(selectedContentItem, 'watch');
-            return;
-          }
-          if ((normalized.includes('read') || normalized.includes('open') || normalized.includes('pdf')) && selectedContentItem) {
-            handleSmartAction(selectedContentItem, 'read');
-          }
-        }}
-      />
+      {/* SmartTriad Copilot - Enhanced Inference Rendering */}
+      {useSmartTriadCopilot ? (
+        <SmartTriadCopilotLayer
+          isOpen={codexCopilotOpen}
+          onClose={() => setCodexCopilotOpen(false)}
+          onOpen={() => setCodexCopilotOpen(true)}
+          variant="floating"
+          personaId={effectivePersonaId}
+          contextId={`knyt-${activeTab}`}
+          messages={smartTriadMessages}
+          onMessagesChange={(messages) => {
+            // Convert back to CopilotMessage format for compatibility
+            const copilotMessages: CopilotMessage[] = messages.map(msg => ({
+              id: msg.id,
+              role: msg.role,
+              content: msg.content,
+              timestamp: msg.timestamp,
+              variant: msg.variant
+            }));
+            setCodexCopilotMessages(copilotMessages);
+          }}
+          promptPlaceholder="Ask KNYT Copilot about this content..."
+          enableAdvancedRendering={true}
+          tenantConfig={{
+            enableModelSelection: false, // Disable for now, will be enabled in codex customizer
+            accentColor: 'hsl(188, 94%, 43%)' // System cyan
+          }}
+          quickPrompts={[
+            { label: 'Summarize selected content', prompt: 'Summarize the currently selected KNYT content and key takeaways.' },
+            { label: 'Compare still vs motion', prompt: 'Compare still and motion versions for the selected content and recommend one.' },
+            { label: 'Open wallet checkout', prompt: 'Open wallet checkout for the selected item.' },
+          ]}
+          onPrompt={(prompt) => {
+            const normalized = prompt.toLowerCase();
+            if (normalized.includes('wallet')) {
+              setDrawerOpen(true);
+              return;
+            }
+            if ((normalized.includes('checkout') || normalized.includes('purchase') || normalized.includes('buy')) && selectedContentItem) {
+              handleSmartAction(selectedContentItem, 'buy');
+              return;
+            }
+            if ((normalized.includes('watch') || normalized.includes('play') || normalized.includes('video')) && selectedContentItem) {
+              handleSmartAction(selectedContentItem, 'watch');
+              return;
+            }
+            if ((normalized.includes('read') || normalized.includes('open') || normalized.includes('pdf')) && selectedContentItem) {
+              handleSmartAction(selectedContentItem, 'read');
+            }
+          }}
+        />
+      ) : (
+        /* Legacy CodexCopilotLayer for fallback */
+        <CodexCopilotLayer
+          isOpen={codexCopilotOpen}
+          onClose={() => setCodexCopilotOpen(false)}
+          onOpen={() => setCodexCopilotOpen(true)}
+          variant="floating"
+          personaId={effectivePersonaId}
+          contextId={`knyt-${activeTab}`}
+          messages={codexCopilotMessages}
+          onMessagesChange={setCodexCopilotMessages}
+          promptPlaceholder="Ask KNYT Copilot about this content..."
+          quickPrompts={[
+            { label: 'Summarize selected content', prompt: 'Summarize the currently selected KNYT content and key takeaways.' },
+            { label: 'Compare still vs motion', prompt: 'Compare still and motion versions for the selected content and recommend one.' },
+            { label: 'Open wallet checkout', prompt: 'Open wallet checkout for the selected item.' },
+          ]}
+          onPrompt={(prompt) => {
+            const normalized = prompt.toLowerCase();
+            if (normalized.includes('wallet')) {
+              setDrawerOpen(true);
+              return;
+            }
+            if ((normalized.includes('checkout') || normalized.includes('purchase') || normalized.includes('buy')) && selectedContentItem) {
+              handleSmartAction(selectedContentItem, 'buy');
+              return;
+            }
+            if ((normalized.includes('watch') || normalized.includes('play') || normalized.includes('video')) && selectedContentItem) {
+              handleSmartAction(selectedContentItem, 'watch');
+              return;
+            }
+            if ((normalized.includes('read') || normalized.includes('open') || normalized.includes('pdf')) && selectedContentItem) {
+              handleSmartAction(selectedContentItem, 'read');
+            }
+          }}
+        />
+      )}
 
       <Dialog open={dvnDrawerOpen} onOpenChange={setDvnDrawerOpen}>
         <DialogContent className="max-w-2xl bg-slate-950 text-white border-white/10">
