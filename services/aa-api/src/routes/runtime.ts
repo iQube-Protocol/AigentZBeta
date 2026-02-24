@@ -335,12 +335,39 @@ function normalizeMode(value: unknown): RuntimeMenuMode | null {
   return null;
 }
 
+const DEFAULT_RUNTIME_IFRAME_URL = 'http://localhost:3000/metame/runtime?embed=1';
+const DEFAULT_RUNTIME_IFRAME_PATH = '/metame/runtime';
+
+function normalizeRuntimeIframePath(pathname: string): string {
+  const trimmed = pathname.replace(/\/+$/, '') || '/';
+  if (trimmed === '/runtime' || trimmed === '/') {
+    return DEFAULT_RUNTIME_IFRAME_PATH;
+  }
+  return trimmed;
+}
+
+function normalizeRuntimeIframeUrl(input: string): string {
+  try {
+    const parsed = new URL(input);
+    parsed.pathname = normalizeRuntimeIframePath(parsed.pathname);
+
+    if (parsed.pathname === DEFAULT_RUNTIME_IFRAME_PATH && !parsed.searchParams.has('embed')) {
+      parsed.searchParams.set('embed', '1');
+    }
+
+    return parsed.toString();
+  } catch {
+    return DEFAULT_RUNTIME_IFRAME_URL;
+  }
+}
+
 function resolveIframeUrl(): string {
-  return (
+  const raw =
     asString(env.RUNTIME_IFRAME_URL) ||
     asString(process.env.NEXT_PUBLIC_RUNTIME_IFRAME_URL) ||
-    'http://localhost:3000/metame/runtime?embed=1'
-  );
+    DEFAULT_RUNTIME_IFRAME_URL;
+
+  return normalizeRuntimeIframeUrl(raw);
 }
 
 function resolveIframeOrigin(iframeUrl: string): string {
