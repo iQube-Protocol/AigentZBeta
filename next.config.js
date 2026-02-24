@@ -63,7 +63,7 @@ const nextConfig = {
     return [
       // Default: protect everything with X-Frame-Options EXCEPT embed/runtime iframe targets.
       {
-        source: "/((?!(?:triad/embed/|metame/runtime)).*)",
+        source: "/((?!(?:triad/embed(?:/|$)|metame/runtime(?:/|$))).*)",
         headers: [
           {
             key: "X-Frame-Options",

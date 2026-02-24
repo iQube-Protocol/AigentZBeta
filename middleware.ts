@@ -180,5 +180,5 @@ export function getPerformanceMetrics() {
 }
 
 export const config = {
-  matcher: ['/triad/embed/:path*', '/metame/runtime/:path*'],
+  matcher: ['/triad/embed/:path*', '/metame/runtime', '/metame/runtime/:path*'],
 };
