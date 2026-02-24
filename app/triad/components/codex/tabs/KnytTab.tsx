@@ -459,6 +459,14 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   const isLegacyFallbackTab = activeTab !== 'codex';
   const showLegacyFallbackUI = false;
   const [purchaseModalOpen, setPurchaseModalOpen] = useState(false);
+  const [purchaseContent, setPurchaseContent] = useState<{
+    type: ContentType;
+    id: string;
+    title: string;
+    image?: string;
+    baseKnyt?: number;
+    priceUsd?: number;
+  } | null>(null);
   
   // Debug purchase modal state
   useEffect(() => {
@@ -538,14 +546,6 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   const episodeSegmentsCacheRef = useRef<Map<string, VideoSegment[]>>(new Map());
   const [textReaderOpen, setTextReaderOpen] = useState(false);
   const [currentText, setCurrentText] = useState<{ title: string; content: string } | null>(null);
-  const [purchaseContent, setPurchaseContent] = useState<{
-    type: ContentType;
-    id: string;
-    title: string;
-    image?: string;
-    baseKnyt?: number;
-    priceUsd?: number;
-  } | null>(null);
   
   // Wallet drawer state
   const [drawerOpen, setDrawerOpen] = useState(false);
