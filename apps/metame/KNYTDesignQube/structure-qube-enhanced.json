@@ -1,0 +1,132 @@
+{
+  "id": "structureqube-knyt-v1",
+  "name": "KNYT StructureQube",
+  "source": "template-map.json",
+  "breakpoints": {
+    "mobile": { "maxWidth": 640, "columns": 1 },
+    "tablet": { "maxWidth": 1024, "minWidth": 641, "columns": 2 },
+    "desktop": { "maxWidth": 1919, "minWidth": 1025, "columns": 3 },
+    "bigScreen": { "minWidth": 1920, "columns": 4 }
+  },
+  "templates": [
+    "knyt:protocol_card_v1",
+    "knyt:lore_article_v1",
+    "knyt:character_profile_v1",
+    "knyt:scroll_item_v1",
+    "knyt:knowledge_node_v1",
+    "knyt:navigation_header_v1",
+    "knyt:sidebar_layout_v1",
+    "knyt:content_drawer_v1",
+    "knyt:modal_overlay_v1",
+    "knyt:timeline_layout_v1"
+  ],
+  "contentModules": [
+    {
+      "id": "protocol-module",
+      "name": "Protocol Cards Module",
+      "type": "content",
+      "responsive": true,
+      "breakpoints": ["mobile", "tablet", "desktop", "bigScreen"],
+      "priority": 1
+    },
+    {
+      "id": "lore-module",
+      "name": "Lore Articles Module",
+      "type": "content",
+      "responsive": true,
+      "breakpoints": ["mobile", "tablet", "desktop", "bigScreen"],
+      "priority": 2
+    },
+    {
+      "id": "character-module",
+      "name": "Character Profiles Module",
+      "type": "content",
+      "responsive": true,
+      "breakpoints": ["mobile", "tablet", "desktop", "bigScreen"],
+      "priority": 3
+    },
+    {
+      "id": "scrolls-module",
+      "name": "Scrolls Module",
+      "type": "content",
+      "responsive": true,
+      "breakpoints": ["mobile", "tablet", "desktop", "bigScreen"],
+      "priority": 4
+    },
+    {
+      "id": "navigation-module",
+      "name": "Navigation Module",
+      "type": "header",
+      "responsive": true,
+      "breakpoints": ["mobile", "tablet", "desktop", "bigScreen"],
+      "priority": 1
+    },
+    {
+      "id": "sidebar-module",
+      "name": "Sidebar Module",
+      "type": "sidebar",
+      "responsive": true,
+      "breakpoints": ["tablet", "desktop", "bigScreen"],
+      "priority": 5
+    },
+    {
+      "id": "footer-module",
+      "name": "Footer Module",
+      "type": "footer",
+      "responsive": true,
+      "breakpoints": ["mobile", "tablet", "desktop", "bigScreen"],
+      "priority": 6
+    },
+    {
+      "id": "timeline-module",
+      "name": "Timeline Module",
+      "type": "content",
+      "responsive": true,
+      "breakpoints": ["tablet", "desktop", "bigScreen"],
+      "priority": 7
+    }
+  ],
+  "templateSelection": {
+    "priority": [
+      "knyt:protocol_card_v1",
+      "knyt:lore_article_v1",
+      "knyt:navigation_header_v1",
+      "knyt:character_profile_v1"
+    ],
+    "byModality": {
+      "read": ["knyt:lore_article_v1", "knyt:scroll_item_v1"],
+      "browse": ["knyt:protocol_card_v1", "knyt:character_profile_v1"],
+      "interact": ["knyt:knowledge_node_v1", "knyt:timeline_layout_v1"],
+      "watch": ["knyt:lore_article_v1", "knyt:character_profile_v1"]
+    },
+    "byDensity": {
+      "compact": ["knyt:protocol_card_v1", "knyt:scroll_item_v1"],
+      "balanced": ["knyt:lore_article_v1", "knyt:character_profile_v1", "knyt:navigation_header_v1"],
+      "rich": ["knyt:timeline_layout_v1", "knyt:knowledge_node_v1", "knyt:content_drawer_v1"]
+    },
+    "bySurface": {
+      "drawer": ["knyt:content_drawer_v1", "knyt:sidebar_layout_v1"],
+      "grid": ["knyt:protocol_card_v1", "knyt:character_profile_v1"],
+      "article": ["knyt:lore_article_v1"],
+      "timeline": ["knyt:timeline_layout_v1"],
+      "overlay": ["knyt:modal_overlay_v1"]
+    }
+  },
+  "layoutRules": [
+    "Protocol cards always prominently displayed",
+    "Navigation remains fixed with protocol access",
+    "Lore articles use full-width reading layout",
+    "Character profiles use consistent card grid",
+    "Scrolls maintain chronological flow",
+    "Timeline layouts optimize for storytelling",
+    "Knowledge nodes support interactive exploration",
+    "Sidebars provide contextual protocol information"
+  ],
+  "componentPriorities": {
+    "navigation": 1,
+    "content": 2,
+    "interactive": 3,
+    "decorative": 4
+  },
+  "version": "1.0.0"
+}

@@ -23,7 +23,7 @@ export default async function handler(req: Request, context: Context) {
     .join(";");
 
   const frameAncestors =
-    "frame-ancestors 'self' https://preview--qriptopian.lovable.app https://qriptopian.lovable.app http://localhost:3000";
+    "frame-ancestors 'self' https://preview--qriptopian.lovable.app https://qriptopian.lovable.app https://*.lovable.app https://*.lovable.dev https://*.lovableproject.com https://*.aigentz.me http://localhost:3000";
 
   const newCsp = [withoutFrameAncestors, frameAncestors]
     .filter(Boolean)

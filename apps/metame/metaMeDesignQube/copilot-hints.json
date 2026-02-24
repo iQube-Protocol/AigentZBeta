@@ -1,0 +1,20 @@
+{
+  "sourcePrompt": "Extract multi-modal style guidance and structure rules from the style guide, CSS tokens, and freeform brief.",
+  "extractedAt": "2026-02-05T00:00:00Z",
+  "freeformText": "Tone should be calm, precise, and helpful. Prefer concise paragraphs with clear hierarchy and reader-friendly spacing.",
+  "ttsHints": {
+    "engine": "elevenlabs",
+    "voice": "rachel",
+    "style": "narrative",
+    "stability": 0.45,
+    "similarityBoost": 0.6
+  },
+  "gaps": [
+    "Need explicit template selection rules for listen modality",
+    "Missing reader emphasis rules for pull quotes"
+  ],
+  "suggestions": [
+    "Add reader emphasis CSS for blockquotes and captions",
+    "Define modal template preference for audio-first content"
+  ]
+}

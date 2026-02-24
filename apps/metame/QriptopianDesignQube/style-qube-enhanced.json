@@ -1,0 +1,214 @@
+{
+  "id": "styleqube-qriptopian-v1",
+  "name": "Qriptopian StyleQube",
+  "source": "tokens.guidance.json",
+  "themes": [
+    "light.qriptopian",
+    "dark.qriptopianGlass"
+  ],
+  "summary": {
+    "primaryAccent": "indigo",
+    "surface": "glass-on-dark",
+    "typography": "modern sans",
+    "radius": "soft",
+    "motion": "subtle"
+  },
+  "visual": {
+    "colors": {
+      "primary": "#6366f1",
+      "secondary": "#8b5cf6",
+      "accent": "#f59e0b",
+      "surface": "rgba(30, 41, 59, 0.8)",
+      "background": "#0f172a",
+      "text": {
+        "primary": "#f8fafc",
+        "secondary": "#cbd5e1",
+        "muted": "#64748b",
+        "inverse": "#0f172a"
+      },
+      "border": "rgba(148, 163, 184, 0.2)",
+      "shadow": "rgba(0, 0, 0, 0.3)"
+    },
+    "typography": {
+      "fontFamily": {
+        "primary": "Inter, system-ui, sans-serif",
+        "secondary": "Space Grotesk, sans-serif",
+        "mono": "JetBrains Mono, monospace"
+      },
+      "fontSize": {
+        "xs": "0.75rem",
+        "sm": "0.875rem",
+        "base": "1rem",
+        "lg": "1.125rem",
+        "xl": "1.25rem",
+        "2xl": "1.5rem",
+        "3xl": "1.875rem",
+        "4xl": "2.25rem"
+      },
+      "fontWeight": {
+        "normal": 400,
+        "medium": 500,
+        "semibold": 600,
+        "bold": 700
+      },
+      "lineHeight": {
+        "tight": 1.25,
+        "normal": 1.6,
+        "relaxed": 1.75
+      }
+    },
+    "spacing": {
+      "xs": "0.25rem",
+      "sm": "0.5rem",
+      "md": "1rem",
+      "lg": "1.5rem",
+      "xl": "2rem",
+      "2xl": "3rem",
+      "3xl": "4rem"
+    },
+    "radius": {
+      "none": "0",
+      "sm": "0.125rem",
+      "md": "0.375rem",
+      "lg": "0.5rem",
+      "xl": "0.75rem",
+      "full": "9999px"
+    },
+    "shadows": {
+      "sm": "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
+      "md": "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+      "lg": "0 10px 15px -3px rgba(0, 0, 0, 0.1)",
+      "xl": "0 20px 25px -5px rgba(0, 0, 0, 0.1)"
+    },
+    "animations": {
+      "duration": {
+        "fast": "150ms",
+        "normal": "300ms",
+        "slow": "500ms"
+      },
+      "easing": {
+        "ease": "cubic-bezier(0.4, 0, 0.2, 1)",
+        "easeIn": "cubic-bezier(0.4, 0, 1, 1)",
+        "easeOut": "cubic-bezier(0, 0, 0.2, 1)",
+        "easeInOut": "cubic-bezier(0.4, 0, 0.2, 1)"
+      }
+    }
+  },
+  "audio": {
+    "voice": {
+      "persona": "Qriptopian Guide",
+      "accent": "cosmic neutral",
+      "pace": "slow",
+      "pitch": "medium-low",
+      "tone": "warm",
+      "ttsHints": {
+        "provider": "elevenlabs",
+        "voiceId": "bella",
+        "stability": 0.9,
+        "similarity_boost": 0.6
+      }
+    },
+    "soundEffects": {
+      "enabled": true,
+      "library": ["chime", "whoosh", "click", "notification"],
+      "volume": 0.3,
+      "triggers": [
+        {
+          "event": "hover",
+          "sound": "whoosh",
+          "volume": 0.2
+        },
+        {
+          "event": "click",
+          "sound": "click",
+          "volume": 0.4
+        },
+        {
+          "event": "success",
+          "sound": "chime",
+          "volume": 0.5
+        }
+      ]
+    },
+    "music": {
+      "enabled": false,
+      "style": "ambient",
+      "mood": "neutral",
+      "volume": 0.1,
+      "autoplay": false
+    },
+    "feedback": {
+      "hover": true,
+      "click": true,
+      "success": true,
+      "error": true
+    }
+  },
+  "text": {
+    "formatting": {
+      "fontFamily": "Space Grotesk, system-ui, sans-serif",
+      "fontSize": "17px",
+      "lineHeight": "1.7",
+      "maxWidth": "68ch",
+      "paragraphSpacing": "1rem",
+      "hyphenation": "auto",
+      "textAlign": "left",
+      "textRendering": "optimizeLegibility",
+      "fontSmoothing": "antialiased",
+      "cssText": ".reader-copy{font-family:Space Grotesk,system-ui,sans-serif;font-size:17px;line-height:1.7;max-width:68ch;letter-spacing:0.01em;text-align:left;hyphens:auto;text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased} .reader-copy p{margin:0 0 1rem}"
+    },
+    "tone": {
+      "personality": "Knowledgeable yet approachable cosmic guide",
+      "formality": "casual",
+      "urgency": "low",
+      "empathy": "medium",
+      "clarity": "simple"
+    },
+    "content": {
+      "maxLength": 5000,
+      "readingLevel": "grade 8-10",
+      "language": "en-US",
+      "accessibility": {
+        "dyslexicFont": false,
+        "highContrast": false,
+        "largeText": false
+      }
+    },
+    "localization": {
+      "enabled": true,
+      "supportedLanguages": ["en-US", "en-GB"],
+      "fallbackLanguage": "en-US"
+    }
+  },
+  "spatial": {
+    "threeD": {
+      "enabled": false,
+      "perspective": 1000,
+      "depth": 100,
+      "transforms": {
+        "rotateX": 0,
+        "rotateY": 0,
+        "rotateZ": 0,
+        "scale": 1
+      }
+    },
+    "ar": {
+      "enabled": false,
+      "tracking": "plane",
+      "anchors": []
+    },
+    "vr": {
+      "enabled": false,
+      "immersion": "none",
+      "controllers": false,
+      "handTracking": false
+    },
+    "zAxis": {
+      "enabled": true,
+      "stacking": true,
+      "parallax": false,
+      "depthLayers": 3
+    }
+  },
+  "version": "1.0.0"
+}

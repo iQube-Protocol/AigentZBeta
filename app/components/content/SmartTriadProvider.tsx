@@ -16,6 +16,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect, Rea
 import type { SmartContentQube } from "@/types/smartContent";
 import type { SmartWalletNode } from "@/types/smartWallet";
 import { selectCompassActions } from "@/services/content/smartMenuIntegration";
+import { getSmartTriadPrimitiveByAction } from "@/services/smarttriad/primitiveRegistry";
 
 // =============================================================================
 // TYPES
@@ -88,6 +89,8 @@ export interface TriadState {
   // Wallet state
   walletOpen: boolean;
   walletMode: "compact" | "full";
+  walletUI: Array<import("@/app/types/knytLiquidUI").WalletUIComponent>;
+  walletDrawerMode: import("@/app/types/knytLiquidUI").DrawerMode;
   
   // Menu state
   menuManifest: SmartMenuManifest | null;
@@ -119,6 +122,8 @@ export interface TriadActions {
   // Wallet actions
   openWallet: (mode?: "compact" | "full") => void;
   closeWallet: () => void;
+  setWalletUI: (components: Array<import("@/app/types/knytLiquidUI").WalletUIComponent>) => void;
+  setWalletDrawerMode: (mode: import("@/app/types/knytLiquidUI").DrawerMode) => void;
   
   // Menu actions
   setActiveDrawer: (drawer: string | null) => void;
@@ -177,6 +182,8 @@ export function SmartTriadProvider({
     viewerModality: null,
     walletOpen: false,
     walletMode: "compact",
+    walletUI: [],
+    walletDrawerMode: "narrow",
     menuManifest: null,
     activeDrawer: "contentViewer",
     purchaseInProgress: false,
@@ -271,6 +278,20 @@ export function SmartTriadProvider({
     setState(prev => ({
       ...prev,
       walletOpen: false,
+    }));
+  }, []);
+
+  const setWalletUI = useCallback((components: Array<import("@/app/types/knytLiquidUI").WalletUIComponent>) => {
+    setState(prev => ({
+      ...prev,
+      walletUI: components,
+    }));
+  }, []);
+
+  const setWalletDrawerMode = useCallback((mode: import("@/app/types/knytLiquidUI").DrawerMode) => {
+    setState(prev => ({
+      ...prev,
+      walletDrawerMode: mode,
     }));
   }, []);
 
@@ -492,17 +513,24 @@ export function SmartTriadProvider({
     params: Record<string, any>
   ): Promise<any> => {
     try {
-      // Direct API call to execute triad action
-      // In production, this would go through CopilotKit
-      const actionMap: Record<string, string> = {
-        triad_purchase_content: "/api/content/triad/purchase",
-        triad_configure_experience: "/api/content/triad/configure",
-        triad_browse_library: "/api/content/triad/library",
-        triad_recommend_content: "/api/content/triad/recommend",
-        triad_agent_chat: "/api/content/triad/chat",
-      };
+      const primitive = getSmartTriadPrimitiveByAction(actionName);
 
-      const endpoint = actionMap[actionName];
+      if (primitive?.class === "iqube_mcp_app" && primitive.endpoint && primitive.mcpTool) {
+        const res = await fetch(primitive.endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            tool: primitive.mcpTool,
+            input: params,
+            tenantId: params.tenantId,
+            personaId: params.personaId,
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok) {
+          return data;
+        }
+      }
       
       // Fallback: execute action handler directly
       // This simulates what Copilot would do
@@ -601,6 +629,8 @@ export function SmartTriadProvider({
       setViewerModality,
       openWallet,
       closeWallet,
+      setWalletUI,
+      setWalletDrawerMode,
       setActiveDrawer,
       configureExperience,
       purchaseContent,

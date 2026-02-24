@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { qubetalkPersistence } from '@/services/qubetalk/qubetalkPersistence';
 import { receiptService } from '@/services/receipts/receiptService';
+import type { AgentReference } from '@/services/receipts/receiptService';
 
 export const runtime = 'nodejs';
 
@@ -70,14 +71,32 @@ export async function POST(request: NextRequest) {
 
     // Create receipt for channel creation
     try {
-      await receiptService.createSmartTriadReceipt({
-        component: 'qubetalk',
-        action: 'create_channel',
+      const creatorAgent: AgentReference = {
+        id: typeof body.created_by === 'string' ? body.created_by : 'system',
+        role: 'tenant',
+        name: typeof body.created_by_name === 'string' ? body.created_by_name : 'Channel Creator',
+      };
+
+      await receiptService.createQubeTalkReceipt({
+        delegationId: `channel_create_${channel.channel_id}`,
+        fromAgent: creatorAgent,
+        toAgent: { id: 'qubetalk-system', role: 'system', name: 'QubeTalk System' },
+        taskCompleted: 'QubeTalk channel created',
         tenantId: body.tenant_id,
-        result: {
+        resultData: {
           channelId: channel.channel_id,
           tenantId: body.tenant_id,
           participants: channel.participants,
+        },
+        policyContext: {
+          tenantId: body.tenant_id,
+          personaId: typeof body.persona_id === 'string' ? body.persona_id : undefined,
+          rootDid: typeof body.root_did === 'string' ? body.root_did : undefined,
+          policyTags: Array.isArray(body.policy_tags) ? body.policy_tags : ['public_ok'],
+          iqubeRefs: Array.isArray(body.iqube_refs) ? body.iqube_refs : [],
+          requiredIQubes: Array.isArray(body.required_iqubes) ? body.required_iqubes : [],
+          requiresVerifiedPersona: Boolean(body.requires_persona),
+          requiresRootDid: Boolean(body.requires_root_did),
         },
       });
     } catch (error) {

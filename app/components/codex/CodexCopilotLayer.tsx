@@ -44,6 +44,7 @@ interface CodexCopilotLayerProps {
         prompt?: string;
         icon?: React.ReactNode;
         iconOnly?: boolean;
+        skipInference?: boolean;
       }
   >;
   onPrompt?: (prompt: string) => void;
@@ -56,7 +57,8 @@ interface CodexCopilotLayerProps {
   panelClassName?: string;
   floatingInput?: boolean;
   disableActivationButton?: boolean;
-  trustProvider?: "openai" | "venice" | "chaingpt";
+  showQuickPromptsToggle?: boolean;
+  trustProvider?: "openai" | "venice" | "chaingpt" | "thirdweb" | "anthropic";
   showNavMenu?: boolean;
   showWalletMenu?: boolean;
   walletBalance?: number;
@@ -73,6 +75,7 @@ interface CodexCopilotLayerProps {
     fioHandle?: string;
     walletAddress?: string;
   };
+  personaId?: string;
 }
 
 type CopilotMode = "chat" | "avatar";
@@ -110,11 +113,13 @@ export function CodexCopilotLayer({
   panelClassName,
   floatingInput = false,
   disableActivationButton = false,
+  showQuickPromptsToggle = false,
   trustProvider,
   showNavMenu = true,
   showWalletMenu = true,
   panelBorder = true,
   agent,
+  personaId,
 }: CodexCopilotLayerProps) {
   const isMobile = useIsMobile();
   const { requestAvatar, releaseAvatar } = useMetaAvatar();
@@ -124,7 +129,7 @@ export function CodexCopilotLayer({
   const [isLoading, setIsLoading] = useState(false);
   const [chatMessages, setChatMessages] = useState<CopilotMessage[]>([]);
   const displayMessages = messages ?? chatMessages;
-  const [showActivationButton, setShowActivationButton] = useState(true);
+  const [showActivationButton, setShowActivationButton] = useState(false);
   const [walletPanelOpen, setWalletPanelOpen] = useState(false);
   const [walletPanelCollapsed, setWalletPanelCollapsed] = useState(false);
   const [walletActionsCollapsed, setWalletActionsCollapsed] = useState(false);
@@ -132,6 +137,7 @@ export function CodexCopilotLayer({
   const [walletMenuVisible, setWalletMenuVisible] = useState(true);
   const [walletMenuHover, setWalletMenuHover] = useState(false);
   const [inputPanelVisible, setInputPanelVisible] = useState(false);
+  const [quickPromptsCollapsed, setQuickPromptsCollapsed] = useState(false);
   const [contextMenuOpen, setContextMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -146,6 +152,8 @@ export function CodexCopilotLayer({
 
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const activationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const initialActivationShownRef = useRef(false);
   const copilotPanelRef = useRef<HTMLDivElement>(null);
   const metaAvatarFrameRef = useRef<HTMLDivElement>(null);
 
@@ -169,12 +177,31 @@ export function CodexCopilotLayer({
     seededRef.current = true;
   }, [initialMessage, seedMessages, messages]);
 
-  useEffect(() => {
-    if (!isOpen) return;
+  const showActivationButtonWithTimeout = (timeoutMs: number = 4000) => {
+    if (activationTimeoutRef.current) clearTimeout(activationTimeoutRef.current);
     setShowActivationButton(true);
-    const timeoutId = setTimeout(() => setShowActivationButton(false), 4000);
-    return () => clearTimeout(timeoutId);
+    activationTimeoutRef.current = setTimeout(() => setShowActivationButton(false), timeoutMs);
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      if (activationTimeoutRef.current) clearTimeout(activationTimeoutRef.current);
+      setShowActivationButton(false);
+    }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (variant !== "floating" || disableActivationButton || isOpen) return;
+    if (initialActivationShownRef.current) return;
+    initialActivationShownRef.current = true;
+    showActivationButtonWithTimeout(4000);
+  }, [variant, disableActivationButton, isOpen]);
+
+  useEffect(() => {
+    return () => {
+      if (activationTimeoutRef.current) clearTimeout(activationTimeoutRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -243,11 +270,13 @@ export function CodexCopilotLayer({
     hoverTimeoutRef.current = setTimeout(() => setInputPanelVisible(false), timeoutMs);
   };
 
-  const resolveProvider = (): "openai" | "venice" | "chaingpt" => {
+  const resolveProvider = (): "openai" | "venice" | "chaingpt" | "thirdweb" | "anthropic" => {
     if (trustProvider) return trustProvider;
     const name = agent?.name?.toLowerCase() || "";
+    if (name.includes("anthropic") || name.includes("claude")) return "anthropic";
     if (name.includes("venice")) return "venice";
     if (name.includes("chaingpt") || name.includes("chain")) return "chaingpt";
+    if (name.includes("thirdweb") || name.includes("web3")) return "thirdweb";
     return "openai";
   };
 
@@ -255,15 +284,17 @@ export function CodexCopilotLayer({
 
   const getBaseScore = () => {
     const provider = resolveProvider();
+    if (provider === "anthropic") return 8.3;
     if (provider === "venice") return 7.8;
     if (provider === "chaingpt") return 8.0;
+    if (provider === "thirdweb") return 7.6;
     return 5.0;
   };
 
   const getReliabilityScore = () => {
     const provider = resolveProvider();
     let score = getBaseScore();
-    if (provider === "venice" || provider === "chaingpt") score += 0.8;
+    if (provider === "anthropic" || provider === "venice" || provider === "chaingpt" || provider === "thirdweb") score += 0.8;
     if (isLoading) score -= 0.3;
     return clampScore(score);
   };
@@ -316,7 +347,17 @@ export function CodexCopilotLayer({
     hoverTimeoutRef.current = setTimeout(() => setWalletMenuVisible(false), 4000);
   };
 
-  const sendMessage = async (override?: string) => {
+  const shouldBypassInference = (message: string, skipInference?: boolean) => {
+    if (skipInference) return true;
+    const normalized = message.trim().toLowerCase();
+    return (
+      normalized.startsWith("__runtime_") ||
+      normalized === "reset runtime" ||
+      normalized === "refresh runtime"
+    );
+  };
+
+  const sendMessage = async (override?: string, options?: { skipInference?: boolean }) => {
     const message = (override ?? inputValue).trim();
     if (!message || isLoading) return;
 
@@ -325,14 +366,22 @@ export function CodexCopilotLayer({
       { id: Date.now().toString(), role: "user", content: message, timestamp: new Date() },
     ]);
     setInputValue("");
-    setIsLoading(true);
     onPrompt?.(message);
+    if (shouldBypassInference(message, options?.skipInference)) {
+      return;
+    }
+    setIsLoading(true);
 
     try {
       const response = await fetch("/api/codex/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message, persona: "kn0w1" }),
+        body: JSON.stringify({
+          message,
+          persona: personaId || "kn0w1",
+          personaId: personaId || null,
+          contextId: contextId || null,
+        }),
       });
       const data = await response.json().catch(() => ({}));
       updateMessages((prev) => [
@@ -365,10 +414,17 @@ export function CodexCopilotLayer({
 
   return (
     <>
+      {variant === "floating" && !isOpen && !disableActivationButton && (
+        <div
+          className={`fixed bottom-0 z-[179] h-24 w-24 md:h-32 md:w-32 ${isMobile ? "right-0" : "right-24"}`}
+          onMouseEnter={() => showActivationButtonWithTimeout(4000)}
+        />
+      )}
+
       {variant === "floating" && !isOpen && showActivationButton && !disableActivationButton && (
         <button
           onClick={onOpen || (() => {})}
-          className="fixed bottom-6 right-6 z-[110] p-3 bg-gradient-to-br from-cyan-500 to-purple-600 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+          className={`fixed bottom-6 z-[180] p-3 bg-gradient-to-br from-cyan-500 to-purple-600 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 ${isMobile ? "right-4" : "right-28"}`}
         >
           <Bot className="w-6 h-6 text-white" />
         </button>
@@ -454,7 +510,13 @@ export function CodexCopilotLayer({
 
                       {showWalletMenu && (
                         <div
-                          className={`absolute bottom-3 left-3 right-3 transition-opacity duration-200 ${
+                          className={`absolute left-3 right-3 transition-opacity duration-200 ${
+                            floatingInput
+                              ? quickPromptsCollapsed
+                                ? "bottom-[92px] z-30"
+                                : "bottom-[132px] z-30"
+                              : "bottom-3 z-10"
+                          } ${
                             walletMenuVisible || walletMenuHover
                               ? "opacity-100 pointer-events-auto"
                               : "opacity-0 pointer-events-none"
@@ -556,15 +618,16 @@ export function CodexCopilotLayer({
                             }}
                           >
                             <div className={inputPanelClassName ?? "rounded-2xl border border-white/10 bg-slate-950/80 backdrop-blur-xl px-3 py-3 shadow-lg"}>
-                              {quickPrompts && quickPrompts.length > 0 && (
-                                <div className="mb-3 flex w-full gap-2 overflow-x-auto no-scrollbar">
+                              {quickPrompts && quickPrompts.length > 0 && !quickPromptsCollapsed && (
+                                <div className="mb-3 overflow-x-auto no-scrollbar md:overflow-visible">
+                                  <div className="flex w-max min-w-full snap-x snap-mandatory gap-2 md:w-full md:min-w-0 md:snap-none">
                                   {quickPrompts.map((promptItem, index) => {
                                     if (typeof promptItem === "string") {
                                       return (
                                         <button
                                           key={`${promptItem}-${index}`}
                                           onClick={() => sendMessage(promptItem)}
-                                          className="flex-1 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/70 hover:text-white hover:border-white/30 flex items-center justify-center"
+                                          className="snap-start shrink-0 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/70 hover:text-white hover:border-white/30 flex items-center justify-center md:min-w-0 md:flex-1"
                                         >
                                           {promptItem}
                                         </button>
@@ -575,15 +638,16 @@ export function CodexCopilotLayer({
                                     return (
                                       <button
                                         key={promptItem.id || `${label}-${index}`}
-                                        onClick={() => sendMessage(promptValue)}
+                                        onClick={() => sendMessage(promptValue, { skipInference: promptItem.skipInference })}
                                         title={label}
-                                        className="flex-1 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/70 hover:text-white hover:border-white/30 flex items-center justify-center gap-2"
+                                        className="snap-start shrink-0 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/70 hover:text-white hover:border-white/30 flex items-center justify-center gap-2 min-w-[42px] md:min-w-0 md:flex-1"
                                       >
                                         {promptItem.icon ? promptItem.icon : label}
                                         {promptItem.iconOnly ? <span className="sr-only">{label}</span> : label}
                                       </button>
                                     );
                                   })}
+                                  </div>
                                 </div>
                               )}
                               <div className="flex gap-2">
@@ -608,6 +672,19 @@ export function CodexCopilotLayer({
                                     <Send className="w-4 h-4" />
                                   )}
                                 </button>
+                                {showQuickPromptsToggle && quickPrompts && quickPrompts.length > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setQuickPromptsCollapsed((prev) => !prev)}
+                                    className="p-2 rounded-lg border border-slate-700 bg-slate-800/50 text-white/80 hover:bg-slate-700 transition-colors"
+                                    title={quickPromptsCollapsed ? "Show quick links" : "Hide quick links"}
+                                    aria-label={quickPromptsCollapsed ? "Show quick links" : "Hide quick links"}
+                                  >
+                                    <ChevronDown
+                                      className={`w-4 h-4 transition-transform ${quickPromptsCollapsed ? "-rotate-90" : "rotate-0"}`}
+                                    />
+                                  </button>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -635,7 +712,7 @@ export function CodexCopilotLayer({
                                 return (
                                   <button
                                     key={promptItem.id || `${label}-${index}`}
-                                    onClick={() => sendMessage(promptValue)}
+                                    onClick={() => sendMessage(promptValue, { skipInference: promptItem.skipInference })}
                                     title={label}
                                     className="flex-shrink-0 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/70 hover:text-white hover:border-white/30 flex items-center gap-2"
                                   >

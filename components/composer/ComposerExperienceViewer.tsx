@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
-import { SmartTriadProvider, SmartTriadSurfaces } from "@/app/components/content";
+import { SmartTriadProvider } from "@/app/components/content/SmartTriadProvider";
+import { SmartTriadSurfaces } from "@/app/components/content/SmartTriadSurfaces";
 import { ExperienceLiquidRenderer } from "./ExperienceLiquidRenderer";
 
 type ExperienceQube = {
@@ -57,7 +58,7 @@ export const ComposerExperienceViewer = ({ experienceId }: { experienceId: strin
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-900 p-8">
+      <div data-parity-root="experience-viewer" className="min-h-screen bg-slate-900 p-8">
         <div className="max-w-5xl mx-auto flex items-center gap-2 text-slate-400">
           <Loader2 className="h-4 w-4 animate-spin" />
           Loading experience...
@@ -68,7 +69,7 @@ export const ComposerExperienceViewer = ({ experienceId }: { experienceId: strin
 
   if (error || !experience) {
     return (
-      <div className="min-h-screen bg-slate-900 p-8">
+      <div data-parity-root="experience-viewer" className="min-h-screen bg-slate-900 p-8">
         <div className="max-w-5xl mx-auto space-y-3">
           <button
             className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-slate-200"
@@ -86,7 +87,7 @@ export const ComposerExperienceViewer = ({ experienceId }: { experienceId: strin
 
   return (
     <SmartTriadProvider personaId={DEFAULT_PERSONA_ID} agentId="aigent-z">
-      <div className="min-h-screen bg-slate-900 p-8">
+      <div data-parity-root="experience-viewer" className="min-h-screen bg-slate-900 p-8">
         <div className="max-w-6xl mx-auto space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <button

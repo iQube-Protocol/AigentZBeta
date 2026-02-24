@@ -8,6 +8,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   X,
   Coins,
@@ -18,6 +19,7 @@ import {
   Sparkles,
   ShoppingCart,
   LogIn,
+  UserPlus,
 } from 'lucide-react';
 
 // Phase 1 Pricing Constants
@@ -111,6 +113,7 @@ interface ContentPurchaseModalProps {
   open: boolean;
   onClose: () => void;
   personaId?: string;
+  onRequestPersona?: (mode: 'signin' | 'signup') => void;
   contentType: ContentType;
   contentId: string;
   contentTitle: string;
@@ -127,6 +130,7 @@ export function ContentPurchaseModal({
   open,
   onClose,
   personaId,
+  onRequestPersona,
   contentType,
   contentId,
   contentTitle,
@@ -138,6 +142,7 @@ export function ContentPurchaseModal({
   onPurchaseComplete,
   onBalanceRefresh,
 }: ContentPurchaseModalProps) {
+  const router = useRouter();
   const effectiveSpendable = spendableKnyt ?? knytBalance;
   const isSignedIn = !!personaId && personaId !== 'default' && personaId !== 'guest';
 
@@ -235,9 +240,20 @@ export function ContentPurchaseModal({
           throw new Error('Popup blocked. Please allow popups for this site.');
         }
 
+        let popupResolved = false;
+        let pollTimer: ReturnType<typeof setInterval> | null = null;
+        const cleanup = () => {
+          window.removeEventListener('message', messageHandler);
+          if (pollTimer) {
+            clearInterval(pollTimer);
+            pollTimer = null;
+          }
+        };
+
         const messageHandler = (event: MessageEvent) => {
           if (event.data.type === 'paypal-success') {
-            window.removeEventListener('message', messageHandler);
+            popupResolved = true;
+            cleanup();
             setSuccess({
               entitlementId: event.data.entitlementId || 'paypal-success',
               amount: amountUSD,
@@ -250,11 +266,13 @@ export function ContentPurchaseModal({
             }, 5000);
             setPurchasing(false);
           } else if (event.data.type === 'paypal-error') {
-            window.removeEventListener('message', messageHandler);
+            popupResolved = true;
+            cleanup();
             setError('Payment failed: ' + (event.data.error || 'Unknown error'));
             setPurchasing(false);
           } else if (event.data.type === 'paypal-cancelled') {
-            window.removeEventListener('message', messageHandler);
+            popupResolved = true;
+            cleanup();
             setError('Payment cancelled');
             setPurchasing(false);
           }
@@ -262,11 +280,10 @@ export function ContentPurchaseModal({
 
         window.addEventListener('message', messageHandler);
 
-        const pollTimer = setInterval(() => {
+        pollTimer = setInterval(() => {
           if (popup.closed) {
-            clearInterval(pollTimer);
-            window.removeEventListener('message', messageHandler);
-            if (purchasing) {
+            cleanup();
+            if (!popupResolved) {
               setError('Payment window closed');
               setPurchasing(false);
             }
@@ -356,6 +373,15 @@ export function ContentPurchaseModal({
     }
   };
 
+  const handlePersonaAction = (mode: 'signin' | 'signup') => {
+    onClose();
+    if (onRequestPersona) {
+      onRequestPersona(mode);
+      return;
+    }
+    router.push(mode === 'signup' ? '/auth?mode=signup' : '/auth');
+  };
+
   if (!open) return null;
 
   return (
@@ -427,17 +453,24 @@ export function ContentPurchaseModal({
               <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-amber-500/20 flex items-center justify-center">
                 <LogIn className="w-8 h-8 text-amber-400" />
               </div>
-              <h3 className="text-lg font-semibold text-white mb-2">Persona Required</h3>
+              <h3 className="text-lg font-semibold text-white mb-2">Sign In Required</h3>
               <p className="text-white/60 text-sm mb-6">
-                Connect or create a persona in Smart Wallet to purchase content.
+                Sign in or create an account to purchase content and unlock full Codex access.
               </p>
-              <div className="flex justify-center">
+              <div className="flex gap-3 justify-center">
                 <button
-                  onClick={onClose}
+                  onClick={() => handlePersonaAction('signin')}
                   className="px-5 py-2.5 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold flex items-center gap-2 hover:from-amber-400 hover:to-orange-400 transition-all"
                 >
                   <LogIn className="w-4 h-4" />
-                  Open Wallet
+                  Sign In
+                </button>
+                <button
+                  onClick={() => handlePersonaAction('signup')}
+                  className="px-5 py-2.5 rounded-lg bg-white/10 text-white font-medium flex items-center gap-2 hover:bg-white/20 transition-all"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  Create Account
                 </button>
               </div>
             </div>

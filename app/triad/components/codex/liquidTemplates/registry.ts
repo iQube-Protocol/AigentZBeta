@@ -2,6 +2,12 @@ import type React from 'react';
 
 import { QriptoLiquidCodexTab } from '../tabs/QriptoLiquidCodexTab';
 import { KnytDrawerGridFallbackTemplate } from './KnytDrawerGridFallbackTemplate';
+import {
+  KnytDualPosterStageTemplate,
+  KnytMotionStageTemplate,
+  KnytQuestHudHubTemplate,
+  KnytRealmBridgeMapTemplate,
+} from './KnytStageTemplates';
 import { LiquidUIPlaceholderTemplate } from './LiquidUIPlaceholderTemplate';
 
 export type LiquidTemplateComponent = React.ComponentType<any>;
@@ -17,17 +23,17 @@ export const liquidTemplateRegistry: Record<string, LiquidTemplateComponent> = {
   'liquidui:drawer_grid_2c': KnytDrawerGridFallbackTemplate,
   'liquidui:drawer_grid_3a': KnytDrawerGridFallbackTemplate,
   'liquidui:drawer_grid_3b': KnytDrawerGridFallbackTemplate,
-  'liquidui:reader_viewer_v1': LiquidUIPlaceholderTemplate,
-  'liquidui:timeline_activity_v1': LiquidUIPlaceholderTemplate,
-  'liquidui:chat_conversation_v1': LiquidUIPlaceholderTemplate,
-  'liquidui:meeting_live_room_v1': LiquidUIPlaceholderTemplate,
-  'liquidui:editor_compose_v1': LiquidUIPlaceholderTemplate,
-  'liquidui:canvas_workspace_v1': LiquidUIPlaceholderTemplate,
-  'liquidui:builder_ide_v1': LiquidUIPlaceholderTemplate,
-  'liquidui:notebook_lab_v1': LiquidUIPlaceholderTemplate,
-  'liquidui:checkout_payment_v1': LiquidUIPlaceholderTemplate,
-  'liquidui:marketplace_exchange_v1': LiquidUIPlaceholderTemplate,
-  'liquidui:board_kanban_v1': LiquidUIPlaceholderTemplate,
+  'liquidui:reader_viewer_v1': KnytDrawerGridFallbackTemplate,
+  'liquidui:timeline_activity_v1': KnytDrawerGridFallbackTemplate,
+  'liquidui:chat_conversation_v1': KnytDrawerGridFallbackTemplate,
+  'liquidui:meeting_live_room_v1': KnytDrawerGridFallbackTemplate,
+  'liquidui:editor_compose_v1': KnytDrawerGridFallbackTemplate,
+  'liquidui:canvas_workspace_v1': KnytDrawerGridFallbackTemplate,
+  'liquidui:builder_ide_v1': KnytDrawerGridFallbackTemplate,
+  'liquidui:notebook_lab_v1': KnytDrawerGridFallbackTemplate,
+  'liquidui:checkout_payment_v1': KnytDrawerGridFallbackTemplate,
+  'liquidui:marketplace_exchange_v1': KnytDrawerGridFallbackTemplate,
+  'liquidui:board_kanban_v1': KnytDrawerGridFallbackTemplate,
   'liquidui:settings_admin_v1': LiquidUIPlaceholderTemplate,
   'liquidui:map_geo_v1': LiquidUIPlaceholderTemplate,
   'knyt:drawer_grid_v1': KnytDrawerGridFallbackTemplate,
@@ -39,8 +45,8 @@ export const liquidTemplateRegistry: Record<string, LiquidTemplateComponent> = {
   'knyt:drawer_grid_2c': KnytDrawerGridFallbackTemplate,
   'knyt:drawer_grid_3a': KnytDrawerGridFallbackTemplate,
   'knyt:drawer_grid_3b': KnytDrawerGridFallbackTemplate,
-  'knyt:dual_poster_stage_v1': LiquidUIPlaceholderTemplate,
-  'knyt:motion_stage_v1': LiquidUIPlaceholderTemplate,
-  'knyt:quest_hud_hub_v1': LiquidUIPlaceholderTemplate,
-  'knyt:realm_bridge_map_v1': LiquidUIPlaceholderTemplate,
+  'knyt:dual_poster_stage_v1': KnytDualPosterStageTemplate,
+  'knyt:motion_stage_v1': KnytMotionStageTemplate,
+  'knyt:quest_hud_hub_v1': KnytQuestHudHubTemplate,
+  'knyt:realm_bridge_map_v1': KnytRealmBridgeMapTemplate,
 };

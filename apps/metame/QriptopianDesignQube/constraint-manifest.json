@@ -1,0 +1,51 @@
+{
+  "id": "cm-qriptopian-v1",
+  "name": "Constraint Manifest (Qriptopian)",
+  "version": "1.0.0",
+  "breakpoints": {
+    "mobile": {
+      "maxWidth": 640,
+      "columns": 1
+    },
+    "tablet": {
+      "maxWidth": 1024,
+      "columns": 2
+    },
+    "desktop": {
+      "minWidth": 1025,
+      "columns": 3
+    }
+  },
+  "constraints": [
+    {
+      "id": "cta-above-fold",
+      "type": "layout",
+      "rule": "primary CTA above fold on mobile"
+    },
+    {
+      "id": "max-primary-actions",
+      "type": "interaction",
+      "rule": "max 3 primary actions visible"
+    },
+    {
+      "id": "overlay-nav",
+      "type": "navigation",
+      "rule": "bottom nav is overlay, drawer on demand"
+    },
+    {
+      "id": "glass-dark",
+      "type": "material",
+      "rule": "dark mode uses glass overlays"
+    }
+  ],
+  "responsiveRules": [
+    "card grid columns follow breakpoint",
+    "tabs collapse to underline on mobile",
+    "truncate secondary text to 2 lines on mobile"
+  ],
+  "componentContracts": [
+    "cards must expose title + primary action",
+    "offer cards must show reward chip",
+    "content cards must show modality icon"
+  ]
+}

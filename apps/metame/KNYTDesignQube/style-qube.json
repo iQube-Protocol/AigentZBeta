@@ -1,0 +1,60 @@
+{
+  "id": "styleqube-knyt-guidance-v1",
+  "name": "KNYT Guidance StyleQube",
+  "source": "tokens.guidance.json",
+  "themes": [
+    "light.metame",
+    "dark.knytGlass"
+  ],
+  "summary": {
+    "primaryAccent": "coral",
+    "surface": "glass-on-dark",
+    "typography": "modern sans",
+    "radius": "soft",
+    "motion": "subtle"
+  },
+  "tokenRefs": {
+    "colors": [
+      "color.bg",
+      "color.surface",
+      "color.text",
+      "color.accent"
+    ],
+    "typography": [
+      "fontFamily.sans",
+      "scale"
+    ],
+    "radius": [
+      "xs",
+      "sm",
+      "md",
+      "lg"
+    ]
+  },
+  "voice": {
+    "persona": "KNYT Guide",
+    "accent": "neutral British",
+    "pace": "normal",
+    "pitch": "medium",
+    "tone": "professional",
+    "ttsHints": {
+      "provider": "elevenlabs",
+      "voiceId": "adam",
+      "stability": 0.8,
+      "similarity_boost": 0.7
+    }
+  },
+  "text": {
+    "fontFamily": "Inter, system-ui, sans-serif",
+    "fontSize": "16px",
+    "lineHeight": "1.6",
+    "maxWidth": "65ch",
+    "paragraphSpacing": "1.5rem",
+    "hyphenation": "auto",
+    "textAlign": "left",
+    "textRendering": "optimizeLegibility",
+    "fontSmoothing": "always",
+    "cssText": "font-family: Inter, system-ui, sans-serif; font-size: 16px; line-height: 1.6; max-width: 65ch; paragraph-spacing: 1.5rem; hyphens: auto; text-align: left; text-rendering: optimizeLegibility; -webkit-font-smoothing: always; -moz-osx-font-smoothing: grayscale;"
+  },
+  "version": "1.0.0"
+}

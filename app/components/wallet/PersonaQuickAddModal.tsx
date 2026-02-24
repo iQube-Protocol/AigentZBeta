@@ -276,6 +276,33 @@ export function PersonaQuickAddModal({
         return;
       }
 
+      // Fallback: if persona is already associated with this auth profile but not discoverable,
+      // resolve via owner-safe by-handle endpoint before attempting creation.
+      const byHandleRes = await fetch(
+        `/api/wallet/persona/by-handle/${encodeURIComponent(fioHandle)}?tenantId=${encodeURIComponent(tenantId)}`,
+        { headers: buildAuthHeaders() }
+      );
+      const byHandleJson = await byHandleRes.json().catch(() => ({}));
+      if (byHandleRes.ok && byHandleJson?.id) {
+        onCreated(byHandleJson.id);
+        onClose();
+        return;
+      }
+
+      // If the persona exists but is not yet mapped into this user's iQube grants,
+      // attach it by handle and activate it.
+      const attachRes = await fetch('/api/wallet/persona/attach-handle', {
+        method: 'POST',
+        headers: buildAuthHeaders(),
+        body: JSON.stringify({ tenantId, fioHandle }),
+      });
+      const attachJson = await attachRes.json().catch(() => ({}));
+      if (attachRes.ok && attachJson?.personaId) {
+        onCreated(attachJson.personaId);
+        onClose();
+        return;
+      }
+
       const now = new Date().toISOString();
       const payload = {
         id: crypto.randomUUID(),
@@ -305,7 +332,35 @@ export function PersonaQuickAddModal({
         body: JSON.stringify(payload),
       });
       const json = await createRes.json().catch(() => ({}));
-      if (!createRes.ok) throw new Error(json?.error || json?.details || "Failed to create agent persona");
+      if (!createRes.ok) {
+        // If handle already exists, try one more owner-safe resolve pass and activate it.
+        if (createRes.status === 409) {
+          const attachRes = await fetch('/api/wallet/persona/attach-handle', {
+            method: 'POST',
+            headers: buildAuthHeaders(),
+            body: JSON.stringify({ tenantId, fioHandle }),
+          });
+          const attachJson = await attachRes.json().catch(() => ({}));
+          if (attachRes.ok && attachJson?.personaId) {
+            onCreated(attachJson.personaId);
+            onClose();
+            return;
+          }
+
+          const retryRes = await fetch(
+            `/api/wallet/persona/by-handle/${encodeURIComponent(fioHandle)}?tenantId=${encodeURIComponent(tenantId)}`,
+            { headers: buildAuthHeaders() }
+          );
+          const retryJson = await retryRes.json().catch(() => ({}));
+          if (retryRes.ok && retryJson?.id) {
+            onCreated(retryJson.id);
+            onClose();
+            return;
+          }
+          throw new Error("FIO handle already registered to another profile");
+        }
+        throw new Error(json?.error || json?.details || "Failed to create agent persona");
+      }
 
       const personaId = json?.id || json?.persona?.id;
       if (!personaId) throw new Error("Agent persona created but ID missing");
@@ -354,7 +409,7 @@ export function PersonaQuickAddModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-      <div className="w-full max-w-lg mx-4 bg-slate-900/95 rounded-2xl border border-white/10 shadow-2xl overflow-hidden">
+      <div className="w-full max-w-lg max-h-[88vh] mx-4 bg-slate-900/95 rounded-2xl border border-white/10 shadow-2xl overflow-hidden flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
           <div className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-emerald-400" />
@@ -365,7 +420,7 @@ export function PersonaQuickAddModal({
           </button>
         </div>
 
-        <div className="p-6 space-y-5">
+        <div className="flex-1 overflow-y-auto p-6 space-y-5">
           {error && (
             <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center gap-2 text-red-400">
               <AlertCircle className="w-5 h-5 flex-shrink-0" />

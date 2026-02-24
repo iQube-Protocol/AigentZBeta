@@ -5,6 +5,7 @@ import { BookOpen, Play, Headphones, MessageSquare, Pill, Eye, Share2 } from "lu
 import type { SmartContentQube, ContentModality } from "@/types/smartContent";
 import { ContentActionIcons } from "./ContentActionIcons";
 import type { IconStyle } from "./ContentActionIcons";
+import { getCoverImageUrl } from "./mediaVariants";
 
 const MODALITY_ICONS: Record<ContentModality, { icon: React.ReactNode; label: string }> = {
   read: { icon: <BookOpen className="w-4 h-4" />, label: "Read" },
@@ -76,6 +77,10 @@ interface SmartContentCardProps {
   isInLibrary?: boolean;
   /** Icon style for modality icons - defaults to "lucide" */
   iconStyle?: IconStyle;
+  device?: "mobile" | "tablet" | "desktop";
+  templateVariant?: string;
+  useTemplateRatioOverrides?: boolean;
+  mediaRatioOverride?: import("@/types/smartContent").MediaRatio;
 }
 
 const MODALITY_EMOJI: Record<ContentModality, string> = {
@@ -127,7 +132,17 @@ export default function SmartContentCard({
   isOwned = false,
   isInLibrary = false,
   iconStyle = "lucide",
+  device,
+  templateVariant,
+  useTemplateRatioOverrides,
+  mediaRatioOverride,
 }: SmartContentCardProps) {
+  const coverImageSrc = getCoverImageUrl(content, {
+    device,
+    templateVariant,
+    useTemplateRatioOverrides,
+    ratio: mediaRatioOverride,
+  });
   // Helper to render modality icon based on iconStyle
   const renderModalityIcon = (mod: ContentModality, className: string = "text-base") => {
     if (iconStyle === "emoji") {
@@ -169,10 +184,10 @@ export default function SmartContentCard({
         className={`relative w-full ${heightClass} bg-gradient-to-br ${appColor} ring-1 ring-white/10 overflow-hidden`}
       >
         {/* Background Image */}
-        {content.coverImageUri && (
+        {coverImageSrc && (
           <div className="absolute inset-0">
             <img
-              src={content.coverImageUri}
+              src={coverImageSrc}
               alt={content.title}
               className="w-full h-full object-cover"
             />
@@ -308,14 +323,12 @@ export default function SmartContentCard({
     const handlePreview = () => (onPreview || onSelect)?.(content);
     const handleShare = () => (onShare || onSelect)?.(content);
     const fallbackImages = [
-      "https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=800&q=80",
-      "https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?w=800&q=80",
-      "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=800&q=80",
-      "https://images.unsplash.com/photo-1452457807411-4979b707c5be?w=800&q=80",
-      "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=800&q=80",
+      "/images/demo/qripto-chronicles.jpg",
+      "/images/demo/penny-digital.jpg",
+      "/images/demo/agentiq-tutorial.jpg",
     ];
     const fallbackImage = fallbackImages[Math.abs(hashString(content.id || content.title)) % fallbackImages.length];
-    const coverSrc = content.coverImageUri || fallbackImage;
+    const coverSrc = coverImageSrc || fallbackImage;
     return (
       <button
         onClick={() => onSelect?.(content)}
@@ -361,11 +374,11 @@ export default function SmartContentCard({
             </div>
           </div>
         </div>
-        {showProgress && progressPercentage > 0 && (
+        {showProgress && (
           <div className="mt-2 h-1 bg-black/30 rounded-full overflow-hidden">
             <div
               className="h-full bg-gradient-to-r from-fuchsia-500 to-purple-500"
-              style={{ width: `${progressPercentage}%` }}
+              style={{ width: `${Math.max(0, Math.min(100, progressPercentage))}%` }}
             />
           </div>
         )}
@@ -418,9 +431,9 @@ export default function SmartContentCard({
         className="group w-full text-left"
       >
         <div className="aspect-[16/10] rounded-lg bg-black/30 overflow-hidden ring-1 ring-white/10 group-hover:ring-cyan-500/50 transition-all">
-          {content.coverImageUri && (
+          {coverImageSrc && (
             <img
-              src={content.coverImageUri}
+              src={coverImageSrc}
               alt={content.title}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             />
@@ -446,9 +459,9 @@ export default function SmartContentCard({
         className="group w-full text-left"
       >
         <div className="aspect-square rounded-lg bg-black/30 overflow-hidden ring-2 ring-cyan-500/30 group-hover:ring-cyan-500/60 transition-all relative">
-          {content.coverImageUri && (
+          {coverImageSrc && (
             <img
-              src={content.coverImageUri}
+              src={coverImageSrc}
               alt={content.title}
               className="w-full h-full object-cover"
             />
@@ -495,9 +508,9 @@ export default function SmartContentCard({
         onClick={() => onSelect?.(content)}
         className="group aspect-square rounded-md bg-black/30 overflow-hidden ring-2 ring-cyan-500/40 hover:ring-cyan-400 transition-all relative"
       >
-        {content.coverImageUri && (
+        {coverImageSrc && (
           <img
-            src={content.coverImageUri}
+            src={coverImageSrc}
             alt={content.title}
             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
           />
@@ -524,9 +537,9 @@ export default function SmartContentCard({
         onClick={() => onSelect?.(content)}
         className="group aspect-[3/2] rounded-md bg-black/30 overflow-hidden ring-2 ring-cyan-500/40 hover:ring-cyan-400 transition-all relative"
       >
-        {content.coverImageUri && (
+        {coverImageSrc && (
           <img
-            src={content.coverImageUri}
+            src={coverImageSrc}
             alt={content.title}
             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
           />
@@ -555,9 +568,9 @@ export default function SmartContentCard({
         className="group w-full text-left"
       >
         <div className="aspect-[2/3] rounded-xl bg-black/30 overflow-hidden ring-1 ring-white/10 group-hover:ring-cyan-500/50 transition-all relative flex items-center justify-center">
-          {content.coverImageUri && (
+          {coverImageSrc && (
             <img
-              src={content.coverImageUri}
+              src={coverImageSrc}
               alt={content.title}
               className="max-w-full max-h-full object-contain"
             />
@@ -591,9 +604,9 @@ export default function SmartContentCard({
         className="group w-full text-left"
       >
         <div className="aspect-[3/4] rounded-xl bg-black/30 overflow-hidden ring-1 ring-white/10 group-hover:ring-fuchsia-500/50 transition-all relative">
-          {content.coverImageUri && (
+          {coverImageSrc && (
             <img
-              src={content.coverImageUri}
+              src={coverImageSrc}
               alt={content.title}
               className="w-full h-full object-cover"
             />
@@ -655,9 +668,9 @@ export default function SmartContentCard({
           onClick={() => onSelect?.(content)}
           className="aspect-video relative group"
         >
-          {content.coverImageUri && (
+          {coverImageSrc && (
             <img
-              src={content.coverImageUri}
+              src={coverImageSrc}
               alt={content.title}
               className="w-full h-full object-cover"
             />
@@ -767,9 +780,9 @@ export default function SmartContentCard({
             />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center">
-              {content.coverImageUri ? (
+              {coverImageSrc ? (
                 <img
-                  src={content.coverImageUri}
+                  src={coverImageSrc}
                   alt={content.title}
                   className="w-full h-full object-cover opacity-50"
                 />
@@ -824,9 +837,9 @@ export default function SmartContentCard({
         className="group w-full text-left"
       >
         <div className="aspect-[3/4] rounded-xl bg-black/30 overflow-hidden ring-1 ring-white/10 relative">
-          {content.coverImageUri && (
+          {coverImageSrc && (
             <img
-              src={content.coverImageUri}
+              src={coverImageSrc}
               alt={content.title}
               className="w-full h-full object-cover"
             />
@@ -866,9 +879,9 @@ export default function SmartContentCard({
         className="group w-full text-left"
       >
         <div className="aspect-[3/4] rounded-xl bg-black/30 overflow-hidden ring-1 ring-white/10 relative">
-          {content.coverImageUri && (
+          {coverImageSrc && (
             <img
-              src={content.coverImageUri}
+              src={coverImageSrc}
               alt={content.title}
               className="w-full h-full object-cover"
             />
@@ -908,9 +921,9 @@ export default function SmartContentCard({
             />
           ) : (
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              {content.coverImageUri && (
+              {coverImageSrc && (
                 <img
-                  src={content.coverImageUri}
+                  src={coverImageSrc}
                   alt={content.title}
                   className="w-full h-full object-cover"
                 />
@@ -937,9 +950,9 @@ export default function SmartContentCard({
           className="w-full text-left"
         >
           <div className="aspect-[4/3] rounded-b-xl bg-black/30 overflow-hidden ring-1 ring-white/10 relative">
-            {content.coverImageUri && (
+            {coverImageSrc && (
               <img
-                src={content.coverImageUri}
+                src={coverImageSrc}
                 alt={content.title}
                 className="w-full h-full object-cover"
               />
@@ -963,9 +976,9 @@ export default function SmartContentCard({
       >
         {/* Image */}
         <div className="aspect-[16/10] relative">
-          {content.coverImageUri && (
+          {coverImageSrc && (
             <img
-              src={content.coverImageUri}
+              src={coverImageSrc}
               alt={content.title}
               className="w-full h-full object-cover"
             />
@@ -1006,9 +1019,9 @@ export default function SmartContentCard({
       >
         {/* 2/3 height = aspect-[3/2] instead of square */}
         <div className="aspect-[3/2] rounded-lg bg-black/30 overflow-hidden ring-1 ring-white/10 relative">
-          {content.coverImageUri && (
+          {coverImageSrc && (
             <img
-              src={content.coverImageUri}
+              src={coverImageSrc}
               alt={content.title}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             />
@@ -1037,9 +1050,9 @@ export default function SmartContentCard({
         className="group w-full text-left"
       >
         <div className="aspect-[21/9] rounded-xl bg-black/30 overflow-hidden ring-1 ring-white/10 relative">
-          {content.coverImageUri && (
+          {coverImageSrc && (
             <img
-              src={content.coverImageUri}
+              src={coverImageSrc}
               alt={content.title}
               className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-500"
             />
@@ -1071,10 +1084,10 @@ export default function SmartContentCard({
       <div
         className={`rounded-xl bg-gradient-to-br ${appColor} ring-1 ring-white/10 overflow-hidden`}
       >
-        {content.coverImageUri && (
+        {coverImageSrc && (
           <div className="aspect-video bg-black/30 relative">
             <img
-              src={content.coverImageUri}
+              src={coverImageSrc}
               alt={content.title}
               className="w-full h-full object-cover"
             />
@@ -1157,10 +1170,10 @@ export default function SmartContentCard({
         onClick={() => onSelect?.(content)}
         className="w-full text-left"
       >
-        {content.coverImageUri && (
+        {coverImageSrc && (
           <div className="aspect-[4/3] bg-black/30 relative">
             <img
-              src={content.coverImageUri}
+              src={coverImageSrc}
               alt={content.title}
               className="w-full h-full object-cover"
             />

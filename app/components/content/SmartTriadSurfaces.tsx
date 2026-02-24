@@ -3,6 +3,7 @@
 import React from "react";
 import ContentViewer from "./ContentViewer";
 import SmartWalletDrawer from "./SmartWalletDrawer";
+import { CopilotWalletDrawer } from "@/app/triad/components/codex/wallet/CopilotWalletDrawer";
 import { useSmartTriad } from "./SmartTriadProvider";
 import { agentConfigs } from "@/app/data/agentConfig";
 import { MoneyPennyChat } from "@/app/(shell)/moneypenny/components/MoneyPennyChat";
@@ -143,8 +144,35 @@ export function SmartTriadSurfaces({ personaId }: SmartTriadSurfacesProps) {
       {renderCodexDrawer()}
       {renderKnytDrawer()}
 
+      {/* Liquid UI SmartWallet - for card-based flows */}
+      <CopilotWalletDrawer
+        isOpen={state.walletOpen && state.walletMode === "compact"}
+        onClose={() => actions.closeWallet()}
+        mode={state.walletDrawerMode}
+        walletUI={state.walletUI}
+        device="desktop"
+        balance={12500} // TODO: Get from wallet service
+        spendableBalance={12000}
+        pendingRewards={[
+          { id: "reward_1", amount: 40, source: "Reading Sprint" }
+        ]}
+        onClaimReward={(rewardId) => {
+          console.log("Claim reward:", rewardId);
+          // TODO: Implement reward claim
+        }}
+        onUnlock={(contentId) => {
+          console.log("Unlock content:", contentId);
+          // TODO: Implement content unlock
+        }}
+        onConfirmAction={(actionId) => {
+          console.log("Confirm action:", actionId);
+          // TODO: Implement action confirmation
+        }}
+      />
+
+      {/* Layered SmartWallet - for full wallet management */}
       <SmartWalletDrawer
-        open={state.walletOpen}
+        open={state.walletOpen && state.walletMode === "full"}
         onClose={() => actions.closeWallet()}
         agent={{
           id: payer.id,

@@ -23,7 +23,7 @@ export default async (request: Request, context: Context) => {
 
   // 2. Replace CSP with one that allows Lovable
   const cspValue =
-    "frame-ancestors 'self' https://preview--qriptopian.lovable.app https://qriptopian.lovable.app;";
+    "frame-ancestors 'self' https://preview--qriptopian.lovable.app https://qriptopian.lovable.app https://*.lovable.app https://*.lovable.dev https://*.lovableproject.com https://*.aigentz.me;";
 
   headers.set("content-security-policy", cspValue);
   headers.set("Content-Security-Policy", cspValue);

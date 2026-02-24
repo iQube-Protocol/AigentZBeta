@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getCallerAuthProfileId } from '@/services/wallet/personaRepo';
+import { getMergedLinkedAuthProfileIds, getPersonaPrefs } from '@/services/wallet/multiEmailIdentity';
 
 export const dynamic = 'force-dynamic';
 
@@ -8,6 +9,49 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || '',
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 );
+
+type PersonaRow = {
+  id: string;
+  tenant_id: string;
+  auth_profile_id: string | null;
+  display_name: string;
+  avatar_uri: string | null;
+  fio_handle: string;
+  fio_domain: string | null;
+  discoverable_within_tenant: boolean | null;
+  reputation_score: number | null;
+  reputation_bucket: number | null;
+  badges: string[] | null;
+  default_identity_state: string | null;
+  world_id_status: string | null;
+  app_origin: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+};
+
+type UserIQubeGrant = {
+  personaId?: string;
+  tenantId?: string;
+  role?: 'owner' | 'operator' | 'viewer';
+  active?: boolean;
+};
+
+type UserIQubeRow = {
+  auth_profile_id: string;
+  allowed_tenant_ids: string[] | null;
+  persona_grants: UserIQubeGrant[] | null;
+  status: string;
+};
+
+const personaSelect =
+  'id,tenant_id,auth_profile_id,display_name,avatar_uri,fio_handle,fio_domain,discoverable_within_tenant,reputation_score,reputation_bucket,badges,default_identity_state,world_id_status,app_origin,status,created_at,updated_at';
+
+function dedupeById(rows: PersonaRow[]): PersonaRow[] {
+  const byId = new Map<string, PersonaRow>();
+  for (const row of rows) byId.set(row.id, row);
+  return Array.from(byId.values()).sort((a, b) => (a.created_at > b.created_at ? -1 : 1));
+}
 
 function toOwnerSafePersona(record: any) {
   return {
@@ -41,19 +85,74 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const tenantId = searchParams.get('tenantId');
 
-    let query = supabase
-      .from('personas')
-      .select(
-        'id,tenant_id,auth_profile_id,display_name,avatar_uri,fio_handle,fio_domain,discoverable_within_tenant,reputation_score,reputation_bucket,badges,default_identity_state,world_id_status,app_origin,status,created_at,updated_at'
-      )
-      .eq('auth_profile_id', callerAuthProfileId);
+    const { data: iqubeData } = await supabase
+      .from('user_iqubes')
+      .select('auth_profile_id,allowed_tenant_ids,persona_grants,status')
+      .eq('auth_profile_id', callerAuthProfileId)
+      .eq('status', 'active')
+      .maybeSingle();
 
-    if (tenantId) query = query.eq('tenant_id', tenantId);
+    const iqube = (iqubeData as UserIQubeRow | null) ?? null;
+    const allowedTenantIds = new Set((iqube?.allowed_tenant_ids || []).filter(Boolean));
+    const activeGrants = (iqube?.persona_grants || []).filter((grant) => grant?.active !== false);
+    const grantedPersonaIds = Array.from(
+      new Set(activeGrants.map((grant) => grant.personaId).filter((id): id is string => !!id))
+    );
 
-    const { data, error } = await query.order('created_at', { ascending: false });
-    if (error) return NextResponse.json({ error: 'Failed to fetch personas' }, { status: 500 });
+    if (tenantId && allowedTenantIds.size > 0 && !allowedTenantIds.has(tenantId)) {
+      return NextResponse.json([]);
+    }
 
-    return NextResponse.json((data || []).map(toOwnerSafePersona));
+    const linkedAuthProfileIds = await getMergedLinkedAuthProfileIds(callerAuthProfileId);
+    const visibleAuthProfileIds = Array.from(new Set([callerAuthProfileId, ...linkedAuthProfileIds]));
+
+    let ownerQuery = supabase.from('personas').select(personaSelect);
+    if (visibleAuthProfileIds.length === 1) {
+      ownerQuery = ownerQuery.eq('auth_profile_id', visibleAuthProfileIds[0]);
+    } else {
+      ownerQuery = ownerQuery.in('auth_profile_id', visibleAuthProfileIds);
+    }
+    if (tenantId) ownerQuery = ownerQuery.eq('tenant_id', tenantId);
+
+    const { data: ownerRows, error: ownerError } = await ownerQuery;
+    if (ownerError) {
+      return NextResponse.json({ error: 'Failed to fetch owner personas' }, { status: 500 });
+    }
+
+    let grantRows: PersonaRow[] = [];
+    if (grantedPersonaIds.length > 0) {
+      let grantQuery = supabase
+        .from('personas')
+        .select(personaSelect)
+        .in('id', grantedPersonaIds);
+
+      if (tenantId) {
+        grantQuery = grantQuery.eq('tenant_id', tenantId);
+      } else if (allowedTenantIds.size > 0) {
+        grantQuery = grantQuery.in('tenant_id', Array.from(allowedTenantIds));
+      }
+
+      const { data, error } = await grantQuery;
+      if (error) {
+        return NextResponse.json({ error: 'Failed to fetch granted personas' }, { status: 500 });
+      }
+      grantRows = (data || []) as PersonaRow[];
+    }
+
+    const prefRows = await getPersonaPrefs(callerAuthProfileId);
+    const deniedPersonaIds = new Set(
+      prefRows.filter((row: any) => row?.access_mode === 'deny').map((row: any) => String(row.persona_id))
+    );
+    const allowedPersonaIds = new Set(
+      prefRows.filter((row: any) => row?.access_mode === 'allow').map((row: any) => String(row.persona_id))
+    );
+
+    const merged = dedupeById([...((ownerRows || []) as PersonaRow[]), ...grantRows]).filter((row) => {
+      if (deniedPersonaIds.has(row.id)) return false;
+      if (allowedPersonaIds.size === 0) return true;
+      return allowedPersonaIds.has(row.id) || row.auth_profile_id === callerAuthProfileId;
+    });
+    return NextResponse.json(merged.map(toOwnerSafePersona));
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Unknown error' },

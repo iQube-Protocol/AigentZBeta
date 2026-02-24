@@ -75,10 +75,26 @@ export interface ValidationRule {
   severity: 'error' | 'warning' | 'info';
 }
 
+export interface ExperienceMetrics {
+  primary: {
+    metric: string;
+    target: string;
+    measurement: string;
+  };
+  secondary: Array<{
+    metric: string;
+    target: string;
+    measurement: string;
+  }>;
+}
+
 export interface ExperienceQube {
   id: string;
   name: string;
-  description: string;
+  description: string;              // RESTORED: contextual description
+  goal: string;                    // NEW: contextual purpose
+  mechanics: string;               // NEW: experience mechanics
+  metrics: string;                 // NEW: success metrics
   tenant_id: string;
   creator_id: string;
   template_id: string;
@@ -89,8 +105,8 @@ export interface ExperienceQube {
     created_at: string;
     updated_at: string;
     version: string;
-    tags: string[];
     category: string;
+    // REMOVED: tags: string[]
   };
   execution: {
     auto_start: boolean;
@@ -228,7 +244,7 @@ export class ComposerService {
     const template = await this.getTemplate(params.template_id);
     
     if (!template) {
-      throw new Error('Template not found');
+      throw new Error(`Template ${params.template_id} not found`);
     }
 
     const now = new Date().toISOString();
@@ -237,6 +253,9 @@ export class ComposerService {
       id: experienceId,
       name: params.name,
       description: params.description,
+      goal: params.configuration?.goal || params.description, // Use description as fallback
+      mechanics: params.configuration?.mechanics || 'Interactive experience with guided steps',
+      metrics: params.configuration?.metrics || 'Engagement and completion metrics',
       tenant_id: params.tenant_id,
       creator_id: params.creator_id,
       template_id: params.template_id,
@@ -249,7 +268,7 @@ export class ComposerService {
         version: '1.0.0',
         tags: template.tags,
         category: template.category,
-      },
+      } as any,
       execution: {
         auto_start: false,
         retry_policy: 'none',

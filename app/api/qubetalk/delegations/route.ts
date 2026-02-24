@@ -116,16 +116,36 @@ export async function POST(request: NextRequest) {
 
     // Create receipt for delegation
     try {
-      await receiptService.createSmartTriadReceipt({
-        component: 'qubetalk',
-        action: 'create_delegation',
+      await receiptService.createQubeTalkReceipt({
+        delegationId: delegation.delegation_id,
+        fromAgent: body.from_agent,
+        toAgent: body.to_agent,
+        taskCompleted: `Delegation created: ${body.task.type}`,
         tenantId: body.tenant_id,
-        result: {
+        resultData: {
           delegationId: delegation.delegation_id,
           requestId: body.request_id,
           fromAgent: body.from_agent.id,
           toAgent: body.to_agent.id,
           status: delegation.status,
+        },
+        policyContext: {
+          tenantId: body.tenant_id,
+          personaId:
+            typeof body.context?.session_context?.persona_id === 'string'
+              ? body.context.session_context.persona_id
+              : undefined,
+          rootDid:
+            typeof body.context?.tenant_context?.root_did === 'string'
+              ? body.context.tenant_context.root_did
+              : undefined,
+          policyTags: Array.isArray(body.context?.tenant_context?.policy_tags)
+            ? body.context.tenant_context.policy_tags
+            : ['public_ok'],
+          iqubeRefs: Array.isArray(body.context?.user_iq_refs) ? body.context.user_iq_refs : [],
+          requiredIQubes: Array.isArray(body.task?.iqube_refs) ? body.task.iqube_refs : [],
+          requiresVerifiedPersona: body.constraints?.risk_tier === 'high',
+          requiresRootDid: Boolean(body.context?.tenant_context?.requires_root_did),
         },
       });
     } catch (error) {

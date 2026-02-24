@@ -197,7 +197,7 @@ export default function SmartDrawerDemoPage() {
   }
 
   return (
-    <div className="fixed inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white overflow-hidden">
+    <div className="min-h-[calc(100vh-7rem)] rounded-2xl border border-white/10 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white overflow-hidden">
       <header className="border-b border-white/10 bg-black/20 backdrop-blur-xl sticky top-0 z-40">
         <div className="max-w-[1800px] mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -272,7 +272,7 @@ export default function SmartDrawerDemoPage() {
         </div>
       )}
 
-      <main className="h-[calc(100vh-80px)] overflow-hidden">
+      <main className="h-[calc(100vh-14rem)] overflow-hidden">
         <ResizableLayout
           leftPanel={
             <>

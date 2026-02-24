@@ -8,7 +8,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Loader2, BookOpen, Play, Lock, Check, Sparkles, Coins, ShoppingCart, AlertTriangle, RefreshCw, LogIn, FileText, Cpu, Globe, Shield, Scroll, ArrowLeft, User, Zap } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -208,13 +208,16 @@ import type {
 // Content viewers
 import { PDFPageViewer } from "@/app/triad/components/content/PDFPageViewer";
 import { PDFLiteReaderModal } from "@/app/triad/components/content/PDFLiteReaderModal";
-import { VideoPlayer } from "@/app/triad/components/content/VideoPlayer";
+import { VideoPlayer, type VideoSegment } from "@/app/triad/components/content/VideoPlayer";
 import { VideoErrorBoundary } from "@/app/triad/components/content/VideoErrorBoundary";
 import { LoreTextReader } from "@/app/triad/components/content/LoreTextReader";
 import { ContentPurchaseModal, type ContentType } from "@/app/triad/components/content/ContentPurchaseModal";
 import { KnytCardsGrid } from "@/app/triad/components/content/KnytCardsGrid";
 import { CoverImage } from "@/app/triad/components/content/CoverImage";
+import SmartWalletDrawer from "@/app/components/content/SmartWalletDrawer";
+import { CodexCopilotLayer, type CopilotMessage } from "@/app/components/codex/CodexCopilotLayer";
 import { getImageLoaderStats } from "@/app/utils/image-loader";
+import type { SmartContentQube } from "@/types/smartContent";
 
 // API and data
 import { API_BASE_URL } from "@/app/config/api";
@@ -225,6 +228,8 @@ interface KnytTabProps {
   density?: 'narrow' | 'wide';
   personaId?: string;
   issueSlug?: string;
+  tabSlug?: string;
+  forcedDevice?: DeviceType;
 }
 
 // Types for content transformation (ported from Qriptopian)
@@ -261,6 +266,7 @@ interface EpisodeFromAPI {
   printEpicLiteUrl?: string;
   printLegendaryLiteUrl?: string;
   motionMasterCid?: string;
+  motionMasterId?: string;
   availableCovers?: number;
   coverCount: number;
   characterCount: number;
@@ -287,12 +293,108 @@ interface CharacterFromAPI {
   rarity?: string;
 }
 
+interface KnytCardsApiCharacter {
+  id: string;
+  title?: string;
+  episodeNumber?: number | null;
+  assetKind?: 'character_poster' | 'powers_sheet';
+  autoDriveCid?: string;
+  characterId?: string;
+  characterName?: string;
+  digiterraName?: string;
+}
+
+type KnytTabSlug = 'codex' | 'scrolls' | 'characters' | 'lore' | 'digiterra' | 'terra' | 'order';
+
+const KNYT_TAB_SLUGS = new Set<KnytTabSlug>([
+  'codex',
+  'scrolls',
+  'characters',
+  'lore',
+  'digiterra',
+  'terra',
+  'order',
+]);
+
+function isKnytTabSlug(value: string): value is KnytTabSlug {
+  return KNYT_TAB_SLUGS.has(value as KnytTabSlug);
+}
+
 const PREORDER_VARIANTS = [
   { id: 'legendary', label: 'Legendary (#-4)', priceUsd: 2100, tone: 'text-amber-400' },
   { id: 'epic', label: 'Epic (#-3)', priceUsd: 186, tone: 'text-blue-400' },
   { id: 'rare', label: 'Rare (#-2)', priceUsd: 86, tone: 'text-green-400' },
   { id: 'common', label: 'Common (#-1)', priceUsd: 68, tone: 'text-gray-400' },
 ];
+
+const PREORDER_CONTENT_VARIANTS = [
+  { id: 'legendary', subtitle: 'Episode #-4', title: 'Episode -1 Preorder Drop (Legendary)', priceKnyt: 1500 },
+  { id: 'epic', subtitle: 'Episode #-3', title: 'Episode -1 Preorder Drop (Epic)', priceKnyt: 133 },
+  { id: 'rare', subtitle: 'Episode #-2', title: 'Episode -1 Preorder Drop (Rare)', priceKnyt: 61 },
+  { id: 'common', subtitle: 'Episode #-1', title: 'Episode -1 Preorder Drop (Common)', priceKnyt: 49 },
+] as const;
+
+const KNYT_CONTENT_CACHE_KEY = "codex:knyt:content:v2";
+const KNYT_EPISODES_CACHE_KEY = "codex:knyt:episodes";
+const KNYT_SESSION_CACHE_KEY = "codex:knyt:session:v1";
+const KNYT_SESSION_CACHE_TTL_MS = 30 * 60 * 1000;
+
+type KnytSessionSnapshot = {
+  version: 1;
+  cachedAt: number;
+  contentItems: KnytContentItem[];
+  episodesCatalog: EpisodeFromAPI[];
+};
+
+function readKnytSessionSnapshot(): KnytSessionSnapshot | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.sessionStorage.getItem(KNYT_SESSION_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<KnytSessionSnapshot>;
+    if (parsed.version !== 1 || !Array.isArray(parsed.contentItems) || !Array.isArray(parsed.episodesCatalog)) {
+      return null;
+    }
+    const cachedAt = typeof parsed.cachedAt === 'number' ? parsed.cachedAt : 0;
+    if (!cachedAt || Date.now() - cachedAt > KNYT_SESSION_CACHE_TTL_MS) {
+      window.sessionStorage.removeItem(KNYT_SESSION_CACHE_KEY);
+      return null;
+    }
+    return {
+      version: 1,
+      cachedAt,
+      contentItems: parsed.contentItems as KnytContentItem[],
+      episodesCatalog: parsed.episodesCatalog as EpisodeFromAPI[],
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeKnytSessionSnapshot(contentItems: KnytContentItem[], episodesCatalog: EpisodeFromAPI[]) {
+  if (typeof window === 'undefined') return;
+  try {
+    const snapshot: KnytSessionSnapshot = {
+      version: 1,
+      cachedAt: Date.now(),
+      contentItems,
+      episodesCatalog,
+    };
+    window.sessionStorage.setItem(KNYT_SESSION_CACHE_KEY, JSON.stringify(snapshot));
+  } catch {
+    // Ignore storage quota/serialization failures.
+  }
+}
+
+function createCodexCopilotWelcomeMessage(): CopilotMessage {
+  return {
+    id: 'knyt-copilot-welcome',
+    role: 'assistant',
+    content:
+      'KNYT Copilot is ready. Ask for summaries, compare editions, or request checkout guidance for the selected item.',
+    timestamp: new Date(0),
+  };
+}
 
 function getAuthProfileIdFromStorage(): string | null {
   if (typeof window === 'undefined') return null;
@@ -305,7 +407,18 @@ function getAuthProfileIdFromStorage(): string | null {
   );
 }
 
-export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTabProps) {
+function parseAdminAllowlist(raw: string | undefined): Set<string> {
+  const defaults = ['admin', 'aigent-kn0w1', 'aigentz', 'aigentz@aigent:u_demo'];
+  const values = raw
+    ? raw
+        .split(',')
+        .map((value) => value.trim().toLowerCase())
+        .filter(Boolean)
+    : defaults;
+  return new Set(values);
+}
+
+export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, forcedDevice }: KnytTabProps) {
   // Real-time ETH pricing (exact from Netlify app)
   const { ethPriceUsd, knytPriceUsd, knytEthRate } = useEthPrice();
   
@@ -324,9 +437,38 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
   // SmartTriad integration
   const { state: triadState, actions: triadActions } = useSmartTriad();
   
+  const resolvedInitialTab = useMemo<KnytTabSlug>(() => {
+    const normalized = (tabSlug || 'codex').toLowerCase();
+    switch (normalized) {
+      case 'scrolls':
+      case 'characters':
+      case 'lore':
+      case 'digiterra':
+      case 'terra':
+      case 'order':
+      case 'codex':
+        return normalized;
+      default:
+        return 'codex';
+    }
+  }, [tabSlug]);
+
   // Legacy state for cards/purchases (maintained for compatibility)
-  const [activeTab, setActiveTab] = useState("codex");
+  const [activeTab, setActiveTab] = useState<KnytTabSlug>(resolvedInitialTab);
+  const isExternallyScopedTab = Boolean(tabSlug);
+  const isLegacyFallbackTab = activeTab !== 'codex';
+  const showLegacyFallbackUI = false;
   const [purchaseModalOpen, setPurchaseModalOpen] = useState(false);
+
+  useEffect(() => {
+    setActiveTab(resolvedInitialTab);
+  }, [resolvedInitialTab]);
+
+  const handleLegacyTabChange = useCallback((value: string) => {
+    if (isKnytTabSlug(value)) {
+      setActiveTab(value);
+    }
+  }, []);
   
   // Character detail page state
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
@@ -362,7 +504,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
   
   // Liquid UI state (ported from CodexLiquidUITab)
   const service = useMemo(() => getKnytLiquidUIService(), []);
-  const [device, setDevice] = useState<DeviceType>(() => KnytLiquidUIService.getDeviceType());
+  const [device, setDevice] = useState<DeviceType>(() => forcedDevice || KnytLiquidUIService.getDeviceType());
   const [templateResult, setTemplateResult] = useState<TemplateSelectionResult | null>(null);
   const [userIntent, setUserIntent] = useState<UserIntent>('browse');
   const [contentItems, setContentItems] = useState<KnytContentItem[]>([]);
@@ -382,7 +524,12 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
   const [currentPdfLiteUrl, setCurrentPdfLiteUrl] = useState<string | null>(null);
   const [currentPdfTitle, setCurrentPdfTitle] = useState('');
   const [currentVideoCid, setCurrentVideoCid] = useState<string | null>(null);
+  const [currentVideoUrl, setCurrentVideoUrl] = useState<string | null>(null);
   const [currentVideoTitle, setCurrentVideoTitle] = useState('');
+  const [currentVideoSegments, setCurrentVideoSegments] = useState<VideoSegment[]>([]);
+  const [currentVideoSegmentIndex, setCurrentVideoSegmentIndex] = useState(0);
+  const [currentVideoUseDirectStream, setCurrentVideoUseDirectStream] = useState(false);
+  const episodeSegmentsCacheRef = useRef<Map<string, VideoSegment[]>>(new Map());
   const [textReaderOpen, setTextReaderOpen] = useState(false);
   const [currentText, setCurrentText] = useState<{ title: string; content: string } | null>(null);
   const [purchaseContent, setPurchaseContent] = useState<{
@@ -396,6 +543,14 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
   
   // Wallet drawer state
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const handleOpenWallet = useCallback((_mode: 'signin' | 'signup') => {
+    setDrawerOpen(true);
+  }, []);
+  const [codexCopilotOpen, setCodexCopilotOpen] = useState(false);
+  const [codexCopilotMessages, setCodexCopilotMessages] = useState<CopilotMessage[]>(() => [
+    createCodexCopilotWelcomeMessage(),
+  ]);
+  const lastCopilotContextRef = useRef<string | null>(null);
   
   // Quest/Task state
   const [taskData, setTaskData] = useState({
@@ -415,12 +570,39 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
   const [copilotMode, setCopilotMode] = useState<CopilotOverlayMode>('overlay');
   
   const { toast } = useToast();
+  const effectivePersonaId = useMemo(() => {
+    const candidates = [personaId, activePersonaId, personas[0]?.id];
+    for (const candidate of candidates) {
+      if (typeof candidate !== 'string') continue;
+      const trimmed = candidate.trim();
+      if (!trimmed || trimmed === 'default' || trimmed === 'guest') continue;
+      return trimmed;
+    }
+    return undefined;
+  }, [personaId, activePersonaId, personas]);
   
   // KNYT balance and cards data
-  const { balance, spendableBalance, refreshBalance } = useKnytBalance(personaId);
-  const { groups, loading: cardsLoading, error: cardsError, refreshCards } = useKnytCards();
-  const { ownedCharacters, refreshPurchases } = useKnytPurchases(personaId);
-  const isSignedIn = !!personaId && personaId !== 'default' && personaId !== 'guest';
+  const { balance, spendableBalance, refreshBalance } = useKnytBalance(effectivePersonaId);
+  const { groups, loading: cardsLoading, error: cardsError, refreshCards } = useKnytCards({
+    enabled: activeTab === 'characters' || showLegacyFallbackUI,
+  });
+  const { ownedCharacters, refreshPurchases } = useKnytPurchases(effectivePersonaId);
+  const isSignedIn = !!effectivePersonaId;
+  const showLayoutPreviewControls = useMemo(() => {
+    const allowlist = parseAdminAllowlist(process.env.NEXT_PUBLIC_KNYT_LAYOUT_PREVIEW_ADMINS);
+    const forceFromEnv = process.env.NEXT_PUBLIC_KNYT_LAYOUT_PREVIEW_ENABLED === 'true';
+    if (forceFromEnv) return true;
+
+    const candidates: string[] = [
+      effectivePersonaId || '',
+      personaId || '',
+      activePersonaId || '',
+      ...personas.map((persona) => persona.id || ''),
+      ...personas.map((persona) => persona.fioHandle || ''),
+      ...personas.map((persona) => persona.displayName || ''),
+    ];
+    return candidates.some((candidate) => allowlist.has(candidate.toLowerCase()));
+  }, [effectivePersonaId, personaId, activePersonaId, personas]);
   const filteredDVNEvents = useMemo(() => {
     return dvnEvents.filter((event) => {
       if (dvnStatusFilter === 'confirmed' && event.event !== 'PaymentConfirmed') {
@@ -450,9 +632,40 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
     }
   }, []);
 
+  const normalizeVideoSource = useCallback((raw?: string | null): { cid?: string; url?: string } => {
+    if (!raw) return {};
+    const value = raw.trim();
+    if (!value) return {};
+
+    const routeMatch = value.match(/\/api\/content\/video\/([^/?#]+)/i);
+    if (routeMatch?.[1]) {
+      return { cid: decodeURIComponent(routeMatch[1]), url: value };
+    }
+
+    const cidParam = value.match(/[?&]cid=([^&#]+)/i);
+    if (cidParam?.[1]) {
+      return { cid: decodeURIComponent(cidParam[1]), url: value };
+    }
+
+    if (value.startsWith('/') || /^https?:\/\//i.test(value)) {
+      return { url: value };
+    }
+
+    return { cid: value };
+  }, []);
+
+  const getVideoPlaybackUrl = useCallback((source?: string | null) => {
+    if (!source) return null;
+    if (source.startsWith('/') || /^https?:\/\//i.test(source)) {
+      return source;
+    }
+    return `/api/content/video/${encodeURIComponent(source)}`;
+  }, []);
+
   // Content transformation functions (ported from CodexLiquidUITab)
   const transformEpisodesToContentItems = useCallback((episodes: EpisodeFromAPI[]): KnytContentItem[] => {
     const items: KnytContentItem[] = [];
+    const preorderThumbCandidates: string[] = [];
     
     for (const ep of episodes) {
       // Skip episode 0 (placeholder)
@@ -461,9 +674,18 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
       const printCid = ep.printRareCid || ep.printEpicCid || ep.printLegendaryCid;
       const printLiteUrl = ep.printRareLiteUrl || ep.printEpicLiteUrl || ep.printLegendaryLiteUrl;
       const hasReadable = !!printCid;
-      // Hide watch for episodes without compressed video (Episode #0 = ep1, Episode #2 = ep3)
-      const hideWatchEpisodes = [1, 3];
-      const hasWatchable = ep.hasMotionMaster && !!ep.motionMasterCid && !hideWatchEpisodes.includes(ep.episodeNumber);
+      const hasCover = !!(ep.coverThumbUrl || ep.coverImageCid);
+      const coverThumb =
+        ep.coverThumbUrl ||
+        (ep.coverImageCid ? `${API_BASE_URL}/api/content/cover/${ep.coverImageCid}?variant=thumb` : undefined);
+      if (hasCover && coverThumb) preorderThumbCandidates.push(coverThumb);
+      const motionSource = normalizeVideoSource(
+        ep.motionMasterCid ||
+        (ep as EpisodeFromAPI & { motionMasterUrl?: string; motionMasterPath?: string }).motionMasterUrl ||
+        (ep as EpisodeFromAPI & { motionMasterUrl?: string; motionMasterPath?: string }).motionMasterPath ||
+        null
+      );
+      const hasWatchable = ep.hasMotionMaster && Boolean(motionSource.cid || motionSource.url);
       
       // Add as comic page (portrait) if has print
       if (hasReadable) {
@@ -472,10 +694,12 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
           type: 'comic_page_portrait',
           title: ep.title || `Episode ${ep.displayNumber}`,
           subtitle: `Episode ${ep.displayNumber}`,
-          thumbnail: ep.coverThumbUrl || (ep.coverImageCid ? `${API_BASE_URL}/api/content/cover/${ep.coverImageCid}?variant=thumb` : undefined),
+          thumbnail: coverThumb,
           media: { 
             pdf_cid: printCid,
             pdf_lite_url: printLiteUrl,
+            video_cid: motionSource.cid,
+            video_url: motionSource.url,
           },
           metadata: { 
             episodeNumber: ep.episodeNumber, 
@@ -485,7 +709,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
           },
           modalities: { 
             read: { available: true, cid: printCid },
-            watch: hasWatchable ? { available: true, cid: ep.motionMasterCid } : undefined,
+            watch: hasWatchable ? { available: true, cid: motionSource.cid, url: motionSource.url } : undefined,
           },
         });
       }
@@ -497,8 +721,8 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
           type: 'motion_comic_landscape',
           title: `${ep.title || `Episode ${ep.displayNumber}`} - Motion Comic`,
           subtitle: 'Motion Comic',
-          thumbnail: ep.coverImageCid ? `${API_BASE_URL}/api/content/cover/${ep.coverImageCid}?variant=thumb` : undefined,
-          media: { video_cid: ep.motionMasterCid },
+          thumbnail: coverThumb,
+          media: { video_cid: motionSource.cid, video_url: motionSource.url },
           metadata: { 
             episodeNumber: ep.episodeNumber, 
             owned: false, 
@@ -506,14 +730,67 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
             realm: 'digiterra' 
           },
           modalities: { 
-            watch: { available: true, cid: ep.motionMasterCid, duration: '~10 min' } 
+            watch: { available: true, cid: motionSource.cid, url: motionSource.url, duration: '~10 min' } 
           },
         });
       }
+
+      // Ensure preorder/cover-only episodes still render as cards.
+      if (!hasReadable && !hasWatchable && hasCover) {
+        items.push({
+          id: `mk_ep${String(ep.episodeNumber).padStart(2, '0')}`,
+          type: 'comic_cover_portrait',
+          title: ep.title || `Episode ${ep.displayNumber}`,
+          subtitle: `Episode ${ep.displayNumber}`,
+          thumbnail: coverThumb,
+          media: {
+            image_cid: ep.coverImageCid || undefined,
+          },
+          metadata: {
+            episodeNumber: ep.episodeNumber,
+            owned: false,
+            price: Number(ep.priceKnyt ?? 3),
+            realm: 'digiterra',
+          },
+          modalities: {},
+        });
+      }
+    }
+
+    // Backfill pre-order variants when API data is missing some (or all) tiers.
+    const existingVariants = new Set<string>();
+    for (const item of items) {
+      const title = item.title.toLowerCase();
+      if (title.includes('legendary')) existingVariants.add('legendary');
+      if (title.includes('epic')) existingVariants.add('epic');
+      if (title.includes('rare')) existingVariants.add('rare');
+      if (title.includes('common')) existingVariants.add('common');
+    }
+
+    const fallbackThumb = preorderThumbCandidates[0];
+    for (const variant of PREORDER_CONTENT_VARIANTS) {
+      if (existingVariants.has(variant.id)) continue;
+      items.push({
+        id: `metaKnyts_preorder_${variant.id}`,
+        type: 'comic_cover_portrait',
+        title: variant.title,
+        subtitle: variant.subtitle,
+        thumbnail: fallbackThumb,
+        media: {
+          image_cid: undefined,
+        },
+        metadata: {
+          episodeNumber: -1,
+          owned: false,
+          price: variant.priceKnyt,
+          realm: 'digiterra',
+        },
+        modalities: {},
+      });
     }
     
     return items;
-  }, []);
+  }, [normalizeVideoSource]);
 
   const transformCharactersToContentItems = useCallback((characters: CharacterFromAPI[]): KnytContentItem[] => {
     return characters.map(char => ({
@@ -536,31 +813,105 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
     }));
   }, []);
 
-  const transformLoreAssetsToContentItems = useCallback((assets: LoreAssetFromAPI[]): KnytContentItem[] => {
+  const transformLoreAssetsToContentItems = useCallback((
+    assets: LoreAssetFromAPI[],
+    episodeThumbs: Map<number, string>,
+    fallbackThumb?: string
+  ): KnytContentItem[] => {
     const synopsis = assets.find((asset) => /synopsis/i.test(asset.title));
     const sagaIntroIndex = assets.findIndex((asset) => /saga intro/i.test(asset.title));
     const curated = synopsis && sagaIntroIndex !== -1
       ? assets.filter((_, index) => index !== sagaIntroIndex)
       : assets;
 
-    return curated.map((asset) => ({
-      id: `lore_${asset.id}`,
-      type: 'lore_snippet',
-      title: asset.title,
-      subtitle: asset.asset_kind.replace(/_/g, ' '),
-      media: {
-        pdf_cid: asset.auto_drive_cid,
-        text: asset.extracted_text || undefined,
-      },
-      metadata: {
-        realm: 'terra',
-        modalities: asset.extracted_text ? { read: { text: asset.extracted_text } } : undefined,
-      },
-      modalities: {
-        read: { available: true, cid: asset.auto_drive_cid },
-      },
-    }));
+    return curated.map((asset) => {
+      const episodeMatch = asset.title.match(/(?:episode|e)\s*#?\s*(-?\d+)/i);
+      const episodeNumber = episodeMatch ? Number(episodeMatch[1]) : null;
+      const loreThumb =
+        (episodeNumber !== null ? episodeThumbs.get(episodeNumber) : undefined) ||
+        fallbackThumb;
+
+      return {
+        id: `lore_${asset.id}`,
+        type: 'lore_snippet',
+        title: asset.title,
+        subtitle: asset.asset_kind.replace(/_/g, ' '),
+        thumbnail: loreThumb,
+        media: {
+          pdf_cid: asset.auto_drive_cid,
+          text: asset.extracted_text || undefined,
+        },
+        metadata: {
+          realm: 'digiterra',
+          modalities: asset.extracted_text ? { read: { text: asset.extracted_text } } : undefined,
+          episodeNumber: episodeNumber ?? undefined,
+        },
+        modalities: {
+          read: { available: true, cid: asset.auto_drive_cid },
+        },
+      };
+    });
   }, []);
+
+  type SectionContentItem = {
+    id?: string;
+    content_id?: string;
+    title?: string;
+    excerpt?: string;
+    image?: string;
+    tags?: string[];
+    modalities?: {
+      read?: { available?: boolean; text?: string };
+      watch?: { available?: boolean; video_url?: string; duration?: string };
+    };
+  };
+
+  const transformSectionContentItems = useCallback((
+    items: SectionContentItem[],
+    options?: {
+      realm?: Realm;
+      subtitle?: string;
+      idPrefix?: string;
+    }
+  ): KnytContentItem[] => {
+    const realm = options?.realm ?? 'terra';
+    const subtitle = options?.subtitle ?? 'metaKnyts';
+    const idPrefix = options?.idPrefix ?? 'terra';
+
+    return items.map((item, index) => {
+      const videoSource = normalizeVideoSource(item.modalities?.watch?.video_url);
+      const videoDuration = item.modalities?.watch?.duration;
+
+      return {
+        id: `${idPrefix}_${item.content_id || item.id || index}`,
+        type: (videoSource.cid || videoSource.url) ? 'motion_comic_landscape' : 'terra_update',
+        title: item.title || 'metaKnyts update',
+        subtitle,
+        description: item.excerpt || undefined,
+        thumbnail: item.image || undefined,
+        media: {
+          text: item.modalities?.read?.text || item.excerpt || undefined,
+          video_cid: videoSource.cid,
+          video_url: videoSource.url,
+        },
+        metadata: {
+          realm,
+          tags: item.tags || [],
+        },
+        modalities: {
+          read: { available: true },
+          watch: (videoSource.cid || videoSource.url)
+            ? {
+                available: true,
+                cid: videoSource.cid,
+                url: videoSource.url,
+                duration: videoDuration,
+              }
+            : undefined,
+        },
+      };
+    });
+  }, [normalizeVideoSource]);
 
   const transformIssuePackageMetaKnytsToContentItems = useCallback((): KnytContentItem[] => {
     try {
@@ -631,7 +982,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
   // Content fetching function (ported from CodexLiquidUITab)
   const fetchCodexContent = useCallback(async (): Promise<KnytContentItem[]> => {
     return getCachedOrFetch<KnytContentItem[]>(
-      "codex:knyt:content",
+      KNYT_CONTENT_CACHE_KEY,
       async () => {
         const apiBase = API_BASE_URL;
         try {
@@ -654,8 +1005,22 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
           
           if (charactersRes.ok) {
             const data = await charactersRes.json();
-            if (data.characters) {
-              characterItems = transformCharactersToContentItems(data.characters);
+            const normalizedCharacters: CharacterFromAPI[] = Array.isArray(data.characters)
+              ? data.characters
+              : Array.isArray(data.cards)
+                ? (data.cards as KnytCardsApiCharacter[])
+                    .filter((card) => card.assetKind !== 'powers_sheet')
+                    .map((card) => ({
+                      id: card.characterId || card.id,
+                      name: card.characterName || card.digiterraName || card.title || 'Unknown Character',
+                      episode_number: card.episodeNumber ?? 0,
+                      front_cid: card.autoDriveCid,
+                      rarity: 'common',
+                    }))
+                : [];
+
+            if (normalizedCharacters.length > 0) {
+              characterItems = transformCharactersToContentItems(normalizedCharacters);
               console.log('[KnytTab] Loaded', characterItems.length, 'character items');
             }
           }
@@ -666,7 +1031,22 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
             if (loreRes.ok) {
               const data = await loreRes.json();
               if (data.assets) {
-                loreItems = transformLoreAssetsToContentItems(data.assets as LoreAssetFromAPI[]);
+                const episodeThumbs = new Map<number, string>();
+                for (const item of episodeItems) {
+                  const episodeNumber = item.metadata?.episodeNumber;
+                  if (typeof episodeNumber === 'number' && item.thumbnail && !episodeThumbs.has(episodeNumber)) {
+                    episodeThumbs.set(episodeNumber, item.thumbnail);
+                  }
+                }
+                const preorderFallback =
+                  episodeThumbs.get(-4) ||
+                  episodeItems.find((item) => item.id === 'metaKnyts_preorder_legendary')?.thumbnail ||
+                  episodeItems.find((item) => item.thumbnail)?.thumbnail;
+                loreItems = transformLoreAssetsToContentItems(
+                  data.assets as LoreAssetFromAPI[],
+                  episodeThumbs,
+                  preorderFallback
+                );
                 console.log('[KnytTab] Loaded', loreItems.length, 'lore items');
               }
             }
@@ -674,37 +1054,84 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
             console.error('[KnytTab] Failed to load lore assets:', err);
           }
 
+          let terraFeedItems: KnytContentItem[] = [];
+          try {
+            const sources: Array<{
+              tab: string;
+              subtitle: string;
+              realm: Realm;
+              idPrefix: string;
+            }> = [
+              { tab: 'metaknyts', subtitle: 'metaKnyts', realm: 'terra', idPrefix: 'terra' },
+              { tab: 'metaterra', subtitle: 'metaTerra', realm: 'metaterra_or', idPrefix: 'metaterra' },
+            ];
+
+            const merged: KnytContentItem[] = [];
+            for (const source of sources) {
+              const terraRes = await fetch(`${apiBase}/api/content/section/scrolls?tab=${source.tab}&scope=codex`);
+              if (!terraRes.ok) continue;
+              const payload = await terraRes.json();
+              const sectionItems = Array.isArray(payload?.content) ? (payload.content as SectionContentItem[]) : [];
+              merged.push(
+                ...transformSectionContentItems(sectionItems, {
+                  realm: source.realm,
+                  subtitle: source.subtitle,
+                  idPrefix: source.idPrefix,
+                })
+              );
+            }
+
+            const seen = new Set<string>();
+            terraFeedItems = merged.filter((item) => {
+              if (seen.has(item.id)) return false;
+              seen.add(item.id);
+              return true;
+            });
+            console.log('[KnytTab] Loaded', terraFeedItems.length, 'Terra/metaKnyts feed items');
+          } catch (err) {
+            console.error('[KnytTab] Failed to load Terra/metaKnyts feed:', err);
+          }
+
           const terraItems = transformIssuePackageMetaKnytsToContentItems();
           if (terraItems.length > 0) {
             console.log('[KnytTab] Loaded', terraItems.length, 'Terra/metaKnyts items from issue package');
           }
           
-          return [...episodeItems, ...characterItems, ...loreItems, ...terraItems];
+          return [...episodeItems, ...characterItems, ...loreItems, ...terraFeedItems, ...terraItems];
         } catch (error) {
           console.error('[KnytTab] Failed to fetch content:', error);
           return [];
         }
       },
-      20 * 60 * 1000
+      20 * 60 * 1000,
+      {
+        shouldCache: (items) => Array.isArray(items) && items.length > 0,
+      }
     );
-  }, [transformEpisodesToContentItems, transformCharactersToContentItems, transformLoreAssetsToContentItems, transformIssuePackageMetaKnytsToContentItems]);
+  }, [
+    transformEpisodesToContentItems,
+    transformCharactersToContentItems,
+    transformLoreAssetsToContentItems,
+    transformSectionContentItems,
+    transformIssuePackageMetaKnytsToContentItems,
+  ]);
 
   // Fetch owned episodes
   const fetchOwnedEpisodes = useCallback(async () => {
-    if (!personaId) {
+    if (!effectivePersonaId) {
       setOwnedEpisodeNumbers(new Set());
       setOwnedIssues([]);
       return;
     }
     try {
       const apiBase = API_BASE_URL;
-      const cacheKey = `codex:knyt:owned:${personaId}`;
+      const cacheKey = `codex:knyt:owned:${effectivePersonaId}`;
       const cached = getCachedValue<number[]>(cacheKey);
       if (cached) {
         setOwnedEpisodeNumbers(new Set(cached));
         return;
       }
-      const ownedRes = await fetch(`${apiBase}/api/codex/owned?personaId=${personaId}`);
+      const ownedRes = await fetch(`${apiBase}/api/codex/owned?personaId=${effectivePersonaId}`);
       if (!ownedRes.ok) return;
       const ownedData = await ownedRes.json();
       setOwnedIssues(ownedData.issues || []);
@@ -716,11 +1143,11 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
     } catch (error) {
       console.warn('[KnytTab] Failed to load owned episodes:', error);
     }
-  }, [personaId]);
+  }, [effectivePersonaId]);
 
   const fetchEpisodesCatalog = useCallback(async () => {
     return getCachedOrFetch<EpisodeFromAPI[]>(
-      "codex:knyt:episodes",
+      KNYT_EPISODES_CACHE_KEY,
       async () => {
         const apiBase = API_BASE_URL;
         try {
@@ -737,17 +1164,40 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
     );
   }, []);
 
+  useEffect(() => {
+    if (!forcedDevice) return;
+    setDevice(forcedDevice);
+  }, [forcedDevice]);
+
   // Handle window resize for device detection
   useEffect(() => {
+    if (forcedDevice) return;
     const handleResize = () => {
       setDevice(KnytLiquidUIService.getDeviceType());
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [service]);
+  }, [service, forcedDevice]);
 
   // Load content from real API
   useEffect(() => {
+    const memoryCached = getCachedValue<KnytContentItem[]>(KNYT_CONTENT_CACHE_KEY);
+    if (memoryCached && memoryCached.length > 0) {
+      setContentItems(memoryCached);
+      setLoading(false);
+      return;
+    }
+
+    const sessionSnapshot = readKnytSessionSnapshot();
+    if (sessionSnapshot && sessionSnapshot.contentItems.length > 0) {
+      setContentItems(sessionSnapshot.contentItems);
+      if (sessionSnapshot.episodesCatalog.length > 0) {
+        setEpisodesCatalog(sessionSnapshot.episodesCatalog);
+      }
+      setLoading(false);
+      return;
+    }
+
     async function loadContent() {
       setLoading(true);
       try {
@@ -769,11 +1219,78 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
 
   useEffect(() => {
     async function loadEpisodes() {
+      const memoryCached = getCachedValue<EpisodeFromAPI[]>(KNYT_EPISODES_CACHE_KEY);
+      if (memoryCached && memoryCached.length > 0) {
+        setEpisodesCatalog(memoryCached);
+        return;
+      }
+      const sessionSnapshot = readKnytSessionSnapshot();
+      if (sessionSnapshot && sessionSnapshot.episodesCatalog.length > 0) {
+        setEpisodesCatalog(sessionSnapshot.episodesCatalog);
+        return;
+      }
       const episodes = await fetchEpisodesCatalog();
       setEpisodesCatalog(episodes);
     }
     loadEpisodes();
   }, [fetchEpisodesCatalog]);
+
+  const fetchEpisodeSegments = useCallback(async (episodeId?: string | null): Promise<VideoSegment[]> => {
+    if (!episodeId) return [];
+    const cached = episodeSegmentsCacheRef.current.get(episodeId);
+    if (cached) return cached;
+    try {
+      const apiBase = API_BASE_URL;
+      const response = await fetch(`${apiBase}/api/content/video/segments?episodeId=${encodeURIComponent(episodeId)}`);
+      if (!response.ok) return [];
+      const segments = (await response.json()) as VideoSegment[];
+      const normalized = Array.isArray(segments) ? segments.filter((segment) => !!segment?.auto_drive_cid) : [];
+      episodeSegmentsCacheRef.current.set(episodeId, normalized);
+      return normalized;
+    } catch (error) {
+      console.warn('[KnytTab] Failed to fetch episode segments:', error);
+      return [];
+    }
+  }, []);
+
+  const openEpisodeVideo = useCallback(async (episode: EpisodeFromAPI, fallbackVideoCid?: string | null, fallbackVideoUrl?: string | null) => {
+    const motionSource = normalizeVideoSource(
+      fallbackVideoUrl ||
+      fallbackVideoCid ||
+      (episode as EpisodeFromAPI & { motionMasterUrl?: string; motionMasterPath?: string }).motionMasterUrl ||
+      (episode as EpisodeFromAPI & { motionMasterUrl?: string; motionMasterPath?: string }).motionMasterPath ||
+      episode.motionMasterCid ||
+      null
+    );
+
+    const segments = await fetchEpisodeSegments(episode.motionMasterId || null);
+    if (segments.length > 0) {
+      const first = segments[0];
+      setCurrentVideoSegments(segments);
+      setCurrentVideoSegmentIndex(0);
+      setCurrentVideoCid(first.auto_drive_cid);
+      setCurrentVideoUrl(`/api/content/video/${encodeURIComponent(first.auto_drive_cid)}`);
+      setCurrentVideoTitle(episode.title || `Episode ${episode.displayNumber} - Motion Comic`);
+      setCurrentVideoUseDirectStream(true);
+      setVideoPlayerOpen(true);
+      return;
+    }
+
+    if (motionSource.cid || motionSource.url) {
+      setCurrentVideoSegments([]);
+      setCurrentVideoSegmentIndex(0);
+      setCurrentVideoCid(motionSource.cid || null);
+      setCurrentVideoUrl(motionSource.url || getVideoPlaybackUrl(motionSource.cid) || null);
+      setCurrentVideoTitle(episode.title || `Episode ${episode.displayNumber} - Motion Comic`);
+      setCurrentVideoUseDirectStream(true);
+      setVideoPlayerOpen(true);
+    }
+  }, [fetchEpisodeSegments, getVideoPlaybackUrl, normalizeVideoSource]);
+
+  useEffect(() => {
+    if (!contentItems.length && !episodesCatalog.length) return;
+    writeKnytSessionSnapshot(contentItems, episodesCatalog);
+  }, [contentItems, episodesCatalog]);
 
   const contentWithOwnership = useMemo(() => {
     return contentItems.map((item) => {
@@ -789,40 +1306,172 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
     });
   }, [contentItems, ownedEpisodeNumbers]);
 
+  const derivedCharacterGroups = useMemo<EpisodeGroup[]>(() => {
+    const characterItems = contentWithOwnership.filter((item) => item.type === 'character_portrait');
+    if (!characterItems.length) return [];
+
+    const parseCoverCid = (thumbnail?: string, imageCid?: string): string => {
+      if (imageCid) return imageCid;
+      if (!thumbnail) return '';
+      const coverRouteMatch = thumbnail.match(/\/api\/content\/cover\/([^/?#]+)/i);
+      if (coverRouteMatch?.[1]) return decodeURIComponent(coverRouteMatch[1]);
+      return '';
+    };
+
+    const grouped = new Map<number, { posters: KnytCardAsset[]; sheets: KnytCardAsset[] }>();
+    for (const item of characterItems) {
+      const episodeNumber =
+        typeof item.metadata?.episodeNumber === 'number' ? item.metadata.episodeNumber : 0;
+      if (!grouped.has(episodeNumber)) {
+        grouped.set(episodeNumber, { posters: [], sheets: [] });
+      }
+      grouped.get(episodeNumber)!.posters.push({
+        id: item.id,
+        title: item.title,
+        episodeNumber,
+        assetKind: 'character_poster',
+        autoDriveCid: parseCoverCid(item.thumbnail, item.media?.image_cid),
+        mimeType: 'image/*',
+        characterName: (item.metadata?.characterName as string | undefined) || undefined,
+        digiterraName: item.title,
+      });
+    }
+
+    return Array.from(grouped.entries())
+      .sort(([a], [b]) => a - b)
+      .map(([episodeNumber, assets]) => ({
+        episodeNumber,
+        displayNumber: `#${episodeNumber - 1}`,
+        posters: assets.posters,
+        sheets: assets.sheets,
+      }));
+  }, [contentWithOwnership]);
+
+  const effectiveCharacterGroups = useMemo(
+    () => (groups.length > 0 ? groups : derivedCharacterGroups),
+    [groups, derivedCharacterGroups]
+  );
+
+  const contentForActiveTab = useMemo(() => {
+    switch (activeTab) {
+      case 'scrolls':
+        return contentWithOwnership.filter(
+          (item) =>
+            (item.id.startsWith('mk_ep') || item.id.startsWith('metaKnyts_preorder_')) &&
+            (
+              item.type === 'comic_page_portrait' ||
+              item.type === 'comic_cover_portrait'
+            )
+        );
+      case 'characters':
+        return contentWithOwnership.filter((item) => item.type === 'character_portrait');
+      case 'lore':
+        return contentWithOwnership.filter((item) => item.type === 'lore_snippet');
+      case 'digiterra':
+        return contentWithOwnership.filter(
+          (item) => item.metadata?.realm === 'digiterra' && item.type !== 'motion_comic_landscape'
+        );
+      case 'terra':
+      {
+        const realmScoped = contentWithOwnership.filter(
+          (item) =>
+            item.metadata?.realm === 'terra' ||
+            item.metadata?.realm === 'metaterra_or' ||
+            item.type === 'terra_update'
+        );
+        if (realmScoped.length > 0) return realmScoped;
+
+        // Fail-safe: preserve rendering if realm tags are missing in upstream payloads.
+        const inferred = contentWithOwnership.filter(
+          (item) =>
+            item.id.startsWith('terra_') ||
+            item.id.startsWith('metaterra_') ||
+            item.type === 'motion_comic_landscape'
+        );
+        return inferred.length > 0 ? inferred : contentWithOwnership;
+      }
+      case 'order':
+        return contentWithOwnership;
+      case 'codex':
+      default:
+        return contentWithOwnership;
+    }
+  }, [contentWithOwnership, activeTab]);
+
+  useEffect(() => {
+    if (activeTab === 'terra') {
+      setActiveRealm((prev) => (prev === 'terra' || prev === 'metaterra_or' ? prev : 'terra'));
+      return;
+    }
+    if (activeTab === 'digiterra') {
+      setActiveRealm('digiterra');
+      return;
+    }
+    setActiveRealm('digiterra');
+  }, [activeTab]);
+
+  useEffect(() => {
+    // Prevent Terra realm intent from leaking into Codex tab template selection.
+    if (activeTab === 'codex' && userIntent === 'realm_navigation') {
+      setUserIntent('browse');
+    }
+  }, [activeTab, userIntent]);
+
   // Select template based on context
   useEffect(() => {
     if (loading) return;
 
-    const contentMix = service.inferContentMix(contentWithOwnership);
+    const contentMix = service.inferContentMix(contentForActiveTab);
     const hasActiveTasks = !!taskData.activeTask;
+    const scopedRealm = activeTab === 'terra' || activeTab === 'digiterra' ? activeRealm : undefined;
+    const effectiveUserIntent =
+      activeTab === 'codex' && userIntent === 'realm_navigation'
+        ? 'browse'
+        : userIntent;
 
     const context: TemplateSelectionContext = {
-      userIntent,
+      userIntent: effectiveUserIntent,
       device,
       contentMix,
-      realm: activeRealm,
+      realm: scopedRealm,
       taskState: hasActiveTasks ? 'active' : 'idle',
       isFirstVisit: false,
-      personaId,
+      personaId: effectivePersonaId,
     };
 
     const result = service.selectTemplate(context);
-    setTemplateResult(result);
+    const forcedTemplateByTab: Partial<Record<string, KnytTemplateId>> = {
+      scrolls: 'knyt:drawer_grid_v1',
+      characters: 'knyt:dual_poster_stage_v1',
+      lore: 'knyt:drawer_grid_v1',
+      digiterra: 'knyt:drawer_grid_v1',
+      terra: 'knyt:realm_bridge_map_v1',
+      order: 'knyt:quest_hud_hub_v1',
+    };
+    const scopedTemplate = forcedTemplateByTab[activeTab];
+    const finalResult =
+      activeTab !== 'codex' && scopedTemplate
+        ? { ...result, templateId: scopedTemplate }
+        : result;
+    setTemplateResult(finalResult);
 
     const composed = service.composeScreen({
-      templateId: result.templateId,
+      templateId: finalResult.templateId,
       context,
-      contentItems: contentWithOwnership,
+      contentItems: contentForActiveTab,
       selectedItemId,
     });
 
     if (composed) {
       const drawerRegion = composed.regions?.drawer_grid;
-      if (result.templateId === 'knyt:drawer_grid_v1' && drawerRegion?.items?.length) {
+      if (finalResult.templateId === 'knyt:drawer_grid_v1' && drawerRegion?.items?.length) {
         setCuratedContent(drawerRegion.items);
-        // Set layout variant from composition
-        if (composed.meta?.drawerGridLayoutVariant) {
+        if (activeTab === 'lore' || activeTab === 'codex') {
+          setLayoutVariant('1C');
+        } else if (composed.meta?.drawerGridLayoutVariant) {
           setLayoutVariant(composed.meta.drawerGridLayoutVariant);
+        } else {
+          setLayoutVariant('auto');
         }
       } else {
         const regionIds = Object.keys(composed.regions);
@@ -835,16 +1484,18 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
           }
         }
         setCuratedContent(combined);
+        setLayoutVariant(activeTab === 'lore' || activeTab === 'codex' ? '1C' : 'auto');
       }
     } else {
       setCuratedContent(null);
+      setLayoutVariant(activeTab === 'lore' || activeTab === 'codex' ? '1C' : 'auto');
     }
 
     // Update copilot mode
-    if (result.copilotMode !== copilotMode) {
-      setCopilotMode(result.copilotMode);
+    if (finalResult.copilotMode !== copilotMode) {
+      setCopilotMode(finalResult.copilotMode);
     }
-  }, [loading, contentWithOwnership, userIntent, device, activeRealm, personaId, taskData, service, selectedItemId]);
+  }, [loading, contentForActiveTab, userIntent, device, activeRealm, effectivePersonaId, taskData, service, selectedItemId, activeTab, copilotMode]);
 
   const handleBackFromCharacterDetail = () => {
     setShowCharacterDetail(false);
@@ -927,7 +1578,52 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
     }
   }, []);
 
+  const openCopilotWithContext = useCallback((item: KnytContentItem) => {
+    const actionHints: string[] = [];
+    if (item.modalities?.read?.available || item.media?.text) actionHints.push('read');
+    if (item.modalities?.watch?.available || item.media?.video_cid || item.media?.video_url) actionHints.push('watch');
+    actionHints.push('buy');
+
+    setCodexCopilotMessages((prev) => {
+      const base = prev.length > 0 ? prev : [createCodexCopilotWelcomeMessage()];
+      return [
+        ...base,
+        {
+          id: `knyt-copilot-context-${item.id}-${Date.now()}`,
+          role: 'assistant',
+          content: `Context loaded: ${item.title} (${activeTab}). Available actions: ${actionHints.join(', ')}.`,
+          timestamp: new Date(),
+        },
+      ];
+    });
+    setCodexCopilotOpen(true);
+  }, [activeTab]);
+
   const handleSmartAction = useCallback((item: KnytContentItem, action: string) => {
+    if (action === 'buy') {
+      if (item.type === 'character_portrait') {
+        setPurchaseContent({
+          type: 'character_card',
+          id: item.id,
+          title: item.title,
+          image: item.thumbnail,
+          baseKnyt: Number(item.metadata?.price ?? 2),
+          priceUsd: Number((Number(item.metadata?.price ?? 2) * 1.4).toFixed(2)),
+        });
+        setPurchaseModalOpen(true);
+        return;
+      }
+
+      if (
+        item.type === 'comic_cover_portrait' ||
+        item.type === 'comic_page_portrait' ||
+        item.type === 'motion_comic_landscape'
+      ) {
+        openPurchaseForItem(item, item.type === 'motion_comic_landscape' ? 'watch' : 'read');
+        return;
+      }
+    }
+
     if ((action === 'read' || action === 'watch') && isEpisodeLocked(item)) {
       openPurchaseForItem(item, action === 'watch' ? 'watch' : 'read');
       return;
@@ -935,19 +1631,114 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
     if (action === 'read' && item.media?.text) {
       setCurrentText({ title: item.title, content: item.media.text });
       setTextReaderOpen(true);
-    } else if (action === 'watch' && item.media?.video_cid) {
-      setCurrentVideoCid(item.media.video_cid);
+    } else if (action === 'watch') {
+      const episodeNumber = typeof item.metadata?.episodeNumber === 'number' ? item.metadata.episodeNumber : null;
+      if (episodeNumber !== null) {
+        const matchedEpisode = episodesCatalog.find((episode) => episode.episodeNumber === episodeNumber);
+        if (matchedEpisode) {
+          const videoSource = normalizeVideoSource(
+            item.media?.video_url ||
+            item.media?.video_cid ||
+            item.modalities?.watch?.url ||
+            item.modalities?.watch?.cid ||
+            null
+          );
+          void openEpisodeVideo(matchedEpisode, videoSource.cid || null, videoSource.url || null);
+          return;
+        }
+      }
+      const videoSource = normalizeVideoSource(
+        item.media?.video_url ||
+        item.media?.video_cid ||
+        item.modalities?.watch?.url ||
+        item.modalities?.watch?.cid ||
+        null
+      );
+      if (!(videoSource.cid || videoSource.url)) return;
+      setCurrentVideoSegments([]);
+      setCurrentVideoSegmentIndex(0);
+      setCurrentVideoUseDirectStream(false);
+      setCurrentVideoCid(videoSource.cid || null);
+      setCurrentVideoUrl(videoSource.url || getVideoPlaybackUrl(videoSource.cid) || null);
       setCurrentVideoTitle(item.title);
       setVideoPlayerOpen(true);
+    } else if (action === 'copilot') {
+      if (templateResult?.drawerMode === 'wide') {
+        setDrawerOpen(true);
+        setSelectedItemId(item.id);
+      } else {
+        openCopilotWithContext(item);
+      }
+      toast({
+        title: 'Copilot ready',
+        description:
+          templateResult?.drawerMode === 'wide'
+            ? `Wallet Copilot opened for ${item.title}.`
+            : `KNYT Copilot opened with ${item.title} context.`,
+      });
     }
-  }, [isEpisodeLocked, openPurchaseForItem]);
+  }, [episodesCatalog, getVideoPlaybackUrl, isEpisodeLocked, normalizeVideoSource, openEpisodeVideo, openPurchaseForItem, openCopilotWithContext, toast, templateResult]);
+
+  const selectedContentItem = useMemo(() => {
+    if (!selectedItemId) return undefined;
+    return contentForActiveTab.find((item) => item.id === selectedItemId);
+  }, [contentForActiveTab, selectedItemId]);
+
+  const selectedSmartContent = useMemo<SmartContentQube | undefined>(() => {
+    const source = selectedContentItem || contentForActiveTab[0];
+    if (!source) return undefined;
+    const basePrice = Number(source.metadata?.price ?? (source.type === 'motion_comic_landscape' ? 5 : 3));
+    return {
+      id: source.id,
+      app: 'metaKnyts',
+      title: source.title,
+      creatorRootDid: process.env.NEXT_PUBLIC_KNYT_CREATOR_DID || '',
+      pricingModel: {
+        kind: 'payPerIssue',
+        tiers: [
+          {
+            amount: Number.isFinite(basePrice) ? basePrice : 0,
+            currency: 'QCT',
+            kind: 'fixed',
+          },
+        ],
+      },
+    } as unknown as SmartContentQube;
+  }, [selectedContentItem, contentForActiveTab]);
+
+  const codexWalletAgent = useMemo(() => {
+    return {
+      id: 'knyt-codex',
+      name: 'KNYT Copilot',
+      fioHandle: 'knyt@aigentz',
+      evmArb: process.env.NEXT_PUBLIC_KNYT_CREATOR_EVM as `0x${string}` | undefined,
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!codexCopilotOpen || !selectedContentItem) return;
+    if (lastCopilotContextRef.current === selectedContentItem.id) return;
+    lastCopilotContextRef.current = selectedContentItem.id;
+    setCodexCopilotMessages((prev) => {
+      const base = prev.length > 0 ? prev : [createCodexCopilotWelcomeMessage()];
+      return [
+        ...base,
+        {
+          id: `knyt-copilot-selection-${selectedContentItem.id}-${Date.now()}`,
+          role: 'assistant',
+          content: `Selected content updated: ${selectedContentItem.title}.`,
+          timestamp: new Date(),
+        },
+      ];
+    });
+  }, [codexCopilotOpen, selectedContentItem]);
 
   const handleViewerOpen = useCallback((item: KnytContentItem, type: 'pdf' | 'video' | 'poster') => {
     if (isEpisodeLocked(item)) {
       openPurchaseForItem(item, type === 'video' ? 'watch' : 'read');
       return;
     }
-    if (type === 'pdf' && item.type === 'lore_snippet' && item.media?.text) {
+    if (type === 'pdf' && item.media?.text && !item.media?.pdf_lite_url && !item.media?.pdf_cid) {
       setCurrentText({ title: item.title, content: item.media.text });
       setTextReaderOpen(true);
       return;
@@ -962,12 +1753,39 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
       setCurrentPdfCid(item.media.pdf_cid || null);
       setCurrentPdfTitle(item.title);
       setPdfViewerOpen(true);
-    } else if (type === 'video' && item.media?.video_cid) {
-      setCurrentVideoCid(item.media.video_cid);
+    } else if (type === 'video') {
+      const episodeNumber = typeof item.metadata?.episodeNumber === 'number' ? item.metadata.episodeNumber : null;
+      if (episodeNumber !== null) {
+        const matchedEpisode = episodesCatalog.find((episode) => episode.episodeNumber === episodeNumber);
+        if (matchedEpisode) {
+          const videoSource = normalizeVideoSource(
+            item.media?.video_url ||
+            item.media?.video_cid ||
+            item.modalities?.watch?.url ||
+            item.modalities?.watch?.cid ||
+            null
+          );
+          void openEpisodeVideo(matchedEpisode, videoSource.cid || null, videoSource.url || null);
+          return;
+        }
+      }
+      const videoSource = normalizeVideoSource(
+        item.media?.video_url ||
+        item.media?.video_cid ||
+        item.modalities?.watch?.url ||
+        item.modalities?.watch?.cid ||
+        null
+      );
+      if (!(videoSource.cid || videoSource.url)) return;
+      setCurrentVideoSegments([]);
+      setCurrentVideoSegmentIndex(0);
+      setCurrentVideoUseDirectStream(false);
+      setCurrentVideoCid(videoSource.cid || null);
+      setCurrentVideoUrl(videoSource.url || getVideoPlaybackUrl(videoSource.cid) || null);
       setCurrentVideoTitle(item.title);
       setVideoPlayerOpen(true);
     }
-  }, [isEpisodeLocked, openPurchaseForItem]);
+  }, [episodesCatalog, getVideoPlaybackUrl, isEpisodeLocked, normalizeVideoSource, openEpisodeVideo, openPurchaseForItem]);
 
   const handleCopilotModeChange = useCallback((mode: CopilotOverlayMode) => {
     setCopilotMode(mode);
@@ -1011,7 +1829,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
   }
 
   // Legacy cards loading/error states
-  if (cardsLoading) {
+  if (showLegacyFallbackUI && isLegacyFallbackTab && cardsLoading) {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center space-y-4">
@@ -1022,7 +1840,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
     );
   }
 
-  if (cardsError) {
+  if (showLegacyFallbackUI && isLegacyFallbackTab && cardsError) {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center space-y-4">
@@ -1052,7 +1870,13 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
             <KnytTemplateRenderer
               templateId={templateResult.templateId}
               userIntent={userIntent}
-              contentItems={curatedContent || contentWithOwnership}
+              contentItems={
+                activeTab !== 'codex' && activeTab !== 'lore'
+                  ? contentForActiveTab
+                  : curatedContent && curatedContent.length > 0
+                    ? curatedContent
+                    : contentForActiveTab
+              }
               selectedItemId={selectedItemId}
               device={device}
               layoutVariant={layoutVariant}
@@ -1071,26 +1895,52 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
               activeRealm={activeRealm}
               onRealmChange={handleRealmChange}
               onCopilotModeChange={handleCopilotModeChange}
+              fullCatalogGrid={activeTab === 'scrolls' || activeTab === 'digiterra'}
+              characterGridMode={activeTab === 'characters'}
+              characterGroups={effectiveCharacterGroups}
+              ownedCharacters={ownedCharacters}
+              personaId={effectivePersonaId}
               knytBalance={balance?.dvnKnyt || 0}
+              spendableKnyt={spendableBalance || 0}
+              onBalanceRefresh={refreshBalance}
+              onPurchaseComplete={refreshPurchases}
+              showLayoutPreviewControls={showLayoutPreviewControls}
               walletDrawerContent={
-                <CopilotWalletDrawer
-                  isOpen={drawerOpen}
-                  onClose={() => setDrawerOpen(false)}
-                  mode={templateResult.drawerMode}
-                  walletUI={templateResult.walletUI}
-                  device={device}
-                  balance={balance?.dvnKnyt || 0}
-                  spendableBalance={spendableBalance || 0}
-                  pendingRewards={taskData.rewards}
-                  activeTask={taskData.activeTask || undefined}
-                  onClaimReward={handleClaimReward}
-                />
+                templateResult.drawerMode === 'wide' ? (
+                  <SmartWalletDrawer
+                    open={drawerOpen}
+                    onClose={() => setDrawerOpen(false)}
+                    variant="overlay"
+                    codexMode={true}
+                    agent={codexWalletAgent}
+                    personaId={effectivePersonaId}
+                    currentContent={selectedSmartContent}
+                    onPurchaseComplete={() => {
+                      refreshPurchases();
+                      fetchOwnedEpisodes();
+                    }}
+                    onOpenCopilot={() => setCodexCopilotOpen(true)}
+                  />
+                ) : (
+                  <CopilotWalletDrawer
+                    isOpen={drawerOpen}
+                    onClose={() => setDrawerOpen(false)}
+                    mode={templateResult.drawerMode}
+                    walletUI={templateResult.walletUI}
+                    device={device}
+                    balance={balance?.dvnKnyt || 0}
+                    spendableBalance={spendableBalance || 0}
+                    pendingRewards={taskData.rewards}
+                    activeTask={taskData.activeTask || undefined}
+                    onClaimReward={handleClaimReward}
+                  />
+                )
               }
             />
           </div>
 
           {/* Legacy fallback tabs for compatibility */}
-          {activeTab !== 'codex' && (
+          {showLegacyFallbackUI && !isExternallyScopedTab && activeTab !== 'codex' && (
             <div className="p-6 space-y-6">
               {/* Header with balance */}
               <div className="flex items-center justify-between">
@@ -1195,42 +2045,46 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
                       </p>
                     </div>
                   </div>
-                  <Button className="bg-amber-500 hover:bg-amber-600">Open Wallet</Button>
+                  <Button className="bg-amber-500 hover:bg-amber-600" onClick={() => handleOpenWallet('signin')}>
+                    Open Wallet
+                  </Button>
                 </div>
               )}
 
               {/* Tabs */}
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid w-full grid-cols-7 bg-white/5 border-white/10">
-                  <TabsTrigger value="codex" className="text-white/80 data-[state=active]:text-white">
-                    <BookOpen className="w-4 h-4 mr-2" />
-                    Codex
-                  </TabsTrigger>
-                  <TabsTrigger value="scrolls" className="text-white/80 data-[state=active]:text-white">
-                    <Scroll className="w-4 h-4 mr-2" />
-                    Scrolls
-                  </TabsTrigger>
-                  <TabsTrigger value="characters" className="text-white/80 data-[state=active]:text-white">
-                    <Sparkles className="w-4 h-4 mr-2" />
-                    Characters
-                  </TabsTrigger>
-                  <TabsTrigger value="lore" className="text-white/80 data-[state=active]:text-white">
-                    <FileText className="w-4 h-4 mr-2" />
-                    Lore
-                  </TabsTrigger>
-                  <TabsTrigger value="digiterra" className="text-white/80 data-[state=active]:text-white">
-                    <Cpu className="w-4 h-4 mr-2" />
-                    DigiTerra
-                  </TabsTrigger>
-                  <TabsTrigger value="terra" className="text-white/80 data-[state=active]:text-white">
-                    <Globe className="w-4 h-4 mr-2" />
-                    Terra
-                  </TabsTrigger>
-                  <TabsTrigger value="order" className="text-white/80 data-[state=active]:text-white">
-                    <Shield className="w-4 h-4 mr-2" />
-                    Order
-                  </TabsTrigger>
-                </TabsList>
+              <Tabs value={activeTab} onValueChange={handleLegacyTabChange} className="w-full">
+                {!isExternallyScopedTab && (
+                  <TabsList className="grid w-full grid-cols-7 bg-white/5 border-white/10">
+                    <TabsTrigger value="codex" className="text-white/80 data-[state=active]:text-white">
+                      <BookOpen className="w-4 h-4 mr-2" />
+                      Codex
+                    </TabsTrigger>
+                    <TabsTrigger value="scrolls" className="text-white/80 data-[state=active]:text-white">
+                      <Scroll className="w-4 h-4 mr-2" />
+                      Scrolls
+                    </TabsTrigger>
+                    <TabsTrigger value="characters" className="text-white/80 data-[state=active]:text-white">
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      Characters
+                    </TabsTrigger>
+                    <TabsTrigger value="lore" className="text-white/80 data-[state=active]:text-white">
+                      <FileText className="w-4 h-4 mr-2" />
+                      Lore
+                    </TabsTrigger>
+                    <TabsTrigger value="digiterra" className="text-white/80 data-[state=active]:text-white">
+                      <Cpu className="w-4 h-4 mr-2" />
+                      DigiTerra
+                    </TabsTrigger>
+                    <TabsTrigger value="terra" className="text-white/80 data-[state=active]:text-white">
+                      <Globe className="w-4 h-4 mr-2" />
+                      Terra
+                    </TabsTrigger>
+                    <TabsTrigger value="order" className="text-white/80 data-[state=active]:text-white">
+                      <Shield className="w-4 h-4 mr-2" />
+                      Order
+                    </TabsTrigger>
+                  </TabsList>
+                )}
 
                 {/* Scrolls Tab - Episodes */}
                 <TabsContent value="scrolls" className="space-y-4">
@@ -1243,6 +2097,12 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
                     {episodesCatalog.map((episode) => {
                       const owned = getOwnedIssuesForEpisode(episode.episodeNumber);
                       const isOwned = owned.length > 0;
+                      const episodeVideo = normalizeVideoSource(
+                        episode.motionMasterCid ||
+                        (episode as EpisodeFromAPI & { motionMasterUrl?: string; motionMasterPath?: string }).motionMasterUrl ||
+                        (episode as EpisodeFromAPI & { motionMasterUrl?: string; motionMasterPath?: string }).motionMasterPath ||
+                        null
+                      );
                       const hasMaster =
                         episode.hasStillMaster ||
                         episode.hasMotionMaster ||
@@ -1266,10 +2126,10 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
                               return;
                             }
                             if (printCid) {
-                              setCurrentPdfCid(printCid);
                               setCurrentPdfLiteUrl(
                                 episode.printRareLiteUrl || episode.printEpicLiteUrl || episode.printLegendaryLiteUrl || null
                               );
+                              setCurrentPdfCid(printCid);
                               setCurrentPdfTitle(episode.title || `Episode ${episode.displayNumber}`);
                               setPdfViewerOpen(true);
                             }
@@ -1342,10 +2202,10 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
                                     return;
                                   }
                                   if (printCid) {
-                                    setCurrentPdfCid(printCid);
                                     setCurrentPdfLiteUrl(
                                       episode.printRareLiteUrl || episode.printEpicLiteUrl || episode.printLegendaryLiteUrl || null
                                     );
+                                    setCurrentPdfCid(printCid);
                                     setCurrentPdfTitle(episode.title || `Episode ${episode.displayNumber}`);
                                     setPdfViewerOpen(true);
                                   }
@@ -1354,7 +2214,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
                                 <BookOpen className="w-3 h-3" />
                               </button>
                             )}
-                            {episode.hasMotionMaster && episode.motionMasterCid && ![1, 3].includes(episode.episodeNumber) && (
+                            {episode.hasMotionMaster && (episodeVideo.cid || episodeVideo.url) && (
                               <button
                                 className="w-6 h-6 rounded-md bg-black/60 backdrop-blur-sm flex items-center justify-center ring-1 ring-cyan-500/40 text-cyan-400 hover:bg-cyan-500 hover:text-white transition-all"
                                 title="Watch"
@@ -1365,9 +2225,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
                                     openPurchaseForEpisode(episode, 'watch');
                                     return;
                                   }
-                                  setCurrentVideoTitle(`${episode.title} - Motion Comic`);
-                                  setCurrentVideoCid(episode.motionMasterCid!);
-                                  setVideoPlayerOpen(true);
+                                  void openEpisodeVideo(episode, episodeVideo.cid || null, episodeVideo.url || null);
                                 }}
                               >
                                 <Play className="w-3 h-3" />
@@ -1458,13 +2316,17 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
                 {/* Characters Tab */}
                 <TabsContent value="characters" className="space-y-4">
                   <KnytCardsGrid
-                    groups={groups}
+                    groups={effectiveCharacterGroups}
                     ownedCharacters={ownedCharacters}
-                    personaId={personaId}
+                    personaId={effectivePersonaId}
                     knytBalance={balance?.dvnKnyt || 0}
                     spendableKnyt={spendableBalance || 0}
                     onBalanceRefresh={refreshBalance}
                     onPurchaseComplete={refreshPurchases}
+                    onOpenWallet={handleOpenWallet}
+                    loading={cardsLoading}
+                    error={cardsError}
+                    onRetry={refreshCards}
                   />
                 </TabsContent>
 
@@ -1530,30 +2392,31 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
             </div>
           )}
 
-          {/* PDF Viewer Modal - prefer pdf_lite_url, fallback to CID-based page viewer */}
+          {/* PDF Lite modal (preferred when URL is available) */}
           {pdfViewerOpen && currentPdfLiteUrl && (
-            <>
-              {console.log('[KnytTab] Rendering PDFLiteReaderModal with URL:', currentPdfLiteUrl)}
-              <PDFLiteReaderModal
-                open={pdfViewerOpen}
-                pdfUrl={currentPdfLiteUrl}
-                title={currentPdfTitle}
-                onClose={() => {
-                  setPdfViewerOpen(false);
-                  setCurrentPdfLiteUrl(null);
-                  setCurrentPdfTitle('');
-                }}
-              />
-            </>
+            <PDFLiteReaderModal
+              open={pdfViewerOpen}
+              pdfUrl={currentPdfLiteUrl}
+              title={currentPdfTitle}
+              onClose={() => {
+                setPdfViewerOpen(false);
+                setCurrentPdfLiteUrl(null);
+                setCurrentPdfCid(null);
+                setCurrentPdfTitle('');
+              }}
+            />
           )}
+
+          {/* Custody-safe PDF viewer (page-image fallback) */}
           {pdfViewerOpen && !currentPdfLiteUrl && currentPdfCid && (
             <>
-              {console.log('[KnytTab] Rendering PDFPageViewer with CID:', currentPdfCid, 'pdfLiteUrl:', currentPdfLiteUrl)}
+              {console.log('[KnytTab] Rendering PDFPageViewer with CID:', currentPdfCid)}
               <PDFPageViewer
                 cid={currentPdfCid}
                 title={currentPdfTitle}
                 onClose={() => {
                   setPdfViewerOpen(false);
+                  setCurrentPdfLiteUrl(null);
                   setCurrentPdfCid(null);
                   setCurrentPdfTitle('');
                 }}
@@ -1562,21 +2425,39 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
           )}
 
           {/* Video Player Modal */}
-          {videoPlayerOpen && currentVideoCid && (
+          {videoPlayerOpen && (currentVideoUrl || currentVideoCid) && (
             <VideoErrorBoundary
               onClose={() => {
                 setVideoPlayerOpen(false);
                 setCurrentVideoCid(null);
+                setCurrentVideoUrl(null);
                 setCurrentVideoTitle('');
+                setCurrentVideoSegments([]);
+                setCurrentVideoSegmentIndex(0);
+                setCurrentVideoUseDirectStream(false);
               }}
             >
               <VideoPlayer
-                videoUrl={`/api/content/video/${currentVideoCid}`}
+                videoUrl={currentVideoUrl || getVideoPlaybackUrl(currentVideoCid) || ''}
                 title={currentVideoTitle}
+                segments={currentVideoSegments}
+                currentSegmentIndex={currentVideoSegmentIndex}
+                streamMode={currentVideoUseDirectStream ? 'direct' : 'blob'}
+                onSegmentChange={(index) => {
+                  const segment = currentVideoSegments[index];
+                  if (!segment?.auto_drive_cid) return;
+                  setCurrentVideoSegmentIndex(index);
+                  setCurrentVideoCid(segment.auto_drive_cid);
+                  setCurrentVideoUrl(`/api/content/video/${encodeURIComponent(segment.auto_drive_cid)}`);
+                }}
                 onClose={() => {
                   setVideoPlayerOpen(false);
                   setCurrentVideoCid(null);
+                  setCurrentVideoUrl(null);
                   setCurrentVideoTitle('');
+                  setCurrentVideoSegments([]);
+                  setCurrentVideoSegmentIndex(0);
+                  setCurrentVideoUseDirectStream(false);
                 }}
               />
             </VideoErrorBoundary>
@@ -1602,7 +2483,8 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
                 setPurchaseModalOpen(false);
                 setPurchaseContent(null);
               }}
-              personaId={personaId}
+              personaId={effectivePersonaId}
+              onRequestPersona={handleOpenWallet}
               contentType={purchaseContent.type}
               contentId={purchaseContent.id}
               contentTitle={purchaseContent.title}
@@ -1621,6 +2503,41 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
           )}
         </>
       )}
+
+      <CodexCopilotLayer
+        isOpen={codexCopilotOpen}
+        onClose={() => setCodexCopilotOpen(false)}
+        onOpen={() => setCodexCopilotOpen(true)}
+        variant="floating"
+        personaId={effectivePersonaId}
+        contextId={`knyt-${activeTab}`}
+        messages={codexCopilotMessages}
+        onMessagesChange={setCodexCopilotMessages}
+        promptPlaceholder="Ask KNYT Copilot about this content..."
+        quickPrompts={[
+          { label: 'Summarize selected content', prompt: 'Summarize the currently selected KNYT content and key takeaways.' },
+          { label: 'Compare still vs motion', prompt: 'Compare still and motion versions for the selected content and recommend one.' },
+          { label: 'Open wallet checkout', prompt: 'Open wallet checkout for the selected item.' },
+        ]}
+        onPrompt={(prompt) => {
+          const normalized = prompt.toLowerCase();
+          if (normalized.includes('wallet')) {
+            setDrawerOpen(true);
+            return;
+          }
+          if ((normalized.includes('checkout') || normalized.includes('purchase') || normalized.includes('buy')) && selectedContentItem) {
+            handleSmartAction(selectedContentItem, 'buy');
+            return;
+          }
+          if ((normalized.includes('watch') || normalized.includes('play') || normalized.includes('video')) && selectedContentItem) {
+            handleSmartAction(selectedContentItem, 'watch');
+            return;
+          }
+          if ((normalized.includes('read') || normalized.includes('open') || normalized.includes('pdf')) && selectedContentItem) {
+            handleSmartAction(selectedContentItem, 'read');
+          }
+        }}
+      />
 
       <Dialog open={dvnDrawerOpen} onOpenChange={setDvnDrawerOpen}>
         <DialogContent className="max-w-2xl bg-slate-950 text-white border-white/10">
@@ -1699,19 +2616,6 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId }: KnytTab
         </div>
       )}
 
-      {/* DID Qube & DVN Status Indicators */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="absolute top-2 right-2 px-2 py-1 bg-black/80 rounded text-xs text-white/60 z-50 space-y-1">
-          <div>DID Qube: {loadingPersonas ? 'Loading...' : `${personas.length} personas`}</div>
-          <div>DVN Events: {dvnEvents.length} recent</div>
-          <div>Active Persona: {activePersonaId || 'None'}</div>
-          {dvnEvents.length > 0 && (
-            <div className="text-xs text-green-400">
-              Latest: {dvnEvents[0].event} - {dvnEvents[0].asset}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }

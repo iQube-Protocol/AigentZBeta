@@ -11,6 +11,8 @@ export async function POST(req: NextRequest) {
     const personaId = body?.personaId;
     const issue = body?.issue;
     const source = body?.source || 'CODEX';
+    const receiptId = body?.receiptId;
+    const metadata = body?.metadata;
 
     if (!eventType || typeof eventType !== 'string') {
       return NextResponse.json({ ok: false, error: 'eventType is required' }, { status: 400 });
@@ -33,6 +35,8 @@ export async function POST(req: NextRequest) {
       personaId: typeof personaId === 'string' ? personaId : null,
       issue: typeof issue === 'string' ? issue : null,
       source: typeof source === 'string' ? source : 'CODEX',
+      receiptId: typeof receiptId === 'string' ? receiptId : null,
+      metadata: metadata && typeof metadata === 'object' ? metadata : null,
       timestamp: Date.now(),
     });
 

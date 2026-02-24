@@ -1,0 +1,20 @@
+[
+  {
+    "id": "qriptopian-ref-1",
+    "file": "qriptopian-light-hero.png",
+    "tags": ["hero", "light"],
+    "themeHint": "light.qriptopian"
+  },
+  {
+    "id": "qriptopian-ref-2",
+    "file": "qriptopian-dark-grid.png",
+    "tags": ["grid", "dark"],
+    "themeHint": "dark.qriptopianGlass"
+  },
+  {
+    "id": "qriptopian-ref-3",
+    "file": "qriptopian-wallet.png",
+    "tags": ["wallet", "dark"],
+    "themeHint": "dark.qriptopianGlass"
+  }
+]

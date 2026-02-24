@@ -51,7 +51,12 @@ export interface UseKnytCardsReturn {
   refreshCards: () => Promise<void>;
 }
 
-export function useKnytCards(): UseKnytCardsReturn {
+interface UseKnytCardsOptions {
+  enabled?: boolean;
+}
+
+export function useKnytCards(options: UseKnytCardsOptions = {}): UseKnytCardsReturn {
+  const { enabled = true } = options;
   const [groups, setGroups] = useState<EpisodeGroup[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -90,8 +95,9 @@ export function useKnytCards(): UseKnytCardsReturn {
   }, []);
 
   useEffect(() => {
+    if (!enabled) return;
     refreshCards();
-  }, [refreshCards]);
+  }, [enabled, refreshCards]);
 
   return {
     groups,

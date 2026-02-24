@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bot, CheckCircle2, ChevronDown, ChevronUp, Circle, Hexagon, LayoutGrid, List, Loader2, Monitor, Moon, Palette, ShieldCheck, SlidersHorizontal, Sun } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Bot, CheckCircle2, ChevronDown, ChevronUp, Circle, FileText, Hexagon, LayoutGrid, List, Loader2, Monitor, Moon, Palette, ShieldCheck, SlidersHorizontal, Sun, BookOpen, Eye, Volume2, Type, MonitorIcon, Smartphone, Tablet, Tv, Upload, Play, PlayCircle, Share2, Code, Shield, Book, Users, Target, Sparkles, BarChart, Edit, Trash2, AlertTriangle } from "lucide-react";
 import { useCopilotAction } from "@copilotkit/react-core";
-import { PreviewFrame } from "@/components/preview/PreviewFrame";
+import { Button } from "@/components/ui/button";
 import { DevicePreviewSwitcher } from "@/components/preview/DevicePreviewSwitcher";
 import type { DeviceType } from "@/components/preview/DevicePreviewSwitcher";
 import { SmartTriadProvider } from "@/app/components/content";
@@ -17,6 +18,8 @@ import { useCodexList } from "@/app/hooks/useCodexConfig";
 import type { CodexListItem } from "@/types/codex";
 import type { DesignQube, DesignQubeThemeMode } from "@/types/designQube";
 import { CodexCopilotLayer } from "@/app/components/codex/CodexCopilotLayer";
+import { AgenticDesignParityPanel } from "@/components/composer/AgenticDesignParityPanel";
+import SurfacePlanningPanel from "@/components/composer/SurfacePlanningPanel";
 
 type ComposerField = {
   id: string;
@@ -69,15 +72,305 @@ type ExperienceQube = {
   id: string;
   name: string;
   description: string;
+  goal: string;
+  mechanics: string;
+  metrics: string;
   tenant_id: string;
   creator_id: string;
   template_id: string;
   status: string;
-  metadata?: { tags?: string[]; category?: string; version?: string };
+  metadata?: Record<string, any>;
+  configuration?: Record<string, any>;
+  components?: Array<{
+    component_type: 'DataQube' | 'ContentQube' | 'ToolQube' | 'ModelQube' | 'AgentQube';
+  }>;
+  access?: {
+    visibility: 'private' | 'tenant' | 'public';
+    required_entitlements: string[];
+    allowed_roles: string[];
+  };
 };
+
+type ComposerMediaItem = {
+  id: string;
+  label: string;
+  tag: string;
+  mediaType: string;
+  mediaUri: string;
+};
+
+type InspectorMediaPreview = {
+  uri: string;
+  mediaType: "image" | "video";
+};
+
+type InspectorSourceBadge = "Experience" | "Article" | "Video" | "Codex";
+
+type ContentSectionLookupPlan = {
+  section: string;
+  tab?: string;
+};
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
+}
+
+function firstNonEmptyString(values: unknown[]): string | null {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+  return null;
+}
+
+function inferMediaType(uri: string, preferred?: string | null): "image" | "video" {
+  if (preferred === "video") return "video";
+  if (preferred === "image") return "image";
+  if (/\.(mp4|m4v|webm|mov|m3u8)(\?|$)/i.test(uri)) return "video";
+  return "image";
+}
+
+function resolveExperiencePrimaryMedia(
+  experience: ExperienceQube | null,
+  codexItems: ComposerMediaItem[]
+): InspectorMediaPreview | null {
+  if (!experience) return null;
+
+  const config = asRecord(experience.configuration) ?? {};
+  const metadata = asRecord(experience.metadata) ?? {};
+  const contentSelection = asRecord(config.content_selection) ?? {};
+
+  const mediaById = new Map<string, ComposerMediaItem>();
+  [...codexItems, ...QRIPTO_CONTENT_ITEMS].forEach((item) => {
+    if (!item?.id) return;
+    if (!mediaById.has(item.id)) {
+      mediaById.set(item.id, item);
+    }
+  });
+
+  const selectedIds: string[] = [];
+  const addSelectedId = (value: unknown) => {
+    if (typeof value === "string" && value.trim().length > 0) {
+      selectedIds.push(value.trim());
+    }
+  };
+  if (Array.isArray(contentSelection.content_items)) {
+    contentSelection.content_items.forEach(addSelectedId);
+  }
+  addSelectedId(contentSelection.feature_item_id);
+  addSelectedId(contentSelection.primary_content_id);
+  addSelectedId(config.primary_content_id);
+  addSelectedId(metadata.primary_content_id);
+
+  for (const id of selectedIds) {
+    const item = mediaById.get(id);
+    if (item?.mediaUri) {
+      return {
+        uri: item.mediaUri,
+        mediaType: inferMediaType(item.mediaUri, item.mediaType),
+      };
+    }
+  }
+
+  const selectedTag = firstNonEmptyString([
+    contentSelection.content_tag,
+    config.content_tag,
+    metadata.content_tag,
+  ]);
+  if (selectedTag) {
+    const item = [...codexItems, ...QRIPTO_CONTENT_ITEMS].find(
+      (candidate) => candidate.tag === selectedTag && candidate.mediaUri
+    );
+    if (item?.mediaUri) {
+      return {
+        uri: item.mediaUri,
+        mediaType: inferMediaType(item.mediaUri, item.mediaType),
+      };
+    }
+  }
+
+  const candidateContainers = [
+    contentSelection,
+    config,
+    metadata,
+    asRecord(config.runtime),
+    asRecord(config.card),
+    asRecord(config.modalities),
+    asRecord(metadata.modalities),
+    asRecord(asRecord(config.modalities)?.watch),
+    asRecord(asRecord(metadata.modalities)?.watch),
+  ].filter(Boolean) as Record<string, unknown>[];
+
+  const videoKeys = [
+    "primary_video_uri",
+    "video_uri",
+    "videoUrl",
+    "video_url",
+    "watch_video_url",
+    "trailer_url",
+  ];
+  for (const container of candidateContainers) {
+    const uri = firstNonEmptyString(videoKeys.map((key) => container[key]));
+    if (uri) return { uri, mediaType: "video" };
+  }
+
+  const imageKeys = [
+    "primary_image_uri",
+    "image_uri",
+    "imageUrl",
+    "image_url",
+    "thumbnail",
+    "thumbnailUrl",
+    "thumbnail_url",
+    "cover",
+    "coverImageUri",
+    "cover_image_uri",
+    "cover_image_url",
+    "heroImage",
+    "hero_image",
+    "poster",
+    "poster_url",
+    "image",
+  ];
+  for (const container of candidateContainers) {
+    const uri = firstNonEmptyString(imageKeys.map((key) => container[key]));
+    if (uri) return { uri, mediaType: "image" };
+  }
+
+  const firstCodexMedia = [...codexItems, ...QRIPTO_CONTENT_ITEMS].find((item) => Boolean(item.mediaUri));
+  if (firstCodexMedia?.mediaUri) {
+    return {
+      uri: firstCodexMedia.mediaUri,
+      mediaType: inferMediaType(firstCodexMedia.mediaUri, firstCodexMedia.mediaType),
+    };
+  }
+
+  return null;
+}
+
+function buildSectionLookupPlans(tag: string | null): ContentSectionLookupPlan[] {
+  const normalized = (tag || "").trim().toLowerCase();
+  if (!normalized) {
+    return [
+      { section: "home-hero" },
+      { section: "latest-news" },
+      { section: "second-hero" },
+      { section: "pennydrops" },
+      { section: "scrolls" },
+      { section: "21knowdz" },
+    ];
+  }
+  if (normalized === "hero") return [{ section: "home-hero" }];
+  if (normalized === "second-hero") return [{ section: "second-hero" }];
+  if (normalized === "latest-news") return [{ section: "latest-news" }];
+  if (normalized === "penny-drops") return [{ section: "pennydrops" }];
+  if (normalized === "scrolls-metaknyts") return [{ section: "scrolls", tab: "metaknyts" }, { section: "scrolls" }];
+  if (normalized === "scrolls-synthsimms") return [{ section: "scrolls", tab: "synthsims" }, { section: "scrolls" }];
+  if (normalized === "knowdz-exec") return [{ section: "21knowdz", tab: "exec" }, { section: "21knowdz" }];
+  if (normalized === "knowdz-creative") return [{ section: "21knowdz", tab: "creative" }, { section: "21knowdz" }];
+  if (normalized === "knowdz-devs") return [{ section: "21knowdz", tab: "dev" }, { section: "21knowdz" }];
+  return [{ section: normalized }];
+}
+
+function pickMediaFromSectionContent(items: any[], preferredIds: string[]): InspectorMediaPreview | null {
+  if (!Array.isArray(items) || items.length === 0) return null;
+  const normalizedIds = preferredIds.map((id) => id.toLowerCase());
+  const sorted = [...items].sort((a, b) => {
+    const aId = String(a?.id || a?.content_id || a?.slug || "").toLowerCase();
+    const bId = String(b?.id || b?.content_id || b?.slug || "").toLowerCase();
+    const aPreferred = normalizedIds.includes(aId) ? 1 : 0;
+    const bPreferred = normalizedIds.includes(bId) ? 1 : 0;
+    return bPreferred - aPreferred;
+  });
+
+  for (const item of sorted) {
+    const imageUri = firstNonEmptyString([item?.image, item?.thumbnail, item?.cover_image_url, item?.cover_image_uri]);
+    const videoUri = firstNonEmptyString([item?.modalities?.watch?.video_url]);
+    const uri = imageUri || videoUri;
+    if (!uri) continue;
+    return {
+      uri,
+      mediaType: videoUri ? "video" : "image",
+    };
+  }
+  return null;
+}
+
+function resolveInspectorSourceBadge(params: {
+  mcpResult: any;
+  fallbackMediaType: string;
+}): InspectorSourceBadge {
+  const textPool: string[] = [];
+  const addText = (value: unknown) => {
+    if (typeof value === "string" && value.trim().length > 0) {
+      textPool.push(value.trim().toLowerCase());
+    }
+  };
+
+  const response = params.mcpResult?.output?.mcpResponse || params.mcpResult?.output || {};
+  const artifact = response?.artifact || {};
+  const dispatch = params.mcpResult?.output?.providerDispatch || {};
+
+  addText(artifact?.title);
+  addText(artifact?.body);
+  addText(dispatch?.text);
+  if (Array.isArray(artifact?.tags)) {
+    artifact.tags.forEach(addText);
+  }
+
+  const textBlob = textPool.join(" ");
+  if (/\bcodex\b/.test(textBlob)) return "Codex";
+  if (/\b(video|watch|clip|trailer)\b/.test(textBlob) || params.fallbackMediaType === "video") return "Video";
+  if (/\b(article|read|news|feature)\b/.test(textBlob)) return "Article";
+  return "Experience";
+}
 
 const DEFAULT_TENANT = "qripto-codex";
 const DEFAULT_USER = "aigentz@aigent:u_demo_001";
+const COMPOSER_CACHE_TTL_MS = 5 * 60 * 1000;
+const EXPERIENCE_CACHE_TTL_MS = 2 * 60 * 1000;
+const MAX_EXPERIENCE_CACHE_TENANTS = 8;
+
+type ComposerStudioCache = {
+  templates: ExperienceTemplate[] | null;
+  templatesFetchedAt: number;
+  designQube: DesignQube | null;
+  designQubeId: string | null;
+  designQubeFetchedAt: number;
+  experiencesByTenant: Record<string, { items: ExperienceQube[]; fetchedAt: number }>;
+};
+
+let composerStudioCache: ComposerStudioCache = {
+  templates: null,
+  templatesFetchedAt: 0,
+  designQube: null,
+  designQubeId: null,
+  designQubeFetchedAt: 0,
+  experiencesByTenant: {},
+};
+
+const isCacheFresh = (fetchedAt: number, ttlMs: number) =>
+  fetchedAt > 0 && Date.now() - fetchedAt < ttlMs;
+
+const pruneExperienceCache = () => {
+  const entries = Object.entries(composerStudioCache.experiencesByTenant);
+  if (entries.length <= MAX_EXPERIENCE_CACHE_TENANTS) return;
+  entries
+    .sort((a, b) => a[1].fetchedAt - b[1].fetchedAt)
+    .slice(0, entries.length - MAX_EXPERIENCE_CACHE_TENANTS)
+    .forEach(([tenant]) => {
+      delete composerStudioCache.experiencesByTenant[tenant];
+    });
+};
+
+const cacheExperiencesForTenant = (tenantId: string, items: ExperienceQube[]) => {
+  composerStudioCache.experiencesByTenant[tenantId] = {
+    items,
+    fetchedAt: Date.now(),
+  };
+  pruneExperienceCache();
+};
 
 const QRIPTO_FALLBACK_CODEXES = [
   { id: "knyt-codex", label: "KNYT Codex" },
@@ -86,6 +379,34 @@ const QRIPTO_FALLBACK_CODEXES = [
   { id: "marketa-codex", label: "Aigent Marketa" },
   { id: "moneypenny-codex", label: "Aigent MoneyPenny" },
   { id: "nakamoto-codex", label: "Aigent Nakamoto" },
+];
+
+const DESIGN_QUBE_OPTIONS = [
+  { id: "knyt-guidance-v1", label: "KNYT Guidance", contextId: "knyt-codex" },
+  { id: "qriptopian-guidance-v1", label: "Qriptopian Guidance", contextId: "qripto-codex" },
+  { id: "metame-guidance-v1", label: "metaMe Guidance", contextId: "metame-codex" },
+];
+
+const DESIGN_QUBE_ID_TO_CONTEXT: Record<string, string> = DESIGN_QUBE_OPTIONS.reduce(
+  (acc, option) => {
+    acc[option.id] = option.contextId;
+    return acc;
+  },
+  {} as Record<string, string>
+);
+
+const CONTEXT_TO_DESIGN_QUBE_ID: Record<string, string> = DESIGN_QUBE_OPTIONS.reduce(
+  (acc, option) => {
+    acc[option.contextId] = option.id;
+    return acc;
+  },
+  {} as Record<string, string>
+);
+
+const DESIGN_QUBE_IMAGE_FALLBACKS = [
+  "/images/designqube/thumb-qripto.jpg",
+  "/images/designqube/thumb-penny.jpg",
+  "/images/designqube/thumb-agentiq.jpg",
 ];
 
 const QRIPTO_CONTENT_TAGS = [
@@ -381,8 +702,11 @@ const QRIPTO_TEMPLATE_SEEDS: ExperienceTemplate[] = [
 
 export const ComposerStudio = () => {
   const router = useRouter();
-  const [templates, setTemplates] = useState<ExperienceTemplate[]>([]);
-  const [templatesLoading, setTemplatesLoading] = useState(true);
+  const templateCustomizerRef = useRef<HTMLDivElement | null>(null);
+  const [templates, setTemplates] = useState<ExperienceTemplate[]>(() => composerStudioCache.templates || []);
+  const [templatesLoading, setTemplatesLoading] = useState(
+    () => !isCacheFresh(composerStudioCache.templatesFetchedAt, COMPOSER_CACHE_TTL_MS)
+  );
   const [templatesError, setTemplatesError] = useState<string | null>(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [tenantId, setTenantId] = useState(DEFAULT_TENANT);
@@ -396,19 +720,318 @@ export const ComposerStudio = () => {
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [experience, setExperience] = useState<ExperienceQube | null>(null);
   const [experiences, setExperiences] = useState<ExperienceQube[]>([]);
-  const [designQube, setDesignQube] = useState<DesignQube | null>(null);
-  const [designQubeLoading, setDesignQubeLoading] = useState(false);
+  const [designQube, setDesignQube] = useState<DesignQube | null>(() => composerStudioCache.designQube);
+  const [designQubeLoading, setDesignQubeLoading] = useState(
+    () => !isCacheFresh(composerStudioCache.designQubeFetchedAt, COMPOSER_CACHE_TTL_MS)
+  );
   const [designQubeError, setDesignQubeError] = useState<string | null>(null);
   const [designTheme, setDesignTheme] = useState<DesignQubeThemeMode>("dark");
   const [designQubeCollapsed, setDesignQubeCollapsed] = useState(true);
+  const [experienceQubeCollapsed, setExperienceQubeCollapsed] = useState(true);
+  const [designQubeActivePanel, setDesignQubeActivePanel] = useState("style");
+  const [designQubeActiveSubPanel, setDesignQubeActiveSubPanel] = useState("visual");
+  const [styleQubeActiveTab, setStyleQubeActiveTab] = useState("visual");
+  const [structureQubeActiveTab, setStructureQubeActiveTab] = useState("templates");
+  const [guidesActiveTab, setGuidesActiveTab] = useState("style-guide");
+  const [styleGuideActiveTab, setStyleGuideActiveTab] = useState("css");
+  const [experienceGuideActiveTab, setExperienceGuideActiveTab] = useState("who");
   const [designQubeSummaryLayout, setDesignQubeSummaryLayout] = useState<"compact" | "grid">("compact");
-  const [activeStyleQubeId, setActiveStyleQubeId] = useState("knyt-guidance-v1");
+  const [activeStyleQubeId, setActiveStyleQubeId] = useState(
+    () => CONTEXT_TO_DESIGN_QUBE_ID[DEFAULT_TENANT] || "knyt-guidance-v1"
+  );
+  const [selectedExperience, setSelectedExperience] = useState<ExperienceQube | null>(null);
+  const [showExperienceModal, setShowExperienceModal] = useState(false);
+  const [showRuntimePreviewModal, setShowRuntimePreviewModal] = useState(false);
+  const [experienceModalTab, setExperienceModalTab] = useState<"goal" | "mechanics" | "metrics">("goal");
+  const [experienceToDelete, setExperienceToDelete] = useState<ExperienceQube | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [editingExperienceId, setEditingExperienceId] = useState<string | null>(null);
+  const [studioAnalysisTab, setStudioAnalysisTab] = useState<"parity" | "surfaces">("parity");
   const { data: codexList } = useCodexList({ useDefaults: true });
   const [copilotContextId, setCopilotContextId] = useState("qripto-codex");
-  const [codexContentItems, setCodexContentItems] = useState<
-    Array<{ id: string; label: string; tag: string; mediaType: string; mediaUri: string }>
-  >([]);
+  const [codexContentItems, setCodexContentItems] = useState<ComposerMediaItem[]>([]);
   const [codexContentLoading, setCodexContentLoading] = useState(false);
+
+  // Sync Experience Qube collapse state with Design Qube
+  useEffect(() => {
+    setExperienceQubeCollapsed(designQubeCollapsed);
+  }, [designQubeCollapsed]);
+
+  // Delete experience function
+  const handleDeleteExperience = async (experience: ExperienceQube) => {
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/composer/experiences/${experience.id}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) throw new Error('Failed to delete experience');
+      
+      // Remove from local state
+      setExperiences(prev => {
+        const next = prev.filter(exp => exp.id !== experience.id);
+        cacheExperiencesForTenant(tenantId, next);
+        return next;
+      });
+      
+      // Close modal and reset state
+      setShowDeleteConfirm(false);
+      setExperienceToDelete(null);
+      
+      // Show success message (you could add a toast notification here)
+      console.log('Experience deleted successfully');
+    } catch (error) {
+      console.error('Error deleting experience:', error);
+      // Handle error (show error message)
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // Edit experience function - navigate to template customization
+  const openRuntimePreviewForExperience = (exp: ExperienceQube | null, actionPrefix: string = "Preview") => {
+    const fallbackId = exp?.id || selectedExperienceId || experience?.id || null;
+    if (fallbackId) setSelectedExperienceId(fallbackId);
+    setPreviewAction(`${actionPrefix} ${exp?.name || "Experience"}`);
+    setShowRuntimePreviewModal(true);
+  };
+
+  const launchExperience = async (exp: ExperienceQube | null) => {
+    const experienceId = exp?.id?.toString().trim();
+    if (!experienceId) {
+      openRuntimePreviewForExperience(exp, "Launch fallback");
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/composer/experiences/${encodeURIComponent(experienceId)}`, {
+        cache: "no-store",
+      });
+
+      if (!res.ok) {
+        openRuntimePreviewForExperience(exp, "Launch fallback");
+        return;
+      }
+
+      router.push(`/studio/composer/experience/${encodeURIComponent(experienceId)}`);
+    } catch {
+      openRuntimePreviewForExperience(exp, "Launch fallback");
+    }
+  };
+
+  const openMcpInspector = (exp: ExperienceQube | null) => {
+    if (!exp) return;
+    setMcpExperience(exp);
+    setMcpError(null);
+    setMcpResult(null);
+    setInspectorFetchedMedia(null);
+    setShowMcpInspectorModal(true);
+  };
+
+  const runMcpToolFromInspector = async () => {
+    if (!mcpExperience) return;
+    setMcpLoading(true);
+    setMcpError(null);
+    try {
+      const input =
+        mcpTool === "next.best"
+          ? {
+              event: {
+                content: { text: mcpMessage },
+                tenant_id: tenantId,
+                experience_id: mcpExperience.id,
+              },
+            }
+          : {
+              experience_id: mcpExperience.id,
+              topic: mcpMessage,
+              intent: "collect",
+              provider: mcpProvider,
+            };
+
+      const res = await fetch("/api/mcp/experience-qube", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tool: mcpTool,
+          input,
+          tenantId,
+          personaId: userId,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error || "Failed to execute MCP tool");
+      }
+      setMcpResult({
+        mode: "mcp-tool",
+        tool: mcpTool,
+        output: data.response,
+      });
+    } catch (error: any) {
+      setMcpError(error?.message || "Failed to execute MCP tool");
+    } finally {
+      setMcpLoading(false);
+    }
+  };
+
+  const runProviderDispatchSimulation = async () => {
+    if (!mcpExperience) return;
+    setMcpLoading(true);
+    setMcpError(null);
+    try {
+      const manualChannelId = mcpChannelId.trim();
+      const normalizedChannelId = /^\d+$/.test(manualChannelId) ? manualChannelId : "";
+      const res = await fetch("/api/messenger/dispatch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          provider: mcpProvider,
+          mode: mcpDispatchMode,
+          tool: mcpTool,
+          tenantId,
+          experienceId: mcpExperience.id,
+          personaId: userId,
+          message: mcpMessage,
+          channelId: normalizedChannelId,
+          inviteUrl: mcpDiscordInvite,
+          publishUrl: `/studio/composer/experience/${encodeURIComponent(mcpExperience.id)}`,
+          thumbnailUrl: inspectorMediaPreview?.uri || "",
+          titleOverride: mcpExperience.name || "",
+          campaignId: "experience-distribution-demo",
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error || "Failed to dispatch provider payload");
+      }
+      setMcpResult({
+        mode: "provider-dispatch",
+        provider: mcpProvider,
+        output: data,
+      });
+    } catch (error: any) {
+      setMcpError(error?.message || "Failed to dispatch provider payload");
+    } finally {
+      setMcpLoading(false);
+    }
+  };
+
+  const checkDiscordConnectionStatus = async () => {
+    setMcpDiscordStatusLoading(true);
+    setMcpError(null);
+    setMcpDiscordStatusMessage("Checking Discord connection...");
+    try {
+      const manualChannelId = mcpChannelId.trim();
+      const normalizedChannelId = /^\d+$/.test(manualChannelId) ? manualChannelId : "";
+      const params = new URLSearchParams();
+      if (normalizedChannelId.length > 0) params.set("channelId", normalizedChannelId);
+      if (mcpDiscordInvite.trim().length > 0) params.set("inviteUrl", mcpDiscordInvite.trim());
+      const res = await fetch(`/api/messenger/discord/status?${params.toString()}`, { cache: "no-store" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data?.success === false) {
+        const err = data?.error || "Failed to check Discord connection";
+        setMcpDiscordStatus(data || null);
+        setMcpDiscordStatusState("fail");
+        setMcpDiscordStatusMessage(`Discord check failed: ${err}`);
+        setMcpResult({
+          mode: "discord-status",
+          output: data,
+        });
+        throw new Error(err);
+      }
+      setMcpDiscordStatus(data);
+      setMcpDiscordStatusState(data?.ready ? "ok" : "fail");
+      setMcpDiscordStatusMessage(
+        data?.ready
+          ? "Discord connection verified. Ready for live dispatch."
+          : "Discord reachable but not fully ready. See details below."
+      );
+      setMcpResult({
+        mode: "discord-status",
+        output: data,
+      });
+    } catch (error: any) {
+      setMcpError(error?.message || "Failed to check Discord connection");
+    } finally {
+      setMcpDiscordStatusLoading(false);
+    }
+  };
+
+  const handleEditExperience = async (experience: ExperienceQube) => {
+    setEditingExperienceId(experience.id);
+    const templateId = experience.template_id?.trim();
+    if (!templateId) {
+      setSessionError("This ExperienceQube is missing a template id and cannot be edited.");
+      return;
+    }
+
+    const safeConfig =
+      experience.configuration && typeof experience.configuration === "object"
+        ? { ...experience.configuration }
+        : {};
+    const seedData: Record<string, any> = {
+      ...safeConfig,
+      intent_timebox: {
+        ...(safeConfig.intent_timebox || {}),
+        experience_name: safeConfig.intent_timebox?.experience_name || experience.name || "",
+        goal: safeConfig.intent_timebox?.goal || experience.goal || experience.description || "",
+      },
+      description: safeConfig.description || experience.description || "",
+      goal: safeConfig.goal || experience.goal || "",
+      mechanics: safeConfig.mechanics || experience.mechanics || "",
+      metrics: safeConfig.metrics || experience.metrics || "",
+    };
+
+    setIsSaving(true);
+    setSessionError(null);
+    try {
+      const createRes = await fetch("/api/composer/sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tenant_id: experience.tenant_id || tenantId,
+          user_id: experience.creator_id || userId,
+          template_id: templateId,
+        }),
+      });
+      if (!createRes.ok) throw new Error("Failed to open a template customization session");
+      const createData = await createRes.json();
+
+      const updateRes = await fetch(`/api/composer/sessions/${createData.session.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          current_step: 0,
+          status: "active",
+          data: seedData,
+        }),
+      });
+      if (!updateRes.ok) throw new Error("Failed to seed template customization values");
+      const updateData = await updateRes.json();
+
+      setSelectedTemplateId(templateId);
+      setSession(updateData.session || { ...createData.session, current_step: 0, data: seedData });
+      setSessionTemplate({
+        ...(createData.template || {}),
+        steps: createData.template?.steps || [],
+      });
+      setSessionData(seedData);
+      setStepData(seedData);
+      setExperience(experience);
+      setSelectedExperience(experience);
+      setTemplateQuery("");
+      setTemplateIntent(null);
+
+      setTimeout(() => {
+        templateCustomizerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 0);
+    } catch (error: any) {
+      setSessionError(error?.message || "Failed to open template customizer for this ExperienceQube");
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const styleQubeThemeTokens = designQube?.tokens?.themes?.[designTheme];
   const styleQubeColors = styleQubeThemeTokens?.color || {};
@@ -418,14 +1041,33 @@ export const ComposerStudio = () => {
   const styleQubeThemeText = styleQubeColors.text || "#e2e8f0";
 
   const copilotContextOptions = useMemo<Array<{ id: string; label: string }>>(() => {
-    if (!codexList || codexList.length === 0) {
-      return QRIPTO_FALLBACK_CODEXES as Array<{ id: string; label: string }>;
-    }
-    return codexList.map((codex: CodexListItem) => ({
-      id: codex.id,
-      label: codex.name,
-    }));
+    const byId = new Map<string, string>();
+    const baseOptions: Array<{ id: string; label: string }> =
+      codexList && codexList.length > 0
+        ? codexList.map((codex: CodexListItem) => ({
+            id: codex.id,
+            label: codex.name,
+          }))
+        : (QRIPTO_FALLBACK_CODEXES as Array<{ id: string; label: string }>);
+
+    baseOptions.forEach((option) => {
+      byId.set(option.id, option.label || option.id);
+    });
+    DESIGN_QUBE_OPTIONS.forEach((option) => {
+      if (!byId.has(option.contextId)) {
+        byId.set(option.contextId, option.label || option.contextId);
+      }
+    });
+    return Array.from(byId.entries()).map(([id, label]) => ({ id, label }));
   }, [codexList]);
+
+  const designQubeOptions = useMemo<Array<{ id: string; label: string; contextId: string }>>(() => {
+    const contextLabelById = new Map(copilotContextOptions.map((option) => [option.id, option.label]));
+    return DESIGN_QUBE_OPTIONS.map((option) => ({
+      ...option,
+      label: option.label || contextLabelById.get(option.contextId) || option.id,
+    }));
+  }, [copilotContextOptions]);
 
   useEffect(() => {
     if (!copilotContextOptions.length) return;
@@ -435,8 +1077,36 @@ export const ComposerStudio = () => {
   }, [copilotContextOptions, copilotContextId]);
 
   useEffect(() => {
+    if (!designQubeOptions.length) return;
+    if (!designQubeOptions.some((option) => option.id === activeStyleQubeId)) {
+      setActiveStyleQubeId(designQubeOptions[0].id);
+    }
+  }, [designQubeOptions, activeStyleQubeId]);
+
+  const handleCopilotContextChange = useCallback(
+    (nextContextId: string) => {
+      setCopilotContextId(nextContextId);
+      const mappedDesignQubeId = CONTEXT_TO_DESIGN_QUBE_ID[nextContextId];
+      if (mappedDesignQubeId && mappedDesignQubeId !== activeStyleQubeId) {
+        setActiveStyleQubeId(mappedDesignQubeId);
+      }
+    },
+    [activeStyleQubeId]
+  );
+
+  const handleDesignQubeSelection = useCallback(
+    (nextDesignQubeId: string) => {
+      setActiveStyleQubeId(nextDesignQubeId);
+      const mappedContextId = DESIGN_QUBE_ID_TO_CONTEXT[nextDesignQubeId];
+      if (mappedContextId && mappedContextId !== copilotContextId) {
+        setCopilotContextId(mappedContextId);
+      }
+    },
+    [copilotContextId]
+  );
+
+  useEffect(() => {
     if (!copilotContextId) return;
-    setTenantId(copilotContextId);
     setUserId((prev) => prev || DEFAULT_USER);
   }, [copilotContextId]);
 
@@ -497,28 +1167,220 @@ export const ComposerStudio = () => {
   const [selectedExperienceId, setSelectedExperienceId] = useState<string | null>(null);
   const [previewDevice, setPreviewDevice] = useState<DeviceType>("mobile");
   const [previewAction, setPreviewAction] = useState<string | null>(null);
+  const [previewNonce, setPreviewNonce] = useState(0);
+  const [runtimePreviewLoaded, setRuntimePreviewLoaded] = useState(false);
+  const [runtimePreviewErrored, setRuntimePreviewErrored] = useState(false);
+  const [showMcpInspectorModal, setShowMcpInspectorModal] = useState(false);
+  const [mcpExperience, setMcpExperience] = useState<ExperienceQube | null>(null);
+  const [mcpTool, setMcpTool] = useState<
+    "pill.get" | "capsule.get" | "mini_runtime.get" | "codex.entry" | "invite.create" | "share.compose" | "next.best"
+  >("next.best");
+  const [mcpProvider, setMcpProvider] = useState<"discord" | "whatsapp" | "telegram">("discord");
+  const [mcpDispatchMode, setMcpDispatchMode] = useState<"simulate" | "live">("simulate");
+  const [mcpChannelId, setMcpChannelId] = useState("886793716273119252");
+  const [mcpDiscordInvite, setMcpDiscordInvite] = useState("https://discord.gg/Gzg9wDMVSB");
+  const [mcpMessage, setMcpMessage] = useState("Show me a visual-first Qriptopian reading sprint.");
+  const [mcpResult, setMcpResult] = useState<any>(null);
+  const [mcpError, setMcpError] = useState<string | null>(null);
+  const [mcpLoading, setMcpLoading] = useState(false);
+  const [mcpDiscordStatusLoading, setMcpDiscordStatusLoading] = useState(false);
+  const [mcpDiscordStatus, setMcpDiscordStatus] = useState<any>(null);
+  const [mcpDiscordStatusState, setMcpDiscordStatusState] = useState<"idle" | "ok" | "fail">("idle");
+  const [mcpDiscordStatusMessage, setMcpDiscordStatusMessage] = useState("Not checked yet.");
+  const [inspectorFetchedMedia, setInspectorFetchedMedia] = useState<InspectorMediaPreview | null>(null);
+  const [inspectorRenderMode, setInspectorRenderMode] = useState<"card" | "thread">("card");
+  const inspectorMediaPreview = useMemo(() => {
+    const local = resolveExperiencePrimaryMedia(mcpExperience, codexContentItems);
+    return local || inspectorFetchedMedia;
+  }, [mcpExperience, codexContentItems, inspectorFetchedMedia]);
+  const inspectorSourceBadge = useMemo(
+    () =>
+      resolveInspectorSourceBadge({
+        mcpResult,
+        fallbackMediaType: inspectorMediaPreview?.mediaType || "",
+      }),
+    [mcpResult, inspectorMediaPreview?.mediaType]
+  );
+  const inspectorPreview = useMemo(() => {
+    const base = {
+      title: mcpExperience?.name || "ExperienceQube",
+      body: mcpMessage || "No output yet.",
+      shareText: "",
+      depth: "",
+      ctaLabel: "",
+      providerLabel: mcpProvider.toUpperCase(),
+      thumbnailUri: inspectorMediaPreview?.uri || "",
+      thumbnailType: inspectorMediaPreview?.mediaType || "",
+    };
+
+    if (!mcpResult) return base;
+
+    if (mcpResult.mode === "provider-dispatch") {
+      const dispatch = mcpResult.output?.providerDispatch || {};
+      const response = mcpResult.output?.mcpResponse || {};
+      const responseArtifact = response?.artifact || {};
+      const responseThumbnailUri = firstNonEmptyString([
+        responseArtifact?.thumbnail,
+        responseArtifact?.thumbnail_uri,
+        responseArtifact?.image,
+        responseArtifact?.image_uri,
+        responseArtifact?.video_url,
+        responseArtifact?.media_uri,
+      ]);
+      const responseThumbnailType = inferMediaType(
+        responseThumbnailUri || base.thumbnailUri,
+        typeof responseArtifact?.media_type === "string" ? responseArtifact.media_type : undefined
+      );
+      return {
+        title: responseArtifact?.title || base.title,
+        body: responseArtifact?.body || dispatch?.text || base.body,
+        shareText: responseArtifact?.share_text || "",
+        depth: response?.depth || "",
+        ctaLabel: dispatch?.cta?.label || "",
+        providerLabel: String(dispatch?.provider || mcpProvider).toUpperCase(),
+        thumbnailUri: responseThumbnailUri || base.thumbnailUri,
+        thumbnailType: responseThumbnailUri ? responseThumbnailType : base.thumbnailType,
+      };
+    }
+
+    if (mcpResult.mode === "mcp-tool") {
+      const response = mcpResult.output || {};
+      const responseArtifact = response?.artifact || {};
+      const responseThumbnailUri = firstNonEmptyString([
+        responseArtifact?.thumbnail,
+        responseArtifact?.thumbnail_uri,
+        responseArtifact?.image,
+        responseArtifact?.image_uri,
+        responseArtifact?.video_url,
+        responseArtifact?.media_uri,
+      ]);
+      const responseThumbnailType = inferMediaType(
+        responseThumbnailUri || base.thumbnailUri,
+        typeof responseArtifact?.media_type === "string" ? responseArtifact.media_type : undefined
+      );
+      return {
+        title: responseArtifact?.title || base.title,
+        body: responseArtifact?.body || base.body,
+        shareText: responseArtifact?.share_text || "",
+        depth: response?.depth || "",
+        ctaLabel: response?.cta?.primary?.label || "",
+        providerLabel: mcpProvider.toUpperCase(),
+        thumbnailUri: responseThumbnailUri || base.thumbnailUri,
+        thumbnailType: responseThumbnailUri ? responseThumbnailType : base.thumbnailType,
+      };
+    }
+
+    return base;
+  }, [mcpResult, mcpExperience?.name, mcpMessage, mcpProvider, inspectorMediaPreview]);
+
+  useEffect(() => {
+    if (mcpProvider !== "discord") return;
+    setMcpDiscordStatusState("idle");
+    setMcpDiscordStatusMessage("Not checked yet.");
+    setMcpDiscordStatus(null);
+  }, [mcpProvider, mcpChannelId, mcpDiscordInvite]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadInspectorMedia = async () => {
+      if (!mcpExperience) {
+        setInspectorFetchedMedia(null);
+        return;
+      }
+
+      const local = resolveExperiencePrimaryMedia(mcpExperience, codexContentItems);
+      if (local) {
+        setInspectorFetchedMedia(null);
+        return;
+      }
+
+      const config = asRecord(mcpExperience.configuration) ?? {};
+      const contentSelection = asRecord(config.content_selection) ?? {};
+      const selectedTag = firstNonEmptyString([
+        contentSelection.content_tag,
+        config.content_tag,
+      ]);
+      const selectedIds = [
+        ...(Array.isArray(contentSelection.content_items)
+          ? contentSelection.content_items.filter((id) => typeof id === "string")
+          : []),
+        firstNonEmptyString([contentSelection.feature_item_id, contentSelection.primary_content_id, config.primary_content_id]),
+      ].filter((value): value is string => typeof value === "string" && value.trim().length > 0);
+
+      const plans = buildSectionLookupPlans(selectedTag);
+      for (const plan of plans) {
+        try {
+          const params = new URLSearchParams();
+          params.set("scope", "codex");
+          if (plan.tab) params.set("tab", plan.tab);
+          const res = await fetch(`/api/content/section/${encodeURIComponent(plan.section)}?${params.toString()}`, {
+            cache: "no-store",
+          });
+          if (!res.ok) continue;
+          const payload = await res.json().catch(() => ({}));
+          const media = pickMediaFromSectionContent(payload?.content || [], selectedIds);
+          if (media) {
+            if (!cancelled) setInspectorFetchedMedia(media);
+            return;
+          }
+        } catch {
+          // Try next lookup plan.
+        }
+      }
+      if (!cancelled) setInspectorFetchedMedia(null);
+    };
+
+    loadInspectorMedia();
+    return () => {
+      cancelled = true;
+    };
+  }, [mcpExperience, codexContentItems]);
 
   useEffect(() => {
     let active = true;
+    const mergeTemplates = (apiTemplates: ExperienceTemplate[]) => {
+      const merged = [...apiTemplates];
+      QRIPTO_TEMPLATE_SEEDS.forEach((seed) => {
+        if (!merged.some((t) => t.id === seed.id)) {
+          merged.push(seed);
+        }
+      });
+      return merged;
+    };
+
+    const cachedTemplates = composerStudioCache.templates;
+    const templatesAreFresh = isCacheFresh(composerStudioCache.templatesFetchedAt, COMPOSER_CACHE_TTL_MS);
+    if (cachedTemplates && templatesAreFresh) {
+      setTemplates(cachedTemplates);
+      setTemplatesError(null);
+      setTemplatesLoading(false);
+      return () => {
+        active = false;
+      };
+    }
+
     const fetchTemplates = async () => {
       try {
         setTemplatesLoading(true);
         const res = await fetch("/api/composer/templates");
         if (!res.ok) throw new Error("Failed to load templates");
         const data = await res.json();
+        const merged = mergeTemplates(data.templates || []);
+        composerStudioCache.templates = merged;
+        composerStudioCache.templatesFetchedAt = Date.now();
         if (active) {
-          const apiTemplates: ExperienceTemplate[] = data.templates || [];
-          const merged = [...apiTemplates];
-          QRIPTO_TEMPLATE_SEEDS.forEach((seed) => {
-            if (!merged.some((t) => t.id === seed.id)) {
-              merged.push(seed);
-            }
-          });
           setTemplates(merged);
           setTemplatesError(null);
         }
       } catch (err: any) {
-        if (active) setTemplatesError(err.message || "Failed to load templates");
+        if (active) {
+          if (cachedTemplates) {
+            setTemplates(cachedTemplates);
+            setTemplatesError(null);
+          } else {
+            setTemplatesError(err.message || "Failed to load templates");
+          }
+        }
       } finally {
         if (active) setTemplatesLoading(false);
       }
@@ -531,19 +1393,42 @@ export const ComposerStudio = () => {
 
   useEffect(() => {
     let active = true;
+    const designIsFresh = isCacheFresh(composerStudioCache.designQubeFetchedAt, COMPOSER_CACHE_TTL_MS);
+    const cacheMatchesSelectedQube = composerStudioCache.designQubeId === activeStyleQubeId;
+    if (designIsFresh && cacheMatchesSelectedQube) {
+      setDesignQube(composerStudioCache.designQube || null);
+      setDesignQubeError(null);
+      setDesignQubeLoading(false);
+      return () => {
+        active = false;
+      };
+    }
+
     const fetchDesignQube = async () => {
       try {
         setDesignQubeLoading(true);
-        const res = await fetch("/api/metame/design-qube?includeImages=0");
+        const res = await fetch(
+          `/api/metame/design-qube?includeImages=0&id=${encodeURIComponent(activeStyleQubeId)}`
+        );
         if (!res.ok) throw new Error("Failed to load DesignQube");
         const data = await res.json();
         if (!data.success) throw new Error(data.error || "Failed to load DesignQube");
+        composerStudioCache.designQube = data.designQube || null;
+        composerStudioCache.designQubeId = activeStyleQubeId;
+        composerStudioCache.designQubeFetchedAt = Date.now();
         if (active) {
           setDesignQube(data.designQube || null);
           setDesignQubeError(null);
         }
       } catch (err: any) {
-        if (active) setDesignQubeError(err.message || "Failed to load DesignQube");
+        if (active) {
+          if (cacheMatchesSelectedQube && composerStudioCache.designQube) {
+            setDesignQube(composerStudioCache.designQube);
+            setDesignQubeError(null);
+          } else {
+            setDesignQubeError(err.message || "Failed to load DesignQube");
+          }
+        }
       } finally {
         if (active) setDesignQubeLoading(false);
       }
@@ -552,7 +1437,7 @@ export const ComposerStudio = () => {
     return () => {
       active = false;
     };
-  }, []);
+  }, [activeStyleQubeId]);
 
   useDesignQubeTheme(designQube?.tokens, designQube?.constraints, designTheme);
 
@@ -567,6 +1452,49 @@ export const ComposerStudio = () => {
     if (!selectedExperienceId) return experience;
     return experiences.find((exp) => exp.id === selectedExperienceId) || experience;
   }, [selectedExperienceId, experiences, experience]);
+  const previewExperienceMedia = useMemo(
+    () => resolveExperiencePrimaryMedia(previewExperience, codexContentItems),
+    [previewExperience, codexContentItems]
+  );
+  const runtimePreviewSrc = useMemo(() => {
+    const capsuleId = selectedExperienceId || previewExperience?.id || "capsule-metaknyt-play";
+    const experienceId = selectedExperienceId || previewExperience?.id || "";
+    const params = new URLSearchParams({
+      preview: "1",
+      capsule: capsuleId,
+      experienceId,
+      embed: "1",
+      device: previewDevice,
+    });
+    if (previewExperience?.name) params.set("experienceName", previewExperience.name);
+    if (previewExperience?.description) params.set("experienceDescription", previewExperience.description);
+    if (previewExperienceMedia?.uri) params.set("experienceImage", previewExperienceMedia.uri);
+    if (previewNonce > 0) params.set("nonce", String(previewNonce));
+    return `/metame/runtime?${params.toString()}`;
+  }, [
+    previewDevice,
+    previewNonce,
+    previewExperience?.description,
+    previewExperience?.id,
+    previewExperience?.name,
+    previewExperienceMedia?.uri,
+    selectedExperienceId,
+  ]);
+  const runtimePreviewModalWidthClass =
+    previewDevice === "desktop" ? "max-w-[1280px]" : "max-w-[920px]";
+  const runtimePreviewViewportClass =
+    previewDevice === "mobile"
+      ? "mx-auto h-full w-[375px] max-w-[375px]"
+      : previewDevice === "tablet"
+        ? "mx-auto h-full w-full max-w-[860px]"
+        : "h-full w-full";
+
+  useEffect(() => {
+    if (!showRuntimePreviewModal) return;
+    setRuntimePreviewLoaded(false);
+    setRuntimePreviewErrored(false);
+    setPreviewNonce(Date.now());
+  }, [previewDevice, showRuntimePreviewModal]);
 
   const liquidTemplateId = resolveLiquidTemplateId((previewExperience as any) || null);
   const PreviewTemplate = liquidTemplateRegistry[liquidTemplateId] || liquidTemplateRegistry["liquidui:drawer_grid_v1"];
@@ -669,14 +1597,40 @@ export const ComposerStudio = () => {
   useEffect(() => {
     if (!tenantId) return;
     let active = true;
+    const tenantCache = composerStudioCache.experiencesByTenant[tenantId];
+    if (tenantCache && isCacheFresh(tenantCache.fetchedAt, EXPERIENCE_CACHE_TTL_MS)) {
+      setExperiences(tenantCache.items);
+      return () => {
+        active = false;
+      };
+    }
+
     const fetchExperiences = async () => {
       try {
         const res = await fetch(`/api/composer/experiences?tenant_id=${encodeURIComponent(tenantId)}`);
         if (!res.ok) throw new Error("Failed to load experiences");
         const data = await res.json();
-        if (active) setExperiences(data.experience_qubes || []);
+        let next = data.experience_qubes || [];
+        if (next.length === 0) {
+          const fallbackRes = await fetch(`/api/composer/experiences?limit=50`);
+          if (fallbackRes.ok) {
+            const fallbackData = await fallbackRes.json();
+            const fallbackItems = fallbackData.experience_qubes || [];
+            if (fallbackItems.length > 0) {
+              next = fallbackItems;
+            }
+          }
+        }
+        cacheExperiencesForTenant(tenantId, next);
+        if (active) setExperiences(next);
       } catch {
-        if (active) setExperiences([]);
+        if (active) {
+          if (tenantCache?.items) {
+            setExperiences(tenantCache.items);
+          } else {
+            setExperiences([]);
+          }
+        }
       }
     };
     fetchExperiences();
@@ -965,13 +1919,286 @@ export const ComposerStudio = () => {
       });
       if (!res.ok) throw new Error("Failed to complete session");
       const data = await res.json();
-      setExperience(data.experience_qube || null);
+      const completedExperience = data.experience_qube || null;
+      setExperience(completedExperience);
       setSession((prev) => (prev ? { ...prev, status: "completed" } : prev));
+
+      if (editingExperienceId && completedExperience) {
+        try {
+          const updateRes = await fetch(`/api/composer/experiences/${editingExperienceId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                name: completedExperience.name,
+                description: completedExperience.description,
+                goal: completedExperience.goal,
+                mechanics: completedExperience.mechanics,
+                metrics: completedExperience.metrics,
+                template_id: completedExperience.template_id,
+                status: completedExperience.status,
+                configuration: completedExperience.configuration,
+                components: completedExperience.components,
+                execution: completedExperience.execution,
+                access: completedExperience.access,
+                metadata: completedExperience.metadata,
+              }),
+          });
+          if (!updateRes.ok) throw new Error("Failed to update ExperienceQube after edit.");
+          const updatedData = await updateRes.json();
+          const updatedExperience = updatedData.experience_qube || completedExperience;
+          setExperiences((prev) => {
+            const next = prev.map((exp) => (exp.id === editingExperienceId ? updatedExperience : exp));
+            cacheExperiencesForTenant(tenantId, next);
+            return next;
+          });
+          setSelectedExperience(updatedExperience);
+          setSelectedExperienceId(updatedExperience.id);
+          setEditingExperienceId(null);
+
+          if (completedExperience.id !== editingExperienceId) {
+            await fetch(`/api/composer/experiences/${completedExperience.id}`, {
+              method: "DELETE",
+            }).catch(() => {});
+          }
+        } catch (updateErr: any) {
+          console.warn("Failed to update edited ExperienceQube:", updateErr);
+        }
+      }
     } catch (err: any) {
       setSessionError(err.message || "Failed to complete session");
     } finally {
       setIsCompleting(false);
     }
+  };
+
+  const createDprAuditReceipt = async (
+    experienceId: string,
+    action: "pipeline_run" | "pipeline_error" | "remedy_proposed" | "remedy_applied" | "remedy_rejected",
+    summary: string,
+    details?: Record<string, any>
+  ) => {
+    const response = await fetch("/api/design-parity/audit-log", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        experienceId,
+        tenantId,
+        userId,
+        action,
+        summary,
+        details: details || {},
+      }),
+    });
+    if (!response.ok) {
+      return { receipt: null, dvnEvent: null };
+    }
+    const data = await response.json();
+    return {
+      receipt: data?.receipt || null,
+      dvnEvent: data?.dvnEvent || null,
+    };
+  };
+
+  const persistExperienceUpdate = async (experienceId: string, payload: Record<string, any>, errorMessage: string) => {
+    const updateRes = await fetch(`/api/composer/experiences/${experienceId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!updateRes.ok) {
+      throw new Error(errorMessage);
+    }
+    const updatedData = await updateRes.json();
+    const updatedExperience = updatedData.experience_qube || null;
+    setExperiences((prev) => {
+      const next = prev.map((exp) => (exp.id === experienceId ? updatedExperience || exp : exp));
+      cacheExperiencesForTenant(tenantId, next);
+      return next;
+    });
+    if (selectedExperienceId === experienceId && updatedExperience) {
+      setSelectedExperience(updatedExperience);
+    }
+    if (experience?.id === experienceId && updatedExperience) {
+      setExperience(updatedExperience);
+    }
+  };
+
+  const handleLogAuditEvent = async (
+    experienceId: string,
+    action: "pipeline_run" | "pipeline_error" | "remedy_proposed" | "remedy_rejected",
+    summary: string,
+    details?: Record<string, any>
+  ) => {
+    const existing = experiences.find((exp) => exp.id === experienceId) || selectedExperience || experience;
+    if (!existing) return;
+    const { receipt, dvnEvent } = await createDprAuditReceipt(experienceId, action, summary, details);
+    const now = new Date().toISOString();
+    const eventRecord = {
+      id: `dpr_evt_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      action,
+      summary,
+      details: details || {},
+      createdAt: now,
+      receiptId: receipt?.receiptId || null,
+      dvnEventId: dvnEvent?.id || null,
+      status: dvnEvent?.status || "logged",
+    };
+    const previousMetadata = existing.metadata || {};
+    const previousAuditTrail = Array.isArray(previousMetadata.dprAuditTrail)
+      ? previousMetadata.dprAuditTrail
+      : [];
+    const previousCopilotLog = Array.isArray(previousMetadata.copilotLog)
+      ? previousMetadata.copilotLog
+      : [];
+    const nextMetadata = {
+      ...previousMetadata,
+      dprLastAction: action,
+      dprUpdatedAt: now,
+      dprAuditTrail: [...previousAuditTrail, eventRecord].slice(-60),
+      dprReceipts: [...(Array.isArray(previousMetadata.dprReceipts) ? previousMetadata.dprReceipts : []), receipt]
+        .filter(Boolean)
+        .slice(-25),
+      dprDvnEvents: [...(Array.isArray(previousMetadata.dprDvnEvents) ? previousMetadata.dprDvnEvents : []), dvnEvent]
+        .filter(Boolean)
+        .slice(-25),
+      dprLatest:
+        action === "pipeline_run"
+          ? {
+              score: details?.overall ?? null,
+              structural: details?.structural ?? null,
+              checks: details?.audit || null,
+              violations: details?.violationCount ?? null,
+              summary,
+              updatedAt: now,
+            }
+          : previousMetadata.dprLatest,
+      copilotLog: [
+        ...previousCopilotLog,
+        {
+          id: `copilot_dpr_${Date.now()}`,
+          type: "design-parity",
+          action,
+          summary,
+          createdAt: now,
+          receiptId: receipt?.receiptId || null,
+          dvnEventId: dvnEvent?.id || null,
+        },
+      ].slice(-100),
+    };
+    const baseConfiguration = existing.configuration || {};
+    const baseCopilotOutput = (baseConfiguration as any).copilot_output || {};
+    const dprLog = Array.isArray(baseCopilotOutput.dpr_log) ? baseCopilotOutput.dpr_log : [];
+    const nextConfiguration = {
+      ...baseConfiguration,
+      copilot_output: {
+        ...baseCopilotOutput,
+        dpr_log: [...dprLog, eventRecord].slice(-50),
+      },
+    };
+
+    await persistExperienceUpdate(
+      experienceId,
+      {
+        name: existing.name,
+        description: existing.description,
+        goal: existing.goal,
+        mechanics: existing.mechanics,
+        metrics: existing.metrics,
+        template_id: existing.template_id,
+        status: existing.status,
+        configuration: nextConfiguration,
+        components: existing.components,
+        access: existing.access,
+        metadata: nextMetadata,
+      },
+      "Failed to log DPR event."
+    );
+  };
+
+  const handleApplyRemedy = async (
+    experienceId: string,
+    patch: Partial<ExperienceQube>,
+    summary: string
+  ) => {
+    const existing = experiences.find((exp) => exp.id === experienceId) || selectedExperience || experience;
+    if (!existing) {
+      throw new Error("ExperienceQube not found for remedy.");
+    }
+    const { receipt, dvnEvent } = await createDprAuditReceipt(experienceId, "remedy_applied", summary, {
+      patch,
+      proposalCount: Array.isArray((patch.metadata as any)?.parityRemedies)
+        ? (patch.metadata as any).parityRemedies.length
+        : undefined,
+    });
+    const now = new Date().toISOString();
+    const previousMetadata = existing.metadata || {};
+    const previousAuditTrail = Array.isArray(previousMetadata.dprAuditTrail)
+      ? previousMetadata.dprAuditTrail
+      : [];
+    const previousCopilotLog = Array.isArray(previousMetadata.copilotLog)
+      ? previousMetadata.copilotLog
+      : [];
+    const eventRecord = {
+      id: `dpr_evt_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      action: "remedy_applied",
+      summary,
+      createdAt: now,
+      receiptId: receipt?.receiptId || null,
+      dvnEventId: dvnEvent?.id || null,
+      status: dvnEvent?.status || "logged",
+    };
+    const nextMetadata = {
+      ...previousMetadata,
+      ...(patch.metadata || {}),
+      dprLastAction: "remedy_applied",
+      dprUpdatedAt: now,
+      dprAuditTrail: [...previousAuditTrail, eventRecord].slice(-60),
+      dprReceipts: [...(Array.isArray(previousMetadata.dprReceipts) ? previousMetadata.dprReceipts : []), receipt]
+        .filter(Boolean)
+        .slice(-25),
+      dprDvnEvents: [...(Array.isArray(previousMetadata.dprDvnEvents) ? previousMetadata.dprDvnEvents : []), dvnEvent]
+        .filter(Boolean)
+        .slice(-25),
+      copilotLog: [
+        ...previousCopilotLog,
+        {
+          id: `copilot_dpr_${Date.now()}`,
+          type: "design-parity",
+          action: "remedy_applied",
+          summary,
+          createdAt: now,
+          receiptId: receipt?.receiptId || null,
+          dvnEventId: dvnEvent?.id || null,
+        },
+      ].slice(-100),
+    };
+    const baseConfiguration = patch.configuration ?? existing.configuration ?? {};
+    const baseCopilotOutput = (baseConfiguration as any).copilot_output || {};
+    const dprLog = Array.isArray(baseCopilotOutput.dpr_log) ? baseCopilotOutput.dpr_log : [];
+    const nextConfiguration = {
+      ...baseConfiguration,
+      copilot_output: {
+        ...baseCopilotOutput,
+        dpr_log: [...dprLog, eventRecord].slice(-50),
+      },
+    };
+    const payload = {
+      name: patch.name ?? existing.name,
+      description: patch.description ?? existing.description,
+      goal: patch.goal ?? existing.goal,
+      mechanics: patch.mechanics ?? existing.mechanics,
+      metrics: patch.metrics ?? existing.metrics,
+      template_id: patch.template_id ?? existing.template_id,
+      status: patch.status ?? existing.status,
+      configuration: nextConfiguration,
+      components: patch.components ?? existing.components,
+      access: patch.access ?? existing.access,
+      execution: (patch as any).execution ?? (existing as any)?.execution,
+      metadata: nextMetadata,
+    };
+
+    await persistExperienceUpdate(experienceId, payload, "Failed to apply ExperienceQube remedy.");
+    setPreviewAction(`Remedy applied: ${summary}`);
   };
 
   const updateField = (stepId: string, fieldId: string, value: any) => {
@@ -1018,11 +2245,12 @@ export const ComposerStudio = () => {
     if (Array.isArray(copilotStep.outputs) && copilotStep.outputs.length > 0) {
       list.push({ label: getLabel("copilot_output", "outputs"), value: copilotStep.outputs.join(", ") });
     }
-    if (copilotStep.takeaways_count !== undefined) list.push({ label: getLabel("copilot_output", "takeaways_count"), value: String(copilotStep.takeaways_count) });
+    if (copilotStep.takeaways_count !== undefined) {
+      list.push({ label: getLabel("copilot_output", "takeaways_count"), value: String(copilotStep.takeaways_count) });
+    }
 
     return list;
   }, [mergedData, sessionTemplate]);
-
   return (
     <div className="min-h-screen bg-slate-900 px-6 py-6">
       <div className="w-full space-y-8">
@@ -1069,7 +2297,7 @@ export const ComposerStudio = () => {
                   hideAvatarToggle
                   contextOptions={copilotContextOptions}
                   contextId={copilotContextId}
-                  onContextChange={setCopilotContextId}
+                  onContextChange={handleCopilotContextChange}
                   inputPanelClassName="rounded-2xl border border-white/10 bg-slate-950/95 backdrop-blur-xl px-3 py-3 shadow-lg"
                   inputPanelInputClassName="flex-1 px-3 py-2 bg-slate-900/80 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500 text-sm"
                   panelBorder={false}
@@ -1095,7 +2323,7 @@ export const ComposerStudio = () => {
             </div>
           </div>
 
-          <div className={cardClass}>
+          <div ref={templateCustomizerRef} className={cardClass}>
             <div className="flex items-center justify-between">
               <div>
                 <div className="flex items-center gap-2">
@@ -1381,7 +2609,9 @@ export const ComposerStudio = () => {
                   </button>
                   {experience && (
                     <button
-                      onClick={() => router.push(`/studio/composer/experience/${experience.id}`)}
+                      onClick={() => {
+                        void launchExperience(experience);
+                      }}
                       className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-200"
                     >
                       Open Experience
@@ -1395,10 +2625,19 @@ export const ComposerStudio = () => {
         <div className="grid gap-6 lg:grid-cols-[1.1fr_1fr]">
           <div className={cardClass}>
             <div className="flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-2">
-                  <Hexagon className="h-4 w-4 text-cyan-300" />
-                  <h2 className="text-lg font-semibold text-white">ExperienceQubes</h2>
+              <div className="flex-1">
+                <div className="flex w-full items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Hexagon className="h-4 w-4 text-cyan-300" />
+                    <h2 className="text-lg font-semibold text-white">ExperienceQubes</h2>
+                  </div>
+                  <button
+                    onClick={() => setExperienceQubeCollapsed(prev => !prev)}
+                    className="inline-flex items-center rounded-full border border-slate-700 px-2 py-0.5 text-slate-300 transition hover:bg-slate-800/60"
+                    title={experienceQubeCollapsed ? "Expand details" : "Collapse details"}
+                  >
+                    {experienceQubeCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                  </button>
                 </div>
                 <p className="text-sm text-slate-400">Latest experiences for the current tenant.</p>
               </div>
@@ -1408,48 +2647,118 @@ export const ComposerStudio = () => {
                 </span>
               )}
             </div>
-            <div className="mt-4 max-h-[420px] overflow-y-auto pr-1">
-              <div className="grid gap-3 md:grid-cols-2">
-                {experiences.map((exp) => (
-                  <div key={exp.id} className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+            <div className={`mt-4 ${experienceQubeCollapsed ? 'max-h-[170px] overflow-y-auto pr-1' : 'max-h-[420px] overflow-y-auto pr-1'}`}>
+              <div className={`gap-3 ${experienceQubeCollapsed ? 'grid grid-cols-2' : 'grid md:grid-cols-2'}`}>
+                {experiences.map((exp) => {
+                  const isSelected = selectedExperienceId === exp.id;
+                  return (
+                  <div
+                    key={exp.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => {
+                      setSelectedExperience(exp);
+                      setSelectedExperienceId(exp.id);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        setSelectedExperience(exp);
+                        setSelectedExperienceId(exp.id);
+                      }
+                    }}
+                    className={`rounded-xl border bg-slate-950/60 p-4 transition ${
+                      isSelected
+                        ? "border-purple-400/60 bg-purple-500/10 shadow-[0_0_0_1px_rgba(168,85,247,0.4)]"
+                        : "border-slate-800 hover:border-slate-600/60"
+                    }`}
+                  >
                     <div className="text-sm font-semibold text-white">{exp.name}</div>
-                    <div className="text-xs text-slate-400">{exp.description}</div>
+                    <div className="text-xs text-slate-400 mt-1 line-clamp-2">{exp.description}</div>
                     <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-400">
                       <span className="rounded-full border border-slate-700 px-2 py-0.5">{exp.status}</span>
-                      {exp.metadata?.category && (
-                        <span className="rounded-full border border-slate-700 px-2 py-0.5">
-                          {exp.metadata.category}
+                      {exp.configuration?.wallet_rewards?.unlock_price && (
+                        <span className="rounded-full border border-amber-600/60 bg-amber-600/10 px-2 py-0.5 text-amber-300">
+                          💰 {exp.configuration.wallet_rewards.unlock_price} Q¢
                         </span>
                       )}
-                      {exp.metadata?.tags?.slice(0, 2).map((tag) => (
-                        <span key={tag} className="rounded-full border border-slate-700 px-2 py-0.5">
-                          {tag}
+                      {exp.configuration?.wallet_rewards?.reward_amount && (
+                        <span className="rounded-full border border-emerald-600/60 bg-emerald-600/10 px-2 py-0.5 text-emerald-300">
+                          🎁 +{exp.configuration.wallet_rewards.reward_amount} Q¢
                         </span>
-                      ))}
+                      )}
                     </div>
-                    <div className="mt-3 flex items-center gap-2">
-                      <button
-                        onClick={() => {
-                          setSelectedExperienceId(exp.id);
-                          setPreviewAction(`Preview ${exp.name}`);
-                        }}
-                        className={`rounded-lg border px-3 py-1.5 text-xs font-semibold ${
-                          selectedExperienceId === exp.id
-                            ? "border-cyan-400/60 bg-cyan-400/10 text-cyan-200"
-                            : "border-slate-700 bg-slate-900/40 text-slate-300 hover:bg-slate-800/60"
-                        }`}
-                      >
-                        Preview
-                      </button>
-                      <button
-                        onClick={() => router.push(`/studio/composer/experience/${exp.id}`)}
-                        className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-200 hover:bg-emerald-500/20"
-                      >
-                        Launch Experience
-                      </button>
+                    <div className="mt-3 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            void launchExperience(exp);
+                          }}
+                          className="rounded-lg border border-emerald-400/60 bg-emerald-400/10 p-2 text-emerald-200 hover:bg-emerald-400/20"
+                          title="Launch Experience"
+                        >
+                          <Play className="h-3 w-3" />
+                        </button>
+                        <button
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openRuntimePreviewForExperience(exp, "Preview");
+                          }}
+                          className="rounded-lg border border-cyan-400/60 bg-cyan-400/10 p-2 text-cyan-200 hover:bg-cyan-400/20"
+                          title="Preview Experience"
+                        >
+                          <Eye className="h-3 w-3" />
+                        </button>
+                        <button
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openMcpInspector(exp);
+                          }}
+                          className="rounded-lg border border-fuchsia-400/60 bg-fuchsia-400/10 p-2 text-fuchsia-200 hover:bg-fuchsia-400/20"
+                          title="MCP Inspector"
+                        >
+                          <Code className="h-3 w-3" />
+                        </button>
+                        <button
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setSelectedExperience(exp);
+                            setExperienceModalTab("metrics");
+                            setShowExperienceModal(true);
+                          }}
+                          className="rounded-lg border border-violet-400/60 bg-violet-400/10 p-2 text-violet-200 hover:bg-violet-400/20"
+                          title="View Metrics"
+                        >
+                          <BarChart className="h-3 w-3" />
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleEditExperience(exp);
+                          }}
+                          className="rounded-lg border border-amber-400/60 bg-amber-400/10 p-2 text-amber-200 hover:bg-amber-400/20"
+                          title="Edit Experience"
+                        >
+                          <Edit className="h-3 w-3" />
+                        </button>
+                        <button
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setExperienceToDelete(exp);
+                            setShowDeleteConfirm(true);
+                          }}
+                          className="rounded-lg border border-red-400/60 bg-red-400/10 p-2 text-red-200 hover:bg-red-400/20"
+                          title="Delete Experience"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
                     </div>
                   </div>
-                ))}
+                )})}
               </div>
               {experiences.length === 0 && (
                 <div className="rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-6 text-sm text-slate-400">
@@ -1475,9 +2784,9 @@ export const ComposerStudio = () => {
               <div>
                 <div className="flex items-center gap-2">
                   <Palette className="h-4 w-4 text-rose-300" />
-                  <h2 className="text-lg font-semibold text-white">StyleQube</h2>
+                  <h2 className="text-lg font-semibold text-white">DesignQube</h2>
                 </div>
-                <p className="text-sm text-slate-400">Active styling profile for Runtime + Studio.</p>
+                <p className="text-sm text-slate-400">Enhanced design system with style, structure, and guidance panels.</p>
               </div>
             </div>
             {designQubeLoading && (
@@ -1502,13 +2811,26 @@ export const ComposerStudio = () => {
                     colors.muted,
                     colors.border,
                   ].filter(Boolean) as string[];
+                  const resolvedPalette =
+                    palette.length > 0
+                      ? palette
+                      : ["#020617", "#0f172a", "#1d4ed8", "#f8fafc", "#94a3b8", "rgba(148,163,184,0.2)"];
                   const radiusValues = designQube.tokens?.radius
                     ? Object.values(designQube.tokens.radius).slice(0, 3)
                     : [];
                   const fontFamily = designQube.tokens?.typography?.fontFamily?.sans || "system-ui";
                   const scale = designQube.tokens?.typography?.scale || {};
                   const glassEnabled = designQube.constraints?.material?.glass?.enabled;
-                  const references = designQube.references?.slice(0, 4) || [];
+                  const references =
+                    designQube.references && designQube.references.length > 0
+                      ? designQube.references.slice(0, 6)
+                      : DESIGN_QUBE_IMAGE_FALLBACKS.map((thumbnailUrl, idx) => ({
+                          id: `fallback-ref-${idx + 1}`,
+                          file: `fallback-${idx + 1}.png`,
+                          title: `Reference ${idx + 1}`,
+                          dataUrl: undefined,
+                          thumbnailUrl,
+                        }));
                   const summaryBadges = designQube.manifest?.themes || [];
                   const themeBg = colors.surface || colors.bg || "rgba(15,23,42,0.6)";
                   const themeBorder = colors.border || "rgba(148,163,184,0.2)";
@@ -1523,11 +2845,15 @@ export const ComposerStudio = () => {
                         <div className="flex flex-wrap items-center gap-2 text-xs" style={{ color: themeText }}>
                           <select
                             value={activeStyleQubeId}
-                            onChange={(e) => setActiveStyleQubeId(e.target.value)}
+                            onChange={(e) => handleDesignQubeSelection(e.target.value)}
                             className="rounded-md border border-white/10 bg-slate-950/40 px-2 py-1 text-xs text-white/90"
                             style={{ borderColor: themeBorder, backgroundColor: themeBg }}
                           >
-                            <option value="knyt-guidance-v1">KNYT Guidance</option>
+                            {designQubeOptions.map((option) => (
+                              <option key={option.id} value={option.id}>
+                                {option.label}
+                              </option>
+                            ))}
                           </select>
                           <button
                             className="inline-flex items-center rounded-full border px-2 py-0.5"
@@ -1582,25 +2908,777 @@ export const ComposerStudio = () => {
                       </div>
 
                       {!designQubeCollapsed ? (
-                        <>
-                          {designQube.styleBrief && (
-                            <div className="mt-3 max-h-[160px] overflow-y-auto pr-1 text-sm" style={{ color: themeText }}>
-                              {designQube.styleBrief}
+                        <div className="mt-4 max-h-[500px] overflow-y-auto pr-2 space-y-4">
+                          {/* Enhanced Data Loading Test Section */}
+                          <div className="mt-4 rounded-xl border p-3" style={{ backgroundColor: themeBg, borderColor: themeBorder }}>
+                            <h4 className="text-sm font-medium text-white mb-2 flex items-center gap-2">
+                              <BookOpen className="h-4 w-4 text-indigo-300" />
+                              Enhanced Data Loading
+                            </h4>
+                            <div className="grid grid-cols-2 gap-4 text-xs">
+                              <div className="space-y-1" style={{ color: themeText }}>
+                                <div>✅ StyleQube: {designQube.styleQube ? 'Loaded' : 'Missing'}</div>
+                                <div>✅ StructureQube: {designQube.structureQube ? 'Loaded' : 'Missing'}</div>
+                                <div>✅ GuidesBriefs: {designQube.guidesBriefs ? 'Loaded' : 'Missing'}</div>
+                                <div>✅ Sources: {designQube.sources?.length || 0} files</div>
+                                <div>✅ Visual Sub-Groups: {designQube.styleQube?.visual ? 'Available' : 'Missing'}</div>
+                              </div>
+                              <div className="space-y-1" style={{ color: themeText }}>
+                                <div>✅ Audio Sub-Groups: {designQube.styleQube?.audio ? 'Available' : 'Missing'}</div>
+                                <div>✅ Text Sub-Groups: {designQube.styleQube?.text ? 'Available' : 'Missing'}</div>
+                                <div>✅ Spatial Sub-Groups: {designQube.styleQube?.spatial ? 'Available' : 'Missing'}</div>
+                                <div>✅ Content Modules: {designQube.structureQube?.contentModules?.length || 0} available</div>
+                                <div>✅ Big-Screen Support: {designQube.structureQube?.breakpoints?.bigScreen ? 'Enabled' : 'Missing'}</div>
+                              </div>
                             </div>
-                          )}
+                          </div>
+
+                          {/* Guides/Briefs Panel - Two-Level Tab Structure */}
+                          <div className="mt-4 rounded-xl border p-4" style={{ backgroundColor: themeBg, borderColor: themeBorder }}>
+                            <div className="flex items-center justify-between mb-3">
+                              <h4 className="text-sm font-medium text-white flex items-center gap-2">
+                                <BookOpen className="h-4 w-4 text-indigo-300" />
+                                Guides & Briefs
+                              </h4>
+                              <button className="flex items-center gap-1 px-2 py-1 text-xs bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 rounded-md border border-indigo-500/30">
+                                <Upload className="h-3 w-3" />
+                                Upload
+                              </button>
+                            </div>
+                            
+                            {/* styleBrief text integrated here */}
+                            {designQube.styleBrief && (
+                              <div className="mb-4 max-h-[120px] overflow-y-auto pr-1 text-sm" style={{ color: themeText }}>
+                                {designQube.styleBrief}
+                              </div>
+                            )}
+                            <Tabs value={guidesActiveTab} onValueChange={setGuidesActiveTab} className="w-full">
+                              <TabsList className="grid w-full grid-cols-2 h-auto p-1 bg-slate-800/50 border border-slate-700/50 rounded-lg mb-4">
+                                <TabsTrigger value="style-guide" className="flex items-center gap-2 px-3 py-2 text-xs data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+                                  <Palette className="h-3 w-3" />
+                                  Style Guide
+                                </TabsTrigger>
+                                <TabsTrigger value="experience-guide" className="flex items-center gap-2 px-3 py-2 text-xs data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+                                  <Hexagon className="h-3 w-3" />
+                                  Experience Guide
+                                </TabsTrigger>
+                              </TabsList>
+
+                              {/* Style Guide Content */}
+                              <TabsContent value="style-guide" className="mt-3">
+                                <Tabs value={styleGuideActiveTab} onValueChange={setStyleGuideActiveTab} className="w-full">
+                                  <TabsList className="grid w-full grid-cols-3 h-auto p-1 bg-slate-800/30 border border-slate-700/30 rounded-lg mb-3">
+                                    <TabsTrigger value="css" className="flex items-center gap-1 px-2 py-1 text-xs data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+                                      <Code className="h-3 w-3" />
+                                      CSS
+                                    </TabsTrigger>
+                                    <TabsTrigger value="brand-guide" className="flex items-center gap-1 px-2 py-1 text-xs data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+                                      <Shield className="h-3 w-3" />
+                                      Brand Guide
+                                    </TabsTrigger>
+                                    <TabsTrigger value="look-book" className="flex items-center gap-1 px-2 py-1 text-xs data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+                                      <Book className="h-3 w-3" />
+                                      Look Book
+                                    </TabsTrigger>
+                                  </TabsList>
+
+                                  {/* CSS Tab Content */}
+                                  <TabsContent value="css" className="space-y-3">
+                                    <div className="space-y-2">
+                                      <span className="text-slate-400 text-xs">CSS Styles:</span>
+                                      <div className="mt-1 p-3 rounded" style={{ backgroundColor: 'rgba(51, 65, 85, 0.3)', color: themeText }}>
+                                        <div className="text-xs font-mono space-y-1">
+                                          <div>{"/* Primary Colors */"}</div>
+                                          <div>--primary: {themeText};</div>
+                                          <div>--background: {themeBg};</div>
+                                          <div>--border: {themeBorder};</div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </TabsContent>
+
+                                  {/* Brand Guide Tab Content */}
+                                  <TabsContent value="brand-guide" className="space-y-3">
+                                    <div className="space-y-2">
+                                      <span className="text-slate-400 text-xs">Brand Guidelines:</span>
+                                      <div className="mt-1 p-3 rounded" style={{ backgroundColor: 'rgba(51, 65, 85, 0.3)', color: themeText }}>
+                                        <div className="text-xs space-y-2">
+                                          <div><strong>Voice:</strong> Professional, innovative, user-centric</div>
+                                          <div><strong>Tone:</strong> Helpful, confident, approachable</div>
+                                          <div><strong>Values:</strong> Quality, creativity, accessibility</div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </TabsContent>
+
+                                  {/* Look Book Tab Content */}
+                                  <TabsContent value="look-book" className="space-y-3">
+                                    <div className="space-y-2">
+                                      <span className="text-slate-400 text-xs">Visual Examples:</span>
+                                      <div className="mt-1 p-3 rounded" style={{ backgroundColor: 'rgba(51, 65, 85, 0.3)', color: themeText }}>
+                                        <div className="text-xs space-y-2">
+                                          <div><strong>Typography:</strong> Clean, modern sans-serif</div>
+                                          <div><strong>Imagery:</strong> High-quality, contextual</div>
+                                          <div><strong>Layout:</strong> Balanced, responsive, intuitive</div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </TabsContent>
+                                </Tabs>
+                              </TabsContent>
+
+                              {/* Experience Guide Content */}
+                              <TabsContent value="experience-guide" className="mt-3">
+                                <Tabs value={experienceGuideActiveTab} onValueChange={setExperienceGuideActiveTab} className="w-full">
+                                  <TabsList className="grid w-full grid-cols-4 h-auto p-1 bg-slate-800/30 border border-slate-700/30 rounded-lg mb-3">
+                                    <TabsTrigger value="who" className="flex items-center gap-1 px-2 py-1 text-xs data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+                                      <Users className="h-3 w-3" />
+                                      Who
+                                    </TabsTrigger>
+                                    <TabsTrigger value="what" className="flex items-center gap-1 px-2 py-1 text-xs data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+                                      <Target className="h-3 w-3" />
+                                      What
+                                    </TabsTrigger>
+                                    <TabsTrigger value="wow" className="flex items-center gap-1 px-2 py-1 text-xs data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+                                      <Sparkles className="h-3 w-3" />
+                                      Wow
+                                    </TabsTrigger>
+                                    <TabsTrigger value="metrics" className="flex items-center gap-1 px-2 py-1 text-xs data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+                                      <BarChart className="h-3 w-3" />
+                                      Metrics
+                                    </TabsTrigger>
+                                  </TabsList>
+
+                                  {/* Who Tab Content */}
+                                  <TabsContent value="who" className="space-y-3">
+                                <div className="space-y-2">
+                                  <span className="text-slate-400 text-xs">Audience:</span>
+                                  <div className="mt-1 p-2 rounded" style={{ color: themeText, backgroundColor: 'rgba(51, 65, 85, 0.3)' }}>
+                                    {designQube.guidesBriefs?.experienceGuide?.who?.audience}
+                                  </div>
+                                </div>
+                                <div className="space-y-2">
+                                  <span className="text-slate-400 text-xs">Demographics:</span>
+                                  <div className="space-y-1 mt-1">
+                                    {designQube.guidesBriefs?.experienceGuide?.who?.demographics?.slice(0, 3).map((item, idx) => (
+                                      <div key={idx} className="text-xs p-2 rounded" style={{ backgroundColor: 'rgba(51, 65, 85, 0.3)', color: themeText }}>
+                                        {item}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </TabsContent>
+
+                              {/* What Tab Content */}
+                              <TabsContent value="what" className="mt-3 space-y-3">
+                                <div className="space-y-2">
+                                  <span className="text-slate-400 text-xs">Delivery Methods:</span>
+                                  <div className="space-y-1 mt-1">
+                                    {designQube.guidesBriefs?.experienceGuide?.what?.delivery?.slice(0, 3).map((item, idx) => (
+                                      <div key={idx} className="text-xs p-2 rounded" style={{ backgroundColor: 'rgba(51, 65, 85, 0.3)', color: themeText }}>
+                                        {item}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                                <div className="space-y-2">
+                                  <span className="text-slate-400 text-xs">Mechanics:</span>
+                                  <div className="space-y-1 mt-1">
+                                    {designQube.guidesBriefs?.experienceGuide?.what?.mechanics?.slice(0, 3).map((item, idx) => (
+                                      <div key={idx} className="text-xs p-2 rounded" style={{ backgroundColor: 'rgba(51, 65, 85, 0.3)', color: themeText }}>
+                                        {item}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </TabsContent>
+
+                              {/* Wow Tab Content */}
+                              <TabsContent value="wow" className="mt-3 space-y-3">
+                                <div className="space-y-2">
+                                  <span className="text-slate-400 text-xs">Differentiators:</span>
+                                  <div className="space-y-1 mt-1">
+                                    {designQube.guidesBriefs?.experienceGuide?.wow?.differentiators?.slice(0, 3).map((item, idx) => (
+                                      <div key={idx} className="text-xs p-2 rounded" style={{ backgroundColor: 'rgba(51, 65, 85, 0.3)', color: themeText }}>
+                                        {item}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                                <div className="space-y-2">
+                                  <span className="text-slate-400 text-xs">Innovations:</span>
+                                  <div className="space-y-1 mt-1">
+                                    {designQube.guidesBriefs?.experienceGuide?.wow?.innovations?.slice(0, 3).map((item, idx) => (
+                                      <div key={idx} className="text-xs p-2 rounded" style={{ backgroundColor: 'rgba(51, 65, 85, 0.3)', color: themeText }}>
+                                        {item}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </TabsContent>
+
+                              {/* Metrics Tab Content */}
+                              <TabsContent value="metrics" className="mt-3 space-y-3">
+                                <div className="space-y-2">
+                                  <span className="text-slate-400 text-xs">Success Metrics:</span>
+                                  <div className="space-y-1 max-h-24 overflow-y-auto">
+                                    {designQube.guidesBriefs?.experienceGuide?.metrics?.success?.slice(0, 3).map((metric, idx) => (
+                                      <div key={idx} className="text-xs p-2 rounded" style={{ backgroundColor: 'rgba(51, 65, 85, 0.3)', color: themeText }}>
+                                        {metric}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                                <div className="space-y-2">
+                                  <span className="text-slate-400 text-xs">Key Performance Indicators:</span>
+                                  <div className="space-y-1 max-h-24 overflow-y-auto">
+                                    {designQube.guidesBriefs?.experienceGuide?.metrics?.kpis?.slice(0, 3).map((kpi, idx) => (
+                                      <div key={idx} className="text-xs p-2 rounded" style={{ backgroundColor: 'rgba(51, 65, 85, 0.3)', color: themeText }}>
+                                        {kpi}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </TabsContent>
+                                </Tabs>
+                              </TabsContent>
+                            </Tabs>
+                          </div>
+
+                          {/* Enhanced StyleQube Panel */}
+                          <div className="mt-4 rounded-xl border p-4" style={{ backgroundColor: themeBg, borderColor: themeBorder }}>
+                            <h4 className="text-sm font-medium text-white mb-3 flex items-center gap-2">
+                              <Palette className="h-4 w-4 text-rose-300" />
+                              StyleQube
+                            </h4>
+                            <Tabs value={styleQubeActiveTab} onValueChange={setStyleQubeActiveTab} className="w-full">
+                              <TabsList className="grid w-full grid-cols-4 h-auto p-1 bg-slate-800/50 border border-slate-700/50 rounded-lg">
+                                <TabsTrigger value="visual" className="flex items-center gap-1 px-2 py-1 text-xs data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+                                  <Eye className="h-3 w-3" />
+                                  Visual
+                                </TabsTrigger>
+                                <TabsTrigger value="audio" className="flex items-center gap-1 px-2 py-1 text-xs data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+                                  <Volume2 className="h-3 w-3" />
+                                  Audio
+                                </TabsTrigger>
+                                <TabsTrigger value="text" className="flex items-center gap-1 px-2 py-1 text-xs data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+                                  <Type className="h-3 w-3" />
+                                  Text
+                                </TabsTrigger>
+                                <TabsTrigger value="spatial" className="flex items-center gap-1 px-2 py-1 text-xs data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+                                  <LayoutGrid className="h-3 w-3" />
+                                  Spatial
+                                </TabsTrigger>
+                              </TabsList>
+
+                              {/* Visual Tab Content */}
+                              <TabsContent value="visual" className="mt-3 space-y-3">
+                                <div className="grid grid-cols-3 gap-3 text-xs">
+                                  <div>
+                                    <span className="text-slate-400">Primary Color:</span>
+                                    <div className="flex items-center gap-2 mt-1">
+                                      <div 
+                                        className="w-3 h-3 rounded border border-slate-600" 
+                                        style={{ backgroundColor: designQube.styleQube?.visual?.colors?.primary }}
+                                      />
+                                      <span style={{ color: themeText }}>{designQube.styleQube?.visual?.colors?.primary}</span>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400">Secondary Color:</span>
+                                    <div className="flex items-center gap-2 mt-1">
+                                      <div 
+                                        className="w-3 h-3 rounded border border-slate-600" 
+                                        style={{ backgroundColor: designQube.styleQube?.visual?.colors?.secondary }}
+                                      />
+                                      <span style={{ color: themeText }}>{designQube.styleQube?.visual?.colors?.secondary}</span>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400">Accent Color:</span>
+                                    <div className="flex items-center gap-2 mt-1">
+                                      <div 
+                                        className="w-3 h-3 rounded border border-slate-600" 
+                                        style={{ backgroundColor: designQube.styleQube?.visual?.colors?.accent }}
+                                      />
+                                      <span style={{ color: themeText }}>{designQube.styleQube?.visual?.colors?.accent}</span>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400">Font Family:</span>
+                                    <div style={{ color: themeText }} className="mt-1">
+                                      {designQube.styleQube?.visual?.typography?.fontFamily?.primary}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400">Border Radius:</span>
+                                    <div style={{ color: themeText }} className="mt-1">
+                                      {designQube.styleQube?.visual?.radius?.md}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400">Shadow:</span>
+                                    <div style={{ color: themeText }} className="mt-1">
+                                      {designQube.styleQube?.visual?.shadows?.md}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="space-y-2">
+                                  <span className="text-slate-400 text-xs">Animation Duration:</span>
+                                  <div className="grid grid-cols-3 gap-2 text-xs">
+                                    <div style={{ color: themeText }}>Fast: {designQube.styleQube?.visual?.animations?.duration?.fast}</div>
+                                    <div style={{ color: themeText }}>Normal: {designQube.styleQube?.visual?.animations?.duration?.normal}</div>
+                                    <div style={{ color: themeText }}>Slow: {designQube.styleQube?.visual?.animations?.duration?.slow}</div>
+                                  </div>
+                                </div>
+                              </TabsContent>
+
+                              {/* Audio Tab Content */}
+                              <TabsContent value="audio" className="mt-3 space-y-3">
+                                <div className="grid grid-cols-3 gap-3 text-xs">
+                                  <div>
+                                    <span className="text-slate-400">Voice Persona:</span>
+                                    <div style={{ color: themeText }} className="mt-1">
+                                      {designQube.styleQube?.audio?.voice?.persona}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400">Accent:</span>
+                                    <div style={{ color: themeText }} className="mt-1">
+                                      {designQube.styleQube?.audio?.voice?.accent}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400">Pace:</span>
+                                    <div style={{ color: themeText }} className="mt-1">
+                                      {designQube.styleQube?.audio?.voice?.pace}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400">Sound Effects:</span>
+                                    <div style={{ color: themeText }} className="mt-1">
+                                      {designQube.styleQube?.audio?.soundEffects?.enabled ? 'Enabled' : 'Disabled'}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400">TTS Provider:</span>
+                                    <div style={{ color: themeText }} className="mt-1">
+                                      {designQube.styleQube?.audio?.voice?.ttsHints?.provider}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400">Voice ID:</span>
+                                    <div style={{ color: themeText }} className="mt-1">
+                                      {designQube.styleQube?.audio?.voice?.ttsHints?.voiceId}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="space-y-2">
+                                  <span className="text-slate-400 text-xs">Audio Settings:</span>
+                                  <div className="grid grid-cols-3 gap-2 text-xs">
+                                    <div style={{ color: themeText }}>Volume: {(designQube.styleQube?.audio as any)?.volume || '80%'}</div>
+                                    <div style={{ color: themeText }}>Pitch: {(designQube.styleQube?.audio as any)?.pitch || 'Normal'}</div>
+                                    <div style={{ color: themeText }}>Quality: {(designQube.styleQube?.audio as any)?.quality || 'High'}</div>
+                                  </div>
+                                </div>
+                              </TabsContent>
+
+                              {/* Text Tab Content */}
+                              <TabsContent value="text" className="mt-3 space-y-3">
+                                <div className="grid grid-cols-3 gap-3 text-xs">
+                                  <div>
+                                    <span className="text-slate-400">Font Family:</span>
+                                    <div style={{ color: themeText }} className="mt-1">
+                                      {designQube.styleQube?.text?.formatting?.fontFamily}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400">Font Size:</span>
+                                    <div style={{ color: themeText }} className="mt-1">
+                                      {designQube.styleQube?.text?.formatting?.fontSize}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400">Line Height:</span>
+                                    <div style={{ color: themeText }} className="mt-1">
+                                      {designQube.styleQube?.text?.formatting?.lineHeight}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400">Max Width:</span>
+                                    <div style={{ color: themeText }} className="mt-1">
+                                      {designQube.styleQube?.text?.formatting?.maxWidth}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400">Personality:</span>
+                                    <div style={{ color: themeText }} className="mt-1">
+                                      {designQube.styleQube?.text?.tone?.personality}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400">Formality:</span>
+                                    <div style={{ color: themeText }} className="mt-1">
+                                      {designQube.styleQube?.text?.tone?.formality}
+                                    </div>
+                                  </div>
+                                  <span className="text-slate-400 text-xs">Text Settings:</span>
+                                  <div className="grid grid-cols-3 gap-2 text-xs">
+                                    <div style={{ color: themeText }}>Weight: {(designQube.styleQube?.text?.formatting as any)?.fontWeight || 'Medium'}</div>
+                                    <div style={{ color: themeText }}>Spacing: {(designQube.styleQube?.text?.formatting as any)?.letterSpacing || 'Normal'}</div>
+                                    <div style={{ color: themeText }}>Transform: {(designQube.styleQube?.text?.formatting as any)?.textTransform || 'None'}</div>
+                                  </div>
+                                </div>
+                              </TabsContent>
+
+                              {/* Spatial Tab Content */}
+                              <TabsContent value="spatial" className="mt-3 space-y-3">
+                                <div className="grid grid-cols-2 gap-3 text-xs">
+                                  <div>
+                                    <span className="text-slate-400">3D Transforms:</span>
+                                    <div style={{ color: themeText }} className="mt-1">
+                                      {designQube.styleQube?.spatial?.threeD?.enabled ? 'Enabled' : 'Disabled'}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400">Z-Axis Stacking:</span>
+                                    <div style={{ color: themeText }} className="mt-1">
+                                      {designQube.styleQube?.spatial?.zAxis?.enabled ? 'Enabled' : 'Disabled'}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400">AR Support:</span>
+                                    <div style={{ color: themeText }} className="mt-1">
+                                      {designQube.styleQube?.spatial?.ar?.enabled ? 'Enabled' : 'Disabled'}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400">VR Support:</span>
+                                    <div style={{ color: themeText }} className="mt-1">
+                                      {designQube.styleQube?.spatial?.vr?.enabled ? 'Enabled' : 'Disabled'}
+                                    </div>
+                                  </div>
+                                </div>
+                                {designQube.styleQube?.spatial?.threeD?.enabled && (
+                                  <div className="space-y-2">
+                                    <span className="text-slate-400 text-xs">3D Settings:</span>
+                                    <div className="grid grid-cols-2 gap-2 text-xs">
+                                      <div style={{ color: themeText }}>Perspective: {designQube.styleQube.spatial.threeD.perspective}px</div>
+                                      <div style={{ color: themeText }}>Depth: {designQube.styleQube.spatial.threeD.depth}px</div>
+                                    </div>
+                                  </div>
+                                )}
+                              </TabsContent>
+                            </Tabs>
+                          </div>
+
+                          {/* Enhanced StructureQube Panel */}
+                          <div className="mt-4 rounded-xl border p-4" style={{ backgroundColor: themeBg, borderColor: themeBorder }}>
+                            <h4 className="text-sm font-medium text-white mb-3 flex items-center gap-2">
+                              <LayoutGrid className="h-4 w-4 text-cyan-300" />
+                              StructureQube
+                            </h4>
+                            <Tabs value={structureQubeActiveTab} onValueChange={setStructureQubeActiveTab} className="w-full">
+                              <TabsList className="grid w-full grid-cols-4 h-auto p-1 bg-slate-800/50 border border-slate-700/50 rounded-lg">
+                                <TabsTrigger value="templates" className="flex items-center gap-1 px-2 py-1 text-xs data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+                                  <LayoutGrid className="h-3 w-3" />
+                                  Templates
+                                </TabsTrigger>
+                                <TabsTrigger value="modules" className="flex items-center gap-1 px-2 py-1 text-xs data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+                                  <Hexagon className="h-3 w-3" />
+                                  Modules
+                                </TabsTrigger>
+                                <TabsTrigger value="breakpoints" className="flex items-center gap-1 px-2 py-1 text-xs data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+                                  <MonitorIcon className="h-3 w-3" />
+                                  Breakpoints
+                                </TabsTrigger>
+                                <TabsTrigger value="priorities" className="flex items-center gap-1 px-2 py-1 text-xs data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+                                  <ShieldCheck className="h-3 w-3" />
+                                  Priority
+                                </TabsTrigger>
+                              </TabsList>
+
+                              {/* Templates Tab Content */}
+                              <TabsContent value="templates" className="mt-3 space-y-3">
+                                <div className="space-y-2">
+                                  <span className="text-slate-400 text-xs">Priority Templates:</span>
+                                  <div className="grid grid-cols-3 gap-2">
+                                    {designQube.structureQube?.templateSelection?.priority?.slice(0, 6).map((template, idx) => (
+                                      <div key={idx} className="flex items-center gap-2 text-xs p-2 rounded" style={{ backgroundColor: 'rgba(51, 65, 85, 0.3)' }}>
+                                        <div className="w-2 h-2 rounded-full bg-cyan-400" />
+                                        <span style={{ color: themeText }}>{template}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                                <div className="grid grid-cols-3 gap-3 text-xs">
+                                  <div>
+                                    <span className="text-slate-400">Total Templates:</span>
+                                    <div style={{ color: themeText }} className="mt-1">
+                                      {designQube.structureQube?.templates?.length || 0} available
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400">By Modality:</span>
+                                    <div style={{ color: themeText }} className="mt-1">
+                                      {Object.keys(designQube.structureQube?.templateSelection?.byModality || {}).length} categories
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400">By Density:</span>
+                                    <div style={{ color: themeText }} className="mt-1">
+                                      {Object.keys(designQube.structureQube?.templateSelection?.byDensity || {}).length} types
+                                    </div>
+                                  </div>
+                                </div>
+                              </TabsContent>
+
+                              {/* Modules Tab Content */}
+                              <TabsContent value="modules" className="mt-3 space-y-3">
+                                <div className="space-y-2">
+                                  <span className="text-slate-400 text-xs">Content Modules (Priority Order):</span>
+                                  <div className="space-y-1 max-h-32 overflow-y-auto">
+                                    {designQube.structureQube?.contentModules?.map((module, idx) => (
+                                      <div key={module.id} className="flex items-center justify-between text-xs p-2 rounded" style={{ backgroundColor: 'rgba(51, 65, 85, 0.3)' }}>
+                                        <div className="flex items-center gap-2" style={{ color: themeText }}>
+                                          <div className="w-2 h-2 rounded-full bg-purple-400" />
+                                          {module.name}
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-slate-400">Priority:</span>
+                                          <span style={{ color: themeText }}>{module.priority}</span>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </TabsContent>
+
+                              {/* Breakpoints Tab Content */}
+                              <TabsContent value="breakpoints" className="mt-3 space-y-3">
+                                <div className="space-y-2">
+                                  <span className="text-slate-400 text-xs">Responsive Breakpoints:</span>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    {Object.entries(designQube.structureQube?.breakpoints || {}).map(([breakpoint, config]) => (
+                                      <div key={breakpoint} className="flex items-center gap-2 text-xs p-2 rounded" style={{ backgroundColor: 'rgba(51, 65, 85, 0.3)' }}>
+                                        {breakpoint === 'mobile' && <Smartphone className="h-3 w-3 text-blue-400" />}
+                                        {breakpoint === 'tablet' && <Tablet className="h-3 w-3 text-green-400" />}
+                                        {breakpoint === 'desktop' && <MonitorIcon className="h-3 w-3 text-purple-400" />}
+                                        {breakpoint === 'bigScreen' && <Tv className="h-3 w-3 text-orange-400" />}
+                                        <div style={{ color: themeText }}>
+                                          <div className="font-medium capitalize">{breakpoint.replace('bigScreen', 'Big Screen')}</div>
+                                          <div className="text-slate-400">
+                                            {(config as any).minWidth && `≥${(config as any).minWidth}px`}
+                                            {(config as any).maxWidth && ` ≤${(config as any).maxWidth}px`}
+                                            {!(config as any).minWidth && !(config as any).maxWidth && 'Any'}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </TabsContent>
+
+                              {/* Priority Tab Content */}
+                              <TabsContent value="priorities" className="mt-3 space-y-3">
+                                <div className="space-y-2">
+                                  <span className="text-slate-400 text-xs">Component Priority Order:</span>
+                                  <div className="space-y-1">
+                                    {Object.entries(designQube.structureQube?.componentPriorities || {}).map(([component, priority]) => (
+                                      <div key={component} className="flex items-center justify-between text-xs p-2 rounded" style={{ backgroundColor: 'rgba(51, 65, 85, 0.3)' }}>
+                                        <div className="flex items-center gap-2" style={{ color: themeText }}>
+                                          <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                                          {component}
+                                        </div>
+                                        <div style={{ color: themeText }}>Priority {priority}</div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                                <div className="space-y-2">
+                                  <span className="text-slate-400 text-xs">Layout Rules:</span>
+                                  <div className="space-y-1 max-h-24 overflow-y-auto">
+                                    {designQube.structureQube?.layoutRules?.slice(0, 3).map((rule, idx) => (
+                                      <div key={idx} className="text-xs p-2 rounded" style={{ backgroundColor: 'rgba(51, 65, 85, 0.3)', color: themeText }}>
+                                        {rule}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </TabsContent>
+                            </Tabs>
+                          </div>
+
+                          {/* Enhanced Micro-Copilot Customization System */}
+                          <div className="mt-4 rounded-xl border p-4" style={{ backgroundColor: themeBg, borderColor: themeBorder }}>
+                            <h4 className="text-sm font-medium text-white mb-3 flex items-center gap-2">
+                              <Bot className="h-4 w-4 text-emerald-300" />
+                              Customization Guidance
+                            </h4>
+                            <div className="space-y-4">
+                              <div className="text-xs" style={{ color: themeText }}>
+                                Get real-time guidance as you customize templates. These copilots provide explanations, options, and automatically capture decisions in your DesignQube and ExperienceQube.
+                              </div>
+                              
+                              <div className="grid grid-cols-2 gap-4">
+                                {/* Visual Customization Assistant */}
+                                <div className="space-y-2">
+                                  <div className="flex items-center gap-2">
+                                    <Eye className="h-4 w-4 text-blue-300" />
+                                    <span className="text-xs font-medium text-white">Visual Customization</span>
+                                  </div>
+                                  <div className="relative">
+                                    <textarea
+                                      placeholder="Ask about colors, typography, spacing, animations... 
+Example: 'What colors work best for a professional tech theme?'"
+                                      className="w-full px-3 py-2 text-xs bg-slate-800/50 border border-slate-700/50 rounded-md text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none h-16"
+                                    />
+                                    <div className="absolute top-1 right-1">
+                                      <button className="p-1 rounded bg-blue-500/20 hover:bg-blue-500/30 text-blue-300">
+                                        <Bot className="h-3 w-3" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                  <div className="text-xs text-slate-400">
+                                    Provides color suggestions, typography recommendations, animation timing
+                                  </div>
+                                </div>
+
+                                {/* Audio Customization Assistant */}
+                                <div className="space-y-2">
+                                  <div className="flex items-center gap-2">
+                                    <Volume2 className="h-4 w-4 text-green-300" />
+                                    <span className="text-xs font-medium text-white">Audio Customization</span>
+                                  </div>
+                                  <div className="relative">
+                                    <textarea
+                                      placeholder="Ask about voice personas, sound effects, audio feedback...
+Example: 'What voice persona works for educational content?'"
+                                      className="w-full px-3 py-2 text-xs bg-slate-800/50 border border-slate-700/50 rounded-md text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-green-500/50 resize-none h-16"
+                                    />
+                                    <div className="absolute top-1 right-1">
+                                      <button className="p-1 rounded bg-green-500/20 hover:bg-green-500/30 text-green-300">
+                                        <Bot className="h-3 w-3" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                  <div className="text-xs text-slate-400">
+                                    Voice persona selection, sound effect timing, TTS configuration
+                                  </div>
+                                </div>
+
+                                {/* Text & Content Assistant */}
+                                <div className="space-y-2">
+                                  <div className="flex items-center gap-2">
+                                    <Type className="h-4 w-4 text-purple-300" />
+                                    <span className="text-xs font-medium text-white">Text & Content</span>
+                                  </div>
+                                  <div className="relative">
+                                    <textarea
+                                      placeholder="Ask about tone, readability, content structure...
+Example: 'How should I write for a technical audience?'"
+                                      className="w-full px-3 py-2 text-xs bg-slate-800/50 border border-slate-700/50 rounded-md text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 resize-none h-16"
+                                    />
+                                    <div className="absolute top-1 right-1">
+                                      <button className="p-1 rounded bg-purple-500/20 hover:bg-purple-500/30 text-purple-300">
+                                        <Bot className="h-3 w-3" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                  <div className="text-xs text-slate-400">
+                                    Tone adjustment, readability optimization, content structure
+                                  </div>
+                                </div>
+
+                                {/* Layout & Structure Assistant */}
+                                <div className="space-y-2">
+                                  <div className="flex items-center gap-2">
+                                    <LayoutGrid className="h-4 w-4 text-cyan-300" />
+                                    <span className="text-xs font-medium text-white">Layout & Structure</span>
+                                  </div>
+                                  <div className="relative">
+                                    <textarea
+                                      placeholder="Ask about templates, breakpoints, component arrangement...
+Example: 'What template works best for a dashboard layout?'"
+                                      className="w-full px-3 py-2 text-xs bg-slate-800/50 border border-slate-700/50 rounded-md text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 resize-none h-16"
+                                    />
+                                    <div className="absolute top-1 right-1">
+                                      <button className="p-1 rounded bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300">
+                                        <Bot className="h-3 w-3" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                  <div className="text-xs text-slate-400">
+                                    Template selection, responsive design, component priorities
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Auto-Capture Notice */}
+                              <div className="mt-4 p-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10">
+                                <div className="flex items-center gap-2 text-xs text-emerald-200">
+                                  <ShieldCheck className="h-3 w-3" />
+                                  <span className="font-medium">Auto-Capture Enabled</span>
+                                </div>
+                                <div className="text-xs text-emerald-300 mt-1">
+                                  All customization decisions are automatically captured and stored in your DesignQube and ExperienceQube for consistency and future reference.
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Screens Panel */}
+                          <div className="mt-4 rounded-xl border p-4" style={{ backgroundColor: themeBg, borderColor: themeBorder }}>
+                            <div className="flex items-center justify-between mb-3">
+                              <h4 className="text-sm font-medium text-white flex items-center gap-2">
+                                <MonitorIcon className="h-4 w-4 text-orange-300" />
+                                Screens
+                              </h4>
+                              <button className="flex items-center gap-1 px-2 py-1 text-xs bg-orange-500/20 hover:bg-orange-500/30 text-orange-300 rounded-md border border-orange-500/30">
+                                <Upload className="h-3 w-3" />
+                                Upload
+                              </button>
+                            </div>
+                            <div className="text-xs" style={{ color: themeText }}>
+                              Upload and manage design screens from Screenshots, Adobe XD, Figma, or other design tools.
+                            </div>
+                            <div className="mt-3 grid grid-cols-2 gap-3">
+                              <div className="text-center p-4 rounded-lg border border-dashed border-slate-600">
+                                <MonitorIcon className="h-6 w-6 text-slate-400 mx-auto mb-2" />
+                                <div className="text-xs text-slate-400">Screenshots</div>
+                              </div>
+                              <div className="text-center p-4 rounded-lg border border-dashed border-slate-600">
+                                <Hexagon className="h-6 w-6 text-slate-400 mx-auto mb-2" />
+                                <div className="text-xs text-slate-400">Adobe XD</div>
+                              </div>
+                              <div className="text-center p-4 rounded-lg border border-dashed border-slate-600">
+                                <LayoutGrid className="h-6 w-6 text-slate-400 mx-auto mb-2" />
+                                <div className="text-xs text-slate-400">Figma</div>
+                              </div>
+                              <div className="text-center p-4 rounded-lg border border-dashed border-slate-600">
+                                <FileText className="h-6 w-6 text-slate-400 mx-auto mb-2" />
+                                <div className="text-xs text-slate-400">Other Tools</div>
+                              </div>
+                            </div>
+                          </div>
                           <div className="mt-4 max-h-[420px] overflow-y-auto pr-1">
                             <div className="grid gap-3 sm:grid-cols-2">
-                              {designQube.references?.slice(0, 6).map((ref) => (
+                              {references.map((ref, idx) => (
                                 <div
                                   key={ref.id}
                                   className="rounded-xl border p-2"
                                   style={{ backgroundColor: themeBg, borderColor: themeBorder }}
                                 >
-                                  {ref.dataUrl ? (
+                                  {ref.dataUrl || ref.thumbnailUrl ? (
                                     <img
-                                      src={ref.dataUrl}
+                                      src={ref.dataUrl || ref.thumbnailUrl || DESIGN_QUBE_IMAGE_FALLBACKS[idx % DESIGN_QUBE_IMAGE_FALLBACKS.length]}
                                       alt={ref.title || ref.file}
                                       className="h-32 w-full rounded-lg object-cover"
+                                      onError={(event) => {
+                                        event.currentTarget.onerror = null;
+                                        event.currentTarget.src =
+                                          DESIGN_QUBE_IMAGE_FALLBACKS[idx % DESIGN_QUBE_IMAGE_FALLBACKS.length];
+                                      }}
                                     />
                                   ) : (
                                     <div className="flex h-32 items-center justify-center rounded-lg border border-dashed text-xs text-slate-500">
@@ -1612,23 +3690,10 @@ export const ComposerStudio = () => {
                               ))}
                             </div>
                           </div>
-                        </>
+                        </div>
                       ) : designQubeSummaryLayout === "compact" ? (
                         <div className="mt-4 rounded-xl border p-3" style={{ backgroundColor: themeBg, borderColor: themeBorder }}>
                           <div className="flex flex-wrap items-center justify-between gap-4">
-                            <div className="flex items-center gap-2">
-                              {references.map((ref) => (
-                                <div
-                                  key={ref.id}
-                                  className="h-12 w-16 overflow-hidden rounded-lg border"
-                                  style={{ backgroundColor: colors.bg || themeBg, borderColor: themeBorder }}
-                                >
-                                  {ref.dataUrl ? (
-                                    <img src={ref.dataUrl} alt={ref.title || ref.file} className="h-full w-full object-cover" />
-                                  ) : null}
-                                </div>
-                              ))}
-                            </div>
                             <div className="flex flex-wrap items-center gap-2 text-[11px]" style={{ color: themeText }}>
                               <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5" style={{ borderColor: themeBorder }}>
                                 <ShieldCheck className="h-3.5 w-3.5 text-emerald-300" />
@@ -1645,7 +3710,7 @@ export const ComposerStudio = () => {
                             </div>
                           </div>
                           <div className="mt-3 flex flex-wrap items-center gap-2">
-                            {palette.slice(0, 6).map((color, idx) => (
+                            {resolvedPalette.slice(0, 6).map((color, idx) => (
                               <span
                                 key={`${color}-${idx}`}
                                 className="h-4 w-4 rounded-full border"
@@ -1660,32 +3725,54 @@ export const ComposerStudio = () => {
                             )}
                           </div>
                           <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs" style={{ color: themeText }}>
-                            <div className="flex items-center gap-2">
-                              <span style={{ fontFamily, fontSize: scale.lg || 18 }} className="text-white">Aa</span>
-                              <span style={{ fontFamily, fontSize: scale.sm || 14 }} className="text-slate-400">Aa</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {radiusValues.map((radius, idx) => (
+                            <div className="flex items-center gap-3">
+                              <div className="flex items-center gap-2">
+                                <span style={{ fontFamily, fontSize: scale.lg || 18 }} className="text-white">Aa</span>
+                                <span style={{ fontFamily, fontSize: scale.sm || 14 }} className="text-slate-400">Aa</span>
+                              </div>
+                              {radiusValues.slice(0, 2).map((radius, idx) => (
                                 <div
                                   key={`radius-${idx}`}
-                                  className="h-6 w-10 border"
+                                  className="h-6 w-8 border"
                                   style={{ borderRadius: `${radius}px`, backgroundColor: themeBg, borderColor: themeBorder }}
                                   title={`radius ${radius}`}
                                 />
                               ))}
+                            </div>
+                            <div className="flex items-center gap-3">
+                              {/* Experience Modalities - Larger Icons */}
+                              <div className="flex items-center gap-2" title="Experience Modalities">
+                                <div className="rounded-lg border border-blue-400/60 bg-blue-400/10 p-2">
+                                  <Eye className="h-4 w-4 text-blue-300" />
+                                </div>
+                                <div className="rounded-lg border border-green-400/60 bg-green-400/10 p-2">
+                                  <Volume2 className="h-4 w-4 text-green-300" />
+                                </div>
+                                <div className="rounded-lg border border-purple-400/60 bg-purple-400/10 p-2">
+                                  <LayoutGrid className="h-4 w-4 text-purple-300" />
+                                </div>
+                              </div>
                             </div>
                           </div>
                         </div>
                       ) : (
                         <div className="mt-4 grid gap-4 rounded-xl border p-4 md:grid-cols-[1.2fr,1fr]" style={{ backgroundColor: themeBg, borderColor: themeBorder }}>
                           <div className="grid gap-2 sm:grid-cols-2">
-                            {references.map((ref) => (
-                              <div key={ref.id} className="h-24 overflow-hidden rounded-lg border" style={{ borderColor: themeBorder }}>
-                                {ref.dataUrl ? (
-                                  <img src={ref.dataUrl} alt={ref.title || ref.file} className="h-full w-full object-cover" />
-                                ) : null}
-                              </div>
-                            ))}
+                            <div className="flex flex-wrap items-center gap-2">
+                              {resolvedPalette.slice(0, 6).map((color, idx) => (
+                                <span
+                                  key={`${color}-${idx}`}
+                                  className="h-4 w-4 rounded-full border"
+                                  style={{ backgroundColor: color, borderColor: themeBorder }}
+                                  title={color}
+                                />
+                              ))}
+                              {glassEnabled && (
+                                <span className="inline-flex items-center rounded-full border px-2 py-0.5" style={{ borderColor: themeBorder }} title="Glass material">
+                                  <Moon className="h-3.5 w-3.5 text-slate-400" />
+                                </span>
+                              )}
+                            </div>
                           </div>
                           <div className="space-y-3">
                             <div className="flex flex-wrap items-center gap-2 text-[11px]" style={{ color: themeText }}>
@@ -1708,7 +3795,7 @@ export const ComposerStudio = () => {
                               )}
                             </div>
                             <div className="flex flex-wrap items-center gap-2">
-                              {palette.slice(0, 6).map((color, idx) => (
+                              {resolvedPalette.slice(0, 6).map((color, idx) => (
                                 <span
                                   key={`${color}-${idx}`}
                                   className="h-5 w-5 rounded-md border"
@@ -1731,6 +3818,17 @@ export const ComposerStudio = () => {
                                 ))}
                               </div>
                             </div>
+                            <div className="flex items-center justify-end gap-2" title="Experience Modalities">
+                              <div className="rounded-lg border border-blue-400/60 bg-blue-400/10 p-2">
+                                <Eye className="h-4 w-4 text-blue-300" />
+                              </div>
+                              <div className="rounded-lg border border-green-400/60 bg-green-400/10 p-2">
+                                <Volume2 className="h-4 w-4 text-green-300" />
+                              </div>
+                              <div className="rounded-lg border border-purple-400/60 bg-purple-400/10 p-2">
+                                <LayoutGrid className="h-4 w-4 text-purple-300" />
+                              </div>
+                            </div>
                           </div>
                         </div>
                       )}
@@ -1742,31 +3840,739 @@ export const ComposerStudio = () => {
           </div>
         </div>
 
-          <div className={cardClass}>
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <Hexagon className="h-5 w-5 text-rose-400" />
-                <h2 className="text-lg font-semibold text-white">metaMe Runtime Preview</h2>
-                <p className="text-sm text-slate-400">Toggle device sizes to validate the Runtime flow.</p>
-              </div>
-              <div className="flex items-center gap-3">
-                {previewAction && (
-                  <span className="text-xs text-slate-400">Last action: {previewAction}</span>
-                )}
-                <DevicePreviewSwitcher value={previewDevice} onChange={setPreviewDevice} />
-              </div>
-            </div>
-            <div className="mt-4 h-[760px] max-h-[760px] overflow-hidden">
-              <PreviewFrame
-                src={`/metame/runtime?preview=1&capsule=${selectedExperienceId || previewExperience?.id || "capsule-metaknyt-play"}&theme=${designTheme}&embed=1&device=${previewDevice}`}
-                defaultDevice="mobile"
-                chromeless
-                deviceQueryParam="device"
-                showToolbar={false}
-              />
-            </div>
+          <div className="rounded-2xl border border-slate-800/70 bg-slate-900/40 p-3 sm:p-4">
+            <Tabs
+              value={studioAnalysisTab}
+              onValueChange={(value) => setStudioAnalysisTab(value as "parity" | "surfaces")}
+              className="w-full"
+            >
+              <TabsList className="mb-4 grid w-full grid-cols-2 bg-slate-900/70">
+                <TabsTrigger value="parity" className="text-xs sm:text-sm">
+                  Agentic UI Design Parity
+                </TabsTrigger>
+                <TabsTrigger value="surfaces" className="text-xs sm:text-sm">
+                  Surface Planning
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="parity" className="mt-0">
+                <AgenticDesignParityPanel
+                  designQube={designQube}
+                  activeDesignQubeId={activeStyleQubeId}
+                  designTheme={designTheme}
+                  experiences={experiences}
+                  previewExperience={previewExperience}
+                  previewAction={previewAction}
+                  onOpenExperience={(experienceId) => {
+                    router.push(`/studio/composer/experience/${encodeURIComponent(experienceId)}`);
+                  }}
+                  onOpenRuntimePreview={() => {
+                    openRuntimePreviewForExperience(previewExperience, "Preview");
+                  }}
+                  onApplyRemedy={handleApplyRemedy}
+                  onLogAuditEvent={handleLogAuditEvent}
+                />
+              </TabsContent>
+
+              <TabsContent value="surfaces" className="mt-0">
+                <SurfacePlanningPanel
+                  experienceId={previewExperience?.id || selectedExperienceId || undefined}
+                  cartridge={tenantId}
+                  onSurfacePlanGenerated={() => {
+                    // Stub hook for future runtime preview integration.
+                  }}
+                />
+              </TabsContent>
+            </Tabs>
           </div>
       </div>
+
+      {/* Enhanced ExperienceQube Modal */}
+      {showExperienceModal && selectedExperience && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+          <div className="max-w-4xl w-full max-h-[90vh] overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-800 p-6">
+              <div className="flex items-center gap-3">
+                <Hexagon className="h-6 w-6 text-cyan-400" />
+                <div>
+                  <h2 className="text-xl font-bold text-white">{selectedExperience.name}</h2>
+                  <p className="text-sm text-slate-400">Experience Details</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowExperienceModal(false);
+                  setSelectedExperience(null);
+                }}
+                className="rounded-lg border border-slate-700 bg-slate-800/50 p-2 text-slate-400 hover:bg-slate-700 hover:text-white"
+              >
+                <ChevronUp className="h-5 w-5 rotate-45" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+              <Tabs value={experienceModalTab} onValueChange={(value) => setExperienceModalTab(value as "goal" | "mechanics" | "metrics")} className="w-full">
+                <TabsList className="grid w-full grid-cols-3 h-auto p-1 bg-slate-800/50 border border-slate-700/50 rounded-lg mb-6">
+                  <TabsTrigger value="goal" className="flex items-center gap-2 px-4 py-2 text-sm data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+                    <ShieldCheck className="h-4 w-4" />
+                    Goal
+                  </TabsTrigger>
+                  <TabsTrigger value="mechanics" className="flex items-center gap-2 px-4 py-2 text-sm data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+                    <SlidersHorizontal className="h-4 w-4" />
+                    Mechanics
+                  </TabsTrigger>
+                  <TabsTrigger value="metrics" className="flex items-center gap-2 px-4 py-2 text-sm data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+                    <LayoutGrid className="h-4 w-4" />
+                    Metrics
+                  </TabsTrigger>
+                </TabsList>
+
+                {/* Goal Tab */}
+                <TabsContent value="goal" className="space-y-4">
+                  <div className="rounded-xl border border-slate-700 bg-slate-800/30 p-6">
+                    <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+                      <ShieldCheck className="h-5 w-5 text-emerald-400" />
+                      Primary Goal
+                    </h3>
+                    <p className="text-sm text-slate-300 leading-relaxed">
+                      {selectedExperience.goal}
+                    </p>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="rounded-xl border border-slate-700 bg-slate-800/30 p-4">
+                      <h4 className="text-sm font-medium text-white mb-2">Experience Status</h4>
+                      <div className="flex items-center gap-2">
+                        <div className={`h-2 w-2 rounded-full ${
+                          selectedExperience.status === 'active' ? 'bg-emerald-400' : 
+                          selectedExperience.status === 'completed' ? 'bg-blue-400' : 'bg-slate-400'
+                        }`} />
+                        <span className="text-sm text-slate-300 capitalize">{selectedExperience.status}</span>
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-slate-700 bg-slate-800/30 p-4">
+                      <h4 className="text-sm font-medium text-white mb-2">Category</h4>
+                      <span className="text-sm text-slate-300">{selectedExperience.metadata?.category || 'General'}</span>
+                    </div>
+                    <div className="rounded-xl border border-slate-700 bg-slate-800/30 p-4">
+                      <h4 className="text-sm font-medium text-white mb-2">Cost</h4>
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-full border border-orange-400/60 bg-orange-400/10 px-2 py-1 text-xs font-medium text-orange-300">
+                          25 Q¢
+                        </span>
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-slate-700 bg-slate-800/30 p-4">
+                      <h4 className="text-sm font-medium text-white mb-2">Reward</h4>
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-full border border-emerald-400/60 bg-emerald-400/10 px-2 py-1 text-xs font-medium text-emerald-300">
+                          10 Q¢
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </TabsContent>
+
+                {/* Mechanics Tab */}
+                <TabsContent value="mechanics" className="space-y-4">
+                  <div className="rounded-xl border border-slate-700 bg-slate-800/30 p-6">
+                    <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+                      <SlidersHorizontal className="h-5 w-5 text-violet-400" />
+                      Experience Mechanics
+                    </h3>
+                    <div className="space-y-4">
+                      <p className="text-sm text-slate-300 leading-relaxed">
+                        {selectedExperience.mechanics}
+                      </p>
+                      
+                      <div className="grid grid-cols-3 gap-4 mt-6">
+                        <div className="text-center p-4 rounded-lg border border-slate-600 bg-slate-800/20">
+                          <Eye className="h-6 w-6 text-blue-400 mx-auto mb-2" />
+                          <div className="text-xs text-slate-400">Visual</div>
+                          <div className="text-sm font-medium text-white">Enabled</div>
+                        </div>
+                        <div className="text-center p-4 rounded-lg border border-slate-600 bg-slate-800/20">
+                          <Volume2 className="h-6 w-6 text-green-400 mx-auto mb-2" />
+                          <div className="text-xs text-slate-400">Audio</div>
+                          <div className="text-sm font-medium text-white">Enabled</div>
+                        </div>
+                        <div className="text-center p-4 rounded-lg border border-slate-600 bg-slate-800/20">
+                          <LayoutGrid className="h-6 w-6 text-purple-400 mx-auto mb-2" />
+                          <div className="text-xs text-slate-400">Spatial</div>
+                          <div className="text-sm font-medium text-white">Enabled</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </TabsContent>
+
+                {/* Metrics Tab */}
+                <TabsContent value="metrics" className="space-y-4">
+                  <div className="rounded-xl border border-slate-700 bg-slate-800/30 p-6">
+                    <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+                      <LayoutGrid className="h-5 w-5 text-orange-400" />
+                      Success Metrics
+                    </h3>
+                    <p className="text-sm text-slate-300 leading-relaxed mb-6">
+                      {selectedExperience.metrics}
+                    </p>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="rounded-lg border border-slate-600 bg-slate-800/20 p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm text-slate-400">Engagement Rate</span>
+                          <span className="text-sm font-medium text-emerald-400">85%</span>
+                        </div>
+                        <div className="w-full bg-slate-700 rounded-full h-2">
+                          <div className="bg-emerald-400 h-2 rounded-full" style={{ width: '85%' }}></div>
+                        </div>
+                      </div>
+                      <div className="rounded-lg border border-slate-600 bg-slate-800/20 p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm text-slate-400">Completion Rate</span>
+                          <span className="text-sm font-medium text-blue-400">72%</span>
+                        </div>
+                        <div className="w-full bg-slate-700 rounded-full h-2">
+                          <div className="bg-blue-400 h-2 rounded-full" style={{ width: '72%' }}></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </TabsContent>
+              </Tabs>
+
+              {/* Modal Actions */}
+              <div className="flex items-center justify-between mt-6 pt-6 border-t border-slate-800">
+                <div className="flex items-center gap-4 text-sm text-slate-400">
+                  <span>ID: {selectedExperience.id}</span>
+                  <span>•</span>
+                  <span>Template: {selectedExperience.template_id}</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => {
+                      openRuntimePreviewForExperience(selectedExperience, "Preview");
+                      setShowExperienceModal(false);
+                    }}
+                    className="rounded-lg border border-cyan-400/60 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-200 hover:bg-cyan-400/20"
+                  >
+                    Preview Experience
+                  </button>
+                  <button
+                    onClick={() => {
+                      openMcpInspector(selectedExperience);
+                      setShowExperienceModal(false);
+                    }}
+                    className="rounded-lg border border-fuchsia-400/60 bg-fuchsia-400/10 px-4 py-2 text-sm font-semibold text-fuchsia-200 hover:bg-fuchsia-400/20"
+                  >
+                    MCP Inspector
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowExperienceModal(false);
+                      setSelectedExperience(null);
+                    }}
+                    className="rounded-lg border border-slate-700 bg-slate-800/50 px-4 py-2 text-sm font-semibold text-slate-300 hover:bg-slate-700"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showMcpInspectorModal && mcpExperience && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+          <div className="max-w-5xl w-full max-h-[92vh] overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 p-5">
+              <div className="flex items-center gap-3">
+                <Code className="h-5 w-5 text-fuchsia-300" />
+                <div>
+                  <h2 className="text-lg font-semibold text-white">ExperienceQube MCP App Inspector</h2>
+                  <p className="text-xs text-slate-400">Experience: {mcpExperience.name}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowMcpInspectorModal(false)}
+                className="rounded-lg border border-slate-700 bg-slate-800/50 p-2 text-slate-400 hover:bg-slate-700 hover:text-white"
+              >
+                <ChevronUp className="h-5 w-5 rotate-45" />
+              </button>
+            </div>
+
+            <div className="grid max-h-[calc(92vh-90px)] gap-4 overflow-hidden p-5 lg:grid-cols-[420px_1fr]">
+              <div className="max-h-[calc(92vh-130px)] space-y-4 overflow-y-auto rounded-xl border border-slate-800 bg-slate-950/40 p-4">
+                <div>
+                  <label className="mb-1 block text-xs text-slate-400">Provider</label>
+                  <select
+                    value={mcpProvider}
+                    onChange={(e) => setMcpProvider(e.target.value as "discord" | "whatsapp" | "telegram")}
+                    className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
+                  >
+                    <option value="discord">Discord</option>
+                    <option value="whatsapp">WhatsApp</option>
+                    <option value="telegram">Telegram</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs text-slate-400">Dispatch Mode</label>
+                  <select
+                    value={mcpDispatchMode}
+                    onChange={(e) => setMcpDispatchMode(e.target.value as "simulate" | "live")}
+                    className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
+                  >
+                    <option value="simulate">Simulation</option>
+                    <option value="live">Live Dispatch</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs text-slate-400">Channel ID (Discord, numeric)</label>
+                  <input
+                    value={mcpChannelId}
+                    onChange={(e) => setMcpChannelId(e.target.value)}
+                    className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
+                    placeholder="Optional override, e.g. 1234567890123456789"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs text-slate-400">Discord Invite (optional)</label>
+                  <input
+                    value={mcpDiscordInvite}
+                    onChange={(e) => setMcpDiscordInvite(e.target.value)}
+                    className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
+                    placeholder="https://discord.gg/..."
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs text-slate-400">MCP Tool</label>
+                  <select
+                    value={mcpTool}
+                    onChange={(e) =>
+                      setMcpTool(
+                        e.target.value as
+                          | "pill.get"
+                          | "capsule.get"
+                          | "mini_runtime.get"
+                          | "codex.entry"
+                          | "invite.create"
+                          | "share.compose"
+                          | "next.best"
+                      )
+                    }
+                    className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
+                  >
+                    <option value="next.best">next.best</option>
+                    <option value="pill.get">pill.get</option>
+                    <option value="capsule.get">capsule.get</option>
+                    <option value="mini_runtime.get">mini_runtime.get</option>
+                    <option value="codex.entry">codex.entry</option>
+                    <option value="invite.create">invite.create</option>
+                    <option value="share.compose">share.compose</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs text-slate-400">Intent / Message</label>
+                  <textarea
+                    value={mcpMessage}
+                    onChange={(e) => setMcpMessage(e.target.value)}
+                    className="h-28 w-full resize-none rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
+                    placeholder="I'd like to watch Qriptopian visual content."
+                  />
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void runMcpToolFromInspector()}
+                    disabled={mcpLoading}
+                    className="rounded-lg border border-cyan-400/60 bg-cyan-400/10 px-3 py-2 text-sm font-semibold text-cyan-200 hover:bg-cyan-400/20 disabled:opacity-60"
+                  >
+                    Run MCP Tool
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void runProviderDispatchSimulation()}
+                    disabled={mcpLoading}
+                    className="rounded-lg border border-emerald-400/60 bg-emerald-400/10 px-3 py-2 text-sm font-semibold text-emerald-200 hover:bg-emerald-400/20 disabled:opacity-60"
+                  >
+                    {mcpDispatchMode === "live" ? "Dispatch to Provider" : "Simulate Provider Dispatch"}
+                  </button>
+                  {mcpProvider === "discord" ? (
+                    <button
+                      type="button"
+                      onClick={() => void checkDiscordConnectionStatus()}
+                      disabled={mcpDiscordStatusLoading}
+                      className="rounded-lg border border-violet-400/60 bg-violet-400/10 px-3 py-2 text-sm font-semibold text-violet-200 hover:bg-violet-400/20 disabled:opacity-60"
+                    >
+                      {mcpDiscordStatusLoading ? "Checking Discord..." : "Check Discord Connection"}
+                    </button>
+                  ) : null}
+                </div>
+
+                {mcpProvider === "discord" && mcpDiscordStatus ? (
+                  <div className="rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-xs">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-slate-300">
+                        Discord status:{" "}
+                        <span className={mcpDiscordStatus.ready ? "text-emerald-300" : "text-amber-300"}>
+                          {mcpDiscordStatus.ready ? "Ready" : "Not ready"}
+                        </span>
+                      </span>
+                      {mcpDiscordStatus.details?.channelId ? (
+                        <span className="text-slate-400">Channel: {mcpDiscordStatus.details.channelId}</span>
+                      ) : null}
+                    </div>
+                    <div className="mt-1 text-slate-400">
+                      Bot: {mcpDiscordStatus.details?.botName || "unknown"} · Channel Access:{" "}
+                      {mcpDiscordStatus.checks?.channelAccess ? "yes" : "no"}
+                    </div>
+                    {mcpDiscordStatus.errors?.channelAccess ? (
+                      <div className="mt-1 text-rose-300">{mcpDiscordStatus.errors.channelAccess}</div>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {mcpProvider === "discord" ? (
+                  <div
+                    className={`rounded-lg border px-3 py-2 text-xs ${
+                      mcpDiscordStatusState === "ok"
+                        ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
+                        : mcpDiscordStatusState === "fail"
+                          ? "border-amber-500/30 bg-amber-500/10 text-amber-200"
+                          : "border-slate-700 bg-slate-900/60 text-slate-300"
+                    }`}
+                  >
+                    {mcpDiscordStatusMessage}
+                  </div>
+                ) : null}
+
+                {mcpError && (
+                  <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
+                    {mcpError}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex min-h-[420px] max-h-[calc(92vh-130px)] flex-col overflow-hidden rounded-xl border border-slate-800 bg-slate-950/50 p-4">
+                <div className="mb-2 flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-white">Inspector Output</h3>
+                  <div className="flex items-center gap-2">
+                    <div className="inline-flex rounded-md border border-slate-700 bg-slate-900/70 p-0.5">
+                      <button
+                        type="button"
+                        onClick={() => setInspectorRenderMode("card")}
+                        className={`rounded px-2 py-1 text-[11px] ${
+                          inspectorRenderMode === "card"
+                            ? "bg-cyan-500/20 text-cyan-200"
+                            : "text-slate-400 hover:text-slate-200"
+                        }`}
+                      >
+                        Card
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setInspectorRenderMode("thread")}
+                        className={`rounded px-2 py-1 text-[11px] ${
+                          inspectorRenderMode === "thread"
+                            ? "bg-cyan-500/20 text-cyan-200"
+                            : "text-slate-400 hover:text-slate-200"
+                        }`}
+                      >
+                        Thread Mock
+                      </button>
+                    </div>
+                    {mcpLoading && <span className="text-xs text-slate-400">Running...</span>}
+                  </div>
+                </div>
+                <div className="mb-3 rounded-xl border border-slate-700/80 bg-slate-900/80 p-4">
+                  <div className="mb-2 flex items-center justify-between">
+                    <div className="text-[11px] uppercase tracking-wider text-slate-400">
+                      Destination Preview · {inspectorPreview.providerLabel}
+                    </div>
+                    {inspectorPreview.depth ? (
+                      <span className="rounded-full border border-cyan-500/40 bg-cyan-500/10 px-2 py-0.5 text-[10px] uppercase text-cyan-200">
+                        {inspectorPreview.depth}
+                      </span>
+                    ) : null}
+                  </div>
+                  {inspectorRenderMode === "card" ? (
+                    <div className="min-w-[280px] max-w-[360px] h-[206px] overflow-hidden rounded-2xl border border-white/15">
+                      <div className="relative h-full w-full">
+                        {inspectorPreview.thumbnailUri ? (
+                          inspectorPreview.thumbnailType === "video" ? (
+                            <video
+                              src={inspectorPreview.thumbnailUri}
+                              className="h-full w-full object-cover"
+                              muted
+                              playsInline
+                              preload="metadata"
+                            />
+                          ) : (
+                            <img
+                              src={inspectorPreview.thumbnailUri}
+                              alt={`${inspectorPreview.title} thumbnail`}
+                              className="h-full w-full object-cover"
+                              loading="lazy"
+                            />
+                          )
+                        ) : (
+                          <div className="h-full w-full bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" />
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-900/35 to-slate-900/20" />
+                        <div className="absolute inset-x-0 top-0 p-3 flex items-start justify-between gap-2">
+                          <span
+                            className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide ${
+                              inspectorSourceBadge === "Codex"
+                                ? "border-cyan-300/45 bg-cyan-500/20 text-cyan-100"
+                              : inspectorSourceBadge === "Experience"
+                                  ? "border-violet-300/45 bg-violet-500/20 text-violet-100"
+                                  : "border-emerald-300/45 bg-emerald-500/20 text-emerald-100"
+                            }`}
+                          >
+                            {inspectorSourceBadge}
+                          </span>
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              className="rounded-full border border-white/20 bg-slate-900/60 p-1.5 text-white/80 hover:text-white"
+                              title="Launch"
+                            >
+                              <PlayCircle className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              className="rounded-full border border-white/20 bg-slate-900/60 p-1.5 text-white/80 hover:text-white"
+                              title="Preview"
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              className="rounded-full border border-white/20 bg-slate-900/60 p-1.5 text-white/80 hover:text-white"
+                              title="Share"
+                            >
+                              <Share2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                        <div className="absolute inset-x-0 bottom-0 p-3 space-y-2">
+                          <h4 className="line-clamp-1 text-sm font-semibold text-white">{inspectorPreview.title}</h4>
+                          <p className="line-clamp-2 text-[11px] text-slate-200/85">{inspectorPreview.body}</p>
+                          <div className="flex items-center gap-2 text-[10px] text-slate-200/75">
+                            <span className="rounded-full border border-white/15 bg-white/10 px-2 py-0.5 uppercase tracking-wide">
+                              {inspectorPreview.providerLabel}
+                            </span>
+                            {inspectorPreview.depth ? (
+                              <span className="rounded-full border border-cyan-300/35 bg-cyan-500/15 px-2 py-0.5 text-cyan-100">
+                                {inspectorPreview.depth}
+                              </span>
+                            ) : null}
+                            {inspectorPreview.ctaLabel ? (
+                              <span className="rounded-full border border-emerald-300/35 bg-emerald-500/15 px-2 py-0.5 text-emerald-100">
+                                {inspectorPreview.ctaLabel}
+                              </span>
+                            ) : null}
+                          </div>
+                          <div className="h-1 w-full overflow-hidden rounded-full bg-white/15">
+                            <div className="h-full w-1/3 bg-gradient-to-r from-cyan-400 to-violet-400" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border border-slate-700 bg-slate-950/80 p-3">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-[11px] text-slate-400">
+                          <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-indigo-500/30 text-[10px] font-semibold text-indigo-200">
+                            M
+                          </span>
+                          <span className="font-medium text-slate-300">metaMe Bot</span>
+                          <span>just now</span>
+                        </div>
+                        <div className="max-w-[95%] rounded-xl border border-slate-700 bg-slate-900/90 px-3 py-2">
+                          {inspectorPreview.thumbnailUri ? (
+                            <div className="mb-2 overflow-hidden rounded-md border border-slate-700/90 bg-slate-900">
+                              {inspectorPreview.thumbnailType === "video" ? (
+                                <video
+                                  src={inspectorPreview.thumbnailUri}
+                                  className="h-24 w-full object-cover"
+                                  muted
+                                  playsInline
+                                  preload="metadata"
+                                />
+                              ) : (
+                                <img
+                                  src={inspectorPreview.thumbnailUri}
+                                  alt={`${inspectorPreview.title} thumbnail`}
+                                  className="h-24 w-full object-cover"
+                                  loading="lazy"
+                                />
+                              )}
+                            </div>
+                          ) : null}
+                          <div className="text-sm font-semibold text-white">{inspectorPreview.title}</div>
+                          <div className="mt-1 text-xs leading-relaxed text-slate-300">{inspectorPreview.body}</div>
+                          {inspectorPreview.shareText ? (
+                            <div className="mt-2 text-[11px] text-slate-400">{inspectorPreview.shareText}</div>
+                          ) : null}
+                          {inspectorPreview.ctaLabel ? (
+                            <button
+                              type="button"
+                              className="mt-3 rounded-md border border-emerald-500/50 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-200"
+                            >
+                              {inspectorPreview.ctaLabel}
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 overflow-y-auto rounded-lg border border-slate-800 bg-slate-950/70 p-3">
+                  <pre className="whitespace-pre-wrap break-words text-xs text-slate-200">
+                    {mcpResult ? JSON.stringify(mcpResult, null, 2) : "Run a tool or dispatch simulation to inspect payloads."}
+                  </pre>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Runtime Preview Modal */}
+      {showRuntimePreviewModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4 pt-4 pb-6">
+          <div className={`${runtimePreviewModalWidthClass} w-full max-h-[90vh] overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl`}>
+            <div className="flex items-center justify-between border-b border-slate-800 p-6">
+              <div className="flex items-center gap-3">
+                <Hexagon className="h-6 w-6 text-[#ff7f50]" />
+                <h2 className="text-xl font-bold text-white">metaMe Runtime Preview</h2>
+                <p className="text-sm text-slate-400">Runtime preview selected ExperienceQube</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <DevicePreviewSwitcher value={previewDevice} onChange={setPreviewDevice} />
+                <button
+                  onClick={() => {
+                    setShowRuntimePreviewModal(false);
+                  }}
+                  className="rounded-lg border border-slate-700 bg-slate-800/50 p-2 text-slate-400 hover:bg-slate-700 hover:text-white"
+                >
+                  <ChevronUp className="h-5 w-5 rotate-45" />
+                </button>
+              </div>
+            </div>
+            <div className="px-4 pt-4 pb-6">
+              <div
+                className="relative overflow-hidden rounded-[5px] bg-slate-950/70"
+                style={{ height: "min(760px, calc(100vh - 190px))" }}
+              >
+                {!runtimePreviewLoaded && !runtimePreviewErrored && (
+                  <div className="absolute inset-x-0 mt-3 flex justify-center pointer-events-none">
+                    <div className="rounded-md border border-slate-700 bg-slate-900/90 px-3 py-1 text-xs text-slate-300">
+                      Loading runtime preview...
+                    </div>
+                  </div>
+                )}
+                {runtimePreviewErrored && (
+                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-950/90">
+                    <div className="flex flex-col items-center gap-3 text-slate-300">
+                      <p className="text-sm">Runtime preview failed to load.</p>
+                      <button
+                        type="button"
+                        onClick={() => setPreviewNonce(Date.now())}
+                        className="rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-700"
+                      >
+                        Retry Preview
+                      </button>
+                    </div>
+                  </div>
+                )}
+                <div className={runtimePreviewViewportClass}>
+                  <iframe
+                    key={`${runtimePreviewSrc}-${previewNonce}`}
+                    src={runtimePreviewSrc}
+                    title="metaMe Runtime Preview"
+                    className="h-full w-full border-0"
+                    loading="eager"
+                    onLoad={() => {
+                      setRuntimePreviewLoaded(true);
+                      setRuntimePreviewErrored(false);
+                    }}
+                    onError={() => {
+                      setRuntimePreviewLoaded(false);
+                      setRuntimePreviewErrored(true);
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && experienceToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+          <div className="max-w-md w-full rounded-2xl border border-red-800/50 bg-slate-900 shadow-2xl p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="rounded-full bg-red-500/10 p-2">
+                <AlertTriangle className="h-6 w-6 text-red-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-white">Delete Experience</h3>
+                <p className="text-sm text-slate-400">This action cannot be undone</p>
+              </div>
+            </div>
+            
+            <div className="mb-6">
+              <p className="text-sm text-slate-300 mb-2">
+                Are you sure you want to delete <span className="font-semibold text-white">"{experienceToDelete.name}"</span>?
+              </p>
+              <p className="text-xs text-slate-400">
+                This will permanently remove the experience and all associated data from the database.
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setExperienceToDelete(null);
+                }}
+                className="flex-1 rounded-lg border border-slate-700 bg-slate-800/50 px-4 py-2 text-sm font-semibold text-slate-300 hover:bg-slate-700"
+                disabled={isDeleting}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDeleteExperience(experienceToDelete)}
+                className="flex-1 rounded-lg border border-red-500/60 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-200 hover:bg-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isDeleting}
+              >
+                {isDeleting ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Deleting...
+                  </div>
+                ) : (
+                  'Delete Experience'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
+export default ComposerStudio;

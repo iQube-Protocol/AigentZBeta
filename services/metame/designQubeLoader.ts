@@ -7,6 +7,10 @@ import type {
   DesignQubeReference,
   DesignQubeTokens,
   DesignQubeConstraints,
+  DesignQubeSource,
+  StyleQube,
+  StructureQube,
+  GuidesBriefs,
 } from "../../types/designQube";
 
 const TokensSchema = z
@@ -83,6 +87,13 @@ const FILES = {
   constraints: "constraints.json",
   components: "components.json",
   templates: "template-map.json",
+  dis: "design-intent.json",
+  constraintManifest: "constraint-manifest.json",
+  styleQube: "style-qube-enhanced.json",
+  structureQube: "structure-qube-enhanced.json",
+  guidesBriefs: "guides-briefs.json",
+  sources: "sources.json",
+  copilotHints: "copilot-hints.json",
   references: path.join("references", "index.json"),
   styleBrief: "style-brief.md",
 };
@@ -102,6 +113,10 @@ const ManifestSchema = z
         templateMap: z.string().optional(),
         referencesIndex: z.string().optional(),
         styleBrief: z.string().optional(),
+        structureQube: z.string().optional(),
+        guidesBriefs: z.string().optional(),
+        sources: z.string().optional(),
+        copilotHints: z.string().optional(),
       })
       .optional(),
   })
@@ -146,7 +161,17 @@ export async function loadDesignQube({
   id?: string;
   includeImages?: boolean;
 }): Promise<DesignQube> {
-  const sourcePath = path.join(rootDir, "apps", "metame", "KNYTDesignQube");
+  // Map DesignQube IDs to their directories
+  const designQubeMap: Record<string, string> = {
+    "knyt-guidance-v1": "KNYTDesignQube",
+    "qriptopian-guidance-v1": "QriptopianDesignQube", 
+    "metame-guidance-v1": "metaMeDesignQube",
+    "knyt-guidance": "KNYTDesignQube", // fallback
+  };
+  
+  const designQubeDir = designQubeMap[id] || "KNYTDesignQube";
+  const sourcePath = path.join(rootDir, "apps", "metame", designQubeDir);
+  
   const manifestRaw = await readJsonIfExists<DesignQubeManifest>(path.join(sourcePath, FILES.manifest));
   const manifest = manifestRaw ? ManifestSchema.parse(manifestRaw) : undefined;
   const paths = {
@@ -156,12 +181,23 @@ export async function loadDesignQube({
     templates: manifest?.paths?.templateMap ?? FILES.templates,
     references: manifest?.paths?.referencesIndex ?? FILES.references,
     styleBrief: manifest?.paths?.styleBrief ?? FILES.styleBrief,
+    structureQube: manifest?.paths?.structureQube ?? FILES.structureQube,
+    guidesBriefs: manifest?.paths?.guidesBriefs ?? FILES.guidesBriefs,
+    sources: manifest?.paths?.sources ?? FILES.sources,
+    copilotHints: manifest?.paths?.copilotHints ?? FILES.copilotHints,
   };
 
   const tokensRaw = await readJsonIfExists<DesignQubeTokens>(path.join(sourcePath, paths.tokens));
   const constraintsRaw = await readJsonIfExists<DesignQubeConstraints>(path.join(sourcePath, paths.constraints));
   const componentsRaw = await readJsonIfExists<Record<string, any>>(path.join(sourcePath, paths.components));
   const templatesRaw = await readJsonIfExists<Record<string, any>>(path.join(sourcePath, paths.templates));
+  const disRaw = await readJsonIfExists<Record<string, any>>(path.join(sourcePath, FILES.dis));
+  const cmRaw = await readJsonIfExists<Record<string, any>>(path.join(sourcePath, FILES.constraintManifest));
+  const styleQubeRaw = await readJsonIfExists<StyleQube>(path.join(sourcePath, FILES.styleQube));
+  const structureQubeRaw = await readJsonIfExists<StructureQube>(path.join(sourcePath, paths.structureQube));
+  const guidesBriefsRaw = await readJsonIfExists<GuidesBriefs>(path.join(sourcePath, paths.guidesBriefs));
+  const sourcesRaw = await readJsonIfExists<DesignQubeSource[]>(path.join(sourcePath, paths.sources));
+  const copilotHintsRaw = await readJsonIfExists<Record<string, any>>(path.join(sourcePath, paths.copilotHints));
   const referencesRaw = await readJsonIfExists<DesignQubeReference[]>(path.join(sourcePath, paths.references));
   const styleBrief = await readTextIfExists(path.join(sourcePath, paths.styleBrief));
 
@@ -172,6 +208,18 @@ export async function loadDesignQube({
   let references = referencesParsed;
   if (!references || references.length === 0) {
     references = await listReferenceImages(sourcePath);
+  }
+
+  if (references && references.length > 0) {
+    const thumbnails = [
+      "/images/designqube/thumb-qripto.jpg",
+      "/images/designqube/thumb-penny.jpg",
+      "/images/designqube/thumb-agentiq.jpg",
+    ];
+    references = references.map((ref, idx) => ({
+      ...ref,
+      thumbnailUrl: thumbnails[idx % thumbnails.length],
+    }));
   }
 
   if (includeImages && references && references.length > 0) {
@@ -203,6 +251,13 @@ export async function loadDesignQube({
     constraints,
     components: componentsRaw,
     templates: templatesRaw,
+    designIntent: disRaw,
+    constraintManifest: cmRaw,
+    styleQube: styleQubeRaw,
+    structureQube: structureQubeRaw,
+    guidesBriefs: guidesBriefsRaw,
+    sources: sourcesRaw,
+    copilotHints: copilotHintsRaw,
     references,
     styleBrief,
     updatedAt: new Date().toISOString(),

@@ -1,19 +1,107 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useCodexList } from '@/app/hooks/useCodexConfig';
-import { Plus, BookOpen, Settings, Eye, EyeOff, Edit, Trash2, ChevronRight } from 'lucide-react';
+import {
+  Plus,
+  BookOpen,
+  Settings,
+  Eye,
+  EyeOff,
+  Edit,
+  RefreshCw,
+  FileJson,
+  Loader2,
+  Upload,
+  AlertCircle,
+  CheckCircle,
+} from 'lucide-react';
 import Link from 'next/link';
+import { CodexUploadModal } from './components/CodexUploadModal';
+
+type CodexStats = {
+  summary?: { totalEpisodes?: number; episodesWithMotion?: number; episodesWithCovers?: number };
+  globalStats?: { totalAllAssets?: number; totalCharacters?: number; totalLoreDocs?: number };
+};
+
+function getAccessTokenFromStorage(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    for (let i = 0; i < window.localStorage.length; i += 1) {
+      const key = window.localStorage.key(i);
+      if (!key || !key.includes('auth-token')) continue;
+      const raw = window.localStorage.getItem(key);
+      if (!raw) continue;
+      const parsed = JSON.parse(raw);
+      if (parsed?.access_token) return parsed.access_token as string;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
 
 export default function CodexManagementPage() {
   const { data: codexes, isLoading, error, refetch } = useCodexList();
   const [filter, setFilter] = useState<'all' | 'enabled' | 'disabled'>('all');
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [statusData, setStatusData] = useState<CodexStats | null>(null);
+  const [statusLoading, setStatusLoading] = useState(false);
+  const [statusError, setStatusError] = useState<string | null>(null);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importMessage, setImportMessage] = useState<string | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const importInputRef = useRef<HTMLInputElement | null>(null);
 
   const filteredCodexes = codexes?.filter((codex: any) => {
     if (filter === 'enabled') return codex.enabled;
     if (filter === 'disabled') return !codex.enabled;
     return true;
   });
+
+  const fetchStatus = async () => {
+    setStatusLoading(true);
+    setStatusError(null);
+    try {
+      const token = getAccessTokenFromStorage();
+      const response = await fetch('/api/admin/codex/status', {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error || 'Failed to load status');
+      setStatusData(data);
+    } catch (e) {
+      setStatusError(e instanceof Error ? e.message : 'Failed to load status');
+    } finally {
+      setStatusLoading(false);
+    }
+  };
+
+  const onImportFileSelected = async (file: File | null) => {
+    if (!file) return;
+    setImportLoading(true);
+    setImportMessage(null);
+    setImportError(null);
+    try {
+      const token = getAccessTokenFromStorage();
+      const formData = new FormData();
+      formData.append('file', file);
+      const response = await fetch('/api/admin/codex/import', {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        body: formData,
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error || 'Import failed');
+      setImportMessage(`Import complete: ${data.message || 'metadata processed'}`);
+      await fetchStatus();
+    } catch (e) {
+      setImportError(e instanceof Error ? e.message : 'Import failed');
+    } finally {
+      setImportLoading(false);
+      if (importInputRef.current) importInputRef.current.value = '';
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-900 p-8">
@@ -36,6 +124,95 @@ export default function CodexManagementPage() {
             <Plus className="w-5 h-5" />
             Create Codex
           </Link>
+        </div>
+
+        <div className="mb-6 rounded-lg border border-slate-700 bg-slate-800/40 p-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h2 className="text-sm font-semibold text-white">Codex Content Operations</h2>
+              <p className="text-xs text-slate-400">Upload assets, import metadata, and review ingestion status.</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => setIsUploadOpen(true)}
+                className="inline-flex items-center gap-2 rounded-md bg-purple-600 px-3 py-2 text-sm text-white hover:bg-purple-700"
+              >
+                <Upload className="h-4 w-4" />
+                Upload Content
+              </button>
+
+              <button
+                onClick={() => importInputRef.current?.click()}
+                className="inline-flex items-center gap-2 rounded-md border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-200 hover:bg-slate-700"
+                disabled={importLoading}
+              >
+                {importLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileJson className="h-4 w-4" />}
+                Import Metadata
+              </button>
+              <input
+                ref={importInputRef}
+                type="file"
+                accept="application/json,.json"
+                className="hidden"
+                onChange={(event) => onImportFileSelected(event.target.files?.[0] ?? null)}
+              />
+
+              <button
+                onClick={fetchStatus}
+                className="inline-flex items-center gap-2 rounded-md border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-200 hover:bg-slate-700"
+                disabled={statusLoading}
+              >
+                <RefreshCw className={`h-4 w-4 ${statusLoading ? 'animate-spin' : ''}`} />
+                Refresh Status
+              </button>
+            </div>
+          </div>
+
+          {importMessage && (
+            <div className="mt-3 flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-300">
+              <CheckCircle className="h-4 w-4" />
+              <span>{importMessage}</span>
+            </div>
+          )}
+
+          {importError && (
+            <div className="mt-3 flex items-center gap-2 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+              <AlertCircle className="h-4 w-4" />
+              <span>{importError}</span>
+            </div>
+          )}
+
+          {statusError && (
+            <div className="mt-3 flex items-center gap-2 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+              <AlertCircle className="h-4 w-4" />
+              <span>{statusError}</span>
+            </div>
+          )}
+
+          {statusData && (
+            <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-5">
+              <div className="rounded-md border border-slate-700 bg-slate-900/70 p-3">
+                <p className="text-xs text-slate-400">Episodes</p>
+                <p className="text-xl font-semibold text-white">{statusData.summary?.totalEpisodes ?? 0}</p>
+              </div>
+              <div className="rounded-md border border-slate-700 bg-slate-900/70 p-3">
+                <p className="text-xs text-slate-400">With Motion</p>
+                <p className="text-xl font-semibold text-white">{statusData.summary?.episodesWithMotion ?? 0}</p>
+              </div>
+              <div className="rounded-md border border-slate-700 bg-slate-900/70 p-3">
+                <p className="text-xs text-slate-400">With Covers</p>
+                <p className="text-xl font-semibold text-white">{statusData.summary?.episodesWithCovers ?? 0}</p>
+              </div>
+              <div className="rounded-md border border-slate-700 bg-slate-900/70 p-3">
+                <p className="text-xs text-slate-400">Characters</p>
+                <p className="text-xl font-semibold text-white">{statusData.globalStats?.totalCharacters ?? 0}</p>
+              </div>
+              <div className="rounded-md border border-slate-700 bg-slate-900/70 p-3">
+                <p className="text-xs text-slate-400">All Assets</p>
+                <p className="text-xl font-semibold text-white">{statusData.globalStats?.totalAllAssets ?? 0}</p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Filters */}
@@ -211,6 +388,14 @@ export default function CodexManagementPage() {
             </div>
           </div>
         )}
+
+        <CodexUploadModal
+          isOpen={isUploadOpen}
+          onClose={() => setIsUploadOpen(false)}
+          onUploadComplete={() => {
+            void fetchStatus();
+          }}
+        />
       </div>
     </div>
   );

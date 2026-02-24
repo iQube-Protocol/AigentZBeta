@@ -1,6 +1,9 @@
 [build]
   publish = "dist"
-  command = "npm run build"
+  command = "npm install --include=dev --workspaces=false --no-package-lock && npm run build"
+
+[build.environment]
+  NPM_FLAGS = "--include=dev"
 
 [[redirects]]
   from = "/api/*"

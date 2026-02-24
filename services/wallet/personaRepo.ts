@@ -61,25 +61,132 @@ function getSupabaseAnonClient(): SupabaseClient {
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
-export async function getCallerAuthProfileId(request: NextRequest): Promise<string | null> {
-  const headerId = request.headers.get('x-auth-profile-id');
-  if (headerId) return headerId;
+export type CallerIdentityContext = {
+  authProfileId: string;
+  email: string | null;
+};
 
-  const auth = request.headers.get('authorization') || request.headers.get('Authorization');
-  const token = auth?.startsWith('Bearer ') ? auth.slice('Bearer '.length) : null;
-  if (!token) {
-    if (process.env.NODE_ENV !== 'production') {
-      const { searchParams } = new URL(request.url);
-      const devId = searchParams.get('authProfileId');
-      if (devId) return devId;
-    }
-    return null;
+async function getOrCreateCanonicalAuthProfileId(email: string): Promise<string | null> {
+  const normalizedEmail = email.trim().toLowerCase();
+  if (!normalizedEmail) return null;
+
+  const admin = getSupabaseAdminClient();
+
+  const { data: aliasRows, error: aliasError } = await admin
+    .from('crm_auth_profile_emails')
+    .select('auth_profile_id')
+    .eq('email_normalized', normalizedEmail)
+    .limit(1);
+
+  if (!aliasError && aliasRows && aliasRows.length > 0 && aliasRows[0]?.auth_profile_id) {
+    return String(aliasRows[0].auth_profile_id);
   }
 
-  const supabase = getSupabaseAnonClient();
-  const { data, error } = await supabase.auth.getUser(token);
-  if (error || !data?.user?.id) return null;
-  return data.user.id;
+  const { data: existing, error: existingError } = await admin
+    .from('crm_auth_profiles')
+    .select('id')
+    .eq('email', normalizedEmail)
+    .maybeSingle();
+
+  if (existingError) return null;
+  if (existing?.id) {
+    const now = new Date().toISOString();
+    await admin.from('crm_auth_profile_emails').upsert(
+      {
+        auth_profile_id: existing.id,
+        email: normalizedEmail,
+        email_normalized: normalizedEmail,
+        is_primary: true,
+        is_verified: true,
+        updated_at: now,
+      },
+      { onConflict: 'email_normalized' }
+    );
+    return String(existing.id);
+  }
+
+  const now = new Date().toISOString();
+  const { data: created, error: createError } = await admin
+    .from('crm_auth_profiles')
+    .upsert(
+      {
+        email: normalizedEmail,
+        email_verified: true,
+        is_active: true,
+        oauth_providers: {},
+        updated_at: now,
+      },
+      { onConflict: 'email' }
+    )
+    .select('id')
+    .maybeSingle();
+
+  if (createError) return null;
+  if (created?.id) {
+    await admin.from('crm_auth_profile_emails').upsert(
+      {
+        auth_profile_id: created.id,
+        email: normalizedEmail,
+        email_normalized: normalizedEmail,
+        is_primary: true,
+        is_verified: true,
+      },
+      { onConflict: 'email_normalized' }
+    );
+  }
+  return created?.id ? String(created.id) : null;
+}
+
+export async function getCallerIdentityContext(request: NextRequest): Promise<CallerIdentityContext | null> {
+  const auth = request.headers.get('authorization') || request.headers.get('Authorization');
+  const token = auth?.startsWith('Bearer ') ? auth.slice('Bearer '.length) : null;
+  if (token) {
+    const supabase = getSupabaseAnonClient();
+    const { data, error } = await supabase.auth.getUser(token);
+    if (error || !data?.user?.id) return null;
+
+    const tokenEmail = (data.user.email || '').trim().toLowerCase();
+    if (tokenEmail) {
+      const canonicalAuthProfileId = await getOrCreateCanonicalAuthProfileId(tokenEmail);
+      if (canonicalAuthProfileId) {
+        return {
+          authProfileId: canonicalAuthProfileId,
+          email: tokenEmail,
+        };
+      }
+    }
+
+    return {
+      authProfileId: data.user.id,
+      email: tokenEmail || null,
+    };
+  }
+
+  const headerId = request.headers.get('x-auth-profile-id');
+  if (headerId) {
+    return {
+      authProfileId: headerId,
+      email: null,
+    };
+  }
+
+  if (process.env.NODE_ENV !== 'production') {
+    const { searchParams } = new URL(request.url);
+    const devId = searchParams.get('authProfileId');
+    if (devId) {
+      return {
+        authProfileId: devId,
+        email: null,
+      };
+    }
+  }
+
+  return null;
+}
+
+export async function getCallerAuthProfileId(request: NextRequest): Promise<string | null> {
+  const context = await getCallerIdentityContext(request);
+  return context?.authProfileId || null;
 }
 
 function toPublicView(row: PersonaRow, visibility: PersonaVisibility): PersonaPublicView {

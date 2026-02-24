@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Loader2, Sparkles, Target, Timer, Layers } from "lucide-react";
 import type { SmartContentQube } from "@/types/smartContent";
+import type { WalletUIComponent } from "@/app/types/knytLiquidUI";
 import { SmartContentCard, useSmartTriad } from "@/app/components/content";
 
 type ExperienceQube = {
@@ -10,6 +11,7 @@ type ExperienceQube = {
   name: string;
   description?: string;
   configuration?: Record<string, any>;
+  metadata?: Record<string, any>;
 };
 
 interface QriptopianReadingSprintTemplateProps {
@@ -17,6 +19,8 @@ interface QriptopianReadingSprintTemplateProps {
   packet?: Record<string, any> | null;
   theme?: "light" | "dark";
   personaId?: string;
+  mediaVariantOverridesEnabled?: boolean;
+  mediaRatioOverrides?: Record<string, import("@/types/smartContent").MediaRatio>;
 }
 
 const fetchContent = async (id: string): Promise<SmartContentQube | null> => {
@@ -30,6 +34,8 @@ export function QriptopianReadingSprintTemplate({
   experience,
   packet,
   theme = "dark",
+  mediaVariantOverridesEnabled,
+  mediaRatioOverrides,
 }: QriptopianReadingSprintTemplateProps) {
   const { actions } = useSmartTriad();
   const [feature, setFeature] = useState<SmartContentQube | null>(null);
@@ -42,6 +48,15 @@ export function QriptopianReadingSprintTemplate({
   const contentConfig = config.content_selection || {};
   const walletConfig = config.wallet_rewards || {};
   const copilotConfig = config.copilot_output || {};
+  const dprLatest = experience?.metadata?.dprLatest || null;
+  const dprReceipts = Array.isArray(experience?.metadata?.dprReceipts)
+    ? experience?.metadata?.dprReceipts
+    : [];
+  const dprDvnEvents = Array.isArray(experience?.metadata?.dprDvnEvents)
+    ? experience?.metadata?.dprDvnEvents
+    : [];
+  const latestDprReceipt = dprReceipts[dprReceipts.length - 1] || null;
+  const latestDvnEvent = dprDvnEvents[dprDvnEvents.length - 1] || null;
 
   const packetIntent = packet?.intent?.constraints || {};
   const workingSet = packet?.context?.working_set || {};
@@ -67,6 +82,8 @@ export function QriptopianReadingSprintTemplate({
   const unlockPrice = Number(walletConfig.unlock_price || 0);
   const rewardAmount = Number(walletConfig.reward_amount || 0);
   const requiresConnect = walletConfig.require_wallet_connect !== false;
+  const getRatioOverride = (variant?: string) =>
+    variant && mediaVariantOverridesEnabled ? mediaRatioOverrides?.[variant] : undefined;
 
   const gates = useMemo(() => {
     const list = [];
@@ -119,7 +136,24 @@ export function QriptopianReadingSprintTemplate({
 
   const handlePurchase = async (content: SmartContentQube) => {
     await actions.loadContent(content.id);
-    actions.openWallet("full");
+    // Open Liquid UI SmartWallet instead of Layered SmartWallet
+    const walletUI: WalletUIComponent[] = [];
+    
+    // Add balance card
+    walletUI.push('wallet_card.balance');
+    
+    // Add unlock card if there's a price
+    if (content.pricingModel?.tiers?.some((tier) => (tier.amount ?? 0) > 0)) {
+      walletUI.push('wallet_card.unlock_offer');
+    }
+    
+    // Add permission card for consent
+    walletUI.push('wallet_card.task_step');
+    
+    // Set wallet UI and open in narrow mode
+    actions.setWalletUI(walletUI);
+    actions.setWalletDrawerMode('narrow');
+    actions.openWallet('compact');
   };
 
   const isDark = theme === "dark";
@@ -185,6 +219,10 @@ export function QriptopianReadingSprintTemplate({
               <SmartContentCard
                 content={feature}
                 variant="featured"
+                templateVariant="featured"
+                device="desktop"
+                useTemplateRatioOverrides={mediaVariantOverridesEnabled}
+                mediaRatioOverride={getRatioOverride("featured")}
                 onSelect={handleOpen}
                 onPurchase={handlePurchase}
                 isOwned={actions.checkOwnership(feature.id)}
@@ -202,6 +240,10 @@ export function QriptopianReadingSprintTemplate({
                     key={item.id}
                     content={item}
                     variant="compact"
+                    templateVariant="compact"
+                    device="desktop"
+                    useTemplateRatioOverrides={mediaVariantOverridesEnabled}
+                    mediaRatioOverride={getRatioOverride("compact")}
                     onSelect={handleOpen}
                     onPurchase={handlePurchase}
                     isOwned={actions.checkOwnership(item.id)}
@@ -244,6 +286,25 @@ export function QriptopianReadingSprintTemplate({
                 <li>3. Capture copilot takeaways</li>
                 <li>4. Save the takeaways card</li>
               </ul>
+            </div>
+            <div className={`rounded-xl border ${isDark ? "border-indigo-500/30 bg-indigo-500/10" : "border-indigo-200 bg-indigo-50"} p-4`}>
+              <div className={`text-xs uppercase tracking-wide ${mutedClass}`}>DPR Summary</div>
+              {dprLatest ? (
+                <div className={`mt-2 space-y-1 text-xs ${textClass}`}>
+                  <div>Score: {dprLatest.score ?? "n/a"}/100</div>
+                  <div>Violations: {dprLatest.violations ?? "n/a"}</div>
+                  <div>Checks: {dprLatest.checks?.totalChecks ?? "n/a"}</div>
+                  <div className={mutedClass}>{dprLatest.summary || "Latest parity run recorded."}</div>
+                </div>
+              ) : (
+                <div className={`mt-2 text-xs ${mutedClass}`}>No DPR run recorded yet.</div>
+              )}
+              <div className={`mt-3 text-[11px] ${mutedClass}`}>
+                DVN Event: {latestDvnEvent?.id || "pending"}
+              </div>
+              <div className={`text-[11px] ${mutedClass}`}>
+                Receipt: {latestDprReceipt?.receiptId || "pending"}
+              </div>
             </div>
           </aside>
         </div>

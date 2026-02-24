@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import embedPolicy from '@/configs/embed/policy.v1.json';
 
 const EMBED_PREFIX = '/triad/embed';
+const EMBED_FRAME_ANCESTORS = embedPolicy.frameAncestors.join(' ');
+const EMBED_CSP = `frame-ancestors ${EMBED_FRAME_ANCESTORS};`;
 
 // Performance tracking
 const performanceMetrics = new Map<string, {
@@ -17,7 +20,19 @@ export function middleware(request: NextRequest) {
   const startTime = performance.now();
   const urlPath = request.nextUrl.pathname;
   
-  // Handle SmartTriad embed routes - allow embedding in Lovable
+  // Handle metaMe runtime page - prevent caching
+  if (urlPath.startsWith('/metame/runtime')) {
+    const response = NextResponse.next();
+    
+    // Prevent caching of the runtime page
+    response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    response.headers.set('Pragma', 'no-cache');
+    response.headers.set('Expires', '0');
+    
+    return response;
+  }
+  
+  // Handle SmartTriad embed routes - allow embedding in approved thin clients.
   if (urlPath.startsWith(EMBED_PREFIX)) {
     const response = NextResponse.next();
     
@@ -25,9 +40,8 @@ export function middleware(request: NextRequest) {
     response.headers.delete('X-Frame-Options');
     response.headers.delete('x-frame-options');
     
-    // Set CSP with frame-ancestors for Lovable + self
-    const csp = "frame-ancestors 'self' https://qriptopian.lovable.app https://preview--qriptopian.lovable.app;";
-    response.headers.set('Content-Security-Policy', csp);
+    // Keep frame-ancestors in sync with next.config.js headers() to avoid policy conflicts.
+    response.headers.set('Content-Security-Policy', EMBED_CSP);
     
     return response;
   }
@@ -86,7 +100,16 @@ export function middleware(request: NextRequest) {
     
     // Add security headers
     response.headers.set('X-Content-Type-Options', 'nosniff');
-    response.headers.set('X-Frame-Options', 'DENY');
+    const isPdfViewerApi =
+      urlPath.startsWith('/api/content/pdf/') ||
+      urlPath.startsWith('/api/content/pdf-page/');
+    if (isPdfViewerApi) {
+      response.headers.delete('X-Frame-Options');
+      response.headers.delete('x-frame-options');
+      response.headers.set('Content-Security-Policy', EMBED_CSP);
+    } else {
+      response.headers.set('X-Frame-Options', 'DENY');
+    }
     response.headers.set('X-XSS-Protection', '1; mode=block');
     response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
     
@@ -153,5 +176,5 @@ export function getPerformanceMetrics() {
 }
 
 export const config = {
-  matcher: ['/triad/embed/:path*'],
+  matcher: ['/triad/embed/:path*', '/metame/runtime/:path*'],
 };

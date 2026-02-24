@@ -10,6 +10,7 @@ type ExperienceQube = {
   name: string;
   description?: string;
   configuration?: Record<string, any>;
+  metadata?: Record<string, any>;
 };
 
 interface KnytDrawerGridFallbackTemplateProps {
@@ -17,6 +18,10 @@ interface KnytDrawerGridFallbackTemplateProps {
   packet?: Record<string, any> | null;
   theme?: "light" | "dark";
   personaId?: string;
+  contentObjects?: SmartContentQube[];
+  contentObject?: SmartContentQube;
+  mediaVariantOverridesEnabled?: boolean;
+  mediaRatioOverrides?: Record<string, import("@/types/smartContent").MediaRatio>;
 }
 
 const fetchContent = async (id: string): Promise<SmartContentQube | null> => {
@@ -30,6 +35,10 @@ export function KnytDrawerGridFallbackTemplate({
   experience,
   packet,
   theme = "dark",
+  contentObjects,
+  contentObject,
+  mediaVariantOverridesEnabled,
+  mediaRatioOverrides,
 }: KnytDrawerGridFallbackTemplateProps) {
   const { actions } = useSmartTriad();
   const [items, setItems] = useState<SmartContentQube[]>([]);
@@ -40,6 +49,15 @@ export function KnytDrawerGridFallbackTemplate({
   const intentConfig = config.intent_timebox || {};
   const walletConfig = config.wallet_rewards || {};
   const copilotConfig = config.copilot_output || {};
+  const dprLatest = experience?.metadata?.dprLatest || null;
+  const dprReceipts = Array.isArray(experience?.metadata?.dprReceipts)
+    ? experience?.metadata?.dprReceipts
+    : [];
+  const dprDvnEvents = Array.isArray(experience?.metadata?.dprDvnEvents)
+    ? experience?.metadata?.dprDvnEvents
+    : [];
+  const latestDprReceipt = dprReceipts[dprReceipts.length - 1] || null;
+  const latestDvnEvent = dprDvnEvents[dprDvnEvents.length - 1] || null;
 
   const workingSet = packet?.context?.working_set || {};
   const contentConfig = experience?.configuration?.content_selection || {};
@@ -65,6 +83,8 @@ export function KnytDrawerGridFallbackTemplate({
   const rewardAmount = Number(walletConfig.reward_amount || 0);
   const requiresConnect = walletConfig.require_wallet_connect !== false;
   const isDashboard = templateId.includes("drawer_grid_2a");
+  const getRatioOverride = (variant?: string) =>
+    variant && mediaVariantOverridesEnabled ? mediaRatioOverrides?.[variant] : undefined;
 
   useEffect(() => {
     let active = true;
@@ -72,6 +92,13 @@ export function KnytDrawerGridFallbackTemplate({
       try {
         setLoading(true);
         setError(null);
+        if (Array.isArray(contentObjects) && contentObjects.length > 0) {
+          if (active) {
+            setItems(contentObjects);
+            setLoading(false);
+          }
+          return;
+        }
         const ids = [featureId, ...supportingIds].filter(Boolean) as string[];
         if (ids.length === 0) {
           setItems([]);
@@ -94,7 +121,7 @@ export function KnytDrawerGridFallbackTemplate({
     return () => {
       active = false;
     };
-  }, [featureId, supportingIds]);
+  }, [featureId, supportingIds, contentObjects]);
 
   const handleOpen = async (content: SmartContentQube) => {
     await actions.loadContent(content.id);
@@ -162,6 +189,10 @@ export function KnytDrawerGridFallbackTemplate({
                     <SmartContentCard
                       content={items[0]}
                       variant="featured"
+                      templateVariant="featured"
+                      device="desktop"
+                      useTemplateRatioOverrides={mediaVariantOverridesEnabled}
+                      mediaRatioOverride={getRatioOverride("featured")}
                       onSelect={handleOpen}
                       onPurchase={handlePurchase}
                       isOwned={actions.checkOwnership(items[0].id)}
@@ -173,6 +204,10 @@ export function KnytDrawerGridFallbackTemplate({
                             key={item.id}
                             content={item}
                             variant="standard"
+                            templateVariant="standard"
+                            device="desktop"
+                            useTemplateRatioOverrides={mediaVariantOverridesEnabled}
+                            mediaRatioOverride={getRatioOverride("standard")}
                             onSelect={handleOpen}
                             onPurchase={handlePurchase}
                             isOwned={actions.checkOwnership(item.id)}
@@ -229,6 +264,25 @@ export function KnytDrawerGridFallbackTemplate({
                     <li>4. Save the takeaways card</li>
                   </ul>
                 </div>
+                <div className={`rounded-xl border ${isDark ? "border-indigo-500/30 bg-indigo-500/10" : "border-indigo-200 bg-indigo-50"} p-4`}>
+                  <div className={`text-xs uppercase tracking-wide ${mutedClass}`}>DPR Summary</div>
+                  {dprLatest ? (
+                    <div className={`mt-2 space-y-1 text-xs ${textClass}`}>
+                      <div>Score: {dprLatest.score ?? "n/a"}/100</div>
+                      <div>Violations: {dprLatest.violations ?? "n/a"}</div>
+                      <div>Checks: {dprLatest.checks?.totalChecks ?? "n/a"}</div>
+                      <div className={mutedClass}>{dprLatest.summary || "Latest parity run recorded."}</div>
+                    </div>
+                  ) : (
+                    <div className={`mt-2 text-xs ${mutedClass}`}>No DPR run recorded yet.</div>
+                  )}
+                  <div className={`mt-3 text-[11px] ${mutedClass}`}>
+                    DVN Event: {latestDvnEvent?.id || "pending"}
+                  </div>
+                  <div className={`text-[11px] ${mutedClass}`}>
+                    Receipt: {latestDprReceipt?.receiptId || "pending"}
+                  </div>
+                </div>
               </aside>
             </div>
           ) : (
@@ -238,7 +292,11 @@ export function KnytDrawerGridFallbackTemplate({
                   <SmartContentCard
                     key={item.id}
                     content={item}
+                    templateVariant={isDashboard ? "standard" : "grid"}
+                    device="desktop"
                     variant={index === 0 ? "featured" : "standard"}
+                    useTemplateRatioOverrides={mediaVariantOverridesEnabled}
+                    mediaRatioOverride={getRatioOverride(isDashboard ? "standard" : "grid")}
                     onSelect={handleOpen}
                     onPurchase={handlePurchase}
                     isOwned={actions.checkOwnership(item.id)}

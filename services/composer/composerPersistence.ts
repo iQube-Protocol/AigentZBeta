@@ -64,7 +64,7 @@ function mapExperienceToRow(experience: ExperienceQubeData): ExperienceRow {
       name: experience.name,
       description: experience.description,
       category: experience.metadata.category,
-      tags: experience.metadata.tags,
+      tags: (experience.metadata as any).tags,
       version: experience.metadata.version,
       created_at: experience.metadata.created_at,
       updated_at: experience.metadata.updated_at,
@@ -107,9 +107,9 @@ function mapRowToExperience(row: ExperienceRow): ExperienceQubeData {
       created_at: meta.created_at || row.created_at,
       updated_at: meta.updated_at || row.updated_at,
       version: meta.version || "1.0.0",
-      tags: meta.tags || [],
+      tags: (meta as any).tags || [],
       category: meta.category || "content",
-    },
+    } as any,
     execution: blak.execution || {
       auto_start: false,
       retry_policy: "none",
@@ -117,6 +117,9 @@ function mapRowToExperience(row: ExperienceRow): ExperienceQubeData {
       max_concurrent_users: 10,
     },
     access: normalizeAccess(row.token_qube),
+    goal: "",
+    mechanics: "",
+    metrics: "",
   };
 }
 

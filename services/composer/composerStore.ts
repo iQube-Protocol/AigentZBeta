@@ -27,6 +27,9 @@ export interface ExperienceQubeData {
   id: string;
   name: string;
   description: string;
+  goal: string;                    // NEW: contextual purpose
+  mechanics: string;               // NEW: experience mechanics
+  metrics: string;                 // NEW: success metrics
   tenant_id: string;
   creator_id: string;
   template_id: string;
@@ -37,7 +40,7 @@ export interface ExperienceQubeData {
     created_at: string;
     updated_at: string;
     version: string;
-    tags: string[];
+    // REMOVED: tags: string[]
     category: string;
   };
   execution: {

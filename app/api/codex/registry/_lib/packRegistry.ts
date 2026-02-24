@@ -34,9 +34,9 @@ function normalizePackId(packId: string): { canonicalPackId: string; codexId: st
   const lowered = packId.toLowerCase();
   if (lowered === "aigency" || lowered === "aigentiq" || lowered === "agentiq") {
     return {
-      canonicalPackId: "aigentiq",
-      codexId: "aigentiq-codex",
-      slug: "aigentiq",
+      canonicalPackId: "agentiq",
+      codexId: "agentiq-codex",
+      slug: "agentiq",
       nameOverride: "AgentiQ Codex",
     };
   }
@@ -280,9 +280,9 @@ export async function loadPackCodexes(): Promise<CodexConfig[]> {
       if (!dirent.isDirectory()) continue;
       if (dirent.name.startsWith(".")) continue;
 
-      // Avoid duplicate AgentiQ entries. Canonical pack is 'aigency' (mapped to 'aigentiq-codex').
+      // Avoid duplicate AgentiQ entries. Canonical pack for runtime/tests is 'agentiq'.
       const lowered = dirent.name.toLowerCase();
-      if (lowered === "agentiq" || lowered === "aigentiq") continue;
+      if (lowered === "aigency" || lowered === "aigentiq") continue;
 
       const codex = await buildCodexConfigFromPack(dirent.name);
       if (!codex) continue;
@@ -303,7 +303,8 @@ export async function loadPackCodexes(): Promise<CodexConfig[]> {
 
 export async function getPackCodexById(codexId: string): Promise<CodexConfig | null> {
   const packId = codexId.endsWith("-codex") ? codexId.slice(0, -6) : codexId;
-  const codex = await buildCodexConfigFromPack(packId);
+  const normalized = normalizePackId(packId);
+  const codex = await buildCodexConfigFromPack(normalized.canonicalPackId);
   if (!codex || codex.id !== codexId) return null;
   return codex;
 }

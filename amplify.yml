@@ -46,7 +46,8 @@ frontend:
         - node -e "if(!process.env.PAYPAL_CLIENT_ID||!process.env.PAYPAL_CLIENT_SECRET){console.error('PAYPAL env vars missing in build env');process.exit(1)}"
 
         - echo ".env.production created. Building Next.js..."
-        - export NODE_OPTIONS="--max-old-space-size=8192"
+        - export NODE_OPTIONS="--max-old-space-size=3072"
+        - export NEXT_PRIVATE_BUILD_WORKER=1
         - npm run build
 
         - echo "Copying .env.production into standalone bundle..."

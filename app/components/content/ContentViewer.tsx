@@ -11,6 +11,7 @@ import type {
   ListenModality,
   InteractModality,
 } from "@/types/smartContent";
+import { getCoverImageUrl } from "./mediaVariants";
 
 interface ContentViewerProps {
   content: SmartContentQube;
@@ -841,7 +842,7 @@ export default function ContentViewer({
             <TextReader
               title={content.title}
               description={content.description}
-              coverImageUri={content.coverImageUri}
+              coverImageUri={getCoverImageUrl(content)}
               text={resolvedReadText}
               hasAccess={hasAccess}
               accessScope={accessScope}

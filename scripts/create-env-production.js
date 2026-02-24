@@ -23,6 +23,8 @@ const envVars = [
   'FIO_MOCK_MODE',
   'AGENT_KEY_ENCRYPTION_SECRET',
   'TREASURY_PRIVATE_KEY',
+  'DISCORD_BOT_TOKEN',
+  'DISCORD_METAKNYTS_CHANNEL_ID',
 ];
 
 let content = '';

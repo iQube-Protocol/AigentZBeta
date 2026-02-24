@@ -602,6 +602,72 @@ export interface LibraryMetadata {
   additionalLanguages: string[];
 }
 
+
+// =============================================================================
+// MEDIA VARIANTS
+// =============================================================================
+
+export type MediaOrientation = 'portrait' | 'landscape' | 'square';
+export type MediaDevice = 'mobile' | 'tablet' | 'desktop';
+export type MediaRatio = '1:1' | '4:3' | '3:4' | '16:9' | '9:16' | '21:9' | '1:3' | '2:3' | '1:4' | '1:2' | 'full' | `custom:${string}`;
+export type ScreenFraction = 'screen-1-4' | 'screen-1-3' | 'screen-1-2' | 'screen-2-3' | 'screen-3-4' | 'screen-full';
+
+export interface MediaCachePolicy {
+  key?: string;
+  maxBytes?: number;
+  ttlSeconds?: number;
+  preferredSizes?: string[];
+}
+
+export interface ImageVariant {
+  id?: string;
+  url: string;
+  ratio?: MediaRatio;
+  sizePx?: { w: number; h: number };
+  sizeRel?: { w?: ScreenFraction; h?: ScreenFraction };
+  crop?: 'contain' | 'cover' | 'fill';
+  focalPoint?: { x: number; y: number };
+  orientation?: MediaOrientation;
+  tags?: string[];
+  cache?: MediaCachePolicy;
+}
+
+export interface VideoVariant {
+  id?: string;
+  url: string;
+  ratio?: MediaRatio;
+  sizePx?: { w: number; h: number };
+  sizeRel?: { w?: ScreenFraction; h?: ScreenFraction };
+  crop?: 'contain' | 'cover' | 'fill';
+  focalPoint?: { x: number; y: number };
+  orientation?: MediaOrientation;
+  tags?: string[];
+  cache?: MediaCachePolicy;
+}
+
+export interface SpatialVariant {
+  id?: string;
+  url: string;
+  format?: 'glb' | 'usdz' | 'gltf' | string;
+  orientation?: MediaOrientation;
+  tags?: string[];
+  cache?: MediaCachePolicy;
+}
+
+export interface MediaVariantGroup<T> {
+  default?: T;
+  device?: Partial<Record<MediaDevice, T>>;
+  orientation?: Partial<Record<MediaOrientation, T>>;
+  ratios?: Partial<Record<MediaRatio, T>>;
+  sizes?: Record<string, T>;
+}
+
+export interface MediaVariants {
+  image?: MediaVariantGroup<ImageVariant>;
+  video?: MediaVariantGroup<VideoVariant>;
+  spatial?: MediaVariantGroup<SpatialVariant>;
+}
+
 // =============================================================================
 // SMART CONTENT QUBE v0 - MAIN INTERFACE
 // =============================================================================
@@ -630,6 +696,9 @@ export interface SmartContentQube {
   
   /** Cover image URI */
   coverImageUri: string;
+
+  /** Media variants (image/video/spatial) */
+  mediaVariants?: MediaVariants;
   
   /** Creator root DID */
   creatorRootDid: string;

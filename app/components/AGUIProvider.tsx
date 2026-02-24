@@ -47,7 +47,12 @@ export function AGUIProvider({ children, runtimeUrl = "/api/copilotkit" }: AGUIP
   }, []);
 
   return (
-    <CopilotKit runtimeUrl={runtimeUrl} agents__unsafe_dev_only={devAgents}>
+    <CopilotKit
+      runtimeUrl={runtimeUrl}
+      agents__unsafe_dev_only={devAgents}
+      showDevConsole={false}
+      enableInspector={false}
+    >
       {children}
     </CopilotKit>
   );
