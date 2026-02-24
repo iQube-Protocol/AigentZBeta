@@ -25,14 +25,14 @@ const DEFAULT_RUNTIME_PATH = '/metame/runtime'
 type ProviderKey = 'openai' | 'anthropic' | 'chaingpt' | 'venice' | 'thirdweb' | 'google' | 'default'
 type TrustState = 'ok' | 'warn' | 'fail'
 
-const PROVIDER_SCORES: Record<ProviderKey, { trust: number; reliability: number }> = {
-  openai: { trust: 7.2, reliability: 7.3 },
-  anthropic: { trust: 7.8, reliability: 7.2 },
-  chaingpt: { trust: 8.0, reliability: 7.1 },
-  venice: { trust: 8.8, reliability: 8.6 },
-  thirdweb: { trust: 8.2, reliability: 8.4 },
-  google: { trust: 7.2, reliability: 7.0 },
-  default: { trust: 7.2, reliability: 7.0 },
+const PROVIDER_SCORE_MODEL: Record<ProviderKey, { base: number; reliabilityBonus: number }> = {
+  openai: { base: 5.0, reliabilityBonus: 0 },
+  anthropic: { base: 5.0, reliabilityBonus: 0 },
+  chaingpt: { base: 7.4, reliabilityBonus: 0.8 },
+  venice: { base: 7.8, reliabilityBonus: 0.8 },
+  thirdweb: { base: 7.3, reliabilityBonus: 0.8 },
+  google: { base: 4.5, reliabilityBonus: 0 },
+  default: { base: 4.5, reliabilityBonus: 0 },
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -43,6 +43,20 @@ function asString(value: unknown): string | null {
   if (typeof value !== 'string') return null
   const trimmed = value.trim()
   return trimmed.length > 0 ? trimmed : null
+}
+
+function normalizeBoolean(value: unknown): boolean | null {
+  if (typeof value === 'boolean') return value
+  if (typeof value === 'number') {
+    if (value === 1) return true
+    if (value === 0) return false
+    return null
+  }
+  if (typeof value !== 'string') return null
+  const normalized = value.trim().toLowerCase()
+  if (normalized === 'true' || normalized === '1' || normalized === 'yes' || normalized === 'on') return true
+  if (normalized === 'false' || normalized === '0' || normalized === 'no' || normalized === 'off') return false
+  return null
 }
 
 function normalizeProvider(providerId: string | null): ProviderKey | null {
@@ -76,6 +90,19 @@ function trustStateFromScore(score: number): TrustState {
   if (score >= 8) return 'ok'
   if (score >= 5) return 'warn'
   return 'fail'
+}
+
+function clampScore(value: number): number {
+  return Number(Math.min(10, Math.max(1, value)).toFixed(2))
+}
+
+function computeProviderScores(provider: ProviderKey, processing: boolean): { trust: number; reliability: number } {
+  const model = PROVIDER_SCORE_MODEL[provider] ?? PROVIDER_SCORE_MODEL.default
+  const processingPenalty = processing ? 0.3 : 0
+  return {
+    trust: clampScore(model.base - processingPenalty),
+    reliability: clampScore(model.base + model.reliabilityBonus - processingPenalty),
+  }
 }
 
 function normalizeRuntimeIframeUrl(rawUrl: string): string {
@@ -150,6 +177,37 @@ function resolveProviderFromRequestBody(requestBody: string | undefined): Provid
   }
 }
 
+function resolveProcessingFromRequest(path: string, requestBody?: string): boolean {
+  const queryPath = path.startsWith('/') ? path : `/${path}`
+  let queryProcessing: unknown = null
+  try {
+    const parsed = new URL(queryPath, 'https://aa-proxy.local')
+    queryProcessing = parsed.searchParams.get('processing') ?? parsed.searchParams.get('is_processing')
+  } catch {
+    queryProcessing = null
+  }
+
+  let bodyProcessing: unknown = null
+  if (requestBody) {
+    try {
+      const payload = asRecord(JSON.parse(requestBody))
+      if (payload) {
+        const nestedPayload = asRecord(payload.payload)
+        bodyProcessing =
+          payload.processing ??
+          payload.is_processing ??
+          nestedPayload?.processing ??
+          nestedPayload?.is_processing ??
+          null
+      }
+    } catch {
+      bodyProcessing = null
+    }
+  }
+
+  return normalizeBoolean(queryProcessing) ?? normalizeBoolean(bodyProcessing) ?? false
+}
+
 function resolveProviderFromResponse(payload: Record<string, unknown>): ProviderKey | null {
   const shellConfig = asRecord(payload.shell_config)
   const rootOrShell = shellConfig ?? payload
@@ -200,7 +258,8 @@ function patchShellTrust(shellConfig: Record<string, unknown>, scores: { trust: 
     trust: scores.trust,
     reliability: scores.reliability,
   }
-  trustBlock.level = trustStateFromScore(scores.trust) === 'ok' ? 'verified' : 'warning'
+  const trustState = trustStateFromScore(scores.trust)
+  trustBlock.level = trustState === 'ok' ? 'verified' : trustState === 'warn' ? 'warning' : 'unverified'
 
   const existingSignals = Array.isArray(trustBlock.signals) ? trustBlock.signals : []
   trustBlock.signals = existingSignals.map((signal) => {
@@ -230,7 +289,8 @@ function normalizeRuntimeScores(path: string, responseBody: string, requestBody?
       null
     if (!provider) return responseBody
 
-    const scores = PROVIDER_SCORES[provider] ?? PROVIDER_SCORES.default
+    const processing = resolveProcessingFromRequest(path, requestBody)
+    const scores = computeProviderScores(provider, processing)
     patchSessionScores(asRecord(payload.session), scores)
 
     const shellConfig = asRecord(payload.shell_config)

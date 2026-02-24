@@ -61,6 +61,7 @@ type RuntimeContext = {
   personaId: string;
   authMode: 'jwt' | 'anonymous';
   deviceHint: 'desktop' | 'tablet' | 'mobile';
+  processing: boolean;
 };
 
 const runtimeRouter = Router();
@@ -251,10 +252,33 @@ function normalizeDeviceHint(value: unknown): 'desktop' | 'tablet' | 'mobile' | 
   return null;
 }
 
+function normalizeBoolean(value: unknown): boolean | null {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') {
+    if (value === 1) return true;
+    if (value === 0) return false;
+    return null;
+  }
+  if (typeof value !== 'string') return null;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === 'true' || normalized === '1' || normalized === 'yes' || normalized === 'on') return true;
+  if (normalized === 'false' || normalized === '0' || normalized === 'no' || normalized === 'off') return false;
+  return null;
+}
+
+function pickBoolean(...values: unknown[]): boolean | null {
+  for (const value of values) {
+    const candidate = normalizeBoolean(value);
+    if (candidate !== null) return candidate;
+  }
+  return null;
+}
+
 function resolveRuntimeContext(req: any): RuntimeContext {
   const authPayload = parseAuthPayload(req.headers?.authorization as string | undefined);
   const body = (req.body || {}) as Record<string, unknown>;
   const query = (req.query || {}) as Record<string, unknown>;
+  const payload = (body.payload || {}) as Record<string, unknown>;
 
   const tenantId =
     pickString(
@@ -291,29 +315,66 @@ function resolveRuntimeContext(req: any): RuntimeContext {
     normalizeDeviceHint(req.headers?.['x-device-type']) ||
     'mobile';
 
+  const processing =
+    pickBoolean(
+      query.processing,
+      query.is_processing,
+      body.processing,
+      body.is_processing,
+      payload.processing,
+      payload.is_processing,
+      req.headers?.['x-runtime-processing']
+    ) ?? false;
+
   return {
     tenantId,
     personaId,
     authMode: authPayload ? 'jwt' : 'anonymous',
     deviceHint,
+    processing,
   };
 }
 
-function providerReliability(providerId: string | undefined): { trust: number; reliability: number } {
+function clampScore(value: number): number {
+  return Number(Math.min(10, Math.max(1, value)).toFixed(2));
+}
+
+function providerReliability(providerId: string | undefined, processing = false): { trust: number; reliability: number } {
+  let base = 4.5;
+  let reliabilityBonus = 0;
+
   switch (providerId) {
     case 'anthropic':
-      return { trust: 7.8, reliability: 7.2 };
+      base = 5.0;
+      break;
     case 'venice':
-      return { trust: 8.8, reliability: 8.6 };
+      base = 7.8;
+      reliabilityBonus = 0.8;
+      break;
     case 'chaingpt':
-      return { trust: 8.0, reliability: 7.1 };
+      base = 7.4;
+      reliabilityBonus = 0.8;
+      break;
     case 'thirdweb':
-      return { trust: 8.2, reliability: 8.4 };
+      base = 7.3;
+      reliabilityBonus = 0.8;
+      break;
     case 'openai':
-      return { trust: 7.2, reliability: 7.3 };
+      base = 5.0;
+      break;
+    case 'google':
+      base = 4.5;
+      break;
     default:
-      return { trust: 7.2, reliability: 7.0 };
+      base = 4.5;
+      break;
   }
+
+  const processingPenalty = processing ? 0.3 : 0;
+  return {
+    trust: clampScore(base - processingPenalty),
+    reliability: clampScore(base + reliabilityBonus - processingPenalty),
+  };
 }
 
 function trustStateFromScore(score: number): TrustState {
@@ -495,7 +556,7 @@ function buildShellConfig(ctx: RuntimeContext, state: RuntimeState) {
   const activeAgent = getAgentById(state.selected_aigent_id);
   const llmOptions = getLlmOptionsForAgent(activeAgent.id);
   const activeLlm = getLlmById(activeAgent.id, state.selected_llm_id);
-  const providerScores = providerReliability(activeLlm.provider_id);
+  const providerScores = providerReliability(activeLlm.provider_id, ctx.processing);
   const trust = trustStateFromScore(providerScores.trust);
   const reliability = trustStateFromScore(providerScores.reliability);
   const iframeUrl = resolveIframeUrl();
