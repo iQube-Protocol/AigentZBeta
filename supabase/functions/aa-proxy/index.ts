@@ -1,7 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 
 /**
- * 🚨 CRITICAL ARCHITECTURAL RULE 🚨
+ * CRITICAL ARCHITECTURAL RULE
  * 
  * This is the ONLY valid endpoint for AA API runtime access.
  * 

@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken';
 import { env } from '../env.js';
 
 /**
- * 🚨 CRITICAL ARCHITECTURAL RULE 🚨
+ * CRITICAL ARCHITECTURAL RULE
  * 
  * DO NOT expose this Railway endpoint directly to clients!
  * 
