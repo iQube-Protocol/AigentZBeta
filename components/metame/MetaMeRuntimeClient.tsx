@@ -1546,7 +1546,7 @@ export default function MetaMeRuntimeClient() {
 
       const intent = inferIntent(trimmed);
       let workingContents = allContents;
-      const shouldRefetchForIntent = intent === "play" || workingContents.length === 0;
+      const shouldRefetchForIntent = intent === "play" || workingContents.length === 0 || intent !== lastIntent;
       if (shouldRefetchForIntent) {
         try {
           workingContents = await fetchRuntimeCapsules({
@@ -1744,7 +1744,12 @@ export default function MetaMeRuntimeClient() {
 
       if (message.type === "MENU_ACTION") {
         const explicitPrompt = typeof payload.prompt === "string" ? payload.prompt : null;
-        const actionId = typeof payload.action_id === "string" ? payload.action_id : null;
+        const actionId =
+          typeof payload.action_id === "string"
+            ? payload.action_id
+            : typeof payload.item_id === "string"
+              ? payload.item_id
+              : null;
         const actionPrompt = actionId ? menuPromptFromActionId(actionId) : null;
         const resolvedPrompt = explicitPrompt || actionPrompt;
         if (resolvedPrompt) {

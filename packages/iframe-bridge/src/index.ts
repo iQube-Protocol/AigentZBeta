@@ -87,7 +87,7 @@ export function isBridgeMessage(value: unknown): value is BridgeMessage {
   return (
     typeof value.type === "string" &&
     typeof value.msg_id === "string" &&
-    typeof value.timestamp === "string" &&
+    (typeof value.timestamp === "string" || typeof value.timestamp === "number") &&
     typeof value.source === "string" &&
     isObject(value.payload)
   );
