@@ -27,6 +27,10 @@ Required variables (read from root `.env.local` via DOTENV_CONFIG_PATH):
 - `X402_SIGNING_PRIVATE_KEY`
 - `X402_CALLBACK_PUBLIC_BASE`
 - `CORS_ORIGIN`
+- `RUNTIME_IFRAME_URL` (optional; default `http://localhost:3000/metame/runtime?embed=1`)
+- `RUNTIME_IFRAME_ORIGIN` (optional; defaults to iframe URL origin)
+- `DEFAULT_TENANT_ID` (optional)
+- `DEFAULT_PERSONA_ID` (optional)
 
 Compatibility alias:
 - `SUPABASE_JWT_SECRET` falls back to `AA_JWT_SECRET` in `src/env.ts`.
@@ -40,6 +44,9 @@ Compatibility alias:
 - `POST /aa/v1/payments/*` → x402 settlement webhooks (quotes/commits)
 - `POST /aa/v1/quotes/*` → x402 quote publish/flow
 - `GET /aa/v1/updates` → SSE stream
+- `GET /aa/v1/runtime/shell-config` → runtime shell hydration payload
+- `POST /aa/v1/runtime/selectors` → update selected Aigent/LLM
+- `POST /aa/v1/runtime/menu-action` → apply menu action + return updated shell config
 
 ## Integration with AigentZ SDK
 - The SDK should call AA API endpoints for orchestration and use QubeBase SDK for data access.
