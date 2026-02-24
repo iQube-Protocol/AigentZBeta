@@ -1,0 +1,22 @@
+{
+  "name": "@metame/iframe-bridge",
+  "version": "0.1.0",
+  "description": "Typed iframe postMessage bridge contracts for metaMe runtime shell",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "files": [
+    "src"
+  ]
+}

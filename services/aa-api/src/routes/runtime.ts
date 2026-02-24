@@ -60,6 +60,7 @@ type RuntimeContext = {
   tenantId: string;
   personaId: string;
   authMode: 'jwt' | 'anonymous';
+  deviceHint: 'desktop' | 'tablet' | 'mobile';
 };
 
 const runtimeRouter = Router();
@@ -241,6 +242,15 @@ function parseAuthPayload(authorizationHeader: string | undefined): Record<strin
   }
 }
 
+function normalizeDeviceHint(value: unknown): 'desktop' | 'tablet' | 'mobile' | null {
+  if (typeof value !== 'string') return null;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === 'desktop' || normalized === 'tablet' || normalized === 'mobile') {
+    return normalized;
+  }
+  return null;
+}
+
 function resolveRuntimeContext(req: any): RuntimeContext {
   const authPayload = parseAuthPayload(req.headers?.authorization as string | undefined);
   const body = (req.body || {}) as Record<string, unknown>;
@@ -273,10 +283,19 @@ function resolveRuntimeContext(req: any): RuntimeContext {
       'guest'
     ) || 'guest';
 
+  const deviceHint =
+    normalizeDeviceHint(query.device) ||
+    normalizeDeviceHint(query.device_type) ||
+    normalizeDeviceHint(body.device) ||
+    normalizeDeviceHint(body.device_type) ||
+    normalizeDeviceHint(req.headers?.['x-device-type']) ||
+    'mobile';
+
   return {
     tenantId,
     personaId,
     authMode: authPayload ? 'jwt' : 'anonymous',
+    deviceHint,
   };
 }
 
@@ -366,6 +385,9 @@ function normalizeRuntimeIframeUrl(input: string): string {
 
     if (parsed.pathname === DEFAULT_RUNTIME_IFRAME_PATH && !parsed.searchParams.has('embed')) {
       parsed.searchParams.set('embed', '1');
+    }
+    if (parsed.pathname === DEFAULT_RUNTIME_IFRAME_PATH && !parsed.searchParams.has('shell')) {
+      parsed.searchParams.set('shell', 'thin');
     }
 
     return parsed.toString();
@@ -480,6 +502,10 @@ function buildShellConfig(ctx: RuntimeContext, state: RuntimeState) {
         context: {
           intent: state.last_intent || 'find',
           state: state.welcome_complete ? 'post_welcome' : 'welcome',
+          shell_mode: 'thin',
+          chrome_mode: 'content-only',
+          thin_shell: true,
+          device: ctx.deviceHint,
           menu_mode: state.menu_mode,
           last_action_id: state.last_action_id,
         },
@@ -510,6 +536,16 @@ function updateStateForModel(state: RuntimeState, llmId: string): RuntimeState {
     selected_llm_id: nextModel?.id || state.selected_llm_id,
     updated_at: nowIso(),
   };
+}
+
+function inferIntentFromPrompt(prompt: string, fallback: RuntimeMenuActionMeta['intent'] = 'find'): RuntimeMenuActionMeta['intent'] {
+  const lower = prompt.toLowerCase();
+  if (lower.includes('be') || lower.includes('identity') || lower.includes('persona')) return 'be';
+  if (lower.includes('earn') || lower.includes('reward') || lower.includes('payout')) return 'earn';
+  if (lower.includes('play') || lower.includes('watch') || lower.includes('listen') || lower.includes('read')) return 'play';
+  if (lower.includes('make') || lower.includes('create') || lower.includes('build')) return 'make';
+  if (lower.includes('share') || lower.includes('find') || lower.includes('discover')) return 'find';
+  return fallback;
 }
 
 runtimeRouter.get('/shell-config', (req, res) => {
@@ -602,6 +638,84 @@ runtimeRouter.post('/menu-action', (req, res) => {
           action_id: action.id,
           prompt: action.trigger.prompt,
           intent: action.trigger.intent,
+          menu_mode: next.menu_mode,
+        },
+      },
+    },
+  });
+});
+
+runtimeRouter.post('/prompt-action', (req, res) => {
+  const ctx = resolveRuntimeContext(req);
+  const current = getOrCreateState(ctx);
+  const body = (req.body || {}) as Record<string, unknown>;
+  const prompt = asString(body.prompt) || asString(body.text);
+
+  if (!prompt) {
+    return res.status(400).json({ error: 'prompt (or text) is required' });
+  }
+
+  const normalizedPrompt = prompt.trim().toLowerCase();
+  if (normalizedPrompt === '__runtime_reset__') {
+    const next: RuntimeState = {
+      ...current,
+      welcome_complete: false,
+      last_intent: null,
+      last_action_id: 'prompt_reset',
+      menu_mode: 'triad',
+      updated_at: nowIso(),
+    };
+    sessionStore.set(sessionKey(ctx), next);
+    const shellConfig = buildShellConfig(ctx, next);
+    return res.json({
+      shell_config: shellConfig,
+      menu: shellConfig.menu,
+      session: shellConfig.session,
+      prompt_event: {
+        prompt,
+        intent: null,
+        iframe_event: {
+          type: 'RESET_WELCOME',
+          payload: {
+            reason: 'prompt_reset',
+          },
+        },
+      },
+    });
+  }
+
+  const inferredIntent = inferIntentFromPrompt(prompt, current.last_intent || 'find');
+  const matchingAction = MENU_ACTIONS.find((item) => item.trigger.intent === inferredIntent);
+
+  const requestedMode = normalizeMode((body.payload as Record<string, unknown> | undefined)?.menu_mode);
+  const next: RuntimeState = {
+    ...current,
+    welcome_complete: true,
+    last_intent: inferredIntent,
+    last_action_id: 'prompt_submit',
+    menu_mode: requestedMode || current.menu_mode || 'triad',
+    updated_at: nowIso(),
+  };
+
+  sessionStore.set(sessionKey(ctx), next);
+  const shellConfig = buildShellConfig(ctx, next);
+
+  return res.json({
+    shell_config: shellConfig,
+    menu: shellConfig.menu,
+    session: shellConfig.session,
+    prompt_event: {
+      prompt,
+      intent: inferredIntent,
+      surface_plan_instruction:
+        matchingAction?.trigger.surface_plan_instruction || 'route prompt through runtime intent planner',
+      copilot_instruction:
+        matchingAction?.trigger.copilot_instruction || 'route prompt to metaMe copilot and sync resulting state',
+      iframe_event: {
+        type: 'PROMPT_SUBMIT',
+        payload: {
+          text: prompt,
+          intent: inferredIntent,
           menu_mode: next.menu_mode,
         },
       },

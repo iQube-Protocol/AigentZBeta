@@ -47,6 +47,7 @@ Compatibility alias:
 - `GET /aa/v1/runtime/shell-config` → runtime shell hydration payload
 - `POST /aa/v1/runtime/selectors` → update selected Aigent/LLM
 - `POST /aa/v1/runtime/menu-action` → apply menu action + return updated shell config
+- `POST /aa/v1/runtime/prompt-action` → apply prompt submission/reset + return updated shell config
 
 ## Integration with AigentZ SDK
 - The SDK should call AA API endpoints for orchestration and use QubeBase SDK for data access.

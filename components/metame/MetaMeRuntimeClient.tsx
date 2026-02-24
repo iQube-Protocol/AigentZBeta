@@ -2,6 +2,12 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import {
+  createRuntimeMessage,
+  isShellOutboundMessage,
+  type RuntimeInboundType,
+  type ShellInboundMessage,
+} from "@metame/iframe-bridge";
 import { CodexCopilotLayer, type CopilotMessage } from "@/app/components/codex/CodexCopilotLayer";
 import { PreviewFrame } from "@/components/preview/PreviewFrame";
 import { DevicePreviewSwitcher, type DeviceType } from "@/components/preview/DevicePreviewSwitcher";
@@ -345,6 +351,25 @@ function inferIntent(prompt: string): RuntimeIntent {
   }));
   scored.sort((a, b) => b.score - a.score);
   return scored[0]?.score ? scored[0].intent : "find";
+}
+
+function coerceDeviceType(input: unknown): DeviceType | null {
+  if (typeof input !== "string") return null;
+  const normalized = input.toLowerCase();
+  if (normalized === "mobile" || normalized === "tablet" || normalized === "desktop") {
+    return normalized;
+  }
+  return null;
+}
+
+function menuPromptFromActionId(actionId: string): string | null {
+  const normalized = actionId.trim().toLowerCase();
+  if (normalized === "be" || normalized === "compass_be") return "I want to be...";
+  if (normalized === "earn" || normalized === "compass_earn") return "How can I earn...";
+  if (normalized === "play" || normalized === "compass_play") return "I'd like to play experiences.";
+  if (normalized === "make" || normalized === "compass_make") return "I want to make...";
+  if (normalized === "share" || normalized === "compass_share") return "Help me find experiences to share.";
+  return null;
 }
 
 function resolveCapsuleCoverImage(content: RuntimeCapsule) {
@@ -832,6 +857,7 @@ export default function MetaMeRuntimeClient() {
   const { toast } = useToast();
 
   const embedMode = searchParams?.get("embed") === "1";
+  const thinShellQueryMode = searchParams?.get("shell") === "thin" || searchParams?.get("chrome") === "content-only";
   const selectedCapsuleId = searchParams?.get("capsule") ?? null;
   const selectedExperienceId = searchParams?.get("experienceId")?.trim() || null;
   const selectedExperienceName = searchParams?.get("experienceName");
@@ -841,12 +867,17 @@ export default function MetaMeRuntimeClient() {
   const defaultDevice: DeviceType =
     deviceParam === "desktop" || deviceParam === "tablet" || deviceParam === "mobile" ? deviceParam : "mobile";
   const [activeDevice, setActiveDevice] = useState<DeviceType>(defaultDevice);
+  const [thinShellMode, setThinShellMode] = useState(thinShellQueryMode);
   const isMobileLayout = activeDevice === "mobile";
+  const shellOriginRef = useRef<string | null>(null);
+  const shellContextRef = useRef<{ tenant_id?: string; persona_id?: string }>({});
+  const runtimeReadyPostedRef = useRef(false);
 
   const [selectedAgent, setSelectedAgent] = useState<RuntimeAgent>(RUNTIME_AGENTS[0]);
   const [showAgentSelector, setShowAgentSelector] = useState(false);
   const [showModelSelector, setShowModelSelector] = useState(false);
   const [showWelcome, setShowWelcome] = useState(true);
+  const previousWelcomeRef = useRef(true);
   const [isRuntimeFullscreen, setIsRuntimeFullscreen] = useState(false);
   const [welcomePrompt, setWelcomePrompt] = useState("");
   const [showWelcomeQuickLinks, setShowWelcomeQuickLinks] = useState(false);
@@ -868,6 +899,38 @@ export default function MetaMeRuntimeClient() {
   const activeAgentProviders = agentProviderMap[selectedAgent.id] || [];
   const activeModel = selectedModelByAgent[selectedAgent.id] || defaultSelectionFromProviders(activeAgentProviders);
   const trustProvider = activeModel?.providerId;
+
+  const applyShellSelectorChange = useCallback(
+    (aigentId?: string | null, llmId?: string | null) => {
+      const requestedAgent =
+        typeof aigentId === "string" ? RUNTIME_AGENTS.find((agent) => agent.id === aigentId) ?? null : null;
+      const targetAgent = requestedAgent ?? selectedAgent;
+
+      if (requestedAgent) {
+        setSelectedAgent(requestedAgent);
+      }
+
+      if (!llmId) return;
+
+      const providers = agentProviderMap[targetAgent.id] || [];
+      for (const provider of providers) {
+        const model = provider.models.find((entry) => entry.id === llmId);
+        if (!model) continue;
+        setSelectedModelByAgent((prev) => ({
+          ...prev,
+          [targetAgent.id]: {
+            providerId: provider.id,
+            providerLabel: provider.label,
+            modelId: model.id,
+            modelLabel: model.label,
+            sourceIQubeId: model.sourceIQubeId,
+          },
+        }));
+        return;
+      }
+    },
+    [agentProviderMap, selectedAgent]
+  );
 
   const applyModelSelection = useCallback(
     (provider: AgentProviderOption, model: AgentProviderOption["models"][number]) => {
@@ -955,6 +1018,10 @@ export default function MetaMeRuntimeClient() {
   useEffect(() => {
     setActiveDevice(defaultDevice);
   }, [defaultDevice]);
+
+  useEffect(() => {
+    setThinShellMode(thinShellQueryMode);
+  }, [thinShellQueryMode]);
 
   const [messages, setMessages] = useState<CopilotMessage[]>([]);
   const [channels, setChannels] = useState<Array<{ channel_id: string; participants: string[] }>>([]);
@@ -1557,6 +1624,198 @@ export default function MetaMeRuntimeClient() {
     ]
   );
 
+  const providerBaseScore = useMemo(() => {
+    if (trustProvider === "anthropic") return 8.3;
+    if (trustProvider === "venice") return 7.8;
+    if (trustProvider === "chaingpt") return 8.0;
+    if (trustProvider === "thirdweb") return 7.6;
+    return 5.0;
+  }, [trustProvider]);
+
+  const reliabilityScore = Math.max(1, Math.min(10, providerBaseScore + 0.8));
+  const trustScore = Math.max(1, Math.min(10, providerBaseScore));
+
+  const postRuntimeEvent = useCallback(
+    (type: RuntimeInboundType, payload: Record<string, unknown>) => {
+      if (typeof window === "undefined") return;
+      if (window.parent === window) return;
+      const origin = shellOriginRef.current;
+      if (!origin) return;
+
+      const message = createRuntimeMessage(type, payload, shellContextRef.current);
+      window.parent.postMessage(message, origin);
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (!embedMode) return;
+
+    function syncDeviceFromPayload(payload: Record<string, unknown>) {
+      const directDevice =
+        coerceDeviceType(payload.device) ||
+        coerceDeviceType(payload.device_type) ||
+        coerceDeviceType(payload.viewport_device);
+      if (directDevice) {
+        setActiveDevice(directDevice);
+        return;
+      }
+
+      const widthCandidate = payload.viewport_width ?? payload.width;
+      if (typeof widthCandidate === "number" && Number.isFinite(widthCandidate)) {
+        if (widthCandidate < 768) setActiveDevice("mobile");
+        else if (widthCandidate < 1024) setActiveDevice("tablet");
+        else setActiveDevice("desktop");
+      }
+    }
+
+    function onShellMessage(event: MessageEvent) {
+      if (event.source !== window.parent) return;
+      if (!isShellOutboundMessage(event.data)) return;
+
+      const message = event.data as ShellInboundMessage;
+      if (!shellOriginRef.current) {
+        shellOriginRef.current = event.origin;
+      }
+      if (shellOriginRef.current !== event.origin) return;
+
+      shellContextRef.current = {
+        tenant_id: message.tenant_id,
+        persona_id: message.persona_id,
+      };
+
+      const payload = message.payload || {};
+      if (message.type === "SHELL_READY") {
+        if (!runtimeReadyPostedRef.current) {
+          runtimeReadyPostedRef.current = true;
+          postRuntimeEvent("RUNTIME_READY", {
+            state: showWelcome ? "welcome" : "post_welcome",
+            device: activeDevice,
+            thin_shell: thinShellMode,
+          });
+        }
+        return;
+      }
+
+      if (message.type === "HANDOFF") {
+        const handoffContext =
+          payload.context && typeof payload.context === "object" && !Array.isArray(payload.context)
+            ? (payload.context as Record<string, unknown>)
+            : payload;
+        const handoffState = typeof handoffContext.state === "string" ? handoffContext.state : null;
+        if (handoffState === "post_welcome") setShowWelcome(false);
+        if (handoffState === "welcome") setShowWelcome(true);
+
+        const handoffIntent = typeof handoffContext.intent === "string" ? handoffContext.intent : null;
+        if (handoffIntent && (Object.keys(INTENT_KEYWORDS) as RuntimeIntent[]).includes(handoffIntent as RuntimeIntent)) {
+          setLastIntent(handoffIntent as RuntimeIntent);
+        }
+
+        const thinModeHint =
+          handoffContext.shell_mode === "thin" ||
+          handoffContext.chrome_mode === "content-only" ||
+          handoffContext.thin_shell === true;
+        if (thinModeHint) setThinShellMode(true);
+
+        syncDeviceFromPayload(handoffContext);
+
+        if (!runtimeReadyPostedRef.current) {
+          runtimeReadyPostedRef.current = true;
+          postRuntimeEvent("RUNTIME_READY", {
+            state: handoffState ?? (showWelcome ? "welcome" : "post_welcome"),
+            device: activeDevice,
+            thin_shell: thinShellMode || thinModeHint,
+          });
+        }
+        return;
+      }
+
+      if (message.type === "DEVICE_CONTEXT_UPDATE" || message.type === "CONTEXT_UPDATE") {
+        syncDeviceFromPayload(payload);
+        return;
+      }
+
+      if (message.type === "SELECTOR_CHANGE") {
+        const aigentId = typeof payload.aigent_id === "string" ? payload.aigent_id : null;
+        const llmId = typeof payload.llm_id === "string" ? payload.llm_id : null;
+        applyShellSelectorChange(aigentId, llmId);
+        return;
+      }
+
+      if (message.type === "MENU_ACTION") {
+        const explicitPrompt = typeof payload.prompt === "string" ? payload.prompt : null;
+        const actionId = typeof payload.action_id === "string" ? payload.action_id : null;
+        const actionPrompt = actionId ? menuPromptFromActionId(actionId) : null;
+        const resolvedPrompt = explicitPrompt || actionPrompt;
+        if (resolvedPrompt) {
+          void handlePrompt(resolvedPrompt);
+        }
+        return;
+      }
+
+      if (message.type === "PROMPT_SUBMIT") {
+        const promptText =
+          typeof payload.text === "string"
+            ? payload.text
+            : typeof payload.prompt === "string"
+              ? payload.prompt
+              : null;
+        if (promptText) {
+          void handlePrompt(promptText);
+        }
+        return;
+      }
+
+      if (message.type === "RESET_WELCOME") {
+        void resetRuntime();
+      }
+    }
+
+    window.addEventListener("message", onShellMessage);
+    return () => window.removeEventListener("message", onShellMessage);
+  }, [
+    activeDevice,
+    applyShellSelectorChange,
+    embedMode,
+    handlePrompt,
+    postRuntimeEvent,
+    resetRuntime,
+    showWelcome,
+    thinShellMode,
+  ]);
+
+  useEffect(() => {
+    if (!embedMode) return;
+    postRuntimeEvent("STATE_SYNC", {
+      state: showWelcome ? "welcome" : "post_welcome",
+      intent: lastIntent,
+      device: activeDevice,
+      thin_shell: thinShellMode,
+      fullscreen: isRuntimeFullscreen,
+    });
+
+    if (previousWelcomeRef.current && !showWelcome) {
+      postRuntimeEvent("WELCOME_COMPLETE", {
+        state: "post_welcome",
+        intent: lastIntent,
+        device: activeDevice,
+      });
+    }
+
+    previousWelcomeRef.current = showWelcome;
+  }, [activeDevice, embedMode, isRuntimeFullscreen, lastIntent, postRuntimeEvent, showWelcome, thinShellMode]);
+
+  useEffect(() => {
+    if (!embedMode) return;
+    postRuntimeEvent("TRUST_UPDATE", {
+      trust_score: Number(trustScore.toFixed(2)),
+      reliability_score: Number(reliabilityScore.toFixed(2)),
+      aigent_id: selectedAgent.id,
+      llm_id: activeModel?.modelId ?? null,
+      provider_id: activeModel?.providerId ?? null,
+    });
+  }, [activeModel?.modelId, activeModel?.providerId, embedMode, postRuntimeEvent, reliabilityScore, selectedAgent.id, trustScore]);
+
   const quickPrompts = useMemo(
     () => [
       {
@@ -1607,17 +1866,6 @@ export default function MetaMeRuntimeClient() {
     ],
     [isRuntimeFullscreen]
   );
-
-  const providerBaseScore = useMemo(() => {
-    if (trustProvider === "anthropic") return 8.3;
-    if (trustProvider === "venice") return 7.8;
-    if (trustProvider === "chaingpt") return 8.0;
-    if (trustProvider === "thirdweb") return 7.6;
-    return 5.0;
-  }, [trustProvider]);
-
-  const reliabilityScore = Math.max(1, Math.min(10, providerBaseScore + 0.8));
-  const trustScore = Math.max(1, Math.min(10, providerBaseScore));
 
   const renderIndicatorDots = (value: number, type: "trust" | "reliability") => {
     const dotCount = Math.ceil(value / 2);
@@ -1886,7 +2134,7 @@ export default function MetaMeRuntimeClient() {
           display: none !important;
         }
       `}</style>
-      {agentSelector}
+      {!thinShellMode ? agentSelector : null}
       <CodexCopilotLayer
         isOpen
         onClose={() => {}}
@@ -1898,12 +2146,14 @@ export default function MetaMeRuntimeClient() {
         promptPlaceholder="What do you want to do today?"
         messages={messages}
         onMessagesChange={setMessages}
-        quickPrompts={quickPrompts}
+        quickPrompts={thinShellMode ? [] : quickPrompts}
         onPrompt={handlePrompt}
-        footerContent={runtimeMenu}
-        floatingInput
+        footerContent={thinShellMode ? null : runtimeMenu}
+        floatingInput={!thinShellMode}
+        disablePromptInput={thinShellMode}
+        showTrustIndicators={!thinShellMode}
         disableActivationButton
-        showQuickPromptsToggle
+        showQuickPromptsToggle={!thinShellMode}
         trustProvider={trustProvider}
         className="h-full"
       />
@@ -1974,17 +2224,19 @@ export default function MetaMeRuntimeClient() {
 
   const welcomeSurface = (
     <div className="relative h-full w-full rounded-[5px] bg-slate-950 text-white overflow-hidden flex flex-col">
-      {agentSelector}
-      <div className="h-[44px] flex items-center justify-end gap-4 border-b border-white/10 bg-white/[0.03] px-4 pr-6">
-        <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-white/70">
-          <span className="text-[10px] text-white/60">R</span>
-          {renderIndicatorDots(reliabilityScore, "reliability")}
+      {!thinShellMode ? agentSelector : null}
+      {!thinShellMode ? (
+        <div className="h-[44px] flex items-center justify-end gap-4 border-b border-white/10 bg-white/[0.03] px-4 pr-6">
+          <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-white/70">
+            <span className="text-[10px] text-white/60">R</span>
+            {renderIndicatorDots(reliabilityScore, "reliability")}
+          </div>
+          <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-white/70">
+            <span className="text-[10px] text-white/60">T</span>
+            {renderIndicatorDots(trustScore, "trust")}
+          </div>
         </div>
-        <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-white/70">
-          <span className="text-[10px] text-white/60">T</span>
-          {renderIndicatorDots(trustScore, "trust")}
-        </div>
-      </div>
+      ) : null}
 
       <div className="flex-1 flex items-center justify-center px-6">
         <form
@@ -2015,14 +2267,16 @@ export default function MetaMeRuntimeClient() {
         </form>
       </div>
 
-      <div
-        className="relative px-3 pb-3"
-        onMouseEnter={showQuickLinks}
-        onMouseLeave={scheduleQuickLinksHide}
-      >
-        {welcomeQuickLinks}
-        {runtimeMenu}
-      </div>
+      {!thinShellMode ? (
+        <div
+          className="relative px-3 pb-3"
+          onMouseEnter={showQuickLinks}
+          onMouseLeave={scheduleQuickLinksHide}
+        >
+          {welcomeQuickLinks}
+          {runtimeMenu}
+        </div>
+      ) : null}
     </div>
   );
 
@@ -2034,7 +2288,7 @@ export default function MetaMeRuntimeClient() {
         : "mx-auto w-full max-w-[430px]";
 
   if (embedMode) {
-    const embedWidthClass = isRuntimeFullscreen ? "w-full" : runtimeDeviceWidthClass;
+    const embedWidthClass = isRuntimeFullscreen || thinShellMode ? "w-full" : runtimeDeviceWidthClass;
     return (
       <div className="h-full w-full bg-slate-950 p-0">
         <div className={`h-full ${embedWidthClass}`}>{showWelcome ? welcomeSurface : runtimeSurface}</div>

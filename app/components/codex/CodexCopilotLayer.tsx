@@ -56,8 +56,10 @@ interface CodexCopilotLayerProps {
   footerContent?: React.ReactNode;
   panelClassName?: string;
   floatingInput?: boolean;
+  disablePromptInput?: boolean;
   disableActivationButton?: boolean;
   showQuickPromptsToggle?: boolean;
+  showTrustIndicators?: boolean;
   trustProvider?: "openai" | "venice" | "chaingpt" | "thirdweb" | "anthropic";
   showNavMenu?: boolean;
   showWalletMenu?: boolean;
@@ -112,8 +114,10 @@ export function CodexCopilotLayer({
   footerContent,
   panelClassName,
   floatingInput = false,
+  disablePromptInput = false,
   disableActivationButton = false,
   showQuickPromptsToggle = false,
+  showTrustIndicators = true,
   trustProvider,
   showNavMenu = true,
   showWalletMenu = true,
@@ -148,6 +152,8 @@ export function CodexCopilotLayer({
   const [inputPanelHover, setInputPanelHover] = useState(false);
   const headerHeight = 44;
   const footerHeight = 88;
+  const resolvedHeaderHeight = showTrustIndicators ? headerHeight : 0;
+  const resolvedFooterHeight = disablePromptInput ? 0 : footerHeight;
   const seededRef = useRef(false);
 
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -458,23 +464,25 @@ export function CodexCopilotLayer({
                 {copilotMode === "chat" ? (
                   <>
                     <div className="flex-1 relative overflow-hidden">
-                      <div
-                        className="absolute top-0 left-0 right-0 z-20 bg-slate-950 px-3 pr-6 py-2 flex items-center gap-4 border-b border-white/10 justify-end"
-                        style={{ height: `${headerHeight}px` }}
-                      >
-                        <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-white/70">
-                          <span className="text-[10px] text-white/60">R</span>
-                          {renderDots(getReliabilityScore(), "reliability", isLoading)}
+                      {showTrustIndicators ? (
+                        <div
+                          className="absolute top-0 left-0 right-0 z-20 bg-slate-950 px-3 pr-6 py-2 flex items-center gap-4 border-b border-white/10 justify-end"
+                          style={{ height: `${headerHeight}px` }}
+                        >
+                          <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-white/70">
+                            <span className="text-[10px] text-white/60">R</span>
+                            {renderDots(getReliabilityScore(), "reliability", isLoading)}
+                          </div>
+                          <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-white/70">
+                            <span className="text-[10px] text-white/60">T</span>
+                            {renderDots(getTrustScore(), "trust", isLoading)}
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-white/70">
-                          <span className="text-[10px] text-white/60">T</span>
-                          {renderDots(getTrustScore(), "trust", isLoading)}
-                        </div>
-                      </div>
+                      ) : null}
                       <div
                         ref={chatContainerRef}
                         className="absolute left-0 right-0 overflow-y-auto px-4 space-y-3 overscroll-contain"
-                        style={{ top: `${headerHeight}px`, bottom: `${footerHeight}px`, paddingTop: "12px", paddingBottom: "12px" }}
+                        style={{ top: `${resolvedHeaderHeight}px`, bottom: `${resolvedFooterHeight}px`, paddingTop: "12px", paddingBottom: "12px" }}
                       >
                         {displayMessages.map((msg) => {
                           const isPanel = msg.variant === "panel";
@@ -591,11 +599,12 @@ export function CodexCopilotLayer({
                       )}
                     </div>
 
-                    <div
-                      className={`absolute inset-x-0 bottom-0 px-3 pb-3 pt-0 z-20 ${
-                        floatingInput ? "bg-transparent" : "bg-white/5"
-                      }`}
-                    >
+                    {!disablePromptInput ? (
+                      <div
+                        className={`absolute inset-x-0 bottom-0 px-3 pb-3 pt-0 z-20 ${
+                          floatingInput ? "bg-transparent" : "bg-white/5"
+                        }`}
+                      >
                       {floatingInput && (
                         <>
                           <div
@@ -748,9 +757,9 @@ export function CodexCopilotLayer({
                           </div>
                         </>
                       )}
-                      {footerContent ? (
-                        <div className={floatingInput ? "pt-3" : "mt-3"}>{footerContent}</div>
-                      ) : showNavMenu ? (
+                        {footerContent ? (
+                          <div className={floatingInput ? "pt-3" : "mt-3"}>{footerContent}</div>
+                        ) : showNavMenu ? (
                         <div className="mt-3 flex items-center justify-between border-t border-white/10 pt-3">
                           {hideAvatarToggle ? (
                             <div className="flex items-center gap-2">
@@ -821,7 +830,8 @@ export function CodexCopilotLayer({
                           )}
                         </div>
                       ) : null}
-                    </div>
+                      </div>
+                    ) : null}
                   </>
                 ) : (
                   <div className="flex-1 flex flex-col">

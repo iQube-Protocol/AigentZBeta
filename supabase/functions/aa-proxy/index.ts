@@ -35,6 +35,9 @@ function normalizeRuntimeIframeUrl(rawUrl: string): string {
     if (parsed.pathname === DEFAULT_RUNTIME_PATH && !parsed.searchParams.has('embed')) {
       parsed.searchParams.set('embed', '1')
     }
+    if (parsed.pathname === DEFAULT_RUNTIME_PATH && !parsed.searchParams.has('shell')) {
+      parsed.searchParams.set('shell', 'thin')
+    }
 
     return parsed.toString()
   } catch {
