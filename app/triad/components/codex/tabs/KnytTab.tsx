@@ -1516,14 +1516,31 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       action === 'watch' || item.type === 'motion_comic_landscape'
         ? 'scroll_motion'
         : 'scroll_still';
+    
+    // Handle preorder variants with specific pricing
+    let baseKnyt = Number(item.metadata?.price ?? 3);
+    let priceUsd = Number((baseKnyt * 1.4).toFixed(2));
+    
+    // Check if this is a preorder variant and apply specific pricing
+    if (item.id.startsWith('metaKnyts_preorder_')) {
+      const variantId = item.id.replace('metaKnyts_preorder_', '');
+      const variant = PREORDER_CONTENT_VARIANTS.find(v => v.id === variantId);
+      if (variant) {
+        baseKnyt = variant.priceKnyt;
+        priceUsd = Number((variant.priceKnyt * 1.4).toFixed(2));
+      }
+    }
+    
     setPurchaseContent({
       type: contentType,
       id: item.id.replace(/_motion$/, ''),
       title: item.title,
       image: item.thumbnail,
+      baseKnyt,
+      priceUsd,
     });
     setPurchaseModalOpen(true);
-  }, []);
+  }, [PREORDER_CONTENT_VARIANTS]);
 
   const getOwnedIssuesForEpisode = useCallback((episodeNumber: number) => {
     return ownedIssues.filter((issue) => issue.episodeNumber === episodeNumber);
