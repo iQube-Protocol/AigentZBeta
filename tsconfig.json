@@ -24,7 +24,14 @@
     "paths": {
       "@/*": ["./*"],
       "@metame/contracts": ["./packages/metame-contracts/src/index.ts"],
-      "@metame/contracts/*": ["./packages/metame-contracts/src/*"]
+      "@metame/contracts/*": ["./packages/metame-contracts/src/*"],
+      "@metame/aa-client": ["./packages/aa-client/src/index.ts"],
+      "@metame/aa-client/*": ["./packages/aa-client/src/*"],
+      "@metame/iframe-bridge": ["./packages/iframe-bridge/src/index.ts"],
+      "@metame/iframe-bridge/*": ["./packages/iframe-bridge/src/*"],
+      "@metame/qubetalk-client": ["./packages/qubetalk-client/src/index.ts"],
+      "@metame/qubetalk-client/*": ["./packages/qubetalk-client/src/*"],
+      "@metame/qubetalk-client/react": ["./packages/qubetalk-client/src/react.tsx"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "**/*.d.ts", ".next/types/**/*.ts"],
@@ -32,6 +39,7 @@
     "node_modules",
     "AigentZBeta/**/*",
     "qriptopian/**/*",
+    "supabase/functions/**/*",
     "scripts/**/*",
     "services/aa-api/**/*",
     "services/agentiq-wallet/**/*",
