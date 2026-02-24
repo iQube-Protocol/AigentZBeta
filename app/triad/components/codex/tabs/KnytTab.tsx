@@ -459,6 +459,12 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   const isLegacyFallbackTab = activeTab !== 'codex';
   const showLegacyFallbackUI = false;
   const [purchaseModalOpen, setPurchaseModalOpen] = useState(false);
+  
+  // Debug purchase modal state
+  useEffect(() => {
+    console.log('Purchase modal state changed:', purchaseModalOpen);
+    console.log('Purchase content:', purchaseContent);
+  }, [purchaseModalOpen, purchaseContent]);
 
   useEffect(() => {
     setActiveTab(resolvedInitialTab);
@@ -1510,8 +1516,14 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   }, []);
 
   const openPurchaseForItem = useCallback((item: KnytContentItem, action: 'read' | 'watch' | 'default' = 'default') => {
+    console.log('openPurchaseForItem called:', { item: item.id, action, episodeNumber: item.metadata?.episodeNumber });
+    
     const episodeNumber = item.metadata?.episodeNumber;
-    if (typeof episodeNumber !== 'number') return;
+    if (typeof episodeNumber !== 'number') {
+      console.log('No episode number, returning');
+      return;
+    }
+    
     const contentType: ContentType =
       action === 'watch' || item.type === 'motion_comic_landscape'
         ? 'scroll_motion'
@@ -1526,19 +1538,26 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       const variantId = item.id.replace('metaKnyts_preorder_', '');
       const variant = PREORDER_CONTENT_VARIANTS.find(v => v.id === variantId);
       if (variant) {
+        console.log('Found preorder variant:', variantId, 'price:', variant.priceKnyt);
         baseKnyt = variant.priceKnyt;
         priceUsd = Number((variant.priceKnyt * 1.4).toFixed(2));
+      } else {
+        console.log('Preorder variant not found:', variantId);
       }
     }
     
-    setPurchaseContent({
+    const purchaseData = {
       type: contentType,
       id: item.id.replace(/_motion$/, ''),
       title: item.title,
       image: item.thumbnail,
       baseKnyt,
       priceUsd,
-    });
+    };
+    
+    console.log('Setting purchase content:', purchaseData);
+    setPurchaseContent(purchaseData);
+    console.log('Setting purchase modal open');
     setPurchaseModalOpen(true);
   }, [PREORDER_CONTENT_VARIANTS]);
 
@@ -1617,8 +1636,11 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   }, [activeTab]);
 
   const handleSmartAction = useCallback((item: KnytContentItem, action: string) => {
+    console.log('handleSmartAction called:', { item: item.id, action, itemType: item.type });
+    
     if (action === 'buy') {
       if (item.type === 'character_portrait') {
+        console.log('Processing character portrait purchase');
         setPurchaseContent({
           type: 'character_card',
           id: item.id,
@@ -1636,6 +1658,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
         item.type === 'comic_page_portrait' ||
         item.type === 'motion_comic_landscape'
       ) {
+        console.log('Processing comic purchase for item:', item.id);
         openPurchaseForItem(item, item.type === 'motion_comic_landscape' ? 'watch' : 'read');
         return;
       }
