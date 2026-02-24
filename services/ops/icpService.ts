@@ -10,6 +10,8 @@ export async function getCanisterHealth(): Promise<HealthSummary> {
     { key: 'cross_chain_service', env: process.env.CROSS_CHAIN_SERVICE_CANISTER_ID || process.env.NEXT_PUBLIC_CROSS_CHAIN_SERVICE_CANISTER_ID },
     { key: 'evm_rpc', env: process.env.EVM_RPC_CANISTER_ID || process.env.NEXT_PUBLIC_EVM_RPC_CANISTER_ID },
     { key: 'solana_signer_ed25519', env: process.env.SOLANA_SIGNER_CANISTER_ID || process.env.NEXT_PUBLIC_SOLANA_SIGNER_CANISTER_ID },
+    { key: 'reputation_hub', env: process.env.RQH_CANISTER_ID || process.env.NEXT_PUBLIC_RQH_CANISTER_ID },
+    { key: 'reward_hub', env: process.env.REWARD_HUB_CANISTER_ID || process.env.NEXT_PUBLIC_REWARD_HUB_CANISTER_ID },
   ];
 
   const items: HealthItem[] = names.map((n) => ({

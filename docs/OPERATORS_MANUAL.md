@@ -3,6 +3,39 @@
 ## Overview
 This manual explains how iQube minting, saving to Library, and Registry visibility work in the Aigent Z Registry UI. It also covers the Operations Console for monitoring cross-chain infrastructure including ICP canisters, EVM networks, BTC testnet, and DVN (Decentralized Verifier Network) operations.
 
+## Table of Contents
+- [User Interface Guide](#user-interface-guide)
+- [Registry Operations](#registry-operations)
+- [Cross-Chain Infrastructure](#cross-chain-infrastructure)
+- [Monitoring & Diagnostics](#monitoring--diagnostics)
+- [Troubleshooting](#troubleshooting)
+
+## User Interface Guide
+
+### Registry Interface
+![Registry Interface](./screenshots/registry-overview.png)
+*Figure 1: Main Registry interface showing template grid, filters, and action buttons*
+
+#### Key Components:
+1. **Header Section**: Title, description, and "Add New iQube" button
+2. **Filter Controls**: Search, type filters, and view mode toggle
+3. **Template Grid**: Responsive cards showing iQube templates
+4. **Cart Indicator**: Shows selected items count
+
+### Template Card States
+![Template Card States](./screenshots/template-card-states.png)
+*Figure 2: Different template card states - Library (Private), Registry (Public), Registry (Private)*
+
+#### Badge Priority:
+1. `Library (Private)` - Local storage, highest priority
+2. `Registry (Public)` - Server-side public visibility
+3. `Registry (Private)` - Server-side private visibility
+4. `Registry (Public)` - Legacy fallback
+
+### Minting Dialog
+![Minting Dialog](./screenshots/minting-dialog.png)
+*Figure 3: Mint confirmation dialog with Public/Private selection*
+
 ## Key Concepts
 - **Library (Private)**
   - A client-side convenience state saved in the browser's `localStorage`.
@@ -22,7 +55,7 @@ This manual explains how iQube minting, saving to Library, and Registry visibili
     - `active_private_<templateId>`, `active_registry_<templateId>`: local activation hints.
   - Purpose: immediate UI responsiveness without waiting for server roundtrips.
 
-- **Server (Registry)
+- **Server (Registry)**
   - Template records and their fields, including:
     - `visibility`: `public` or `private`.
     - `userId` (where applicable) to associate ownership.
@@ -30,7 +63,12 @@ This manual explains how iQube minting, saving to Library, and Registry visibili
     - `POST /api/registry/templates` (create/fork)
     - `PATCH /api/registry/templates/:id` (update/visibility changes)
 
-## Minting Flow
+## Registry Operations
+
+### Minting Flow
+![Minting Flow Diagram](./screenshots/minting-flow.png)
+*Figure 4: Complete minting flow from user action to server persistence*
+
 1. User clicks `Mint to Registry` in `IQubeDetailModal`.
 2. An application notice (`ConfirmDialog`) opens asking to choose `Public` or `Private`.
 3. After confirmation, the UI issues a `PATCH /api/registry/templates/:id` with `visibility` set to the chosen option and (if available) a `userId` from `/api/dev/user`.
@@ -39,15 +77,80 @@ This manual explains how iQube minting, saving to Library, and Registry visibili
    - Dispatches `registryTemplateUpdated` to refresh the grid.
    - Closes the modal.
 
-## Badge Logic (Cards)
+### Badge Logic (Cards)
 - If `library_<id>` exists in `localStorage`, the card shows `Library (Private)`.
 - Else if `visibility === 'public'`, the card shows `Registry (Public)`.
 - Else if `visibility === 'private'`, the card shows `Registry (Private)`.
 - Else, if legacy local `minted_<id>` exists, it shows `Registry (Public)` as a fallback hint (kept for backward compatibility).
 
-## Mint Button Visibility Rules
+### Mint Button Visibility Rules
 - In edit mode: shows the Mint button when `visibility` is not set (i.e., not minted server-side).
 - In view mode: shows the Mint button when:
+  - Item is in Library (local storage) AND
+  - No server-side `visibility` is set AND
+  - User is authenticated (has valid `userId`)
+
+### API Endpoints
+
+#### Template Management
+```bash
+# Create new template
+POST /api/registry/templates
+Content-Type: application/json
+{
+  "name": "Template Name",
+  "description": "Description",
+  "type": "ContentQube",
+  "visibility": "public"
+}
+
+# Update template visibility
+PATCH /api/registry/templates/:id
+Content-Type: application/json
+{
+  "visibility": "public"
+}
+
+# Delete template
+DELETE /api/registry/templates/:id
+```
+
+#### User Management
+```bash
+# Get current user info
+GET /api/dev/user
+Response: {
+  "maskedDevUserId": "dev-****-****-1234",
+  "validUuid": true
+}
+```
+
+## Cross-Chain Infrastructure
+
+### Architecture Overview
+![Cross-Chain Architecture](./screenshots/cross-chain-architecture.png)
+*Figure 5: Cross-chain infrastructure showing ICP, EVM, and BTC integration*
+
+#### Component Stack:
+1. **ICP Internet Computer**
+   - proof_of_state canister: Transaction anchoring
+   - cross_chain_service canister: DVN operations
+   - btc_signer_psbt canister: Bitcoin transaction signing
+   - evm_rpc canister: EVM network integration
+
+2. **EVM Networks**
+   - Ethereum Sepolia Testnet (Chain ID: 11155111)
+   - Polygon Amoy Testnet (Chain ID: 80002)
+   - MetaMask wallet integration
+
+3. **Bitcoin Network**
+   - Bitcoin Testnet integration
+   - PSBT transaction signing
+   - Anchor transaction monitoring
+
+### Operations Console
+![Operations Console](./screenshots/ops-console.png)
+*Figure 6: Operations Console dashboard showing real-time network status*
   - The template is not minted server-side (`visibility` not set), and
   - Any of the following are true:
     - Local owner flag (`owner_minted_<id>`) is present, or

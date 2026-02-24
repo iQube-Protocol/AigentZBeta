@@ -1,0 +1,37 @@
+{
+  "actions": {
+    "maxPrimary": 3
+  },
+  "material": {
+    "glass": {
+      "enabled": true,
+      "blurPx": 18,
+      "alpha": 0.55,
+      "borderAlpha": 0.16,
+      "surfaces": ["topbar", "bottomnav", "drawer", "sheet", "tabContainer"]
+    }
+  },
+  "navigation": {
+    "overlayNav": {
+      "openOn": "explicit",
+      "lockScroll": true,
+      "dimBackdrop": true
+    },
+    "tabs": {
+      "style": "underline",
+      "underlineColorToken": "color.accent"
+    }
+  },
+  "currencyPolicy": {
+    "canonical": "Q¢",
+    "wallet": {
+      "primary": ["Q¢", "QCT"],
+      "allowUsdSecondary": true
+    },
+    "knytOfferContext": {
+      "primary": ["$KNYT"],
+      "allowUsdSecondary": true
+    },
+    "allowUsdSecondary": true
+  }
+}

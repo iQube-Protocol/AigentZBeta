@@ -1,0 +1,150 @@
+/**
+ * QubeTalk Messages API
+ * POST /api/qubetalk/messages - Send message to channel
+ */
+
+import { NextRequest, NextResponse } from 'next/server';
+import { receiptService } from '@/services/receipts/receiptService';
+import type { AgentReference } from '@/services/receipts/receiptService';
+import { 
+  getChannel, 
+  createMessage,
+  type MessageData
+} from '@/services/qubetalk/qubetalkStore';
+
+export const runtime = 'nodejs';
+
+interface MessageRequest {
+  tenant_id: string;
+  channel_id: string;
+  message_id?: string;
+  in_reply_to?: string;
+  from_agent: AgentReference;
+  type: 'request' | 'response' | 'event' | 'error' | 'text' | 'delegation' | 'system' | 'receipt';
+  content: string;
+  iqube_refs?: string[];
+  receipt_ref?: string;
+  metadata?: Record<string, any>;
+}
+
+interface MessageResponse {
+  message_id: string;
+  channel_id: string;
+  in_reply_to?: string;
+  from_agent: AgentReference;
+  type: string;
+  content: string;
+  created_at: string;
+  iqube_refs?: string[];
+  receipt_ref?: string;
+  metadata?: Record<string, any>;
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const body: MessageRequest = await request.json();
+    
+    // Validate required fields
+    const missingField = !body.channel_id
+      ? 'channel_id'
+      : !body.tenant_id
+        ? 'tenant_id'
+        : !body.from_agent
+          ? 'from_agent'
+          : !body.type
+            ? 'type'
+            : !body.content
+              ? 'content'
+              : null;
+
+    if (missingField) {
+      return NextResponse.json({
+        error: `${missingField} is required`,
+        code: 'MISSING_FIELD'
+      }, { status: 400 });
+    }
+
+    // Verify channel exists
+    const channel = await getChannel(body.channel_id, body.tenant_id);
+    if (!channel) {
+      return NextResponse.json({
+        error: 'Channel not found',
+        code: 'CHANNEL_NOT_FOUND'
+      }, { status: 404 });
+    }
+
+    // Verify sender is channel participant
+    if (!channel.participants.includes(body.from_agent.id)) {
+      return NextResponse.json({
+        error: 'Sender not authorized for this channel',
+        code: 'UNAUTHORIZED'
+      }, { status: 403 });
+    }
+
+    // Create message
+    const message_id = body.message_id || `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const now = new Date().toISOString();
+
+    const normalizedType: MessageData['type'] =
+      body.type === 'request'
+        ? 'delegation'
+        : body.type === 'event'
+          ? 'system'
+          : body.type === 'error'
+            ? 'response'
+            : body.type;
+
+    const message: MessageData = {
+      message_id,
+      channel_id: body.channel_id,
+      in_reply_to: body.in_reply_to,
+      from_agent: body.from_agent,
+      type: normalizedType,
+      content: body.content,
+      created_at: now,
+      iqube_refs: body.iqube_refs,
+      receipt_ref: body.receipt_ref,
+      metadata: body.metadata,
+    };
+
+    // Store message
+    await createMessage(message);
+
+    console.log(`Created message: ${message_id} in channel: ${body.channel_id}`);
+
+    // Create receipt for message
+    if (normalizedType === 'response') {
+      try {
+        await receiptService.createQubeTalkReceipt({
+          delegationId: body.metadata?.delegation_id || 'unknown',
+          fromAgent: body.from_agent,
+          toAgent: { id: 'system', role: 'system', name: 'System' } as AgentReference,
+          taskCompleted: `Message sent: ${body.type}`,
+          resultData: { message_id, content_length: body.content.length },
+          tenantId: channel.tenant_id,
+          policyContext: {
+            tenantId: channel.tenant_id,
+            personaId: typeof body.metadata?.persona_id === 'string' ? body.metadata.persona_id : undefined,
+            rootDid: typeof body.metadata?.root_did === 'string' ? body.metadata.root_did : undefined,
+            policyTags: Array.isArray(body.metadata?.policy_tags) ? body.metadata.policy_tags : [],
+            requiredIQubes: Array.isArray(body.metadata?.required_iqubes) ? body.metadata.required_iqubes : [],
+            iqubeRefs: Array.isArray(body.iqube_refs) ? body.iqube_refs : [],
+            requiresVerifiedPersona: Boolean(body.metadata?.requires_persona),
+            requiresRootDid: Boolean(body.metadata?.requires_root_did),
+          },
+        });
+      } catch (receiptError) {
+        console.warn('Failed to create message receipt:', receiptError);
+      }
+    }
+
+    return NextResponse.json(message, { status: 201 });
+
+  } catch (error: any) {
+    console.error('QubeTalk message POST error:', error);
+    return NextResponse.json({
+      error: error.message || 'Failed to send message',
+      code: 'INTERNAL_ERROR'
+    }, { status: 500 });
+  }
+}

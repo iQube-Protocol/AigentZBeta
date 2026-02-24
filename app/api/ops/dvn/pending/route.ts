@@ -2,8 +2,19 @@ import { NextResponse } from 'next/server';
 import { getActor } from '@/services/ops/icAgent';
 import { idlFactory as dvnIdl } from '@/services/ops/idl/cross_chain_service';
 
+const IS_BUILD = process.env.NEXT_PHASE === 'phase-production-build';
+
 export async function GET() {
   try {
+    if (IS_BUILD) {
+      return NextResponse.json({
+        ok: false,
+        error: 'DVN check skipped during build',
+        messages: [],
+        count: 0
+      });
+    }
+
     const DVN_ID = (process.env.CROSS_CHAIN_SERVICE_CANISTER_ID || process.env.NEXT_PUBLIC_CROSS_CHAIN_SERVICE_CANISTER_ID) as string;
     
     if (!DVN_ID) {

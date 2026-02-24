@@ -1,0 +1,207 @@
+[
+  {
+    "schema_version": "0.1.0",
+    "module_type": "KNYT.BadgePortal",
+    "display_name": "KNYT Portal Badge",
+    "profile": {
+      "primary_modality": "mixed",
+      "interaction_style": "glance",
+      "preferred_surfaces": ["liquid_ui"],
+      "allowed_surfaces": ["liquid_ui", "embed"],
+      "density_constraints": { "min": "micro", "preferred": "micro", "max": "compact" },
+      "responsive_rules": [
+        {
+          "when": { "device": "mobile", "surface": "embed", "density": "compact" },
+          "then": { "action": "demote_to_liquid_ui" }
+        },
+        {
+          "when": { "surface": "liquid_ui" },
+          "then": { "action": "truncate_text", "params": { "max_lines": 1 } }
+        }
+      ],
+      "experience_affinity": { "best_for": ["pill", "capsule"], "avoid_for": [] }
+    }
+  },
+  {
+    "schema_version": "0.1.0",
+    "module_type": "Qriptopian.StoryCard",
+    "display_name": "Story Card",
+    "profile": {
+      "primary_modality": "mixed",
+      "interaction_style": "skim",
+      "preferred_surfaces": ["embed", "drawer"],
+      "allowed_surfaces": ["embed", "drawer", "overlay"],
+      "density_constraints": {
+        "min": "compact",
+        "preferred": "standard",
+        "max": "expanded",
+        "per_device_overrides": [
+          { "device": "mobile", "orientation": "portrait", "min": "compact", "preferred": "standard", "max": "expanded" },
+          { "device": "desktop", "min": "compact", "preferred": "compact", "max": "standard" }
+        ]
+      },
+      "responsive_rules": [
+        { "when": { "device": "mobile", "surface": "embed", "density": "compact" }, "then": { "action": "truncate_text", "params": { "max_lines": 5 } } },
+        { "when": { "surface": "overlay" }, "then": { "action": "increase_density", "params": { "to": "full" } } }
+      ],
+      "experience_affinity": { "best_for": ["codex", "capsule"], "avoid_for": [] }
+    }
+  },
+  {
+    "schema_version": "0.1.0",
+    "module_type": "KNYT.CanonThread",
+    "display_name": "Canon Thread",
+    "profile": {
+      "primary_modality": "text",
+      "interaction_style": "explore",
+      "preferred_surfaces": ["drawer", "overlay"],
+      "allowed_surfaces": ["embed", "drawer", "overlay"],
+      "density_constraints": {
+        "min": "standard",
+        "preferred": "expanded",
+        "max": "full",
+        "per_device_overrides": [
+          { "device": "mobile", "orientation": "portrait", "min": "standard", "preferred": "expanded", "max": "full" }
+        ]
+      },
+      "responsive_rules": [
+        { "when": { "device": "mobile", "surface": "embed" }, "then": { "action": "promote_to_drawer" } },
+        { "when": { "surface": "drawer", "density": "standard" }, "then": { "action": "collapse_sections" } }
+      ],
+      "experience_affinity": { "best_for": ["capsule", "codex"], "avoid_for": ["pill"] }
+    }
+  },
+  {
+    "schema_version": "0.1.0",
+    "module_type": "KNYT.QuotePanel",
+    "display_name": "Quote Panel",
+    "profile": {
+      "primary_modality": "text",
+      "interaction_style": "glance",
+      "preferred_surfaces": ["embed", "drawer"],
+      "allowed_surfaces": ["liquid_ui", "embed", "drawer"],
+      "density_constraints": { "min": "micro", "preferred": "compact", "max": "standard" },
+      "responsive_rules": [
+        { "when": { "surface": "liquid_ui" }, "then": { "action": "truncate_text", "params": { "max_lines": 2 } } }
+      ],
+      "experience_affinity": { "best_for": ["pill", "capsule"], "avoid_for": [] }
+    }
+  },
+  {
+    "schema_version": "0.1.0",
+    "module_type": "KNYT.GlossaryChip",
+    "display_name": "Glossary Chip",
+    "profile": {
+      "primary_modality": "text",
+      "interaction_style": "glance",
+      "preferred_surfaces": ["liquid_ui"],
+      "allowed_surfaces": ["liquid_ui", "embed"],
+      "density_constraints": { "min": "micro", "preferred": "micro", "max": "micro" },
+      "responsive_rules": [
+        { "when": { "surface": "embed" }, "then": { "action": "demote_to_liquid_ui" } }
+      ],
+      "experience_affinity": { "best_for": ["pill"], "avoid_for": [] }
+    }
+  },
+  {
+    "schema_version": "0.1.0",
+    "module_type": "KNYT.TimelineStrip",
+    "display_name": "Timeline Strip",
+    "profile": {
+      "primary_modality": "data",
+      "interaction_style": "skim",
+      "preferred_surfaces": ["embed", "drawer"],
+      "allowed_surfaces": ["embed", "drawer", "overlay"],
+      "density_constraints": {
+        "min": "compact",
+        "preferred": "standard",
+        "max": "expanded",
+        "per_device_overrides": [
+          { "device": "tablet", "orientation": "landscape", "min": "compact", "preferred": "compact", "max": "standard" }
+        ]
+      },
+      "responsive_rules": [
+        { "when": { "device": "mobile", "orientation": "portrait", "surface": "embed" }, "then": { "action": "swap_to_carousel" } }
+      ],
+      "experience_affinity": { "best_for": ["capsule", "codex"], "avoid_for": [] }
+    }
+  },
+  {
+    "schema_version": "0.1.0",
+    "module_type": "KNYT.WorldMapPanel",
+    "display_name": "World Map Panel",
+    "profile": {
+      "primary_modality": "image",
+      "interaction_style": "explore",
+      "preferred_surfaces": ["overlay", "drawer"],
+      "allowed_surfaces": ["drawer", "overlay"],
+      "density_constraints": {
+        "min": "standard",
+        "preferred": "expanded",
+        "max": "full",
+        "per_device_overrides": [
+          { "device": "tablet", "orientation": "landscape", "min": "standard", "preferred": "expanded", "max": "full" }
+        ]
+      },
+      "responsive_rules": [
+        { "when": { "device": "mobile", "surface": "drawer", "density": "standard" }, "then": { "action": "hide_media", "params": { "reason": "too tight" } } }
+      ],
+      "experience_affinity": { "best_for": ["codex", "capsule"], "avoid_for": ["pill"] }
+    }
+  },
+  {
+    "schema_version": "0.1.0",
+    "module_type": "Qriptopian.EditorNote",
+    "display_name": "Editor Note",
+    "profile": {
+      "primary_modality": "text",
+      "interaction_style": "read",
+      "preferred_surfaces": ["drawer", "embed"],
+      "allowed_surfaces": ["embed", "drawer"],
+      "density_constraints": { "min": "compact", "preferred": "standard", "max": "standard" },
+      "responsive_rules": [
+        { "when": { "device": "mobile", "surface": "embed", "density": "compact" }, "then": { "action": "truncate_text", "params": { "max_lines": 6 } } }
+      ],
+      "experience_affinity": { "best_for": ["capsule", "codex"], "avoid_for": [] }
+    }
+  },
+  {
+    "schema_version": "0.1.0",
+    "module_type": "KNYT.CanonCheckQuiz",
+    "display_name": "Canon Check Quiz",
+    "profile": {
+      "primary_modality": "interactive",
+      "interaction_style": "act",
+      "preferred_surfaces": ["overlay"],
+      "allowed_surfaces": ["drawer", "overlay"],
+      "density_constraints": {
+        "min": "standard",
+        "preferred": "full",
+        "max": "full",
+        "per_device_overrides": [
+          { "device": "desktop", "min": "standard", "preferred": "expanded", "max": "full" }
+        ]
+      },
+      "responsive_rules": [
+        { "when": { "surface": "drawer" }, "then": { "action": "promote_to_overlay" } }
+      ],
+      "experience_affinity": { "best_for": ["play", "capsule"], "avoid_for": ["pill"] }
+    }
+  },
+  {
+    "schema_version": "0.1.0",
+    "module_type": "metaMe.ShareGate",
+    "display_name": "Share Gate (Permissioned)",
+    "profile": {
+      "primary_modality": "form",
+      "interaction_style": "transact",
+      "preferred_surfaces": ["drawer"],
+      "allowed_surfaces": ["drawer", "overlay"],
+      "density_constraints": { "min": "standard", "preferred": "standard", "max": "expanded" },
+      "responsive_rules": [
+        { "when": { "device": "mobile", "surface": "drawer", "density": "standard" }, "then": { "action": "collapse_sections" } }
+      ],
+      "experience_affinity": { "best_for": ["capsule", "codex"], "avoid_for": [] }
+    }
+  }
+]

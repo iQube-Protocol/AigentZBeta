@@ -1,0 +1,81 @@
+{
+  "pack_id": "pack_aigency_v0",
+  "collections": [
+    {
+      "id": "start",
+      "title": "Start Here",
+      "items": ["items/00_START_HERE.md"]
+    },
+    {
+      "id": "codex",
+      "title": "Codex",
+      "collections": [
+        { "id": "codex.home", "title": "Home", "items": ["items/codex/home.md"] },
+        { "id": "codex.packs", "title": "Packs", "items": ["items/codex/packs.md"] },
+        { "id": "codex.library", "title": "Library", "items": ["items/codex/library.md"] },
+        { "id": "codex.provenance", "title": "Provenance", "items": ["items/codex/provenance.md"] }
+      ]
+    },
+    {
+      "id": "build",
+      "title": "Build",
+      "collections": [
+        { "id": "build.briefs", "title": "Briefs", "items": ["items/build_/briefs.md"] },
+        { "id": "build.backlog", "title": "Backlog", "items": ["items/build_/backlog.md"] },
+        { "id": "build.decisions", "title": "Decisions", "items": ["items/build_/decisions.md"] },
+        { "id": "build.work_allocation", "title": "Work Allocation", "items": ["items/build_/work-allocation.md"] },
+        { "id": "build.changelog", "title": "Changelog", "items": ["items/build_/changelog.md"] }
+      ]
+    },
+    {
+      "id": "architecture",
+      "title": "Architecture",
+      "collections": [
+        { "id": "architecture.system_map", "title": "System Map", "items": ["items/architecture/system-map.md"] },
+        { "id": "architecture.data_identity", "title": "Data & Identity", "items": ["items/architecture/data-identity.md"] },
+        { "id": "architecture.payments_value", "title": "Payments & Value", "items": ["items/architecture/payments-value.md"] },
+        { "id": "architecture.protocols", "title": "Protocols", "items": ["items/architecture/protocols.md"] }
+      ]
+    },
+    {
+      "id": "knowledge",
+      "title": "Knowledge",
+      "collections": [
+        { "id": "knowledge.docs", "title": "Docs", "items": ["items/knowledge/docs.md"] },
+        { "id": "knowledge.api_reference", "title": "API Reference", "items": ["items/knowledge/api-reference.md"] },
+        { "id": "knowledge.schemas_contracts", "title": "Schemas & Contracts", "items": ["items/knowledge/schemas-contracts.md"] },
+        { "id": "knowledge.snippets", "title": "Snippets", "items": ["items/knowledge/snippets.md"] }
+      ]
+    },
+    {
+      "id": "tutorials",
+      "title": "Tutorials",
+      "collections": [
+        { "id": "tutorials.quickstarts", "title": "Quickstarts", "items": ["items/tutorials/quickstarts.md"] },
+        { "id": "tutorials.how_tos", "title": "How-tos", "items": ["items/tutorials/how-tos.md"] },
+        { "id": "tutorials.recipes", "title": "Recipes", "items": ["items/tutorials/recipes.md"] },
+        { "id": "tutorials.troubleshooting", "title": "Troubleshooting", "items": ["items/tutorials/troubleshooting.md"] }
+      ]
+    },
+    {
+      "id": "repos",
+      "title": "Repos",
+      "collections": [
+        { "id": "repos.repo_map", "title": "Repo Map", "items": ["items/repos/repo-map.md"] },
+        { "id": "repos.modules", "title": "Modules", "items": ["items/repos/modules.md"] },
+        { "id": "repos.conventions", "title": "Conventions", "items": ["items/repos/conventions.md"] },
+        { "id": "repos.release_tracks", "title": "Release Tracks", "items": ["items/repos/release-tracks.md"] }
+      ]
+    },
+    {
+      "id": "memory",
+      "title": "Memory",
+      "collections": [
+        { "id": "memory.retrieval_index", "title": "Retrieval Index", "items": ["items/memory/retrieval-index.md"] },
+        { "id": "memory.state_receipts", "title": "State & Receipts", "items": ["items/memory/state-receipts.md"] },
+        { "id": "memory.context_packs", "title": "Context Packs", "items": ["items/memory/context-packs.md"] },
+        { "id": "memory.prompts_policies", "title": "Prompts & Policies", "items": ["items/memory/prompts-policies.md"] }
+      ]
+    }
+  ]
+}

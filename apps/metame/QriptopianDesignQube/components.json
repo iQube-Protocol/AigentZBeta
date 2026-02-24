@@ -1,0 +1,58 @@
+{
+  "meta": {
+    "schemaVersion": "1.0",
+    "authority_level": "guidance"
+  },
+  "components": {
+    "Auth.LoginPanel": {
+      "themes": ["light"],
+      "notes": "Beige/cream base with coral primary CTA and secondary metaMe login CTA.",
+      "tokens": ["themes.light.color", "themes.light.radius", "themes.light.spacing"]
+    },
+    "Persona.Picker": {
+      "themes": ["light"],
+      "notes": "List rows with avatar, persona name, privacy badge icon, and optional action menu.",
+      "tokens": ["themes.light.color", "radius.lg"]
+    },
+    "Card.AssetTall": {
+      "themes": ["dark"],
+      "notes": "Plush rounded card with hero image, title stack, and badge pills (tiers / price).",
+      "tokens": ["themes.dark.color", "radius.xl", "shadow.card"]
+    },
+    "Card.OfferBanner": {
+      "themes": ["dark"],
+      "notes": "Wide banner with offer headline + partner mark + ValueChip on left.",
+      "tokens": ["themes.dark.color", "material.glass"]
+    },
+    "Chips.FilterChip": {
+      "themes": ["light", "dark"],
+      "notes": "Pill dropdown chips (Season/Codex, View, etc).",
+      "tokens": ["radius.lg", "spacing.sm"]
+    },
+    "Toggle.Owned": {
+      "themes": ["light", "dark"],
+      "notes": "Discrete toggle for Owned filter; only show when meaningful.",
+      "tokens": ["themes.*.color.muted", "themes.*.color.accent"]
+    },
+    "Tabs.Underline": {
+      "themes": ["light", "dark"],
+      "notes": "Text tabs with thin coral underline for active state.",
+      "tokens": ["themes.*.color.accent"]
+    },
+    "Nav.BottomOverlay": {
+      "themes": ["dark"],
+      "notes": "Bottom navigation with center mode/hex. In dark mode, uses glass + blur.",
+      "tokens": ["material.glass", "themes.dark.color"]
+    },
+    "Sheet.GlassContainer": {
+      "themes": ["dark"],
+      "notes": "Bottom sheet / drawer container with glass translucency.",
+      "tokens": ["material.glass", "radius.xl"]
+    },
+    "ValueChip": {
+      "themes": ["light", "dark"],
+      "notes": "Display value with primary denom per policy (Q¢ default; $KNYT only inside KNYT offers).",
+      "tokens": ["themes.*.color.accent", "themes.*.color.accentText"]
+    }
+  }
+}

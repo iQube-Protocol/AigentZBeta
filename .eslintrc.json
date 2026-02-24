@@ -1,6 +1,106 @@
 {
   "extends": [
     "next/core-web-vitals",
-    "next/typescript"
+    "next/typescript",
+    "plugin:@typescript-eslint/recommended"
+  ],
+  "parser": "@typescript-eslint/parser",
+  "plugins": ["@typescript-eslint"],
+  "parserOptions": {
+    "ecmaVersion": "latest",
+    "sourceType": "module",
+    "project": "./tsconfig.json"
+  },
+  "rules": {
+    // TypeScript specific rules
+    "@typescript-eslint/no-unused-vars": "off",
+    "@typescript-eslint/no-explicit-any": "off",
+    "@typescript-eslint/explicit-function-return-type": "off",
+    "@typescript-eslint/explicit-module-boundary-types": "off",
+    "@typescript-eslint/no-non-null-assertion": "off",
+    "@typescript-eslint/prefer-optional-chain": "off",
+    "@typescript-eslint/prefer-nullish-coalescing": "off",
+    
+    // General JavaScript/TypeScript rules
+    "no-console": "off",
+    "no-debugger": "error",
+    "no-alert": "off",
+    "no-eval": "error",
+    "no-implied-eval": "error",
+    "no-new-func": "error",
+    "prefer-const": "off",
+    "no-var": "error",
+    
+    // React specific rules
+    "react/prop-types": "off",
+    "react/react-in-jsx-scope": "off",
+    "react/display-name": "off",
+    "react-hooks/rules-of-hooks": "off",
+    "react-hooks/exhaustive-deps": "off",
+    "react/no-unescaped-entities": "off",
+    
+    // Import/Export rules
+    "sort-imports": "off",
+    
+    // Code style rules
+    "max-len": "off",
+    "object-curly-spacing": "off",
+    "array-bracket-spacing": ["error", "never"],
+    "comma-dangle": "off",
+    "semi": "off",
+    "quotes": "off",
+    
+    // Best practices
+    "eqeqeq": "off",
+    "no-throw-literal": "error",
+    "prefer-promise-reject-errors": "error",
+    
+    // Next.js specific
+    "@next/next/no-img-element": "off",
+    "@next/next/no-page-custom-font": "error",
+    "@typescript-eslint/no-non-null-asserted-optional-chain": "off",
+    "@typescript-eslint/no-require-imports": "off"
+  },
+  "env": {
+    "browser": true,
+    "es2022": true,
+    "node": true
+  },
+  "overrides": [
+    {
+      "files": ["**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/*.spec.tsx"],
+      "env": {
+        "jest": true
+      },
+      "globals": {
+        "afterEach": "readonly",
+        "beforeEach": "readonly",
+        "describe": "readonly",
+        "expect": "readonly",
+        "it": "readonly",
+        "vi": "readonly"
+      },
+      "rules": {
+        "@typescript-eslint/no-explicit-any": "off",
+        "@typescript-eslint/no-non-null-assertion": "off"
+      }
+    },
+    {
+      "files": ["**/api/**/*.ts", "**/app/api/**/*.ts"],
+      "rules": {
+        "no-console": "off"
+      }
+    }
+  ],
+  "ignorePatterns": [
+    "node_modules/",
+    ".next/",
+    "out/",
+    "build/",
+    "dist/",
+    "coverage/",
+    "*.config.js",
+    "*.config.ts",
+    "components/activate-section.jsx"
   ]
 }

@@ -1,0 +1,50 @@
+[
+  {
+    "id": "style-guide-v1",
+    "type": "style-guide",
+    "label": "metaMe Guidance Style Guide",
+    "location": "apps/metame/metaMeDesignQube/source/style-guide.md",
+    "extractedAt": "2026-02-05T00:00:00Z",
+    "coverage": [
+      "tokens",
+      "voice",
+      "text"
+    ]
+  },
+  {
+    "id": "tokens-css",
+    "type": "css",
+    "label": "Tokens CSS Export",
+    "location": "tokens.guidance.json",
+    "extractedAt": "2026-02-05T00:00:00Z",
+    "coverage": [
+      "colors",
+      "typography",
+      "radius"
+    ]
+  },
+  {
+    "id": "figma-knyt-guidance",
+    "type": "figma",
+    "label": "metaMe Guidance Figma",
+    "location": "figma://knyt-guidance",
+    "extractedAt": "2026-02-05T00:00:00Z",
+    "coverage": [
+      "components",
+      "templates",
+      "structure"
+    ]
+  },
+  {
+    "id": "freeform-brief",
+    "type": "freeform",
+    "label": "Composer Copilot Brief",
+    "location": "copilot-hints.json",
+    "extractedAt": "2026-02-05T00:00:00Z",
+    "coverage": [
+      "voice",
+      "text",
+      "structure"
+    ]
+  }
+]

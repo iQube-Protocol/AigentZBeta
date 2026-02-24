@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
 
     // Get personas with duplicate FIO handles, keeping only the most recent
     const { data: personas, error: personasError } = await supabase
-      .from('persona')
+      .from('personas')
       .select('id, fio_handle, created_at')
       .not('fio_handle', 'is', null)
       .order('fio_handle', { ascending: true })
@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
 
     // Delete duplicates
     const { error: deleteError } = await supabase
-      .from('persona')
+      .from('personas')
       .delete()
       .in('id', toDelete);
 

@@ -3,10 +3,14 @@ import { ethers } from "ethers";
 
 const QCT_SEPOLIA = process.env.NEXT_PUBLIC_QCT_SEPOLIA as `0x${string}` | undefined;
 const QCT_ARB = process.env.NEXT_PUBLIC_QCT_ARB_SEPOLIA as `0x${string}` | undefined;
+const QCT_BASE = (process.env.NEXT_PUBLIC_QCT_BASE_SEPOLIA || process.env.NEXT_PUBLIC_QCT_SEPOLIA) as
+  | `0x${string}`
+  | undefined;
 const KNYT_SEP = process.env.NEXT_PUBLIC_KNYT_SEPOLIA as `0x${string}` | undefined;
 const USDC_SEPOLIA = (process.env.NEXT_PUBLIC_USDC_SEPOLIA || process.env.USDC_SEPOLIA) as `0x${string}` | undefined;
 const RPC_SEPOLIA = process.env.NEXT_PUBLIC_RPC_SEPOLIA as string | undefined;
 const RPC_ARB = process.env.NEXT_PUBLIC_RPC_ARB_SEPOLIA as string | undefined;
+const RPC_BASE = process.env.NEXT_PUBLIC_RPC_BASE_SEPOLIA as string | undefined;
 const BTC_BALANCE_API = process.env.NEXT_PUBLIC_BTC_BALANCE_API as string | undefined;
 
 const ERC20_ABI = [
@@ -17,11 +21,13 @@ const ERC20_ABI = [
 export type Balances = {
   qctSep: string;
   qctArb: string;
+  qctBase: string;
   knytSep: string;
   btcQcent: string;
   usdcSep: string;
   qctSepDecimals?: number;
   qctArbDecimals?: number;
+  qctBaseDecimals?: number;
   knytSepDecimals?: number;
   usdcSepDecimals?: number;
 };
@@ -30,8 +36,18 @@ export type Balances = {
 const balanceCache = new Map<string, { balance: string; decimals: number; timestamp: number }>();
 const CACHE_DURATION = 30000; // 30 seconds
 
-export function useBalances(addresses: { sepolia?: `0x${string}`; arb?: `0x${string}`; btc?: string }) {
-  const [state, setState] = useState<Balances>({ qctSep: "0", qctArb: "0", knytSep: "0", btcQcent: "0", usdcSep: "0" });
+export function useBalances(
+  addresses: { sepolia?: `0x${string}`; arb?: `0x${string}`; base?: `0x${string}`; btc?: string },
+  options?: { refreshKey?: number }
+) {
+  const [state, setState] = useState<Balances>({
+    qctSep: "0",
+    qctArb: "0",
+    qctBase: "0",
+    knytSep: "0",
+    btcQcent: "0",
+    usdcSep: "0",
+  });
 
   useEffect(() => {
     let cancel = false;
@@ -120,6 +136,43 @@ export function useBalances(addresses: { sepolia?: `0x${string}`; arb?: `0x${str
           }
         }
       }
+
+      // Try Base with caching
+      if (addresses.base && RPC_BASE && QCT_BASE) {
+        const cacheKey = `base-${addresses.base}`;
+        const cached = balanceCache.get(cacheKey);
+        const now = Date.now();
+
+        if (cached && (now - cached.timestamp) < CACHE_DURATION) {
+          res.qctBase = cached.balance;
+          res.qctBaseDecimals = cached.decimals;
+        } else {
+          try {
+            const provider = new ethers.JsonRpcProvider(RPC_BASE);
+            const contract = new ethers.Contract(QCT_BASE, ERC20_ABI, provider);
+            const balance = await contract.balanceOf(addresses.base);
+            const decimals = await contract.decimals();
+
+            const balanceStr = balance.toString();
+            const decimalsNum = Number(decimals);
+
+            res.qctBase = balanceStr;
+            res.qctBaseDecimals = decimalsNum;
+
+            balanceCache.set(cacheKey, {
+              balance: balanceStr,
+              decimals: decimalsNum,
+              timestamp: now,
+            });
+          } catch (error) {
+            console.warn("Base balance fetch failed:", error);
+            if (cached) {
+              res.qctBase = cached.balance;
+              res.qctBaseDecimals = cached.decimals;
+            }
+          }
+        }
+      }
       
       if (!cancel) {
         setState(prev => ({ ...prev, ...res }));
@@ -131,7 +184,7 @@ export function useBalances(addresses: { sepolia?: `0x${string}`; arb?: `0x${str
     return () => {
       cancel = true;
     };
-  }, [addresses.sepolia, addresses.arb, addresses.btc]);
+  }, [addresses.sepolia, addresses.arb, addresses.base, addresses.btc, options?.refreshKey]);
 
   return state;
 }

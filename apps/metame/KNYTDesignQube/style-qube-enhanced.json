@@ -1,0 +1,214 @@
+{
+  "id": "styleqube-knyt-v1",
+  "name": "KNYT StyleQube",
+  "source": "tokens.guidance.json",
+  "themes": [
+    "light.metame",
+    "dark.knytGlass"
+  ],
+  "summary": {
+    "primaryAccent": "coral",
+    "surface": "glass-on-dark",
+    "typography": "modern sans",
+    "radius": "soft",
+    "motion": "subtle"
+  },
+  "visual": {
+    "colors": {
+      "primary": "#f97316",
+      "secondary": "#ea580c",
+      "accent": "#fbbf24",
+      "surface": "rgba(15, 23, 42, 0.8)",
+      "background": "#0f172a",
+      "text": {
+        "primary": "#f8fafc",
+        "secondary": "#cbd5e1",
+        "muted": "#64748b",
+        "inverse": "#0f172a"
+      },
+      "border": "rgba(148, 163, 184, 0.2)",
+      "shadow": "rgba(0, 0, 0, 0.4)"
+    },
+    "typography": {
+      "fontFamily": {
+        "primary": "Inter, system-ui, sans-serif",
+        "secondary": "Geist, sans-serif",
+        "mono": "JetBrains Mono, monospace"
+      },
+      "fontSize": {
+        "xs": "0.75rem",
+        "sm": "0.875rem",
+        "base": "1rem",
+        "lg": "1.125rem",
+        "xl": "1.25rem",
+        "2xl": "1.5rem",
+        "3xl": "1.875rem",
+        "4xl": "2.25rem"
+      },
+      "fontWeight": {
+        "normal": 400,
+        "medium": 500,
+        "semibold": 600,
+        "bold": 700
+      },
+      "lineHeight": {
+        "tight": 1.25,
+        "normal": 1.5,
+        "relaxed": 1.75
+      }
+    },
+    "spacing": {
+      "xs": "0.25rem",
+      "sm": "0.5rem",
+      "md": "1rem",
+      "lg": "1.5rem",
+      "xl": "2rem",
+      "2xl": "3rem",
+      "3xl": "4rem"
+    },
+    "radius": {
+      "none": "0",
+      "sm": "0.125rem",
+      "md": "0.375rem",
+      "lg": "0.5rem",
+      "xl": "0.75rem",
+      "full": "9999px"
+    },
+    "shadows": {
+      "sm": "0 1px 2px 0 rgba(0, 0, 0, 0.1)",
+      "md": "0 4px 6px -1px rgba(0, 0, 0, 0.2)",
+      "lg": "0 10px 15px -3px rgba(0, 0, 0, 0.2)",
+      "xl": "0 20px 25px -5px rgba(0, 0, 0, 0.25)"
+    },
+    "animations": {
+      "duration": {
+        "fast": "150ms",
+        "normal": "250ms",
+        "slow": "400ms"
+      },
+      "easing": {
+        "ease": "cubic-bezier(0.4, 0, 0.2, 1)",
+        "easeIn": "cubic-bezier(0.4, 0, 1, 1)",
+        "easeOut": "cubic-bezier(0, 0, 0.2, 1)",
+        "easeInOut": "cubic-bezier(0.4, 0, 0.2, 1)"
+      }
+    }
+  },
+  "audio": {
+    "voice": {
+      "persona": "KNYT Guide",
+      "accent": "neutral British",
+      "pace": "normal",
+      "pitch": "medium",
+      "tone": "professional",
+      "ttsHints": {
+        "provider": "elevenlabs",
+        "voiceId": "adam",
+        "stability": 0.8,
+        "similarity_boost": 0.7
+      }
+    },
+    "soundEffects": {
+      "enabled": true,
+      "library": ["chime", "click", "notification", "success"],
+      "volume": 0.25,
+      "triggers": [
+        {
+          "event": "hover",
+          "sound": "chime",
+          "volume": 0.15
+        },
+        {
+          "event": "click",
+          "sound": "click",
+          "volume": 0.3
+        },
+        {
+          "event": "success",
+          "sound": "success",
+          "volume": 0.4
+        }
+      ]
+    },
+    "music": {
+      "enabled": false,
+      "style": "ambient",
+      "mood": "professional",
+      "volume": 0.1,
+      "autoplay": false
+    },
+    "feedback": {
+      "hover": true,
+      "click": true,
+      "success": true,
+      "error": true
+    }
+  },
+  "text": {
+    "formatting": {
+      "fontFamily": "Inter, system-ui, sans-serif",
+      "fontSize": "16px",
+      "lineHeight": "1.6",
+      "maxWidth": "65ch",
+      "paragraphSpacing": "1.5rem",
+      "hyphenation": "auto",
+      "textAlign": "left",
+      "textRendering": "optimizeLegibility",
+      "fontSmoothing": "always",
+      "cssText": "font-family: Inter, system-ui, sans-serif; font-size: 16px; line-height: 1.6; max-width: 65ch; paragraph-spacing: 1.5rem; hyphens: auto; text-align: left; text-rendering: optimizeLegibility; -webkit-font-smoothing: always; -moz-osx-font-smoothing: grayscale;"
+    },
+    "tone": {
+      "personality": "Professional knowledge protocol guide",
+      "formality": "professional",
+      "urgency": "medium",
+      "empathy": "medium",
+      "clarity": "technical"
+    },
+    "content": {
+      "maxLength": 8000,
+      "readingLevel": "grade 10-12",
+      "language": "en-GB",
+      "accessibility": {
+        "dyslexicFont": false,
+        "highContrast": false,
+        "largeText": false
+      }
+    },
+    "localization": {
+      "enabled": true,
+      "supportedLanguages": ["en-GB", "en-US"],
+      "fallbackLanguage": "en-GB"
+    }
+  },
+  "spatial": {
+    "threeD": {
+      "enabled": false,
+      "perspective": 1200,
+      "depth": 150,
+      "transforms": {
+        "rotateX": 0,
+        "rotateY": 0,
+        "rotateZ": 0,
+        "scale": 1
+      }
+    },
+    "ar": {
+      "enabled": false,
+      "tracking": "plane",
+      "anchors": []
+    },
+    "vr": {
+      "enabled": false,
+      "immersion": "none",
+      "controllers": false,
+      "handTracking": false
+    },
+    "zAxis": {
+      "enabled": true,
+      "stacking": true,
+      "parallax": true,
+      "depthLayers": 4
+    }
+  },
+  "version": "1.0.0"
+}

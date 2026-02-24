@@ -1,0 +1,97 @@
+{
+  "series": "metaKnyts",
+  "episodes": [
+    {
+      "doc_number": 0,
+      "display_number": "#0",
+      "title": "Genesis Protocol",
+      "subtitle": "The Awakening",
+      "synopsis": "In the quantum-ready internet, a new form of consciousness emerges...",
+      "release_date": "2024-01-15",
+      "main_characters": [
+        {
+          "name": "Kira",
+          "role": "Protagonist",
+          "description": "A quantum hacker who discovers the truth about the metaverse",
+          "powers": ["Quantum tunneling", "Data manipulation"]
+        },
+        {
+          "name": "Nexus",
+          "role": "AI Companion",
+          "description": "An evolved AI that guides Kira through the digital realm",
+          "powers": ["Network omniscience", "Code synthesis"]
+        }
+      ],
+      "supporting_characters": [
+        {
+          "name": "Dr. Chen",
+          "role": "Mentor",
+          "description": "The scientist who created the first iQube"
+        }
+      ],
+      "themes": [
+        "Digital identity",
+        "Consciousness transfer",
+        "Decentralization"
+      ],
+      "locations": [
+        {
+          "name": "The Nexus Hub",
+          "description": "Central node of the quantum internet"
+        },
+        {
+          "name": "Old Tokyo",
+          "description": "Physical world remnants"
+        }
+      ],
+      "key_events": [
+        {
+          "event": "The First Sync",
+          "significance": "Kira's consciousness merges with the network"
+        },
+        {
+          "event": "iQube Discovery",
+          "significance": "The true nature of digital identity revealed"
+        }
+      ],
+      "writer": "Quantum Collective",
+      "artist": "Neural Studios",
+      "colorist": "Chroma AI",
+      "extra_metadata": {
+        "page_count": 32,
+        "reading_time_minutes": 15,
+        "content_warnings": [],
+        "easter_eggs": ["Hidden QR code on page 12"]
+      }
+    },
+    {
+      "doc_number": 1,
+      "display_number": "#1",
+      "title": "The Fragmented Self",
+      "subtitle": "Identity Crisis",
+      "synopsis": "As Kira delves deeper into the network, she discovers her consciousness has been split across multiple nodes...",
+      "release_date": "2024-02-15",
+      "main_characters": [
+        {
+          "name": "Kira",
+          "role": "Protagonist",
+          "description": "Now existing as multiple instances across the network",
+          "powers": ["Quantum tunneling", "Data manipulation", "Instance splitting"]
+        },
+        {
+          "name": "Shadow Kira",
+          "role": "Antagonist",
+          "description": "A corrupted fragment of Kira's consciousness",
+          "powers": ["Memory manipulation", "Network infiltration"]
+        }
+      ],
+      "themes": [
+        "Identity fragmentation",
+        "Self vs Shadow",
+        "Unity in multiplicity"
+      ],
+      "writer": "Quantum Collective",
+      "artist": "Neural Studios"
+    }
+  ]
+}

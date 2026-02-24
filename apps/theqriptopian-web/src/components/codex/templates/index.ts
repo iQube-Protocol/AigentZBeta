@@ -1,0 +1,1 @@
+export { KnytTemplateRenderer } from './KnytTemplateRenderer';

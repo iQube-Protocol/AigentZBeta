@@ -1,0 +1,62 @@
+{
+  "codexId": "theqriptopian-issue-0",
+  "version": "0.1.0",
+  "archivedAt": "2025-12-08T04:50:00.000Z",
+  "status": "archived",
+  "metadata": {
+    "title": "The Genesis Issue",
+    "issueNumber": 0,
+    "franchiseId": "theqriptopian",
+    "description": "Stories from the Quantum-Ready Internet",
+    "publishedAt": "2025-12-01T00:00:00Z",
+    "editorial": {
+      "editor": "The Qriptopian Editorial Team",
+      "theme": "Q¢ use cases, Chronicles, and Knowledge"
+    }
+  },
+  "stats": {
+    "totalContent": 47,
+    "domains": {
+      "home": 10,
+      "scrolls": 15,
+      "pennydrops": 7,
+      "kn0wdz": 15
+    },
+    "sections": {
+      "home-hero": 3,
+      "latest-news": 4,
+      "second-hero": 3,
+      "scrolls": 15,
+      "pennydrops": 7,
+      "kn0wdz": 15
+    }
+  },
+  "features": {
+    "modalities": ["read", "watch", "listen", "link"],
+    "domains": ["home", "scrolls", "pennydrops", "kn0wdz"],
+    "adminPortal": true,
+    "contentImporter": true,
+    "qubebaseSync": true
+  },
+  "changelog": [
+    {
+      "date": "2025-12-08",
+      "changes": [
+        "Initial archive of Issue #0 v0.1",
+        "47 content items from QubeBase",
+        "Admin portal integrated",
+        "Content modalities (read/watch/listen/link) supported",
+        "Domain drawers: PennyDrops, Scrolls, Kn0wdZ"
+      ]
+    }
+  ],
+  "nextVersion": {
+    "version": "0.2.0",
+    "plannedFeatures": [
+      "Smart Wallet / WalletQube integration",
+      "Q¢ balance display",
+      "Content access gating",
+      "User Codex persistence"
+    ]
+  }
+}

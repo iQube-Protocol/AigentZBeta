@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFIOService } from '@/services/identity/fioService';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * Lookup FIO handle information
  * GET /api/identity/fio/lookup?handle=alice@fio

@@ -26,14 +26,15 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
+    const fioHandle = searchParams.get('fio_handle');
     
     const supabase = createClient(supabaseUrl, supabaseKey);
     
     if (id) {
       // Fetch single persona by ID
       const { data: persona, error } = await supabase
-        .from('persona_with_reputation')
-        .select('*')
+        .from('personas')
+        .select('id,tenant_id,auth_profile_id,display_name,avatar_uri,fio_handle,fio_domain,default_identity_state,world_id_status,app_origin,discoverable_within_tenant,reputation_score,reputation_bucket,badges,status,created_at,updated_at')
         .eq('id', id)
         .single();
 
@@ -42,11 +43,25 @@ export async function GET(req: NextRequest) {
       }
 
       return NextResponse.json({ ok: true, data: persona });
+    } else if (fioHandle) {
+      // Check if FIO handle exists - used for availability check
+      const { data: personas, error } = await supabase
+        .from('personas')
+        .select('id, fio_handle')
+        .ilike('fio_handle', fioHandle.toLowerCase())
+        .limit(1);
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      // Return empty array if not found (handle is available)
+      return NextResponse.json({ ok: true, data: personas || [] });
     } else {
       // Fetch all personas
       const { data: personas, error } = await supabase
-        .from('persona_with_reputation')
-        .select('*')
+        .from('personas')
+        .select('id,tenant_id,auth_profile_id,display_name,avatar_uri,fio_handle,fio_domain,default_identity_state,world_id_status,app_origin,discoverable_within_tenant,reputation_score,reputation_bucket,badges,status,created_at,updated_at')
         .order('created_at', { ascending: false })
         .limit(100);
 

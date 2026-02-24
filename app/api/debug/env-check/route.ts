@@ -23,6 +23,10 @@ export async function GET() {
         `${process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY.substring(0, 20)}...` : 'MISSING',
       NEXT_PUBLIC_AGENT_KEY_ENCRYPTION_SECRET: process.env.NEXT_PUBLIC_AGENT_KEY_ENCRYPTION_SECRET ? 
         `${process.env.NEXT_PUBLIC_AGENT_KEY_ENCRYPTION_SECRET.substring(0, 16)}...` : 'MISSING',
+      CODEX_MASTER_KEY: process.env.CODEX_MASTER_KEY ? 
+        `${process.env.CODEX_MASTER_KEY.substring(0, 16)}...` : 'MISSING',
+      AUTONOMYS_API_KEY: process.env.AUTONOMYS_API_KEY ? 
+        `${process.env.AUTONOMYS_API_KEY.substring(0, 16)}...` : 'MISSING',
       
       // Show which vars are actually set
       varsSet: {
@@ -32,7 +36,9 @@ export async function GET() {
         NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY: !!process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY,
         SUPABASE_ANON_KEY: !!process.env.SUPABASE_ANON_KEY,
         AGENT_KEY_ENCRYPTION_SECRET: !!process.env.AGENT_KEY_ENCRYPTION_SECRET,
-        NEXT_PUBLIC_AGENT_KEY_ENCRYPTION_SECRET: !!process.env.NEXT_PUBLIC_AGENT_KEY_ENCRYPTION_SECRET
+        NEXT_PUBLIC_AGENT_KEY_ENCRYPTION_SECRET: !!process.env.NEXT_PUBLIC_AGENT_KEY_ENCRYPTION_SECRET,
+        CODEX_MASTER_KEY: !!process.env.CODEX_MASTER_KEY,
+        AUTONOMYS_API_KEY: !!process.env.AUTONOMYS_API_KEY
       },
       
       // Expected values (first 30 chars only for security)

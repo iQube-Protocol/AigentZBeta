@@ -1,0 +1,536 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Copilot + Wallet Suite Mock</title>
+  <style>
+    :root{--bg:#070a12;--ring:rgba(255,255,255,.12);--ring2:rgba(255,255,255,.18);--txt:rgba(255,255,255,.92);--mut:rgba(255,255,255,.55);--cyan:#22d3ee;--pur:#a855f7;--amb:#fbbf24;--emd:#34d399;--sh:0 20px 60px rgba(0,0,0,.6)}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;background:radial-gradient(900px 600px at 20% 10%,rgba(34,211,238,.16),transparent 60%),radial-gradient(900px 600px at 85% 20%,rgba(168,85,247,.18),transparent 60%),var(--bg);color:var(--txt);padding:16px}
+    .wrap{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:320px 1fr;gap:14px;align-items:start}
+    @media (max-width:980px){.wrap{grid-template-columns:1fr}}
+    .panel{border:1px solid var(--ring);border-radius:16px;background:rgba(255,255,255,.03);box-shadow:var(--sh)}
+    .ctrl{padding:12px;position:sticky;top:12px}
+    @media (max-width:980px){.ctrl{position:static}}
+    .h{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.70);margin:0 0 10px}
+    .seg{display:flex;border:1px solid var(--ring);border-radius:12px;overflow:hidden}
+    .seg button{flex:1;border:0;background:transparent;color:rgba(255,255,255,.75);padding:9px 10px;cursor:pointer}
+    .seg button.on{background:rgba(255,255,255,.08);color:rgba(255,255,255,.95)}
+    .row{display:flex;gap:8px;flex-wrap:wrap}
+    button{border:1px solid var(--ring);background:rgba(255,255,255,.04);color:rgba(255,255,255,.88);padding:8px 10px;border-radius:12px;cursor:pointer;font-size:12px}
+    button:hover{border-color:var(--ring2);background:rgba(255,255,255,.08)}
+    button.primary{border-color:rgba(34,211,238,.30);background:rgba(34,211,238,.10)}
+    button.purple{border-color:rgba(168,85,247,.30);background:rgba(168,85,247,.10)}
+    button.amber{border-color:rgba(251,191,36,.30);background:rgba(251,191,36,.10)}
+    .note{font-size:12px;color:var(--mut);line-height:1.45;margin-top:10px}
+
+    .drawer{overflow:hidden}
+    .top{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--ring);background:rgba(0,0,0,.25)}
+    .badge{font-size:11px;border:1px solid var(--ring);background:rgba(255,255,255,.04);padding:6px 10px;border-radius:999px;color:rgba(255,255,255,.82)}
+    .badges{display:flex;gap:8px;flex-wrap:wrap}
+
+    .layout{display:flex;height:620px}
+    .chat{flex:1;min-width:0;display:flex;flex-direction:column;border-right:1px solid var(--ring)}
+    .suite{width:360px;min-width:360px;display:flex;flex-direction:column;background:rgba(0,0,0,.15)}
+    .narrow .layout{flex-direction:column}
+    .narrow .chat{border-right:0}
+    .narrow .suite{width:auto;min-width:0;border-top:1px solid var(--ring)}
+
+    .scroll{flex:1;overflow:auto;padding:0 12px 12px}
+    .sticky{position:sticky;top:0;z-index:5;padding-top:10px;background:rgba(0,0,0,.12);backdrop-filter:blur(10px)}
+    .sticky .hr{height:1px;background:var(--ring)}
+
+    .msg{display:flex;margin-top:10px}
+    .msg.user{justify-content:flex-end}
+    .bubble{max-width:88%;border:1px solid var(--ring);background:rgba(255,255,255,.04);padding:10px 12px;border-radius:16px;font-size:13px;line-height:1.45}
+    .msg.user .bubble{border-color:rgba(34,211,238,.28);background:rgba(34,211,238,.10);border-bottom-right-radius:8px}
+    .msg.assistant .bubble{border-bottom-left-radius:8px}
+
+    .cards{margin-top:10px;display:flex;flex-direction:column;gap:10px}
+    .card{border:1px solid var(--ring);background:rgba(255,255,255,.03);border-radius:16px;overflow:hidden}
+    .card .hd{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--ring);background:rgba(255,255,255,.03)}
+    .k{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.60)}
+    .t{font-weight:900}
+    .card .bd{padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+    .kv{display:flex;justify-content:space-between;gap:10px;font-size:12px;color:rgba(255,255,255,.85)}
+    .kv span:first-child{color:rgba(255,255,255,.50)}
+    .actions{display:flex;gap:8px;flex-wrap:wrap}
+    .ql{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
+
+    .input{display:flex;gap:10px;align-items:center;padding:12px;border-top:1px solid var(--ring);background:rgba(0,0,0,.22)}
+    input{flex:1;border:1px solid var(--ring);background:rgba(255,255,255,.03);color:rgba(255,255,255,.9);padding:10px 12px;border-radius:12px;outline:none}
+
+    .suiteTop{padding:12px;border-bottom:1px solid var(--ring);display:flex;align-items:center;justify-content:space-between;gap:10px}
+    .pills{display:flex;gap:8px;flex-wrap:wrap}
+    .pill{font-size:11px;border:1px solid var(--ring);background:rgba(255,255,255,.04);padding:6px 10px;border-radius:999px;color:rgba(255,255,255,.82)}
+    .tabs{display:flex;gap:6px;flex-wrap:wrap;padding:12px 12px 0}
+    .tab{border:1px solid var(--ring);background:rgba(255,255,255,.03);color:rgba(255,255,255,.75);padding:7px 10px;border-radius:999px;cursor:pointer;font-size:12px}
+    .tab.on{border-color:rgba(168,85,247,.28);background:rgba(168,85,247,.10);color:rgba(255,255,255,.95)}
+
+    .suiteBody{flex:1;overflow:auto;padding:12px}
+    .box{border:1px solid var(--ring);background:rgba(255,255,255,.03);border-radius:16px;padding:12px;margin-bottom:10px}
+    .box .bt{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.60)}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+
+    .narrow .suite.collapsed .tabs,.narrow .suite.collapsed .suiteBody{display:none}
+    .narrow .suite.collapsed .collapsed{display:block}
+    .collapsed{display:none;padding:12px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <aside class="panel ctrl">
+      <h1 class="h">Copilot + Smart Wallet Suite</h1>
+      <div class="h" style="margin-top:12px">Layout</div>
+      <div class="seg" role="tablist">
+        <button id="btnWide" class="on" type="button">Wide (embedded)</button>
+        <button id="btnNarrow" type="button">Narrow (collapsible)</button>
+      </div>
+
+      <div class="h" style="margin-top:14px">Simulate intent</div>
+      <div class="row">
+        <button type="button" data-sim="send">Send</button>
+        <button type="button" data-sim="request">Request</button>
+        <button type="button" data-sim="verify">Verify</button>
+        <button type="button" data-sim="buy">Buy KNYT</button>
+        <button type="button" data-sim="library">Library</button>
+        <button type="button" data-sim="tasks">Tasks</button>
+        <button type="button" data-sim="rewards">Rewards</button>
+        <button type="button" data-sim="reputation">Reputation</button>
+        <button class="purple" type="button" data-sim="unlock">Unlock + Send (2 cards)</button>
+      </div>
+
+      <div class="note">
+        Behavior:
+        <div style="margin-top:6px">- Panel tab picks <b>most relevant</b> to the simulated prompt/inference.</div>
+        <div>- If none matches, it falls back to <b>last-used</b>.</div>
+        <div>- In Narrow, the panel is <b>collapsible</b>.</div>
+      </div>
+    </aside>
+
+    <main class="panel drawer" id="drawer">
+      <div class="top">
+        <div class="badges">
+          <span class="badge">Codex Copilot</span>
+          <span class="badge" id="mode">Wide</span>
+          <span class="badge">Option C (Inline + Panel)</span>
+          <span class="badge">Up to 2 Cards</span>
+        </div>
+        <span class="badge" id="activeTabBadge">Active: Wallet</span>
+      </div>
+
+      <div class="layout" id="layout">
+        <section class="chat">
+          <div class="scroll" id="chatScroll">
+            <div class="sticky"><div class="hr"></div></div>
+
+            <div class="msg assistant"><div class="bubble"><b>MoneyPenny</b><div style="margin-top:6px;color:var(--mut)">Mock conversation + wallet suite panel.</div></div></div>
+            <div class="msg user"><div class="bubble" id="prompt">I want to send 50 Q¢ to alice@knyt</div></div></div>
+
+            <div class="msg assistant" id="assistantMsg">
+              <div class="bubble" style="width:100%">
+                <b id="assistantTitle">Suggested next step</b>
+                <div style="margin-top:6px;color:var(--mut)" id="assistantBody">I can prepare that transfer. Review details below.</div>
+
+                <div class="cards" id="cards"></div>
+
+                <div class="ql" id="ql">
+                  <button type="button" data-ql="Show my balance">Show my balance</button>
+                  <button type="button" data-ql="View tasks">View tasks</button>
+                  <button type="button" data-ql="Check rewards">Check rewards</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="input">
+            <input id="input" value="Send 50 Q¢ to alice@knyt" />
+            <button class="primary" type="button" id="sendBtn">Send</button>
+          </div>
+        </section>
+
+        <aside class="suite" id="suite">
+          <div class="suiteTop">
+            <div>
+              <div class="pills">
+                <span class="pill" id="status">Status: Connected</span>
+                <span class="pill">Persona: Penny</span>
+              </div>
+              <div class="pills" style="margin-top:6px">
+                <span class="pill">KNYT 123</span><span class="pill">Q¢ 45</span><span class="pill">Tasks 2</span><span class="pill">Rep 1.2×</span>
+              </div>
+            </div>
+            <button type="button" id="collapse">Collapse</button>
+          </div>
+
+          <div class="collapsed" id="collapsed">
+            <div class="box" style="margin-bottom:0">
+              <div class="bt"><span>Wallet Panel (collapsed)</span><span>Most relevant</span></div>
+              <div class="grid2">
+                <button class="primary" type="button" data-open="Wallet">Wallet</button>
+                <button type="button" data-open="Tasks">Tasks</button>
+                <button type="button" data-open="Rewards">Rewards</button>
+                <button type="button" data-open="Reputation">Reputation</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="tabs" id="tabs">
+            <button class="tab on" type="button" data-tab="Wallet">Wallet</button>
+            <button class="tab" type="button" data-tab="Library">Library</button>
+            <button class="tab" type="button" data-tab="Tasks">Tasks</button>
+            <button class="tab" type="button" data-tab="Reputation">Reputation</button>
+            <button class="tab" type="button" data-tab="Rewards">Rewards</button>
+          </div>
+
+          <div class="suiteBody" id="suiteBody"></div>
+        </aside>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const state = { layout:'wide', collapsed:false, lastTab:'Wallet', activeTab:'Wallet', scenario:'send', connected:true };
+
+    const $ = (id)=>document.getElementById(id);
+
+    function setLayout(next){
+      state.layout = next;
+      document.body.classList.toggle('narrow', next==='narrow');
+      $('mode').textContent = next==='narrow' ? 'Narrow' : 'Wide';
+      $('btnWide').classList.toggle('on', next==='wide');
+      $('btnNarrow').classList.toggle('on', next==='narrow');
+      if (next==='wide') setCollapsed(false);
+    }
+
+    function setCollapsed(next){
+      state.collapsed = next;
+      $('suite').classList.toggle('collapsed', next);
+      $('collapse').textContent = next ? 'Expand' : 'Collapse';
+    }
+
+    function setTab(tab, remember=true){
+      state.activeTab = tab;
+      if (remember) state.lastTab = tab;
+      document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on', b.dataset.tab===tab));
+      $('activeTabBadge').textContent = 'Active: ' + tab;
+      renderPanel();
+    }
+
+    function scenarioToTab(s){
+      if (['send','request','verify','buy','unlock'].includes(s)) return 'Wallet';
+      if (s==='library') return 'Library';
+      if (s==='tasks') return 'Tasks';
+      if (s==='rewards') return 'Rewards';
+      if (s==='reputation') return 'Reputation';
+      return null;
+    }
+
+    function setScenario(s){
+      state.scenario = s;
+      const promptMap = {
+        send: 'I want to send 50 Q¢ to alice@knyt',
+        request: 'Request 25 Q¢ from bob@knyt with memo “Episode unlock”',
+        verify: 'Verify tx 0xabc…123 on Arbitrum Sepolia',
+        buy: 'I need KNYT to unlock content',
+        library: 'Show me what I own and what is locked',
+        tasks: 'What tasks can I do to earn rewards?',
+        rewards: 'Show my recent rewards and pending distributions',
+        reputation: 'How do I increase my reputation multiplier?',
+        unlock: 'Unlock my wallet, then send 50 Q¢ to alice@knyt',
+      };
+
+      $('prompt').textContent = promptMap[s] || promptMap.send;
+      $('input').value = promptMap[s] || '';
+
+      const titleMap = {
+        send: 'Prepare payment',
+        request: 'Create a payment request',
+        verify: 'Verify transaction',
+        buy: 'Top up with KNYT',
+        library: 'View your library',
+        tasks: 'Complete tasks to earn',
+        rewards: 'Rewards summary',
+        reputation: 'Reputation status',
+        unlock: 'Unlock required + send payment',
+      };
+
+      const bodyMap = {
+        send: 'Review the transfer details. Open the Send form when ready.',
+        request: 'Set amount/memo, then generate a request link or QR.',
+        verify: 'Paste a tx hash to verify settlement and confirmations.',
+        buy: 'Choose a KNYT pack and complete checkout.',
+        library: 'Browse owned items, and unlock content from the library.',
+        tasks: 'Pick a task and complete it to earn KNYT/Q¢ rewards.',
+        rewards: 'Review recent rewards and what is pending.',
+        reputation: 'Check multiplier and submit a claim if needed.',
+        unlock: 'You must unlock first. Then proceed to send.',
+      };
+
+      $('assistantTitle').textContent = titleMap[s] || 'Suggested next step';
+      $('assistantBody').textContent = bodyMap[s] || '';
+
+      const relevant = scenarioToTab(s);
+      setTab(relevant || state.lastTab, false);
+      renderCards();
+      renderPanel();
+
+      // If narrow + collapsed, keep it collapsed; user can expand.
+    }
+
+    function cardHTML(kind){
+      const common = (kicker, title, rows, actions)=>{
+        const rowsHtml = rows.map(r=>`<div class="kv"><span>${r[0]}</span><span>${r[1]}</span></div>`).join('');
+        const actsHtml = actions.map(a=>{
+          const cls = a.variant || '';
+          return `<button type="button" class="${cls}" data-action="${a.action}">${a.label}</button>`;
+        }).join('');
+        return `
+          <div class="card" data-kind="${kind}">
+            <div class="hd"><div><div class="k">${kicker}</div><div class="t">${title}</div></div><span class="pill">${kind}</span></div>
+            <div class="bd">${rowsHtml}<div class="actions">${actsHtml}</div></div>
+          </div>
+        `;
+      };
+
+      if (kind==='Unlock') return common('Wallet Action', 'Unlock Wallet', [
+        ['Why','Required for transactions + claims'],
+        ['Persona','Penny'],
+      ], [
+        {label:'Unlock Now', action:'open_unlock', variant:'primary'},
+        {label:'Switch Persona', action:'switch_persona'},
+      ]);
+
+      if (kind==='Send') return common('Wallet Action', 'Send Payment', [
+        ['To','alice@knyt'],
+        ['Amount','50 Q¢'],
+        ['Mode','Deferred (Claim)'],
+      ], [
+        {label:'Open Send', action:'open_send', variant:'primary'},
+        {label:'Edit', action:'edit_send'},
+        {label:'Explain Modes', action:'explain_modes'},
+      ]);
+
+      if (kind==='Request') return common('Wallet Action', 'Request Payment', [
+        ['From','bob@knyt'],
+        ['Amount','25 Q¢'],
+        ['Memo','Episode unlock'],
+      ], [
+        {label:'Open Request', action:'open_request', variant:'primary'},
+        {label:'Edit', action:'edit_request'},
+      ]);
+
+      if (kind==='Verify') return common('Wallet Action', 'Verify Transaction', [
+        ['Tx Hash','0xabc…123'],
+        ['Chain','Arbitrum Sepolia'],
+      ], [
+        {label:'Open Verify', action:'open_verify', variant:'primary'},
+        {label:'Paste Hash', action:'paste_hash'},
+      ]);
+
+      if (kind==='Buy') return common('Wallet Action', 'Buy KNYT', [
+        ['Reason','Unlocks + access'],
+        ['Suggestion','Starter pack'],
+      ], [
+        {label:'Open Buy KNYT', action:'open_buy', variant:'amber'},
+        {label:'Compare Packs', action:'compare_packs'},
+      ]);
+
+      if (kind==='Tasks') return common('Wallet Action', 'Tasks Available', [
+        ['Pending','2 tasks'],
+        ['Next reward','5 Q¢'],
+      ], [
+        {label:'View Tasks', action:'open_tasks', variant:'purple'},
+        {label:'Start Top Task', action:'start_task'},
+      ]);
+
+      if (kind==='Rewards') return common('Wallet Action', 'Rewards Summary', [
+        ['Earned today','12 Q¢'],
+        ['Pending','3 Q¢'],
+      ], [
+        {label:'View Rewards', action:'open_rewards', variant:'purple'},
+        {label:'How to earn', action:'how_earn'},
+      ]);
+
+      if (kind==='Reputation') return common('Wallet Action', 'Reputation Status', [
+        ['Multiplier','1.2×'],
+        ['Next tier','1.3×'],
+      ], [
+        {label:'View Reputation', action:'open_reputation', variant:'purple'},
+        {label:'Submit Claim', action:'submit_claim'},
+      ]);
+
+      if (kind==='Library') return common('Wallet Action', 'Your Library', [
+        ['Owned','Episode #0'],
+        ['Locked','Episode #3'],
+      ], [
+        {label:'Open Library', action:'open_library', variant:'purple'},
+        {label:'Unlock Episode', action:'unlock_episode'},
+      ]);
+
+      return '';
+    }
+
+    function renderCards(){
+      const cards = [];
+      switch(state.scenario){
+        case 'send': cards.push('Send'); break;
+        case 'request': cards.push('Request'); break;
+        case 'verify': cards.push('Verify'); break;
+        case 'buy': cards.push('Buy'); break;
+        case 'library': cards.push('Library'); break;
+        case 'tasks': cards.push('Tasks'); break;
+        case 'rewards': cards.push('Rewards'); break;
+        case 'reputation': cards.push('Reputation'); break;
+        case 'unlock': cards.push('Unlock','Send'); break; // up to 2
+      }
+      $('cards').innerHTML = cards.map(cardHTML).join('');
+    }
+
+    function renderPanel(){
+      const tab = state.activeTab;
+      const box = (title, right, body)=>`<div class="box"><div class="bt"><span>${title}</span><span>${right||''}</span></div>${body||''}</div>`;
+
+      if (tab==='Wallet'){
+        const body = `
+          <div class="grid2">
+            <button class="primary" type="button" data-panel-action="send">Send</button>
+            <button type="button" data-panel-action="request">Request</button>
+            <button type="button" data-panel-action="verify">Verify</button>
+            <button class="amber" type="button" data-panel-action="buy">Buy KNYT</button>
+          </div>
+          <div class="listItem" style="margin-top:10px">
+            <div><div class="liTitle">Suggested Action</div><div class="liSub" id="suggestedLine">Based on the inference: ${state.scenario}</div></div>
+            <button class="primary" type="button" data-panel-action="openActive">Open</button>
+          </div>
+          <div class="listItem">
+            <div><div class="liTitle">x402 / Settlement</div><div class="liSub">Retry settlement by ID</div></div>
+            <button type="button" data-panel-action="settlement">Retry</button>
+          </div>
+        `;
+        $('suiteBody').innerHTML = box('Wallet', 'Connected', body);
+        return;
+      }
+
+      if (tab==='Library'){
+        const body = `
+          <div class="listItem"><div><div class="liTitle">Episode #0</div><div class="liSub">Owned</div></div><button class="primary" type="button" data-panel-action="openOwned">Open</button></div>
+          <div class="listItem"><div><div class="liTitle">Episode #3</div><div class="liSub">Locked · 10 Q¢</div></div><button class="amber" type="button" data-panel-action="checkout">Unlock</button></div>
+        `;
+        $('suiteBody').innerHTML = box('Library', '2 items', body);
+        return;
+      }
+
+      if (tab==='Tasks'){
+        const body = `
+          <div class="listItem"><div><div class="liTitle">Verify identity</div><div class="liSub">Reward: 5 Q¢</div></div><button class="primary" type="button" data-panel-action="startTask">Start</button></div>
+          <div class="listItem"><div><div class="liTitle">Read Episode #0</div><div class="liSub">Reward: 2 Q¢</div></div><button type="button" data-panel-action="openTask">Open</button></div>
+        `;
+        $('suiteBody').innerHTML = box('Tasks', '2 pending', body);
+        return;
+      }
+
+      if (tab==='Reputation'){
+        const body = `
+          <div class="grid2">
+            <div class="metric"><div class="mLabel">Multiplier</div><div class="mValue">1.2×</div></div>
+            <div class="metric"><div class="mLabel">Next tier</div><div class="mValue">1.3×</div></div>
+          </div>
+          <div class="actions" style="margin-top:10px">
+            <button class="purple" type="button" data-panel-action="submitClaim">Submit Claim</button>
+            <button type="button" data-panel-action="learnRep">Learn more</button>
+          </div>
+        `;
+        $('suiteBody').innerHTML = box('Reputation', 'Tier: Knight', body);
+        return;
+      }
+
+      if (tab==='Rewards'){
+        const body = `
+          <div class="grid2">
+            <div class="metric"><div class="mLabel">Earned (month)</div><div class="mValue">120 Q¢</div></div>
+            <div class="metric"><div class="mLabel">Pending</div><div class="mValue">3 Q¢</div></div>
+          </div>
+          <div class="listItem"><div><div class="liTitle">Referral bonus</div><div class="liSub">+5 Q¢</div></div><button type="button" data-panel-action="details">Details</button></div>
+          <div class="listItem"><div><div class="liTitle">Task completion</div><div class="liSub">+2 Q¢</div></div><button type="button" data-panel-action="details">Details</button></div>
+        `;
+        $('suiteBody').innerHTML = box('Rewards', 'Updated: now', body);
+        return;
+      }
+
+      $('suiteBody').innerHTML = '';
+    }
+
+    function logAction(text){
+      const el = document.createElement('div');
+      el.className = 'msg assistant';
+      el.innerHTML = `<div class="bubble"><b>Mock event</b><div style="margin-top:6px;color:var(--mut)">${text}</div></div>`;
+      $('chatScroll').appendChild(el);
+      $('chatScroll').scrollTop = $('chatScroll').scrollHeight;
+    }
+
+    // Wiring
+    $('btnWide').addEventListener('click', ()=>setLayout('wide'));
+    $('btnNarrow').addEventListener('click', ()=>setLayout('narrow'));
+    $('collapse').addEventListener('click', ()=>{ if (state.layout==='narrow') setCollapsed(!state.collapsed); });
+
+    document.querySelectorAll('[data-sim]').forEach(b=>b.addEventListener('click', ()=>{
+      setScenario(b.dataset.sim);
+      if (state.layout==='narrow') setCollapsed(true); // start collapsed in narrow to show behavior
+    }));
+
+    document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click', ()=>setTab(b.dataset.tab)));
+
+    document.body.addEventListener('click', (e)=>{
+      const t = e.target;
+      if (!(t instanceof HTMLElement)) return;
+
+      const open = t.getAttribute('data-open');
+      if (open){
+        setCollapsed(false);
+        setTab(open);
+        return;
+      }
+
+      const ql = t.getAttribute('data-ql');
+      if (ql){
+        // quicklinks behave like prompting the copilot; also route to relevant tab.
+        if (ql.toLowerCase().includes('task')) setScenario('tasks');
+        else if (ql.toLowerCase().includes('reward')) setScenario('rewards');
+        else if (ql.toLowerCase().includes('balance')) setScenario('send');
+        logAction(`Quicklink clicked: <b>${ql}</b> (mock prompt)`);
+        return;
+      }
+
+      const act = t.getAttribute('data-action');
+      if (act){
+        if (act.includes('send') || act.includes('verify') || act.includes('buy') || act.includes('request') || act.includes('unlock')) setTab('Wallet');
+        if (act.includes('tasks')) setTab('Tasks');
+        if (act.includes('rewards')) setTab('Rewards');
+        if (act.includes('reputation')) setTab('Reputation');
+        if (act.includes('library')) setTab('Library');
+        logAction(`Inline card action: <b>${act}</b>`);
+        return;
+      }
+
+      const pa = t.getAttribute('data-panel-action');
+      if (pa){
+        if (pa==='send') setScenario('send');
+        if (pa==='request') setScenario('request');
+        if (pa==='verify') setScenario('verify');
+        if (pa==='buy') setScenario('buy');
+        logAction(`Panel action: <b>${pa}</b>`);
+        return;
+      }
+    });
+
+    $('sendBtn').addEventListener('click', ()=>logAction('User sent a message (mock). Intent routing would run here.'));
+
+    // Init
+    setLayout('wide');
+    setScenario('send');
+    setCollapsed(false);
+  </script>
+</body>
+</html>

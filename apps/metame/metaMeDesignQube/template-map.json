@@ -1,0 +1,51 @@
+{
+  "meta": {
+    "schemaVersion": "1.0",
+    "authority_level": "guidance",
+    "notes": "Directional mapping from KNYT reference screens to template families. Use as hints/bias, not strict parity."
+  },
+  "screens": [
+    {
+      "file": "IMG_3746.PNG",
+      "templateId": "auth/login",
+      "themeHint": "light",
+      "tags": ["auth", "metame", "welcome", "light"],
+      "notes": "Beige/cream metaMe welcome + login with coral CTAs."
+    },
+    {
+      "file": "IMG_3747.PNG",
+      "templateId": "auth/persona-picker",
+      "themeHint": "light",
+      "tags": ["persona", "identity", "light"],
+      "notes": "Persona picker list (Work/Play/Private/Anon)."
+    },
+    {
+      "file": "KnytApp.png",
+      "templateId": "content/browse-grid",
+      "themeHint": "dark",
+      "tags": ["browse", "inventory", "chips", "bottomnav", "dark"],
+      "notes": "Inventory grid with filter chips + Owned toggle + bottom overlay nav."
+    },
+    {
+      "file": "Screen Shot 2021-07-22 at 6.11.22 PM.png",
+      "templateId": "content/immersive-hero",
+      "themeHint": "dark",
+      "tags": ["detail", "hero", "immersive", "dark"],
+      "notes": "Full-screen hero asset (minimal chrome)."
+    },
+    {
+      "file": "Screen Shot 2021-07-22 at 6.11.46 PM.png",
+      "templateId": "offers/offers-in-feed",
+      "themeHint": "dark",
+      "tags": ["offers", "banner", "knyt", "dark"],
+      "notes": "Offer banner embedded in browse/feed context. Use $KNYT only inside KNYT offer contexts."
+    },
+    {
+      "file": "Screen Shot 2021-07-22 at 6.40.31 PM.png",
+      "templateId": "wallet/hub",
+      "themeHint": "dark",
+      "tags": ["wallet", "iqubes", "segmented", "dark"],
+      "notes": "Wallet Items/iQubes with People/Things segmentation. Canonical denom: Q¢/QCT."
+    }
+  ]
+}

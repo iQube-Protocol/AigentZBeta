@@ -1,0 +1,206 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    --background: 220 20% 8%;
+    --foreground: 0 0% 98%;
+
+    --card: 220 18% 12%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 220 18% 10%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 180 80% 55%;
+    --primary-foreground: 220 20% 8%;
+
+    --secondary: 280 80% 60%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 220 15% 20%;
+    --muted-foreground: 0 0% 65%;
+
+    --accent: 180 80% 55%;
+    --accent-foreground: 220 20% 8%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 220 15% 18%;
+    --input: 220 15% 18%;
+    --ring: 180 80% 55%;
+
+    --radius: 0.75rem;
+
+    /* The Qriptopian brand colors */
+    --qripto-cyan: 180 80% 55%;
+    --qripto-purple: 280 80% 60%;
+    --qripto-pink: 330 80% 65%;
+    --qripto-blue: 220 80% 60%;
+    
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(180 80% 55% / 0.2), hsl(280 80% 60% / 0.2));
+    --gradient-secondary: linear-gradient(135deg, hsl(280 80% 60% / 0.15), hsl(330 80% 65% / 0.15));
+    --gradient-accent: linear-gradient(180deg, transparent, hsl(220 20% 8% / 0.8));
+    --gradient-glow: radial-gradient(circle at center, hsl(180 80% 55% / 0.15), transparent 70%);
+    
+    /* Shadows & Effects */
+    --shadow-elevated: 0 8px 32px hsl(220 20% 0% / 0.4);
+    --shadow-glow: 0 0 40px hsl(180 80% 55% / 0.3);
+    --blur-glass: blur(12px);
+    
+    /* Transitions */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-spring: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+
+    --sidebar-background: 220 18% 10%;
+    --sidebar-foreground: 0 0% 90%;
+    --sidebar-primary: 180 80% 55%;
+    --sidebar-primary-foreground: 220 20% 8%;
+    --sidebar-accent: 220 15% 18%;
+    --sidebar-accent-foreground: 0 0% 90%;
+    --sidebar-border: 220 15% 18%;
+    --sidebar-ring: 180 80% 55%;
+  }
+
+  .dark {
+    --background: 220 15% 10%;
+    --foreground: 180 5% 96%;
+
+    --card: 220 18% 13%;
+    --card-foreground: 180 5% 96%;
+
+    --popover: 220 20% 10%;
+    --popover-foreground: 180 5% 96%;
+
+    --primary: 180 85% 45%;
+    --primary-foreground: 220 15% 8%;
+
+    --secondary: 270 65% 58%;
+    --secondary-foreground: 220 15% 8%;
+
+    --muted: 220 15% 20%;
+    --muted-foreground: 180 5% 65%;
+
+    --accent: 270 75% 65%;
+    --accent-foreground: 220 15% 8%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 180 5% 96%;
+
+    --border: 220 15% 22%;
+    --input: 220 15% 22%;
+    --ring: 180 85% 45%;
+
+    --sidebar-background: 220 18% 10%;
+    --sidebar-foreground: 180 5% 90%;
+    --sidebar-primary: 180 85% 45%;
+    --sidebar-primary-foreground: 220 15% 8%;
+    --sidebar-accent: 220 15% 18%;
+    --sidebar-accent-foreground: 180 5% 90%;
+    --sidebar-border: 220 15% 18%;
+    --sidebar-ring: 180 85% 45%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  /* Hide scrollbar but keep scroll functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;  /* Chrome, Safari and Opera */
+  }
+}
+
+/* =============================================================================
+   COPILOT THINKING ANIMATION
+   Progressive dot enlargement moving right, smooth continuous effect
+   ============================================================================= */
+
+/* Thinking dots container */
+.copilot-thinking-dots {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+}
+
+/* Individual dot - base state is small and dim */
+.copilot-thinking-dots .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: rgb(74, 222, 128); /* green-400 */
+  opacity: 0.3;
+  transform: scale(0.8);
+  animation: copilot-pulse-right 1.5s ease-in-out infinite;
+}
+
+/* Staggered animation delays for left-to-right pulse effect */
+.copilot-thinking-dots .dot:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.copilot-thinking-dots .dot:nth-child(2) {
+  animation-delay: 0.25s;
+}
+
+.copilot-thinking-dots .dot:nth-child(3) {
+  animation-delay: 0.5s;
+}
+
+/* Horizontal pulsing animation - dot enlarges then shrinks as pulse moves right */
+@keyframes copilot-pulse-right {
+  0%, 100% {
+    transform: scale(0.8);
+    opacity: 0.3;
+  }
+  25% {
+    transform: scale(1.4);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(0.8);
+    opacity: 0.3;
+  }
+}
+
+/* Color variants */
+.copilot-thinking-dots.emerald .dot {
+  background-color: rgb(52, 211, 153); /* emerald-400 */
+}
+
+.copilot-thinking-dots.purple .dot {
+  background-color: rgb(192, 132, 252); /* purple-400 */
+}
+
+.copilot-thinking-dots.cyan .dot {
+  background-color: rgb(34, 211, 238); /* cyan-400 */
+}
+
+@media (min-width: 768px) {
+  .codex-copilot-container {
+    top: auto !important;
+    left: auto !important;
+    right: 10px !important;
+    bottom: 10px !important;
+  }
+}

@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
     });
     
     const { data: updateData, error: updateError } = await supabase
-      .from('persona')
+      .from('personas')
       .update({
         fio_handle: handle,
         fio_public_key: publicKey,
@@ -146,7 +146,7 @@ export async function POST(req: NextRequest) {
       try {
         const supabase = createClient(supabaseUrl, supabaseKey);
         await supabase
-          .from('persona')
+          .from('personas')
           .update({
             fio_registration_status: 'failed'
           })

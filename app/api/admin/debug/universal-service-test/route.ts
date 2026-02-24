@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
     const personaData = await identityService.executeQuery(
       async (client) => {
         const { data, error } = await client
-          .from('persona')
+          .from('personas')
           .select('id, fio_handle, agent_id')
           .limit(3);
         return { data, error };
@@ -91,7 +91,7 @@ export async function GET(req: NextRequest) {
       async (client) => {
         // Test with existing table for now, will be registry tables in future
         const { data, error } = await client
-          .from('persona')
+          .from('personas')
           .select('count')
           .limit(1);
         return { success: !error, error };

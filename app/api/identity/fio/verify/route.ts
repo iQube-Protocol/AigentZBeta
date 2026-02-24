@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     if (personaId && verified) {
       const supabase = createClient(supabaseUrl, supabaseKey);
       const { error: updateError } = await supabase
-        .from('persona')
+        .from('personas')
         .update({
           fio_handle: handle,
           fio_public_key: publicKey,

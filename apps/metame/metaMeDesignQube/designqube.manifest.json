@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "0.1",
+  "designQubeId": "metame-v1",
+  "name": "metaMe DesignQube",
+  "authorityLevel": "guidance",
+  "themes": [
+    "light.metame",
+    "dark.metame"
+  ],
+  "paths": {
+    "tokens": "tokens.guidance.json",
+    "components": "components.json",
+    "constraints": "constraints.json",
+    "templateMap": "template-map.json",
+    "referencesIndex": "references/index.json",
+    "styleBrief": "style-brief.md",
+    "styleQube": "style-qube.json",
+    "structureQube": "structure-qube.json",
+    "sources": "sources.json",
+    "copilotHints": "copilot-hints.json"
+  }
+}

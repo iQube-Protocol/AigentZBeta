@@ -94,6 +94,22 @@ This document tracks work items from sprint plans that have been deprioritized o
 
 ---
 
+### **Identity & FIO Reliability** (Deferred)
+**Status**: Not started  
+**Priority**: Medium
+
+- [ ] **FIO Handle Availability Service**
+  - Move handle availability checks to server API with strict timeout
+  - Retry against secondary FIO endpoint
+  - Return explicit status (available/unavailable/timeout/error)
+  - Cache results briefly to reduce external dependency stalls
+- [ ] **Tenant Discoverable Agent Directory**
+  - Add tenant-scoped agent lookup for Quick Add
+  - Surface discoverable agent personas in the wallet UI
+  - Support search, paging, and filtered retrieval
+
+---
+
 ## 🔗 Cross-Chain Infrastructure Backlog
 
 ### **DVN & Proof of State** (Partially Complete)
@@ -188,6 +204,45 @@ This document tracks work items from sprint plans that have been deprioritized o
 
 ---
 
+### **Auto-Drive Payloads for Liquid UI Template Archetypes** (Deferred)
+**Status**: Not started  
+**Priority**: Medium
+
+- [ ] **Define canonical template payload schema**
+  - Define versioned payload for `LiquidUITemplateArchetypeQube` (e.g. `schemaVersion`, `liquid_template_id`, `archetype`, UI metadata, optional manifest/slots)
+  - Specify how payload maps to `metaExtras` vs stored payload blob
+
+- [ ] **Upload payload blobs to Auto-Drive and persist references**
+  - Use existing Auto-Drive upload service (chunked upload/retry)
+  - Store returned URL / CID / drive reference on the iQube registry record (e.g. `metaExtras.autodrive_payload_ref`)
+  - Establish size limits and content-type conventions
+
+- [ ] **Index + retrieval path (server API)**
+  - Add API support to fetch template payload by reference with caching
+  - Implement fallback order: Supabase payload ref → Auto-Drive → local seeded store
+  - Add basic validation + error shaping so gallery never hard-crashes
+
+- [ ] **Dev tooling**
+  - Add a script/endpoint to batch-publish the 20 template archetype payloads
+  - Add a script/endpoint to rebuild a lightweight index manifest for fast listing
+
+---
+
+### **Smart Content Variant Tooling** (Planned)
+**Status**: Not started  
+**Priority**: Medium
+
+- [ ] Add image variants inspector to Smart Content modal (preview ratios + device selection + resolver output)
+- [ ] Add Studio Codex authoring flow for Runtime capsules (design Codex layouts/summaries directly in Composer and publish capsule-ready presets)
+- [ ] Extend Runtime Capsule Framework adapters beyond Codex + ExperienceQube (unified summary/runtime rendering for additional source types from SmartContent/Liquid UI registry)
+- [ ] Author Runtime DIS baseline from implemented visual/runtime capsule requirements and run DPR audit profile for Runtime shell
+- [ ] Update Liquid template fallback resolution so Codex tabs can hydrate from SmartContent modules as well as ExperienceQube modules
+  - Do not require ExperienceQube packet/context IDs (`feature_item_id`, `supporting_item_ids`) for fallback rendering
+  - Add fallback SmartContent sourcing by intent/realm/tags when packet context is absent
+  - Preserve ExperienceQube packet hydration when packet/context IDs are present
+
+---
+
 ### **Operator & Audit Enhancements** (Deferred)
 **Status**: Basic functionality in place  
 **Priority**: Low
@@ -247,6 +302,10 @@ This document tracks work items from sprint plans that have been deprioritized o
   - Optional divider between view icons and cart
   - Fine-grained spacing adjustments
   - Pixel-perfect alignment passes
+
+- [ ] **Active Cartridge → Tenant Binding**
+  - Use the active cartridge context to set the QubeTalk tenant id
+  - Default to `metame` when no cartridge is active
 
 - [ ] **Documentation with Screenshots**
   - Add screenshots to OPERATORS_MANUAL.md

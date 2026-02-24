@@ -103,10 +103,12 @@ function cryptoRandomHex(bytes: number): string {
   const arr = new Uint8Array(bytes);
   if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
     crypto.getRandomValues(arr);
-  } else {
+  } else if (typeof global !== 'undefined' && (global as any).crypto) {
     // Node fallback
-    const { randomFillSync } = require('crypto');
+    const { randomFillSync } = (global as any).crypto;
     randomFillSync(arr);
+  } else {
+    throw new Error('Cryptographic random number generation not available');
   }
   return Buffer.from(arr).toString('hex');
 }

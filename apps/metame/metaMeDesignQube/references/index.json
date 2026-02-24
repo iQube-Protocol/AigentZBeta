@@ -1,0 +1,20 @@
+[
+  {
+    "id": "metame-ref-1",
+    "file": "metame-light-hero.png",
+    "tags": ["hero", "light"],
+    "themeHint": "light.metame"
+  },
+  {
+    "id": "metame-ref-2",
+    "file": "metame-dark-grid.png",
+    "tags": ["grid", "dark"],
+    "themeHint": "dark.metame"
+  },
+  {
+    "id": "metame-ref-3",
+    "file": "metame-wallet.png",
+    "tags": ["wallet", "dark"],
+    "themeHint": "dark.metame"
+  }
+]

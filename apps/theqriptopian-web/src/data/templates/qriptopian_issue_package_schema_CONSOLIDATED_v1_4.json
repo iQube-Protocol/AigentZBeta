@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "qriptopian.issue_package.v1.4.schema",
+  "title": "Qriptopian Issue Package (Consolidated) v1.4",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "publication",
+    "issue",
+    "collections"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string"
+    },
+    "compatibility": {
+      "type": "object"
+    },
+    "world_model": {
+      "type": "object"
+    },
+    "text_reader_profile": {
+      "type": "object"
+    },
+    "publication": {
+      "type": "object"
+    },
+    "issue": {
+      "type": "object"
+    },
+    "collections": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": true
+}

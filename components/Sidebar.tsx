@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useState, useEffect, ReactNode } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRef, useState, useEffect, ReactNode } from "react";
 import { 
   ChevronDown, 
   ChevronRight, 
@@ -24,7 +24,18 @@ import {
   Wrench,
   Bot,
   Grid3X3,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Contact,
+  Award,
+  TrendingUp,
+  Layers,
+  Building2,
+  Shield,
+  BookOpen,
+  Library,
+  Sparkles,
+  MessageSquare,
+  Hexagon
 } from "lucide-react";
 import { SubmenuDrawer } from "./SubmenuDrawer";
 
@@ -71,9 +82,12 @@ const FEATURE_OPS = process.env.NEXT_PUBLIC_FEATURE_OPS !== 'false';
 
 const sections: SidebarSection[] = [
   {
-    label: "Dashboard",
-    icon: <Home size={16} />,
-    items: [{ href: "/dashboard", label: "Dashboard", icon: <Home size={14} /> }],
+    label: "metaMe",
+    icon: <Hexagon size={16} className="text-slate-400" />,
+    items: [
+      { href: "/metame/runtime", label: "Runtime", icon: <Hexagon size={14} className="text-slate-400" /> },
+      { href: "/studio/composer", label: "Studio", icon: <SlidersHorizontal size={14} className="text-slate-400" /> },
+    ],
   },
   {
     label: "Persona",
@@ -88,10 +102,12 @@ const sections: SidebarSection[] = [
     label: "Orchestrator",
     icon: <Bot size={16} />,
     items: [
+      { href: "/copilot", label: "Platform Copilot", icon: <Brain size={14} className="text-cyan-400" /> },
       { href: "/aigents/aigent-z", label: "Aigent Z (System AI)", icon: <Bot size={14} className="text-blue-400" /> },
       { href: "/aigents/aigent-moneypenny", label: "Aigent MoneyPenny", icon: <Bot size={14} className="text-purple-400" /> },
       { href: "/aigents/aigent-nakamoto", label: "Aigent Nakamoto", icon: <Bot size={14} className="text-orange-400" /> },
       { href: "/aigents/aigent-kn0w1", label: "Aigent Kn0w1", icon: <Bot size={14} className="text-green-400" /> },
+      { href: "/marketa", label: "Aigent Marketa (CMO)", icon: <TrendingUp size={14} className="text-rose-400" /> },
     ],
   },
   {
@@ -101,6 +117,41 @@ const sections: SidebarSection[] = [
       ...IQUBES_ACTIVE_ITEMS,
       ...IQUBE_OPS_ITEMS,
       ...IQUBE_REGISTRY_ITEMS,
+    ],
+  },
+  {
+    label: "Codex",
+    icon: <Library size={16} />,
+    items: [
+      { href: "/codex/viewer", label: "Codex", icon: <BookOpen size={14} className="text-purple-400" /> },
+      { href: "/codex/wallet", label: "SmartWallet", icon: <CreditCard size={14} className="text-cyan-400" /> },
+      { href: "/codex/copilot", label: "Copilot", icon: <Brain size={14} className="text-emerald-400" /> },
+      { href: "/studio/composer", label: "Composer", icon: <SlidersHorizontal size={14} className="text-amber-400" /> },
+      { href: "/studio/qubetalk", label: "QubeTalk Studio", icon: <MessageSquare size={14} className="text-sky-400" /> },
+      { href: "/admin/qubetalk", label: "QubeTalk Admin", icon: <MessageSquare size={14} className="text-rose-400" /> },
+    ],
+  },
+  {
+    label: "Content",
+    icon: <BookOpen size={16} />,
+    items: [
+      { href: "/content", label: "Content Hub", icon: <Sparkles size={14} className="text-fuchsia-400" /> },
+      { href: "/content/library", label: "My Library", icon: <Library size={14} className="text-cyan-400" /> },
+      { href: "/content/create", label: "Create", icon: <PlusCircle size={14} className="text-emerald-400" /> },
+      { href: "/content/demo", label: "Demo Gallery", icon: <Grid3X3 size={14} className="text-purple-400" /> },
+    ],
+  },
+  {
+    label: "CRM",
+    icon: <Contact size={16} />,
+    items: [
+      { href: "/crm", label: "CRM Dashboard", icon: <TrendingUp size={14} className="text-emerald-400" /> },
+      { href: "/crm/personas", label: "Personas", icon: <Users size={14} className="text-cyan-400" /> },
+      { href: "/crm/contributions", label: "Contributions", icon: <Award size={14} className="text-amber-400" /> },
+      { href: "/crm/rewards", label: "Rewards", icon: <CreditCard size={14} className="text-purple-400" /> },
+      { href: "/crm/segments", label: "Segments", icon: <Layers size={14} className="text-pink-400" /> },
+      { href: "/crm/franchises", label: "Franchises", icon: <Building2 size={14} className="text-blue-400" /> },
+      { href: "/crm/admin", label: "Admin Roles", icon: <Shield size={14} className="text-red-400" /> },
     ],
   },
   {
@@ -142,9 +193,14 @@ const safeLocalStorage = {
 
 export const Sidebar = () => {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const router = useRouter();
-  const [collapsed, setCollapsed] = useState(false);
-  const [openSections, setOpenSections] = useState<string[]>([]);
+  const [collapsed, setCollapsed] = useState(true);
+  const [hovering, setHovering] = useState(false);
+  const [pinnedOpen, setPinnedOpen] = useState(false);
+  const collapseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // CRITICAL FIX: Initialize with a default open section for immediate UX
+  const [openSections, setOpenSections] = useState<string[]>(["Persona"]); // Default to first non-dashboard section
   const [toggleStates, setToggleStates] = useState<Record<string, boolean>>({});
   const [storageAvailable, setStorageAvailable] = useState<boolean | null>(null);
   const [showOnlyActive, setShowOnlyActive] = useState<Record<string, boolean>>({});
@@ -206,19 +262,11 @@ export const Sidebar = () => {
       // Initialize default values first
       const initialShowOnlyActive: Record<string, boolean> = {};
       sections.forEach(section => {
-        initialShowOnlyActive[section.label] = true; // Default to showing only active items
+        initialShowOnlyActive[section.label] = false; // Default to showing all items in collapsed mode
       });
       
       // Load collapsed state
-      let sidebarCollapsed = false;
-      const savedCollapsed = safeLocalStorage.getItem('sidebarCollapsed');
-      if (savedCollapsed) {
-        try {
-          sidebarCollapsed = JSON.parse(savedCollapsed);
-        } catch (e) {
-          console.error('Error parsing sidebarCollapsed:', e);
-        }
-      }
+      const sidebarCollapsed = true;
       
       // Only include sections with active items or from localStorage
       let initialOpenSections: string[] = [];
@@ -228,6 +276,16 @@ export const Sidebar = () => {
           initialOpenSections = JSON.parse(savedOpenSections);
         } catch (e) {
           console.error('Error parsing openSections:', e);
+        }
+      }
+      
+      // CRITICAL FIX: Ensure at least one section is open by default for better UX
+      // If no sections are open from localStorage, open the first non-runtime section
+      if (initialOpenSections.length === 0) {
+        // Find the first non-runtime section and open it
+      const firstNonRuntimeSection = sections.find(section => section.label !== "metaMe");
+        if (firstNonRuntimeSection) {
+          initialOpenSections = [firstNonRuntimeSection.label];
         }
       }
 
@@ -305,9 +363,9 @@ export const Sidebar = () => {
           const parsedShowOnlyActive = JSON.parse(savedShowOnlyActive);
           // Ensure all sections are initialized with a default value
           sections.forEach(section => {
-            // If section doesn't exist in saved state, default to true (show only active)
+            // If section doesn't exist in saved state, default to false (show all)
             if (parsedShowOnlyActive[section.label] === undefined) {
-              parsedShowOnlyActive[section.label] = true;
+              parsedShowOnlyActive[section.label] = false;
             }
           });
           Object.assign(initialShowOnlyActive, parsedShowOnlyActive);
@@ -359,7 +417,7 @@ export const Sidebar = () => {
   const initDefaultShowOnlyActive = () => {
     const initialShowOnlyActive: Record<string, boolean> = {};
     sections.forEach(section => {
-      initialShowOnlyActive[section.label] = true; // Default to showing only active items
+      initialShowOnlyActive[section.label] = false; // Default to showing all items in collapsed mode
     });
     setShowOnlyActive(initialShowOnlyActive);
     
@@ -528,25 +586,55 @@ export const Sidebar = () => {
     // Only save toggle states, don't modify section expansion
     safeLocalStorage.setItem('toggleStates', JSON.stringify(toggleStates));
   }, [toggleStates, initialized, isClient, storageAvailable]);
+
+  useEffect(() => {
+    if (!hovering && !pinnedOpen) {
+      setCollapsed(true);
+    }
+  }, [hovering, pinnedOpen]);
+
+  const scheduleCollapse = (delayMs = 4500) => {
+    if (collapseTimerRef.current) {
+      clearTimeout(collapseTimerRef.current);
+    }
+    setPinnedOpen(true);
+    collapseTimerRef.current = setTimeout(() => {
+      setPinnedOpen(false);
+      setCollapsed(true);
+    }, delayMs);
+  };
+
+  const handleHoverStart = () => {
+    setHovering(true);
+    setCollapsed(false);
+  };
+
+  const handleHoverEnd = () => {
+    setHovering(false);
+    if (!pinnedOpen) {
+      setCollapsed(true);
+    }
+  };
   
   const toggleSection = (label: string) => {
     if (collapsed) {
-      // In collapsed mode, toggle between showing all icons or only active ones
+      setCollapsed(false);
+      scheduleCollapse();
       setShowOnlyActive(prev => ({
         ...prev,
-        [label]: !prev[label]
+        [label]: false,
       }));
+      setOpenSections(prev => (prev.includes(label) ? prev : [...prev, label]));
       return;
     }
     
-    // Manually toggle the section regardless of auto-expansion rules
-    if (openSections.includes(label)) {
-      // Close the section
-      setOpenSections(prev => prev.filter(s => s !== label));
-    } else {
-      // Open the section
-      setOpenSections(prev => [...prev, label]);
-    }
+    // Manually toggle the section
+    setOpenSections(prev => {
+      const newSections = prev.includes(label) 
+        ? prev.filter(s => s !== label)
+        : [...prev, label];
+      return newSections;
+    });
   };
 
   const toggleItemState = (href: string) => {
@@ -754,7 +842,8 @@ export const Sidebar = () => {
       .find(section => section.label === "Orchestrator")
       ?.items.map(item => item.href) || [];
 
-    const genericAiHref = agentHrefs.find(h => h.includes('/aigents/generic-ai')) || '';
+    const genericAiHref =
+      agentHrefs.find(h => h.includes('/aigents/generic-ai')) || '/aigents/generic-ai';
 
     // Extract persona name if present as a query (e.g., /aigents/generic-ai?iqube=metaMe)
     let personaName: string | null = null;
@@ -780,6 +869,12 @@ export const Sidebar = () => {
     if (activeAgentHref && personaName) {
       console.log(`Navigating to ${activeAgentHref} with persona=${personaName}`);
       router.push(`${activeAgentHref}?persona=${personaName}`);
+      return;
+    }
+
+    if (personaHref) {
+      console.log(`Navigating directly to persona href: ${personaHref}`);
+      router.push(personaHref);
     }
   };
 
@@ -842,6 +937,14 @@ export const Sidebar = () => {
   const toggleSidebar = () => {
     const newState = !collapsed;
     setCollapsed(newState);
+    if (!newState) {
+      scheduleCollapse();
+    } else {
+      setPinnedOpen(false);
+      if (collapseTimerRef.current) {
+        clearTimeout(collapseTimerRef.current);
+      }
+    }
     
     // When collapsing the sidebar, ensure all sections show only active items
     if (newState) { // newState is true when collapsing
@@ -857,7 +960,24 @@ export const Sidebar = () => {
     }
     
     if (storageAvailable) {
-      safeLocalStorage.setItem('sidebarCollapsed', JSON.stringify(newState));
+      safeLocalStorage.setItem('sidebarCollapsed', JSON.stringify(true));
+    }
+  };
+
+  const handleSidebarNavigate = (href: string) => {
+    if (!href || href.startsWith('#')) {
+      return;
+    }
+    scheduleCollapse();
+    
+    try {
+      router.push(href);
+    } catch (error) {
+      console.error('Router push failed:', error);
+      // Fallback to hard navigation if router fails.
+      if (typeof window !== 'undefined') {
+        window.location.assign(href);
+      }
     }
   };
 
@@ -867,7 +987,7 @@ export const Sidebar = () => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key.toLowerCase() === "g") { gPressed = true; return; }
       if (gPressed) {
-        if (e.key.toLowerCase() === "d") location.href = "/dashboard";
+        if (e.key.toLowerCase() === "d") location.href = "/metame/runtime";
         if (e.key.toLowerCase() === "r") location.href = "/registry";
         if (e.key.toLowerCase() === "s") location.href = "/settings/profile";
         if (e.key.toLowerCase() === "a") location.href = "/aigents";
@@ -877,39 +997,44 @@ export const Sidebar = () => {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+  
+  const hideForEmbed = searchParams?.get("embed") === "1" && pathname?.startsWith("/metame/runtime");
 
-  // Debug logging
-  console.log('Sidebar render state:', { initialized, isClient, storageAvailable });
-  
-  // Show a minimal placeholder during initialization to prevent UI jumping
-  if (!initialized || !isClient) {
-    return <aside className="w-16 transition-all duration-200 bg-black/30 ring-1 ring-white/10 backdrop-blur-xl p-4 md:p-6 flex-shrink-0 min-h-screen"></aside>;
+  if (hideForEmbed) {
+    return null;
   }
-  
+
   return (
     <>
-      <aside className={`${collapsed ? "w-16" : "w-72"} transition-all duration-200 bg-black/30 ring-1 ring-white/10 backdrop-blur-xl p-4 md:p-6 flex-shrink-0 min-h-screen`}>
-        <button className="mb-6 text-sm font-semibold text-slate-200 hover:text-white flex items-center gap-2 uppercase tracking-wider" onClick={toggleSidebar}>
-          <Bot size={18} className="text-blue-400" />
-          {!collapsed && <span>QRIPTO: AGENTIQ</span>}
-          {!collapsed && <span className="ml-auto">«</span>}
-        </button>
-      <nav className="space-y-6">
+      <aside
+        className={`${collapsed ? "w-16" : "w-72"} relative z-[90] pointer-events-auto transition-all duration-200 bg-black/30 ring-1 ring-white/10 backdrop-blur-xl p-4 md:p-6 flex-shrink-0 h-screen flex flex-col overflow-hidden`}
+        onMouseEnter={handleHoverStart}
+        onMouseLeave={handleHoverEnd}
+      >
+        <div className="flex-shrink-0">
+          <button className="mb-6 text-sm font-semibold text-slate-200 hover:text-white flex items-center gap-2 uppercase tracking-wider" onClick={toggleSidebar}>
+            <Bot size={18} className="text-blue-400" />
+            {!collapsed && <span>QRIPTO: AGENTIQ</span>}
+            {!collapsed && <span className="ml-auto">«</span>}
+          </button>
+        </div>
+      <nav className="space-y-6 flex-1 overflow-y-auto pr-1 pb-6">
         {sections.map((section) => {
-          const isDashboard = section.label === "Dashboard";
+          const isMetaMe = section.label === "metaMe";
           
           return (
             <div key={section.label}>
-              {/* Dashboard section is always shown */}
-              {isDashboard ? (
+              {/* metaMe section is always shown */}
+              {isMetaMe ? (
                 <div className="uppercase text-[11px] tracking-wider text-slate-400 mb-3 flex items-center group">
                   <div className="flex items-center justify-between w-full">
                     <Link 
-                      href="/dashboard"
-                      className="flex items-center gap-2 text-slate-100 hover:text-white transition-colors"
+                      href="/metame/runtime"
+                      prefetch={false}
+                      className="flex items-center gap-2 text-slate-200 hover:text-white transition-colors"
                     >
                       <div className="flex items-center gap-2">
-                        <span className="text-gray-500">{section.icon}</span>
+                        <span className="text-slate-400 group-hover:text-white transition-colors">{section.icon}</span>
                         {!collapsed && <span className="font-medium">{section.label}</span>}
                       </div>
                     </Link>
@@ -917,12 +1042,12 @@ export const Sidebar = () => {
                 </div>
               ) : (
                 <div 
-                  className={`uppercase text-[11px] tracking-wider text-slate-400 mb-3 flex items-center cursor-pointer group`}
+                  className={`uppercase text-[11px] tracking-wider text-slate-400 mb-3 flex items-center cursor-pointer group hover:text-slate-300 transition-colors`}
                   onClick={() => toggleSection(section.label)}
                 >
                   <div className="flex items-center justify-between w-full">
                     <div className="flex items-center gap-2">
-                      <span className="text-gray-500">{section.icon}</span>
+                      <span className="text-slate-400 group-hover:text-white transition-colors">{section.icon}</span>
                       {!collapsed && <span className="font-medium">{section.label}</span>}
                     </div>
                     {!collapsed && (openSections.includes(section.label) ? (
@@ -934,8 +1059,32 @@ export const Sidebar = () => {
                 </div>
               )}
 
-              {/* Expanded view for non-Dashboard sections */}
-              {openSections.includes(section.label) && !collapsed && !isDashboard && (
+              {isMetaMe && !collapsed && (
+                <div className="mb-4">
+                  <ul className="space-y-1">
+                    {section.items.map((item: SidebarItem) => {
+                      const active = pathname ? pathname.startsWith(item.href) : false;
+                      return (
+                        <li key={item.href}>
+                          <Link
+                            href={item.href}
+                            prefetch={false}
+                            className={`group flex items-center w-full px-3 py-2 rounded-lg transition-colors ${active ? "bg-slate-700/50 text-slate-100" : "text-slate-500 hover:text-slate-300 hover:bg-slate-700/30"}`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className={active ? "text-white" : "text-slate-400 group-hover:text-white"}>{item.icon}</span>
+                              <span className="text-[13px]">{item.label}</span>
+                            </div>
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
+
+              {/* Expanded view for non-metaMe sections */}
+              {openSections.includes(section.label) && !collapsed && !isMetaMe && (
                 <div className="mb-4">
                   {section.label === "iQubes" ? (
                     <div className="space-y-3">
@@ -965,6 +1114,7 @@ export const Sidebar = () => {
                                 <div className={`flex items-center justify-between w-full ${active || isItemActive ? 'bg-slate-700/50 text-slate-100 rounded-xl' : 'text-slate-500 hover:text-slate-300'}`}>
                                   <Link
                                     href={item.href}
+                                    prefetch={false}
                                     className="flex items-center w-full px-3 py-2"
                                     onClick={(e) => {
                                       if (isToggleable) { e.preventDefault(); handleModelQubeClick(item.href); }
@@ -1052,6 +1202,7 @@ export const Sidebar = () => {
                                   ) : (
                                     <Link
                                       href={item.href}
+                                      prefetch={false}
                                       className="flex items-center w-full px-3 py-2"
                                       onClick={(e) => {
                                         if (isToggleable || item.href.startsWith('#iqube-')) { e.preventDefault(); handleIQubeOperationsClick(item.href); }
@@ -1099,7 +1250,7 @@ export const Sidebar = () => {
                             return (
                               <li key={item.href} className="flex items-center justify-between">
                                 <div className={`flex items-center justify-between w-full ${active ? 'bg-slate-700/50 text-slate-100 rounded-xl' : 'text-slate-500 hover:text-slate-300'}`}>
-                                  <Link href={item.href} className="flex items-center w-full px-3 py-2">
+                                  <Link href={item.href} prefetch={false} className="flex items-center w-full px-3 py-2">
                                     <div className="flex items-center gap-2">
                                       <span>{item.icon}</span>
                                       <span className="text-[13px]">{item.label}</span>
@@ -1159,37 +1310,48 @@ export const Sidebar = () => {
                                   </div>
                                 </div>
                               ) : (
-                                <Link
-                                  href={item.href}
-                                  className="flex items-center w-full px-3 py-2"
-                                  onClick={(e) => {
-                                    if (isToggleable) {
-                                      const sectionLabel = sections.find(section => 
-                                        section.items.some(i => i.href === item.href)
-                                      )?.label;
-                                      
-                                      if (sectionLabel === "Persona") {
-                                        e.preventDefault();
-                                        handlePersonaClick(item.href);
-                                      } else if (sectionLabel === "iQubes") {
-                                        e.preventDefault();
-                                        handleModelQubeClick(item.href);
-                                      } else if (item.href.startsWith('#iqube-')) {
-                                        e.preventDefault();
-                                        handleIQubeOperationsClick(item.href);
+                                (!isToggleable && !item.drawerAction && !item.href.startsWith('#')) ? (
+                                  <Link
+                                    href={item.href}
+                                    prefetch={false}
+                                    className="flex items-center w-full px-3 py-2 hover:bg-slate-700/30 rounded-lg transition-colors"
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <span>{item.icon}</span>
+                                      <span className="text-[13px]">{item.label}</span>
+                                    </div>
+                                  </Link>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    className="flex items-center w-full px-3 py-2 hover:bg-slate-700/30 rounded-lg transition-colors"
+                                    onClick={() => {
+                                      if (isToggleable) {
+                                        const sectionLabel = sections.find(section =>
+                                          section.items.some(i => i.href === item.href)
+                                        )?.label;
+
+                                        if (sectionLabel === "Persona") {
+                                          handlePersonaClick(item.href);
+                                        } else if (sectionLabel === "iQubes") {
+                                          handleModelQubeClick(item.href);
+                                        } else if (item.href.startsWith('#iqube-')) {
+                                          handleIQubeOperationsClick(item.href);
+                                        }
+                                      } else if (item.drawerAction) {
+                                        setDrawerType(item.drawerAction);
+                                        setDrawerOpen(true);
+                                      } else {
+                                        handleSidebarNavigate(item.href);
                                       }
-                                    } else if (item.drawerAction) {
-                                      e.preventDefault();
-                                      setDrawerType(item.drawerAction);
-                                      setDrawerOpen(true);
-                                    }
-                                  }}
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <span>{item.icon}</span>
-                                    <span className="text-[13px]">{item.label}</span>
-                                  </div>
-                                </Link>
+                                    }}
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <span>{item.icon}</span>
+                                      <span className="text-[13px]">{item.label}</span>
+                                    </div>
+                                  </button>
+                                )
                               )}
                               {isToggleable && (
                                 <button 
@@ -1224,8 +1386,8 @@ export const Sidebar = () => {
                 </div>
               )}
               
-              {/* Collapsed view for non-Dashboard sections - only show filtered submenu items */}
-              {collapsed && !isDashboard && (
+              {/* Collapsed view for non-Runtime sections - only show filtered submenu items */}
+              {collapsed && !isMetaMe && (
                 <div>
                   {/* Only show submenu items, filtered based on showOnlyActive state */}
                   {section.items
@@ -1245,42 +1407,75 @@ export const Sidebar = () => {
                       
                       return (
                         <div key={item.href} className="flex justify-center mb-2 relative">
-                          <Link
-                            href={item.href}
-                            className={`flex items-center justify-center rounded-xl p-2 text-[13px] hover:bg-slate-700/50 ${active || isItemActive ? "bg-slate-700/50" : "bg-transparent"}`}
-                            title={item.label}
-                            onClick={(e) => {
-                              if (isToggleable) {
-                                const sectionLabel = sections.find(section => 
-                                  section.items.some(i => i.href === item.href)
-                                )?.label;
-                                
-                                if (sectionLabel === "Persona") {
-                                  // Prevent navigation for personas
-                                  e.preventDefault();
-                                  handlePersonaClick(item.href);
-                                } else if (sectionLabel === "iQubes") {
-                                  handleModelQubeClick(item.href);
-                                } else if (item.href.startsWith('#iqube-')) {
-                                  e.preventDefault();
-                                  console.log('Collapsed view clicked for:', item.href);
-                                  handleIQubeOperationsClick(item.href);
+                          {(!isToggleable && !item.drawerAction && !item.href.startsWith('#')) ? (
+                            <Link
+                              href={item.href}
+                              prefetch={false}
+                              className={`flex items-center justify-center rounded-xl p-2 text-[13px] hover:bg-slate-700/50 ${active || isItemActive ? "bg-slate-700/50" : "bg-transparent"}`}
+                              title={item.label}
+                            >
+                              {item.icon}
+                            </Link>
+                          ) : (
+                            <button
+                              type="button"
+                              className={`flex items-center justify-center rounded-xl p-2 text-[13px] hover:bg-slate-700/50 ${active || isItemActive ? "bg-slate-700/50" : "bg-transparent"}`}
+                              title={item.label}
+                              onClick={() => {
+                                if (isToggleable) {
+                                  const sectionLabel = sections.find(section =>
+                                    section.items.some(i => i.href === item.href)
+                                  )?.label;
+
+                                  if (sectionLabel === "Persona") {
+                                    handlePersonaClick(item.href);
+                                  } else if (sectionLabel === "iQubes") {
+                                    handleModelQubeClick(item.href);
+                                  } else if (item.href.startsWith('#iqube-')) {
+                                    handleIQubeOperationsClick(item.href);
+                                  }
+                                } else if (item.drawerAction) {
+                                  setDrawerType(item.drawerAction);
+                                  setDrawerOpen(true);
+                                } else {
+                                  handleSidebarNavigate(item.href);
                                 }
-                              } else if (item.drawerAction) {
-                                e.preventDefault();
-                                setDrawerType(item.drawerAction);
-                                setDrawerOpen(true);
-                              }
-                            }}
-                          >
-                            {item.icon}
-                          </Link>
+                              }}
+                            >
+                              {item.icon}
+                            </button>
+                          )}
                           {isToggleable && isItemActive && (
                             <div className="absolute top-0 right-0 h-2 w-2 rounded-full bg-green-500 mr-1 mt-1"></div>
                           )}
                         </div>
                       );
                     })}
+                </div>
+              )}
+
+              {collapsed && isMetaMe && (
+                <div className="mb-4">
+                  {section.items
+                    .filter((item: SidebarItem) => {
+                      const active = pathname ? pathname.startsWith(item.href) : false;
+                      return active;
+                    })
+                    .map((item: SidebarItem) => {
+                    const active = pathname ? pathname.startsWith(item.href) : false;
+                    return (
+                      <div key={item.href} className="flex justify-center mb-2 relative">
+                        <Link
+                          href={item.href}
+                          prefetch={false}
+                          className={`group flex items-center justify-center rounded-xl p-2 text-[13px] hover:bg-slate-700/50 ${active ? "bg-slate-700/50" : "bg-transparent"}`}
+                          title={item.label}
+                        >
+                          <span className={active ? "text-white" : "text-slate-400 hover:text-white"}>{item.icon}</span>
+                        </Link>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>

@@ -121,6 +121,7 @@ Edit `.env.local` with your settings:
 # Supabase Configuration (Required for Registry)
 SUPABASE_URL=your_supabase_project_url
 SUPABASE_ANON_KEY=your_supabase_anon_key
+# Server-only. Never expose this in client code/bundles.
 SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
@@ -475,6 +476,13 @@ NEXT_PUBLIC_CROSS_CHAIN_SERVICE_CANISTER_ID=sp5ye-2qaaa-aaaao-qkqla-cai
 See `DEPLOYMENT_CONFIG.md` for complete configuration details.
 
 **Without these environment variables, the DVN functionality will not work correctly.**
+
+## Thin Clients / External Agents
+
+For agents or external services that need to talk to Aigent Z and QubeBase directly (e.g. using the AA-API and DiDQube features), see:
+
+- `docs/THIN_CLIENT_INTEGRATION.md` – architecture, environment configuration, and HTTP/API patterns for thin clients.
+- `docs/examples/aigentz-client.ts` – minimal TypeScript helper that implements the AA-API challenge/verify flow and provides convenient wrappers for payments and DiDQube reputation.
 
 ## Contact
 

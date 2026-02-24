@@ -1,0 +1,64 @@
+{
+  "collections": [
+    {
+      "id": "knyt-codex",
+      "title": "KNYT Codex",
+      "description": "Main KNYT codex interface with cards, balance, and commerce",
+      "type": "static",
+      "order": 0,
+      "enabled": true,
+      "metadata": {
+        "icon": "BookOpen",
+        "category": "main",
+        "requiresAuth": true,
+        "showBalance": true,
+        "enablePurchases": true
+      }
+    },
+    {
+      "id": "knyt-cards",
+      "title": "Character Cards",
+      "description": "Browse and collect KNYT character cards",
+      "type": "static", 
+      "order": 1,
+      "enabled": true,
+      "metadata": {
+        "icon": "Sparkles",
+        "category": "collection",
+        "requiresAuth": true,
+        "showPricing": true,
+        "enablePurchase": true
+      }
+    },
+    {
+      "id": "knyt-shop",
+      "title": "KNYT Shop",
+      "description": "Buy KNYT tokens and premium content",
+      "type": "static",
+      "order": 2,
+      "enabled": true,
+      "metadata": {
+        "icon": "ShoppingCart",
+        "category": "commerce",
+        "requiresAuth": true,
+        "showPricing": true,
+        "enablePurchase": true
+      }
+    },
+    {
+      "id": "knyt-balance",
+      "title": "Balance Management",
+      "description": "Manage your KNYT balance and transactions",
+      "type": "static",
+      "order": 3,
+      "enabled": true,
+      "metadata": {
+        "icon": "Coins",
+        "category": "finance",
+        "requiresAuth": true,
+        "showBalance": true,
+        "enablePurchase": false
+      }
+    }
+  ]
+}

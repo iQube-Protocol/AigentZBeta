@@ -1,0 +1,28 @@
+name: 'PR Template Check'
+
+on:
+  pull_request:
+    branches: [ main, staging ]
+    types: [ opened, edited, reopened, synchronize ]
+
+jobs:
+  pr_template:
+    name: 'Require Integrate, Don\'t Rebuild Section'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PR body for required section
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          if [ -z "$PR_BODY" ]; then
+            echo "::error::PR body is empty. Add the required template sections."
+            exit 1
+          fi
+          if ! echo "$PR_BODY" | grep -q "Integrate, Don't Rebuild (REQUIRED)"; then
+            echo "::error::Missing 'Integrate, Don't Rebuild (REQUIRED)' section in PR body."
+            exit 1
+          fi
+          if ! echo "$PR_BODY" | grep -q "Existing Work Audit (REQUIRED)"; then
+            echo "::error::Missing 'Existing Work Audit (REQUIRED)' section in PR body."
+            exit 1
+          fi

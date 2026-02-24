@@ -1,0 +1,59 @@
+{
+  "id": "marketa-experience",
+  "name": "Aigent Marketa - CMO Console",
+  "version": "1.0.0",
+  "type": "experienceQube",
+  "category": "marketing",
+  "description": "Chief Marketing Agent orchestrator for multi-channel campaigns and rewards",
+  "author": "metaProof",
+  "license": "proprietary",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0",
+    "lucide-react": "^0.294.0",
+    "react-hook-form": "^7.48.0",
+    "@hookform/resolvers": "^3.3.0",
+    "zod": "^3.22.0",
+    "recharts": "^2.8.0",
+    "date-fns": "^2.30.0"
+  },
+  "apiEndpoints": [
+    "/api/marketa/*"
+  ],
+  "permissions": [
+    "marketa:read",
+    "marketa:write",
+    "marketa:publish",
+    "marketa:rewards"
+  ],
+  "entryPoints": {
+    "dashboard": "/marketa",
+    "partners": "/marketa/partners",
+    "campaigns": "/marketa/campaigns",
+    "publish": "/marketa/publish",
+    "segments": "/marketa/segments",
+    "reports": "/marketa/reports"
+  },
+  "thinClient": {
+    "type": "lovable",
+    "generatorUrl": "https://lovable.dev/generate/marketa-console",
+    "buildOutput": "codexes/packs/marketa/components",
+    "autoDeploy": true,
+    "hotSwap": true
+  },
+  "integration": {
+    "orchestrator": true,
+    "sidebar": {
+      "label": "Aigent Marketa (CMO)",
+      "icon": "trending-up",
+      "color": "rose"
+    }
+  },
+  "features": {
+    "contentGeneration": true,
+    "multiChannelPublishing": true,
+    "personalization": true,
+    "rewardsIntegration": true,
+    "analytics": true,
+    "partnerManagement": true
+  }
+}

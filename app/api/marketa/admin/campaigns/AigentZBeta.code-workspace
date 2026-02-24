@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": "../../../../.."
+		},
+		{
+			"path": "../../../../../../marketa-agent-hub"
+		}
+	],
+	"settings": {
+		"git.ignoreLimitWarning": true
+	}
+}

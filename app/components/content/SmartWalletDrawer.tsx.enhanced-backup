@@ -1,0 +1,267 @@
+"use client";
+
+/**
+ * SmartWalletDrawer - Baseline restored from previous AgentiQ panel
+ * Supports overlay and embedded modes; parity work continues from here.
+ */
+
+import React, { useState } from "react";
+import { useBalances } from "@/app/hooks/useBalances";
+import {
+  Wallet,
+  RefreshCw,
+  Send,
+  CircleDollarSign,
+  Coins,
+  TrendingUp,
+  Award,
+  BookOpen,
+  CheckSquare,
+  Trophy,
+  Gift,
+  Loader2,
+  X,
+} from "lucide-react";
+import { useDVNEvents } from "@/app/hooks/useDVNEvents";
+
+type DrawerTab = "wallet" | "library" | "tasks" | "reputation" | "rewards";
+
+interface SmartWalletDrawerProps {
+  open: boolean;
+  onClose: () => void;
+  variant?: 'overlay' | 'embedded';
+  embeddedWidth?: 'fill' | 'fixed';
+  agent: {
+    id: string;
+    name: string;
+    evmSepolia?: `0x${string}`;
+    evmArb?: `0x${string}`;
+    btcAddress?: string;
+    fioHandle?: string;
+    walletAddress?: string;
+  };
+  personaId?: string;
+  codexMode?: boolean;
+  recipientAddress?: string;
+  currentContent?: unknown;
+  walletNode?: unknown;
+  onPurchaseComplete?: (...args: any[]) => void | Promise<void>;
+  onCreatePersona?: (...args: any[]) => void;
+  onContentSelect?: (...args: any[]) => void;
+  onPersonaChange?: (...args: any[]) => void;
+  onTaskAction?: (...args: any[]) => void;
+  onSubmitReputationClaim?: (...args: any[]) => void;
+  onOpenCopilot?: (...args: any[]) => void;
+}
+
+export default function SmartWalletDrawer({
+  open,
+  onClose,
+  variant = 'overlay',
+  embeddedWidth = 'fill',
+  agent,
+}: SmartWalletDrawerProps) {
+  const [activeTab, setActiveTab] = useState<DrawerTab>("wallet");
+  const [refreshKey, setRefreshKey] = useState(0);
+  const balances = useBalances(
+    { sepolia: agent.evmSepolia, arb: agent.evmArb, btc: agent.btcAddress },
+    { refreshKey }
+  );
+  const events = useDVNEvents(agent.id);
+
+  const tabs = [
+    { id: 'wallet', label: 'Wallet', icon: Wallet },
+    { id: 'library', label: 'Library', icon: BookOpen },
+    { id: 'tasks', label: 'Tasks', icon: CheckSquare },
+    { id: 'reputation', label: 'Reputation', icon: Trophy },
+    { id: 'rewards', label: 'Rewards', icon: Gift },
+  ] as const;
+
+  if (!open) return null;
+
+  const formatBalance = (balance: string, decimals?: number) => {
+    if (!balance || balance === "0") return "0.00";
+    const dec = decimals || 18;
+    const num = Number(balance) / Math.pow(10, dec);
+    return Number.isFinite(num) ? num.toFixed(2) : "0.00";
+  };
+
+  const qctRaw = balances.qctArb !== "0" ? balances.qctArb : balances.qctSep;
+  const qctDecimals = balances.qctArb !== "0" ? balances.qctArbDecimals : balances.qctSepDecimals;
+  const qctBalance = formatBalance(qctRaw, qctDecimals);
+  const knytBalance = formatBalance(balances.knytSep, balances.knytSepDecimals);
+
+  const drawerClasses = variant === 'embedded' 
+    ? `h-full ${embeddedWidth === 'fill' ? 'w-full' : 'w-96'}`
+    : 'fixed inset-y-0 right-0 w-96 shadow-2xl';
+
+  return (
+    <div className={drawerClasses}>
+      <div className="flex flex-col h-full w-full bg-slate-900 text-white border-l border-slate-800">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-slate-700/50 p-4">
+          <div className="flex items-center gap-2">
+            <Wallet className="w-5 h-5 text-indigo-400" />
+            <h2 className="text-xl font-bold">SmartWallet</h2>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setRefreshKey((value) => value + 1)}
+              className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
+              title="Refresh balances"
+            >
+              <RefreshCw className="w-4 h-4" />
+            </button>
+            {variant === "overlay" && (
+              <button
+                onClick={onClose}
+                className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
+                aria-label="Close SmartWallet"
+              >
+                <X className="w-4 h-4 text-slate-400" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex-shrink-0 border-b border-slate-700/50 px-4">
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex-1 flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 ${
+                  activeTab === tab.id
+                    ? 'border-indigo-500 text-indigo-400'
+                    : 'border-transparent text-slate-400 hover:text-slate-300'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-4">
+          {activeTab === "wallet" && (
+            <div className="space-y-6">
+              {/* Balances */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider">Balances</h3>
+
+                <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700/50">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-indigo-500/20 flex items-center justify-center">
+                        <CircleDollarSign className="w-5 h-5 text-indigo-400" />
+                      </div>
+                      <div>
+                        <div className="text-sm text-slate-400">Q¢ (QCT)</div>
+                        <div className="text-2xl font-bold">{qctBalance}</div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-xs text-slate-500">Arbitrum Sepolia</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700/50">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center">
+                        <Coins className="w-5 h-5 text-purple-400" />
+                      </div>
+                      <div>
+                        <div className="text-sm text-slate-400">KNYT</div>
+                        <div className="text-2xl font-bold">{knytBalance}</div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-xs text-slate-500">Ethereum Sepolia</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Actions */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider">Quick Actions</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <button className="flex items-center justify-center gap-2 p-4 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 rounded-lg transition-colors">
+                    <Send className="w-4 h-4" />
+                    <span className="text-sm font-medium">Send</span>
+                  </button>
+                  <button className="flex items-center justify-center gap-2 p-4 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 rounded-lg transition-colors">
+                    <Coins className="w-4 h-4" />
+                    <span className="text-sm font-medium">Buy KNYT</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Recent Activity */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider">Recent Activity</h3>
+                {events.length > 0 ? (
+                  <div className="space-y-2">
+                    {events.slice(0, 5).map((event, idx) => (
+                      <div key={idx} className="bg-slate-800/30 rounded-lg p-3 border border-slate-700/30">
+                        <div className="flex items-center justify-between">
+                          <div className="text-sm">{event.event || "Transaction"}</div>
+                          <div className="text-xs text-slate-500">
+                            {event.timestamp ? new Date(event.timestamp).toLocaleDateString() : "Recent"}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-slate-500">
+                    <TrendingUp className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">No recent activity</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === "library" && (
+            <div className="text-center py-12 text-slate-500">
+              <BookOpen className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <p className="text-lg font-medium mb-2">Content Library</p>
+              <p className="text-sm">Your purchased content and entitlements will appear here</p>
+            </div>
+          )}
+
+          {activeTab === "tasks" && (
+            <div className="text-center py-12 text-slate-500">
+              <CheckSquare className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <p className="text-lg font-medium mb-2">Tasks & Quests</p>
+              <p className="text-sm">Complete tasks to earn rewards</p>
+            </div>
+          )}
+
+          {activeTab === "reputation" && (
+            <div className="text-center py-12 text-slate-500">
+              <Trophy className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <p className="text-lg font-medium mb-2">Reputation</p>
+              <p className="text-sm">Your reputation score and achievements</p>
+            </div>
+          )}
+
+          {activeTab === "rewards" && (
+            <div className="text-center py-12 text-slate-500">
+              <Gift className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <p className="text-lg font-medium mb-2">Rewards</p>
+              <p className="text-sm">Claim your earned rewards</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

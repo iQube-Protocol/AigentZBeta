@@ -1,0 +1,9 @@
+# AgentiQ Monorepo Workspace Configuration
+# This file defines the monorepo structure for independent deployment
+
+packages:
+  # Franchise and tenant applications (independently deployable)
+  - 'apps/*'
+  
+  # Shared libraries and packages (versioned, non-deployable)
+  - 'packages/*'

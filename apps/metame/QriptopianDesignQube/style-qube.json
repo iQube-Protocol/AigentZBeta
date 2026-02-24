@@ -1,0 +1,64 @@
+{
+  "id": "styleqube-qriptopian-v1",
+  "name": "Qriptopian StyleQube",
+  "source": "tokens.guidance.json",
+  "themes": [
+    "light.qriptopian",
+    "dark.qriptopianGlass"
+  ],
+  "summary": {
+    "primaryAccent": "indigo",
+    "surface": "glass-on-dark",
+    "typography": "modern sans",
+    "radius": "soft",
+    "motion": "subtle"
+  },
+  "tokenRefs": {
+    "colors": [
+      "color.bg",
+      "color.surface",
+      "color.text",
+      "color.accent"
+    ],
+    "typography": [
+      "fontFamily.sans",
+      "scale"
+    ],
+    "radius": [
+      "xs",
+      "sm",
+      "md",
+      "lg"
+    ]
+  },
+  "voice": {
+    "persona": "Qriptopian Guide",
+    "accent": "cosmic neutral",
+    "pace": "slow",
+    "pitch": "medium-low",
+    "tone": "warm",
+    "ttsHints": {
+      "provider": "elevenlabs",
+      "voiceId": "bella",
+      "stability": 0.9,
+      "similarity_boost": 0.6
+    }
+  },
+  "text": {
+    "copyTone": "calm, direct, helpful",
+    "readerCss": {
+      "fontFamily": "var(--font-sans, \"Inter\", sans-serif)",
+      "fontSize": "1rem",
+      "lineHeight": "1.6",
+      "maxWidth": "68ch",
+      "paragraphSpacing": "1rem",
+      "letterSpacing": "0.01em",
+      "textAlign": "left",
+      "hyphens": "auto",
+      "textRendering": "optimizeLegibility",
+      "fontSmoothing": "antialiased"
+    },
+    "cssText": ".reader-copy{font-family:var(--font-sans,\"Inter\",sans-serif);font-size:1rem;line-height:1.6;max-width:68ch;letter-spacing:0.01em;text-align:left;hyphens:auto;text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased} .reader-copy p{margin:0 0 1rem}"
+  },
+  "version": "1.0.0"
+}

@@ -1,0 +1,238 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SmartTriad Liquid UI State Schema v0.1",
+  "description": "Server-authoritative shared state for SmartTriad (Content + Wallet + Menu) with Liquid UI template rendering. Used for AG-UI STATE_SNAPSHOT and STATE_DELTA synchronization.",
+  "version": "0.1.0",
+  "type": "object",
+  "required": ["session", "smartTriad", "liquidUI", "metadata"],
+  "properties": {
+    "session": {
+      "type": "object",
+      "description": "Session-level state",
+      "required": ["sessionId", "personaId", "tenantId"],
+      "properties": {
+        "sessionId": {
+          "type": "string",
+          "description": "Unique session identifier"
+        },
+        "personaId": {
+          "type": "string",
+          "description": "Active persona ID"
+        },
+        "tenantId": {
+          "type": "string",
+          "description": "Tenant context"
+        },
+        "device": {
+          "type": "string",
+          "enum": ["mobile", "tablet", "desktop"],
+          "description": "Device type"
+        },
+        "viewport": {
+          "type": "object",
+          "properties": {
+            "width": { "type": "number" },
+            "height": { "type": "number" }
+          }
+        }
+      }
+    },
+    "smartTriad": {
+      "type": "object",
+      "description": "SmartTriad coordinated state (Content + Wallet + Menu)",
+      "required": ["content", "wallet", "menu"],
+      "properties": {
+        "content": {
+          "type": "object",
+          "description": "SmartContent state",
+          "properties": {
+            "currentContentId": {
+              "type": ["string", "null"],
+              "description": "Currently selected content ID"
+            },
+            "ownedContentIds": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Content IDs owned by persona"
+            },
+            "libraryLoading": {
+              "type": "boolean",
+              "description": "Library fetch in progress"
+            },
+            "selectedIssueId": {
+              "type": ["string", "null"],
+              "description": "Current issue package ID"
+            },
+            "selectedSectionId": {
+              "type": ["string", "null"],
+              "description": "Current section ID"
+            },
+            "selectedTabId": {
+              "type": ["string", "null"],
+              "description": "Current tab ID (for drawer sections)"
+            }
+          }
+        },
+        "wallet": {
+          "type": "object",
+          "description": "SmartWallet state",
+          "properties": {
+            "walletOpen": {
+              "type": "boolean",
+              "description": "Wallet drawer open state"
+            },
+            "walletMode": {
+              "type": "string",
+              "enum": ["narrow", "wide"],
+              "description": "Wallet drawer mode (glance vs multi-step)"
+            },
+            "purchaseInProgress": {
+              "type": "boolean",
+              "description": "Purchase transaction in progress"
+            },
+            "balances": {
+              "type": "object",
+              "description": "Multi-chain Q¢ balances",
+              "additionalProperties": {
+                "type": "number"
+              }
+            },
+            "pendingTx": {
+              "type": ["object", "null"],
+              "description": "Pending transaction details",
+              "properties": {
+                "chain": { "type": "string" },
+                "txHash": { "type": "string" },
+                "status": { "type": "string" }
+              }
+            }
+          }
+        },
+        "menu": {
+          "type": "object",
+          "description": "SmartMenu state",
+          "properties": {
+            "activeMenuId": {
+              "type": ["string", "null"],
+              "description": "Active menu configuration ID"
+            },
+            "drawerOpen": {
+              "type": "boolean",
+              "description": "Menu drawer open state"
+            },
+            "selectedAction": {
+              "type": ["string", "null"],
+              "description": "Selected menu action"
+            }
+          }
+        }
+      }
+    },
+    "liquidUI": {
+      "type": "object",
+      "description": "Liquid UI template rendering state",
+      "required": ["selectedTemplateId", "templateBindings", "copilotState"],
+      "properties": {
+        "selectedTemplateId": {
+          "type": ["string", "null"],
+          "description": "Active KNYT template ID (e.g., knyt:drawer_grid_v1)"
+        },
+        "templateBindings": {
+          "type": "object",
+          "description": "Data bindings for current template",
+          "properties": {
+            "contentObjects": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "content_id": { "type": "string" },
+                  "title": { "type": "string" },
+                  "content_type": { "type": "string" },
+                  "thumbnail_url": { "type": ["string", "null"] },
+                  "modalities": {
+                    "type": "object",
+                    "properties": {
+                      "read": { "type": "boolean" },
+                      "watch": { "type": "boolean" },
+                      "listen": { "type": "boolean" }
+                    }
+                  }
+                }
+              }
+            },
+            "layoutDecisions": {
+              "type": "array",
+              "description": "Computed layout for each content object",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "variantName": { "type": "string" },
+                  "slotType": { "type": "string" },
+                  "styles": {
+                    "type": "object",
+                    "additionalProperties": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "copilotState": {
+          "type": "object",
+          "description": "Copilot drawer/overlay state",
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": ["overlay", "docked", "collapsed"],
+              "description": "Copilot display mode"
+            },
+            "visible": {
+              "type": "boolean",
+              "description": "Copilot visibility"
+            },
+            "position": {
+              "type": "object",
+              "description": "Copilot position (normalized coordinates)",
+              "properties": {
+                "x": { "type": "number" },
+                "y": { "type": "number" },
+                "w": { "type": "number" },
+                "h": { "type": "number" }
+              }
+            }
+          }
+        },
+        "realmContext": {
+          "type": ["string", "null"],
+          "enum": ["terra", "metaterra_or", "digiterra", "macro", null],
+          "description": "Current realm context for KNYT Codex"
+        },
+        "userIntent": {
+          "type": ["string", "null"],
+          "description": "Detected user intent (browse, read, watch, quest, etc.)"
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "description": "State metadata",
+      "required": ["version", "timestamp"],
+      "properties": {
+        "version": {
+          "type": "string",
+          "description": "State schema version"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update timestamp"
+        },
+        "sequenceNumber": {
+          "type": "number",
+          "description": "Monotonic sequence number for ordering"
+        }
+      }
+    }
+  }
+}

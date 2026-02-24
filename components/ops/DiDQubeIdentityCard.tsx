@@ -8,7 +8,7 @@ import { FIOVerificationIcon } from '@/components/identity/FIOVerificationBadge'
 interface Persona {
   id: string;
   fio_handle: string | null;
-  default_identity_state: string;
+  default_identity_state: string | null;
   world_id_status: string;
   created_at: string;
   reputation_bucket?: number | null;
@@ -149,8 +149,8 @@ export function DiDQubeIdentityCard({ onPersonaClick }: DiDQubeIdentityCardProps
                       )}
                     </div>
                     <div className="flex items-center gap-2 mt-1 ml-6">
-                      <span className={`text-xs ${stateColors[p.default_identity_state] || 'text-slate-400'}`}>
-                        {p.default_identity_state.replace(/_/g, ' ')}
+                      <span className={`text-xs ${stateColors[p.default_identity_state || ''] || 'text-slate-400'}`}>
+                        {(p.default_identity_state || 'unknown').replace(/_/g, ' ')}
                       </span>
                     </div>
                   </div>

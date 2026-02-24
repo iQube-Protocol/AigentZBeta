@@ -1,0 +1,1636 @@
+{
+  "schema_version": "knyt.liquid_ui_template_pack.v0.2",
+  "generated_at": "2025-12-18",
+  "domain": "knyt",
+  "purpose": "Liquid UI templates for KNYT Codex (metaKnyts) using SmartMedia/Smart Content selection rules. Fixed-viewport layouts (no page scrolling) with optional scrolling inside modals. Adds Copilot Drawer (narrow/wide) wallet surface integration.",
+  "sources": {
+    "content_modal_reference": "https://dev-beta.aigentz.me/content/demo",
+    "notes": [
+      "Modal/card families referenced from Smart Content Demo: hero short (66vh), poster2, poster3, carousel3, carousel4, thumbnail6, thumbnailRect, compound, compound1/2, iframe, featured, standard, compact, plus mobile variants."
+    ]
+  },
+  "design_constraints": {
+    "avoid_page_scroll": true,
+    "allow_scroll_in_modals": true,
+    "copilot_overlay_policy": {
+      "modes": [
+        "overlay",
+        "docked",
+        "collapsed"
+      ],
+      "default": "overlay",
+      "z_layer": "modal",
+      "can_hide_for_immersion": true
+    },
+    "realm_model": {
+      "codex": "KNYT Codex",
+      "dimensions": {
+        "DigiTerra": "In‑world lunapunk counter‑world (lore/immersive).",
+        "Terra": "Real‑world bridge (updates, announcements, news).",
+        "metaTerra/or": "Convergence realm (utopia metaTerra vs dystopia metaTerror)."
+      }
+    }
+  },
+  "modal_catalog": {
+    "cards_and_blocks": [
+      {
+        "id": "hero_short_66vh",
+        "label": "Hero Short (66vh)",
+        "best_for": [
+          "feature",
+          "spotlight"
+        ],
+        "vh": 66
+      },
+      {
+        "id": "poster2",
+        "label": "Large Posters (2/row)",
+        "best_for": [
+          "covers",
+          "characters",
+          "pages"
+        ],
+        "rows": 2
+      },
+      {
+        "id": "poster3",
+        "label": "Portrait Cards (3/row)",
+        "best_for": [
+          "browsing_library",
+          "collections"
+        ],
+        "rows": 3
+      },
+      {
+        "id": "carousel3",
+        "label": "News Cards (3.25/row)",
+        "best_for": [
+          "terra_news",
+          "recent_updates"
+        ]
+      },
+      {
+        "id": "carousel4",
+        "label": "Narrow Thumbnails (4/row)",
+        "best_for": [
+          "related_items",
+          "episode_strip"
+        ]
+      },
+      {
+        "id": "thumbnail6",
+        "label": "Small Squares (6+/row)",
+        "best_for": [
+          "panel_strip",
+          "micro_assets"
+        ]
+      },
+      {
+        "id": "thumbnailRect",
+        "label": "Short Rectangles (6+/row)",
+        "best_for": [
+          "clip_strip",
+          "scene_strip"
+        ]
+      },
+      {
+        "id": "featured",
+        "label": "Large Cards (2/row)",
+        "best_for": [
+          "promoted_items",
+          "storefront"
+        ]
+      },
+      {
+        "id": "standard",
+        "label": "Grid Cards (3/row)",
+        "best_for": [
+          "catalog",
+          "library"
+        ]
+      },
+      {
+        "id": "compact",
+        "label": "List Rows",
+        "best_for": [
+          "search_results",
+          "task_lists"
+        ]
+      },
+      {
+        "id": "compound_full",
+        "label": "Compound Full Width",
+        "best_for": [
+          "hub_panel",
+          "actions_plus_content"
+        ]
+      },
+      {
+        "id": "compound_columns",
+        "label": "Compound1/2 Columns",
+        "best_for": [
+          "action_cards",
+          "concepts_and_ctas"
+        ]
+      },
+      {
+        "id": "iframe_embed",
+        "label": "Avatar/Embed Block",
+        "best_for": [
+          "copilot_entry",
+          "character_chat"
+        ]
+      }
+    ],
+    "full_screen_drawers": [
+      {
+        "id": "pdf_reader_drawer",
+        "label": "Full Screen PDF Reader Drawer",
+        "best_for": [
+          "comic_pages_pdf",
+          "chapters"
+        ]
+      },
+      {
+        "id": "motion_viewer_drawer",
+        "label": "Full Screen Motion Viewer Drawer",
+        "best_for": [
+          "motion_comic_video",
+          "trailers"
+        ]
+      }
+    ]
+  },
+  "content_type_to_modal_defaults": {
+    "comic_page_portrait": {
+      "primary_viewer": "pdf_reader_drawer",
+      "fallback_cards": [
+        "poster2",
+        "carousel4"
+      ],
+      "aspect": "portrait"
+    },
+    "comic_cover_portrait": {
+      "primary_cards": [
+        "poster2",
+        "poster3"
+      ],
+      "viewer": "poster_stage",
+      "aspect": "portrait"
+    },
+    "character_portrait": {
+      "primary_cards": [
+        "poster2",
+        "poster3"
+      ],
+      "viewer": "poster_stage",
+      "aspect": "portrait"
+    },
+    "motion_comic_landscape": {
+      "primary_viewer": "motion_viewer_drawer",
+      "fallback_cards": [
+        "hero_short_66vh",
+        "thumbnailRect"
+      ],
+      "aspect": "landscape"
+    },
+    "lore_snippet": {
+      "primary_cards": [
+        "carousel4",
+        "thumbnail6"
+      ],
+      "viewer": "sheet",
+      "aspect": "mixed"
+    },
+    "terra_update": {
+      "primary_cards": [
+        "carousel3",
+        "standard",
+        "compact"
+      ],
+      "viewer": "sheet",
+      "aspect": "mixed"
+    }
+  },
+  "template_selection_policy": {
+    "inputs": [
+      "user_intent",
+      "device",
+      "content_mix",
+      "realm",
+      "attention_budget",
+      "ownership_state",
+      "business_goal",
+      "task_state"
+    ],
+    "priority_order": [
+      "user_intent",
+      "content_mix",
+      "realm",
+      "device",
+      "task_state",
+      "business_goal",
+      "attention_budget"
+    ],
+    "rules": [
+      {
+        "when": {
+          "user_intent": [
+            "browse",
+            "discover"
+          ],
+          "content_mix": [
+            "mixed",
+            "mostly_portrait"
+          ]
+        },
+        "choose_template": "knyt:drawer_grid_v1",
+        "why": "Fast browsing with fixed viewport; opens immersive viewers via drawers/modals."
+      },
+      {
+        "when": {
+          "user_intent": [
+            "character_deep_dive",
+            "cover_art",
+            "page_review"
+          ],
+          "content_mix": [
+            "portrait_focus"
+          ]
+        },
+        "choose_template": "knyt:dual_poster_stage_v1",
+        "why": "90% height portrait stage + optional secondary poster; no page scroll."
+      },
+      {
+        "when": {
+          "user_intent": [
+            "watch",
+            "immersive_review"
+          ],
+          "content_mix": [
+            "motion_focus",
+            "landscape_focus"
+          ]
+        },
+        "choose_template": "knyt:motion_stage_v1",
+        "why": "Large landscape motion stage with copilot overlay and action rail."
+      },
+      {
+        "when": {
+          "user_intent": [
+            "questing",
+            "ascension",
+            "earn_rewards"
+          ],
+          "content_mix": [
+            "mixed"
+          ],
+          "task_state": [
+            "active",
+            "needs_guidance"
+          ]
+        },
+        "choose_template": "knyt:quest_hud_hub_v1",
+        "why": "Optimized for tasks, rewards, referrals, and Order ascension while keeping content in a fixed stage."
+      },
+      {
+        "when": {
+          "user_intent": [
+            "bridge_real_to_lore",
+            "realm_navigation"
+          ],
+          "content_mix": [
+            "mixed"
+          ],
+          "realm": [
+            "terra",
+            "metaterra_or"
+          ]
+        },
+        "choose_template": "knyt:realm_bridge_map_v1",
+        "why": "Makes Terra↔DigiTerra↔metaTerra/or transitions explicit and actionable."
+      }
+    ],
+    "outputs": [
+      "template_id",
+      "drawer_mode",
+      "wallet_ui"
+    ],
+    "drawer_rules": [
+      {
+        "when": {
+          "user_intent": [
+            "claim",
+            "check_balance",
+            "quick_status",
+            "confirm"
+          ]
+        },
+        "choose_drawer_mode": "narrow",
+        "mount_wallet_ui": [
+          "wallet_card.balance",
+          "wallet_card.reward_claim"
+        ],
+        "why": "Glance + tap actions without blocking content."
+      },
+      {
+        "when": {
+          "user_intent": [
+            "unlock",
+            "purchase",
+            "send",
+            "request",
+            "invite",
+            "referral_manage",
+            "permissions"
+          ]
+        },
+        "choose_drawer_mode": "wide",
+        "mount_wallet_ui": [
+          "wallet_modal.checkout"
+        ],
+        "why": "Multi-step flows need wide drawer."
+      },
+      {
+        "when": {
+          "task_state": [
+            "active",
+            "needs_guidance"
+          ]
+        },
+        "choose_drawer_mode": "narrow",
+        "mount_wallet_ui": [
+          "wallet_card.task_step"
+        ],
+        "why": "Keep next action visible while browsing."
+      }
+    ]
+  },
+  "templates": [
+    {
+      "template_id": "knyt:drawer_grid_v1",
+      "name": "Scrolls Drawer Grid",
+      "origin": "Bridge template (adapts existing scrolls drawer layout).",
+      "best_for": [
+        "browse",
+        "discover",
+        "quick_switch",
+        "library"
+      ],
+      "fixed_viewport": true,
+      "regions": [
+        {
+          "region_id": "drawer_grid",
+          "role": "primary_catalog",
+          "cards": [
+            "poster3",
+            "standard"
+          ],
+          "interaction": "tap_to_open_viewer"
+        },
+        {
+          "region_id": "copilot_overlay",
+          "role": "assistant",
+          "modes": [
+            "overlay",
+            "collapsed"
+          ],
+          "default": "overlay"
+        },
+        {
+          "region_id": "action_mini",
+          "role": "rewards_tasks",
+          "components": [
+            "wallet_chip",
+            "task_toast",
+            "reward_toast"
+          ],
+          "placement": "bottom_right"
+        },
+        {
+          "region_id": "smart_menu",
+          "role": "navigation",
+          "components": [
+            "realm_tabs",
+            "search",
+            "library",
+            "store"
+          ]
+        },
+        {
+          "region_id": "copilot_drawer_narrow",
+          "role": "wallet_surface",
+          "mode": "narrow",
+          "components": [
+            "wallet_card.balance",
+            "wallet_card.reward_claim",
+            "wallet_card.task_step"
+          ],
+          "interaction": "slide_in_over_content",
+          "notes": "Use for glance + quick actions"
+        },
+        {
+          "region_id": "copilot_drawer_wide",
+          "role": "wallet_surface",
+          "mode": "wide",
+          "components": [
+            "wallet_modal.checkout",
+            "wallet_modal.send_request",
+            "wallet_modal.permissions",
+            "wallet_modal.receipt"
+          ],
+          "interaction": "dock_or_slide_over_content",
+          "notes": "Use for multi-step flows; can dock on desktop"
+        }
+      ],
+      "geometry_variants": [
+        {
+          "name": "mobile_drawer_grid",
+          "when": {
+            "device": [
+              "mobile"
+            ]
+          },
+          "layout": {
+            "drawer_grid": {
+              "anchor": "safe_viewport",
+              "x": 0.0,
+              "y": 0.0,
+              "w": 1.0,
+              "h": 1.0,
+              "z": 1,
+              "layer": "content"
+            },
+            "copilot_overlay": {
+              "anchor": "safe_viewport",
+              "x": 0.02,
+              "y": 0.55,
+              "w": 0.96,
+              "h": 0.43,
+              "z": 10,
+              "layer": "modal"
+            },
+            "action_mini": {
+              "anchor": "safe_viewport",
+              "x": 0.72,
+              "y": 0.02,
+              "w": 0.26,
+              "h": 0.1,
+              "z": 5,
+              "layer": "chrome"
+            },
+            "copilot_drawer_narrow": {
+              "anchor": "safe_viewport",
+              "x": 0.0,
+              "y": 0.72,
+              "w": 1.0,
+              "h": 0.28,
+              "z": 11,
+              "layer": "modal",
+              "entry": "slide_from_bottom",
+              "dismiss": "swipe_down_or_close"
+            },
+            "copilot_drawer_wide": {
+              "anchor": "safe_viewport",
+              "x": 0.0,
+              "y": 0.38,
+              "w": 1.0,
+              "h": 0.62,
+              "z": 11,
+              "layer": "modal",
+              "entry": "slide_from_bottom",
+              "dismiss": "swipe_down_or_close"
+            }
+          }
+        },
+        {
+          "name": "desktop_drawer_grid",
+          "when": {
+            "device": [
+              "desktop",
+              "tablet"
+            ]
+          },
+          "layout": {
+            "drawer_grid": {
+              "anchor": "safe_viewport",
+              "x": 0.04,
+              "y": 0.1,
+              "w": 0.92,
+              "h": 0.86,
+              "z": 1,
+              "layer": "content"
+            },
+            "copilot_overlay": {
+              "anchor": "safe_viewport",
+              "x": 0.64,
+              "y": 0.14,
+              "w": 0.32,
+              "h": 0.78,
+              "z": 10,
+              "layer": "modal"
+            },
+            "action_mini": {
+              "anchor": "safe_viewport",
+              "x": 0.04,
+              "y": 0.02,
+              "w": 0.2,
+              "h": 0.08,
+              "z": 5,
+              "layer": "chrome"
+            },
+            "copilot_drawer_narrow": {
+              "anchor": "safe_viewport",
+              "x": 0.76,
+              "y": 0.74,
+              "w": 0.22,
+              "h": 0.24,
+              "z": 11,
+              "layer": "modal",
+              "entry": "float",
+              "dismiss": "click_outside_or_close"
+            },
+            "copilot_drawer_wide": {
+              "anchor": "safe_viewport",
+              "x": 0.62,
+              "y": 0.1,
+              "w": 0.38,
+              "h": 0.84,
+              "z": 11,
+              "layer": "modal",
+              "entry": "dock_right",
+              "dismiss": "close"
+            }
+          }
+        }
+      ],
+      "viewer_bindings": {
+        "comic_page_portrait": "pdf_reader_drawer",
+        "motion_comic_landscape": "motion_viewer_drawer",
+        "character_portrait": "poster_stage",
+        "comic_cover_portrait": "poster_stage"
+      }
+    },
+    {
+      "template_id": "knyt:dual_poster_stage_v1",
+      "name": "Dual Poster Stage",
+      "origin": "New (portrait-first) template.",
+      "best_for": [
+        "character_deep_dive",
+        "cover_art",
+        "page_review",
+        "collectible_display"
+      ],
+      "fixed_viewport": true,
+      "regions": [
+        {
+          "region_id": "poster_stage_primary",
+          "role": "primary_media",
+          "modals": [
+            "poster2"
+          ],
+          "notes": "~90% viewport height portrait poster"
+        },
+        {
+          "region_id": "poster_stage_secondary",
+          "role": "secondary_media",
+          "modals": [
+            "poster2",
+            "carousel4"
+          ],
+          "notes": "Optional second poster or related strip"
+        },
+        {
+          "region_id": "info_card",
+          "role": "metadata",
+          "components": [
+            "title",
+            "rarity",
+            "ownership",
+            "price",
+            "tags"
+          ]
+        },
+        {
+          "region_id": "quest_rail",
+          "role": "tasks_rewards",
+          "components": [
+            "active_task",
+            "reward_meter",
+            "ascension_progress",
+            "referral_cta",
+            "shop_cta"
+          ]
+        },
+        {
+          "region_id": "copilot_overlay",
+          "role": "assistant",
+          "modes": [
+            "overlay",
+            "docked",
+            "collapsed"
+          ],
+          "default": "docked"
+        },
+        {
+          "region_id": "copilot_drawer_narrow",
+          "role": "wallet_surface",
+          "mode": "narrow",
+          "components": [
+            "wallet_card.balance",
+            "wallet_card.reward_claim",
+            "wallet_card.task_step"
+          ],
+          "interaction": "slide_in_over_content",
+          "notes": "Use for glance + quick actions"
+        },
+        {
+          "region_id": "copilot_drawer_wide",
+          "role": "wallet_surface",
+          "mode": "wide",
+          "components": [
+            "wallet_modal.checkout",
+            "wallet_modal.send_request",
+            "wallet_modal.permissions",
+            "wallet_modal.receipt"
+          ],
+          "interaction": "dock_or_slide_over_content",
+          "notes": "Use for multi-step flows; can dock on desktop"
+        }
+      ],
+      "geometry_variants": [
+        {
+          "name": "mobile_single_poster",
+          "when": {
+            "device": [
+              "mobile"
+            ]
+          },
+          "layout": {
+            "poster_stage_primary": {
+              "anchor": "safe_viewport",
+              "x": 0.0,
+              "y": 0.0,
+              "w": 1.0,
+              "h": 0.9,
+              "z": 1,
+              "layer": "content"
+            },
+            "info_card": {
+              "anchor": "safe_viewport",
+              "x": 0.0,
+              "y": 0.9,
+              "w": 1.0,
+              "h": 0.1,
+              "z": 2,
+              "layer": "chrome"
+            },
+            "copilot_overlay": {
+              "anchor": "safe_viewport",
+              "x": 0.0,
+              "y": 0.52,
+              "w": 1.0,
+              "h": 0.48,
+              "z": 10,
+              "layer": "modal"
+            },
+            "copilot_drawer_narrow": {
+              "anchor": "safe_viewport",
+              "x": 0.0,
+              "y": 0.72,
+              "w": 1.0,
+              "h": 0.28,
+              "z": 11,
+              "layer": "modal",
+              "entry": "slide_from_bottom",
+              "dismiss": "swipe_down_or_close"
+            },
+            "copilot_drawer_wide": {
+              "anchor": "safe_viewport",
+              "x": 0.0,
+              "y": 0.38,
+              "w": 1.0,
+              "h": 0.62,
+              "z": 11,
+              "layer": "modal",
+              "entry": "slide_from_bottom",
+              "dismiss": "swipe_down_or_close"
+            }
+          }
+        },
+        {
+          "name": "desktop_two_posters_plus_rail",
+          "when": {
+            "device": [
+              "desktop",
+              "tablet"
+            ]
+          },
+          "layout": {
+            "poster_stage_primary": {
+              "anchor": "safe_viewport",
+              "x": 0.05,
+              "y": 0.1,
+              "w": 0.44,
+              "h": 0.84,
+              "z": 1,
+              "layer": "content"
+            },
+            "poster_stage_secondary": {
+              "anchor": "safe_viewport",
+              "x": 0.51,
+              "y": 0.1,
+              "w": 0.24,
+              "h": 0.84,
+              "z": 1,
+              "layer": "content"
+            },
+            "quest_rail": {
+              "anchor": "safe_viewport",
+              "x": 0.76,
+              "y": 0.1,
+              "w": 0.19,
+              "h": 0.84,
+              "z": 3,
+              "layer": "chrome"
+            },
+            "copilot_overlay": {
+              "anchor": "safe_viewport",
+              "x": 0.52,
+              "y": 0.62,
+              "w": 0.43,
+              "h": 0.32,
+              "z": 10,
+              "layer": "modal"
+            },
+            "copilot_drawer_narrow": {
+              "anchor": "safe_viewport",
+              "x": 0.76,
+              "y": 0.74,
+              "w": 0.22,
+              "h": 0.24,
+              "z": 11,
+              "layer": "modal",
+              "entry": "float",
+              "dismiss": "click_outside_or_close"
+            },
+            "copilot_drawer_wide": {
+              "anchor": "safe_viewport",
+              "x": 0.62,
+              "y": 0.1,
+              "w": 0.38,
+              "h": 0.84,
+              "z": 11,
+              "layer": "modal",
+              "entry": "dock_right",
+              "dismiss": "close"
+            }
+          }
+        }
+      ],
+      "viewer_bindings": {
+        "comic_cover_portrait": "poster_stage",
+        "character_portrait": "poster_stage",
+        "comic_page_portrait": "pdf_reader_drawer"
+      }
+    },
+    {
+      "template_id": "knyt:motion_stage_v1",
+      "name": "Immersive Motion Stage",
+      "origin": "New (landscape-first) template.",
+      "best_for": [
+        "watch",
+        "motion_comics",
+        "trailers",
+        "scene_review"
+      ],
+      "fixed_viewport": true,
+      "regions": [
+        {
+          "region_id": "motion_stage",
+          "role": "primary_media",
+          "modals": [
+            "hero_short_66vh"
+          ],
+          "viewer": "motion_viewer_drawer",
+          "notes": "16:9 or 21:9 stage; no page scroll"
+        },
+        {
+          "region_id": "clip_strip",
+          "role": "navigation",
+          "cards": [
+            "thumbnailRect",
+            "carousel4"
+          ],
+          "notes": "Scene/clip strip for quick jumps"
+        },
+        {
+          "region_id": "quest_rail",
+          "role": "tasks_rewards",
+          "components": [
+            "watch_task",
+            "reward_meter",
+            "ascension_progress",
+            "share_referral",
+            "buy_unlock"
+          ]
+        },
+        {
+          "region_id": "copilot_overlay",
+          "role": "assistant",
+          "modes": [
+            "overlay",
+            "collapsed"
+          ],
+          "default": "overlay"
+        },
+        {
+          "region_id": "copilot_drawer_narrow",
+          "role": "wallet_surface",
+          "mode": "narrow",
+          "components": [
+            "wallet_card.balance",
+            "wallet_card.reward_claim",
+            "wallet_card.task_step"
+          ],
+          "interaction": "slide_in_over_content",
+          "notes": "Use for glance + quick actions"
+        },
+        {
+          "region_id": "copilot_drawer_wide",
+          "role": "wallet_surface",
+          "mode": "wide",
+          "components": [
+            "wallet_modal.checkout",
+            "wallet_modal.send_request",
+            "wallet_modal.permissions",
+            "wallet_modal.receipt"
+          ],
+          "interaction": "dock_or_slide_over_content",
+          "notes": "Use for multi-step flows; can dock on desktop"
+        }
+      ],
+      "geometry_variants": [
+        {
+          "name": "mobile_full_bleed_video",
+          "when": {
+            "device": [
+              "mobile"
+            ]
+          },
+          "layout": {
+            "motion_stage": {
+              "anchor": "safe_viewport",
+              "x": 0.0,
+              "y": 0.0,
+              "w": 1.0,
+              "h": 0.78,
+              "z": 1,
+              "layer": "content"
+            },
+            "clip_strip": {
+              "anchor": "safe_viewport",
+              "x": 0.0,
+              "y": 0.78,
+              "w": 1.0,
+              "h": 0.12,
+              "z": 2,
+              "layer": "chrome"
+            },
+            "copilot_overlay": {
+              "anchor": "safe_viewport",
+              "x": 0.0,
+              "y": 0.52,
+              "w": 1.0,
+              "h": 0.48,
+              "z": 10,
+              "layer": "modal"
+            },
+            "copilot_drawer_narrow": {
+              "anchor": "safe_viewport",
+              "x": 0.0,
+              "y": 0.72,
+              "w": 1.0,
+              "h": 0.28,
+              "z": 11,
+              "layer": "modal",
+              "entry": "slide_from_bottom",
+              "dismiss": "swipe_down_or_close"
+            },
+            "copilot_drawer_wide": {
+              "anchor": "safe_viewport",
+              "x": 0.0,
+              "y": 0.38,
+              "w": 1.0,
+              "h": 0.62,
+              "z": 11,
+              "layer": "modal",
+              "entry": "slide_from_bottom",
+              "dismiss": "swipe_down_or_close"
+            }
+          }
+        },
+        {
+          "name": "desktop_video_plus_rail",
+          "when": {
+            "device": [
+              "desktop",
+              "tablet"
+            ]
+          },
+          "layout": {
+            "motion_stage": {
+              "anchor": "safe_viewport",
+              "x": 0.04,
+              "y": 0.1,
+              "w": 0.72,
+              "h": 0.74,
+              "z": 1,
+              "layer": "content"
+            },
+            "clip_strip": {
+              "anchor": "safe_viewport",
+              "x": 0.04,
+              "y": 0.84,
+              "w": 0.72,
+              "h": 0.1,
+              "z": 2,
+              "layer": "chrome"
+            },
+            "quest_rail": {
+              "anchor": "safe_viewport",
+              "x": 0.77,
+              "y": 0.1,
+              "w": 0.19,
+              "h": 0.84,
+              "z": 3,
+              "layer": "chrome"
+            },
+            "copilot_overlay": {
+              "anchor": "safe_viewport",
+              "x": 0.55,
+              "y": 0.14,
+              "w": 0.4,
+              "h": 0.32,
+              "z": 10,
+              "layer": "modal"
+            },
+            "copilot_drawer_narrow": {
+              "anchor": "safe_viewport",
+              "x": 0.76,
+              "y": 0.74,
+              "w": 0.22,
+              "h": 0.24,
+              "z": 11,
+              "layer": "modal",
+              "entry": "float",
+              "dismiss": "click_outside_or_close"
+            },
+            "copilot_drawer_wide": {
+              "anchor": "safe_viewport",
+              "x": 0.62,
+              "y": 0.1,
+              "w": 0.38,
+              "h": 0.84,
+              "z": 11,
+              "layer": "modal",
+              "entry": "dock_right",
+              "dismiss": "close"
+            }
+          }
+        }
+      ],
+      "viewer_bindings": {
+        "motion_comic_landscape": "motion_viewer_drawer"
+      }
+    },
+    {
+      "template_id": "knyt:quest_hud_hub_v1",
+      "name": "Quest HUD Hub",
+      "origin": "New (tasks/rewards/ascension-first) template.",
+      "best_for": [
+        "ascension",
+        "earn_rewards",
+        "member_get_member",
+        "sales_partnerships",
+        "guided_paths"
+      ],
+      "fixed_viewport": true,
+      "regions": [
+        {
+          "region_id": "content_stage",
+          "role": "contextual_content",
+          "cards": [
+            "featured",
+            "standard",
+            "compact"
+          ],
+          "notes": "Stage shows the next best item; opens viewer as needed"
+        },
+        {
+          "region_id": "hud_left",
+          "role": "order_status",
+          "components": [
+            "metaiye_rank",
+            "ascension_ladder",
+            "reputation_badges"
+          ]
+        },
+        {
+          "region_id": "hud_right",
+          "role": "growth_and_rewards",
+          "components": [
+            "task_list",
+            "reward_meter",
+            "referral_panel",
+            "offer_panel",
+            "checkout_panel"
+          ]
+        },
+        {
+          "region_id": "copilot_overlay",
+          "role": "assistant",
+          "modes": [
+            "docked",
+            "overlay",
+            "collapsed"
+          ],
+          "default": "docked"
+        },
+        {
+          "region_id": "copilot_drawer_narrow",
+          "role": "wallet_surface",
+          "mode": "narrow",
+          "components": [
+            "wallet_card.balance",
+            "wallet_card.reward_claim",
+            "wallet_card.task_step"
+          ],
+          "interaction": "slide_in_over_content",
+          "notes": "Use for glance + quick actions"
+        },
+        {
+          "region_id": "copilot_drawer_wide",
+          "role": "wallet_surface",
+          "mode": "wide",
+          "components": [
+            "wallet_modal.checkout",
+            "wallet_modal.send_request",
+            "wallet_modal.permissions",
+            "wallet_modal.receipt"
+          ],
+          "interaction": "dock_or_slide_over_content",
+          "notes": "Use for multi-step flows; can dock on desktop"
+        }
+      ],
+      "geometry_variants": [
+        {
+          "name": "mobile_hud_collapsed_default",
+          "when": {
+            "device": [
+              "mobile"
+            ]
+          },
+          "layout": {
+            "content_stage": {
+              "anchor": "safe_viewport",
+              "x": 0.0,
+              "y": 0.0,
+              "w": 1.0,
+              "h": 0.86,
+              "z": 1,
+              "layer": "content"
+            },
+            "hud_right": {
+              "anchor": "safe_viewport",
+              "x": 0.0,
+              "y": 0.86,
+              "w": 1.0,
+              "h": 0.14,
+              "z": 3,
+              "layer": "chrome"
+            },
+            "copilot_overlay": {
+              "anchor": "safe_viewport",
+              "x": 0.0,
+              "y": 0.58,
+              "w": 1.0,
+              "h": 0.42,
+              "z": 10,
+              "layer": "modal"
+            },
+            "copilot_drawer_narrow": {
+              "anchor": "safe_viewport",
+              "x": 0.0,
+              "y": 0.72,
+              "w": 1.0,
+              "h": 0.28,
+              "z": 11,
+              "layer": "modal",
+              "entry": "slide_from_bottom",
+              "dismiss": "swipe_down_or_close"
+            },
+            "copilot_drawer_wide": {
+              "anchor": "safe_viewport",
+              "x": 0.0,
+              "y": 0.38,
+              "w": 1.0,
+              "h": 0.62,
+              "z": 11,
+              "layer": "modal",
+              "entry": "slide_from_bottom",
+              "dismiss": "swipe_down_or_close"
+            }
+          }
+        },
+        {
+          "name": "desktop_three_column_hud",
+          "when": {
+            "device": [
+              "desktop",
+              "tablet"
+            ]
+          },
+          "layout": {
+            "hud_left": {
+              "anchor": "safe_viewport",
+              "x": 0.04,
+              "y": 0.1,
+              "w": 0.18,
+              "h": 0.84,
+              "z": 3,
+              "layer": "chrome"
+            },
+            "content_stage": {
+              "anchor": "safe_viewport",
+              "x": 0.23,
+              "y": 0.1,
+              "w": 0.5,
+              "h": 0.84,
+              "z": 1,
+              "layer": "content"
+            },
+            "hud_right": {
+              "anchor": "safe_viewport",
+              "x": 0.74,
+              "y": 0.1,
+              "w": 0.22,
+              "h": 0.84,
+              "z": 3,
+              "layer": "chrome"
+            },
+            "copilot_overlay": {
+              "anchor": "safe_viewport",
+              "x": 0.23,
+              "y": 0.62,
+              "w": 0.5,
+              "h": 0.32,
+              "z": 10,
+              "layer": "modal"
+            },
+            "copilot_drawer_narrow": {
+              "anchor": "safe_viewport",
+              "x": 0.76,
+              "y": 0.74,
+              "w": 0.22,
+              "h": 0.24,
+              "z": 11,
+              "layer": "modal",
+              "entry": "float",
+              "dismiss": "click_outside_or_close"
+            },
+            "copilot_drawer_wide": {
+              "anchor": "safe_viewport",
+              "x": 0.62,
+              "y": 0.1,
+              "w": 0.38,
+              "h": 0.84,
+              "z": 11,
+              "layer": "modal",
+              "entry": "dock_right",
+              "dismiss": "close"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "template_id": "knyt:realm_bridge_map_v1",
+      "name": "Realm Bridge Map",
+      "origin": "New (realm-navigation/bridging) template.",
+      "best_for": [
+        "realm_navigation",
+        "bridge_real_to_lore",
+        "contextual_story_routes"
+      ],
+      "fixed_viewport": true,
+      "regions": [
+        {
+          "region_id": "realm_rail",
+          "role": "realm_switcher",
+          "components": [
+            "DigiTerra",
+            "Terra",
+            "metaTerra/or"
+          ],
+          "notes": "Explicit realm model"
+        },
+        {
+          "region_id": "bridge_stage",
+          "role": "primary_content",
+          "cards": [
+            "compound_full",
+            "featured"
+          ],
+          "notes": "Bridge card: what it is, why it matters, next action"
+        },
+        {
+          "region_id": "related_strip",
+          "role": "related_items",
+          "cards": [
+            "carousel4",
+            "thumbnail6"
+          ],
+          "notes": "Related lore, pages, characters"
+        },
+        {
+          "region_id": "copilot_overlay",
+          "role": "assistant",
+          "modes": [
+            "overlay",
+            "docked",
+            "collapsed"
+          ],
+          "default": "overlay"
+        },
+        {
+          "region_id": "copilot_drawer_narrow",
+          "role": "wallet_surface",
+          "mode": "narrow",
+          "components": [
+            "wallet_card.balance",
+            "wallet_card.reward_claim",
+            "wallet_card.task_step"
+          ],
+          "interaction": "slide_in_over_content",
+          "notes": "Use for glance + quick actions"
+        },
+        {
+          "region_id": "copilot_drawer_wide",
+          "role": "wallet_surface",
+          "mode": "wide",
+          "components": [
+            "wallet_modal.checkout",
+            "wallet_modal.send_request",
+            "wallet_modal.permissions",
+            "wallet_modal.receipt"
+          ],
+          "interaction": "dock_or_slide_over_content",
+          "notes": "Use for multi-step flows; can dock on desktop"
+        }
+      ],
+      "geometry_variants": [
+        {
+          "name": "mobile_realm_tabs_top",
+          "when": {
+            "device": [
+              "mobile"
+            ]
+          },
+          "layout": {
+            "realm_rail": {
+              "anchor": "safe_viewport",
+              "x": 0.0,
+              "y": 0.0,
+              "w": 1.0,
+              "h": 0.1,
+              "z": 3,
+              "layer": "chrome"
+            },
+            "bridge_stage": {
+              "anchor": "safe_viewport",
+              "x": 0.0,
+              "y": 0.1,
+              "w": 1.0,
+              "h": 0.74,
+              "z": 1,
+              "layer": "content"
+            },
+            "related_strip": {
+              "anchor": "safe_viewport",
+              "x": 0.0,
+              "y": 0.84,
+              "w": 1.0,
+              "h": 0.16,
+              "z": 2,
+              "layer": "chrome"
+            },
+            "copilot_overlay": {
+              "anchor": "safe_viewport",
+              "x": 0.0,
+              "y": 0.54,
+              "w": 1.0,
+              "h": 0.46,
+              "z": 10,
+              "layer": "modal"
+            },
+            "copilot_drawer_narrow": {
+              "anchor": "safe_viewport",
+              "x": 0.0,
+              "y": 0.72,
+              "w": 1.0,
+              "h": 0.28,
+              "z": 11,
+              "layer": "modal",
+              "entry": "slide_from_bottom",
+              "dismiss": "swipe_down_or_close"
+            },
+            "copilot_drawer_wide": {
+              "anchor": "safe_viewport",
+              "x": 0.0,
+              "y": 0.38,
+              "w": 1.0,
+              "h": 0.62,
+              "z": 11,
+              "layer": "modal",
+              "entry": "slide_from_bottom",
+              "dismiss": "swipe_down_or_close"
+            }
+          }
+        },
+        {
+          "name": "desktop_realm_rail_left",
+          "when": {
+            "device": [
+              "desktop",
+              "tablet"
+            ]
+          },
+          "layout": {
+            "realm_rail": {
+              "anchor": "safe_viewport",
+              "x": 0.04,
+              "y": 0.1,
+              "w": 0.14,
+              "h": 0.84,
+              "z": 3,
+              "layer": "chrome"
+            },
+            "bridge_stage": {
+              "anchor": "safe_viewport",
+              "x": 0.19,
+              "y": 0.1,
+              "w": 0.58,
+              "h": 0.74,
+              "z": 1,
+              "layer": "content"
+            },
+            "related_strip": {
+              "anchor": "safe_viewport",
+              "x": 0.19,
+              "y": 0.84,
+              "w": 0.58,
+              "h": 0.1,
+              "z": 2,
+              "layer": "chrome"
+            },
+            "copilot_overlay": {
+              "anchor": "safe_viewport",
+              "x": 0.78,
+              "y": 0.1,
+              "w": 0.18,
+              "h": 0.84,
+              "z": 10,
+              "layer": "modal"
+            },
+            "copilot_drawer_narrow": {
+              "anchor": "safe_viewport",
+              "x": 0.76,
+              "y": 0.74,
+              "w": 0.22,
+              "h": 0.24,
+              "z": 11,
+              "layer": "modal",
+              "entry": "float",
+              "dismiss": "click_outside_or_close"
+            },
+            "copilot_drawer_wide": {
+              "anchor": "safe_viewport",
+              "x": 0.62,
+              "y": 0.1,
+              "w": 0.38,
+              "h": 0.84,
+              "z": 11,
+              "layer": "modal",
+              "entry": "dock_right",
+              "dismiss": "close"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "copilot_action_hooks": {
+    "task_framework": {
+      "components": [
+        "task_list",
+        "task_toast",
+        "active_task",
+        "watch_task",
+        "read_task"
+      ],
+      "events": [
+        "task_started",
+        "task_completed",
+        "streak_updated"
+      ]
+    },
+    "rewards_framework": {
+      "components": [
+        "reward_meter",
+        "wallet_chip",
+        "reward_toast",
+        "unlock_cta"
+      ],
+      "events": [
+        "reward_earned",
+        "unlock_purchased",
+        "referral_bonus"
+      ]
+    },
+    "ascension_framework": {
+      "components": [
+        "metaiye_rank",
+        "ascension_ladder",
+        "reputation_badges"
+      ],
+      "events": [
+        "rank_up",
+        "badge_awarded",
+        "reputation_delta"
+      ]
+    },
+    "growth_framework": {
+      "components": [
+        "referral_cta",
+        "share_referral",
+        "member_get_member_panel"
+      ],
+      "events": [
+        "invite_sent",
+        "invite_accepted",
+        "cohort_unlocked"
+      ]
+    },
+    "commerce_framework": {
+      "components": [
+        "offer_panel",
+        "checkout_panel",
+        "buy_unlock",
+        "storefront_cards"
+      ],
+      "events": [
+        "offer_shown",
+        "purchase_completed",
+        "license_granted"
+      ]
+    },
+    "wallet_in_codex": {
+      "surfaces": [
+        "copilot_drawer_narrow",
+        "copilot_drawer_wide"
+      ],
+      "events": [
+        "wallet_opened",
+        "wallet_action_proposed",
+        "wallet_action_confirmed",
+        "wallet_action_executed",
+        "wallet_receipt_created"
+      ]
+    }
+  },
+  "wallet_surface": {
+    "surfaces": {
+      "copilot_drawer_narrow": {
+        "description": "In-codex wallet surface for glanceable actions and small cards.",
+        "default_anchor": "safe_viewport",
+        "default_entry": "slide",
+        "preferred_on": [
+          "mobile",
+          "desktop",
+          "tablet"
+        ]
+      },
+      "copilot_drawer_wide": {
+        "description": "In-codex wallet surface for multi-step flows and large modals.",
+        "default_anchor": "safe_viewport",
+        "default_entry": "dock_or_slide",
+        "preferred_on": [
+          "desktop",
+          "tablet",
+          "mobile"
+        ]
+      }
+    },
+    "drawer_modes": {
+      "narrow": {
+        "mobile_height_norm": 0.28,
+        "desktop_width_norm": 0.22,
+        "z": 11,
+        "layer": "modal"
+      },
+      "wide": {
+        "mobile_height_norm": 0.62,
+        "desktop_width_norm": 0.38,
+        "z": 11,
+        "layer": "modal"
+      }
+    },
+    "wallet_ui_catalog": {
+      "cards": [
+        {
+          "id": "wallet_card.balance",
+          "best_for": [
+            "glance",
+            "status"
+          ]
+        },
+        {
+          "id": "wallet_card.reward_claim",
+          "best_for": [
+            "rewards",
+            "claim_queue"
+          ]
+        },
+        {
+          "id": "wallet_card.unlock_offer",
+          "best_for": [
+            "unlock",
+            "commerce"
+          ]
+        },
+        {
+          "id": "wallet_card.referral_invite",
+          "best_for": [
+            "growth",
+            "member_get_member"
+          ]
+        },
+        {
+          "id": "wallet_card.task_step",
+          "best_for": [
+            "tasks",
+            "next_action"
+          ]
+        }
+      ],
+      "modals": [
+        {
+          "id": "wallet_modal.checkout",
+          "best_for": [
+            "purchase",
+            "unlock"
+          ],
+          "prefers_drawer": "wide"
+        },
+        {
+          "id": "wallet_modal.send_request",
+          "best_for": [
+            "send",
+            "request",
+            "x402"
+          ],
+          "prefers_drawer": "wide"
+        },
+        {
+          "id": "wallet_modal.receipt",
+          "best_for": [
+            "confirmation",
+            "history"
+          ],
+          "prefers_drawer": "narrow"
+        },
+        {
+          "id": "wallet_modal.permissions",
+          "best_for": [
+            "auth",
+            "consent"
+          ],
+          "prefers_drawer": "wide"
+        }
+      ]
+    },
+    "capability_gates": {
+      "view_content": {
+        "requires_user_confirm": false
+      },
+      "propose_wallet_action": {
+        "requires_user_confirm": false
+      },
+      "execute_wallet_action": {
+        "requires_user_confirm": true,
+        "default_modal": "wallet_modal.permissions"
+      }
+    }
+  }
+}

@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Button } from "./ui/Button";
-import { Textarea } from "./ui/Textarea";
+import { Button } from "./ui/button";
+import { Textarea } from "./ui/textarea";
 import { Brain, Wrench } from "lucide-react";
 
 interface Persona {
