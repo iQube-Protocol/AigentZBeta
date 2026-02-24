@@ -405,17 +405,51 @@ function resolveIframeUrl(): string {
   return normalizeRuntimeIframeUrl(raw);
 }
 
+function parseOrigin(value: string): string | null {
+  try {
+    return new URL(value).origin;
+  } catch {
+    return null;
+  }
+}
+
+function isLocalOrigin(origin: string | null): boolean {
+  if (!origin) return false;
+  try {
+    const hostname = new URL(origin).hostname.toLowerCase();
+    return (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname === '::1' ||
+      hostname.endsWith('.localhost')
+    );
+  } catch {
+    return false;
+  }
+}
+
 function resolveIframeOrigin(iframeUrl: string): string {
+  const iframeUrlOrigin = parseOrigin(iframeUrl) || 'http://localhost:3000';
   const explicit =
     asString(env.RUNTIME_IFRAME_ORIGIN) ||
     asString(env.RUNTIME_POSTMESSAGE_ORIGIN) ||
     asString(process.env.NEXT_PUBLIC_RUNTIME_IFRAME_ORIGIN);
-  if (explicit) return explicit;
-  try {
-    return new URL(iframeUrl).origin;
-  } catch {
-    return 'http://localhost:3000';
+
+  if (!explicit) {
+    return iframeUrlOrigin;
   }
+
+  const explicitOrigin = parseOrigin(explicit);
+  if (!explicitOrigin) {
+    return iframeUrlOrigin;
+  }
+
+  // Defensive guard: never return localhost-style postMessage origin for a remote iframe URL.
+  if (isLocalOrigin(explicitOrigin) && !isLocalOrigin(iframeUrlOrigin)) {
+    return iframeUrlOrigin;
+  }
+
+  return explicitOrigin;
 }
 
 function buildMenu(state: RuntimeState) {
