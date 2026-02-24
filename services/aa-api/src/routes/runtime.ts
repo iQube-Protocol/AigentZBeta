@@ -302,17 +302,17 @@ function resolveRuntimeContext(req: any): RuntimeContext {
 function providerReliability(providerId: string | undefined): { trust: number; reliability: number } {
   switch (providerId) {
     case 'anthropic':
-      return { trust: 8.3, reliability: 9.1 };
+      return { trust: 7.8, reliability: 7.2 };
     case 'venice':
-      return { trust: 7.8, reliability: 8.6 };
+      return { trust: 8.8, reliability: 8.6 };
     case 'chaingpt':
-      return { trust: 8.0, reliability: 8.8 };
+      return { trust: 8.0, reliability: 7.1 };
     case 'thirdweb':
-      return { trust: 7.6, reliability: 8.4 };
+      return { trust: 8.2, reliability: 8.4 };
     case 'openai':
-      return { trust: 8.6, reliability: 9.3 };
+      return { trust: 7.2, reliability: 7.3 };
     default:
-      return { trust: 7.2, reliability: 8.0 };
+      return { trust: 7.2, reliability: 7.0 };
   }
 }
 

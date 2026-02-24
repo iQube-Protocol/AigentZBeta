@@ -22,6 +22,62 @@ const corsHeaders = {
 
 const DEFAULT_RUNTIME_PATH = '/metame/runtime'
 
+type ProviderKey = 'openai' | 'anthropic' | 'chaingpt' | 'venice' | 'thirdweb' | 'google' | 'default'
+type TrustState = 'ok' | 'warn' | 'fail'
+
+const PROVIDER_SCORES: Record<ProviderKey, { trust: number; reliability: number }> = {
+  openai: { trust: 7.2, reliability: 7.3 },
+  anthropic: { trust: 7.8, reliability: 7.2 },
+  chaingpt: { trust: 8.0, reliability: 7.1 },
+  venice: { trust: 8.8, reliability: 8.6 },
+  thirdweb: { trust: 8.2, reliability: 8.4 },
+  google: { trust: 7.2, reliability: 7.0 },
+  default: { trust: 7.2, reliability: 7.0 },
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null
+}
+
+function asString(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : null
+}
+
+function normalizeProvider(providerId: string | null): ProviderKey | null {
+  if (!providerId) return null
+  switch (providerId.toLowerCase()) {
+    case 'openai':
+    case 'anthropic':
+    case 'chaingpt':
+    case 'venice':
+    case 'thirdweb':
+    case 'google':
+      return providerId.toLowerCase() as ProviderKey
+    default:
+      return null
+  }
+}
+
+function resolveProviderFromLlmId(llmId: string | null): ProviderKey | null {
+  if (!llmId) return null
+  const id = llmId.toLowerCase()
+  if (id.startsWith('gpt-') || id.startsWith('o1') || id.startsWith('o3')) return 'openai'
+  if (id.startsWith('claude')) return 'anthropic'
+  if (id.startsWith('gemini')) return 'google'
+  if (id.startsWith('venice')) return 'venice'
+  if (id.startsWith('chaingpt')) return 'chaingpt'
+  if (id.startsWith('thirdweb')) return 'thirdweb'
+  return null
+}
+
+function trustStateFromScore(score: number): TrustState {
+  if (score >= 8) return 'ok'
+  if (score >= 5) return 'warn'
+  return 'fail'
+}
+
 function normalizeRuntimeIframeUrl(rawUrl: string): string {
   try {
     const parsed = new URL(rawUrl)
@@ -80,6 +136,115 @@ function normalizeShellConfigResponse(path: string, responseBody: string): strin
   }
 }
 
+function resolveProviderFromRequestBody(requestBody: string | undefined): ProviderKey | null {
+  if (!requestBody) return null
+  try {
+    const payload = asRecord(JSON.parse(requestBody))
+    if (!payload) return null
+    const providerFromBody = normalizeProvider(asString(payload.provider_id))
+    if (providerFromBody) return providerFromBody
+    const llmId = asString(payload.llm_id) || asString(payload.id)
+    return resolveProviderFromLlmId(llmId)
+  } catch {
+    return null
+  }
+}
+
+function resolveProviderFromResponse(payload: Record<string, unknown>): ProviderKey | null {
+  const shellConfig = asRecord(payload.shell_config)
+  const rootOrShell = shellConfig ?? payload
+  const selectors = asRecord(rootOrShell.selectors)
+  const llm = asRecord(selectors?.llm)
+  const current = asRecord(llm?.current)
+  const providerFromCurrent = normalizeProvider(asString(current?.provider_id))
+  if (providerFromCurrent) return providerFromCurrent
+  return resolveProviderFromLlmId(asString(current?.id))
+}
+
+function patchSessionScores(session: Record<string, unknown> | null, scores: { trust: number; reliability: number }) {
+  if (!session) return
+  session.scores = {
+    trust: scores.trust,
+    reliability: scores.reliability,
+  }
+
+  const trustState = trustStateFromScore(scores.trust)
+  session.trust_level = trustState === 'ok' ? 'verified' : trustState === 'warn' ? 'warning' : 'unverified'
+
+  const trustSignals = Array.isArray(session.trust_signals) ? session.trust_signals : []
+  session.trust_signals = trustSignals.map((signal) => {
+    if (typeof signal === 'string') return signal
+    const signalRecord = asRecord(signal)
+    if (!signalRecord) return signal
+    if (signalRecord.key === 'trust') {
+      return {
+        ...signalRecord,
+        label: `Trust ${scores.trust.toFixed(1)}/10`,
+        state: trustStateFromScore(scores.trust),
+      }
+    }
+    if (signalRecord.key === 'reliability') {
+      return {
+        ...signalRecord,
+        label: `Reliability ${scores.reliability.toFixed(1)}/10`,
+        state: trustStateFromScore(scores.reliability),
+      }
+    }
+    return signalRecord
+  })
+}
+
+function patchShellTrust(shellConfig: Record<string, unknown>, scores: { trust: number; reliability: number }) {
+  const trustBlock = asRecord(shellConfig.trust) ?? {}
+  trustBlock.scores = {
+    trust: scores.trust,
+    reliability: scores.reliability,
+  }
+  trustBlock.level = trustStateFromScore(scores.trust) === 'ok' ? 'verified' : 'warning'
+
+  const existingSignals = Array.isArray(trustBlock.signals) ? trustBlock.signals : []
+  trustBlock.signals = existingSignals.map((signal) => {
+    if (typeof signal !== 'string') return signal
+    if (signal.toLowerCase().startsWith('trust ')) {
+      return `Trust ${scores.trust.toFixed(1)}/10`
+    }
+    if (signal.toLowerCase().startsWith('reliability ')) {
+      return `Reliability ${scores.reliability.toFixed(1)}/10`
+    }
+    return signal
+  })
+  shellConfig.trust = trustBlock
+}
+
+function normalizeRuntimeScores(path: string, responseBody: string, requestBody?: string): string {
+  const normalizedPath = path.split('?')[0]
+  if (!normalizedPath.includes('/runtime/')) return responseBody
+
+  try {
+    const payload = asRecord(JSON.parse(responseBody))
+    if (!payload) return responseBody
+
+    const provider =
+      resolveProviderFromResponse(payload) ??
+      resolveProviderFromRequestBody(requestBody) ??
+      null
+    if (!provider) return responseBody
+
+    const scores = PROVIDER_SCORES[provider] ?? PROVIDER_SCORES.default
+    patchSessionScores(asRecord(payload.session), scores)
+
+    const shellConfig = asRecord(payload.shell_config)
+    if (shellConfig) {
+      patchSessionScores(asRecord(shellConfig.session), scores)
+      patchShellTrust(shellConfig, scores)
+    }
+
+    return JSON.stringify(payload)
+  } catch {
+    return responseBody
+  }
+}
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -107,13 +272,15 @@ serve(async (req) => {
     console.log(`[AA-Proxy] Primary: ${primaryUpstream}`)
     console.log(`[AA-Proxy] Fallback: ${fallbackUpstream}`)
     
+    const requestBody = req.method === 'POST' ? await req.text() : undefined
+
     // Try primary upstream first
-    let response = await tryUpstream(req, primaryUpstream, path)
+    let response = await tryUpstream(req, primaryUpstream, path, requestBody)
     
     // If primary fails, try fallback
     if (!response.ok) {
       console.log(`[AA-Proxy] Primary failed (${response.status}), trying fallback`)
-      response = await tryUpstream(req, fallbackUpstream, path)
+      response = await tryUpstream(req, fallbackUpstream, path, requestBody)
     }
     
     // Add CORS headers to response
@@ -135,7 +302,7 @@ serve(async (req) => {
   }
 })
 
-async function tryUpstream(req: Request, upstream: string, path: string): Promise<Response> {
+async function tryUpstream(req: Request, upstream: string, path: string, requestBody?: string): Promise<Response> {
   const upstreamUrl = `${upstream}${path}`
   console.log(`[AA-Proxy] Trying upstream: ${upstreamUrl}`)
   
@@ -148,14 +315,16 @@ async function tryUpstream(req: Request, upstream: string, path: string): Promis
         'X-Tenant-ID': req.headers.get('X-Tenant-ID') || '',
         'X-Persona-ID': req.headers.get('X-Persona-ID') || '',
       },
-      body: req.method === 'POST' ? await req.text() : undefined,
+      body: req.method === 'POST' ? requestBody : undefined,
     })
     
     console.log(`[AA-Proxy] Upstream response: ${response.status}`)
     
     // Return the response with the same body and status
-    const responseBody = normalizeShellConfigResponse(path, await response.text())
-    return new Response(responseBody, {
+    const rawBody = await response.text()
+    const withNormalizedIframe = normalizeShellConfigResponse(path, rawBody)
+    const normalizedResponseBody = normalizeRuntimeScores(path, withNormalizedIframe, requestBody)
+    return new Response(normalizedResponseBody, {
       status: response.status,
       statusText: response.statusText,
       headers: response.headers,
