@@ -2,12 +2,16 @@
 
 import { useState } from "react";
 import { CodexCopilotLayer } from "@/app/components/codex/CodexCopilotLayer";
+import { SmartTriadCopilotLayer, type SmartTriadMessage, isSmartTriadCopilotEnabled } from "@/components/smarttriad/copilot";
 import { Brain, Settings, Code, Sparkles, Bot, MessageSquare } from "lucide-react";
 
 export default function CopilotViewerPage() {
   const [isCopilotOpen, setIsCopilotOpen] = useState(true); // Start open for testing
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [density, setDensity] = useState<'narrow' | 'wide'>('wide');
+  const [copilotMessages, setCopilotMessages] = useState<SmartTriadMessage[]>([]);
+  
+  const useSmartTriadCopilot = isSmartTriadCopilotEnabled();
 
   // Debug logging for copilot state
   const handleOpenCopilot = () => {
@@ -218,23 +222,45 @@ export default function CopilotViewerPage() {
       </div>
 
       {/* Codex Copilot Layer */}
-      <CodexCopilotLayer
-        isOpen={isCopilotOpen}
-        onClose={handleCloseCopilot}
-        onOpen={handleOpenCopilot}
-        quickPrompts={[
-          "Summarize the latest Codex lore",
-          "Show the metaKNYT episode catalog",
-          "Find experience cartridges for onboarding",
-          "Best templates for a rewards flow",
-          "Explain KNYT personas and identity modes",
-        ]}
-        agent={agent}
-        walletBalance={1000}
-        nftCount={5}
-        isFirstVisit={false}
-        visitCount={1}
-      />
+      {useSmartTriadCopilot ? (
+        <SmartTriadCopilotLayer
+          isOpen={isCopilotOpen}
+          onClose={handleCloseCopilot}
+          onOpen={handleOpenCopilot}
+          messages={copilotMessages}
+          onMessagesChange={setCopilotMessages}
+          enableAdvancedRendering={true}
+          tenantConfig={{
+            enableModelSelection: true, // Enable for copilot page testing
+            accentColor: 'hsl(188, 94%, 43%)' // System cyan
+          }}
+          quickPrompts={[
+            "Summarize the latest Codex lore",
+            "Show the metaKNYT episode catalog",
+            "Find experience cartridges for onboarding",
+            "Best templates for a rewards flow",
+            "Explain KNYT personas and identity modes",
+          ]}
+          promptPlaceholder="Ask about Codex, KNYT, templates, or experiences..."
+          agent={agent}
+          personaId="codex-explorer"
+        />
+      ) : (
+        <CodexCopilotLayer
+          isOpen={isCopilotOpen}
+          onClose={handleCloseCopilot}
+          onOpen={handleOpenCopilot}
+          quickPrompts={[
+            "Summarize the latest Codex lore",
+            "Show the metaKNYT episode catalog",
+            "Find experience cartridges for onboarding",
+            "Best templates for a rewards flow",
+            "Explain KNYT personas and identity modes",
+          ]}
+          promptPlaceholder="Ask about Codex, KNYT, templates, or experiences..."
+          agent={agent}
+        />
+      )}
     </div>
   );
 }

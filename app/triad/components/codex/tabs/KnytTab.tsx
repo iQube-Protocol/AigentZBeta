@@ -454,25 +454,6 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     }
   }, [tabSlug]);
 
-  // Convert CopilotMessage to SmartTriadMessage for compatibility
-  const convertToSmartTriadMessages = useCallback((copilotMessages: CopilotMessage[]): SmartTriadMessage[] => {
-    return copilotMessages.map(msg => ({
-      id: msg.id,
-      role: msg.role as 'user' | 'assistant' | 'system',
-      content: typeof msg.content === 'string' ? msg.content : React.isValidElement(msg.content) ? '' : String(msg.content),
-      timestamp: msg.timestamp,
-      variant: msg.variant,
-      metadata: {
-        model: 'knyt-copilot',
-        provider: 'system',
-        theme: activeTab === 'scrolls' ? 'connect' : activeTab === 'characters' ? 'iqubes' : 'default'
-      }
-    }));
-  }, [activeTab]);
-
-  const smartTriadMessages = convertToSmartTriadMessages(codexCopilotMessages);
-  const useSmartTriadCopilot = isSmartTriadCopilotEnabled();
-
   // Legacy state for cards/purchases (maintained for compatibility)
   const [activeTab, setActiveTab] = useState<KnytTabSlug>(resolvedInitialTab);
   const isExternallyScopedTab = Boolean(tabSlug);
@@ -576,6 +557,23 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   const [codexCopilotMessages, setCodexCopilotMessages] = useState<CopilotMessage[]>(() => [
     createCodexCopilotWelcomeMessage(),
   ]);
+  const useSmartTriadCopilot = isSmartTriadCopilotEnabled();
+  // Convert CopilotMessage to SmartTriadMessage for compatibility
+  const convertToSmartTriadMessages = useCallback((copilotMessages: CopilotMessage[]): SmartTriadMessage[] => {
+    return copilotMessages.map((msg) => ({
+      id: msg.id,
+      role: msg.role,
+      content: typeof msg.content === 'string' ? msg.content : '',
+      timestamp: msg.timestamp,
+      variant: msg.variant,
+      metadata: {
+        model: 'knyt-copilot',
+        provider: 'system',
+        theme: activeTab === 'scrolls' ? 'connect' : activeTab === 'characters' ? 'iqubes' : 'default'
+      }
+    }));
+  }, [activeTab]);
+  const smartTriadMessages = convertToSmartTriadMessages(codexCopilotMessages);
   const lastCopilotContextRef = useRef<string | null>(null);
   
   // Quest/Task state
@@ -2578,7 +2576,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
             // Convert back to CopilotMessage format for compatibility
             const copilotMessages: CopilotMessage[] = messages.map(msg => ({
               id: msg.id,
-              role: msg.role,
+              role: msg.role === 'assistant' ? 'assistant' : 'user',
               content: msg.content,
               timestamp: msg.timestamp,
               variant: msg.variant

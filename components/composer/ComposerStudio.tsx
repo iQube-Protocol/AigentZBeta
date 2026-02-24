@@ -18,6 +18,7 @@ import { useCodexList } from "@/app/hooks/useCodexConfig";
 import type { CodexListItem } from "@/types/codex";
 import type { DesignQube, DesignQubeThemeMode } from "@/types/designQube";
 import { CodexCopilotLayer } from "@/app/components/codex/CodexCopilotLayer";
+import { SmartTriadCopilotLayer, type SmartTriadMessage, isSmartTriadCopilotEnabled } from "@/components/smarttriad/copilot";
 import { AgenticDesignParityPanel } from "@/components/composer/AgenticDesignParityPanel";
 import SurfacePlanningPanel from "@/components/composer/SurfacePlanningPanel";
 
@@ -752,6 +753,28 @@ export const ComposerStudio = () => {
   const [copilotContextId, setCopilotContextId] = useState("qripto-codex");
   const [codexContentItems, setCodexContentItems] = useState<ComposerMediaItem[]>([]);
   const [codexContentLoading, setCodexContentLoading] = useState(false);
+  const [studioCopilotMessages, setStudioCopilotMessages] = useState<SmartTriadMessage[]>([]);
+  
+  // Convert function for SmartTriad compatibility
+  const convertToSmartTriadMessages = useCallback((messages: any[]): SmartTriadMessage[] => {
+    return messages.map(msg => ({
+      id: msg.id || `studio-${Date.now()}-${Math.random()}`,
+      role: msg.role || 'assistant',
+      content: typeof msg.content === 'string' ? msg.content : String(msg.content || ''),
+      timestamp: msg.timestamp || new Date(),
+      variant: msg.variant,
+      metadata: {
+        model: 'studio-copilot',
+        provider: 'system',
+        theme: 'default' as const,
+        trustScore: 8,
+        reliabilityScore: 9,
+        riskScore: 2
+      }
+    }));
+  }, []);
+  
+  const useSmartTriadCopilot = isSmartTriadCopilotEnabled();
 
   // Sync Experience Qube collapse state with Design Qube
   useEffect(() => {
@@ -2283,11 +2306,52 @@ export const ComposerStudio = () => {
                   <Bot className="h-4 w-4 text-cyan-300" />
                   <h2 className="text-lg font-semibold text-white">Composer Copilot</h2>
                 </div>
-                <p className="text-sm text-slate-400">What would you like to compose?</p>
               </div>
+              <p className="text-sm text-slate-400">What would you like to compose?</p>
             </div>
-            <div className="mt-4 h-[640px] w-96 overflow-hidden rounded-2xl border border-transparent bg-slate-950/60 backdrop-blur-xl flex flex-col">
-              <div className="h-full overflow-hidden">
+          </div>
+          <div className="mt-4 h-[640px] w-96 overflow-hidden rounded-2xl border border-transparent bg-slate-950/60 backdrop-blur-xl flex flex-col">
+            <div className="h-full overflow-hidden">
+              {useSmartTriadCopilot ? (
+                <SmartTriadCopilotLayer
+                  isOpen
+                  onClose={() => {}}
+                  variant="embedded"
+                  personaId="studio-copilot"
+                  contextId={copilotContextId}
+                  messages={studioCopilotMessages}
+                  onMessagesChange={setStudioCopilotMessages}
+                  enableAdvancedRendering={true}
+                  tenantConfig={{
+                    enableModelSelection: false, // Disable for Studio for now
+                    accentColor: 'hsl(188, 94%, 43%)' // System cyan
+                  }}
+                  showNavMenu={false} // Disable in embedded mode
+                  showWalletMenu={false} // Disable in embedded mode
+                  hideAvatarToggle={true}
+                  inputPanelClassName="rounded-2xl border border-white/10 bg-slate-950/95 backdrop-blur-xl px-3 py-3 shadow-lg"
+                  inputPanelInputClassName="flex-1 px-3 py-2 bg-slate-900/80 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500 text-sm"
+                  panelBorder={false}
+                  quickPrompts={[
+                    "Show all templates",
+                    "Micro-episode experience",
+                    "Smart wallet + offer",
+                    "Article reading flow",
+                    "Tutorial walkthrough",
+                    "Task runbook with rewards",
+                  ]}
+                  onPrompt={handleCopilotPrompt}
+                  agent={{
+                    id: composerAgent.id,
+                    name: composerAgent.name,
+                    evmSepolia: composerAgent.walletAddresses?.evmAddress as `0x${string}`,
+                    evmArb: composerAgent.walletAddresses?.evmAddress as `0x${string}`,
+                    btcAddress: composerAgent.walletAddresses?.btcAddress,
+                    fioHandle: composerAgent.fioId,
+                    walletAddress: composerAgent.walletAddresses?.evmAddress,
+                  }}
+                />
+              ) : (
                 <CodexCopilotLayer
                   isOpen
                   onClose={() => {}}
@@ -2317,9 +2381,10 @@ export const ComposerStudio = () => {
                     evmArb: composerAgent.walletAddresses?.evmAddress as `0x${string}`,
                     btcAddress: composerAgent.walletAddresses?.btcAddress,
                     fioHandle: composerAgent.fioId,
+                    walletAddress: composerAgent.walletAddresses?.evmAddress,
                   }}
                 />
-              </div>
+              )}
             </div>
           </div>
 

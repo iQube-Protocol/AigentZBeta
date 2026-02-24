@@ -10,7 +10,6 @@ import React, { useEffect, useRef, useState, useCallback, useMemo } from "react"
 import { useMetaAvatar } from "@/app/contexts/MetaAvatarContext";
 import { useIsMobile } from "@/app/hooks/use-mobile";
 import { SmartTriadInferenceRenderer, type SmartTriadMessage } from "./SmartTriadInferenceRenderer";
-import SmartWalletDrawer from "../../content/SmartWalletDrawer";
 import {
   Bot,
   User,
@@ -44,17 +43,7 @@ interface SmartTriadCopilotLayerProps {
   onContextChange?: (contextId: string) => void;
   inputPanelClassName?: string;
   inputPanelInputClassName?: string;
-  quickPrompts?: Array<
-    | string
-    | {
-        id?: string;
-        label: string;
-        prompt?: string;
-        icon?: React.ReactNode;
-        iconOnly?: boolean;
-        skipInference?: boolean;
-      }
-  >;
+  quickPrompts?: QuickPrompt[];
   onPrompt?: (prompt: string) => void;
   initialMessage?: string;
   seedMessages?: SmartTriadMessage[];
@@ -98,6 +87,16 @@ interface SmartTriadCopilotLayerProps {
 
 type CopilotMode = "chat" | "avatar";
 type WalletTab = "wallet" | "library" | "tasks" | "reputation" | "rewards";
+type QuickPrompt =
+  | string
+  | {
+      id?: string;
+      label: string;
+      prompt?: string;
+      icon?: React.ReactNode;
+      iconOnly?: boolean;
+      skipInference?: boolean;
+    };
 
 export function SmartTriadCopilotLayer({
   isOpen,
@@ -146,9 +145,14 @@ export function SmartTriadCopilotLayer({
   const [activeWalletTab, setActiveWalletTab] = useState<WalletTab>("wallet");
   const [showQuickPrompts, setShowQuickPrompts] = useState(true);
   const [selectedContext, setSelectedContext] = useState(contextId || contextOptions[0]?.id);
+  const avatarContainer = variant === "embedded" ? "copilot" : "codexCopilot";
   
   // Avatar state
-  const { avatarState, toggleAvatar, isAvatarActive } = useMetaAvatar();
+  const { requestAvatar, releaseAvatar, activeContainer } = useMetaAvatar();
+  const toggleAvatar = useCallback(() => {
+    setMode((prev) => (prev === "avatar" ? "chat" : "avatar"));
+  }, []);
+  const isAvatarActive = mode === "avatar" && activeContainer === avatarContainer;
   const isMobile = useIsMobile();
   
   // Messages state
@@ -193,7 +197,17 @@ export function SmartTriadCopilotLayer({
   
   // Use external messages if provided, otherwise use internal state
   const messages = externalMessages || internalMessages;
-  const setMessages = onMessagesChange || setInternalMessages;
+  const updateMessages = useCallback(
+    (updater: (prev: SmartTriadMessage[]) => SmartTriadMessage[]) => {
+      const next = updater([...messages]);
+      if (onMessagesChange) {
+        onMessagesChange(next);
+        return;
+      }
+      setInternalMessages(next);
+    },
+    [messages, onMessagesChange]
+  );
   
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -217,6 +231,14 @@ export function SmartTriadCopilotLayer({
       setSelectedContext(contextId);
     }
   }, [contextId, selectedContext]);
+
+  useEffect(() => {
+    if (mode === "avatar" && isOpen) {
+      requestAvatar(avatarContainer, agent?.id || "aigent-z");
+      return () => releaseAvatar(avatarContainer);
+    }
+    releaseAvatar(avatarContainer);
+  }, [mode, isOpen, requestAvatar, releaseAvatar, avatarContainer, agent?.id]);
   
   // Handle sending messages
   const handleSend = useCallback(async () => {
@@ -229,7 +251,7 @@ export function SmartTriadCopilotLayer({
       timestamp: new Date(),
     };
     
-    setMessages([...messages, userMessage]);
+    updateMessages((prev) => [...prev, userMessage]);
     setInput("");
     setIsProcessing(true);
     
@@ -254,7 +276,7 @@ export function SmartTriadCopilotLayer({
         }
       };
       
-      setMessages(prev => [...prev, assistantMessage]);
+      updateMessages((prev) => [...prev, assistantMessage]);
     } catch (error) {
       console.error('Failed to get response:', error);
       
@@ -268,14 +290,14 @@ export function SmartTriadCopilotLayer({
         }
       };
       
-      setMessages(prev => [...prev, errorMessage]);
+      updateMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsProcessing(false);
     }
-  }, [input, isProcessing, messages, setMessages, trustProvider, selectedContext]);
+  }, [input, isProcessing, updateMessages, trustProvider, selectedContext]);
   
   // Handle quick prompt selection
-  const handleQuickPrompt = useCallback((prompt: string | { label: string; prompt?: string }) => {
+  const handleQuickPrompt = useCallback((prompt: QuickPrompt) => {
     const promptText = typeof prompt === 'string' ? prompt : prompt.prompt || prompt.label;
     setInput(promptText);
     onPrompt?.(promptText);
