@@ -372,6 +372,39 @@ function menuPromptFromActionId(actionId: string): string | null {
   return null;
 }
 
+function coerceRuntimeIntent(input: unknown): RuntimeIntent | null {
+  if (typeof input !== "string") return null;
+  const normalized = input.trim().toLowerCase();
+  const intents: RuntimeIntent[] = ["watch", "listen", "read", "play", "find", "earn", "make", "be"];
+  return intents.includes(normalized as RuntimeIntent) ? (normalized as RuntimeIntent) : null;
+}
+
+function isQuickActionPrompt(prompt: string): boolean {
+  const normalized = prompt.trim().toLowerCase();
+  const quickActionPrompts = new Set([
+    "i'd like to watch experiences.",
+    "i'd like to listen to experiences.",
+    "i'd like to read experiences.",
+    "help me find experiences.",
+    "i want to be...",
+    "how can i earn...",
+    "i'd like to play experiences.",
+    "i want to make...",
+    "help me find experiences to share.",
+    "launching earn…",
+    "launching earn...",
+    "launching play…",
+    "launching play...",
+    "launching make…",
+    "launching make...",
+    "launching be…",
+    "launching be...",
+    "launching share…",
+    "launching share...",
+  ]);
+  return quickActionPrompts.has(normalized);
+}
+
 function resolveCapsuleCoverImage(content: RuntimeCapsule) {
   if (content.coverImageUri && content.coverImageUri.trim().length > 0) return content.coverImageUri;
   return "";
@@ -1526,7 +1559,14 @@ export default function MetaMeRuntimeClient() {
   }, [capsulePanel, showWelcome]);
 
   const handlePrompt = useCallback(
-    async (prompt: string) => {
+    async (
+      prompt: string,
+      options?: {
+        source?: "menu_action" | "quick_link" | "text_input" | "runtime_ui";
+        skipInference?: boolean;
+        explicitIntent?: RuntimeIntent | null;
+      }
+    ) => {
       const trimmed = prompt.trim();
       if (!trimmed) return;
       if (trimmed === "__runtime_refresh__") {
@@ -1544,7 +1584,9 @@ export default function MetaMeRuntimeClient() {
         return;
       }
 
-      const intent = inferIntent(trimmed);
+      const source = options?.source ?? "runtime_ui";
+      const intent = options?.explicitIntent ?? inferIntent(trimmed);
+      const skipInference = Boolean(options?.skipInference);
       let workingContents = allContents;
       const shouldRefetchForIntent = intent === "play" || workingContents.length === 0 || intent !== lastIntent;
       if (shouldRefetchForIntent) {
@@ -1609,6 +1651,47 @@ export default function MetaMeRuntimeClient() {
         });
       }
       setMessages(immediateMessages);
+
+      const shouldRequestInference =
+        !skipInference &&
+        (source === "text_input" || (thinShellMode && source !== "menu_action" && source !== "quick_link"));
+
+      if (!shouldRequestInference) {
+        return;
+      }
+
+      const persona = selectedAgent.id === "aigent-moneypenny" ? "moneypenny" : "kn0w1";
+      try {
+        const response = await fetch("/api/codex/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: trimmed,
+            persona,
+            personaId: shellContextRef.current.persona_id || null,
+            contextId: "metame-runtime-shell",
+          }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          return;
+        }
+        const llmResponse = typeof data?.response === "string" ? data.response.trim() : "";
+        if (!llmResponse) {
+          return;
+        }
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `llm-msg-${Date.now()}`,
+            role: "assistant",
+            content: llmResponse,
+            timestamp: new Date(),
+          },
+        ]);
+      } catch {
+        // Keep runtime functional even if inference endpoint fails.
+      }
     },
     [
       activeDevice,
@@ -1617,8 +1700,10 @@ export default function MetaMeRuntimeClient() {
       capsulePanel,
       fetchRuntimeCapsules,
       isRuntimeFullscreen,
+      thinShellMode,
       refreshRuntime,
       resetRuntime,
+      selectedAgent.id,
       selectedCapsuleLocal,
       toast,
     ]
@@ -1750,10 +1835,15 @@ export default function MetaMeRuntimeClient() {
             : typeof payload.item_id === "string"
               ? payload.item_id
               : null;
+        const explicitIntent = coerceRuntimeIntent(payload.intent);
         const actionPrompt = actionId ? menuPromptFromActionId(actionId) : null;
         const resolvedPrompt = explicitPrompt || actionPrompt;
         if (resolvedPrompt) {
-          void handlePrompt(resolvedPrompt);
+          void handlePrompt(resolvedPrompt, {
+            source: "menu_action",
+            skipInference: true,
+            explicitIntent,
+          });
         }
         return;
       }
@@ -1766,7 +1856,16 @@ export default function MetaMeRuntimeClient() {
               ? payload.prompt
               : null;
         if (promptText) {
-          void handlePrompt(promptText);
+          const explicitIntent = coerceRuntimeIntent(payload.intent);
+          const skipInference =
+            payload.skip_inference === true ||
+            payload.skipInference === true ||
+            isQuickActionPrompt(promptText);
+          void handlePrompt(promptText, {
+            source: skipInference ? "quick_link" : "text_input",
+            skipInference,
+            explicitIntent,
+          });
         }
         return;
       }
@@ -1905,7 +2004,7 @@ export default function MetaMeRuntimeClient() {
 
   const handleRuntimeMenuIntent = (intent: RuntimeIntent, prompt: string) => {
     setLastIntent(intent);
-    void handlePrompt(prompt);
+    void handlePrompt(prompt, { source: "menu_action", skipInference: true, explicitIntent: intent });
   };
 
   const runtimeMenu = (
@@ -2179,7 +2278,13 @@ export default function MetaMeRuntimeClient() {
                 key={`welcome-quick-${index}`}
                 title={promptItem.label}
                 className="snap-start shrink-0 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-white/70 transition hover:border-white/30 hover:text-white md:min-w-0 md:flex-1"
-                onClick={() => void handlePrompt(promptItem.prompt ?? promptItem.label)}
+                onClick={() =>
+                  void handlePrompt(promptItem.prompt ?? promptItem.label, {
+                    source: "quick_link",
+                    skipInference: true,
+                    explicitIntent: coerceRuntimeIntent(promptItem.prompt),
+                  })
+                }
               >
                 {promptItem.icon}
               </button>
@@ -2248,7 +2353,7 @@ export default function MetaMeRuntimeClient() {
           className="w-full max-w-[760px]"
           onSubmit={(event) => {
             event.preventDefault();
-            void handlePrompt(welcomePrompt);
+            void handlePrompt(welcomePrompt, { source: "text_input" });
           }}
         >
           <div className="rounded-[24px] border border-white/10 bg-white/[0.03] px-3 py-3">
