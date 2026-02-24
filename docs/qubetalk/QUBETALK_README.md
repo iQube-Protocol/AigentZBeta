@@ -4,6 +4,18 @@
 
 QubeTalk is the agent-to-agent messaging system for the AigentiQ platform, enabling communication between System Copilot and Tenant Agents with full audit trails and receipt tracking.
 
+## metaMe Runtime channel memory
+
+For persistent channel details and fallback posting commands, use:
+- `docs/qubetalk/METAME_RUNTIME_CHANNEL_MEMORY.md`
+
+## 🚨 CRITICAL ARCHITECTURAL RULES
+
+### AA API Proxy (MUST NOT BE BYPASSED)
+- **Rule**: `docs/qubetalk/AA_PROXY_ARCHITECTURAL_RULE.md`
+- **Always use**: aa-proxy endpoint, NEVER Railway directly
+- **Reason**: Prevents iframe 404 errors, provides fallback protection
+
 ## Files Purpose
 
 ### `QUBETALK_SPEC_V0.json`

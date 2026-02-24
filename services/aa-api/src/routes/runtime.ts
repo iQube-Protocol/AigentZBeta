@@ -3,6 +3,19 @@ import { Router } from 'express';
 import jwt from 'jsonwebtoken';
 import { env } from '../env.js';
 
+/**
+ * 🚨 CRITICAL ARCHITECTURAL RULE 🚨
+ * 
+ * DO NOT expose this Railway endpoint directly to clients!
+ * 
+ * ALWAYS use the aa-proxy: https://bsjhfvctmduxhohtllly.supabase.co/functions/v1/aa-proxy/aa/v1/runtime/*
+ * 
+ * Why: aa-proxy provides iframe URL normalization and fallback protection.
+ * Direct Railway usage causes 404 errors and has no safety net.
+ * 
+ * See: docs/qubetalk/AA_PROXY_ARCHITECTURAL_RULE.md
+ */
+
 type TrustState = 'ok' | 'warn' | 'fail';
 type RuntimeMenuMode = 'triad' | 'collapsed' | 'full';
 
