@@ -28,6 +28,10 @@ export function middleware(request: NextRequest) {
     response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
     response.headers.set('Pragma', 'no-cache');
     response.headers.set('Expires', '0');
+    // Firefox enforces X-Frame-Options even if frame-ancestors exists.
+    response.headers.delete('X-Frame-Options');
+    response.headers.delete('x-frame-options');
+    response.headers.set('Content-Security-Policy', EMBED_CSP);
     
     return response;
   }
