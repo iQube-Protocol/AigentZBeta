@@ -8,9 +8,11 @@
 // Core Components
 export { SmartTriadInferenceRenderer } from './SmartTriadInferenceRenderer';
 export { SmartTriadCopilotLayer } from './SmartTriadCopilotLayer';
+export { AgentModelSelector, CompactAgentModelSelector } from './AgentModelSelector';
 
 // Types
 export type { SmartTriadMessage } from './SmartTriadInferenceRenderer';
+export type { AgentOption, ModelOption } from './AgentModelSelector';
 
 // CSS (import this in your application root or layout)
 import './styles/smarttriad-copilot.css';

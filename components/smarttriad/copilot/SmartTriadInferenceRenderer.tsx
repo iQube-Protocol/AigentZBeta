@@ -10,6 +10,7 @@ import React, { useMemo, useCallback } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { Bot, User, AlertTriangle, Clock, Zap } from 'lucide-react';
+import { AgentModelSelector, type AgentOption, type ModelOption } from './AgentModelSelector';
 
 // Types
 export interface SmartTriadMessage {
@@ -26,6 +27,7 @@ export interface SmartTriadMessage {
     riskScore?: number;
     processingTime?: number;
     mcpVersion?: string;
+    profileCard?: string;
     theme?: 'iqubes' | 'coyn' | 'learn' | 'earn' | 'connect' | 'aigent' | 'default';
   };
 }
@@ -43,6 +45,13 @@ export interface SmartTriadInferenceRendererProps {
     defaultAgent?: string;
     accentColor?: string;
   };
+  // Agent/Model selector props
+  selectedAgent?: AgentOption;
+  selectedModel?: ModelOption | null;
+  availableAgents?: AgentOption[];
+  modelOptions?: ModelOption[];
+  onAgentChange?: (agent: AgentOption) => void;
+  onModelSelectorChange?: (model: ModelOption) => void;
 }
 
 // Key terms for highlighting
@@ -58,9 +67,15 @@ export function SmartTriadInferenceRenderer({
   className = '',
   showMetadata = true,
   showScores = false,
-  enableModelSelector = true,
+  enableModelSelector = false,
   onModelChange,
   tenantConfig,
+  selectedAgent,
+  selectedModel,
+  availableAgents = [],
+  modelOptions = [],
+  onAgentChange,
+  onModelSelectorChange,
 }: SmartTriadInferenceRendererProps) {
   
   // Process content through sanitization and markdown transformation
@@ -117,8 +132,16 @@ export function SmartTriadInferenceRenderer({
       {/* Metadata Badges */}
       {showMetadata && (
         <MetadataBadges 
-          metadata={message.metadata}
-          enableModelSelector={enableModelSelector && tenantConfig?.enableModelSelection}
+          message={message}
+          showMetadata={showMetadata}
+          tenantConfig={tenantConfig}
+          selectedAgent={selectedAgent}
+          selectedModel={selectedModel}
+          availableAgents={availableAgents}
+          modelOptions={modelOptions}
+          onAgentChange={onAgentChange}
+          onModelSelectorChange={onModelSelectorChange}
+          enableModelSelector={enableModelSelector}
           onModelChange={onModelChange}
         />
       )}
@@ -497,52 +520,84 @@ function ScoreIndicators({ metadata }: { metadata: SmartTriadMessage['metadata']
   );
 }
 
-function MetadataBadges({ 
-  metadata, 
-  enableModelSelector, 
-  onModelChange 
-}: { 
-  metadata?: SmartTriadMessage['metadata'];
+function MetadataBadges({
+  message,
+  showMetadata,
+  tenantConfig,
+  selectedAgent,
+  selectedModel,
+  availableAgents,
+  modelOptions,
+  onAgentChange,
+  onModelSelectorChange,
+  enableModelSelector,
+  onModelChange,
+}: {
+  message: SmartTriadMessage;
+  showMetadata?: boolean;
+  tenantConfig?: SmartTriadInferenceRendererProps['tenantConfig'];
+  selectedAgent?: AgentOption;
+  selectedModel?: ModelOption | null;
+  availableAgents?: AgentOption[];
+  modelOptions?: ModelOption[];
+  onAgentChange?: (agent: AgentOption) => void;
+  onModelSelectorChange?: (model: ModelOption) => void;
   enableModelSelector?: boolean;
   onModelChange?: (model: string, provider: string) => void;
 }) {
-  if (!metadata) return null;
+  if (!showMetadata || !message.metadata) return null;
 
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('en-US', { 
-      hour: '2-digit', 
-      minute: '2-digit',
-      hour12: false 
-    });
+  const renderMetadataBadges = () => {
+    if (!showMetadata || !message.metadata) return null;
+
+    return (
+      <div className="smarttriad-metadata-badges flex items-center gap-2 text-xs text-slate-400 mb-3">
+        {message.metadata.mcpVersion && (
+          <span className="inline-flex items-center px-2 py-1 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+            {message.metadata.mcpVersion}
+          </span>
+        )}
+        
+        {/* AgentModelSelector Integration */}
+        {tenantConfig?.enableModelSelection && enableModelSelector && selectedAgent ? (
+          <div className="flex items-center gap-1">
+            <AgentModelSelector
+              selectedAgent={selectedAgent}
+              selectedModel={selectedModel || null}
+              availableAgents={availableAgents || []}
+              modelOptions={modelOptions || []}
+              onAgentChange={onAgentChange || (() => {})}
+              onModelChange={onModelSelectorChange || (() => {})}
+              size="sm"
+              showLabels={false}
+              className="metadata-agent-selector"
+            />
+          </div>
+        ) : enableModelSelector && onModelChange ? (
+          <ModelSelector
+            currentModel={message.metadata.model}
+            currentProvider={message.metadata.provider}
+            onModelChange={onModelChange}
+          />
+        ) : null}
+        
+        {/* Profile Card (stubbed for future Persona integration) */}
+        {message.metadata.profileCard && (
+          <div className="inline-flex items-center px-2 py-1 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">
+            <Bot className="w-3 h-3 mr-1" />
+            {message.metadata.profileCard}
+          </div>
+        )}
+        
+        <span className="inline-flex items-center px-2 py-1 rounded-full bg-slate-700/50 text-slate-300">
+          <Clock className="w-3 h-3 mr-1" />
+          {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </span>
+      </div>
+    );
   };
 
-  return (
-    <div className="smarttriad-metadata-badges">
-      {metadata.mcpVersion && (
-        <span className="smarttriad-badge smarttriad-badge-outline">
-          MCP v{metadata.mcpVersion}
-        </span>
-      )}
-      
-      {enableModelSelector && onModelChange && (
-        <ModelSelector
-          currentModel={metadata.model}
-          currentProvider={metadata.provider}
-          onModelChange={onModelChange}
-        />
-      )}
-      
-      {/* Profile Card Stub */}
-      <div className="smarttriad-profile-card">
-        <div className="smarttriad-profile-avatar">P</div>
-        <span>Persona</span>
-      </div>
-      
-      <span className="smarttriad-timestamp">
-        {formatTime(new Date())}
-      </span>
-    </div>
-  );
+  return renderMetadataBadges();
 }
 
 // ========================================
