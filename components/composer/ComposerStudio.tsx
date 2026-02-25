@@ -2266,7 +2266,7 @@ export const ComposerStudio = () => {
 
         <div className="grid gap-6 xl:grid-cols-[1fr_1.2fr_1fr]">
           <div
-            className={cardClass}
+            className={`${cardClass} xl:col-span-2 flex min-h-[720px] flex-col`}
             style={
               designQube
                 ? {
@@ -2286,41 +2286,43 @@ export const ComposerStudio = () => {
               </div>
               <p className="text-sm text-slate-400">What would you like to compose?</p>
             </div>
-          </div>
-          <div className="mt-4 h-[640px] w-96 overflow-hidden rounded-2xl border border-transparent bg-slate-950/60 backdrop-blur-xl flex flex-col">
-            <div className="h-full overflow-hidden">
-              <CodexCopilotLayer
-                isOpen
-                onClose={() => {}}
-                variant="embedded"
-                showNavMenu
-                showWalletMenu
-                hideAvatarToggle
-                contextOptions={copilotContextOptions}
-                contextId={copilotContextId}
-                onContextChange={handleCopilotContextChange}
-                inputPanelClassName="rounded-2xl border border-white/10 bg-slate-950/95 backdrop-blur-xl px-3 py-3 shadow-lg"
-                inputPanelInputClassName="flex-1 px-3 py-2 bg-slate-900/80 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500 text-sm"
-                panelBorder={false}
-                quickPrompts={[
-                  "Show all templates",
-                  "Micro-episode experience",
-                  "Smart wallet + offer",
-                  "Article reading flow",
-                  "Tutorial walkthrough",
-                  "Task runbook with rewards",
-                ]}
-                onPrompt={handleCopilotPrompt}
-                agent={{
-                  id: composerAgent.id,
-                  name: composerAgent.name,
-                  evmSepolia: composerAgent.walletAddresses?.evmAddress as `0x${string}`,
-                  evmArb: composerAgent.walletAddresses?.evmAddress as `0x${string}`,
-                  btcAddress: composerAgent.walletAddresses?.btcAddress,
-                  fioHandle: composerAgent.fioId,
-                  walletAddress: composerAgent.walletAddresses?.evmAddress,
-                }}
-              />
+            <div className="mt-6 flex flex-1 items-center justify-center">
+              <div className="h-[640px] w-full max-w-[420px] overflow-hidden rounded-2xl border border-transparent bg-slate-950/60 backdrop-blur-xl flex flex-col">
+                <div className="h-full overflow-hidden">
+                  <CodexCopilotLayer
+                    isOpen
+                    onClose={() => {}}
+                    variant="embedded"
+                    showNavMenu
+                    showWalletMenu
+                    hideAvatarToggle
+                    contextOptions={copilotContextOptions}
+                    contextId={copilotContextId}
+                    onContextChange={handleCopilotContextChange}
+                    inputPanelClassName="rounded-2xl border border-white/10 bg-slate-950/95 backdrop-blur-xl px-3 py-3 shadow-lg"
+                    inputPanelInputClassName="flex-1 px-3 py-2 bg-slate-900/80 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500 text-sm"
+                    panelBorder={false}
+                    quickPrompts={[
+                      "Show all templates",
+                      "Micro-episode experience",
+                      "Smart wallet + offer",
+                      "Article reading flow",
+                      "Tutorial walkthrough",
+                      "Task runbook with rewards",
+                    ]}
+                    onPrompt={handleCopilotPrompt}
+                    agent={{
+                      id: composerAgent.id,
+                      name: composerAgent.name,
+                      evmSepolia: composerAgent.walletAddresses?.evmAddress as `0x${string}`,
+                      evmArb: composerAgent.walletAddresses?.evmAddress as `0x${string}`,
+                      btcAddress: composerAgent.walletAddresses?.btcAddress,
+                      fioHandle: composerAgent.fioId,
+                      walletAddress: composerAgent.walletAddresses?.evmAddress,
+                    }}
+                  />
+                </div>
+              </div>
             </div>
           </div>
 
