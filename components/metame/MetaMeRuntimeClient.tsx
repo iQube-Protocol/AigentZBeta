@@ -9,7 +9,6 @@ import {
   type ShellInboundMessage,
 } from "@metame/iframe-bridge";
 import { CodexCopilotLayer, type CopilotMessage } from "@/app/components/codex/CodexCopilotLayer";
-import { SmartTriadCopilotLayer, type SmartTriadMessage, isSmartTriadCopilotEnabled } from "@/components/smarttriad/copilot";
 import { PreviewFrame } from "@/components/preview/PreviewFrame";
 import { DevicePreviewSwitcher, type DeviceType } from "@/components/preview/DevicePreviewSwitcher";
 import { useToast } from "@/components/ui/toaster";
@@ -1058,62 +1057,8 @@ export default function MetaMeRuntimeClient() {
   }, [thinShellQueryMode]);
 
   const [messages, setMessages] = useState<CopilotMessage[]>([]);
-  const [smartTriadMessages, setSmartTriadMessages] = useState<SmartTriadMessage[]>([]);
   const [channels, setChannels] = useState<Array<{ channel_id: string; participants: string[] }>>([]);
   const [channelsLoading, setChannelsLoading] = useState(false);
-  
-  const useSmartTriadCopilot = isSmartTriadCopilotEnabled();
-  
-  // Convert CopilotMessage to SmartTriadMessage for compatibility
-  const convertToSmartTriadMessages = useCallback((copilotMessages: CopilotMessage[]): SmartTriadMessage[] => {
-    const providerId = activeModel?.providerId ?? "default";
-    const providerLabel = activeModel?.providerLabel ?? "system";
-    const modelLabel = activeModel?.modelLabel ?? "runtime-copilot";
-    const baseScore =
-      providerId === "anthropic"
-        ? 8.3
-        : providerId === "venice"
-          ? 7.8
-          : providerId === "chaingpt"
-            ? 8.0
-            : providerId === "thirdweb"
-              ? 7.6
-              : 5.0;
-
-    return copilotMessages.map(msg => ({
-      id: msg.id,
-      role: msg.role,
-      content: typeof msg.content === 'string' ? msg.content : React.isValidElement(msg.content) ? '' : String(msg.content),
-      timestamp: msg.timestamp,
-      variant: msg.variant,
-      metadata: {
-        model: modelLabel,
-        provider: providerLabel,
-        trustScore: Math.max(1, Math.min(10, baseScore)),
-        reliabilityScore: Math.max(1, Math.min(10, baseScore + 0.8)),
-        riskScore: 3.0,
-        theme: 'default' as const
-      }
-    }));
-  }, [activeModel]);
-  
-  // Convert SmartTriadMessage back to CopilotMessage for compatibility
-  const convertToCopilotMessages = useCallback((smartTriadMsgs: SmartTriadMessage[]): CopilotMessage[] => {
-    return smartTriadMsgs.map(msg => ({
-      id: msg.id,
-      role: msg.role === "user" ? "user" : "assistant",
-      content: msg.content,
-      timestamp: msg.timestamp,
-      variant: msg.variant
-    }));
-  }, []);
-  
-  // Keep SmartTriad messages in sync with Copilot messages
-  useEffect(() => {
-    if (useSmartTriadCopilot) {
-      setSmartTriadMessages(convertToSmartTriadMessages(messages));
-    }
-  }, [messages, useSmartTriadCopilot, convertToSmartTriadMessages]);
 
   const [allContents, setAllContents] = useState<RuntimeCapsule[]>([]);
   const [capsuleContents, setCapsuleContents] = useState<RuntimeCapsule[]>([]);
@@ -1684,8 +1629,8 @@ export default function MetaMeRuntimeClient() {
           role: "assistant",
           content:
             ranked.length > 0
-              ? `I found ${ranked.length} ${intent} result${ranked.length > 1 ? "s" : ""} for "${trimmed}". Here's what I discovered:`
-              : `I couldn't find any ${intent} results for "${trimmed}". Try rephrasing your request.`,
+              ? `Mapped intent to ${intent} capsules using SmartTriad runtime filters.`
+              : "No visual capsules were resolved for this intent yet. Try read/watch/find.",
           timestamp: new Date(),
         },
         {
@@ -2294,64 +2239,28 @@ export default function MetaMeRuntimeClient() {
         }
       `}</style>
       {!thinShellMode ? agentSelector : null}
-      {useSmartTriadCopilot ? (
-        <SmartTriadCopilotLayer
-          isOpen
-          onClose={() => {}}
-          variant="embedded"
-          panelClassName="w-full h-full"
-          showNavMenu={false}
-          showWalletMenu={false}
-          panelBorder={false}
-          promptPlaceholder="What do you want to do today?"
-          messages={smartTriadMessages}
-          onMessagesChange={(newMessages) => {
-            setSmartTriadMessages(newMessages);
-            // Keep legacy messages in sync for compatibility
-            setMessages(convertToCopilotMessages(newMessages));
-          }}
-          enableAdvancedRendering={true}
-          tenantConfig={{
-            enableModelSelection: true, // Enable for metaMe runtime - this is the key integration!
-            availableAgents: RUNTIME_AGENTS.map(agent => agent.id),
-            defaultAgent: selectedAgent.id,
-            accentColor: 'hsl(188, 94%, 43%)' // System cyan
-          }}
-          quickPrompts={thinShellMode ? [] : quickPrompts}
-          onPrompt={handlePrompt}
-          footerContent={thinShellMode ? null : runtimeMenu}
-          floatingInput={!thinShellMode}
-          disablePromptInput={thinShellMode}
-          disableActivationButton
-          showQuickPromptsToggle={!thinShellMode}
-          trustProvider={trustProvider}
-          className="h-full"
-          personaId="metame-runtime"
-        />
-      ) : (
-        <CodexCopilotLayer
-          isOpen
-          onClose={() => {}}
-          variant="embedded"
-          panelClassName="w-full h-full"
-          showNavMenu={false}
-          showWalletMenu={false}
-          panelBorder={false}
-          promptPlaceholder="What do you want to do today?"
-          messages={messages}
-          onMessagesChange={setMessages}
-          quickPrompts={thinShellMode ? [] : quickPrompts}
-          onPrompt={handlePrompt}
-          footerContent={thinShellMode ? null : runtimeMenu}
-          floatingInput={!thinShellMode}
-          disablePromptInput={thinShellMode}
-          showTrustIndicators={!thinShellMode}
-          disableActivationButton
-          showQuickPromptsToggle={!thinShellMode}
-          trustProvider={trustProvider}
-          className="h-full"
-        />
-      )}
+      <CodexCopilotLayer
+        isOpen
+        onClose={() => {}}
+        variant="embedded"
+        panelClassName="w-full h-full"
+        showNavMenu={false}
+        showWalletMenu={false}
+        panelBorder={false}
+        promptPlaceholder="What do you want to do today?"
+        messages={messages}
+        onMessagesChange={setMessages}
+        quickPrompts={thinShellMode ? [] : quickPrompts}
+        onPrompt={handlePrompt}
+        footerContent={thinShellMode ? null : runtimeMenu}
+        floatingInput={!thinShellMode}
+        disablePromptInput={thinShellMode}
+        showTrustIndicators={!thinShellMode}
+        disableActivationButton
+        showQuickPromptsToggle={!thinShellMode}
+        trustProvider={trustProvider}
+        className="h-full"
+      />
     </div>
   );
 
