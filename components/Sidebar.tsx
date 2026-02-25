@@ -984,7 +984,27 @@ export const Sidebar = () => {
   useEffect(() => {
     // keyboard shortcuts: g d / g r / g s / g a
     let gPressed = false;
+    let gPressedTimer: ReturnType<typeof setTimeout> | null = null;
+    const isEditableTarget = (target: EventTarget | null): boolean => {
+      if (!(target instanceof HTMLElement)) return false;
+      const tag = target.tagName.toLowerCase();
+      if (tag === "input" || tag === "textarea" || tag === "select") return true;
+      if (target.isContentEditable) return true;
+      return Boolean(target.closest("[contenteditable='true']"));
+    };
     const onKey = (e: KeyboardEvent) => {
+      // Never consume shortcuts while user is typing in any editor/input control.
+      if (isEditableTarget(e.target)) {
+        gPressed = false;
+        if (gPressedTimer) {
+          clearTimeout(gPressedTimer);
+          gPressedTimer = null;
+        }
+        return;
+      }
+      // Ignore modified keys so normal browser/system shortcuts keep working.
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
       if (e.key.toLowerCase() === "g") { gPressed = true; return; }
       if (gPressed) {
         if (e.key.toLowerCase() === "d") location.href = "/metame/runtime";
@@ -992,10 +1012,23 @@ export const Sidebar = () => {
         if (e.key.toLowerCase() === "s") location.href = "/settings/profile";
         if (e.key.toLowerCase() === "a") location.href = "/aigents";
         gPressed = false;
+        if (gPressedTimer) {
+          clearTimeout(gPressedTimer);
+          gPressedTimer = null;
+        }
+        return;
       }
+      // Auto-reset sequence state if second key is not pressed quickly.
+      if (gPressedTimer) clearTimeout(gPressedTimer);
+      gPressedTimer = setTimeout(() => {
+        gPressed = false;
+      }, 1200);
     };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      if (gPressedTimer) clearTimeout(gPressedTimer);
+    };
   }, []);
   
   const hideForEmbed = searchParams?.get("embed") === "1" && pathname?.startsWith("/metame/runtime");
