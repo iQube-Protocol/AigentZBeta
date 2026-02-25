@@ -85,6 +85,44 @@
   font-style: italic;
 }
 
+.suggestionSection {
+  margin-top: 0.9rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--inference-border);
+}
+
+.suggestionTitle {
+  font-size: 0.72rem;
+  color: hsl(188 72% 78%);
+  margin-bottom: 0.35rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.suggestionList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.suggestionLink {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: hsl(188 94% 78%);
+  cursor: pointer;
+  font-size: 0.75rem;
+  padding: 0.18rem 0.5rem;
+  text-decoration: underline;
+  text-decoration-color: hsl(188 94% 43% / 0.45);
+  text-underline-offset: 2px;
+}
+
+.suggestionLink:hover {
+  border-color: hsl(188 94% 43% / 0.35);
+  background: hsl(188 94% 43% / 0.1);
+}
+
 .blockquote {
   border-left: 3px solid var(--inference-accent);
   margin: 0.75rem 0;

@@ -12,6 +12,7 @@ import {
 
 interface CopilotInferenceBodyRendererProps {
   content: string;
+  onPromptSuggestion?: (prompt: string) => void;
 }
 
 interface MermaidBlockProps {
@@ -40,6 +41,50 @@ function flattenText(node: ReactNode): string {
 function isCallout(children: ReactNode): boolean {
   const text = flattenText(children);
   return CALLOUT_PATTERN.test(text);
+}
+
+function cleanSuggestionLine(line: string): string {
+  return line
+    .replace(/^\s*[-*•]\s+/, "")
+    .replace(/^\s*\d+\.\s+/, "")
+    .trim();
+}
+
+function extractExploreFurtherPrompts(content: string): string[] {
+  const lines = content.split(/\r?\n/);
+  const prompts: string[] = [];
+  let inExploreFurtherSection = false;
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    const normalized = line.toLowerCase().replace(/[*_#:`]/g, "").trim();
+
+    if (normalized.includes("explore further")) {
+      inExploreFurtherSection = true;
+      continue;
+    }
+
+    if (!inExploreFurtherSection) continue;
+
+    const isListItem = /^\s*[-*•]\s+/.test(rawLine) || /^\s*\d+\.\s+/.test(rawLine);
+    const isSectionBoundary = line.startsWith("#") || /^[-=]{3,}$/.test(line);
+
+    if (isListItem) {
+      const prompt = cleanSuggestionLine(rawLine);
+      if (prompt) prompts.push(prompt);
+      continue;
+    }
+
+    if (!line) {
+      continue;
+    }
+
+    if (isSectionBoundary || prompts.length > 0) {
+      break;
+    }
+  }
+
+  return Array.from(new Set(prompts)).slice(0, 6);
 }
 
 function MermaidBlock({ code }: MermaidBlockProps) {
@@ -237,7 +282,9 @@ function MermaidBlock({ code }: MermaidBlockProps) {
   );
 }
 
-export function CopilotInferenceBodyRenderer({ content }: CopilotInferenceBodyRendererProps) {
+export function CopilotInferenceBodyRenderer({ content, onPromptSuggestion }: CopilotInferenceBodyRendererProps) {
+  const exploreFurtherPrompts = extractExploreFurtherPrompts(content);
+
   return (
     <div className={styles.rendererRoot}>
       <ReactMarkdown
@@ -295,6 +342,24 @@ export function CopilotInferenceBodyRenderer({ content }: CopilotInferenceBodyRe
       >
         {content}
       </ReactMarkdown>
+      {exploreFurtherPrompts.length > 0 && onPromptSuggestion ? (
+        <div className={styles.suggestionSection}>
+          <div className={styles.suggestionTitle}>Explore Further</div>
+          <div className={styles.suggestionList}>
+            {exploreFurtherPrompts.map((prompt) => (
+              <button
+                key={prompt}
+                type="button"
+                className={styles.suggestionLink}
+                onClick={() => onPromptSuggestion(prompt)}
+                title={`Ask: ${prompt}`}
+              >
+                {prompt}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

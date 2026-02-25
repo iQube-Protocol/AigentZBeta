@@ -508,7 +508,12 @@ export function CodexCopilotLayer({
                                 {enableInferenceRendering &&
                                 msg.role === "assistant" &&
                                 typeof msg.content === "string" ? (
-                                  <CopilotInferenceBodyRenderer content={msg.content} />
+                                  <CopilotInferenceBodyRenderer
+                                    content={msg.content}
+                                    onPromptSuggestion={(prompt) => {
+                                      void sendMessage(prompt);
+                                    }}
+                                  />
                                 ) : (
                                   msg.content
                                 )}
