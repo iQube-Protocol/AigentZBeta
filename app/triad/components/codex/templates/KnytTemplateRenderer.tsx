@@ -98,6 +98,13 @@ function ContentCard({ item, variant, onSelect, onWatch, onRead, isSelected, onA
   const hasVideo = item.modalities?.watch?.available;
   const hasPdf = item.modalities?.read?.available;
   const hasText = !!item.media?.text;
+  const priceKnyt = Number(item.metadata?.price ?? 0);
+  const canPurchase = Boolean(
+    onAction &&
+      !item.metadata?.owned &&
+      Number.isFinite(priceKnyt) &&
+      priceKnyt > 0
+  );
   
   // Get modalities from metadata for SmartContentActions
   const smartModalities = item.metadata?.modalities as ContentModalities | undefined;
@@ -116,6 +123,11 @@ function ContentCard({ item, variant, onSelect, onWatch, onRead, isSelected, onA
       onAction?.('read');
       return;
     }
+  };
+
+  const handleBuyAction = () => {
+    if (!canPurchase) return;
+    onAction?.('buy');
   };
 
   const aspectClass = {
@@ -190,13 +202,13 @@ function ContentCard({ item, variant, onSelect, onWatch, onRead, isSelected, onA
               showExpand={false}
               showShare={false}
             />
-            {onAction && (
+            {canPurchase && (
               <button
                 className="w-7 h-7 rounded-lg bg-black/60 backdrop-blur-sm flex items-center justify-center ring-1 ring-fuchsia-500/40 text-fuchsia-300 hover:bg-fuchsia-500 hover:text-white transition-all"
                 title="Purchase"
                 onClick={(e) => {
                   e.stopPropagation();
-                  onAction('buy');
+                  handleBuyAction();
                 }}
               >
                 <ShoppingCart className="w-4 h-4" />
@@ -223,13 +235,13 @@ function ContentCard({ item, variant, onSelect, onWatch, onRead, isSelected, onA
                 <Play className="w-4 h-4" />
               </button>
             )}
-            {onAction && (
+            {canPurchase && (
               <button
                 className="w-7 h-7 rounded-lg bg-black/60 backdrop-blur-sm flex items-center justify-center ring-1 ring-fuchsia-500/40 text-fuchsia-300 hover:bg-fuchsia-500 hover:text-white transition-all"
                 title="Purchase"
                 onClick={(e) => {
                   e.stopPropagation();
-                  onAction('buy');
+                  handleBuyAction();
                 }}
               >
                 <ShoppingCart className="w-4 h-4" />
@@ -475,6 +487,7 @@ function DrawerGridTemplate({
   ) => {
     const hasPdf = item.modalities?.read?.available;
     const hasVideo = item.modalities?.watch?.available;
+    const hasPurchasablePrice = Number(item.metadata?.price ?? 0) > 0;
     const itemType = item.type || '';
     const isPortrait = itemType.includes('portrait');
     const defaultOpen = () => {
@@ -508,6 +521,9 @@ function DrawerGridTemplate({
         onSelect={() => {
           onContentSelect(item);
           defaultOpen();
+          if (!hasPdf && !hasVideo && !item.media?.text && hasPurchasablePrice) {
+            onSmartAction?.(item, 'buy');
+          }
         }}
         onRead={() => onViewerOpen(item, 'pdf')}
         onWatch={() => onViewerOpen(item, 'video')}

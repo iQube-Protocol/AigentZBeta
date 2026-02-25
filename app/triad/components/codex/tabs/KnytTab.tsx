@@ -339,6 +339,15 @@ const PREORDER_CONTENT_VARIANTS = [
   { id: 'common', subtitle: 'Episode #-1', title: 'Episode -1 Preorder Drop (Common)', priceKnyt: 49 },
 ] as const;
 
+type PreorderVariantId = (typeof PREORDER_CONTENT_VARIANTS)[number]['id'];
+
+const PREORDER_VARIANT_EPISODE_NUMBER: Record<PreorderVariantId, number> = {
+  legendary: -4,
+  epic: -3,
+  rare: -2,
+  common: -1,
+};
+
 const KNYT_CONTENT_CACHE_KEY = "codex:knyt:content:v2";
 const KNYT_EPISODES_CACHE_KEY = "codex:knyt:episodes";
 const KNYT_SESSION_CACHE_KEY = "codex:knyt:session:v1";
@@ -747,8 +756,9 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     const preorderThumbCandidates: string[] = [];
     
     for (const ep of episodes) {
+      const episodeNumber = Number(ep.episodeNumber);
       // Skip episode 0 (placeholder)
-      if (ep.episodeNumber === 0) continue;
+      if (!Number.isFinite(episodeNumber) || episodeNumber === 0) continue;
       
       const printCid = ep.printRareCid || ep.printEpicCid || ep.printLegendaryCid;
       const printLiteUrl = ep.printRareLiteUrl || ep.printEpicLiteUrl || ep.printLegendaryLiteUrl;
@@ -765,11 +775,19 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
         null
       );
       const hasWatchable = ep.hasMotionMaster && Boolean(motionSource.cid || motionSource.url);
+      const resolvedPriceKnytRaw = Number(ep.priceKnyt ?? (hasWatchable ? 5 : 3));
+      const resolvedPriceKnyt =
+        Number.isFinite(resolvedPriceKnytRaw) && resolvedPriceKnytRaw > 0
+          ? resolvedPriceKnytRaw
+          : hasWatchable
+            ? 5
+            : 3;
+      const episodeBaseId = ep.purchaseId || `mk_ep${String(episodeNumber).padStart(2, '0')}`;
       
       // Add as comic page (portrait) if has print
       if (hasReadable) {
         items.push({
-          id: `mk_ep${String(ep.episodeNumber).padStart(2, '0')}`,
+          id: episodeBaseId,
           type: 'comic_page_portrait',
           title: ep.title || `Episode ${ep.displayNumber}`,
           subtitle: `Episode ${ep.displayNumber}`,
@@ -781,9 +799,9 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
             video_url: motionSource.url,
           },
           metadata: { 
-            episodeNumber: ep.episodeNumber, 
+            episodeNumber, 
             owned: false, // TODO: Check entitlements
-            price: hasWatchable ? 5 : 3, 
+            price: resolvedPriceKnyt, 
             realm: 'digiterra' 
           },
           modalities: { 
@@ -796,16 +814,16 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       // Add motion comic as separate item if available
       if (hasWatchable) {
         items.push({
-          id: `mk_ep${String(ep.episodeNumber).padStart(2, '0')}_motion`,
+          id: `${episodeBaseId}_motion`,
           type: 'motion_comic_landscape',
           title: `${ep.title || `Episode ${ep.displayNumber}`} - Motion Comic`,
           subtitle: 'Motion Comic',
           thumbnail: coverThumb,
           media: { video_cid: motionSource.cid, video_url: motionSource.url },
           metadata: { 
-            episodeNumber: ep.episodeNumber, 
+            episodeNumber, 
             owned: false, 
-            price: 5, 
+            price: resolvedPriceKnyt, 
             realm: 'digiterra' 
           },
           modalities: { 
@@ -817,7 +835,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       // Ensure preorder/cover-only episodes still render as cards.
       if (!hasReadable && !hasWatchable && hasCover) {
         items.push({
-          id: `mk_ep${String(ep.episodeNumber).padStart(2, '0')}`,
+          id: episodeBaseId,
           type: 'comic_cover_portrait',
           title: ep.title || `Episode ${ep.displayNumber}`,
           subtitle: `Episode ${ep.displayNumber}`,
@@ -826,9 +844,9 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
             image_cid: ep.coverImageCid || undefined,
           },
           metadata: {
-            episodeNumber: ep.episodeNumber,
+            episodeNumber,
             owned: false,
-            price: Number(ep.priceKnyt ?? 3),
+            price: resolvedPriceKnyt,
             realm: 'digiterra',
           },
           modalities: {},
@@ -859,7 +877,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
           image_cid: undefined,
         },
         metadata: {
-          episodeNumber: -1,
+          episodeNumber: PREORDER_VARIANT_EPISODE_NUMBER[variant.id],
           owned: false,
           price: variant.priceKnyt,
           realm: 'digiterra',
@@ -1581,19 +1599,60 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     setSelectedCharacterId(null);
   };
 
-  // Event handlers for Liquid UI content
-  const isEpisodeLocked = useCallback((item: KnytContentItem) => {
-    const episodeNumber = item.metadata?.episodeNumber;
-    if (typeof episodeNumber !== 'number') return false;
-    return !item.metadata?.owned;
+  const resolveEpisodeNumber = useCallback((item: KnytContentItem): number | null => {
+    const rawEpisode = item.metadata?.episodeNumber;
+    if (typeof rawEpisode === 'number' && Number.isFinite(rawEpisode)) {
+      return rawEpisode;
+    }
+    if (typeof rawEpisode === 'string') {
+      const parsed = Number(rawEpisode);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+
+    const preorderMatch = item.id.match(/^metaKnyts_preorder_(legendary|epic|rare|common)$/);
+    if (preorderMatch) {
+      return PREORDER_VARIANT_EPISODE_NUMBER[preorderMatch[1] as PreorderVariantId];
+    }
+
+    const episodeMatch = item.id.match(/^mk_ep(-?\d+)/);
+    if (episodeMatch) {
+      const parsed = Number(episodeMatch[1]);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+
+    return null;
   }, []);
 
+  const resolvePreorderVariantId = useCallback((
+    item: KnytContentItem,
+    episodeNumber: number | null,
+  ): PreorderVariantId | null => {
+    const preorderMatch = item.id.match(/^metaKnyts_preorder_(legendary|epic|rare|common)$/);
+    if (preorderMatch) {
+      return preorderMatch[1] as PreorderVariantId;
+    }
+
+    if (episodeNumber === null) return null;
+    const matched = (Object.entries(PREORDER_VARIANT_EPISODE_NUMBER) as Array<[PreorderVariantId, number]>)
+      .find(([, value]) => value === episodeNumber);
+    return matched ? matched[0] : null;
+  }, []);
+
+  // Event handlers for Liquid UI content
+  const isEpisodeLocked = useCallback((item: KnytContentItem) => {
+    const episodeNumber = resolveEpisodeNumber(item);
+    if (episodeNumber === null) return false;
+    return !item.metadata?.owned;
+  }, [resolveEpisodeNumber]);
+
   const openPurchaseForItem = useCallback((item: KnytContentItem, action: 'read' | 'watch' | 'default' = 'default') => {
-    console.log('openPurchaseForItem called:', { item: item.id, action, episodeNumber: item.metadata?.episodeNumber });
+    const episodeNumber = resolveEpisodeNumber(item);
+    console.log('openPurchaseForItem called:', { item: item.id, action, episodeNumber });
     
-    const episodeNumber = item.metadata?.episodeNumber;
-    if (typeof episodeNumber !== 'number') {
-      console.log('No episode number, returning');
+    const preorderVariantId = resolvePreorderVariantId(item, episodeNumber);
+    const itemPrice = Number(item.metadata?.price ?? 0);
+    if (!preorderVariantId && !(Number.isFinite(itemPrice) && itemPrice > 0)) {
+      console.log('No purchasable metadata, returning');
       return;
     }
     
@@ -1604,24 +1663,26 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     
     // Handle preorder variants with specific pricing
     let baseKnyt = Number(item.metadata?.price ?? 3);
+    if (!Number.isFinite(baseKnyt) || baseKnyt <= 0) {
+      baseKnyt = 3;
+    }
     let priceUsd = Number((baseKnyt * 1.4).toFixed(2));
     
     // Check if this is a preorder variant and apply specific pricing
-    if (item.id.startsWith('metaKnyts_preorder_')) {
-      const variantId = item.id.replace('metaKnyts_preorder_', '');
-      const variant = PREORDER_CONTENT_VARIANTS.find(v => v.id === variantId);
+    if (preorderVariantId) {
+      const variant = PREORDER_CONTENT_VARIANTS.find(v => v.id === preorderVariantId);
       if (variant) {
-        console.log('Found preorder variant:', variantId, 'price:', variant.priceKnyt);
+        console.log('Found preorder variant:', preorderVariantId, 'price:', variant.priceKnyt);
         baseKnyt = variant.priceKnyt;
         priceUsd = Number((variant.priceKnyt * 1.4).toFixed(2));
       } else {
-        console.log('Preorder variant not found:', variantId);
+        console.log('Preorder variant not found:', preorderVariantId);
       }
     }
     
     const purchaseData = {
       type: contentType,
-      id: item.id.replace(/_motion$/, ''),
+      id: preorderVariantId ? `metaKnyts_preorder_${preorderVariantId}` : item.id.replace(/_motion$/, ''),
       title: item.title,
       image: item.thumbnail,
       baseKnyt,
@@ -1632,7 +1693,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     setPurchaseContent(purchaseData);
     console.log('Setting purchase modal open');
     setPurchaseModalOpen(true);
-  }, [PREORDER_CONTENT_VARIANTS]);
+  }, [resolveEpisodeNumber, resolvePreorderVariantId]);
 
   const getOwnedIssuesForEpisode = useCallback((episodeNumber: number) => {
     return ownedIssues.filter((issue) => issue.episodeNumber === episodeNumber);
@@ -1743,7 +1804,9 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
         return;
       }
 
+      const hasPurchasablePrice = Number(item.metadata?.price ?? 0) > 0;
       if (
+        hasPurchasablePrice ||
         item.type === 'comic_cover_portrait' ||
         item.type === 'comic_page_portrait' ||
         item.type === 'motion_comic_landscape'
