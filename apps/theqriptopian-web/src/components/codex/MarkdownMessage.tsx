@@ -20,38 +20,58 @@ export function MarkdownMessage({ content, className = '', onQuickLinkClick }: M
     let lastWasEmpty = false;
 
     const isExploreFurtherHeader = (line: string) => {
-      const t = line.trim().toLowerCase();
-      return t === '**explore further:**' || t === 'explore further:' || t === '**explore further**';
+      const normalized = line
+        .trim()
+        .toLowerCase()
+        .replace(/\*\*/g, '')
+        .replace(/__/g, '')
+        .trim();
+      return normalized === 'explore further' || normalized === 'explore further:';
     };
 
-    const parseExploreFurtherItems = (): string[] => {
+    const parseExploreFurtherSection = (): { items: string[]; start: number; end: number } => {
       const out: string[] = [];
       let inSection = false;
+      let start = -1;
+      let end = -1;
 
-      for (const raw of lines) {
+      for (let idx = 0; idx < lines.length; idx += 1) {
+        const raw = lines[idx];
         const trimmed = raw.trim();
 
         if (!inSection) {
           if (isExploreFurtherHeader(trimmed)) {
             inSection = true;
+            start = idx;
+            end = idx;
           }
           continue;
         }
 
-        if (!trimmed) continue;
-        if (trimmed === '---' || trimmed === '***') break;
-        const bulletMatch = trimmed.match(/^[•\-*]\s+(.+)/);
+        if (!trimmed) {
+          end = idx;
+          continue;
+        }
+        if (trimmed === '---' || trimmed === '***') {
+          end = idx;
+          break;
+        }
+        const bulletMatch = trimmed.match(/^(?:[•\-*]|\d+\.)\s+(.+)/);
         if (!bulletMatch) break;
         const rawItem = bulletMatch[1].trim();
         const cleaned = rawItem.replace(/^\[(.*)\]$/, '$1').trim();
         out.push(cleaned);
+        end = idx;
       }
 
-      return out;
+      return { items: out, start, end };
     };
 
-    const exploreFurtherItems = onQuickLinkClick ? parseExploreFurtherItems() : [];
-    const shouldHideExploreFurtherList = exploreFurtherItems.length > 0;
+    const exploreFurther = onQuickLinkClick
+      ? parseExploreFurtherSection()
+      : { items: [] as string[], start: -1, end: -1 };
+    const exploreFurtherItems = exploreFurther.items;
+    const shouldRenderExploreFurtherLinks = exploreFurtherItems.length > 0;
 
     const flushList = () => {
       if (listItems.length > 0) {
@@ -164,35 +184,13 @@ export function MarkdownMessage({ content, className = '', onQuickLinkClick }: M
         return 'mt-3';
       };
 
-      if (shouldHideExploreFurtherList) {
-        if (isExploreFurtherHeader(trimmed)) {
-          flushList();
-          elements.push(
-            <div key={`explore-${index}`} className="mt-3">
-              <div className="text-xs font-semibold text-white/70 uppercase tracking-wide mb-2">
-                Explore further
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {exploreFurtherItems.map((item, i) => (
-                  <button
-                    key={`explore-link-${index}-${i}`}
-                    type="button"
-                    onClick={() => onQuickLinkClick?.(item)}
-                    className="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 ring-1 ring-white/10 text-left text-xs text-cyan-200 transition-colors"
-                  >
-                    {item}
-                  </button>
-                ))}
-              </div>
-            </div>
-          );
-          return;
-        }
-
-        const isBullet = /^[•\-*]\s+(.+)/.test(trimmed);
-        if (exploreFurtherItems.length > 0 && isBullet) {
-          return;
-        }
+      if (
+        shouldRenderExploreFurtherLinks &&
+        exploreFurther.start !== -1 &&
+        index >= exploreFurther.start &&
+        index <= exploreFurther.end
+      ) {
+        return;
       }
 
       // Horizontal rule
@@ -300,6 +298,28 @@ export function MarkdownMessage({ content, className = '', onQuickLinkClick }: M
 
     // Flush any remaining list items
     flushList();
+
+    if (shouldRenderExploreFurtherLinks) {
+      elements.push(
+        <div key="explore-links" className="mt-3">
+          <div className="text-xs font-semibold text-white/70 uppercase tracking-wide mb-2">
+            Explore further
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {exploreFurtherItems.map((item, i) => (
+              <button
+                key={`explore-link-${i}`}
+                type="button"
+                onClick={() => onQuickLinkClick?.(item)}
+                className="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 ring-1 ring-white/10 text-left text-xs text-cyan-200 transition-colors"
+              >
+                {item}
+              </button>
+            ))}
+          </div>
+        </div>
+      );
+    }
 
     return elements;
   };

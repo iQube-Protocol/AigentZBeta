@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { BookOpen, ChevronLeft, ChevronRight, Crown, Loader2, Lock } from 'lucide-react';
 import { useSmartTriad } from '@/app/components/content/SmartTriadProvider';
+import { SocialSharingModal } from '@/app/components/content/SocialSharingModal';
 import { CodexActionRow } from '../CodexActionRow';
 import { WheelGesturesPlugin } from 'embla-carousel-wheel-gestures';
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from '@/components/ui/carousel';
@@ -35,9 +36,17 @@ function getApiOrigin() {
   return window.location.origin;
 }
 
-export function QriptoScrollsTab({ theme = 'dark', issueSlug }: QriptoScrollsTabProps) {
+export function QriptoScrollsTab({ theme = 'dark', personaId, issueSlug }: QriptoScrollsTabProps) {
   const { actions } = useSmartTriad();
   const isOwnedItem = (item: { id: string }) => actions.checkOwnership(item.id);
+  const [shareArticle, setShareArticle] = useState<{
+    id: string;
+    title: string;
+    description?: string;
+    section?: string;
+    type?: 'text' | 'video';
+    url?: string;
+  } | null>(null);
   const [items, setItems] = useState<ScrollItem[]>([]);
   const [activeTab, setActiveTab] = useState<'metaknyts' | 'synthsims'>('metaknyts');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -166,6 +175,17 @@ export function QriptoScrollsTab({ theme = 'dark', issueSlug }: QriptoScrollsTab
     return null;
   };
 
+  const openShareModal = (item: ScrollItem) => {
+    setShareArticle({
+      id: item.id,
+      title: item.title,
+      description: item.excerpt,
+      section: item.badge || activeTab,
+      type: item.modalities?.watch ? 'video' : 'text',
+      url: item.modalities?.link?.url,
+    });
+  };
+
   const tabs = [
     { id: 'metaknyts', label: 'metaKnyts' },
     { id: 'synthsims', label: 'The SynthSims' },
@@ -270,9 +290,11 @@ export function QriptoScrollsTab({ theme = 'dark', issueSlug }: QriptoScrollsTab
                       variant="indigo"
                       showRead={!!item.modalities?.read}
                       showWatch={!!item.modalities?.watch}
+                      showShare
                       onRead={() => openViaTriad(item, 'read')}
                       onWatch={() => openViaTriad(item, 'watch')}
                       onView={() => openViaTriad(item, null)}
+                      onShare={() => openShareModal(item)}
                     />
                   </div>
                 </button>
@@ -379,6 +401,15 @@ export function QriptoScrollsTab({ theme = 'dark', issueSlug }: QriptoScrollsTab
 
       {filteredItems.length === 0 && !error && (
         <div className={`text-sm ${mutedClass}`}>No Scrolls found for this issue.</div>
+      )}
+
+      {shareArticle && (
+        <SocialSharingModal
+          isOpen={Boolean(shareArticle)}
+          onClose={() => setShareArticle(null)}
+          article={shareArticle}
+          personaId={personaId}
+        />
       )}
     </div>
   );

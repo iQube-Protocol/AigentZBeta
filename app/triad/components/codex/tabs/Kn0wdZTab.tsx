@@ -21,6 +21,7 @@ import {
   Crown,
 } from 'lucide-react';
 import { useSmartTriad } from '@/app/components/content/SmartTriadProvider';
+import { SocialSharingModal } from '@/app/components/content/SocialSharingModal';
 import { CodexActionRow } from '../CodexActionRow';
 import { isLockedContent, isPremiumContent } from '@/app/triad/components/codex/utils/contentFlags';
 import { CodexBadge } from '../CodexBadge';
@@ -139,9 +140,17 @@ function badgeToTab(badge?: string): TabId {
   return 'dev';
 }
 
-export function Kn0wdZTab({ theme = 'dark', issueSlug }: Kn0wdZTabProps) {
+export function Kn0wdZTab({ theme = 'dark', personaId, issueSlug }: Kn0wdZTabProps) {
   const { actions } = useSmartTriad();
   const isOwnedItem = (item: { id: string }) => actions.checkOwnership(item.id);
+  const [shareArticle, setShareArticle] = useState<{
+    id: string;
+    title: string;
+    description?: string;
+    section?: string;
+    type?: 'text' | 'video';
+    url?: string;
+  } | null>(null);
   const [items, setItems] = useState<Kn0wdZItem[]>([]);
   const [activeTab, setActiveTab] = useState<TabId>('dev');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -242,6 +251,17 @@ export function Kn0wdZTab({ theme = 'dark', issueSlug }: Kn0wdZTabProps) {
 
   const getImage = (item: Kn0wdZItem) => item.image || item.cover_image_url;
 
+  const openShareModal = (item: Kn0wdZItem) => {
+    setShareArticle({
+      id: item.id,
+      title: item.title,
+      description: item.excerpt,
+      section: item.badge || activeTab.toUpperCase(),
+      type: item.modalities?.watch ? 'video' : 'text',
+      url: item.modalities?.link?.url,
+    });
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -337,9 +357,11 @@ export function Kn0wdZTab({ theme = 'dark', issueSlug }: Kn0wdZTabProps) {
                       variant="indigo"
                       showRead={!!selectedItem.modalities?.read}
                       showWatch={!!selectedItem.modalities?.watch}
+                      showShare
                       onRead={() => openItem(selectedItem, 'read')}
                       onWatch={() => openItem(selectedItem, 'watch')}
                       onView={() => openItem(selectedItem, null)}
+                      onShare={() => openShareModal(selectedItem)}
                     />
                   </div>
                 </div>
@@ -476,6 +498,15 @@ export function Kn0wdZTab({ theme = 'dark', issueSlug }: Kn0wdZTabProps) {
 
       {items.length === 0 && !error && (
         <div className={`text-sm ${mutedClass}`}>No Kn0wdZ content found for this issue.</div>
+      )}
+
+      {shareArticle && (
+        <SocialSharingModal
+          isOpen={Boolean(shareArticle)}
+          onClose={() => setShareArticle(null)}
+          article={shareArticle}
+          personaId={personaId}
+        />
       )}
     </div>
   );

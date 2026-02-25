@@ -215,6 +215,7 @@ import { ContentPurchaseModal, type ContentType } from "@/app/triad/components/c
 import { KnytCardsGrid } from "@/app/triad/components/content/KnytCardsGrid";
 import { CoverImage } from "@/app/triad/components/content/CoverImage";
 import SmartWalletDrawer from "@/app/components/content/SmartWalletDrawer";
+import { SocialSharingModal } from "@/app/components/content/SocialSharingModal";
 import { CodexCopilotLayer, type CopilotMessage } from "@/app/components/codex/CodexCopilotLayer";
 import { getImageLoaderStats } from "@/app/utils/image-loader";
 import type { SmartContentQube } from "@/types/smartContent";
@@ -482,6 +483,14 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     image?: string;
     baseKnyt?: number;
     priceUsd?: number;
+  } | null>(null);
+  const [shareArticle, setShareArticle] = useState<{
+    id: string;
+    title: string;
+    description?: string;
+    section?: string;
+    type?: "text" | "video";
+    url?: string;
   } | null>(null);
   
   // Wallet drawer state
@@ -1457,6 +1466,17 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     setCodexCopilotOpen(true);
   }, [activeTab]);
 
+  const openShareForItem = useCallback((item: KnytContentItem) => {
+    setShareArticle({
+      id: item.id,
+      title: item.title,
+      description: item.subtitle || item.description || item.media?.text?.slice(0, 180),
+      section: activeTab.toUpperCase(),
+      type: item.modalities?.watch?.available || item.media?.video_cid || item.media?.video_url ? "video" : "text",
+      url: item.metadata?.modalities?.link?.url,
+    });
+  }, [activeTab]);
+
   const handleSmartAction = useCallback((item: KnytContentItem, action: string) => {
     if (action === 'buy') {
       if (item.type === 'character_portrait') {
@@ -1494,6 +1514,12 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       setCurrentVideoUrl(item.media.video_url || getVideoPlaybackUrl(item.media.video_cid) || null);
       setCurrentVideoTitle(item.title);
       setVideoPlayerOpen(true);
+    } else if (action === 'share') {
+      openShareForItem(item);
+      toast({
+        title: "Share ready",
+        description: `Choose a channel to share ${item.title}.`,
+      });
     } else if (action === 'copilot') {
       if (templateResult?.drawerMode === 'wide') {
         setDrawerOpen(true);
@@ -2291,6 +2317,15 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                 fetchOwnedEpisodes();
               }}
               onBalanceRefresh={refreshBalance}
+            />
+          )}
+
+          {shareArticle && (
+            <SocialSharingModal
+              isOpen={Boolean(shareArticle)}
+              onClose={() => setShareArticle(null)}
+              article={shareArticle}
+              personaId={effectivePersonaId}
             />
           )}
         </>

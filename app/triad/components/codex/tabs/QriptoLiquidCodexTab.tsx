@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { BookOpen, Brain, Coins, Crown, Loader2, Lock, Sparkles } from 'lucide-react';
 import { useSmartTriad } from '@/app/components/content/SmartTriadProvider';
+import { SocialSharingModal } from '@/app/components/content/SocialSharingModal';
 import { CodexActionRow } from '../CodexActionRow';
 import { QriptopianFeatureSections } from '../QriptopianFeatureSections';
 import { isLockedContent, isPremiumContent } from '@/app/triad/components/codex/utils/contentFlags';
@@ -75,11 +76,19 @@ async function buildPayloadFromSections(origin: string, issue: string): Promise<
   };
 }
 
-export function QriptoLiquidCodexTab({ theme = 'dark', issueSlug, dataSource }: QriptoLiquidCodexTabProps) {
+export function QriptoLiquidCodexTab({ theme = 'dark', personaId, issueSlug, dataSource }: QriptoLiquidCodexTabProps) {
   const { actions } = useSmartTriad();
   const isOwnedItem = (item: { id: string }) => actions.checkOwnership(item.id);
 
   const [payload, setPayload] = useState<QriptoHomePayload | null>(null);
+  const [shareArticle, setShareArticle] = useState<{
+    id: string;
+    title: string;
+    description?: string;
+    section?: string;
+    type?: 'text' | 'video';
+    url?: string;
+  } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -193,6 +202,17 @@ export function QriptoLiquidCodexTab({ theme = 'dark', issueSlug, dataSource }: 
     }
   };
 
+  const openShareModal = (item: SectionItem) => {
+    setShareArticle({
+      id: item.id,
+      title: item.title,
+      description: item.excerpt,
+      section: item.badge || 'Qriptopian',
+      type: item.modalities?.watch ? 'video' : 'text',
+      url: item.modalities?.link?.url,
+    });
+  };
+
   return (
     <div className="p-4 space-y-6">
       <div className="flex items-start justify-between gap-4">
@@ -223,6 +243,7 @@ export function QriptoLiquidCodexTab({ theme = 'dark', issueSlug, dataSource }: 
             preferred === 'watch' ? 'content.watch' : preferred === 'read' ? 'content.read' : 'content.view';
           return openInViewer(item, eventType);
         }}
+        onShare={openShareModal}
         isOwned={(id) => actions.checkOwnership(id)}
       />
 
@@ -267,9 +288,11 @@ export function QriptoLiquidCodexTab({ theme = 'dark', issueSlug, dataSource }: 
                   variant="amber"
                   showRead={!!item.modalities?.read}
                   showWatch={!!item.modalities?.watch}
+                  showShare
                   onRead={() => openInViewer(item, 'content.read')}
                   onWatch={() => openInViewer(item, 'content.watch')}
                   onView={() => openInViewer(item, 'content.view')}
+                  onShare={() => openShareModal(item)}
                 />
               </div>
             </div>
@@ -316,9 +339,11 @@ export function QriptoLiquidCodexTab({ theme = 'dark', issueSlug, dataSource }: 
                   variant="indigo"
                   showRead={!!item.modalities?.read}
                   showWatch={!!item.modalities?.watch}
+                  showShare
                   onRead={() => openInViewer(item, 'content.read')}
                   onWatch={() => openInViewer(item, 'content.watch')}
                   onView={() => openInViewer(item, 'content.view')}
+                  onShare={() => openShareModal(item)}
                 />
                 <button
                   onClick={async (e) => {
@@ -376,15 +401,26 @@ export function QriptoLiquidCodexTab({ theme = 'dark', issueSlug, dataSource }: 
                   variant="indigo"
                   showRead={!!item.modalities?.read}
                   showWatch={!!item.modalities?.watch}
+                  showShare
                   onRead={() => openInViewer(item, 'content.read')}
                   onWatch={() => openInViewer(item, 'content.watch')}
                   onView={() => openInViewer(item, 'content.view')}
+                  onShare={() => openShareModal(item)}
                 />
               </div>
             </div>
           ))}
         </div>
       </div>
+
+      {shareArticle && (
+        <SocialSharingModal
+          isOpen={Boolean(shareArticle)}
+          onClose={() => setShareArticle(null)}
+          article={shareArticle}
+          personaId={personaId}
+        />
+      )}
     </div>
   );
 }
