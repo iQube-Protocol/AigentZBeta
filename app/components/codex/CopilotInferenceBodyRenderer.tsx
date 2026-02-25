@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import styles from "./CopilotInferenceBodyRenderer.module.css";
 import {
@@ -48,6 +48,9 @@ function MermaidBlock({ code }: MermaidBlockProps) {
   const [isVisible, setIsVisible] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [svgMarkup, setSvgMarkup] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalZoom, setModalZoom] = useState(1);
 
   useEffect(() => {
     const target = hostRef.current;
@@ -87,6 +90,7 @@ function MermaidBlock({ code }: MermaidBlockProps) {
       try {
         setLoading(true);
         setError(null);
+        setSvgMarkup("");
 
         const validation = validateMermaidSource(code);
         if (!validation.ok) {
@@ -106,6 +110,7 @@ function MermaidBlock({ code }: MermaidBlockProps) {
 
           if (!cancelled && containerRef.current) {
             containerRef.current.innerHTML = svg;
+            setSvgMarkup(svg);
           }
         });
       } catch (renderError) {
@@ -126,8 +131,28 @@ function MermaidBlock({ code }: MermaidBlockProps) {
       if (containerRef.current) {
         containerRef.current.innerHTML = "";
       }
+      setSvgMarkup("");
     };
   }, [code, isVisible]);
+
+  useEffect(() => {
+    if (!isModalOpen) return;
+
+    const handleEsc = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsModalOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [isModalOpen]);
+
+  const closeModal = () => setIsModalOpen(false);
+
+  const modalScaleStyle: CSSProperties = {
+    transform: `scale(${modalZoom})`,
+  };
 
   if (error) {
     return (
@@ -139,9 +164,75 @@ function MermaidBlock({ code }: MermaidBlockProps) {
 
   return (
     <div ref={hostRef} className={styles.mermaidContainer}>
+      <div className={styles.mermaidToolbar}>
+        <button
+          type="button"
+          className={styles.mermaidExpandButton}
+          onClick={() => {
+            setModalZoom(1);
+            setIsModalOpen(true);
+          }}
+          disabled={loading || !svgMarkup}
+          aria-label="Expand diagram"
+        >
+          Expand
+        </button>
+      </div>
       {!isVisible ? <div className={styles.mermaidLoading}>[Diagram - Loading...]</div> : null}
       {isVisible && loading ? <div className={styles.mermaidLoading}>Rendering diagram...</div> : null}
       <div ref={containerRef} className={styles.mermaidCanvas} />
+
+      {isModalOpen && svgMarkup ? (
+        <div className={styles.mermaidModalBackdrop} onClick={closeModal}>
+          <div
+            className={styles.mermaidModal}
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Expanded mermaid diagram"
+          >
+            <div className={styles.mermaidModalHeader}>
+              <span>Diagram</span>
+              <div className={styles.mermaidModalActions}>
+                <button
+                  type="button"
+                  className={styles.mermaidModalButton}
+                  onClick={() => setModalZoom((prev) => Math.max(0.6, prev - 0.1))}
+                  aria-label="Zoom out"
+                >
+                  -
+                </button>
+                <span className={styles.mermaidZoomValue}>{Math.round(modalZoom * 100)}%</span>
+                <button
+                  type="button"
+                  className={styles.mermaidModalButton}
+                  onClick={() => setModalZoom((prev) => Math.min(2.5, prev + 0.1))}
+                  aria-label="Zoom in"
+                >
+                  +
+                </button>
+                <button
+                  type="button"
+                  className={styles.mermaidModalButton}
+                  onClick={() => setModalZoom(1)}
+                >
+                  Reset
+                </button>
+                <button type="button" className={styles.mermaidModalButton} onClick={closeModal}>
+                  Close
+                </button>
+              </div>
+            </div>
+            <div className={styles.mermaidModalBody}>
+              <div
+                className={styles.mermaidModalScale}
+                style={modalScaleStyle}
+                dangerouslySetInnerHTML={{ __html: svgMarkup }}
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

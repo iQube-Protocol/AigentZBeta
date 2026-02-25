@@ -129,6 +129,28 @@
   background: hsl(220 14% 6% / 0.78);
 }
 
+.mermaidToolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.5rem;
+}
+
+.mermaidExpandButton {
+  border: 1px solid var(--inference-border);
+  border-radius: 999px;
+  background: hsl(188 94% 43% / 0.12);
+  color: hsl(188 94% 82%);
+  font-size: 0.7rem;
+  line-height: 1;
+  padding: 0.3rem 0.55rem;
+  cursor: pointer;
+}
+
+.mermaidExpandButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .mermaidLoading {
   color: var(--inference-body-muted);
   font-size: 0.75rem;
@@ -156,6 +178,81 @@
   display: block;
 }
 
+.mermaidModalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: hsl(220 14% 4% / 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.mermaidModal {
+  width: min(96vw, 1200px);
+  height: min(90vh, 900px);
+  border-radius: 0.75rem;
+  border: 1px solid var(--inference-border);
+  background: hsl(220 14% 7% / 0.96);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.mermaidModalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 0.9rem;
+  border-bottom: 1px solid var(--inference-border);
+  color: hsl(210 35% 90%);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.mermaidModalActions {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.mermaidModalButton {
+  border: 1px solid var(--inference-border);
+  border-radius: 0.5rem;
+  background: hsl(220 14% 12%);
+  color: hsl(210 35% 90%);
+  font-size: 0.7rem;
+  padding: 0.25rem 0.45rem;
+  cursor: pointer;
+}
+
+.mermaidZoomValue {
+  color: hsl(188 94% 82%);
+  font-size: 0.7rem;
+  min-width: 2.3rem;
+  text-align: center;
+}
+
+.mermaidModalBody {
+  flex: 1;
+  overflow: auto;
+  padding: 1rem;
+}
+
+.mermaidModalScale {
+  width: max-content;
+  min-width: 100%;
+  transform-origin: top left;
+}
+
+.mermaidModalScale :global(svg) {
+  max-width: none;
+  height: auto;
+  display: block;
+}
+
 @media (max-width: 640px) {
   .rendererRoot {
     font-size: 0.9rem;
@@ -163,5 +260,15 @@
 
   .paragraph {
     font-size: 0.9rem;
+  }
+
+  .mermaidModal {
+    width: 100%;
+    height: 92vh;
+  }
+
+  .mermaidModalHeader {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
