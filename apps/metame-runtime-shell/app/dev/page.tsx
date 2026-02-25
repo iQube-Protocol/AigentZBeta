@@ -13,7 +13,7 @@ import {
   clearDiagnosticsSnapshot,
   getDiagnosticsSnapshot,
   type DiagnosticsSnapshot,
-} from "../lib/diagnostics";
+} from "../diagnostics/diagnostics";
 
 const THREADS: QubeTalkThread[] = ["spec", "api-wiring", "ui-shell", "dev-exec", "ops"];
 

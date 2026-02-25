@@ -25,7 +25,7 @@ import {
   appendDiagnosticsAaLog,
   appendDiagnosticsBridgeLog,
   setDiagnosticsShellConfig,
-} from "./lib/diagnostics";
+} from "./diagnostics/diagnostics";
 
 const RUNTIME_ORIGIN_ENV = process.env.NEXT_PUBLIC_RUNTIME_IFRAME_ORIGIN ?? "";
 const RUNTIME_URL_ENV = process.env.NEXT_PUBLIC_RUNTIME_IFRAME_URL ?? "";
