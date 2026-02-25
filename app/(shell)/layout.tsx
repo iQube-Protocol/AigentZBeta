@@ -11,6 +11,8 @@ import MetaAvatar from "../components/metaVatar/MetaAvatar";
 import { useMetaAvatar } from "../contexts/MetaAvatarContext";
 import AgentiQBootstrap from "../providers/AgentiQBootstrap";
 import { usePathname, useSearchParams } from "next/navigation";
+// Global SmartContent provider
+import { SmartContentActionProvider } from "../contexts/SmartContentActionContext";
 
 function ShellLayoutContent({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient({
@@ -53,31 +55,33 @@ function ShellLayoutContent({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <AGUIProvider runtimeUrl="/api/copilotkit">
-        <ToastProvider>
-          <div className="h-full bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-slate-100">
-            {pathname?.startsWith("/metame/runtime") && (
-              <style jsx global>{`
-                .copilotkit-launcher,
-                .copilotkit-button,
-                .copilotkit-floating-button {
-                  display: none !important;
-                }
-              `}</style>
-            )}
-            <div className="flex h-screen overflow-hidden">
-              {!isEmbeddedSurface && (
-                <div className="flex-shrink-0">
-                  <Sidebar />
-                </div>
+        <SmartContentActionProvider>
+          <ToastProvider>
+            <div className="h-full bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-slate-100">
+              {pathname?.startsWith("/metame/runtime") && (
+                <style jsx global>{`
+                  .copilotkit-launcher,
+                  .copilotkit-button,
+                  .copilotkit-floating-button {
+                    display: none !important;
+                  }
+                `}</style>
               )}
-              <main className={`flex-1 ${isEmbeddedSurface ? "overflow-hidden" : "overflow-y-auto"}` }>
-                <div className={isEmbeddedSurface ? "h-full w-full p-0" : "p-6 md:p-8 lg:p-10"}>
-                  <Suspense fallback={null}>{children}</Suspense>
-                </div>
-              </main>
+              <div className="flex h-screen overflow-hidden">
+                {!isEmbeddedSurface && (
+                  <div className="flex-shrink-0">
+                    <Sidebar />
+                  </div>
+                )}
+                <main className={`flex-1 ${isEmbeddedSurface ? "overflow-hidden" : "overflow-y-auto"}` }>
+                  <div className={isEmbeddedSurface ? "h-full w-full p-0" : "p-6 md:p-8 lg:p-10"}>
+                    <Suspense fallback={null}>{children}</Suspense>
+                  </div>
+                </main>
+              </div>
             </div>
-          </div>
-        </ToastProvider>
+          </ToastProvider>
+        </SmartContentActionProvider>
       </AGUIProvider>
       
       {/* GLOBAL PERSISTENT METAAVATAR */}

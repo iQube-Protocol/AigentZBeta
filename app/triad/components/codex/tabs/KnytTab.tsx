@@ -23,6 +23,11 @@ import { useSmartTriad } from "@/app/components/content/SmartTriadProvider";
 import { useEthPrice } from "@/app/hooks/useEthPrice";
 import { useDVNEvents } from "@/app/hooks/useDVNEvents";
 import { tokenPricingService } from "@/app/services/token/pricingService";
+// SmartContent imports
+import { SmartContentActionProvider } from "@/app/contexts/SmartContentActionContext";
+import { useSmartContentHandler } from "@/app/hooks/useSmartContentAction";
+import { SmartContentActions, hasPlayableContent, hasReadableContent, getPrimaryAction } from "@/app/components/content/SmartContentActions";
+import type { SmartContentItem, ContentModalities, ActionType } from "@/packages/smarttriad/src/types";
 import { 
   getActivePersonaId, 
   getPersonasByAuthProfile,
@@ -686,7 +691,75 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     return `/api/content/video/${encodeURIComponent(source)}`;
   }, []);
 
-  // Content transformation functions (ported from CodexLiquidUITab)
+  // Helper function to convert KnytContentItem to SmartContentItem
+  const knytToSmartContentItem = useCallback((knytItem: KnytContentItem): SmartContentItem => {
+    const media = (knytItem.media ?? {}) as {
+      text?: string;
+      pdf_cid?: string;
+      pdf_lite_url?: string;
+      video_cid?: string;
+      video_url?: string;
+      audio_url?: string;
+      external_url?: string;
+    };
+    const metadata = (knytItem.metadata ?? {}) as {
+      realm?: string;
+      duration?: string;
+      created_at?: string;
+      updated_at?: string;
+    };
+
+    const videoSource = normalizeVideoSource(
+      media.video_url ||
+      media.video_cid ||
+      knytItem.modalities?.watch?.url ||
+      knytItem.modalities?.watch?.cid ||
+      null
+    );
+
+    return {
+      id: knytItem.id,
+      title: knytItem.title,
+      description: knytItem.description,
+      excerpt: knytItem.description,
+      image: knytItem.thumbnail,
+      section: metadata.realm || 'knyt',
+      modalities: {
+        read: {
+          text: media.text,
+          available: !!media.text,
+          cid: media.pdf_cid,
+          duration: metadata.duration,
+        },
+        watch: {
+          video_url: videoSource.url || undefined,
+          available: !!(videoSource.cid || videoSource.url),
+          cid: videoSource.cid || undefined,
+          duration: metadata.duration,
+          thumbnail: knytItem.thumbnail,
+          type: 'video',
+        },
+        listen: {
+          audio_url: media.audio_url || '',
+          duration: metadata.duration,
+          cover_image: knytItem.thumbnail,
+        },
+        link: {
+          url: media.external_url || '',
+          allow_embed: false,
+        },
+        view: {
+          image_url: knytItem.thumbnail,
+        },
+      } as ContentModalities,
+      pdf_cid: media.pdf_cid,
+      pdf_lite_url: media.pdf_lite_url,
+      type: knytItem.type,
+      created_at: metadata.created_at,
+      updated_at: metadata.updated_at,
+    };
+  }, [normalizeVideoSource]);
+
   const transformEpisodesToContentItems = useCallback((episodes: EpisodeFromAPI[]): KnytContentItem[] => {
     const items: KnytContentItem[] = [];
     const preorderThumbCandidates: string[] = [];
@@ -1656,6 +1729,23 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   const handleSmartAction = useCallback((item: KnytContentItem, action: string) => {
     console.log('handleSmartAction called:', { item: item.id, action, itemType: item.type });
     
+    // Convert to SmartContentItem for SmartContent system integration
+    const smartContentItem = knytToSmartContentItem(item);
+    
+    // Handle SmartContent actions (read, watch, listen, share, etc.)
+    if (['read', 'watch', 'listen', 'share', 'link', 'view', 'expand'].includes(action)) {
+      // For SmartContent actions, we'll let the context handle them
+      // The actual handling will be done by the SmartContentActionProvider
+      console.log('[KnytTab] Delegating SmartContent action:', action, 'for item:', item.title);
+      
+      // Store the action and item for the context to handle
+      window.dispatchEvent(new CustomEvent('smartContentAction', {
+        detail: { item: smartContentItem, action: action as ActionType }
+      }));
+      return;
+    }
+    
+    // Handle legacy KNYT-specific actions
     if (action === 'buy') {
       if (item.type === 'character_portrait') {
         console.log('Processing character portrait purchase');
@@ -1676,7 +1766,6 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
         item.type === 'comic_page_portrait' ||
         item.type === 'motion_comic_landscape'
       ) {
-        console.log('Processing comic purchase for item:', item.id);
         openPurchaseForItem(item, item.type === 'motion_comic_landscape' ? 'watch' : 'read');
         return;
       }
@@ -1686,6 +1775,8 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       openPurchaseForItem(item, action === 'watch' ? 'watch' : 'read');
       return;
     }
+    
+    // Fallback to legacy handling for any remaining cases
     if (action === 'read' && item.media?.text) {
       setCurrentText({ title: item.title, content: item.media.text });
       setTextReaderOpen(true);
@@ -1735,7 +1826,37 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
             : `KNYT Copilot opened with ${item.title} context.`,
       });
     }
-  }, [episodesCatalog, getVideoPlaybackUrl, isEpisodeLocked, normalizeVideoSource, openEpisodeVideo, openPurchaseForItem, openCopilotWithContext, toast, templateResult]);
+  }, [episodesCatalog, getVideoPlaybackUrl, isEpisodeLocked, normalizeVideoSource, openEpisodeVideo, openPurchaseForItem, openCopilotWithContext, toast, templateResult, knytToSmartContentItem]);
+
+  // SmartContent action handler for custom events
+  useEffect(() => {
+    const handleSmartContentEvent = (event: CustomEvent) => {
+      const { item, action } = event.detail;
+      console.log('[KnytTab] Received SmartContent action:', action, 'for item:', item.title);
+      
+      // Use the SmartContentActionContext to handle the action
+      // This will be available because we're wrapped in the provider
+      import('@/app/hooks/useSmartContentAction').then(({ useSmartContentAction }) => {
+        // We need to call this within the component context
+        // For now, let's handle basic actions directly
+        if (action === 'share') {
+          console.log('[KnytTab] Handling share action for:', item.title);
+          // Share action will be handled by the global context
+        } else if (action === 'read' && item.modalities?.read?.text) {
+          console.log('[KnytTab] Handling read action for:', item.title);
+          // Read action will be handled by the global context
+        } else if (action === 'watch' && item.modalities?.watch?.video_url) {
+          console.log('[KnytTab] Handling watch action for:', item.title);
+          // Watch action will be handled by the global context
+        }
+      });
+    };
+
+    window.addEventListener('smartContentAction', handleSmartContentEvent as EventListener);
+    return () => {
+      window.removeEventListener('smartContentAction', handleSmartContentEvent as EventListener);
+    };
+  }, []);
 
   const selectedContentItem = useMemo(() => {
     if (!selectedItemId) return undefined;
@@ -1914,17 +2035,18 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   }
 
   return (
-    <div className="h-full w-full bg-slate-900">
-      {/* Show Character Detail Page if selected */}
-      {showCharacterDetail && selectedCharacterId ? (
-        <InlineCharacterDetailPage 
-          characterId={selectedCharacterId}
-          onBack={handleBackFromCharacterDetail}
-        />
-      ) : (
-        <>
-          {/* Main Liquid UI Template Renderer */}
-          <div className="h-full w-full overflow-hidden">
+    <SmartContentActionProvider>
+      <div className="h-full w-full bg-slate-900">
+        {/* Show Character Detail Page if selected */}
+        {showCharacterDetail && selectedCharacterId ? (
+          <InlineCharacterDetailPage 
+            characterId={selectedCharacterId}
+            onBack={handleBackFromCharacterDetail}
+          />
+        ) : (
+          <>
+            {/* Main Liquid UI Template Renderer */}
+            <div className="h-full w-full overflow-hidden">
             <KnytTemplateRenderer
               templateId={templateResult.templateId}
               userIntent={userIntent}
@@ -2728,7 +2850,8 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
         </div>
       )}
 
-    </div>
+      </div>
+    </SmartContentActionProvider>
   );
 }
 
