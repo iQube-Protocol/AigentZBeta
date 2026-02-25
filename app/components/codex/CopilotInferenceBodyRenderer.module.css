@@ -62,11 +62,27 @@
   color: var(--inference-body);
 }
 
+.unorderedList :global(li)::marker,
+.orderedList :global(li)::marker {
+  color: var(--inference-accent);
+}
+
 .link {
   color: hsl(188 94% 76%);
   text-decoration: underline;
   text-decoration-color: hsl(188 94% 43% / 0.4);
+  text-decoration-thickness: 1.5px;
   text-underline-offset: 2px;
+}
+
+.strong {
+  color: hsl(188 94% 82%);
+  font-weight: 650;
+}
+
+.em {
+  color: hsl(188 72% 78%);
+  font-style: italic;
 }
 
 .blockquote {

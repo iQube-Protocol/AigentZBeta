@@ -175,6 +175,8 @@ export function CopilotInferenceBodyRenderer({ content }: CopilotInferenceBodyRe
               {children}
             </blockquote>
           ),
+          strong: ({ children }) => <strong className={styles.strong}>{children}</strong>,
+          em: ({ children }) => <em className={styles.em}>{children}</em>,
           code: ({ className, children, ...props }) => {
             const inline = (props as { inline?: boolean }).inline === true;
             const code = String(children).replace(/\n$/, "");
