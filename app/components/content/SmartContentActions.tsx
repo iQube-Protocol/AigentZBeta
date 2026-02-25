@@ -67,16 +67,6 @@ interface Props {
 }
 
 /**
- * Format price for display
- */
-function formatPrice(amount: number): string {
-  if (amount >= 100) {
-    return `${(amount / 100).toFixed(2)}`;
-  }
-  return `${amount}`;
-}
-
-/**
  * Determines which actions should be available based on modalities, context, and pricing
  * PORTED FROM NETLIFY - Enhanced logic for intelligent action filtering with payment support
  */
