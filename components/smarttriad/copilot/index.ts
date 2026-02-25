@@ -14,17 +14,14 @@ export { AgentModelSelector, CompactAgentModelSelector } from './AgentModelSelec
 export type { SmartTriadMessage } from './SmartTriadInferenceRenderer';
 export type { AgentOption, ModelOption } from './AgentModelSelector';
 
-// CSS (import this in your application root or layout)
-import './styles/smarttriad-copilot.css';
-
 // Version
 export const SMARTTRIAD_COPILOT_VERSION = '1.0.0';
 
 // Feature flag helper
 export const isSmartTriadCopilotEnabled = () => {
   if (typeof window === 'undefined') return false;
-  return process.env.NEXT_PUBLIC_SMARTTRIAD_COPILOT_V2 === 'true' || 
-         window.localStorage.getItem('smarttriad_copilot_v2') === 'true';
+  // Emergency-safe default: disabled unless explicitly opted in by local override.
+  return window.localStorage.getItem('smarttriad_copilot_v2') === 'true';
 };
 
 // Tenant configuration helper
