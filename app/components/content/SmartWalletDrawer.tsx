@@ -73,13 +73,7 @@ const CodexCopilotLayer = dynamic(
   () => import("@/app/components/codex/CodexCopilotLayer").then((m) => m.CodexCopilotLayer),
   { ssr: false }
 );
-const SmartTriadCopilotLayer = dynamic(
-  () => import("@/components/smarttriad/copilot").then((m) => m.SmartTriadCopilotLayer),
-  { ssr: false }
-);
 import type { CopilotMessage } from "@/app/components/codex/CodexCopilotLayer";
-import type { SmartTriadMessage } from "@/components/smarttriad/copilot";
-import { isSmartTriadCopilotEnabled } from "@/components/smarttriad/copilot";
 
 
 // Tooltip component for icon hints
@@ -228,23 +222,6 @@ export default function SmartWalletDrawer({
   const [copilotLoading, setCopilotLoading] = useState(false);
   const [copilotMode, setCopilotMode] = useState<'chat' | 'avatar'>('chat');
   const [codexCopilotMessages, setCodexCopilotMessages] = useState<CopilotMessage[]>([]);
-  const [smartTriadCopilotMessages, setSmartTriadCopilotMessages] = useState<SmartTriadMessage[]>([
-    {
-      id: 'wallet-welcome',
-      role: 'assistant',
-      content: "Hi! I'm your SmartTriad Wallet Assistant. I can help you manage your wallet, find content, or answer questions about digital assets. What would you like to do?",
-      timestamp: new Date(),
-      metadata: {
-        model: 'wallet-assistant',
-        provider: 'system',
-        theme: 'default' as const,
-        trustScore: 9,
-        reliabilityScore: 9,
-        riskScore: 1
-      }
-    }
-  ]);
-  const useSmartTriadCopilot = isSmartTriadCopilotEnabled();
   const [selectedLibraryItem, setSelectedLibraryItem] = useState<any>(null);
   const [tenantId, setTenantId] = useState<string>(
     process.env.NEXT_PUBLIC_TENANT_ID ||
@@ -517,6 +494,44 @@ export default function SmartWalletDrawer({
       setPurchaseError(null);
     }
   }, [open]);
+
+  // Listen for SmartContent payment events
+  useEffect(() => {
+    const handleOverlayPayment = (event: CustomEvent) => {
+      const { item, price } = event.detail;
+      console.log('[SmartWalletDrawer] Received overlay payment request for:', item.title);
+      
+      // Set the current content and open the drawer
+      if (onContentSelect) {
+        onContentSelect(item);
+      }
+      
+      // Auto-start purchase flow if drawer is already open
+      if (open) {
+        setPurchaseStep("confirm");
+        setPurchaseError(null);
+      }
+    };
+
+    const handleOpenSmartWalletDrawer = (event: CustomEvent) => {
+      const { currentContent, open: shouldOpen, variant } = event.detail;
+      console.log('[SmartWalletDrawer] Received open drawer request for:', currentContent?.title);
+      
+      if (shouldOpen && onContentSelect && currentContent) {
+        onContentSelect(currentContent);
+        // Note: The actual opening of the drawer should be handled by the parent component
+        // This event just sets the content context
+      }
+    };
+
+    window.addEventListener('overlayPayment', handleOverlayPayment as EventListener);
+    window.addEventListener('openSmartWalletDrawer', handleOpenSmartWalletDrawer as EventListener);
+    
+    return () => {
+      window.removeEventListener('overlayPayment', handleOverlayPayment as EventListener);
+      window.removeEventListener('openSmartWalletDrawer', handleOpenSmartWalletDrawer as EventListener);
+    };
+  }, [open, onContentSelect]);
 
   useEffect(() => {
     const did = agent?.id ? `did:iq:${agent.id}#auth` : undefined;
@@ -1126,64 +1141,31 @@ export default function SmartWalletDrawer({
                 display: none !important;
               }
             `}</style>
-            {useSmartTriadCopilot ? (
-              <SmartTriadCopilotLayer
-                isOpen
-                onClose={() => setCopilotOpen(false)}
-                variant="embedded"
-                panelClassName="w-full"
-                showNavMenu={false}
-                showWalletMenu={false}
-                disableActivationButton
-                className="h-full"
-                personaId={effectivePersonaId}
-                contextId={`wallet-${activeTab}`}
-                messages={smartTriadCopilotMessages}
-                onMessagesChange={setSmartTriadCopilotMessages}
-                enableAdvancedRendering={true}
-                tenantConfig={{
-                  enableModelSelection: false, // Disable for wallet
-                  accentColor: 'hsl(188, 94%, 43%)' // System cyan
-                }}
-                promptPlaceholder={
-                  currentContent
-                    ? `Ask about ${currentContent.title}...`
-                    : "Ask wallet copilot..."
-                }
-                quickPrompts={[
-                  { label: "Open checkout", prompt: "Open wallet checkout for selected content." },
-                  { label: "Show balances", prompt: "Show my wallet balances and available rails." },
-                  { label: "Rewards + tasks", prompt: "Show rewards and top earning tasks." },
-                ]}
-                onPrompt={handleCodexCopilotPrompt}
-              />
-            ) : (
-              <CodexCopilotLayer
-                isOpen
-                onClose={() => setCopilotOpen(false)}
-                variant="embedded"
-                panelClassName="w-full"
-                showNavMenu={false}
-                showWalletMenu
-                disableActivationButton
-                className="h-full"
-                personaId={effectivePersonaId}
-                contextId={`wallet-${activeTab}`}
-                messages={codexCopilotMessages}
-                onMessagesChange={setCodexCopilotMessages}
-                promptPlaceholder={
-                  currentContent
-                    ? `Ask about ${currentContent.title}...`
-                    : "Ask wallet copilot..."
-                }
-                quickPrompts={[
-                  { label: "Open checkout", prompt: "Open wallet checkout for selected content." },
-                  { label: "Show balances", prompt: "Show my wallet balances and available rails." },
-                  { label: "Rewards + tasks", prompt: "Show rewards and top earning tasks." },
-                ]}
-                onPrompt={handleCodexCopilotPrompt}
-              />
-            )}
+            <CodexCopilotLayer
+              isOpen
+              onClose={() => setCopilotOpen(false)}
+              variant="embedded"
+              panelClassName="w-full"
+              showNavMenu={false}
+              showWalletMenu
+              disableActivationButton
+              className="h-full"
+              personaId={effectivePersonaId}
+              contextId={`wallet-${activeTab}`}
+              messages={codexCopilotMessages}
+              onMessagesChange={setCodexCopilotMessages}
+              promptPlaceholder={
+                currentContent
+                  ? `Ask about ${currentContent.title}...`
+                  : "Ask wallet copilot..."
+              }
+              quickPrompts={[
+                { label: "Open checkout", prompt: "Open wallet checkout for selected content." },
+                { label: "Show balances", prompt: "Show my wallet balances and available rails." },
+                { label: "Rewards + tasks", prompt: "Show rewards and top earning tasks." },
+              ]}
+              onPrompt={handleCodexCopilotPrompt}
+            />
           </div>
         ) : (
           <div className="absolute inset-x-0 top-[88px] bottom-0 bg-slate-950/90 backdrop-blur-2xl z-10 flex flex-col animate-fade-in">
