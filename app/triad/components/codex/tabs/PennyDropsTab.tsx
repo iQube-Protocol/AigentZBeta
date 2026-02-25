@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, Coins, Crown, Loader2, Lock } from 'lucide-react';
 import { useSmartTriad } from '@/app/components/content/SmartTriadProvider';
+import { SocialSharingModal } from '@/app/components/content/SocialSharingModal';
 import { CodexActionRow } from '../CodexActionRow';
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from '@/components/ui/carousel';
 import { WheelGesturesPlugin } from 'embla-carousel-wheel-gestures';
@@ -36,9 +37,17 @@ function getApiOrigin() {
   return window.location.origin;
 }
 
-export function PennyDropsTab({ theme = 'dark', issueSlug, dataSource }: PennyDropsTabProps) {
+export function PennyDropsTab({ theme = 'dark', personaId, issueSlug, dataSource }: PennyDropsTabProps) {
   const { actions } = useSmartTriad();
   const isOwnedItem = (item: { id: string }) => actions.checkOwnership(item.id);
+  const [shareArticle, setShareArticle] = useState<{
+    id: string;
+    title: string;
+    description?: string;
+    section?: string;
+    type?: 'text' | 'video';
+    url?: string;
+  } | null>(null);
   const [items, setItems] = useState<PennyDropItem[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [carouselApi, setCarouselApi] = useState<CarouselApi>();
@@ -175,6 +184,17 @@ export function PennyDropsTab({ theme = 'dark', issueSlug, dataSource }: PennyDr
     return null;
   };
 
+  const openShareModal = (item: PennyDropItem) => {
+    setShareArticle({
+      id: item.id,
+      title: item.title,
+      description: item.excerpt,
+      section: item.badge || 'PennyDrops',
+      type: item.modalities?.watch ? 'video' : 'text',
+      url: item.modalities?.link?.url,
+    });
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -250,9 +270,11 @@ export function PennyDropsTab({ theme = 'dark', issueSlug, dataSource }: PennyDr
                       variant="amber"
                       showRead={!!selectedItem.modalities?.read}
                       showWatch={!!selectedItem.modalities?.watch}
+                      showShare
                       onRead={() => openItem(selectedItem, 'read')}
                       onWatch={() => openItem(selectedItem, 'watch')}
                       onView={() => openItem(selectedItem, null)}
+                      onShare={() => openShareModal(selectedItem)}
                     />
                   </div>
                 </div>
@@ -364,6 +386,15 @@ export function PennyDropsTab({ theme = 'dark', issueSlug, dataSource }: PennyDr
 
       {items.length === 0 && !error && (
         <div className={`text-sm ${mutedClass}`}>No PennyDrops found for this issue.</div>
+      )}
+
+      {shareArticle && (
+        <SocialSharingModal
+          isOpen={Boolean(shareArticle)}
+          onClose={() => setShareArticle(null)}
+          article={shareArticle}
+          personaId={personaId}
+        />
       )}
     </div>
   );

@@ -1,6 +1,6 @@
 'use client';
 
-import { BookOpen, Eye, Play } from 'lucide-react';
+import { BookOpen, Eye, Play, Share2 } from 'lucide-react';
 
 type Variant = 'indigo' | 'amber' | 'slate';
 
@@ -8,9 +8,11 @@ interface CodexActionRowProps {
   showRead?: boolean;
   showWatch?: boolean;
   showView?: boolean;
+  showShare?: boolean;
   onRead?: () => void;
   onWatch?: () => void;
   onView?: () => void;
+  onShare?: () => void;
   variant?: Variant;
   className?: string;
 }
@@ -40,9 +42,11 @@ export function CodexActionRow({
   showRead,
   showWatch,
   showView = true,
+  showShare = false,
   onRead,
   onWatch,
   onView,
+  onShare,
   variant = 'indigo',
   className,
 }: CodexActionRowProps) {
@@ -55,7 +59,7 @@ export function CodexActionRow({
     handler?.();
   };
 
-  if (!showRead && !showWatch && !showView) return null;
+  if (!showRead && !showWatch && !showView && !showShare) return null;
 
   return (
     <div className={`flex items-center gap-2 ${className || ''}`}>
@@ -90,6 +94,17 @@ export function CodexActionRow({
         >
           <Eye className="h-3 w-3" />
           View
+        </button>
+      )}
+      {showShare && (
+        <button
+          type="button"
+          onClick={stop(onShare)}
+          aria-label="Share"
+          className={`${base} ${styles.secondary}`}
+        >
+          <Share2 className="h-3 w-3" />
+          Share
         </button>
       )}
     </div>

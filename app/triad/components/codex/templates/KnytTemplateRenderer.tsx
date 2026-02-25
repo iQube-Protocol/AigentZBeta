@@ -200,7 +200,7 @@ function ContentCard({ item, variant, onSelect, onWatch, onRead, isSelected, onA
               size="sm"
               context="card"
               showExpand={false}
-              showShare={false}
+              showShare
             />
             {canPurchase && (
               <button

@@ -145,6 +145,7 @@ export function CodexCopilotLayer({
   const [walletMenuHover, setWalletMenuHover] = useState(false);
   const [inputPanelVisible, setInputPanelVisible] = useState(false);
   const [quickPromptsCollapsed, setQuickPromptsCollapsed] = useState(false);
+  const [quickLinksVisible, setQuickLinksVisible] = useState(true);
   const [contextMenuOpen, setContextMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -163,6 +164,7 @@ export function CodexCopilotLayer({
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const activationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const initialActivationShownRef = useRef(false);
+  const quickLinksTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const copilotPanelRef = useRef<HTMLDivElement>(null);
   const metaAvatarFrameRef = useRef<HTMLDivElement>(null);
 
@@ -218,6 +220,18 @@ export function CodexCopilotLayer({
     const timeoutId = setTimeout(() => setWalletMenuVisible(false), 4000);
     return () => clearTimeout(timeoutId);
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || !quickPrompts || quickPrompts.length === 0) return;
+    setQuickLinksVisible(true);
+    if (quickLinksTimeoutRef.current) clearTimeout(quickLinksTimeoutRef.current);
+    quickLinksTimeoutRef.current = setTimeout(() => setQuickLinksVisible(false), 3000);
+    return () => {
+      if (quickLinksTimeoutRef.current) {
+        clearTimeout(quickLinksTimeoutRef.current);
+      }
+    };
+  }, [isOpen, quickPrompts]);
 
   useEffect(() => {
     if (copilotMode === "avatar" && isOpen) {
@@ -277,6 +291,16 @@ export function CodexCopilotLayer({
     if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
     setInputPanelVisible(true);
     hoverTimeoutRef.current = setTimeout(() => setInputPanelVisible(false), timeoutMs);
+  };
+
+  const showQuickLinks = () => {
+    if (quickLinksTimeoutRef.current) clearTimeout(quickLinksTimeoutRef.current);
+    setQuickLinksVisible(true);
+  };
+
+  const hideQuickLinksWithTimeout = (timeoutMs: number = 3000) => {
+    if (quickLinksTimeoutRef.current) clearTimeout(quickLinksTimeoutRef.current);
+    quickLinksTimeoutRef.current = setTimeout(() => setQuickLinksVisible(false), timeoutMs);
   };
 
   const resolveProvider = (): "openai" | "venice" | "chaingpt" | "thirdweb" | "anthropic" => {
@@ -634,42 +658,50 @@ export function CodexCopilotLayer({
                             onMouseEnter={() => {
                               setInputPanelHover(true);
                               setInputPanelVisible(true);
+                              showQuickLinks();
                             }}
                             onMouseLeave={() => {
                               setInputPanelHover(false);
                               showInputPanelWithTimeout();
+                              hideQuickLinksWithTimeout();
                             }}
                           >
                             <div className={inputPanelClassName ?? "rounded-2xl border border-white/10 bg-slate-950/80 backdrop-blur-xl px-3 py-3 shadow-lg"}>
                               {quickPrompts && quickPrompts.length > 0 && !quickPromptsCollapsed && (
-                                <div className="mb-3 overflow-x-auto no-scrollbar md:overflow-visible">
-                                  <div className="flex w-max min-w-full snap-x snap-mandatory gap-2 md:w-full md:min-w-0 md:snap-none">
-                                  {quickPrompts.map((promptItem, index) => {
-                                    if (typeof promptItem === "string") {
+                                <div
+                                  className={`mb-3 overflow-x-auto no-scrollbar md:overflow-visible transition-all duration-200 ${
+                                    quickLinksVisible ? "opacity-100 max-h-24" : "opacity-0 max-h-0 pointer-events-none mb-0"
+                                  }`}
+                                >
+                                  <div className="rounded-xl border border-white/15 bg-slate-900/70 px-2 py-2 backdrop-blur-md">
+                                    <div className="flex w-max min-w-full snap-x snap-mandatory gap-2 md:w-full md:min-w-0 md:snap-none">
+                                    {quickPrompts.map((promptItem, index) => {
+                                      if (typeof promptItem === "string") {
+                                        return (
+                                          <button
+                                            key={`${promptItem}-${index}`}
+                                            onClick={() => sendMessage(promptItem)}
+                                            className="snap-start shrink-0 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/70 hover:text-white hover:border-white/30 flex items-center justify-center md:min-w-0 md:flex-1"
+                                          >
+                                            {promptItem}
+                                          </button>
+                                        );
+                                      }
+                                      const label = promptItem.label;
+                                      const promptValue = promptItem.prompt || promptItem.label;
                                       return (
                                         <button
-                                          key={`${promptItem}-${index}`}
-                                          onClick={() => sendMessage(promptItem)}
-                                          className="snap-start shrink-0 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/70 hover:text-white hover:border-white/30 flex items-center justify-center md:min-w-0 md:flex-1"
+                                          key={promptItem.id || `${label}-${index}`}
+                                          onClick={() => sendMessage(promptValue, { skipInference: promptItem.skipInference })}
+                                          title={label}
+                                          className="snap-start shrink-0 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/70 hover:text-white hover:border-white/30 flex items-center justify-center gap-2 min-w-[42px] md:min-w-0 md:flex-1"
                                         >
-                                          {promptItem}
+                                          {promptItem.icon ? promptItem.icon : label}
+                                          {promptItem.iconOnly ? <span className="sr-only">{label}</span> : label}
                                         </button>
                                       );
-                                    }
-                                    const label = promptItem.label;
-                                    const promptValue = promptItem.prompt || promptItem.label;
-                                    return (
-                                      <button
-                                        key={promptItem.id || `${label}-${index}`}
-                                        onClick={() => sendMessage(promptValue, { skipInference: promptItem.skipInference })}
-                                        title={label}
-                                        className="snap-start shrink-0 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/70 hover:text-white hover:border-white/30 flex items-center justify-center gap-2 min-w-[42px] md:min-w-0 md:flex-1"
-                                      >
-                                        {promptItem.icon ? promptItem.icon : label}
-                                        {promptItem.iconOnly ? <span className="sr-only">{label}</span> : label}
-                                      </button>
-                                    );
-                                  })}
+                                    })}
+                                    </div>
                                   </div>
                                 </div>
                               )}
@@ -679,7 +711,11 @@ export function CodexCopilotLayer({
                                   value={inputValue}
                                   onChange={(e) => setInputValue(e.target.value)}
                                   onKeyPress={(e) => e.key === "Enter" && sendMessage()}
-                                  onFocus={() => showInputPanelWithTimeout()}
+                                  onFocus={() => {
+                                    showInputPanelWithTimeout();
+                                    showQuickLinks();
+                                  }}
+                                  onBlur={() => hideQuickLinksWithTimeout()}
                                   placeholder={promptPlaceholder}
                                   className={inputPanelInputClassName ?? "flex-1 px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500 text-sm"}
                                   disabled={isLoading}
@@ -714,36 +750,45 @@ export function CodexCopilotLayer({
                         </>
                       )}
                       {!floatingInput && (
-                        <>
+                        <div
+                          onMouseEnter={() => showQuickLinks()}
+                          onMouseLeave={() => hideQuickLinksWithTimeout()}
+                        >
                           <div className="h-px bg-white/10 mb-3" />
                           {quickPrompts && quickPrompts.length > 0 && (
-                            <div className="mb-3 flex gap-2 overflow-x-auto no-scrollbar">
-                              {quickPrompts.map((promptItem, index) => {
-                                if (typeof promptItem === "string") {
+                            <div
+                              className={`mb-3 overflow-hidden transition-all duration-200 ${
+                                quickLinksVisible ? "opacity-100 max-h-24" : "opacity-0 max-h-0 pointer-events-none mb-0"
+                              }`}
+                            >
+                              <div className="flex gap-2 overflow-x-auto no-scrollbar rounded-xl border border-white/15 bg-slate-900/70 px-2 py-2 backdrop-blur-md">
+                                {quickPrompts.map((promptItem, index) => {
+                                  if (typeof promptItem === "string") {
+                                    return (
+                                      <button
+                                        key={`${promptItem}-${index}`}
+                                        onClick={() => sendMessage(promptItem)}
+                                        className="flex-shrink-0 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/70 hover:text-white hover:border-white/30"
+                                      >
+                                        {promptItem}
+                                      </button>
+                                    );
+                                  }
+                                  const label = promptItem.label;
+                                  const promptValue = promptItem.prompt || promptItem.label;
                                   return (
                                     <button
-                                      key={`${promptItem}-${index}`}
-                                      onClick={() => sendMessage(promptItem)}
-                                      className="flex-shrink-0 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/70 hover:text-white hover:border-white/30"
+                                      key={promptItem.id || `${label}-${index}`}
+                                      onClick={() => sendMessage(promptValue, { skipInference: promptItem.skipInference })}
+                                      title={label}
+                                      className="flex-shrink-0 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/70 hover:text-white hover:border-white/30 flex items-center gap-2"
                                     >
-                                      {promptItem}
+                                      {promptItem.icon ? promptItem.icon : label}
+                                      {promptItem.iconOnly ? <span className="sr-only">{label}</span> : label}
                                     </button>
                                   );
-                                }
-                                const label = promptItem.label;
-                                const promptValue = promptItem.prompt || promptItem.label;
-                                return (
-                                  <button
-                                    key={promptItem.id || `${label}-${index}`}
-                                    onClick={() => sendMessage(promptValue, { skipInference: promptItem.skipInference })}
-                                    title={label}
-                                    className="flex-shrink-0 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/70 hover:text-white hover:border-white/30 flex items-center gap-2"
-                                  >
-                                    {promptItem.icon ? promptItem.icon : label}
-                                    {promptItem.iconOnly ? <span className="sr-only">{label}</span> : label}
-                                  </button>
-                                );
-                              })}
+                                })}
+                              </div>
                             </div>
                           )}
                           <div className="flex gap-2">
@@ -752,7 +797,11 @@ export function CodexCopilotLayer({
                               value={inputValue}
                               onChange={(e) => setInputValue(e.target.value)}
                               onKeyPress={(e) => e.key === "Enter" && sendMessage()}
-                              onFocus={() => showWalletMenuWithTimeout()}
+                              onFocus={() => {
+                                showWalletMenuWithTimeout();
+                                showQuickLinks();
+                              }}
+                              onBlur={() => hideQuickLinksWithTimeout()}
                               placeholder={promptPlaceholder}
                               className="flex-1 px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500 text-sm"
                               disabled={isLoading}
@@ -769,7 +818,7 @@ export function CodexCopilotLayer({
                               )}
                             </button>
                           </div>
-                        </>
+                        </div>
                       )}
                         {footerContent ? (
                           <div className={floatingInput ? "pt-3" : "mt-3"}>{footerContent}</div>

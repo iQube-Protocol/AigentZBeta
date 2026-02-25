@@ -328,6 +328,12 @@ ${episodeSummaries || 'No episodes loaded yet.'}
 - Use **bold** for character names, episode titles, and key terms
 - Use bullet points (•) for lists of powers, weapons, or episode highlights
 - Use *italics* for quotes or emphasis
+- When asked for a diagram, include a valid Mermaid diagram in a fenced code block using \`\`\`mermaid
+
+**Diagram behavior:**
+- You can generate Mermaid diagrams directly in your response
+- Do not claim you cannot create diagrams
+- Prefer simple, readable Mermaid flows (graph TD / flowchart / sequence) unless the user asks for a specific type
 
 **Content sections to include when relevant:**
 - A brief intro paragraph answering the question

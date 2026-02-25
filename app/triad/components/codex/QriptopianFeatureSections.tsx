@@ -34,6 +34,7 @@ interface QriptopianFeatureSectionsProps {
   latestNews: QriptopianFeatureItem[];
   secondHeroArticles: QriptopianFeatureItem[];
   onOpen: (item: QriptopianFeatureItem, preferred?: 'read' | 'watch' | 'view') => void;
+  onShare?: (item: QriptopianFeatureItem) => void;
   isOwned?: (id: string) => boolean;
   onRefresh?: () => void;
   isRefreshing?: boolean;
@@ -45,6 +46,7 @@ export function QriptopianFeatureSections({
   latestNews,
   secondHeroArticles,
   onOpen,
+  onShare,
   isOwned,
   onRefresh,
   isRefreshing = false,
@@ -117,9 +119,11 @@ export function QriptopianFeatureSections({
       variant="indigo"
       showRead={!!item.modalities?.read}
       showWatch={!!item.modalities?.watch}
+      showShare
       onRead={() => onOpen(item, 'read')}
       onWatch={() => onOpen(item, 'watch')}
       onView={() => onOpen(item, 'view')}
+      onShare={() => onShare?.(item)}
     />
   );
 
