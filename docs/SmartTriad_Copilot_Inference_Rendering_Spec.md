@@ -2,7 +2,7 @@
 
 ## Overview
 
-The SmartTriad Copilot Inference Rendering System is a global default for all SmartTriad copilot implementations across the platform. It replaces the Aigent Nakamoto orange color scheme with system Cyan and provides advanced inference rendering capabilities with tenant customization support.
+The SmartTriad Copilot Inference Rendering System is an inference-body rendering enhancement for existing legacy copilots. It does **not** replace copilot surfaces, routing, or interaction containers. It applies markdown and Mermaid rendering to assistant inference text inside `CodexCopilotLayer` with per-surface opt-in.
 
 ## Version: 1.0.0
 
@@ -29,20 +29,26 @@ The SmartTriad Copilot Inference Rendering System is a global default for all Sm
 
 ### Core Components
 
-1. **SmartTriadInferenceRenderer**
-   - Main rendering component for AI responses
-   - Handles content processing and line-level rendering
-   - Supports metadata badges and score indicators
+1. **CopilotInferenceBodyRenderer**
+   - Assistant message body renderer used inside `CodexCopilotLayer`
+   - Handles markdown formatting and Mermaid diagram rendering
+   - Falls back safely to plain text when disabled
 
-2. **SmartTriadCopilotLayer**
-   - Complete copilot interface with floating/embedded variants
-   - Integrates model selector and tenant configuration
-   - Provides backward compatibility with legacy CopilotMessage format
+2. **CodexCopilotLayer (existing, unchanged surface)**
+   - Existing floating/embedded copilot container remains the primary runtime UI
+   - Opt-in prop: `enableInferenceRendering?: boolean` (default `false`)
+   - No replacement by `SmartTriadCopilotLayer` in production surfaces
 
-3. **CSS Framework**
+3. **Scoped CSS Framework**
    - Comprehensive styling system with CSS custom properties
-   - Tenant override capabilities
+   - Scoped to inference body only
    - Responsive design and accessibility support
+
+### Scope Guardrails (Mandatory)
+- Do not swap `CodexCopilotLayer` with `SmartTriadCopilotLayer` in app surfaces.
+- Do not introduce global CSS side effects for inference styles.
+- Do not change message transport, prompt routing, or wallet/menu behavior.
+- Only assistant string content is enhanced; user and panel messages remain unchanged.
 
 ---
 
@@ -168,19 +174,19 @@ interface TenantConfig {
 
 ## 🔄 Feature Flag Support
 
-### Environment Variables
-```bash
-NEXT_PUBLIC_SMARTTRIAD_COPILOT_V2=true
-```
-
-### Runtime Control
+### Per-Surface Opt-In
 ```typescript
-// Check if enabled
-const isEnabled = isSmartTriadCopilotEnabled();
-
-// Local storage override
-localStorage.setItem('smarttriad_copilot_v2', 'true');
+<CodexCopilotLayer
+  isOpen={isOpen}
+  onClose={onClose}
+  enableInferenceRendering
+/>
 ```
+
+### Rollout Pattern
+- Default remains off globally (`enableInferenceRendering = false`).
+- Enable in one target surface first (Studio), then expand incrementally.
+- Keep local kill-switch capability at the caller level by removing the prop.
 
 ---
 
@@ -202,17 +208,13 @@ localStorage.setItem('smarttriad_copilot_v2', 'true');
 
 ### 1. Basic Usage
 ```typescript
-import { SmartTriadCopilotLayer } from "@/components/smarttriad/copilot";
+import { CodexCopilotLayer } from "@/app/components/codex/CodexCopilotLayer";
 
-<SmartTriadCopilotLayer
+<CodexCopilotLayer
   isOpen={isOpen}
   onClose={onClose}
   messages={messages}
-  enableAdvancedRendering={true}
-  tenantConfig={{
-    enableModelSelection: true,
-    accentColor: 'hsl(188, 94%, 43%)'
-  }}
+  enableInferenceRendering
 />
 ```
 

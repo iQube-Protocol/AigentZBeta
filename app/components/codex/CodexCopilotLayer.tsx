@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { useMetaAvatar } from "@/app/contexts/MetaAvatarContext";
 import { useIsMobile } from "@/app/hooks/use-mobile";
 import SmartWalletDrawer from "../content/SmartWalletDrawer";
+import { CopilotInferenceBodyRenderer } from "./CopilotInferenceBodyRenderer";
 import {
   Bot,
   User,
@@ -59,6 +60,7 @@ interface CodexCopilotLayerProps {
   disablePromptInput?: boolean;
   disableActivationButton?: boolean;
   showQuickPromptsToggle?: boolean;
+  enableInferenceRendering?: boolean;
   showTrustIndicators?: boolean;
   trustProvider?: "openai" | "venice" | "chaingpt" | "thirdweb" | "anthropic";
   showNavMenu?: boolean;
@@ -117,6 +119,7 @@ export function CodexCopilotLayer({
   disablePromptInput = false,
   disableActivationButton = false,
   showQuickPromptsToggle = false,
+  enableInferenceRendering = false,
   showTrustIndicators = true,
   trustProvider,
   showNavMenu = true,
@@ -502,7 +505,13 @@ export function CodexCopilotLayer({
                                     : "bg-white/5 text-white/90 rounded-bl-sm ring-white/10"
                                 }`}
                               >
-                                {msg.content}
+                                {enableInferenceRendering &&
+                                msg.role === "assistant" &&
+                                typeof msg.content === "string" ? (
+                                  <CopilotInferenceBodyRenderer content={msg.content} />
+                                ) : (
+                                  msg.content
+                                )}
                               </div>
                             </div>
                           );

@@ -2293,6 +2293,7 @@ export const ComposerStudio = () => {
                     isOpen
                     onClose={() => {}}
                     variant="embedded"
+                    enableInferenceRendering
                     showNavMenu
                     showWalletMenu
                     hideAvatarToggle
