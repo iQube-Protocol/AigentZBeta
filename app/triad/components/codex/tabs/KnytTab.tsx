@@ -2672,6 +2672,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
         onClose={() => setCodexCopilotOpen(false)}
         onOpen={() => setCodexCopilotOpen(true)}
         variant="floating"
+        enableInferenceRendering
         personaId={effectivePersonaId}
         contextId={`knyt-${activeTab}`}
         messages={codexCopilotMessages}

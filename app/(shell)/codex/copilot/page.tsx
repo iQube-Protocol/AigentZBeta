@@ -222,6 +222,7 @@ export default function CopilotViewerPage() {
         isOpen={isCopilotOpen}
         onClose={handleCloseCopilot}
         onOpen={handleOpenCopilot}
+        enableInferenceRendering
         quickPrompts={[
           "Summarize the latest Codex lore",
           "Show the metaKNYT episode catalog",

@@ -2243,6 +2243,7 @@ export default function MetaMeRuntimeClient() {
         isOpen
         onClose={() => {}}
         variant="embedded"
+        enableInferenceRendering
         panelClassName="w-full h-full"
         showNavMenu={false}
         showWalletMenu={false}

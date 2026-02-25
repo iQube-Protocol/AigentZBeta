@@ -1145,6 +1145,7 @@ export default function SmartWalletDrawer({
               isOpen
               onClose={() => setCopilotOpen(false)}
               variant="embedded"
+              enableInferenceRendering
               panelClassName="w-full"
               showNavMenu={false}
               showWalletMenu
