@@ -1,7 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
+import styles from "./CopilotInferenceBodyRenderer.module.css";
+import {
+  clearMermaidProcessedAttributes,
+  enqueueMermaidRender,
+  renderMermaidSvg,
+  validateMermaidSource,
+} from "./mermaidSafe";
 
 interface CopilotInferenceBodyRendererProps {
   content: string;
@@ -11,38 +18,99 @@ interface MermaidBlockProps {
   code: string;
 }
 
+const CALLOUT_PATTERN = /^\s*(Important|Remember|Note|Warning)\s*:/i;
+
+function flattenText(node: ReactNode): string {
+  if (typeof node === "string" || typeof node === "number") {
+    return String(node);
+  }
+
+  if (Array.isArray(node)) {
+    return node.map((item) => flattenText(item)).join("");
+  }
+
+  if (node && typeof node === "object" && "props" in node) {
+    const element = node as { props?: { children?: ReactNode } };
+    return flattenText(element.props?.children ?? "");
+  }
+
+  return "";
+}
+
+function isCallout(children: ReactNode): boolean {
+  const text = flattenText(children);
+  return CALLOUT_PATTERN.test(text);
+}
+
 function MermaidBlock({ code }: MermaidBlockProps) {
+  const hostRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const [isVisible, setIsVisible] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const target = hostRef.current;
+    if (!target) return;
+
+    if (typeof IntersectionObserver === "undefined") {
+      setIsVisible(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setIsVisible(true);
+          observer.disconnect();
+        }
+      },
+      {
+        rootMargin: "100px",
+        threshold: 0.1,
+      },
+    );
+
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
 
     const render = async () => {
+      if (!isVisible) {
+        setLoading(false);
+        return;
+      }
+
       try {
         setLoading(true);
         setError(null);
 
-        const mermaidModule = await import("mermaid");
-        const mermaid = mermaidModule.default;
-        mermaid.initialize({
-          startOnLoad: false,
-          securityLevel: "strict",
-          theme: "dark",
-        });
-
-        await mermaid.parse(code);
-        const renderId = `copilot-mermaid-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-        const { svg } = await mermaid.render(renderId, code);
-
-        if (cancelled) return;
-        if (containerRef.current) {
-          containerRef.current.innerHTML = svg;
+        const validation = validateMermaidSource(code);
+        if (!validation.ok) {
+          setError(validation.error);
+          return;
         }
-      } catch {
+
+        await enqueueMermaidRender(async () => {
+          if (cancelled || !containerRef.current) {
+            return;
+          }
+
+          clearMermaidProcessedAttributes(containerRef.current);
+
+          const renderId = `copilot-mermaid-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+          const svg = await renderMermaidSvg(validation.normalized, renderId);
+
+          if (!cancelled && containerRef.current) {
+            containerRef.current.innerHTML = svg;
+          }
+        });
+      } catch (renderError) {
         if (!cancelled) {
-          setError("Unable to render diagram.");
+          setError(renderError instanceof Error ? renderError.message : "Unable to render diagram.");
         }
       } finally {
         if (!cancelled) {
@@ -59,51 +127,58 @@ function MermaidBlock({ code }: MermaidBlockProps) {
         containerRef.current.innerHTML = "";
       }
     };
-  }, [code]);
+  }, [code, isVisible]);
 
   if (error) {
     return (
-      <div className="rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
+      <div className={styles.mermaidError}>
         {error}
       </div>
     );
   }
 
   return (
-    <div className="rounded-lg border border-cyan-500/20 bg-slate-950/70 px-3 py-2">
-      {loading ? <div className="text-xs text-slate-400">Rendering diagram...</div> : null}
-      <div ref={containerRef} className="overflow-x-auto [&>svg]:h-auto [&>svg]:max-w-full" />
+    <div ref={hostRef} className={styles.mermaidContainer}>
+      {!isVisible ? <div className={styles.mermaidLoading}>[Diagram - Loading...]</div> : null}
+      {isVisible && loading ? <div className={styles.mermaidLoading}>Rendering diagram...</div> : null}
+      <div ref={containerRef} className={styles.mermaidCanvas} />
     </div>
   );
 }
 
 export function CopilotInferenceBodyRenderer({ content }: CopilotInferenceBodyRendererProps) {
   return (
-    <div className="space-y-2 text-sm leading-6 text-slate-100">
+    <div className={styles.rendererRoot}>
       <ReactMarkdown
         components={{
-          p: ({ children }) => <p className="whitespace-pre-wrap break-words">{children}</p>,
-          ul: ({ children }) => <ul className="list-disc space-y-1 pl-5">{children}</ul>,
-          ol: ({ children }) => <ol className="list-decimal space-y-1 pl-5">{children}</ol>,
-          li: ({ children }) => <li className="text-slate-100">{children}</li>,
+          p: ({ children }) =>
+            isCallout(children) ? (
+              <p className={styles.callout}>{children}</p>
+            ) : (
+              <p className={styles.paragraph}>{children}</p>
+            ),
+          ul: ({ children }) => <ul className={styles.unorderedList}>{children}</ul>,
+          ol: ({ children }) => <ol className={styles.orderedList}>{children}</ol>,
+          li: ({ children }) => <li className={styles.listItem}>{children}</li>,
           a: ({ href, children }) => (
             <a
               href={href}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-cyan-300 underline decoration-cyan-500/40 underline-offset-2"
+              className={styles.link}
             >
               {children}
             </a>
           ),
           blockquote: ({ children }) => (
-            <blockquote className="rounded-r border-l-2 border-cyan-400/40 pl-3 text-slate-300">
+            <blockquote className={styles.blockquote}>
               {children}
             </blockquote>
           ),
-          code: ({ inline, className, children }) => {
+          code: ({ className, children, ...props }) => {
+            const inline = (props as { inline?: boolean }).inline === true;
             const code = String(children).replace(/\n$/, "");
-            const language = className?.replace("language-", "").trim();
+            const language = className?.replace("language-", "").trim().toLowerCase();
 
             if (!inline && language === "mermaid") {
               return <MermaidBlock code={code} />;
@@ -111,15 +186,15 @@ export function CopilotInferenceBodyRenderer({ content }: CopilotInferenceBodyRe
 
             if (inline) {
               return (
-                <code className="rounded bg-slate-900/80 px-1 py-0.5 text-xs text-cyan-200 ring-1 ring-white/10">
+                <code className={styles.inlineCode}>
                   {children}
                 </code>
               );
             }
 
             return (
-              <pre className="overflow-x-auto rounded-lg bg-slate-950/80 p-3 text-xs text-slate-100 ring-1 ring-white/10">
-                <code>{children}</code>
+              <pre className={styles.codeBlock}>
+                <code className={styles.codeBlockCode}>{children}</code>
               </pre>
             );
           },
@@ -130,4 +205,3 @@ export function CopilotInferenceBodyRenderer({ content }: CopilotInferenceBodyRe
     </div>
   );
 }
-

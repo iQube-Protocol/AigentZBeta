@@ -1,0 +1,151 @@
+.rendererRoot {
+  --inference-primary: hsl(188 94% 43%);
+  --inference-accent: hsl(188 94% 43%);
+  --inference-accent-soft: hsl(188 94% 43% / 0.14);
+  --inference-body: hsl(210 40% 96%);
+  --inference-body-muted: hsl(215 20% 68%);
+  --inference-border: hsl(215 20% 65% / 0.25);
+  --inference-muted: hsl(220 14% 96% / 0.08);
+  --inference-code-bg: hsl(220 14% 8% / 0.9);
+  --inference-callout-bg: hsl(45 93% 47% / 0.12);
+  --inference-callout-border: hsl(45 93% 47% / 0.5);
+  --inference-danger: hsl(0 84% 60%);
+  --inference-danger-soft: hsl(0 84% 60% / 0.1);
+  --inference-purple: hsl(262 83% 58%);
+
+  color: var(--inference-body);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 0.95rem;
+  line-height: 1.7;
+}
+
+.paragraph {
+  margin: 0 0 0.75rem;
+  color: var(--inference-body);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.paragraph:last-child {
+  margin-bottom: 0;
+}
+
+.callout {
+  margin: 0.75rem 0;
+  padding: 0.75rem;
+  background: var(--inference-callout-bg);
+  border-left: 4px solid var(--inference-callout-border);
+  border-radius: 0 0.5rem 0.5rem 0;
+  color: hsl(45 88% 74%);
+  font-weight: 500;
+}
+
+.unorderedList {
+  margin: 0 0 0.75rem;
+  padding-left: 1.25rem;
+  list-style-type: disc;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.orderedList {
+  margin: 0 0 0.75rem;
+  padding-left: 1.25rem;
+  list-style-type: decimal;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.listItem {
+  color: var(--inference-body);
+}
+
+.link {
+  color: hsl(188 94% 76%);
+  text-decoration: underline;
+  text-decoration-color: hsl(188 94% 43% / 0.4);
+  text-underline-offset: 2px;
+}
+
+.blockquote {
+  border-left: 3px solid var(--inference-accent);
+  margin: 0.75rem 0;
+  padding: 0.5rem 1rem;
+  border-radius: 0 0.375rem 0.375rem 0;
+  background: var(--inference-muted);
+  color: hsl(210 25% 80%);
+  font-style: italic;
+}
+
+.inlineCode {
+  background: var(--inference-muted);
+  border: 1px solid var(--inference-border);
+  border-radius: 0.25rem;
+  color: hsl(188 94% 82%);
+  font-family: Monaco, Menlo, Ubuntu Mono, monospace;
+  font-size: 0.85em;
+  padding: 0.125rem 0.375rem;
+}
+
+.codeBlock {
+  margin: 1rem 0;
+  padding: 0.875rem;
+  overflow-x: auto;
+  border-radius: 0.5rem;
+  background: var(--inference-code-bg);
+  border: 1px solid var(--inference-border);
+}
+
+.codeBlockCode {
+  font-family: Monaco, Menlo, Ubuntu Mono, monospace;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: hsl(210 40% 96%);
+}
+
+.mermaidContainer {
+  margin: 1rem 0;
+  padding: 0.875rem;
+  border: 1px solid var(--inference-border);
+  border-radius: 0.5rem;
+  background: hsl(220 14% 6% / 0.78);
+}
+
+.mermaidLoading {
+  color: var(--inference-body-muted);
+  font-size: 0.75rem;
+  font-style: italic;
+  margin-bottom: 0.5rem;
+}
+
+.mermaidError {
+  margin: 0.5rem 0;
+  padding: 0.625rem 0.75rem;
+  border-radius: 0.375rem;
+  border: 1px solid hsl(0 84% 60% / 0.3);
+  background: var(--inference-danger-soft);
+  color: hsl(0 96% 85%);
+  font-size: 0.75rem;
+}
+
+.mermaidCanvas {
+  overflow-x: auto;
+}
+
+.mermaidCanvas :global(svg) {
+  height: auto;
+  max-width: 100%;
+  display: block;
+}
+
+@media (max-width: 640px) {
+  .rendererRoot {
+    font-size: 0.9rem;
+  }
+
+  .paragraph {
+    font-size: 0.9rem;
+  }
+}
