@@ -119,7 +119,7 @@ const isMotionContent = (ent: any): boolean => {
   return assetId.toLowerCase().includes("motion") || String(coverType).toUpperCase() === "MOTION";
 };
 
-type DrawerTab = "wallet" | "library" | "tasks" | "reputation" | "rewards";
+type DrawerTab = "wallet" | "library" | "tasks" | "reputation" | "rewards" | "payments";
 
 interface SmartWalletDrawerProps {
   open: boolean;
@@ -159,6 +159,7 @@ const TAB_CONFIG: Array<{ key: DrawerTab; label: string; icon: React.ReactNode }
   { key: "tasks", label: "Tasks", icon: <CheckSquare className="w-4 h-4" /> },
   { key: "reputation", label: "Reputation", icon: <Trophy className="w-4 h-4" /> },
   { key: "rewards", label: "Rewards", icon: <Gift className="w-4 h-4" /> },
+  { key: "payments", label: "Payments", icon: <CreditCard className="w-4 h-4" /> },
 ];
 
 export default function SmartWalletDrawer({
@@ -225,6 +226,7 @@ export default function SmartWalletDrawer({
   const [copilotMode, setCopilotMode] = useState<'chat' | 'avatar'>('chat');
   const [personaMenuOpen, setPersonaMenuOpen] = useState(false);
   const [selectedLibraryItem, setSelectedLibraryItem] = useState<any>(null);
+  const [dvnExpanded, setDvnExpanded] = useState(true);
   const [tenantId, setTenantId] = useState<string>(
     process.env.NEXT_PUBLIC_TENANT_ID ||
       process.env.NEXT_PUBLIC_LVB_BRIDGE_TENANT_ID ||
@@ -616,6 +618,20 @@ export default function SmartWalletDrawer({
             ? ` You also have ${walletNode.balances.pendingRewards} Q¢ in pending rewards!`
             : ''
         }`,
+        handled: true,
+      };
+    }
+
+    if (
+      lowerMsg.includes('pay') ||
+      lowerMsg.includes('payment') ||
+      lowerMsg.includes('purchase') ||
+      lowerMsg.includes('checkout') ||
+      lowerMsg.includes('buy')
+    ) {
+      return {
+        tab: 'payments',
+        response: `Opening payments. If you have content selected, you can complete the purchase flow here.`,
         handled: true,
       };
     }
@@ -1154,17 +1170,19 @@ export default function SmartWalletDrawer({
 
         {/* Tab Navigation */}
         <div className="wallet-tab-nav px-3 py-2 bg-black/20">
-          {TAB_CONFIG.map((tab) => (
-            <Tooltip key={tab.key} text={tab.label}>
-              <button
-                onClick={() => setActiveTab(tab.key)}
-                className={`wallet-icon-btn py-2 ${activeTab === tab.key ? 'active' : ''}`}
-                data-active={activeTab === tab.key}
-              >
-                {tab.icon}
-              </button>
-            </Tooltip>
-          ))}
+          <div className="flex items-center gap-1 overflow-x-auto">
+            {TAB_CONFIG.map((tab) => (
+              <Tooltip key={tab.key} text={tab.label}>
+                <button
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`wallet-icon-btn py-2 ${activeTab === tab.key ? 'active' : ''}`}
+                  data-active={activeTab === tab.key}
+                >
+                  {tab.icon}
+                </button>
+              </Tooltip>
+            ))}
+          </div>
         </div>
 
         {/* Copilot Panel (Qriptopian parity) */}
@@ -1563,7 +1581,7 @@ export default function SmartWalletDrawer({
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-white/60">
                     <Coins className="w-3.5 h-3.5 text-purple-400" />
-                    Q¢ Balances
+                    Q¢ Balances by Chain
                   </div>
                   <div className="text-[10px] text-emerald-400 flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
@@ -1651,6 +1669,7 @@ export default function SmartWalletDrawer({
                   <CircleDollarSign className="w-3.5 h-3.5 text-green-400" />
                   Convert USDC → Q¢
                 </div>
+                <div className="text-[10px] text-white/50 mb-2">1 USDC = 99 Q¢ (1% fee)</div>
                 <div className="grid grid-cols-3 gap-2">
                   <input
                     value={convertUsdcAmount}
@@ -1678,6 +1697,20 @@ export default function SmartWalletDrawer({
                   </div>
                 )}
               </section>
+
+              {walletNode?.balances?.pendingRewards != null && walletNode.balances.pendingRewards > 0 && (
+                <section className="rounded-2xl bg-amber-500/10 ring-1 ring-amber-500/20 p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-amber-300 flex items-center gap-1.5">
+                      <Gift className="w-3.5 h-3.5" />
+                      Pending Rewards
+                    </span>
+                    <span className="font-mono text-sm text-amber-300">
+                      +{walletNode.balances.pendingRewards} Q¢
+                    </span>
+                  </div>
+                </section>
+              )}
               
               {/* Demo/Persona Balances (if available) */}
               {walletNode?.balances && (walletNode.balances as any).QCT && (
@@ -1719,47 +1752,51 @@ export default function SmartWalletDrawer({
               )}
               
 
-              {/* Current Content & Purchase Flow */}
-              {currentContent && (
-                <PurchaseFlow
-                  content={currentContent}
-                  purchaseStep={purchaseStep}
-                  contentPrice={contentPrice}
-                  isFreeContent={isFreeContent}
-                  selectedPaymentMethod={selectedPaymentMethod}
-                  purchaseError={purchaseError}
-                  onStartPurchase={handleStartPurchase}
-                  onConfirmPurchase={handleConfirmPurchase}
-                  onCancelPurchase={handleCancelPurchase}
-                  onSelectPaymentMethod={setSelectedPaymentMethod}
-                />
-              )}
-
               {/* DVN Events */}
               <section className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-3">
-                <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-white/60 mb-2">
-                  <Zap className="w-3.5 h-3.5 text-purple-400" />
-                  Recent DVN Events
+                <div className="flex items-center justify-between text-[11px] uppercase tracking-wider text-white/60 mb-2">
+                  <span className="flex items-center gap-2">
+                    <Zap className="w-3.5 h-3.5 text-purple-400" />
+                    Recent DVN Events
+                  </span>
+                  <button
+                    onClick={() => setDvnExpanded((prev) => !prev)}
+                    className="text-[10px] text-white/50 hover:text-white/70"
+                  >
+                    {dvnExpanded ? "Compact" : "Expanded"}
+                  </button>
                 </div>
-                <div className="space-y-2">
-                  {evs.slice(0, 3).map((e, i) => {
-                    const statusColor = e.event === "PaymentConfirmed" ? "text-emerald-300" : e.event === "PaymentFailed" ? "text-red-300" : "text-amber-300";
-                    const StatusIcon = e.event === "PaymentConfirmed" ? Check : e.event === "PaymentFailed" ? X : Clock;
-                    return (
-                      <div key={i} className="rounded-lg bg-white/5 ring-1 ring-white/10 p-2">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="flex items-center gap-2 text-white/90">
-                            <StatusIcon className={`w-3.5 h-3.5 ${statusColor}`} />
-                            <span className={statusColor}>{e.event}</span>
-                          </span>
-                          <span className="text-white/50">{e.chain}</span>
+                {dvnExpanded ? (
+                  <div className="space-y-2">
+                    {evs.slice(0, 3).map((e, i) => {
+                      const statusColor = e.event === "PaymentConfirmed" ? "text-emerald-300" : e.event === "PaymentFailed" ? "text-red-300" : "text-amber-300";
+                      const StatusIcon = e.event === "PaymentConfirmed" ? Check : e.event === "PaymentFailed" ? X : Clock;
+                      return (
+                        <div key={i} className="rounded-lg bg-white/5 ring-1 ring-white/10 p-2">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="flex items-center gap-2 text-white/90">
+                              <StatusIcon className={`w-3.5 h-3.5 ${statusColor}`} />
+                              <span className={statusColor}>{e.event}</span>
+                            </span>
+                            <span className="text-white/50">{e.chain}</span>
+                          </div>
+                          <div className="text-[11px] text-white/40">{e.amount}</div>
                         </div>
-                        <div className="text-[11px] text-white/40">{e.amount}</div>
+                      );
+                    })}
+                    {evs.length === 0 && <div className="text-xs text-white/50">No events yet.</div>}
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    {evs.slice(0, 2).map((e, i) => (
+                      <div key={i} className="flex justify-between text-[11px] p-1 bg-white/5 rounded">
+                        <span className={e.event === "PaymentConfirmed" ? "text-emerald-300" : "text-amber-300"}>{e.event}</span>
+                        <span className="text-white/40">{e.chain}</span>
                       </div>
-                    );
-                  })}
-                  {evs.length === 0 && <div className="text-xs text-white/50">No events yet.</div>}
-                </div>
+                    ))}
+                    {evs.length === 0 && <div className="text-[11px] text-white/40">No events</div>}
+                  </div>
+                )}
               </section>
 
               {/* Identity */}
@@ -1841,13 +1878,48 @@ export default function SmartWalletDrawer({
             </div>
           )}
 
+          {/* Payments Tab */}
+          {activeTab === "payments" && (
+            <div className="space-y-4">
+              {currentContent ? (
+                <PurchaseFlow
+                  content={currentContent}
+                  purchaseStep={purchaseStep}
+                  contentPrice={contentPrice}
+                  isFreeContent={isFreeContent}
+                  selectedPaymentMethod={selectedPaymentMethod}
+                  purchaseError={purchaseError}
+                  onStartPurchase={handleStartPurchase}
+                  onConfirmPurchase={handleConfirmPurchase}
+                  onCancelPurchase={handleCancelPurchase}
+                  onSelectPaymentMethod={setSelectedPaymentMethod}
+                />
+              ) : (
+                <div className="text-center py-6 text-white/50 text-sm">
+                  <CreditCard className="w-8 h-8 mx-auto mb-2 text-purple-400" />
+                  No content selected for payment.
+                </div>
+              )}
+
+              <PaymentRequestsPanel
+                agentId={agent.id}
+                fioHandle={agent.fioHandle}
+                walletAddress={walletAddress}
+                onPaymentExecuted={(txHash, requestId) => {
+                  handlePaymentExecuted(txHash, requestId);
+                  refreshWalletBalances();
+                }}
+              />
+            </div>
+          )}
+
           {/* Library Tab */}
           {activeTab === "library" && (
             <div className="space-y-4">
               {selectedLibraryItem ? (
-                <section className="rounded-2xl bg-purple-500/10 ring-1 ring-purple-500/20 p-4">
+                <section className="rounded-xl bg-purple-500/10 ring-1 ring-purple-500/20 p-3">
                   <button onClick={() => setSelectedLibraryItem(null)} className="text-xs text-white/50 mb-3">← Back</button>
-                  <div className="aspect-[3/4] w-40 mx-auto rounded-xl overflow-hidden bg-black/40 mb-3 relative">
+                  <div className="aspect-[3/4] w-32 mx-auto rounded-lg overflow-hidden bg-black/40 mb-2 relative">
                     {selectedLibraryItem.coverCid ? (
                       <img
                         src={`/api/content/cover/${selectedLibraryItem.coverCid}?variant=thumb`}
@@ -1861,9 +1933,9 @@ export default function SmartWalletDrawer({
                     ) : null}
                     <div className={`w-full h-full items-center justify-center ${selectedLibraryItem.coverCid ? "hidden" : "flex"}`}>
                       {isMotionContent(selectedLibraryItem) ? (
-                        <Film className="w-16 h-16 text-purple-400/50" />
+                        <Film className="w-12 h-12 text-purple-400/50" />
                       ) : (
-                        <Book className="w-16 h-16 text-purple-400/50" />
+                        <Book className="w-12 h-12 text-purple-400/50" />
                       )}
                     </div>
                     {getRarityIcon((selectedLibraryItem as any).coverType) && (
@@ -1871,16 +1943,16 @@ export default function SmartWalletDrawer({
                         <img
                           src={getRarityIcon((selectedLibraryItem as any).coverType)!}
                           alt="rarity"
-                          className="absolute bottom-2 left-2 w-8 h-8 object-contain drop-shadow-lg cursor-help"
+                          className="absolute bottom-1 left-1 w-6 h-6 object-contain drop-shadow-lg cursor-help"
                         />
                       </Tooltip>
                     )}
                     <Tooltip text={isMotionContent(selectedLibraryItem) ? "Motion Comic" : "Digital Still"}>
-                      <div className="absolute top-2 right-2 p-1.5 rounded bg-black/50 cursor-help">
+                      <div className="absolute top-1 right-1 p-1 rounded bg-black/50 cursor-help">
                         {isMotionContent(selectedLibraryItem) ? (
-                          <Film className="w-4 h-4 text-cyan-400" />
+                          <Film className="w-3 h-3 text-cyan-400" />
                         ) : (
-                          <Book className="w-4 h-4 text-amber-400" />
+                          <Book className="w-3 h-3 text-amber-400" />
                         )}
                       </div>
                     </Tooltip>
@@ -1891,7 +1963,7 @@ export default function SmartWalletDrawer({
                   )}
                 </section>
               ) : walletNode?.contentEntitlements && walletNode.contentEntitlements.length > 0 ? (
-                <section className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-3">
+                <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-3">
                   <div className="text-[11px] uppercase tracking-wider text-white/60 mb-2">
                     Your Library ({walletNode.contentEntitlements.length})
                   </div>
@@ -1945,11 +2017,9 @@ export default function SmartWalletDrawer({
                 // Only use LibraryShelf for valid UUID personaIds
                 <LibraryShelf personaId={effectivePersonaId} onContentSelect={onContentSelect} variant="drawer" />
               ) : (
-                <div className="text-center py-8 text-white/50 text-sm">
-                  <BookOpen className="w-8 h-8 mx-auto mb-2 text-purple-400" />
-                  No content in your library yet.
-                  <br />
-                  <span className="text-xs text-white/40">Purchase or add free content to get started!</span>
+                <div className="text-center py-6 text-white/50 text-sm">
+                  <BookOpen className="w-8 h-8 mx-auto mb-2 text-purple-400/50" />
+                  No content yet.
                 </div>
               )}
             </div>
@@ -1958,8 +2028,50 @@ export default function SmartWalletDrawer({
           {/* Tasks Tab */}
           {activeTab === "tasks" && (
             <div className="space-y-4">
+              {/* Hero Tasks */}
+              <section className="rounded-xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 ring-1 ring-cyan-500/20 p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <Users className="w-4 h-4 text-cyan-400" />
+                  <span className="text-xs font-medium text-cyan-300">Bring a Knight</span>
+                  <span className="ml-auto text-[10px] text-amber-300 bg-amber-500/10 px-1.5 py-0.5 rounded">+2 KNYT</span>
+                </div>
+                <p className="text-[10px] text-white/50 mb-2">Invite friends to join. Earn 2 KNYT when they make their first purchase.</p>
+                <button className="w-full flex items-center justify-center gap-1 px-2 py-1.5 rounded bg-cyan-500/20 text-cyan-300 text-xs hover:bg-cyan-500/30">
+                  <Share2 className="w-3 h-3" />
+                  Share Invite Link
+                </button>
+              </section>
+
+              <section className="rounded-xl bg-gradient-to-br from-purple-500/10 to-fuchsia-500/10 ring-1 ring-purple-500/20 p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <Flame className="w-4 h-4 text-orange-400" />
+                  <span className="text-xs font-medium text-purple-300">Knight of Attention</span>
+                  <span className="ml-auto text-[10px] text-amber-300 bg-amber-500/10 px-1.5 py-0.5 rounded">+0.5 KNYT</span>
+                </div>
+                <p className="text-[10px] text-white/50 mb-2">Complete episodes to earn rewards. Build streaks for bonus KNYT.</p>
+                <div className="flex items-center gap-2 text-[10px] text-white/40">
+                  <span>Episodes: 0/2 this week</span>
+                  <span className="text-white/20">|</span>
+                  <span>Streak: 0 weeks</span>
+                </div>
+              </section>
+
+              <section className="rounded-xl bg-gradient-to-br from-amber-500/10 to-orange-500/10 ring-1 ring-amber-500/20 p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <Trophy className="w-4 h-4 text-amber-400" />
+                  <span className="text-xs font-medium text-amber-300">Herald of the Order</span>
+                  <span className="ml-auto text-[10px] text-amber-300 bg-amber-500/10 px-1.5 py-0.5 rounded">+0.25 KNYT</span>
+                </div>
+                <p className="text-[10px] text-white/50 mb-2">Share content and earn when others click, sign up, or purchase.</p>
+                <div className="flex items-center gap-2 text-[10px] text-white/40">
+                  <span>Clicks: 0/10</span>
+                  <span className="text-white/20">|</span>
+                  <span>Signups: 0/3</span>
+                </div>
+              </section>
+
               {/* Active Tasks */}
-              <section className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-3">
+              <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-3">
                 <div className="text-[11px] uppercase tracking-wider text-white/60 mb-2">Active Tasks</div>
                 <div className="space-y-2">
                   {tasks.filter((t) => t.status === "pending" || t.status === "in_progress").length === 0 && (
@@ -2027,7 +2139,7 @@ export default function SmartWalletDrawer({
 
               {/* Quest Progress */}
               {quests.length > 0 && (
-                <section className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-3">
+                <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-3">
                   <div className="text-[11px] uppercase tracking-wider text-white/60 mb-2">Quest Progress</div>
                   <div className="space-y-2">
                     {quests.map((quest) => (
@@ -2057,13 +2169,13 @@ export default function SmartWalletDrawer({
           {activeTab === "reputation" && (
             <div className="space-y-4">
               {/* Reputation Score */}
-              <section className="rounded-2xl bg-gradient-to-br from-purple-500/10 to-fuchsia-500/10 ring-1 ring-purple-500/20 p-4">
+              <section className="rounded-xl bg-gradient-to-br from-purple-500/10 to-fuchsia-500/10 ring-1 ring-purple-500/20 p-4">
                 <div className="text-center">
                   <div className="flex justify-center gap-1 mb-2">
                     {[...Array(5)].map((_, i) => (
                       <Star 
                         key={i} 
-                        className={`w-6 h-6 ${
+                        className={`w-5 h-5 ${
                           i < (walletNode?.personaContext?.activePersona?.reputationBucket || 0)
                             ? "text-amber-400 fill-amber-400"
                             : "text-slate-600"
@@ -2074,36 +2186,54 @@ export default function SmartWalletDrawer({
                   <div className="text-2xl font-bold text-white">
                     {walletNode?.personaContext?.activePersona?.reputationScore || 0}
                   </div>
-                  <div className="text-sm text-white/60">Reputation Score</div>
+                  <div className="text-xs text-white/50">Reputation Score</div>
                 </div>
               </section>
 
               {/* Reputation Breakdown */}
-              <section className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-3">
-                <div className="text-[11px] uppercase tracking-wider text-white/60 mb-3">Score Breakdown</div>
+              {/* Badges */}
+              <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-3">
+                <div className="text-[10px] uppercase tracking-wider text-white/50 mb-2">Badges</div>
+                {walletNode?.personaContext?.activePersona?.badges?.length ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {walletNode.personaContext.activePersona.badges.map((badge: string, idx: number) => (
+                      <span key={idx} className="flex items-center gap-1 px-2 py-1 rounded-full bg-purple-500/20 text-white/90 text-xs ring-1 ring-purple-500/30">
+                        <Award className="w-3 h-3" />
+                        {badge}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-xs text-white/40">No badges earned yet</div>
+                )}
+              </section>
+
+              {/* Reputation Breakdown */}
+              <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-3">
+                <div className="text-[10px] uppercase tracking-wider text-white/50 mb-2">Score Breakdown</div>
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center justify-between text-xs">
                     <span className="flex items-center gap-2 text-white/80">
                       <FileText className="w-4 h-4 text-purple-400" />
                       Content Created
                     </span>
                     <span className="text-white font-medium">+0</span>
                   </div>
-                  <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center justify-between text-xs">
                     <span className="flex items-center gap-2 text-white/80">
                       <CheckSquare className="w-4 h-4 text-purple-400" />
                       Tasks Completed
                     </span>
                     <span className="text-white font-medium">+0</span>
                   </div>
-                  <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center justify-between text-xs">
                     <span className="flex items-center gap-2 text-white/80">
                       <ThumbsUp className="w-4 h-4 text-purple-400" />
                       Community Votes
                     </span>
                     <span className="text-white font-medium">+0</span>
                   </div>
-                  <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center justify-between text-xs">
                     <span className="flex items-center gap-2 text-white/80">
                       <BadgeCheck className="w-4 h-4 text-purple-400" />
                       Verified Claims
@@ -2113,28 +2243,9 @@ export default function SmartWalletDrawer({
                 </div>
               </section>
 
-              {/* Badges */}
-              <section className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-3">
-                <div className="text-[11px] uppercase tracking-wider text-white/60 mb-3">Badges</div>
-                {walletNode?.personaContext?.activePersona?.badges?.length ? (
-                  <div className="flex flex-wrap gap-2">
-                    {walletNode.personaContext.activePersona.badges.map((badge: string, idx: number) => (
-                      <Tooltip key={idx} text={badge}>
-                        <span className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-purple-500/20 text-white/90 text-xs ring-1 ring-purple-500/30">
-                          <Award className="w-3 h-3" />
-                          {badge}
-                        </span>
-                      </Tooltip>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-sm text-white/60">No badges earned yet</div>
-                )}
-              </section>
-
               {/* Submit Claim */}
-              <section className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-3">
-                <div className="text-[11px] uppercase tracking-wider text-white/60 mb-2">Submit Reputation Claim</div>
+              <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-3">
+                <div className="text-[10px] uppercase tracking-wider text-white/50 mb-2">Submit Reputation Claim</div>
                 <p className="text-xs text-white/50 mb-3">
                   Submit evidence of your contributions to earn reputation points.
                 </p>
@@ -2154,9 +2265,43 @@ export default function SmartWalletDrawer({
           {/* Rewards Tab */}
           {activeTab === "rewards" && (
             <div className="space-y-4">
+              <section className="rounded-xl bg-gradient-to-br from-amber-500/10 to-orange-500/10 ring-1 ring-amber-500/20 p-3">
+                <div className="text-[10px] uppercase tracking-wider text-amber-300/70 mb-2">KNYT Balance</div>
+                <div className="text-2xl font-bold text-amber-300">
+                  {knytBalance?.totalKnyt?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00"}{" "}
+                  <span className="text-amber-400 text-lg">KNYT</span>
+                </div>
+                <div className="text-xs text-white/50 mt-1">≈ ${((knytBalance?.totalKnyt || 0) * knytPriceUsd).toFixed(2)} USD</div>
+                <button
+                  onClick={() => setBuyKnytModalOpen(true)}
+                  className="mt-2 w-full px-3 py-1.5 text-xs bg-amber-500/20 text-amber-300 rounded-lg hover:bg-amber-500/30 transition-colors"
+                >
+                  Buy KNYT
+                </button>
+              </section>
+
+              <section className="rounded-xl bg-gradient-to-br from-purple-500/10 to-fuchsia-500/10 ring-1 ring-purple-500/20 p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-[10px] uppercase tracking-wider text-purple-300/70">Order Tier</div>
+                  <div className="flex items-center gap-1">
+                    <Crown className="w-3.5 h-3.5 text-amber-400" />
+                    <span className="text-xs font-medium text-amber-300">
+                      {walletNode?.personaContext?.activePersona?.orderTier || "Knight"}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-white/50">Reward Multiplier</span>
+                  <span className="text-sm font-bold text-emerald-300">
+                    ×{rewards?.reputationMultiplier?.toFixed(2) || "1.00"}
+                  </span>
+                </div>
+                <p className="text-[10px] text-white/40 mt-2">Higher tiers earn more KNYT per task.</p>
+              </section>
+
               {/* Pending Rewards */}
               {(rewards as any)?.pendingRewards && (rewards as any).pendingRewards.length > 0 && (
-                <section className="rounded-2xl bg-gradient-to-br from-amber-500/10 to-orange-500/10 ring-1 ring-amber-500/20 p-3">
+                <section className="rounded-xl bg-gradient-to-br from-amber-500/10 to-orange-500/10 ring-1 ring-amber-500/20 p-3">
                   <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-amber-300 mb-2">
                     <Clock className="w-3.5 h-3.5" />
                     Pending Rewards
@@ -2180,7 +2325,7 @@ export default function SmartWalletDrawer({
 
               {/* Recent Rewards */}
               {rewards && rewards.recentRewards.length > 0 && (
-                <section className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-3">
+                <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-3">
                   <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-white/60 mb-2">
                     <Star className="w-3.5 h-3.5 text-amber-400" />
                     Recent Rewards
@@ -2206,7 +2351,7 @@ export default function SmartWalletDrawer({
 
               {/* Lifetime Stats */}
               {(rewards as any)?.lifetimeEarnings && (
-                <section className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-3">
+                <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-3">
                   <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-white/60 mb-2">
                     <Crown className="w-3.5 h-3.5 text-amber-400" />
                     Lifetime Rewards
