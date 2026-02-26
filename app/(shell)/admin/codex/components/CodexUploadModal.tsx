@@ -10,6 +10,7 @@ type Props = {
 };
 
 type Category = 'master_motion' | 'master_print' | 'cover' | 'character' | 'lore';
+type PaymentSurface = 'overlay' | 'embedded' | 'liquid';
 
 type QueueItem = {
   id: string;
@@ -52,6 +53,9 @@ function getAccessTokenFromStorage(): string | null {
 export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
   const [category, setCategory] = useState<Category>('master_motion');
   const [episodeNumber, setEpisodeNumber] = useState('1');
+  const [priceAmount, setPriceAmount] = useState('');
+  const [paymentType, setPaymentType] = useState<'one-time' | 'subscription'>('one-time');
+  const [paymentSurface, setPaymentSurface] = useState<PaymentSurface>('overlay');
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -92,6 +96,9 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
     formData.append('title', item.title || item.file.name);
     formData.append('series', 'metaKnyts');
     if (episodeNumber) formData.append('episodeNumber', episodeNumber);
+    if (priceAmount.trim()) formData.append('priceAmount', priceAmount.trim());
+    formData.append('paymentType', paymentType);
+    formData.append('paymentSurface', paymentSurface);
 
     if (category === 'master_motion') {
       formData.append('contentType', 'episode_motion');
@@ -181,7 +188,7 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
         </div>
 
         <div className="space-y-4 p-4">
-          <div className="grid gap-3 md:grid-cols-3">
+          <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-6">
             <div>
               <label className="mb-1 block text-xs text-slate-300">Category</label>
               <select
@@ -227,6 +234,47 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
                   disabled={isUploading}
                 />
               </label>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs text-slate-300">Price (Q¢)</label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={priceAmount}
+                onChange={(event) => setPriceAmount(event.target.value)}
+                placeholder="Optional"
+                className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white"
+                disabled={isUploading}
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs text-slate-300">Payment Type</label>
+              <select
+                value={paymentType}
+                onChange={(event) => setPaymentType(event.target.value as 'one-time' | 'subscription')}
+                className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white"
+                disabled={isUploading}
+              >
+                <option value="one-time">One-time</option>
+                <option value="subscription">Subscription</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs text-slate-300">Payment Surface</label>
+              <select
+                value={paymentSurface}
+                onChange={(event) => setPaymentSurface(event.target.value as PaymentSurface)}
+                className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white"
+                disabled={isUploading}
+              >
+                <option value="overlay">Overlay</option>
+                <option value="embedded">Embedded</option>
+                <option value="liquid">Liquid</option>
+              </select>
             </div>
           </div>
 

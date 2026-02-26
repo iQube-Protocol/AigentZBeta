@@ -67,6 +67,13 @@ interface Episode {
   artist?: string;
   colorist?: string;
   letterer?: string;
+  // Optional pricing metadata (supports both camelCase and snake_case inputs)
+  priceAmount?: number | string;
+  price_amount?: number | string;
+  paymentType?: 'one-time' | 'subscription' | string;
+  payment_type?: 'one-time' | 'subscription' | string;
+  paymentSurface?: 'overlay' | 'embedded' | 'liquid' | string;
+  payment_surface?: 'overlay' | 'embedded' | 'liquid' | string;
 }
 
 interface EpisodeCredits {
@@ -94,8 +101,47 @@ interface CodexExport {
 // Parse issue number to database episode number (#0 -> 1, #1 -> 2)
 function parseIssueNumber(issue?: string): number | null {
   if (!issue) return null;
-  const match = issue.match(/#(\d+)/);
-  return match ? parseInt(match[1], 10) + 1 : null;
+  const match = issue.match(/#\s*(-?\d+)/);
+  if (!match) return null;
+  const parsed = parseInt(match[1], 10);
+  if (Number.isNaN(parsed)) return null;
+  // Preserve negative pre-release episode numbering (e.g. #-1, #-2),
+  // while converting documentation #0/#1... to database 1/2...
+  return parsed < 0 ? parsed : parsed + 1;
+}
+
+type EpisodePricing = {
+  amount: number;
+  paymentType: 'one-time' | 'subscription';
+  paymentSurface: 'overlay' | 'embedded' | 'liquid';
+};
+
+function parseEpisodePricing(episode: Episode): EpisodePricing | null {
+  const rawAmount = episode.priceAmount ?? episode.price_amount;
+  if (rawAmount === undefined || rawAmount === null || String(rawAmount).trim() === '') {
+    return null;
+  }
+
+  const amount = Number(rawAmount);
+  if (!Number.isFinite(amount) || amount < 0) {
+    throw new Error(`Invalid pricing amount "${rawAmount}"`);
+  }
+
+  const paymentTypeRaw = (episode.paymentType ?? episode.payment_type ?? 'one-time').toString();
+  const paymentSurfaceRaw = (episode.paymentSurface ?? episode.payment_surface ?? 'overlay').toString();
+
+  const paymentType: EpisodePricing['paymentType'] =
+    paymentTypeRaw === 'subscription' ? 'subscription' : 'one-time';
+
+  let paymentSurface: EpisodePricing['paymentSurface'] = 'overlay';
+  if (paymentSurfaceRaw === 'embedded') paymentSurface = 'embedded';
+  if (paymentSurfaceRaw === 'liquid') paymentSurface = 'liquid';
+
+  return {
+    amount,
+    paymentType,
+    paymentSurface,
+  };
 }
 
 export async function POST(req: NextRequest) {
@@ -141,8 +187,10 @@ export async function POST(req: NextRequest) {
       knyt_cards: { inserted: 0, errors: 0 },
       episodes: { inserted: 0, errors: 0 },
       episode_credits: { inserted: 0, errors: 0 },
+      episode_pricing: { imported: 0, errors: 0 },
     };
     const errors: string[] = [];
+    const warnings: string[] = [];
 
     // 1. Import characters
     console.log(`[CodexImport] Importing ${data.characters.length} characters...`);
@@ -202,6 +250,7 @@ export async function POST(req: NextRequest) {
     for (const ep of data.episodes) {
       try {
         const episodeNumber = parseIssueNumber(ep.issue_number);
+        const pricing = parseEpisodePricing(ep);
         
         const { error } = await supabase
           .from('codex_episodes')
@@ -229,6 +278,50 @@ export async function POST(req: NextRequest) {
 
         if (error) throw error;
         results.episodes.inserted++;
+
+        // Keep import + upload pricing workflows aligned by storing import pricing in episode_metadata.
+        if (pricing && episodeNumber !== null) {
+          const displayNumber = ep.issue_number || `#${episodeNumber - 1}`;
+          const { error: metadataError } = await supabase.rpc('upsert_episode_metadata', {
+            p_episode_number: episodeNumber,
+            p_series: series,
+            p_title: ep.title,
+            p_display_number: displayNumber,
+            p_subtitle: null,
+            p_synopsis: ep.synopsis || null,
+            p_release_date: null,
+            p_main_characters: JSON.stringify([]),
+            p_supporting_characters: JSON.stringify([]),
+            p_themes: JSON.stringify([]),
+            p_locations: JSON.stringify([]),
+            p_key_events: JSON.stringify([]),
+            p_writer: null,
+            p_artist: ep.artist || null,
+            p_colorist: ep.colorist || null,
+            p_letterer: ep.letterer || null,
+            p_editor: null,
+            p_extra_metadata: JSON.stringify({
+              pricing: {
+                amount: pricing.amount,
+                currency: 'Q¢',
+                paymentType: pricing.paymentType,
+                paymentSurface: pricing.paymentSurface,
+              },
+            }),
+          });
+
+          if (metadataError) {
+            results.episode_pricing.errors++;
+            warnings.push(
+              `Episode ${ep.id}: pricing metadata import failed (${metadataError.message})`
+            );
+          } else {
+            results.episode_pricing.imported++;
+          }
+        } else if (pricing && episodeNumber === null) {
+          results.episode_pricing.errors++;
+          warnings.push(`Episode ${ep.id}: pricing provided but episode number could not be derived from issue_number`);
+        }
       } catch (err) {
         results.episodes.errors++;
         errors.push(`Episode ${ep.id}: ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -266,18 +359,19 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const totalInserted = results.characters.inserted + results.knyt_cards.inserted + 
+    const totalInserted = results.characters.inserted + results.knyt_cards.inserted +
                           results.episodes.inserted + results.episode_credits.inserted;
-    const totalErrors = results.characters.errors + results.knyt_cards.errors + 
+    const totalErrors = results.characters.errors + results.knyt_cards.errors +
                         results.episodes.errors + results.episode_credits.errors;
 
     console.log(`[CodexImport] Complete: ${totalInserted} inserted, ${totalErrors} errors`);
 
     return NextResponse.json({
       success: totalErrors === 0,
-      message: `Imported ${totalInserted} records with ${totalErrors} errors`,
+      message: `Imported ${totalInserted} records with ${totalErrors} errors${results.episode_pricing.errors > 0 ? ` and ${results.episode_pricing.errors} pricing warnings` : ''}`,
       results,
       errors: errors.length > 0 ? errors : undefined,
+      warnings: warnings.length > 0 ? warnings : undefined,
     });
 
   } catch (error) {

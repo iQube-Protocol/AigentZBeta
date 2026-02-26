@@ -11,17 +11,15 @@
  * not dependent on where it's displayed.
  */
 
-import React, { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
-import { SocialSharingModal } from '@/packages/smarttriad/src/SocialSharingModal';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from 'react';
 import { shareArticle } from '@/packages/smarttriad/src/socialSharing';
-import type { ContentModalities, ActionType, SmartContentItem } from '@/packages/smarttriad/src/types';
+import { getCurrentPersonaId, resolveCurrentPersona } from '@/app/services/personaService';
+import type { SmartContentItem, ActionType, ContentModalities } from '@/packages/smarttriad/src/types';
 
 // Import agentiQ-specific components
 import { VideoModal } from '@/packages/smarttriad/src/VideoModal';
+import { SocialSharingModal } from '@/packages/smarttriad/src/SocialSharingModal';
 import { PDFPageViewer } from '@/app/triad/components/content/PDFPageViewer';
-
-// Import agentiQ services
-import { getCurrentPersonaId, resolveCurrentPersona } from '@/app/services/personaService';
 
 interface SmartContentActionContextValue {
   /**
@@ -95,28 +93,71 @@ export function SmartContentActionProvider({ children }: ProviderProps) {
       // Determine preferred payment surface from metadata or context
       const preferredSurface = item.paymentMetadata?.paymentSurface;
       
-      // FLAG: Payment surface integration points to be implemented
-      // These are the existing surfaces we should integrate with:
+      // Convert SmartContentItem to a payment payload compatible with existing surfaces
+      const paymentContentPayload = {
+        id: item.id,
+        title: item.title,
+        description: item.description,
+        excerpt: item.excerpt,
+        image: item.image,
+        section: item.section,
+        pricingModel: {
+          tiers: [{
+            kind: item.price.paymentType || 'one-time',
+            amount: item.price.amount,
+            currency: item.price.currency
+          }]
+        },
+        // Preserve other metadata used by existing flows
+        type: item.type,
+        modalities: item.modalities,
+        pdf_cid: item.pdf_cid,
+        pdf_lite_url: item.pdf_lite_url,
+        created_at: item.created_at,
+        updated_at: item.updated_at,
+      };
       
       if (preferredSurface === 'liquid') {
-        // INTEGRATION POINT: Liquid UI payment chips in chat surface
-        console.log('[SmartContentAction] FLAG: Liquid UI payment surface integration needed');
-        // TODO: Integrate with existing Liquid UI payment modals/chips
-        // Reference: Qriptopian chat surface payment chips
+        // INTEGRATION: Liquid UI payment chips in chat surface
+        console.log('[SmartContentAction] Using Liquid UI payment surface');
+        // Dispatch event for Liquid UI payment handling
+        window.dispatchEvent(new CustomEvent('liquidUIPayment', {
+          detail: { item: paymentContentPayload, price: item.price }
+        }));
+        
       } else if (preferredSurface === 'embedded') {
-        // INTEGRATION POINT: Embedded payment within copilots
-        console.log('[SmartContentAction] FLAG: Embedded payment surface integration needed');
-        // TODO: Integrate with existing embedded copilot payment components
-        // Reference: Existing copilot payment surfaces
+        // INTEGRATION: Embedded payment within copilots
+        console.log('[SmartContentAction] Using Embedded payment surface');
+        // Dispatch event for embedded copilot payment handling
+        window.dispatchEvent(new CustomEvent('embeddedPayment', {
+          detail: { item: paymentContentPayload, price: item.price }
+        }));
+        
       } else {
         // DEFAULT: Overlay wallet drawers and payment modals
-        console.log('[SmartContentAction] FLAG: Overlay payment surface integration needed');
-        // TODO: Integrate with existing overlay wallet drawer payment modals
-        // Reference: SmartWallet overlay payment modals
+        console.log('[SmartContentAction] Using Overlay payment surface (SmartWalletDrawer)');
+        
+        // Dispatch event for overlay payment handling
+        // This will be caught by existing SmartWalletDrawer components
+        window.dispatchEvent(new CustomEvent('overlayPayment', {
+          detail: { 
+            item: paymentContentPayload, 
+            price: item.price,
+            // Additional context for payment surface selection
+            paymentSurface: 'overlay'
+          }
+        }));
+        
+        // Also try to open SmartWalletDrawer directly if it exists
+        const smartWalletDrawerEvent = new CustomEvent('openSmartWalletDrawer', {
+          detail: {
+            currentContent: paymentContentPayload,
+            open: true,
+            variant: 'overlay'
+          }
+        });
+        window.dispatchEvent(smartWalletDrawerEvent);
       }
-
-      // TODO: Remove this flag when payment surfaces are integrated
-      console.warn('[SmartContentAction] PAYMENT SURFACES NOT YET INTEGRATED - Flagged for implementation');
       
     } catch (error) {
       console.error('[SmartContentAction] Payment action failed:', error);
@@ -140,8 +181,6 @@ export function SmartContentActionProvider({ children }: ProviderProps) {
           setVideoPlaylist(effectivePlaylist);
           setVideoIndex(startIndex === -1 ? 0 : startIndex);
           setVideoItem(item);
-          setVideoPlaylist(playlist || [item]);
-          setVideoIndex(0);
           setVideoModalOpen(true);
         }
         break;

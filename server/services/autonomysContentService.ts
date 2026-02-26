@@ -64,6 +64,9 @@ export interface MasterUploadParams {
   series?: string;
   // For episode_print content type
   editionTier?: EditionTier;
+  priceAmount?: number;
+  paymentType?: 'one-time' | 'subscription';
+  paymentSurface?: 'overlay' | 'embedded' | 'liquid';
 }
 
 export type DisplayMode = 'pdf' | 'image' | 'video' | 'text_extract';
@@ -75,6 +78,9 @@ export interface CodexAssetUploadParams {
   assetKind: CodexAssetKind;
   episodeNumber?: number;
   series?: string;
+  priceAmount?: number;
+  paymentType?: 'one-time' | 'subscription';
+  paymentSurface?: 'overlay' | 'embedded' | 'liquid';
   // Cover-specific
   variantName?: string;
   rarityTier?: 'legendary' | 'rare' | 'common';
@@ -144,6 +150,9 @@ export async function uploadMasterContent(
     contentType,
     series = 'metaKnyts',
     editionTier,
+    priceAmount,
+    paymentType,
+    paymentSurface,
   } = params;
 
   // Validate editionTier for print editions
@@ -198,6 +207,18 @@ export async function uploadMasterContent(
     episodeNumber,
     tags,
     description,
+    metadata: {
+      ...(typeof priceAmount === 'number'
+        ? {
+            pricing: {
+              amount: priceAmount,
+              currency: 'Q¢',
+              paymentType: paymentType || 'one-time',
+              paymentSurface: paymentSurface || 'overlay',
+            },
+          }
+        : {}),
+    },
   });
 
   const blakQubeId = await createBlakQube({
@@ -276,6 +297,9 @@ export async function uploadCodexMediaAsset(
     assetKind,
     episodeNumber,
     series = 'metaKnyts',
+    priceAmount,
+    paymentType,
+    paymentSurface,
     variantName,
     rarityTier,
     editionMax,
@@ -317,6 +341,18 @@ export async function uploadCodexMediaAsset(
     episodeNumber,
     tags: ['metaknyts', assetKind, ...(rarityTier ? [rarityTier] : [])],
     description: `${assetKind.replace(/_/g, ' ')} asset${episodeNumber ? ` for Episode ${episodeNumber}` : ''}`,
+    metadata: {
+      ...(typeof priceAmount === 'number'
+        ? {
+            pricing: {
+              amount: priceAmount,
+              currency: 'Q¢',
+              paymentType: paymentType || 'one-time',
+              paymentSurface: paymentSurface || 'overlay',
+            },
+          }
+        : {}),
+    },
   });
 
   const blakQubeId = await createBlakQube({

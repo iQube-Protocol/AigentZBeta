@@ -497,41 +497,53 @@ export default function SmartWalletDrawer({
 
   // Listen for SmartContent payment events
   useEffect(() => {
-    const handleOverlayPayment = (event: CustomEvent) => {
-      const { item, price } = event.detail;
-      console.log('[SmartWalletDrawer] Received overlay payment request for:', item.title);
-      
-      // Set the current content and open the drawer
-      if (onContentSelect) {
-        onContentSelect(item);
-      }
-      
-      // Auto-start purchase flow if drawer is already open
+    const applyPaymentRequest = (item?: unknown) => {
+      if (!item || typeof item !== "object") return;
+      const paymentItem = item as SmartContentQube;
+
+      if (onContentSelect) onContentSelect(paymentItem);
+
       if (open) {
         setPurchaseStep("confirm");
         setPurchaseError(null);
       }
     };
 
+    const handleOverlayPayment = (event: CustomEvent) => {
+      const { item } = event.detail || {};
+      applyPaymentRequest(item);
+    };
+
+    const handleEmbeddedPayment = (event: CustomEvent) => {
+      if (variant !== "embedded") return;
+      const { item } = event.detail || {};
+      applyPaymentRequest(item);
+    };
+
+    const handleLiquidPayment = (event: CustomEvent) => {
+      const { item } = event.detail || {};
+      applyPaymentRequest(item);
+    };
+
     const handleOpenSmartWalletDrawer = (event: CustomEvent) => {
-      const { currentContent, open: shouldOpen, variant } = event.detail;
-      console.log('[SmartWalletDrawer] Received open drawer request for:', currentContent?.title);
-      
+      const { currentContent, open: shouldOpen } = event.detail || {};
       if (shouldOpen && onContentSelect && currentContent) {
         onContentSelect(currentContent);
-        // Note: The actual opening of the drawer should be handled by the parent component
-        // This event just sets the content context
       }
     };
 
-    window.addEventListener('overlayPayment', handleOverlayPayment as EventListener);
-    window.addEventListener('openSmartWalletDrawer', handleOpenSmartWalletDrawer as EventListener);
-    
+    window.addEventListener("overlayPayment", handleOverlayPayment as EventListener);
+    window.addEventListener("embeddedPayment", handleEmbeddedPayment as EventListener);
+    window.addEventListener("liquidUIPayment", handleLiquidPayment as EventListener);
+    window.addEventListener("openSmartWalletDrawer", handleOpenSmartWalletDrawer as EventListener);
+
     return () => {
-      window.removeEventListener('overlayPayment', handleOverlayPayment as EventListener);
-      window.removeEventListener('openSmartWalletDrawer', handleOpenSmartWalletDrawer as EventListener);
+      window.removeEventListener("overlayPayment", handleOverlayPayment as EventListener);
+      window.removeEventListener("embeddedPayment", handleEmbeddedPayment as EventListener);
+      window.removeEventListener("liquidUIPayment", handleLiquidPayment as EventListener);
+      window.removeEventListener("openSmartWalletDrawer", handleOpenSmartWalletDrawer as EventListener);
     };
-  }, [open, onContentSelect]);
+  }, [open, onContentSelect, variant]);
 
   useEffect(() => {
     const did = agent?.id ? `did:iq:${agent.id}#auth` : undefined;

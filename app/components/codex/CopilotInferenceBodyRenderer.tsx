@@ -87,6 +87,57 @@ function extractExploreFurtherPrompts(content: string): string[] {
   return Array.from(new Set(prompts)).slice(0, 6);
 }
 
+function stripExploreFurtherSection(content: string): string {
+  const lines = content.split(/\r?\n/);
+  const output: string[] = [];
+  let inExploreFurtherSection = false;
+  let sawExploreListItem = false;
+
+  for (const rawLine of lines) {
+    const trimmed = rawLine.trim();
+    const normalized = trimmed.toLowerCase().replace(/[*_#:`]/g, "").trim();
+
+    if (!inExploreFurtherSection && normalized.includes("explore further")) {
+      inExploreFurtherSection = true;
+      sawExploreListItem = false;
+      continue;
+    }
+
+    if (!inExploreFurtherSection) {
+      output.push(rawLine);
+      continue;
+    }
+
+    const isListItem = /^\s*[-*•]\s+/.test(rawLine) || /^\s*\d+\.\s+/.test(rawLine);
+    if (isListItem) {
+      sawExploreListItem = true;
+      continue;
+    }
+
+    // Skip blank spacer lines inside the Explore Further block.
+    if (!trimmed) {
+      continue;
+    }
+
+    // Boundary reached: resume normal rendering from this line onward.
+    inExploreFurtherSection = false;
+    sawExploreListItem = false;
+    output.push(rawLine);
+  }
+
+  // Trim trailing blank lines introduced by section stripping.
+  while (output.length > 0 && output[output.length - 1].trim() === "") {
+    output.pop();
+  }
+
+  // If section marker existed but no list items were found, keep original content.
+  if (inExploreFurtherSection && !sawExploreListItem) {
+    return content;
+  }
+
+  return output.join("\n");
+}
+
 function MermaidBlock({ code }: MermaidBlockProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -284,6 +335,7 @@ function MermaidBlock({ code }: MermaidBlockProps) {
 
 export function CopilotInferenceBodyRenderer({ content, onPromptSuggestion }: CopilotInferenceBodyRendererProps) {
   const exploreFurtherPrompts = extractExploreFurtherPrompts(content);
+  const renderedContent = stripExploreFurtherSection(content);
 
   return (
     <div className={styles.rendererRoot}>
@@ -340,7 +392,7 @@ export function CopilotInferenceBodyRenderer({ content, onPromptSuggestion }: Co
           },
         }}
       >
-        {content}
+        {renderedContent}
       </ReactMarkdown>
       {exploreFurtherPrompts.length > 0 && onPromptSuggestion ? (
         <div className={styles.suggestionSection}>

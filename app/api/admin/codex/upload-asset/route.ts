@@ -25,6 +25,9 @@ interface UploadAssetRequest {
   assetKind: CodexAssetKind;
   episodeNumber?: number;
   series?: string;
+  priceAmount?: number;
+  paymentType?: 'one-time' | 'subscription';
+  paymentSurface?: 'overlay' | 'embedded' | 'liquid';
   // Cover-specific
   variantName?: string;
   rarityTier?: 'legendary' | 'rare' | 'common';
@@ -76,10 +79,22 @@ export async function POST(req: NextRequest) {
       const variantName = formData.get('variantName') as string | null;
       const rarityTier = formData.get('rarityTier') as string | null;
       const editionMax = formData.get('editionMax') as string | null;
+      const priceAmount = formData.get('priceAmount') as string | null;
+      const paymentType = formData.get('paymentType') as string | null;
+      const paymentSurface = formData.get('paymentSurface') as string | null;
 
       if (!title || !assetKind) {
         return NextResponse.json({
           error: 'Missing required fields: title, assetKind',
+        }, { status: 400 });
+      }
+
+      const parsedPriceAmount = priceAmount !== null && priceAmount.trim() !== ''
+        ? Number(priceAmount)
+        : undefined;
+      if (parsedPriceAmount !== undefined && (!Number.isFinite(parsedPriceAmount) || parsedPriceAmount < 0)) {
+        return NextResponse.json({
+          error: 'Invalid priceAmount. Must be a non-negative number.',
         }, { status: 400 });
       }
 
@@ -90,6 +105,12 @@ export async function POST(req: NextRequest) {
         assetKind: assetKind as CodexAssetKind,
         episodeNumber: episodeNumber ? parseInt(episodeNumber, 10) : undefined,
         series: series || 'metaKnyts',
+        priceAmount: parsedPriceAmount,
+        paymentType: paymentType === 'subscription' ? 'subscription' : paymentType === 'one-time' ? 'one-time' : undefined,
+        paymentSurface:
+          paymentSurface === 'embedded' || paymentSurface === 'liquid' || paymentSurface === 'overlay'
+            ? paymentSurface
+            : undefined,
         variantName: variantName || undefined,
         rarityTier: rarityTier as 'legendary' | 'rare' | 'common' | undefined,
         editionMax: editionMax ? parseInt(editionMax, 10) : undefined,
@@ -156,6 +177,9 @@ export async function POST(req: NextRequest) {
       assetKind: metadata.assetKind,
       episodeNumber: metadata.episodeNumber,
       series: metadata.series || 'metaKnyts',
+      priceAmount: metadata.priceAmount,
+      paymentType: metadata.paymentType,
+      paymentSurface: metadata.paymentSurface,
       variantName: metadata.variantName,
       rarityTier: metadata.rarityTier,
       editionMax: metadata.editionMax,
@@ -223,6 +247,9 @@ export async function POST(req: NextRequest) {
         tokenQubeId: result.tokenQubeId,
         assetKind: metadata.assetKind,
         episodeNumber: metadata.episodeNumber,
+        priceAmount: metadata.priceAmount,
+        paymentType: metadata.paymentType,
+        paymentSurface: metadata.paymentSurface,
         kbDocumentId,
       },
     });

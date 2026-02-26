@@ -26,6 +26,9 @@ interface UploadMasterRequest {
   contentType: MasterContentType;
   series?: string;
   editionTier?: EditionTier;
+  priceAmount?: number;
+  paymentType?: 'one-time' | 'subscription';
+  paymentSurface?: 'overlay' | 'embedded' | 'liquid';
 }
 
 export async function POST(req: NextRequest) {
@@ -65,10 +68,22 @@ export async function POST(req: NextRequest) {
       const contentType = formData.get('contentType') as string | null;
       const series = formData.get('series') as string | null;
       const editionTier = formData.get('editionTier') as string | null;
+      const priceAmount = formData.get('priceAmount') as string | null;
+      const paymentType = formData.get('paymentType') as string | null;
+      const paymentSurface = formData.get('paymentSurface') as string | null;
       
       if (!episodeNumber || !title || !contentType) {
         return NextResponse.json({
           error: 'Missing required fields: episodeNumber, title, contentType',
+        }, { status: 400 });
+      }
+
+      const parsedPriceAmount = priceAmount !== null && priceAmount.trim() !== ''
+        ? Number(priceAmount)
+        : undefined;
+      if (parsedPriceAmount !== undefined && (!Number.isFinite(parsedPriceAmount) || parsedPriceAmount < 0)) {
+        return NextResponse.json({
+          error: 'Invalid priceAmount. Must be a non-negative number.',
         }, { status: 400 });
       }
       
@@ -78,6 +93,12 @@ export async function POST(req: NextRequest) {
         contentType: contentType as MasterContentType,
         series: series || 'metaKnyts',
         editionTier: editionTier as EditionTier | undefined,
+        priceAmount: parsedPriceAmount,
+        paymentType: paymentType === 'subscription' ? 'subscription' : paymentType === 'one-time' ? 'one-time' : undefined,
+        paymentSurface:
+          paymentSurface === 'embedded' || paymentSurface === 'liquid' || paymentSurface === 'overlay'
+            ? paymentSurface
+            : undefined,
       };
     }
 
@@ -132,6 +153,9 @@ export async function POST(req: NextRequest) {
       contentType: metadata.contentType,
       series: metadata.series || 'metaKnyts',
       editionTier: metadata.editionTier,
+      priceAmount: metadata.priceAmount,
+      paymentType: metadata.paymentType,
+      paymentSurface: metadata.paymentSurface,
     });
 
     const tierLabel = metadata.editionTier ? ` [${metadata.editionTier}]` : '';
@@ -150,6 +174,9 @@ export async function POST(req: NextRequest) {
         episodeNumber: metadata.episodeNumber,
         contentType: metadata.contentType,
         editionTier: metadata.editionTier,
+        priceAmount: metadata.priceAmount,
+        paymentType: metadata.paymentType,
+        paymentSurface: metadata.paymentSurface,
       },
     });
 
