@@ -26,6 +26,14 @@ import {
 import type { TransactionTab, ChainId, TransactionResult, PaymentRequest } from "../wallet/TransactionModal";
 import { useSmartTriad } from "./SmartTriadProvider";
 import {
+  addSmartWalletEventListener,
+  SMART_WALLET_EVENTS,
+} from "@/app/wallet/events";
+import type {
+  SmartWalletOpenDrawerEventDetail,
+  SmartWalletPaymentEventDetail,
+} from "@/app/wallet/contracts";
+import {
   Sparkles,
   Library,
   Gift,
@@ -520,44 +528,44 @@ export default function SmartWalletDrawer({
       }
     };
 
-    const handleOverlayPayment = (event: CustomEvent) => {
-      const { item } = event.detail || {};
+    const handleOverlayPayment = (detail: SmartWalletPaymentEventDetail) => {
+      const { item } = detail || {};
       applyPaymentRequest(item);
     };
 
-    const handleEmbeddedPayment = (event: CustomEvent) => {
+    const handleEmbeddedPayment = (detail: SmartWalletPaymentEventDetail) => {
       if (variant !== "embedded") return;
-      const { item } = event.detail || {};
+      const { item } = detail || {};
       applyPaymentRequest(item);
     };
 
-    const handleLiquidPayment = (event: CustomEvent) => {
-      const { item } = event.detail || {};
+    const handleLiquidPayment = (detail: SmartWalletPaymentEventDetail) => {
+      const { item } = detail || {};
       applyPaymentRequest(item);
     };
 
-    const handleOpenSmartWalletDrawer = (event: CustomEvent) => {
-      const { currentContent, open: shouldOpen } = event.detail || {};
+    const handleOpenSmartWalletDrawer = (detail: SmartWalletOpenDrawerEventDetail) => {
+      const { currentContent, open: shouldOpen } = detail || {};
       if (shouldOpen && onContentSelect && currentContent) {
-        const hasPaymentGate = hasPaidTier(currentContent as SmartContentQube);
+        const selectedContent = currentContent as unknown as SmartContentQube;
+        const hasPaymentGate = hasPaidTier(selectedContent);
         if (hasPaymentGate) {
-          onContentSelect(currentContent);
+          onContentSelect(selectedContent);
         } else if (open) {
           setPurchaseStep("idle");
         }
       }
     };
 
-    window.addEventListener("overlayPayment", handleOverlayPayment as EventListener);
-    window.addEventListener("embeddedPayment", handleEmbeddedPayment as EventListener);
-    window.addEventListener("liquidUIPayment", handleLiquidPayment as EventListener);
-    window.addEventListener("openSmartWalletDrawer", handleOpenSmartWalletDrawer as EventListener);
+    const cleanups = [
+      addSmartWalletEventListener(SMART_WALLET_EVENTS.overlayPayment, handleOverlayPayment),
+      addSmartWalletEventListener(SMART_WALLET_EVENTS.embeddedPayment, handleEmbeddedPayment),
+      addSmartWalletEventListener(SMART_WALLET_EVENTS.liquidPayment, handleLiquidPayment),
+      addSmartWalletEventListener(SMART_WALLET_EVENTS.openDrawer, handleOpenSmartWalletDrawer),
+    ];
 
     return () => {
-      window.removeEventListener("overlayPayment", handleOverlayPayment as EventListener);
-      window.removeEventListener("embeddedPayment", handleEmbeddedPayment as EventListener);
-      window.removeEventListener("liquidUIPayment", handleLiquidPayment as EventListener);
-      window.removeEventListener("openSmartWalletDrawer", handleOpenSmartWalletDrawer as EventListener);
+      cleanups.forEach((cleanup) => cleanup());
     };
   }, [open, onContentSelect, variant, hasPaidTier]);
 

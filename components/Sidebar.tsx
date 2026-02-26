@@ -127,6 +127,7 @@ const sections: SidebarSection[] = [
       { href: "/codex/wallet", label: "SmartWallet", icon: <CreditCard size={14} className="text-cyan-400" /> },
       { href: "/codex/copilot", label: "Copilot", icon: <Brain size={14} className="text-emerald-400" /> },
       { href: "/studio/composer", label: "Composer", icon: <SlidersHorizontal size={14} className="text-amber-400" /> },
+      { href: "/admin/codex", label: "Codex Admin", icon: <Settings size={14} className="text-indigo-400" /> },
       { href: "/studio/qubetalk", label: "QubeTalk Studio", icon: <MessageSquare size={14} className="text-sky-400" /> },
       { href: "/admin/qubetalk", label: "QubeTalk Admin", icon: <MessageSquare size={14} className="text-rose-400" /> },
     ],

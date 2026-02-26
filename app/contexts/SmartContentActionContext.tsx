@@ -11,10 +11,17 @@
  * not dependent on where it's displayed.
  */
 
-import React, { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
 import { shareArticle } from '@/packages/smarttriad/src/socialSharing';
 import { getCurrentPersonaId, resolveCurrentPersona } from '@/app/services/personaService';
-import type { SmartContentItem, ActionType, ContentModalities } from '@/packages/smarttriad/src/types';
+import type { SmartContentItem, ActionType } from '@/packages/smarttriad/src/types';
+import type { SmartWalletContentPayload } from '@/app/wallet/contracts';
+import {
+  addSmartWalletEventListener,
+  dispatchOpenSmartWalletDrawer,
+  dispatchSmartWalletPayment,
+  SMART_WALLET_EVENTS,
+} from '@/app/wallet/events';
 
 // Import agentiQ-specific components
 import { VideoModal } from '@/packages/smarttriad/src/VideoModal';
@@ -94,7 +101,7 @@ export function SmartContentActionProvider({ children }: ProviderProps) {
       const preferredSurface = item.paymentMetadata?.paymentSurface;
       
       // Convert SmartContentItem to a payment payload compatible with existing surfaces
-      const paymentContentPayload = {
+      const paymentContentPayload: SmartWalletContentPayload = {
         id: item.id,
         title: item.title,
         description: item.description,
@@ -120,43 +127,35 @@ export function SmartContentActionProvider({ children }: ProviderProps) {
       if (preferredSurface === 'liquid') {
         // INTEGRATION: Liquid UI payment chips in chat surface
         console.log('[SmartContentAction] Using Liquid UI payment surface');
-        // Dispatch event for Liquid UI payment handling
-        window.dispatchEvent(new CustomEvent('liquidUIPayment', {
-          detail: { item: paymentContentPayload, price: item.price }
-        }));
+        dispatchSmartWalletPayment('liquid', {
+          item: paymentContentPayload,
+          price: item.price,
+        });
         
       } else if (preferredSurface === 'embedded') {
         // INTEGRATION: Embedded payment within copilots
         console.log('[SmartContentAction] Using Embedded payment surface');
-        // Dispatch event for embedded copilot payment handling
-        window.dispatchEvent(new CustomEvent('embeddedPayment', {
-          detail: { item: paymentContentPayload, price: item.price }
-        }));
+        dispatchSmartWalletPayment('embedded', {
+          item: paymentContentPayload,
+          price: item.price,
+        });
         
       } else {
         // DEFAULT: Overlay wallet drawers and payment modals
         console.log('[SmartContentAction] Using Overlay payment surface (SmartWalletDrawer)');
         
-        // Dispatch event for overlay payment handling
-        // This will be caught by existing SmartWalletDrawer components
-        window.dispatchEvent(new CustomEvent('overlayPayment', {
-          detail: { 
-            item: paymentContentPayload, 
-            price: item.price,
-            // Additional context for payment surface selection
-            paymentSurface: 'overlay'
-          }
-        }));
+        dispatchSmartWalletPayment('overlay', {
+          item: paymentContentPayload,
+          price: item.price,
+          paymentSurface: 'overlay',
+        });
         
         // Also try to open SmartWalletDrawer directly if it exists
-        const smartWalletDrawerEvent = new CustomEvent('openSmartWalletDrawer', {
-          detail: {
-            currentContent: paymentContentPayload,
-            open: true,
-            variant: 'overlay'
-          }
+        dispatchOpenSmartWalletDrawer({
+          currentContent: paymentContentPayload,
+          open: true,
+          variant: 'overlay',
         });
-        window.dispatchEvent(smartWalletDrawerEvent);
       }
       
     } catch (error) {
@@ -223,20 +222,17 @@ export function SmartContentActionProvider({ children }: ProviderProps) {
         console.log('[SmartContentAction] Expand action not yet implemented');
         break;
     }
-  }, []);
+  }, [handlePaymentAction]);
 
   // Listen for custom SmartContent action events
   useEffect(() => {
-    const handleSmartContentAction = (event: CustomEvent) => {
-      const { item, action } = event.detail;
+    const cleanup = addSmartWalletEventListener(
+      SMART_WALLET_EVENTS.smartContentAction,
+      ({ item, action, playlist }) => {
       console.log('[SmartContentActionContext] Received action:', action, 'for item:', item.title);
-      executeAction(action, item);
-    };
-
-    window.addEventListener('smartContentAction', handleSmartContentAction as EventListener);
-    return () => {
-      window.removeEventListener('smartContentAction', handleSmartContentAction as EventListener);
-    };
+      executeAction(action, item, playlist);
+    });
+    return cleanup;
   }, [executeAction]);
 
   /**

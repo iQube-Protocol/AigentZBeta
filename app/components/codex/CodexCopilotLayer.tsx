@@ -94,6 +94,14 @@ export type CopilotMessage = {
   variant?: "bubble" | "panel";
 };
 
+type WalletActionCard = {
+  id: string;
+  label: string;
+  prompt: string;
+  tab: WalletTab;
+  icon: React.ReactNode;
+};
+
 export function CodexCopilotLayer({
   isOpen,
   onClose,
@@ -441,6 +449,96 @@ export function CodexCopilotLayer({
     }
   };
 
+  const buildWalletActionCards = (content: string): WalletActionCard[] => {
+    const normalized = content.toLowerCase();
+    const cards: WalletActionCard[] = [];
+    const seen = new Set<string>();
+
+    const register = (card: WalletActionCard) => {
+      if (seen.has(card.id) || cards.length >= 3) return;
+      seen.add(card.id);
+      cards.push(card);
+    };
+
+    const registerPreset = (preset: string) => {
+      if (preset === "checkout") {
+        register({
+          id: "checkout",
+          label: "Open Checkout",
+          prompt: "Open wallet checkout for the selected item.",
+          tab: "wallet",
+          icon: <Wallet className="h-3.5 w-3.5" />,
+        });
+      } else if (preset === "wallet" || preset === "balance") {
+        register({
+          id: "wallet",
+          label: "Wallet Balance",
+          prompt: "Show wallet balance and spendable funds.",
+          tab: "wallet",
+          icon: <Wallet className="h-3.5 w-3.5" />,
+        });
+      } else if (preset === "library") {
+        register({
+          id: "library",
+          label: "Open Library",
+          prompt: "Open the wallet library tab.",
+          tab: "library",
+          icon: <BookOpen className="h-3.5 w-3.5" />,
+        });
+      } else if (preset === "tasks") {
+        register({
+          id: "tasks",
+          label: "View Tasks",
+          prompt: "Open the wallet tasks tab.",
+          tab: "tasks",
+          icon: <CheckSquare className="h-3.5 w-3.5" />,
+        });
+      } else if (preset === "rewards") {
+        register({
+          id: "rewards",
+          label: "Claim Rewards",
+          prompt: "Open the wallet rewards tab.",
+          tab: "rewards",
+          icon: <Gift className="h-3.5 w-3.5" />,
+        });
+      } else if (preset === "reputation") {
+        register({
+          id: "reputation",
+          label: "View Reputation",
+          prompt: "Open the wallet reputation tab.",
+          tab: "reputation",
+          icon: <Trophy className="h-3.5 w-3.5" />,
+        });
+      }
+    };
+
+    const actionTags = Array.from(content.matchAll(/\[wallet_action:([a-z_-]+)\]/gi));
+    actionTags.forEach((match) => {
+      registerPreset(match[1].toLowerCase());
+    });
+
+    if (/(checkout|purchase|buy|unlock|pay)/.test(normalized)) {
+      registerPreset("checkout");
+    }
+    if (/(wallet|balance|funds|spendable|q¢|qct)/.test(normalized)) {
+      registerPreset("wallet");
+    }
+    if (/(reward|claim|earn)/.test(normalized)) {
+      registerPreset("rewards");
+    }
+    if (/(task|quest|mission)/.test(normalized)) {
+      registerPreset("tasks");
+    }
+    if (/(library|owned|entitlement)/.test(normalized)) {
+      registerPreset("library");
+    }
+    if (/(reputation|trust|score)/.test(normalized)) {
+      registerPreset("reputation");
+    }
+
+    return cards;
+  };
+
   if (!isOpen && variant !== "floating") return null;
 
   const widthClass = panelClassName ?? (variant === "embedded" ? "w-96" : "w-96");
@@ -511,7 +609,7 @@ export function CodexCopilotLayer({
                         className="absolute left-0 right-0 overflow-y-auto px-4 space-y-3 overscroll-contain"
                         style={{ top: `${resolvedHeaderHeight}px`, bottom: `${resolvedFooterHeight}px`, paddingTop: "12px", paddingBottom: "12px" }}
                       >
-                        {displayMessages.map((msg) => {
+                        {displayMessages.map((msg, index) => {
                           const isPanel = msg.variant === "panel";
                           if (isPanel) {
                             return (
@@ -520,6 +618,13 @@ export function CodexCopilotLayer({
                               </div>
                             );
                           }
+                          const showWalletActionCards =
+                            msg.role === "assistant" &&
+                            typeof msg.content === "string" &&
+                            index === displayMessages.length - 1;
+                          const walletActionCards = showWalletActionCards
+                            ? buildWalletActionCards(msg.content as string)
+                            : [];
                           return (
                             <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                               <div
@@ -541,6 +646,26 @@ export function CodexCopilotLayer({
                                 ) : (
                                   msg.content
                                 )}
+                                {walletActionCards.length > 0 ? (
+                                  <div className="mt-2 flex flex-wrap gap-1.5">
+                                    {walletActionCards.map((card) => (
+                                      <button
+                                        key={`${msg.id}-${card.id}`}
+                                        type="button"
+                                        onClick={() => {
+                                          setWalletPanelTab(card.tab);
+                                          setWalletPanelOpen(true);
+                                          setWalletPanelCollapsed(false);
+                                          void sendMessage(card.prompt, { skipInference: true });
+                                        }}
+                                        className="inline-flex items-center gap-1.5 rounded-full border border-cyan-400/40 bg-cyan-500/15 px-2.5 py-1 text-[11px] font-medium text-cyan-100 transition-colors hover:bg-cyan-500/25"
+                                      >
+                                        {card.icon}
+                                        <span>{card.label}</span>
+                                      </button>
+                                    ))}
+                                  </div>
+                                ) : null}
                               </div>
                             </div>
                           );
