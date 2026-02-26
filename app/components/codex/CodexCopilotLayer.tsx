@@ -70,6 +70,7 @@ interface CodexCopilotLayerProps {
   isFirstVisit?: boolean;
   visitCount?: number;
   panelBorder?: boolean;
+  density?: "narrow" | "wide";
   agent?: {
     id: string;
     name: string;
@@ -139,6 +140,7 @@ export function CodexCopilotLayer({
   showNavMenu = true,
   showWalletMenu = true,
   panelBorder = true,
+  density = "wide",
   agent,
   personaId,
 }: CodexCopilotLayerProps) {
@@ -586,13 +588,21 @@ export function CodexCopilotLayer({
 
   if (!isOpen && variant !== "floating") return null;
 
-  const widthClass = panelClassName ?? (variant === "embedded" ? "w-96" : "w-96");
+  const widthClass =
+    panelClassName ??
+    (variant === "embedded"
+      ? density === "wide"
+        ? "w-full md:w-[480px]"
+        : "w-full md:w-[320px]"
+      : density === "wide"
+        ? "w-full md:w-[480px]"
+        : "w-full md:w-[320px]");
 
   return (
     <>
       {variant === "floating" && !isOpen && !disableActivationButton && (
         <div
-          className={`fixed bottom-0 z-[179] h-24 w-24 md:h-32 md:w-32 ${isMobile ? "right-0" : "right-24"}`}
+          className={`fixed bottom-0 z-[179] h-24 w-24 md:h-32 md:w-32 ${isMobile ? "right-0" : "right-0"}`}
           onMouseEnter={() => showActivationButtonWithTimeout(4000)}
         />
       )}
@@ -600,9 +610,11 @@ export function CodexCopilotLayer({
       {variant === "floating" && !isOpen && showActivationButton && !disableActivationButton && (
         <button
           onClick={onOpen || (() => {})}
-          className={`fixed bottom-6 z-[180] p-3 bg-gradient-to-br from-cyan-500 to-purple-600 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 ${isMobile ? "right-4" : "right-28"}`}
+          className={`fixed bottom-4 z-[120] p-4 rounded-full bg-black/30 backdrop-blur-xl ring-1 ring-white/20 shadow-lg transition-all duration-300 hover:scale-110 hover:ring-cyan-400/50 ${
+            isMobile ? "right-4" : "right-4"
+          }`}
         >
-          <Bot className="w-6 h-6 text-white" />
+          <Bot className="w-6 h-6 text-cyan-400" />
         </button>
       )}
 

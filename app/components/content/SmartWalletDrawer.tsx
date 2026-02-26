@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import dynamic from "next/dynamic";
 import { useBalances } from "@/app/hooks/useBalances";
 import { useDVNEvents } from "@/app/hooks/useDVNEvents";
 import { useKnytBalance } from "@/app/hooks/useKnytBalance";
@@ -17,7 +16,6 @@ import {
   BuyKnytModal,
   PaymentRequestsPanel,
   PersonaEditModal,
-  PersonaSelector,
   PersonaQuickAddModal,
   PersonaSetupWizard,
   TransactionModal,
@@ -53,6 +51,7 @@ import {
   Zap,
   BookOpen,
   Settings,
+  ChevronDown,
   ChevronRight,
   Bot,
   User,
@@ -77,11 +76,6 @@ import {
   Book,
   Film,
 } from "lucide-react";
-const CodexCopilotLayer = dynamic(
-  () => import("@/app/components/codex/CodexCopilotLayer").then((m) => m.CodexCopilotLayer),
-  { ssr: false }
-);
-import type { CopilotMessage } from "@/app/components/codex/CodexCopilotLayer";
 
 
 // Tooltip component for icon hints
@@ -229,7 +223,7 @@ export default function SmartWalletDrawer({
   ]);
   const [copilotLoading, setCopilotLoading] = useState(false);
   const [copilotMode, setCopilotMode] = useState<'chat' | 'avatar'>('chat');
-  const [codexCopilotMessages, setCodexCopilotMessages] = useState<CopilotMessage[]>([]);
+  const [personaMenuOpen, setPersonaMenuOpen] = useState(false);
   const [selectedLibraryItem, setSelectedLibraryItem] = useState<any>(null);
   const [tenantId, setTenantId] = useState<string>(
     process.env.NEXT_PUBLIC_TENANT_ID ||
@@ -251,35 +245,6 @@ export default function SmartWalletDrawer({
     }
   }, [activeTab, selectedLibraryItem]);
 
-  useEffect(() => {
-    if (!codexMode) return;
-    if (!currentContent) return;
-    setCodexCopilotMessages((prev) => {
-      if (prev.length > 0) return prev;
-      return [
-        {
-          id: "codex-wallet-welcome",
-          role: "assistant",
-          content: `Wallet Copilot ready for ${currentContent.title}. Ask me to compare editions, open checkout, or verify access.`,
-          timestamp: new Date(),
-        },
-      ];
-    });
-  }, [codexMode, currentContent]);
-
-  useEffect(() => {
-    if (!codexMode || !copilotOpen || !currentContent) return;
-    setCodexCopilotMessages((prev) => [
-      ...prev,
-      {
-        id: `codex-wallet-context-${currentContent.id}-${Date.now()}`,
-        role: "assistant",
-        content: `Selected content: ${currentContent.title}. Pricing rail: ${currentContent.pricingModel?.tiers?.[0]?.currency || "QCT"}.`,
-        timestamp: new Date(),
-      },
-    ]);
-  }, [codexMode, copilotOpen, currentContent?.id, currentContent?.title, currentContent?.pricingModel?.tiers]);
-  
   // MetaAvatar context for persistent iframe
   const { requestAvatar, releaseAvatar, refreshAvatar } = useMetaAvatar();
   
@@ -866,38 +831,6 @@ export default function SmartWalletDrawer({
     };
   };
 
-  const handleCodexCopilotPrompt = useCallback(
-    (prompt: string) => {
-      const localIntent = detectIntentAndSwitchTab(prompt);
-      if (localIntent.tab) {
-        setActiveTab(localIntent.tab);
-      }
-
-      const normalized = prompt.toLowerCase();
-      if (
-        currentContent &&
-        (normalized.includes("checkout") || normalized.includes("purchase") || normalized.includes("buy"))
-      ) {
-        setActiveTab("wallet");
-        setPurchaseStep("confirm");
-        setPurchaseError(null);
-      }
-
-      if (localIntent.handled) {
-        setCodexCopilotMessages((prev) => [
-          ...prev,
-          {
-            id: `codex-wallet-intent-${Date.now()}`,
-            role: "assistant",
-            content: localIntent.response,
-            timestamp: new Date(),
-          },
-        ]);
-      }
-    },
-    [currentContent]
-  );
-
   const qctTotalStr = (() => {
     try {
       const ethQ = Number(BigInt(bals.qctSep || "0")) / 10 ** (bals.qctSepDecimals ?? 0);
@@ -1075,20 +1008,14 @@ export default function SmartWalletDrawer({
   // Variant-based styling
   const getDrawerClasses = () => {
     if (variant === "embedded") {
-      // For embedded mode, always use contained width
-      const baseClasses = `h-full bg-slate-900 text-white border-l border-slate-800`;
-
-      // Codex mode: expand to 28rem when wallet copilot opens, right-justified, contained
-      if (codexMode) {
-        const drawerWidth = copilotOpen ? "w-[28rem]" : "w-96";
-        return `${baseClasses} ${drawerWidth} border-indigo-500/30 ml-auto`;
-      }
-
-      // Regular embedded mode
-      if (embeddedWidth === "fill") {
-        return `${baseClasses} w-full`;
-      }
-      return `${baseClasses} w-96 ml-auto`;
+      const baseClasses = `h-full bg-black/30 backdrop-blur-xl ring-1 ring-white/10 border-l border-white/10`;
+      const drawerWidth =
+        embeddedWidth === "fill"
+          ? "w-full"
+          : copilotOpen
+            ? "w-[28rem]"
+            : "w-[21.6rem]";
+      return `${baseClasses} ${drawerWidth} ${embeddedWidth === "fill" ? "" : "ml-auto"}`;
     }
     // Overlay mode
     // In codex mode, prevent expansion when copilot is open
@@ -1102,45 +1029,118 @@ export default function SmartWalletDrawer({
       {variant === 'overlay' && (
         <div className="absolute inset-0 drawer-backdrop bg-black/60 backdrop-blur-sm" onClick={onClose} />
       )}
-      <div className={`${getDrawerClasses()} overflow-hidden flex flex-col transition-all duration-300`}>
-        {/* Header with Persona Selector, Copilot, and Close */}
-        <header className="flex items-center gap-2 px-3 py-2 bg-white/5 ring-1 ring-white/10 flex-shrink-0">
-          {/* Compact Persona Selector */}
-          <div className="flex-1 min-w-0">
-            <PersonaSelector
-              personas={walletNode?.personaContext?.availablePersonas || []}
-              activePersonaId={walletNode?.personaContext?.activePersonaId}
-              onSelect={(id) => {
-                setLocalPersonaId(id);
-                onPersonaChange?.(id);
-              }}
-              onQuickAdd={() => setQuickAddOpen(true)}
-              onEditActive={handleOpenPersonaEdit}
-              onCreateNew={() => {
-                onCreatePersona?.();
-                setPersonaSetupOpen(true);
-              }}
-              isLoading={false}
-              compact={true}
-            />
-          </div>
-          
-          {/* Copilot Button - color change for active, no background box */}
-          <Tooltip text="Copilot">
+      <div className={`${getDrawerClasses()} overflow-hidden flex flex-col transition-all duration-300 pt-4`}>
+        {/* Header with persona switch + controls (Qriptopian parity) */}
+        <header className="flex items-center justify-between gap-2 px-3 py-2 mx-3 rounded-xl bg-white/5 ring-1 ring-white/10 flex-shrink-0">
+          <div className="relative z-[100]">
             <button
-              onClick={() => {
-                setCopilotOpen(!copilotOpen);
-                onOpenCopilot?.();
-              }}
-              className={`wallet-icon-btn p-1.5 ${copilotOpen ? 'active' : ''}`}
-              data-active={copilotOpen}
+              onClick={() => setPersonaMenuOpen((prev) => !prev)}
+              className="flex items-center gap-1 hover:bg-white/5 rounded-lg p-1.5 transition-colors"
             >
-              <Bot className="w-4 h-4" />
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${activePersona?.isAgent ? "bg-amber-500/20" : "bg-cyan-500/20"}`}>
+                {activePersona?.isAgent ? (
+                  <Bot className="w-4 h-4 text-amber-400" />
+                ) : (
+                  <User className="w-4 h-4 text-cyan-400" />
+                )}
+              </div>
+              <ChevronDown className={`w-3 h-3 text-white/50 transition-transform ${personaMenuOpen ? "rotate-180" : ""}`} />
             </button>
-          </Tooltip>
-          
-          {/* Close Button (X) - color change on hover - only show in overlay mode */}
-          {variant === 'overlay' && (
+
+            {personaMenuOpen && (
+              <div className="absolute top-full left-0 mt-1 min-w-[220px] bg-slate-950 rounded-lg border border-white/20 shadow-2xl z-[200] overflow-hidden">
+                {(walletNode?.personaContext?.availablePersonas || []).length > 0 && (
+                  <div className="max-h-48 overflow-y-auto">
+                    <div className="px-3 py-2 border-b border-white/10">
+                      <p className="text-xs text-white/50 uppercase tracking-wider">Switch Persona</p>
+                    </div>
+                    {(walletNode?.personaContext?.availablePersonas || []).map((persona) => (
+                      <button
+                        key={persona.id}
+                        onClick={() => {
+                          setLocalPersonaId(persona.id);
+                          onPersonaChange?.(persona.id);
+                          setPersonaMenuOpen(false);
+                        }}
+                        className={`w-full px-3 py-2 flex items-center gap-2 hover:bg-white/5 transition-colors ${
+                          walletNode?.personaContext?.activePersonaId === persona.id ? "bg-white/5" : ""
+                        }`}
+                      >
+                        {persona.isAgent ? (
+                          <Bot className="w-4 h-4 text-amber-400" />
+                        ) : (
+                          <User className="w-4 h-4 text-cyan-400" />
+                        )}
+                        <div className="text-left min-w-0 flex-1">
+                          <p className="text-sm text-white/90 truncate">{persona.displayName || "Persona"}</p>
+                          <p className="text-xs text-white/50 truncate">{persona.fioHandle || "No persona handle"}</p>
+                        </div>
+                        {walletNode?.personaContext?.activePersonaId === persona.id && (
+                          <Check className="w-3 h-3 text-emerald-400" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {activePersona && (
+                  <div className="border-t border-white/10">
+                    <button
+                      onClick={() => {
+                        setPersonaMenuOpen(false);
+                        handleOpenPersonaEdit();
+                      }}
+                      className="w-full px-3 py-2 flex items-center gap-2 text-cyan-400 hover:bg-cyan-500/10 transition-colors"
+                    >
+                      <Settings className="w-4 h-4" />
+                      <span className="text-sm">Edit Persona</span>
+                    </button>
+                  </div>
+                )}
+
+                <div className="border-t border-white/10">
+                  <button
+                    onClick={() => {
+                      setPersonaMenuOpen(false);
+                      setQuickAddOpen(true);
+                    }}
+                    className="w-full px-3 py-2 flex items-center gap-2 text-emerald-400 hover:bg-emerald-500/10 transition-colors"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    <span className="text-sm">Quick Add Persona</span>
+                  </button>
+                </div>
+                <div className="border-t border-white/10">
+                  <button
+                    onClick={() => {
+                      setPersonaMenuOpen(false);
+                      onCreatePersona?.();
+                      setPersonaSetupOpen(true);
+                    }}
+                    className="w-full px-3 py-2 flex items-center gap-2 text-purple-400 hover:bg-purple-500/10 transition-colors"
+                  >
+                    <Crown className="w-4 h-4" />
+                    <span className="text-sm">Create with Wizard</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1">
+            <Tooltip text="Copilot">
+              <button
+                onClick={() => {
+                  setCopilotOpen(!copilotOpen);
+                  onOpenCopilot?.();
+                }}
+                className={`wallet-icon-btn p-1.5 ${copilotOpen ? 'active' : ''}`}
+                data-active={copilotOpen}
+              >
+                <Bot className="w-4 h-4" />
+              </button>
+            </Tooltip>
+
             <Tooltip text="Close Wallet">
               <button
                 onClick={onClose}
@@ -1149,10 +1149,10 @@ export default function SmartWalletDrawer({
                 <X className="w-4 h-4" />
               </button>
             </Tooltip>
-          )}
+          </div>
         </header>
 
-        {/* Tab Navigation - Equidistant spacing */}
+        {/* Tab Navigation */}
         <div className="wallet-tab-nav px-3 py-2 bg-black/20">
           {TAB_CONFIG.map((tab) => (
             <Tooltip key={tab.key} text={tab.label}>
@@ -1167,61 +1167,48 @@ export default function SmartWalletDrawer({
           ))}
         </div>
 
-        {/* Copilot Panel (slides over content when active) - Subtle styling */}
-        {copilotOpen && codexMode ? (
-          <div className="absolute inset-x-0 top-[88px] bottom-0 z-10 overflow-hidden">
-            <style jsx global>{`
-              .copilotkit-launcher,
-              .copilotkit-button,
-              .copilotkit-floating-button {
-                display: none !important;
-              }
-            `}</style>
-            <CodexCopilotLayer
-              isOpen
-              onClose={() => setCopilotOpen(false)}
-              variant="embedded"
-              enableInferenceRendering
-              panelClassName="w-full"
-              showNavMenu={false}
-              showWalletMenu
-              disableActivationButton
-              className="h-full"
-              personaId={effectivePersonaId}
-              contextId={`wallet-${activeTab}`}
-              messages={codexCopilotMessages}
-              onMessagesChange={setCodexCopilotMessages}
-              promptPlaceholder={
-                currentContent
-                  ? `Ask about ${currentContent.title}...`
-                  : "Ask wallet copilot..."
-              }
-              quickPrompts={[
-                { label: "Open checkout", prompt: "Open wallet checkout for selected content." },
-                { label: "Show balances", prompt: "Show my wallet balances and available rails." },
-                { label: "Rewards + tasks", prompt: "Show rewards and top earning tasks." },
-              ]}
-              onPrompt={handleCodexCopilotPrompt}
-            />
-          </div>
-        ) : (
-          <div className="absolute inset-x-0 top-[88px] bottom-0 bg-slate-950/90 backdrop-blur-2xl z-10 flex flex-col animate-fade-in">
-            {/* Header - minimal purple accent */}
-            <div className="flex items-center justify-between px-4 py-2 bg-white/5 border-b border-white/10 backdrop-blur-xl">
-              <div className="flex items-center gap-2">
-                <Bot className="w-4 h-4 text-purple-400" />
-                <span className="text-xs uppercase tracking-wider text-white/70">Copilot</span>
+        {/* Copilot Panel (Qriptopian parity) */}
+        {copilotOpen && (
+          <div className="absolute inset-x-0 top-[111px] bottom-0 bg-slate-950/95 backdrop-blur-2xl z-10 flex flex-col animate-fade-in">
+            <div className="flex items-center justify-between px-4 py-2 bg-white/5 border-b border-white/10 flex-shrink-0">
+              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1 bg-white/5 rounded-lg p-0.5">
+                  <button
+                    onClick={() => setCopilotMode('chat')}
+                    className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs transition-all ${
+                      copilotMode === 'chat'
+                        ? 'bg-purple-500/20 text-purple-400'
+                        : 'text-white/50 hover:text-white/80'
+                    }`}
+                  >
+                    <MessageSquare className="w-3 h-3" />
+                    Copilot
+                  </button>
+                  <button
+                    onClick={() => setCopilotMode('avatar')}
+                    className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs transition-all ${
+                      copilotMode === 'avatar'
+                        ? 'bg-cyan-500/20 text-cyan-400'
+                        : 'text-white/50 hover:text-white/80'
+                    }`}
+                  >
+                    <User className="w-3 h-3" />
+                    MoneyPenny
+                  </button>
+                </div>
               </div>
-              <button
-                onClick={() => setCopilotOpen(false)}
-                className="flex items-center gap-1 text-xs text-white/60 hover:text-white px-2 py-1 rounded-md hover:bg-white/5 transition-all"
-              >
-                <ArrowLeft className="w-3 h-3" />
-                Back
-              </button>
+              <Tooltip text="Back">
+                <button
+                  onClick={() => setCopilotOpen(false)}
+                  className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/5 transition-all"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                </button>
+              </Tooltip>
             </div>
-            
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+
+            {copilotMode === "chat" ? (
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {/* Ask Copilot - Chat Interface */}
               <section className="rounded-xl backdrop-blur-xl bg-white/5 border border-white/10 p-4">
                 <div className="text-xs uppercase tracking-wider text-white/60 mb-3">Ask Copilot</div>
@@ -1438,6 +1425,21 @@ export default function SmartWalletDrawer({
                 </div>
               </section>
             </div>
+            ) : (
+              <section className="mx-3 mt-3 rounded-xl bg-white/5 border border-white/10 p-4 h-[280px] flex flex-col items-center justify-center">
+                <div className="text-xs uppercase tracking-wider text-white/60 mb-3">Ask MoneyPenny</div>
+                <p className="text-sm text-white/40 text-center mb-4">
+                  MoneyPenny is ready to help with your wallet, rewards, and Q¢ questions.
+                </p>
+                <button
+                  onClick={refreshAvatar}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-white/60 hover:text-white hover:bg-white/10 transition-all"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  Refresh Avatar
+                </button>
+              </section>
+            )}
           </div>
         )}
 
