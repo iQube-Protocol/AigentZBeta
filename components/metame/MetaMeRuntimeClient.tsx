@@ -1059,6 +1059,7 @@ export default function MetaMeRuntimeClient() {
   const [messages, setMessages] = useState<CopilotMessage[]>([]);
   const [channels, setChannels] = useState<Array<{ channel_id: string; participants: string[] }>>([]);
   const [channelsLoading, setChannelsLoading] = useState(false);
+  const [runtimeProcessing, setRuntimeProcessing] = useState(false);
 
   const [allContents, setAllContents] = useState<RuntimeCapsule[]>([]);
   const [capsuleContents, setCapsuleContents] = useState<RuntimeCapsule[]>([]);
@@ -1174,6 +1175,7 @@ export default function MetaMeRuntimeClient() {
     await fetchRuntimeData();
     setMessages([]);
     setShowWelcome(true);
+    setRuntimeProcessing(false);
     setIsRuntimeFullscreen(false);
     setWelcomePrompt("");
     setShowWelcomeQuickLinks(false);
@@ -1558,6 +1560,19 @@ export default function MetaMeRuntimeClient() {
     });
   }, [capsulePanel, showWelcome]);
 
+  const postRuntimeEvent = useCallback(
+    (type: RuntimeInboundType, payload: Record<string, unknown>) => {
+      if (typeof window === "undefined") return;
+      if (window.parent === window) return;
+      const origin = shellOriginRef.current;
+      if (!origin) return;
+
+      const message = createRuntimeMessage(type, payload, shellContextRef.current);
+      window.parent.postMessage(message, origin);
+    },
+    []
+  );
+
   const handlePrompt = useCallback(
     async (
       prompt: string,
@@ -1661,6 +1676,20 @@ export default function MetaMeRuntimeClient() {
       }
 
       const persona = selectedAgent.id === "aigent-moneypenny" ? "moneypenny" : "kn0w1";
+      setRuntimeProcessing(true);
+      postRuntimeEvent("INFERENCE_START", {
+        state: "welcome",
+        intent,
+        device: activeDevice,
+        thin_shell: thinShellMode,
+        prompt_source: source,
+      });
+      postRuntimeEvent("PROCESSING_START", {
+        intent,
+        device: activeDevice,
+        thin_shell: thinShellMode,
+        prompt_source: source,
+      });
       try {
         const response = await fetch("/api/codex/chat", {
           method: "POST",
@@ -1674,10 +1703,42 @@ export default function MetaMeRuntimeClient() {
         });
         const data = await response.json().catch(() => ({}));
         if (!response.ok) {
+          postRuntimeEvent("INFERENCE_COMPLETE", {
+            status: "error",
+            intent,
+            device: activeDevice,
+            thin_shell: thinShellMode,
+            prompt_source: source,
+          });
+          postRuntimeEvent("RENDER_COMPLETE", {
+            status: "error",
+            state: "post_welcome",
+            intent,
+            device: activeDevice,
+            thin_shell: thinShellMode,
+            prompt_source: source,
+            has_response: false,
+          });
           return;
         }
         const llmResponse = typeof data?.response === "string" ? data.response.trim() : "";
         if (!llmResponse) {
+          postRuntimeEvent("INFERENCE_COMPLETE", {
+            status: "empty",
+            intent,
+            device: activeDevice,
+            thin_shell: thinShellMode,
+            prompt_source: source,
+          });
+          postRuntimeEvent("RENDER_COMPLETE", {
+            status: "empty",
+            state: "post_welcome",
+            intent,
+            device: activeDevice,
+            thin_shell: thinShellMode,
+            prompt_source: source,
+            has_response: false,
+          });
           return;
         }
         setMessages((prev) => [
@@ -1689,8 +1750,42 @@ export default function MetaMeRuntimeClient() {
             timestamp: new Date(),
           },
         ]);
+        postRuntimeEvent("INFERENCE_COMPLETE", {
+          status: "ok",
+          intent,
+          device: activeDevice,
+          thin_shell: thinShellMode,
+          prompt_source: source,
+        });
+        postRuntimeEvent("RENDER_COMPLETE", {
+          status: "ok",
+          state: "post_welcome",
+          intent,
+          device: activeDevice,
+          thin_shell: thinShellMode,
+          prompt_source: source,
+          has_response: true,
+        });
       } catch {
         // Keep runtime functional even if inference endpoint fails.
+        postRuntimeEvent("INFERENCE_COMPLETE", {
+          status: "error",
+          intent,
+          device: activeDevice,
+          thin_shell: thinShellMode,
+          prompt_source: source,
+        });
+        postRuntimeEvent("RENDER_COMPLETE", {
+          status: "error",
+          state: "post_welcome",
+          intent,
+          device: activeDevice,
+          thin_shell: thinShellMode,
+          prompt_source: source,
+          has_response: false,
+        });
+      } finally {
+        setRuntimeProcessing(false);
       }
     },
     [
@@ -1705,6 +1800,7 @@ export default function MetaMeRuntimeClient() {
       resetRuntime,
       selectedAgent.id,
       selectedCapsuleLocal,
+      postRuntimeEvent,
       toast,
     ]
   );
@@ -1719,19 +1815,6 @@ export default function MetaMeRuntimeClient() {
 
   const reliabilityScore = Math.max(1, Math.min(10, providerBaseScore + 0.8));
   const trustScore = Math.max(1, Math.min(10, providerBaseScore));
-
-  const postRuntimeEvent = useCallback(
-    (type: RuntimeInboundType, payload: Record<string, unknown>) => {
-      if (typeof window === "undefined") return;
-      if (window.parent === window) return;
-      const origin = shellOriginRef.current;
-      if (!origin) return;
-
-      const message = createRuntimeMessage(type, payload, shellContextRef.current);
-      window.parent.postMessage(message, origin);
-    },
-    []
-  );
 
   useEffect(() => {
     if (!embedMode) return;
@@ -1896,6 +1979,9 @@ export default function MetaMeRuntimeClient() {
       device: activeDevice,
       thin_shell: thinShellMode,
       fullscreen: isRuntimeFullscreen,
+      busy: runtimeProcessing,
+      processing: runtimeProcessing,
+      inferring: runtimeProcessing,
     });
 
     if (previousWelcomeRef.current && !showWelcome) {
@@ -1907,7 +1993,7 @@ export default function MetaMeRuntimeClient() {
     }
 
     previousWelcomeRef.current = showWelcome;
-  }, [activeDevice, embedMode, isRuntimeFullscreen, lastIntent, postRuntimeEvent, showWelcome, thinShellMode]);
+  }, [activeDevice, embedMode, isRuntimeFullscreen, lastIntent, postRuntimeEvent, runtimeProcessing, showWelcome, thinShellMode]);
 
   useEffect(() => {
     if (!embedMode) return;

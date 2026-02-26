@@ -16,7 +16,11 @@ export type RuntimeInboundType =
   | "OPEN_CAPSULE"
   | "WELCOME_COMPLETE"
   | "STATE_SYNC"
-  | "TRUST_UPDATE";
+  | "TRUST_UPDATE"
+  | "INFERENCE_START"
+  | "PROCESSING_START"
+  | "INFERENCE_COMPLETE"
+  | "RENDER_COMPLETE";
 
 export type BridgeSource = "shell" | "runtime";
 
@@ -104,6 +108,10 @@ export function isRuntimeInboundMessage(value: unknown): value is RuntimeInbound
     "WELCOME_COMPLETE",
     "STATE_SYNC",
     "TRUST_UPDATE",
+    "INFERENCE_START",
+    "PROCESSING_START",
+    "INFERENCE_COMPLETE",
+    "RENDER_COMPLETE",
   ];
   return runtimeTypes.includes(value.type as RuntimeInboundType);
 }
