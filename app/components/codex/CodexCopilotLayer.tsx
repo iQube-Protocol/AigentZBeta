@@ -85,6 +85,14 @@ interface CodexCopilotLayerProps {
 type CopilotMode = "chat" | "avatar";
 
 type WalletTab = "wallet" | "library" | "tasks" | "reputation" | "rewards";
+type WalletActionId = "checkout" | "wallet" | "library" | "tasks" | "rewards" | "reputation";
+
+type WalletActionPayload = {
+  id: WalletActionId;
+  label: string;
+  prompt: string;
+  tab: WalletTab;
+};
 
 export type CopilotMessage = {
   id: string;
@@ -92,14 +100,12 @@ export type CopilotMessage = {
   content: React.ReactNode;
   timestamp: Date;
   variant?: "bubble" | "panel";
+  walletActions?: WalletActionPayload[];
 };
 
-type WalletActionCard = {
-  id: string;
-  label: string;
-  prompt: string;
-  tab: WalletTab;
-  icon: React.ReactNode;
+type CodexChatResponse = {
+  response?: string;
+  wallet_actions?: unknown;
 };
 
 export function CodexCopilotLayer({
@@ -398,6 +404,49 @@ export function CodexCopilotLayer({
     );
   };
 
+  const normalizeWalletActions = (value: unknown): WalletActionPayload[] => {
+    if (!Array.isArray(value)) return [];
+    const normalized: WalletActionPayload[] = [];
+    const seen = new Set<string>();
+
+    for (const item of value) {
+      if (!item || typeof item !== "object") continue;
+      const record = item as Partial<WalletActionPayload>;
+      if (
+        typeof record.id !== "string" ||
+        typeof record.label !== "string" ||
+        typeof record.prompt !== "string" ||
+        typeof record.tab !== "string"
+      ) {
+        continue;
+      }
+
+      const tab = record.tab as WalletTab;
+      const id = record.id as WalletActionId;
+      if (!["wallet", "library", "tasks", "reputation", "rewards"].includes(tab)) continue;
+      if (!["checkout", "wallet", "library", "tasks", "rewards", "reputation"].includes(id)) continue;
+      if (seen.has(id) || normalized.length >= 3) continue;
+
+      seen.add(id);
+      normalized.push({
+        id,
+        label: record.label.trim(),
+        prompt: record.prompt.trim(),
+        tab,
+      });
+    }
+
+    return normalized;
+  };
+
+  const walletActionIcon = (action: WalletActionPayload): React.ReactNode => {
+    if (action.id === "checkout" || action.id === "wallet") return <Wallet className="h-3.5 w-3.5" />;
+    if (action.id === "library") return <BookOpen className="h-3.5 w-3.5" />;
+    if (action.id === "tasks") return <CheckSquare className="h-3.5 w-3.5" />;
+    if (action.id === "rewards") return <Gift className="h-3.5 w-3.5" />;
+    return <Trophy className="h-3.5 w-3.5" />;
+  };
+
   const sendMessage = async (override?: string, options?: { skipInference?: boolean }) => {
     const message = (override ?? inputValue).trim();
     if (!message || isLoading) return;
@@ -424,7 +473,8 @@ export function CodexCopilotLayer({
           contextId: contextId || null,
         }),
       });
-      const data = await response.json().catch(() => ({}));
+      const data = (await response.json().catch(() => ({}))) as CodexChatResponse;
+      const structuredWalletActions = normalizeWalletActions(data?.wallet_actions);
       updateMessages((prev) => [
         ...prev,
         {
@@ -432,6 +482,7 @@ export function CodexCopilotLayer({
           role: "assistant",
           content: data?.response || "I can help with that.",
           timestamp: new Date(),
+          walletActions: structuredWalletActions.length > 0 ? structuredWalletActions : undefined,
         },
       ]);
     } catch {
@@ -449,12 +500,12 @@ export function CodexCopilotLayer({
     }
   };
 
-  const buildWalletActionCards = (content: string): WalletActionCard[] => {
+  const buildWalletActionCards = (content: string): WalletActionPayload[] => {
     const normalized = content.toLowerCase();
-    const cards: WalletActionCard[] = [];
+    const cards: WalletActionPayload[] = [];
     const seen = new Set<string>();
 
-    const register = (card: WalletActionCard) => {
+    const register = (card: WalletActionPayload) => {
       if (seen.has(card.id) || cards.length >= 3) return;
       seen.add(card.id);
       cards.push(card);
@@ -467,7 +518,6 @@ export function CodexCopilotLayer({
           label: "Open Checkout",
           prompt: "Open wallet checkout for the selected item.",
           tab: "wallet",
-          icon: <Wallet className="h-3.5 w-3.5" />,
         });
       } else if (preset === "wallet" || preset === "balance") {
         register({
@@ -475,7 +525,6 @@ export function CodexCopilotLayer({
           label: "Wallet Balance",
           prompt: "Show wallet balance and spendable funds.",
           tab: "wallet",
-          icon: <Wallet className="h-3.5 w-3.5" />,
         });
       } else if (preset === "library") {
         register({
@@ -483,7 +532,6 @@ export function CodexCopilotLayer({
           label: "Open Library",
           prompt: "Open the wallet library tab.",
           tab: "library",
-          icon: <BookOpen className="h-3.5 w-3.5" />,
         });
       } else if (preset === "tasks") {
         register({
@@ -491,7 +539,6 @@ export function CodexCopilotLayer({
           label: "View Tasks",
           prompt: "Open the wallet tasks tab.",
           tab: "tasks",
-          icon: <CheckSquare className="h-3.5 w-3.5" />,
         });
       } else if (preset === "rewards") {
         register({
@@ -499,7 +546,6 @@ export function CodexCopilotLayer({
           label: "Claim Rewards",
           prompt: "Open the wallet rewards tab.",
           tab: "rewards",
-          icon: <Gift className="h-3.5 w-3.5" />,
         });
       } else if (preset === "reputation") {
         register({
@@ -507,7 +553,6 @@ export function CodexCopilotLayer({
           label: "View Reputation",
           prompt: "Open the wallet reputation tab.",
           tab: "reputation",
-          icon: <Trophy className="h-3.5 w-3.5" />,
         });
       }
     };
@@ -623,7 +668,9 @@ export function CodexCopilotLayer({
                             typeof msg.content === "string" &&
                             index === displayMessages.length - 1;
                           const walletActionCards = showWalletActionCards
-                            ? buildWalletActionCards(msg.content as string)
+                            ? msg.walletActions && msg.walletActions.length > 0
+                              ? msg.walletActions
+                              : buildWalletActionCards(msg.content as string)
                             : [];
                           return (
                             <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
@@ -660,7 +707,7 @@ export function CodexCopilotLayer({
                                         }}
                                         className="inline-flex items-center gap-1.5 rounded-full border border-cyan-400/40 bg-cyan-500/15 px-2.5 py-1 text-[11px] font-medium text-cyan-100 transition-colors hover:bg-cyan-500/25"
                                       >
-                                        {card.icon}
+                                        {walletActionIcon(card)}
                                         <span>{card.label}</span>
                                       </button>
                                     ))}

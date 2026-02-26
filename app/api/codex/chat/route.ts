@@ -71,6 +71,113 @@ interface KBSearchResult {
   similarity: number;
 }
 
+type WalletActionId =
+  | 'checkout'
+  | 'wallet'
+  | 'library'
+  | 'tasks'
+  | 'rewards'
+  | 'reputation';
+
+type WalletActionTab = 'wallet' | 'library' | 'tasks' | 'reputation' | 'rewards';
+
+interface WalletAction {
+  id: WalletActionId;
+  label: string;
+  prompt: string;
+  tab: WalletActionTab;
+}
+
+function buildWalletAction(actionId: WalletActionId): WalletAction {
+  switch (actionId) {
+    case 'checkout':
+      return {
+        id: 'checkout',
+        label: 'Open Checkout',
+        prompt: 'Open wallet checkout for the selected item.',
+        tab: 'wallet',
+      };
+    case 'wallet':
+      return {
+        id: 'wallet',
+        label: 'Wallet Balance',
+        prompt: 'Show wallet balance and spendable funds.',
+        tab: 'wallet',
+      };
+    case 'library':
+      return {
+        id: 'library',
+        label: 'Open Library',
+        prompt: 'Open the wallet library tab.',
+        tab: 'library',
+      };
+    case 'tasks':
+      return {
+        id: 'tasks',
+        label: 'View Tasks',
+        prompt: 'Open the wallet tasks tab.',
+        tab: 'tasks',
+      };
+    case 'rewards':
+      return {
+        id: 'rewards',
+        label: 'Claim Rewards',
+        prompt: 'Open the wallet rewards tab.',
+        tab: 'rewards',
+      };
+    case 'reputation':
+    default:
+      return {
+        id: 'reputation',
+        label: 'View Reputation',
+        prompt: 'Open the wallet reputation tab.',
+        tab: 'reputation',
+      };
+  }
+}
+
+function inferWalletActions(message: string, assistantMessage: string): WalletAction[] {
+  const combined = `${message}\n${assistantMessage}`.toLowerCase();
+  const requested = new Set<WalletActionId>();
+
+  const register = (actionId: WalletActionId) => {
+    if (requested.size >= 3) return;
+    requested.add(actionId);
+  };
+
+  const tagMatches = Array.from(assistantMessage.matchAll(/\[wallet_action:([a-z_-]+)\]/gi));
+  for (const match of tagMatches) {
+    const raw = (match[1] || '').toLowerCase();
+    if (raw === 'checkout') register('checkout');
+    if (raw === 'wallet' || raw === 'balance') register('wallet');
+    if (raw === 'library') register('library');
+    if (raw === 'tasks') register('tasks');
+    if (raw === 'rewards') register('rewards');
+    if (raw === 'reputation') register('reputation');
+  }
+
+  if (/(checkout|purchase|buy|unlock|pay)/.test(combined)) register('checkout');
+  if (/(wallet|balance|funds|spendable|q¢|qct)/.test(combined)) register('wallet');
+  if (/(reward|claim|earn)/.test(combined)) register('rewards');
+  if (/(task|quest|mission)/.test(combined)) register('tasks');
+  if (/(library|owned|entitlement)/.test(combined)) register('library');
+  if (/(reputation|trust|score)/.test(combined)) register('reputation');
+
+  return Array.from(requested).map((actionId) => buildWalletAction(actionId));
+}
+
+function createEventMeta(source: string) {
+  const eventId =
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `${source}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  return {
+    eventId,
+    source,
+    timestamp: new Date().toISOString(),
+  };
+}
+
 // Search Knowledge Base for relevant content with timeout
 async function searchKnowledgeBase(
   query: string, 
@@ -374,6 +481,7 @@ export async function OPTIONS() {
 
 export async function POST(request: NextRequest) {
   try {
+    const eventMeta = createEventMeta('codex-chat-api');
     const body = await request.json();
     const { 
       message, 
@@ -431,9 +539,12 @@ export async function POST(request: NextRequest) {
     if (!OPENAI_API_KEY) {
       console.log('[CodexChat] No OpenAI key, using intelligent fallback');
       const fallbackResponse = generateFallbackResponse(message, metadata, persona);
+      const walletActions = inferWalletActions(message, fallbackResponse);
       return NextResponse.json({
         response: fallbackResponse,
         persona,
+        wallet_actions: walletActions,
+        event_meta: eventMeta,
         metadata: {
           characterCount: metadata.stats.characterCount,
           episodeCount: metadata.stats.episodeCount
@@ -469,15 +580,19 @@ export async function POST(request: NextRequest) {
       
       // Fallback to intelligent response
       const fallbackResponse = generateFallbackResponse(message, metadata, persona);
+      const walletActions = inferWalletActions(message, fallbackResponse);
       return NextResponse.json({
         response: fallbackResponse,
         persona,
+        wallet_actions: walletActions,
+        event_meta: eventMeta,
         fallback: true
       });
     }
 
     const data = await response.json();
     const assistantMessage = data.choices[0]?.message?.content || 'I apologize, I could not generate a response.';
+    const walletActions = inferWalletActions(message, assistantMessage);
     
     console.log('[CodexChat] Response length:', assistantMessage.length);
     console.log('[CodexChat] Response preview:', assistantMessage.substring(0, 200) + '...');
@@ -486,6 +601,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       response: assistantMessage,
       persona,
+      wallet_actions: walletActions,
+      event_meta: eventMeta,
       userContext: {
         domain: userContext.domain,
         primaryRole: userContext.primaryRole,

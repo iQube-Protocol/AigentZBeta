@@ -90,6 +90,35 @@ function SmartWalletContent() {
 
     const hydrateEmbedIdentity = async () => {
       try {
+        const bootstrapParams = new URLSearchParams();
+        if (personaIdFromQuery) bootstrapParams.set("personaId", personaIdFromQuery);
+        if (agentIdFromQuery) bootstrapParams.set("agentId", agentIdFromQuery);
+        if (agentNameFromQuery) bootstrapParams.set("agentName", agentNameFromQuery);
+        if (fioHandleFromQuery) bootstrapParams.set("fioHandle", fioHandleFromQuery);
+        const bootstrapQuery = bootstrapParams.toString();
+
+        const bootstrapResponse = await fetch(
+          `/api/embed/wallet/bootstrap${bootstrapQuery ? `?${bootstrapQuery}` : ""}`,
+          { cache: "no-store" }
+        );
+        if (bootstrapResponse.ok) {
+          const bootstrap = await bootstrapResponse.json();
+          if (!cancelled && bootstrap?.ok) {
+            const hydratedPersonaId = toText(bootstrap.personaId) || personaIdFromQuery;
+            const hydratedAgent = {
+              id: toText(bootstrap?.agent?.id) || agentOverrides.agentId || hydratedPersonaId || "embed-agent",
+              name: toText(bootstrap?.agent?.name) || agentOverrides.agentName || "Embed User",
+              fioHandle: toText(bootstrap?.agent?.fioHandle) || agentOverrides.fioHandle || undefined,
+            };
+            setPersonaId(hydratedPersonaId || undefined);
+            setAgent(hydratedAgent);
+
+            if (hydratedPersonaId || toText(bootstrap?.agent?.id) || toText(bootstrap?.agent?.name)) {
+              return;
+            }
+          }
+        }
+
         const resolvedPersonaId = personaIdFromQuery || (await resolveCurrentPersona()) || undefined;
         const { personas } = await getMyPersonas();
 
