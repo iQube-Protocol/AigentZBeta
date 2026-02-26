@@ -474,18 +474,25 @@ export default function SmartWalletDrawer({
   const [isWalletUnlocked, setIsWalletUnlocked] = useState(false);
   const [personaToUnlock, setPersonaToUnlock] = useState<string | null>(null);
 
+  const hasPaidTier = useCallback((content?: SmartContentQube | null): boolean => {
+    if (!content) return false;
+    const tiers = content.pricingModel?.tiers ?? [];
+    return tiers.some((tier) => {
+      const amount = Number(tier?.amount ?? 0);
+      return Number.isFinite(amount) && amount > 0;
+    });
+  }, []);
+
   // Auto-start purchase flow when content changes and has a price
   useEffect(() => {
     if (currentContent && open) {
-      const price = currentContent.pricingModel?.tiers?.[0];
-      const isFree = !price || price.kind === "free" || price.amount === 0;
-      if (!isFree) {
+      if (hasPaidTier(currentContent)) {
         setPurchaseStep("confirm");
       } else {
         setPurchaseStep("idle");
       }
     }
-  }, [currentContent, open]);
+  }, [currentContent, hasPaidTier, open]);
 
   // Reset purchase state when drawer closes
   useEffect(() => {
@@ -500,12 +507,16 @@ export default function SmartWalletDrawer({
     const applyPaymentRequest = (item?: unknown) => {
       if (!item || typeof item !== "object") return;
       const paymentItem = item as SmartContentQube;
+      const hasPaymentGate = hasPaidTier(paymentItem);
 
       if (onContentSelect) onContentSelect(paymentItem);
 
-      if (open) {
+      if (open && hasPaymentGate) {
         setPurchaseStep("confirm");
         setPurchaseError(null);
+      } else if (open && !hasPaymentGate) {
+        // Defensive guard: never route free/unpriced content into wallet payment flow.
+        setPurchaseStep("idle");
       }
     };
 
@@ -528,7 +539,12 @@ export default function SmartWalletDrawer({
     const handleOpenSmartWalletDrawer = (event: CustomEvent) => {
       const { currentContent, open: shouldOpen } = event.detail || {};
       if (shouldOpen && onContentSelect && currentContent) {
-        onContentSelect(currentContent);
+        const hasPaymentGate = hasPaidTier(currentContent as SmartContentQube);
+        if (hasPaymentGate) {
+          onContentSelect(currentContent);
+        } else if (open) {
+          setPurchaseStep("idle");
+        }
       }
     };
 
@@ -543,7 +559,7 @@ export default function SmartWalletDrawer({
       window.removeEventListener("liquidUIPayment", handleLiquidPayment as EventListener);
       window.removeEventListener("openSmartWalletDrawer", handleOpenSmartWalletDrawer as EventListener);
     };
-  }, [open, onContentSelect, variant]);
+  }, [open, onContentSelect, variant, hasPaidTier]);
 
   useEffect(() => {
     const did = agent?.id ? `did:iq:${agent.id}#auth` : undefined;

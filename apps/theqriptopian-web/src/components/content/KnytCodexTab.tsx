@@ -332,7 +332,17 @@ export function KnytCodexTab({
     return ownedIssues.filter(i => i.episodeNumber === episodeNumber);
   };
 
+  const resolveAccessPrice = useCallback((value?: number | null): number | null => {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric) || numeric <= 0) return null;
+    return numeric;
+  }, []);
+
   const openPurchaseForEpisode = useCallback((episode: Episode, action: 'read' | 'watch' | 'default' = 'default') => {
+    const explicitPriceKnyt = resolveAccessPrice(episode.priceKnyt);
+    if (explicitPriceKnyt === null) {
+      return;
+    }
     const contentType: ContentType =
       action === 'watch'
         ? 'scroll_motion'
@@ -346,11 +356,11 @@ export function KnytCodexTab({
       id: episode.purchaseId || `mk_ep${String(episode.episodeNumber).padStart(2, '0')}`,
       title: episode.title || `Episode ${episode.displayNumber}`,
       image: episode.coverThumbUrl || (episode.coverImageCid ? `${import.meta.env.VITE_API_URL || ''}/api/content/cover/${episode.coverImageCid}?variant=thumb` : undefined),
-      baseKnyt: episode.priceKnyt,
-      priceUsd: episode.priceUsd,
+      baseKnyt: explicitPriceKnyt,
+      priceUsd: episode.priceUsd ?? (explicitPriceKnyt * KNYT_USD_RATE),
     });
     setPurchaseModalOpen(true);
-  }, []);
+  }, [resolveAccessPrice]);
 
   // Render Scrolls tab content (episodes grid)
   const renderScrollsTab = () => (
@@ -366,6 +376,9 @@ export function KnytCodexTab({
           const isOwned = owned.length > 0;
           const hasMaster = episode.hasStillMaster || episode.hasMotionMaster || episode.hasPrintRare || episode.hasPrintEpic || episode.hasPrintLegendary;
           const isAvailable = hasMaster;
+          const episodePriceKnyt = resolveAccessPrice(episode.priceKnyt);
+          const priceUsd = episode.priceUsd ?? ((episodePriceKnyt ?? 0) * KNYT_USD_RATE);
+          const isPaymentGated = episodePriceKnyt !== null;
 
           return (
             <div
@@ -375,7 +388,7 @@ export function KnytCodexTab({
               }`}
               onClick={() => {
                 const printCid = episode.printRareCid || episode.printEpicCid || episode.printLegendaryCid;
-                if (!isOwned && isAvailable) {
+                if (!isOwned && isAvailable && isPaymentGated) {
                   openPurchaseForEpisode(episode);
                   return;
                 }
@@ -416,10 +429,10 @@ export function KnytCodexTab({
                   </span>
                 )}
                 {/* Price badge on hover for available items */}
-                {isAvailable && !isOwned && (
+                {isAvailable && !isOwned && isPaymentGated && (
                   <span className="px-2 py-1 bg-amber-500/90 text-white text-xs font-bold rounded flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <Coins className="w-3 h-3" />
-                    {(episode.priceKnyt ?? (episode.hasMotionMaster ? CONTENT_PRICES.scroll_motion : CONTENT_PRICES.scroll_still))} KNYT
+                    {episodePriceKnyt} KNYT
                   </span>
                 )}
               </div>
@@ -427,10 +440,10 @@ export function KnytCodexTab({
               {/* Action Icons */}
               <div className="absolute bottom-12 right-2 flex gap-1 z-10">
                 {/* Buy button for available episodes */}
-                {isAvailable && !isOwned && (
+                {isAvailable && !isOwned && isPaymentGated && (
                   <button
                     className="w-6 h-6 rounded-md bg-amber-500/80 backdrop-blur-sm flex items-center justify-center ring-1 ring-amber-400/40 text-white hover:bg-amber-400 transition-all"
-                    title={`Buy for ${episode.priceKnyt ?? (episode.hasMotionMaster ? CONTENT_PRICES.scroll_motion : CONTENT_PRICES.scroll_still)} KNYT`}
+                    title={`Buy for ${episodePriceKnyt} KNYT`}
                     onClick={(e) => {
                       e.stopPropagation();
                       setPurchaseContent({
@@ -438,8 +451,8 @@ export function KnytCodexTab({
                         id: episode.purchaseId || `mk_ep${String(episode.episodeNumber).padStart(2, '0')}`,
                         title: episode.title || `Episode ${episode.displayNumber}`,
                         image: episode.coverThumbUrl || (episode.coverImageCid ? `${import.meta.env.VITE_API_URL || ''}/api/content/cover/${episode.coverImageCid}?variant=thumb` : undefined),
-                        baseKnyt: episode.priceKnyt ?? (episode.hasMotionMaster ? CONTENT_PRICES.scroll_motion : CONTENT_PRICES.scroll_still),
-                        priceUsd: episode.priceUsd ?? (episode.hasMotionMaster ? CONTENT_PRICES.scroll_motion * KNYT_USD_RATE : CONTENT_PRICES.scroll_still * KNYT_USD_RATE),
+                        baseKnyt: episodePriceKnyt ?? 0,
+                        priceUsd,
                       });
                       setPurchaseModalOpen(true);
                     }}
@@ -454,7 +467,7 @@ export function KnytCodexTab({
                     onClick={(e) => {
                       e.stopPropagation();
                       const printCid = episode.printRareCid || episode.printEpicCid || episode.printLegendaryCid;
-                      if (!isOwned && isAvailable) {
+                      if (!isOwned && isAvailable && isPaymentGated) {
                         openPurchaseForEpisode(episode, 'read');
                         return;
                       }
@@ -476,7 +489,7 @@ export function KnytCodexTab({
                     onClick={async (e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      if (!isOwned && isAvailable) {
+                      if (!isOwned && isAvailable && isPaymentGated) {
                         openPurchaseForEpisode(episode, 'watch');
                         return;
                       }
@@ -512,14 +525,14 @@ export function KnytCodexTab({
                 <p className="text-sm font-bold text-white line-clamp-2">{episode.title}</p>
                 {isOwned ? (
                   <p className="text-xs text-cyan-400 mt-1">{owned.length} issue{owned.length > 1 ? 's' : ''} owned</p>
-                ) : isAvailable ? (
+                ) : isAvailable && isPaymentGated ? (
                   <div className="flex items-center gap-2 mt-1">
                     <>
                       <span className="text-xs font-medium text-amber-300">
-                        {(episode.priceKnyt ?? (episode.hasMotionMaster ? CONTENT_PRICES.scroll_motion : CONTENT_PRICES.scroll_still))} KNYT
+                        {episodePriceKnyt} KNYT
                       </span>
                       <span className="text-[10px] text-white/40">
-                        (${(episode.priceUsd ?? ((episode.priceKnyt ?? (episode.hasMotionMaster ? CONTENT_PRICES.scroll_motion : CONTENT_PRICES.scroll_still)) * KNYT_USD_RATE)).toFixed(2)})
+                        (${priceUsd.toFixed(2)})
                       </span>
                     </>
                   </div>

@@ -75,6 +75,7 @@ interface EpisodeFromAPI {
   episodeNumber: number;
   displayNumber: string;
   title?: string;
+  priceKnyt?: number;
   coverImageCid?: string;
   coverThumbUrl?: string;
   hasStillMaster: boolean;
@@ -134,7 +135,7 @@ function transformEpisodesToContentItems(episodes: EpisodeFromAPI[]): KnytConten
         metadata: { 
           episodeNumber: ep.episodeNumber, 
           owned: false, // TODO: Check entitlements
-          price: hasWatchable ? 5 : 3, 
+          price: typeof ep.priceKnyt === 'number' && ep.priceKnyt > 0 ? ep.priceKnyt : undefined,
           realm: 'digiterra' 
         },
         modalities: { 
@@ -156,7 +157,7 @@ function transformEpisodesToContentItems(episodes: EpisodeFromAPI[]): KnytConten
         metadata: { 
           episodeNumber: ep.episodeNumber, 
           owned: false, 
-          price: 5, 
+          price: typeof ep.priceKnyt === 'number' && ep.priceKnyt > 0 ? ep.priceKnyt : undefined,
           realm: 'digiterra' 
         },
         modalities: { 
@@ -184,7 +185,6 @@ function transformCharactersToContentItems(characters: CharacterFromAPI[]): Knyt
       characterName: char.name, 
       rarity: char.rarity || 'common', 
       owned: false, 
-      price: 2, 
       realm: 'digiterra' as Realm
     },
   }));
