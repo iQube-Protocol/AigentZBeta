@@ -82,6 +82,136 @@ function filterFallbackContent(
   });
 }
 
+function resolveBadge(section: string, placementTab?: string): string {
+  if (section === 'pennydrops') return 'Q¢';
+  if (placementTab === 'metaknyts') return 'METAKNYTS';
+  if (placementTab === 'synthsims') return 'SYNTHSIMS';
+  if (placementTab === 'dev' || placementTab === 'developer') return 'DEV';
+  if (placementTab === 'creative') return 'CREATIVE';
+  if (placementTab === 'exec' || placementTab === 'executive') return 'EXEC';
+  if (section === 'latest-news') return 'NEWS';
+  if (section === 'home-hero' || section === 'second-hero') return 'HERO';
+  return 'ARTICLE';
+}
+
+function toPositiveNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value) && value > 0) return value;
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  }
+  return null;
+}
+
+function normalizePricing(item: any) {
+  const pricingModel = item.pricing_model || item.pricingModel || {};
+  const metadata = item.metadata || {};
+  const metadataPricing = metadata.pricing || {};
+  const paymentMetadata = item.payment_metadata || item.paymentMetadata || metadata.payment || {};
+
+  const tierAmount = Array.isArray(pricingModel?.tiers)
+    ? pricingModel.tiers.find((tier: any) => toPositiveNumber(tier?.amount) !== null)?.amount
+    : undefined;
+  const amount =
+    toPositiveNumber(item.price_amount) ??
+    toPositiveNumber(item.price?.amount) ??
+    toPositiveNumber(metadataPricing.amount) ??
+    toPositiveNumber(metadataPricing.priceAmount) ??
+    toPositiveNumber(paymentMetadata.priceAmount) ??
+    toPositiveNumber(tierAmount) ??
+    null;
+
+  const price = amount !== null
+    ? {
+        amount,
+        currency: 'Q¢',
+        paymentType: metadataPricing.paymentType || paymentMetadata.paymentType || 'one-time',
+      }
+    : undefined;
+
+  return {
+    pricingModel,
+    metadata,
+    paymentMetadata,
+    price,
+    accessPolicy: item.access_policy || item.accessPolicy || metadata.accessPolicy || null,
+  };
+}
+
+function mapSectionItem(item: any, section: string) {
+  const placement = item.placement || {};
+  const modalities = item.modalities || {};
+  const badge = resolveBadge(section, placement.tab);
+  const pricing = normalizePricing(item);
+
+  const isPremium = isPremiumContent({
+    id: item.id,
+    pricingModel: pricing.pricingModel,
+    metadata: pricing.metadata,
+    paymentMetadata: pricing.paymentMetadata,
+    price: pricing.price,
+    accessPolicy: pricing.accessPolicy,
+    requiresMembership: Boolean(item.requires_membership || item.requiresMembership),
+  });
+
+  return {
+    id: item.id,
+    content_id: item.id,
+    slug: item.slug || item.title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+    title: item.title,
+    subtitle: item.excerpt,
+    excerpt: item.excerpt,
+    status: item.status || 'published',
+    tags: item.tags || [],
+    badge,
+    isPremium,
+    price: pricing.price,
+    pricingModel: pricing.pricingModel,
+    paymentMetadata: pricing.paymentMetadata,
+    accessPolicy: pricing.accessPolicy,
+    metadata: pricing.metadata,
+    image: item.thumbnail || item.cover_image_url || item.cover_image_uri || item.image,
+    imageScale: placement.imageScale || 100,
+    imageX: placement.imageX || 50,
+    imageY: placement.imageY || 50,
+    position: placement.position || 1,
+    modalities: {
+      read: modalities.read
+        ? {
+            available: true,
+            text: modalities.read.text,
+            duration: modalities.read.duration || '5 min read',
+          }
+        : undefined,
+      watch: modalities.watch
+        ? {
+            available: true,
+            video_url: modalities.watch.video_url,
+            duration: modalities.watch.duration,
+            type: 'hosted',
+          }
+        : undefined,
+      listen: modalities.listen
+        ? {
+            available: true,
+            audio_url: modalities.listen.audio_url,
+            duration: modalities.listen.duration,
+          }
+        : undefined,
+      link: modalities.link
+        ? {
+            available: true,
+            url: modalities.link.url,
+            allow_embed: modalities.link.allow_embed,
+          }
+        : undefined,
+    },
+    contentBlocks: [],
+    created_at: item.created_at,
+    published_at: item.published_at,
+  };
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { section: string } }
@@ -109,70 +239,7 @@ export async function GET(
     if (!hasSupabase) {
       const fallback = filterFallbackContent(section, tab, issue, issueNumber, includeArchived);
       const fallbackContent = fallback.length > 0 ? fallback : [];
-      const transformedContent = fallbackContent.map((item: any) => {
-        const placement = item.placement || {};
-        const modalities = item.modalities || {};
-        let badge = 'ARTICLE';
-        if (section === 'pennydrops') badge = 'Q¢';
-        else if (placement.tab === 'metaknyts') badge = 'METAKNYTS';
-        else if (placement.tab === 'synthsims') badge = 'SYNTHSIMS';
-        else if (placement.tab === 'dev' || placement.tab === 'developer') badge = 'DEV';
-        else if (placement.tab === 'creative') badge = 'CREATIVE';
-        else if (placement.tab === 'exec' || placement.tab === 'executive') badge = 'EXEC';
-        else if (section === 'latest-news') badge = 'NEWS';
-        else if (section === 'home-hero' || section === 'second-hero') badge = 'HERO';
-
-        const isPremium = isPremiumContent({
-          id: item.id,
-          tags: item.tags || [],
-          badge,
-          isPremium: Boolean(item.is_premium ?? item.isPremium ?? item.premium),
-        });
-
-        return {
-          id: item.id,
-          content_id: item.id,
-          slug: item.slug || item.title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-          title: item.title,
-          subtitle: item.excerpt,
-          excerpt: item.excerpt,
-          status: item.status || 'published',
-          tags: item.tags || [],
-          badge,
-          isPremium,
-          image: item.thumbnail || item.cover_image_url || item.cover_image_uri || item.image,
-          imageScale: placement.imageScale || 100,
-          imageX: placement.imageX || 50,
-          imageY: placement.imageY || 50,
-          position: placement.position || 1,
-          modalities: {
-            read: modalities.read ? {
-              available: true,
-              text: modalities.read.text,
-              duration: modalities.read.duration || '5 min read',
-            } : undefined,
-            watch: modalities.watch ? {
-              available: true,
-              video_url: modalities.watch.video_url,
-              duration: modalities.watch.duration,
-              type: 'hosted',
-            } : undefined,
-            listen: modalities.listen ? {
-              available: true,
-              audio_url: modalities.listen.audio_url,
-              duration: modalities.listen.duration,
-            } : undefined,
-            link: modalities.link ? {
-              available: true,
-              url: modalities.link.url,
-              allow_embed: modalities.link.allow_embed,
-            } : undefined,
-          },
-          contentBlocks: [],
-          created_at: item.created_at,
-          published_at: item.published_at,
-        };
-      });
+      const transformedContent = fallbackContent.map((item: any) => mapSectionItem(item, section));
 
       return NextResponse.json({
         content: transformedContent,
@@ -239,70 +306,7 @@ export async function GET(
     if (error) {
       console.error(`[Content/${section}] Database error:`, error);
       const fallback = filterFallbackContent(section, tab, issue, issueNumber, includeArchived);
-      const transformedFallback = fallback.map((item: any) => {
-        const placement = item.placement || {};
-        const modalities = item.modalities || {};
-        let badge = 'ARTICLE';
-        if (section === 'pennydrops') badge = 'Q¢';
-        else if (placement.tab === 'metaknyts') badge = 'METAKNYTS';
-        else if (placement.tab === 'synthsims') badge = 'SYNTHSIMS';
-        else if (placement.tab === 'dev' || placement.tab === 'developer') badge = 'DEV';
-        else if (placement.tab === 'creative') badge = 'CREATIVE';
-        else if (placement.tab === 'exec' || placement.tab === 'executive') badge = 'EXEC';
-        else if (section === 'latest-news') badge = 'NEWS';
-        else if (section === 'home-hero' || section === 'second-hero') badge = 'HERO';
-
-        const isPremium = isPremiumContent({
-          id: item.id,
-          tags: item.tags || [],
-          badge,
-          isPremium: Boolean(item.is_premium ?? item.isPremium ?? item.premium),
-        });
-
-        return {
-          id: item.id,
-          content_id: item.id,
-          slug: item.slug || item.title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-          title: item.title,
-          subtitle: item.excerpt,
-          excerpt: item.excerpt,
-          status: item.status || 'published',
-          tags: item.tags || [],
-          badge,
-          isPremium,
-          image: item.thumbnail || item.cover_image_url || item.cover_image_uri || item.image,
-          imageScale: placement.imageScale || 100,
-          imageX: placement.imageX || 50,
-          imageY: placement.imageY || 50,
-          position: placement.position || 1,
-          modalities: {
-            read: modalities.read ? {
-              available: true,
-              text: modalities.read.text,
-              duration: modalities.read.duration || '5 min read',
-            } : undefined,
-            watch: modalities.watch ? {
-              available: true,
-              video_url: modalities.watch.video_url,
-              duration: modalities.watch.duration,
-              type: 'hosted',
-            } : undefined,
-            listen: modalities.listen ? {
-              available: true,
-              audio_url: modalities.listen.audio_url,
-              duration: modalities.listen.duration,
-            } : undefined,
-            link: modalities.link ? {
-              available: true,
-              url: modalities.link.url,
-              allow_embed: modalities.link.allow_embed,
-            } : undefined,
-          },
-          contentBlocks: [],
-          created_at: item.created_at,
-          published_at: item.published_at,
-        };
-      });
+      const transformedFallback = fallback.map((item: any) => mapSectionItem(item, section));
 
       return NextResponse.json({
         content: transformedFallback,
@@ -328,70 +332,7 @@ export async function GET(
     if (!content || content.length === 0) {
       const fallback = filterFallbackContent(section, tab, issue, issueNumber, includeArchived);
       if (fallback.length > 0) {
-        const transformedFallback = fallback.map((item: any) => {
-          const placement = item.placement || {};
-          const modalities = item.modalities || {};
-          let badge = 'ARTICLE';
-          if (section === 'pennydrops') badge = 'Q¢';
-          else if (placement.tab === 'metaknyts') badge = 'METAKNYTS';
-          else if (placement.tab === 'synthsims') badge = 'SYNTHSIMS';
-          else if (placement.tab === 'dev' || placement.tab === 'developer') badge = 'DEV';
-          else if (placement.tab === 'creative') badge = 'CREATIVE';
-          else if (placement.tab === 'exec' || placement.tab === 'executive') badge = 'EXEC';
-          else if (section === 'latest-news') badge = 'NEWS';
-          else if (section === 'home-hero' || section === 'second-hero') badge = 'HERO';
-
-          const isPremium = isPremiumContent({
-            id: item.id,
-            tags: item.tags || [],
-            badge,
-            isPremium: Boolean(item.is_premium ?? item.isPremium ?? item.premium),
-          });
-
-          return {
-            id: item.id,
-            content_id: item.id,
-            slug: item.slug || item.title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-            title: item.title,
-            subtitle: item.excerpt,
-            excerpt: item.excerpt,
-            status: item.status || 'published',
-            tags: item.tags || [],
-            badge,
-            isPremium,
-            image: item.thumbnail || item.cover_image_url || item.cover_image_uri || item.image,
-            imageScale: placement.imageScale || 100,
-            imageX: placement.imageX || 50,
-            imageY: placement.imageY || 50,
-            position: placement.position || 1,
-            modalities: {
-              read: modalities.read ? {
-                available: true,
-                text: modalities.read.text,
-                duration: modalities.read.duration || '5 min read',
-              } : undefined,
-              watch: modalities.watch ? {
-                available: true,
-                video_url: modalities.watch.video_url,
-                duration: modalities.watch.duration,
-                type: 'hosted',
-              } : undefined,
-              listen: modalities.listen ? {
-                available: true,
-                audio_url: modalities.listen.audio_url,
-                duration: modalities.listen.duration,
-              } : undefined,
-              link: modalities.link ? {
-                available: true,
-                url: modalities.link.url,
-                allow_embed: modalities.link.allow_embed,
-              } : undefined,
-            },
-            contentBlocks: [],
-            created_at: item.created_at,
-            published_at: item.published_at,
-          };
-        });
+        const transformedFallback = fallback.map((item: any) => mapSectionItem(item, section));
 
         return NextResponse.json({
           content: transformedFallback,
@@ -407,74 +348,7 @@ export async function GET(
     }
 
     // Transform to match Liquid UI format expected by frontend
-    const transformedContent = sortedContent.map((item: any) => {
-      const placement = item.placement || {};
-      const modalities = item.modalities || {};
-      
-      // Determine badge based on section/tab
-      let badge = 'ARTICLE';
-      if (section === 'pennydrops') badge = 'Q¢';
-      else if (placement.tab === 'metaknyts') badge = 'METAKNYTS';
-      else if (placement.tab === 'synthsims') badge = 'SYNTHSIMS';
-      else if (placement.tab === 'dev' || placement.tab === 'developer') badge = 'DEV';
-      else if (placement.tab === 'creative') badge = 'CREATIVE';
-      else if (placement.tab === 'exec' || placement.tab === 'executive') badge = 'EXEC';
-      else if (section === 'latest-news') badge = 'NEWS';
-      else if (section === 'home-hero' || section === 'second-hero') badge = 'HERO';
-      
-      const isPremium = isPremiumContent({
-        id: item.id,
-        tags: item.tags || [],
-        badge,
-        isPremium: Boolean(item.is_premium ?? item.isPremium ?? item.premium),
-      });
-
-      return {
-        id: item.id,
-        content_id: item.id,
-        slug: item.slug || item.title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-        title: item.title,
-        subtitle: item.excerpt,
-        excerpt: item.excerpt,
-        status: item.status,
-        tags: item.tags || [],
-        badge,
-        isPremium,
-        // Image from thumbnail or cover field (fallbacks keep legacy content visible)
-        image: item.thumbnail || item.cover_image_url || item.cover_image_uri || item.image,
-        imageScale: placement.imageScale || 100,
-        imageX: placement.imageX || 50,
-        imageY: placement.imageY || 50,
-        position: placement.position || 1,
-        // Pass through modalities from database
-        modalities: {
-          read: modalities.read ? {
-            available: true,
-            text: modalities.read.text,
-            duration: modalities.read.duration || '5 min read',
-          } : undefined,
-          watch: modalities.watch ? {
-            available: true,
-            video_url: modalities.watch.video_url,
-            duration: modalities.watch.duration,
-            type: 'hosted',
-          } : undefined,
-          listen: modalities.listen ? {
-            available: true,
-            audio_url: modalities.listen.audio_url,
-            duration: modalities.listen.duration,
-          } : undefined,
-          link: modalities.link ? {
-            available: true,
-            url: modalities.link.url,
-            allow_embed: modalities.link.allow_embed,
-          } : undefined,
-        },
-        contentBlocks: [],
-        created_at: item.created_at,
-        published_at: item.published_at
-      };
-    });
+    const transformedContent = sortedContent.map((item: any) => mapSectionItem(item, section));
 
     return NextResponse.json({
       content: transformedContent,

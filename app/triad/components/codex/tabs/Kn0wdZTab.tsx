@@ -237,9 +237,9 @@ export function Kn0wdZTab({ theme = 'dark', personaId, issueSlug }: Kn0wdZTabPro
 
   const openItem = async (item: Kn0wdZItem, modality: string | null) => {
     const eventType = modality === 'watch' ? 'content.watch' : modality === 'read' ? 'content.read' : 'content.view';
-    const isOwned = actions.checkOwnership(item.id);
+    const isLocked = isLockedContent(item, isOwnedItem);
     await actions.loadContent(item.id);
-    if (!isOwned) {
+    if (isLocked) {
       actions.openWallet('full');
       await emitDvnReceipt(eventType, item.id);
       return;

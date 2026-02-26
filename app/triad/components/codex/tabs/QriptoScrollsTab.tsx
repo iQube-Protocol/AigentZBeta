@@ -77,9 +77,9 @@ export function QriptoScrollsTab({ theme = 'dark', personaId, issueSlug }: Qript
 
   const openViaTriad = async (item: ScrollItem, modality: 'read' | 'watch' | null) => {
     const eventType = modality === 'watch' ? 'content.watch' : modality === 'read' ? 'content.read' : 'content.view';
-    const isOwned = actions.checkOwnership(item.id);
+    const isLocked = isLockedContent(item, isOwnedItem);
     await actions.loadContent(item.id);
-    if (!isOwned) {
+    if (isLocked) {
       actions.openWallet('full');
       await emitDvnReceipt(eventType, item.id);
       return;

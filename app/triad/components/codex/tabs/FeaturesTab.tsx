@@ -5,6 +5,7 @@ import { Sparkles } from 'lucide-react';
 import { useSmartTriad } from '@/app/components/content/SmartTriadProvider';
 import { QriptopianFeatureSections } from '../QriptopianFeatureSections';
 import { CacheManager } from '@/app/utils/cache';
+import { isLockedContent } from '@/app/triad/components/codex/utils/contentFlags';
 
 interface ContentModalities {
   read?: { available?: boolean; text?: string; cid?: string };
@@ -75,9 +76,9 @@ export function FeaturesTab({ theme = 'dark', issueSlug }: FeaturesTabProps) {
 
   const openViaTriad = async (item: ContentItem, preferred?: 'read' | 'watch' | 'view') => {
     const eventType = resolveEventType(item, preferred);
-    const isOwned = actions.checkOwnership(item.id);
+    const isLocked = isLockedContent(item, ({ id }) => actions.checkOwnership(id));
     await actions.loadContent(item.id);
-    if (!isOwned) {
+    if (isLocked) {
       actions.openWallet('full');
       await emitDvnReceipt(eventType, item.id);
       return;

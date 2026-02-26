@@ -185,10 +185,10 @@ export function QriptoLiquidCodexTab({ theme = 'dark', personaId, issueSlug, dat
     eventType: 'content.view' | 'content.read' | 'content.watch' = 'content.view'
   ) => {
     try {
-      const isOwned = actions.checkOwnership(item.id);
+      const isLocked = isLockedContent(item, isOwnedItem);
       await actions.loadContent(item.id);
 
-      if (!isOwned) {
+      if (isLocked) {
         actions.openWallet('full');
         return;
       }
@@ -349,8 +349,14 @@ export function QriptoLiquidCodexTab({ theme = 'dark', personaId, issueSlug, dat
                   onClick={async (e) => {
                     e.preventDefault();
                     e.stopPropagation();
+                    const isLocked = isLockedContent(item, isOwnedItem);
+                    if (isLocked) {
+                      await actions.loadContent(item.id);
+                      actions.openWallet('compact');
+                      await emitDvnReceipt('content.view', item);
+                      return;
+                    }
                     await openInViewer(item, 'content.view');
-                    actions.openWallet('compact');
                   }}
                   className="flex items-center justify-center rounded-md border border-slate-600 bg-slate-700/30 px-2 py-1 text-xs text-slate-200 hover:bg-slate-700/60 transition-colors"
                 >
