@@ -53,6 +53,9 @@ export interface PersonaState {
   
   /** Earned badges */
   badges?: string[];
+
+  /** Optional rewards/order tier label (e.g. Knight, Sentinel) */
+  orderTier?: string;
 }
 
 export interface PersonaContext {

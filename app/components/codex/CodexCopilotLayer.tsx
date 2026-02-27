@@ -85,7 +85,7 @@ interface CodexCopilotLayerProps {
 
 type CopilotMode = "chat" | "avatar";
 
-type WalletTab = "wallet" | "library" | "tasks" | "reputation" | "rewards";
+type WalletTab = "wallet" | "library" | "tasks" | "reputation" | "rewards" | "payments";
 type WalletActionId = "checkout" | "wallet" | "library" | "tasks" | "rewards" | "reputation";
 
 type WalletActionPayload = {
