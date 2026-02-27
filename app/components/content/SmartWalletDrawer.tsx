@@ -185,6 +185,7 @@ export default function SmartWalletDrawer({
   codexMode = false,
 }: SmartWalletDrawerProps) {
   const [activeTab, setActiveTab] = useState<DrawerTab>(initialTab);
+  const [dismissed, setDismissed] = useState(false);
   const [localPersonaId, setLocalPersonaId] = useState<string | null>(null);
   const [balanceRefreshKey, setBalanceRefreshKey] = useState(0);
   const bals = useBalances(
@@ -237,6 +238,12 @@ export default function SmartWalletDrawer({
   useEffect(() => {
     setActiveTab(initialTab);
   }, [initialTab]);
+
+  useEffect(() => {
+    if (open) {
+      setDismissed(false);
+    }
+  }, [open]);
 
   useEffect(() => {
     onTabChange?.(activeTab);
@@ -1041,7 +1048,7 @@ export default function SmartWalletDrawer({
     }
   };
 
-  if (!open) return null;
+  if (!open || dismissed) return null;
 
   // Variant-based styling
   const getDrawerClasses = () => {
@@ -1063,7 +1070,7 @@ export default function SmartWalletDrawer({
   };
 
   return (
-    <div className={variant === "overlay" ? "fixed inset-0 z-50" : ""}>
+    <div className={variant === "overlay" ? "fixed inset-0 z-50" : "h-full min-h-0"}>
       {variant === 'overlay' && (
         <div className="absolute inset-0 drawer-backdrop bg-black/60 backdrop-blur-sm" onClick={onClose} />
       )}
@@ -1185,6 +1192,8 @@ export default function SmartWalletDrawer({
                 onClick={(event) => {
                   event.stopPropagation();
                   setPersonaMenuOpen(false);
+                  setCopilotOpen(false);
+                  setDismissed(true);
                   onClose();
                 }}
                 className="wallet-icon-btn p-1.5"
@@ -1216,7 +1225,7 @@ export default function SmartWalletDrawer({
 
         {/* Copilot Panel (Qriptopian parity) */}
         {copilotOpen && (
-          <div className="absolute inset-x-0 top-[111px] bottom-0 bg-slate-950/95 backdrop-blur-2xl z-10 flex flex-col animate-fade-in">
+          <div className="mx-3 mt-2 mb-2 rounded-xl bg-slate-950/95 backdrop-blur-2xl ring-1 ring-white/10 flex flex-col animate-fade-in flex-shrink-0 max-h-[420px]">
             <div className="flex items-center justify-between px-4 py-2 bg-white/5 border-b border-white/10 flex-shrink-0">
               <div className="flex items-center gap-3">
               <div className="flex items-center gap-1 bg-white/5 rounded-lg p-0.5">
@@ -1255,7 +1264,7 @@ export default function SmartWalletDrawer({
             </div>
 
             {copilotMode === "chat" ? (
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
               {/* Ask Copilot - Chat Interface */}
               <section ref={askCopilotCardRef} className="rounded-xl backdrop-blur-xl bg-white/5 border border-white/10 p-4 h-[320px] flex flex-col">
                 <div className="text-xs uppercase tracking-wider text-white/60 mb-3">Ask Copilot</div>
@@ -2369,13 +2378,13 @@ export default function SmartWalletDrawer({
                 </section>
               )}
 
-              {/* Recent Rewards */}
-              {rewards && rewards.recentRewards.length > 0 && (
-                <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-3">
-                  <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-white/60 mb-2">
-                    <Star className="w-3.5 h-3.5 text-amber-400" />
-                    Recent Rewards
-                  </div>
+              {/* Recent KNYT Rewards */}
+              <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-3">
+                <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-white/60 mb-2">
+                  <Star className="w-3.5 h-3.5 text-amber-400" />
+                  Recent KNYT Rewards
+                </div>
+                {rewards && rewards.recentRewards.length > 0 ? (
                   <div className="space-y-2">
                     {rewards.recentRewards.map((reward: any, idx: number) => (
                       <div key={idx} className="rounded-lg bg-white/5 ring-1 ring-white/10 p-2">
@@ -2387,13 +2396,17 @@ export default function SmartWalletDrawer({
                           </span>
                         </div>
                         <div className="text-xs text-white/50 mt-1">
-                          {reward.distributedAt ? new Date(reward.distributedAt).toLocaleDateString() : 'Pending'}
+                          {reward.distributedAt ? new Date(reward.distributedAt).toLocaleDateString() : "Pending"}
                         </div>
                       </div>
                     ))}
                   </div>
-                </section>
-              )}
+                ) : (
+                  <div className="rounded-lg bg-white/5 ring-1 ring-white/10 p-3 text-xs text-white/50">
+                    No rewards yet.
+                  </div>
+                )}
+              </section>
 
               {/* Lifetime Stats */}
               {(rewards as any)?.lifetimeEarnings && (
@@ -2415,7 +2428,7 @@ export default function SmartWalletDrawer({
                 </section>
               )}
 
-              {(!rewards || rewards.recentRewards.length === 0) && (
+              {(!rewards || ((rewards.recentRewards?.length || 0) === 0 && !(rewards as any)?.pendingRewards?.length)) && (
                 <div className="text-center py-8 text-white/50 text-sm">
                   <Gift className="w-8 h-8 mx-auto mb-2 text-purple-400" />
                   No rewards yet. Complete tasks to earn rewards!

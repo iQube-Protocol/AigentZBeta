@@ -37,18 +37,27 @@ function getAuthProfileIdFromStorage(): string | null {
   );
 }
 
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
 function getOrCreateAuthProfileId(): string | null {
   const existing = getAuthProfileIdFromStorage();
-  if (existing) return existing;
+  if (existing && isUuid(existing)) return existing;
   if (typeof window === 'undefined') return process.env.NEXT_PUBLIC_DEV_AUTH_PROFILE_ID || null;
 
   try {
     const generated =
       typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-        ? `guest_${crypto.randomUUID()}`
-        : `guest_${Date.now().toString(36)}`;
+        ? crypto.randomUUID()
+        : null;
+    if (!generated) {
+      return process.env.NEXT_PUBLIC_DEV_AUTH_PROFILE_ID || null;
+    }
     window.localStorage.setItem('authProfileId', generated);
+    window.localStorage.setItem('agentiq_auth_profile_id', generated);
     window.sessionStorage.setItem('authProfileId', generated);
+    window.sessionStorage.setItem('agentiq_auth_profile_id', generated);
     return generated;
   } catch {
     return process.env.NEXT_PUBLIC_DEV_AUTH_PROFILE_ID || null;

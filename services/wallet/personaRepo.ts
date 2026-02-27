@@ -61,6 +61,45 @@ function getSupabaseAnonClient(): SupabaseClient {
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+async function ensureAuthProfileExistsById(authProfileId: string): Promise<string | null> {
+  if (!isUuid(authProfileId)) return null;
+  const admin = getSupabaseAdminClient();
+
+  const { data: existing, error: existingError } = await admin
+    .from('crm_auth_profiles')
+    .select('id')
+    .eq('id', authProfileId)
+    .maybeSingle();
+
+  if (existingError) return null;
+  if (existing?.id) return String(existing.id);
+
+  const syntheticEmail = `${authProfileId}@guest.agentiq.local`;
+  const now = new Date().toISOString();
+  const { data: created, error: createError } = await admin
+    .from('crm_auth_profiles')
+    .upsert(
+      {
+        id: authProfileId,
+        email: syntheticEmail,
+        email_verified: false,
+        is_active: true,
+        oauth_providers: {},
+        updated_at: now,
+      },
+      { onConflict: 'id' }
+    )
+    .select('id')
+    .maybeSingle();
+
+  if (createError) return null;
+  return created?.id ? String(created.id) : authProfileId;
+}
+
 export type CallerIdentityContext = {
   authProfileId: string;
   email: string | null;
@@ -164,8 +203,10 @@ export async function getCallerIdentityContext(request: NextRequest): Promise<Ca
 
   const headerId = request.headers.get('x-auth-profile-id');
   if (headerId) {
+    const canonicalHeaderId = await ensureAuthProfileExistsById(headerId.trim());
+    if (!canonicalHeaderId) return null;
     return {
-      authProfileId: headerId,
+      authProfileId: canonicalHeaderId,
       email: null,
     };
   }
@@ -174,8 +215,10 @@ export async function getCallerIdentityContext(request: NextRequest): Promise<Ca
     const { searchParams } = new URL(request.url);
     const devId = searchParams.get('authProfileId');
     if (devId) {
+      const canonicalDevId = await ensureAuthProfileExistsById(devId.trim());
+      if (!canonicalDevId) return null;
       return {
-        authProfileId: devId,
+        authProfileId: canonicalDevId,
         email: null,
       };
     }
@@ -295,4 +338,3 @@ export class PersonaRepo {
     return data?.id ? { id: data.id as string } : null;
   }
 }
-
