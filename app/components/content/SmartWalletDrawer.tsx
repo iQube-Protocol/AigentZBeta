@@ -76,6 +76,8 @@ import {
   Copy,
   Book,
   Film,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
 
 
@@ -238,6 +240,7 @@ export default function SmartWalletDrawer({
   ]);
   const [copilotLoading, setCopilotLoading] = useState(false);
   const [copilotMode, setCopilotMode] = useState<'chat' | 'avatar'>('chat');
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [copilotQuickPromptsVisible, setCopilotQuickPromptsVisible] = useState(true);
   const [personaMenuOpen, setPersonaMenuOpen] = useState(false);
   const askCopilotCardRef = useRef<HTMLElement | null>(null);
@@ -278,6 +281,10 @@ export default function SmartWalletDrawer({
     if (open) {
       setDismissed(false);
     }
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) setIsFullscreen(false);
   }, [open]);
 
   useEffect(() => {
@@ -1212,6 +1219,9 @@ export default function SmartWalletDrawer({
     }
     // Overlay mode
     // In codex mode, prevent expansion when copilot is open
+    if (isFullscreen) {
+      return `fixed inset-y-0 right-0 left-0 md:left-16 shadow-2xl bg-black/30 backdrop-blur-xl ring-1 ring-white/10 border-l border-white/10`;
+    }
     const drawerWidth = copilotOpen && !codexMode ? "w-[28rem]" : "w-[21.6rem]";
     const baseClasses = `fixed inset-y-0 right-0 ${drawerWidth} shadow-2xl bg-black/30 backdrop-blur-xl ring-1 ring-white/10 border-l border-white/10`;
     return codexMode ? `${baseClasses} ring-indigo-500/30 border-l-indigo-500/30` : baseClasses;
@@ -1333,6 +1343,16 @@ export default function SmartWalletDrawer({
                 <Bot className="w-4 h-4" />
               </button>
             </Tooltip>
+            <Tooltip text={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}>
+              <button
+                type="button"
+                onClick={() => setIsFullscreen((prev) => !prev)}
+                className="wallet-icon-btn p-1.5"
+                aria-label={isFullscreen ? "Exit fullscreen wallet drawer" : "Fullscreen wallet drawer"}
+              >
+                {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+              </button>
+            </Tooltip>
 
             <Tooltip text="Close Wallet">
               <button
@@ -1341,6 +1361,7 @@ export default function SmartWalletDrawer({
                   event.stopPropagation();
                   setPersonaMenuOpen(false);
                   setCopilotOpen(false);
+                  setIsFullscreen(false);
                   setDismissed(true);
                   onClose();
                 }}

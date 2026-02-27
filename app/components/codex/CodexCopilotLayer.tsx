@@ -24,6 +24,8 @@ import {
   PanelRightOpen,
   PanelBottomClose,
   Hexagon,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
 
 interface CodexCopilotLayerProps {
@@ -164,6 +166,8 @@ export function CodexCopilotLayer({
   const [quickPromptsCollapsed, setQuickPromptsCollapsed] = useState(false);
   const [quickLinksVisible, setQuickLinksVisible] = useState(true);
   const [contextMenuOpen, setContextMenuOpen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [launcherCanReveal, setLauncherCanReveal] = useState(true);
 
   useEffect(() => {
     if (hideAvatarToggle && copilotMode !== "chat") {
@@ -172,7 +176,7 @@ export function CodexCopilotLayer({
   }, [hideAvatarToggle, copilotMode]);
   const [inputPanelHover, setInputPanelHover] = useState(false);
   const headerHeight = 44;
-  const footerHeight = floatingInput ? 132 : 104;
+  const footerHeight = floatingInput ? 124 : 88;
   const resolvedHeaderHeight = showTrustIndicators ? headerHeight : 0;
   const resolvedFooterHeight = disablePromptInput ? 0 : footerHeight;
   const seededRef = useRef(false);
@@ -213,15 +217,20 @@ export function CodexCopilotLayer({
   }, [initialMessage, seedMessages, messages]);
 
   const showActivationButtonWithTimeout = (timeoutMs: number = 4000) => {
+    if (!launcherCanReveal) return;
     if (activationTimeoutRef.current) clearTimeout(activationTimeoutRef.current);
     setShowActivationButton(true);
-    activationTimeoutRef.current = setTimeout(() => setShowActivationButton(false), timeoutMs);
+    activationTimeoutRef.current = setTimeout(() => {
+      setShowActivationButton(false);
+      setLauncherCanReveal(false);
+    }, timeoutMs);
   };
 
   useEffect(() => {
     if (isOpen) {
       if (activationTimeoutRef.current) clearTimeout(activationTimeoutRef.current);
       setShowActivationButton(false);
+      setLauncherCanReveal(true);
     }
   }, [isOpen]);
 
@@ -608,32 +617,32 @@ export function CodexCopilotLayer({
   const walletEmbeddedWidth = density === "narrow" ? "fixed" : "fill";
   const walletMenuBottomClass = floatingInput
     ? quickPromptsCollapsed
-      ? "bottom-[108px]"
-      : "bottom-[146px]"
-    : "bottom-[92px]";
+      ? "bottom-[104px]"
+      : "bottom-[142px]"
+    : "bottom-[62px]";
 
   return (
     <>
-      {variant === "floating" && !isOpen && !disableActivationButton && (
+      {variant === "floating" && !isOpen && !disableActivationButton && !showActivationButton && (
         <div
           className={`fixed bottom-0 z-[110] ${
             isMobile ? "right-0 h-28 w-28" : "right-0 h-40 w-40"
           }`}
           onMouseEnter={() => showActivationButtonWithTimeout(4000)}
-          onMouseMove={() => showActivationButtonWithTimeout(4000)}
+          onMouseLeave={() => setLauncherCanReveal(true)}
         />
       )}
 
       {variant === "floating" && !isOpen && showActivationButton && !disableActivationButton && (
         <button
           onClick={onOpen || (() => {})}
-          className={`fixed bottom-4 z-[130] p-2 bg-black/35 backdrop-blur-xl ring-1 ring-white/20 shadow-lg transition-all duration-300 hover:scale-110 hover:ring-cyan-400/50 ${
+          className={`fixed bottom-4 z-[130] p-0 bg-transparent ring-0 shadow-none transition-all duration-300 hover:scale-110 ${
             isMobile ? "right-4" : "right-4"
           }`}
           aria-label="Open Copilot"
         >
-          <span className="relative flex h-10 w-10 items-center justify-center md:h-12 md:w-12">
-            <Hexagon className="absolute inset-0 h-full w-full text-cyan-400/85" strokeWidth={1.6} />
+          <span className="relative flex h-12 w-12 items-center justify-center md:h-14 md:w-14">
+            <Hexagon className="absolute inset-0 h-full w-full text-cyan-400/90" strokeWidth={1.1} />
             <Bot className="relative h-5 w-5 text-cyan-300 md:h-6 md:w-6" />
           </span>
         </button>
@@ -647,7 +656,9 @@ export function CodexCopilotLayer({
               : `codex-copilot-container fixed z-[120] flex flex-col md:flex-row gap-2 transition-all duration-300 ease-out ${
                   isMobile
                     ? "inset-0 min-h-[100svh]"
-                    : "right-2 bottom-2 md:h-[calc(100vh-96px)] md:max-h-[760px] md:min-h-[620px]"
+                    : isFullscreen
+                      ? "left-16 right-0 top-0 bottom-0 md:h-[100vh]"
+                      : "right-2 bottom-2 md:h-[calc(100vh-96px)] md:max-h-[760px] md:min-h-[620px]"
                 }`
           }
           style={undefined}
@@ -836,7 +847,7 @@ export function CodexCopilotLayer({
 
                     {!disablePromptInput ? (
                       <div
-                        className={`absolute inset-x-0 bottom-0 px-3 pb-2 pt-0 z-20 ${
+                        className={`absolute inset-x-0 bottom-0 px-3 pb-1 pt-0 z-20 ${
                           floatingInput ? "bg-transparent" : "bg-white/5"
                         }`}
                       >
@@ -951,7 +962,7 @@ export function CodexCopilotLayer({
                           onMouseEnter={() => showQuickLinks()}
                           onMouseLeave={() => hideQuickLinksWithTimeout()}
                         >
-                          <div className="h-px bg-white/10 mb-3" />
+                          <div className="h-px bg-white/10 mb-2" />
                           {quickPrompts && quickPrompts.length > 0 && (
                             <div
                               className={`mb-3 overflow-hidden transition-all duration-200 ${
@@ -1020,7 +1031,7 @@ export function CodexCopilotLayer({
                         {footerContent ? (
                           <div className={floatingInput ? "pt-3" : "mt-3"}>{footerContent}</div>
                         ) : showNavMenu ? (
-                        <div className="mt-3 flex items-center justify-between border-t border-white/10 pt-3">
+                        <div className="mt-2 flex items-center justify-between border-t border-white/10 pt-2">
                           {hideAvatarToggle ? (
                             <div className="flex items-center gap-2">
                               <span className="rounded-sm border border-cyan-400/40 bg-cyan-500/20 px-3 py-1 text-[11px] font-semibold text-cyan-100 backdrop-blur-md shadow-sm">
@@ -1052,7 +1063,16 @@ export function CodexCopilotLayer({
                             </div>
                           )}
                           {contextOptions && contextOptions.length > 0 ? (
-                            <div className="relative">
+                            <div className="relative flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setIsFullscreen((prev) => !prev)}
+                                className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 ring-1 ring-white/10 transition-colors"
+                                title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+                                aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+                              >
+                                {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                              </button>
                               <button
                                 onClick={() => setContextMenuOpen((prev) => !prev)}
                                 className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 ring-1 ring-white/10 transition-colors"
@@ -1081,12 +1101,23 @@ export function CodexCopilotLayer({
                               )}
                             </div>
                           ) : (
-                            <button
-                              onClick={onClose}
-                              className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 ring-1 ring-white/10 transition-colors"
-                            >
-                              <ChevronDown className="w-4 h-4" />
-                            </button>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setIsFullscreen((prev) => !prev)}
+                                className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 ring-1 ring-white/10 transition-colors"
+                                title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+                                aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+                              >
+                                {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                              </button>
+                              <button
+                                onClick={onClose}
+                                className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 ring-1 ring-white/10 transition-colors"
+                              >
+                                <ChevronDown className="w-4 h-4" />
+                              </button>
+                            </div>
                           )}
                         </div>
                       ) : null}

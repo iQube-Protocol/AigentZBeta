@@ -2,13 +2,28 @@
 
 import { useState } from "react";
 import { CodexCopilotLayer } from "@/app/components/codex/CodexCopilotLayer";
-import { Brain, Settings, Code, Sparkles, Bot, MessageSquare, PanelLeftClose, PanelLeftOpen, Sun, Moon, AlignHorizontalSpaceAround } from "lucide-react";
+import {
+  Brain,
+  Settings,
+  Code,
+  Sparkles,
+  Bot,
+  MessageSquare,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Sun,
+  Moon,
+  AlignHorizontalSpaceAround,
+  Maximize2,
+  Minimize2,
+} from "lucide-react";
 
 export default function CopilotViewerPage() {
   const [isCopilotOpen, setIsCopilotOpen] = useState(true); // Start open for testing
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [density, setDensity] = useState<'narrow' | 'wide' | 'extra-wide'>('narrow');
   const [controlsCollapsed, setControlsCollapsed] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Debug logging for copilot state
   const handleOpenCopilot = () => {
@@ -30,7 +45,11 @@ export default function CopilotViewerPage() {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-slate-900">
+    <div
+      className={`flex flex-col bg-slate-900 ${
+        isFullscreen ? "fixed inset-y-0 right-0 left-0 md:left-16 z-[200]" : "h-screen"
+      }`}
+    >
       {/* Header */}
       <div className="flex-shrink-0 border-b border-slate-700/50 bg-slate-800/50 p-4">
         <div className="flex items-center justify-between">
@@ -48,6 +67,14 @@ export default function CopilotViewerPage() {
             >
               <MessageSquare className="w-4 h-4" />
               Open Copilot
+            </button>
+            <button
+              onClick={() => setIsFullscreen((prev) => !prev)}
+              className="inline-flex items-center justify-center rounded-lg border border-slate-600/60 bg-slate-700/40 p-2 text-slate-200 hover:bg-slate-700"
+              aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+              title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+            >
+              {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
             </button>
             <div className="flex items-center gap-2">
               <Settings className="w-5 h-5 text-slate-400" />

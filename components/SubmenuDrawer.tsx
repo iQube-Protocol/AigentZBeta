@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { X, Loader2, Info, ChevronRight, ChevronLeft, PlusCircle, Lock, ChevronDown, ChevronUp } from "lucide-react";
+import { X, Loader2, Info, ChevronRight, ChevronLeft, PlusCircle, Lock, ChevronDown, ChevronUp, Maximize2, Minimize2 } from "lucide-react";
 
 import {
   fetchTemplateData, 
@@ -151,6 +151,7 @@ export const SubmenuDrawer = ({
     description: ''
   });
   const [activeTab, setActiveTab] = useState<"view" | "decrypt" | "mint" | "activate" | "use" | "edit">("view");
+  const [isFullscreen, setIsFullscreen] = useState(false);
   
   // BlakQube data type definition
   type BlakQubeField = {
@@ -3560,7 +3561,11 @@ export const SubmenuDrawer = ({
   return (
     <div className="fixed inset-0 z-50 flex">
       <div className="absolute inset-0 bg-black/50 drawer-backdrop" onClick={onClose}></div>
-      <div className="relative bg-black/30 ring-1 ring-white/10 backdrop-blur-xl w-96 h-full shadow-xl ml-72 animate-slide-in-right drawer-content flex flex-col">
+      <div
+        className={`relative bg-black/30 ring-1 ring-white/10 backdrop-blur-xl h-full shadow-xl animate-slide-in-right drawer-content flex flex-col ${
+          isFullscreen ? "w-[calc(100vw-4rem)] ml-16" : "w-96 ml-72"
+        }`}
+      >
         {/* Sticky Header and Tabs */}
         <div className="sticky top-0 bg-black/30 backdrop-blur-xl z-10 border-b border-white/10">
           <div className="p-6 pb-0">
@@ -3591,14 +3596,24 @@ export const SubmenuDrawer = ({
                 </span>
                 <span className="font-semibold text-white">iQube Operations</span>
               </div>
-              <button 
-                onClick={onClose} 
-                className="text-slate-400 hover:text-white transition-colors"
-                aria-label="Close drawer"
-                title="Close drawer"
-              >
-                <X size={14} />
-              </button>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => setIsFullscreen((prev) => !prev)}
+                  className="text-slate-400 hover:text-white transition-colors"
+                  aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+                  title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+                >
+                  {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+                </button>
+                <button 
+                  onClick={onClose} 
+                  className="text-slate-400 hover:text-white transition-colors"
+                  aria-label="Close drawer"
+                  title="Close drawer"
+                >
+                  <X size={14} />
+                </button>
+              </div>
             </div>
             
             {/* Tabs */}

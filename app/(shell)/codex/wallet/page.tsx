@@ -3,11 +3,24 @@
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import SmartWalletDrawer from "../../../components/content/SmartWalletDrawer";
-import { Wallet, Settings, Code } from "lucide-react";
+import {
+  Wallet,
+  Settings,
+  Code,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Maximize2,
+  Minimize2,
+  Sun,
+  Moon,
+  AlignHorizontalSpaceAround,
+} from "lucide-react";
 
 function SmartWalletViewerContent() {
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [density, setDensity] = useState<'narrow' | 'wide'>('wide');
+  const [controlsCollapsed, setControlsCollapsed] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const searchParams = useSearchParams();
   const personaId = searchParams?.get('personaId') || undefined;
 
@@ -21,7 +34,11 @@ function SmartWalletViewerContent() {
   const embedUrl = `https://dev-beta.aigentz.me/triad/embed/wallet?theme=${theme}&density=${density}`;
 
   return (
-    <div className="h-screen flex flex-col bg-slate-900">
+    <div
+      className={`flex flex-col bg-slate-900 ${
+        isFullscreen ? "fixed inset-y-0 right-0 left-0 md:left-16 z-[200]" : "h-screen"
+      }`}
+    >
       {/* Header */}
       <div className="flex-shrink-0 border-b border-slate-700/50 bg-slate-800/50 p-4">
         <div className="flex items-center justify-between">
@@ -33,6 +50,14 @@ function SmartWalletViewerContent() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsFullscreen((prev) => !prev)}
+              className="inline-flex items-center justify-center rounded-lg border border-slate-600/60 bg-slate-700/40 p-2 text-slate-200 hover:bg-slate-700"
+              aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+              title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+            >
+              {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+            </button>
             <Settings className="w-5 h-5 text-slate-400" />
             <span className="text-sm text-slate-400">Embedded Mode</span>
           </div>
@@ -41,7 +66,52 @@ function SmartWalletViewerContent() {
 
       <div className="flex-1 flex overflow-hidden">
         {/* Control Panel */}
-        <div className="w-80 flex-shrink-0 border-r border-slate-700/50 bg-slate-800/30 p-6 overflow-y-auto">
+        <div
+          className={`flex-shrink-0 border-r border-slate-700/50 bg-slate-800/30 overflow-y-auto transition-all duration-250 ${
+            controlsCollapsed ? "w-16 p-2" : "w-80 p-6"
+          }`}
+        >
+          <div className="mb-4 flex items-center justify-end">
+            <button
+              type="button"
+              onClick={() => setControlsCollapsed((prev) => !prev)}
+              className="inline-flex items-center justify-center rounded-lg border border-slate-600/60 bg-slate-700/40 p-2 text-slate-200 hover:bg-slate-700"
+              title={controlsCollapsed ? "Expand controls" : "Collapse controls"}
+              aria-label={controlsCollapsed ? "Expand controls" : "Collapse controls"}
+            >
+              {controlsCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+            </button>
+          </div>
+          {controlsCollapsed ? (
+            <div className="flex flex-col items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-600/60 bg-slate-700/40 text-slate-200 hover:bg-slate-700"
+                title="Toggle theme"
+                aria-label="Toggle theme"
+              >
+                {theme === "dark" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+              </button>
+              {(["narrow", "wide"] as const).map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => setDensity(d)}
+                  className={`inline-flex h-10 w-10 items-center justify-center rounded-lg border text-xs font-semibold transition-colors ${
+                    density === d
+                      ? "border-indigo-400/70 bg-indigo-500/30 text-white"
+                      : "border-slate-600/60 bg-slate-700/40 text-slate-300 hover:bg-slate-700"
+                  }`}
+                  title={d}
+                  aria-label={`Set ${d} density`}
+                >
+                  {d === "narrow" ? "N" : "W"}
+                </button>
+              ))}
+              <AlignHorizontalSpaceAround className="mt-2 h-4 w-4 text-slate-500" />
+            </div>
+          ) : (
           <div className="space-y-6">
             {/* Theme Control */}
             <div>
@@ -170,6 +240,7 @@ function SmartWalletViewerContent() {
               </p>
             </div>
           </div>
+          )}
         </div>
 
         {/* Component Preview */}

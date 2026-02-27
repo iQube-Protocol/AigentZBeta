@@ -119,6 +119,8 @@
   text-decoration: underline;
   text-decoration-color: hsl(188 94% 43% / 0.45);
   text-underline-offset: 2px;
+  text-align: left;
+  justify-content: flex-start;
 }
 
 .suggestionLink:hover {
