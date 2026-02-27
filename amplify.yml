@@ -8,8 +8,16 @@ frontend:
         - nvm install 20.18.0
         - nvm use 20.18.0
         - node --version
+        - echo "Configuring npm network retries..."
+        - npm config set fetch-retries 5
+        - npm config set fetch-retry-factor 2
+        - npm config set fetch-retry-mintimeout 20000
+        - npm config set fetch-retry-maxtimeout 120000
+        - npm config set prefer-offline true
+        - npm config set audit false
+        - npm config set fund false
         - echo "Installing dependencies..."
-        - npm install --legacy-peer-deps --include=optional
+        - npm ci --legacy-peer-deps --include=optional
 
         # Issue 3 dependency (Ghostscript) — AL2023 uses dnf (yum may be a shim)
         - echo "Installing Ghostscript..."
@@ -36,7 +44,6 @@ frontend:
         - echo "Busting caches..."
         - rm -rf .next/cache
         - rm -rf node_modules/.cache
-        - npm install --legacy-peer-deps --include=optional --force
 
         # SAFE DIAGNOSTIC: print only keys + whether empty, never values
         - echo "=== .env.production keys + empty-check (REDACTED) ==="
