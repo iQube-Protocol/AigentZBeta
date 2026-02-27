@@ -89,6 +89,7 @@
   margin-top: 0.9rem;
   padding-top: 0.7rem;
   border-top: 1px solid var(--inference-border);
+  text-align: left;
 }
 
 .suggestionTitle {
@@ -103,6 +104,8 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
+  justify-content: flex-start;
+  align-items: flex-start;
 }
 
 .suggestionLink {

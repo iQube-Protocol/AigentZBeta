@@ -23,6 +23,7 @@ import {
   PanelRightClose,
   PanelRightOpen,
   PanelBottomClose,
+  Hexagon,
 } from "lucide-react";
 
 interface CodexCopilotLayerProps {
@@ -70,7 +71,7 @@ interface CodexCopilotLayerProps {
   isFirstVisit?: boolean;
   visitCount?: number;
   panelBorder?: boolean;
-  density?: "narrow" | "wide";
+  density?: "narrow" | "wide" | "extra-wide";
   agent?: {
     id: string;
     name: string;
@@ -140,7 +141,7 @@ export function CodexCopilotLayer({
   showNavMenu = true,
   showWalletMenu = true,
   panelBorder = true,
-  density = "wide",
+  density = "narrow",
   agent,
   personaId,
 }: CodexCopilotLayerProps) {
@@ -171,7 +172,7 @@ export function CodexCopilotLayer({
   }, [hideAvatarToggle, copilotMode]);
   const [inputPanelHover, setInputPanelHover] = useState(false);
   const headerHeight = 44;
-  const footerHeight = 88;
+  const footerHeight = floatingInput ? 132 : 104;
   const resolvedHeaderHeight = showTrustIndicators ? headerHeight : 0;
   const resolvedFooterHeight = disablePromptInput ? 0 : footerHeight;
   const seededRef = useRef(false);
@@ -183,6 +184,13 @@ export function CodexCopilotLayer({
   const quickLinksTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const copilotPanelRef = useRef<HTMLDivElement>(null);
   const metaAvatarFrameRef = useRef<HTMLDivElement>(null);
+  const scrollChatToBottom = () => {
+    if (!chatContainerRef.current) return;
+    requestAnimationFrame(() => {
+      if (!chatContainerRef.current) return;
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    });
+  };
 
   useEffect(() => {
     if (messages) return;
@@ -285,9 +293,7 @@ export function CodexCopilotLayer({
   }, [copilotMode]);
 
   useEffect(() => {
-    if (chatContainerRef.current) {
-      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
-    }
+    scrollChatToBottom();
   }, [displayMessages]);
 
   const updateMessages = (updater: (prev: CopilotMessage[]) => CopilotMessage[]) => {
@@ -459,6 +465,7 @@ export function CodexCopilotLayer({
       ...prev,
       { id: Date.now().toString(), role: "user", content: message, timestamp: new Date() },
     ]);
+    scrollChatToBottom();
     setInputValue("");
     onPrompt?.(message);
     if (shouldBypassInference(message, options?.skipInference)) {
@@ -590,35 +597,45 @@ export function CodexCopilotLayer({
 
   if (!isOpen && variant !== "floating") return null;
 
-  const widthClass =
-    panelClassName ??
-    (variant === "embedded"
-      ? density === "wide"
-        ? "w-full md:w-[480px]"
-        : "w-full md:w-[320px]"
+  const defaultPanelWidthClass =
+    density === "extra-wide"
+      ? "w-full md:w-[40rem]"
       : density === "wide"
-        ? "w-full md:w-[480px]"
-        : "w-full md:w-[320px]");
-  const walletPanelWidthClass = density === "wide" ? "w-full md:w-[32rem]" : "w-full md:w-[22rem]";
-  const walletEmbeddedWidth = density === "wide" ? "fill" : "fixed";
+        ? "w-full md:w-[32rem]"
+        : "w-full md:w-[22rem]";
+  const widthClass = panelClassName ?? defaultPanelWidthClass;
+  const walletPanelWidthClass = defaultPanelWidthClass;
+  const walletEmbeddedWidth = density === "narrow" ? "fixed" : "fill";
+  const walletMenuBottomClass = floatingInput
+    ? quickPromptsCollapsed
+      ? "bottom-[108px]"
+      : "bottom-[146px]"
+    : "bottom-[92px]";
 
   return (
     <>
       {variant === "floating" && !isOpen && !disableActivationButton && (
         <div
-          className={`fixed bottom-0 z-[179] h-24 w-24 md:h-32 md:w-32 ${isMobile ? "right-0" : "right-0"}`}
+          className={`fixed bottom-0 z-[110] ${
+            isMobile ? "right-0 h-28 w-28" : "right-0 h-40 w-40"
+          }`}
           onMouseEnter={() => showActivationButtonWithTimeout(4000)}
+          onMouseMove={() => showActivationButtonWithTimeout(4000)}
         />
       )}
 
       {variant === "floating" && !isOpen && showActivationButton && !disableActivationButton && (
         <button
           onClick={onOpen || (() => {})}
-          className={`fixed bottom-4 z-[120] p-4 rounded-full bg-black/30 backdrop-blur-xl ring-1 ring-white/20 shadow-lg transition-all duration-300 hover:scale-110 hover:ring-cyan-400/50 ${
+          className={`fixed bottom-4 z-[130] p-2 bg-black/35 backdrop-blur-xl ring-1 ring-white/20 shadow-lg transition-all duration-300 hover:scale-110 hover:ring-cyan-400/50 ${
             isMobile ? "right-4" : "right-4"
           }`}
+          aria-label="Open Copilot"
         >
-          <Bot className="w-6 h-6 text-cyan-400" />
+          <span className="relative flex h-10 w-10 items-center justify-center md:h-12 md:w-12">
+            <Hexagon className="absolute inset-0 h-full w-full text-cyan-400/85" strokeWidth={1.6} />
+            <Bot className="relative h-5 w-5 text-cyan-300 md:h-6 md:w-6" />
+          </span>
         </button>
       )}
 
@@ -628,21 +645,17 @@ export function CodexCopilotLayer({
             variant === "embedded"
               ? `relative h-full w-full overflow-hidden ${className || ""}`
               : `codex-copilot-container fixed z-[120] flex flex-col md:flex-row gap-2 transition-all duration-300 ease-out ${
-                  isMobile ? "inset-0 min-h-[100svh]" : ""
+                  isMobile
+                    ? "inset-0 min-h-[100svh]"
+                    : "right-2 bottom-2 md:h-[calc(100vh-96px)] md:max-h-[760px] md:min-h-[620px]"
                 }`
           }
-          style={
-            variant === "embedded"
-              ? undefined
-              : isMobile
-                ? undefined
-                : { bottom: "10px", right: "10px", top: "auto", left: "auto" }
-          }
+          style={undefined}
         >
           <div
             ref={copilotPanelRef}
             className={`${widthClass} ${
-              variant === "embedded" ? "h-full" : "h-full md:h-[calc(100vh-100px)] md:max-h-[600px]"
+              variant === "embedded" ? "h-full" : "h-full md:h-full"
             } transition-all duration-300 ease-out`}
           >
             <div className={`h-full bg-black/30 backdrop-blur-xl rounded-2xl shadow-2xl flex flex-col overflow-hidden ${panelBorder ? "ring-1 ring-white/10" : ""}`}>
@@ -745,11 +758,7 @@ export function CodexCopilotLayer({
                       {showWalletMenu && (
                         <div
                           className={`absolute left-3 right-3 transition-opacity duration-200 ${
-                            floatingInput
-                              ? quickPromptsCollapsed
-                                ? "bottom-[92px] z-30"
-                                : "bottom-[132px] z-30"
-                              : "bottom-3 z-10"
+                            `${walletMenuBottomClass} z-30`
                           } ${
                             walletMenuVisible || walletMenuHover
                               ? "opacity-100 pointer-events-auto"
@@ -827,7 +836,7 @@ export function CodexCopilotLayer({
 
                     {!disablePromptInput ? (
                       <div
-                        className={`absolute inset-x-0 bottom-0 px-3 pb-3 pt-0 z-20 ${
+                        className={`absolute inset-x-0 bottom-0 px-3 pb-2 pt-0 z-20 ${
                           floatingInput ? "bg-transparent" : "bg-white/5"
                         }`}
                       >
@@ -854,7 +863,7 @@ export function CodexCopilotLayer({
                               hideQuickLinksWithTimeout();
                             }}
                           >
-                            <div className={inputPanelClassName ?? "rounded-2xl border border-white/10 bg-slate-950/80 backdrop-blur-xl px-3 py-3 shadow-lg"}>
+                            <div className={inputPanelClassName ?? "rounded-2xl border border-white/10 bg-slate-950/85 backdrop-blur-xl px-3 py-2 shadow-lg"}>
                               {quickPrompts && quickPrompts.length > 0 && !quickPromptsCollapsed && (
                                 <div
                                   className={`mb-3 overflow-x-auto no-scrollbar md:overflow-visible transition-all duration-200 ${

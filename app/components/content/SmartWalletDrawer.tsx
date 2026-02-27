@@ -238,9 +238,12 @@ export default function SmartWalletDrawer({
   ]);
   const [copilotLoading, setCopilotLoading] = useState(false);
   const [copilotMode, setCopilotMode] = useState<'chat' | 'avatar'>('chat');
+  const [copilotQuickPromptsVisible, setCopilotQuickPromptsVisible] = useState(true);
   const [personaMenuOpen, setPersonaMenuOpen] = useState(false);
   const askCopilotCardRef = useRef<HTMLElement | null>(null);
   const copilotAnchorRef = useRef<HTMLDivElement | null>(null);
+  const copilotChatScrollRef = useRef<HTMLDivElement | null>(null);
+  const copilotQuickPromptsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [selectedLibraryItem, setSelectedLibraryItem] = useState<any>(null);
   const [dvnExpanded, setDvnExpanded] = useState(true);
   const [tenantId, setTenantId] = useState<string>(
@@ -248,6 +251,24 @@ export default function SmartWalletDrawer({
       process.env.NEXT_PUBLIC_LVB_BRIDGE_TENANT_ID ||
       "default"
   );
+
+  const scrollCopilotToBottom = useCallback(() => {
+    if (!copilotChatScrollRef.current) return;
+    requestAnimationFrame(() => {
+      if (!copilotChatScrollRef.current) return;
+      copilotChatScrollRef.current.scrollTop = copilotChatScrollRef.current.scrollHeight;
+    });
+  }, []);
+
+  const showCopilotQuickPrompts = useCallback((timeoutMs = 3000) => {
+    if (copilotQuickPromptsTimeoutRef.current) {
+      clearTimeout(copilotQuickPromptsTimeoutRef.current);
+    }
+    setCopilotQuickPromptsVisible(true);
+    copilotQuickPromptsTimeoutRef.current = setTimeout(() => {
+      setCopilotQuickPromptsVisible(false);
+    }, timeoutMs);
+  }, []);
 
   useEffect(() => {
     setActiveTab(initialTab);
@@ -258,6 +279,24 @@ export default function SmartWalletDrawer({
       setDismissed(false);
     }
   }, [open]);
+
+  useEffect(() => {
+    if (open && copilotOpen && copilotMode === "chat") {
+      showCopilotQuickPrompts();
+    }
+  }, [open, copilotOpen, copilotMode, showCopilotQuickPrompts]);
+
+  useEffect(() => {
+    scrollCopilotToBottom();
+  }, [copilotMessages, copilotLoading, scrollCopilotToBottom]);
+
+  useEffect(() => {
+    return () => {
+      if (copilotQuickPromptsTimeoutRef.current) {
+        clearTimeout(copilotQuickPromptsTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     onTabChange?.(activeTab);
@@ -276,9 +315,11 @@ export default function SmartWalletDrawer({
   const handleSendPrompt = async (prompt?: string) => {
     const messageToSend = prompt || copilotPrompt.trim();
     if (!messageToSend) return;
+    showCopilotQuickPrompts();
     
     // Add user message
     setCopilotMessages(prev => [...prev, { role: 'user', content: messageToSend }]);
+    scrollCopilotToBottom();
     setCopilotPrompt("");
     setCopilotLoading(true);
 
@@ -321,6 +362,7 @@ export default function SmartWalletDrawer({
       setCopilotMessages(prev => [...prev, { role: 'assistant', content: "I'm having trouble connecting. Please try again later." }]);
     } finally {
       setCopilotLoading(false);
+      scrollCopilotToBottom();
     }
   };
   
@@ -1331,8 +1373,8 @@ export default function SmartWalletDrawer({
 
         {/* Copilot Panel (Qriptopian parity) */}
         {copilotOpen && (
-          <div className="mx-3 mt-2 mb-0 flex flex-col animate-fade-in flex-shrink-0">
-            <div className="flex items-center justify-between px-4 py-2 bg-white/5 border-b border-white/10 flex-shrink-0">
+          <div className="mx-3 mt-2 mb-0 flex flex-col animate-fade-in flex-shrink-0 h-[380px] overflow-hidden rounded-xl border border-white/10 bg-white/5">
+            <div className="flex items-center justify-between px-4 py-2 bg-white/5 border-b border-white/10 rounded-t-xl flex-shrink-0">
               <div className="flex items-center gap-3">
               <div className="flex items-center gap-1 bg-white/5 rounded-lg p-0.5">
                   <button
@@ -1370,13 +1412,18 @@ export default function SmartWalletDrawer({
             </div>
 
             {copilotMode === "chat" ? (
-              <div ref={copilotAnchorRef} className="p-4 space-y-4">
+              <div ref={copilotAnchorRef} className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
               {/* Ask Copilot - Chat Interface */}
-              <section ref={askCopilotCardRef} className="rounded-xl backdrop-blur-xl bg-white/5 border border-white/10 p-4 h-[320px] flex flex-col">
+              <section
+                ref={askCopilotCardRef}
+                className="relative rounded-xl backdrop-blur-xl bg-white/5 border border-white/10 p-3 h-[290px] flex flex-col"
+                onMouseEnter={() => showCopilotQuickPrompts()}
+                onMouseLeave={() => showCopilotQuickPrompts()}
+              >
                 <div className="text-xs uppercase tracking-wider text-white/60 mb-3">Ask Copilot</div>
                 
                 {/* Chat Messages Area */}
-                <div className="mb-3 flex-1 min-h-0 overflow-y-auto space-y-3">
+                <div ref={copilotChatScrollRef} className="mb-2 flex-1 min-h-0 overflow-y-auto space-y-3 pb-16">
                   {copilotMessages.map((msg, i) => (
                     <div key={i} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : ''}`}>
                       {msg.role === 'assistant' && (
@@ -1406,8 +1453,15 @@ export default function SmartWalletDrawer({
                   )}
                 </div>
 
-                {/* Quick Prompts - single-row carousel above prompt */}
-                <div className="mb-3 overflow-x-auto no-scrollbar">
+                {/* Quick Prompts - floating row above prompt */}
+                <div
+                  className={`absolute left-3 right-3 bottom-14 overflow-x-auto no-scrollbar transition-all duration-250 ${
+                    copilotQuickPromptsVisible
+                      ? "opacity-100 translate-y-0 pointer-events-auto"
+                      : "opacity-0 translate-y-2 pointer-events-none"
+                  }`}
+                  onMouseEnter={() => showCopilotQuickPrompts()}
+                >
                   <div className="flex w-max min-w-full gap-2">
                     {[
                       "My balance",
@@ -1424,7 +1478,7 @@ export default function SmartWalletDrawer({
                         key={i}
                         onClick={() => handleSendPrompt(prompt)}
                         disabled={copilotLoading}
-                        className="shrink-0 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/30 transition-all text-xs text-white/70 hover:text-white/90 disabled:opacity-50"
+                        className="shrink-0 px-3 py-1.5 rounded-full bg-slate-900/80 border border-white/15 hover:bg-slate-900 hover:border-white/30 transition-all text-xs text-white/75 hover:text-white/95 disabled:opacity-50"
                       >
                         {prompt}
                       </button>
@@ -1433,7 +1487,7 @@ export default function SmartWalletDrawer({
                 </div>
 
                 {/* Prompt Input fixed at bottom of card */}
-                <div className="mt-auto flex gap-2">
+                <div className="mt-auto flex gap-2 pt-1">
                   <input
                     type="text"
                     value={copilotPrompt}
@@ -1444,6 +1498,7 @@ export default function SmartWalletDrawer({
                         handleSendPrompt();
                       }
                     }}
+                    onFocus={() => showCopilotQuickPrompts()}
                     placeholder="Ask anything..."
                     disabled={copilotLoading}
                     className="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white/90 placeholder:text-white/40 focus:outline-none focus:border-white/30 focus:bg-white/10 transition-all disabled:opacity-50"
@@ -1605,7 +1660,7 @@ export default function SmartWalletDrawer({
               )}
             </div>
             ) : (
-              <section className="mx-3 mt-3 rounded-xl bg-white/5 border border-white/10 p-4 h-[320px] flex flex-col items-center justify-center">
+              <section className="mx-3 mt-3 mb-3 rounded-xl bg-white/5 border border-white/10 p-4 flex-1 min-h-0 flex flex-col items-center justify-center">
                 <div className="text-xs uppercase tracking-wider text-white/60 mb-3">Ask MoneyPenny</div>
                 <p className="text-sm text-white/40 text-center mb-4">
                   MoneyPenny is ready to help with your wallet, rewards, and Q¢ questions.

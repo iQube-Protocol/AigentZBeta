@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { CodexCopilotLayer } from "@/app/components/codex/CodexCopilotLayer";
-import { Brain, Settings, Code, Sparkles, Bot, MessageSquare } from "lucide-react";
+import { Brain, Settings, Code, Sparkles, Bot, MessageSquare, PanelLeftClose, PanelLeftOpen, Sun, Moon, AlignHorizontalSpaceAround } from "lucide-react";
 
 export default function CopilotViewerPage() {
   const [isCopilotOpen, setIsCopilotOpen] = useState(true); // Start open for testing
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
-  const [density, setDensity] = useState<'narrow' | 'wide'>('wide');
+  const [density, setDensity] = useState<'narrow' | 'wide' | 'extra-wide'>('narrow');
+  const [controlsCollapsed, setControlsCollapsed] = useState(false);
 
   // Debug logging for copilot state
   const handleOpenCopilot = () => {
@@ -58,7 +59,52 @@ export default function CopilotViewerPage() {
 
       <div className="flex-1 flex overflow-hidden">
         {/* Control Panel */}
-        <div className="w-80 flex-shrink-0 border-r border-slate-700/50 bg-slate-800/30 p-6 overflow-y-auto">
+        <div
+          className={`flex-shrink-0 border-r border-slate-700/50 bg-slate-800/30 overflow-y-auto transition-all duration-250 ${
+            controlsCollapsed ? "w-16 p-2" : "w-80 p-6"
+          }`}
+        >
+          <div className="mb-4 flex items-center justify-end">
+            <button
+              type="button"
+              onClick={() => setControlsCollapsed((prev) => !prev)}
+              className="inline-flex items-center justify-center rounded-lg border border-slate-600/60 bg-slate-700/40 p-2 text-slate-200 hover:bg-slate-700"
+              title={controlsCollapsed ? "Expand controls" : "Collapse controls"}
+              aria-label={controlsCollapsed ? "Expand controls" : "Collapse controls"}
+            >
+              {controlsCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+            </button>
+          </div>
+          {controlsCollapsed ? (
+            <div className="flex flex-col items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-600/60 bg-slate-700/40 text-slate-200 hover:bg-slate-700"
+                title="Toggle theme"
+                aria-label="Toggle theme"
+              >
+                {theme === "dark" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+              </button>
+              {(["narrow", "wide", "extra-wide"] as const).map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => setDensity(d)}
+                  className={`inline-flex h-10 w-10 items-center justify-center rounded-lg border text-xs font-semibold transition-colors ${
+                    density === d
+                      ? "border-indigo-400/70 bg-indigo-500/30 text-white"
+                      : "border-slate-600/60 bg-slate-700/40 text-slate-300 hover:bg-slate-700"
+                  }`}
+                  title={d}
+                  aria-label={`Set ${d} density`}
+                >
+                  {d === "narrow" ? "N" : d === "wide" ? "W" : "XW"}
+                </button>
+              ))}
+              <AlignHorizontalSpaceAround className="mt-2 h-4 w-4 text-slate-500" />
+            </div>
+          ) : (
           <div className="space-y-6">
             {/* Theme Control */}
             <div>
@@ -110,6 +156,16 @@ export default function CopilotViewerPage() {
                   }`}
                 >
                   Wide
+                </button>
+                <button
+                  onClick={() => setDensity('extra-wide')}
+                  className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    density === 'extra-wide'
+                      ? 'bg-indigo-500 text-white'
+                      : 'bg-slate-700/50 text-slate-400 hover:bg-slate-700'
+                  }`}
+                >
+                  Extra Wide
                 </button>
               </div>
             </div>
@@ -193,6 +249,7 @@ export default function CopilotViewerPage() {
               </div>
             </div>
           </div>
+          )}
         </div>
 
         {/* Preview Area */}
