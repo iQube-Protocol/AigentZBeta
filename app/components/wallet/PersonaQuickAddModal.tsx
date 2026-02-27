@@ -97,10 +97,26 @@ function getAuthProfileIdFromStorage(): string | null {
   );
 }
 
+function getOrCreateAuthProfileId(): string | null {
+  const existing = getAuthProfileIdFromStorage();
+  if (existing) return existing;
+  if (typeof window === "undefined") return process.env.NEXT_PUBLIC_DEV_AUTH_PROFILE_ID || null;
+  try {
+    const generated =
+      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? `guest_${crypto.randomUUID()}`
+        : `guest_${Date.now().toString(36)}`;
+    window.localStorage.setItem("authProfileId", generated);
+    window.sessionStorage.setItem("authProfileId", generated);
+    return generated;
+  } catch {
+    return process.env.NEXT_PUBLIC_DEV_AUTH_PROFILE_ID || null;
+  }
+}
+
 function buildAuthHeaders(): Headers {
   const headers = new Headers({ "Content-Type": "application/json" });
-  const authProfileId =
-    getAuthProfileIdFromStorage() || process.env.NEXT_PUBLIC_DEV_AUTH_PROFILE_ID || "";
+  const authProfileId = getOrCreateAuthProfileId() || "";
   if (authProfileId) headers.set("x-auth-profile-id", authProfileId);
   return headers;
 }

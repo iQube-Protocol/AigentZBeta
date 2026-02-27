@@ -1093,10 +1093,13 @@ export function CodexCopilotLayer({
           </div>
 
           {walletPanelOpen && !walletPanelCollapsed && (
-            <div className="rounded-2xl overflow-hidden ring-1 ring-white/10 shadow-2xl w-full md:w-auto h-full md:h-[calc(100vh-100px)] md:max-h-[600px]">
+            <div className="rounded-2xl overflow-hidden ring-1 ring-white/10 shadow-2xl w-full md:w-auto h-full min-h-0 md:h-full md:max-h-none">
               <SmartWalletDrawer
                 open={true}
-                onClose={() => setWalletPanelOpen(false)}
+                onClose={() => {
+                  setWalletPanelOpen(false);
+                  setWalletPanelCollapsed(false);
+                }}
                 variant="embedded"
                 embeddedWidth="fixed"
                 initialTab={walletPanelTab}

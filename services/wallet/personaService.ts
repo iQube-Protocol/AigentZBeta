@@ -37,17 +37,33 @@ function getAuthProfileIdFromStorage(): string | null {
   );
 }
 
+function getOrCreateAuthProfileId(): string | null {
+  const existing = getAuthProfileIdFromStorage();
+  if (existing) return existing;
+  if (typeof window === 'undefined') return process.env.NEXT_PUBLIC_DEV_AUTH_PROFILE_ID || null;
+
+  try {
+    const generated =
+      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? `guest_${crypto.randomUUID()}`
+        : `guest_${Date.now().toString(36)}`;
+    window.localStorage.setItem('authProfileId', generated);
+    window.sessionStorage.setItem('authProfileId', generated);
+    return generated;
+  } catch {
+    return process.env.NEXT_PUBLIC_DEV_AUTH_PROFILE_ID || null;
+  }
+}
+
 function withAuthHeaders(init?: RequestInit): RequestInit {
   const headers = new Headers(init?.headers || {});
-  const devAuthProfileId =
-    getAuthProfileIdFromStorage() || process.env.NEXT_PUBLIC_DEV_AUTH_PROFILE_ID || '';
+  const devAuthProfileId = getOrCreateAuthProfileId() || '';
   if (devAuthProfileId) headers.set('x-auth-profile-id', devAuthProfileId);
   return { ...init, headers };
 }
 
 function withAuthProfileParam(url: string): string {
-  const devAuthProfileId =
-    getAuthProfileIdFromStorage() || process.env.NEXT_PUBLIC_DEV_AUTH_PROFILE_ID;
+  const devAuthProfileId = getOrCreateAuthProfileId();
   if (!devAuthProfileId) return url;
   const u = new URL(url, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
   if (!u.searchParams.has('authProfileId')) {

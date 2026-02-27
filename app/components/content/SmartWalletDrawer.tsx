@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useBalances } from "@/app/hooks/useBalances";
 import { useDVNEvents } from "@/app/hooks/useDVNEvents";
 import { useKnytBalance } from "@/app/hooks/useKnytBalance";
@@ -225,6 +225,7 @@ export default function SmartWalletDrawer({
   const [copilotLoading, setCopilotLoading] = useState(false);
   const [copilotMode, setCopilotMode] = useState<'chat' | 'avatar'>('chat');
   const [personaMenuOpen, setPersonaMenuOpen] = useState(false);
+  const askCopilotCardRef = useRef<HTMLElement | null>(null);
   const [selectedLibraryItem, setSelectedLibraryItem] = useState<any>(null);
   const [dvnExpanded, setDvnExpanded] = useState(true);
   const [tenantId, setTenantId] = useState<string>(
@@ -375,6 +376,27 @@ export default function SmartWalletDrawer({
     // Cleanup on unmount
     return () => releaseAvatar('copilot');
   }, [open, copilotOpen, copilotMode, requestAvatar, releaseAvatar, agent?.id]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const root = document.documentElement;
+    const updateAnchor = () => {
+      const card = askCopilotCardRef.current;
+      if (!card) return;
+      const rect = card.getBoundingClientRect();
+      root.style.setProperty("--metaavatar-copilot-x", `${Math.round(rect.left)}px`);
+      root.style.setProperty("--metaavatar-copilot-y", `${Math.round(rect.top)}px`);
+      root.style.setProperty("--metaavatar-copilot-w", `${Math.round(rect.width)}px`);
+      root.style.setProperty("--metaavatar-copilot-h", `${Math.round(rect.height)}px`);
+    };
+
+    updateAnchor();
+    const raf = requestAnimationFrame(function tick() {
+      updateAnchor();
+      requestAnimationFrame(tick);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [open, copilotOpen, copilotMode, activeTab]);
 
   const [retrySettlementId, setRetrySettlementId] = useState("");
   const [retryMessageId, setRetryMessageId] = useState("");
@@ -1045,7 +1067,7 @@ export default function SmartWalletDrawer({
       {variant === 'overlay' && (
         <div className="absolute inset-0 drawer-backdrop bg-black/60 backdrop-blur-sm" onClick={onClose} />
       )}
-      <div className={`${getDrawerClasses()} overflow-hidden flex flex-col transition-all duration-300 pt-4`}>
+      <div className={`${getDrawerClasses()} overflow-hidden min-h-0 flex flex-col transition-all duration-300 pt-4`}>
         {/* Header with persona switch + controls (Qriptopian parity) */}
         <header className="flex items-center justify-between gap-2 px-3 py-2 mx-3 rounded-xl bg-white/5 ring-1 ring-white/10 flex-shrink-0">
           <div className="relative z-[100]">
@@ -1159,7 +1181,12 @@ export default function SmartWalletDrawer({
 
             <Tooltip text="Close Wallet">
               <button
-                onClick={onClose}
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setPersonaMenuOpen(false);
+                  onClose();
+                }}
                 className="wallet-icon-btn p-1.5"
               >
                 <X className="w-4 h-4" />
@@ -1170,17 +1197,19 @@ export default function SmartWalletDrawer({
 
         {/* Tab Navigation */}
         <div className="wallet-tab-nav px-3 py-2 bg-black/20">
-          <div className="flex items-center gap-1 overflow-x-auto">
+          <div className="flex w-full items-center justify-between gap-0">
             {TAB_CONFIG.map((tab) => (
-              <Tooltip key={tab.key} text={tab.label}>
-                <button
-                  onClick={() => setActiveTab(tab.key)}
-                  className={`wallet-icon-btn py-2 ${activeTab === tab.key ? 'active' : ''}`}
-                  data-active={activeTab === tab.key}
-                >
-                  {tab.icon}
-                </button>
-              </Tooltip>
+              <div key={tab.key} className="flex flex-1 justify-center">
+                <Tooltip text={tab.label}>
+                  <button
+                    onClick={() => setActiveTab(tab.key)}
+                    className={`wallet-icon-btn py-2 ${activeTab === tab.key ? 'active' : ''}`}
+                    data-active={activeTab === tab.key}
+                  >
+                    {tab.icon}
+                  </button>
+                </Tooltip>
+              </div>
             ))}
           </div>
         </div>
@@ -1228,11 +1257,11 @@ export default function SmartWalletDrawer({
             {copilotMode === "chat" ? (
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {/* Ask Copilot - Chat Interface */}
-              <section className="rounded-xl backdrop-blur-xl bg-white/5 border border-white/10 p-4">
+              <section ref={askCopilotCardRef} className="rounded-xl backdrop-blur-xl bg-white/5 border border-white/10 p-4 h-[320px] flex flex-col">
                 <div className="text-xs uppercase tracking-wider text-white/60 mb-3">Ask Copilot</div>
                 
                 {/* Chat Messages Area */}
-                <div className="mb-3 max-h-40 overflow-y-auto space-y-3">
+                <div className="mb-3 flex-1 min-h-0 overflow-y-auto space-y-3">
                   {copilotMessages.map((msg, i) => (
                     <div key={i} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : ''}`}>
                       {msg.role === 'assistant' && (
@@ -1261,9 +1290,35 @@ export default function SmartWalletDrawer({
                     </div>
                   )}
                 </div>
-                
-                {/* Prompt Input */}
-                <div className="flex gap-2">
+
+                {/* Quick Prompts - single-row carousel above prompt */}
+                <div className="mb-3 overflow-x-auto no-scrollbar">
+                  <div className="flex w-max min-w-full gap-2">
+                    {[
+                      "My balance",
+                      "Show tasks",
+                      "My rewards",
+                      "My library",
+                      "My reputation",
+                      "How to earn Q¢",
+                      "What can I buy?",
+                      "Convert USDC",
+                      "Retry settlement",
+                    ].map((prompt, i) => (
+                      <button
+                        key={i}
+                        onClick={() => handleSendPrompt(prompt)}
+                        disabled={copilotLoading}
+                        className="shrink-0 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/30 transition-all text-xs text-white/70 hover:text-white/90 disabled:opacity-50"
+                      >
+                        {prompt}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Prompt Input fixed at bottom of card */}
+                <div className="mt-auto flex gap-2">
                   <input
                     type="text"
                     value={copilotPrompt}
@@ -1289,162 +1344,153 @@ export default function SmartWalletDrawer({
                     </button>
                   </Tooltip>
                 </div>
-                
-                {/* Quick Prompts - Click to inject and send */}
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {[
-                    "My balance",
-                    "Show tasks",
-                    "My rewards",
-                    "My library",
-                    "My reputation",
-                    "How to earn Q¢",
-                    "What can I buy?",
-                    "Convert USDC",
-                    "Retry settlement",
-                  ].map((prompt, i) => (
-                    <button
-                      key={i}
-                      onClick={() => handleSendPrompt(prompt)}
-                      disabled={copilotLoading}
-                      className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/30 transition-all text-xs text-white/60 hover:text-white/90 disabled:opacity-50"
-                    >
-                      {prompt}
-                    </button>
-                  ))}
-                </div>
               </section>
 
-              {/* Quick Actions - Swipeable carousel showing 3.25 items */}
-              <section className="rounded-xl backdrop-blur-xl bg-slate-900/40 border border-white/10 p-3">
-                <div className="text-[10px] uppercase tracking-wider text-white/60 mb-2">Quick Actions</div>
-                <div className="quick-actions-carousel">
-                  <Tooltip text="Browse your content library">
-                    <button 
-                      onClick={() => {
-                        triadContext?.actions.refreshLibrary?.();
-                        setActiveTab("library");
-                        setCopilotOpen(false);
-                      }}
-                      className="quick-action-item"
-                    >
-                      <BookOpen className="w-3.5 h-3.5" />
-                      <span>Library</span>
-                    </button>
-                  </Tooltip>
-                  <Tooltip text="Claim pending rewards">
-                    <button 
-                      onClick={() => {
-                        setActiveTab("rewards");
-                        setCopilotOpen(false);
-                      }}
-                      className="quick-action-item"
-                    >
-                      <Gift className="w-3.5 h-3.5" />
-                      <span>Rewards</span>
-                    </button>
-                  </Tooltip>
-                  <Tooltip text="View available tasks">
-                    <button 
-                      onClick={() => {
-                        setActiveTab("tasks");
-                        setCopilotOpen(false);
-                      }}
-                      className="quick-action-item"
-                    >
-                      <CheckSquare className="w-3.5 h-3.5" />
-                      <span>Tasks</span>
-                    </button>
-                  </Tooltip>
-                  <Tooltip text="Build your reputation">
-                    <button 
-                      onClick={() => {
-                        setActiveTab("reputation");
-                        setCopilotOpen(false);
-                      }}
-                      className="quick-action-item"
-                    >
-                      <Trophy className="w-3.5 h-3.5" />
-                      <span>Reputation</span>
-                    </button>
-                  </Tooltip>
-                </div>
-              </section>
-              
-              {/* Q¢ Balance - Between Quick Actions and Smart Triad */}
-              <section className="rounded-xl backdrop-blur-xl bg-gradient-to-br from-purple-500/10 to-fuchsia-500/5 border border-purple-500/20 p-4">
-                <div className="text-xs uppercase tracking-wider text-white/70 mb-3">Your Q¢ Balance</div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-3xl font-bold text-white/95">
-                      {bals.qctArb ? (Number(bals.qctArb) / Math.pow(10, bals.qctArbDecimals || 18)).toLocaleString(undefined, { maximumFractionDigits: 2 }) : '0'}
+              {/* Wide/copilot contextual tab content */}
+              {activeTab === "wallet" && (
+                <>
+                  <section className="rounded-xl backdrop-blur-xl bg-slate-900/40 border border-white/10 p-3">
+                    <div className="text-[10px] uppercase tracking-wider text-white/60 mb-2">Quick Actions</div>
+                    <div className="quick-actions-carousel">
+                      <Tooltip text="Browse your content library">
+                        <button
+                          onClick={() => {
+                            triadContext?.actions.refreshLibrary?.();
+                            setActiveTab("library");
+                          }}
+                          className="quick-action-item"
+                        >
+                          <BookOpen className="w-3.5 h-3.5" />
+                          <span>Library</span>
+                        </button>
+                      </Tooltip>
+                      <Tooltip text="Claim pending rewards">
+                        <button onClick={() => setActiveTab("rewards")} className="quick-action-item">
+                          <Gift className="w-3.5 h-3.5" />
+                          <span>Rewards</span>
+                        </button>
+                      </Tooltip>
+                      <Tooltip text="View available tasks">
+                        <button onClick={() => setActiveTab("tasks")} className="quick-action-item">
+                          <CheckSquare className="w-3.5 h-3.5" />
+                          <span>Tasks</span>
+                        </button>
+                      </Tooltip>
+                      <Tooltip text="Build your reputation">
+                        <button onClick={() => setActiveTab("reputation")} className="quick-action-item">
+                          <Trophy className="w-3.5 h-3.5" />
+                          <span>Reputation</span>
+                        </button>
+                      </Tooltip>
                     </div>
-                    <div className="text-sm text-white/60 mt-1">Q¢ on Arbitrum</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm text-white/60">Ready for payments</div>
-                    <div className="text-xs text-emerald-400 flex items-center justify-end gap-1 mt-1">
-                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                      Live
+                  </section>
+
+                  <section className="rounded-xl backdrop-blur-xl bg-gradient-to-br from-purple-500/10 to-fuchsia-500/5 border border-purple-500/20 p-4">
+                    <div className="text-xs uppercase tracking-wider text-white/70 mb-3">Your Q¢ Balance</div>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-3xl font-bold text-white/95">
+                          {bals.qctArb ? (Number(bals.qctArb) / Math.pow(10, bals.qctArbDecimals || 18)).toLocaleString(undefined, { maximumFractionDigits: 2 }) : "0"}
+                        </div>
+                        <div className="text-sm text-white/60 mt-1">Q¢ on Arbitrum</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm text-white/60">Ready for payments</div>
+                        <div className="text-xs text-emerald-400 flex items-center justify-end gap-1 mt-1">
+                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                          Live
+                        </div>
+                      </div>
                     </div>
+                  </section>
+
+                  <section className="rounded-xl backdrop-blur-xl bg-gradient-to-br from-purple-500/10 to-fuchsia-500/10 border border-purple-500/20 p-4">
+                    <div className="text-xs uppercase tracking-wider text-white/70 mb-3">Smart Triad</div>
+                    <div className="space-y-2">
+                      <Tooltip text="Purchase selected content with Q¢">
+                        <button
+                          className="w-full p-3 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 hover:border-purple-500/30 transition-all text-left flex items-center gap-3 disabled:opacity-50"
+                          onClick={async () => {
+                            if (currentContent && triadContext) {
+                              await triadContext.actions.purchaseContent(currentContent.id, "arb");
+                            }
+                          }}
+                          disabled={!currentContent}
+                        >
+                          <CreditCard className="w-5 h-5 text-purple-400" />
+                          <div>
+                            <div className="text-sm text-white/90">Purchase Content</div>
+                            <div className="text-xs text-white/60">Pay with Q¢ on Arbitrum</div>
+                          </div>
+                        </button>
+                      </Tooltip>
+                      <Tooltip text="Refresh library from QubeBase">
+                        <button
+                          className="w-full p-3 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 hover:border-purple-500/30 transition-all text-left flex items-center gap-3"
+                          onClick={() => {
+                            triadContext?.actions.refreshLibrary?.();
+                            setActiveTab("library");
+                          }}
+                        >
+                          <RefreshCw className="w-5 h-5 text-purple-400" />
+                          <div>
+                            <div className="text-sm text-white/90">Sync Library</div>
+                            <div className="text-xs text-white/60">Refresh from QubeBase</div>
+                          </div>
+                        </button>
+                      </Tooltip>
+                    </div>
+                  </section>
+                </>
+              )}
+
+              {activeTab === "library" && (
+                <section className="rounded-xl backdrop-blur-xl bg-slate-900/40 border border-white/10 p-4">
+                  <div className="text-xs uppercase tracking-wider text-white/70 mb-2">Library Context</div>
+                  <div className="text-sm text-white/80">
+                    {walletNode?.contentEntitlements?.length || 0} item(s) available. Use the Library tab below to browse covers and open entitlements.
                   </div>
-                </div>
-              </section>
-              
-              {/* Smart Triad Actions */}
-              <section className="rounded-xl backdrop-blur-xl bg-gradient-to-br from-purple-500/10 to-fuchsia-500/10 border border-purple-500/20 p-4">
-                <div className="text-xs uppercase tracking-wider text-white/70 mb-3">Smart Triad</div>
-                <div className="space-y-2">
-                  <Tooltip text="Purchase selected content with Q¢">
-                    <button 
-                      className="w-full p-3 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 hover:border-purple-500/30 transition-all text-left flex items-center gap-3 disabled:opacity-50"
-                      onClick={async () => {
-                        if (currentContent && triadContext) {
-                          await triadContext.actions.purchaseContent(currentContent.id, "arb");
-                          setCopilotOpen(false);
-                        }
-                      }}
-                      disabled={!currentContent}
-                    >
-                      <CreditCard className="w-5 h-5 text-purple-400" />
-                      <div>
-                        <div className="text-sm text-white/90">Purchase Content</div>
-                        <div className="text-xs text-white/60">Pay with Q¢ on Arbitrum</div>
-                      </div>
-                    </button>
-                  </Tooltip>
-                  <Tooltip text="Refresh library from QubeBase">
-                    <button 
-                      className="w-full p-3 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 hover:border-purple-500/30 transition-all text-left flex items-center gap-3"
-                      onClick={() => {
-                        triadContext?.actions.refreshLibrary?.();
-                        setActiveTab("library");
-                        setCopilotOpen(false);
-                      }}
-                    >
-                      <RefreshCw className="w-5 h-5 text-purple-400" />
-                      <div>
-                        <div className="text-sm text-white/90">Sync Library</div>
-                        <div className="text-xs text-white/60">Refresh from QubeBase</div>
-                      </div>
-                    </button>
-                  </Tooltip>
-                  <Tooltip text="Get AI-powered content recommendations">
-                    <button 
-                      className="w-full p-3 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 hover:border-purple-500/30 transition-all text-left flex items-center gap-3"
-                    >
-                      <Target className="w-5 h-5 text-purple-400" />
-                      <div>
-                        <div className="text-sm text-white/90">Get Recommendations</div>
-                        <div className="text-xs text-white/60">AI-powered suggestions</div>
-                      </div>
-                    </button>
-                  </Tooltip>
-                </div>
-              </section>
+                </section>
+              )}
+
+              {activeTab === "tasks" && (
+                <section className="rounded-xl backdrop-blur-xl bg-slate-900/40 border border-white/10 p-4">
+                  <div className="text-xs uppercase tracking-wider text-white/70 mb-2">Task Context</div>
+                  <div className="text-sm text-white/80">
+                    {tasks.filter((t) => t.status === "pending" || t.status === "in_progress").length} active tasks and {quests.length} active quest(s).
+                  </div>
+                </section>
+              )}
+
+              {activeTab === "reputation" && (
+                <section className="rounded-xl backdrop-blur-xl bg-slate-900/40 border border-white/10 p-4">
+                  <div className="text-xs uppercase tracking-wider text-white/70 mb-2">Reputation Context</div>
+                  <div className="text-sm text-white/80">
+                    Score {activePersona?.reputationScore || 0} with {(activePersona?.badges || []).length} badge(s) earned.
+                  </div>
+                </section>
+              )}
+
+              {activeTab === "rewards" && (
+                <section className="rounded-xl backdrop-blur-xl bg-slate-900/40 border border-white/10 p-4">
+                  <div className="text-xs uppercase tracking-wider text-white/70 mb-2">Rewards Context</div>
+                  <div className="text-sm text-white/80">
+                    Lifetime rewards are surfaced in the Rewards tab. Use this copilot to claim pending rewards and review history.
+                  </div>
+                </section>
+              )}
+
+              {activeTab === "payments" && (
+                <section className="rounded-xl backdrop-blur-xl bg-slate-900/40 border border-white/10 p-4">
+                  <div className="text-xs uppercase tracking-wider text-white/70 mb-2">Payments Context</div>
+                  <div className="text-sm text-white/80">
+                    Payment flow is active. Use this copilot for conversion, settlement retries, and purchase assistance.
+                  </div>
+                </section>
+              )}
             </div>
             ) : (
-              <section className="mx-3 mt-3 rounded-xl bg-white/5 border border-white/10 p-4 h-[280px] flex flex-col items-center justify-center">
+              <section className="mx-3 mt-3 rounded-xl bg-white/5 border border-white/10 p-4 h-[320px] flex flex-col items-center justify-center">
                 <div className="text-xs uppercase tracking-wider text-white/60 mb-3">Ask MoneyPenny</div>
                 <p className="text-sm text-white/40 text-center mb-4">
                   MoneyPenny is ready to help with your wallet, rewards, and Q¢ questions.
@@ -1462,7 +1508,7 @@ export default function SmartWalletDrawer({
         )}
 
         {/* Content Area */}
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4">
           {/* Wallet Tab */}
           {activeTab === "wallet" && (
             <div className="space-y-4">
