@@ -168,7 +168,7 @@ const TAB_CONFIG: Array<{ key: DrawerTab; label: string; icon: React.ReactNode }
 const TOKEN_LOGOS: Record<string, string> = {
   ethereum: "https://cryptologos.cc/logos/ethereum-eth-logo.png?v=040",
   arbitrum: "https://cryptologos.cc/logos/arbitrum-arb-logo.png?v=040",
-  base: "https://cryptologos.cc/logos/base-base-logo.png?v=040",
+  base: "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/base/info/logo.png",
   optimism: "https://cryptologos.cc/logos/optimism-ethereum-op-logo.png?v=040",
   polygon: "https://cryptologos.cc/logos/polygon-matic-logo.png?v=040",
   solana: "https://cryptologos.cc/logos/solana-sol-logo.png?v=040",
@@ -241,10 +241,14 @@ export default function SmartWalletDrawer({
   const [copilotLoading, setCopilotLoading] = useState(false);
   const [copilotMode, setCopilotMode] = useState<'chat' | 'avatar'>('chat');
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [sidebarOffset, setSidebarOffset] = useState(64);
   const [copilotQuickPromptsVisible, setCopilotQuickPromptsVisible] = useState(true);
   const [personaMenuOpen, setPersonaMenuOpen] = useState(false);
+  const [showQcBreakdown, setShowQcBreakdown] = useState(false);
+  const [logoLoadErrors, setLogoLoadErrors] = useState<Record<string, boolean>>({});
   const askCopilotCardRef = useRef<HTMLElement | null>(null);
   const copilotAnchorRef = useRef<HTMLDivElement | null>(null);
+  const avatarAnchorRef = useRef<HTMLElement | null>(null);
   const copilotChatScrollRef = useRef<HTMLDivElement | null>(null);
   const copilotQuickPromptsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [selectedLibraryItem, setSelectedLibraryItem] = useState<any>(null);
@@ -438,7 +442,7 @@ export default function SmartWalletDrawer({
   // Request/release avatar based on copilot state and mode
   useEffect(() => {
     if (open && copilotOpen && copilotMode === 'avatar') {
-      requestAvatar('copilot', agent?.id || 'aigent-z');
+      requestAvatar('copilot', 'aigent-moneypenny');
     } else {
       releaseAvatar('copilot');
     }
@@ -451,7 +455,7 @@ export default function SmartWalletDrawer({
     if (typeof window === "undefined") return;
     const root = document.documentElement;
     const updateAnchor = () => {
-      const anchor = askCopilotCardRef.current ?? copilotAnchorRef.current;
+      const anchor = askCopilotCardRef.current ?? avatarAnchorRef.current ?? copilotAnchorRef.current;
       if (!anchor) return;
       const rect = anchor.getBoundingClientRect();
       root.style.setProperty("--metaavatar-copilot-x", `${Math.round(rect.left)}px`);
@@ -469,6 +473,34 @@ export default function SmartWalletDrawer({
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, [open, copilotOpen, copilotMode, activeTab]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const readSidebarWidth = () => {
+      const sidebar = document.querySelector("aside");
+      if (!sidebar) {
+        setSidebarOffset(0);
+        return;
+      }
+      const width = Math.max(0, Math.round(sidebar.getBoundingClientRect().width));
+      setSidebarOffset(width);
+    };
+
+    readSidebarWidth();
+    const sidebar = document.querySelector("aside");
+    const observer =
+      sidebar && typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(() => readSidebarWidth())
+        : null;
+    if (sidebar && observer) observer.observe(sidebar);
+    window.addEventListener("resize", readSidebarWidth);
+
+    return () => {
+      if (observer) observer.disconnect();
+      window.removeEventListener("resize", readSidebarWidth);
+    };
+  }, []);
 
   const [retrySettlementId, setRetrySettlementId] = useState("");
   const [retryMessageId, setRetryMessageId] = useState("");
@@ -752,6 +784,8 @@ export default function SmartWalletDrawer({
       fallbackIcon: <CircleDollarSign className="w-4 h-4 text-green-300" />,
     },
   ];
+  const qcentBalanceRows = balanceRows.filter((row) => row.unit === "Q¢");
+  const nonQcentBalanceRows = balanceRows.filter((row) => row.unit !== "Q¢");
 
   const detectIntentAndSwitchTab = (
     message: string
@@ -1213,14 +1247,14 @@ export default function SmartWalletDrawer({
         embeddedWidth === "fill"
           ? "w-full"
           : copilotOpen
-            ? "w-[28rem]"
-            : "w-[21.6rem]";
+            ? "w-[28.25rem]"
+            : "w-[21.85rem]";
       return `${baseClasses} ${drawerWidth} ${embeddedWidth === "fill" ? "" : "ml-auto"}`;
     }
     // Overlay mode
     // In codex mode, prevent expansion when copilot is open
     if (isFullscreen) {
-      return `fixed inset-y-0 right-0 left-0 md:left-16 shadow-2xl bg-black/30 backdrop-blur-xl ring-1 ring-white/10 border-l border-white/10`;
+      return `fixed inset-y-0 right-0 shadow-2xl bg-black/30 backdrop-blur-xl ring-1 ring-white/10 border-l border-white/10`;
     }
     const drawerWidth = copilotOpen && !codexMode ? "w-[28rem]" : "w-[21.6rem]";
     const baseClasses = `fixed inset-y-0 right-0 ${drawerWidth} shadow-2xl bg-black/30 backdrop-blur-xl ring-1 ring-white/10 border-l border-white/10`;
@@ -1232,7 +1266,10 @@ export default function SmartWalletDrawer({
       {variant === 'overlay' && (
         <div className="absolute inset-0 drawer-backdrop bg-black/60 backdrop-blur-sm" onClick={onClose} />
       )}
-      <div className={`${getDrawerClasses()} overflow-hidden min-h-0 flex flex-col transition-all duration-300 pt-4`}>
+      <div
+        className={`${getDrawerClasses()} overflow-hidden min-h-0 flex flex-col transition-all duration-300 pt-4`}
+        style={variant === "overlay" && isFullscreen ? { left: `${sidebarOffset}px` } : undefined}
+      >
         {/* Header with persona switch + controls (Qriptopian parity) */}
         <header className="flex items-center justify-between gap-2 px-3 py-2 mx-3 rounded-xl bg-white/5 ring-1 ring-white/10 flex-shrink-0">
           <div className="relative z-[100]">
@@ -1681,7 +1718,10 @@ export default function SmartWalletDrawer({
               )}
             </div>
             ) : (
-              <section className="mx-3 mt-3 mb-3 rounded-xl bg-white/5 border border-white/10 p-4 flex-1 min-h-0 flex flex-col items-center justify-center">
+              <section
+                ref={avatarAnchorRef}
+                className="mx-3 mt-3 mb-3 rounded-xl bg-white/5 border border-white/10 p-4 h-[290px] flex-1 min-h-0 flex flex-col items-center justify-center"
+              >
                 <div className="text-xs uppercase tracking-wider text-white/60 mb-3">Ask MoneyPenny</div>
                 <p className="text-sm text-white/40 text-center mb-4">
                   MoneyPenny is ready to help with your wallet, rewards, and Q¢ questions.
@@ -1834,16 +1874,64 @@ export default function SmartWalletDrawer({
                 </div>
                 
                 <ul className="space-y-1.5 text-sm text-white/90">
-                  {balanceRows.map((row) => (
+                  {showQcBreakdown &&
+                    qcentBalanceRows.map((row) => (
+                      <li key={row.key} className="flex items-center justify-between p-2 rounded-lg bg-white/5 border border-white/5">
+                        <span className="flex items-center gap-2">
+                          {row.logo && !logoLoadErrors[row.key] ? (
+                            <img
+                              src={row.logo}
+                              alt={`${row.label} logo`}
+                              className="w-4 h-4 rounded-full object-cover"
+                              onError={() => {
+                                setLogoLoadErrors((prev) => ({ ...prev, [row.key]: true }));
+                              }}
+                            />
+                          ) : (
+                            row.fallbackIcon
+                          )}
+                          <span>{row.label}</span>
+                        </span>
+                        <span className="font-mono text-white">
+                          {row.value} {row.unit}
+                        </span>
+                      </li>
+                    ))}
+
+                  {/* Total Q¢ (always visible, controls collapse/expand) */}
+                  <li className="pt-2 mt-1 border-t border-white/10">
+                    <button
+                      type="button"
+                      onClick={() => setShowQcBreakdown((prev) => !prev)}
+                      className="w-full flex items-center justify-between p-2 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
+                      aria-label={showQcBreakdown ? "Hide Q¢ chain balances" : "Show Q¢ chain balances"}
+                      aria-expanded={showQcBreakdown}
+                    >
+                      <span className="flex items-center gap-2 text-white/80 font-medium">
+                        <Wallet className="w-4 h-4 text-purple-400" />
+                        Total Q¢
+                      </span>
+                      <span className="flex items-center gap-2 font-mono text-white font-bold">
+                        {qctTotalStr}
+                        {showQcBreakdown ? (
+                          <ChevronDown className="w-4 h-4 text-white/70" />
+                        ) : (
+                          <ChevronRight className="w-4 h-4 text-white/70" />
+                        )}
+                      </span>
+                    </button>
+                  </li>
+
+                  {nonQcentBalanceRows.map((row) => (
                     <li key={row.key} className="flex items-center justify-between p-2 rounded-lg bg-white/5 border border-white/5">
                       <span className="flex items-center gap-2">
-                        {row.logo ? (
+                        {row.logo && !logoLoadErrors[row.key] ? (
                           <img
                             src={row.logo}
                             alt={`${row.label} logo`}
                             className="w-4 h-4 rounded-full object-cover"
-                            onError={(e) => {
-                              (e.currentTarget as HTMLImageElement).style.display = "none";
+                            onError={() => {
+                              setLogoLoadErrors((prev) => ({ ...prev, [row.key]: true }));
                             }}
                           />
                         ) : (
@@ -1856,15 +1944,6 @@ export default function SmartWalletDrawer({
                       </span>
                     </li>
                   ))}
-                  
-                  {/* Total */}
-                  <li className="flex items-center justify-between pt-2 mt-1 border-t border-white/10">
-                    <span className="flex items-center gap-2 text-white/80 font-medium">
-                      <Wallet className="w-4 h-4 text-purple-400" />
-                      Total Q¢
-                    </span>
-                    <span className="font-mono text-white font-bold">{qctTotalStr}</span>
-                  </li>
                 </ul>
                 
                 {/* Wallet Address */}
