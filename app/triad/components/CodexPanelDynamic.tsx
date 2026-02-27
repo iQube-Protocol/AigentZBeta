@@ -8,7 +8,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCodexConfig, getEnabledTabs } from "@/app/hooks/useCodexConfig";
 import { CodexTab } from "@/types/codex";
 import type { DeviceType } from "@/app/types/knytLiquidUI";
@@ -24,6 +24,7 @@ interface CodexPanelDynamicProps {
   theme?: 'light' | 'dark';
   density?: 'narrow' | 'wide';
   initialTab?: string;
+  hiddenTabs?: string[];
   personaId?: string;
   useDefaults?: boolean;        // Use hardcoded configs vs database
   previewDevice?: DeviceType;
@@ -58,18 +59,41 @@ export default function CodexPanelDynamic({
   theme = 'dark',
   density = 'wide',
   initialTab,
+  hiddenTabs = [],
   personaId,
   useDefaults = true,
   previewDevice,
 }: CodexPanelDynamicProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { data: codex, isLoading, error } = useCodexConfig({ codexId, useDefaults });
   const resolvedTheme: 'light' | 'dark' = theme === 'light' ? 'light' : 'dark';
   const normalizedInitialTab = (initialTab || '').trim().toLowerCase();
   const lastAppliedInitialTabRef = useRef<string>("");
+
+  const queryHiddenTabs = useMemo(() => {
+    const raw = (searchParams?.get("hiddenTabs") || searchParams?.get("hidden_tabs") || "").trim();
+    if (!raw) return [] as string[];
+    return raw
+      .split(",")
+      .map((value) => value.trim().toLowerCase())
+      .filter(Boolean);
+  }, [searchParams]);
+
+  const hiddenTabSet = useMemo(() => {
+    const next = new Set<string>();
+    for (const tab of [...hiddenTabs, ...queryHiddenTabs]) {
+      const slug = tab.trim().toLowerCase();
+      if (slug) next.add(slug);
+    }
+    return next;
+  }, [hiddenTabs, queryHiddenTabs]);
   
-  const enabledTabs = useMemo(() => getEnabledTabs(codex), [codex]);
+  const enabledTabs = useMemo(
+    () => getEnabledTabs(codex).filter((tab) => !hiddenTabSet.has(tab.slug.toLowerCase())),
+    [codex, hiddenTabSet]
+  );
   
   const [activeTabSlug, setActiveTabSlug] = useState<string>(
     normalizedInitialTab || enabledTabs[0]?.slug || 'codex'

@@ -223,7 +223,27 @@ export default function RuntimeShellHomePage() {
 
       if (message.type === "NAVIGATE") {
         const path = typeof message.payload.path === "string" ? message.payload.path : null;
-        if (path) router.push(path);
+        const href = typeof message.payload.href === "string" ? message.payload.href : null;
+        const target = href || path;
+        if (!target) return;
+        if (/^https?:\/\//i.test(target)) {
+          window.location.assign(target);
+          return;
+        }
+        router.push(target);
+        return;
+      }
+
+      if (message.type === "OPEN_CAPSULE") {
+        const href = typeof message.payload.href === "string" ? message.payload.href : null;
+        const path = typeof message.payload.path === "string" ? message.payload.path : null;
+        const target = href || path;
+        if (!target) return;
+        if (/^https?:\/\//i.test(target)) {
+          window.location.assign(target);
+          return;
+        }
+        router.push(target);
       }
     }
 

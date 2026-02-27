@@ -1321,8 +1321,6 @@ export default function MetaMeRuntimeClient() {
             {content.runtimeLaunchHref ? (
               <a
                 href={content.runtimeLaunchHref}
-                target="_blank"
-                rel="noreferrer"
                 className="inline-flex rounded-lg border border-emerald-300/30 bg-emerald-500/15 px-3 py-1.5 text-[11px] text-emerald-100 hover:bg-emerald-500/25"
               >
                 Open Source Capsule

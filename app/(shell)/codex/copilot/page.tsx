@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CodexCopilotLayer } from "@/app/components/codex/CodexCopilotLayer";
 import {
   Brain,
@@ -24,6 +24,34 @@ export default function CopilotViewerPage() {
   const [density, setDensity] = useState<'narrow' | 'wide' | 'extra-wide'>('narrow');
   const [controlsCollapsed, setControlsCollapsed] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [sidebarOffset, setSidebarOffset] = useState(64);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const readSidebarWidth = () => {
+      const sidebar = document.querySelector("aside");
+      if (!sidebar) {
+        setSidebarOffset(0);
+        return;
+      }
+      setSidebarOffset(Math.max(0, Math.round(sidebar.getBoundingClientRect().width)));
+    };
+
+    readSidebarWidth();
+    const sidebar = document.querySelector("aside");
+    const observer =
+      sidebar && typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(() => readSidebarWidth())
+        : null;
+    if (sidebar && observer) observer.observe(sidebar);
+    window.addEventListener("resize", readSidebarWidth);
+
+    return () => {
+      if (observer) observer.disconnect();
+      window.removeEventListener("resize", readSidebarWidth);
+    };
+  }, []);
 
   // Debug logging for copilot state
   const handleOpenCopilot = () => {
@@ -47,8 +75,9 @@ export default function CopilotViewerPage() {
   return (
     <div
       className={`flex flex-col bg-slate-900 ${
-        isFullscreen ? "fixed inset-y-0 right-0 left-0 md:left-16 z-[200]" : "h-screen"
+        isFullscreen ? "fixed inset-y-0 right-0 z-[200]" : "h-screen"
       }`}
+      style={isFullscreen ? { left: `${sidebarOffset}px` } : undefined}
     >
       {/* Header */}
       <div className="flex-shrink-0 border-b border-slate-700/50 bg-slate-800/50 p-4">

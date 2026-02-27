@@ -24,8 +24,6 @@ import {
   PanelRightOpen,
   PanelBottomClose,
   Hexagon,
-  Maximize2,
-  Minimize2,
 } from "lucide-react";
 
 interface CodexCopilotLayerProps {
@@ -167,7 +165,7 @@ export function CodexCopilotLayer({
   const [quickLinksVisible, setQuickLinksVisible] = useState(true);
   const [contextMenuOpen, setContextMenuOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [launcherCanReveal, setLauncherCanReveal] = useState(true);
+  const [sidebarOffset, setSidebarOffset] = useState(64);
 
   useEffect(() => {
     if (hideAvatarToggle && copilotMode !== "chat") {
@@ -217,12 +215,10 @@ export function CodexCopilotLayer({
   }, [initialMessage, seedMessages, messages]);
 
   const showActivationButtonWithTimeout = (timeoutMs: number = 4000) => {
-    if (!launcherCanReveal) return;
     if (activationTimeoutRef.current) clearTimeout(activationTimeoutRef.current);
     setShowActivationButton(true);
     activationTimeoutRef.current = setTimeout(() => {
       setShowActivationButton(false);
-      setLauncherCanReveal(false);
     }, timeoutMs);
   };
 
@@ -230,7 +226,6 @@ export function CodexCopilotLayer({
     if (isOpen) {
       if (activationTimeoutRef.current) clearTimeout(activationTimeoutRef.current);
       setShowActivationButton(false);
-      setLauncherCanReveal(true);
     }
   }, [isOpen]);
 
@@ -244,6 +239,34 @@ export function CodexCopilotLayer({
   useEffect(() => {
     return () => {
       if (activationTimeoutRef.current) clearTimeout(activationTimeoutRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const readSidebarWidth = () => {
+      const sidebar = document.querySelector("aside");
+      if (!sidebar) {
+        setSidebarOffset(0);
+        return;
+      }
+      const width = Math.max(0, Math.round(sidebar.getBoundingClientRect().width));
+      setSidebarOffset(width);
+    };
+
+    readSidebarWidth();
+    const sidebar = document.querySelector("aside");
+    const observer =
+      sidebar && typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(() => readSidebarWidth())
+        : null;
+    if (sidebar && observer) observer.observe(sidebar);
+    window.addEventListener("resize", readSidebarWidth);
+
+    return () => {
+      if (observer) observer.disconnect();
+      window.removeEventListener("resize", readSidebarWidth);
     };
   }, []);
 
@@ -466,6 +489,28 @@ export function CodexCopilotLayer({
     return <Trophy className="h-3.5 w-3.5" />;
   };
 
+  const resolveWalletPromptTab = (prompt: string): WalletTab | null => {
+    const normalized = prompt.toLowerCase();
+    if (/(checkout|purchase|buy|unlock|pay|wallet|balance|funds|spendable|q¢|qct)/.test(normalized)) return "wallet";
+    if (/(library|owned|entitlement)/.test(normalized)) return "library";
+    if (/(task|quest|mission)/.test(normalized)) return "tasks";
+    if (/(reward|claim|earn)/.test(normalized)) return "rewards";
+    if (/(reputation|trust|score)/.test(normalized)) return "reputation";
+    return null;
+  };
+
+  const handlePromptSuggestion = (prompt: string) => {
+    const matchedTab = resolveWalletPromptTab(prompt);
+    if (matchedTab) {
+      setWalletPanelTab(matchedTab);
+      setWalletPanelOpen(true);
+      setWalletPanelCollapsed(false);
+      void sendMessage(prompt, { skipInference: true });
+      return;
+    }
+    void sendMessage(prompt);
+  };
+
   const sendMessage = async (override?: string, options?: { skipInference?: boolean }) => {
     const message = (override ?? inputValue).trim();
     if (!message || isLoading) return;
@@ -613,23 +658,27 @@ export function CodexCopilotLayer({
         ? "w-full md:w-[32rem]"
         : "w-full md:w-[22rem]";
   const widthClass = panelClassName ?? defaultPanelWidthClass;
-  const walletPanelWidthClass = defaultPanelWidthClass;
+  const walletPanelWidthClass =
+    density === "extra-wide"
+      ? "w-full md:w-[40.25rem]"
+      : density === "wide"
+        ? "w-full md:w-[32.25rem]"
+        : "w-full md:w-[22.25rem]";
   const walletEmbeddedWidth = density === "narrow" ? "fixed" : "fill";
   const walletMenuBottomClass = floatingInput
     ? quickPromptsCollapsed
-      ? "bottom-[104px]"
-      : "bottom-[142px]"
-    : "bottom-[62px]";
+      ? "bottom-[148px]"
+      : "bottom-[188px]"
+    : "bottom-[96px]";
 
   return (
     <>
       {variant === "floating" && !isOpen && !disableActivationButton && !showActivationButton && (
         <div
           className={`fixed bottom-0 z-[110] ${
-            isMobile ? "right-0 h-28 w-28" : "right-0 h-40 w-40"
+            isMobile ? "right-0 h-36 w-36" : "right-0 h-52 w-52"
           }`}
           onMouseEnter={() => showActivationButtonWithTimeout(4000)}
-          onMouseLeave={() => setLauncherCanReveal(true)}
         />
       )}
 
@@ -657,11 +706,11 @@ export function CodexCopilotLayer({
                   isMobile
                     ? "inset-0 min-h-[100svh]"
                     : isFullscreen
-                      ? "left-16 right-0 top-0 bottom-0 md:h-[100vh]"
+                      ? "right-0 top-0 bottom-0 md:h-[100vh]"
                       : "right-2 bottom-2 md:h-[calc(100vh-96px)] md:max-h-[760px] md:min-h-[620px]"
                 }`
           }
-          style={undefined}
+          style={!isMobile && isFullscreen ? { left: `${sidebarOffset}px` } : undefined}
         >
           <div
             ref={copilotPanelRef}
@@ -726,9 +775,7 @@ export function CodexCopilotLayer({
                                 typeof msg.content === "string" ? (
                                   <CopilotInferenceBodyRenderer
                                     content={msg.content}
-                                    onPromptSuggestion={(prompt) => {
-                                      void sendMessage(prompt);
-                                    }}
+                                    onPromptSuggestion={handlePromptSuggestion}
                                   />
                                 ) : (
                                   msg.content
@@ -1066,14 +1113,6 @@ export function CodexCopilotLayer({
                             <div className="relative flex items-center gap-2">
                               <button
                                 type="button"
-                                onClick={() => setIsFullscreen((prev) => !prev)}
-                                className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 ring-1 ring-white/10 transition-colors"
-                                title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
-                                aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
-                              >
-                                {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-                              </button>
-                              <button
                                 onClick={() => setContextMenuOpen((prev) => !prev)}
                                 className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 ring-1 ring-white/10 transition-colors"
                               >
@@ -1102,15 +1141,6 @@ export function CodexCopilotLayer({
                             </div>
                           ) : (
                             <div className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={() => setIsFullscreen((prev) => !prev)}
-                                className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 ring-1 ring-white/10 transition-colors"
-                                title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
-                                aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
-                              >
-                                {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-                              </button>
                               <button
                                 onClick={onClose}
                                 className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 ring-1 ring-white/10 transition-colors"

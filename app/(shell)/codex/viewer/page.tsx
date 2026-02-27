@@ -10,6 +10,8 @@ import {
   LayoutGrid,
   Link,
   List,
+  Eye,
+  EyeOff,
   Maximize2,
   Minimize2,
   Monitor,
@@ -45,6 +47,7 @@ export default function CodexViewerPage() {
   const [theme, setTheme] = useState<"light" | "dark">("dark");
   const [density, setDensity] = useState<"narrow" | "wide">("wide");
   const [activeTab, setActiveTab] = useState("scrolls");
+  const [hiddenTabs, setHiddenTabs] = useState<string[]>([]);
   const [configCollapsed, setConfigCollapsed] = useState(false);
   const [activeSection, setActiveSection] = useState<ConfigSection>("codex");
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -66,6 +69,16 @@ export default function CodexViewerPage() {
       label: labelize(slug),
     }));
   }, [enabledTabs]);
+
+  const visibleTabOptions = useMemo(
+    () => tabOptions.filter((tab) => !hiddenTabs.includes(tab.slug)),
+    [tabOptions, hiddenTabs]
+  );
+
+  useEffect(() => {
+    if (!tabOptions.length) return;
+    setHiddenTabs((prev) => prev.filter((slug) => tabOptions.some((tab) => tab.slug === slug)));
+  }, [tabOptions]);
 
   const fallbackCodexes = useMemo<CodexOption[]>(() => ([
     { id: "knyt-codex", label: "KNYT Codex", color: "purple" },
@@ -93,14 +106,22 @@ export default function CodexViewerPage() {
   }, [codexOptions, codexId]);
 
   useEffect(() => {
-    if (!tabOptions.length) return;
-    if (!tabOptions.some(tab => tab.slug === activeTab)) {
-      setActiveTab(tabOptions[0].slug);
+    if (!visibleTabOptions.length) return;
+    if (!visibleTabOptions.some(tab => tab.slug === activeTab)) {
+      setActiveTab(visibleTabOptions[0].slug);
     }
-  }, [tabOptions, activeTab]);
+  }, [visibleTabOptions, activeTab]);
 
   const codexSlug = codexId.replace("-codex", "");
-  const embedUrl = `https://dev-beta.aigentz.me/triad/embed/codex/${codexSlug}?tab=${activeTab}&theme=${theme}&density=${density}`;
+  const hiddenTabsParam = hiddenTabs.length > 0 ? `&hiddenTabs=${encodeURIComponent(hiddenTabs.join(","))}` : "";
+  const embedUrl = `https://dev-beta.aigentz.me/triad/embed/codex/${codexSlug}?tab=${activeTab}&theme=${theme}&density=${density}${hiddenTabsParam}`;
+
+  const toggleTabHidden = (slug: string) => {
+    setHiddenTabs((prev) => {
+      if (prev.includes(slug)) return prev.filter((entry) => entry !== slug);
+      return [...prev, slug];
+    });
+  };
 
   const sections = [
     {
@@ -188,19 +209,39 @@ export default function CodexViewerPage() {
       label: "Initial Tab",
       icon: List,
       content: (
-        <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-2">
+          <div className="text-[11px] text-slate-400">
+            Visible tabs: {visibleTabOptions.length}/{tabOptions.length}
+          </div>
           {tabOptions.map((tab) => (
-            <button
-              key={tab.slug}
-              onClick={() => setActiveTab(tab.slug)}
-              className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
-                activeTab === tab.slug
-                  ? "bg-purple-500 text-white"
-                  : "bg-slate-700/50 text-slate-400 hover:bg-slate-700"
-              }`}
-            >
-              {tab.label}
-            </button>
+            <div key={tab.slug} className="flex items-center gap-2">
+              <button
+                onClick={() => setActiveTab(tab.slug)}
+                disabled={hiddenTabs.includes(tab.slug)}
+                className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-colors text-left ${
+                  hiddenTabs.includes(tab.slug)
+                    ? "bg-slate-800/60 text-slate-500 cursor-not-allowed"
+                    : activeTab === tab.slug
+                      ? "bg-purple-500 text-white"
+                      : "bg-slate-700/50 text-slate-300 hover:bg-slate-700"
+                }`}
+              >
+                {tab.label}
+              </button>
+              <button
+                type="button"
+                onClick={() => toggleTabHidden(tab.slug)}
+                className={`inline-flex items-center justify-center rounded-lg border p-2 transition-colors ${
+                  hiddenTabs.includes(tab.slug)
+                    ? "border-amber-500/40 bg-amber-500/10 text-amber-300"
+                    : "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+                }`}
+                title={hiddenTabs.includes(tab.slug) ? "Show tab" : "Hide tab"}
+                aria-label={hiddenTabs.includes(tab.slug) ? `Show ${tab.label} tab` : `Hide ${tab.label} tab`}
+              >
+                {hiddenTabs.includes(tab.slug) ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+              </button>
+            </div>
           ))}
         </div>
       ),
@@ -369,6 +410,7 @@ export default function CodexViewerPage() {
                 theme={theme}
                 density={density}
                 initialTab={activeTab}
+                hiddenTabs={hiddenTabs}
                 useDefaults={true}
                 previewDevice={previewDevice}
               />

@@ -10,6 +10,8 @@ const MAX_MERMAID_NODES = 200;
 const MAX_MERMAID_EDGES = 300;
 const RENDER_TIMEOUT_MS = 10_000;
 const QUEUE_DELAY_MS = 50;
+const MERMAID_RETRY_DELAY_MS = 120;
+const CHUNK_LOAD_ERROR_PATTERN = /(loading\s+chunk|chunkloaderror|failed\s+to\s+fetch\s+dynamically\s+imported\s+module|importing\s+a\s+module\s+script\s+failed)/i;
 
 const UNSAFE_PATTERNS = [
   /<\s*script/i,
@@ -55,16 +57,43 @@ async function withTimeout<T>(operation: PromiseLike<T>, timeoutMs: number): Pro
   }
 }
 
+function isChunkLoadFailure(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  return CHUNK_LOAD_ERROR_PATTERN.test(error.message);
+}
+
+async function createMermaidInstance(): Promise<MermaidInstance> {
+  const module = await import("mermaid");
+  const mermaid = module.default;
+  mermaid.initialize({
+    startOnLoad: false,
+    securityLevel: "strict",
+    theme: "dark",
+  });
+  return mermaid;
+}
+
 async function getMermaidInstance(): Promise<MermaidInstance> {
   if (!mermaidInstancePromise) {
-    mermaidInstancePromise = import("mermaid").then((module) => {
-      const mermaid = module.default;
-      mermaid.initialize({
-        startOnLoad: false,
-        securityLevel: "strict",
-        theme: "dark",
-      });
-      return mermaid;
+    mermaidInstancePromise = (async () => {
+      try {
+        return await createMermaidInstance();
+      } catch (error) {
+        if (!isChunkLoadFailure(error)) {
+          throw error;
+        }
+
+        // Retry once to recover from transient chunk/cache mismatch states.
+        await wait(MERMAID_RETRY_DELAY_MS);
+        try {
+          return await createMermaidInstance();
+        } catch {
+          throw new Error("Mermaid diagram bundle failed to load. Refresh the page and try again.");
+        }
+      }
+    })().catch((error) => {
+      mermaidInstancePromise = null;
+      throw error;
     });
   }
 
