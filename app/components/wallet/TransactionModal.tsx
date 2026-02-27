@@ -181,6 +181,28 @@ const QCT_ADDRESSES: Record<number, string> = {
   11155111: '0x4C4f1aD931589449962bB675bcb8e95672349d09', // Ethereum Sepolia
 };
 
+const KNYT_ADDRESSES: Partial<Record<number, string>> = {
+  11155111: process.env.NEXT_PUBLIC_KNYT_SEPOLIA || "",
+};
+
+const USDC_ADDRESSES: Partial<Record<number, string>> = {
+  11155111: process.env.NEXT_PUBLIC_USDC_SEPOLIA || "",
+  421614: process.env.NEXT_PUBLIC_USDC_ARBITRUM_SEPOLIA || "",
+  84532: process.env.NEXT_PUBLIC_USDC_BASE_SEPOLIA || "",
+};
+
+const TOKEN_LABEL: Record<TokenType, string> = {
+  KNYT: "KNYT",
+  QCT: "Q¢",
+  USDC: "USDC",
+};
+
+const DELIVERY_LABEL: Record<DeliveryMode, string> = {
+  canonical: "Direct",
+  custody: "Remote",
+  claim: "Deferred",
+};
+
 // =============================================================================
 // COMPONENT
 // =============================================================================
@@ -236,6 +258,13 @@ export function TransactionModal({
   const [verifyLoading, setVerifyLoading] = useState(false);
   const [verifyError, setVerifyError] = useState<string | null>(null);
   const [verifyResult, setVerifyResult] = useState<any>(null);
+
+  const resolveTokenAddress = (token: TokenType, chainId: ChainId): string | undefined => {
+    if (typeof chainId !== "number") return undefined;
+    if (token === "QCT") return QCT_ADDRESSES[chainId];
+    if (token === "KNYT") return KNYT_ADDRESSES[chainId] || undefined;
+    return USDC_ADDRESSES[chainId] || undefined;
+  };
 
   // Reset state when modal opens
   useEffect(() => {
@@ -313,8 +342,10 @@ export function TransactionModal({
         throw new Error(`Chain ${selectedChain} is not currently supported`);
       }
 
-      // Convert amount to wei (18 decimals for QCT)
+      // Convert amount to base units (18 decimals default for now).
       const amountWei = (BigInt(Math.floor(amountNum)) * 10n ** 18n).toString();
+      const asset = selectedToken;
+      const tokenAddress = resolveTokenAddress(selectedToken, selectedChain);
 
       // Execute transfer based on delivery mode
       let result: TransactionResult;
@@ -350,10 +381,10 @@ export function TransactionModal({
           body: JSON.stringify({
             chainId: selectedChain,
             amount: amountWei,
-            asset: 'QCT',
+            asset,
             agentId: fioHandle || agentId, // Prefer FIO handle for flexible lookup
             to: resolvedRecipient,
-            tokenAddress: QCT_ADDRESSES[selectedChain as number],
+            tokenAddress,
             deliveryMode: 'custody',
           }),
         });
@@ -367,7 +398,7 @@ export function TransactionModal({
         result = {
           success: true,
           txHash: transferData.txHash,
-          chainId: selectedChain,
+            chainId: selectedChain,
           amount: amountNum,
           recipient: resolvedRecipient,
           deliveryMode: 'custody',
@@ -384,14 +415,14 @@ export function TransactionModal({
             'X-402-Intent': 'asset.claim',
             'X-402-Sender': fioHandle ? `did:fio:${fioHandle}` : `did:iq:${agentId}`,
             'X-402-Recipient': resolvedRecipient.startsWith('did:') ? resolvedRecipient : `did:evm:${resolvedRecipient}`,
-            'X-402-Asset': 'QCT.QCENT',
+            'X-402-Asset': selectedToken === "QCT" ? 'QCT.QCENT' : selectedToken,
             'X-402-Amount': amountNum.toString(),
             'X-402-Delivery-Mode': 'claim',
             'X-402-Dev-Skip-Sig': 'true', // Dev mode
           },
           body: JSON.stringify({
             rights: {
-              asset: 'QCT',
+              asset: selectedToken,
               amount: amountNum.toString(),
             },
             redeem_to: {
@@ -426,10 +457,10 @@ export function TransactionModal({
           body: JSON.stringify({
             chainId: selectedChain,
             amount: amountWei,
-            asset: 'QCT',
+            asset,
             agentId: fioHandle || agentId, // Prefer FIO handle for flexible lookup
             to: resolvedRecipient,
-            tokenAddress: QCT_ADDRESSES[selectedChain as number],
+            tokenAddress,
           }),
         });
 
@@ -495,7 +526,7 @@ export function TransactionModal({
           payerId: requestFrom,
           payerFio: requestFrom.includes('@') ? requestFrom : undefined,
           amount: amountNum,
-          asset: 'QCT',
+          asset: selectedToken,
           chainId: requestChain,
           memo: requestMemo || undefined,
           expiresInDays: 7,
@@ -511,7 +542,7 @@ export function TransactionModal({
       setCreatedRequest({
         ...request,
         amount: amountNum,
-        asset: 'QCT',
+        asset: selectedToken,
         payerId: requestFrom,
         status: 'pending',
       });
@@ -643,11 +674,11 @@ export function TransactionModal({
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-white/60">Amount</span>
-                      <span className="text-white">{sendSuccess.amount} Q¢</span>
+                      <span className="text-white">{sendSuccess.amount} {TOKEN_LABEL[selectedToken]}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-white/60">Mode</span>
-                      <span className="text-white capitalize">{sendSuccess.deliveryMode}</span>
+                      <span className="text-white">{DELIVERY_LABEL[sendSuccess.deliveryMode]}</span>
                     </div>
                     {sendSuccess.txHash && (
                       <div className="flex items-center justify-between">
@@ -709,8 +740,8 @@ export function TransactionModal({
                     <label className="block text-sm font-medium text-white/70 mb-2">Token</label>
                     <div className="flex gap-2">
                       <button onClick={() => setSelectedToken('KNYT')} className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${selectedToken === 'KNYT' ? 'bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/50' : 'bg-white/5 text-white/60 hover:bg-white/10'}`}>KNYT</button>
-                      <button disabled className="flex-1 px-3 py-2 rounded-lg text-sm font-medium bg-white/5 text-white/30 cursor-not-allowed">Q¢ <span className="text-[9px]">SOON</span></button>
-                      <button disabled className="flex-1 px-3 py-2 rounded-lg text-sm font-medium bg-white/5 text-white/30 cursor-not-allowed">USDC <span className="text-[9px]">SOON</span></button>
+                      <button onClick={() => setSelectedToken('QCT')} className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${selectedToken === 'QCT' ? 'bg-cyan-500/20 text-cyan-300 ring-1 ring-cyan-500/50' : 'bg-white/5 text-white/60 hover:bg-white/10'}`}>Q¢</button>
+                      <button onClick={() => setSelectedToken('USDC')} className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${selectedToken === 'USDC' ? 'bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/50' : 'bg-white/5 text-white/60 hover:bg-white/10'}`}>USDC</button>
                     </div>
                   </div>
 
@@ -787,7 +818,7 @@ export function TransactionModal({
                               : 'bg-white/5 ring-1 ring-white/10 text-white/60 hover:bg-white/10'
                           }`}
                         >
-                          <div className="text-xs font-medium">Custody</div>
+                          <div className="text-xs font-medium">Remote</div>
                           <div className="text-[10px] text-white/40">Delegated</div>
                         </button>
                       )}
@@ -819,7 +850,7 @@ export function TransactionModal({
                     ) : (
                       <>
                         <Send className="w-4 h-4" />
-                        Send Q¢
+                        Send {TOKEN_LABEL[selectedToken]}
                       </>
                     )}
                   </button>
@@ -844,7 +875,7 @@ export function TransactionModal({
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-white/60">Amount</span>
-                      <span className="text-white">{createdRequest.amount} Q¢</span>
+                      <span className="text-white">{createdRequest.amount} {TOKEN_LABEL[selectedToken]}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-white/60">Requested From</span>
@@ -886,8 +917,8 @@ export function TransactionModal({
                     <label className="block text-sm font-medium text-white/70 mb-2">Token</label>
                     <div className="flex gap-2">
                       <button onClick={() => setSelectedToken('KNYT')} className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${selectedToken === 'KNYT' ? 'bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/50' : 'bg-white/5 text-white/60 hover:bg-white/10'}`}>KNYT</button>
-                      <button disabled className="flex-1 px-3 py-2 rounded-lg text-sm font-medium bg-white/5 text-white/30 cursor-not-allowed">Q¢ <span className="text-[9px]">SOON</span></button>
-                      <button disabled className="flex-1 px-3 py-2 rounded-lg text-sm font-medium bg-white/5 text-white/30 cursor-not-allowed">USDC <span className="text-[9px]">SOON</span></button>
+                      <button onClick={() => setSelectedToken('QCT')} className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${selectedToken === 'QCT' ? 'bg-cyan-500/20 text-cyan-300 ring-1 ring-cyan-500/50' : 'bg-white/5 text-white/60 hover:bg-white/10'}`}>Q¢</button>
+                      <button onClick={() => setSelectedToken('USDC')} className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${selectedToken === 'USDC' ? 'bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/50' : 'bg-white/5 text-white/60 hover:bg-white/10'}`}>USDC</button>
                     </div>
                   </div>
 
@@ -929,7 +960,7 @@ export function TransactionModal({
                   {/* Amount */}
                   <div>
                     <label className="block text-sm font-medium text-white/70 mb-2">
-                      Request Amount (Q¢)
+                      Request Amount ({TOKEN_LABEL[selectedToken]})
                     </label>
                     <input
                       type="number"

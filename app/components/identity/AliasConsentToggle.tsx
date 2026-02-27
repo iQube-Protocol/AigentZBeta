@@ -19,13 +19,17 @@ export const AliasConsentToggle: React.FC<AliasConsentToggleProps> = ({
 }) => {
   return (
     <div className={`flex items-start gap-2 ${className || ''}`}>
-      <input
-        id="alias-consent-toggle"
-        type="checkbox"
-        className="mt-0.5 h-4 w-4 accent-slate-300"
-        checked={consented}
-        onChange={(e) => onChange?.(e.target.checked)}
-      />
+      <label htmlFor="alias-consent-toggle" className="relative mt-0.5 inline-flex h-4 w-4 cursor-pointer items-center justify-center">
+        <input
+          id="alias-consent-toggle"
+          type="checkbox"
+          className="peer sr-only"
+          checked={consented}
+          onChange={(e) => onChange?.(e.target.checked)}
+        />
+        <span className="h-4 w-4 rounded border border-cyan-300/40 bg-cyan-500/10 backdrop-blur-sm transition-all peer-hover:border-cyan-300/70 peer-checked:bg-cyan-400/25 peer-checked:border-cyan-300/80" />
+        <span className="pointer-events-none absolute text-[11px] leading-none text-cyan-100 opacity-0 transition-opacity peer-checked:opacity-100">✓</span>
+      </label>
       <div className="flex items-center gap-1">
         <label htmlFor="alias-consent-toggle" className="text-xs font-medium cursor-pointer text-slate-200">
           {label}

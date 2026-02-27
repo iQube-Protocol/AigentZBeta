@@ -101,7 +101,7 @@ async function storePersona(persona: PersonaQube): Promise<void> {
     
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.message || 'Failed to store persona');
+      throw new Error(error.message || error.details || error.error || 'Failed to store persona');
     }
   } catch (error) {
     console.error('Failed to store persona:', error);

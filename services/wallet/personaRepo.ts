@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { NextRequest } from 'next/server';
+import { createHash } from 'crypto';
 
 export type PersonaVisibility = 'owner' | 'tenant_discoverable' | 'none';
 
@@ -65,26 +66,38 @@ function isUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
+function toDeterministicUuid(value: string): string {
+  if (isUuid(value)) return value.toLowerCase();
+  const hex = createHash('sha256').update(value.trim().toLowerCase()).digest('hex');
+  const a = hex.slice(0, 8);
+  const b = hex.slice(8, 12);
+  const c = `4${hex.slice(13, 16)}`;
+  const dNibble = (parseInt(hex.slice(16, 17), 16) & 0x3) | 0x8;
+  const d = `${dNibble.toString(16)}${hex.slice(17, 20)}`;
+  const e = hex.slice(20, 32);
+  return `${a}-${b}-${c}-${d}-${e}`;
+}
+
 async function ensureAuthProfileExistsById(authProfileId: string): Promise<string | null> {
-  if (!isUuid(authProfileId)) return null;
+  const canonicalId = toDeterministicUuid(authProfileId);
   const admin = getSupabaseAdminClient();
 
   const { data: existing, error: existingError } = await admin
     .from('crm_auth_profiles')
     .select('id')
-    .eq('id', authProfileId)
+    .eq('id', canonicalId)
     .maybeSingle();
 
   if (existingError) return null;
   if (existing?.id) return String(existing.id);
 
-  const syntheticEmail = `${authProfileId}@guest.agentiq.local`;
+  const syntheticEmail = `${canonicalId}@guest.agentiq.local`;
   const now = new Date().toISOString();
   const { data: created, error: createError } = await admin
     .from('crm_auth_profiles')
     .upsert(
       {
-        id: authProfileId,
+        id: canonicalId,
         email: syntheticEmail,
         email_verified: false,
         is_active: true,
@@ -97,7 +110,7 @@ async function ensureAuthProfileExistsById(authProfileId: string): Promise<strin
     .maybeSingle();
 
   if (createError) return null;
-  return created?.id ? String(created.id) : authProfileId;
+  return created?.id ? String(created.id) : canonicalId;
 }
 
 export type CallerIdentityContext = {

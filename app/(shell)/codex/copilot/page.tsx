@@ -222,6 +222,7 @@ export default function CopilotViewerPage() {
         isOpen={isCopilotOpen}
         onClose={handleCloseCopilot}
         onOpen={handleOpenCopilot}
+        density={density}
         enableInferenceRendering
         quickPrompts={[
           "Summarize the latest Codex lore",

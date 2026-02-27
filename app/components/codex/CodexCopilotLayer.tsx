@@ -275,10 +275,12 @@ export function CodexCopilotLayer({
     };
 
     updateAnchor();
-    const id = requestAnimationFrame(function tick() {
+    let id = 0;
+    const tick = () => {
       updateAnchor();
-      requestAnimationFrame(tick);
-    });
+      id = requestAnimationFrame(tick);
+    };
+    id = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(id);
   }, [copilotMode]);
 
@@ -597,6 +599,8 @@ export function CodexCopilotLayer({
       : density === "wide"
         ? "w-full md:w-[480px]"
         : "w-full md:w-[320px]");
+  const walletPanelWidthClass = density === "wide" ? "w-full md:w-[32rem]" : "w-full md:w-[22rem]";
+  const walletEmbeddedWidth = density === "wide" ? "fill" : "fixed";
 
   return (
     <>
@@ -1093,7 +1097,7 @@ export function CodexCopilotLayer({
           </div>
 
           {walletPanelOpen && !walletPanelCollapsed && (
-            <div className="rounded-2xl overflow-hidden ring-1 ring-white/10 shadow-2xl w-full md:w-auto h-full min-h-0 md:h-full md:max-h-none">
+            <div className={`rounded-2xl overflow-hidden ring-1 ring-white/10 shadow-2xl ${walletPanelWidthClass} h-full min-h-0 md:h-full md:max-h-none`}>
               <SmartWalletDrawer
                 open={true}
                 onClose={() => {
@@ -1101,7 +1105,7 @@ export function CodexCopilotLayer({
                   setWalletPanelCollapsed(false);
                 }}
                 variant="embedded"
-                embeddedWidth="fixed"
+                embeddedWidth={walletEmbeddedWidth}
                 initialTab={walletPanelTab}
                 onTabChange={setWalletPanelTab}
                 agent={agent || {

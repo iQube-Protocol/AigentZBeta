@@ -178,7 +178,7 @@ function SmartWalletViewerContent() {
             open={true}
             onClose={() => {}} // No-op in embedded mode
             variant="embedded"
-            embeddedWidth={density === 'wide' ? 'fixed' : 'fill'}
+            embeddedWidth={density === 'wide' ? 'fill' : 'fixed'}
             agent={agent}
             personaId={personaId}
             codexMode={true}
