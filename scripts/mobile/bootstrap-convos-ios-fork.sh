@@ -20,7 +20,9 @@ fi
 echo "==> Creating fork ${ORG}/${REPO} from ${UPSTREAM} (if needed)"
 if ! gh repo view "${ORG}/${REPO}" >/dev/null 2>&1; then
   gh repo fork "${UPSTREAM}" --org "${ORG}" --clone=false
-  gh repo rename "${ORG}/convos-ios" "${REPO}"
+  if [[ "${REPO}" != "convos-ios" ]]; then
+    gh repo rename "${REPO}" --repo "${ORG}/convos-ios"
+  fi
 fi
 
 if [[ -d "${REPO}" ]]; then
@@ -47,4 +49,3 @@ echo "Next steps:"
 echo "1. Open Xcode and add MetaMeRuntimeApp target"
 echo "2. Add RuntimeDev/RuntimeStaging/RuntimeProd xcconfig files"
 echo "3. Commit first target scaffolding PR"
-
