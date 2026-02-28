@@ -101,6 +101,7 @@ async function run(): Promise<void> {
         : environment !== "prod",
     mcpTimeoutMs: Number(process.env.OPENCLAW_MCP_TIMEOUT_MS || "12000"),
     discordChannelId: process.env.DISCORD_METAKNYTS_CHANNEL_ID || "",
+    xmtpGroupId: parseCSV(process.env.XMTP_GROUP_ID_ALLOWLIST)[0] || "",
     dataDir: process.env.OPENCLAW_DATA_DIR || ".data",
     receiptEmitter: async (receipt) => dvnService.emit(receipt),
   });

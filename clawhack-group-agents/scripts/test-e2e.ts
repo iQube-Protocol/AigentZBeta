@@ -156,6 +156,7 @@ class E2ETestHarness {
         allowRegistryFallback: true,
         mcpTimeoutMs: Number(process.env.OPENCLAW_MCP_TIMEOUT_MS || "12000"),
         discordChannelId: this.config.discord_channel_id,
+        xmtpGroupId: this.config.xmtp_group_id,
         dataDir: process.env.OPENCLAW_DATA_DIR || ".data",
         receiptEmitter: async (receipt) => {
           await this.dvnService.emit(receipt);

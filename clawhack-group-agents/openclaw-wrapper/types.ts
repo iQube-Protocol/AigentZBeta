@@ -130,6 +130,7 @@ export interface OpenClawWorkerConfig {
   allowStubToolResults?: boolean;
   allowRegistryFallback?: boolean;
   discordChannelId?: string;
+  xmtpGroupId?: string;
   dataDir?: string;
   receiptEmitter?: (receipt: DVNReceipt) => Promise<void>;
 }

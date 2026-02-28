@@ -33,9 +33,13 @@ interface OutboundLink {
 
 export class OpenClawWorker {
   private readonly config: Required<
-    Omit<OpenClawWorkerConfig, "receiptEmitter" | "dataDir" | "discordChannelId" | "moltComicsEnabled"> & {
+    Omit<
+      OpenClawWorkerConfig,
+      "receiptEmitter" | "dataDir" | "discordChannelId" | "xmtpGroupId" | "moltComicsEnabled"
+    > & {
       dataDir: string;
       discordChannelId: string;
+      xmtpGroupId: string;
       moltComicsEnabled: boolean;
     }
   >;
@@ -54,6 +58,7 @@ export class OpenClawWorker {
       allowStubToolResults: false,
       allowRegistryFallback: false,
       discordChannelId: "",
+      xmtpGroupId: "",
       moltComicsEnabled: false,
       dataDir: ".data",
       ...config,
@@ -335,6 +340,9 @@ export class OpenClawWorker {
         this.buildDiscordCapsuleOutbound(context, artifacts, outboundLinks)
       );
     }
+    if (this.config.xmtpGroupId && context.inbound.provider.name !== "xmtp") {
+      outboundEvents.push(this.buildXMTPRelayOutbound(context, artifacts, outboundLinks));
+    }
 
     return { outboundEvents, artifacts };
   }
@@ -413,6 +421,42 @@ export class OpenClawWorker {
       thread: {
         provider_thread_id: this.config.discordChannelId,
         provider_channel_id: this.config.discordChannelId,
+      },
+      message: {
+        content: {
+          text,
+          format: "markdown",
+          ...(links.length > 0 ? { buttons: links.slice(0, 3) } : {}),
+        },
+      },
+      audit: {
+        request_id: context.requestId,
+        artifacts: artifacts.map((artifact) => ({
+          iqube_id: artifact.iqube_id,
+          label: artifact.label,
+        })),
+      },
+      security: {
+        data_classification: "internal",
+        receipt_required: true,
+      },
+    };
+  }
+
+  private buildXMTPRelayOutbound(
+    context: RunContext,
+    artifacts: MintedArtifactRef[],
+    links: OutboundLink[] = []
+  ): OutboundEvent {
+    const text = `🛰️ metaKnyt update: ${artifacts.map((artifact) => artifact.label).join(", ")}.`;
+    return {
+      schema: "metame.bridge.outbound.v0",
+      tenant_id: this.config.tenantId,
+      provider: {
+        name: "xmtp",
+      },
+      thread: {
+        provider_thread_id: this.config.xmtpGroupId,
       },
       message: {
         content: {
