@@ -10,6 +10,11 @@ import type {
   OutboundEvent,
   DVNReceipt,
 } from "../../schemas/bridgeEvents";
+import {
+  envelopeIntentToHint,
+  normalizeInboundText,
+  outboundEventToProviderPayload,
+} from "../../bridge-core/metameEnvelopeBridge";
 import { BridgeAdapter, type AdapterConfig, type PublishResult } from "../../bridge-core/adapter";
 
 export interface XMTPAdapterConfig extends AdapterConfig {
@@ -148,6 +153,7 @@ export class XMTPAdapter extends BridgeAdapter {
 
     try {
       let messageId: string;
+      const providerPayload = outboundEventToProviderPayload(event);
       if (this.simulationMode) {
         messageId = `msg_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
       } else {
@@ -155,7 +161,7 @@ export class XMTPAdapter extends BridgeAdapter {
         if (!conversation || typeof conversation.send !== "function") {
           throw new Error(`Unable to resolve XMTP conversation ${groupId}`);
         }
-        const sent = await conversation.send(event.message.content.text);
+        const sent = await conversation.send(providerPayload);
         messageId =
           (typeof sent === "string" ? sent : sent?.id) ||
           `msg_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
@@ -239,10 +245,14 @@ export class XMTPAdapter extends BridgeAdapter {
   private normalizeInboundMessage(message: XMTPMessage, groupId: string): InboundEvent {
     const threadKey = this.hashPayload(`${this.config.tenant_id}:xmtp:${groupId}`);
 
-    // Simple intent detection
-    const text = this.extractTextContent(message.content);
+    // Prefer canonical metaMe envelope, with text extraction fallback.
+    const extractedText = this.extractTextContent(message.content);
+    const normalized = normalizeInboundText(message.content, extractedText);
+    const text = normalized.text;
     let intent_hint: InboundEvent["routing"]["intent_hint"] = "unknown";
-    if (text.includes("drop") || text.includes("comic") || text.includes("make")) {
+    if (normalized.envelope) {
+      intent_hint = envelopeIntentToHint(normalized.envelope.intent);
+    } else if (text.includes("drop") || text.includes("comic") || text.includes("make")) {
       intent_hint = "create_drop";
     } else if (text.includes("summarize") || text.includes("summary")) {
       intent_hint = "summarize";
@@ -274,6 +284,7 @@ export class XMTPAdapter extends BridgeAdapter {
         content: {
           type: "text",
           text: text,
+          metame_envelope: normalized.envelope || undefined,
         },
       },
       routing: {

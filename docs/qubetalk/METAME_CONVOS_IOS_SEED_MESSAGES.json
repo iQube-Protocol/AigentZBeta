@@ -1,0 +1,138 @@
+[
+  {
+    "type": "decision",
+    "thread": "spec",
+    "severity": "info",
+    "title": "Adopt metame.envelope.v1 as canonical runtime transport payload",
+    "body": "All runtime payload-bearing messages across XMTP, QubeTalk, and runtime shell integrations must use metame.envelope.v1 with text fallback only for backward compatibility.",
+    "acceptance": [
+      "Envelope contract published and versioned",
+      "Bridge adapters ingest envelope payloads",
+      "Fallback path retained for legacy text-only messages"
+    ],
+    "refs": {
+      "repo": "AigentZBeta",
+      "paths": [
+        "packages/metame-contracts/src/types/runtimeEnvelope.ts",
+        "clawhack-group-agents/schemas/metameEnvelope.ts"
+      ],
+      "endpoints": [],
+      "env": []
+    },
+    "control": {
+      "id": "ios-seed-spec-001",
+      "supersedes_id": null,
+      "depends_on": [],
+      "assignee": "aigent_z",
+      "status": "open"
+    },
+    "attestations": {
+      "authority": "chatgpt",
+      "signature": ""
+    }
+  },
+  {
+    "type": "task",
+    "thread": "dev-exec",
+    "severity": "blocker",
+    "title": "Fork convos-ios and create MetaMeRuntimeApp target",
+    "body": "Create a maintained fork of xmtplabs/convos-ios and add a new app target MetaMeRuntimeApp that keeps ConvosCore/XMTP infrastructure while replacing root UX with metaMe runtime shell.",
+    "acceptance": [
+      "MetaMeRuntimeApp target compiles on iPhone and iPad simulators",
+      "Convos upstream target remains buildable in same workspace",
+      "Environment config injected for AA API and QubeTalk endpoints"
+    ],
+    "refs": {
+      "repo": "metame-convos-ios (fork)",
+      "paths": [],
+      "endpoints": [
+        "GET /aa/v1/runtime/shell-config"
+      ],
+      "env": [
+        "AA_API_BASE_URL",
+        "QUBETALK_WS_URL",
+        "METAME_TENANT_ID"
+      ]
+    },
+    "control": {
+      "id": "ios-seed-dev-001",
+      "supersedes_id": null,
+      "depends_on": [
+        "ios-seed-spec-001"
+      ],
+      "assignee": "windsurf_cascade",
+      "status": "open"
+    },
+    "attestations": {
+      "authority": "chatgpt",
+      "signature": ""
+    }
+  },
+  {
+    "type": "task",
+    "thread": "ui-shell",
+    "severity": "info",
+    "title": "Implement MetaMeMessagingBridge in iOS app",
+    "body": "Create an iOS bridge module that maps XMTP conversation events to metame runtime envelopes and routes runtime shell actions/prompt submission back over XMTP/QubeTalk.",
+    "acceptance": [
+      "Envelope serializer/deserializer implemented in Swift",
+      "Prompt send emits metame.envelope.v1",
+      "Inbound envelope updates runtime chat/inference state"
+    ],
+    "refs": {
+      "repo": "metame-convos-ios (fork)",
+      "paths": [],
+      "endpoints": [],
+      "env": []
+    },
+    "control": {
+      "id": "ios-seed-ui-001",
+      "supersedes_id": null,
+      "depends_on": [
+        "ios-seed-dev-001"
+      ],
+      "assignee": "lovable_agent",
+      "status": "open"
+    },
+    "attestations": {
+      "authority": "chatgpt",
+      "signature": ""
+    }
+  },
+  {
+    "type": "task",
+    "thread": "api-wiring",
+    "severity": "info",
+    "title": "Add iOS runtime hydration profile in AA API",
+    "body": "Ensure runtime shell-config supports explicit iOS profiles for mobile/tablet to drive shell density/menu behavior and trust/reliability selectors in native app surfaces.",
+    "acceptance": [
+      "AA API returns iOS profile hints in shell-config",
+      "Profiles distinguish mobile and tablet runtime density/layout rules",
+      "No regression for web thin client consumers"
+    ],
+    "refs": {
+      "repo": "AigentZBeta",
+      "paths": [
+        "app/api/aa/v1/runtime/_lib/runtimeShell.ts"
+      ],
+      "endpoints": [
+        "GET /aa/v1/runtime/shell-config"
+      ],
+      "env": []
+    },
+    "control": {
+      "id": "ios-seed-api-001",
+      "supersedes_id": null,
+      "depends_on": [
+        "ios-seed-spec-001"
+      ],
+      "assignee": "aigent_z",
+      "status": "open"
+    },
+    "attestations": {
+      "authority": "aigent_z",
+      "signature": ""
+    }
+  }
+]
+

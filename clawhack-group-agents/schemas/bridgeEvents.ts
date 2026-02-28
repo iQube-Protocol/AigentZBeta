@@ -1,3 +1,5 @@
+import type { MetaMeRuntimeEnvelope } from "./metameEnvelope";
+
 /**
  * Canonical Bridge Event Schemas for ClawHack Group Agents
  * 
@@ -42,6 +44,7 @@ export interface InboundEvent {
     content: {
       type: "text" | "command" | "attachment";
       text?: string;
+      metame_envelope?: MetaMeRuntimeEnvelope;
       attachments?: Array<{
         name: string;
         mime: string;
@@ -80,6 +83,7 @@ export interface OutboundEvent {
     content: {
       text: string;
       format: "plain" | "markdown";
+      metame_envelope?: MetaMeRuntimeEnvelope;
       attachments?: Array<{
         name: string;
         mime: string;
