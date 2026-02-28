@@ -8,6 +8,8 @@ export interface RuntimeChannelMap {
   bridgeOutbound: string;
   openclawRequests: string;
   openclawResponses: string;
+  dvnReceipts: string;
+  artifactsMinted: string;
   router: string;
 }
 
@@ -18,6 +20,8 @@ export async function loadRuntimeChannelMap(baseDir: string): Promise<RuntimeCha
     bridgeOutbound: process.env.QT_CHANNEL_BRIDGE_OUTBOUND_ID,
     openclawRequests: process.env.QT_CHANNEL_OPENCLAW_REQUESTS_ID,
     openclawResponses: process.env.QT_CHANNEL_OPENCLAW_RESPONSES_ID,
+    dvnReceipts: process.env.QT_CHANNEL_DVN_RECEIPTS_ID,
+    artifactsMinted: process.env.QT_CHANNEL_ARTIFACTS_MINTED_ID,
     router: process.env.QT_CHANNEL_ROUTER_ID,
   };
   if (Object.values(configured).every((value) => typeof value === "string" && value.length > 0)) {
@@ -34,6 +38,8 @@ export async function loadRuntimeChannelMap(baseDir: string): Promise<RuntimeCha
       parsed.bridgeOutbound &&
       parsed.openclawRequests &&
       parsed.openclawResponses &&
+      parsed.dvnReceipts &&
+      parsed.artifactsMinted &&
       parsed.router
     ) {
       return parsed as RuntimeChannelMap;

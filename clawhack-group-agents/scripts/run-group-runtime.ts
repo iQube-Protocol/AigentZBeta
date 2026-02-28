@@ -243,6 +243,22 @@ async function run(): Promise<void> {
           iqubeRefs: result.artifacts.map((artifact) => artifact.iqube_id),
         });
 
+        for (const artifact of result.artifacts) {
+          await qubetalkClient.sendMessage({
+            channelId: channelMap.artifactsMinted,
+            fromAgent: OPENCLAW_AGENT,
+            type: "event",
+            content: JSON.stringify({
+              event: "artifact.minted",
+              request_id: result.requestId,
+              iqube_id: artifact.iqube_id,
+              label: artifact.label,
+              type: artifact.type,
+            }),
+            iqubeRefs: [artifact.iqube_id],
+          });
+        }
+
         for (const outbound of result.outboundEvents) {
           await qubetalkClient.sendOutboundEvent(
             channelMap.bridgeOutbound,
