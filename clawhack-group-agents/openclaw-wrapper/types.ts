@@ -124,6 +124,7 @@ export interface OpenClawWorkerConfig {
   workspace: string;
   registryEndpoint: string;
   shelfId: string;
+  moltComicsEnabled?: boolean;
   allowlistEnabled?: boolean;
   mcpTimeoutMs?: number;
   allowStubToolResults?: boolean;

@@ -149,6 +149,55 @@ export class MCPInvoker {
       };
     }
 
+    if (toolId === "moltcomics.story.create") {
+      const storyId = `story_${Date.now()}`;
+      return {
+        story_id: storyId,
+        url: `https://www.moltcomics.com/story/${storyId}`,
+        status: "created",
+      };
+    }
+
+    if (toolId === "moltcomics.story.status") {
+      return {
+        story_id: typeof args.story_id === "string" ? args.story_id : "story_stub",
+        round_id: `round_${Date.now()}`,
+        phase: "submission",
+      };
+    }
+
+    if (toolId === "moltcomics.panel.submit") {
+      const panelId = `panel_${Date.now()}`;
+      const storyId = typeof args.story_id === "string" ? args.story_id : "story_stub";
+      return {
+        panel_id: panelId,
+        story_id: storyId,
+        panel_url: `https://www.moltcomics.com/story/${storyId}/panel/${panelId}`,
+        status: "submitted",
+      };
+    }
+
+    if (toolId === "moltcomics.round.result") {
+      return {
+        status: "provisional",
+        winner: {
+          panel_id: `panel_${Date.now()}`,
+          panel_url: "https://www.moltcomics.com/panel/winner",
+          caption: "21 sats teaser winner",
+        },
+      };
+    }
+
+    if (toolId === "moltcomics.export.story") {
+      return {
+        export_url: "https://www.moltcomics.com/export/story-pack.zip",
+        manifest: {
+          story_id: typeof args.story_id === "string" ? args.story_id : "story_stub",
+          assets: [{ type: "panel", url: "https://www.moltcomics.com/panel/winner" }],
+        },
+      };
+    }
+
     return {
       tool_id: toolId,
       status: "stubbed",

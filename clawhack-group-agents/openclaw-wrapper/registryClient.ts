@@ -29,6 +29,11 @@ const FALLBACK_PROVIDERS: RegistryProvider[] = [
     name: "Aigent Marketa",
     connection: { type: "mcp", endpoint: "http://localhost:4013/mcp" },
   },
+  {
+    provider_id: "prov_moltcomics",
+    name: "MoltComics",
+    connection: { type: "mcp", endpoint: "http://localhost:4014/mcp" },
+  },
 ];
 
 const FALLBACK_TOOLS: RegistryTool[] = [
@@ -66,6 +71,56 @@ const FALLBACK_TOOLS: RegistryTool[] = [
     tool_id: "marketa.copy.generate_pack",
     provider_id: "prov_marketa",
     name: "Generate Marketing Copy Pack",
+    policy: {
+      allowed_scopes: ["thread_only"],
+      constraints: { max_calls_per_job: 1, max_calls_per_thread: 2 },
+      data_classification_max: "internal",
+    },
+  },
+  {
+    tool_id: "moltcomics.story.create",
+    provider_id: "prov_moltcomics",
+    name: "Create MoltComics Story",
+    policy: {
+      allowed_scopes: ["thread_only"],
+      constraints: { max_calls_per_job: 1, max_calls_per_thread: 2 },
+      data_classification_max: "internal",
+    },
+  },
+  {
+    tool_id: "moltcomics.story.status",
+    provider_id: "prov_moltcomics",
+    name: "Get MoltComics Story Status",
+    policy: {
+      allowed_scopes: ["thread_only"],
+      constraints: { max_calls_per_job: 2, max_calls_per_thread: 4 },
+      data_classification_max: "internal",
+    },
+  },
+  {
+    tool_id: "moltcomics.panel.submit",
+    provider_id: "prov_moltcomics",
+    name: "Submit MoltComics Panel",
+    policy: {
+      allowed_scopes: ["thread_only"],
+      constraints: { max_calls_per_job: 2, max_calls_per_thread: 4 },
+      data_classification_max: "internal",
+    },
+  },
+  {
+    tool_id: "moltcomics.round.result",
+    provider_id: "prov_moltcomics",
+    name: "Get MoltComics Round Result",
+    policy: {
+      allowed_scopes: ["thread_only"],
+      constraints: { max_calls_per_job: 1, max_calls_per_thread: 2 },
+      data_classification_max: "internal",
+    },
+  },
+  {
+    tool_id: "moltcomics.export.story",
+    provider_id: "prov_moltcomics",
+    name: "Export MoltComics Story",
     policy: {
       allowed_scopes: ["thread_only"],
       constraints: { max_calls_per_job: 1, max_calls_per_thread: 2 },

@@ -26,11 +26,17 @@ interface RunContext {
   receipts: DVNReceipt[];
 }
 
+interface OutboundLink {
+  label: string;
+  url: string;
+}
+
 export class OpenClawWorker {
   private readonly config: Required<
-    Omit<OpenClawWorkerConfig, "receiptEmitter" | "dataDir" | "discordChannelId"> & {
+    Omit<OpenClawWorkerConfig, "receiptEmitter" | "dataDir" | "discordChannelId" | "moltComicsEnabled"> & {
       dataDir: string;
       discordChannelId: string;
+      moltComicsEnabled: boolean;
     }
   >;
   private readonly receiptEmitter?: (receipt: DVNReceipt) => Promise<void>;
@@ -48,6 +54,7 @@ export class OpenClawWorker {
       allowStubToolResults: false,
       allowRegistryFallback: false,
       discordChannelId: "",
+      moltComicsEnabled: false,
       dataDir: ".data",
       ...config,
     };
@@ -232,6 +239,7 @@ export class OpenClawWorker {
     );
 
     const artifacts: MintedArtifactRef[] = [comicArtifact, dprArtifact];
+    const outboundLinks: OutboundLink[] = [];
 
     if (context.snapshot.allowedToolIds.has("marketa.copy.generate_pack")) {
       const marketingResult = await this.invokeCuratedTool(
@@ -258,6 +266,20 @@ export class OpenClawWorker {
         context
       );
       artifacts.push(marketingArtifact);
+    }
+
+    if (this.config.moltComicsEnabled) {
+      const moltComicsOutcome = await this.tryRunMoltComicsPublish(
+        context,
+        dataClassification,
+        toolchain,
+        comicArtifact,
+        brief
+      );
+      if (moltComicsOutcome.artifact) {
+        artifacts.push(moltComicsOutcome.artifact);
+      }
+      outboundLinks.push(...moltComicsOutcome.links);
     }
 
     const summary = this.buildRunSummary(brief, artifacts);
@@ -297,15 +319,18 @@ export class OpenClawWorker {
       "KNYT Drop Captain completed this run.",
       `Generated ${artifacts.length} artifacts and passed DPR checks.`,
       `ConversationQube: ${conversationPersist.qube.conversation_qube_id}`,
+      outboundLinks.length > 0
+        ? `MoltComics links: ${outboundLinks.map((link) => link.url).join(" • ")}`
+        : "",
     ].join(" ");
 
     const outboundEvents: OutboundEvent[] = [
-      this.buildOutboundForInboundProvider(context, primaryText, artifacts),
+      this.buildOutboundForInboundProvider(context, primaryText, artifacts, outboundLinks),
     ];
 
     if (this.config.discordChannelId && context.inbound.provider.name !== "discord") {
       outboundEvents.push(
-        this.buildDiscordCapsuleOutbound(context, artifacts)
+        this.buildDiscordCapsuleOutbound(context, artifacts, outboundLinks)
       );
     }
 
@@ -333,7 +358,8 @@ export class OpenClawWorker {
   private buildOutboundForInboundProvider(
     context: RunContext,
     text: string,
-    artifacts: MintedArtifactRef[]
+    artifacts: MintedArtifactRef[],
+    links: OutboundLink[] = []
   ): OutboundEvent {
     return {
       schema: "metame.bridge.outbound.v0",
@@ -350,6 +376,7 @@ export class OpenClawWorker {
         content: {
           text,
           format: "markdown",
+          ...(links.length > 0 ? { buttons: links.slice(0, 3) } : {}),
         },
       },
       audit: {
@@ -368,7 +395,8 @@ export class OpenClawWorker {
 
   private buildDiscordCapsuleOutbound(
     context: RunContext,
-    artifacts: MintedArtifactRef[]
+    artifacts: MintedArtifactRef[],
+    links: OutboundLink[] = []
   ): OutboundEvent {
     const text = `✨ 21 Sats drop ready: ${artifacts
       .map((artifact) => artifact.label)
@@ -388,6 +416,7 @@ export class OpenClawWorker {
         content: {
           text,
           format: "markdown",
+          ...(links.length > 0 ? { buttons: links.slice(0, 3) } : {}),
         },
       },
       audit: {
@@ -461,6 +490,129 @@ export class OpenClawWorker {
     return invocation.data;
   }
 
+  private async tryRunMoltComicsPublish(
+    context: RunContext,
+    dataClassification: DataClassification,
+    toolchain: string[],
+    comicArtifact: MintedArtifactRef,
+    brief: string
+  ): Promise<{ links: OutboundLink[]; artifact?: MintedArtifactRef }> {
+    const links: OutboundLink[] = [];
+    const payload: Record<string, unknown> = {};
+    const hasTool = (toolId: string): boolean =>
+      context.snapshot.allowedToolIds.has(toolId) && context.snapshot.toolsById.has(toolId);
+
+    if (!hasTool("moltcomics.story.create")) {
+      return { links };
+    }
+
+    try {
+      const storyCreate = await this.invokeCuratedTool(
+        "moltcomics.story.create",
+        {
+          title: "metaKnyt 21 Sats Drop",
+          premise: brief,
+          tags: ["metaknyt", "21_sats", "knyt"],
+          visibility: "unlisted",
+        },
+        context,
+        dataClassification,
+        toolchain
+      );
+      payload.story_create = storyCreate;
+
+      const storyId = this.readStringByKeys(storyCreate, ["story_id", "id"]);
+      const storyUrl = this.readStringByKeys(storyCreate, ["url", "story_url"]);
+      this.pushOutboundLink(links, "View MoltComics Story", storyUrl);
+
+      let roundId: string | undefined;
+      if (storyId && hasTool("moltcomics.story.status")) {
+        const storyStatus = await this.invokeCuratedTool(
+          "moltcomics.story.status",
+          { story_id: storyId },
+          context,
+          dataClassification,
+          toolchain
+        );
+        payload.story_status = storyStatus;
+        roundId = this.readStringByKeys(storyStatus, ["round_id"]);
+      }
+
+      if (storyId && hasTool("moltcomics.panel.submit")) {
+        const panelSubmit = await this.invokeCuratedTool(
+          "moltcomics.panel.submit",
+          {
+            story_id: storyId,
+            round_id: roundId,
+            caption: "21 Sats teaser panel generated by myBot",
+            metadata: {
+              prompt_pack_ref: comicArtifact.iqube_id,
+              knyt: { issue: "21_sats", tone: "cinematic" },
+            },
+          },
+          context,
+          dataClassification,
+          toolchain
+        );
+        payload.panel_submit = panelSubmit;
+        const panelUrl = this.readStringByKeys(panelSubmit, ["panel_url", "url"]);
+        this.pushOutboundLink(links, "View Comic Panel", panelUrl);
+      }
+
+      if (storyId && hasTool("moltcomics.round.result")) {
+        const roundResult = await this.invokeCuratedTool(
+          "moltcomics.round.result",
+          {
+            story_id: storyId,
+            round_id: roundId,
+          },
+          context,
+          dataClassification,
+          toolchain
+        );
+        payload.round_result = roundResult;
+        const winnerPanelUrl = this.readNestedString(roundResult, ["winner", "panel_url"]);
+        this.pushOutboundLink(links, "View Winning Panel", winnerPanelUrl);
+      }
+
+      if (storyId && hasTool("moltcomics.export.story")) {
+        const storyExport = await this.invokeCuratedTool(
+          "moltcomics.export.story",
+          {
+            story_id: storyId,
+            format: "manifest_json",
+            include: ["panels", "captions", "metadata"],
+          },
+          context,
+          dataClassification,
+          toolchain
+        );
+        payload.story_export = storyExport;
+        const exportUrl = this.readStringByKeys(storyExport, ["export_url", "url"]);
+        this.pushOutboundLink(links, "Open Story Export", exportUrl);
+      }
+
+      const artifact = await this.mintArtifactAndReceipt(
+        {
+          tenantId: this.config.tenantId,
+          threadKey: context.inbound.thread.thread_key,
+          requestId: context.requestId,
+          type: "ContentQube",
+          label: "MoltComics Publish Result",
+          payload,
+          toolchain: [...toolchain],
+        },
+        context
+      );
+
+      return { links, artifact };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.warn(`[openclaw-worker] MoltComics publish failed: ${errorMessage}`);
+      return { links };
+    }
+  }
+
   private async mintArtifactAndReceipt(
     input: {
       tenantId: string;
@@ -522,5 +674,42 @@ export class OpenClawWorker {
     if (this.receiptEmitter) {
       await this.receiptEmitter(receipt);
     }
+  }
+
+  private readStringByKeys(value: unknown, keys: string[]): string | undefined {
+    if (!value || typeof value !== "object") {
+      return undefined;
+    }
+    const record = value as Record<string, unknown>;
+    for (const key of keys) {
+      const raw = record[key];
+      if (typeof raw === "string" && raw.trim().length > 0) {
+        return raw.trim();
+      }
+    }
+    return undefined;
+  }
+
+  private readNestedString(value: unknown, path: string[]): string | undefined {
+    let current: unknown = value;
+    for (const key of path) {
+      if (!current || typeof current !== "object") {
+        return undefined;
+      }
+      current = (current as Record<string, unknown>)[key];
+    }
+    return typeof current === "string" && current.trim().length > 0
+      ? current.trim()
+      : undefined;
+  }
+
+  private pushOutboundLink(links: OutboundLink[], label: string, url: string | undefined): void {
+    if (!url || !/^https?:\/\//i.test(url)) {
+      return;
+    }
+    if (links.some((link) => link.url === url)) {
+      return;
+    }
+    links.push({ label, url });
   }
 }

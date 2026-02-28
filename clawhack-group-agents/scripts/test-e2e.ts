@@ -150,6 +150,7 @@ class E2ETestHarness {
         workspace: this.config.workspace,
         registryEndpoint: process.env.MCP_REGISTRY_ENDPOINT || "http://localhost:8080/registry",
         shelfId: process.env.MCP_SHELF_ID || "shelf_clawhack_2026_group_agents",
+        moltComicsEnabled: moltComicsConfig.enabled,
         allowlistEnabled: process.env.OPENCLAW_ALLOWLIST_ENABLED !== "false",
         allowStubToolResults: true,
         allowRegistryFallback: true,
