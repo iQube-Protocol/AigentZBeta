@@ -50,10 +50,10 @@ interface XMTPGroup {
  */
 export class XMTPAdapter extends BridgeAdapter {
   protected config: XMTPAdapterConfig;
-  private client: any; // XMTP Client (would be imported from @xmtp/node-sdk)
+  private client: any;
   private groups: Map<string, XMTPGroup> = new Map();
   private streaming: boolean = false;
-  private lastProcessedTimestamp: Date = new Date();
+  private simulationMode: boolean = true;
 
   constructor(config: XMTPAdapterConfig) {
     super(config);
@@ -63,38 +63,29 @@ export class XMTPAdapter extends BridgeAdapter {
   async start(): Promise<void> {
     console.log("[XMTPAdapter] Starting...");
 
-    const simulationMode = process.env.XMTP_SIMULATION_MODE !== "false";
-    if (simulationMode && this.config.environment === "prod") {
+    this.simulationMode = process.env.XMTP_SIMULATION_MODE !== "false";
+    if (this.simulationMode && this.config.environment === "prod") {
       throw new Error(
         "XMTP simulation mode is enabled in prod. Disable XMTP_SIMULATION_MODE and wire real XMTP SDK integration."
       );
     }
 
-    // In production, this would initialize the XMTP client:
-    // 
-    // import { Client } from "@xmtp/node-sdk";
-    // 
-    // this.client = await Client.create(
-    //   this.config.credentials.wallet_private_key,
-    //   {
-    //     env: this.config.xmtp_env,
-    //     dbEncryptionKey: this.config.db_encryption_key,
-    //   }
-    // );
-
-    // For now, simulate client initialization
-    if (!simulationMode) {
-      throw new Error(
-        "Real XMTP SDK path is not enabled in this build. Set XMTP_SIMULATION_MODE=true for local testing."
-      );
+    if (!this.simulationMode) {
+      if (this.config.environment === "prod" && !this.config.db_encryption_key) {
+        throw new Error(
+          "XMTP_DB_ENCRYPTION_KEY is required in prod when XMTP simulation mode is disabled."
+        );
+      }
+      this.client = await this.initializeRealClient();
+    } else {
+      this.client = {
+        inboxId: this.config.credentials.inbox_id || "mock_inbox_id",
+        conversations: {
+          list: async () => [],
+          streamAllMessages: async function* () {},
+        },
+      };
     }
-    this.client = {
-      inboxId: this.config.credentials.inbox_id || "mock_inbox_id",
-      conversations: {
-        list: async () => [],
-        streamAllMessages: async function* () {},
-      },
-    };
 
     // Load and validate allowlisted groups
     await this.loadAllowlistedGroups();
@@ -112,25 +103,36 @@ export class XMTPAdapter extends BridgeAdapter {
   async *ingest(): AsyncGenerator<InboundEvent, void, unknown> {
     console.log("[XMTPAdapter] Starting message ingestion...");
 
-    // In production, this would stream messages from XMTP:
-    // 
-    // for await (const message of this.client.conversations.streamAllMessages()) {
-    //   if (!this.streaming) break;
-    //   
-    //   const groupId = message.conversation.id;
-    //   if (!this.config.allowlist.group_ids.includes(groupId)) {
-    //     continue; // Skip non-allowlisted groups
-    //   }
-    //   
-    //   const event = this.normalizeInboundMessage(message, groupId);
-    //   await this.emitInboundReceipt(message, groupId);
-    //   yield event;
-    // }
+    if (this.simulationMode) {
+      while (this.streaming) {
+        await new Promise((resolve) => setTimeout(resolve, 10000));
+      }
+      return;
+    }
 
-    // For demo purposes, simulate streaming
-    while (this.streaming) {
-      await new Promise((resolve) => setTimeout(resolve, 10000));
-      // In production, messages would be yielded here
+    const streamFn = this.client?.conversations?.streamAllMessages;
+    if (typeof streamFn !== "function") {
+      throw new Error("XMTP client does not expose conversations.streamAllMessages()");
+    }
+
+    for await (const rawMessage of streamFn.call(this.client.conversations)) {
+      if (!this.streaming) {
+        break;
+      }
+
+      const message = this.normalizeRawMessage(rawMessage);
+      if (!message) {
+        continue;
+      }
+
+      const groupId = this.extractGroupId(rawMessage);
+      if (!groupId || !this.config.allowlist.group_ids.includes(groupId)) {
+        continue;
+      }
+
+      const event = this.normalizeInboundMessage(message, groupId);
+      await this.emitInboundReceipt(message, groupId);
+      yield event;
     }
   }
 
@@ -145,13 +147,19 @@ export class XMTPAdapter extends BridgeAdapter {
     }
 
     try {
-      // In production, this would send to XMTP:
-      // 
-      // const group = await this.client.conversations.getConversation(groupId);
-      // const messageId = await group.send(event.message.content.text);
-
-      // For demo, simulate send
-      const messageId = `msg_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+      let messageId: string;
+      if (this.simulationMode) {
+        messageId = `msg_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+      } else {
+        const conversation = await this.resolveConversation(groupId);
+        if (!conversation || typeof conversation.send !== "function") {
+          throw new Error(`Unable to resolve XMTP conversation ${groupId}`);
+        }
+        const sent = await conversation.send(event.message.content.text);
+        messageId =
+          (typeof sent === "string" ? sent : sent?.id) ||
+          `msg_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+      }
 
       // Emit DVN receipt for outbound
       await this.emitReceipt({
@@ -182,25 +190,46 @@ export class XMTPAdapter extends BridgeAdapter {
   }
 
   private async loadAllowlistedGroups(): Promise<void> {
-    // In production, this would fetch groups from XMTP:
-    // 
-    // const allGroups = await this.client.conversations.list();
-    // for (const group of allGroups) {
-    //   if (this.config.allowlist.group_ids.includes(group.id)) {
-    //     this.groups.set(group.id, {
-    //       id: group.id,
-    //       name: group.name,
-    //       members: await group.members(),
-    //     });
-    //   }
-    // }
+    if (this.simulationMode) {
+      for (const groupId of this.config.allowlist.group_ids) {
+        this.groups.set(groupId, {
+          id: groupId,
+          name: `Group ${groupId}`,
+          members: [],
+        });
+      }
+      console.log(`[XMTPAdapter] Loaded ${this.groups.size} allowlisted groups`);
+      return;
+    }
 
-    // For demo, simulate groups
-    for (const groupId of this.config.allowlist.group_ids) {
+    const conversations = await this.listConversations();
+    for (const conversation of conversations) {
+      const groupId = this.extractGroupId(conversation);
+      if (!groupId || !this.config.allowlist.group_ids.includes(groupId)) {
+        continue;
+      }
+
+      let members: XMTPGroup["members"] = [];
+      if (typeof conversation.members === "function") {
+        try {
+          const rawMembers = await conversation.members();
+          if (Array.isArray(rawMembers)) {
+            members = rawMembers.map((member: any) => ({
+              inboxId: String(member?.inboxId || member?.inbox_id || ""),
+              addresses: Array.isArray(member?.addresses)
+                ? member.addresses.map((address: unknown) => String(address))
+                : [],
+            }));
+          }
+        } catch {
+          members = [];
+        }
+      }
+
       this.groups.set(groupId, {
         id: groupId,
-        name: `Group ${groupId}`,
-        members: [],
+        name: typeof conversation?.name === "string" ? conversation.name : undefined,
+        members,
       });
     }
 
@@ -269,6 +298,126 @@ export class XMTPAdapter extends BridgeAdapter {
       return content.text;
     }
     return JSON.stringify(content);
+  }
+
+  private async initializeRealClient(): Promise<any> {
+    const privateKey = this.config.credentials.wallet_private_key?.trim();
+    if (!privateKey) {
+      throw new Error(
+        "XMTP_WALLET_PRIVATE_KEY is required when XMTP_SIMULATION_MODE=false"
+      );
+    }
+
+    let sdk: any;
+    try {
+      const moduleName = "@xmtp/node-sdk";
+      sdk = await import(moduleName);
+    } catch (error: any) {
+      throw new Error(
+        `Unable to import @xmtp/node-sdk. Install dependencies in clawhack-group-agents (error: ${error?.message || "unknown"})`
+      );
+    }
+
+    const clientFactory =
+      sdk?.Client?.create ||
+      sdk?.createClient ||
+      sdk?.default?.Client?.create ||
+      sdk?.default?.createClient;
+    if (typeof clientFactory !== "function") {
+      throw new Error("Unsupported @xmtp/node-sdk export shape: missing Client.create");
+    }
+
+    const options = {
+      env: this.config.xmtp_env,
+      dbEncryptionKey: this.config.db_encryption_key,
+      inboxId: this.config.credentials.inbox_id,
+    };
+
+    try {
+      return await clientFactory(privateKey, options);
+    } catch (error: any) {
+      throw new Error(`Failed to initialize XMTP client: ${error?.message || "unknown"}`);
+    }
+  }
+
+  private async listConversations(): Promise<any[]> {
+    const listFn =
+      this.client?.conversations?.list ||
+      this.client?.listConversations ||
+      this.client?.conversations?.getAll;
+    if (typeof listFn !== "function") {
+      return [];
+    }
+
+    const result = await listFn.call(
+      this.client.conversations ?? this.client
+    );
+    return Array.isArray(result) ? result : [];
+  }
+
+  private async resolveConversation(groupId: string): Promise<any | null> {
+    const directFn =
+      this.client?.conversations?.getConversation ||
+      this.client?.conversations?.getConversationById;
+    if (typeof directFn === "function") {
+      const conversation = await directFn.call(this.client.conversations, groupId);
+      if (conversation) {
+        return conversation;
+      }
+    }
+
+    const conversations = await this.listConversations();
+    return (
+      conversations.find((conversation) => this.extractGroupId(conversation) === groupId) ?? null
+    );
+  }
+
+  private extractGroupId(value: any): string | null {
+    const candidates = [
+      value?.conversation?.id,
+      value?.groupId,
+      value?.group_id,
+      value?.id,
+      value?.conversationId,
+      value?.conversation_id,
+    ];
+    for (const candidate of candidates) {
+      if (typeof candidate === "string" && candidate.trim().length > 0) {
+        return candidate.trim();
+      }
+    }
+    return null;
+  }
+
+  private normalizeRawMessage(rawMessage: any): XMTPMessage | null {
+    const idCandidates = [rawMessage?.id, rawMessage?.messageId, rawMessage?.message_id];
+    const senderCandidates = [
+      rawMessage?.senderInboxId,
+      rawMessage?.senderInboxID,
+      rawMessage?.sender?.inboxId,
+      rawMessage?.sender?.inbox_id,
+    ];
+    const sentCandidates = [rawMessage?.sentAt, rawMessage?.sent_at, rawMessage?.timestamp];
+
+    const id = idCandidates.find(
+      (candidate) => typeof candidate === "string" && candidate.trim().length > 0
+    );
+    const senderInboxId = senderCandidates.find(
+      (candidate) => typeof candidate === "string" && candidate.trim().length > 0
+    );
+    if (!id || !senderInboxId) {
+      return null;
+    }
+
+    const sentAtRaw = sentCandidates.find(Boolean);
+    const sentAt = sentAtRaw ? new Date(sentAtRaw) : new Date();
+    return {
+      id,
+      senderInboxId,
+      sentAt: Number.isNaN(sentAt.getTime()) ? new Date() : sentAt,
+      content: rawMessage?.content,
+      contentType: rawMessage?.contentType || "text",
+    };
   }
 
   private async emitInboundReceipt(message: XMTPMessage, groupId: string): Promise<void> {

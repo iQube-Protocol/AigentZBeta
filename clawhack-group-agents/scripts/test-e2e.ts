@@ -15,6 +15,9 @@ import { OpenClawWorker } from "../openclaw-wrapper/openclawWorker";
 import type { OpenClawRunResult } from "../openclaw-wrapper/types";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { loadEnv } from "./loadEnv";
+
+loadEnv();
 
 interface TestConfig {
   tenant_id: string;
@@ -90,9 +93,10 @@ class E2ETestHarness {
 
     try {
       const discordBotToken = process.env.DISCORD_BOT_TOKEN;
-      if (!discordBotToken) {
+      const discordWebhookUrl = process.env.DISCORD_WEBHOOK_URL;
+      if (!discordBotToken && !discordWebhookUrl) {
         throw new Error(
-          "DISCORD_BOT_TOKEN is required for e2e verification. Set it in environment before running test:e2e."
+          "DISCORD_BOT_TOKEN or DISCORD_WEBHOOK_URL is required for e2e verification."
         );
       }
 
@@ -121,6 +125,7 @@ class E2ETestHarness {
         provider: "discord",
         credentials: {
           bot_token: discordBotToken,
+          webhook_url: discordWebhookUrl,
         },
         allowlist: {
           channel_ids: [this.config.discord_channel_id],
@@ -151,6 +156,24 @@ class E2ETestHarness {
           await this.dvnService.emit(receipt);
         },
       });
+      const strictRequiredTools =
+        process.env.OPENCLAW_REQUIRED_TOOLS_STRICT === "true" ||
+        ((process.env.ENVIRONMENT === "prod" || process.env.NODE_ENV === "production") &&
+          process.env.OPENCLAW_REQUIRED_TOOLS_STRICT !== "false");
+
+      try {
+        await this.openclawWorker.assertRegistryReady({
+          requiredToolIds: ["knyt.comic.generate_pack", "dpr.run"],
+          requireRemote: false,
+        });
+      } catch (error: any) {
+        if (strictRequiredTools) {
+          throw error;
+        }
+        console.warn(
+          `   ⚠️ Non-strict registry precheck warning: ${error?.message || "unknown error"}`
+        );
+      }
 
       this.completePhase(phase, "success");
     } catch (error: any) {

@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "init-channels": "tsx scripts/init-channels.ts",
+    "preflight": "tsx scripts/preflight.ts",
     "runtime:group": "tsx scripts/run-group-runtime.ts",
     "adapter:discord": "tsx adapters/discord/run.ts",
     "adapter:xmtp": "tsx adapters/xmtp/run.ts",

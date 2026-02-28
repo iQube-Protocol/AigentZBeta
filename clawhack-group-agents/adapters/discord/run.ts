@@ -1,6 +1,5 @@
 #!/usr/bin/env tsx
 
-import "dotenv/config";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createDVNReceiptService } from "../../bridge-core/dvnReceiptService";
@@ -15,7 +14,10 @@ import {
   messageCursor,
   saveRuntimeCursor,
 } from "../../scripts/runtimeChannelMap";
+import { loadEnv } from "../../scripts/loadEnv";
 import { DiscordAdapter } from "./discordAdapter";
+
+loadEnv();
 
 const BRIDGE_AGENT: AgentReference = {
   id: "bridge_adapter_discord",
@@ -46,6 +48,7 @@ async function run(): Promise<void> {
     provider: "discord",
     credentials: {
       bot_token: process.env.DISCORD_BOT_TOKEN || "",
+      webhook_url: process.env.DISCORD_WEBHOOK_URL || "",
     },
     allowlist: {
       channel_ids: channelIds,

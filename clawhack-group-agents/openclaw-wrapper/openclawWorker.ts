@@ -142,6 +142,38 @@ export class OpenClawWorker {
     return this.snapshot;
   }
 
+  async assertRegistryReady(options?: {
+    requiredToolIds?: string[];
+    requireRemote?: boolean;
+  }): Promise<RegistrySnapshot> {
+    const snapshot = await this.getSnapshot();
+    const requiredToolIds = (options?.requiredToolIds ?? []).filter(Boolean);
+
+    if (options?.requireRemote && snapshot.source !== "remote") {
+      throw new Error(
+        `Registry source is ${snapshot.source}; remote registry is required in this environment.`
+      );
+    }
+
+    const missingTools = requiredToolIds.filter((toolId) => !snapshot.toolsById.has(toolId));
+    if (missingTools.length > 0) {
+      throw new Error(
+        `Required tools missing from registry snapshot: ${missingTools.join(", ")}`
+      );
+    }
+
+    if (this.config.allowlistEnabled) {
+      const disallowed = requiredToolIds.filter((toolId) => !snapshot.allowedToolIds.has(toolId));
+      if (disallowed.length > 0) {
+        throw new Error(
+          `Required tools are not in curated allowlist shelf ${snapshot.shelfId}: ${disallowed.join(", ")}`
+        );
+      }
+    }
+
+    return snapshot;
+  }
+
   private async runKnytDropCaptain(
     context: RunContext
   ): Promise<{ outboundEvents: OutboundEvent[]; artifacts: MintedArtifactRef[] }> {

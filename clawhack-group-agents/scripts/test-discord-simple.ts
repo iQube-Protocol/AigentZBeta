@@ -4,9 +4,12 @@
  * Tests Discord bot connectivity and message posting
  */
 
+import { loadEnv } from "./loadEnv";
 import { DiscordAdapter } from "../adapters/discord/discordAdapter";
 import { DVNReceiptService } from "../bridge-core/dvnReceiptService";
 import type { OutboundEvent } from "../schemas/bridgeEvents";
+
+loadEnv();
 
 async function testDiscord() {
   console.log("🧪 Testing Discord Integration\n");

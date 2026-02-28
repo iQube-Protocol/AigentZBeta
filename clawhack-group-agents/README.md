@@ -92,11 +92,12 @@ Features:
 - Routes capsule generation through A2UI/Surface Planner endpoint
 - Emits DVN receipts for inbound/outbound
 - Supports allowlist of channel IDs
+- Supports publish-only webhook mode when bot token is not configured
 
 Configuration:
 ```typescript
 {
-  credentials: { bot_token: string },
+  credentials: { bot_token?: string, webhook_url?: string },
   allowlist: { channel_ids: string[] },
   surface_planner_endpoint?: string, // Optional A2UI integration
   environment: "hackathon" | "dev" | "prod",
@@ -119,11 +120,15 @@ XMTP_DB_ENCRYPTION_KEY=your_encryption_key_here
 
 # Discord Configuration
 DISCORD_BOT_TOKEN=your_bot_token_here
+DISCORD_WEBHOOK_URL=optional_publish_only_webhook
 DISCORD_METAKNYTS_CHANNEL_ID=your_channel_id_here
 
 # MCP Registry
 MCP_REGISTRY_ENDPOINT=http://localhost:8080/registry
 MCP_SHELF_ID=shelf_clawhack_2026_group_agents
+OPENCLAW_REQUIRED_TOOLS=knyt.comic.generate_pack,dpr.run
+OPENCLAW_REQUIRED_TOOLS_STRICT=false
+OPENCLAW_REQUIRE_REMOTE_REGISTRY=false
 
 # DVN Receipts
 DVN_ENDPOINT=qt://tnt_clawhack/clawhack/dvn/receipts
@@ -193,8 +198,11 @@ and consumes QubeTalk `bridge/outbound` messages for Discord publishing.
 npm run adapter:xmtp
 ```
 The XMTP adapter now follows the same bidirectional bridge behavior as Discord.
-Current implementation still runs in simulation mode by default (`XMTP_SIMULATION_MODE=true`);
-wire the real XMTP SDK path before production XMTP rollout.
+Simulation is still the default (`XMTP_SIMULATION_MODE=true`) for local testing.
+For production, disable simulation (`XMTP_SIMULATION_MODE=false`) and provide:
+- `XMTP_WALLET_PRIVATE_KEY`
+- `XMTP_DB_ENCRYPTION_KEY` (required in prod)
+- Installed `@xmtp/node-sdk` in this workspace
 
 ### 4. Start OpenClaw Worker
 
@@ -207,6 +215,27 @@ npm run openclaw:worker -- --text "Make a 21 Sats comic drop"
 ```bash
 npm run runtime:group
 ```
+Runtime now performs registry preflight and fails fast if required tools are missing.
+In non-prod/hackathon flows, set `OPENCLAW_REQUIRED_TOOLS_STRICT=false` to warn instead
+of hard-fail when hackathon APIs are not live yet.
+
+### 5.1 Run Production Preflight
+
+```bash
+npm run preflight
+```
+This checks:
+- Discord credentials (`DISCORD_BOT_TOKEN` or `DISCORD_WEBHOOK_URL`)
+- XMTP non-simulation requirements (when enabled)
+- Registry shelf contains required curated tools
+
+### Env Loading Behavior
+
+Clawhack scripts now load env from both:
+- `clawhack-group-agents/.env(.local)`
+- parent repo `.env(.local)`
+
+This keeps Discord/QubeTalk credentials consistent with the main app/QubeTalk setup.
 
 ### 6. Monitor DVN Receipts
 

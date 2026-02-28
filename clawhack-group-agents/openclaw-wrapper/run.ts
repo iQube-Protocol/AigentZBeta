@@ -1,6 +1,5 @@
 #!/usr/bin/env tsx
 
-import "dotenv/config";
 import path from "node:path";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
@@ -8,11 +7,21 @@ import { createDVNReceiptService } from "../bridge-core/dvnReceiptService";
 import { QubeTalkChannels } from "../bridge-core/qubetalkChannels";
 import type { InboundEvent } from "../schemas/bridgeEvents";
 import { OpenClawWorker } from "./openclawWorker";
+import { loadEnv } from "../scripts/loadEnv";
+
+loadEnv();
 
 interface CLIArgs {
   inboundFile?: string;
   text?: string;
   provider?: "xmtp" | "discord";
+}
+
+function parseCSV(value: string | undefined): string[] {
+  return (value || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
 function parseArgs(argv: string[]): CLIArgs {
@@ -96,6 +105,7 @@ async function run(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   const tenantId = process.env.QT_TENANT_ID || "tnt_clawhack";
   const workspace = process.env.QT_CHANNEL_MAIN || "clawhack";
+  const environment = process.env.ENVIRONMENT || "hackathon";
 
   const dvnService = createDVNReceiptService();
   const worker = new OpenClawWorker({
@@ -104,13 +114,45 @@ async function run(): Promise<void> {
     registryEndpoint: process.env.MCP_REGISTRY_ENDPOINT || "http://localhost:8080/registry",
     shelfId: process.env.MCP_SHELF_ID || "shelf_clawhack_2026_group_agents",
     allowlistEnabled: process.env.OPENCLAW_ALLOWLIST_ENABLED !== "false",
-    allowStubToolResults: process.env.OPENCLAW_ALLOW_STUB_RESULTS === "true",
-    allowRegistryFallback: process.env.OPENCLAW_ALLOW_REGISTRY_FALLBACK === "true",
+    allowStubToolResults:
+      process.env.OPENCLAW_ALLOW_STUB_RESULTS !== undefined
+        ? process.env.OPENCLAW_ALLOW_STUB_RESULTS === "true"
+        : environment !== "prod",
+    allowRegistryFallback:
+      process.env.OPENCLAW_ALLOW_REGISTRY_FALLBACK !== undefined
+        ? process.env.OPENCLAW_ALLOW_REGISTRY_FALLBACK === "true"
+        : environment !== "prod",
     mcpTimeoutMs: Number(process.env.OPENCLAW_MCP_TIMEOUT_MS || "12000"),
     discordChannelId: process.env.DISCORD_METAKNYTS_CHANNEL_ID || "",
     dataDir: process.env.OPENCLAW_DATA_DIR || ".data",
     receiptEmitter: async (receipt) => dvnService.emit(receipt),
   });
+  const requiredTools = parseCSV(
+    process.env.OPENCLAW_REQUIRED_TOOLS || "knyt.comic.generate_pack,dpr.run"
+  );
+  const requireRemoteRegistry =
+    process.env.OPENCLAW_REQUIRE_REMOTE_REGISTRY === "true" ||
+    (environment === "prod" &&
+      process.env.OPENCLAW_REQUIRE_REMOTE_REGISTRY !== "false");
+  const strictRequiredTools =
+    process.env.OPENCLAW_REQUIRED_TOOLS_STRICT === "true" ||
+    ((environment === "prod" || process.env.NODE_ENV === "production") &&
+      process.env.OPENCLAW_REQUIRED_TOOLS_STRICT !== "false");
+
+  let registrySnapshot;
+  try {
+    registrySnapshot = await worker.assertRegistryReady({
+      requiredToolIds: requiredTools,
+      requireRemote: requireRemoteRegistry,
+    });
+  } catch (error: any) {
+    if (strictRequiredTools) {
+      throw error;
+    }
+    console.warn(
+      `[openclaw-worker] non-strict registry precheck warning: ${error?.message || "unknown error"}`
+    );
+  }
 
   const inboundEvent = await loadInboundEvent(args);
   const result = await worker.handleInboundEvent(inboundEvent);
@@ -119,6 +161,9 @@ async function run(): Promise<void> {
   console.log("\nOpenClaw Worker Result");
   console.log("======================");
   console.log(`Request ID: ${result.requestId}`);
+  if (registrySnapshot) {
+    console.log(`Registry Ready: source=${registrySnapshot.source}`);
+  }
   console.log(`Registry Source: ${result.registrySource}`);
   console.log(`Artifacts Minted: ${result.artifacts.length}`);
   console.log(`Outbound Events: ${result.outboundEvents.length}`);

@@ -17,7 +17,8 @@ const DISCORD_API_BASE = "https://discord.com/api/v10";
 
 export interface DiscordAdapterConfig extends AdapterConfig {
   credentials: {
-    bot_token: string;
+    bot_token?: string;
+    webhook_url?: string;
   };
   allowlist: {
     channel_ids: string[];
@@ -30,6 +31,7 @@ export class DiscordAdapter extends BridgeAdapter {
   private botId?: string;
   private polling: boolean = false;
   private lastMessageTimestampByChannel: Map<string, string> = new Map();
+  private webhookUrl?: string;
 
   constructor(config: DiscordAdapterConfig) {
     super(config);
@@ -37,32 +39,44 @@ export class DiscordAdapter extends BridgeAdapter {
   }
 
   async start(): Promise<void> {
-    const botToken = this.config.credentials.bot_token;
-    if (!botToken) {
-      throw new Error("Discord bot token is required");
+    const botToken = this.config.credentials.bot_token?.trim();
+    const webhookUrl = this.config.credentials.webhook_url?.trim();
+    const hasBotToken = Boolean(botToken);
+    const hasWebhook = Boolean(webhookUrl);
+
+    if (!hasBotToken && !hasWebhook) {
+      throw new Error("Discord bot token or webhook URL is required");
     }
 
-    // Validate bot identity
-    const me = await this.fetchDiscord("/users/@me", { headers: this.authHeaders() });
-    if (!me.ok) {
-      throw new Error(`Failed to validate Discord bot: ${me.data?.message || "Unknown error"}`);
-    }
+    this.webhookUrl = webhookUrl;
 
-    this.botId = me.data?.id;
-    console.log(`[DiscordAdapter] Started with bot: ${me.data?.username} (${this.botId})`);
-
-    // Validate channel access
-    for (const channelId of this.config.allowlist.channel_ids) {
-      const channel = await this.fetchDiscord(`/channels/${channelId}`, {
-        headers: this.authHeaders(),
-      });
-      if (!channel.ok) {
-        throw new Error(`Cannot access channel ${channelId}: ${channel.data?.message}`);
+    if (hasBotToken) {
+      // Validate bot identity
+      const me = await this.fetchDiscord("/users/@me", { headers: this.authHeaders() });
+      if (!me.ok) {
+        throw new Error(`Failed to validate Discord bot: ${me.data?.message || "Unknown error"}`);
       }
-      console.log(`[DiscordAdapter] Verified access to channel: ${channel.data?.name}`);
+
+      this.botId = me.data?.id;
+      console.log(`[DiscordAdapter] Started with bot: ${me.data?.username} (${this.botId})`);
+
+      // Validate channel access
+      for (const channelId of this.config.allowlist.channel_ids) {
+        const channel = await this.fetchDiscord(`/channels/${channelId}`, {
+          headers: this.authHeaders(),
+        });
+        if (!channel.ok) {
+          throw new Error(`Cannot access channel ${channelId}: ${channel.data?.message}`);
+        }
+        console.log(`[DiscordAdapter] Verified access to channel: ${channel.data?.name}`);
+      }
+
+      this.polling = true;
+      return;
     }
 
-    this.polling = true;
+    console.log("[DiscordAdapter] Started in publish-only webhook mode");
+    this.polling = false;
   }
 
   async stop(): Promise<void> {
@@ -125,13 +139,6 @@ export class DiscordAdapter extends BridgeAdapter {
 
   async publish(event: OutboundEvent): Promise<PublishResult> {
     const channelId = event.thread.provider_channel_id || event.thread.provider_thread_id;
-    
-    if (!this.config.allowlist.channel_ids.includes(channelId)) {
-      return {
-        success: false,
-        error: `Channel ${channelId} not in allowlist`,
-      };
-    }
 
     try {
       // If surface_planner_endpoint is configured, route through A2UI/Surface Planner
@@ -144,14 +151,37 @@ export class DiscordAdapter extends BridgeAdapter {
         payload = this.buildSimpleMessage(event);
       }
 
-      const result = await this.fetchDiscord(`/channels/${channelId}/messages`, {
-        method: "POST",
-        headers: {
-          ...this.authHeaders(),
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
+      const useWebhook = Boolean(this.webhookUrl && !this.config.credentials.bot_token);
+      if (!useWebhook && !this.config.allowlist.channel_ids.includes(channelId)) {
+        return {
+          success: false,
+          error: `Channel ${channelId} not in allowlist`,
+        };
+      }
+
+      let result: { ok: boolean; status: number; data: any };
+      if (useWebhook) {
+        const webhookUrl = this.webhookUrl!;
+        const joinChar = webhookUrl.includes("?") ? "&" : "?";
+        const response = await fetch(`${webhookUrl}${joinChar}wait=true`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        });
+        const data = await response.json().catch(() => ({}));
+        result = { ok: response.ok, status: response.status, data };
+      } else {
+        result = await this.fetchDiscord(`/channels/${channelId}/messages`, {
+          method: "POST",
+          headers: {
+            ...this.authHeaders(),
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        });
+      }
 
       if (!result.ok) {
         return {
@@ -302,6 +332,10 @@ export class DiscordAdapter extends BridgeAdapter {
   }
 
   private async fetchRecentMessages(channelId: string): Promise<any[]> {
+    if (!this.config.credentials.bot_token) {
+      throw new Error("Discord inbound polling requires bot token credentials");
+    }
+
     const result = await this.fetchDiscord(`/channels/${channelId}/messages?limit=10`, {
       headers: this.authHeaders(),
     });
@@ -324,6 +358,9 @@ export class DiscordAdapter extends BridgeAdapter {
   }
 
   private authHeaders(): Record<string, string> {
+    if (!this.config.credentials.bot_token) {
+      return {};
+    }
     return {
       Authorization: `Bot ${this.config.credentials.bot_token}`,
     };

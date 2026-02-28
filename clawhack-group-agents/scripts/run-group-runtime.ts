@@ -1,6 +1,5 @@
 #!/usr/bin/env tsx
 
-import "dotenv/config";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createDVNReceiptService } from "../bridge-core/dvnReceiptService";
@@ -17,10 +16,20 @@ import {
   messageCursor,
   saveRuntimeCursor,
 } from "./runtimeChannelMap";
+import { loadEnv } from "./loadEnv";
+
+loadEnv();
 
 interface RuntimeArgs {
   once: boolean;
   pollMs: number;
+}
+
+function parseCSV(value: string | undefined): string[] {
+  return (value || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
 const ROUTER_AGENT: AgentReference = {
@@ -57,6 +66,7 @@ async function run(): Promise<void> {
   const baseDir = process.cwd();
   const tenantId = process.env.QT_TENANT_ID || "tnt_clawhack";
   const workspace = process.env.QT_CHANNEL_MAIN || "clawhack";
+  const environment = process.env.ENVIRONMENT || "hackathon";
   const channelMap = await loadRuntimeChannelMap(baseDir);
   if (!channelMap) {
     throw new Error(
@@ -77,16 +87,53 @@ async function run(): Promise<void> {
     registryEndpoint: process.env.MCP_REGISTRY_ENDPOINT || "http://localhost:8080/registry",
     shelfId: process.env.MCP_SHELF_ID || "shelf_clawhack_2026_group_agents",
     allowlistEnabled: process.env.OPENCLAW_ALLOWLIST_ENABLED !== "false",
-    allowStubToolResults: process.env.OPENCLAW_ALLOW_STUB_RESULTS === "true",
-    allowRegistryFallback: process.env.OPENCLAW_ALLOW_REGISTRY_FALLBACK === "true",
+    allowStubToolResults:
+      process.env.OPENCLAW_ALLOW_STUB_RESULTS !== undefined
+        ? process.env.OPENCLAW_ALLOW_STUB_RESULTS === "true"
+        : environment !== "prod",
+    allowRegistryFallback:
+      process.env.OPENCLAW_ALLOW_REGISTRY_FALLBACK !== undefined
+        ? process.env.OPENCLAW_ALLOW_REGISTRY_FALLBACK === "true"
+        : environment !== "prod",
     mcpTimeoutMs: Number(process.env.OPENCLAW_MCP_TIMEOUT_MS || "12000"),
     discordChannelId: process.env.DISCORD_METAKNYTS_CHANNEL_ID || "",
     dataDir: process.env.OPENCLAW_DATA_DIR || ".data",
     receiptEmitter: async (receipt) => dvnService.emit(receipt),
   });
+  const requiredTools = parseCSV(
+    process.env.OPENCLAW_REQUIRED_TOOLS || "knyt.comic.generate_pack,dpr.run"
+  );
+  const requireRemoteRegistry =
+    process.env.OPENCLAW_REQUIRE_REMOTE_REGISTRY === "true" ||
+    (environment === "prod" &&
+      process.env.OPENCLAW_REQUIRE_REMOTE_REGISTRY !== "false");
+  const strictRequiredTools =
+    process.env.OPENCLAW_REQUIRED_TOOLS_STRICT === "true" ||
+    ((environment === "prod" || process.env.NODE_ENV === "production") &&
+      process.env.OPENCLAW_REQUIRED_TOOLS_STRICT !== "false");
+
+  let registrySnapshot;
+  try {
+    registrySnapshot = await worker.assertRegistryReady({
+      requiredToolIds: requiredTools,
+      requireRemote: requireRemoteRegistry,
+    });
+  } catch (error: any) {
+    if (strictRequiredTools) {
+      throw error;
+    }
+    console.warn(
+      `[group-runtime] non-strict registry precheck warning: ${error?.message || "unknown error"}`
+    );
+  }
 
   console.log("[group-runtime] started");
   console.log(`[group-runtime] tenant=${tenantId}`);
+  if (registrySnapshot) {
+    console.log(
+      `[group-runtime] registry=${registrySnapshot.source} requiredTools=${requiredTools.join(",")}`
+    );
+  }
   console.log(`[group-runtime] channels=${JSON.stringify(channelMap)}`);
 
   const cursorName = "group-runtime-bridge-inbound";

@@ -1,6 +1,5 @@
 #!/usr/bin/env tsx
 
-import "dotenv/config";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createDVNReceiptService } from "../../bridge-core/dvnReceiptService";
@@ -15,7 +14,10 @@ import {
   messageCursor,
   saveRuntimeCursor,
 } from "../../scripts/runtimeChannelMap";
+import { loadEnv } from "../../scripts/loadEnv";
 import { XMTPAdapter } from "./xmtpAdapter";
+
+loadEnv();
 
 const BRIDGE_AGENT: AgentReference = {
   id: "bridge_adapter_xmtp",

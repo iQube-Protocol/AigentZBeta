@@ -11,6 +11,9 @@ import { QubeTalkHttpClient, channelMapFromRecords } from "../bridge-core/qubeta
 import path from "node:path";
 import { mkdir, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
+import { loadEnv } from "./loadEnv";
+
+loadEnv();
 
 interface ChannelMetadata {
   logical_name: string;
