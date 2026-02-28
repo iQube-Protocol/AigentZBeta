@@ -2,6 +2,7 @@
 
 import { OpenClawWorker } from "../openclaw-wrapper/openclawWorker";
 import { loadEnv } from "./loadEnv";
+import { assertMoltComicsConfig, resolveMoltComicsConfig } from "./moltcomicsConfig";
 
 loadEnv();
 
@@ -19,9 +20,16 @@ async function run(): Promise<void> {
   const xmtpSimulationMode = process.env.XMTP_SIMULATION_MODE !== "false";
   const discordBotToken = process.env.DISCORD_BOT_TOKEN?.trim();
   const discordWebhookUrl = process.env.DISCORD_WEBHOOK_URL?.trim();
+  const moltComicsConfig = resolveMoltComicsConfig(process.env);
 
   if (!discordBotToken && !discordWebhookUrl) {
     errors.push("Set DISCORD_BOT_TOKEN or DISCORD_WEBHOOK_URL.");
+  }
+
+  try {
+    assertMoltComicsConfig(moltComicsConfig);
+  } catch (error: any) {
+    errors.push(error?.message || "Invalid MoltComics configuration.");
   }
 
   if (!xmtpSimulationMode) {
@@ -96,6 +104,8 @@ async function run(): Promise<void> {
       console.warn(`- ${warning}`);
     }
   }
+
+  console.log(`[preflight] moltcomics_enabled=${moltComicsConfig.enabled}`);
 
   if (errors.length > 0) {
     console.error("[preflight] FAILED");

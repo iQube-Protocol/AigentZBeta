@@ -17,6 +17,7 @@ import {
   saveRuntimeCursor,
 } from "./runtimeChannelMap";
 import { loadEnv } from "./loadEnv";
+import { assertMoltComicsConfig, resolveMoltComicsConfig } from "./moltcomicsConfig";
 
 loadEnv();
 
@@ -67,6 +68,8 @@ async function run(): Promise<void> {
   const tenantId = process.env.QT_TENANT_ID || "tnt_clawhack";
   const workspace = process.env.QT_CHANNEL_MAIN || "clawhack";
   const environment = process.env.ENVIRONMENT || "hackathon";
+  const moltComicsConfig = resolveMoltComicsConfig(process.env);
+  assertMoltComicsConfig(moltComicsConfig);
   const channelMap = await loadRuntimeChannelMap(baseDir);
   if (!channelMap) {
     throw new Error(
@@ -129,6 +132,7 @@ async function run(): Promise<void> {
 
   console.log("[group-runtime] started");
   console.log(`[group-runtime] tenant=${tenantId}`);
+  console.log(`[group-runtime] moltcomics_enabled=${moltComicsConfig.enabled}`);
   if (registrySnapshot) {
     console.log(
       `[group-runtime] registry=${registrySnapshot.source} requiredTools=${requiredTools.join(",")}`

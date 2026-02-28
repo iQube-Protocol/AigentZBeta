@@ -16,6 +16,7 @@ import type { OpenClawRunResult } from "../openclaw-wrapper/types";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadEnv } from "./loadEnv";
+import { assertMoltComicsConfig, resolveMoltComicsConfig } from "./moltcomicsConfig";
 
 loadEnv();
 
@@ -92,6 +93,9 @@ class E2ETestHarness {
     this.startPhase(phase);
 
     try {
+      const moltComicsConfig = resolveMoltComicsConfig(process.env);
+      assertMoltComicsConfig(moltComicsConfig);
+
       const discordBotToken = process.env.DISCORD_BOT_TOKEN;
       const discordWebhookUrl = process.env.DISCORD_WEBHOOK_URL;
       if (!discordBotToken && !discordWebhookUrl) {

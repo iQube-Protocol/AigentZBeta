@@ -8,6 +8,7 @@ import { QubeTalkChannels } from "../bridge-core/qubetalkChannels";
 import type { InboundEvent } from "../schemas/bridgeEvents";
 import { OpenClawWorker } from "./openclawWorker";
 import { loadEnv } from "../scripts/loadEnv";
+import { assertMoltComicsConfig, resolveMoltComicsConfig } from "../scripts/moltcomicsConfig";
 
 loadEnv();
 
@@ -106,6 +107,8 @@ async function run(): Promise<void> {
   const tenantId = process.env.QT_TENANT_ID || "tnt_clawhack";
   const workspace = process.env.QT_CHANNEL_MAIN || "clawhack";
   const environment = process.env.ENVIRONMENT || "hackathon";
+  const moltComicsConfig = resolveMoltComicsConfig(process.env);
+  assertMoltComicsConfig(moltComicsConfig);
 
   const dvnService = createDVNReceiptService();
   const worker = new OpenClawWorker({
@@ -160,6 +163,7 @@ async function run(): Promise<void> {
 
   console.log("\nOpenClaw Worker Result");
   console.log("======================");
+  console.log(`MoltComics Enabled: ${moltComicsConfig.enabled}`);
   console.log(`Request ID: ${result.requestId}`);
   if (registrySnapshot) {
     console.log(`Registry Ready: source=${registrySnapshot.source}`);
