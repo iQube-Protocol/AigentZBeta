@@ -32,7 +32,14 @@ const FALLBACK_PROVIDERS: RegistryProvider[] = [
   {
     provider_id: "prov_moltcomics",
     name: "MoltComics",
-    connection: { type: "mcp", endpoint: "http://localhost:4014/mcp" },
+    connection: {
+      type: "mcp",
+      endpoint: process.env.MOLTCOMICS_MCP_ENDPOINT || "http://localhost:4014/mcp",
+      auth: {
+        mode: "api_key",
+        env_var: "MOLTCOMICS_API_KEY",
+      },
+    },
   },
 ];
 

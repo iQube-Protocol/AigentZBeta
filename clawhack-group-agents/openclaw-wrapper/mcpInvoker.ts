@@ -24,7 +24,7 @@ export class MCPInvoker {
     const endpoint = tool.invoke_endpoint ?? provider?.connection?.endpoint;
     if (endpoint) {
       try {
-        const remote = await this.invokeRemote(endpoint, tool.tool_id, args, requestId);
+        const remote = await this.invokeRemote(endpoint, tool.tool_id, args, requestId, provider);
         return { data: remote, stubbed: false, endpoint };
       } catch (error) {
         if (!this.config.allowStubFallback) {
@@ -48,10 +48,12 @@ export class MCPInvoker {
     endpoint: string,
     toolId: string,
     args: Record<string, unknown>,
-    requestId: string
+    requestId: string,
+    provider?: MCPInvocationArgs["provider"]
   ): Promise<unknown> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.config.timeoutMs);
+    const authHeaders = this.resolveAuthHeaders(provider);
 
     try {
       const response = await fetch(endpoint, {
@@ -59,6 +61,7 @@ export class MCPInvoker {
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",
+          ...authHeaders,
         },
         signal: controller.signal,
         body: JSON.stringify({
@@ -88,6 +91,34 @@ export class MCPInvoker {
     } finally {
       clearTimeout(timer);
     }
+  }
+
+  private resolveAuthHeaders(provider?: MCPInvocationArgs["provider"]): Record<string, string> {
+    const mode = provider?.connection?.auth?.mode;
+    const envVar = provider?.connection?.auth?.env_var;
+    if (!mode || !envVar) {
+      return {};
+    }
+
+    const secret = process.env[envVar]?.trim();
+    if (!secret) {
+      return {};
+    }
+
+    if (mode === "api_key") {
+      return {
+        Authorization: `Bearer ${secret}`,
+        "x-api-key": secret,
+      };
+    }
+
+    if (mode === "bearer") {
+      return {
+        Authorization: `Bearer ${secret}`,
+      };
+    }
+
+    return {};
   }
 
   private generateStubResult(toolId: string, args: Record<string, unknown>): unknown {
