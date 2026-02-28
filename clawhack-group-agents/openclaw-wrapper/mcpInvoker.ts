@@ -11,16 +11,32 @@ interface MoltComicsDirectConfig {
   apiKey?: string;
   agentId?: string;
   endpoints: {
-    storyCreate: string;
-    storyStatus: string;
-    panelSubmit: string;
-    roundResult: string;
-    storyExport: string;
+    chainsCreate: string;
+    chainsContinuable: string;
+    chainsGet: string;
+    panelsSubmit: string;
+    panelsUpvote: string;
   };
+}
+
+interface MoltComicsCallInput {
+  method: "GET" | "POST" | "POST_FORM";
+  pathTemplate: string;
+  args: Record<string, unknown>;
+  requestId: string;
+  body?: Record<string, unknown>;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function asNonEmptyString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
+}
+
+function asNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
 export class MCPInvoker {
@@ -159,11 +175,13 @@ export class MCPInvoker {
   }
 
   private resolveMoltComicsConfig(): MoltComicsDirectConfig {
-    const enabled = process.env.MOLTCOMICS_ENABLED === "true" && process.env.MOLTCOMICS_DIRECT_API !== "false";
+    const enabled =
+      process.env.MOLTCOMICS_ENABLED === "true" &&
+      process.env.MOLTCOMICS_DIRECT_API !== "false";
     const baseUrl =
       process.env.MOLTCOMICS_API_BASE_URL?.trim() ||
       process.env.MOLTCOMICS_API_ENDPOINT?.trim() ||
-      "https://www.moltcomics.com";
+      "https://moltcomics.com";
 
     return {
       enabled,
@@ -171,15 +189,18 @@ export class MCPInvoker {
       apiKey: process.env.MOLTCOMICS_API_KEY?.trim(),
       agentId: process.env.MOLTCOMICS_AGENT_ID?.trim(),
       endpoints: {
-        storyCreate: process.env.MOLTCOMICS_API_PATH_STORY_CREATE || "/api/stories",
-        storyStatus: process.env.MOLTCOMICS_API_PATH_STORY_STATUS || "/api/stories/{story_id}",
-        panelSubmit:
-          process.env.MOLTCOMICS_API_PATH_PANEL_SUBMIT || "/api/stories/{story_id}/panels",
-        roundResult:
-          process.env.MOLTCOMICS_API_PATH_ROUND_RESULT ||
-          "/api/stories/{story_id}/rounds/{round_id}/result",
-        storyExport:
-          process.env.MOLTCOMICS_API_PATH_STORY_EXPORT || "/api/stories/{story_id}/export",
+        chainsCreate:
+          process.env.MOLTCOMICS_API_PATH_CHAINS_CREATE || "/api/v1/chains",
+        chainsContinuable:
+          process.env.MOLTCOMICS_API_PATH_CHAINS_CONTINUABLE ||
+          "/api/v1/chains/continuable",
+        chainsGet:
+          process.env.MOLTCOMICS_API_PATH_CHAINS_GET || "/api/v1/chains/{chain_id}",
+        panelsSubmit:
+          process.env.MOLTCOMICS_API_PATH_PANELS_SUBMIT || "/api/v1/panels",
+        panelsUpvote:
+          process.env.MOLTCOMICS_API_PATH_PANELS_UPVOTE ||
+          "/api/v1/panels/{panel_id}/upvote",
       },
     };
   }
@@ -196,70 +217,56 @@ export class MCPInvoker {
       throw new Error("MoltComics direct API is enabled but MOLTCOMICS_API_KEY is not set.");
     }
 
-    if (toolId === "moltcomics.story.create") {
+    if (toolId === "moltcomics.chains.create") {
       return this.callMoltComics({
-        method: "POST",
-        pathTemplate: this.moltComics.endpoints.storyCreate,
+        method: "POST_FORM",
+        pathTemplate: this.moltComics.endpoints.chainsCreate,
         args,
         requestId,
-        body: {
-          ...args,
-          agent_id: this.moltComics.agentId,
-        },
       });
     }
 
-    if (toolId === "moltcomics.story.status") {
+    if (toolId === "moltcomics.chains.continuable") {
       return this.callMoltComics({
         method: "GET",
-        pathTemplate: this.moltComics.endpoints.storyStatus,
+        pathTemplate: this.moltComics.endpoints.chainsContinuable,
         args,
         requestId,
       });
     }
 
-    if (toolId === "moltcomics.panel.submit") {
-      return this.callMoltComics({
-        method: "POST",
-        pathTemplate: this.moltComics.endpoints.panelSubmit,
-        args,
-        requestId,
-        body: {
-          ...args,
-          agent_id: this.moltComics.agentId,
-        },
-      });
-    }
-
-    if (toolId === "moltcomics.round.result") {
+    if (toolId === "moltcomics.chains.get") {
       return this.callMoltComics({
         method: "GET",
-        pathTemplate: this.moltComics.endpoints.roundResult,
+        pathTemplate: this.moltComics.endpoints.chainsGet,
         args,
         requestId,
       });
     }
 
-    if (toolId === "moltcomics.export.story") {
+    if (toolId === "moltcomics.panels.submit") {
       return this.callMoltComics({
-        method: "POST",
-        pathTemplate: this.moltComics.endpoints.storyExport,
+        method: "POST_FORM",
+        pathTemplate: this.moltComics.endpoints.panelsSubmit,
         args,
         requestId,
-        body: args,
+      });
+    }
+
+    if (toolId === "moltcomics.panels.upvote") {
+      return this.callMoltComics({
+        method: "POST",
+        pathTemplate: this.moltComics.endpoints.panelsUpvote,
+        args,
+        requestId,
+        body: {},
       });
     }
 
     throw new Error(`Unsupported MoltComics direct tool: ${toolId}`);
   }
 
-  private async callMoltComics(input: {
-    method: "GET" | "POST";
-    pathTemplate: string;
-    args: Record<string, unknown>;
-    requestId: string;
-    body?: Record<string, unknown>;
-  }): Promise<unknown> {
+  private async callMoltComics(input: MoltComicsCallInput): Promise<unknown> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.config.timeoutMs);
     const url = this.buildMoltComicsUrl(input.pathTemplate, input.args);
@@ -270,36 +277,46 @@ export class MCPInvoker {
       "x-request-id": input.requestId,
       ...(this.moltComics.agentId ? { "x-agent-id": this.moltComics.agentId } : {}),
     };
-    if (input.method !== "GET") {
-      headers["Content-Type"] = "application/json";
-    }
 
     try {
+      const method = input.method === "POST_FORM" ? "POST" : input.method;
+      let body: unknown;
+
+      if (input.method === "POST") {
+        headers["Content-Type"] = "application/json";
+        body = JSON.stringify(input.body || {});
+      }
+
+      if (input.method === "POST_FORM") {
+        body = await this.buildMoltComicsFormData(input.pathTemplate, input.args);
+      }
+
       const response = await fetch(url, {
-        method: input.method,
+        method,
         headers,
-        body: input.method === "GET" ? undefined : JSON.stringify(input.body || {}),
+        body: body as any,
         signal: controller.signal,
       });
 
       const text = await response.text();
-      const parsed = text ? JSON.parse(text) : {};
+      let parsed: unknown = {};
+      try {
+        parsed = text ? JSON.parse(text) : {};
+      } catch {
+        throw new Error(`MoltComics API returned non-JSON response for ${method} ${url}`);
+      }
+
       if (!response.ok) {
-        throw new Error(
-          `MoltComics API ${input.method} ${url} failed (${response.status}): ${
-            isRecord(parsed) && typeof parsed.message === "string"
+        const message =
+          isRecord(parsed) && isRecord(parsed.error) && typeof parsed.error.message === "string"
+            ? parsed.error.message
+            : isRecord(parsed) && typeof parsed.message === "string"
               ? parsed.message
-              : text.slice(0, 180)
-          }`
-        );
+              : text.slice(0, 180);
+        throw new Error(`MoltComics API ${method} ${url} failed (${response.status}): ${message}`);
       }
 
       return parsed;
-    } catch (error) {
-      if (error instanceof SyntaxError) {
-        throw new Error(`MoltComics API returned non-JSON response for ${input.method} ${url}`);
-      }
-      throw error;
     } finally {
       clearTimeout(timer);
     }
@@ -307,13 +324,12 @@ export class MCPInvoker {
 
   private buildMoltComicsUrl(pathTemplate: string, args: Record<string, unknown>): string {
     const tokens: Record<string, string | undefined> = {
-      story_id: typeof args.story_id === "string" ? args.story_id : undefined,
-      round_id: typeof args.round_id === "string" ? args.round_id : undefined,
-      panel_id: typeof args.panel_id === "string" ? args.panel_id : undefined,
+      chain_id: asNonEmptyString(args.chain_id) || asNonEmptyString(args.chainId),
+      panel_id: asNonEmptyString(args.panel_id) || asNonEmptyString(args.panelId),
       agent_id: this.moltComics.agentId,
     };
 
-    const resolvedPath = pathTemplate.replace(/\{(story_id|round_id|panel_id|agent_id)\}/g, (_, key) => {
+    const resolvedPath = pathTemplate.replace(/\{(chain_id|panel_id|agent_id)\}/g, (_, key) => {
       const value = tokens[key];
       if (!value) {
         throw new Error(`Missing required path token: ${key}`);
@@ -321,7 +337,110 @@ export class MCPInvoker {
       return encodeURIComponent(value);
     });
 
-    return new URL(resolvedPath, this.moltComics.baseUrl).toString();
+    const url = new URL(resolvedPath, this.moltComics.baseUrl);
+
+    if (resolvedPath.includes("?")) {
+      return url.toString();
+    }
+
+    const maybeLimit = asNumber(args.limit);
+    if (maybeLimit !== undefined) {
+      url.searchParams.set("limit", String(maybeLimit));
+    }
+
+    const maybeSort = asNonEmptyString(args.sort);
+    if (maybeSort) {
+      url.searchParams.set("sort", maybeSort);
+    }
+
+    const maybeGenre = asNonEmptyString(args.genre);
+    if (maybeGenre) {
+      url.searchParams.set("genre", maybeGenre);
+    }
+
+    const maybeCursor = asNonEmptyString(args.cursor);
+    if (maybeCursor) {
+      url.searchParams.set("cursor", maybeCursor);
+    }
+
+    return url.toString();
+  }
+
+  private async buildMoltComicsFormData(
+    pathTemplate: string,
+    args: Record<string, unknown>
+  ): Promise<FormData> {
+    const form = new FormData();
+    const isChainsCreate = pathTemplate === this.moltComics.endpoints.chainsCreate;
+    const isPanelsSubmit = pathTemplate === this.moltComics.endpoints.panelsSubmit;
+
+    if (isChainsCreate) {
+      form.append("title", asNonEmptyString(args.title) || "metaKnyt 21 Sats Drop");
+      form.append("genre", asNonEmptyString(args.genre) || "sci-fi");
+      const caption =
+        asNonEmptyString(args.caption) ||
+        "A new signal ignites the chain as 21 sats unlock the next panel.";
+      form.append("caption", caption);
+    }
+
+    if (isPanelsSubmit) {
+      const chainId = asNonEmptyString(args.chain_id) || asNonEmptyString(args.chainId);
+      if (!chainId) {
+        throw new Error("moltcomics.panels.submit requires chain_id");
+      }
+      form.append("chainId", chainId);
+      const caption =
+        asNonEmptyString(args.caption) ||
+        "The signal mutates into a new panel as the crowd votes the storyline forward.";
+      form.append("caption", caption);
+    }
+
+    const { blob, filename } = await this.resolveMoltComicsImage(args);
+    form.append("image", blob, filename);
+    return form;
+  }
+
+  private async resolveMoltComicsImage(
+    args: Record<string, unknown>
+  ): Promise<{ blob: Blob; filename: string }> {
+    const imageBytesB64 = asNonEmptyString(args.image_bytes_b64) || asNonEmptyString(args.imageBytesB64);
+    const imageMime = asNonEmptyString(args.image_mime) || asNonEmptyString(args.imageMime) || "image/png";
+    const imageFilename = asNonEmptyString(args.image_filename) || asNonEmptyString(args.imageFilename) || "panel.png";
+
+    if (imageBytesB64) {
+      const bytes = Buffer.from(imageBytesB64, "base64");
+      return {
+        blob: new Blob([bytes], { type: imageMime }),
+        filename: imageFilename,
+      };
+    }
+
+    const imageUrl = asNonEmptyString(args.image_url) || asNonEmptyString(args.imageUrl);
+    if (imageUrl) {
+      try {
+        const response = await fetch(imageUrl);
+        if (response.ok) {
+          const arrayBuffer = await response.arrayBuffer();
+          const contentType = response.headers.get("content-type") || imageMime;
+          return {
+            blob: new Blob([arrayBuffer], { type: contentType }),
+            filename: imageFilename,
+          };
+        }
+      } catch {
+        // fall through to placeholder
+      }
+    }
+
+    // Minimal 1x1 PNG fallback so the pipeline can run during hackathon stubbing.
+    const placeholder = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMB/WMh2aQAAAAASUVORK5CYII=",
+      "base64"
+    );
+    return {
+      blob: new Blob([placeholder], { type: "image/png" }),
+      filename: "panel.png",
+    };
   }
 
   private generateStubResult(toolId: string, args: Record<string, unknown>): unknown {
@@ -383,52 +502,50 @@ export class MCPInvoker {
       };
     }
 
-    if (toolId === "moltcomics.story.create") {
-      const storyId = `story_${Date.now()}`;
-      return {
-        story_id: storyId,
-        url: `https://www.moltcomics.com/story/${storyId}`,
-        status: "created",
-      };
+    if (toolId === "moltcomics.chains.continuable") {
+      return { chains: [] };
     }
 
-    if (toolId === "moltcomics.story.status") {
-      return {
-        story_id: typeof args.story_id === "string" ? args.story_id : "story_stub",
-        round_id: `round_${Date.now()}`,
-        phase: "submission",
-      };
-    }
-
-    if (toolId === "moltcomics.panel.submit") {
+    if (toolId === "moltcomics.chains.create") {
+      const chainId = `chain_${Date.now()}`;
       const panelId = `panel_${Date.now()}`;
-      const storyId = typeof args.story_id === "string" ? args.story_id : "story_stub";
       return {
-        panel_id: panelId,
-        story_id: storyId,
-        panel_url: `https://www.moltcomics.com/story/${storyId}/panel/${panelId}`,
-        status: "submitted",
+        chainId,
+        panelId,
+        url: `https://moltcomics.com/chains/${chainId}`,
+        imageUrl: "https://moltcomics.com/placeholder-panel.png",
       };
     }
 
-    if (toolId === "moltcomics.round.result") {
+    if (toolId === "moltcomics.chains.get") {
+      const chainId = asNonEmptyString(args.chain_id) || "chain_stub";
       return {
-        status: "provisional",
-        winner: {
-          panel_id: `panel_${Date.now()}`,
-          panel_url: "https://www.moltcomics.com/panel/winner",
-          caption: "21 sats teaser winner",
+        chain: { id: chainId, title: "Stub Chain", genre: "sci-fi" },
+        currentRound: {
+          roundNumber: 1,
+          submissions: [],
         },
       };
     }
 
-    if (toolId === "moltcomics.export.story") {
+    if (toolId === "moltcomics.panels.submit") {
+      const chainId = asNonEmptyString(args.chain_id) || "chain_stub";
+      const panelId = `panel_${Date.now()}`;
       return {
-        export_url: "https://www.moltcomics.com/export/story-pack.zip",
-        manifest: {
-          story_id: typeof args.story_id === "string" ? args.story_id : "story_stub",
-          assets: [{ type: "panel", url: "https://www.moltcomics.com/panel/winner" }],
-        },
+        panelId,
+        chainId,
+        round: 1,
+        roundStatus: "open",
+        url: `https://moltcomics.com/chains/${chainId}`,
+        imageUrl: `https://moltcomics.com/chains/${chainId}/panel/${panelId}.png`,
+      };
+    }
+
+    if (toolId === "moltcomics.panels.upvote") {
+      return {
+        voted: true,
+        upvotes: 1,
+        standings: { rank: 1, total: 1 },
       };
     }
 

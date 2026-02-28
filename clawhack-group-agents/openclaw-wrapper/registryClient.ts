@@ -88,9 +88,9 @@ const FALLBACK_TOOLS: RegistryTool[] = [
     },
   },
   {
-    tool_id: "moltcomics.story.create",
+    tool_id: "moltcomics.chains.create",
     provider_id: "prov_moltcomics",
-    name: "Create MoltComics Story",
+    name: "Create MoltComics Chain",
     policy: {
       allowed_scopes: ["thread_only"],
       constraints: { max_calls_per_job: 1, max_calls_per_thread: 2 },
@@ -98,9 +98,9 @@ const FALLBACK_TOOLS: RegistryTool[] = [
     },
   },
   {
-    tool_id: "moltcomics.story.status",
+    tool_id: "moltcomics.chains.continuable",
     provider_id: "prov_moltcomics",
-    name: "Get MoltComics Story Status",
+    name: "List Continuable MoltComics Chains",
     policy: {
       allowed_scopes: ["thread_only"],
       constraints: { max_calls_per_job: 2, max_calls_per_thread: 4 },
@@ -108,7 +108,17 @@ const FALLBACK_TOOLS: RegistryTool[] = [
     },
   },
   {
-    tool_id: "moltcomics.panel.submit",
+    tool_id: "moltcomics.chains.get",
+    provider_id: "prov_moltcomics",
+    name: "Get MoltComics Chain",
+    policy: {
+      allowed_scopes: ["thread_only"],
+      constraints: { max_calls_per_job: 2, max_calls_per_thread: 4 },
+      data_classification_max: "internal",
+    },
+  },
+  {
+    tool_id: "moltcomics.panels.submit",
     provider_id: "prov_moltcomics",
     name: "Submit MoltComics Panel",
     policy: {
@@ -118,22 +128,12 @@ const FALLBACK_TOOLS: RegistryTool[] = [
     },
   },
   {
-    tool_id: "moltcomics.round.result",
+    tool_id: "moltcomics.panels.upvote",
     provider_id: "prov_moltcomics",
-    name: "Get MoltComics Round Result",
+    name: "Upvote MoltComics Panel",
     policy: {
       allowed_scopes: ["thread_only"],
-      constraints: { max_calls_per_job: 1, max_calls_per_thread: 2 },
-      data_classification_max: "internal",
-    },
-  },
-  {
-    tool_id: "moltcomics.export.story",
-    provider_id: "prov_moltcomics",
-    name: "Export MoltComics Story",
-    policy: {
-      allowed_scopes: ["thread_only"],
-      constraints: { max_calls_per_job: 1, max_calls_per_thread: 2 },
+      constraints: { max_calls_per_job: 1, max_calls_per_thread: 10 },
       data_classification_max: "internal",
     },
   },
