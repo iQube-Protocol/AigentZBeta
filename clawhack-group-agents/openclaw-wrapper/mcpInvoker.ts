@@ -379,7 +379,7 @@ export class MCPInvoker {
       form.append("genre", asNonEmptyString(args.genre) || "sci-fi");
       const caption =
         asNonEmptyString(args.caption) ||
-        "A new signal ignites the chain as 21 sats unlock the next panel.";
+        `A new signal ignites the chain as 21 sats unlock the next panel. ${this.getMetaKnytDirective()}`;
       form.append("caption", caption);
     }
 
@@ -391,7 +391,7 @@ export class MCPInvoker {
       form.append("chainId", chainId);
       const caption =
         asNonEmptyString(args.caption) ||
-        "The signal mutates into a new panel as the crowd votes the storyline forward.";
+        `The signal mutates into a new panel as the storyline advances. ${this.getMetaKnytDirective()}`;
       form.append("caption", caption);
     }
 
@@ -441,6 +441,21 @@ export class MCPInvoker {
       blob: new Blob([placeholder], { type: "image/png" }),
       filename: "panel.png",
     };
+  }
+
+  private getMetaKnytDirective(): string {
+    const baseline = [
+      "metaKnyts canon only with 21 Sats shard framing.",
+      "Respect twin-thread story logic: metaKnyts conflict plus Satoshi disappearance mystery.",
+      'Include Pulse metaphysics and the mantra "All is One. No One is All." in serious tone.',
+      "Visual style: dark tech-noir, neon cyan/cobalt/magenta, cyberpunk HUD overlays, mythic sigils.",
+      "Do not reveal Satoshi identity and keep PG-13 continuity.",
+    ].join(" ");
+    const configured = process.env.MOLTCOMICS_METAKNYT_SYSTEM_PROMPT?.trim();
+    if (!configured) {
+      return baseline;
+    }
+    return `${baseline} Additional creator directives: ${configured}`;
   }
 
   private generateStubResult(toolId: string, args: Record<string, unknown>): unknown {

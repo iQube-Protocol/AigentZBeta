@@ -186,9 +186,10 @@ export class OpenClawWorker {
   ): Promise<{ outboundEvents: OutboundEvent[]; artifacts: MintedArtifactRef[] }> {
     const toolchain: string[] = [];
     const dataClassification = context.inbound.security.data_classification;
-    const brief =
+    const rawBrief =
       context.inbound.message.content.text?.trim() ??
       "Create a 21 Sats comic and marketing drop for metaKnyt.";
+    const brief = this.ensureMetaKnytBrief(rawBrief);
 
     const comicPack = await this.invokeCuratedTool(
       "knyt.comic.generate_pack",
@@ -283,7 +284,7 @@ export class OpenClawWorker {
       outboundLinks.push(...moltComicsOutcome.links);
     }
 
-    const summary = this.buildRunSummary(brief, artifacts);
+    const summary = this.buildRunSummary(rawBrief, artifacts);
     const conversationPersist = await this.conversationStore.recordOutcome({
       conversationQubeId: context.conversationQube.conversation_qube_id,
       summary,
@@ -534,7 +535,7 @@ export class OpenClawWorker {
         const chainCreate = await this.invokeCuratedTool(
           "moltcomics.chains.create",
           {
-            title: "metaKnyt 21 Sats Drop",
+            title: this.buildMoltChainTitle(brief),
             genre: "sci-fi",
             caption: panelCaption,
             image_url: imageUrl,
@@ -757,14 +758,81 @@ export class OpenClawWorker {
       base.trim().length > 0
         ? base.trim()
         : "A new panel pushes the storyline forward with cinematic tension and clear narrative continuity.";
+    const directive = this.getMetaKnytDirective();
+    const forkTag = this.getMetaKnytForkTag();
+    const mantra = "All is One. No One is All.";
+    let caption =
+      `${seed} Canonical direction: ${directive}` +
+      ` Canon anchors: Pulse signal, Satoshi disappearance clue, portal threshold hint, mantra "${mantra}".` +
+      ` Strand: 21 Sats: Shards. FORK: ${forkTag}.`;
     const extension =
-      ` ${brief.trim()} The scene should preserve visual continuity with prior panels, keep dialogue clear,` +
-      " and maintain PG-13 tone while advancing the character arc toward the next dramatic beat.";
-    let caption = seed;
+      ` ${brief.trim()} Keep continuity with prior panels, preserve PG-13 tone, and advance the same protagonist arc.` +
+      " Keep tech-noir neon style with cyberpunk overlays and mythic protector energy.";
     while (caption.length < 320) {
       caption += extension;
     }
     return caption.slice(0, 1100);
+  }
+
+  private ensureMetaKnytBrief(brief: string): string {
+    const trimmed = brief.trim();
+    const directive = this.getMetaKnytDirective();
+    const base =
+      trimmed.length > 0
+        ? trimmed
+        : "Create a 21 Sats comic and marketing drop for metaKnyt.";
+    const enriched =
+      `${base} Canonical direction: ${directive}` +
+      " Use 21 Sats: Shards format with one signature hero panel and a fork tag (A/B/C)." +
+      ' Include one subtle Satoshi clue and the mantra "All is One. No One is All." once.' +
+      " Never reveal Satoshi identity or break twin-thread canon.";
+    if (trimmed.toLowerCase().includes("metaknyt") || trimmed.toLowerCase().includes("21 sats")) {
+      return enriched;
+    }
+    return `${enriched} Theme override: metaKnyt / 21 Sats narrative.`;
+  }
+
+  private buildMoltChainTitle(brief: string): string {
+    const source = brief.trim().slice(0, 80);
+    const shard = this.getMetaKnytShardId();
+    if (source.length === 0) {
+      return `SHARD_${shard}: metaKnyt 21 Sats Chronicle`;
+    }
+    return `SHARD_${shard}: metaKnyt 21 Sats | ${source}`;
+  }
+
+  private getMetaKnytDirective(): string {
+    const baseline = [
+      "metaKnyts canon only: phygital sci-fi/fantasy universe.",
+      "Twin-thread structure is required: Kn0w1/metaKnyts conflict plus Satoshi disappearance mystery.",
+      "The Pulse must be sensed as a hidden rhythm across reality.",
+      'The mantra "All is One. No One is All." must appear once in a serious tone.',
+      "21 Sats framing: forkable outcomes and shard-based storytelling with canonical continuity.",
+      "Visual style: dark tech-noir, deep blacks, neon cyan/cobalt/magenta, cyberpunk HUD overlays, mythic sigils, cinematic rim lighting.",
+      "Guardrails: do not reveal Satoshi identity, do not break twin-thread canon, keep PG-13.",
+    ].join(" ");
+    const configured = process.env.MOLTCOMICS_METAKNYT_SYSTEM_PROMPT?.trim();
+    if (!configured) {
+      return baseline;
+    }
+    return `${baseline} Additional creator directives: ${configured}`;
+  }
+
+  private getMetaKnytForkTag(): string {
+    const raw = process.env.MOLTCOMICS_METAKNYT_FORK_TAG?.trim().toUpperCase();
+    if (raw === "A" || raw === "B" || raw === "C") {
+      return raw;
+    }
+    return "A";
+  }
+
+  private getMetaKnytShardId(): string {
+    const configured = process.env.MOLTCOMICS_METAKNYT_SHARD_ID?.trim();
+    if (configured && /^[A-Za-z0-9_-]{2,16}$/.test(configured)) {
+      return configured.toUpperCase();
+    }
+    const n = (Date.now() % 99) + 1;
+    return String(n).padStart(2, "0");
   }
 
   private pushOutboundLink(links: OutboundLink[], label: string, url: string | undefined): void {
