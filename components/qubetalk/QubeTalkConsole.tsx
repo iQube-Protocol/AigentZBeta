@@ -80,6 +80,42 @@ type ConsoleMode = "studio" | "admin";
 
 const DEFAULT_TENANT = (qubetalkFixtures?.tenant_id as string) || "t_demo_001";
 
+const CHANNEL_MARKER_LABELS: Record<string, string> = {
+  "topic:group_agents_main": "Group Agents Main",
+  "topic:bridge_inbound": "Bridge Inbound",
+  "topic:bridge_outbound": "Bridge Outbound",
+  "topic:openclaw_requests": "OpenClaw Requests",
+  "topic:openclaw_responses": "OpenClaw Responses",
+  "topic:dvn_receipts": "DVN Receipts",
+  "topic:artifacts_minted": "Artifacts Minted",
+  "topic:router_coordination": "Router Coordination",
+  "logical:main": "Group Agents Main",
+  "logical:bridgeInbound": "Bridge Inbound",
+  "logical:bridgeOutbound": "Bridge Outbound",
+  "logical:openclawRequests": "OpenClaw Requests",
+  "logical:openclawResponses": "OpenClaw Responses",
+  "logical:dvnReceipts": "DVN Receipts",
+  "logical:artifactsMinted": "Artifacts Minted",
+  "logical:router": "Router Coordination",
+};
+
+function getChannelLabel(channel: Channel): string {
+  const participants = channel.participants || [];
+  for (const participant of participants) {
+    const label = CHANNEL_MARKER_LABELS[participant];
+    if (label) return label;
+  }
+  return channel.channel_id;
+}
+
+function getChannelMarker(channel: Channel): string | null {
+  const participants = channel.participants || [];
+  const topicMarker = participants.find((participant) => participant.startsWith("topic:"));
+  if (topicMarker) return topicMarker;
+  const logicalMarker = participants.find((participant) => participant.startsWith("logical:"));
+  return logicalMarker || null;
+}
+
 const fallbackChannel = (tenantId: string): Channel => ({
   channel_id: (qubetalkFixtures?.channel_id as string) || "ch_demo_001",
   tenant_id: tenantId,
@@ -193,6 +229,10 @@ export default function QubeTalkConsole({ mode }: { mode: ConsoleMode }) {
   const selectedChannel = useMemo(
     () => channels.find((channel) => channel.channel_id === selectedChannelId) || null,
     [channels, selectedChannelId]
+  );
+  const selectedChannelLabel = useMemo(
+    () => (selectedChannel ? getChannelLabel(selectedChannel) : null),
+    [selectedChannel]
   );
 
   useEffect(() => {
@@ -626,9 +666,9 @@ export default function QubeTalkConsole({ mode }: { mode: ConsoleMode }) {
                       : "border-slate-800 bg-slate-950/40 text-slate-400 hover:border-slate-700 hover:text-white"
                   }`}
                 >
-                  <div className="truncate font-medium">{channel.channel_id}</div>
+                  <div className="truncate font-medium">{getChannelLabel(channel)}</div>
                   <div className="text-[11px] text-slate-500">
-                    {channel.participants?.length || 0} participants
+                    {getChannelMarker(channel) || `${channel.participants?.length || 0} participants`}
                   </div>
                 </button>
               ))}
@@ -657,7 +697,9 @@ export default function QubeTalkConsole({ mode }: { mode: ConsoleMode }) {
               <div>
                 <div className="text-sm font-semibold text-slate-200">Channel Messages</div>
                 <div className="text-xs text-slate-500">
-                  {selectedChannelId ? `Channel ${selectedChannelId}` : "Select a channel"}
+                  {selectedChannelId
+                    ? `${selectedChannelLabel || "Channel"} (${selectedChannelId})`
+                    : "Select a channel"}
                 </div>
               </div>
               <div className="text-[11px] text-slate-500">
