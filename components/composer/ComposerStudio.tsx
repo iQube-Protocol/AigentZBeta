@@ -20,6 +20,7 @@ import type { DesignQube, DesignQubeThemeMode } from "@/types/designQube";
 import { CodexCopilotLayer } from "@/app/components/codex/CodexCopilotLayer";
 import { AgenticDesignParityPanel } from "@/components/composer/AgenticDesignParityPanel";
 import SurfacePlanningPanel from "@/components/composer/SurfacePlanningPanel";
+import DVNReceiptsPanel from "@/components/composer/DVNReceiptsPanel";
 
 type ComposerField = {
   id: string;
@@ -747,7 +748,7 @@ export const ComposerStudio = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [editingExperienceId, setEditingExperienceId] = useState<string | null>(null);
-  const [studioAnalysisTab, setStudioAnalysisTab] = useState<"parity" | "surfaces">("parity");
+  const [studioAnalysisTab, setStudioAnalysisTab] = useState<"parity" | "surfaces" | "receipts">("parity");
   const { data: codexList } = useCodexList({ useDefaults: true });
   const [copilotContextId, setCopilotContextId] = useState("qripto-codex");
   const [codexContentItems, setCodexContentItems] = useState<ComposerMediaItem[]>([]);
@@ -3847,15 +3848,18 @@ Example: 'What template works best for a dashboard layout?'"
           <div className="rounded-2xl border border-slate-800/70 bg-slate-900/40 p-3 sm:p-4">
             <Tabs
               value={studioAnalysisTab}
-              onValueChange={(value) => setStudioAnalysisTab(value as "parity" | "surfaces")}
+              onValueChange={(value) => setStudioAnalysisTab(value as "parity" | "surfaces" | "receipts")}
               className="w-full"
             >
-              <TabsList className="mb-4 grid w-full grid-cols-2 bg-slate-900/70">
+              <TabsList className="mb-4 grid w-full grid-cols-3 bg-slate-900/70">
                 <TabsTrigger value="parity" className="text-xs sm:text-sm">
                   Agentic UI Design Parity
                 </TabsTrigger>
                 <TabsTrigger value="surfaces" className="text-xs sm:text-sm">
                   Surface Planning
+                </TabsTrigger>
+                <TabsTrigger value="receipts" className="text-xs sm:text-sm">
+                  DVN Receipts
                 </TabsTrigger>
               </TabsList>
 
@@ -3885,6 +3889,14 @@ Example: 'What template works best for a dashboard layout?'"
                   onSurfacePlanGenerated={() => {
                     // Stub hook for future runtime preview integration.
                   }}
+                />
+              </TabsContent>
+
+              <TabsContent value="receipts" className="mt-0">
+                <DVNReceiptsPanel
+                  experienceId={previewExperience?.id || selectedExperienceId || undefined}
+                  autoRefresh={true}
+                  refreshInterval={5000}
                 />
               </TabsContent>
             </Tabs>

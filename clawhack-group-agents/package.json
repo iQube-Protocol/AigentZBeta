@@ -1,0 +1,30 @@
+{
+  "name": "@aigent-z/clawhack-group-agents",
+  "version": "0.1.0",
+  "description": "ClawHack Group Agents - XMTP/QubeTalk/OpenClaw integration for hackathon",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "init-channels": "tsx scripts/init-channels.ts",
+    "runtime:group": "tsx scripts/run-group-runtime.ts",
+    "adapter:discord": "tsx adapters/discord/run.ts",
+    "adapter:xmtp": "tsx adapters/xmtp/run.ts",
+    "openclaw:worker": "tsx openclaw-wrapper/run.ts",
+    "test:e2e": "tsx scripts/test-e2e.ts",
+    "dev": "concurrently \"npm:adapter:discord\" \"npm:adapter:xmtp\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@xmtp/node-sdk": "^0.0.1",
+    "dotenv": "^16.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "concurrently": "^8.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
