@@ -20,6 +20,7 @@ import {
   CheckSquare,
   Trophy,
   Gift,
+  CreditCard,
   PanelRightClose,
   PanelRightOpen,
   PanelBottomClose,
@@ -638,7 +639,7 @@ export function CodexCopilotLayer({
         ? "w-full md:w-[32.25rem]"
         : "w-full md:w-[22.25rem]";
   const walletEmbeddedWidth = density === "narrow" ? "fixed" : "fill";
-  const walletMenuBottomClass = floatingInput ? "bottom-[84px]" : "bottom-[80px]";
+  const walletMenuBottomClass = floatingInput ? "bottom-[93px]" : "bottom-[89px]";
 
   return (
     <>
@@ -796,8 +797,9 @@ export function CodexCopilotLayer({
                         >
                           <div className="pointer-events-auto mx-auto flex w-full items-center justify-between rounded-2xl border border-white/10 bg-transparent px-3 py-2">
                             {!walletActionsCollapsed ? (
-                              <div className="flex flex-1 items-center justify-between gap-2">
-                                {["wallet", "library", "tasks", "reputation", "rewards"].map((tab) => (
+                              <div className="min-w-0 flex-1 overflow-x-auto no-scrollbar">
+                                <div className="grid min-w-full grid-flow-col auto-cols-[minmax(2.5rem,1fr)] items-center gap-2">
+                                {["wallet", "library", "tasks", "reputation", "rewards", "payments"].map((tab) => (
                                   <button
                                     key={tab}
                                     onClick={() => {
@@ -805,19 +807,23 @@ export function CodexCopilotLayer({
                                       setWalletPanelOpen(true);
                                       setWalletPanelCollapsed(false);
                                     }}
-                                    className={`p-2 rounded-lg ring-1 transition-colors ${
+                                    className={`h-10 w-full rounded-lg ring-1 transition-colors ${
                                       walletPanelOpen && walletPanelTab === tab && !walletPanelCollapsed
                                         ? "bg-cyan-500/20 ring-cyan-500/30 text-cyan-200"
                                         : "bg-white/5 ring-white/10 text-white/70 hover:text-white hover:bg-white/10"
                                     }`}
                                   >
-                                    {tab === "wallet" && <Wallet className="w-4 h-4" />}
-                                    {tab === "library" && <BookOpen className="w-4 h-4" />}
-                                    {tab === "tasks" && <CheckSquare className="w-4 h-4" />}
-                                    {tab === "reputation" && <Trophy className="w-4 h-4" />}
-                                    {tab === "rewards" && <Gift className="w-4 h-4" />}
+                                    <span className="flex h-full w-full items-center justify-center">
+                                      {tab === "wallet" && <Wallet className="w-4 h-4" />}
+                                      {tab === "library" && <BookOpen className="w-4 h-4" />}
+                                      {tab === "tasks" && <CheckSquare className="w-4 h-4" />}
+                                      {tab === "reputation" && <Trophy className="w-4 h-4" />}
+                                      {tab === "rewards" && <Gift className="w-4 h-4" />}
+                                      {tab === "payments" && <CreditCard className="w-4 h-4" />}
+                                    </span>
                                   </button>
                                 ))}
+                                </div>
                               </div>
                             ) : (
                               <div className="flex flex-1 items-center justify-center">
