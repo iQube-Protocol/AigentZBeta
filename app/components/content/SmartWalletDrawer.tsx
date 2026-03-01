@@ -1246,9 +1246,7 @@ export default function SmartWalletDrawer({
       const drawerWidth =
         embeddedWidth === "fill"
           ? "w-full"
-          : copilotOpen
-            ? "w-[28.25rem]"
-            : "w-[21.85rem]";
+          : "w-full";
       return `${baseClasses} ${drawerWidth} ${embeddedWidth === "fill" ? "" : "ml-auto"}`;
     }
     // Overlay mode
@@ -1380,16 +1378,18 @@ export default function SmartWalletDrawer({
                 <Bot className="w-4 h-4" />
               </button>
             </Tooltip>
-            <Tooltip text={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}>
-              <button
-                type="button"
-                onClick={() => setIsFullscreen((prev) => !prev)}
-                className="wallet-icon-btn p-1.5"
-                aria-label={isFullscreen ? "Exit fullscreen wallet drawer" : "Fullscreen wallet drawer"}
-              >
-                {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-              </button>
-            </Tooltip>
+            {variant === "overlay" ? (
+              <Tooltip text={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}>
+                <button
+                  type="button"
+                  onClick={() => setIsFullscreen((prev) => !prev)}
+                  className="wallet-icon-btn p-1.5"
+                  aria-label={isFullscreen ? "Exit fullscreen wallet drawer" : "Fullscreen wallet drawer"}
+                >
+                  {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                </button>
+              </Tooltip>
+            ) : null}
 
             <Tooltip text="Close Wallet">
               <button
