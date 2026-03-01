@@ -12,7 +12,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCodexConfig, getEnabledTabs } from "@/app/hooks/useCodexConfig";
 import { CodexTab } from "@/types/codex";
 import type { DeviceType } from "@/app/types/knytLiquidUI";
-import { Loader2, AlertCircle } from "lucide-react";
+import { Loader2, AlertCircle, X } from "lucide-react";
 import { SmartTriadProvider, SmartTriadSurfaces } from "@/app/components/content";
 import { TabRenderer } from "./codex/TabRenderer";
 import { getIconComponent } from "./codex/iconMap";
@@ -265,6 +265,34 @@ export default function CodexPanelDynamic({
     return rawBadge;
   };
 
+  const closeParam = (searchParams?.get("closable") || "").trim().toLowerCase();
+  const showCloseLayerButton =
+    pathname?.includes("/triad/embed/codex") &&
+    ["1", "true", "on", "yes"].includes(closeParam);
+
+  const handleCloseLayer = () => {
+    if (typeof window === "undefined") return;
+
+    // Preferred runtime path: ask parent host to dismiss the codex layer panel.
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage(
+        {
+          type: "METAME_CODEX_CLOSE_LAYER",
+          source: "codex-embed",
+          codex_id: codexId,
+          tab_slug: activeTabSlug,
+        },
+        "*"
+      );
+      return;
+    }
+
+    // Fallback behavior for non-embedded navigation.
+    if (window.history.length > 1) {
+      window.history.back();
+    }
+  };
+
   return (
     <SmartTriadProvider personaId={personaId}>
       <div className={`flex flex-col h-full w-full ${resolvedTheme === 'dark' ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'}`}>
@@ -309,26 +337,39 @@ export default function CodexPanelDynamic({
                 })}
               </div>
             </div>
-            {isQriptopian && (
-              <select
-                value={issueSlug}
-                onChange={(e) => {
-                  const next = e.target.value;
-                  setIssueSlug(next);
-                  const params = new URLSearchParams(window.location.search);
-                  params.set('issue', next);
-                  router.replace(`${pathname}?${params.toString()}`);
-                }}
-                disabled={issueOptionsLoading && issueOptions.length === 0}
-                className="rounded-md border border-slate-700 bg-slate-900/60 px-2 py-1 text-sm text-slate-200"
-              >
-                {(issueOptions.length > 0 ? issueOptions : fallbackIssueOptions).map((opt) => (
-                  <option key={opt.slug} value={opt.slug}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            )}
+            <div className="flex items-center gap-2">
+              {isQriptopian && (
+                <select
+                  value={issueSlug}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setIssueSlug(next);
+                    const params = new URLSearchParams(window.location.search);
+                    params.set('issue', next);
+                    router.replace(`${pathname}?${params.toString()}`);
+                  }}
+                  disabled={issueOptionsLoading && issueOptions.length === 0}
+                  className="rounded-md border border-slate-700 bg-slate-900/60 px-2 py-1 text-sm text-slate-200"
+                >
+                  {(issueOptions.length > 0 ? issueOptions : fallbackIssueOptions).map((opt) => (
+                    <option key={opt.slug} value={opt.slug}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {showCloseLayerButton ? (
+                <button
+                  type="button"
+                  onClick={handleCloseLayer}
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-600/80 bg-slate-900/70 text-slate-300 transition-colors hover:border-slate-400 hover:text-white"
+                  title="Close codex layer"
+                  aria-label="Close codex layer"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              ) : null}
+            </div>
           </div>
         </div>
 

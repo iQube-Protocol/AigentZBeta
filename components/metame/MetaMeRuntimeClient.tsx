@@ -594,6 +594,15 @@ function withDeviceParam(href: string, device: DeviceType): string {
   return hashPart ? `${nextPath}#${hashPart}` : nextPath;
 }
 
+function withQueryParam(href: string, key: string, value: string): string {
+  if (!href) return href;
+  const [path, hashPart] = href.split("#");
+  const pattern = new RegExp(`([?&]${key}=)[^&]*`);
+  const separator = path.includes("?") ? "&" : "?";
+  const nextPath = pattern.test(path) ? path.replace(pattern, `$1${value}`) : `${path}${separator}${key}=${value}`;
+  return hashPart ? `${nextPath}#${hashPart}` : nextPath;
+}
+
 function scoreContent(content: RuntimeCapsule, prompt: string, intent: RuntimeIntent): number {
   let score = 0;
   if (modalityEnabled(content, intent)) score += 5;
@@ -1334,9 +1343,10 @@ export default function MetaMeRuntimeClient() {
         const moduleConfig = resolveRuntimeModule(activeDevice, intent);
         const codexSlug = content.runtimeCodexSlug || "knyt";
         const initialTab = content.runtimeCodexInitialTab || "codex";
-        const frameSrc =
+        const rawFrameSrc =
           content.runtimeLaunchHref ||
           `/triad/embed/codex/${codexSlug}?tab=${initialTab}&theme=dark&density=${moduleConfig.runtimeDensity}`;
+        const frameSrc = withQueryParam(rawFrameSrc, "closable", "1");
         return renderRuntimeFramePanel(content, intent, {
           label: "Codex Capsule Runtime",
           frameSrc,
@@ -1407,6 +1417,27 @@ export default function MetaMeRuntimeClient() {
     setSelectedCapsuleLocal(queryPreviewCapsule.id);
     launchCapsule(queryPreviewCapsule, "play");
   }, [launchCapsule, queryPreviewCapsule]);
+
+  useEffect(() => {
+    function onEmbeddedCodexMessage(event: MessageEvent) {
+      const payload = event.data;
+      if (!payload || typeof payload !== "object" || Array.isArray(payload)) return;
+      if ((payload as { type?: string }).type !== "METAME_CODEX_CLOSE_LAYER") return;
+
+      setMessages((prev) => {
+        for (let index = prev.length - 1; index >= 0; index -= 1) {
+          if (prev[index]?.id?.startsWith("capsule-launch-")) {
+            return [...prev.slice(0, index), ...prev.slice(index + 1)];
+          }
+        }
+        return prev;
+      });
+      setSelectedCapsuleLocal(null);
+    }
+
+    window.addEventListener("message", onEmbeddedCodexMessage);
+    return () => window.removeEventListener("message", onEmbeddedCodexMessage);
+  }, []);
 
   const capsulePanel = useMemo(
     () => (
