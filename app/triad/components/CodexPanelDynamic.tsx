@@ -285,6 +285,7 @@ export default function CodexPanelDynamic({
         },
         "*"
       );
+      window.parent.postMessage("METAME_CODEX_CLOSE_LAYER", "*");
       return;
     }
 

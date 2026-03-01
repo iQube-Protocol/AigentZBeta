@@ -1421,12 +1421,20 @@ export default function MetaMeRuntimeClient() {
   useEffect(() => {
     function onEmbeddedCodexMessage(event: MessageEvent) {
       const payload = event.data;
-      if (!payload || typeof payload !== "object" || Array.isArray(payload)) return;
-      if ((payload as { type?: string }).type !== "METAME_CODEX_CLOSE_LAYER") return;
+      const messageType =
+        typeof payload === "string"
+          ? payload
+          : payload && typeof payload === "object" && !Array.isArray(payload)
+            ? (payload as { type?: string }).type
+            : null;
+      if (messageType !== "METAME_CODEX_CLOSE_LAYER") return;
 
       setMessages((prev) => {
         for (let index = prev.length - 1; index >= 0; index -= 1) {
-          if (prev[index]?.id?.startsWith("capsule-launch-")) {
+          const message = prev[index];
+          const isCapsuleLaunch = typeof message?.id === "string" && message.id.startsWith("capsule-launch-");
+          const isOverlayPanel = message?.variant === "panel" && message?.id !== "capsule-panel";
+          if (isCapsuleLaunch || isOverlayPanel) {
             return [...prev.slice(0, index), ...prev.slice(index + 1)];
           }
         }

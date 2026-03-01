@@ -174,7 +174,7 @@ export function CodexCopilotLayer({
   }, [hideAvatarToggle, copilotMode]);
   const [inputPanelHover, setInputPanelHover] = useState(false);
   const headerHeight = 44;
-  const footerHeight = floatingInput ? 124 : 88;
+  const footerHeight = floatingInput ? 116 : 80;
   const resolvedHeaderHeight = showTrustIndicators ? headerHeight : 0;
   const resolvedFooterHeight = disablePromptInput ? 0 : footerHeight;
   const seededRef = useRef(false);
@@ -666,10 +666,10 @@ export function CodexCopilotLayer({
         : "w-full md:w-[22.25rem]";
   const walletEmbeddedWidth = density === "narrow" ? "fixed" : "fill";
   const walletMenuBottomClass = floatingInput
-    ? quickPromptsCollapsed
-      ? "bottom-[148px]"
-      : "bottom-[188px]"
-    : "bottom-[96px]";
+    ? quickLinksVisible && !quickPromptsCollapsed
+      ? "bottom-[118px]"
+      : "bottom-[92px]"
+    : "bottom-[80px]";
 
   return (
     <>
@@ -816,7 +816,7 @@ export function CodexCopilotLayer({
                       {showWalletMenu && (
                         <div
                           className={`absolute left-3 right-3 transition-opacity duration-200 ${
-                            `${walletMenuBottomClass} z-30`
+                            `${walletMenuBottomClass} z-20`
                           } ${
                             walletMenuVisible || walletMenuHover
                               ? "opacity-100 pointer-events-auto"
@@ -894,7 +894,7 @@ export function CodexCopilotLayer({
 
                     {!disablePromptInput ? (
                       <div
-                        className={`absolute inset-x-0 bottom-0 px-3 pb-1 pt-0 z-20 ${
+                        className={`absolute inset-x-0 bottom-0 px-3 pb-1 pt-0 z-30 ${
                           floatingInput ? "bg-transparent" : "bg-white/5"
                         }`}
                       >
@@ -904,8 +904,46 @@ export function CodexCopilotLayer({
                             className="absolute left-0 right-0 bottom-0 h-28"
                             onMouseEnter={() => showInputPanelWithTimeout()}
                           />
+                          {quickPrompts && quickPrompts.length > 0 && !quickPromptsCollapsed && (
+                            <div
+                              className={`absolute left-3 right-3 bottom-[162px] z-30 overflow-x-auto no-scrollbar md:overflow-visible transition-all duration-200 ${
+                                quickLinksVisible ? "opacity-100 max-h-24" : "opacity-0 max-h-0 pointer-events-none"
+                              }`}
+                            >
+                              <div className="rounded-xl border border-white/15 bg-slate-900/70 px-2 py-2 backdrop-blur-md">
+                                <div className="flex w-max min-w-full snap-x snap-mandatory gap-2 md:w-full md:min-w-0 md:snap-none">
+                                  {quickPrompts.map((promptItem, index) => {
+                                    if (typeof promptItem === "string") {
+                                      return (
+                                        <button
+                                          key={`${promptItem}-${index}`}
+                                          onClick={() => sendMessage(promptItem)}
+                                          className="snap-start shrink-0 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/70 hover:text-white hover:border-white/30 flex items-center justify-center md:min-w-0 md:flex-1"
+                                        >
+                                          {promptItem}
+                                        </button>
+                                      );
+                                    }
+                                    const label = promptItem.label;
+                                    const promptValue = promptItem.prompt || promptItem.label;
+                                    return (
+                                      <button
+                                        key={promptItem.id || `${label}-${index}`}
+                                        onClick={() => sendMessage(promptValue, { skipInference: promptItem.skipInference })}
+                                        title={label}
+                                        className="snap-start shrink-0 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/70 hover:text-white hover:border-white/30 flex items-center justify-center gap-2 min-w-[42px] md:min-w-0 md:flex-1"
+                                      >
+                                        {promptItem.icon ? promptItem.icon : label}
+                                        {promptItem.iconOnly ? <span className="sr-only">{label}</span> : label}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            </div>
+                          )}
                           <div
-                            className={`absolute left-3 right-3 bottom-16 transition-opacity duration-200 ${
+                            className={`absolute left-3 right-3 bottom-12 z-40 transition-opacity duration-200 ${
                               inputPanelVisible || inputPanelHover
                                 ? "opacity-100 pointer-events-auto"
                                 : "opacity-0 pointer-events-none"
@@ -921,45 +959,7 @@ export function CodexCopilotLayer({
                               hideQuickLinksWithTimeout();
                             }}
                           >
-                            <div className={inputPanelClassName ?? "rounded-2xl border border-white/10 bg-slate-950/85 backdrop-blur-xl px-3 py-2 shadow-lg"}>
-                              {quickPrompts && quickPrompts.length > 0 && !quickPromptsCollapsed && (
-                                <div
-                                  className={`mb-3 overflow-x-auto no-scrollbar md:overflow-visible transition-all duration-200 ${
-                                    quickLinksVisible ? "opacity-100 max-h-24" : "opacity-0 max-h-0 pointer-events-none mb-0"
-                                  }`}
-                                >
-                                  <div className="rounded-xl border border-white/15 bg-slate-900/70 px-2 py-2 backdrop-blur-md">
-                                    <div className="flex w-max min-w-full snap-x snap-mandatory gap-2 md:w-full md:min-w-0 md:snap-none">
-                                    {quickPrompts.map((promptItem, index) => {
-                                      if (typeof promptItem === "string") {
-                                        return (
-                                          <button
-                                            key={`${promptItem}-${index}`}
-                                            onClick={() => sendMessage(promptItem)}
-                                            className="snap-start shrink-0 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/70 hover:text-white hover:border-white/30 flex items-center justify-center md:min-w-0 md:flex-1"
-                                          >
-                                            {promptItem}
-                                          </button>
-                                        );
-                                      }
-                                      const label = promptItem.label;
-                                      const promptValue = promptItem.prompt || promptItem.label;
-                                      return (
-                                        <button
-                                          key={promptItem.id || `${label}-${index}`}
-                                          onClick={() => sendMessage(promptValue, { skipInference: promptItem.skipInference })}
-                                          title={label}
-                                          className="snap-start shrink-0 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/70 hover:text-white hover:border-white/30 flex items-center justify-center gap-2 min-w-[42px] md:min-w-0 md:flex-1"
-                                        >
-                                          {promptItem.icon ? promptItem.icon : label}
-                                          {promptItem.iconOnly ? <span className="sr-only">{label}</span> : label}
-                                        </button>
-                                      );
-                                    })}
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
+                            <div className={inputPanelClassName ?? "rounded-2xl border border-white/10 bg-slate-950/85 backdrop-blur-xl px-3 py-1.5 shadow-lg"}>
                               <div className="flex gap-2">
                                 <input
                                   type="text"
@@ -972,13 +972,13 @@ export function CodexCopilotLayer({
                                   }}
                                   onBlur={() => hideQuickLinksWithTimeout()}
                                   placeholder={promptPlaceholder}
-                                  className={inputPanelInputClassName ?? "flex-1 px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500 text-sm"}
+                                  className={inputPanelInputClassName ?? "flex-1 px-3 py-1.5 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500 text-sm"}
                                   disabled={isLoading}
                                 />
                                 <button
                                   onClick={() => sendMessage()}
                                   disabled={!inputValue.trim() || isLoading}
-                                  className="p-2 bg-cyan-500 hover:bg-cyan-600 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg transition-colors"
+                                  className="p-1.5 bg-cyan-500 hover:bg-cyan-600 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg transition-colors"
                                 >
                                   {isLoading ? (
                                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -990,7 +990,7 @@ export function CodexCopilotLayer({
                                   <button
                                     type="button"
                                     onClick={() => setQuickPromptsCollapsed((prev) => !prev)}
-                                    className="p-2 rounded-lg border border-slate-700 bg-slate-800/50 text-white/80 hover:bg-slate-700 transition-colors"
+                                    className="p-1.5 rounded-lg border border-slate-700 bg-slate-800/50 text-white/80 hover:bg-slate-700 transition-colors"
                                     title={quickPromptsCollapsed ? "Show quick links" : "Hide quick links"}
                                     aria-label={quickPromptsCollapsed ? "Show quick links" : "Hide quick links"}
                                   >
@@ -1078,7 +1078,7 @@ export function CodexCopilotLayer({
                         {footerContent ? (
                           <div className={floatingInput ? "pt-3" : "mt-3"}>{footerContent}</div>
                         ) : showNavMenu ? (
-                        <div className="mt-2 flex items-center justify-between border-t border-white/10 pt-2">
+                        <div className="mt-1 flex items-center justify-between border-t border-white/10 pt-1">
                           {hideAvatarToggle ? (
                             <div className="flex items-center gap-2">
                               <span className="rounded-sm border border-cyan-400/40 bg-cyan-500/20 px-3 py-1 text-[11px] font-semibold text-cyan-100 backdrop-blur-md shadow-sm">
