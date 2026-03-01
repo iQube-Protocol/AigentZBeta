@@ -1429,17 +1429,9 @@ export default function MetaMeRuntimeClient() {
             : null;
       if (messageType !== "METAME_CODEX_CLOSE_LAYER") return;
 
-      setMessages((prev) => {
-        for (let index = prev.length - 1; index >= 0; index -= 1) {
-          const message = prev[index];
-          const isCapsuleLaunch = typeof message?.id === "string" && message.id.startsWith("capsule-launch-");
-          const isOverlayPanel = message?.variant === "panel" && message?.id !== "capsule-panel";
-          if (isCapsuleLaunch || isOverlayPanel) {
-            return [...prev.slice(0, index), ...prev.slice(index + 1)];
-          }
-        }
-        return prev;
-      });
+      setMessages((prev) =>
+        prev.filter((message) => !(typeof message?.id === "string" && message.id.startsWith("capsule-launch-")))
+      );
       setSelectedCapsuleLocal(null);
     }
 
