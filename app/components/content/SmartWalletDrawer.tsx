@@ -154,6 +154,7 @@ interface SmartWalletDrawerProps {
   embeddedWidth?: 'fill' | 'fixed';
   codexMode?: boolean;
   onTabChange?: (tab: DrawerTab) => void;
+  onCopilotStateChange?: (open: boolean) => void;
 }
 
 const TAB_CONFIG: Array<{ key: DrawerTab; label: string; icon: React.ReactNode }> = [
@@ -197,6 +198,7 @@ export default function SmartWalletDrawer({
   variant = 'overlay',
   embeddedWidth = 'fill',
   codexMode = false,
+  onCopilotStateChange,
 }: SmartWalletDrawerProps) {
   const [activeTab, setActiveTab] = useState<DrawerTab>(initialTab);
   const [dismissed, setDismissed] = useState(false);
@@ -258,6 +260,10 @@ export default function SmartWalletDrawer({
       process.env.NEXT_PUBLIC_LVB_BRIDGE_TENANT_ID ||
       "default"
   );
+
+  useEffect(() => {
+    onCopilotStateChange?.(copilotOpen);
+  }, [copilotOpen, onCopilotStateChange]);
 
   const scrollCopilotToBottom = useCallback(() => {
     if (!copilotChatScrollRef.current) return;

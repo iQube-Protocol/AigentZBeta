@@ -155,6 +155,7 @@ export function CodexCopilotLayer({
   const [showActivationButton, setShowActivationButton] = useState(false);
   const [walletPanelOpen, setWalletPanelOpen] = useState(false);
   const [walletPanelCollapsed, setWalletPanelCollapsed] = useState(false);
+  const [walletCopilotOpen, setWalletCopilotOpen] = useState(false);
   const [walletActionsCollapsed, setWalletActionsCollapsed] = useState(false);
   const [walletPanelTab, setWalletPanelTab] = useState<WalletTab>("wallet");
   const [walletMenuVisible, setWalletMenuVisible] = useState(true);
@@ -635,7 +636,7 @@ export function CodexCopilotLayer({
   const walletPanelWidthClass =
     density === "extra-wide"
       ? "w-full md:w-[40.25rem]"
-      : density === "wide"
+      : density === "wide" || (density === "narrow" && walletCopilotOpen)
         ? "w-full md:w-[32.25rem]"
         : "w-full md:w-[22.25rem]";
   const walletEmbeddedWidth = density === "narrow" ? "fixed" : "fill";
@@ -1052,11 +1053,13 @@ export function CodexCopilotLayer({
                 onClose={() => {
                   setWalletPanelOpen(false);
                   setWalletPanelCollapsed(false);
+                  setWalletCopilotOpen(false);
                 }}
                 variant="embedded"
                 embeddedWidth={walletEmbeddedWidth}
                 initialTab={walletPanelTab}
                 onTabChange={setWalletPanelTab}
+                onCopilotStateChange={setWalletCopilotOpen}
                 agent={agent || {
                   id: "default",
                   name: "Demo Agent",
