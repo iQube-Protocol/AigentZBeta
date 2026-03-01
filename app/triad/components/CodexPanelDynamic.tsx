@@ -266,9 +266,10 @@ export default function CodexPanelDynamic({
   };
 
   const closeParam = (searchParams?.get("closable") || "").trim().toLowerCase();
-  const showCloseLayerButton =
-    pathname?.includes("/triad/embed/codex") &&
-    ["1", "true", "on", "yes"].includes(closeParam);
+  const closeEnabledByQuery = ["1", "true", "on", "yes"].includes(closeParam);
+  const closeDisabledByQuery = ["0", "false", "off", "no"].includes(closeParam);
+  const isEmbeddedContext = typeof window !== "undefined" && window.parent !== window;
+  const showCloseLayerButton = !closeDisabledByQuery && (closeEnabledByQuery || isEmbeddedContext);
 
   const handleCloseLayer = () => {
     if (typeof window === "undefined") return;
