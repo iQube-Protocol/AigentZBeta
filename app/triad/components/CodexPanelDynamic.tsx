@@ -274,18 +274,23 @@ export default function CodexPanelDynamic({
   const handleCloseLayer = () => {
     if (typeof window === "undefined") return;
 
-    // Preferred runtime path: ask parent host to dismiss the codex layer panel.
+    const closePayload = {
+      type: "METAME_CODEX_CLOSE_LAYER",
+      source: "codex-embed",
+      codex_id: codexId,
+      tab_slug: activeTabSlug,
+    };
+
+    // Preferred runtime path: notify both immediate parent and top shell host.
     if (window.parent && window.parent !== window) {
-      window.parent.postMessage(
-        {
-          type: "METAME_CODEX_CLOSE_LAYER",
-          source: "codex-embed",
-          codex_id: codexId,
-          tab_slug: activeTabSlug,
-        },
-        "*"
-      );
+      window.parent.postMessage(closePayload, "*");
       window.parent.postMessage("METAME_CODEX_CLOSE_LAYER", "*");
+    }
+    if (window.top && window.top !== window && window.top !== window.parent) {
+      window.top.postMessage(closePayload, "*");
+      window.top.postMessage("METAME_CODEX_CLOSE_LAYER", "*");
+    }
+    if ((window.parent && window.parent !== window) || (window.top && window.top !== window)) {
       return;
     }
 

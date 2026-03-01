@@ -1430,7 +1430,13 @@ export default function MetaMeRuntimeClient() {
       if (messageType !== "METAME_CODEX_CLOSE_LAYER") return;
 
       setMessages((prev) =>
-        prev.filter((message) => !(typeof message?.id === "string" && message.id.startsWith("capsule-launch-")))
+        prev.filter(
+          (message) =>
+            !(
+              message?.variant === "panel" &&
+              message?.id !== "capsule-panel"
+            )
+        )
       );
       setSelectedCapsuleLocal(null);
     }

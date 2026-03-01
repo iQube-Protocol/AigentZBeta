@@ -951,7 +951,7 @@ export function CodexCopilotLayer({
                         {footerContent ? (
                           <div className={floatingInput ? "pt-3" : "mt-3"}>{footerContent}</div>
                         ) : showNavMenu ? (
-                        <div className="mt-0 flex items-center justify-between border-t border-white/10 pt-0">
+                        <div className="mt-1 flex items-center justify-between border-t border-white/10 pt-1">
                           {hideAvatarToggle ? (
                             <div className="flex items-center gap-2">
                               <span className="rounded-sm border border-cyan-400/40 bg-cyan-500/20 px-3 py-1 text-[11px] font-semibold text-cyan-100 backdrop-blur-md shadow-sm">
