@@ -41,8 +41,8 @@ function ShellLayoutContent({ children }: { children: React.ReactNode }) {
     hidden: 'opacity-0 pointer-events-none -z-10',
     immersive: 'block right-4 top-[96px] left-4 h-[calc(100vh-104px)] md:right-[80px] md:top-[172px] md:left-auto md:w-[calc(100vw-80px)] md:h-[calc(100vh-172px)] opacity-100 z-[100]',
     sidebar: 'block inset-x-0 top-[88px] h-[calc(50vh-88px)] md:right-[92px] md:top-[206px] md:left-auto md:inset-x-auto md:w-[calc((100vw-92px)/3-40px)] md:h-[400px] opacity-100 z-[100]',
-    copilot: 'block opacity-100 z-[110]',
-    codexCopilot: 'block opacity-100 z-[110]',
+    copilot: 'block opacity-100 z-[140]',
+    codexCopilot: 'block opacity-100 z-[140]',
   } as const;
 
   // Get position classes based on active container
@@ -56,7 +56,7 @@ function ShellLayoutContent({ children }: { children: React.ReactNode }) {
     if (activeContainer === "copilot") {
       return {
         position: "fixed",
-        zIndex: 110,
+        zIndex: 140,
         left: "var(--metaavatar-copilot-x, 16px)",
         top: "var(--metaavatar-copilot-y, 96px)",
         width: "var(--metaavatar-copilot-w, 400px)",
@@ -66,7 +66,7 @@ function ShellLayoutContent({ children }: { children: React.ReactNode }) {
     if (activeContainer === "codexCopilot") {
       return {
         position: "fixed",
-        zIndex: 110,
+        zIndex: 140,
         left: "var(--metaavatar-codex-x, 16px)",
         top: "var(--metaavatar-codex-y, 96px)",
         width: "var(--metaavatar-codex-w, 320px)",

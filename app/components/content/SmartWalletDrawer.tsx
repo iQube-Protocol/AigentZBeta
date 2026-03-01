@@ -1571,10 +1571,10 @@ export default function SmartWalletDrawer({
                     <button 
                       onClick={() => handleSendPrompt()}
                       disabled={copilotLoading || !copilotPrompt.trim()}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-white/90 text-sm font-medium hover:bg-white/15 hover:border-purple-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-white/10 border border-white/20 text-white/90 hover:bg-white/15 hover:border-purple-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      aria-label="Send message"
                     >
                       <Send className="w-4 h-4" />
-                      Send
                     </button>
                   </Tooltip>
                 </div>

@@ -1035,11 +1035,85 @@ export function CodexCopilotLayer({
                     ) : null}
                   </>
                 ) : (
-                  <div className="flex-1 flex flex-col">
+                  <div className="flex-1 flex flex-col min-h-0">
                     <div
                       ref={metaAvatarFrameRef}
-                      className="flex-1 relative min-h-[300px] bg-black/50 rounded-lg overflow-hidden"
+                      className="flex-1 relative min-h-[240px] bg-black/50 rounded-lg overflow-hidden"
                     />
+                    {showNavMenu ? (
+                      <div className="mt-2 flex items-center justify-between border-t border-white/10 pt-1 pb-2">
+                        {hideAvatarToggle ? (
+                          <div className="flex items-center gap-2">
+                            <span className="rounded-sm border border-cyan-400/40 bg-cyan-500/20 px-3 py-1 text-[11px] font-semibold text-cyan-100 backdrop-blur-md shadow-sm">
+                              {contextOptions?.find((opt) => opt.id === contextId)?.label || "Qriptopian Codex"}
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-0.5 bg-white/5 rounded-lg p-0.5 ring-1 ring-white/10 flex-shrink-0">
+                            <button
+                              onClick={() => setCopilotMode("avatar")}
+                              className={`flex items-center gap-1 px-1.5 py-1 rounded-md text-xs transition-all ${
+                                (copilotMode as CopilotMode) === "avatar"
+                                  ? "bg-purple-500/20 text-purple-400"
+                                  : "text-white/50 hover:text-white/80"
+                              }`}
+                            >
+                              <User className="w-3 h-3" />
+                            </button>
+                            <button
+                              onClick={() => setCopilotMode("chat")}
+                              className={`flex items-center gap-1 px-1.5 py-1 rounded-md text-xs transition-all ${
+                                (copilotMode as CopilotMode) === "chat"
+                                  ? "bg-cyan-500/20 text-cyan-400"
+                                  : "text-white/50 hover:text-white/80"
+                              }`}
+                            >
+                              <MessageSquare className="w-3 h-3" />
+                            </button>
+                          </div>
+                        )}
+                        {contextOptions && contextOptions.length > 0 ? (
+                          <div className="relative flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setContextMenuOpen((prev) => !prev)}
+                              className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 ring-1 ring-white/10 transition-colors"
+                            >
+                              <ChevronDown className="w-4 h-4" />
+                            </button>
+                            {contextMenuOpen && (
+                              <div className="absolute right-0 bottom-10 min-w-[180px] rounded-xl border border-white/10 bg-slate-950/90 p-2 shadow-xl backdrop-blur">
+                                {contextOptions.map((opt) => (
+                                  <button
+                                    key={opt.id}
+                                    onClick={() => {
+                                      onContextChange?.(opt.id);
+                                      setContextMenuOpen(false);
+                                    }}
+                                    className={`w-full rounded-lg px-3 py-2 text-left text-xs transition ${
+                                      opt.id === contextId
+                                        ? "bg-cyan-500/15 text-cyan-200"
+                                        : "text-white/70 hover:bg-white/5"
+                                    }`}
+                                  >
+                                    {opt.label}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={onClose}
+                              className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 ring-1 ring-white/10 transition-colors"
+                            >
+                              <ChevronDown className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ) : null}
                   </div>
                 )}
               </div>
