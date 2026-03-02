@@ -297,11 +297,26 @@ export default function CodexPanelDynamic({
       console.warn("[codex-close] postMessage to parent", closePayload);
       window.parent.postMessage(closePayload, "*");
       window.parent.postMessage("METAME_CODEX_CLOSE_LAYER", "*");
+      // Also send bridge-format NAVIGATE that the shell handler understands
+      window.parent.postMessage({
+        type: "NAVIGATE",
+        msg_id: "codex-close-" + Date.now(),
+        timestamp: new Date().toISOString(),
+        source: "runtime",
+        payload: { action: "close_codex", codex_id: codexId },
+      }, "*");
     }
     if (window.top && window.top !== window && window.top !== window.parent) {
       console.warn("[codex-close] postMessage to top");
       window.top.postMessage(closePayload, "*");
       window.top.postMessage("METAME_CODEX_CLOSE_LAYER", "*");
+      window.top.postMessage({
+        type: "NAVIGATE",
+        msg_id: "codex-close-" + Date.now(),
+        timestamp: new Date().toISOString(),
+        source: "runtime",
+        payload: { action: "close_codex", codex_id: codexId },
+      }, "*");
     }
     setIsClosed(true);
     if ((window.parent && window.parent !== window) || (window.top && window.top !== window)) {
@@ -314,11 +329,10 @@ export default function CodexPanelDynamic({
   };
 
   if (isClosed) {
-    return (
-      <div className="flex h-full w-full items-center justify-center bg-slate-950">
-        <p className="text-sm text-slate-500">Codex closed</p>
-      </div>
-    );
+    if (typeof document !== "undefined") {
+      document.documentElement.style.display = "none";
+    }
+    return null;
   }
 
   return (
