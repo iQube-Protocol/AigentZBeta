@@ -1512,9 +1512,19 @@ export default function MetaMeRuntimeClient() {
         }
       }
 
-      if (typeof d === "object" && (d.type === "MENU_ACTION") && (d.payload?.action_id === "close_codex" || d.payload?.item_id === "close_codex")) {
+      if (
+        typeof d === "object" &&
+        d.type === "MENU_ACTION" &&
+        (
+          d.payload?.action_id === "close_codex" ||
+          d.payload?.item_id === "close_codex" ||
+          d.payload?.action === "close_codex" ||
+          d.payload?.intent === "close_codex"
+        )
+      ) {
         console.warn("[codex-close] onAnyMessage MENU_ACTION close_codex — dismissing");
         dismissCodexPanels(null);
+        try { window.parent.postMessage({ type: "STATE_SYNC", source: "runtime", payload: { close_codex_ack: true, handler: "onAnyMessage" } }, "*"); } catch (_) {}
         return;
       }
 
@@ -2045,7 +2055,12 @@ export default function MetaMeRuntimeClient() {
       }
 
       if (message.type === "MENU_ACTION") {
-        if (payload.action_id === "close_codex" || payload.item_id === "close_codex") {
+        if (
+          payload.action_id === "close_codex" ||
+          payload.item_id === "close_codex" ||
+          payload.action === "close_codex" ||
+          payload.intent === "close_codex"
+        ) {
           console.warn("[codex-close] MENU_ACTION close_codex received from shell");
           setMessages((prev) => {
             const next = prev.filter(
@@ -2055,6 +2070,7 @@ export default function MetaMeRuntimeClient() {
             return next;
           });
           setSelectedCapsuleLocal(null);
+          try { postRuntimeEvent("STATE_SYNC", { close_codex_ack: true, handler: "onShellMessage" }); } catch (_) {}
           return;
         }
         const explicitPrompt = typeof payload.prompt === "string" ? payload.prompt : null;
