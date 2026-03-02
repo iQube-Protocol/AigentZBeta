@@ -1448,7 +1448,28 @@ export default function MetaMeRuntimeClient() {
 
     console.warn("[codex-close-diag] listener registered on", window.location.href);
     window.addEventListener("message", onAnyMessage);
-    return () => window.removeEventListener("message", onAnyMessage);
+
+    let bc: BroadcastChannel | null = null;
+    try {
+      bc = new BroadcastChannel("metame_codex_close");
+      bc.onmessage = (ev: MessageEvent) => {
+        console.warn("[codex-close] BC received ✅", ev.data);
+        setMessages((prev) => {
+          const next = prev.filter(
+            (m) => !(m?.variant === "panel" && m?.id !== "capsule-panel")
+          );
+          console.warn("[codex-close] BC filtered", { before: prev.length, after: next.length });
+          return next;
+        });
+        setSelectedCapsuleLocal(null);
+      };
+      console.warn("[codex-close-diag] BroadcastChannel listening");
+    } catch (e) { /* BroadcastChannel not supported */ }
+
+    return () => {
+      window.removeEventListener("message", onAnyMessage);
+      try { bc?.close(); } catch (_) {}
+    };
   }, []);
 
   const capsulePanel = useMemo(

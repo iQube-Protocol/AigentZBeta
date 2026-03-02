@@ -292,6 +292,8 @@ export default function CodexPanelDynamic({
       tab_slug: activeTabSlug,
     };
 
+    try { const bc = new BroadcastChannel("metame_codex_close"); bc.postMessage(closePayload); console.warn("[codex-close] BC sent"); bc.close(); } catch(e) {}
+
     if (window.parent && window.parent !== window) {
       console.warn("[codex-close] postMessage to parent", closePayload);
       window.parent.postMessage(closePayload, "*");
