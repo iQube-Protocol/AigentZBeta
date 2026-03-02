@@ -28,6 +28,7 @@ interface CodexPanelDynamicProps {
   personaId?: string;
   useDefaults?: boolean;        // Use hardcoded configs vs database
   previewDevice?: DeviceType;
+  onClose?: () => void;         // Direct close callback (inline rendering)
 }
 
 type IssueOption = {
@@ -63,6 +64,7 @@ export default function CodexPanelDynamic({
   personaId,
   useDefaults = true,
   previewDevice,
+  onClose,
 }: CodexPanelDynamicProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -269,9 +271,15 @@ export default function CodexPanelDynamic({
   const closeEnabledByQuery = ["1", "true", "on", "yes"].includes(closeParam);
   const closeDisabledByQuery = ["0", "false", "off", "no"].includes(closeParam);
   const isEmbeddedContext = typeof window !== "undefined" && window.parent !== window;
-  const showCloseLayerButton = !closeDisabledByQuery && (closeEnabledByQuery || isEmbeddedContext);
+  const showCloseLayerButton = !closeDisabledByQuery && (closeEnabledByQuery || isEmbeddedContext || !!onClose);
 
   const handleCloseLayer = () => {
+    if (onClose) {
+      console.warn("[codex-close] onClose callback");
+      onClose();
+      return;
+    }
+
     if (typeof window === "undefined") return;
 
     const closePayload = {
@@ -284,12 +292,13 @@ export default function CodexPanelDynamic({
       tab_slug: activeTabSlug,
     };
 
-    // Preferred runtime path: notify both immediate parent and top shell host.
     if (window.parent && window.parent !== window) {
+      console.warn("[codex-close] postMessage to parent", closePayload);
       window.parent.postMessage(closePayload, "*");
       window.parent.postMessage("METAME_CODEX_CLOSE_LAYER", "*");
     }
     if (window.top && window.top !== window && window.top !== window.parent) {
+      console.warn("[codex-close] postMessage to top");
       window.top.postMessage(closePayload, "*");
       window.top.postMessage("METAME_CODEX_CLOSE_LAYER", "*");
     }
@@ -297,7 +306,6 @@ export default function CodexPanelDynamic({
       return;
     }
 
-    // Fallback behavior for non-embedded navigation.
     if (window.history.length > 1) {
       window.history.back();
     }

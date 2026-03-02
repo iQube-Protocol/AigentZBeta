@@ -14,9 +14,6 @@ import { DevicePreviewSwitcher, type DeviceType } from "@/components/preview/Dev
 import { useToast } from "@/components/ui/toaster";
 import {
   buildLaunchMessageId,
-  normalizeCodexId,
-  readCodexClose,
-  shouldDismissForCodexClose,
 } from "@/components/metame/runtimeCloseLayer";
 import {
   getStaticAgentLlmProviders,
@@ -1429,23 +1426,30 @@ export default function MetaMeRuntimeClient() {
 
   useEffect(() => {
     function onEmbeddedCodexMessage(event: MessageEvent) {
-      const { isClose, codexId } = readCodexClose(event.data);
-      if (!isClose) return;
+      const p = event.data;
+      const msgType =
+        typeof p === "string"
+          ? p
+          : p && typeof p === "object" && !Array.isArray(p)
+            ? (p as { type?: string }).type
+            : null;
+      if (msgType !== "METAME_CODEX_CLOSE_LAYER") return;
 
-      setMessages((prev) => prev.filter((message) => !shouldDismissForCodexClose(message, codexId)));
-      setSelectedCapsuleLocal((current) => {
-        if (!current) return current;
-        const selected = allContents.find((content) => content.id === current);
-        if (!selected || selected.runtimeSource !== "codex") return current;
-        const selectedCodexId = normalizeCodexId(selected.runtimeCodexSlug || null);
-        if (!codexId || codexId === selectedCodexId) return null;
-        return current;
+      console.warn("[codex-close] received", typeof p === "object" ? p : { raw: p });
+
+      setMessages((prev) => {
+        const next = prev.filter(
+          (m) => !(m?.variant === "panel" && m?.id !== "capsule-panel")
+        );
+        console.warn("[codex-close] filtered", { before: prev.length, after: next.length });
+        return next;
       });
+      setSelectedCapsuleLocal(null);
     }
 
     window.addEventListener("message", onEmbeddedCodexMessage);
     return () => window.removeEventListener("message", onEmbeddedCodexMessage);
-  }, [allContents]);
+  }, []);
 
   const capsulePanel = useMemo(
     () => (
