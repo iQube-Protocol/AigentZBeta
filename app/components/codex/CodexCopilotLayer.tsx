@@ -639,7 +639,7 @@ export function CodexCopilotLayer({
       : density === "wide" || (density === "narrow" && walletCopilotOpen)
         ? "w-full md:w-[32.25rem]"
         : "w-full md:w-[22.25rem]";
-  const walletEmbeddedWidth = density === "narrow" ? "fixed" : "fill";
+  const walletEmbeddedWidth = "fixed";
   const walletMenuBottomClass = floatingInput ? "bottom-[93px]" : "bottom-[89px]";
 
   return (

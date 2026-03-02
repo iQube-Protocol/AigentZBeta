@@ -401,14 +401,80 @@ function writeKnytSessionSnapshot(contentItems: KnytContentItem[], episodesCatal
   }
 }
 
-function createCodexCopilotWelcomeMessage(): CopilotMessage {
+const KNYT_TAB_CONTEXT_LABELS: Record<KnytTabSlug, string> = {
+  codex: 'Codex',
+  scrolls: 'Scrolls',
+  characters: 'Characters',
+  lore: 'Lore',
+  digiterra: 'DigiTerra',
+  terra: 'Terra',
+  order: 'Order',
+};
+
+function createCodexCopilotWelcomeMessage(
+  activeTab: KnytTabSlug = 'codex',
+  selectedItem?: Pick<KnytContentItem, 'title'> | null
+): CopilotMessage {
+  const contextLabel = KNYT_TAB_CONTEXT_LABELS[activeTab] ?? 'Codex';
+  const focusLine = selectedItem?.title
+    ? `Context: ${contextLabel} • ${selectedItem.title}.`
+    : `Context: ${contextLabel}.`;
+
   return {
-    id: 'knyt-copilot-welcome',
+    id: `knyt-copilot-welcome-${activeTab}`,
     role: 'assistant',
-    content:
-      'KNYT Copilot is ready. Ask for summaries, compare editions, or request checkout guidance for the selected item.',
+    content: `${focusLine} I can summarize, compare, and route actions (read, watch, wallet checkout) from what is currently open.`,
     timestamp: new Date(0),
   };
+}
+
+function buildCodexExplorePrompts(
+  activeTab: KnytTabSlug,
+  selectedItem?: Pick<KnytContentItem, 'title'> | null
+): Array<{ label: string; prompt: string }> {
+  const selectedTitle = selectedItem?.title?.trim();
+  const titleRef = selectedTitle ? `"${selectedTitle}"` : "the currently visible item";
+
+  switch (activeTab) {
+    case 'scrolls':
+      return [
+        { label: 'Summarize Scroll', prompt: `Summarize ${titleRef} with 5 key points.` },
+        { label: 'Extract Insights', prompt: `Extract practical insights from ${titleRef}.` },
+        { label: 'Open Reading', prompt: `Open ${titleRef} in reading mode.` },
+      ];
+    case 'characters':
+      return [
+        { label: 'Character Brief', prompt: `Give a concise character brief for ${titleRef}.` },
+        { label: 'Compare Roles', prompt: `Compare ${titleRef} with another key character in this viewport.` },
+        { label: 'Story Arc', prompt: `Show the story arc relevance of ${titleRef}.` },
+      ];
+    case 'lore':
+      return [
+        { label: 'Lore Summary', prompt: `Summarize the lore context around ${titleRef}.` },
+        { label: 'Canon Check', prompt: `Identify canon anchors and references for ${titleRef}.` },
+        { label: 'Open Source Capsule', prompt: `Open source capsule for ${titleRef}.` },
+      ];
+    case 'digiterra':
+    case 'terra':
+      return [
+        { label: 'Realm Overview', prompt: `Give a realm overview for ${titleRef}.` },
+        { label: 'Key Entities', prompt: `List key entities and relationships in ${titleRef}.` },
+        { label: 'Suggested Path', prompt: `Suggest the next best exploration path from ${titleRef}.` },
+      ];
+    case 'order':
+      return [
+        { label: 'Order Guidance', prompt: `Show order pathway guidance for ${titleRef}.` },
+        { label: 'Requirements', prompt: `List requirements and gating for ${titleRef}.` },
+        { label: 'Start Task', prompt: `Start the highest-priority task related to ${titleRef}.` },
+      ];
+    case 'codex':
+    default:
+      return [
+        { label: 'Summarize Selection', prompt: `Summarize ${titleRef} and key takeaways.` },
+        { label: 'Compare Editions', prompt: `Compare still vs motion options for ${titleRef}.` },
+        { label: 'Open Wallet Checkout', prompt: `Open wallet checkout for ${titleRef}.` },
+      ];
+  }
 }
 
 function getAuthProfileIdFromStorage(): string | null {
@@ -577,7 +643,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   }, []);
   const [codexCopilotOpen, setCodexCopilotOpen] = useState(false);
   const [codexCopilotMessages, setCodexCopilotMessages] = useState<CopilotMessage[]>(() => [
-    createCodexCopilotWelcomeMessage(),
+    createCodexCopilotWelcomeMessage(resolvedInitialTab),
   ]);
   const lastCopilotContextRef = useRef<string | null>(null);
   
@@ -1798,7 +1864,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     }
 
     setCodexCopilotMessages((prev) => {
-      const base = prev.length > 0 ? prev : [createCodexCopilotWelcomeMessage()];
+      const base = prev.length > 0 ? prev : [createCodexCopilotWelcomeMessage(activeTab, item)];
       return [
         ...base,
         {
@@ -1990,6 +2056,11 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     } as unknown as SmartContentQube;
   }, [selectedContentItem, contentForActiveTab, resolveAccessPrice]);
 
+  const codexExploreQuickPrompts = useMemo(
+    () => buildCodexExplorePrompts(activeTab, selectedContentItem),
+    [activeTab, selectedContentItem?.id, selectedContentItem?.title]
+  );
+
   const codexWalletAgent = useMemo(() => {
     return {
       id: 'knyt-codex',
@@ -2000,11 +2071,28 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   }, []);
 
   useEffect(() => {
+    if (!codexCopilotOpen) return;
+    setCodexCopilotMessages((prev) => {
+      const hasUserMessage = prev.some((message) => message.role === 'user');
+      if (hasUserMessage) return prev;
+
+      const welcome = createCodexCopilotWelcomeMessage(activeTab, selectedContentItem);
+      const existingWelcome = prev.find((message) => message.id.startsWith('knyt-copilot-welcome'));
+      if (existingWelcome?.id === welcome.id && existingWelcome.content === welcome.content) {
+        return prev;
+      }
+
+      const withoutWelcome = prev.filter((message) => !message.id.startsWith('knyt-copilot-welcome'));
+      return [welcome, ...withoutWelcome];
+    });
+  }, [codexCopilotOpen, activeTab, selectedContentItem?.id, selectedContentItem?.title]);
+
+  useEffect(() => {
     if (!codexCopilotOpen || !selectedContentItem) return;
     if (lastCopilotContextRef.current === selectedContentItem.id) return;
     lastCopilotContextRef.current = selectedContentItem.id;
     setCodexCopilotMessages((prev) => {
-      const base = prev.length > 0 ? prev : [createCodexCopilotWelcomeMessage()];
+      const base = prev.length > 0 ? prev : [createCodexCopilotWelcomeMessage(activeTab, selectedContentItem)];
       return [
         ...base,
         {
@@ -2015,7 +2103,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
         },
       ];
     });
-  }, [codexCopilotOpen, selectedContentItem]);
+  }, [codexCopilotOpen, selectedContentItem, activeTab]);
 
   const handleViewerOpen = useCallback((item: KnytContentItem, type: 'pdf' | 'video' | 'poster') => {
     if (isEpisodeLocked(item)) {
@@ -2811,11 +2899,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
         messages={codexCopilotMessages}
         onMessagesChange={setCodexCopilotMessages}
         promptPlaceholder="Ask KNYT Copilot about this content..."
-        quickPrompts={[
-          { label: 'Summarize selected content', prompt: 'Summarize the currently selected KNYT content and key takeaways.' },
-          { label: 'Compare still vs motion', prompt: 'Compare still and motion versions for the selected content and recommend one.' },
-          { label: 'Open wallet checkout', prompt: 'Open wallet checkout for the selected item.' },
-        ]}
+        quickPrompts={codexExploreQuickPrompts}
         onPrompt={(prompt) => {
           const normalized = prompt.toLowerCase();
           if (normalized.includes('wallet')) {

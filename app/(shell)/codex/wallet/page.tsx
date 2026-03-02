@@ -18,7 +18,8 @@ import {
 
 function SmartWalletViewerContent() {
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
-  const [density, setDensity] = useState<'narrow' | 'wide'>('wide');
+  const [density, setDensity] = useState<'narrow' | 'wide'>('narrow');
+  const [walletCopilotOpen, setWalletCopilotOpen] = useState(false);
   const [controlsCollapsed, setControlsCollapsed] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [sidebarOffset, setSidebarOffset] = useState(64);
@@ -59,7 +60,9 @@ function SmartWalletViewerContent() {
     fioHandle: "demo@agentiq",
   };
 
-  const embedUrl = `https://dev-beta.aigentz.me/triad/embed/wallet?theme=${theme}&density=${density}`;
+  const effectiveDensity: 'narrow' | 'wide' = walletCopilotOpen ? 'wide' : density;
+  const walletWidthClass = effectiveDensity === 'wide' ? 'w-[32.25rem]' : 'w-[22.25rem]';
+  const embedUrl = `https://dev-beta.aigentz.me/triad/embed/wallet?theme=${theme}&density=${effectiveDensity}`;
 
   return (
     <div
@@ -128,7 +131,7 @@ function SmartWalletViewerContent() {
                   type="button"
                   onClick={() => setDensity(d)}
                   className={`inline-flex h-10 w-10 items-center justify-center rounded-lg border text-xs font-semibold transition-colors ${
-                    density === d
+                    effectiveDensity === d
                       ? "border-indigo-400/70 bg-indigo-500/30 text-white"
                       : "border-slate-600/60 bg-slate-700/40 text-slate-300 hover:bg-slate-700"
                   }`}
@@ -176,7 +179,7 @@ function SmartWalletViewerContent() {
                 <button
                   onClick={() => setDensity('narrow')}
                   className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    density === 'narrow'
+                    effectiveDensity === 'narrow'
                       ? 'bg-indigo-500 text-white'
                       : 'bg-slate-700/50 text-slate-400 hover:bg-slate-700'
                   }`}
@@ -186,7 +189,7 @@ function SmartWalletViewerContent() {
                 <button
                   onClick={() => setDensity('wide')}
                   className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    density === 'wide'
+                    effectiveDensity === 'wide'
                       ? 'bg-indigo-500 text-white'
                       : 'bg-slate-700/50 text-slate-400 hover:bg-slate-700'
                   }`}
@@ -273,16 +276,22 @@ function SmartWalletViewerContent() {
         </div>
 
         {/* Component Preview */}
-        <div className="flex-1 overflow-hidden">
-          <SmartWalletDrawer
-            open={true}
-            onClose={() => {}} // No-op in embedded mode
-            variant="embedded"
-            embeddedWidth={density === 'wide' ? 'fill' : 'fixed'}
-            agent={agent}
-            personaId={personaId}
-            codexMode={true}
-          />
+        <div className="flex-1 overflow-hidden p-3 md:p-4">
+          <div className={`ml-auto h-full max-h-full ${walletWidthClass}`}>
+            <SmartWalletDrawer
+              open={true}
+              onClose={() => {}} // No-op in embedded mode
+              variant="embedded"
+              embeddedWidth="fixed"
+              agent={agent}
+              personaId={personaId}
+              codexMode={true}
+              onCopilotStateChange={(open) => {
+                setWalletCopilotOpen(open);
+                setDensity(open ? 'wide' : 'narrow');
+              }}
+            />
+          </div>
         </div>
       </div>
     </div>

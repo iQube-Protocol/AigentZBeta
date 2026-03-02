@@ -1252,7 +1252,9 @@ export default function SmartWalletDrawer({
       const drawerWidth =
         embeddedWidth === "fill"
           ? "w-full"
-          : "w-full";
+          : copilotOpen
+            ? "w-[32.25rem]"
+            : "w-[22.25rem]";
       return `${baseClasses} ${drawerWidth} ${embeddedWidth === "fill" ? "" : "ml-auto"}`;
     }
     // Overlay mode
