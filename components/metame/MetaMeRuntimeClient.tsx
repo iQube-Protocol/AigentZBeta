@@ -1504,9 +1504,24 @@ export default function MetaMeRuntimeClient() {
     function onAnyMessage(event: MessageEvent) {
       const d = event.data;
       if (!d) return;
+
+      if (typeof d === "object" && d.type) {
+        const t = d.type as string;
+        if (t === "MENU_ACTION" || t === "NAVIGATE" || t === "METAME_CODEX_CLOSE_LAYER") {
+          console.warn("[codex-close] onAnyMessage received", { type: t, payload: d.payload, action_id: d.payload?.action_id, action: d.payload?.action, source: event.source === window.parent ? "parent" : "other" });
+        }
+      }
+
+      if (typeof d === "object" && (d.type === "MENU_ACTION") && (d.payload?.action_id === "close_codex" || d.payload?.item_id === "close_codex")) {
+        console.warn("[codex-close] onAnyMessage MENU_ACTION close_codex — dismissing");
+        dismissCodexPanels(null);
+        return;
+      }
+
       const closeSignal = readCodexClose(d);
       const navigateSignal = readNavigateClose(d);
       if (!closeSignal.isClose && !navigateSignal.isClose) return;
+      console.warn("[codex-close] onAnyMessage close signal matched", { closeSignal, navigateSignal });
       dismissCodexPanels(closeSignal.isClose ? closeSignal.codexId : navigateSignal.codexId);
     }
 
