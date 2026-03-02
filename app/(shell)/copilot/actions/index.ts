@@ -41,6 +41,9 @@ import { smartTriadActions } from "./smartTriad";
 // Liquid UI: Dynamic contextual UI composition
 import { liquidUIActions } from "./liquidUI";
 
+// A2UI: Surface payload generation from runtime planning models
+import { a2uiActions } from "./a2ui";
+
 // Template UI: Complete Static GenUI (14 main stage + 9 wallet = 23 templates)
 import { completeTemplateUIActions } from "./templateUIComplete";
 
@@ -80,6 +83,8 @@ export const allActions = [
   ...smartTriadActions,
   // Liquid UI: Dynamic contextual UI composition
   ...liquidUIActions,
+  // A2UI: Surface plan payload generation for declarative UI execution
+  ...a2uiActions,
   // Template UI: Complete Static GenUI (14 main stage + 9 wallet templates)
   ...completeTemplateUIActions,
   // Smart Menu Content Integration
@@ -108,6 +113,8 @@ export * from "./persona";
 export * from "./smartTriad";
 // Liquid UI actions
 export * from "./liquidUI";
+// A2UI actions
+export * from "./a2ui";
 // Template UI actions
 export * from "./templateUI";
 // Codex actions

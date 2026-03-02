@@ -10,6 +10,7 @@
     "runtime:group": "tsx scripts/run-group-runtime.ts",
     "adapter:discord": "tsx adapters/discord/run.ts",
     "adapter:xmtp": "tsx adapters/xmtp/run.ts",
+    "bridge:convos": "tsx scripts/bridge-convos.ts",
     "openclaw:worker": "tsx openclaw-wrapper/run.ts",
     "test:e2e": "tsx scripts/test-e2e.ts",
     "dev": "concurrently \"npm:adapter:discord\" \"npm:adapter:xmtp\"",

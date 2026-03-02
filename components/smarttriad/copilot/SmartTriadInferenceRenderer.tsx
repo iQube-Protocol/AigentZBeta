@@ -11,6 +11,7 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { Bot, User, AlertTriangle, Clock, Zap } from 'lucide-react';
 import { AgentModelSelector, type AgentOption, type ModelOption } from './AgentModelSelector';
+import type { A2UISurfacePayload } from '@/services/a2ui/types';
 
 // Types
 export interface SmartTriadMessage {
@@ -77,6 +78,8 @@ export function SmartTriadInferenceRenderer({
   onAgentChange,
   onModelSelectorChange,
 }: SmartTriadInferenceRendererProps) {
+  const a2uiPayload = useMemo(() => extractA2UIPayload(message.content), [message.content]);
+
   
   // Process content through sanitization and markdown transformation
   const processedContent = useMemo(() => {
@@ -126,6 +129,7 @@ export function SmartTriadInferenceRenderer({
 
       {/* Processed Content */}
       <div className="smarttriad-conversational-content">
+        {a2uiPayload && <A2UIPayloadPreview payload={a2uiPayload} />}
         {renderContent()}
       </div>
 
@@ -145,6 +149,63 @@ export function SmartTriadInferenceRenderer({
           onModelChange={onModelChange}
         />
       )}
+    </div>
+  );
+}
+
+function extractA2UIPayload(content: string): A2UISurfacePayload | null {
+  const parseCandidate = (raw: string): A2UISurfacePayload | null => {
+    try {
+      const parsed = JSON.parse(raw);
+      return isA2UISurfacePayload(parsed) ? parsed : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const trimmed = content.trim();
+  if (trimmed.startsWith("{") && trimmed.includes("a2ui.surface.v0")) {
+    const direct = parseCandidate(trimmed);
+    if (direct) return direct;
+  }
+
+  const fenceRegex = /```(?:json)?\s*([\s\S]*?)```/gi;
+  let match: RegExpExecArray | null;
+
+  while ((match = fenceRegex.exec(content)) !== null) {
+    const parsed = parseCandidate(match[1]);
+    if (parsed) return parsed;
+  }
+
+  return null;
+}
+
+function isA2UISurfacePayload(value: unknown): value is A2UISurfacePayload {
+  if (!value || typeof value !== "object") return false;
+
+  const payload = value as Partial<A2UISurfacePayload>;
+  return (
+    payload.schema_version === "a2ui.surface.v0" &&
+    typeof payload.plan_id === "string" &&
+    typeof payload.session_id === "string" &&
+    Array.isArray(payload.modules) &&
+    !!payload.tree
+  );
+}
+
+function A2UIPayloadPreview({ payload }: { payload: A2UISurfacePayload }) {
+  const surfaceSet = new Set(payload.modules.map((m) => m.surface));
+  const regionSet = new Set(payload.modules.map((m) => m.region));
+
+  return (
+    <div className="smarttriad-a2ui-preview">
+      <div className="smarttriad-a2ui-preview-header">A2UI Surface Payload</div>
+      <div className="smarttriad-a2ui-preview-grid">
+        <span>Plan: {payload.plan_id}</span>
+        <span>Modules: {payload.modules.length}</span>
+        <span>Surfaces: {surfaceSet.size}</span>
+        <span>Regions: {regionSet.size}</span>
+      </div>
     </div>
   );
 }
