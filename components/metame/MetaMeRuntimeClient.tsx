@@ -1081,6 +1081,7 @@ export default function MetaMeRuntimeClient() {
   const [selectedCapsuleLocal, setSelectedCapsuleLocal] = useState<string | null>(null);
   const [lastIntent, setLastIntent] = useState<RuntimeIntent>("find");
   const autoLaunchedCapsuleRef = useRef<string | null>(null);
+  const activeCodexPanelMessageIdsRef = useRef<Set<string>>(new Set());
   const activeCapsuleId = selectedCapsuleLocal || selectedCapsuleId;
   const queryPreviewCapsule = useMemo(() => {
     if (!selectedExperienceId) return null;
@@ -1397,13 +1398,17 @@ export default function MetaMeRuntimeClient() {
   const launchCapsule = useCallback(
     (content: RuntimeCapsule, intent: RuntimeIntent = lastIntent) => {
       setSelectedCapsuleLocal(content.id);
+      const launchMessageId = buildLaunchMessageId({
+        runtimeSource: content.runtimeSource,
+        runtimeCodexSlug: content.runtimeCodexSlug || null,
+      });
+      if (content.runtimeSource === "codex") {
+        activeCodexPanelMessageIdsRef.current.add(launchMessageId);
+      }
       setMessages((prev) => [
         ...prev,
         {
-          id: buildLaunchMessageId({
-            runtimeSource: content.runtimeSource,
-            runtimeCodexSlug: content.runtimeCodexSlug || null,
-          }),
+          id: launchMessageId,
           role: "assistant",
           content: buildRuntimeCapsulePanel(content, intent),
           timestamp: new Date(),
@@ -1455,7 +1460,32 @@ export default function MetaMeRuntimeClient() {
     };
 
     const dismissCodexPanels = (codexId: string | null) => {
-      setMessages((prev) => prev.filter((message) => !shouldDismissForCodexClose(message, codexId)));
+      const trackedIds = activeCodexPanelMessageIdsRef.current;
+      setMessages((prev) =>
+        prev.filter((message) => {
+          if (trackedIds.has(message.id)) {
+            if (!codexId) return false;
+            const normalized = normalizeCodexId(codexId);
+            if (!normalized) return false;
+            return !message.id.startsWith(`capsule-launch-codex-${normalized}-`);
+          }
+          return !shouldDismissForCodexClose(message, codexId);
+        })
+      );
+      if (!codexId) {
+        trackedIds.clear();
+      } else {
+        const normalized = normalizeCodexId(codexId);
+        if (normalized) {
+          trackedIds.forEach((messageId) => {
+            if (messageId.startsWith(`capsule-launch-codex-${normalized}-`)) {
+              trackedIds.delete(messageId);
+            }
+          });
+        } else {
+          trackedIds.clear();
+        }
+      }
       setSelectedCapsuleLocal(null);
     };
 
