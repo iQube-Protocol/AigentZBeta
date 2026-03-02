@@ -71,7 +71,6 @@ export default function CodexPanelDynamic({
   const searchParams = useSearchParams();
   const { data: codex, isLoading, error } = useCodexConfig({ codexId, useDefaults });
   const resolvedTheme: 'light' | 'dark' = theme === 'light' ? 'light' : 'dark';
-  const [isClosed, setIsClosed] = useState(false);
   const normalizedInitialTab = (initialTab || '').trim().toLowerCase();
   const lastAppliedInitialTabRef = useRef<string>("");
 
@@ -303,7 +302,7 @@ export default function CodexPanelDynamic({
         msg_id: "codex-close-" + Date.now(),
         timestamp: new Date().toISOString(),
         source: "runtime",
-        payload: { action: "close_codex", codex_id: codexId },
+        payload: { path: "/", action: "close_codex", codex_id: codexId },
       }, "*");
     }
     if (window.top && window.top !== window && window.top !== window.parent) {
@@ -315,10 +314,9 @@ export default function CodexPanelDynamic({
         msg_id: "codex-close-" + Date.now(),
         timestamp: new Date().toISOString(),
         source: "runtime",
-        payload: { action: "close_codex", codex_id: codexId },
+        payload: { path: "/", action: "close_codex", codex_id: codexId },
       }, "*");
     }
-    setIsClosed(true);
     if ((window.parent && window.parent !== window) || (window.top && window.top !== window)) {
       return;
     }
@@ -327,13 +325,6 @@ export default function CodexPanelDynamic({
       window.history.back();
     }
   };
-
-  if (isClosed) {
-    if (typeof document !== "undefined") {
-      document.documentElement.style.display = "none";
-    }
-    return null;
-  }
 
   return (
     <SmartTriadProvider personaId={personaId}>
