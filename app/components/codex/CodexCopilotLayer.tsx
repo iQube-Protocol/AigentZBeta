@@ -482,31 +482,7 @@ export function CodexCopilotLayer({
     return null;
   };
 
-  const handlePromptSuggestion = (prompt: string, meta?: PromptSuggestionMeta) => {
-    if (meta?.kind === "wallet_action") {
-      const targetTab = (meta.walletTab as WalletTab | undefined) ?? resolveWalletPromptTab(prompt) ?? "wallet";
-      setWalletPanelTab(targetTab);
-      setWalletPanelOpen(true);
-      setWalletPanelCollapsed(false);
-      showWalletMenuWithTimeout(6000);
-      return;
-    }
-
-    if (meta?.kind === "explore_prompt") {
-      void sendMessage(prompt);
-      return;
-    }
-
-    const matchedTab = resolveWalletPromptTab(prompt);
-    if (matchedTab) {
-      setWalletPanelTab(matchedTab);
-      setWalletPanelOpen(true);
-      setWalletPanelCollapsed(false);
-      showWalletMenuWithTimeout(6000);
-      void sendMessage(prompt, { skipInference: true });
-      return;
-    }
-
+  const handlePromptSuggestion = (prompt: string, _meta?: PromptSuggestionMeta) => {
     void sendMessage(prompt);
   };
 
@@ -778,17 +754,17 @@ export function CodexCopilotLayer({
                                 {walletActionCards.length > 0 ? (
                                   <div className="mt-2 flex flex-wrap gap-1.5">
                                     {walletActionCards.map((card) => (
-                                      <button
-                                        key={`${msg.id}-${card.id}`}
-                                        type="button"
-                                        onClick={() => {
-                                          setWalletPanelTab(card.tab);
-                                          setWalletPanelOpen(true);
-                                          setWalletPanelCollapsed(false);
-                                          void sendMessage(card.prompt, { skipInference: true });
-                                        }}
-                                        className="inline-flex items-center gap-1.5 rounded-full border border-cyan-400/40 bg-cyan-500/15 px-2.5 py-1 text-[11px] font-medium text-cyan-100 transition-colors hover:bg-cyan-500/25"
-                                      >
+                                    <button
+                                      key={`${msg.id}-${card.id}`}
+                                      type="button"
+                                      onClick={() => {
+                                        setWalletPanelTab(card.tab);
+                                        setWalletPanelOpen(true);
+                                        setWalletPanelCollapsed(false);
+                                        showWalletMenuWithTimeout(6000);
+                                      }}
+                                      className="inline-flex items-center gap-1.5 rounded-full border border-cyan-400/40 bg-cyan-500/15 px-2.5 py-1 text-[11px] font-medium text-cyan-100 transition-colors hover:bg-cyan-500/25"
+                                    >
                                         {walletActionIcon(card)}
                                         <span>{card.label}</span>
                                       </button>

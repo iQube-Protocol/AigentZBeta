@@ -128,23 +128,6 @@
   background: hsl(188 94% 43% / 0.1);
 }
 
-.walletActionButton {
-  border: 1px solid hsl(188 94% 43% / 0.4);
-  border-radius: 999px;
-  background: hsl(188 94% 43% / 0.15);
-  color: hsl(188 94% 86%);
-  cursor: pointer;
-  font-size: 0.75rem;
-  padding: 0.2rem 0.55rem;
-  text-align: left;
-  justify-content: flex-start;
-}
-
-.walletActionButton:hover {
-  background: hsl(188 94% 43% / 0.25);
-  border-color: hsl(188 94% 43% / 0.55);
-}
-
 .blockquote {
   border-left: 3px solid var(--inference-accent);
   margin: 0.75rem 0;
