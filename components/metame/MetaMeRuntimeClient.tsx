@@ -19,6 +19,11 @@ import {
   shouldDismissForCodexClose,
 } from "@/components/metame/runtimeCloseLayer";
 import {
+  appendRuntimePersonaMemoryEntry,
+  readRuntimePersonaMemoryEntries,
+  type RuntimePersonaMemoryEntry,
+} from "@/components/metame/runtimePersonaMemory";
+import {
   getStaticAgentLlmProviders,
   type AgentModelSelection,
   type AgentProviderOption,
@@ -920,6 +925,7 @@ export default function MetaMeRuntimeClient() {
   const shellOriginRef = useRef<string | null>(null);
   const shellContextRef = useRef<{ tenant_id?: string; persona_id?: string }>({});
   const runtimeReadyPostedRef = useRef(false);
+  const [activePersonaId, setActivePersonaId] = useState<string | null>(null);
 
   const [selectedAgent, setSelectedAgent] = useState<RuntimeAgent>(RUNTIME_AGENTS[0]);
   const [showAgentSelector, setShowAgentSelector] = useState(false);
@@ -947,6 +953,35 @@ export default function MetaMeRuntimeClient() {
   const activeAgentProviders = agentProviderMap[selectedAgent.id] || [];
   const activeModel = selectedModelByAgent[selectedAgent.id] || defaultSelectionFromProviders(activeAgentProviders);
   const trustProvider = activeModel?.providerId;
+  const activePersonaKey = activePersonaId || (selectedAgent.id === "aigent-moneypenny" ? "moneypenny" : "kn0w1");
+
+  const refreshPersonaMemory = useCallback((personaKey: string) => {
+    setPersonaMemoryEntries(readRuntimePersonaMemoryEntries(personaKey));
+  }, []);
+
+  const persistPersonaMemory = useCallback(
+    (entry: {
+      prompt: string;
+      inference: string;
+      intent: RuntimeIntent;
+      source: "menu_action" | "quick_link" | "text_input" | "runtime_ui";
+      welcomePrompt: boolean;
+      capsuleId?: string | null;
+      device: DeviceType;
+    }) => {
+      const next = appendRuntimePersonaMemoryEntry(activePersonaKey, {
+        prompt: entry.prompt,
+        inference: entry.inference,
+        intent: entry.intent,
+        source: entry.source,
+        welcomePrompt: entry.welcomePrompt,
+        capsuleId: entry.capsuleId ?? null,
+        device: entry.device,
+      });
+      setPersonaMemoryEntries(next);
+    },
+    [activePersonaKey]
+  );
 
   const applyShellSelectorChange = useCallback(
     (aigentId?: string | null, llmId?: string | null) => {
@@ -1071,7 +1106,12 @@ export default function MetaMeRuntimeClient() {
     setThinShellMode(thinShellQueryMode);
   }, [thinShellQueryMode]);
 
+  useEffect(() => {
+    refreshPersonaMemory(activePersonaKey);
+  }, [activePersonaKey, refreshPersonaMemory]);
+
   const [messages, setMessages] = useState<CopilotMessage[]>([]);
+  const [personaMemoryEntries, setPersonaMemoryEntries] = useState<RuntimePersonaMemoryEntry[]>([]);
   const [channels, setChannels] = useState<Array<{ channel_id: string; participants: string[] }>>([]);
   const [channelsLoading, setChannelsLoading] = useState(false);
   const [runtimeProcessing, setRuntimeProcessing] = useState(false);
@@ -1242,8 +1282,9 @@ export default function MetaMeRuntimeClient() {
     setShowWelcomeQuickLinks(false);
     setSelectedCapsuleLocal(null);
     setLastIntent("find");
+    refreshPersonaMemory(activePersonaKey);
     toast("Runtime reset to welcome", "info");
-  }, [fetchRuntimeData, toast]);
+  }, [activePersonaKey, fetchRuntimeData, refreshPersonaMemory, toast]);
 
   const buildSharePanel = useCallback(
     (capsuleTitle: string) => {
@@ -1410,7 +1451,7 @@ export default function MetaMeRuntimeClient() {
         const rawFrameSrc =
           content.runtimeLaunchHref ||
           `/triad/embed/codex/${codexSlug}?tab=${initialTab}&theme=dark&density=${moduleConfig.runtimeDensity}`;
-        const frameSrc = withQueryParam(rawFrameSrc, "closable", "1");
+        const frameSrc = withQueryParam(rawFrameSrc, "closable", "0");
         return renderRuntimeFramePanel(content, intent, {
           label: "Codex Capsule Runtime",
           frameSrc,
@@ -1852,14 +1893,15 @@ export default function MetaMeRuntimeClient() {
       setWelcomePrompt("");
       const leadCapsule = ranked[0] || null;
       if (leadCapsule?.id) setSelectedCapsuleLocal(leadCapsule.id);
+      const mappedIntentSummary =
+        ranked.length > 0
+          ? `Mapped intent to ${intent} capsules using SmartTriad runtime filters.`
+          : "No visual capsules were resolved for this intent yet. Try read/watch/find.";
       const immediateMessages: CopilotMessage[] = [
         {
           id: `intent-msg-${Date.now()}`,
           role: "assistant",
-          content:
-            ranked.length > 0
-              ? `Mapped intent to ${intent} capsules using SmartTriad runtime filters.`
-              : "No visual capsules were resolved for this intent yet. Try read/watch/find.",
+          content: mappedIntentSummary,
           timestamp: new Date(),
         },
         {
@@ -1905,6 +1947,15 @@ export default function MetaMeRuntimeClient() {
         (source === "text_input" || (thinShellMode && source !== "menu_action" && source !== "quick_link"));
 
       if (!shouldRequestInference) {
+        persistPersonaMemory({
+          prompt: trimmed,
+          inference: mappedIntentSummary,
+          intent,
+          source,
+          welcomePrompt: wasWelcomePrompt,
+          capsuleId: leadCapsule?.id ?? null,
+          device: activeDevice,
+        });
         return;
       }
 
@@ -1938,6 +1989,15 @@ export default function MetaMeRuntimeClient() {
         });
         const data = await response.json().catch(() => ({}));
         if (!response.ok) {
+          persistPersonaMemory({
+            prompt: trimmed,
+            inference: mappedIntentSummary,
+            intent,
+            source,
+            welcomePrompt: wasWelcomePrompt,
+            capsuleId: leadCapsule?.id ?? null,
+            device: activeDevice,
+          });
           postRuntimeEvent("INFERENCE_COMPLETE", {
             status: "error",
             intent,
@@ -1962,6 +2022,15 @@ export default function MetaMeRuntimeClient() {
         }
         const llmResponse = typeof data?.response === "string" ? data.response.trim() : "";
         if (!llmResponse) {
+          persistPersonaMemory({
+            prompt: trimmed,
+            inference: mappedIntentSummary,
+            intent,
+            source,
+            welcomePrompt: wasWelcomePrompt,
+            capsuleId: leadCapsule?.id ?? null,
+            device: activeDevice,
+          });
           postRuntimeEvent("INFERENCE_COMPLETE", {
             status: "empty",
             intent,
@@ -1993,6 +2062,15 @@ export default function MetaMeRuntimeClient() {
             timestamp: new Date(),
           },
         ]);
+        persistPersonaMemory({
+          prompt: trimmed,
+          inference: llmResponse,
+          intent,
+          source,
+          welcomePrompt: wasWelcomePrompt,
+          capsuleId: leadCapsule?.id ?? null,
+          device: activeDevice,
+        });
         postRuntimeEvent("INFERENCE_COMPLETE", {
           status: "ok",
           intent,
@@ -2015,6 +2093,15 @@ export default function MetaMeRuntimeClient() {
         });
       } catch {
         // Keep runtime functional even if inference endpoint fails.
+        persistPersonaMemory({
+          prompt: trimmed,
+          inference: mappedIntentSummary,
+          intent,
+          source,
+          welcomePrompt: wasWelcomePrompt,
+          capsuleId: leadCapsule?.id ?? null,
+          device: activeDevice,
+        });
         postRuntimeEvent("INFERENCE_COMPLETE", {
           status: "error",
           intent,
@@ -2052,6 +2139,7 @@ export default function MetaMeRuntimeClient() {
       selectedAgent.id,
       selectedCapsuleLocal,
       postRuntimeEvent,
+      persistPersonaMemory,
       toast,
     ]
   );
@@ -2103,6 +2191,7 @@ export default function MetaMeRuntimeClient() {
         tenant_id: message.tenant_id,
         persona_id: message.persona_id,
       };
+      setActivePersonaId(typeof message.persona_id === "string" ? message.persona_id : null);
 
       const payload = message.payload || {};
       if (message.type === "SHELL_READY") {
@@ -2624,6 +2713,8 @@ export default function MetaMeRuntimeClient() {
     </div>
   );
 
+  const personaMemoryQuickLinks = useMemo(() => personaMemoryEntries.slice(0, 4), [personaMemoryEntries]);
+
   const welcomeQuickLinks = (
     <div
       className={`pointer-events-none absolute left-3 right-3 bottom-[70px] z-20 transition-opacity duration-200 ${
@@ -2651,6 +2742,28 @@ export default function MetaMeRuntimeClient() {
             ))}
           </div>
         </div>
+        {personaMemoryQuickLinks.length > 0 ? (
+          <div className="mt-2 border-t border-white/10 pt-2">
+            <p className="mb-1 text-[10px] uppercase tracking-wide text-white/45">Recent by persona</p>
+            <div className="flex flex-wrap gap-1.5">
+              {personaMemoryQuickLinks.map((entry) => (
+                <button
+                  key={entry.id}
+                  title={entry.prompt}
+                  className="max-w-full rounded-full border border-cyan-300/20 bg-cyan-500/10 px-3 py-1 text-[11px] text-cyan-100 hover:bg-cyan-500/20"
+                  onClick={() =>
+                    void handlePrompt(entry.prompt, {
+                      source: "quick_link",
+                      explicitIntent: coerceRuntimeIntent(entry.intent),
+                    })
+                  }
+                >
+                  <span className="line-clamp-1">{entry.prompt}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );

@@ -12,12 +12,17 @@ import {
 
 interface CopilotInferenceBodyRendererProps {
   content: string;
-  onPromptSuggestion?: (prompt: string) => void;
+  onPromptSuggestion?: (prompt: string, meta?: PromptSuggestionMeta) => void;
 }
 
 interface MermaidBlockProps {
   code: string;
 }
+
+export type PromptSuggestionMeta = {
+  source: "explore_further";
+  index: number;
+};
 
 const CALLOUT_PATTERN = /^\s*(Important|Remember|Note|Warning)\s*:/i;
 
@@ -398,12 +403,17 @@ export function CopilotInferenceBodyRenderer({ content, onPromptSuggestion }: Co
         <div className={styles.suggestionSection}>
           <div className={styles.suggestionTitle}>Explore Further</div>
           <div className={styles.suggestionList}>
-            {exploreFurtherPrompts.map((prompt) => (
+            {exploreFurtherPrompts.map((prompt, index) => (
               <button
                 key={prompt}
                 type="button"
                 className={styles.suggestionLink}
-                onClick={() => onPromptSuggestion(prompt)}
+                onClick={() =>
+                  onPromptSuggestion(prompt, {
+                    source: "explore_further",
+                    index,
+                  })
+                }
                 title={`Ask: ${prompt}`}
               >
                 {prompt}

@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { useMetaAvatar } from "@/app/contexts/MetaAvatarContext";
 import { useIsMobile } from "@/app/hooks/use-mobile";
 import SmartWalletDrawer from "../content/SmartWalletDrawer";
-import { CopilotInferenceBodyRenderer } from "./CopilotInferenceBodyRenderer";
+import { CopilotInferenceBodyRenderer, type PromptSuggestionMeta } from "./CopilotInferenceBodyRenderer";
 import {
   Bot,
   User,
@@ -464,22 +464,38 @@ export function CodexCopilotLayer({
     return <Trophy className="h-3.5 w-3.5" />;
   };
 
+  const normalizePromptForRouting = (prompt: string): string =>
+    prompt
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+      .replace(/[`*_#>]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+
   const resolveWalletPromptTab = (prompt: string): WalletTab | null => {
-    const normalized = prompt.toLowerCase();
-    if (/(checkout|purchase|buy|unlock|pay|wallet|balance|funds|spendable|q¢|qct)/.test(normalized)) return "wallet";
-    if (/(library|owned|entitlement)/.test(normalized)) return "library";
-    if (/(task|quest|mission)/.test(normalized)) return "tasks";
-    if (/(reward|claim|earn)/.test(normalized)) return "rewards";
-    if (/(reputation|trust|score)/.test(normalized)) return "reputation";
+    const normalized = normalizePromptForRouting(prompt);
+    if (/(checkout|purchase|buy|unlock|pay|wallet|balance|funds|spendable|q¢|qct|token|send|receive|verify|usdc|knyt)/.test(normalized)) return "wallet";
+    if (/(library|owned|entitlement|collection|inventory)/.test(normalized)) return "library";
+    if (/(task|quest|mission|todo)/.test(normalized)) return "tasks";
+    if (/(reward|claim|earn|payout|bonus)/.test(normalized)) return "rewards";
+    if (/(reputation|trust|score|credibility)/.test(normalized)) return "reputation";
     return null;
   };
 
-  const handlePromptSuggestion = (prompt: string) => {
-    const matchedTab = resolveWalletPromptTab(prompt);
-    if (matchedTab) {
-      setWalletPanelTab(matchedTab);
+  const handlePromptSuggestion = (prompt: string, meta?: PromptSuggestionMeta) => {
+    const normalizedPrompt = normalizePromptForRouting(prompt);
+    const matchedTab = resolveWalletPromptTab(normalizedPrompt);
+    const isWalletExploreFurther =
+      meta?.source === "explore_further" &&
+      /(wallet|balance|task|quest|mission|reward|claim|checkout|purchase|buy|library|reputation|score|payment|pay|send|receive|verify|usdc|knyt|q¢|qct)/.test(
+        normalizedPrompt
+      );
+    if (matchedTab || isWalletExploreFurther) {
+      const targetTab = matchedTab ?? "wallet";
+      setWalletPanelTab(targetTab);
       setWalletPanelOpen(true);
       setWalletPanelCollapsed(false);
+      showWalletMenuWithTimeout(6000);
       void sendMessage(prompt, { skipInference: true });
       return;
     }
