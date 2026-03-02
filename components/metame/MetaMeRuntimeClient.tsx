@@ -1238,6 +1238,18 @@ export default function MetaMeRuntimeClient() {
     [channels, channelsLoading, toast]
   );
 
+  const dismissCodexPanels = useCallback(() => {
+    console.warn("[codex-close] dismissCodexPanels called directly");
+    setMessages((prev) => {
+      const next = prev.filter(
+        (m) => !(m?.variant === "panel" && m?.id !== "capsule-panel")
+      );
+      console.warn("[codex-close] direct dismiss", { before: prev.length, after: next.length });
+      return next;
+    });
+    setSelectedCapsuleLocal(null);
+  }, []);
+
   const renderRuntimeFramePanel = useCallback(
     (content: RuntimeCapsule, intent: RuntimeIntent, options: { label: string; frameSrc: string }) => {
       const moduleConfig = resolveRuntimeModule(activeDevice, intent);
@@ -2018,6 +2030,18 @@ export default function MetaMeRuntimeClient() {
       }
 
       if (message.type === "MENU_ACTION") {
+        if (payload.action_id === "close_codex" || payload.item_id === "close_codex") {
+          console.warn("[codex-close] MENU_ACTION close_codex received from shell");
+          setMessages((prev) => {
+            const next = prev.filter(
+              (m) => !(m?.variant === "panel" && m?.id !== "capsule-panel")
+            );
+            console.warn("[codex-close] MENU_ACTION dismiss", { before: prev.length, after: next.length });
+            return next;
+          });
+          setSelectedCapsuleLocal(null);
+          return;
+        }
         const explicitPrompt = typeof payload.prompt === "string" ? payload.prompt : null;
         const actionId =
           typeof payload.action_id === "string"
