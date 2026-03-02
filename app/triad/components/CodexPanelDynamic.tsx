@@ -274,10 +274,9 @@ export default function CodexPanelDynamic({
   const showCloseLayerButton = !closeDisabledByQuery && (closeEnabledByQuery || isEmbeddedContext || !!onClose);
 
   const handleCloseLayer = () => {
+    const handledInline = Boolean(onClose);
     if (onClose) {
-      console.warn("[codex-close] onClose callback");
       onClose();
-      return;
     }
 
     if (typeof window === "undefined") return;
@@ -288,14 +287,22 @@ export default function CodexPanelDynamic({
       close_target: "codex-panel",
       runtime_source: "codex",
       codex_id: codexId,
+      codexId,
       codex_slug: codexId.replace(/-codex$/i, ""),
+      codexSlug: codexId.replace(/-codex$/i, ""),
       tab_slug: activeTabSlug,
     };
 
-    try { const bc = new BroadcastChannel("metame_codex_close"); bc.postMessage(closePayload); console.warn("[codex-close] BC sent"); bc.close(); } catch(e) {}
+    const shouldBroadcast = closeEnabledByQuery || isEmbeddedContext || !handledInline;
+    if (shouldBroadcast) {
+      try {
+        const bc = new BroadcastChannel("metame_codex_close");
+        bc.postMessage(closePayload);
+        bc.close();
+      } catch (e) {}
+    }
 
-    if (window.parent && window.parent !== window) {
-      console.warn("[codex-close] postMessage to parent", closePayload);
+    if (shouldBroadcast && window.parent && window.parent !== window) {
       window.parent.postMessage(closePayload, "*");
       window.parent.postMessage("METAME_CODEX_CLOSE_LAYER", "*");
       // Also send bridge-format NAVIGATE that the shell handler understands
@@ -307,8 +314,7 @@ export default function CodexPanelDynamic({
         payload: { path: "/", action: "close_codex", codex_id: codexId },
       }, "*");
     }
-    if (window.top && window.top !== window && window.top !== window.parent) {
-      console.warn("[codex-close] postMessage to top");
+    if (shouldBroadcast && window.top && window.top !== window && window.top !== window.parent) {
       window.top.postMessage(closePayload, "*");
       window.top.postMessage("METAME_CODEX_CLOSE_LAYER", "*");
       window.top.postMessage({
@@ -319,6 +325,7 @@ export default function CodexPanelDynamic({
         payload: { path: "/", action: "close_codex", codex_id: codexId },
       }, "*");
     }
+    if (handledInline) return;
     if ((window.parent && window.parent !== window) || (window.top && window.top !== window)) {
       return;
     }

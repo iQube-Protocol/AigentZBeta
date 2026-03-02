@@ -14,6 +14,9 @@ import { DevicePreviewSwitcher, type DeviceType } from "@/components/preview/Dev
 import { useToast } from "@/components/ui/toaster";
 import {
   buildLaunchMessageId,
+  normalizeCodexId,
+  readCodexClose,
+  shouldDismissForCodexClose,
 } from "@/components/metame/runtimeCloseLayer";
 import {
   getStaticAgentLlmProviders,
@@ -1425,45 +1428,57 @@ export default function MetaMeRuntimeClient() {
   }, [launchCapsule, queryPreviewCapsule]);
 
   useEffect(() => {
+    const readNavigateClose = (data: unknown): { isClose: boolean; codexId: string | null } => {
+      if (!data || typeof data !== "object" || Array.isArray(data)) {
+        return { isClose: false, codexId: null };
+      }
+      const payload = data as {
+        type?: unknown;
+        payload?: {
+          action?: unknown;
+          codex_id?: unknown;
+          codexId?: unknown;
+          codex_slug?: unknown;
+          codexSlug?: unknown;
+        };
+      };
+      if (payload.type !== "NAVIGATE" || payload.payload?.action !== "close_codex") {
+        return { isClose: false, codexId: null };
+      }
+      const raw =
+        (typeof payload.payload?.codex_id === "string" && payload.payload.codex_id) ||
+        (typeof payload.payload?.codexId === "string" && payload.payload.codexId) ||
+        (typeof payload.payload?.codex_slug === "string" && payload.payload.codex_slug) ||
+        (typeof payload.payload?.codexSlug === "string" && payload.payload.codexSlug) ||
+        null;
+      return { isClose: true, codexId: normalizeCodexId(raw) };
+    };
+
+    const dismissCodexPanels = (codexId: string | null) => {
+      setMessages((prev) => prev.filter((message) => !shouldDismissForCodexClose(message, codexId)));
+      setSelectedCapsuleLocal(null);
+    };
+
     function onAnyMessage(event: MessageEvent) {
       const d = event.data;
       if (!d) return;
-      const t = typeof d === "string" ? d : (d && typeof d === "object" ? (d as { type?: string }).type : null);
-      if (t && typeof t === "string" && /codex|close|METAME/i.test(t)) {
-        console.warn("[codex-close-diag] heard message", { type: t, origin: event.origin, data: d });
-      }
-      if (t !== "METAME_CODEX_CLOSE_LAYER" && d !== "METAME_CODEX_CLOSE_LAYER") return;
-
-      console.warn("[codex-close] received ✅", typeof d === "object" ? d : { raw: d });
-
-      setMessages((prev) => {
-        const next = prev.filter(
-          (m) => !(m?.variant === "panel" && m?.id !== "capsule-panel")
-        );
-        console.warn("[codex-close] filtered", { before: prev.length, after: next.length });
-        return next;
-      });
-      setSelectedCapsuleLocal(null);
+      const closeSignal = readCodexClose(d);
+      const navigateSignal = readNavigateClose(d);
+      if (!closeSignal.isClose && !navigateSignal.isClose) return;
+      dismissCodexPanels(closeSignal.isClose ? closeSignal.codexId : navigateSignal.codexId);
     }
 
-    console.warn("[codex-close-diag] listener registered on", window.location.href);
     window.addEventListener("message", onAnyMessage);
 
     let bc: BroadcastChannel | null = null;
     try {
       bc = new BroadcastChannel("metame_codex_close");
       bc.onmessage = (ev: MessageEvent) => {
-        console.warn("[codex-close] BC received ✅", ev.data);
-        setMessages((prev) => {
-          const next = prev.filter(
-            (m) => !(m?.variant === "panel" && m?.id !== "capsule-panel")
-          );
-          console.warn("[codex-close] BC filtered", { before: prev.length, after: next.length });
-          return next;
-        });
-        setSelectedCapsuleLocal(null);
+        const closeSignal = readCodexClose(ev.data);
+        const navigateSignal = readNavigateClose(ev.data);
+        if (!closeSignal.isClose && !navigateSignal.isClose) return;
+        dismissCodexPanels(closeSignal.isClose ? closeSignal.codexId : navigateSignal.codexId);
       };
-      console.warn("[codex-close-diag] BroadcastChannel listening");
     } catch (e) { /* BroadcastChannel not supported */ }
 
     return () => {
