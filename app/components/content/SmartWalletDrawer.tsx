@@ -200,15 +200,21 @@ export default function SmartWalletDrawer({
   codexMode = false,
   onCopilotStateChange,
 }: SmartWalletDrawerProps) {
+  const isValidEvmAddress = (value?: string): value is `0x${string}` =>
+    typeof value === "string" && /^0x[a-fA-F0-9]{40}$/.test(value);
+
+  const sanitizedEvmSepolia = isValidEvmAddress(agent.evmSepolia) ? agent.evmSepolia : undefined;
+  const sanitizedEvmArb = isValidEvmAddress(agent.evmArb) ? agent.evmArb : undefined;
+
   const [activeTab, setActiveTab] = useState<DrawerTab>(initialTab);
   const [dismissed, setDismissed] = useState(false);
   const [localPersonaId, setLocalPersonaId] = useState<string | null>(null);
   const [balanceRefreshKey, setBalanceRefreshKey] = useState(0);
   const bals = useBalances(
     {
-      sepolia: agent.evmSepolia,
-      arb: agent.evmArb,
-      base: agent.evmSepolia || agent.evmArb,
+      sepolia: sanitizedEvmSepolia,
+      arb: sanitizedEvmArb,
+      base: sanitizedEvmSepolia || sanitizedEvmArb,
       btc: agent.btcAddress,
     },
     { refreshKey: balanceRefreshKey }
@@ -1086,7 +1092,7 @@ export default function SmartWalletDrawer({
 
   const knytTotal = knytBalance?.totalKnyt ?? 0;
   const knytUsd = knytPriceUsd ? (knytTotal * knytPriceUsd).toFixed(2) : "0.00";
-  const walletAddress = walletNode?.walletAddresses?.evm || agent.evmArb || agent.evmSepolia;
+  const walletAddress = walletNode?.walletAddresses?.evm || sanitizedEvmArb || sanitizedEvmSepolia;
 
   // Get tasks from wallet node or use empty array
   const tasks = walletNode?.tasks || [];

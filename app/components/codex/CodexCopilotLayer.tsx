@@ -1137,8 +1137,6 @@ export function CodexCopilotLayer({
                 agent={agent || {
                   id: "default",
                   name: "Demo Agent",
-                  evmSepolia: "0x" as `0x${string}`,
-                  evmArb: "0x" as `0x${string}`,
                 }}
                 codexMode={true}
               />
