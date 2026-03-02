@@ -13,6 +13,12 @@ import { PreviewFrame } from "@/components/preview/PreviewFrame";
 import { DevicePreviewSwitcher, type DeviceType } from "@/components/preview/DevicePreviewSwitcher";
 import { useToast } from "@/components/ui/toaster";
 import {
+  buildLaunchMessageId,
+  normalizeCodexId,
+  readCodexClose,
+  shouldDismissForCodexClose,
+} from "@/components/metame/runtimeCloseLayer";
+import {
   getStaticAgentLlmProviders,
   type AgentModelSelection,
   type AgentProviderOption,
@@ -1394,7 +1400,10 @@ export default function MetaMeRuntimeClient() {
       setMessages((prev) => [
         ...prev,
         {
-          id: `capsule-launch-${Date.now()}`,
+          id: buildLaunchMessageId({
+            runtimeSource: content.runtimeSource,
+            runtimeCodexSlug: content.runtimeCodexSlug || null,
+          }),
           role: "assistant",
           content: buildRuntimeCapsulePanel(content, intent),
           timestamp: new Date(),
@@ -1420,30 +1429,23 @@ export default function MetaMeRuntimeClient() {
 
   useEffect(() => {
     function onEmbeddedCodexMessage(event: MessageEvent) {
-      const payload = event.data;
-      const messageType =
-        typeof payload === "string"
-          ? payload
-          : payload && typeof payload === "object" && !Array.isArray(payload)
-            ? (payload as { type?: string }).type
-            : null;
-      if (messageType !== "METAME_CODEX_CLOSE_LAYER") return;
+      const { isClose, codexId } = readCodexClose(event.data);
+      if (!isClose) return;
 
-      setMessages((prev) =>
-        prev.filter(
-          (message) =>
-            !(
-              message?.variant === "panel" &&
-              message?.id !== "capsule-panel"
-            )
-        )
-      );
-      setSelectedCapsuleLocal(null);
+      setMessages((prev) => prev.filter((message) => !shouldDismissForCodexClose(message, codexId)));
+      setSelectedCapsuleLocal((current) => {
+        if (!current) return current;
+        const selected = allContents.find((content) => content.id === current);
+        if (!selected || selected.runtimeSource !== "codex") return current;
+        const selectedCodexId = normalizeCodexId(selected.runtimeCodexSlug || null);
+        if (!codexId || codexId === selectedCodexId) return null;
+        return current;
+      });
     }
 
     window.addEventListener("message", onEmbeddedCodexMessage);
     return () => window.removeEventListener("message", onEmbeddedCodexMessage);
-  }, []);
+  }, [allContents]);
 
   const capsulePanel = useMemo(
     () => (

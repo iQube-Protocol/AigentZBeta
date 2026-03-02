@@ -277,7 +277,10 @@ export default function CodexPanelDynamic({
     const closePayload = {
       type: "METAME_CODEX_CLOSE_LAYER",
       source: "codex-embed",
+      close_target: "codex-panel",
+      runtime_source: "codex",
       codex_id: codexId,
+      codex_slug: codexId.replace(/-codex$/i, ""),
       tab_slug: activeTabSlug,
     };
 
