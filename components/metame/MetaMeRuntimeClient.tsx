@@ -1425,17 +1425,16 @@ export default function MetaMeRuntimeClient() {
   }, [launchCapsule, queryPreviewCapsule]);
 
   useEffect(() => {
-    function onEmbeddedCodexMessage(event: MessageEvent) {
-      const p = event.data;
-      const msgType =
-        typeof p === "string"
-          ? p
-          : p && typeof p === "object" && !Array.isArray(p)
-            ? (p as { type?: string }).type
-            : null;
-      if (msgType !== "METAME_CODEX_CLOSE_LAYER") return;
+    function onAnyMessage(event: MessageEvent) {
+      const d = event.data;
+      if (!d) return;
+      const t = typeof d === "string" ? d : (d && typeof d === "object" ? (d as { type?: string }).type : null);
+      if (t && typeof t === "string" && /codex|close|METAME/i.test(t)) {
+        console.warn("[codex-close-diag] heard message", { type: t, origin: event.origin, data: d });
+      }
+      if (t !== "METAME_CODEX_CLOSE_LAYER" && d !== "METAME_CODEX_CLOSE_LAYER") return;
 
-      console.warn("[codex-close] received", typeof p === "object" ? p : { raw: p });
+      console.warn("[codex-close] received ✅", typeof d === "object" ? d : { raw: d });
 
       setMessages((prev) => {
         const next = prev.filter(
@@ -1447,8 +1446,9 @@ export default function MetaMeRuntimeClient() {
       setSelectedCapsuleLocal(null);
     }
 
-    window.addEventListener("message", onEmbeddedCodexMessage);
-    return () => window.removeEventListener("message", onEmbeddedCodexMessage);
+    console.warn("[codex-close-diag] listener registered on", window.location.href);
+    window.addEventListener("message", onAnyMessage);
+    return () => window.removeEventListener("message", onAnyMessage);
   }, []);
 
   const capsulePanel = useMemo(
