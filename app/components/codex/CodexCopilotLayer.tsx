@@ -483,22 +483,30 @@ export function CodexCopilotLayer({
   };
 
   const handlePromptSuggestion = (prompt: string, meta?: PromptSuggestionMeta) => {
-    const normalizedPrompt = normalizePromptForRouting(prompt);
-    const matchedTab = resolveWalletPromptTab(normalizedPrompt);
-    const isWalletExploreFurther =
-      meta?.source === "explore_further" &&
-      /(wallet|balance|task|quest|mission|reward|claim|checkout|purchase|buy|library|reputation|score|payment|pay|send|receive|verify|usdc|knyt|q¢|qct)/.test(
-        normalizedPrompt
-      );
-    if (matchedTab || isWalletExploreFurther) {
-      const targetTab = matchedTab ?? "wallet";
+    if (meta?.kind === "wallet_action") {
+      const targetTab = (meta.walletTab as WalletTab | undefined) ?? resolveWalletPromptTab(prompt) ?? "wallet";
       setWalletPanelTab(targetTab);
+      setWalletPanelOpen(true);
+      setWalletPanelCollapsed(false);
+      showWalletMenuWithTimeout(6000);
+      return;
+    }
+
+    if (meta?.kind === "explore_prompt") {
+      void sendMessage(prompt);
+      return;
+    }
+
+    const matchedTab = resolveWalletPromptTab(prompt);
+    if (matchedTab) {
+      setWalletPanelTab(matchedTab);
       setWalletPanelOpen(true);
       setWalletPanelCollapsed(false);
       showWalletMenuWithTimeout(6000);
       void sendMessage(prompt, { skipInference: true });
       return;
     }
+
     void sendMessage(prompt);
   };
 

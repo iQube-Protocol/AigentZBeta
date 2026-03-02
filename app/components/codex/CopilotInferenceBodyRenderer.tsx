@@ -22,6 +22,8 @@ interface MermaidBlockProps {
 export type PromptSuggestionMeta = {
   source: "explore_further";
   index: number;
+  kind: "wallet_action" | "explore_prompt";
+  walletTab?: "wallet" | "library" | "tasks" | "reputation" | "rewards" | "payments";
 };
 
 const CALLOUT_PATTERN = /^\s*(Important|Remember|Note|Warning)\s*:/i;
@@ -90,6 +92,24 @@ function extractExploreFurtherPrompts(content: string): string[] {
   }
 
   return Array.from(new Set(prompts)).slice(0, 6);
+}
+
+function resolveWalletTabSuggestion(prompt: string): PromptSuggestionMeta["walletTab"] | null {
+  const normalized = prompt
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/[`*_#>]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+
+  if (!normalized) return null;
+  if (/(checkout|purchase|buy|unlock|pay|wallet|balance|funds|spendable|q¢|qct|token|send|receive|verify|usdc|knyt|payment)/.test(normalized)) return "wallet";
+  if (/(library|owned|entitlement|collection|inventory)/.test(normalized)) return "library";
+  if (/(task|quest|mission|todo)/.test(normalized)) return "tasks";
+  if (/(reward|claim|earn|payout|bonus)/.test(normalized)) return "rewards";
+  if (/(reputation|trust|score|credibility)/.test(normalized)) return "reputation";
+  if (/(invoice|receipt|settlement|charge|billing)/.test(normalized)) return "payments";
+  return null;
 }
 
 function stripExploreFurtherSection(content: string): string {
@@ -340,6 +360,12 @@ function MermaidBlock({ code }: MermaidBlockProps) {
 
 export function CopilotInferenceBodyRenderer({ content, onPromptSuggestion }: CopilotInferenceBodyRendererProps) {
   const exploreFurtherPrompts = extractExploreFurtherPrompts(content);
+  const walletActionPrompts = exploreFurtherPrompts
+    .map((prompt) => ({ prompt, walletTab: resolveWalletTabSuggestion(prompt) }))
+    .filter((item): item is { prompt: string; walletTab: NonNullable<PromptSuggestionMeta["walletTab"]> } => item.walletTab !== null);
+  const followUpPrompts = exploreFurtherPrompts.filter(
+    (prompt) => !walletActionPrompts.some((action) => action.prompt === prompt)
+  );
   const renderedContent = stripExploreFurtherSection(content);
 
   return (
@@ -399,11 +425,36 @@ export function CopilotInferenceBodyRenderer({ content, onPromptSuggestion }: Co
       >
         {renderedContent}
       </ReactMarkdown>
-      {exploreFurtherPrompts.length > 0 && onPromptSuggestion ? (
+      {walletActionPrompts.length > 0 && onPromptSuggestion ? (
+        <div className={styles.suggestionSection}>
+          <div className={styles.suggestionTitle}>Wallet Actions</div>
+          <div className={styles.suggestionList}>
+            {walletActionPrompts.map((item, index) => (
+              <button
+                key={`wallet-${item.prompt}`}
+                type="button"
+                className={styles.walletActionButton}
+                onClick={() =>
+                  onPromptSuggestion(item.prompt, {
+                    source: "explore_further",
+                    index,
+                    kind: "wallet_action",
+                    walletTab: item.walletTab,
+                  })
+                }
+                title={`Open wallet: ${item.prompt}`}
+              >
+                {item.prompt}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {followUpPrompts.length > 0 && onPromptSuggestion ? (
         <div className={styles.suggestionSection}>
           <div className={styles.suggestionTitle}>Explore Further</div>
           <div className={styles.suggestionList}>
-            {exploreFurtherPrompts.map((prompt, index) => (
+            {followUpPrompts.map((prompt, index) => (
               <button
                 key={prompt}
                 type="button"
@@ -412,6 +463,7 @@ export function CopilotInferenceBodyRenderer({ content, onPromptSuggestion }: Co
                   onPromptSuggestion(prompt, {
                     source: "explore_further",
                     index,
+                    kind: "explore_prompt",
                   })
                 }
                 title={`Ask: ${prompt}`}
