@@ -71,6 +71,7 @@ export default function CodexPanelDynamic({
   const searchParams = useSearchParams();
   const { data: codex, isLoading, error } = useCodexConfig({ codexId, useDefaults });
   const resolvedTheme: 'light' | 'dark' = theme === 'light' ? 'light' : 'dark';
+  const [isClosed, setIsClosed] = useState(false);
   const normalizedInitialTab = (initialTab || '').trim().toLowerCase();
   const lastAppliedInitialTabRef = useRef<string>("");
 
@@ -302,6 +303,7 @@ export default function CodexPanelDynamic({
       window.top.postMessage(closePayload, "*");
       window.top.postMessage("METAME_CODEX_CLOSE_LAYER", "*");
     }
+    setIsClosed(true);
     if ((window.parent && window.parent !== window) || (window.top && window.top !== window)) {
       return;
     }
@@ -310,6 +312,14 @@ export default function CodexPanelDynamic({
       window.history.back();
     }
   };
+
+  if (isClosed) {
+    return (
+      <div className="flex h-full w-full items-center justify-center bg-slate-950">
+        <p className="text-sm text-slate-500">Codex closed</p>
+      </div>
+    );
+  }
 
   return (
     <SmartTriadProvider personaId={personaId}>
