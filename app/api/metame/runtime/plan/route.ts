@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { buildSurfacePlanV0 } from "@/services/metame/surfaceSelector";
 import { ContentModuleRenderProfileV0Schema, type ContentModuleRenderProfileV0 } from "@metame/contracts";
+import { SurfaceDecisionMatrixV0Schema, type SurfaceDecisionMatrixV0 } from "@/services/metame/surfaceSelector";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -9,13 +10,13 @@ const CONFIG_DIR = path.resolve("configs/qriptopian");
 const MATRIX_PATH = path.join(CONFIG_DIR, "surface_decision_matrix.v0.json");
 const PROFILES_PATH = path.join(CONFIG_DIR, "module_render_profiles.v0.json");
 
-let matrixCache: any = null;
+let matrixCache: SurfaceDecisionMatrixV0 | null = null;
 let profilesCache: ContentModuleRenderProfileV0[] | null = null;
 
-function loadMatrix() {
+function loadMatrix(): SurfaceDecisionMatrixV0 {
   if (!matrixCache) {
     try {
-      matrixCache = JSON.parse(fs.readFileSync(MATRIX_PATH, "utf-8"));
+      matrixCache = SurfaceDecisionMatrixV0Schema.parse(JSON.parse(fs.readFileSync(MATRIX_PATH, "utf-8")));
     } catch (error) {
       console.error("Failed to load surface decision matrix:", error);
       throw new Error("Surface decision matrix not available");
@@ -81,6 +82,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Build surface plan
+    const matrix = loadMatrix();
     const plan = buildSurfacePlanV0({
       plan_id,
       session_id,
@@ -93,6 +95,7 @@ export async function POST(request: NextRequest) {
       modules: enrichedModules,
       verification,
       audit,
+      matrix,
     });
 
     return NextResponse.json(plan);

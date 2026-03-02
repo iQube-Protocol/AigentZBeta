@@ -70,6 +70,7 @@ export function runQriptopianFixture() {
         capsule_id: "capsule_knyt_001",
         thread_id: "thread_knyt_bridge_001",
         modules,
+        matrix,
         verification: {
           dis_ref: { kind: "doc_ref", id: "dis:qriptopian:v0" },
           constraint_manifest_ref: { kind: "doc_ref", id: "constraints:qriptopian:v0" },
