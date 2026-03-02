@@ -1082,7 +1082,52 @@ export default function MetaMeRuntimeClient() {
   const [lastIntent, setLastIntent] = useState<RuntimeIntent>("find");
   const autoLaunchedCapsuleRef = useRef<string | null>(null);
   const activeCodexPanelMessageIdsRef = useRef<Set<string>>(new Set());
+  const pendingRuntimeEventsRef = useRef<Array<{ type: RuntimeInboundType; payload: Record<string, unknown> }>>([]);
   const activeCapsuleId = selectedCapsuleLocal || selectedCapsuleId;
+  const relayCloseCodexToNestedFrames = useCallback(() => {
+    if (typeof window === "undefined") return;
+
+    const nowIso = new Date().toISOString();
+    const frames = Array.from(document.querySelectorAll("iframe"));
+    for (const frame of frames) {
+      const frameWindow = frame.contentWindow;
+      if (!frameWindow) continue;
+      try {
+        frameWindow.postMessage(
+          {
+            type: "MENU_ACTION",
+            msg_id: `runtime-close-codex-menu-${Date.now()}`,
+            timestamp: nowIso,
+            source: "runtime",
+            payload: { action_id: "close_codex", action: "close_codex", intent: "close_codex" },
+          },
+          "*"
+        );
+        frameWindow.postMessage(
+          {
+            type: "NAVIGATE",
+            msg_id: `runtime-close-codex-nav-${Date.now()}`,
+            timestamp: nowIso,
+            source: "runtime",
+            payload: { path: "/", action: "close_codex" },
+          },
+          "*"
+        );
+        frameWindow.postMessage(
+          {
+            type: "METAME_CODEX_CLOSE_LAYER",
+            source: "runtime",
+            close_target: "codex-panel",
+            runtime_source: "codex",
+          },
+          "*"
+        );
+        frameWindow.postMessage("METAME_CODEX_CLOSE_LAYER", "*");
+      } catch (_) {
+        // Ignore frame-level delivery failures; parent close path remains primary.
+      }
+    }
+  }, []);
   const queryPreviewCapsule = useMemo(() => {
     if (!selectedExperienceId) return null;
     return buildPreviewExperienceCapsule({
@@ -1524,6 +1569,7 @@ export default function MetaMeRuntimeClient() {
       ) {
         console.warn("[codex-close] onAnyMessage MENU_ACTION close_codex — dismissing");
         dismissCodexPanels(null);
+        relayCloseCodexToNestedFrames();
         try { window.parent.postMessage({ type: "STATE_SYNC", source: "runtime", payload: { close_codex_ack: true, handler: "onAnyMessage" } }, "*"); } catch (_) {}
         return;
       }
@@ -1533,6 +1579,7 @@ export default function MetaMeRuntimeClient() {
       if (!closeSignal.isClose && !navigateSignal.isClose) return;
       console.warn("[codex-close] onAnyMessage close signal matched", { closeSignal, navigateSignal });
       dismissCodexPanels(closeSignal.isClose ? closeSignal.codexId : navigateSignal.codexId);
+      relayCloseCodexToNestedFrames();
     }
 
     window.addEventListener("message", onAnyMessage);
@@ -1545,6 +1592,7 @@ export default function MetaMeRuntimeClient() {
         const navigateSignal = readNavigateClose(ev.data);
         if (!closeSignal.isClose && !navigateSignal.isClose) return;
         dismissCodexPanels(closeSignal.isClose ? closeSignal.codexId : navigateSignal.codexId);
+        relayCloseCodexToNestedFrames();
       };
     } catch (e) { /* BroadcastChannel not supported */ }
 
@@ -1552,7 +1600,7 @@ export default function MetaMeRuntimeClient() {
       window.removeEventListener("message", onAnyMessage);
       try { bc?.close(); } catch (_) {}
     };
-  }, []);
+  }, [relayCloseCodexToNestedFrames]);
 
   const capsulePanel = useMemo(
     () => (
@@ -1704,12 +1752,33 @@ export default function MetaMeRuntimeClient() {
     });
   }, [capsulePanel, showWelcome]);
 
+  const flushQueuedRuntimeEvents = useCallback(() => {
+    if (typeof window === "undefined") return;
+    if (window.parent === window) return;
+    const origin = shellOriginRef.current;
+    if (!origin) return;
+    if (pendingRuntimeEventsRef.current.length === 0) return;
+
+    const queued = [...pendingRuntimeEventsRef.current];
+    pendingRuntimeEventsRef.current = [];
+    queued.forEach((eventPayload) => {
+      const message = createRuntimeMessage(eventPayload.type, eventPayload.payload, shellContextRef.current);
+      window.parent.postMessage(message, origin);
+    });
+  }, []);
+
   const postRuntimeEvent = useCallback(
     (type: RuntimeInboundType, payload: Record<string, unknown>) => {
       if (typeof window === "undefined") return;
       if (window.parent === window) return;
       const origin = shellOriginRef.current;
-      if (!origin) return;
+      if (!origin) {
+        pendingRuntimeEventsRef.current.push({ type, payload });
+        if (pendingRuntimeEventsRef.current.length > 50) {
+          pendingRuntimeEventsRef.current.shift();
+        }
+        return;
+      }
 
       const message = createRuntimeMessage(type, payload, shellContextRef.current);
       window.parent.postMessage(message, origin);
@@ -1746,6 +1815,7 @@ export default function MetaMeRuntimeClient() {
       const source = options?.source ?? "runtime_ui";
       const intent = options?.explicitIntent ?? inferIntent(trimmed);
       const skipInference = Boolean(options?.skipInference);
+      const wasWelcomePrompt = showWelcome;
       let workingContents = allContents;
       const shouldRefetchForIntent = intent === "play" || workingContents.length === 0 || intent !== lastIntent;
       if (shouldRefetchForIntent) {
@@ -1810,6 +1880,25 @@ export default function MetaMeRuntimeClient() {
         });
       }
       setMessages(immediateMessages);
+      if (wasWelcomePrompt) {
+        postRuntimeEvent("STATE_SYNC", {
+          state: "post_welcome",
+          intent,
+          device: activeDevice,
+          thin_shell: thinShellMode,
+          welcome_prompt_executed: true,
+          welcome_inference_completed: true,
+          prompt_source: source,
+        });
+        postRuntimeEvent("WELCOME_COMPLETE", {
+          state: "post_welcome",
+          intent,
+          device: activeDevice,
+          prompt_source: source,
+          welcome_prompt_executed: true,
+          welcome_inference_completed: true,
+        });
+      }
 
       const shouldRequestInference =
         !skipInference &&
@@ -1827,12 +1916,14 @@ export default function MetaMeRuntimeClient() {
         device: activeDevice,
         thin_shell: thinShellMode,
         prompt_source: source,
+        welcome_prompt_executed: wasWelcomePrompt,
       });
       postRuntimeEvent("PROCESSING_START", {
         intent,
         device: activeDevice,
         thin_shell: thinShellMode,
         prompt_source: source,
+        welcome_prompt_executed: wasWelcomePrompt,
       });
       try {
         const response = await fetch("/api/codex/chat", {
@@ -1853,6 +1944,8 @@ export default function MetaMeRuntimeClient() {
             device: activeDevice,
             thin_shell: thinShellMode,
             prompt_source: source,
+            welcome_prompt_executed: wasWelcomePrompt,
+            welcome_inference_completed: wasWelcomePrompt,
           });
           postRuntimeEvent("RENDER_COMPLETE", {
             status: "error",
@@ -1862,6 +1955,8 @@ export default function MetaMeRuntimeClient() {
             thin_shell: thinShellMode,
             prompt_source: source,
             has_response: false,
+            welcome_prompt_executed: wasWelcomePrompt,
+            welcome_inference_completed: wasWelcomePrompt,
           });
           return;
         }
@@ -1873,6 +1968,8 @@ export default function MetaMeRuntimeClient() {
             device: activeDevice,
             thin_shell: thinShellMode,
             prompt_source: source,
+            welcome_prompt_executed: wasWelcomePrompt,
+            welcome_inference_completed: wasWelcomePrompt,
           });
           postRuntimeEvent("RENDER_COMPLETE", {
             status: "empty",
@@ -1882,6 +1979,8 @@ export default function MetaMeRuntimeClient() {
             thin_shell: thinShellMode,
             prompt_source: source,
             has_response: false,
+            welcome_prompt_executed: wasWelcomePrompt,
+            welcome_inference_completed: wasWelcomePrompt,
           });
           return;
         }
@@ -1900,6 +1999,8 @@ export default function MetaMeRuntimeClient() {
           device: activeDevice,
           thin_shell: thinShellMode,
           prompt_source: source,
+          welcome_prompt_executed: wasWelcomePrompt,
+          welcome_inference_completed: wasWelcomePrompt,
         });
         postRuntimeEvent("RENDER_COMPLETE", {
           status: "ok",
@@ -1909,6 +2010,8 @@ export default function MetaMeRuntimeClient() {
           thin_shell: thinShellMode,
           prompt_source: source,
           has_response: true,
+          welcome_prompt_executed: wasWelcomePrompt,
+          welcome_inference_completed: wasWelcomePrompt,
         });
       } catch {
         // Keep runtime functional even if inference endpoint fails.
@@ -1918,6 +2021,8 @@ export default function MetaMeRuntimeClient() {
           device: activeDevice,
           thin_shell: thinShellMode,
           prompt_source: source,
+          welcome_prompt_executed: wasWelcomePrompt,
+          welcome_inference_completed: wasWelcomePrompt,
         });
         postRuntimeEvent("RENDER_COMPLETE", {
           status: "error",
@@ -1927,6 +2032,8 @@ export default function MetaMeRuntimeClient() {
           thin_shell: thinShellMode,
           prompt_source: source,
           has_response: false,
+          welcome_prompt_executed: wasWelcomePrompt,
+          welcome_inference_completed: wasWelcomePrompt,
         });
       } finally {
         setRuntimeProcessing(false);
@@ -1990,6 +2097,7 @@ export default function MetaMeRuntimeClient() {
         shellOriginRef.current = event.origin;
       }
       if (shellOriginRef.current !== event.origin) return;
+      flushQueuedRuntimeEvents();
 
       shellContextRef.current = {
         tenant_id: message.tenant_id,
@@ -2070,6 +2178,7 @@ export default function MetaMeRuntimeClient() {
             return next;
           });
           setSelectedCapsuleLocal(null);
+          relayCloseCodexToNestedFrames();
           try { postRuntimeEvent("STATE_SYNC", { close_codex_ack: true, handler: "onShellMessage" }); } catch (_) {}
           return;
         }
@@ -2131,6 +2240,8 @@ export default function MetaMeRuntimeClient() {
     resetRuntime,
     showWelcome,
     thinShellMode,
+    relayCloseCodexToNestedFrames,
+    flushQueuedRuntimeEvents,
   ]);
 
   useEffect(() => {
