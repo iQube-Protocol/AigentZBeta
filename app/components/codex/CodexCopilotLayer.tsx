@@ -649,6 +649,8 @@ export function CodexCopilotLayer({
         : "w-full md:w-[22.25rem]";
   const walletEmbeddedWidth = "fixed";
   const walletMenuBottomClass = floatingInput ? "bottom-[93px]" : "bottom-[89px]";
+  const embeddedContainerClass = "relative h-full w-full overflow-hidden flex flex-col md:flex-row gap-2";
+  const embeddedPanelClass = "flex-1 min-w-0 h-full";
 
   return (
     <>
@@ -680,7 +682,7 @@ export function CodexCopilotLayer({
         <div
           className={
             variant === "embedded"
-              ? `relative h-full w-full overflow-hidden ${className || ""}`
+              ? `${embeddedContainerClass} ${className || ""}`
               : `codex-copilot-container fixed z-[120] flex flex-col md:flex-row gap-2 transition-all duration-300 ease-out ${
                   isMobile
                     ? "inset-0 min-h-[100svh]"
@@ -693,8 +695,8 @@ export function CodexCopilotLayer({
         >
           <div
             ref={copilotPanelRef}
-            className={`${widthClass} ${
-              variant === "embedded" ? "h-full" : "h-full md:h-full"
+            className={`${variant === "embedded" ? embeddedPanelClass : widthClass} ${
+              variant === "embedded" ? "h-full min-h-0" : "h-full md:h-full"
             } transition-all duration-300 ease-out`}
           >
             <div className={`h-full bg-black/30 backdrop-blur-xl rounded-2xl shadow-2xl flex flex-col overflow-hidden ${panelBorder ? "ring-1 ring-white/10" : ""}`}>
