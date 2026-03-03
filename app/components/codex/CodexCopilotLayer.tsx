@@ -483,6 +483,14 @@ export function CodexCopilotLayer({
   };
 
   const handlePromptSuggestion = (prompt: string, _meta?: PromptSuggestionMeta) => {
+    const matchedTab = resolveWalletPromptTab(prompt);
+    if (matchedTab) {
+      setWalletPanelTab(matchedTab);
+      setWalletPanelOpen(true);
+      setWalletPanelCollapsed(false);
+      showWalletMenuWithTimeout(6000);
+      return;
+    }
     void sendMessage(prompt);
   };
 
