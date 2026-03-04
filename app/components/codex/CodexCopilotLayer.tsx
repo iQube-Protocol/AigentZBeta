@@ -651,6 +651,22 @@ export function CodexCopilotLayer({
   const walletMenuBottomClass = floatingInput ? "bottom-[93px]" : "bottom-[89px]";
   const embeddedContainerClass = "relative h-full w-full overflow-hidden flex flex-col md:flex-row gap-2";
   const embeddedPanelClass = "flex-1 min-w-0 h-full";
+  const currentWalletLayout: "narrow" | "wide" =
+    walletCopilotOpen || (density === "wide" || density === "extra-wide") ? "wide" : "narrow";
+
+  useEffect(() => {
+    if (variant !== "embedded") return;
+    if (typeof window === "undefined") return;
+    if (window.parent === window) return;
+    const layout = walletPanelOpen && !walletPanelCollapsed ? currentWalletLayout : "narrow";
+    window.parent.postMessage(
+      {
+        type: "wallet-layout-change",
+        layout,
+      },
+      "*"
+    );
+  }, [currentWalletLayout, variant, walletPanelCollapsed, walletPanelOpen]);
 
   return (
     <>
