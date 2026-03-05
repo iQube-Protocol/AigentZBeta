@@ -68,6 +68,17 @@ function safeError(error: unknown): string {
   return error instanceof Error ? error.message : "Unknown error";
 }
 
+function isWalletLayoutMessage(
+  value: unknown
+): value is { type: "wallet-layout-change"; layout: "narrow" | "wide"; width_px?: number; anchor?: string } {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const record = value as { type?: unknown; layout?: unknown };
+  return (
+    record.type === "wallet-layout-change" &&
+    (record.layout === "narrow" || record.layout === "wide")
+  );
+}
+
 export default function RuntimeShellHomePage() {
   const router = useRouter();
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -78,6 +89,7 @@ export default function RuntimeShellHomePage() {
   const [iframeLoaded, setIframeLoaded] = useState(false);
   const [runtimeReady, setRuntimeReady] = useState(false);
   const [handoffSent, setHandoffSent] = useState(false);
+  const [runtimeFrameLayout, setRuntimeFrameLayout] = useState<"default" | "narrow" | "wide">("default");
 
   const aaClient = useMemo(() => {
     const baseUrl = process.env.NEXT_PUBLIC_AA_API_BASE_URL;
@@ -190,10 +202,28 @@ export default function RuntimeShellHomePage() {
     setHandoffSent(false);
     setRuntimeReady(false);
     setIframeLoaded(false);
+    setRuntimeFrameLayout("default");
   }, [runtimeUrl]);
 
   useEffect(() => {
     function onMessage(event: MessageEvent) {
+      if (runtimeOrigin && validateOrigin(event.origin, runtimeOrigin) && isWalletLayoutMessage(event.data)) {
+        const layout = event.data.layout;
+        setRuntimeFrameLayout(layout);
+        appendDiagnosticsBridgeLog({
+          timestamp: new Date().toISOString(),
+          direction: "inbound",
+          type: "wallet-layout-change",
+          origin: event.origin,
+          payload: {
+            layout,
+            width_px: event.data.width_px,
+            anchor: event.data.anchor,
+          },
+        });
+        return;
+      }
+
       if (!isRuntimeInboundMessage(event.data)) return;
       if (!runtimeOrigin || !validateOrigin(event.origin, runtimeOrigin)) return;
 
@@ -411,6 +441,7 @@ export default function RuntimeShellHomePage() {
               src={runtimeUrl}
               runtimeReady={runtimeReady}
               onLoad={() => setIframeLoaded(true)}
+              layoutMode={runtimeFrameLayout}
             />
           </>
         )}

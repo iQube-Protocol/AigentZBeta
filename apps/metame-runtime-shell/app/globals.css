@@ -137,6 +137,23 @@ a {
   overflow: hidden;
 }
 
+.runtime-frame-wrap-default {
+  width: 100%;
+  margin-left: 0;
+}
+
+.runtime-frame-wrap-narrow {
+  width: min(100%, 356px);
+  margin-left: auto;
+  transition: width 180ms ease;
+}
+
+.runtime-frame-wrap-wide {
+  width: min(100%, 516px);
+  margin-left: auto;
+  transition: width 180ms ease;
+}
+
 .runtime-frame {
   width: 100%;
   height: 100%;
@@ -385,5 +402,11 @@ a {
 
   .shell-main {
     padding: 0.45rem;
+  }
+
+  .runtime-frame-wrap-narrow,
+  .runtime-frame-wrap-wide {
+    width: 100%;
+    margin-left: 0;
   }
 }

@@ -182,6 +182,7 @@ export function CodexCopilotLayer({
   const activationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const initialActivationShownRef = useRef(false);
   const copilotPanelRef = useRef<HTMLDivElement>(null);
+  const walletLayoutNotifiedRef = useRef(false);
   const metaAvatarFrameRef = useRef<HTMLDivElement>(null);
   const scrollChatToBottom = () => {
     if (!chatContainerRef.current) return;
@@ -658,14 +659,36 @@ export function CodexCopilotLayer({
     if (variant !== "embedded") return;
     if (typeof window === "undefined") return;
     if (window.parent === window) return;
-    const layout = walletPanelOpen && !walletPanelCollapsed ? currentWalletLayout : "narrow";
-    window.parent.postMessage(
-      {
-        type: "wallet-layout-change",
-        layout,
-      },
-      "*"
-    );
+    const isWalletVisible = walletPanelOpen && !walletPanelCollapsed;
+    if (isWalletVisible) {
+      const widthPx = currentWalletLayout === "wide" ? 516 : 356;
+      window.parent.postMessage(
+        {
+          type: "wallet-layout-change",
+          layout: currentWalletLayout,
+          width_px: widthPx,
+          anchor: "right",
+          source: "runtime-embedded-wallet",
+        },
+        "*"
+      );
+      walletLayoutNotifiedRef.current = true;
+      return;
+    }
+
+    if (walletLayoutNotifiedRef.current) {
+      window.parent.postMessage(
+        {
+          type: "wallet-layout-change",
+          layout: "narrow",
+          width_px: 356,
+          anchor: "right",
+          source: "runtime-embedded-wallet",
+        },
+        "*"
+      );
+      walletLayoutNotifiedRef.current = false;
+    }
   }, [currentWalletLayout, variant, walletPanelCollapsed, walletPanelOpen]);
 
   return (
