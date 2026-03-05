@@ -5,6 +5,8 @@
  * Query params:
  * - theme: 'light' | 'dark' (optional)
  * - density: 'narrow' | 'wide' (optional)
+ * - wallet_mode: 'narrow-only' (optional; disables wide/collapsed expansion for this deployment)
+ * - allowWide: '0' | 'false' to disable wide mode (optional)
  */
 
 "use client";
@@ -58,6 +60,16 @@ function SmartWalletContent() {
   const searchParams = useSearchParams();
   const theme = (searchParams?.get('theme') as 'light' | 'dark') || 'dark';
   const density = (searchParams?.get('density') as 'narrow' | 'wide') || 'wide';
+  const walletMode = toText(searchParams?.get("wallet_mode"))?.toLowerCase();
+  const allowWideParam = toText(searchParams?.get("allowWide"))?.toLowerCase();
+  const disableWideParam = toText(searchParams?.get("disableWide"))?.toLowerCase();
+  const isNarrowOnly =
+    walletMode === "narrow-only" ||
+    allowWideParam === "0" ||
+    allowWideParam === "false" ||
+    disableWideParam === "1" ||
+    disableWideParam === "true";
+  const effectiveDensity: "narrow" | "wide" = isNarrowOnly ? "narrow" : density;
   const personaIdFromQuery = toText(searchParams?.get("personaId"));
   const agentIdFromQuery = toText(searchParams?.get("agentId"));
   const agentNameFromQuery = toText(searchParams?.get("agentName"));
@@ -153,7 +165,8 @@ function SmartWalletContent() {
         open={true}
         onClose={() => {}} // No-op in embedded mode
         variant="embedded"
-        embeddedWidth={density === 'wide' ? 'fixed' : 'fill'}
+        embeddedWidth={effectiveDensity === 'wide' ? 'fixed' : 'fill'}
+        allowWideLayout={!isNarrowOnly}
         agent={agent}
         personaId={personaId}
         codexMode={false} // Regular embed mode, not Codex
