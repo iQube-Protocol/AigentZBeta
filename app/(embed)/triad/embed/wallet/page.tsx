@@ -70,6 +70,8 @@ function SmartWalletContent() {
     disableWideParam === "1" ||
     disableWideParam === "true";
   const effectiveDensity: "narrow" | "wide" = isNarrowOnly ? "narrow" : density;
+  const embeddedWidthMode: "fill" | "fixed" =
+    isNarrowOnly ? "fixed" : effectiveDensity === "wide" ? "fixed" : "fill";
   const personaIdFromQuery = toText(searchParams?.get("personaId"));
   const agentIdFromQuery = toText(searchParams?.get("agentId"));
   const agentNameFromQuery = toText(searchParams?.get("agentName"));
@@ -161,16 +163,25 @@ function SmartWalletContent() {
 
   return (
     <div className={`h-full ${theme === "light" ? "bg-slate-100" : "bg-slate-900"}`}>
-      <SmartWalletDrawer
-        open={true}
-        onClose={() => {}} // No-op in embedded mode
-        variant="embedded"
-        embeddedWidth={effectiveDensity === 'wide' ? 'fixed' : 'fill'}
-        allowWideLayout={!isNarrowOnly}
-        agent={agent}
-        personaId={personaId}
-        codexMode={false} // Regular embed mode, not Codex
-      />
+      <div
+        className={
+          isNarrowOnly
+            ? "h-full w-[22.25rem] max-w-[22.25rem] ml-auto overflow-hidden"
+            : "h-full w-full"
+        }
+        data-wallet-mode={isNarrowOnly ? "narrow-only" : "default"}
+      >
+        <SmartWalletDrawer
+          open={true}
+          onClose={() => {}} // No-op in embedded mode
+          variant="embedded"
+          embeddedWidth={embeddedWidthMode}
+          allowWideLayout={!isNarrowOnly}
+          agent={agent}
+          personaId={personaId}
+          codexMode={false} // Regular embed mode, not Codex
+        />
+      </div>
     </div>
   );
 }
