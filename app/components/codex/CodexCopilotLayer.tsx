@@ -73,6 +73,8 @@ interface CodexCopilotLayerProps {
   visitCount?: number;
   panelBorder?: boolean;
   density?: "narrow" | "wide" | "extra-wide";
+  walletEmbeddedAnchor?: "left" | "right";
+  walletAllowWideLayout?: boolean;
   agent?: {
     id: string;
     name: string;
@@ -141,6 +143,8 @@ export function CodexCopilotLayer({
   showWalletMenu = true,
   panelBorder = true,
   density = "narrow",
+  walletEmbeddedAnchor = "right",
+  walletAllowWideLayout = true,
   agent,
   personaId,
 }: CodexCopilotLayerProps) {
@@ -645,15 +649,21 @@ export function CodexCopilotLayer({
   const walletPanelWidthClass =
     density === "extra-wide"
       ? "w-full md:w-[40.25rem]"
-      : density === "wide" || (density === "narrow" && walletCopilotOpen)
+      : !walletAllowWideLayout
+        ? "w-full md:w-[22.25rem]"
+        : density === "wide" || (density === "narrow" && walletCopilotOpen)
         ? "w-full md:w-[32.25rem]"
         : "w-full md:w-[22.25rem]";
   const walletEmbeddedWidth = "fixed";
   const walletMenuBottomClass = floatingInput ? "bottom-[93px]" : "bottom-[89px]";
-  const embeddedContainerClass = "relative h-full w-full overflow-hidden flex flex-col md:flex-row gap-2";
+  const embeddedContainerClass = `relative h-full w-full overflow-hidden flex flex-col ${
+    walletEmbeddedAnchor === "left" ? "md:flex-row-reverse" : "md:flex-row"
+  } gap-2`;
   const embeddedPanelClass = "flex-1 min-w-0 h-full";
   const currentWalletLayout: "narrow" | "wide" =
-    walletCopilotOpen || (density === "wide" || density === "extra-wide") ? "wide" : "narrow";
+    walletAllowWideLayout && (walletCopilotOpen || (density === "wide" || density === "extra-wide"))
+      ? "wide"
+      : "narrow";
 
   useEffect(() => {
     if (variant !== "embedded") return;
@@ -667,7 +677,7 @@ export function CodexCopilotLayer({
           type: "wallet-layout-change",
           layout: currentWalletLayout,
           width_px: widthPx,
-          anchor: "right",
+          anchor: walletEmbeddedAnchor,
           source: "runtime-embedded-wallet",
         },
         "*"
@@ -682,14 +692,14 @@ export function CodexCopilotLayer({
           type: "wallet-layout-change",
           layout: "narrow",
           width_px: 356,
-          anchor: "right",
+          anchor: walletEmbeddedAnchor,
           source: "runtime-embedded-wallet",
         },
         "*"
       );
       walletLayoutNotifiedRef.current = false;
     }
-  }, [currentWalletLayout, variant, walletPanelCollapsed, walletPanelOpen]);
+  }, [currentWalletLayout, variant, walletEmbeddedAnchor, walletPanelCollapsed, walletPanelOpen]);
 
   return (
     <>
@@ -1180,6 +1190,8 @@ export function CodexCopilotLayer({
                 }}
                 variant="embedded"
                 embeddedWidth={walletEmbeddedWidth}
+                embeddedAnchor={walletEmbeddedAnchor}
+                allowWideLayout={walletAllowWideLayout}
                 initialTab={walletPanelTab}
                 onTabChange={setWalletPanelTab}
                 onCopilotStateChange={setWalletCopilotOpen}

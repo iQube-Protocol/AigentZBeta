@@ -22,9 +22,17 @@ export default function CopilotViewerPage() {
   const [isCopilotOpen, setIsCopilotOpen] = useState(true); // Start open for testing
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [density, setDensity] = useState<'narrow' | 'wide' | 'extra-wide'>('narrow');
+  const [allowNarrow, setAllowNarrow] = useState(true);
+  const [allowWide, setAllowWide] = useState(true);
+  const [walletAnchor, setWalletAnchor] = useState<'left' | 'right'>('right');
   const [controlsCollapsed, setControlsCollapsed] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [sidebarOffset, setSidebarOffset] = useState(64);
+
+  useEffect(() => {
+    if (density === "narrow" && !allowNarrow && allowWide) setDensity("wide");
+    if (density === "wide" && !allowWide && allowNarrow) setDensity("narrow");
+  }, [allowNarrow, allowWide, density]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -147,10 +155,11 @@ export default function CopilotViewerPage() {
                   key={d}
                   type="button"
                   onClick={() => setDensity(d)}
+                  disabled={(d === "narrow" && !allowNarrow) || (d === "wide" && !allowWide)}
                   className={`inline-flex h-10 w-10 items-center justify-center rounded-lg border text-xs font-semibold transition-colors ${
                     density === d
                       ? "border-indigo-400/70 bg-indigo-500/30 text-white"
-                      : "border-slate-600/60 bg-slate-700/40 text-slate-300 hover:bg-slate-700"
+                      : "border-slate-600/60 bg-slate-700/40 text-slate-300 hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
                   }`}
                   title={d}
                   aria-label={`Set ${d} density`}
@@ -195,20 +204,22 @@ export default function CopilotViewerPage() {
               <div className="flex gap-2">
                 <button
                   onClick={() => setDensity('narrow')}
+                  disabled={!allowNarrow}
                   className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                     density === 'narrow'
                       ? 'bg-indigo-500 text-white'
-                      : 'bg-slate-700/50 text-slate-400 hover:bg-slate-700'
+                      : 'bg-slate-700/50 text-slate-400 hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40'
                   }`}
                 >
                   Narrow
                 </button>
                 <button
                   onClick={() => setDensity('wide')}
+                  disabled={!allowWide}
                   className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                     density === 'wide'
                       ? 'bg-indigo-500 text-white'
-                      : 'bg-slate-700/50 text-slate-400 hover:bg-slate-700'
+                      : 'bg-slate-700/50 text-slate-400 hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40'
                   }`}
                 >
                   Wide
@@ -222,6 +233,59 @@ export default function CopilotViewerPage() {
                   }`}
                 >
                   Extra Wide
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-slate-300 mb-3">Allowed Widths (Per Codex)</label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setAllowNarrow((prev) => (allowWide ? !prev : true))}
+                  className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    allowNarrow
+                      ? 'bg-cyan-500/30 text-cyan-100 ring-1 ring-cyan-400/60'
+                      : 'bg-slate-700/50 text-slate-400 hover:bg-slate-700'
+                  }`}
+                >
+                  Allow Narrow
+                </button>
+                <button
+                  onClick={() => setAllowWide((prev) => (allowNarrow ? !prev : true))}
+                  className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    allowWide
+                      ? 'bg-cyan-500/30 text-cyan-100 ring-1 ring-cyan-400/60'
+                      : 'bg-slate-700/50 text-slate-400 hover:bg-slate-700'
+                  }`}
+                >
+                  Allow Wide
+                </button>
+              </div>
+              <p className="mt-2 text-[11px] text-slate-500">At least one width stays enabled.</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-slate-300 mb-3">Anchor</label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setWalletAnchor('left')}
+                  className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    walletAnchor === 'left'
+                      ? 'bg-indigo-500 text-white'
+                      : 'bg-slate-700/50 text-slate-400 hover:bg-slate-700'
+                  }`}
+                >
+                  Left
+                </button>
+                <button
+                  onClick={() => setWalletAnchor('right')}
+                  className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    walletAnchor === 'right'
+                      ? 'bg-indigo-500 text-white'
+                      : 'bg-slate-700/50 text-slate-400 hover:bg-slate-700'
+                  }`}
+                >
+                  Right
                 </button>
               </div>
             </div>
@@ -336,6 +400,8 @@ export default function CopilotViewerPage() {
         onClose={handleCloseCopilot}
         onOpen={handleOpenCopilot}
         density={density}
+        walletEmbeddedAnchor={walletAnchor}
+        walletAllowWideLayout={allowWide}
         enableInferenceRendering
         quickPrompts={[
           "Summarize the latest Codex lore",

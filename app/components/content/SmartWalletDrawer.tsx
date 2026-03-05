@@ -152,6 +152,8 @@ interface SmartWalletDrawerProps {
   onCopilotPrompt?: (prompt: string) => void;
   variant?: 'overlay' | 'embedded';
   embeddedWidth?: 'fill' | 'fixed';
+  embeddedAnchor?: 'left' | 'right';
+  allowWideLayout?: boolean;
   codexMode?: boolean;
   onTabChange?: (tab: DrawerTab) => void;
   onCopilotStateChange?: (open: boolean) => void;
@@ -197,6 +199,8 @@ export default function SmartWalletDrawer({
   onTabChange,
   variant = 'overlay',
   embeddedWidth = 'fill',
+  embeddedAnchor = 'right',
+  allowWideLayout = true,
   codexMode = false,
   onCopilotStateChange,
 }: SmartWalletDrawerProps) {
@@ -1254,14 +1258,18 @@ export default function SmartWalletDrawer({
   // Variant-based styling
   const getDrawerClasses = () => {
     if (variant === "embedded") {
-      const baseClasses = `h-full bg-black/30 backdrop-blur-xl ring-1 ring-white/10 border-l border-white/10`;
+      const edgeBorderClass =
+        embeddedAnchor === "left" ? "border-r border-white/10" : "border-l border-white/10";
+      const baseClasses = `h-full bg-black/30 backdrop-blur-xl ring-1 ring-white/10 ${edgeBorderClass}`;
       const drawerWidth =
         embeddedWidth === "fill"
           ? "w-full"
-          : copilotOpen
+          : copilotOpen && allowWideLayout
             ? "w-[32.25rem]"
             : "w-[22.25rem]";
-      return `${baseClasses} ${drawerWidth} ${embeddedWidth === "fill" ? "" : "ml-auto"}`;
+      const anchorClass =
+        embeddedWidth === "fill" ? "" : embeddedAnchor === "left" ? "mr-auto" : "ml-auto";
+      return `${baseClasses} ${drawerWidth} ${anchorClass}`;
     }
     // Overlay mode
     // In codex mode, prevent expansion when copilot is open

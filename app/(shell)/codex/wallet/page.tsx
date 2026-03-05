@@ -19,6 +19,9 @@ import {
 function SmartWalletViewerContent() {
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [density, setDensity] = useState<'narrow' | 'wide'>('narrow');
+  const [allowNarrow, setAllowNarrow] = useState(true);
+  const [allowWide, setAllowWide] = useState(true);
+  const [walletAnchor, setWalletAnchor] = useState<'left' | 'right'>('right');
   const [walletCopilotOpen, setWalletCopilotOpen] = useState(false);
   const [controlsCollapsed, setControlsCollapsed] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -60,9 +63,21 @@ function SmartWalletViewerContent() {
     fioHandle: "demo@agentiq",
   };
 
-  const effectiveDensity: 'narrow' | 'wide' = walletCopilotOpen ? 'wide' : density;
+  useEffect(() => {
+    if (density === "narrow" && !allowNarrow && allowWide) setDensity("wide");
+    if (density === "wide" && !allowWide && allowNarrow) setDensity("narrow");
+  }, [allowNarrow, allowWide, density]);
+
+  const effectiveDensity: 'narrow' | 'wide' =
+    walletCopilotOpen && allowWide
+      ? 'wide'
+      : density === 'wide' && !allowWide
+        ? 'narrow'
+        : density === 'narrow' && !allowNarrow
+          ? 'wide'
+          : density;
   const walletWidthClass = effectiveDensity === 'wide' ? 'w-[32.25rem]' : 'w-[22.25rem]';
-  const embedUrl = `https://dev-beta.aigentz.me/triad/embed/wallet?theme=${theme}&density=${effectiveDensity}`;
+  const embedUrl = `https://dev-beta.aigentz.me/triad/embed/wallet?theme=${theme}&density=${effectiveDensity}&anchor=${walletAnchor}`;
 
   return (
     <div
@@ -130,10 +145,11 @@ function SmartWalletViewerContent() {
                   key={d}
                   type="button"
                   onClick={() => setDensity(d)}
+                  disabled={(d === "narrow" && !allowNarrow) || (d === "wide" && !allowWide)}
                   className={`inline-flex h-10 w-10 items-center justify-center rounded-lg border text-xs font-semibold transition-colors ${
                     effectiveDensity === d
                       ? "border-indigo-400/70 bg-indigo-500/30 text-white"
-                      : "border-slate-600/60 bg-slate-700/40 text-slate-300 hover:bg-slate-700"
+                      : "border-slate-600/60 bg-slate-700/40 text-slate-300 hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
                   }`}
                   title={d}
                   aria-label={`Set ${d} density`}
@@ -178,23 +194,78 @@ function SmartWalletViewerContent() {
               <div className="flex gap-2">
                 <button
                   onClick={() => setDensity('narrow')}
+                  disabled={!allowNarrow}
                   className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                     effectiveDensity === 'narrow'
                       ? 'bg-indigo-500 text-white'
-                      : 'bg-slate-700/50 text-slate-400 hover:bg-slate-700'
+                      : 'bg-slate-700/50 text-slate-400 hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40'
                   }`}
                 >
                   Narrow
                 </button>
                 <button
                   onClick={() => setDensity('wide')}
+                  disabled={!allowWide}
                   className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                     effectiveDensity === 'wide'
+                      ? 'bg-indigo-500 text-white'
+                      : 'bg-slate-700/50 text-slate-400 hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40'
+                  }`}
+                >
+                  Wide
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-slate-300 mb-3">Allowed Widths (Per Codex)</label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setAllowNarrow((prev) => (allowWide ? !prev : true))}
+                  className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    allowNarrow
+                      ? 'bg-cyan-500/30 text-cyan-100 ring-1 ring-cyan-400/60'
+                      : 'bg-slate-700/50 text-slate-400 hover:bg-slate-700'
+                  }`}
+                >
+                  Allow Narrow
+                </button>
+                <button
+                  onClick={() => setAllowWide((prev) => (allowNarrow ? !prev : true))}
+                  className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    allowWide
+                      ? 'bg-cyan-500/30 text-cyan-100 ring-1 ring-cyan-400/60'
+                      : 'bg-slate-700/50 text-slate-400 hover:bg-slate-700'
+                  }`}
+                >
+                  Allow Wide
+                </button>
+              </div>
+              <p className="mt-2 text-[11px] text-slate-500">At least one width stays enabled.</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-slate-300 mb-3">Anchor</label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setWalletAnchor('left')}
+                  className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    walletAnchor === 'left'
                       ? 'bg-indigo-500 text-white'
                       : 'bg-slate-700/50 text-slate-400 hover:bg-slate-700'
                   }`}
                 >
-                  Wide
+                  Left
+                </button>
+                <button
+                  onClick={() => setWalletAnchor('right')}
+                  className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    walletAnchor === 'right'
+                      ? 'bg-indigo-500 text-white'
+                      : 'bg-slate-700/50 text-slate-400 hover:bg-slate-700'
+                  }`}
+                >
+                  Right
                 </button>
               </div>
             </div>
@@ -277,18 +348,24 @@ function SmartWalletViewerContent() {
 
         {/* Component Preview */}
         <div className="flex-1 overflow-hidden p-3 md:p-4">
-          <div className={`ml-auto h-full max-h-full ${walletWidthClass}`}>
+          <div className={`${walletAnchor === "right" ? "ml-auto" : "mr-auto"} h-full max-h-full ${walletWidthClass}`}>
             <SmartWalletDrawer
               open={true}
               onClose={() => {}} // No-op in embedded mode
               variant="embedded"
               embeddedWidth="fixed"
+              embeddedAnchor={walletAnchor}
+              allowWideLayout={allowWide}
               agent={agent}
               personaId={personaId}
               codexMode={true}
               onCopilotStateChange={(open) => {
                 setWalletCopilotOpen(open);
-                setDensity(open ? 'wide' : 'narrow');
+                if (open && allowWide) {
+                  setDensity('wide');
+                } else if (!open && allowNarrow) {
+                  setDensity('narrow');
+                }
               }}
             />
           </div>
