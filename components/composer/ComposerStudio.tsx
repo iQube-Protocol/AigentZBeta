@@ -699,12 +699,90 @@ const QRIPTO_TEMPLATE_SEEDS: ExperienceTemplate[] = [
       },
     ],
   },
+  {
+    id: "sora-video-generation",
+    name: "Sora Video Generation",
+    description: "Generate AI video using OpenAI Sora skill — curated or community. Full supply chain with trust badges, PoSR, and DVN receipts.",
+    category: "task",
+    complexity: "intermediate",
+    estimated_time: 15,
+    required_components: ["skill_invocation", "video_player"],
+    optional_components: ["rewards"],
+    tags: ["video", "sora", "ai-generation", "skill", "toolqube"],
+    steps: [
+      {
+        id: "intent_timebox",
+        title: "Video Intent",
+        description: "Name this video experience and set parameters.",
+        type: "configuration",
+        required: true,
+        ui_config: {
+          layout: "form",
+          fields: [
+            { id: "experience_name", name: "Experience name", type: "text", required: true },
+            { id: "goal", name: "Goal", type: "textarea", required: false },
+          ],
+        },
+      },
+      {
+        id: "skill_selection",
+        title: "Skill Selection",
+        description: "Choose between curated (OpenAI first-party) or community (OpenClaw) Sora skill.",
+        type: "selection",
+        required: true,
+        component_type: "ToolQube",
+        ui_config: {
+          layout: "form",
+          fields: [
+            { id: "skill_id", name: "Sora Skill", type: "select", required: true, options: [{ value: "sora_video_gen_curated", label: "Sora Video Gen (Curated) — Badge A, Trusted", description: "First-party OpenAI curated skill. Stable CI, org-backed, high trust." }, { value: "sora_video_gen_community", label: "Sora Video Gen (Community) — Badge C, Basic", description: "Community-maintained OpenClaw skill. Variable review posture." }] },
+            { id: "trust_override", name: "Accept lower trust badge?", type: "checkbox", required: false, help_text: "Check to allow community skill even if below hydration threshold." },
+          ],
+        },
+      },
+      {
+        id: "video_prompt",
+        title: "Video Prompt",
+        description: "Describe the video you want to generate.",
+        type: "configuration",
+        required: true,
+        ui_config: {
+          layout: "form",
+          fields: [
+            { id: "prompt", name: "Video prompt", type: "textarea", required: true, help_text: "Describe the scene, style, and motion you want Sora to generate." },
+            { id: "duration", name: "Duration (seconds)", type: "slider", required: false, validation: { min: 4, max: 12, step: 4 } },
+            { id: "aspect_ratio", name: "Aspect ratio", type: "select", required: false, options: [{ value: "16:9", label: "Landscape (16:9)" }, { value: "9:16", label: "Portrait (9:16)" }] },
+            { id: "style", name: "Visual style", type: "select", required: false, options: [{ value: "cinematic", label: "Cinematic" }, { value: "animation", label: "Animation" }, { value: "comic", label: "Comic Book" }, { value: "photorealistic", label: "Photorealistic" }] },
+          ],
+        },
+      },
+      {
+        id: "wallet_rewards",
+        title: "Rewards (Optional)",
+        description: "Configure optional rewards for video creation.",
+        type: "configuration",
+        required: false,
+        ui_config: {
+          layout: "form",
+          fields: [
+            { id: "reward_amount", name: "Reward amount (Q¢)", type: "text", required: false },
+          ],
+        },
+      },
+    ],
+  },
 ];
 
 export const ComposerStudio = () => {
   const router = useRouter();
   const templateCustomizerRef = useRef<HTMLDivElement | null>(null);
-  const [templates, setTemplates] = useState<ExperienceTemplate[]>(() => composerStudioCache.templates || []);
+  const [templates, setTemplates] = useState<ExperienceTemplate[]>(() => {
+    const cached = composerStudioCache.templates || [];
+    const merged = [...cached];
+    QRIPTO_TEMPLATE_SEEDS.forEach((seed) => {
+      if (!merged.some((t) => t.id === seed.id)) merged.push(seed);
+    });
+    return merged.length > 0 ? merged : QRIPTO_TEMPLATE_SEEDS;
+  });
   const [templatesLoading, setTemplatesLoading] = useState(
     () => !isCacheFresh(composerStudioCache.templatesFetchedAt, COMPOSER_CACHE_TTL_MS)
   );
@@ -1700,7 +1778,10 @@ export const ComposerStudio = () => {
       setTemplateQuery("");
       return;
     }
-    if (/(micro|episode|story|series|serial)/.test(lower)) {
+    if (/(video|sora|generate.*video|create.*video)/.test(lower)) {
+      setTemplateIntent("task");
+      promptWithContext += " video sora ai-generation skill toolqube";
+    } else if (/(micro|episode|story|series|serial)/.test(lower)) {
       setTemplateIntent("micro-episode");
       if (/(synth|synthsimms)/.test(lower)) {
         promptWithContext += " scrolls-synthsimms";

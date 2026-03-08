@@ -538,9 +538,113 @@ export function initializeDefaultTemplates(): void {
     tags: ['qriptopian', 'reading', 'smarttriad'],
   };
 
+  // Sora Video Generation Template (Skill-backed)
+  const soraVideoGeneration: TemplateData = {
+    id: 'sora-video-generation',
+    name: 'Sora Video Generation',
+    description: 'Generate AI video using OpenAI Sora skill — curated or community. Full supply chain with trust badges, PoSR, and DVN receipts.',
+    category: 'interactive',
+    complexity: 'intermediate',
+    estimated_time: 15,
+    required_components: ['ToolQube'],
+    optional_components: ['DataQube'],
+    steps: [
+      {
+        id: 'intent_timebox',
+        title: 'Video Intent',
+        description: 'Define the video generation goal and creative context.',
+        type: 'selection',
+        required: true,
+        ui_config: {
+          layout: 'form',
+          fields: [
+            { id: 'experience_name', name: 'Experience Name', type: 'text', required: true },
+            { id: 'goal', name: 'Creative Goal', type: 'textarea', required: false },
+            {
+              id: 'creative_pack', name: 'Creative Pack', type: 'select', required: false,
+              options: [
+                { value: 'metaKnyts_motion_comic', label: 'metaKnyts Motion Comic' },
+                { value: 'synthsimms_trailer', label: 'SynthSimms Trailer' },
+                { value: 'penny_drops_explainer', label: 'Penny Drops Explainer' },
+                { value: 'custom', label: 'Custom / Freeform' },
+              ],
+            },
+          ],
+        },
+      },
+      {
+        id: 'skill_selection',
+        title: 'Skill Selection',
+        description: 'Choose between curated (OpenAI first-party) or community (OpenClaw) Sora skill.',
+        type: 'selection',
+        required: true,
+        component_type: 'ToolQube',
+        ui_config: {
+          layout: 'form',
+          fields: [
+            {
+              id: 'skill_id', name: 'Sora Skill', type: 'select', required: true,
+              options: [
+                { value: 'sora_video_gen_curated', label: 'Sora Video Gen (Curated) — Badge A, Trusted' },
+                { value: 'sora_video_gen_community', label: 'Sora Video Gen (Community) — Badge C, Basic' },
+              ],
+            },
+            { id: 'trust_override', name: 'Accept lower trust badge?', type: 'checkbox', required: false },
+          ],
+        },
+      },
+      {
+        id: 'video_prompt',
+        title: 'Video Prompt',
+        description: 'Describe the video you want to generate.',
+        type: 'configuration',
+        required: true,
+        ui_config: {
+          layout: 'form',
+          fields: [
+            { id: 'prompt', name: 'Video Prompt', type: 'textarea', required: true },
+            { id: 'duration', name: 'Duration (seconds)', type: 'slider', required: false, validation: { min: 5, max: 60, step: 5 } },
+            {
+              id: 'aspect_ratio', name: 'Aspect Ratio', type: 'select', required: false,
+              options: [
+                { value: '16:9', label: 'Landscape (16:9)' },
+                { value: '9:16', label: 'Portrait (9:16)' },
+                { value: '1:1', label: 'Square (1:1)' },
+              ],
+            },
+            {
+              id: 'style', name: 'Visual Style', type: 'select', required: false,
+              options: [
+                { value: 'cinematic', label: 'Cinematic' },
+                { value: 'animation', label: 'Animation' },
+                { value: 'comic', label: 'Comic Book' },
+                { value: 'photorealistic', label: 'Photorealistic' },
+              ],
+            },
+          ],
+        },
+      },
+      {
+        id: 'wallet_rewards',
+        title: 'Rewards (Optional)',
+        description: 'Configure optional rewards for video creation.',
+        type: 'configuration',
+        required: false,
+        ui_config: {
+          layout: 'form',
+          fields: [
+            { id: 'reward_amount', name: 'Reward amount (Q¢)', type: 'text', required: false },
+          ],
+        },
+      },
+    ],
+    tags: ['video', 'sora', 'creative', 'skill', 'openclaw'],
+  };
+
   createTemplate(contentAnalysisTemplate);
   createTemplate(interactiveStoryTemplate);
   createTemplate(qriptopianReadingSprint);
+  createTemplate(soraVideoGeneration);
 }
 
 // Initialize default templates on import

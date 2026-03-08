@@ -2,6 +2,7 @@
 
 import { liquidTemplateRegistry } from "@/app/triad/components/codex/liquidTemplates/registry";
 import { LiquidUIPlaceholderTemplate } from "@/app/triad/components/codex/liquidTemplates/LiquidUIPlaceholderTemplate";
+import SkillVideoPlayer from "@/components/composer/SkillVideoPlayer";
 
 type ExperienceQube = {
   id: string;
@@ -24,13 +25,6 @@ export function ExperienceLiquidRenderer({
   personaId,
 }: ExperienceLiquidRendererProps) {
   const templateKey = packet?.ui?.primary_template as string | undefined;
-  const Template = templateKey ? liquidTemplateRegistry[templateKey] : undefined;
-  const fallbackTemplate =
-    liquidTemplateRegistry["liquidui:drawer_grid_2a"] ||
-    liquidTemplateRegistry["liquidui:drawer_grid_v1"] ||
-    liquidTemplateRegistry["knyt:drawer_grid_v1"];
-  const useFallback = !Template || Template === LiquidUIPlaceholderTemplate;
-  const ResolvedTemplate = useFallback ? fallbackTemplate : Template;
 
   if (!packet) {
     return (
@@ -39,6 +33,31 @@ export function ExperienceLiquidRenderer({
       </div>
     );
   }
+
+  // Skill-backed experience: render SkillVideoPlayer
+  if (templateKey === "skill:video_player_v1" && packet.skill) {
+    return (
+      <SkillVideoPlayer
+        skill_id={packet.skill.skill_id}
+        prompt={packet.skill.prompt}
+        duration={packet.skill.duration}
+        aspect_ratio={packet.skill.aspect_ratio}
+        style={packet.skill.style}
+        creative_pack={packet.skill.creative_pack}
+        experience_id={experience.id}
+        trust_override={packet.skill.trust_override}
+      />
+    );
+  }
+
+  // Standard Liquid UI template resolution
+  const Template = templateKey ? liquidTemplateRegistry[templateKey] : undefined;
+  const fallbackTemplate =
+    liquidTemplateRegistry["liquidui:drawer_grid_2a"] ||
+    liquidTemplateRegistry["liquidui:drawer_grid_v1"] ||
+    liquidTemplateRegistry["knyt:drawer_grid_v1"];
+  const useFallback = !Template || Template === LiquidUIPlaceholderTemplate;
+  const ResolvedTemplate = useFallback ? fallbackTemplate : Template;
 
   if (!ResolvedTemplate) {
     return (

@@ -36,6 +36,14 @@ function ShellLayoutContent({ children }: { children: React.ReactNode }) {
     );
   }, [searchParams, pathname]);
 
+  // Experience viewer pages render in isolation (no sidebar/nav shell)
+  const isIsolatedContent = useMemo(() => {
+    return (
+      isEmbeddedSurface ||
+      pathname?.startsWith("/studio/composer/experience/")
+    );
+  }, [isEmbeddedSurface, pathname]);
+
   // CSS positioning classes for each MetaAvatar container type
   const METAAVATAR_POSITION_CLASSES = {
     hidden: 'opacity-0 pointer-events-none -z-10',
@@ -82,7 +90,7 @@ function ShellLayoutContent({ children }: { children: React.ReactNode }) {
         <SmartContentActionProvider>
           <ToastProvider>
             <div className="h-full bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-slate-100">
-              {pathname?.startsWith("/metame/runtime") && (
+              {isIsolatedContent && (
                 <style jsx global>{`
                   .copilotkit-launcher,
                   .copilotkit-button,
@@ -91,14 +99,30 @@ function ShellLayoutContent({ children }: { children: React.ReactNode }) {
                   }
                 `}</style>
               )}
+              <style
+                dangerouslySetInnerHTML={{
+                  __html: `
+                    body[data-metame-studio-expanded="true"] .agentiq-shell-sidebar-host {
+                      width: 0 !important;
+                      min-width: 0 !important;
+                      flex-basis: 0 !important;
+                      overflow: visible !important;
+                    }
+
+                    body[data-metame-studio-expanded="true"] .agentiq-shell-main {
+                      width: 100% !important;
+                    }
+                  `,
+                }}
+              />
               <div className="flex h-screen overflow-hidden">
-                {!isEmbeddedSurface && (
-                  <div className="flex-shrink-0">
+                {!isIsolatedContent && (
+                  <div className="agentiq-shell-sidebar-host flex-shrink-0">
                     <Sidebar />
                   </div>
                 )}
-                <main className={`flex-1 ${isEmbeddedSurface ? "overflow-hidden" : "overflow-y-auto"}` }>
-                  <div className={isEmbeddedSurface ? "h-full w-full p-0" : "p-6 md:p-8 lg:p-10"}>
+                <main className={`agentiq-shell-main flex-1 ${isIsolatedContent ? "overflow-hidden" : "overflow-y-auto"}` }>
+                  <div className={isIsolatedContent ? "h-full w-full p-0" : "p-6 md:p-8 lg:p-10"}>
                     <Suspense fallback={null}>{children}</Suspense>
                   </div>
                 </main>

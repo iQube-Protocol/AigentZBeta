@@ -69,7 +69,88 @@ function selectPrimaryTemplate(experience: any) {
   return { templateId: candidateTemplate, reason: "TemplateRegistry selection" };
 }
 
+function isSkillBacked(experience: any): boolean {
+  const templateId = experience.template_id || "";
+  const config = experience.configuration || {};
+  return templateId === "sora-video-generation" || !!config.skill_selection?.skill_id;
+}
+
+function buildSkillPacket(experience: any) {
+  const config = experience.configuration || {};
+  const intent = config.intent_timebox || {};
+  const skillSel = config.skill_selection || {};
+  const videoPrompt = config.video_prompt || {};
+  const wallet = config.wallet_rewards || {};
+  const rewardAmount = Number(wallet.reward_amount || 0);
+  const skillId = skillSel.skill_id || "sora_video_gen_curated";
+
+  return {
+    packet_version: "1.0",
+    packet_id: `pkt_${experience.id}`,
+    tenant_id: experience.tenant_id,
+    packet_type: "skill_video",
+    intent: {
+      verb: "generate_video",
+      target_type: "skill_invocation",
+      target_ids: [skillId],
+      constraints: {
+        experience_id: experience.id,
+        goal: intent.goal,
+        creative_pack: intent.creative_pack,
+      },
+    },
+    context: {
+      working_set: {
+        reward_amount: rewardAmount,
+      },
+    },
+    skill: {
+      skill_id: skillId,
+      trust_override: skillSel.trust_override === true,
+      prompt: videoPrompt.prompt || "",
+      duration: videoPrompt.duration || 10,
+      aspect_ratio: videoPrompt.aspect_ratio || "16:9",
+      style: videoPrompt.style || "cinematic",
+      creative_pack: intent.creative_pack || null,
+    },
+    ui: {
+      primary_template: "skill:video_player_v1",
+      layout: "centered",
+      title: experience.name,
+      subhead: "Sora Video Generation",
+      template_selection: {
+        template_id: "skill:video_player_v1",
+        reason: "Skill-backed experience — SkillVideoPlayer",
+      },
+      components: [
+        {
+          type: "SkillVideoPlayer",
+          binding: { source: "skill", path: `invoke/${skillId}` },
+          props: {
+            skill_id: skillId,
+            prompt: videoPrompt.prompt || "",
+            duration: videoPrompt.duration || 10,
+            aspect_ratio: videoPrompt.aspect_ratio || "16:9",
+            style: videoPrompt.style || "cinematic",
+            creative_pack: intent.creative_pack || null,
+            autoInvoke: false,
+          },
+        },
+      ],
+      overlays: [],
+    },
+    risk: {
+      tier: "medium",
+      required_gates: ["skill_admission", "studio_hydrate"],
+    },
+  };
+}
+
 function buildPacket(experience: any) {
+  if (isSkillBacked(experience)) {
+    return buildSkillPacket(experience);
+  }
+
   const config = experience.configuration || {};
   const intent = config.intent_timebox || {};
   const content = config.content_selection || {};
