@@ -34,14 +34,17 @@ export const ComposerExperienceViewer = ({ experienceId }: { experienceId: strin
       try {
         setLoading(true);
         const res = await fetch(`/api/composer/experiences/${experienceId}`);
-        if (!res.ok) throw new Error("Failed to load experience");
-        const data = await res.json();
+        if (!res.ok) throw new Error(`Failed to load experience (${res.status})`);
+        const text = await res.text();
+        if (!text) throw new Error("Empty response from experience API");
+        const data = JSON.parse(text);
         if (!active) return;
         setExperience(data.experience_qube);
 
         const packetRes = await fetch(`/api/composer/experiences/${experienceId}/packet`);
         if (packetRes.ok) {
-          const packetData = await packetRes.json();
+          const packetText = await packetRes.text();
+          const packetData = packetText ? JSON.parse(packetText) : {};
           if (active) setPacket(packetData.packet || null);
         }
       } catch (err: any) {
