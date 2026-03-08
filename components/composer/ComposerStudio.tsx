@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bot, CheckCircle2, ChevronDown, ChevronUp, Circle, FileText, Hexagon, LayoutGrid, List, Loader2, Monitor, Moon, Palette, ShieldCheck, SlidersHorizontal, Sun, BookOpen, Eye, Volume2, Type, MonitorIcon, Smartphone, Tablet, Tv, Upload, Play, PlayCircle, Share2, Code, Shield, Book, Users, Target, Sparkles, BarChart, Edit, Trash2, AlertTriangle } from "lucide-react";
+import { AlertTriangle, BarChart, Book, BookOpen, Bot, CheckCircle2, ChevronDown, ChevronUp, Circle, Code, Edit, Eye, FileText, Hexagon, LayoutGrid, List, Loader2, Maximize2, Minimize2, Monitor, MonitorIcon, Moon, Palette, Play, PlayCircle, Share2, Shield, ShieldCheck, SlidersHorizontal, Smartphone, Sparkles, Sun, Target, Tablet, Trash2, Tv, Upload, Users, Volume2, Type } from "lucide-react";
 import { useCopilotAction } from "@copilotkit/react-core";
 import { Button } from "@/components/ui/button";
 import { DevicePreviewSwitcher } from "@/components/preview/DevicePreviewSwitcher";
@@ -820,22 +820,69 @@ export const ComposerStudio = () => {
   );
   const [selectedExperience, setSelectedExperience] = useState<ExperienceQube | null>(null);
   const [showExperienceModal, setShowExperienceModal] = useState(false);
-  const [showRuntimePreviewModal, setShowRuntimePreviewModal] = useState(false);
+  const [isRuntimePreviewExpanded, setIsRuntimePreviewExpanded] = useState(false);
   const [experienceModalTab, setExperienceModalTab] = useState<"goal" | "mechanics" | "metrics">("goal");
   const [experienceToDelete, setExperienceToDelete] = useState<ExperienceQube | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [editingExperienceId, setEditingExperienceId] = useState<string | null>(null);
   const [studioAnalysisTab, setStudioAnalysisTab] = useState<"parity" | "surfaces" | "receipts">("parity");
+  const [isStudioExpanded, setIsStudioExpanded] = useState(true);
+  const [experiencePanelTab, setExperiencePanelTab] = useState("template");
+  const [resourcesPanelTab, setResourcesPanelTab] = useState("experience");
   const { data: codexList } = useCodexList({ useDefaults: true });
   const [copilotContextId, setCopilotContextId] = useState("qripto-codex");
   const [codexContentItems, setCodexContentItems] = useState<ComposerMediaItem[]>([]);
   const [codexContentLoading, setCodexContentLoading] = useState(false);
+  const studioViewportStylesRef = useRef<{ bodyOverflow: string; htmlOverflow: string } | null>(null);
 
   // Sync Experience Qube collapse state with Design Qube
   useEffect(() => {
     setExperienceQubeCollapsed(designQubeCollapsed);
   }, [designQubeCollapsed]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+
+    if (!studioViewportStylesRef.current) {
+      studioViewportStylesRef.current = {
+        bodyOverflow: document.body.style.overflow,
+        htmlOverflow: document.documentElement.style.overflow,
+      };
+    }
+
+    const restoreViewport = () => {
+      const originalStyles = studioViewportStylesRef.current;
+      delete document.body.dataset.metameStudioExpanded;
+      if (originalStyles) {
+        document.body.style.overflow = originalStyles.bodyOverflow;
+        document.documentElement.style.overflow = originalStyles.htmlOverflow;
+      }
+    };
+
+    if (isStudioExpanded) {
+      document.body.dataset.metameStudioExpanded = "true";
+      document.body.style.overflow = "hidden";
+      document.documentElement.style.overflow = "hidden";
+    } else {
+      restoreViewport();
+    }
+
+    return restoreViewport;
+  }, [isStudioExpanded]);
+
+  useEffect(() => {
+    if (!isStudioExpanded || typeof window === "undefined") return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsStudioExpanded(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isStudioExpanded]);
 
   // Delete experience function
   const handleDeleteExperience = async (experience: ExperienceQube) => {
@@ -1560,7 +1607,7 @@ export const ComposerStudio = () => {
     selectedExperienceId,
   ]);
   const runtimePreviewModalWidthClass =
-    previewDevice === "desktop" ? "max-w-[1280px]" : "max-w-[920px]";
+    previewDevice === "desktop" ? "max-w-[1280px]" : previewDevice === "tablet" ? "max-w-[920px]" : "max-w-[430px]";
   const runtimePreviewViewportClass =
     previewDevice === "mobile"
       ? "mx-auto h-full w-[375px] max-w-[375px]"
@@ -1569,11 +1616,10 @@ export const ComposerStudio = () => {
         : "h-full w-full";
 
   useEffect(() => {
-    if (!showRuntimePreviewModal) return;
     setRuntimePreviewLoaded(false);
     setRuntimePreviewErrored(false);
     setPreviewNonce(Date.now());
-  }, [previewDevice, showRuntimePreviewModal]);
+  }, [previewDevice]);
 
   const liquidTemplateId = resolveLiquidTemplateId((previewExperience as any) || null);
   const PreviewTemplate = liquidTemplateRegistry[liquidTemplateId] || liquidTemplateRegistry["liquidui:drawer_grid_v1"];
@@ -1935,6 +1981,7 @@ export const ComposerStudio = () => {
       setSessionData(data.session?.data || {});
       setStepData({});
       setExperience(null);
+      setExperiencePanelTab("customizer");
     } catch (err: any) {
       setSessionError(err.message || "Failed to start session");
     } finally {
@@ -2333,9 +2380,169 @@ export const ComposerStudio = () => {
 
     return list;
   }, [mergedData, sessionTemplate]);
+  const experienceResourceSummary = useMemo(() => {
+    const skills: Array<{ label: string; value: string }> = [];
+    const resources: Array<{ label: string; value: string }> = [];
+    const userData: Array<{ label: string; value: string }> = [];
+
+    if (!sessionTemplate) {
+      return { skills, resources, userData };
+    }
+
+    const pushItem = (
+      bucket: Array<{ label: string; value: string }>,
+      label: string,
+      value: unknown
+    ) => {
+      if (value === null || value === undefined || value === "") return;
+      const normalizedValue = Array.isArray(value)
+        ? value.join(", ")
+        : typeof value === "boolean"
+          ? value ? "Required" : "Optional"
+          : String(value);
+      if (!normalizedValue.trim()) return;
+      bucket.push({ label, value: normalizedValue });
+    };
+
+    sessionTemplate.steps.forEach((step) => {
+      const stepValuesForStep = mergedData?.[step.id];
+      if (!stepValuesForStep || typeof stepValuesForStep !== "object") return;
+
+      step.ui_config.fields.forEach((field) => {
+        const fieldValue = stepValuesForStep[field.id];
+        const fingerprint = `${field.id} ${field.name}`.toLowerCase();
+        const label = field.name;
+
+        if (fingerprint.includes("skill")) {
+          pushItem(skills, label, fieldValue);
+          return;
+        }
+
+        if (
+          fingerprint.includes("resource") ||
+          fingerprint.includes("tool") ||
+          fingerprint.includes("content") ||
+          fingerprint.includes("agent") ||
+          fingerprint.includes("model")
+        ) {
+          pushItem(resources, label, fieldValue);
+          return;
+        }
+
+        if (
+          fingerprint.includes("wallet") ||
+          fingerprint.includes("profile") ||
+          fingerprint.includes("email") ||
+          fingerprint.includes("user") ||
+          fingerprint.includes("consent") ||
+          fingerprint.includes("data")
+        ) {
+          pushItem(userData, label, fieldValue);
+        }
+      });
+    });
+
+    return { skills, resources, userData };
+  }, [mergedData, sessionTemplate]);
+  const experiencePanelMeta = useMemo(() => {
+    if (experiencePanelTab === "template") {
+      return {
+        title: "Experience Template",
+        icon: <LayoutGrid className="h-4 w-4 text-emerald-300" />,
+      };
+    }
+    if (experiencePanelTab === "customizer") {
+      return {
+        title: "Experience Customizer",
+        icon: <SlidersHorizontal className="h-4 w-4 text-violet-300" />,
+      };
+    }
+    if (experiencePanelTab === "resources") {
+      return {
+        title: "Experience Resources",
+        icon: <Shield className="h-4 w-4 text-cyan-300" />,
+      };
+    }
+    if (experiencePanelTab === "exqubes") {
+      return {
+        title: "Experience Qubes",
+        icon: <Hexagon className="h-4 w-4 text-cyan-300" />,
+      };
+    }
+    return {
+      title: "Experience Configurator",
+      icon: <LayoutGrid className="h-4 w-4 text-emerald-300" />,
+    };
+  }, [experiencePanelTab]);
+  const renderRuntimePreviewShell = (mode: "embedded" | "expanded") => {
+    const shellClasses =
+      mode === "expanded"
+        ? `${runtimePreviewModalWidthClass} pointer-events-auto flex h-full max-h-[700px] w-full flex-col overflow-hidden rounded-2xl border border-slate-700/80 bg-slate-900 shadow-[0_28px_90px_rgba(15,23,42,0.72)]`
+        : `${runtimePreviewModalWidthClass} ml-auto flex h-full w-full flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl`;
+
+    return (
+      <div className={shellClasses}>
+        <div className="flex items-center justify-between px-3 pt-3">
+          <DevicePreviewSwitcher value={previewDevice} onChange={setPreviewDevice} />
+          <button
+            type="button"
+            onClick={() => setIsRuntimePreviewExpanded((prev) => !prev)}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-slate-950/70 text-slate-200 transition hover:border-cyan-400/50 hover:bg-slate-900"
+            title={isRuntimePreviewExpanded ? "Collapse Runtime Preview" : "Expand Runtime Preview"}
+            aria-label={isRuntimePreviewExpanded ? "Collapse Runtime Preview" : "Expand Runtime Preview"}
+          >
+            {isRuntimePreviewExpanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+          </button>
+        </div>
+        <div className="flex-1 px-3 pb-3 pt-3">
+          <div className="relative h-full overflow-hidden rounded-2xl bg-slate-950/70">
+            {!runtimePreviewLoaded && !runtimePreviewErrored && (
+              <div className="pointer-events-none absolute inset-x-0 mt-3 flex justify-center">
+                <div className="rounded-md border border-slate-700 bg-slate-900/90 px-3 py-1 text-xs text-slate-300">
+                  Loading runtime preview...
+                </div>
+              </div>
+            )}
+            {runtimePreviewErrored && (
+              <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-950/90">
+                <div className="flex flex-col items-center gap-3 text-slate-300">
+                  <p className="text-sm">Runtime preview failed to load.</p>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewNonce(Date.now())}
+                    className="rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-700"
+                  >
+                    Retry Preview
+                  </button>
+                </div>
+              </div>
+            )}
+            <div className={runtimePreviewViewportClass}>
+              <iframe
+                key={`${runtimePreviewSrc}-${previewNonce}-${mode}`}
+                src={runtimePreviewSrc}
+                title="Runtime Preview"
+                className="h-full w-full border-0"
+                loading="eager"
+                onLoad={() => {
+                  setRuntimePreviewLoaded(true);
+                  setRuntimePreviewErrored(false);
+                }}
+                onError={() => {
+                  setRuntimePreviewLoaded(false);
+                  setRuntimePreviewErrored(true);
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
   return (
-    <div className="min-h-screen bg-slate-900 px-6 py-6">
-      <div className="w-full space-y-8">
+    <div className={isStudioExpanded ? "fixed inset-0 z-[95] overflow-y-auto bg-slate-900" : "min-h-screen bg-slate-900 px-5 py-4"}>
+      <div className={isStudioExpanded ? "min-h-screen px-5 py-4" : undefined}>
+      <div className="w-full space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <Hexagon className="h-6 w-6 text-rose-400" />
@@ -2344,11 +2551,20 @@ export const ComposerStudio = () => {
               Build ExperienceQubes using guided templates. This uses the existing Composer API and receipt pipeline.
             </span>
           </div>
+          <button
+            type="button"
+            onClick={() => setIsStudioExpanded((prev) => !prev)}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-slate-950/70 text-slate-200 transition hover:border-cyan-400/50 hover:bg-slate-900"
+            title={isStudioExpanded ? "Exit fullscreen Studio" : "Fullscreen Studio"}
+            aria-label={isStudioExpanded ? "Exit fullscreen Studio" : "Fullscreen Studio"}
+          >
+            {isStudioExpanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+          </button>
         </div>
 
-        <div className="grid gap-6 xl:grid-cols-[1fr_1.2fr_1fr]">
+        <div className="relative grid gap-4 xl:grid-cols-3">
           <div
-            className={`${cardClass} xl:col-span-2 flex min-h-[720px] flex-col`}
+            className={`${cardClass} flex min-h-[700px] max-h-[700px] overflow-hidden flex-col`}
             style={
               designQube
                 ? {
@@ -2366,10 +2582,14 @@ export const ComposerStudio = () => {
                   <h2 className="text-lg font-semibold text-white">Composer Copilot</h2>
                 </div>
               </div>
-              <p className="text-sm text-slate-400">What would you like to compose?</p>
             </div>
-            <div className="mt-6 flex flex-1 items-center justify-center">
-              <div className="h-[640px] w-full max-w-[420px] overflow-hidden rounded-2xl border border-transparent bg-slate-950/60 backdrop-blur-xl flex flex-col">
+            <div className="mt-4 flex flex-1 items-start justify-start">
+              <div className="relative z-[70] h-[632px] w-full max-w-[420px] overflow-hidden rounded-2xl border border-transparent bg-slate-950/60 backdrop-blur-xl flex flex-col">
+                <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center px-4">
+                  <div className="rounded-full border border-white/10 bg-slate-900/75 px-4 py-1.5 text-xs font-medium tracking-[0.2em] text-slate-300 backdrop-blur-xl">
+                    What would you like to compose?
+                  </div>
+                </div>
                 <div className="h-full overflow-hidden">
                   <CodexCopilotLayer
                     isOpen
@@ -2409,305 +2629,822 @@ export const ComposerStudio = () => {
             </div>
           </div>
 
-          <div ref={templateCustomizerRef} className={cardClass}>
+          <div ref={templateCustomizerRef} className={`${cardClass} flex min-h-[700px] max-h-[700px] overflow-hidden flex-col`}>
             <div className="flex items-center justify-between">
               <div>
                 <div className="flex items-center gap-2">
-                  <LayoutGrid className="h-4 w-4 text-emerald-300" />
-                  <h2 className="text-lg font-semibold text-white">Experience Templates</h2>
+                  {experiencePanelMeta.icon}
+                  <h2 className="text-lg font-semibold text-white">{experiencePanelMeta.title}</h2>
                 </div>
-                <p className="text-sm text-slate-400">Select a template to begin a new session.</p>
               </div>
-              {templatesLoading && <Loader2 className="h-4 w-4 animate-spin text-slate-400" />}
+              {templatesLoading && experiencePanelTab === "template" ? <Loader2 className="h-4 w-4 animate-spin text-slate-400" /> : null}
+              {session && experiencePanelTab === "customizer" ? (
+                <span className="rounded-full border border-slate-700 px-2 py-1 text-xs text-slate-300">{session.status}</span>
+              ) : null}
             </div>
-            {templatesError && (
-              <div className="mt-4 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">
-                {templatesError}
-              </div>
-            )}
-            <div className="mt-4 max-h-[460px] space-y-3 overflow-y-auto pr-1">
-              {filteredTemplates.map((template) => (
-                <button
-                  key={template.id}
-                  onClick={() => setSelectedTemplateId(template.id)}
-                  className={`w-full rounded-xl border px-4 py-3 text-left transition ${
-                    selectedTemplateId === template.id
-                      ? "border-emerald-400/60 bg-emerald-500/10"
-                      : "border-slate-800 bg-slate-950/60 hover:border-slate-700"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="text-sm font-semibold text-white">{template.name}</div>
-                      <div className="text-xs text-slate-400">{template.description}</div>
-                    </div>
-                    <div className="text-xs text-slate-400">{template.estimated_time} min</div>
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-400">
-                    <span className="rounded-full border border-slate-700 px-2 py-0.5">
-                      {template.category}
-                    </span>
-                    <span className="rounded-full border border-slate-700 px-2 py-0.5">
-                      {template.complexity}
-                    </span>
-                    {template.tags?.slice(0, 3).map((tag) => (
-                      <span key={tag} className="rounded-full border border-slate-700 px-2 py-0.5">
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                </button>
-              ))}
-              {!templatesLoading && filteredTemplates.length === 0 && (
-                <div className="rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-6 text-sm text-slate-400">
-                  No templates match that intent yet. Try a different prompt or clear filters.
-                </div>
-              )}
-            </div>
-            <div className="mt-6 grid gap-3 md:grid-cols-2">
-              <div>
-                <label className="text-xs text-slate-400">Tenant ID</label>
-                <input
-                  value={tenantId}
-                  onChange={(e) => setTenantId(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2 text-sm text-slate-200"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-slate-400">User ID</label>
-                <input
-                  value={userId}
-                  onChange={(e) => setUserId(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2 text-sm text-slate-200"
-                />
-              </div>
-            </div>
-            <button
-              onClick={handleStartSession}
-              disabled={!selectedTemplate || isSaving}
-              className="mt-4 inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-emerald-500/40"
-            >
-              {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Start Session"}
-            </button>
-          </div>
 
-          <div className={cardClass}>
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-2">
-                  <SlidersHorizontal className="h-4 w-4 text-violet-300" />
-                  <h2 className="text-lg font-semibold text-white">Template Customizer</h2>
-                </div>
-                <p className="text-sm text-slate-400">Follow the guided steps and publish an ExperienceQube.</p>
-              </div>
-              {session && (
-                <span className="rounded-full border border-slate-700 px-2 py-1 text-xs text-slate-300">
-                  {session.status}
-                </span>
-              )}
-            </div>
-            {!session && (
-              <div className="mt-6 rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-6 text-sm text-slate-400">
-                Start a session to begin composing an experience.
-              </div>
-            )}
-            {session && sessionTemplate && (
-              <div className="mt-4 max-h-[520px] space-y-4 overflow-y-auto pr-1">
-                <div className="space-y-2">
-                  {sessionTemplate.steps.map((step, idx) => (
-                    <div key={step.id} className="flex items-start gap-3">
-                      {idx <= (session.current_step || 0) ? (
-                        <CheckCircle2 className="h-4 w-4 text-emerald-400 mt-0.5" />
-                      ) : (
-                        <Circle className="h-4 w-4 text-slate-500 mt-0.5" />
-                      )}
-                      <div>
-                        <div className="text-sm text-slate-200">{step.title}</div>
-                        <div className="text-xs text-slate-500">{step.description}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+            <Tabs value={experiencePanelTab} onValueChange={setExperiencePanelTab} className="mt-4 flex min-h-0 flex-1 flex-col">
+              <TabsList className="grid h-8 w-full grid-cols-4 rounded-full border border-white/10 bg-slate-950/60 p-1">
+                <TabsTrigger value="template" className="text-[11px] data-[state=active]:border data-[state=active]:border-white/10 data-[state=active]:bg-white/10 data-[state=active]:text-white data-[state=active]:backdrop-blur-xl">Template</TabsTrigger>
+                <TabsTrigger value="customizer" className="text-[11px] data-[state=active]:border data-[state=active]:border-white/10 data-[state=active]:bg-white/10 data-[state=active]:text-white data-[state=active]:backdrop-blur-xl">Customizer</TabsTrigger>
+                <TabsTrigger value="resources" className="text-[11px] data-[state=active]:border data-[state=active]:border-white/10 data-[state=active]:bg-white/10 data-[state=active]:text-white data-[state=active]:backdrop-blur-xl">Resources</TabsTrigger>
+                <TabsTrigger value="exqubes" className="text-[11px] data-[state=active]:border data-[state=active]:border-white/10 data-[state=active]:bg-white/10 data-[state=active]:text-white data-[state=active]:backdrop-blur-xl">ExQubes</TabsTrigger>
+              </TabsList>
 
-                {currentStep && (
-                  <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-                    <div className="mb-2 text-sm font-semibold text-white">{currentStep.title}</div>
-                    <div className="mb-4 text-xs text-slate-400">{currentStep.description}</div>
-                    <div className="space-y-3">
-                      {currentStep.ui_config.fields.map((field) => {
-                        const value = stepValues[field.id];
-                        const error = getFieldError(field, value);
-                        const isContentItemsField = field.id === "content_items";
-                        const isContentTagField =
-                          field.id.includes("content_tag") || field.name.toLowerCase().includes("content tag");
-                        const options = isContentItemsField
-                          ? qriptoContentOptions
-                          : isContentTagField && field.options
-                            ? [
-                                ...field.options,
-                                ...QRIPTO_CONTENT_TAGS.filter(
-                                  (tag) => !field.options?.some((opt) => opt.value === tag.value)
-                                ),
-                              ]
-                            : isContentTagField
-                              ? QRIPTO_CONTENT_TAGS
-                              : field.options;
-                        return (
-                          <div key={field.id}>
-                            <label className="text-xs text-slate-400">
-                              {field.name} {field.required && <span className="text-rose-400">*</span>}
-                            </label>
-                            {field.type === "text" && (
-                              <input
-                                value={value || ""}
-                                onChange={(e) => updateField(currentStep.id, field.id, e.target.value)}
-                                className={`mt-1 w-full rounded-lg border bg-slate-900 px-3 py-2 text-sm text-slate-200 ${
-                                  error ? "border-rose-500/60" : "border-slate-800"
-                                }`}
-                              />
-                            )}
-                            {field.type === "textarea" && (
-                              <textarea
-                                value={value || ""}
-                                onChange={(e) => updateField(currentStep.id, field.id, e.target.value)}
-                                className={`mt-1 w-full rounded-lg border bg-slate-900 px-3 py-2 text-sm text-slate-200 ${
-                                  error ? "border-rose-500/60" : "border-slate-800"
-                                }`}
-                                rows={3}
-                              />
-                            )}
-                            {field.type === "select" && (
-                              <select
-                                value={value || ""}
-                                onChange={(e) => updateField(currentStep.id, field.id, e.target.value)}
-                                className={`mt-1 w-full rounded-lg border bg-slate-900 px-3 py-2 text-sm text-slate-200 ${
-                                  error ? "border-rose-500/60" : "border-slate-800"
-                                }`}
-                              >
-                                <option value="">Select...</option>
-                                {options?.map((opt) => (
-                                  <option key={opt.value} value={opt.value}>
-                                    {opt.label}
-                                  </option>
-                                ))}
-                              </select>
-                            )}
-                            {field.type === "multiselect" && (
-                              <div className="mt-2 grid gap-2">
-                                {options?.map((opt) => {
-                                  const selected = Array.isArray(value) && value.includes(opt.value);
-                                  return (
-                                    <label key={opt.value} className="flex items-center gap-2 text-xs text-slate-300">
-                                      <input
-                                        type="checkbox"
-                                        checked={selected}
-                                        onChange={(e) => {
-                                          const next = new Set(Array.isArray(value) ? value : []);
-                                          if (e.target.checked) next.add(opt.value);
-                                          else next.delete(opt.value);
-                                          updateField(currentStep.id, field.id, Array.from(next));
-                                        }}
-                                      />
-                                      {opt.label}
-                                    </label>
-                                  );
-                                })}
-                              </div>
-                            )}
-                            {field.type === "checkbox" && (
-                              <label className="mt-2 flex items-center gap-2 text-xs text-slate-300">
-                                <input
-                                  type="checkbox"
-                                  checked={value === true}
-                                  onChange={(e) => updateField(currentStep.id, field.id, e.target.checked)}
-                                />
-                                Enabled
-                              </label>
-                            )}
-                            {field.type === "slider" && (
-                              <div className="mt-2 space-y-1">
-                                <input
-                                  type="range"
-                                  min={field.validation?.min ?? 0}
-                                  max={field.validation?.max ?? 100}
-                                  step={field.validation?.step ?? 1}
-                                  value={value ?? field.default_value ?? 0}
-                                  onChange={(e) => updateField(currentStep.id, field.id, Number(e.target.value))}
-                                  className="w-full"
-                                />
-                                <div className="text-xs text-slate-500">
-                                  {value ?? field.default_value ?? 0}
-                                </div>
-                              </div>
-                            )}
-                            {error && <div className="mt-1 text-[11px] text-rose-300">{error}</div>}
-                            {field.help_text && !error && (
-                              <div className="mt-1 text-[11px] text-slate-500">{field.help_text}</div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
+              <TabsContent value="template" className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1">
+                {templatesError && (
+                  <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">
+                    {templatesError}
                   </div>
                 )}
+                <div className="max-h-[445px] space-y-3 overflow-y-auto pr-1">
+                  {filteredTemplates.map((template) => (
+                    <button
+                      key={template.id}
+                      onClick={() => {
+                        setSelectedTemplateId(template.id);
+                        setExperiencePanelTab("customizer");
+                      }}
+                      className={`w-full rounded-xl border px-4 py-3 text-left transition ${
+                        selectedTemplateId === template.id
+                          ? "border-emerald-400/60 bg-emerald-500/10"
+                          : "border-slate-800 bg-slate-950/60 hover:border-slate-700"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <div className="text-sm font-semibold text-white">{template.name}</div>
+                          <div className="text-xs text-slate-400">{template.description}</div>
+                        </div>
+                        <div className="text-xs text-slate-400">{template.estimated_time} min</div>
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-400">
+                        <span className="rounded-full border border-slate-700 px-2 py-0.5">{template.category}</span>
+                        <span className="rounded-full border border-slate-700 px-2 py-0.5">{template.complexity}</span>
+                        {template.tags?.slice(0, 2).map((tag) => (
+                          <span key={tag} className="rounded-full border border-slate-700 px-2 py-0.5">{tag}</span>
+                        ))}
+                      </div>
+                    </button>
+                  ))}
+                  {!templatesLoading && filteredTemplates.length === 0 && (
+                    <div className="rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-6 text-sm text-slate-400">
+                      No templates match that intent yet. Try a different prompt or clear filters.
+                    </div>
+                  )}
+                </div>
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  <div>
+                    <label className="text-xs text-slate-400">Tenant ID</label>
+                    <input
+                      value={tenantId}
+                      onChange={(e) => setTenantId(e.target.value)}
+                      className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2 text-sm text-slate-200"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-400">User ID</label>
+                    <input
+                      value={userId}
+                      onChange={(e) => setUserId(e.target.value)}
+                      className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2 text-sm text-slate-200"
+                    />
+                  </div>
+                </div>
+                <button
+                  onClick={handleStartSession}
+                  disabled={!selectedTemplate || isSaving}
+                  className="mt-4 inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-emerald-500/40"
+                >
+                  {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Start Session"}
+                </button>
+              </TabsContent>
 
-                {summary.length > 0 && (
-                  <div className={summaryCardClass}>
-                    <div className="mb-2 text-xs uppercase tracking-widest text-slate-400">Experience Snapshot</div>
-                    <div className="grid gap-2 text-sm text-slate-200">
-                      {summary.map((item) => (
-                        <div key={item.label} className="flex items-center justify-between gap-3">
-                          <span className="text-slate-400">{item.label}</span>
-                          <span className="text-slate-200 text-right">{item.value}</span>
+              <TabsContent value="customizer" className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1">
+                {!session && (
+                  <div className="rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-6">
+                    <div className="text-sm font-semibold text-white">
+                      {selectedTemplate ? `Customize ${selectedTemplate.name}` : "Start customization"}
+                    </div>
+                    <div className="mt-2 text-sm text-slate-400">
+                      {selectedTemplate
+                        ? "Start the session to run the full customization flow, including the skill-selection steps."
+                        : "Choose a template to begin composing an experience."}
+                    </div>
+                    {selectedTemplate && (
+                      <button
+                        onClick={handleStartSession}
+                        disabled={isSaving}
+                        className="mt-4 inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-emerald-500/40"
+                      >
+                        {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Start Customization"}
+                      </button>
+                    )}
+                  </div>
+                )}
+                {session && sessionTemplate && (
+                  <div className="max-h-[560px] space-y-4 overflow-y-auto pr-1">
+                    <div className="space-y-2">
+                      {sessionTemplate.steps.map((step, idx) => (
+                        <div key={step.id} className="flex items-start gap-3">
+                          {idx <= (session.current_step || 0) ? (
+                            <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-400" />
+                          ) : (
+                            <Circle className="mt-0.5 h-4 w-4 text-slate-500" />
+                          )}
+                          <div>
+                            <div className="text-sm text-slate-200">{step.title}</div>
+                            <div className="text-xs text-slate-500">{step.description}</div>
+                          </div>
                         </div>
                       ))}
                     </div>
+
+                    {currentStep && (
+                      <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                        <div className="mb-2 text-sm font-semibold text-white">{currentStep.title}</div>
+                        <div className="mb-4 text-xs text-slate-400">{currentStep.description}</div>
+                        <div className="space-y-3">
+                          {currentStep.ui_config.fields.map((field) => {
+                            const value = stepValues[field.id];
+                            const error = getFieldError(field, value);
+                            const isContentItemsField = field.id === "content_items";
+                            const isContentTagField =
+                              field.id.includes("content_tag") || field.name.toLowerCase().includes("content tag");
+                            const options = isContentItemsField
+                              ? qriptoContentOptions
+                              : isContentTagField && field.options
+                                ? [
+                                    ...field.options,
+                                    ...QRIPTO_CONTENT_TAGS.filter(
+                                      (tag) => !field.options?.some((opt) => opt.value === tag.value)
+                                    ),
+                                  ]
+                                : isContentTagField
+                                  ? QRIPTO_CONTENT_TAGS
+                                  : field.options;
+
+                            return (
+                              <div key={field.id}>
+                                <label className="text-xs text-slate-400">
+                                  {field.name} {field.required && <span className="text-rose-400">*</span>}
+                                </label>
+                                {field.type === "text" && (
+                                  <input
+                                    value={value || ""}
+                                    onChange={(e) => updateField(currentStep.id, field.id, e.target.value)}
+                                    className={`mt-1 w-full rounded-lg border bg-slate-900 px-3 py-2 text-sm text-slate-200 ${
+                                      error ? "border-rose-500/60" : "border-slate-800"
+                                    }`}
+                                  />
+                                )}
+                                {field.type === "textarea" && (
+                                  <textarea
+                                    value={value || ""}
+                                    onChange={(e) => updateField(currentStep.id, field.id, e.target.value)}
+                                    className={`mt-1 w-full rounded-lg border bg-slate-900 px-3 py-2 text-sm text-slate-200 ${
+                                      error ? "border-rose-500/60" : "border-slate-800"
+                                    }`}
+                                    rows={3}
+                                  />
+                                )}
+                                {field.type === "select" && (
+                                  <select
+                                    value={value || ""}
+                                    onChange={(e) => updateField(currentStep.id, field.id, e.target.value)}
+                                    className={`mt-1 w-full rounded-lg border bg-slate-900 px-3 py-2 text-sm text-slate-200 ${
+                                      error ? "border-rose-500/60" : "border-slate-800"
+                                    }`}
+                                  >
+                                    <option value="">Select...</option>
+                                    {options?.map((opt) => (
+                                      <option key={opt.value} value={opt.value}>
+                                        {opt.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                )}
+                                {field.type === "multiselect" && (
+                                  <div className="mt-2 grid gap-2">
+                                    {options?.map((opt) => {
+                                      const selected = Array.isArray(value) && value.includes(opt.value);
+                                      return (
+                                        <label key={opt.value} className="flex items-center gap-2 text-xs text-slate-300">
+                                          <input
+                                            type="checkbox"
+                                            checked={selected}
+                                            onChange={(e) => {
+                                              const next = new Set(Array.isArray(value) ? value : []);
+                                              if (e.target.checked) next.add(opt.value);
+                                              else next.delete(opt.value);
+                                              updateField(currentStep.id, field.id, Array.from(next));
+                                            }}
+                                          />
+                                          {opt.label}
+                                        </label>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                                {field.type === "checkbox" && (
+                                  <label className="mt-2 flex items-center gap-2 text-xs text-slate-300">
+                                    <input
+                                      type="checkbox"
+                                      checked={value === true}
+                                      onChange={(e) => updateField(currentStep.id, field.id, e.target.checked)}
+                                    />
+                                    Enabled
+                                  </label>
+                                )}
+                                {field.type === "slider" && (
+                                  <div className="mt-2 space-y-1">
+                                    <input
+                                      type="range"
+                                      min={field.validation?.min ?? 0}
+                                      max={field.validation?.max ?? 100}
+                                      step={field.validation?.step ?? 1}
+                                      value={value ?? field.default_value ?? 0}
+                                      onChange={(e) => updateField(currentStep.id, field.id, Number(e.target.value))}
+                                      className="w-full"
+                                    />
+                                    <div className="text-xs text-slate-500">{value ?? field.default_value ?? 0}</div>
+                                  </div>
+                                )}
+                                {error && <div className="mt-1 text-[11px] text-rose-300">{error}</div>}
+                                {field.help_text && !error && <div className="mt-1 text-[11px] text-slate-500">{field.help_text}</div>}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {summary.length > 0 && (
+                      <div className={summaryCardClass}>
+                        <div className="mb-2 text-xs uppercase tracking-widest text-slate-400">Experience Snapshot</div>
+                        <div className="grid gap-2 text-sm text-slate-200">
+                          {summary.map((item) => (
+                            <div key={item.label} className="flex items-center justify-between gap-3">
+                              <span className="text-slate-400">{item.label}</span>
+                              <span className="text-right text-slate-200">{item.value}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {sessionError && (
+                      <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">
+                        {sessionError}
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button
+                        onClick={handleBack}
+                        disabled={!session || (session.current_step || 0) === 0 || isSaving}
+                        className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-200 disabled:opacity-50"
+                      >
+                        Back
+                      </button>
+                      <button
+                        onClick={handleNext}
+                        disabled={!sessionTemplate || !session || !isStepValid || isSaving || (session.current_step || 0) === sessionTemplate.steps.length - 1}
+                        className="rounded-lg bg-slate-200 px-4 py-2 text-sm font-semibold text-slate-900 disabled:opacity-50"
+                      >
+                        {isSaving ? "Saving..." : "Next"}
+                      </button>
+                      <button
+                        onClick={handleComplete}
+                        disabled={!sessionTemplate || !session || !isStepValid || isCompleting || (session.current_step || 0) !== sessionTemplate.steps.length - 1}
+                        className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                      >
+                        {isCompleting ? "Completing..." : "Complete"}
+                      </button>
+                    </div>
                   </div>
                 )}
+              </TabsContent>
 
-                {sessionError && (
-                  <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">
-                    {sessionError}
-                  </div>
-                )}
+              <TabsContent value="resources" className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1">
+                <Tabs value={resourcesPanelTab} onValueChange={setResourcesPanelTab} className="flex min-h-0 h-full flex-col">
+                  <TabsList className="grid h-8 w-full grid-cols-2 rounded-full border border-white/10 bg-slate-950/60 p-1">
+                    <TabsTrigger value="experience" className="text-[11px] data-[state=active]:border data-[state=active]:border-white/10 data-[state=active]:bg-white/10 data-[state=active]:text-white data-[state=active]:backdrop-blur-xl">
+                      Experience
+                    </TabsTrigger>
+                    <TabsTrigger value="design" className="text-[11px] data-[state=active]:border data-[state=active]:border-white/10 data-[state=active]:bg-white/10 data-[state=active]:text-white data-[state=active]:backdrop-blur-xl">
+                      Design
+                    </TabsTrigger>
+                  </TabsList>
 
-                <div className="flex flex-wrap items-center gap-3">
-                  <button
-                    onClick={handleBack}
-                    disabled={!session || (session.current_step || 0) === 0 || isSaving}
-                    className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-200 disabled:opacity-50"
-                  >
-                    Back
-                  </button>
-                  <button
-                    onClick={handleNext}
-                    disabled={!sessionTemplate || !session || !isStepValid || isSaving || (session.current_step || 0) === sessionTemplate.steps.length - 1}
-                    className="rounded-lg bg-slate-200 px-4 py-2 text-sm font-semibold text-slate-900 disabled:opacity-50"
-                  >
-                    {isSaving ? "Saving..." : "Next"}
-                  </button>
-                  <button
-                    onClick={handleComplete}
-                    disabled={!sessionTemplate || !session || !isStepValid || isCompleting || (session.current_step || 0) !== sessionTemplate.steps.length - 1}
-                    className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-                  >
-                    {isCompleting ? "Completing..." : "Complete"}
-                  </button>
-                  {experience && (
-                    <button
-                      onClick={() => {
-                        void launchExperience(experience);
-                      }}
-                      className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-200"
+                  <TabsContent value="experience" className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1">
+                    <div className="space-y-4">
+                      <div className={summaryCardClass}>
+                        <div className="mb-2 text-xs uppercase tracking-widest text-slate-400">Session envelope</div>
+                        <div className="space-y-2 text-sm text-slate-200">
+                          <div className="flex items-center justify-between gap-3"><span className="text-slate-400">Template chosen</span><span>{selectedTemplate?.name || "Not selected"}</span></div>
+                          <div className="flex items-center justify-between gap-3"><span className="text-slate-400">Tenant</span><span>{tenantId}</span></div>
+                          <div className="flex items-center justify-between gap-3"><span className="text-slate-400">User</span><span>{userId}</span></div>
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                        <div className="text-sm font-semibold text-white">Skills selected in customization</div>
+                        <div className="mt-3 space-y-2">
+                          {experienceResourceSummary.skills.length > 0 ? (
+                            experienceResourceSummary.skills.map((item) => (
+                              <div key={`${item.label}-${item.value}`} className="flex items-center justify-between gap-3 text-sm text-slate-200">
+                                <span className="text-slate-400">{item.label}</span>
+                                <span className="text-right">{item.value}</span>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="text-sm text-slate-400">Skill selections from the customization flow will appear here.</div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                        <div className="text-sm font-semibold text-white">Experience resources</div>
+                        <div className="mt-2 text-sm text-slate-400">
+                          Registry-backed resources and template-configured dependencies will be collected here.
+                        </div>
+                        <div className="mt-3 space-y-2">
+                          {experienceResourceSummary.resources.length > 0 ? (
+                            experienceResourceSummary.resources.map((item) => (
+                              <div key={`${item.label}-${item.value}`} className="flex items-center justify-between gap-3 text-sm text-slate-200">
+                                <span className="text-slate-400">{item.label}</span>
+                                <span className="text-right">{item.value}</span>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="flex flex-wrap gap-2 text-[11px] text-slate-300">
+                              <span className="rounded-full border border-slate-700 px-2 py-1">DataQubes</span>
+                              <span className="rounded-full border border-slate-700 px-2 py-1">ToolQubes</span>
+                              <span className="rounded-full border border-slate-700 px-2 py-1">SkillQubes</span>
+                              <span className="rounded-full border border-slate-700 px-2 py-1">BrowserQube</span>
+                              <span className="rounded-full border border-slate-700 px-2 py-1">Voice stub</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                        <div className="text-sm font-semibold text-white">End-user data requirements</div>
+                        <div className="mt-3 space-y-2">
+                          {experienceResourceSummary.userData.length > 0 ? (
+                            experienceResourceSummary.userData.map((item) => (
+                              <div key={`${item.label}-${item.value}`} className="flex items-center justify-between gap-3 text-sm text-slate-200">
+                                <span className="text-slate-400">{item.label}</span>
+                                <span className="text-right">{item.value}</span>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="text-sm text-slate-400">Required end-user data and consent inputs will be listed here once they are defined.</div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl border border-dashed border-slate-700 bg-slate-950/40 p-4">
+                        <div className="text-sm font-semibold text-white">Cost envelope</div>
+                        <div className="mt-2 text-sm text-slate-400">
+                          Skill costs, runtime resource fees, and user-facing charges are not defined yet. This section is stubbed for later pricing integration.
+                        </div>
+                      </div>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="design" className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1">
+                    <div
+                      className="rounded-xl border p-4"
+                      style={
+                        designQube
+                          ? {
+                              backgroundColor: styleQubeThemeBg,
+                              borderColor: styleQubeThemeBorder,
+                              color: styleQubeThemeText,
+                            }
+                          : undefined
+                      }
                     >
-                      Open Experience
-                    </button>
+                      {designQube ? (
+                        <>
+                          <div
+                            className="flex flex-wrap items-center justify-between gap-3 rounded-xl border px-3 py-2"
+                            style={{ backgroundColor: styleQubeThemeBg, borderColor: styleQubeThemeBorder }}
+                          >
+                            <div className="flex flex-wrap items-center gap-2 text-xs" style={{ color: styleQubeThemeText }}>
+                              <select
+                                value={activeStyleQubeId}
+                                onChange={(e) => handleDesignQubeSelection(e.target.value)}
+                                className="rounded-md border border-white/10 bg-slate-950/40 px-2 py-1 text-xs text-white/90"
+                                style={{ borderColor: styleQubeThemeBorder, backgroundColor: styleQubeThemeBg }}
+                              >
+                                {designQubeOptions.map((option) => (
+                                  <option key={option.id} value={option.id}>
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </select>
+                              <button
+                                className="inline-flex items-center rounded-full border px-2 py-0.5"
+                                title={designQube.manifest?.authorityLevel || "guidance"}
+                                style={{ borderColor: styleQubeThemeBorder }}
+                              >
+                                <ShieldCheck className="h-3.5 w-3.5 text-emerald-300" />
+                              </button>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => setDesignTheme("light")}
+                                className={`inline-flex items-center rounded-full border px-2 py-0.5 ${designTheme === "light" ? "border-amber-300/60 bg-amber-500/10" : ""}`}
+                                title="Light theme"
+                                style={designTheme === "light" ? undefined : { borderColor: styleQubeThemeBorder }}
+                              >
+                                <Sun className="h-3.5 w-3.5 text-amber-300" />
+                              </button>
+                              <button
+                                onClick={() => setDesignTheme("dark")}
+                                className={`inline-flex items-center rounded-full border px-2 py-0.5 ${designTheme === "dark" ? "border-slate-300/60 bg-slate-500/10" : ""}`}
+                                title="Dark theme"
+                                style={designTheme === "dark" ? undefined : { borderColor: styleQubeThemeBorder }}
+                              >
+                                <Moon className="h-3.5 w-3.5 text-slate-300" />
+                              </button>
+                              <button
+                                onClick={() => setDesignQubeSummaryLayout("compact")}
+                                className={`inline-flex items-center rounded-full border px-2 py-0.5 ${designQubeSummaryLayout === "compact" ? "border-cyan-300/60 bg-cyan-500/10" : ""}`}
+                                title="Row view"
+                                style={designQubeSummaryLayout === "compact" ? undefined : { borderColor: styleQubeThemeBorder }}
+                              >
+                                <List size={14} className="text-cyan-300" />
+                              </button>
+                              <button
+                                onClick={() => setDesignQubeSummaryLayout("grid")}
+                                className={`inline-flex items-center rounded-full border px-2 py-0.5 ${designQubeSummaryLayout === "grid" ? "border-cyan-300/60 bg-cyan-500/10" : ""}`}
+                                title="Grid view"
+                                style={designQubeSummaryLayout === "grid" ? undefined : { borderColor: styleQubeThemeBorder }}
+                              >
+                                <LayoutGrid size={14} className="text-cyan-300" />
+                              </button>
+                              <button
+                                onClick={() => setDesignQubeCollapsed((prev) => !prev)}
+                                className="inline-flex items-center rounded-full border px-2 py-0.5"
+                                title={designQubeCollapsed ? "Expand details" : "Collapse details"}
+                                style={{ borderColor: styleQubeThemeBorder }}
+                              >
+                                {designQubeCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                              </button>
+                            </div>
+                          </div>
+
+                          {(() => {
+                            const themeTokens = designQube.tokens?.themes?.[designTheme];
+                            const colors = themeTokens?.color || {};
+                            const palette = [
+                              colors.bg,
+                              colors.surface,
+                              colors.accent,
+                              colors.text,
+                              colors.muted,
+                              colors.border,
+                            ].filter(Boolean) as string[];
+                            const resolvedPalette =
+                              palette.length > 0
+                                ? palette
+                                : ["#020617", "#0f172a", "#1d4ed8", "#f8fafc", "#94a3b8", "rgba(148,163,184,0.2)"];
+                            const radiusValues = designQube.tokens?.radius
+                              ? Object.values(designQube.tokens.radius).slice(0, 3)
+                              : [];
+                            const fontFamily = designQube.tokens?.typography?.fontFamily?.sans || "system-ui";
+                            const scale = designQube.tokens?.typography?.scale || {};
+                            const glassEnabled = designQube.constraints?.material?.glass?.enabled;
+                            const summaryBadges = designQube.manifest?.themes || [];
+
+                            return designQubeCollapsed ? (
+                              <div className="mt-4 space-y-3">
+                                <div className="flex flex-wrap items-center gap-2 text-[11px]" style={{ color: styleQubeThemeText }}>
+                                  <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5" style={{ borderColor: styleQubeThemeBorder }}>
+                                    <ShieldCheck className="h-3.5 w-3.5 text-emerald-300" />
+                                  </span>
+                                  {summaryBadges.map((theme) => (
+                                    <span key={theme} className="inline-flex items-center rounded-full border px-2 py-0.5" style={{ borderColor: styleQubeThemeBorder }}>
+                                      {theme.toLowerCase().includes("light") ? (
+                                        <Sun className="h-3.5 w-3.5 text-amber-300" />
+                                      ) : (
+                                        <Moon className="h-3.5 w-3.5 text-slate-300" />
+                                      )}
+                                    </span>
+                                  ))}
+                                  {glassEnabled && (
+                                    <span className="inline-flex items-center rounded-full border px-2 py-0.5" style={{ borderColor: styleQubeThemeBorder }} title="Glass material">
+                                      <Moon className="h-3.5 w-3.5 text-slate-400" />
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  {resolvedPalette.slice(0, 6).map((color, idx) => (
+                                    <span
+                                      key={`${color}-${idx}`}
+                                      className="h-5 w-5 rounded-md border"
+                                      style={{ backgroundColor: color, borderColor: styleQubeThemeBorder }}
+                                      title={color}
+                                    />
+                                  ))}
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <span style={{ fontFamily, fontSize: scale.xl || 22 }} className="text-white">Aa</span>
+                                  <span style={{ fontFamily, fontSize: scale.sm || 14 }} className="text-slate-400">Aa</span>
+                                  <div className="ml-auto flex items-center gap-2">
+                                    {radiusValues.map((radius, idx) => (
+                                      <div
+                                        key={`radius-grid-${idx}`}
+                                        className="h-6 w-12 border"
+                                        style={{ borderRadius: `${radius}px`, backgroundColor: styleQubeThemeBg, borderColor: styleQubeThemeBorder }}
+                                        title={`radius ${radius}`}
+                                      />
+                                    ))}
+                                  </div>
+                                </div>
+                                <div className="flex items-center justify-end gap-2" title="Experience Modalities">
+                                  <div className="rounded-lg border border-blue-400/60 bg-blue-400/10 p-2">
+                                    <Eye className="h-4 w-4 text-blue-300" />
+                                  </div>
+                                  <div className="rounded-lg border border-green-400/60 bg-green-400/10 p-2">
+                                    <Volume2 className="h-4 w-4 text-green-300" />
+                                  </div>
+                                  <div className="rounded-lg border border-purple-400/60 bg-purple-400/10 p-2">
+                                    <LayoutGrid className="h-4 w-4 text-purple-300" />
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="mt-4 max-h-[520px] overflow-y-auto pr-1 space-y-4">
+                                <div className="rounded-xl border p-3" style={{ backgroundColor: styleQubeThemeBg, borderColor: styleQubeThemeBorder }}>
+                                  <h4 className="mb-2 flex items-center gap-2 text-sm font-medium text-white">
+                                    <BookOpen className="h-4 w-4 text-indigo-300" />
+                                    Enhanced Data Loading
+                                  </h4>
+                                  <div className="grid grid-cols-2 gap-4 text-xs">
+                                    <div className="space-y-1" style={{ color: styleQubeThemeText }}>
+                                      <div>✅ StyleQube: {designQube.styleQube ? "Loaded" : "Missing"}</div>
+                                      <div>✅ StructureQube: {designQube.structureQube ? "Loaded" : "Missing"}</div>
+                                      <div>✅ GuidesBriefs: {designQube.guidesBriefs ? "Loaded" : "Missing"}</div>
+                                      <div>✅ Sources: {designQube.sources?.length || 0} files</div>
+                                      <div>✅ Visual Sub-Groups: {designQube.styleQube?.visual ? "Available" : "Missing"}</div>
+                                    </div>
+                                    <div className="space-y-1" style={{ color: styleQubeThemeText }}>
+                                      <div>✅ Audio Sub-Groups: {designQube.styleQube?.audio ? "Available" : "Missing"}</div>
+                                      <div>✅ Text Sub-Groups: {designQube.styleQube?.text ? "Available" : "Missing"}</div>
+                                      <div>✅ Spatial Sub-Groups: {designQube.styleQube?.spatial ? "Available" : "Missing"}</div>
+                                      <div>✅ Content Modules: {designQube.structureQube?.contentModules?.length || 0} available</div>
+                                      <div>✅ Big-Screen Support: {designQube.structureQube?.breakpoints?.bigScreen ? "Enabled" : "Missing"}</div>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="rounded-xl border p-4" style={{ backgroundColor: styleQubeThemeBg, borderColor: styleQubeThemeBorder }}>
+                                  <div className="mb-3 flex items-center justify-between">
+                                    <h4 className="flex items-center gap-2 text-sm font-medium text-white">
+                                      <BookOpen className="h-4 w-4 text-indigo-300" />
+                                      Guides & Briefs
+                                    </h4>
+                                    <button className="flex items-center gap-1 rounded-md border border-indigo-500/30 bg-indigo-500/20 px-2 py-1 text-xs text-indigo-300 hover:bg-indigo-500/30">
+                                      <Upload className="h-3 w-3" />
+                                      Upload
+                                    </button>
+                                  </div>
+                                  {designQube.styleBrief && (
+                                    <div className="mb-4 max-h-[120px] overflow-y-auto pr-1 text-sm" style={{ color: styleQubeThemeText }}>
+                                      {designQube.styleBrief}
+                                    </div>
+                                  )}
+                                  <div className="grid gap-3 sm:grid-cols-2">
+                                    <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+                                      <div className="text-xs uppercase tracking-widest text-slate-400">Style Guide</div>
+                                      <div className="mt-2 text-sm text-slate-200">{designQube.guidesBriefs?.styleGuide?.brand?.voice || "Brand guide not configured."}</div>
+                                    </div>
+                                    <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+                                      <div className="text-xs uppercase tracking-widest text-slate-400">Experience Guide</div>
+                                      <div className="mt-2 text-sm text-slate-200">{designQube.guidesBriefs?.experienceGuide?.who?.audience || "Audience guide not configured."}</div>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="rounded-xl border p-4" style={{ backgroundColor: styleQubeThemeBg, borderColor: styleQubeThemeBorder }}>
+                                  <h4 className="mb-3 flex items-center gap-2 text-sm font-medium text-white">
+                                    <Palette className="h-4 w-4 text-rose-300" />
+                                    StyleQube
+                                  </h4>
+                                  <div className="grid grid-cols-3 gap-3 text-xs">
+                                    <div>
+                                      <span className="text-slate-400">Primary</span>
+                                      <div className="mt-1 flex items-center gap-2">
+                                        <div className="h-3 w-3 rounded border border-slate-600" style={{ backgroundColor: designQube.styleQube?.visual?.colors?.primary }} />
+                                        <span style={{ color: styleQubeThemeText }}>{designQube.styleQube?.visual?.colors?.primary}</span>
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <span className="text-slate-400">Secondary</span>
+                                      <div className="mt-1 flex items-center gap-2">
+                                        <div className="h-3 w-3 rounded border border-slate-600" style={{ backgroundColor: designQube.styleQube?.visual?.colors?.secondary }} />
+                                        <span style={{ color: styleQubeThemeText }}>{designQube.styleQube?.visual?.colors?.secondary}</span>
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <span className="text-slate-400">Accent</span>
+                                      <div className="mt-1 flex items-center gap-2">
+                                        <div className="h-3 w-3 rounded border border-slate-600" style={{ backgroundColor: designQube.styleQube?.visual?.colors?.accent }} />
+                                        <span style={{ color: styleQubeThemeText }}>{designQube.styleQube?.visual?.colors?.accent}</span>
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <span className="text-slate-400">Font</span>
+                                      <div className="mt-1" style={{ color: styleQubeThemeText }}>
+                                        {designQube.styleQube?.visual?.typography?.fontFamily?.primary}
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <span className="text-slate-400">Radius</span>
+                                      <div className="mt-1" style={{ color: styleQubeThemeText }}>
+                                        {designQube.styleQube?.visual?.radius?.md}
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <span className="text-slate-400">Shadow</span>
+                                      <div className="mt-1" style={{ color: styleQubeThemeText }}>
+                                        {designQube.styleQube?.visual?.shadows?.md}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </>
+                      ) : (
+                        <div className="text-sm text-slate-400">No DesignQube loaded.</div>
+                      )}
+                    </div>
+                  </TabsContent>
+                </Tabs>
+              </TabsContent>
+
+              <TabsContent value="exqubes" className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1">
+                <div className="max-h-[560px] space-y-3 overflow-y-auto pr-1">
+                  {experiences.map((exp) => {
+                    const isSelected = selectedExperienceId === exp.id;
+                    return (
+                      <div
+                        key={exp.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => {
+                          setSelectedExperience(exp);
+                          setSelectedExperienceId(exp.id);
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            setSelectedExperience(exp);
+                            setSelectedExperienceId(exp.id);
+                          }
+                        }}
+                        className={`rounded-xl border bg-slate-950/60 p-4 transition ${
+                          isSelected
+                            ? "border-purple-400/60 bg-purple-500/10 shadow-[0_0_0_1px_rgba(168,85,247,0.4)]"
+                            : "border-slate-800 hover:border-slate-600/60"
+                        }`}
+                      >
+                        <div className="text-sm font-semibold text-white">{exp.name}</div>
+                        <div className="mt-1 line-clamp-2 text-xs text-slate-400">{exp.description}</div>
+                        <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-400">
+                          <span className="rounded-full border border-slate-700 px-2 py-0.5">{exp.status}</span>
+                          {exp.configuration?.wallet_rewards?.unlock_price && (
+                            <span className="rounded-full border border-amber-600/60 bg-amber-600/10 px-2 py-0.5 text-amber-300">
+                              💰 {exp.configuration.wallet_rewards.unlock_price} Q¢
+                            </span>
+                          )}
+                          {exp.configuration?.wallet_rewards?.reward_amount && (
+                            <span className="rounded-full border border-emerald-600/60 bg-emerald-600/10 px-2 py-0.5 text-emerald-300">
+                              🎁 +{exp.configuration.wallet_rewards.reward_amount} Q¢
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-3 flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                void launchExperience(exp);
+                              }}
+                              className="rounded-lg border border-emerald-400/60 bg-emerald-400/10 p-2 text-emerald-200 hover:bg-emerald-400/20"
+                              title="Launch Experience"
+                            >
+                              <Play className="h-3 w-3" />
+                            </button>
+                            <button
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                openRuntimePreviewForExperience(exp, "Preview");
+                              }}
+                              className="rounded-lg border border-cyan-400/60 bg-cyan-400/10 p-2 text-cyan-200 hover:bg-cyan-400/20"
+                              title="Preview Experience"
+                            >
+                              <Eye className="h-3 w-3" />
+                            </button>
+                            <button
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                openMcpInspector(exp);
+                              }}
+                              className="rounded-lg border border-fuchsia-400/60 bg-fuchsia-400/10 p-2 text-fuchsia-200 hover:bg-fuchsia-400/20"
+                              title="MCP Inspector"
+                            >
+                              <Code className="h-3 w-3" />
+                            </button>
+                            <button
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setSelectedExperience(exp);
+                                setExperienceModalTab("metrics");
+                                setShowExperienceModal(true);
+                              }}
+                              className="rounded-lg border border-violet-400/60 bg-violet-400/10 p-2 text-violet-200 hover:bg-violet-400/20"
+                              title="View Metrics"
+                            >
+                              <BarChart className="h-3 w-3" />
+                            </button>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleEditExperience(exp);
+                              }}
+                              className="rounded-lg border border-amber-400/60 bg-amber-400/10 p-2 text-amber-200 hover:bg-amber-400/20"
+                              title="Edit Experience"
+                            >
+                              <Edit className="h-3 w-3" />
+                            </button>
+                            <button
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setExperienceToDelete(exp);
+                                setShowDeleteConfirm(true);
+                              }}
+                              className="rounded-lg border border-red-400/60 bg-red-400/10 p-2 text-red-200 hover:bg-red-400/20"
+                              title="Delete Experience"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {experiences.length === 0 && (
+                    <div className="rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-6 text-sm text-slate-400">
+                      No ExperienceQubes created yet.
+                    </div>
                   )}
                 </div>
-              </div>
-            )}
+              </TabsContent>
+            </Tabs>
           </div>
+
+          <div
+            className={`${cardClass} flex min-h-[700px] max-h-[700px] overflow-hidden flex-col transition ${
+              isRuntimePreviewExpanded ? "opacity-0 pointer-events-none" : ""
+            }`}
+            aria-hidden={isRuntimePreviewExpanded}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Hexagon className="h-4 w-4 text-[#ff7f50]" />
+                <h2 className="text-lg font-semibold text-white">Runtime Preview</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsRuntimePreviewExpanded(true)}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-slate-950/70 text-slate-200 transition hover:border-cyan-400/50 hover:bg-slate-900"
+                title="Expand Runtime Preview"
+                aria-label="Expand Runtime Preview"
+              >
+                <Maximize2 className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="mt-4 flex min-h-0 flex-1 items-start justify-end">
+              {renderRuntimePreviewShell("embedded")}
+            </div>
+          </div>
+          {isRuntimePreviewExpanded && (
+            <div className="pointer-events-none absolute inset-y-0 right-0 z-[82] flex w-full justify-end">
+              {renderRuntimePreviewShell("expanded")}
+            </div>
+          )}
         </div>
+        {false && (
         <div className="grid gap-6 lg:grid-cols-[1.1fr_1fr]">
           <div className={cardClass}>
             <div className="flex items-center justify-between">
@@ -3925,6 +4662,7 @@ Example: 'What template works best for a dashboard layout?'"
             )}
           </div>
         </div>
+        )}
 
           <div className="rounded-2xl border border-slate-800/70 bg-slate-900/40 p-3 sm:p-4">
             <Tabs
@@ -4545,77 +5283,6 @@ Example: 'What template works best for a dashboard layout?'"
         </div>
       )}
 
-      {/* Runtime Preview Modal */}
-      {showRuntimePreviewModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4 pt-4 pb-6">
-          <div className={`${runtimePreviewModalWidthClass} w-full max-h-[90vh] overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl`}>
-            <div className="flex items-center justify-between border-b border-slate-800 p-6">
-              <div className="flex items-center gap-3">
-                <Hexagon className="h-6 w-6 text-[#ff7f50]" />
-                <h2 className="text-xl font-bold text-white">metaMe Runtime Preview</h2>
-                <p className="text-sm text-slate-400">Runtime preview selected ExperienceQube</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <DevicePreviewSwitcher value={previewDevice} onChange={setPreviewDevice} />
-                <button
-                  onClick={() => {
-                    setShowRuntimePreviewModal(false);
-                  }}
-                  className="rounded-lg border border-slate-700 bg-slate-800/50 p-2 text-slate-400 hover:bg-slate-700 hover:text-white"
-                >
-                  <ChevronUp className="h-5 w-5 rotate-45" />
-                </button>
-              </div>
-            </div>
-            <div className="px-4 pt-4 pb-6">
-              <div
-                className="relative overflow-hidden rounded-[5px] bg-slate-950/70"
-                style={{ height: "min(760px, calc(100vh - 190px))" }}
-              >
-                {!runtimePreviewLoaded && !runtimePreviewErrored && (
-                  <div className="absolute inset-x-0 mt-3 flex justify-center pointer-events-none">
-                    <div className="rounded-md border border-slate-700 bg-slate-900/90 px-3 py-1 text-xs text-slate-300">
-                      Loading runtime preview...
-                    </div>
-                  </div>
-                )}
-                {runtimePreviewErrored && (
-                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-950/90">
-                    <div className="flex flex-col items-center gap-3 text-slate-300">
-                      <p className="text-sm">Runtime preview failed to load.</p>
-                      <button
-                        type="button"
-                        onClick={() => setPreviewNonce(Date.now())}
-                        className="rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-700"
-                      >
-                        Retry Preview
-                      </button>
-                    </div>
-                  </div>
-                )}
-                <div className={runtimePreviewViewportClass}>
-                  <iframe
-                    key={`${runtimePreviewSrc}-${previewNonce}`}
-                    src={runtimePreviewSrc}
-                    title="metaMe Runtime Preview"
-                    className="h-full w-full border-0"
-                    loading="eager"
-                    onLoad={() => {
-                      setRuntimePreviewLoaded(true);
-                      setRuntimePreviewErrored(false);
-                    }}
-                    onError={() => {
-                      setRuntimePreviewLoaded(false);
-                      setRuntimePreviewErrored(true);
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && experienceToDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
@@ -4668,6 +5335,7 @@ Example: 'What template works best for a dashboard layout?'"
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 };

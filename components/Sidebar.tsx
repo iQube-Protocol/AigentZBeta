@@ -198,8 +198,11 @@ export const Sidebar = () => {
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(true);
   const [hovering, setHovering] = useState(false);
+  const [studioExpanded, setStudioExpanded] = useState(false);
+  const [studioMenuVisible, setStudioMenuVisible] = useState(false);
   const [pinnedOpen, setPinnedOpen] = useState(false);
   const collapseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const asideRef = useRef<HTMLElement | null>(null);
   // CRITICAL FIX: Initialize with a default open section for immediate UX
   const [openSections, setOpenSections] = useState<string[]>(["Persona"]); // Default to first non-dashboard section
   const [toggleStates, setToggleStates] = useState<Record<string, boolean>>({});
@@ -224,6 +227,28 @@ export const Sidebar = () => {
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  useEffect(() => {
+    if (!isClient || typeof document === "undefined") return;
+
+    const syncStudioExpanded = () => {
+      const next = document.body.dataset.metameStudioExpanded === "true";
+      setStudioExpanded(next);
+      if (!next) {
+        setStudioMenuVisible(false);
+      }
+    };
+
+    syncStudioExpanded();
+
+    const observer = new MutationObserver(syncStudioExpanded);
+    observer.observe(document.body, {
+      attributes: true,
+      attributeFilter: ["data-metame-studio-expanded"],
+    });
+
+    return () => observer.disconnect();
+  }, [isClient]);
 
   // Load sidebar collapsed state
   useEffect(() => {
@@ -594,7 +619,16 @@ export const Sidebar = () => {
     }
   }, [hovering, pinnedOpen]);
 
+  useEffect(() => {
+    if (!studioExpanded && !hovering && !pinnedOpen) {
+      setCollapsed(true);
+    }
+  }, [hovering, pinnedOpen, studioExpanded]);
+
+  const effectiveCollapsed = studioExpanded ? false : collapsed;
+
   const scheduleCollapse = (delayMs = 4500) => {
+    if (studioExpanded) return;
     if (collapseTimerRef.current) {
       clearTimeout(collapseTimerRef.current);
     }
@@ -606,11 +640,19 @@ export const Sidebar = () => {
   };
 
   const handleHoverStart = () => {
+    if (studioExpanded) {
+      setStudioMenuVisible(true);
+      return;
+    }
     setHovering(true);
     setCollapsed(false);
   };
 
   const handleHoverEnd = () => {
+    if (studioExpanded) {
+      setStudioMenuVisible(false);
+      return;
+    }
     setHovering(false);
     if (!pinnedOpen) {
       setCollapsed(true);
@@ -618,7 +660,7 @@ export const Sidebar = () => {
   };
   
   const toggleSection = (label: string) => {
-    if (collapsed) {
+    if (effectiveCollapsed) {
       setCollapsed(false);
       scheduleCollapse();
       setShowOnlyActive(prev => ({
@@ -936,6 +978,11 @@ export const Sidebar = () => {
   };
   
   const toggleSidebar = () => {
+    if (studioExpanded) {
+      setStudioMenuVisible((prev) => !prev);
+      return;
+    }
+
     const newState = !collapsed;
     setCollapsed(newState);
     if (!newState) {
@@ -1040,16 +1087,36 @@ export const Sidebar = () => {
 
   return (
     <>
+      {studioExpanded && (
+        <div
+          className="fixed inset-y-0 left-0 z-[115] w-5"
+          onMouseEnter={() => setStudioMenuVisible(true)}
+          onMouseLeave={(event) => {
+            const relatedTarget = event.relatedTarget as Node | null;
+            if (!relatedTarget || !asideRef.current?.contains(relatedTarget)) {
+              setStudioMenuVisible(false);
+            }
+          }}
+          aria-hidden="true"
+        />
+      )}
       <aside
-        className={`${collapsed ? "w-16" : "w-72"} relative z-[90] pointer-events-auto transition-all duration-200 bg-black/30 ring-1 ring-white/10 backdrop-blur-xl p-4 md:p-6 flex-shrink-0 h-screen flex flex-col overflow-hidden`}
+        ref={asideRef}
+        className={
+          studioExpanded
+            ? `fixed left-0 top-0 z-[120] h-screen w-72 flex flex-col overflow-hidden bg-black/80 p-4 md:p-6 backdrop-blur-xl ring-1 ring-white/10 shadow-2xl transition-all duration-200 ${
+                studioMenuVisible ? "translate-x-0 opacity-100" : "-translate-x-full opacity-0 pointer-events-none"
+              }`
+            : `${effectiveCollapsed ? "w-16" : "w-72"} relative z-[90] pointer-events-auto transition-all duration-200 bg-black/30 ring-1 ring-white/10 backdrop-blur-xl p-4 md:p-6 flex-shrink-0 h-screen flex flex-col overflow-hidden`
+        }
         onMouseEnter={handleHoverStart}
         onMouseLeave={handleHoverEnd}
       >
         <div className="flex-shrink-0">
           <button className="mb-6 text-sm font-semibold text-slate-200 hover:text-white flex items-center gap-2 uppercase tracking-wider" onClick={toggleSidebar}>
             <Bot size={18} className="text-blue-400" />
-            {!collapsed && <span>QRIPTO: AGENTIQ</span>}
-            {!collapsed && <span className="ml-auto">«</span>}
+            {!effectiveCollapsed && <span>QRIPTO: AGENTIQ</span>}
+            {!effectiveCollapsed && <span className="ml-auto">«</span>}
           </button>
         </div>
       <nav className="space-y-6 flex-1 overflow-y-auto pr-1 pb-6">
@@ -1069,7 +1136,7 @@ export const Sidebar = () => {
                     >
                       <div className="flex items-center gap-2">
                         <span className="text-slate-400 group-hover:text-white transition-colors">{section.icon}</span>
-                        {!collapsed && <span className="font-medium">{section.label}</span>}
+                        {!effectiveCollapsed && <span className="font-medium">{section.label}</span>}
                       </div>
                     </Link>
                   </div>
@@ -1082,9 +1149,9 @@ export const Sidebar = () => {
                   <div className="flex items-center justify-between w-full">
                     <div className="flex items-center gap-2">
                       <span className="text-slate-400 group-hover:text-white transition-colors">{section.icon}</span>
-                      {!collapsed && <span className="font-medium">{section.label}</span>}
+                      {!effectiveCollapsed && <span className="font-medium">{section.label}</span>}
                     </div>
-                    {!collapsed && (openSections.includes(section.label) ? (
+                    {!effectiveCollapsed && (openSections.includes(section.label) ? (
                       <ChevronDown size={14} className="text-gray-500" />
                     ) : (
                       <ChevronRight size={14} className="text-gray-500" />
@@ -1093,7 +1160,7 @@ export const Sidebar = () => {
                 </div>
               )}
 
-              {isMetaMe && !collapsed && (
+              {isMetaMe && !effectiveCollapsed && (
                 <div className="mb-4">
                   <ul className="space-y-1">
                     {section.items.map((item: SidebarItem) => {
@@ -1118,7 +1185,7 @@ export const Sidebar = () => {
               )}
 
               {/* Expanded view for non-metaMe sections */}
-              {openSections.includes(section.label) && !collapsed && !isMetaMe && (
+              {openSections.includes(section.label) && !effectiveCollapsed && !isMetaMe && (
                 <div className="mb-4">
                   {section.label === "iQubes" ? (
                     <div className="space-y-3">
@@ -1421,7 +1488,7 @@ export const Sidebar = () => {
               )}
               
               {/* Collapsed view for non-Runtime sections - only show filtered submenu items */}
-              {collapsed && !isMetaMe && (
+              {effectiveCollapsed && !isMetaMe && (
                 <div>
                   {/* Only show submenu items, filtered based on showOnlyActive state */}
                   {section.items
@@ -1488,7 +1555,7 @@ export const Sidebar = () => {
                 </div>
               )}
 
-              {collapsed && isMetaMe && (
+              {effectiveCollapsed && isMetaMe && (
                 <div className="mb-4">
                   {section.items
                     .filter((item: SidebarItem) => {
