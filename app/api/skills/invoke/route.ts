@@ -66,11 +66,15 @@ async function createSoraJob(
   form.append("size", size);
   form.append("seconds", String(snappedSeconds));
 
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 20_000);
+
   const res = await fetch(OPENAI_VIDEOS_URL, {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}` },
     body: form,
-  });
+    signal: controller.signal,
+  }).finally(() => clearTimeout(timeout));
 
   const data = await res.json().catch(() => null);
 
@@ -191,37 +195,17 @@ export async function POST(request: NextRequest) {
             completed_immediately: true,
           };
         } else {
-          // Poll for completion (queued / in_progress)
-          const result = await pollSoraJob(apiKey, generationId!);
-
-          if (result.status === "completed") {
-            // Video content available via GET /v1/videos/{id}/content — proxy it
-            videoUrl = `/api/skills/video/${generationId}`;
-            mode = "live";
-            generationMetadata = {
-              model: "sora-2",
-              generation_id: generationId,
-              poll_status: result.status,
-            };
-          } else if (result.status === "timeout") {
-            // Generation started but hasn't finished — return generation_id for client to poll
-            mode = "live";
-            generationMetadata = {
-              model: "sora-2",
-              generation_id: generationId,
-              poll_status: "timeout",
-              note: result.error_msg,
-            };
-          } else {
-            // Failed — fall back to simulation with error info
-            mode = "simulation";
-            generationMetadata = {
-              note: `Sora generation failed: ${result.error_msg}`,
-              generation_id: generationId,
-              sora_error: result.error_msg,
-              raw: result.raw,
-            };
-          }
+          // Job accepted (queued / in_progress) — return immediately.
+          // Do NOT poll inline: Amplify Lambda timeout (~30s) is too short
+          // for Sora generation (1-3 min). Client shows "in progress" UI
+          // and user can re-check via the video proxy endpoint.
+          mode = "live";
+          generationMetadata = {
+            model: "sora-2",
+            generation_id: generationId,
+            job_status: job.status,
+            note: "Generation submitted. Video will be available at /api/skills/video/<id> once complete.",
+          };
         }
       } catch (soraError: any) {
         // API key exists but Sora call failed (no access, quota, etc.) — fall to simulation

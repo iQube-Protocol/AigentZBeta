@@ -96,6 +96,16 @@ export default function SkillVideoPlayer({
     }
   }, [skill_id, prompt, duration, aspect_ratio, style, creative_pack, experience_id, trust_override]);
 
+  const checkStatus = useCallback(async () => {
+    if (!result?.generation_id) return;
+    try {
+      const res = await fetch(`/api/skills/video/${result.generation_id}`, { method: "HEAD" });
+      if (res.ok) {
+        setResult(prev => prev ? { ...prev, video_url: `/api/skills/video/${prev.generation_id}` } : prev);
+      }
+    } catch { /* still generating */ }
+  }, [result?.generation_id]);
+
   const badgeClass = BADGE_COLORS[result?.skill_badge || ""] || BADGE_COLORS.D;
   const isSimulation = result?.mode === "simulation";
   const isLive = result?.mode === "live";
@@ -285,7 +295,7 @@ export default function SkillVideoPlayer({
               </div>
             </div>
             <div className="flex justify-center">
-              <Button size="sm" variant="ghost" className="h-7 text-xs text-slate-400" onClick={invoke}>
+              <Button size="sm" variant="ghost" className="h-7 text-xs text-slate-400" onClick={checkStatus}>
                 <RefreshCw className="h-3 w-3 mr-1" />
                 Check Again
               </Button>
