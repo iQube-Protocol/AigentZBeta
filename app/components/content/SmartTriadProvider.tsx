@@ -537,7 +537,7 @@ export function SmartTriadProvider({
       if (actionName === "triad_browse_library") {
         // Direct service call for library
         const res = await fetch(`/api/content/smart?personaId=${params.personaId}`);
-        const data = await res.json();
+        const data = await res.json().catch(() => ({ data: [] }));
         return {
           success: true,
           owned: data.data?.map((c: any) => ({ content: c })) || [],

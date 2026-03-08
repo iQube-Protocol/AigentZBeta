@@ -87,7 +87,7 @@ export default function SkillVideoPlayer({
           trust_override,
         }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({ ok: false, error: "Invalid response from skill API" }));
       setResult(data);
       setState(data.ok ? "done" : "error");
     } catch (err: any) {

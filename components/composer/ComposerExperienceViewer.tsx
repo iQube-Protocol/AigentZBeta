@@ -48,6 +48,7 @@ export const ComposerExperienceViewer = ({ experienceId }: { experienceId: strin
           if (active) setPacket(packetData.packet || null);
         }
       } catch (err: any) {
+        console.error("[ExperienceViewer] load error:", err);
         if (active) setError(err.message || "Failed to load experience");
       } finally {
         if (active) setLoading(false);
