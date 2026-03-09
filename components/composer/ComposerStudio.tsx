@@ -919,7 +919,6 @@ export const ComposerStudio = () => {
     const fallbackId = exp?.id || selectedExperienceId || experience?.id || null;
     if (fallbackId) setSelectedExperienceId(fallbackId);
     setPreviewAction(`${actionPrefix} ${exp?.name || "Experience"}`);
-    setShowRuntimePreviewModal(true);
   };
 
   const launchExperience = async (exp: ExperienceQube | null) => {
