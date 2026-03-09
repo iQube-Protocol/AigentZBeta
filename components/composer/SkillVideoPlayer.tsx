@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -99,9 +99,13 @@ export default function SkillVideoPlayer({
   const checkStatus = useCallback(async () => {
     if (!result?.generation_id) return;
     try {
-      const res = await fetch(`/api/skills/video/${result.generation_id}`, { method: "HEAD" });
-      if (res.ok) {
-        setResult(prev => prev ? { ...prev, video_url: `/api/skills/video/${prev.generation_id}` } : prev);
+      const res = await fetch(`/api/skills/video/${result.generation_id}/status`);
+      const data = await res.json().catch(() => null);
+      if (data?.ready && data?.video_url) {
+        setResult(prev => prev ? { ...prev, video_url: data.video_url } : prev);
+      } else if (data?.status === "failed") {
+        setResult(prev => prev ? { ...prev, error: data.error || "Generation failed" } : prev);
+        setState("error");
       }
     } catch { /* still generating */ }
   }, [result?.generation_id]);
@@ -109,6 +113,17 @@ export default function SkillVideoPlayer({
   const badgeClass = BADGE_COLORS[result?.skill_badge || ""] || BADGE_COLORS.D;
   const isSimulation = result?.mode === "simulation";
   const isLive = result?.mode === "live";
+
+  // Auto-poll every 15s while in "live + no video_url" state
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => {
+    const shouldPoll = state === "done" && isLive && !result?.video_url && result?.generation_id;
+    if (shouldPoll) {
+      checkStatus(); // immediate first check
+      pollRef.current = setInterval(checkStatus, 15_000);
+    }
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [state, isLive, result?.video_url, result?.generation_id, checkStatus]);
 
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-900/60 overflow-hidden">
@@ -278,8 +293,8 @@ export default function SkillVideoPlayer({
               <div>
                 <p className="text-sm font-medium text-cyan-200">Video Generation In Progress</p>
                 <p className="text-xs text-cyan-300/70 mt-1 leading-relaxed">
-                  Sora is generating your video. This can take several minutes for longer or complex prompts.
-                  The generation job has been submitted and is being processed.
+                  Sora is generating your video. This can take 1–3 minutes.
+                  Auto-checking every 15 seconds — the video will appear automatically when ready.
                 </p>
                 {result?.generation_id && (
                   <p className="text-[10px] text-slate-500 font-mono mt-2">Generation: {result.generation_id}</p>
