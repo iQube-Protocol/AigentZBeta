@@ -155,18 +155,8 @@ export default function SurfacePlanningPanel({
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <Card className="border border-white/10 bg-slate-950/55 text-slate-100 shadow-[0_12px_40px_rgba(3,9,24,0.45)] backdrop-blur-xl">
-        <CardHeader className="border-b border-white/10">
-          <CardTitle className="flex items-center gap-2">
-            <Layers className="w-5 h-5 text-cyan-300" />
-            Surface Planning
-          </CardTitle>
-          <CardDescription className="text-slate-400">
-            Configure surface selection and module placement for the {cartridge} cartridge
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           <div className="flex flex-wrap gap-3 items-center">
             <DevicePreviewSwitcher
               value={activeDevice}
@@ -199,7 +189,7 @@ export default function SurfacePlanningPanel({
       {planningInfo && (
         <Card className="border border-white/10 bg-slate-950/55 text-slate-100 shadow-[0_12px_40px_rgba(3,9,24,0.45)] backdrop-blur-xl">
           <CardHeader className="border-b border-white/10">
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-base font-semibold">
               <Settings className="w-5 h-5 text-cyan-300" />
               Available Modules
             </CardTitle>

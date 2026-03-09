@@ -1,17 +1,16 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
-  Receipt, 
+  Receipt,
   CheckCircle2, 
   AlertCircle, 
   Clock,
   RefreshCw,
-  Filter,
   Download,
 } from "lucide-react";
 
@@ -205,16 +204,30 @@ export default function DVNReceiptsPanel({
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Receipt className="h-5 w-5 text-cyan-400" />
-          <h3 className="text-lg font-semibold text-white">DVN Receipts</h3>
-          <Badge variant="outline" className="text-xs">
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          variant={filterType === null ? "default" : "outline"}
+          size="sm"
+          onClick={() => setFilterType(null)}
+          className="text-xs"
+        >
+          All
+        </Button>
+        {receiptTypes.map((type) => (
+          <Button
+            key={type}
+            variant={filterType === type ? "default" : "outline"}
+            size="sm"
+            onClick={() => setFilterType(type)}
+            className="text-xs"
+          >
+            {type.split(".")[1]}
+          </Button>
+        ))}
+        <div className="ml-auto flex items-center gap-2">
+          <Badge variant="outline" className="border-cyan-400/40 text-xs text-cyan-200">
             {filteredReceipts.length} receipts
           </Badge>
-        </div>
-        <div className="flex items-center gap-2">
           <Button
             variant="outline"
             size="sm"
@@ -235,29 +248,6 @@ export default function DVNReceiptsPanel({
             Export
           </Button>
         </div>
-      </div>
-
-      {/* Filter Bar */}
-      <div className="flex flex-wrap gap-2">
-        <Button
-          variant={filterType === null ? "default" : "outline"}
-          size="sm"
-          onClick={() => setFilterType(null)}
-          className="text-xs"
-        >
-          All
-        </Button>
-        {receiptTypes.map((type) => (
-          <Button
-            key={type}
-            variant={filterType === type ? "default" : "outline"}
-            size="sm"
-            onClick={() => setFilterType(type)}
-            className="text-xs"
-          >
-            {type.split(".")[1]}
-          </Button>
-        ))}
       </div>
 
       {/* Receipts Timeline */}

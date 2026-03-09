@@ -57,8 +57,8 @@ export function DevicePreviewSwitcher({
                 variant={isActive ? "secondary" : "ghost"}
                 size="sm"
                 className={cn(
-                  "h-8 w-8 p-0 transition-colors",
-                  isActive && "bg-background shadow-sm"
+                  "h-8 w-8 p-0 text-slate-300 transition-colors hover:text-white",
+                  isActive && "bg-background text-cyan-300 shadow-sm"
                 )}
                 onClick={() => onChange?.(device.type)}
                 aria-label={`Switch to ${device.label} view`}

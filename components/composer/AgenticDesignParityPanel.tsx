@@ -731,12 +731,8 @@ export function AgenticDesignParityPanel({
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 backdrop-blur-xl">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <LayoutGrid className="h-5 w-5 text-cyan-300" />
-          <h2 className="text-lg font-semibold text-white">Agentic UI Design Parity</h2>
-          <p className="text-sm text-slate-400">
-            DIS, CM, and parity report aligned to the selected ExperienceQube + DesignQube.
-          </p>
+        <div className="text-sm text-slate-400">
+          DIS, CM, and parity report aligned to the selected ExperienceQube + DesignQube.
         </div>
         <div className="flex items-center gap-2">
           {previewAction && <span className="text-xs text-slate-400">Last action: {previewAction}</span>}

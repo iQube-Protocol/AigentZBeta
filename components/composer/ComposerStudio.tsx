@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertTriangle, BarChart, Book, BookOpen, Bot, CheckCircle2, ChevronDown, ChevronUp, Circle, Code, Edit, Eye, FileText, Hexagon, LayoutGrid, List, Loader2, Monitor, MonitorIcon, Moon, Palette, Play, PlayCircle, Share2, Shield, ShieldCheck, SlidersHorizontal, Smartphone, Sparkles, Sun, Target, Tablet, Trash2, Tv, Upload, Users, Volume2, Type } from "lucide-react";
 import { useCopilotAction } from "@copilotkit/react-core";
+import { createShellMessage } from "@metame/iframe-bridge";
 import { Button } from "@/components/ui/button";
 import { DevicePreviewSwitcher } from "@/components/preview/DevicePreviewSwitcher";
 import type { DeviceType } from "@/components/preview/DevicePreviewSwitcher";
@@ -1281,6 +1282,7 @@ export const ComposerStudio = () => {
   const [previewNonce, setPreviewNonce] = useState(0);
   const [runtimePreviewLoaded, setRuntimePreviewLoaded] = useState(false);
   const [runtimePreviewErrored, setRuntimePreviewErrored] = useState(false);
+  const runtimePreviewIframeRef = useRef<HTMLIFrameElement | null>(null);
   const [showMcpInspectorModal, setShowMcpInspectorModal] = useState(false);
   const [mcpExperience, setMcpExperience] = useState<ExperienceQube | null>(null);
   const [mcpTool, setMcpTool] = useState<
@@ -1590,7 +1592,11 @@ export const ComposerStudio = () => {
     selectedExperienceId,
   ]);
   const runtimePreviewShellWidthClass =
-    previewDevice === "desktop" ? "w-full" : previewDevice === "tablet" ? "w-[560px] max-w-full" : "w-[430px] max-w-full";
+    previewDevice === "desktop"
+      ? "w-full max-w-[1280px]"
+      : previewDevice === "tablet"
+        ? "w-full max-w-[920px]"
+        : "w-[430px] max-w-full";
   const runtimePreviewViewportClass =
     previewDevice === "mobile"
       ? "mx-auto h-full w-[375px] max-w-[375px]"
@@ -1602,6 +1608,27 @@ export const ComposerStudio = () => {
     setRuntimePreviewLoaded(false);
     setRuntimePreviewErrored(false);
   }, [runtimePreviewSrc]);
+
+  const postRuntimePreviewDeviceContext = useCallback(
+    (device: DeviceType) => {
+      const frameWindow = runtimePreviewIframeRef.current?.contentWindow;
+      if (!frameWindow || typeof window === "undefined") return;
+      const viewportWidth = device === "desktop" ? 1280 : device === "tablet" ? 920 : 390;
+      const message = createShellMessage("DEVICE_CONTEXT_UPDATE", {
+        device,
+        viewport_device: device,
+        viewport_width: viewportWidth,
+        width: viewportWidth,
+      });
+      frameWindow.postMessage(message, window.location.origin);
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (!runtimePreviewLoaded) return;
+    postRuntimePreviewDeviceContext(previewDevice);
+  }, [postRuntimePreviewDeviceContext, previewDevice, runtimePreviewLoaded]);
 
   const liquidTemplateId = resolveLiquidTemplateId((previewExperience as any) || null);
   const PreviewTemplate = liquidTemplateRegistry[liquidTemplateId] || liquidTemplateRegistry["liquidui:drawer_grid_v1"];
@@ -2482,7 +2509,7 @@ export const ComposerStudio = () => {
   const configuratorTabTriggerClass =
     "inline-flex h-full items-center justify-center rounded-full px-3 py-0 text-[11px] font-medium leading-none text-slate-400 transition data-[state=active]:border data-[state=active]:border-fuchsia-400/35 data-[state=active]:bg-[linear-gradient(180deg,rgba(217,70,239,0.18),rgba(168,85,247,0.14))] data-[state=active]:text-white data-[state=active]:shadow-[inset_0_0_0_1px_rgba(244,114,182,0.12),0_0_24px_rgba(168,85,247,0.12)] data-[state=active]:backdrop-blur-xl";
   const renderRuntimePreviewShell = () => {
-    const shellClasses = `${runtimePreviewShellWidthClass} ml-auto flex h-full flex-col overflow-hidden rounded-2xl border border-slate-700/80 bg-slate-900 shadow-[0_28px_90px_rgba(15,23,42,0.72)]`;
+    const shellClasses = `${runtimePreviewShellWidthClass} pointer-events-auto ml-auto flex h-full max-h-full flex-col overflow-hidden rounded-2xl border border-slate-700/80 bg-slate-900 shadow-[0_28px_90px_rgba(15,23,42,0.72)]`;
 
     return (
       <div className={shellClasses}>
@@ -2521,6 +2548,7 @@ export const ComposerStudio = () => {
             <div className={runtimePreviewViewportClass}>
               <iframe
                 key={`${runtimePreviewSrc}-${previewNonce}`}
+                ref={runtimePreviewIframeRef}
                 src={runtimePreviewSrc}
                 title="Runtime Preview"
                 className="h-full w-full border-0"
@@ -2528,6 +2556,7 @@ export const ComposerStudio = () => {
                 onLoad={() => {
                   setRuntimePreviewLoaded(true);
                   setRuntimePreviewErrored(false);
+                  postRuntimePreviewDeviceContext(previewDevice);
                 }}
                 onError={() => {
                   setRuntimePreviewLoaded(false);
@@ -3406,8 +3435,8 @@ export const ComposerStudio = () => {
             </Tabs>
           </div>
 
-          <div className="flex min-h-[700px] max-h-[700px] flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60 px-4 pb-4 pt-3">
-            <div className="flex min-h-0 flex-1 items-start justify-end">
+          <div className="relative flex min-h-[700px] max-h-[700px] flex-col rounded-2xl border border-slate-800 bg-slate-900/60 px-4 pb-4 pt-3 overflow-visible">
+            <div className="absolute inset-x-4 bottom-4 top-3 z-[85] flex items-start justify-end">
               {renderRuntimePreviewShell()}
             </div>
           </div>
