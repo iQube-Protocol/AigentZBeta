@@ -1575,7 +1575,6 @@ export const ComposerStudio = () => {
       capsule: capsuleId,
       experienceId,
       embed: "1",
-      device: previewDevice,
     });
     if (previewExperience?.name) params.set("experienceName", previewExperience.name);
     if (previewExperience?.description) params.set("experienceDescription", previewExperience.description);
@@ -1583,7 +1582,6 @@ export const ComposerStudio = () => {
     if (previewNonce > 0) params.set("nonce", String(previewNonce));
     return `/metame/runtime?${params.toString()}`;
   }, [
-    previewDevice,
     previewNonce,
     previewExperience?.description,
     previewExperience?.id,
@@ -1591,8 +1589,8 @@ export const ComposerStudio = () => {
     previewExperienceMedia?.uri,
     selectedExperienceId,
   ]);
-  const runtimePreviewModalWidthClass =
-    previewDevice === "desktop" ? "max-w-[1280px]" : previewDevice === "tablet" ? "max-w-[920px]" : "max-w-[430px]";
+  const runtimePreviewShellWidthClass =
+    previewDevice === "desktop" ? "w-full" : previewDevice === "tablet" ? "w-[560px] max-w-full" : "w-[430px] max-w-full";
   const runtimePreviewViewportClass =
     previewDevice === "mobile"
       ? "mx-auto h-full w-[375px] max-w-[375px]"
@@ -1603,8 +1601,7 @@ export const ComposerStudio = () => {
   useEffect(() => {
     setRuntimePreviewLoaded(false);
     setRuntimePreviewErrored(false);
-    setPreviewNonce(Date.now());
-  }, [previewDevice]);
+  }, [runtimePreviewSrc]);
 
   const liquidTemplateId = resolveLiquidTemplateId((previewExperience as any) || null);
   const PreviewTemplate = liquidTemplateRegistry[liquidTemplateId] || liquidTemplateRegistry["liquidui:drawer_grid_v1"];
@@ -2485,11 +2482,11 @@ export const ComposerStudio = () => {
   const configuratorTabTriggerClass =
     "inline-flex h-full items-center justify-center rounded-full px-3 py-0 text-[11px] font-medium leading-none text-slate-400 transition data-[state=active]:border data-[state=active]:border-fuchsia-400/35 data-[state=active]:bg-[linear-gradient(180deg,rgba(217,70,239,0.18),rgba(168,85,247,0.14))] data-[state=active]:text-white data-[state=active]:shadow-[inset_0_0_0_1px_rgba(244,114,182,0.12),0_0_24px_rgba(168,85,247,0.12)] data-[state=active]:backdrop-blur-xl";
   const renderRuntimePreviewShell = () => {
-    const shellClasses = `${runtimePreviewModalWidthClass} ml-auto flex h-full w-full flex-col overflow-hidden rounded-2xl border border-slate-700/80 bg-slate-900 shadow-[0_28px_90px_rgba(15,23,42,0.72)]`;
+    const shellClasses = `${runtimePreviewShellWidthClass} ml-auto flex h-full flex-col overflow-hidden rounded-2xl border border-slate-700/80 bg-slate-900 shadow-[0_28px_90px_rgba(15,23,42,0.72)]`;
 
     return (
       <div className={shellClasses}>
-        <div className="flex items-center justify-between px-3 pt-3">
+        <div className="flex items-center justify-between px-4 pt-2.5">
           <div className="flex items-center gap-2">
             <Hexagon className="h-4 w-4 text-[#ff7f50]" />
             <h2 className="text-lg font-semibold text-white">Runtime Preview</h2>
@@ -2498,7 +2495,7 @@ export const ComposerStudio = () => {
             <DevicePreviewSwitcher value={previewDevice} onChange={setPreviewDevice} />
           </div>
         </div>
-        <div className="flex-1 px-3 pb-3 pt-3">
+        <div className="flex-1 px-4 pb-4 pt-2.5">
           <div className="relative h-full overflow-hidden rounded-2xl bg-slate-950/70">
             {!runtimePreviewLoaded && !runtimePreviewErrored && (
               <div className="pointer-events-none absolute inset-x-0 mt-3 flex justify-center">
@@ -3409,7 +3406,7 @@ export const ComposerStudio = () => {
             </Tabs>
           </div>
 
-          <div className={`${cardClass} flex min-h-[700px] max-h-[700px] overflow-hidden flex-col`}>
+          <div className="flex min-h-[700px] max-h-[700px] flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60 px-4 pb-4 pt-3">
             <div className="flex min-h-0 flex-1 items-start justify-end">
               {renderRuntimePreviewShell()}
             </div>
