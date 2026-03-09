@@ -3435,10 +3435,9 @@ export const ComposerStudio = () => {
             </Tabs>
           </div>
 
-          <div className="relative flex min-h-[700px] max-h-[700px] flex-col rounded-2xl border border-slate-800 bg-slate-900/60 px-4 pb-4 pt-3 overflow-visible">
-            <div className="absolute inset-x-4 bottom-4 top-3 z-[85] flex items-start justify-end">
-              {renderRuntimePreviewShell()}
-            </div>
+          <div aria-hidden className="min-h-[700px] max-h-[700px]" />
+          <div className="pointer-events-none absolute inset-y-0 right-0 z-[85] flex w-full justify-end">
+            {renderRuntimePreviewShell()}
           </div>
         </div>
 
