@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AlertTriangle, BarChart, Book, BookOpen, Bot, CheckCircle2, ChevronDown, ChevronUp, Circle, Code, Edit, Eye, FileText, Hexagon, LayoutGrid, List, Loader2, Maximize2, Minimize2, Monitor, MonitorIcon, Moon, Palette, Play, PlayCircle, Share2, Shield, ShieldCheck, SlidersHorizontal, Smartphone, Sparkles, Sun, Target, Tablet, Trash2, Tv, Upload, Users, Volume2, Type } from "lucide-react";
+import { AlertTriangle, BarChart, Book, BookOpen, Bot, CheckCircle2, ChevronDown, ChevronUp, Circle, Code, Edit, Eye, FileText, Hexagon, LayoutGrid, List, Loader2, Monitor, MonitorIcon, Moon, Palette, Play, PlayCircle, Share2, Shield, ShieldCheck, SlidersHorizontal, Smartphone, Sparkles, Sun, Target, Tablet, Trash2, Tv, Upload, Users, Volume2, Type } from "lucide-react";
 import { useCopilotAction } from "@copilotkit/react-core";
 import { Button } from "@/components/ui/button";
 import { DevicePreviewSwitcher } from "@/components/preview/DevicePreviewSwitcher";
@@ -820,14 +820,13 @@ export const ComposerStudio = () => {
   );
   const [selectedExperience, setSelectedExperience] = useState<ExperienceQube | null>(null);
   const [showExperienceModal, setShowExperienceModal] = useState(false);
-  const [isRuntimePreviewExpanded, setIsRuntimePreviewExpanded] = useState(false);
   const [experienceModalTab, setExperienceModalTab] = useState<"goal" | "mechanics" | "metrics">("goal");
   const [experienceToDelete, setExperienceToDelete] = useState<ExperienceQube | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [editingExperienceId, setEditingExperienceId] = useState<string | null>(null);
   const [studioAnalysisTab, setStudioAnalysisTab] = useState<"parity" | "surfaces" | "receipts">("parity");
-  const [isStudioExpanded, setIsStudioExpanded] = useState(true);
+  const isStudioExpanded = true;
   const [experiencePanelTab, setExperiencePanelTab] = useState("template");
   const [resourcesPanelTab, setResourcesPanelTab] = useState("experience");
   const { data: codexList } = useCodexList({ useDefaults: true });
@@ -869,19 +868,6 @@ export const ComposerStudio = () => {
     }
 
     return restoreViewport;
-  }, [isStudioExpanded]);
-
-  useEffect(() => {
-    if (!isStudioExpanded || typeof window === "undefined") return;
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setIsStudioExpanded(false);
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isStudioExpanded]);
 
   // Delete experience function
@@ -2473,25 +2459,44 @@ export const ComposerStudio = () => {
       icon: <LayoutGrid className="h-4 w-4 text-emerald-300" />,
     };
   }, [experiencePanelTab]);
-  const renderRuntimePreviewShell = (mode: "embedded" | "expanded") => {
-    const shellClasses =
-      mode === "expanded"
-        ? `${runtimePreviewModalWidthClass} pointer-events-auto flex h-full max-h-[700px] w-full flex-col overflow-hidden rounded-2xl border border-slate-700/80 bg-slate-900 shadow-[0_28px_90px_rgba(15,23,42,0.72)]`
-        : `${runtimePreviewModalWidthClass} ml-auto flex h-full w-full flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl`;
+  const parityPanelMeta = useMemo(() => {
+    if (studioAnalysisTab === "surfaces") {
+      return {
+        title: "Surface Planning",
+        icon: <LayoutGrid className="h-4 w-4 text-cyan-300" />,
+        description: `Configure surface selection and module placement for the ${tenantId} cartridge.`,
+      };
+    }
+    if (studioAnalysisTab === "receipts") {
+      return {
+        title: "DVN Receipts",
+        icon: <ShieldCheck className="h-4 w-4 text-fuchsia-300" />,
+        description: "Review proof-linked receipts, audit traces, and runtime-ready settlement records.",
+      };
+    }
+    return {
+      title: "Parity Review",
+      icon: <Shield className="h-4 w-4 text-fuchsia-300" />,
+      description: "Review design parity, policy fit, and runtime readiness before launch.",
+    };
+  }, [studioAnalysisTab, tenantId]);
+  const configuratorTabsListClass =
+    "grid h-10 w-full items-center rounded-full border border-white/10 bg-slate-950/60 p-1";
+  const configuratorTabTriggerClass =
+    "inline-flex h-full items-center justify-center rounded-full px-3 py-0 text-[11px] font-medium leading-none text-slate-400 transition data-[state=active]:border data-[state=active]:border-fuchsia-400/35 data-[state=active]:bg-[linear-gradient(180deg,rgba(217,70,239,0.18),rgba(168,85,247,0.14))] data-[state=active]:text-white data-[state=active]:shadow-[inset_0_0_0_1px_rgba(244,114,182,0.12),0_0_24px_rgba(168,85,247,0.12)] data-[state=active]:backdrop-blur-xl";
+  const renderRuntimePreviewShell = () => {
+    const shellClasses = `${runtimePreviewModalWidthClass} ml-auto flex h-full w-full flex-col overflow-hidden rounded-2xl border border-slate-700/80 bg-slate-900 shadow-[0_28px_90px_rgba(15,23,42,0.72)]`;
 
     return (
       <div className={shellClasses}>
         <div className="flex items-center justify-between px-3 pt-3">
-          <DevicePreviewSwitcher value={previewDevice} onChange={setPreviewDevice} />
-          <button
-            type="button"
-            onClick={() => setIsRuntimePreviewExpanded((prev) => !prev)}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-slate-950/70 text-slate-200 transition hover:border-cyan-400/50 hover:bg-slate-900"
-            title={isRuntimePreviewExpanded ? "Collapse Runtime Preview" : "Expand Runtime Preview"}
-            aria-label={isRuntimePreviewExpanded ? "Collapse Runtime Preview" : "Expand Runtime Preview"}
-          >
-            {isRuntimePreviewExpanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-          </button>
+          <div className="flex items-center gap-2">
+            <Hexagon className="h-4 w-4 text-[#ff7f50]" />
+            <h2 className="text-lg font-semibold text-white">Runtime Preview</h2>
+          </div>
+          <div className="ml-auto">
+            <DevicePreviewSwitcher value={previewDevice} onChange={setPreviewDevice} />
+          </div>
         </div>
         <div className="flex-1 px-3 pb-3 pt-3">
           <div className="relative h-full overflow-hidden rounded-2xl bg-slate-950/70">
@@ -2518,7 +2523,7 @@ export const ComposerStudio = () => {
             )}
             <div className={runtimePreviewViewportClass}>
               <iframe
-                key={`${runtimePreviewSrc}-${previewNonce}-${mode}`}
+                key={`${runtimePreviewSrc}-${previewNonce}`}
                 src={runtimePreviewSrc}
                 title="Runtime Preview"
                 className="h-full w-full border-0"
@@ -2539,8 +2544,8 @@ export const ComposerStudio = () => {
     );
   };
   return (
-    <div className={isStudioExpanded ? "fixed inset-0 z-[95] overflow-y-auto bg-slate-900" : "min-h-screen bg-slate-900 px-5 py-4"}>
-      <div className={isStudioExpanded ? "min-h-screen px-5 py-4" : undefined}>
+    <div className="fixed inset-0 z-[95] overflow-y-auto bg-slate-900">
+      <div className="min-h-screen px-5 py-4">
       <div className="w-full space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -2550,15 +2555,6 @@ export const ComposerStudio = () => {
               Build ExperienceQubes using guided templates. This uses the existing Composer API and receipt pipeline.
             </span>
           </div>
-          <button
-            type="button"
-            onClick={() => setIsStudioExpanded((prev) => !prev)}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-slate-950/70 text-slate-200 transition hover:border-cyan-400/50 hover:bg-slate-900"
-            title={isStudioExpanded ? "Exit fullscreen Studio" : "Fullscreen Studio"}
-            aria-label={isStudioExpanded ? "Exit fullscreen Studio" : "Fullscreen Studio"}
-          >
-            {isStudioExpanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-          </button>
         </div>
 
         <div className="relative grid gap-4 xl:grid-cols-3">
@@ -2584,11 +2580,6 @@ export const ComposerStudio = () => {
             </div>
             <div className="mt-4 flex flex-1 items-start justify-start">
               <div className="relative z-[70] h-[632px] w-full max-w-[420px] overflow-hidden rounded-2xl border border-transparent bg-slate-950/60 backdrop-blur-xl flex flex-col">
-                <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center px-4">
-                  <div className="rounded-full border border-white/10 bg-slate-900/75 px-4 py-1.5 text-xs font-medium tracking-[0.2em] text-slate-300 backdrop-blur-xl">
-                    What would you like to compose?
-                  </div>
-                </div>
                 <div className="h-full overflow-hidden">
                   <CodexCopilotLayer
                     isOpen
@@ -2601,6 +2592,7 @@ export const ComposerStudio = () => {
                     contextOptions={copilotContextOptions}
                     contextId={copilotContextId}
                     onContextChange={handleCopilotContextChange}
+                    initialMessage="What would you like to compose?"
                     inputPanelClassName="rounded-2xl border border-white/10 bg-slate-950/95 backdrop-blur-xl px-3 py-3 shadow-lg"
                     inputPanelInputClassName="flex-1 px-3 py-2 bg-slate-900/80 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500 text-sm"
                     panelBorder={false}
@@ -2643,11 +2635,11 @@ export const ComposerStudio = () => {
             </div>
 
             <Tabs value={experiencePanelTab} onValueChange={setExperiencePanelTab} className="mt-4 flex min-h-0 flex-1 flex-col">
-              <TabsList className="grid h-8 w-full grid-cols-4 rounded-full border border-white/10 bg-slate-950/60 p-1">
-                <TabsTrigger value="template" className="text-[11px] data-[state=active]:border data-[state=active]:border-white/10 data-[state=active]:bg-white/10 data-[state=active]:text-white data-[state=active]:backdrop-blur-xl">Template</TabsTrigger>
-                <TabsTrigger value="customizer" className="text-[11px] data-[state=active]:border data-[state=active]:border-white/10 data-[state=active]:bg-white/10 data-[state=active]:text-white data-[state=active]:backdrop-blur-xl">Customizer</TabsTrigger>
-                <TabsTrigger value="resources" className="text-[11px] data-[state=active]:border data-[state=active]:border-white/10 data-[state=active]:bg-white/10 data-[state=active]:text-white data-[state=active]:backdrop-blur-xl">Resources</TabsTrigger>
-                <TabsTrigger value="exqubes" className="text-[11px] data-[state=active]:border data-[state=active]:border-white/10 data-[state=active]:bg-white/10 data-[state=active]:text-white data-[state=active]:backdrop-blur-xl">ExQubes</TabsTrigger>
+              <TabsList className={`${configuratorTabsListClass} grid-cols-4`}>
+                <TabsTrigger value="template" className={configuratorTabTriggerClass}>Template</TabsTrigger>
+                <TabsTrigger value="customizer" className={configuratorTabTriggerClass}>Customizer</TabsTrigger>
+                <TabsTrigger value="resources" className={configuratorTabTriggerClass}>Resources</TabsTrigger>
+                <TabsTrigger value="exqubes" className={configuratorTabTriggerClass}>ExQubes</TabsTrigger>
               </TabsList>
 
               <TabsContent value="template" className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1">
@@ -2927,11 +2919,11 @@ export const ComposerStudio = () => {
 
               <TabsContent value="resources" className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1">
                 <Tabs value={resourcesPanelTab} onValueChange={setResourcesPanelTab} className="flex min-h-0 h-full flex-col">
-                  <TabsList className="grid h-8 w-full grid-cols-2 rounded-full border border-white/10 bg-slate-950/60 p-1">
-                    <TabsTrigger value="experience" className="text-[11px] data-[state=active]:border data-[state=active]:border-white/10 data-[state=active]:bg-white/10 data-[state=active]:text-white data-[state=active]:backdrop-blur-xl">
+                  <TabsList className={`${configuratorTabsListClass} grid-cols-2`}>
+                    <TabsTrigger value="experience" className={configuratorTabTriggerClass}>
                       Experience
                     </TabsTrigger>
-                    <TabsTrigger value="design" className="text-[11px] data-[state=active]:border data-[state=active]:border-white/10 data-[state=active]:bg-white/10 data-[state=active]:text-white data-[state=active]:backdrop-blur-xl">
+                    <TabsTrigger value="design" className={configuratorTabTriggerClass}>
                       Design
                     </TabsTrigger>
                   </TabsList>
@@ -3417,36 +3409,11 @@ export const ComposerStudio = () => {
             </Tabs>
           </div>
 
-          <div
-            className={`${cardClass} flex min-h-[700px] max-h-[700px] overflow-hidden flex-col transition ${
-              isRuntimePreviewExpanded ? "opacity-0 pointer-events-none" : ""
-            }`}
-            aria-hidden={isRuntimePreviewExpanded}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Hexagon className="h-4 w-4 text-[#ff7f50]" />
-                <h2 className="text-lg font-semibold text-white">Runtime Preview</h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsRuntimePreviewExpanded(true)}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-slate-950/70 text-slate-200 transition hover:border-cyan-400/50 hover:bg-slate-900"
-                title="Expand Runtime Preview"
-                aria-label="Expand Runtime Preview"
-              >
-                <Maximize2 className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="mt-4 flex min-h-0 flex-1 items-start justify-end">
-              {renderRuntimePreviewShell("embedded")}
+          <div className={`${cardClass} flex min-h-[700px] max-h-[700px] overflow-hidden flex-col`}>
+            <div className="flex min-h-0 flex-1 items-start justify-end">
+              {renderRuntimePreviewShell()}
             </div>
           </div>
-          {isRuntimePreviewExpanded && (
-            <div className="pointer-events-none absolute inset-y-0 right-0 z-[82] flex w-full justify-end">
-              {renderRuntimePreviewShell("expanded")}
-            </div>
-          )}
         </div>
 
           <div className="rounded-2xl border border-slate-800/70 bg-slate-900/40 p-3 sm:p-4">
@@ -3455,17 +3422,28 @@ export const ComposerStudio = () => {
               onValueChange={(value) => setStudioAnalysisTab(value as "parity" | "surfaces" | "receipts")}
               className="w-full"
             >
-              <TabsList className="mb-4 grid w-full grid-cols-3 bg-slate-900/70">
-                <TabsTrigger value="parity" className="text-xs sm:text-sm">
-                  Agentic UI Design Parity
-                </TabsTrigger>
-                <TabsTrigger value="surfaces" className="text-xs sm:text-sm">
-                  Surface Planning
-                </TabsTrigger>
-                <TabsTrigger value="receipts" className="text-xs sm:text-sm">
-                  DVN Receipts
-                </TabsTrigger>
-              </TabsList>
+              <div className="mb-4 space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      {parityPanelMeta.icon}
+                      <h2 className="text-lg font-semibold text-white">{parityPanelMeta.title}</h2>
+                    </div>
+                    <p className="text-sm text-slate-400">{parityPanelMeta.description}</p>
+                  </div>
+                </div>
+                <TabsList className="grid h-10 w-full grid-cols-3 items-center rounded-full border border-white/10 bg-slate-950/60 p-1">
+                  <TabsTrigger value="parity" className={configuratorTabTriggerClass}>
+                    Design Parity
+                  </TabsTrigger>
+                  <TabsTrigger value="surfaces" className={configuratorTabTriggerClass}>
+                    Surface Planning
+                  </TabsTrigger>
+                  <TabsTrigger value="receipts" className={configuratorTabTriggerClass}>
+                    DVN Receipts
+                  </TabsTrigger>
+                </TabsList>
+              </div>
 
               <TabsContent value="parity" className="mt-0">
                 <AgenticDesignParityPanel
@@ -3509,7 +3487,7 @@ export const ComposerStudio = () => {
 
       {/* Enhanced ExperienceQube Modal */}
       {showExperienceModal && selectedExperience && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+        <div className="fixed inset-0 z-[140] flex items-center justify-center bg-black/80 p-4">
           <div className="max-w-4xl w-full max-h-[90vh] overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl">
             {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-slate-800 p-6">
@@ -3706,7 +3684,7 @@ export const ComposerStudio = () => {
       )}
 
       {showMcpInspectorModal && mcpExperience && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+        <div className="fixed inset-0 z-[140] flex items-center justify-center bg-black/80 p-4">
           <div className="max-w-5xl w-full max-h-[92vh] overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-800 p-5">
               <div className="flex items-center gap-3">
@@ -4070,7 +4048,7 @@ export const ComposerStudio = () => {
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && experienceToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+        <div className="fixed inset-0 z-[140] flex items-center justify-center bg-black/80 p-4">
           <div className="max-w-md w-full rounded-2xl border border-red-800/50 bg-slate-900 shadow-2xl p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="rounded-full bg-red-500/10 p-2">
