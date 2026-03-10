@@ -827,6 +827,7 @@ export const ComposerStudio = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [editingExperienceId, setEditingExperienceId] = useState<string | null>(null);
   const [studioAnalysisTab, setStudioAnalysisTab] = useState<"parity" | "surfaces" | "receipts">("parity");
+  const [isParityExpanded, setIsParityExpanded] = useState(false);
   const isStudioExpanded = true;
   const [experiencePanelTab, setExperiencePanelTab] = useState("template");
   const [resourcesPanelTab, setResourcesPanelTab] = useState("experience");
@@ -2474,7 +2475,7 @@ export const ComposerStudio = () => {
     }
     if (experiencePanelTab === "exqubes") {
       return {
-        title: "Experience Qubes",
+        title: "Experiences",
         icon: <Hexagon className="h-4 w-4 text-cyan-300" />,
       };
     }
@@ -2573,14 +2574,12 @@ export const ComposerStudio = () => {
     <div className="fixed inset-0 z-[95] overflow-y-auto bg-slate-900">
       <div className="min-h-screen px-5 py-4">
       <div className="w-full space-y-6">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <Hexagon className="h-6 w-6 text-rose-400" />
-            <h1 className="text-xl font-bold text-white">metaMe Studio</h1>
-            <span className="text-sm text-slate-400">
-              Build ExperienceQubes using guided templates. This uses the existing Composer API and receipt pipeline.
-            </span>
-          </div>
+        <div className="flex min-w-0 items-start gap-3">
+          <Hexagon className="mt-0.5 h-6 w-6 shrink-0 text-rose-400" />
+          <h1 className="shrink-0 text-xl font-bold text-white">metaMe Studio</h1>
+          <span className="min-w-0 text-sm leading-snug text-slate-400">
+            Build Experiences using guided templates, the Composer API and receipt pipeline.
+          </span>
         </div>
 
         <div className="relative grid gap-4 lg:grid-cols-3">
@@ -2605,7 +2604,7 @@ export const ComposerStudio = () => {
               </div>
             </div>
             <div className="mt-4 flex flex-1 items-start justify-start">
-              <div className="relative z-[70] h-[632px] w-full max-w-[420px] overflow-hidden rounded-2xl border border-transparent bg-slate-950/60 backdrop-blur-xl flex flex-col">
+              <div className="relative z-[70] h-[632px] w-full max-w-[420px] overflow-hidden rounded-2xl border border-transparent bg-slate-950/60 backdrop-blur-xl flex flex-col md:max-w-full lg:max-w-[420px]">
                 <div className="h-full overflow-hidden">
                   <CodexCopilotLayer
                     isOpen
@@ -2665,7 +2664,7 @@ export const ComposerStudio = () => {
                 <TabsTrigger value="template" className={configuratorTabTriggerClass}>Template</TabsTrigger>
                 <TabsTrigger value="customizer" className={configuratorTabTriggerClass}>Customizer</TabsTrigger>
                 <TabsTrigger value="resources" className={configuratorTabTriggerClass}>Resources</TabsTrigger>
-                <TabsTrigger value="exqubes" className={configuratorTabTriggerClass}>ExQubes</TabsTrigger>
+                <TabsTrigger value="exqubes" className={configuratorTabTriggerClass}>Experiences</TabsTrigger>
               </TabsList>
 
               <TabsContent value="template" className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1">
@@ -3931,7 +3930,10 @@ export const ComposerStudio = () => {
           <div className="rounded-2xl border border-slate-800/70 bg-slate-900/40 p-3 sm:p-4">
             <Tabs
               value={studioAnalysisTab}
-              onValueChange={(value) => setStudioAnalysisTab(value as "parity" | "surfaces" | "receipts")}
+              onValueChange={(value) => {
+                setStudioAnalysisTab(value as "parity" | "surfaces" | "receipts");
+                setIsParityExpanded(true);
+              }}
               className="w-full"
             >
               <div className="mb-4 space-y-3">
@@ -3943,6 +3945,14 @@ export const ComposerStudio = () => {
                     </div>
                     <p className="text-sm text-slate-400">{parityPanelMeta.description}</p>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsParityExpanded((prev) => !prev)}
+                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-slate-950/50 text-slate-300 transition hover:border-fuchsia-400/30 hover:text-white"
+                    aria-label={isParityExpanded ? "Collapse parity review" : "Expand parity review"}
+                  >
+                    <ChevronDown className={`h-4 w-4 transition-transform ${isParityExpanded ? "rotate-180" : ""}`} />
+                  </button>
                 </div>
                 <TabsList className="grid h-10 w-full grid-cols-3 items-center rounded-full border border-white/10 bg-slate-950/60 p-1">
                   <TabsTrigger value="parity" className={configuratorTabTriggerClass}>
@@ -3957,42 +3967,46 @@ export const ComposerStudio = () => {
                 </TabsList>
               </div>
 
-              <TabsContent value="parity" className="mt-0">
-                <AgenticDesignParityPanel
-                  designQube={designQube}
-                  activeDesignQubeId={activeStyleQubeId}
-                  designTheme={designTheme}
-                  experiences={experiences}
-                  previewExperience={previewExperience}
-                  previewAction={previewAction}
-                  onOpenExperience={(experienceId) => {
-                    router.push(`/studio/composer/experience/${encodeURIComponent(experienceId)}`);
-                  }}
-                  onOpenRuntimePreview={() => {
-                    openRuntimePreviewForExperience(previewExperience, "Preview");
-                  }}
-                  onApplyRemedy={handleApplyRemedy}
-                  onLogAuditEvent={handleLogAuditEvent}
-                />
-              </TabsContent>
+              {isParityExpanded ? (
+                <>
+                  <TabsContent value="parity" className="mt-0">
+                    <AgenticDesignParityPanel
+                      designQube={designQube}
+                      activeDesignQubeId={activeStyleQubeId}
+                      designTheme={designTheme}
+                      experiences={experiences}
+                      previewExperience={previewExperience}
+                      previewAction={previewAction}
+                      onOpenExperience={(experienceId) => {
+                        router.push(`/studio/composer/experience/${encodeURIComponent(experienceId)}`);
+                      }}
+                      onOpenRuntimePreview={() => {
+                        openRuntimePreviewForExperience(previewExperience, "Preview");
+                      }}
+                      onApplyRemedy={handleApplyRemedy}
+                      onLogAuditEvent={handleLogAuditEvent}
+                    />
+                  </TabsContent>
 
-              <TabsContent value="surfaces" className="mt-0">
-                <SurfacePlanningPanel
-                  experienceId={previewExperience?.id || selectedExperienceId || undefined}
-                  cartridge={tenantId}
-                  onSurfacePlanGenerated={() => {
-                    // Stub hook for future runtime preview integration.
-                  }}
-                />
-              </TabsContent>
+                  <TabsContent value="surfaces" className="mt-0">
+                    <SurfacePlanningPanel
+                      experienceId={previewExperience?.id || selectedExperienceId || undefined}
+                      cartridge={tenantId}
+                      onSurfacePlanGenerated={() => {
+                        // Stub hook for future runtime preview integration.
+                      }}
+                    />
+                  </TabsContent>
 
-              <TabsContent value="receipts" className="mt-0">
-                <DVNReceiptsPanel
-                  experienceId={previewExperience?.id || selectedExperienceId || undefined}
-                  autoRefresh={true}
-                  refreshInterval={5000}
-                />
-              </TabsContent>
+                  <TabsContent value="receipts" className="mt-0">
+                    <DVNReceiptsPanel
+                      experienceId={previewExperience?.id || selectedExperienceId || undefined}
+                      autoRefresh={true}
+                      refreshInterval={5000}
+                    />
+                  </TabsContent>
+                </>
+              ) : null}
             </Tabs>
           </div>
       </div>
