@@ -79,8 +79,9 @@ async function createSoraJob(
   const data = await res.json().catch(() => null);
 
   if (!res.ok) {
+    const errType = data?.error?.type ? ` [${data.error.type}]` : "";
     const msg = data?.error?.message || `Sora API ${res.status}: ${res.statusText}`;
-    throw new Error(msg);
+    throw new Error(`(${res.status}${errType}) ${msg}`);
   }
 
   return data;
