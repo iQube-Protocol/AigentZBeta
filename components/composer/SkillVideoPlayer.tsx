@@ -3,10 +3,10 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dots } from "@/components/registry/scoreUtils";
 import {
   Play,
   Loader2,
-  ShieldCheck,
   AlertTriangle,
   CheckCircle2,
   XCircle,
@@ -46,14 +46,21 @@ interface InvocationResult {
   generation_metadata?: Record<string, unknown>;
   error?: string;
   gate_blocked?: boolean;
+  sora_fallback_reason?: string;
 }
 
-const BADGE_COLORS: Record<string, string> = {
-  A: "text-green-400 border-green-500/30 bg-green-500/10",
-  B: "text-blue-400 border-blue-500/30 bg-blue-500/10",
-  C: "text-amber-400 border-amber-500/30 bg-amber-500/10",
-  D: "text-red-400 border-red-500/30 bg-red-500/10",
-};
+// Convert skill composite (0–100) to trust dot scale (0–10)
+function compositeToTrust(composite?: number): number {
+  return Math.round(((composite ?? 0) / 10) * 10) / 10;
+}
+
+// Compact T + 5-dot trust indicator
+const TrustDots: React.FC<{ composite?: number; size?: "xs" | "sm" }> = ({ composite, size = "xs" }) => (
+  <span className="inline-flex items-center gap-1">
+    <span className="text-[10px] font-semibold text-slate-400">T</span>
+    <Dots value={compositeToTrust(composite)} kind="trust" title="Trust" size={size} />
+  </span>
+);
 
 export default function SkillVideoPlayer({
   skill_id,
@@ -110,7 +117,6 @@ export default function SkillVideoPlayer({
     } catch { /* still generating */ }
   }, [result?.generation_id]);
 
-  const badgeClass = BADGE_COLORS[result?.skill_badge || ""] || BADGE_COLORS.D;
   const isSimulation = result?.mode === "simulation";
   const isLive = result?.mode === "live";
 
@@ -132,11 +138,8 @@ export default function SkillVideoPlayer({
         <div className="flex items-center gap-2">
           <Video className="h-5 w-5 text-cyan-400" />
           <span className="text-sm font-semibold text-white">Sora Video Generation</span>
-          {result?.skill_badge && (
-            <Badge variant="outline" className={`text-[10px] ${badgeClass}`}>
-              <ShieldCheck className="h-2.5 w-2.5 mr-0.5" />
-              Badge {result.skill_badge}
-            </Badge>
+          {result?.skill_composite != null && (
+            <TrustDots composite={result.skill_composite} />
           )}
         </div>
         {state === "done" && result?.receipt && (
@@ -213,6 +216,9 @@ export default function SkillVideoPlayer({
                   The full invocation pipeline ran successfully — gate check, SkillWrapper sandbox, and DVN receipt
                   were all executed. When a live key is configured, a real video matching your prompt will appear here.
                 </p>
+                {result?.sora_fallback_reason && (
+                  <p className="text-[10px] text-amber-400/60 font-mono mt-2">{result.sora_fallback_reason}</p>
+                )}
               </div>
             </div>
 
@@ -243,9 +249,7 @@ export default function SkillVideoPlayer({
                 <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-1.5">Skill</p>
                 <p className="text-xs text-slate-200">{result?.skill_name}</p>
                 <div className="flex items-center gap-1.5 mt-1">
-                  <Badge variant="outline" className={`text-[9px] ${badgeClass}`}>
-                    <ShieldCheck className="h-2 w-2 mr-0.5" />Badge {result?.skill_badge}
-                  </Badge>
+                  <TrustDots composite={result?.skill_composite} />
                   <span className="text-[9px] text-slate-500">Composite {result?.skill_composite}</span>
                 </div>
               </div>
@@ -332,14 +336,16 @@ export default function SkillVideoPlayer({
                 objectFit: "contain",
                 backgroundColor: "#000",
               }}
+              onError={() => {
+                // Video not playable (wrong MIME, not ready, etc.) — clear URL so auto-poll can retry
+                setResult(prev => prev ? { ...prev, video_url: undefined } : prev);
+              }}
             />
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4 text-emerald-400" />
                 <span className="text-xs text-emerald-300">Generated from Sora API</span>
-                <Badge variant="outline" className={`text-[9px] ${badgeClass}`}>
-                  Badge {result?.skill_badge}
-                </Badge>
+                <TrustDots composite={result?.skill_composite} />
                 {result.invocation_id && (
                   <span className="text-[10px] text-slate-500 font-mono">{result.invocation_id}</span>
                 )}
@@ -365,7 +371,7 @@ export default function SkillVideoPlayer({
                 <p className="text-sm text-red-200">{result?.error || "Unknown error"}</p>
                 {result?.gate_blocked && (
                   <p className="text-[10px] text-amber-300 mt-1">
-                    This skill is below the hydration threshold. Enable &quot;Accept lower trust badge&quot; in the template to override.
+                    This skill is below the hydration threshold. Enable &quot;Accept lower trust level&quot; in the template to override.
                   </p>
                 )}
               </div>

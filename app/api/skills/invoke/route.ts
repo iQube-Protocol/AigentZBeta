@@ -67,7 +67,7 @@ async function createSoraJob(
   form.append("seconds", String(snappedSeconds));
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 20_000);
+  const timeout = setTimeout(() => controller.abort(), 25_000);
 
   const res = await fetch(OPENAI_VIDEOS_URL, {
     method: "POST",
@@ -277,6 +277,7 @@ export async function POST(request: NextRequest) {
       completed_at: completedAt,
       receipt,
       generation_metadata: generationMetadata,
+      sora_fallback_reason: mode === "simulation" && generationMetadata?.note ? String(generationMetadata.note) : undefined,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
