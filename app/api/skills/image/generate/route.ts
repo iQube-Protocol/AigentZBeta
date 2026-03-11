@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 export const runtime = "nodejs";
 
 const OPENAI_IMAGES_URL = "https://api.openai.com/v1/images/generations";
-const VENICE_IMAGES_URL = "https://api.venice.ai/api/v1/images/generations";
+const VENICE_IMAGES_URL = "https://api.venice.ai/api/v1/image/generate";
 const OPENAI_IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL || "gpt-image-1";
 const VENICE_IMAGE_MODEL = process.env.VENICE_IMAGE_MODEL || "fluently-xl";
 
@@ -12,6 +12,12 @@ type Orientation = "portrait" | "landscape";
 
 function resolveImageSize(orientation: Orientation) {
   return orientation === "portrait" ? "1024x1536" : "1536x1024";
+}
+
+function resolveVeniceDimensions(orientation: Orientation) {
+  return orientation === "portrait"
+    ? { width: 1024, height: 1536, aspectRatio: "2:3" }
+    : { width: 1536, height: 1024, aspectRatio: "3:2" };
 }
 
 async function bufferToDataUrl(buffer: ArrayBuffer, contentType: string) {
@@ -28,6 +34,7 @@ function extractImageUrlFromJson(data: any): string | null {
     data?.images?.[0]?.url,
     data?.images?.[0]?.image_url,
     data?.images?.[0]?.base64 ? `data:image/png;base64,${data.images[0].base64}` : null,
+    typeof data?.images?.[0] === "string" ? `data:image/png;base64,${data.images[0]}` : null,
     typeof data?.image === "string" ? data.image : null,
     typeof data?.image_url === "string" ? data.image_url : null,
     typeof data?.url === "string" ? data.url : null,
@@ -58,19 +65,33 @@ async function requestImageGeneration(
   const timeout = setTimeout(() => controller.abort(), 60_000);
 
   try {
+    const veniceDims = resolveVeniceDimensions(orientation);
     const res = await fetch(endpoint, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        model,
-        prompt,
-        size: resolveImageSize(orientation),
-        n: 1,
-        response_format: "b64_json",
-      }),
+      body: JSON.stringify(
+        providerId === "venice"
+          ? {
+              model,
+              prompt,
+              width: veniceDims.width,
+              height: veniceDims.height,
+              aspect_ratio: veniceDims.aspectRatio,
+              format: "png",
+              return_binary: false,
+              safe_mode: false,
+            }
+          : {
+              model,
+              prompt,
+              size: resolveImageSize(orientation),
+              n: 1,
+              response_format: "b64_json",
+            }
+      ),
       signal: controller.signal,
     }).finally(() => clearTimeout(timeout));
 
