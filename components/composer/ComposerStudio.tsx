@@ -2240,13 +2240,13 @@ export const ComposerStudio = () => {
       copilotContextOptions,
       currentStep,
       experiencePanelTab,
-      experienceResourceCounts.resourceCount,
-      experienceResourceCounts.userDataCount,
       handleCopilotPrompt,
-      mergedData,
       selectedTemplate?.name,
+      tenantId,
+      userId,
+      sessionData,
+      stepData,
       sessionTemplate,
-      startSeededSessionForTemplate,
     ]
   );
 
