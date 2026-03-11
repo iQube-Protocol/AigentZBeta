@@ -109,6 +109,13 @@ interface ProviderExecutionResult {
   content: string;
 }
 
+interface ProviderAvailability {
+  openai: boolean;
+  venice: boolean;
+  anthropic: boolean;
+  chaingpt: boolean;
+}
+
 type WalletActionId =
   | 'checkout'
   | 'wallet'
@@ -241,6 +248,15 @@ function providerHasApiKey(providerId: RuntimeProviderId): boolean {
   }
 }
 
+function getProviderAvailability(): ProviderAvailability {
+  return {
+    openai: providerHasApiKey('openai'),
+    venice: providerHasApiKey('venice'),
+    anthropic: providerHasApiKey('anthropic'),
+    chaingpt: providerHasApiKey('chaingpt'),
+  };
+}
+
 function defaultAgentIdForPersona(persona: 'kn0w1' | 'moneypenny') {
   return persona === 'moneypenny' ? 'aigent-moneypenny' : 'aigent-kn0w1';
 }
@@ -335,13 +351,19 @@ function buildProviderAttempts(
   requestedProviderId: RuntimeProviderId | null,
   requestedModelId: string | null,
   agentId: string,
-): ProviderAttempt[] {
+): { attempts: ProviderAttempt[]; skipped: Array<{ providerId: RuntimeProviderId; reason: string }> } {
   const normalizedAgentId = normalizeAgentId(agentId) || normalizeAgentId(defaultAgentIdForPersona('kn0w1'));
   const configuredProviders = normalizedAgentId ? getAgentLlmProviders(normalizedAgentId) : [];
   const attempts: ProviderAttempt[] = [];
+  const skipped = new Map<RuntimeProviderId, string>();
 
   const pushAttempt = (providerId: RuntimeProviderId, modelId?: string | null) => {
-    if (!providerHasApiKey(providerId)) return;
+    if (!providerHasApiKey(providerId)) {
+      if (!skipped.has(providerId)) {
+        skipped.set(providerId, 'API key not visible to server runtime');
+      }
+      return;
+    }
     const resolvedModelId = modelId || defaultModelForProvider(providerId);
     if (attempts.some((entry) => entry.providerId === providerId && entry.modelId === resolvedModelId)) return;
     attempts.push({ providerId, modelId: resolvedModelId });
@@ -374,7 +396,10 @@ function buildProviderAttempts(
     pushAttempt(fallbackProviderId);
   }
 
-  return attempts;
+  return {
+    attempts,
+    skipped: Array.from(skipped.entries()).map(([providerId, reason]) => ({ providerId, reason })),
+  };
 }
 
 async function callOpenAi(messages: ChatMessage[], modelId: string): Promise<ProviderExecutionResult> {
@@ -983,7 +1008,8 @@ export async function POST(request: NextRequest) {
     const resolvedAgentId =
       (typeof aigentId === 'string' && normalizeAgentId(aigentId)) ||
       defaultAgentIdForPersona(persona);
-    const providerAttempts = buildProviderAttempts(
+    const providerAvailability = getProviderAvailability();
+    const { attempts: providerAttempts, skipped: skippedProviders } = buildProviderAttempts(
       requestedProviderId,
       requestedModelId,
       resolvedAgentId,
@@ -1046,7 +1072,9 @@ export async function POST(request: NextRequest) {
         wallet_actions: walletActions,
         event_meta: eventMeta,
         fallback: true,
+        provider_availability: providerAvailability,
         provider_attempts: providerAttempts,
+        provider_skipped: skippedProviders,
         provider_errors: providerErrors,
       });
     }
@@ -1077,7 +1105,9 @@ export async function POST(request: NextRequest) {
       provider_requested: requestedProviderId,
       model_requested: requestedModelId,
       provider_fallback: Boolean(requestedProviderId && executionResult.providerId !== requestedProviderId),
+      provider_availability: providerAvailability,
       provider_attempts: providerAttempts,
+      provider_skipped: skippedProviders,
       kbSources: kbResults.length > 0 ? kbResults.map(r => ({
         title: r.title,
         category: r.contentCategory,

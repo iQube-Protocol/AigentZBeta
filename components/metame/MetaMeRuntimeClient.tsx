@@ -2030,6 +2030,11 @@ export default function MetaMeRuntimeClient() {
         const providerFallback = data?.provider_fallback === true;
         const fallbackMode = data?.fallback === true;
         const providerErrors = Array.isArray(data?.provider_errors) ? data.provider_errors : [];
+        const providerSkipped = Array.isArray(data?.provider_skipped) ? data.provider_skipped : [];
+        const providerAvailability =
+          data?.provider_availability && typeof data.provider_availability === "object"
+            ? data.provider_availability
+            : null;
         if (!llmResponse) {
           persistPersonaMemory({
             prompt: trimmed,
@@ -2071,6 +2076,26 @@ export default function MetaMeRuntimeClient() {
               ? `Provider diagnostic: requested ${requestedProvider}, answered with ${usedProvider}${usedModel ? ` (${usedModel})` : ""}.`
               : `Provider diagnostic: answered with ${usedProvider}${usedModel ? ` (${usedModel})` : ""}.`
           );
+        }
+        if (providerAvailability) {
+          const availabilitySummary = [
+            `openai=${providerAvailability.openai ? "on" : "off"}`,
+            `venice=${providerAvailability.venice ? "on" : "off"}`,
+            `anthropic=${providerAvailability.anthropic ? "on" : "off"}`,
+            `chaingpt=${providerAvailability.chaingpt ? "on" : "off"}`,
+          ].join(", ");
+          diagnosticLines.push(`Provider availability: ${availabilitySummary}`);
+        }
+        if (providerSkipped.length > 0) {
+          const skippedSummary = providerSkipped
+            .slice(0, 4)
+            .map((entry: any) => {
+              const providerId = typeof entry?.providerId === "string" ? entry.providerId : "unknown";
+              const reason = typeof entry?.reason === "string" ? entry.reason : "skipped";
+              return `- ${providerId}: ${reason}`;
+            })
+            .join("\n");
+          diagnosticLines.push(`Skipped providers:\n${skippedSummary}`);
         }
         if (providerErrors.length > 0) {
           const summarized = providerErrors
