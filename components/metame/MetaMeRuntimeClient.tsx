@@ -1985,6 +1985,9 @@ export default function MetaMeRuntimeClient() {
             persona,
             personaId: shellContextRef.current.persona_id || null,
             contextId: "metame-runtime-shell",
+            aigentId: selectedAgent.id,
+            llm_id: activeModel?.modelId ?? null,
+            provider_id: activeModel?.providerId ?? null,
           }),
         });
         const data = await response.json().catch(() => ({}));

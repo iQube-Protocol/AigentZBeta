@@ -2,7 +2,7 @@
  * Embedding Service
  * 
  * Generates and manages vector embeddings for semantic search in the Knowledge Base.
- * Uses OpenAI's text-embedding-ada-002 model (1536 dimensions).
+ * Supports a dedicated embedding-provider path with the current schema fixed at 1536 dimensions.
  */
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
@@ -38,6 +38,8 @@ export interface SimilaritySearchResult {
   };
 }
 
+type EmbeddingProviderId = 'openai' | 'voyage' | 'none';
+
 // ============================================================================
 // Embedding Service
 // ============================================================================
@@ -45,7 +47,9 @@ export interface SimilaritySearchResult {
 class EmbeddingService {
   private supabase: SupabaseClient;
   private openaiApiKey: string | undefined;
-  private model = 'text-embedding-ada-002';
+  private voyageApiKey: string | undefined;
+  private provider: EmbeddingProviderId;
+  private model: string;
   private dimensions = 1536;
 
   constructor() {
@@ -58,50 +62,312 @@ class EmbeddingService {
 
     this.supabase = createClient(supabaseUrl, supabaseKey);
     this.openaiApiKey = process.env.OPENAI_API_KEY;
+    this.voyageApiKey = process.env.VOYAGE_API_KEY;
+
+    const configuredProvider = (process.env.EMBEDDING_PROVIDER || '').trim().toLowerCase();
+    if (configuredProvider === 'voyage' && this.voyageApiKey) {
+      this.provider = 'voyage';
+    } else if (configuredProvider === 'openai' && this.openaiApiKey) {
+      this.provider = 'openai';
+    } else if (this.openaiApiKey) {
+      this.provider = 'openai';
+    } else if (this.voyageApiKey) {
+      this.provider = 'voyage';
+    } else {
+      this.provider = 'none';
+    }
+
+    this.model =
+      this.provider === 'voyage'
+        ? process.env.VOYAGE_EMBEDDING_MODEL || 'voyage-large-2'
+        : process.env.OPENAI_EMBEDDING_MODEL || 'text-embedding-3-small';
+  }
+
+  private normalizeQueryTerms(query: string): string[] {
+    return Array.from(
+      new Set(
+        query
+          .toLowerCase()
+          .split(/[^a-z0-9]+/i)
+          .map((term) => term.trim())
+          .filter((term) => term.length >= 3),
+      ),
+    ).slice(0, 8);
+  }
+
+  private mapRowToResult(item: any, similarity: number): SimilaritySearchResult {
+    const doc = item.document as unknown as { title?: string; domain?: string; content_category?: string };
+    return {
+      chunkId: item.id,
+      documentId: item.document_id,
+      content: item.content,
+      similarity,
+      metadata: {
+        title: doc?.title,
+        domain: doc?.domain,
+        contentCategory: doc?.content_category,
+        chunkIndex: item.chunk_index,
+      },
+    };
+  }
+
+  private scoreLexicalMatch(content: string, title: string, terms: string[]): number {
+    if (!terms.length) return 0;
+    const contentLower = content.toLowerCase();
+    const titleLower = title.toLowerCase();
+
+    let score = 0;
+    for (const term of terms) {
+      if (titleLower.includes(term)) score += 3;
+      const occurrences = contentLower.split(term).length - 1;
+      score += Math.min(occurrences, 5);
+    }
+
+    return score;
+  }
+
+  private async keywordSearch(
+    query: string,
+    domain: string,
+    limit: number,
+  ): Promise<SimilaritySearchResult[]> {
+    const terms = this.normalizeQueryTerms(query);
+    const seenIds = new Set<string>();
+    const results: SimilaritySearchResult[] = [];
+
+    const appendUnique = (items: SimilaritySearchResult[]) => {
+      for (const item of items) {
+        if (seenIds.has(item.chunkId)) continue;
+        seenIds.add(item.chunkId);
+        results.push(item);
+        if (results.length >= limit) break;
+      }
+    };
+
+    const { data: textSearchRows, error: textSearchError } = await this.supabase
+      .from('codex_kb_chunks')
+      .select(`
+        id,
+        document_id,
+        content,
+        chunk_index,
+        document:codex_kb_documents!inner(title, domain, content_category)
+      `)
+      .eq('document.domain', domain)
+      .textSearch('content', query, { type: 'websearch' })
+      .limit(limit);
+
+    if (!textSearchError && textSearchRows?.length) {
+      appendUnique(textSearchRows.map((row) => this.mapRowToResult(row, 0.55)));
+    }
+
+    if (results.length >= limit) {
+      return results.slice(0, limit);
+    }
+
+    if (!terms.length) {
+      return results.slice(0, limit);
+    }
+
+    const orClause = terms.map((term) => `content.ilike.%${term}%`).join(',');
+    const { data: looseRows, error: looseError } = await this.supabase
+      .from('codex_kb_chunks')
+      .select(`
+        id,
+        document_id,
+        content,
+        chunk_index,
+        document:codex_kb_documents!inner(title, domain, content_category)
+      `)
+      .eq('document.domain', domain)
+      .or(orClause)
+      .limit(Math.max(limit * 4, 20));
+
+    if (looseError || !looseRows?.length) {
+      return results.slice(0, limit);
+    }
+
+    const rankedLoose = looseRows
+      .map((row) => {
+        const doc = row.document as unknown as { title?: string };
+        const score = this.scoreLexicalMatch(row.content || '', doc?.title || '', terms);
+        return { row, score };
+      })
+      .filter((entry) => entry.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .map((entry, index) => this.mapRowToResult(entry.row, Math.max(0.3, 0.5 - index * 0.02)));
+
+    appendUnique(rankedLoose);
+    return results.slice(0, limit);
   }
 
   /**
-   * Check if embeddings are available (OpenAI key configured)
+   * Check if embeddings are available
    */
   isAvailable(): boolean {
-    return !!this.openaiApiKey;
+    return this.provider !== 'none';
+  }
+
+  getProviderInfo() {
+    return {
+      provider: this.provider,
+      model: this.model,
+      dimensions: this.dimensions,
+    };
+  }
+
+  private async generateOpenAiEmbedding(text: string): Promise<EmbeddingResult> {
+    if (!this.openaiApiKey) {
+      return { success: false, error: 'OpenAI embedding provider not configured' };
+    }
+
+    const response = await fetch('https://api.openai.com/v1/embeddings', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.openaiApiKey}`,
+      },
+      body: JSON.stringify({
+        model: this.model,
+        input: text.substring(0, 8000),
+        dimensions: this.dimensions,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => null);
+      return { success: false, error: error?.error?.message || 'OpenAI API error' };
+    }
+
+    const data = await response.json();
+    const embedding = data.data?.[0]?.embedding;
+    const tokenCount = data.usage?.total_tokens;
+
+    if (!Array.isArray(embedding) || embedding.length !== this.dimensions) {
+      return { success: false, error: 'OpenAI returned invalid embedding dimensions' };
+    }
+
+    return { success: true, embedding, tokenCount };
+  }
+
+  private async generateVoyageEmbedding(text: string): Promise<EmbeddingResult> {
+    if (!this.voyageApiKey) {
+      return { success: false, error: 'Voyage embedding provider not configured' };
+    }
+
+    const response = await fetch('https://api.voyageai.com/v1/embeddings', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.voyageApiKey}`,
+      },
+      body: JSON.stringify({
+        model: this.model,
+        input: [text.substring(0, 8000)],
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => null);
+      return { success: false, error: error?.detail || error?.message || 'Voyage API error' };
+    }
+
+    const data = await response.json();
+    const embedding = data?.data?.[0]?.embedding;
+    const tokenCount = data?.usage?.total_tokens;
+
+    if (!Array.isArray(embedding) || embedding.length !== this.dimensions) {
+      return {
+        success: false,
+        error: `Voyage model ${this.model} returned ${Array.isArray(embedding) ? embedding.length : 0} dimensions, expected ${this.dimensions}`,
+      };
+    }
+
+    return { success: true, embedding, tokenCount };
+  }
+
+  private async generateOpenAiEmbeddings(texts: string[]): Promise<EmbeddingResult[]> {
+    if (!this.openaiApiKey) {
+      return texts.map(() => ({ success: false, error: 'OpenAI embedding provider not configured' }));
+    }
+
+    const response = await fetch('https://api.openai.com/v1/embeddings', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.openaiApiKey}`,
+      },
+      body: JSON.stringify({
+        model: this.model,
+        input: texts.map((text) => text.substring(0, 8000)),
+        dimensions: this.dimensions,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => null);
+      const errorMsg = error?.error?.message || 'OpenAI API error';
+      return texts.map(() => ({ success: false, error: errorMsg }));
+    }
+
+    const data = await response.json();
+    return (data.data || []).map((item: { embedding: number[] }) => ({
+      success: Array.isArray(item.embedding) && item.embedding.length === this.dimensions,
+      embedding: item.embedding,
+      error:
+        Array.isArray(item.embedding) && item.embedding.length === this.dimensions
+          ? undefined
+          : 'OpenAI returned invalid embedding dimensions',
+    }));
+  }
+
+  private async generateVoyageEmbeddings(texts: string[]): Promise<EmbeddingResult[]> {
+    if (!this.voyageApiKey) {
+      return texts.map(() => ({ success: false, error: 'Voyage embedding provider not configured' }));
+    }
+
+    const response = await fetch('https://api.voyageai.com/v1/embeddings', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.voyageApiKey}`,
+      },
+      body: JSON.stringify({
+        model: this.model,
+        input: texts.map((text) => text.substring(0, 8000)),
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => null);
+      const errorMsg = error?.detail || error?.message || 'Voyage API error';
+      return texts.map(() => ({ success: false, error: errorMsg }));
+    }
+
+    const data = await response.json();
+    return (data.data || []).map((item: { embedding: number[] }) => ({
+      success: Array.isArray(item.embedding) && item.embedding.length === this.dimensions,
+      embedding: item.embedding,
+      error:
+        Array.isArray(item.embedding) && item.embedding.length === this.dimensions
+          ? undefined
+          : 'Voyage returned invalid embedding dimensions',
+    }));
   }
 
   /**
    * Generate embedding for a single text
    */
   async generateEmbedding(text: string): Promise<EmbeddingResult> {
-    if (!this.openaiApiKey) {
-      return { success: false, error: 'OpenAI API key not configured' };
-    }
-
     try {
-      const response = await fetch('https://api.openai.com/v1/embeddings', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.openaiApiKey}`,
-        },
-        body: JSON.stringify({
-          model: this.model,
-          input: text.substring(0, 8000), // Limit to ~8000 chars for safety
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        return { success: false, error: error.error?.message || 'OpenAI API error' };
+      switch (this.provider) {
+        case 'openai':
+          return await this.generateOpenAiEmbedding(text);
+        case 'voyage':
+          return await this.generateVoyageEmbedding(text);
+        default:
+          return { success: false, error: 'No embedding provider configured' };
       }
-
-      const data = await response.json();
-      const embedding = data.data[0]?.embedding;
-      const tokenCount = data.usage?.total_tokens;
-
-      if (!embedding) {
-        return { success: false, error: 'No embedding returned' };
-      }
-
-      return { success: true, embedding, tokenCount };
     } catch (error) {
       return { 
         success: false, 
@@ -114,35 +380,15 @@ class EmbeddingService {
    * Generate embeddings for multiple texts (batch)
    */
   async generateEmbeddings(texts: string[]): Promise<EmbeddingResult[]> {
-    if (!this.openaiApiKey) {
-      return texts.map(() => ({ success: false, error: 'OpenAI API key not configured' }));
-    }
-
-    // OpenAI supports batch embeddings
     try {
-      const response = await fetch('https://api.openai.com/v1/embeddings', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.openaiApiKey}`,
-        },
-        body: JSON.stringify({
-          model: this.model,
-          input: texts.map(t => t.substring(0, 8000)),
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        const errorMsg = error.error?.message || 'OpenAI API error';
-        return texts.map(() => ({ success: false, error: errorMsg }));
+      switch (this.provider) {
+        case 'openai':
+          return await this.generateOpenAiEmbeddings(texts);
+        case 'voyage':
+          return await this.generateVoyageEmbeddings(texts);
+        default:
+          return texts.map(() => ({ success: false, error: 'No embedding provider configured' }));
       }
-
-      const data = await response.json();
-      return data.data.map((item: { embedding: number[]; index: number }) => ({
-        success: true,
-        embedding: item.embedding,
-      }));
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       return texts.map(() => ({ success: false, error: errorMsg }));
@@ -173,8 +419,8 @@ class EmbeddingService {
    * Generate and store embeddings for all chunks without embeddings
    */
   async processUnembeddedChunks(batchSize: number = 20): Promise<BatchEmbeddingResult> {
-    if (!this.openaiApiKey) {
-      return { success: false, processed: 0, failed: 0, errors: ['OpenAI API key not configured'] };
+    if (!this.isAvailable()) {
+      return { success: false, processed: 0, failed: 0, errors: ['No embedding provider configured'] };
     }
 
     // Get chunks without embeddings
@@ -294,42 +540,12 @@ class EmbeddingService {
       return semanticResults;
     }
 
-    // Fall back to or supplement with keyword search
-    const { data: keywordResults, error } = await this.supabase
-      .from('codex_kb_chunks')
-      .select(`
-        id,
-        document_id,
-        content,
-        chunk_index,
-        document:codex_kb_documents!inner(title, domain, content_category)
-      `)
-      .eq('document.domain', domain)
-      .textSearch('content', query, { type: 'websearch' })
-      .limit(limit - semanticResults.length);
-
-    if (error || !keywordResults) {
-      return semanticResults;
-    }
-
-    // Merge results, avoiding duplicates
+    const keywordResults = await this.keywordSearch(query, domain, limit);
     const seenIds = new Set(semanticResults.map(r => r.chunkId));
     
     for (const item of keywordResults) {
-      if (!seenIds.has(item.id)) {
-        const doc = item.document as unknown as { title: string; domain: string; content_category: string };
-        semanticResults.push({
-          chunkId: item.id,
-          documentId: item.document_id,
-          content: item.content,
-          similarity: 0.5, // Default similarity for keyword matches
-          metadata: {
-            title: doc.title,
-            domain: doc.domain,
-            contentCategory: doc.content_category,
-            chunkIndex: item.chunk_index,
-          },
-        });
+      if (!seenIds.has(item.chunkId)) {
+        semanticResults.push(item);
       }
     }
 

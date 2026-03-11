@@ -399,6 +399,10 @@ When moving an item from backlog to active sprint:
 - Always reference source documents for full context
 - Keep this document updated as work progresses
 
+## Runtime Backlog Additions
+
+- **Medium**: Add an admin UI control in the metaMe Runtime to trigger and monitor KB re-embedding batches, including active embedding provider/model display and batch progress status.
+
 ---
 
 **Maintained by**: Development Team  

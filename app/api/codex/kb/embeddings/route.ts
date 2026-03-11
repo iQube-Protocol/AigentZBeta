@@ -23,9 +23,11 @@ export async function GET() {
     
     const stats = await embeddingService.getStats();
     const isAvailable = embeddingService.isAvailable();
+    const provider = embeddingService.getProviderInfo();
 
     return NextResponse.json({
       available: isAvailable,
+      provider,
       stats,
       percentComplete: stats.totalChunks > 0 
         ? Math.round((stats.embeddedChunks / stats.totalChunks) * 100) 
@@ -52,10 +54,11 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const embeddingService = getEmbeddingService();
+    const provider = embeddingService.getProviderInfo();
 
     if (!embeddingService.isAvailable()) {
       return NextResponse.json(
-        { error: 'OpenAI API key not configured. Embeddings are not available.' },
+        { error: 'No embedding provider configured. Embeddings are not available.', provider },
         { status: 503,  }
       );
     }
@@ -84,6 +87,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: result.success,
+      provider,
       processed: result.processed,
       failed: result.failed,
       errors: result.errors.slice(0, 5), // Limit errors in response
