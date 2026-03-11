@@ -27,10 +27,18 @@ export const runtime = "nodejs";
 const SKILL_REGISTRY: Record<string, { name: string; provenance: string; composite: number; badge: string; hydrate: boolean }> = {
   sora_video_gen_curated: { name: "Sora Video Gen (Curated)", provenance: "first_party_curated", composite: 79, badge: "A", hydrate: true },
   sora_video_gen_community: { name: "Sora Video Gen (Community)", provenance: "community", composite: 52, badge: "C", hydrate: false },
+  venice_video_gen: { name: "Venice Video Gen", provenance: "first_party_curated", composite: 82, badge: "A", hydrate: true },
 };
 
 // OpenAI Videos API (REST — SDK v4.x doesn't include this resource yet)
 const OPENAI_VIDEOS_URL = "https://api.openai.com/v1/videos";
+
+// Venice Video API
+const VENICE_VIDEO_BASE = "https://api.venice.ai/api/v1/video";
+const VENICE_DEFAULT_MODEL = "kling-2.6-pro-text-to-video";
+
+// Which skill IDs route to Venice vs OpenAI
+const VENICE_SKILL_IDS = new Set(["venice_video_gen"]);
 
 // Map aspect_ratio to Sora size strings (supported: 1280x720, 720x1280, 1792x1024, 1024x1792)
 const ASPECT_TO_SIZE: Record<string, string> = {
@@ -85,6 +93,54 @@ async function createSoraJob(
   }
 
   return data;
+}
+
+/**
+ * Queue a Venice video generation job.
+ * POST /api/v1/video/queue — returns { model, queue_id }
+ */
+async function createVeniceJob(
+  apiKey: string,
+  prompt: string,
+  seconds: number,
+  aspectRatio: string,
+  model?: string,
+): Promise<{ queue_id: string; model: string }> {
+  const veniceModel = model || VENICE_DEFAULT_MODEL;
+  const dur = seconds <= 5 ? "5s" : "10s"; // Venice supports 5s or 10s
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 25_000);
+
+  const res = await fetch(`${VENICE_VIDEO_BASE}/queue`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: veniceModel,
+      prompt,
+      duration: dur,
+      aspect_ratio: aspectRatio,
+      resolution: "720p",
+      audio: false,
+    }),
+    signal: controller.signal,
+  }).finally(() => clearTimeout(timeout));
+
+  const data = await res.json().catch(() => null);
+
+  if (!res.ok) {
+    const msg = data?.error?.message || data?.error || `Venice API ${res.status}: ${res.statusText}`;
+    throw new Error(`(${res.status}) ${typeof msg === "string" ? msg : JSON.stringify(msg)}`);
+  }
+
+  if (!data?.queue_id) {
+    throw new Error("Venice API returned no queue_id");
+  }
+
+  return { queue_id: data.queue_id, model: data.model || veniceModel };
 }
 
 /**
@@ -171,16 +227,25 @@ export async function POST(request: NextRequest) {
     const invocationId = `inv_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
     const startedAt = new Date().toISOString();
 
-    // Check for real OPENAI_API_KEY
-    const apiKey = process.env.OPENAI_API_KEY;
+    const isVenice = VENICE_SKILL_IDS.has(skill_id);
+    const apiKey = isVenice ? process.env.VENICE_API_KEY : process.env.OPENAI_API_KEY;
     let videoUrl: string | null = null;
     let mode: "live" | "simulation" = "simulation";
     let generationMetadata: Record<string, unknown> = {};
     let generationId: string | null = null;
+    let provider: "venice" | "openai" = isVenice ? "venice" : "openai";
+    let veniceModel: string | null = null;
 
-    if (apiKey && apiKey.startsWith("sk-")) {
-      // Attempt live Sora API call
+    if (apiKey && (isVenice || apiKey.startsWith("sk-"))) {
       try {
+        if (isVenice) {
+          // Venice path
+          const vJob = await createVeniceJob(apiKey, prompt, duration, aspect_ratio, body.venice_model);
+          generationId = vJob.queue_id;
+          veniceModel = vJob.model;
+          mode = "live";
+          generationMetadata = { provider: "venice", model: veniceModel, queue_id: generationId };
+        } else {
         console.log(`[SkillInvoke] Attempting live Sora generation for: "${prompt.substring(0, 60)}..."`);
         const job = await createSoraJob(apiKey, prompt, duration, aspect_ratio);
         generationId = job.id || null;
@@ -191,6 +256,7 @@ export async function POST(request: NextRequest) {
           videoUrl = `/api/skills/video/${generationId}`;
           mode = "live";
           generationMetadata = {
+            provider: "openai",
             model: "sora-2",
             generation_id: generationId,
             completed_immediately: true,
@@ -202,19 +268,22 @@ export async function POST(request: NextRequest) {
           // and user can re-check via the video proxy endpoint.
           mode = "live";
           generationMetadata = {
+            provider: "openai",
             model: "sora-2",
             generation_id: generationId,
             job_status: job.status,
             note: "Generation submitted. Video will be available at /api/skills/video/<id> once complete.",
           };
         }
+        } // end Sora else
       } catch (soraError: any) {
         // API key exists but Sora call failed (no access, quota, etc.) — fall to simulation
         const errMsg = soraError.message || String(soraError);
-        console.warn(`[SkillInvoke] Sora API failed, falling back to simulation: ${errMsg}`);
+        const label = isVenice ? "Venice" : "Sora";
+        console.warn(`[SkillInvoke] ${label} API failed, falling back to simulation: ${errMsg}`);
         mode = "simulation";
         generationMetadata = {
-          note: `Sora API unavailable — ${errMsg}`,
+          note: `${label} API unavailable — ${errMsg}`,
           fallback: true,
         };
       }
@@ -222,7 +291,9 @@ export async function POST(request: NextRequest) {
       // No API key
       mode = "simulation";
       generationMetadata = {
-        note: "Simulation mode — set OPENAI_API_KEY with Sora access for live generation",
+        note: isVenice
+          ? "Simulation mode — set VENICE_API_KEY for live Venice video generation"
+          : "Simulation mode — set OPENAI_API_KEY with Sora access for live generation",
       };
     }
 
@@ -256,7 +327,7 @@ export async function POST(request: NextRequest) {
       },
     };
 
-    console.log(`[SkillInvoke] ${skill.name} invoked (${mode}) — ${invocationId}${generationId ? ` [sora:${generationId}]` : ""}`);
+    console.log(`[SkillInvoke] ${skill.name} invoked (${mode}/${provider}) — ${invocationId}${generationId ? ` [${provider}:${generationId}]` : ""}`);
 
     return NextResponse.json({
       ok: true,
@@ -277,8 +348,10 @@ export async function POST(request: NextRequest) {
       started_at: startedAt,
       completed_at: completedAt,
       receipt,
+      provider,
+      venice_model: veniceModel || undefined,
       generation_metadata: generationMetadata,
-      sora_fallback_reason: mode === "simulation" && generationMetadata?.note ? String(generationMetadata.note) : undefined,
+      fallback_reason: mode === "simulation" && generationMetadata?.note ? String(generationMetadata.note) : undefined,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

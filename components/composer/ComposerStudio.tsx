@@ -1849,6 +1849,16 @@ export const ComposerStudio = () => {
     });
   }, [templates, templateIntent, templateQuery]);
 
+  const selectedTemplate = useMemo(
+    () => filteredTemplates.find((t) => t.id === selectedTemplateId) || null,
+    [filteredTemplates, selectedTemplateId]
+  );
+
+  const currentStep = useMemo(() => {
+    if (!sessionTemplate) return null;
+    return sessionTemplate.steps[session?.current_step || 0] || null;
+  }, [sessionTemplate, session?.current_step]);
+
   useCopilotAction({
     name: "composer_set_template_intent",
     description: "Set the template intent and filter query for Studio composition.",
@@ -2193,16 +2203,6 @@ export const ComposerStudio = () => {
       setSelectedTemplateId(filteredTemplates[0].id);
     }
   }, [filteredTemplates, selectedTemplateId]);
-
-  const selectedTemplate = useMemo(
-    () => filteredTemplates.find((t) => t.id === selectedTemplateId) || null,
-    [filteredTemplates, selectedTemplateId]
-  );
-
-  const currentStep = useMemo(() => {
-    if (!sessionTemplate) return null;
-    return sessionTemplate.steps[session?.current_step || 0] || null;
-  }, [sessionTemplate, session?.current_step]);
 
   const getFieldError = (field: ComposerField, value: any): string | null => {
     const isEmpty =

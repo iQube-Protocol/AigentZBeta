@@ -29,6 +29,7 @@ interface SkillVideoPlayerProps {
   experience_id?: string;
   trust_override?: boolean;
   autoInvoke?: boolean;
+  venice_model?: string;
 }
 
 interface InvocationResult {
@@ -46,7 +47,10 @@ interface InvocationResult {
   generation_metadata?: Record<string, unknown>;
   error?: string;
   gate_blocked?: boolean;
+  fallback_reason?: string;
   sora_fallback_reason?: string;
+  provider?: "venice" | "openai";
+  venice_model?: string;
 }
 
 // Convert skill composite (0–100) to trust dot scale (0–10)
@@ -62,6 +66,14 @@ const TrustDots: React.FC<{ composite?: number; size?: "xs" | "sm" }> = ({ compo
   </span>
 );
 
+function inferProviderFromSkillId(skillId: string): "venice" | "openai" {
+  return skillId.includes("venice") ? "venice" : "openai";
+}
+
+function getProviderLabel(provider: "venice" | "openai") {
+  return provider === "venice" ? "Venice" : "OpenAI Sora";
+}
+
 export default function SkillVideoPlayer({
   skill_id,
   prompt,
@@ -71,10 +83,14 @@ export default function SkillVideoPlayer({
   creative_pack,
   experience_id,
   trust_override = false,
+  venice_model,
 }: SkillVideoPlayerProps) {
   const [state, setState] = useState<"idle" | "invoking" | "done" | "error">("idle");
   const [result, setResult] = useState<InvocationResult | null>(null);
   const [showReceipt, setShowReceipt] = useState(false);
+  const initialProvider = inferProviderFromSkillId(skill_id);
+  const resolvedProvider = result?.provider || initialProvider;
+  const providerLabel = getProviderLabel(resolvedProvider);
 
   const invoke = useCallback(async () => {
     setState("invoking");
@@ -92,6 +108,7 @@ export default function SkillVideoPlayer({
           creative_pack: creative_pack || undefined,
           experience_id: experience_id || undefined,
           trust_override,
+          venice_model: venice_model || undefined,
         }),
       });
       const data = await res.json().catch(() => ({ ok: false, error: "Invalid response from skill API" }));
@@ -101,12 +118,16 @@ export default function SkillVideoPlayer({
       setResult({ ok: false, error: err?.message || "Invocation failed" });
       setState("error");
     }
-  }, [skill_id, prompt, duration, aspect_ratio, style, creative_pack, experience_id, trust_override]);
+  }, [skill_id, prompt, duration, aspect_ratio, style, creative_pack, experience_id, trust_override, venice_model]);
 
   const checkStatus = useCallback(async () => {
     if (!result?.generation_id) return;
     try {
-      const res = await fetch(`/api/skills/video/${result.generation_id}/status`);
+      const isV = result.provider === "venice";
+      const statusUrl = isV
+        ? `/api/skills/video/venice/${result.generation_id}/status?model=${encodeURIComponent(result.venice_model || "")}`
+        : `/api/skills/video/${result.generation_id}/status`;
+      const res = await fetch(statusUrl);
       const data = await res.json().catch(() => null);
       if (data?.ready && data?.video_url) {
         setResult(prev => prev ? { ...prev, video_url: data.video_url } : prev);
@@ -115,7 +136,7 @@ export default function SkillVideoPlayer({
         setState("error");
       }
     } catch { /* still generating */ }
-  }, [result?.generation_id]);
+  }, [result?.generation_id, result?.provider, result?.venice_model]);
 
   const isSimulation = result?.mode === "simulation";
   const isLive = result?.mode === "live";
@@ -137,7 +158,7 @@ export default function SkillVideoPlayer({
       <div className="flex items-center justify-between p-4 border-b border-slate-800/60">
         <div className="flex items-center gap-2">
           <Video className="h-5 w-5 text-cyan-400" />
-          <span className="text-sm font-semibold text-white">Sora Video Generation</span>
+          <span className="text-sm font-semibold text-white">{providerLabel} Video Generation</span>
           {result?.skill_composite != null && (
             <TrustDots composite={result.skill_composite} />
           )}
@@ -198,7 +219,7 @@ export default function SkillVideoPlayer({
           <div className="flex flex-col items-center justify-center py-10 space-y-3">
             <Loader2 className="h-10 w-10 text-cyan-400 animate-spin" />
             <p className="text-sm text-slate-300">Generating video&hellip;</p>
-            <p className="text-[10px] text-slate-500">SkillWrapper sandbox &rarr; gate check &rarr; Sora API</p>
+            <p className="text-[10px] text-slate-500">SkillWrapper sandbox &rarr; gate check &rarr; {providerLabel} API</p>
             <p className="text-[10px] text-slate-500/60">This may take 1–3 minutes for live generation</p>
           </div>
         )}
@@ -212,12 +233,12 @@ export default function SkillVideoPlayer({
               <div>
                 <p className="text-sm font-medium text-amber-200">Simulation Mode</p>
                 <p className="text-xs text-amber-300/70 mt-1 leading-relaxed">
-                  No video was generated. The Sora API requires a production OpenAI API key with video access.
+                  No video was generated. The {providerLabel} API requires a configured production key with video access.
                   The full invocation pipeline ran successfully — gate check, SkillWrapper sandbox, and DVN receipt
                   were all executed. When a live key is configured, a real video matching your prompt will appear here.
                 </p>
-                {result?.sora_fallback_reason && (
-                  <p className="text-[10px] text-amber-400/60 font-mono mt-2">{result.sora_fallback_reason}</p>
+                {(result?.fallback_reason || result?.sora_fallback_reason) && (
+                  <p className="text-[10px] text-amber-400/60 font-mono mt-2">{result?.fallback_reason || result?.sora_fallback_reason}</p>
                 )}
               </div>
             </div>
@@ -270,7 +291,7 @@ export default function SkillVideoPlayer({
                   </div>
                   <div className="flex items-center gap-1.5">
                     <Eye className="h-3 w-3 text-amber-400" />
-                    <span className="text-[10px] text-amber-300">Video: awaiting live key</span>
+                    <span className="text-[10px] text-amber-300">Video: awaiting {providerLabel} access</span>
                   </div>
                 </div>
               </div>
@@ -297,7 +318,7 @@ export default function SkillVideoPlayer({
               <div>
                 <p className="text-sm font-medium text-cyan-200">Video Generation In Progress</p>
                 <p className="text-xs text-cyan-300/70 mt-1 leading-relaxed">
-                  Sora is generating your video. This can take 1–3 minutes.
+                  {providerLabel} is generating your video. This can take 1–3 minutes.
                   Auto-checking every 15 seconds — the video will appear automatically when ready.
                 </p>
                 {result?.generation_id && (
@@ -344,7 +365,7 @@ export default function SkillVideoPlayer({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                <span className="text-xs text-emerald-300">Generated from Sora API</span>
+                <span className="text-xs text-emerald-300">Generated from {providerLabel}</span>
                 <TrustDots composite={result?.skill_composite} />
                 {result.invocation_id && (
                   <span className="text-[10px] text-slate-500 font-mono">{result.invocation_id}</span>

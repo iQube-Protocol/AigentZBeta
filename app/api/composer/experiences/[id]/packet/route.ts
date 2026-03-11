@@ -75,6 +75,16 @@ function isSkillBacked(experience: any): boolean {
   return templateId === "sora-video-generation" || !!config.skill_selection?.skill_id;
 }
 
+function getVideoSkillSubhead(skillId: string) {
+  if (skillId === "venice_video_gen") {
+    return "Venice Video Generation";
+  }
+  if (skillId === "sora_video_gen_community") {
+    return "Community Video Generation";
+  }
+  return "OpenAI Sora Video Generation";
+}
+
 function buildSkillPacket(experience: any) {
   const config = experience.configuration || {};
   const intent = config.intent_timebox || {};
@@ -107,6 +117,7 @@ function buildSkillPacket(experience: any) {
     skill: {
       skill_id: skillId,
       trust_override: skillSel.trust_override === true,
+      venice_model: skillSel.venice_model || null,
       prompt: videoPrompt.prompt || "",
       duration: videoPrompt.duration || 10,
       aspect_ratio: videoPrompt.aspect_ratio || "16:9",
@@ -117,7 +128,7 @@ function buildSkillPacket(experience: any) {
       primary_template: "skill:video_player_v1",
       layout: "centered",
       title: experience.name,
-      subhead: "Sora Video Generation",
+      subhead: getVideoSkillSubhead(skillId),
       template_selection: {
         template_id: "skill:video_player_v1",
         reason: "Skill-backed experience — SkillVideoPlayer",
@@ -134,6 +145,7 @@ function buildSkillPacket(experience: any) {
             style: videoPrompt.style || "cinematic",
             creative_pack: intent.creative_pack || null,
             autoInvoke: false,
+            venice_model: skillSel.venice_model || undefined,
           },
         },
       ],
