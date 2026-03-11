@@ -18,6 +18,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getEmbeddingService } from '@/services/content/embeddingService';
+import {
+  getAgentLlmProviders,
+  normalizeAgentId,
+  type LlmProviderId,
+} from '@/services/metame/agentLlmOrchestra';
+import {
+  buildComposerPromptParts,
+  type ComposerSessionContext,
+} from '@/services/copilot/composer';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -30,6 +39,17 @@ const embeddingService = getEmbeddingService();
 // OpenAI configuration
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+const VENICE_API_KEY = process.env.VENICE_API_KEY;
+const VENICE_MODEL = process.env.VENICE_MODEL || 'venice-uncensored';
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet';
+const CHAINGPT_API_KEY =
+  process.env.CHAINGPT_API_KEY ||
+  process.env.CHAIN_GPT_API_KEY ||
+  process.env.CHAINGPT_API_SECRET ||
+  process.env.CHAIN_GPT_API_SECRET ||
+  null;
+const CHAINGPT_MODEL = process.env.CHAINGPT_MODEL || 'general_assistant';
 
 // ============================================================================
 // Types
@@ -69,6 +89,24 @@ interface KBSearchResult {
   title: string;
   contentCategory: string;
   similarity: number;
+}
+
+interface ComposerFallbackInput {
+  message: string;
+  sessionContext?: ComposerSessionContext;
+}
+
+type RuntimeProviderId = Extract<LlmProviderId, 'openai' | 'venice' | 'chaingpt' | 'anthropic'>;
+
+interface ProviderAttempt {
+  providerId: RuntimeProviderId;
+  modelId: string;
+}
+
+interface ProviderExecutionResult {
+  providerId: RuntimeProviderId;
+  modelId: string;
+  content: string;
 }
 
 type WalletActionId =
@@ -176,6 +214,394 @@ function createEventMeta(source: string) {
     source,
     timestamp: new Date().toISOString(),
   };
+}
+
+function normalizeRuntimeProviderId(raw?: unknown): RuntimeProviderId | null {
+  if (typeof raw !== 'string') return null;
+  const normalized = raw.trim().toLowerCase();
+  if (normalized === 'openai') return 'openai';
+  if (normalized === 'venice' || normalized === 'venice ai') return 'venice';
+  if (normalized === 'anthropic' || normalized === 'claude' || normalized === 'anthropic ai') return 'anthropic';
+  if (normalized === 'chaingpt' || normalized === 'chain gpt') return 'chaingpt';
+  return null;
+}
+
+function providerHasApiKey(providerId: RuntimeProviderId): boolean {
+  switch (providerId) {
+    case 'openai':
+      return Boolean(OPENAI_API_KEY);
+    case 'venice':
+      return Boolean(VENICE_API_KEY);
+    case 'anthropic':
+      return Boolean(ANTHROPIC_API_KEY);
+    case 'chaingpt':
+      return Boolean(CHAINGPT_API_KEY);
+    default:
+      return false;
+  }
+}
+
+function defaultAgentIdForPersona(persona: 'kn0w1' | 'moneypenny') {
+  return persona === 'moneypenny' ? 'aigent-moneypenny' : 'aigent-kn0w1';
+}
+
+function defaultModelForProvider(providerId: RuntimeProviderId): string {
+  switch (providerId) {
+    case 'openai':
+      return OPENAI_MODEL;
+    case 'venice':
+      return VENICE_MODEL;
+    case 'anthropic':
+      return ANTHROPIC_MODEL;
+    case 'chaingpt':
+      return CHAINGPT_MODEL;
+    default:
+      return OPENAI_MODEL;
+  }
+}
+
+function mapChainGptModelId(modelId?: string | null): string {
+  const normalized = modelId?.trim().toLowerCase();
+  if (!normalized) return CHAINGPT_MODEL;
+  if (
+    normalized === 'general_assistant' ||
+    normalized === 'chaingpt-general' ||
+    normalized === 'chaingpt-crypto' ||
+    normalized === 'chaingpt-code'
+  ) {
+    return 'general_assistant';
+  }
+  return normalized;
+}
+
+function mapAnthropicModelId(modelId?: string | null): string {
+  const normalized = modelId?.trim().toLowerCase();
+  if (!normalized) return 'claude-sonnet-4-6';
+  if (normalized === 'claude-3-5-sonnet') return 'claude-sonnet-4-6';
+  if (normalized === 'claude-3-5-haiku') return 'claude-haiku-4-5-20251001';
+  if (normalized === 'claude-3-opus') return 'claude-opus-4-6';
+  return normalized;
+}
+
+function buildChainGptQuestion(systemPrompt: string, history: ChatMessage[], message: string): string {
+  const priorTurns = history
+    .filter((entry) => entry.role !== 'system')
+    .map((entry) => `${entry.role === 'assistant' ? 'Assistant' : 'User'}: ${entry.content}`)
+    .join('\n');
+
+  return [
+    systemPrompt,
+    priorTurns ? `Conversation so far:\n${priorTurns}` : '',
+    `User: ${message}`,
+    'Respond directly to the latest user message while following the system guidance above.',
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+}
+
+async function parseErrorResponse(response: Response) {
+  const text = await response.text();
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+}
+
+function parsePossibleJson(raw: string): any {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return raw;
+  }
+}
+
+function extractAnthropicText(data: any): string {
+  if (!Array.isArray(data?.content)) return '';
+  return data.content
+    .filter((entry: any) => entry?.type === 'text' && typeof entry?.text === 'string')
+    .map((entry: any) => entry.text)
+    .join('\n')
+    .trim();
+}
+
+function extractChainGptText(data: any): string {
+  return typeof data?.data?.bot === 'string' ? data.data.bot.trim() : '';
+}
+
+function buildProviderAttempts(
+  requestedProviderId: RuntimeProviderId | null,
+  requestedModelId: string | null,
+  agentId: string,
+): ProviderAttempt[] {
+  const normalizedAgentId = normalizeAgentId(agentId) || normalizeAgentId(defaultAgentIdForPersona('kn0w1'));
+  const configuredProviders = normalizedAgentId ? getAgentLlmProviders(normalizedAgentId) : [];
+  const attempts: ProviderAttempt[] = [];
+
+  const pushAttempt = (providerId: RuntimeProviderId, modelId?: string | null) => {
+    if (!providerHasApiKey(providerId)) return;
+    const resolvedModelId = modelId || defaultModelForProvider(providerId);
+    if (attempts.some((entry) => entry.providerId === providerId && entry.modelId === resolvedModelId)) return;
+    attempts.push({ providerId, modelId: resolvedModelId });
+  };
+
+  if (requestedProviderId) {
+    const requestedProvider = configuredProviders.find((entry) => entry.id === requestedProviderId);
+    const requestedModel =
+      requestedModelId && requestedProvider?.models.find((model) => model.id === requestedModelId)?.id;
+    pushAttempt(requestedProviderId, requestedModel || requestedModelId);
+  }
+
+  for (const provider of configuredProviders) {
+    if (
+      provider.id !== 'openai' &&
+      provider.id !== 'venice' &&
+      provider.id !== 'anthropic' &&
+      provider.id !== 'chaingpt'
+    ) {
+      continue;
+    }
+    const preferredModel =
+      requestedProviderId === provider.id && requestedModelId
+        ? requestedModelId
+        : provider.models[0]?.id || defaultModelForProvider(provider.id);
+    pushAttempt(provider.id, preferredModel);
+  }
+
+  for (const fallbackProviderId of ['openai', 'venice', 'anthropic', 'chaingpt'] as RuntimeProviderId[]) {
+    pushAttempt(fallbackProviderId);
+  }
+
+  return attempts;
+}
+
+async function callOpenAi(messages: ChatMessage[], modelId: string): Promise<ProviderExecutionResult> {
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${OPENAI_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: modelId || OPENAI_MODEL,
+      messages,
+      temperature: 0.7,
+      max_tokens: 16000,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await parseErrorResponse(response);
+    throw new Error(`OpenAI request failed: ${JSON.stringify(errorData)}`);
+  }
+
+  const data = await response.json();
+  const content = data?.choices?.[0]?.message?.content?.trim();
+  if (!content) {
+    throw new Error('OpenAI returned an empty completion');
+  }
+
+  return {
+    providerId: 'openai',
+    modelId: modelId || OPENAI_MODEL,
+    content,
+  };
+}
+
+async function callVenice(messages: ChatMessage[], modelId: string): Promise<ProviderExecutionResult> {
+  const response = await fetch('https://api.venice.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${VENICE_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: modelId || VENICE_MODEL,
+      messages,
+      temperature: 0.7,
+      max_tokens: 16000,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await parseErrorResponse(response);
+    throw new Error(`Venice request failed: ${JSON.stringify(errorData)}`);
+  }
+
+  const data = await response.json();
+  const content = data?.choices?.[0]?.message?.content?.trim();
+  if (!content) {
+    throw new Error('Venice returned an empty completion');
+  }
+
+  return {
+    providerId: 'venice',
+    modelId: modelId || VENICE_MODEL,
+    content,
+  };
+}
+
+async function callAnthropic(
+  systemPrompt: string,
+  history: ChatMessage[],
+  message: string,
+  modelId: string,
+): Promise<ProviderExecutionResult> {
+  const anthropicMessages = [
+    ...history.filter((entry) => entry.role !== 'system'),
+    { role: 'user' as const, content: message },
+  ].map((entry) => ({
+    role: entry.role,
+    content: entry.content,
+  }));
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-api-key': ANTHROPIC_API_KEY || '',
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: mapAnthropicModelId(modelId || ANTHROPIC_MODEL),
+      system: systemPrompt,
+      messages: anthropicMessages,
+      max_tokens: 4096,
+      temperature: 0.7,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await parseErrorResponse(response);
+    throw new Error(`Anthropic request failed: ${JSON.stringify(errorData)}`);
+  }
+
+  const data = await response.json();
+  const content = extractAnthropicText(data);
+  if (!content) {
+    throw new Error('Anthropic returned an empty completion');
+  }
+
+  return {
+    providerId: 'anthropic',
+    modelId: mapAnthropicModelId(modelId || ANTHROPIC_MODEL),
+    content,
+  };
+}
+
+async function callChainGpt(
+  systemPrompt: string,
+  history: ChatMessage[],
+  message: string,
+  modelId: string,
+): Promise<ProviderExecutionResult> {
+  const response = await fetch('https://api.chaingpt.org/chat/stream', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      Authorization: `Bearer ${CHAINGPT_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: mapChainGptModelId(modelId),
+      question: buildChainGptQuestion(systemPrompt, history, message),
+      chatHistory: 'off',
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await parseErrorResponse(response);
+    throw new Error(`ChainGPT request failed: ${JSON.stringify(errorData)}`);
+  }
+
+  const raw = await response.text();
+  const data = parsePossibleJson(raw);
+  const content =
+    typeof data === 'string'
+      ? data.trim()
+      : extractChainGptText(data);
+  if (!content) {
+    throw new Error('ChainGPT returned an empty completion');
+  }
+
+  return {
+    providerId: 'chaingpt',
+    modelId: mapChainGptModelId(modelId),
+    content,
+  };
+}
+
+async function executeProviderAttempt(
+  attempt: ProviderAttempt,
+  systemPrompt: string,
+  history: ChatMessage[],
+  message: string,
+): Promise<ProviderExecutionResult> {
+  switch (attempt.providerId) {
+    case 'openai':
+      return callOpenAi([...history, { role: 'user', content: message }], attempt.modelId);
+    case 'venice':
+      return callVenice([...history, { role: 'user', content: message }], attempt.modelId);
+    case 'anthropic':
+      return callAnthropic(systemPrompt, history, message, attempt.modelId);
+    case 'chaingpt':
+      return callChainGpt(systemPrompt, history, message, attempt.modelId);
+    default:
+      throw new Error(`Unsupported provider: ${attempt.providerId}`);
+  }
+}
+
+function buildComposerSystemPrompt(sessionContext: ComposerSessionContext): string {
+  return buildComposerPromptParts(sessionContext)
+    .map((part) => part.content.trim())
+    .filter(Boolean)
+    .join('\n\n');
+}
+
+function generateComposerFallbackResponse({
+  message,
+  sessionContext,
+}: ComposerFallbackInput): string {
+  const normalized = message.toLowerCase();
+  const templateName = sessionContext?.templateContext.selectedTemplateName;
+  const providerList = sessionContext?.resourceContext.selectedProviders?.join(', ');
+  const phase = sessionContext?.studioContext.currentPhase || 'Intent';
+
+  if (/(article|image|portrait|landscape|hero)/.test(normalized)) {
+    return [
+      `I can help you shape an image-led experience from the current ${phase} phase.`,
+      templateName ? `Current template: **${templateName}**.` : `I recommend starting from an article-friendly template.`,
+      `For alpha, I can guide **portrait** and **landscape** asset planning together so the runtime has orientation-aware imagery.`,
+      providerList
+        ? `Current providers in context: **${providerList}**.`
+        : `For alpha, **OpenAI** and **Venice** are both valid image providers.`,
+      `If you want, I can help refine the prompts, required resources, and the next Studio step.`,
+    ].join('\n\n');
+  }
+
+  if (/(video|sora|venice|clip|trailer|motion)/.test(normalized)) {
+    return [
+      `I can help you shape a video-led experience from the current ${phase} phase.`,
+      templateName ? `Current template: **${templateName}**.` : `I recommend starting from a video-capable template.`,
+      providerList
+        ? `Current providers in context: **${providerList}**.`
+        : `For alpha, **OpenAI** and **Venice** are both valid video providers.`,
+      `I can compare provider tradeoffs, suggest a concise prompt, and route you into Customizer and Resources.`,
+    ].join('\n\n');
+  }
+
+  if (/(deploy|discord|mcp|receipt|dvn|parity|surface)/.test(normalized)) {
+    return [
+      `I can help review the current experience through **Parity Review**, **Surface Planning**, and **DVN Receipts**.`,
+      `From there I can guide deployment options such as **MCP-backed delivery** and Discord-oriented flows once the experience is ready.`,
+    ].join('\n\n');
+  }
+
+  return [
+    `I can help you move from **Intent** through **Template**, **Customizer**, **Resources**, **Experiences**, **Preview**, and **Parity Review**.`,
+    `Tell me whether you want an **image-led article**, a **video-led experience**, or a **deployment/proof review** and I will guide the next step.`,
+  ].join('\n\n');
 }
 
 // Search Knowledge Base for relevant content with timeout
@@ -487,6 +913,8 @@ export async function POST(request: NextRequest) {
       message, 
       chatHistory = [], 
       persona = 'kn0w1',
+      mode = 'default',
+      composerSessionContext,
       // New: User context fields
       domain = 'metaKnyts',
       declaredRoles,
@@ -494,6 +922,9 @@ export async function POST(request: NextRequest) {
       nftCount,
       isFirstVisit,
       visitCount,
+      provider_id,
+      llm_id,
+      aigentId,
     } = body;
 
     if (!message) {
@@ -524,74 +955,103 @@ export async function POST(request: NextRequest) {
       hasWallet: !!walletBalance 
     });
 
-    // Fetch codex metadata and search KB in parallel
-    const [metadata, kbResults] = await Promise.all([
-      fetchCodexMetadata(domain),
-      searchKnowledgeBase(message, domain, 3),
-    ]);
+    const isComposerMode = mode === 'composer' && Boolean(composerSessionContext);
 
-    console.log(`[CodexChat] KB search returned ${kbResults.length} results`);
-    
-    // Build system prompt with codex context, user role, AND KB content
-    const systemPrompt = buildSystemPrompt(metadata, persona, userContext, kbResults);
+    let metadata: CodexMetadata | null = null;
+    let kbResults: KBSearchResult[] = [];
+    let systemPrompt = '';
 
-    // If no OpenAI key, use intelligent fallback
-    if (!OPENAI_API_KEY) {
-      console.log('[CodexChat] No OpenAI key, using intelligent fallback');
-      const fallbackResponse = generateFallbackResponse(message, metadata, persona);
-      const walletActions = inferWalletActions(message, fallbackResponse);
-      return NextResponse.json({
-        response: fallbackResponse,
-        persona,
-        wallet_actions: walletActions,
-        event_meta: eventMeta,
-        metadata: {
-          characterCount: metadata.stats.characterCount,
-          episodeCount: metadata.stats.episodeCount
-        }
-      });
+    if (isComposerMode) {
+      systemPrompt = buildComposerSystemPrompt(composerSessionContext as ComposerSessionContext);
+    } else {
+      // Fetch codex metadata and search KB in parallel
+      const [resolvedMetadata, resolvedKbResults] = await Promise.all([
+        fetchCodexMetadata(domain),
+        searchKnowledgeBase(message, domain, 3),
+      ]);
+      metadata = resolvedMetadata;
+      kbResults = resolvedKbResults;
+
+      console.log(`[CodexChat] KB search returned ${kbResults.length} results`);
+      
+      // Build system prompt with codex context, user role, AND KB content
+      systemPrompt = buildSystemPrompt(metadata, persona, userContext, kbResults);
     }
 
-    // Build messages array for OpenAI
-    const messages: ChatMessage[] = [
+    const requestedProviderId = normalizeRuntimeProviderId(provider_id);
+    const requestedModelId = typeof llm_id === 'string' ? llm_id : null;
+    const resolvedAgentId =
+      (typeof aigentId === 'string' && normalizeAgentId(aigentId)) ||
+      defaultAgentIdForPersona(persona);
+    const providerAttempts = buildProviderAttempts(
+      requestedProviderId,
+      requestedModelId,
+      resolvedAgentId,
+    );
+
+    // Build shared conversation array
+    const conversationHistory: ChatMessage[] = [
       { role: 'system', content: systemPrompt },
       ...chatHistory.slice(-10), // Keep last 10 messages for context
-      { role: 'user', content: message }
     ];
+    let executionResult: ProviderExecutionResult | null = null;
+    const providerErrors: Array<{ providerId: RuntimeProviderId; modelId: string; error: string }> = [];
 
-    // Call OpenAI API
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${OPENAI_API_KEY}`
-      },
-      body: JSON.stringify({
-        model: OPENAI_MODEL,
-        messages,
-        temperature: 0.7,
-        max_tokens: 16000
-      })
-    });
+    for (const attempt of providerAttempts) {
+      try {
+        executionResult = await executeProviderAttempt(
+          attempt,
+          systemPrompt,
+          conversationHistory,
+          message,
+        );
+        console.log('[CodexChat] Provider success:', {
+          providerId: executionResult.providerId,
+          modelId: executionResult.modelId,
+        });
+        break;
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        providerErrors.push({
+          providerId: attempt.providerId,
+          modelId: attempt.modelId,
+          error: detail,
+        });
+        console.error('[CodexChat] Provider attempt failed:', {
+          providerId: attempt.providerId,
+          modelId: attempt.modelId,
+          error: detail,
+        });
+      }
+    }
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error('[CodexChat] OpenAI error:', errorData);
-      
-      // Fallback to intelligent response
-      const fallbackResponse = generateFallbackResponse(message, metadata, persona);
+    if (!executionResult) {
+      console.error('[CodexChat] All configured LLM providers failed or were unavailable', {
+        requestedProviderId,
+        requestedModelId,
+        resolvedAgentId,
+        providerErrors,
+      });
+
+      const fallbackResponse = isComposerMode
+        ? generateComposerFallbackResponse({
+            message,
+            sessionContext: composerSessionContext as ComposerSessionContext,
+          })
+        : generateFallbackResponse(message, metadata as CodexMetadata, persona);
       const walletActions = inferWalletActions(message, fallbackResponse);
       return NextResponse.json({
         response: fallbackResponse,
         persona,
         wallet_actions: walletActions,
         event_meta: eventMeta,
-        fallback: true
+        fallback: true,
+        provider_attempts: providerAttempts,
+        provider_errors: providerErrors,
       });
     }
 
-    const data = await response.json();
-    const assistantMessage = data.choices[0]?.message?.content || 'I apologize, I could not generate a response.';
+    const assistantMessage = executionResult.content || 'I apologize, I could not generate a response.';
     const walletActions = inferWalletActions(message, assistantMessage);
     
     console.log('[CodexChat] Response length:', assistantMessage.length);
@@ -609,9 +1069,15 @@ export async function POST(request: NextRequest) {
         roles: userContext.roles,
       },
       metadata: {
-        characterCount: metadata.stats.characterCount,
-        episodeCount: metadata.stats.episodeCount
+        characterCount: metadata?.stats.characterCount ?? 0,
+        episodeCount: metadata?.stats.episodeCount ?? 0
       },
+      provider_used: executionResult.providerId,
+      model_used: executionResult.modelId,
+      provider_requested: requestedProviderId,
+      model_requested: requestedModelId,
+      provider_fallback: Boolean(requestedProviderId && executionResult.providerId !== requestedProviderId),
+      provider_attempts: providerAttempts,
       kbSources: kbResults.length > 0 ? kbResults.map(r => ({
         title: r.title,
         category: r.contentCategory,

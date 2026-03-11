@@ -22,6 +22,11 @@ import { CodexCopilotLayer } from "@/app/components/codex/CodexCopilotLayer";
 import { AgenticDesignParityPanel } from "@/components/composer/AgenticDesignParityPanel";
 import SurfacePlanningPanel from "@/components/composer/SurfacePlanningPanel";
 import DVNReceiptsPanel from "@/components/composer/DVNReceiptsPanel";
+import {
+  buildComposerSessionContext,
+  getComposerProviderKnowledge,
+  getComposerTemplateKnowledge,
+} from "@/services/copilot/composer";
 
 type ComposerField = {
   id: string;
@@ -112,6 +117,45 @@ type ContentSectionLookupPlan = {
   section: string;
   tab?: string;
 };
+
+function inferComposerMediaModeFromPrompt(prompt: string): "image" | "video" | "article" | "mixed" {
+  const lower = prompt.toLowerCase();
+  if (/(video|trailer|clip|motion|sora|venice)/.test(lower)) return "video";
+  if (/(article|editorial|reading|read|feature)/.test(lower)) return "article";
+  if (/(image|hero image|illustration|artwork|portrait|landscape|visual)/.test(lower)) return "image";
+  return "mixed";
+}
+
+function inferVisualStyleFromPrompt(prompt: string): string {
+  const lower = prompt.toLowerCase();
+  if (/(comic|graphic novel|panel)/.test(lower)) return "comic";
+  if (/(animation|animated|anime)/.test(lower)) return "animation";
+  if (/(photo|photoreal|realistic)/.test(lower)) return "photorealistic";
+  if (/(editorial|article|magazine)/.test(lower)) return "editorial";
+  return "cinematic";
+}
+
+function deriveExperienceNameFromPrompt(prompt: string, fallback: string): string {
+  const cleaned = prompt
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/[.?!]+$/g, "");
+  if (!cleaned) return fallback;
+  return cleaned.length > 52 ? `${cleaned.slice(0, 49).trim()}...` : cleaned;
+}
+
+function buildImagePromptVariants(prompt: string, contextLabel: string) {
+  const style = inferVisualStyleFromPrompt(prompt);
+  return {
+    portrait: `Create a ${style} portrait hero image for ${contextLabel}. ${prompt}. Vertical composition, strong focal subject, premium lighting, runtime-grade polish.`,
+    landscape: `Create a ${style} landscape hero image for ${contextLabel}. ${prompt}. Wide cinematic composition, strong depth, editorial clarity, runtime-grade polish.`,
+  };
+}
+
+function buildVideoPrompt(prompt: string, contextLabel: string) {
+  const style = inferVisualStyleFromPrompt(prompt);
+  return `Create a concise ${style} video for ${contextLabel}. ${prompt}. Keep the scene focused, motion readable, composition strong, and suitable for a runtime-grade experience.`;
+}
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
@@ -1862,6 +1906,272 @@ export const ComposerStudio = () => {
     setTemplateQuery(promptWithContext);
   };
 
+  const handleComposerUserPrompt = useCallback(
+    async (prompt: string) => {
+      const lower = prompt.toLowerCase();
+      const templateName = sessionTemplate?.name || selectedTemplate?.name || "the current template";
+      const imageGenerationStep = mergedData?.image_generation || {};
+      const videoPromptStep = mergedData?.video_prompt || {};
+      const skillSelectionStep = mergedData?.skill_selection || {};
+      const selectedProviderId =
+        typeof imageGenerationStep.provider_id === "string" && imageGenerationStep.provider_id
+          ? imageGenerationStep.provider_id
+          : /venice/.test(String(skillSelectionStep.skill_id || ""))
+            ? "venice"
+            : typeof skillSelectionStep.skill_id === "string" && skillSelectionStep.skill_id
+              ? "openai"
+              : null;
+      const selectedProvider = getComposerProviderKnowledge(selectedProviderId || undefined);
+      const selectedSkillId =
+        typeof skillSelectionStep.skill_id === "string" && skillSelectionStep.skill_id
+          ? skillSelectionStep.skill_id
+          : null;
+
+      if (/(show|view|browse).*(all|templates)|all templates/.test(lower)) {
+        handleCopilotPrompt(prompt);
+        setExperiencePanelTab("template");
+        return "I reset the template filters and moved you back to **Template** so you can browse the full Studio template set.";
+      }
+
+      if (/(compare|difference|vs|versus|tradeoff)/.test(lower) && /openai|venice/.test(lower)) {
+        const openai = getComposerProviderKnowledge("openai");
+        const venice = getComposerProviderKnowledge("venice");
+        return [
+          `For the current alpha, **OpenAI** and **Venice** are both valid image and video providers.`,
+          "",
+          `**OpenAI**`,
+          `- ${openai?.strengths[0] || "Strong general-purpose multimodal generation"}`,
+          `- ${openai?.watchouts[0] || "Video can be expensive or rate-limited"}`,
+          "",
+          `**Venice**`,
+          `- ${venice?.strengths[0] || "Useful as a primary or fallback provider"}`,
+          `- ${venice?.operationalNotes[1] || "Good alpha path for image and video workflows"}`,
+          "",
+          `For image-led article work I can guide either provider and explicitly plan **portrait + landscape** variants. For video-led work, I generally recommend **Venice** when you want a resilient alpha path and **OpenAI** when you want the strongest first-party path.`,
+        ].join("\n");
+      }
+
+      if (/(curated|community|openclaw)/.test(lower) && /(sora|video|skill|venice)/.test(lower)) {
+        return [
+          `For the current video path, the main tradeoff is trust posture versus flexibility.`,
+          "",
+          `- **Curated / first-party**: best when you want the cleanest default path.`,
+          `- **Community / OpenClaw**: useful as an alternative, but with a more variable trust posture.`,
+          `- **Venice**: a trusted alternative provider path that fits the same video workflow.`,
+          "",
+          `If you want, I can set up a video session now with either **OpenAI curated**, **Venice**, or **community** selected as the starting path.`,
+        ].join("\n");
+      }
+
+      if (/(parity|surface plan|surface planning|receipts|dvn|deploy|deployment)/.test(lower)) {
+        setIsParityExpanded(true);
+        if (/(surface)/.test(lower)) setStudioAnalysisTab("surfaces");
+        else if (/(receipt|dvn)/.test(lower)) setStudioAnalysisTab("receipts");
+        else setStudioAnalysisTab("parity");
+
+        return `I expanded **Parity Review** and moved to **${
+          /(surface)/.test(lower)
+            ? "Surface Planning"
+            : /(receipt|dvn)/.test(lower)
+              ? "DVN Receipts"
+              : "Design Parity"
+        }** so you can review design, proof, and deployment state without losing your Studio context.`;
+      }
+
+      if (/(what next|next step|where next|how do i continue|what should i do next)/.test(lower)) {
+        if (experiencePanelTab === "customizer" && currentStep) {
+          return `You are in **Customizer** on **${currentStep.title}** for **${templateName}**. The best next step is to complete the fields in this step, then move into **Resources** to confirm provider, skills, cost envelope, and any required user data.`;
+        }
+        if (experiencePanelTab === "resources") {
+          return `You are already in **Resources** for **${templateName}**. The next review loop is: confirm provider and skill path, confirm required user inputs, review the DesignQube summary, then move into **Preview** and **Parity Review**.`;
+        }
+        if (experiencePanelTab === "exqubes") {
+          return `You are in **Experiences**. The next step is to select or review the target ExperienceQube, then open **Runtime Preview** and **Parity Review** before deployment.`;
+        }
+        if (sessionTemplate) {
+          setExperiencePanelTab("customizer");
+          return `I moved you to **Customizer** for **${templateName}**. Start there, then review **Resources**, then check **Preview** and **Parity Review**.`;
+        }
+      }
+
+      if (/(prompt|rewrite|refine|improve|stronger prompt|better prompt)/.test(lower)) {
+        if (typeof videoPromptStep.prompt === "string" && videoPromptStep.prompt.trim()) {
+          return [
+            `You already have a seeded **video prompt** in **${templateName}**.`,
+            "",
+            `**Current prompt**`,
+            videoPromptStep.prompt,
+            "",
+            `I’d refine it by keeping it short, visually specific, and strongly framed around one scene, one motion idea, and one clear style.`,
+          ].join("\n");
+        }
+
+        if (
+          typeof imageGenerationStep.portrait_prompt === "string" &&
+          imageGenerationStep.portrait_prompt.trim()
+        ) {
+          return [
+            `You already have seeded **portrait + landscape** image prompts in **${templateName}**.`,
+            "",
+            `**Portrait**`,
+            imageGenerationStep.portrait_prompt,
+            "",
+            `**Landscape**`,
+            imageGenerationStep.landscape_prompt || "Landscape prompt not set yet.",
+            "",
+            `I’d keep the portrait variant tighter and more subject-led, and the landscape variant wider and more environmental.`,
+          ].join("\n");
+        }
+      }
+
+      if (/(resource|resources|cost|price|pricing|skills|required data|provider)/.test(lower)) {
+        setExperiencePanelTab("resources");
+        setResourcesPanelTab(/designqube|design qube|design/.test(lower) ? "design" : "experience");
+        return [
+          `I moved the configurator to **Resources** so you can review the current build envelope.`,
+          "",
+          `**Template**: ${templateName}`,
+          `**Provider**: ${selectedProvider?.name || selectedProviderId || "Not selected yet"}`,
+          `**Skill**: ${selectedSkillId || "Not selected yet"}`,
+          `**Resource items surfaced**: ${experienceResourceSummary.resources.length || 0}`,
+          `**User data requirements surfaced**: ${experienceResourceSummary.userData.length || 0}`,
+          "",
+          `This is also where I surface the current cost envelope stub, provider path, and DesignQube summary.`,
+        ].join("\n");
+      }
+
+      if (/(image|hero image|illustration|artwork|portrait|landscape|qriptopian article|editorial)/.test(lower)) {
+        const contextLabel =
+          copilotContextOptions.find((opt) => opt.id === copilotContextId)?.label || "The Qriptopian";
+        const providerId = /venice/.test(lower) ? "venice" : "openai";
+        const promptVariants = buildImagePromptVariants(prompt, contextLabel);
+        const experienceName = deriveExperienceNameFromPrompt(prompt, "Qriptopian Image Experience");
+
+        setTemplateIntent("article");
+        setSelectedTemplateId("qripto-feature-article");
+        setTemplateQuery(`${contextLabel}: ${prompt} article hero image portrait landscape`);
+
+        const seedData = {
+          intent_timebox: {
+            experience_name: experienceName,
+            goal: prompt,
+            time_available: "15",
+            depth: /technical/.test(lower) ? "technical" : /practical/.test(lower) ? "practical" : "overview",
+          },
+          content_selection: {
+            issue_slug: /issue 1|latest|news/.test(lower) ? "issue-1" : "issue-0",
+            feature_item_id: "",
+            supporting_item_ids: [],
+            preview_enabled: true,
+          },
+          image_generation: {
+            provider_id: providerId,
+            portrait_prompt: promptVariants.portrait,
+            landscape_prompt: promptVariants.landscape,
+            visual_style: inferVisualStyleFromPrompt(prompt),
+          },
+        };
+
+        const seeded = await startSeededSessionForTemplate("qriptopian_reading_sprint_v0", seedData, 2);
+        const templateKnowledge = getComposerTemplateKnowledge("feature-article-experience");
+        const providerKnowledge = getComposerProviderKnowledge(providerId);
+
+        return seeded.ok
+          ? [
+              `I set up an **image-led article path** in **${seeded.templateName || "Qriptopian Reading Sprint"}** and opened **Customizer** on the hero image step.`,
+              "",
+              `**Recommended provider**: ${providerKnowledge?.name || providerId}`,
+              `- ${providerKnowledge?.strengths[0] || "Good fit for alpha image generation"}`,
+              "",
+              `**Portrait prompt**`,
+              promptVariants.portrait,
+              "",
+              `**Landscape prompt**`,
+              promptVariants.landscape,
+              "",
+              templateKnowledge?.summary
+                ? `Template note: ${templateKnowledge.summary}`
+                : `This follows the current alpha path for article and capsule imagery: template selection, provider choice, portrait + landscape planning, then Resources and Preview review.`,
+            ].join("\n")
+          : `I prepared an image-led article path, but I couldn't open the Customizer session automatically: ${seeded.error}`;
+      }
+
+      if (/(video|sora|trailer|clip|motion)/.test(lower)) {
+        const contextLabel =
+          copilotContextOptions.find((opt) => opt.id === copilotContextId)?.label || "The Qriptopian";
+        const providerId = /venice/.test(lower) ? "venice" : "openai";
+        const useCommunity = /community|openclaw/.test(lower);
+        const skillId =
+          providerId === "venice"
+            ? "venice_video_gen"
+            : useCommunity
+              ? "sora_video_gen_community"
+              : "sora_video_gen_curated";
+        const suggestedPrompt = buildVideoPrompt(prompt, contextLabel);
+        const experienceName = deriveExperienceNameFromPrompt(
+          prompt,
+          providerId === "venice" ? "Venice Video Experience" : "Sora Video Experience"
+        );
+
+        setTemplateIntent("task");
+        setSelectedTemplateId("sora-video-generation");
+        setTemplateQuery(`${contextLabel}: ${prompt} video sora venice ai-generation skill toolqube`);
+
+        const seedData = {
+          intent_timebox: {
+            experience_name: experienceName,
+            goal: prompt,
+          },
+          skill_selection: {
+            skill_id: skillId,
+            trust_override: useCommunity,
+          },
+          video_prompt: {
+            prompt: suggestedPrompt,
+            duration: /12/.test(lower) ? 12 : /4/.test(lower) ? 4 : 8,
+            aspect_ratio: /portrait|vertical|9:16/.test(lower) ? "9:16" : "16:9",
+            style: inferVisualStyleFromPrompt(prompt) === "editorial" ? "cinematic" : inferVisualStyleFromPrompt(prompt),
+          },
+        };
+
+        const seeded = await startSeededSessionForTemplate("sora-video-generation", seedData, 2);
+        const providerKnowledge = getComposerProviderKnowledge(providerId);
+
+        return seeded.ok
+          ? [
+              `I set up a **video-led experience path** in **${seeded.templateName || "Sora Video Generation"}** and opened **Customizer** on the video prompt step.`,
+              "",
+              `**Recommended provider**: ${providerKnowledge?.name || providerId}`,
+              `- ${providerKnowledge?.strengths[0] || "Good fit for alpha video generation"}`,
+              `- ${providerKnowledge?.watchouts[0] || "Remember that video is still the more expensive path."}`,
+              "",
+              `**Selected skill**: ${skillId}`,
+              "",
+              `**Suggested prompt**`,
+              suggestedPrompt,
+              "",
+              `Next, review duration, aspect ratio, and style in **Customizer**, then open **Resources** to inspect the selected skill path, provider, and cost envelope.`,
+            ].join("\n")
+          : `I prepared a video-led path and a first-pass prompt, but I couldn't open the Customizer session automatically: ${seeded.error}`;
+      }
+
+      return undefined;
+    },
+    [
+      copilotContextId,
+      copilotContextOptions,
+      currentStep,
+      experiencePanelTab,
+      experienceResourceSummary.resources.length,
+      experienceResourceSummary.userData.length,
+      handleCopilotPrompt,
+      mergedData,
+      selectedTemplate?.name,
+      sessionTemplate,
+      startSeededSessionForTemplate,
+    ]
+  );
+
   const qriptoContentOptions = useMemo(() => {
     if (codexContentItems.length > 0) {
       return codexContentItems.map((item) => ({ value: item.id, label: item.label }));
@@ -1998,6 +2308,77 @@ export const ComposerStudio = () => {
       setIsSaving(false);
     }
   };
+
+  const startSeededSessionForTemplate = useCallback(
+    async (templateId: string, seedData: Record<string, any>, currentStep = 0) => {
+      if (!tenantId || !userId) {
+        return { ok: false, error: "Tenant or user is missing." };
+      }
+
+      try {
+        setSessionError(null);
+        setIsSaving(true);
+
+        const createRes = await fetch("/api/composer/sessions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            tenant_id: tenantId,
+            user_id: userId,
+            template_id: templateId,
+          }),
+        });
+
+        if (!createRes.ok) {
+          throw new Error("Failed to create session");
+        }
+
+        const createData = await createRes.json();
+        let nextSession = createData.session;
+
+        const nextData = { ...(createData.session?.data || {}), ...seedData };
+        const updateRes = await fetch(`/api/composer/sessions/${createData.session.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            current_step: currentStep,
+            status: "active",
+            data: nextData,
+          }),
+        });
+
+        if (!updateRes.ok) {
+          throw new Error("Failed to seed Studio customization state.");
+        }
+
+        const updateData = await updateRes.json();
+        nextSession = updateData.session;
+
+        setSession(nextSession);
+        setSessionTemplate(createData.template);
+        setSessionData(nextSession?.data || nextData);
+        setStepData(nextData);
+        setExperience(null);
+        setExperiencePanelTab("customizer");
+
+        setTimeout(() => {
+          templateCustomizerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 0);
+
+        return {
+          ok: true,
+          templateName: createData.template?.name || templateId,
+        };
+      } catch (err: any) {
+        const message = err?.message || "Failed to start template customization session.";
+        setSessionError(message);
+        return { ok: false, error: message };
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [tenantId, userId]
+  );
 
   const updateSession = async (nextStep: number) => {
     if (!session) return;
@@ -2454,6 +2835,231 @@ export const ComposerStudio = () => {
 
     return { skills, resources, userData };
   }, [mergedData, sessionTemplate]);
+  const buildComposerChatRequestContext = useCallback(
+    (prompt: string) => {
+      const lower = prompt.toLowerCase();
+      const activePhase =
+        experiencePanelTab === "template"
+          ? "Template"
+          : experiencePanelTab === "customizer"
+            ? "Customizer"
+            : experiencePanelTab === "resources"
+              ? "Resources"
+              : studioAnalysisTab === "surfaces"
+                ? "Parity Review"
+                : studioAnalysisTab === "receipts"
+                  ? "Parity Review"
+                  : "Experiences";
+      const inferredMediaMode =
+        /(video|trailer|clip|motion|sora|venice)/.test(lower)
+          ? "video"
+          : /(article|editorial|reading|read)/.test(lower)
+            ? "article"
+            : /(image|hero image|illustration|artwork|portrait|landscape|visual)/.test(lower)
+              ? "image"
+              : "mixed";
+      const contextLabel =
+        copilotContextOptions.find((opt) => opt.id === copilotContextId)?.label || "The Qriptopian";
+
+      const selectedProviders = new Set<string>();
+      const selectedSkills = new Set<string>();
+      const selectedResources: Array<{ id: string; name: string; type: string; provider?: string }> = [];
+      const requiredUserInputs = new Set<string>();
+      const suggestedPrompts: Record<string, string> = {};
+
+      if (sessionTemplate) {
+        sessionTemplate.steps.forEach((step) => {
+          const stepValuesForStep = mergedData?.[step.id];
+          if (!stepValuesForStep || typeof stepValuesForStep !== "object") return;
+
+          step.ui_config.fields.forEach((field) => {
+            const fieldValue = stepValuesForStep[field.id];
+            if (
+              fieldValue === null ||
+              fieldValue === undefined ||
+              fieldValue === "" ||
+              (Array.isArray(fieldValue) && fieldValue.length === 0)
+            ) {
+              return;
+            }
+
+            const fingerprint = `${field.id} ${field.name}`.toLowerCase();
+            const normalizedValues = Array.isArray(fieldValue) ? fieldValue.map(String) : [String(fieldValue)];
+
+            if (fingerprint.includes("provider")) {
+              normalizedValues.forEach((value) => selectedProviders.add(value));
+            }
+
+            if (fingerprint.includes("skill")) {
+              normalizedValues.forEach((value) => selectedSkills.add(value));
+            }
+
+            if (
+              fingerprint.includes("resource") ||
+              fingerprint.includes("tool") ||
+              fingerprint.includes("provider") ||
+              fingerprint.includes("content") ||
+              fingerprint.includes("agent") ||
+              fingerprint.includes("model")
+            ) {
+              selectedResources.push({
+                id: `${step.id}:${field.id}`,
+                name: field.name,
+                type: field.id,
+                provider: fingerprint.includes("provider") ? normalizedValues[0] : undefined,
+              });
+            }
+
+            if (
+              fingerprint.includes("wallet") ||
+              fingerprint.includes("profile") ||
+              fingerprint.includes("email") ||
+              fingerprint.includes("user") ||
+              fingerprint.includes("consent") ||
+              fingerprint.includes("data")
+            ) {
+              requiredUserInputs.add(field.name);
+            }
+          });
+        });
+      }
+
+      const imageGenerationStep = mergedData?.image_generation || {};
+      if (typeof imageGenerationStep.portrait_prompt === "string" && imageGenerationStep.portrait_prompt.trim()) {
+        suggestedPrompts.imagePortrait = imageGenerationStep.portrait_prompt;
+      }
+      if (typeof imageGenerationStep.landscape_prompt === "string" && imageGenerationStep.landscape_prompt.trim()) {
+        suggestedPrompts.imageLandscape = imageGenerationStep.landscape_prompt;
+      }
+      const videoPromptStep = mergedData?.video_prompt || {};
+      if (typeof videoPromptStep.prompt === "string" && videoPromptStep.prompt.trim()) {
+        suggestedPrompts.video = videoPromptStep.prompt;
+      }
+
+      const portraitNeeded =
+        Boolean(suggestedPrompts.imagePortrait) ||
+        /(portrait|vertical|9:16)/.test(lower) ||
+        inferredMediaMode === "article";
+      const landscapeNeeded =
+        Boolean(suggestedPrompts.imageLandscape) ||
+        /(landscape|horizontal|16:9|wide)/.test(lower) ||
+        inferredMediaMode === "article";
+
+      return {
+        mode: "composer",
+        domain: "qriptopian",
+        persona: "moneypenny",
+        composerSessionContext: buildComposerSessionContext({
+          sessionId: session?.id || `composer-${Date.now()}`,
+          tenantId,
+          userId,
+          personaId: userId,
+          currentPhase: activePhase,
+          activeExperienceTab:
+            experiencePanelTab === "template"
+              ? "Template"
+              : experiencePanelTab === "customizer"
+                ? "Customizer"
+                : experiencePanelTab === "resources"
+                  ? "Resources"
+                  : "Experiences",
+          activeResourceSubTab: resourcesPanelTab === "design" ? "Design" : "Experience",
+          activeParityTab:
+            studioAnalysisTab === "surfaces"
+              ? "Surface Planning"
+              : studioAnalysisTab === "receipts"
+                ? "DVN Receipts"
+                : "Design Parity",
+          inferredIntent: prompt,
+          inferredMediaMode,
+          selectedTemplateId: sessionTemplate?.id || selectedTemplate?.id || selectedTemplateId || undefined,
+          selectedTemplateName: sessionTemplate?.name || selectedTemplate?.name || undefined,
+          candidateTemplateIds: filteredTemplates.slice(0, 6).map((template) => template.id),
+          customizationFields:
+            currentStep?.id && typeof stepValues === "object" ? stepValues : sessionData,
+          suggestedPrompts,
+          selectedProviders: Array.from(selectedProviders),
+          selectedSkills: Array.from(selectedSkills),
+          selectedResources,
+          requiredUserInputs: Array.from(requiredUserInputs),
+          generationCostEnvelope: {
+            status: "stubbed",
+            notes: [
+              selectedProviders.size > 0
+                ? `Provider path: ${Array.from(selectedProviders).join(", ")}`
+                : "Provider path still needs confirmation.",
+              selectedSkills.size > 0
+                ? `Skill path: ${Array.from(selectedSkills).join(", ")}`
+                : "Skill selection still needs confirmation.",
+              inferredMediaMode === "video"
+                ? "Video generation usually has the highest alpha cost and latency."
+                : "Image generation is the cheaper and faster alpha path.",
+            ],
+          },
+          activeDesignQubeId: activeStyleQubeId,
+          activeDesignQubeName: designQube?.name,
+          designSummary: experienceResourceSummary.resources.map((item) => `${item.label}: ${item.value}`).slice(0, 6),
+          orientationAssetPlan: {
+            portraitNeeded,
+            landscapeNeeded,
+            notes: [
+              portraitNeeded ? "Portrait assets are part of the current planning context." : "",
+              landscapeNeeded ? "Landscape assets are part of the current planning context." : "",
+            ].filter(Boolean),
+          },
+          selectedExperienceQubeId: selectedExperienceId || previewExperience?.id || experience?.id || undefined,
+          selectedExperienceQubeName: previewExperience?.name || experience?.name || undefined,
+          availableExperienceQubeIds: experiences.slice(0, 10).map((exp) => exp.id),
+          previewDevice,
+          previewStatus: runtimePreviewLoaded ? "ready" : "idle",
+          parityStatus: isParityExpanded ? "ready" : "idle",
+          surfacePlanStatus: studioAnalysisTab === "surfaces" ? "ready" : "idle",
+          dvnReceiptStatus: studioAnalysisTab === "receipts" ? "ready" : "idle",
+          personaContext: { id: userId, name: contextLabel },
+          activeDataQubes: [],
+          activeContentQubes: [],
+          deploymentTargets: ["Studio Preview", "MCP App Deployment", "Discord via MCP"],
+          recommendedDeploymentTarget: "Studio Preview",
+          deploymentReady: Boolean(selectedExperienceId || previewExperience?.id),
+          deploymentNotes: [
+            "Use Parity Review before deployment when resources or policy posture changed.",
+            "Discord and MCP deployment can follow after preview and parity review are satisfactory.",
+          ],
+        }),
+      };
+    },
+    [
+      activeStyleQubeId,
+      copilotContextId,
+      copilotContextOptions,
+      currentStep?.id,
+      designQube?.name,
+      experience?.id,
+      experience?.name,
+      experiencePanelTab,
+      experienceResourceSummary.resources,
+      experiences,
+      filteredTemplates,
+      isParityExpanded,
+      mergedData,
+      previewDevice,
+      previewExperience?.id,
+      previewExperience?.name,
+      resourcesPanelTab,
+      runtimePreviewLoaded,
+      selectedExperienceId,
+      selectedTemplate?.id,
+      selectedTemplate?.name,
+      selectedTemplateId,
+      session?.id,
+      sessionData,
+      sessionTemplate,
+      stepValues,
+      studioAnalysisTab,
+      tenantId,
+      userId,
+    ]
+  );
   const experiencePanelMeta = useMemo(() => {
     if (experiencePanelTab === "template") {
       return {
@@ -2623,13 +3229,16 @@ export const ComposerStudio = () => {
                     panelBorder={false}
                     quickPrompts={[
                       "Show all templates",
-                      "Micro-episode experience",
-                      "Smart wallet + offer",
-                      "Article reading flow",
-                      "Tutorial walkthrough",
-                      "Task runbook with rewards",
+                      "Create a Qriptopian article with portrait and landscape hero imagery",
+                      "Create a short Venice video experience",
+                      "Compare OpenAI and Venice for image generation",
+                      "Compare OpenAI and Venice for video generation",
+                      "Review parity and deployment",
+                      "What resources and costs does this experience need?",
                     ]}
                     onPrompt={handleCopilotPrompt}
+                    onUserPrompt={handleComposerUserPrompt}
+                    getChatRequestContext={buildComposerChatRequestContext}
                     agent={{
                       id: composerAgent.id,
                       name: composerAgent.name,

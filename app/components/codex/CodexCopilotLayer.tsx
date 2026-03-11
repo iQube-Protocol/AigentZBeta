@@ -51,6 +51,18 @@ interface CodexCopilotLayerProps {
       }
   >;
   onPrompt?: (prompt: string) => void;
+  onUserPrompt?: (
+    prompt: string
+  ) => Promise<
+    | string
+    | React.ReactNode
+    | {
+        content: React.ReactNode;
+        walletActions?: WalletActionPayload[];
+      }
+    | void
+  >;
+  getChatRequestContext?: (prompt: string) => Record<string, unknown> | undefined;
   initialMessage?: string;
   seedMessages?: CopilotMessage[];
   messages?: CopilotMessage[];
@@ -126,6 +138,8 @@ export function CodexCopilotLayer({
   inputPanelClassName,
   inputPanelInputClassName,
   onPrompt,
+  onUserPrompt,
+  getChatRequestContext,
   initialMessage,
   seedMessages,
   messages,
@@ -516,6 +530,54 @@ export function CodexCopilotLayer({
     setIsLoading(true);
 
     try {
+      if (onUserPrompt) {
+        const localResponse = await onUserPrompt(message);
+        if (localResponse !== undefined) {
+          const responseContent =
+            typeof localResponse === "string" ||
+            typeof localResponse === "number" ||
+            typeof localResponse === "boolean" ||
+            localResponse === null ||
+            localResponse === undefined ||
+            !("content" in (localResponse as any))
+              ? (localResponse as React.ReactNode)
+              : (localResponse as { content: React.ReactNode }).content;
+          const responseWalletActions =
+            localResponse &&
+            typeof localResponse === "object" &&
+            "walletActions" in localResponse &&
+            Array.isArray((localResponse as { walletActions?: WalletActionPayload[] }).walletActions)
+              ? (localResponse as { walletActions?: WalletActionPayload[] }).walletActions
+              : undefined;
+
+          updateMessages((prev) => [
+            ...prev,
+            {
+              id: (Date.now() + 1).toString(),
+              role: "assistant",
+              content: responseContent ?? "I can help with that.",
+              timestamp: new Date(),
+              walletActions: responseWalletActions,
+            },
+          ]);
+          return;
+        }
+      }
+
+      const chatHistory = displayMessages
+        .map((entry) => {
+          if (typeof entry.content === "string") {
+            return { role: entry.role, content: entry.content };
+          }
+          if (typeof entry.content === "number" || typeof entry.content === "boolean") {
+            return { role: entry.role, content: String(entry.content) };
+          }
+          return null;
+        })
+        .filter(Boolean);
+
+      const extraContext = getChatRequestContext?.(message) || {};
+
       const response = await fetch("/api/codex/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -524,6 +586,8 @@ export function CodexCopilotLayer({
           persona: personaId || "kn0w1",
           personaId: personaId || null,
           contextId: contextId || null,
+          chatHistory,
+          ...extraContext,
         }),
       });
       const data = (await response.json().catch(() => ({}))) as CodexChatResponse;

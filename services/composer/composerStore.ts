@@ -467,6 +467,53 @@ export function initializeDefaultTemplates(): void {
         },
       },
       {
+        id: 'image_generation',
+        title: 'Hero Image Generation',
+        description: 'Plan portrait and landscape hero imagery for the reading experience.',
+        type: 'configuration',
+        required: false,
+        component_type: 'ToolQube',
+        ui_config: {
+          layout: 'form',
+          fields: [
+            {
+              id: 'provider_id',
+              name: 'Image Provider',
+              type: 'select',
+              required: false,
+              options: [
+                { value: 'openai', label: 'OpenAI Image Generation' },
+                { value: 'venice', label: 'Venice Image Generation' },
+              ],
+            },
+            {
+              id: 'portrait_prompt',
+              name: 'Portrait Prompt',
+              type: 'textarea',
+              required: false,
+            },
+            {
+              id: 'landscape_prompt',
+              name: 'Landscape Prompt',
+              type: 'textarea',
+              required: false,
+            },
+            {
+              id: 'visual_style',
+              name: 'Visual Style',
+              type: 'select',
+              required: false,
+              options: [
+                { value: 'editorial', label: 'Editorial' },
+                { value: 'cinematic', label: 'Cinematic' },
+                { value: 'illustrative', label: 'Illustrative' },
+                { value: 'photorealistic', label: 'Photorealistic' },
+              ],
+            },
+          ],
+        },
+      },
+      {
         id: 'wallet_rewards',
         title: 'Wallet + Rewards',
         description: 'Configure unlock pricing and completion rewards.',
@@ -575,7 +622,7 @@ export function initializeDefaultTemplates(): void {
       {
         id: 'skill_selection',
         title: 'Skill Selection',
-        description: 'Choose between curated (OpenAI first-party) or community (OpenClaw) Sora skill.',
+        description: 'Choose between OpenAI, Venice, or community-backed video generation skills.',
         type: 'selection',
         required: true,
         component_type: 'ToolQube',
@@ -586,6 +633,7 @@ export function initializeDefaultTemplates(): void {
               id: 'skill_id', name: 'Sora Skill', type: 'select', required: true,
               options: [
                 { value: 'sora_video_gen_curated', label: 'Sora Video Gen (Curated) — Badge A, Trusted' },
+                { value: 'venice_video_gen', label: 'Venice Video Gen — Badge A, Trusted' },
                 { value: 'sora_video_gen_community', label: 'Sora Video Gen (Community) — Badge C, Basic' },
               ],
             },
