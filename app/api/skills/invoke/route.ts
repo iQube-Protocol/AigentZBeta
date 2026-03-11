@@ -35,7 +35,7 @@ const OPENAI_VIDEOS_URL = "https://api.openai.com/v1/videos";
 
 // Venice Video API
 const VENICE_VIDEO_BASE = "https://api.venice.ai/api/v1/video";
-const VENICE_DEFAULT_MODEL = "kling-2.6-pro-text-to-video";
+const VENICE_DEFAULT_MODEL = process.env.VENICE_VIDEO_MODEL || "wan-2.5-preview-text-to-video";
 
 // Which skill IDs route to Venice vs OpenAI
 const VENICE_SKILL_IDS = new Set(["venice_video_gen"]);
@@ -129,11 +129,22 @@ async function createVeniceJob(
     signal: controller.signal,
   }).finally(() => clearTimeout(timeout));
 
-  const data = await res.json().catch(() => null);
+  const rawText = await res.text().catch(() => "");
+  let data: any = null;
+  try {
+    data = rawText ? JSON.parse(rawText) : null;
+  } catch {
+    data = rawText || null;
+  }
 
   if (!res.ok) {
-    const msg = data?.error?.message || data?.error || `Venice API ${res.status}: ${res.statusText}`;
-    throw new Error(`(${res.status}) ${typeof msg === "string" ? msg : JSON.stringify(msg)}`);
+    const msg =
+      (typeof data?.error?.message === "string" && data.error.message) ||
+      (typeof data?.message === "string" && data.message) ||
+      (typeof data?.error === "string" && data.error) ||
+      (typeof data === "string" && data) ||
+      `Venice API ${res.status}: ${res.statusText}`;
+    throw new Error(`(${res.status}) ${msg}`);
   }
 
   if (!data?.queue_id) {
