@@ -88,6 +88,7 @@ export default function SkillVideoPlayer({
   const [state, setState] = useState<"idle" | "invoking" | "done" | "error">("idle");
   const [result, setResult] = useState<InvocationResult | null>(null);
   const [showReceipt, setShowReceipt] = useState(false);
+  const [playbackRetryCount, setPlaybackRetryCount] = useState(0);
   const initialProvider = inferProviderFromSkillId(skill_id);
   const resolvedProvider = result?.provider || initialProvider;
   const providerLabel = getProviderLabel(resolvedProvider);
@@ -95,6 +96,7 @@ export default function SkillVideoPlayer({
   const invoke = useCallback(async () => {
     setState("invoking");
     setResult(null);
+    setPlaybackRetryCount(0);
     try {
       const res = await fetch("/api/skills/invoke", {
         method: "POST",
@@ -130,6 +132,7 @@ export default function SkillVideoPlayer({
       const res = await fetch(statusUrl);
       const data = await res.json().catch(() => null);
       if (data?.ready && data?.video_url) {
+        setPlaybackRetryCount(0);
         setResult(prev => prev ? { ...prev, video_url: data.video_url } : prev);
       } else if (data?.status === "failed") {
         setResult(prev => prev ? { ...prev, error: data.error || "Generation failed" } : prev);
@@ -358,8 +361,21 @@ export default function SkillVideoPlayer({
                 backgroundColor: "#000",
               }}
               onError={() => {
-                // Video not playable (wrong MIME, not ready, etc.) — clear URL so auto-poll can retry
-                setResult(prev => prev ? { ...prev, video_url: undefined } : prev);
+                if (playbackRetryCount >= 2) {
+                  setResult(prev =>
+                    prev
+                      ? {
+                          ...prev,
+                          error: `The generated ${providerLabel} video is not playable yet. Try Check Again or Regenerate.`,
+                        }
+                      : prev
+                  );
+                  return;
+                }
+                setPlaybackRetryCount((count) => count + 1);
+                setTimeout(() => {
+                  setResult(prev => prev ? { ...prev, video_url: undefined } : prev);
+                }, 1500);
               }}
             />
             <div className="flex items-center justify-between">

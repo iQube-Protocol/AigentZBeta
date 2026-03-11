@@ -2130,7 +2130,7 @@ export const ComposerStudio = () => {
       if (/(image|hero image|illustration|artwork|portrait|landscape|qriptopian article|editorial)/.test(lower)) {
         const contextLabel =
           copilotContextOptions.find((opt) => opt.id === copilotContextId)?.label || "The Qriptopian";
-        const providerId = /venice/.test(lower) ? "venice" : "openai";
+        const providerId = /openai/.test(lower) && !/venice/.test(lower) ? "openai" : "venice";
         const promptVariants = buildImagePromptVariants(prompt, contextLabel);
         const experienceName = deriveExperienceNameFromPrompt(prompt, "Qriptopian Image Experience");
 
@@ -2530,6 +2530,20 @@ export const ComposerStudio = () => {
       const completedExperience = data.experience_qube || null;
       setExperience(completedExperience);
       setSession((prev) => (prev ? { ...prev, status: "completed" } : prev));
+      if (completedExperience) {
+        setExperiences((prev) => {
+          const exists = prev.some((exp) => exp.id === completedExperience.id);
+          const next = exists
+            ? prev.map((exp) => (exp.id === completedExperience.id ? completedExperience : exp))
+            : [completedExperience, ...prev];
+          cacheExperiencesForTenant(tenantId, next);
+          return next;
+        });
+        setSelectedExperience(completedExperience);
+        setSelectedExperienceId(completedExperience.id);
+        setPreviewAction(`Review ${completedExperience.name}`);
+        setExperiencePanelTab("exqubes");
+      }
 
       if (editingExperienceId && completedExperience) {
         try {

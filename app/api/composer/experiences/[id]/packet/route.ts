@@ -75,6 +75,15 @@ function isSkillBacked(experience: any): boolean {
   return templateId === "sora-video-generation" || !!config.skill_selection?.skill_id;
 }
 
+function hasImageGeneration(experience: any): boolean {
+  const config = experience.configuration || {};
+  const imageGeneration = config.image_generation || {};
+  return Boolean(
+    (typeof imageGeneration.portrait_prompt === "string" && imageGeneration.portrait_prompt.trim()) ||
+      (typeof imageGeneration.landscape_prompt === "string" && imageGeneration.landscape_prompt.trim())
+  );
+}
+
 function getVideoSkillSubhead(skillId: string) {
   if (skillId === "venice_video_gen") {
     return "Venice Video Generation";
@@ -158,9 +167,77 @@ function buildSkillPacket(experience: any) {
   };
 }
 
+function buildImagePacket(experience: any) {
+  const config = experience.configuration || {};
+  const intent = config.intent_timebox || {};
+  const imageGeneration = config.image_generation || {};
+  const providerId = imageGeneration.provider_id || "venice";
+
+  return {
+    packet_version: "1.0",
+    packet_id: `pkt_${experience.id}`,
+    tenant_id: experience.tenant_id,
+    packet_type: "skill_image",
+    intent: {
+      verb: "generate_image",
+      target_type: "skill_invocation",
+      target_ids: [providerId],
+      constraints: {
+        experience_id: experience.id,
+        goal: intent.goal,
+      },
+    },
+    context: {
+      working_set: {
+        provider_id: providerId,
+        portrait_prompt: imageGeneration.portrait_prompt || null,
+        landscape_prompt: imageGeneration.landscape_prompt || null,
+      },
+    },
+    image_generation: {
+      provider_id: providerId,
+      portrait_prompt: imageGeneration.portrait_prompt || "",
+      landscape_prompt: imageGeneration.landscape_prompt || "",
+      visual_style: imageGeneration.visual_style || "editorial",
+      auto_invoke: true,
+    },
+    ui: {
+      primary_template: "skill:image_player_v1",
+      layout: "centered",
+      title: experience.name,
+      subhead: providerId === "venice" ? "Venice Article Imagery" : "OpenAI Article Imagery",
+      template_selection: {
+        template_id: "skill:image_player_v1",
+        reason: "Image-backed experience — SkillImagePlayer",
+      },
+      components: [
+        {
+          type: "SkillImagePlayer",
+          binding: { source: "skill", path: `generate/${providerId}` },
+          props: {
+            provider_id: providerId,
+            portrait_prompt: imageGeneration.portrait_prompt || "",
+            landscape_prompt: imageGeneration.landscape_prompt || "",
+            visual_style: imageGeneration.visual_style || "editorial",
+            autoInvoke: true,
+          },
+        },
+      ],
+      overlays: [],
+    },
+    risk: {
+      tier: "medium",
+      required_gates: ["studio_hydrate"],
+    },
+  };
+}
+
 function buildPacket(experience: any) {
   if (isSkillBacked(experience)) {
     return buildSkillPacket(experience);
+  }
+  if (hasImageGeneration(experience)) {
+    return buildImagePacket(experience);
   }
 
   const config = experience.configuration || {};

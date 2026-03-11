@@ -3,6 +3,7 @@
 import { liquidTemplateRegistry } from "@/app/triad/components/codex/liquidTemplates/registry";
 import { LiquidUIPlaceholderTemplate } from "@/app/triad/components/codex/liquidTemplates/LiquidUIPlaceholderTemplate";
 import SkillVideoPlayer from "@/components/composer/SkillVideoPlayer";
+import SkillImagePlayer from "@/components/composer/SkillImagePlayer";
 
 type ExperienceQube = {
   id: string;
@@ -46,6 +47,19 @@ export function ExperienceLiquidRenderer({
         creative_pack={packet.skill.creative_pack}
         experience_id={experience.id}
         trust_override={packet.skill.trust_override}
+      />
+    );
+  }
+
+  if (templateKey === "skill:image_player_v1" && packet.image_generation) {
+    return (
+      <SkillImagePlayer
+        provider_id={packet.image_generation.provider_id}
+        portrait_prompt={packet.image_generation.portrait_prompt}
+        landscape_prompt={packet.image_generation.landscape_prompt}
+        visual_style={packet.image_generation.visual_style}
+        experience_id={experience.id}
+        autoInvoke={packet.image_generation.auto_invoke !== false}
       />
     );
   }

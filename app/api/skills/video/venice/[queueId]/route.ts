@@ -55,7 +55,12 @@ export async function GET(
     }
 
     const headers = new Headers();
-    headers.set("Content-Type", contentType || "video/mp4");
+    headers.set(
+      "Content-Type",
+      contentType.startsWith("video/")
+        ? contentType
+        : "video/mp4"
+    );
     const contentLength = res.headers.get("content-length");
     if (contentLength) headers.set("Content-Length", contentLength);
     headers.set("Cache-Control", "public, max-age=86400, immutable");
