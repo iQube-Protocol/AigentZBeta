@@ -157,6 +157,74 @@ function buildVideoPrompt(prompt: string, contextLabel: string) {
   return `Create a concise ${style} video for ${contextLabel}. ${prompt}. Keep the scene focused, motion readable, composition strong, and suitable for a runtime-grade experience.`;
 }
 
+function summarizeExperienceResources(
+  sessionTemplate: ExperienceTemplate | null | undefined,
+  mergedData: Record<string, any> | null | undefined
+) {
+  const skills: Array<{ label: string; value: string }> = [];
+  const resources: Array<{ label: string; value: string }> = [];
+  const userData: Array<{ label: string; value: string }> = [];
+
+  if (!sessionTemplate) {
+    return { skills, resources, userData };
+  }
+
+  const pushItem = (
+    bucket: Array<{ label: string; value: string }>,
+    label: string,
+    value: unknown
+  ) => {
+    if (value === null || value === undefined || value === "") return;
+    const normalizedValue = Array.isArray(value)
+      ? value.join(", ")
+      : typeof value === "boolean"
+        ? value ? "Required" : "Optional"
+        : String(value);
+    if (!normalizedValue.trim()) return;
+    bucket.push({ label, value: normalizedValue });
+  };
+
+  sessionTemplate.steps.forEach((step) => {
+    const stepValuesForStep = mergedData?.[step.id];
+    if (!stepValuesForStep || typeof stepValuesForStep !== "object") return;
+
+    step.ui_config.fields.forEach((field) => {
+      const fieldValue = stepValuesForStep[field.id];
+      const fingerprint = `${field.id} ${field.name}`.toLowerCase();
+      const label = field.name;
+
+      if (fingerprint.includes("skill")) {
+        pushItem(skills, label, fieldValue);
+        return;
+      }
+
+      if (
+        fingerprint.includes("resource") ||
+        fingerprint.includes("tool") ||
+        fingerprint.includes("content") ||
+        fingerprint.includes("agent") ||
+        fingerprint.includes("model")
+      ) {
+        pushItem(resources, label, fieldValue);
+        return;
+      }
+
+      if (
+        fingerprint.includes("wallet") ||
+        fingerprint.includes("profile") ||
+        fingerprint.includes("email") ||
+        fingerprint.includes("user") ||
+        fingerprint.includes("consent") ||
+        fingerprint.includes("data")
+      ) {
+        pushItem(userData, label, fieldValue);
+      }
+    });
+  });
+
+  return { skills, resources, userData };
+}
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
 }
@@ -1859,6 +1927,14 @@ export const ComposerStudio = () => {
     return sessionTemplate.steps[session?.current_step || 0] || null;
   }, [sessionTemplate, session?.current_step]);
 
+  const experienceResourceCounts = useMemo(() => {
+    const summary = summarizeExperienceResources(sessionTemplate, mergedData);
+    return {
+      resourceCount: summary.resources.length,
+      userDataCount: summary.userData.length,
+    };
+  }, [mergedData, sessionTemplate]);
+
   useCopilotAction({
     name: "composer_set_template_intent",
     description: "Set the template intent and filter query for Studio composition.",
@@ -2043,8 +2119,8 @@ export const ComposerStudio = () => {
           `**Template**: ${templateName}`,
           `**Provider**: ${selectedProvider?.name || selectedProviderId || "Not selected yet"}`,
           `**Skill**: ${selectedSkillId || "Not selected yet"}`,
-          `**Resource items surfaced**: ${experienceResourceSummary.resources.length || 0}`,
-          `**User data requirements surfaced**: ${experienceResourceSummary.userData.length || 0}`,
+          `**Resource items surfaced**: ${experienceResourceCounts.resourceCount || 0}`,
+          `**User data requirements surfaced**: ${experienceResourceCounts.userDataCount || 0}`,
           "",
           `This is also where I surface the current cost envelope stub, provider path, and DesignQube summary.`,
         ].join("\n");
@@ -2172,8 +2248,8 @@ export const ComposerStudio = () => {
       copilotContextOptions,
       currentStep,
       experiencePanelTab,
-      experienceResourceSummary.resources.length,
-      experienceResourceSummary.userData.length,
+      experienceResourceCounts.resourceCount,
+      experienceResourceCounts.userDataCount,
       handleCopilotPrompt,
       mergedData,
       selectedTemplate?.name,
@@ -2772,68 +2848,7 @@ export const ComposerStudio = () => {
     return list;
   }, [mergedData, sessionTemplate]);
   const experienceResourceSummary = useMemo(() => {
-    const skills: Array<{ label: string; value: string }> = [];
-    const resources: Array<{ label: string; value: string }> = [];
-    const userData: Array<{ label: string; value: string }> = [];
-
-    if (!sessionTemplate) {
-      return { skills, resources, userData };
-    }
-
-    const pushItem = (
-      bucket: Array<{ label: string; value: string }>,
-      label: string,
-      value: unknown
-    ) => {
-      if (value === null || value === undefined || value === "") return;
-      const normalizedValue = Array.isArray(value)
-        ? value.join(", ")
-        : typeof value === "boolean"
-          ? value ? "Required" : "Optional"
-          : String(value);
-      if (!normalizedValue.trim()) return;
-      bucket.push({ label, value: normalizedValue });
-    };
-
-    sessionTemplate.steps.forEach((step) => {
-      const stepValuesForStep = mergedData?.[step.id];
-      if (!stepValuesForStep || typeof stepValuesForStep !== "object") return;
-
-      step.ui_config.fields.forEach((field) => {
-        const fieldValue = stepValuesForStep[field.id];
-        const fingerprint = `${field.id} ${field.name}`.toLowerCase();
-        const label = field.name;
-
-        if (fingerprint.includes("skill")) {
-          pushItem(skills, label, fieldValue);
-          return;
-        }
-
-        if (
-          fingerprint.includes("resource") ||
-          fingerprint.includes("tool") ||
-          fingerprint.includes("content") ||
-          fingerprint.includes("agent") ||
-          fingerprint.includes("model")
-        ) {
-          pushItem(resources, label, fieldValue);
-          return;
-        }
-
-        if (
-          fingerprint.includes("wallet") ||
-          fingerprint.includes("profile") ||
-          fingerprint.includes("email") ||
-          fingerprint.includes("user") ||
-          fingerprint.includes("consent") ||
-          fingerprint.includes("data")
-        ) {
-          pushItem(userData, label, fieldValue);
-        }
-      });
-    });
-
-    return { skills, resources, userData };
+    return summarizeExperienceResources(sessionTemplate, mergedData);
   }, [mergedData, sessionTemplate]);
   const buildComposerChatRequestContext = useCallback(
     (prompt: string) => {
