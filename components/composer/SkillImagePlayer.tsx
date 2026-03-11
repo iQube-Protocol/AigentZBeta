@@ -75,7 +75,18 @@ export default function SkillImagePlayer({
           experience_id,
         }),
       });
-      const data = (await res.json().catch(() => ({ ok: false, error: "Invalid image response" }))) as GenerationResponse;
+      const rawText = await res.text().catch(() => "");
+      let data: GenerationResponse;
+      try {
+        data = JSON.parse(rawText) as GenerationResponse;
+      } catch {
+        data = {
+          ok: false,
+          provider: provider_id,
+          images: [],
+          error: rawText || "Invalid image response",
+        };
+      }
       setResult(data);
       setState(data.ok || data.mode === "simulation" ? "done" : "error");
     } catch (error: any) {

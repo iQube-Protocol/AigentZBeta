@@ -3,6 +3,17 @@ import { NextRequest, NextResponse } from "next/server";
 export const runtime = "nodejs";
 
 const VENICE_VIDEO_BASE = "https://api.venice.ai/api/v1/video";
+function extractRemoteVideoUrl(data: any): string | null {
+  const candidates = [
+    data?.video_url,
+    data?.url,
+    data?.media_url,
+    data?.output?.url,
+    data?.result?.url,
+    data?.data?.url,
+  ];
+  return candidates.find((value): value is string => typeof value === "string" && value.length > 0) || null;
+}
 
 /**
  * GET /api/skills/video/venice/[queueId]/status?model=...
@@ -63,6 +74,15 @@ export async function GET(
     }
 
     const status = data?.status || "PROCESSING";
+    const remoteVideoUrl = extractRemoteVideoUrl(data);
+    if (String(status).toLowerCase() === "completed" && remoteVideoUrl) {
+      return NextResponse.json({
+        ready: true,
+        status: "completed",
+        progress: 100,
+        video_url: `/api/skills/video/venice/${queueId}?model=${encodeURIComponent(model)}&remote=${encodeURIComponent(remoteVideoUrl)}`,
+      });
+    }
     const avgTime = data?.average_execution_time || 0;
     const elapsed = data?.execution_duration || 0;
     const progress = avgTime > 0 ? Math.min(95, Math.round((elapsed / avgTime) * 100)) : 0;

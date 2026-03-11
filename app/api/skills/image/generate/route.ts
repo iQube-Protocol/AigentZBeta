@@ -14,6 +14,29 @@ function resolveImageSize(orientation: Orientation) {
   return orientation === "portrait" ? "1024x1536" : "1536x1024";
 }
 
+async function bufferToDataUrl(buffer: ArrayBuffer, contentType: string) {
+  const base64 = Buffer.from(buffer).toString("base64");
+  return `data:${contentType || "image/png"};base64,${base64}`;
+}
+
+function extractImageUrlFromJson(data: any): string | null {
+  const candidates = [
+    data?.data?.[0]?.b64_json ? `data:image/png;base64,${data.data[0].b64_json}` : null,
+    data?.data?.[0]?.url,
+    data?.data?.[0]?.image_url,
+    data?.data?.[0]?.base64 ? `data:image/png;base64,${data.data[0].base64}` : null,
+    data?.images?.[0]?.url,
+    data?.images?.[0]?.image_url,
+    data?.images?.[0]?.base64 ? `data:image/png;base64,${data.images[0].base64}` : null,
+    typeof data?.image === "string" ? data.image : null,
+    typeof data?.image_url === "string" ? data.image_url : null,
+    typeof data?.url === "string" ? data.url : null,
+    typeof data?.output?.url === "string" ? data.output.url : null,
+  ];
+
+  return candidates.find((value): value is string => typeof value === "string" && value.length > 0) || null;
+}
+
 async function requestImageGeneration(
   providerId: ProviderId,
   prompt: string,
@@ -51,6 +74,17 @@ async function requestImageGeneration(
       signal: controller.signal,
     }).finally(() => clearTimeout(timeout));
 
+    const contentType = res.headers.get("content-type") || "";
+    if (res.ok && (contentType.startsWith("image/") || contentType.startsWith("application/octet-stream"))) {
+      const buffer = await res.arrayBuffer();
+      return {
+        ok: true as const,
+        mode: "live" as const,
+        image_url: await bufferToDataUrl(buffer, contentType.startsWith("image/") ? contentType : "image/png"),
+        model,
+      };
+    }
+
     const rawText = await res.text().catch(() => "");
     let data: any = null;
     try {
@@ -69,22 +103,20 @@ async function requestImageGeneration(
       return { ok: false as const, mode: "simulation" as const, error: msg };
     }
 
-    const image = Array.isArray(data?.data) ? data.data[0] : null;
-    const b64 = typeof image?.b64_json === "string" ? image.b64_json : null;
-    const url = typeof image?.url === "string" ? image.url : null;
+    const url = extractImageUrlFromJson(data);
 
-    if (!b64 && !url) {
+    if (!url) {
       return {
         ok: false as const,
         mode: "simulation" as const,
-        error: `${providerId} image API returned no image payload`,
+        error: `${providerId} image API returned no image payload (${contentType || "unknown content type"})`,
       };
     }
 
     return {
       ok: true as const,
       mode: "live" as const,
-      image_url: b64 ? `data:image/png;base64,${b64}` : url,
+      image_url: url,
       model,
     };
   } catch (error) {
