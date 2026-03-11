@@ -36,6 +36,22 @@ const OPENAI_VIDEOS_URL = "https://api.openai.com/v1/videos";
 // Venice Video API
 const VENICE_VIDEO_BASE = "https://api.venice.ai/api/v1/video";
 const VENICE_DEFAULT_MODEL = process.env.VENICE_VIDEO_MODEL || "wan-2.5-preview-text-to-video";
+const VENICE_MODELS_URL = "https://api.venice.ai/api/v1/models?type=video";
+const VENICE_QUOTE_URL = "https://api.venice.ai/api/v1/video/quote";
+
+const VENICE_PREFERRED_TEXT_TO_VIDEO_MODELS = [
+  process.env.VENICE_VIDEO_MODEL,
+  "wan-2.5-preview-text-to-video",
+  "wan-2.2-a14b-text-to-video",
+  "wan-2.6-text-to-video",
+  "kling-2.6-pro-text-to-video",
+  "kling-2.5-turbo-pro-text-to-video",
+  "ltx-2-19b-full-text-to-video",
+  "longcat-distilled-text-to-video",
+  "longcat-text-to-video",
+  "veo3.1-fast-text-to-video",
+  "veo3-full-text-to-video",
+].filter((value): value is string => Boolean(value));
 
 // Which skill IDs route to Venice vs OpenAI
 const VENICE_SKILL_IDS = new Set(["venice_video_gen"]);
@@ -106,52 +122,154 @@ async function createVeniceJob(
   aspectRatio: string,
   model?: string,
 ): Promise<{ queue_id: string; model: string }> {
-  const veniceModel = model || VENICE_DEFAULT_MODEL;
   const dur = seconds <= 5 ? "5s" : "10s"; // Venice supports 5s or 10s
+  const candidateModels = await resolveVeniceVideoModels(apiKey, model);
+  const errors: string[] = [];
 
+  for (const veniceModel of candidateModels) {
+    const quote = await quoteVeniceVideo(apiKey, veniceModel, dur, aspectRatio);
+    if (!quote.ok) {
+      errors.push(`${veniceModel}: ${quote.error}`);
+      continue;
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 25_000);
+
+    const res = await fetch(`${VENICE_VIDEO_BASE}/queue`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: veniceModel,
+        prompt,
+        duration: dur,
+        aspect_ratio: aspectRatio,
+        resolution: "720p",
+      }),
+      signal: controller.signal,
+    }).finally(() => clearTimeout(timeout));
+
+    const rawText = await res.text().catch(() => "");
+    let data: any = null;
+    try {
+      data = rawText ? JSON.parse(rawText) : null;
+    } catch {
+      data = rawText || null;
+    }
+
+    if (!res.ok) {
+      const msg =
+        (typeof data?.error?.message === "string" && data.error.message) ||
+        (typeof data?.message === "string" && data.message) ||
+        (typeof data?.error === "string" && data.error) ||
+        (typeof data === "string" && data) ||
+        `Venice API ${res.status}: ${res.statusText}`;
+      errors.push(`${veniceModel}: (${res.status}) ${msg}`);
+      continue;
+    }
+
+    if (!data?.queue_id) {
+      errors.push(`${veniceModel}: Venice API returned no queue_id`);
+      continue;
+    }
+
+    return { queue_id: data.queue_id, model: data.model || veniceModel };
+  }
+
+  throw new Error(errors.length > 0 ? errors.slice(0, 3).join(" | ") : "No compatible Venice text-to-video model accepted this request");
+}
+
+async function resolveVeniceVideoModels(apiKey: string, requestedModel?: string): Promise<string[]> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 25_000);
+  const timeout = setTimeout(() => controller.abort(), 10_000);
 
-  const res = await fetch(`${VENICE_VIDEO_BASE}/queue`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: veniceModel,
-      prompt,
-      duration: dur,
-      aspect_ratio: aspectRatio,
-      resolution: "720p",
-      audio: false,
-    }),
-    signal: controller.signal,
-  }).finally(() => clearTimeout(timeout));
-
-  const rawText = await res.text().catch(() => "");
-  let data: any = null;
   try {
-    data = rawText ? JSON.parse(rawText) : null;
-  } catch {
-    data = rawText || null;
-  }
+    const res = await fetch(VENICE_MODELS_URL, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+      },
+      signal: controller.signal,
+    });
 
-  if (!res.ok) {
-    const msg =
-      (typeof data?.error?.message === "string" && data.error.message) ||
-      (typeof data?.message === "string" && data.message) ||
-      (typeof data?.error === "string" && data.error) ||
-      (typeof data === "string" && data) ||
-      `Venice API ${res.status}: ${res.statusText}`;
-    throw new Error(`(${res.status}) ${msg}`);
-  }
+    if (!res.ok) {
+      return [requestedModel || VENICE_DEFAULT_MODEL];
+    }
 
-  if (!data?.queue_id) {
-    throw new Error("Venice API returned no queue_id");
-  }
+    const data = await res.json().catch(() => null);
+    const availableIds = Array.isArray(data?.data)
+      ? data.data
+          .map((entry: any) => (typeof entry?.id === "string" ? entry.id : null))
+          .filter((id: string | null): id is string => Boolean(id))
+      : [];
 
-  return { queue_id: data.queue_id, model: data.model || veniceModel };
+    if (availableIds.length === 0) {
+      return [requestedModel || VENICE_DEFAULT_MODEL];
+    }
+
+    const candidateIds = requestedModel
+      ? [requestedModel, ...VENICE_PREFERRED_TEXT_TO_VIDEO_MODELS]
+      : VENICE_PREFERRED_TEXT_TO_VIDEO_MODELS;
+    const ordered: string[] = [];
+
+    for (const candidate of candidateIds) {
+      if (availableIds.includes(candidate) && !ordered.includes(candidate)) {
+        ordered.push(candidate);
+      }
+    }
+
+    for (const id of availableIds) {
+      if (id.includes("-text-to-video") && !ordered.includes(id)) {
+        ordered.push(id);
+      }
+    }
+
+    if (ordered.length === 0) {
+      ordered.push(requestedModel || VENICE_DEFAULT_MODEL);
+    }
+
+    return ordered;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function quoteVeniceVideo(
+  apiKey: string,
+  model: string,
+  duration: "5s" | "10s",
+  aspectRatio: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10_000);
+  try {
+    const res = await fetch(VENICE_QUOTE_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        duration,
+        aspect_ratio: aspectRatio,
+        resolution: "720p",
+      }),
+      signal: controller.signal,
+    });
+    const rawText = await res.text().catch(() => "");
+    if (res.ok) {
+      return { ok: true };
+    }
+    return { ok: false, error: rawText || `quote ${res.status}` };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 /**
