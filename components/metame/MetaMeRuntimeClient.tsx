@@ -2024,6 +2024,12 @@ export default function MetaMeRuntimeClient() {
           return;
         }
         const llmResponse = typeof data?.response === "string" ? data.response.trim() : "";
+        const requestedProvider = typeof data?.provider_requested === "string" ? data.provider_requested : null;
+        const usedProvider = typeof data?.provider_used === "string" ? data.provider_used : null;
+        const usedModel = typeof data?.model_used === "string" ? data.model_used : null;
+        const providerFallback = data?.provider_fallback === true;
+        const fallbackMode = data?.fallback === true;
+        const providerErrors = Array.isArray(data?.provider_errors) ? data.provider_errors : [];
         if (!llmResponse) {
           persistPersonaMemory({
             prompt: trimmed,
@@ -2056,18 +2062,44 @@ export default function MetaMeRuntimeClient() {
           });
           return;
         }
+        const diagnosticLines: string[] = [];
+        if (fallbackMode) {
+          diagnosticLines.push("Provider diagnostic: all configured providers failed, so a local fallback response was used.");
+        } else if (requestedProvider && usedProvider) {
+          diagnosticLines.push(
+            providerFallback
+              ? `Provider diagnostic: requested ${requestedProvider}, answered with ${usedProvider}${usedModel ? ` (${usedModel})` : ""}.`
+              : `Provider diagnostic: answered with ${usedProvider}${usedModel ? ` (${usedModel})` : ""}.`
+          );
+        }
+        if (providerErrors.length > 0) {
+          const summarized = providerErrors
+            .slice(0, 3)
+            .map((entry: any) => {
+              const providerId = typeof entry?.providerId === "string" ? entry.providerId : "unknown";
+              const modelId = typeof entry?.modelId === "string" ? entry.modelId : "unknown";
+              const error = typeof entry?.error === "string" ? entry.error : "request failed";
+              return `- ${providerId} (${modelId}): ${error}`;
+            })
+            .join("\n");
+          diagnosticLines.push(`Provider errors:\n${summarized}`);
+        }
+        const renderedResponse =
+          diagnosticLines.length > 0
+            ? `> ${diagnosticLines.join("\n> ")}\n\n${llmResponse}`
+            : llmResponse;
         setMessages((prev) => [
           ...prev,
           {
             id: `llm-msg-${Date.now()}`,
             role: "assistant",
-            content: llmResponse,
+            content: renderedResponse,
             timestamp: new Date(),
           },
         ]);
         persistPersonaMemory({
           prompt: trimmed,
-          inference: llmResponse,
+          inference: renderedResponse,
           intent,
           source,
           welcomePrompt: wasWelcomePrompt,

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AlertTriangle, BarChart, Book, BookOpen, Bot, CheckCircle2, ChevronDown, ChevronUp, Circle, Code, Edit, Eye, FileText, Hexagon, LayoutGrid, List, Loader2, Monitor, MonitorIcon, Moon, Palette, Play, PlayCircle, Share2, Shield, ShieldCheck, SlidersHorizontal, Smartphone, Sparkles, Sun, Target, Tablet, Trash2, Tv, Upload, Users, Volume2, Type } from "lucide-react";
+import { AlertTriangle, BarChart, Book, BookOpen, Bot, CheckCircle2, ChevronDown, ChevronUp, Circle, Code, Edit, Eye, FileText, Hexagon, LayoutGrid, List, Loader2, Monitor, MonitorIcon, Moon, Palette, Play, PlayCircle, RefreshCw, Share2, Shield, ShieldCheck, SlidersHorizontal, Smartphone, Sparkles, Sun, Target, Tablet, Trash2, Tv, Upload, Users, Volume2, Type } from "lucide-react";
 import { useCopilotAction } from "@copilotkit/react-core";
 import { createShellMessage } from "@metame/iframe-bridge";
 import { Button } from "@/components/ui/button";
@@ -155,6 +155,15 @@ function buildImagePromptVariants(prompt: string, contextLabel: string) {
 function buildVideoPrompt(prompt: string, contextLabel: string) {
   const style = inferVisualStyleFromPrompt(prompt);
   return `Create a concise ${style} video for ${contextLabel}. ${prompt}. Keep the scene focused, motion readable, composition strong, and suitable for a runtime-grade experience.`;
+}
+
+function mapStudioTemplateToSessionTemplate(templateId: string) {
+  const map: Record<string, string> = {
+    "qripto-feature-article": "qriptopian_reading_sprint_v0",
+    "qripto-penny-drops": "content_analysis_v1",
+    "qripto-smart-offer": "interactive_story_v1",
+  };
+  return map[templateId] || templateId;
 }
 
 function summarizeExperienceResources(
@@ -840,14 +849,14 @@ const QRIPTO_TEMPLATE_SEEDS: ExperienceTemplate[] = [
       {
         id: "skill_selection",
         title: "Skill Selection",
-        description: "Choose between curated (OpenAI first-party) or community (OpenClaw) Sora skill.",
+        description: "Choose between Venice, curated OpenAI Sora, or community OpenClaw-backed video generation.",
         type: "selection",
         required: true,
         component_type: "ToolQube",
         ui_config: {
           layout: "form",
           fields: [
-            { id: "skill_id", name: "Sora Skill", type: "select", required: true, options: [{ value: "sora_video_gen_curated", label: "Sora Video Gen (Curated) — Badge A, Trusted", description: "First-party OpenAI curated skill. Stable CI, org-backed, high trust." }, { value: "sora_video_gen_community", label: "Sora Video Gen (Community) — Badge C, Basic", description: "Community-maintained OpenClaw skill. Variable review posture." }] },
+            { id: "skill_id", name: "Video Skill", type: "select", required: true, options: [{ value: "venice_video_gen", label: "Venice Video Gen — Badge A, Trusted", description: "Preferred alpha path for live video generation and lower friction than Sora billing-gated runs." }, { value: "sora_video_gen_curated", label: "Sora Video Gen (Curated) — Badge A, Trusted", description: "First-party OpenAI curated skill. Stable CI, org-backed, high trust." }, { value: "sora_video_gen_community", label: "Sora Video Gen (Community) — Badge C, Basic", description: "Community-maintained OpenClaw skill. Variable review posture." }] },
             { id: "trust_override", name: "Accept lower trust badge?", type: "checkbox", required: false, help_text: "Check to allow community skill even if below hydration threshold." },
           ],
         },
@@ -1958,7 +1967,7 @@ export const ComposerStudio = () => {
     }
     if (/(video|sora|generate.*video|create.*video)/.test(lower)) {
       setTemplateIntent("task");
-      promptWithContext += " video sora ai-generation skill toolqube";
+      promptWithContext += " video venice sora ai-generation skill toolqube";
     } else if (/(micro|episode|story|series|serial)/.test(lower)) {
       setTemplateIntent("micro-episode");
       if (/(synth|synthsimms)/.test(lower)) {
@@ -2177,14 +2186,17 @@ export const ComposerStudio = () => {
       if (/(video|sora|trailer|clip|motion)/.test(lower)) {
         const contextLabel =
           copilotContextOptions.find((opt) => opt.id === copilotContextId)?.label || "The Qriptopian";
-        const providerId = /venice/.test(lower) ? "venice" : "openai";
+        const providerId =
+          /openai/.test(lower) && !/venice/.test(lower)
+            ? "openai"
+            : "venice";
         const useCommunity = /community|openclaw/.test(lower);
         const skillId =
-          providerId === "venice"
+          useCommunity
+            ? "sora_video_gen_community"
+            : providerId === "venice"
             ? "venice_video_gen"
-            : useCommunity
-              ? "sora_video_gen_community"
-              : "sora_video_gen_curated";
+            : "sora_video_gen_curated";
         const suggestedPrompt = buildVideoPrompt(prompt, contextLabel);
         const experienceName = deriveExperienceNameFromPrompt(
           prompt,
@@ -2367,7 +2379,7 @@ export const ComposerStudio = () => {
         body: JSON.stringify({
           tenant_id: tenantId,
           user_id: userId,
-          template_id: selectedTemplate.id,
+          template_id: mapStudioTemplateToSessionTemplate(selectedTemplate.id),
         }),
       });
       if (!res.ok) throw new Error("Failed to create session");
