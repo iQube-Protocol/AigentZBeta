@@ -1927,14 +1927,6 @@ export const ComposerStudio = () => {
     return sessionTemplate.steps[session?.current_step || 0] || null;
   }, [sessionTemplate, session?.current_step]);
 
-  const experienceResourceCounts = useMemo(() => {
-    const summary = summarizeExperienceResources(sessionTemplate, mergedData);
-    return {
-      resourceCount: summary.resources.length,
-      userDataCount: summary.userData.length,
-    };
-  }, [mergedData, sessionTemplate]);
-
   useCopilotAction({
     name: "composer_set_template_intent",
     description: "Set the template intent and filter query for Studio composition.",
@@ -2350,6 +2342,14 @@ export const ComposerStudio = () => {
       [currentStep.id]: stepValues,
     };
   }, [currentStep, sessionData, stepValues]);
+
+  const experienceResourceCounts = useMemo(() => {
+    const summary = summarizeExperienceResources(sessionTemplate, mergedData);
+    return {
+      resourceCount: summary.resources.length,
+      userDataCount: summary.userData.length,
+    };
+  }, [mergedData, sessionTemplate]);
 
   const isStepValid = useMemo(() => {
     if (!currentStep) return false;
