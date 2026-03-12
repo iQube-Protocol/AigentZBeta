@@ -134,7 +134,7 @@ export default function SkillVideoPlayer({
       if (data?.ready && data?.video_url) {
         setPlaybackRetryCount(0);
         setResult(prev => prev ? { ...prev, video_url: data.video_url } : prev);
-      } else if (data?.status === "failed") {
+      } else if (data?.status === "failed" || data?.status === "error") {
         setResult(prev => prev ? { ...prev, error: data.error || "Generation failed" } : prev);
         setState("error");
       }
