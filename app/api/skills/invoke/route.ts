@@ -57,6 +57,14 @@ const VENICE_DISABLED_ALPHA_MODELS = new Set([
   "wan-2.2-a14b-text-to-video",
 ]);
 
+function isVeniceInsufficientBalanceError(message: string) {
+  const lower = message.toLowerCase();
+  return lower.includes("insufficient usd") ||
+    lower.includes("insufficient diem") ||
+    lower.includes("add credits") ||
+    lower.includes("(402)");
+}
+
 // Which skill IDs route to Venice vs OpenAI
 const VENICE_SKILL_IDS = new Set(["venice_video_gen"]);
 
@@ -140,6 +148,9 @@ async function createVeniceJob(
         : "10s"; // Venice supports 5s or 10s
     const quote = await quoteVeniceVideo(apiKey, veniceModel, dur, aspectRatio);
     if (!quote.ok) {
+      if (isVeniceInsufficientBalanceError(quote.error)) {
+        throw new Error(`Venice account has insufficient credits for video generation. ${quote.error}`);
+      }
       errors.push(`${veniceModel}: ${quote.error}`);
       continue;
     }
@@ -178,6 +189,9 @@ async function createVeniceJob(
         (typeof data?.error === "string" && data.error) ||
         (typeof data === "string" && data) ||
         `Venice API ${res.status}: ${res.statusText}`;
+      if (isVeniceInsufficientBalanceError(msg)) {
+        throw new Error(`Venice account has insufficient credits for video generation. ${msg}`);
+      }
       errors.push(`${veniceModel}: (${res.status}) ${msg}`);
       continue;
     }
