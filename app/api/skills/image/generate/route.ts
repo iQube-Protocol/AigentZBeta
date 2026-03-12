@@ -38,6 +38,11 @@ function dataUrlToBuffer(value: string) {
   };
 }
 
+function arrayBufferToDataUrl(data: ArrayBuffer, contentType: string) {
+  const base64 = Buffer.from(data).toString("base64");
+  return `data:${contentType};base64,${base64}`;
+}
+
 async function persistGeneratedAsset(options: {
   providerId: ProviderId;
   orientation: Orientation;
@@ -75,14 +80,18 @@ async function normalizeImageAssetUrl(
   if (value.startsWith("data:")) {
     const parsed = dataUrlToBuffer(value);
     if (!parsed) return value;
-    return persistGeneratedAsset({
-      providerId,
-      orientation,
-      experienceId,
-      model,
-      contentType: parsed.contentType,
-      data: parsed.data,
-    });
+    try {
+      return await persistGeneratedAsset({
+        providerId,
+        orientation,
+        experienceId,
+        model,
+        contentType: parsed.contentType,
+        data: parsed.data,
+      });
+    } catch {
+      return value;
+    }
   }
 
   if (/^https?:\/\//i.test(value)) {
@@ -92,14 +101,18 @@ async function normalizeImageAssetUrl(
     }
     const contentType = remote.headers.get("content-type") || "image/png";
     const data = await remote.arrayBuffer();
-    return persistGeneratedAsset({
-      providerId,
-      orientation,
-      experienceId,
-      model,
-      contentType,
-      data,
-    });
+    try {
+      return await persistGeneratedAsset({
+        providerId,
+        orientation,
+        experienceId,
+        model,
+        contentType,
+        data,
+      });
+    } catch {
+      return value;
+    }
   }
 
   return value;
@@ -182,17 +195,24 @@ async function requestImageGeneration(
       const contentType = res.headers.get("content-type") || "";
       if (res.ok && (contentType.startsWith("image/") || contentType.startsWith("application/octet-stream"))) {
         const buffer = await res.arrayBuffer();
-        return {
-          ok: true as const,
-          mode: "live" as const,
-          image_url: await persistGeneratedAsset({
+        const normalizedContentType = contentType.startsWith("image/") ? contentType : "image/png";
+        let imageUrl: string;
+        try {
+          imageUrl = await persistGeneratedAsset({
             providerId,
             orientation,
             experienceId,
             model: candidateModel,
-            contentType: contentType.startsWith("image/") ? contentType : "image/png",
+            contentType: normalizedContentType,
             data: buffer,
-          }),
+          });
+        } catch {
+          imageUrl = arrayBufferToDataUrl(buffer, normalizedContentType);
+        }
+        return {
+          ok: true as const,
+          mode: "live" as const,
+          image_url: imageUrl,
           model: candidateModel,
         };
       }
