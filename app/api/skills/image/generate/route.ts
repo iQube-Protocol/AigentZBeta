@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { StorageAdapterFactory } from "@/services/content/storageAdapter";
+import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 
@@ -19,6 +20,37 @@ const GENERATED_MEDIA_BUCKET_CANDIDATES = [
   "assets",
   "codex-lite",
 ].filter((value, index, array): value is string => Boolean(value) && array.indexOf(value) === index);
+
+let cachedSupabaseAdmin:
+  | ReturnType<typeof createClient>
+  | null = null;
+
+function getSupabaseAdmin() {
+  if (cachedSupabaseAdmin) return cachedSupabaseAdmin;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+  if (!url || !key) return null;
+  cachedSupabaseAdmin = createClient(url, key);
+  return cachedSupabaseAdmin;
+}
+
+async function ensureStorageBucketExists(bucket: string) {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return;
+
+  const { error } = await supabase.storage.createBucket(bucket, {
+    public: true,
+    fileSizeLimit: "50MB",
+  });
+
+  if (
+    error &&
+    !/already exists/i.test(error.message) &&
+    !/duplicate/i.test(error.message)
+  ) {
+    throw error;
+  }
+}
 
 type ProviderId = "openai" | "venice";
 type Orientation = "portrait" | "landscape";
@@ -77,7 +109,24 @@ async function persistGeneratedAsset(options: {
 
       return uploaded.publicUrl || adapter.getPublicUrl(bucket, path);
     } catch (error) {
-      errors.push(`${bucket}: ${error instanceof Error ? error.message : String(error)}`);
+      const message = error instanceof Error ? error.message : String(error);
+      if (/bucket not found/i.test(message)) {
+        try {
+          await ensureStorageBucketExists(bucket);
+          const uploaded = await adapter.upload(bucket, path, options.data, {
+            contentType: options.contentType,
+            upsert: true,
+            cacheControl: "31536000",
+          });
+          return uploaded.publicUrl || adapter.getPublicUrl(bucket, path);
+        } catch (retryError) {
+          const retryMessage =
+            retryError instanceof Error ? retryError.message : String(retryError);
+          errors.push(`${bucket}: ${retryMessage}`);
+          continue;
+        }
+      }
+      errors.push(`${bucket}: ${message}`);
     }
   }
 
