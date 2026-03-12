@@ -6,25 +6,25 @@ export const runtime = "nodejs";
 const OPENAI_IMAGES_URL = "https://api.openai.com/v1/images/generations";
 const VENICE_IMAGES_URL = "https://api.venice.ai/api/v1/image/generate";
 const OPENAI_IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL || "gpt-image-1";
-const VENICE_IMAGE_MODEL = process.env.VENICE_IMAGE_MODEL || "flux-2-max";
+const VENICE_IMAGE_MODEL = process.env.VENICE_IMAGE_MODEL || "venice-sd35";
 const VENICE_IMAGE_MODEL_FALLBACKS = [
   process.env.VENICE_IMAGE_MODEL,
-  "flux-2-max",
-  "lustify-sdxl",
-  "lustify-v7",
+  "venice-sd35",
+  "hidream",
+  "flux-2-pro",
 ].filter((value): value is string => Boolean(value));
 
 type ProviderId = "openai" | "venice";
 type Orientation = "portrait" | "landscape";
 
 function resolveImageSize(orientation: Orientation) {
-  return orientation === "portrait" ? "1024x1536" : "1536x1024";
+  return orientation === "portrait" ? "1024x1280" : "1280x1024";
 }
 
 function resolveVeniceDimensions(orientation: Orientation) {
   return orientation === "portrait"
-    ? { width: 1024, height: 1536, aspectRatio: "2:3" }
-    : { width: 1536, height: 1024, aspectRatio: "3:2" };
+    ? { width: 1024, height: 1280 }
+    : { width: 1280, height: 1024 };
 }
 
 function dataUrlToBuffer(value: string) {
@@ -164,7 +164,6 @@ async function requestImageGeneration(
                 prompt,
                 width: veniceDims.width,
                 height: veniceDims.height,
-                aspect_ratio: veniceDims.aspectRatio,
                 format: "png",
                 return_binary: false,
                 safe_mode: false,

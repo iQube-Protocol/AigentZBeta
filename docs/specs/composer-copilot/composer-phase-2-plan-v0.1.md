@@ -101,3 +101,19 @@ Initial scaffolding includes:
 - creator persona fields in ExperienceQube metadata
 - generated asset references in ExperienceQube metadata
 
+## 7. Phase 2 and Beyond: Composable Blocks
+
+Phase 2 should prepare the current golden paths to become production-grade composable blocks.
+
+The immediate objective is not broad composition yet.
+It is to make the current image and video experiences persistent, owned, editable, and deployable enough that they can later be treated as reliable building blocks.
+
+This means:
+
+- finish the current golden paths through Phase 2 and Phase 3
+- define a standalone deployment block
+- then extract common block contracts for composition
+
+Reference:
+
+- `composable-experience-blocks-plan-v0.1.md`
