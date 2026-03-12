@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { StorageAdapterFactory } from "@/services/content/storageAdapter";
 
 export const runtime = "nodejs";
 
@@ -20,9 +21,82 @@ function resolveVeniceDimensions(orientation: Orientation) {
     : { width: 1536, height: 1024, aspectRatio: "3:2" };
 }
 
-async function bufferToDataUrl(buffer: ArrayBuffer, contentType: string) {
-  const base64 = Buffer.from(buffer).toString("base64");
-  return `data:${contentType || "image/png"};base64,${base64}`;
+function dataUrlToBuffer(value: string) {
+  const match = value.match(/^data:(.+?);base64,(.+)$/);
+  if (!match) return null;
+  const [, contentType, base64] = match;
+  const binary = Buffer.from(base64, "base64");
+  return {
+    contentType,
+    data: binary.buffer.slice(binary.byteOffset, binary.byteOffset + binary.byteLength),
+  };
+}
+
+async function persistGeneratedAsset(options: {
+  providerId: ProviderId;
+  orientation: Orientation;
+  experienceId?: string | null;
+  model: string;
+  contentType: string;
+  data: ArrayBuffer;
+}) {
+  const adapter = StorageAdapterFactory.getAdapter("supabase");
+  const bucket = "content-assets";
+  const safeModel = options.model.replace(/[^a-zA-Z0-9._-]/g, "_");
+  const extension = options.contentType.includes("jpeg")
+    ? "jpg"
+    : options.contentType.includes("webp")
+    ? "webp"
+    : "png";
+  const path = `generated/${options.providerId}/images/${options.experienceId || "studio"}/${options.orientation}-${Date.now()}-${safeModel}.${extension}`;
+
+  const uploaded = await adapter.upload(bucket, path, options.data, {
+    contentType: options.contentType,
+    upsert: true,
+    cacheControl: "31536000",
+  });
+
+  return uploaded.publicUrl || adapter.getPublicUrl(bucket, path);
+}
+
+async function normalizeImageAssetUrl(
+  providerId: ProviderId,
+  experienceId: string | null | undefined,
+  orientation: Orientation,
+  model: string,
+  value: string,
+) {
+  if (value.startsWith("data:")) {
+    const parsed = dataUrlToBuffer(value);
+    if (!parsed) return value;
+    return persistGeneratedAsset({
+      providerId,
+      orientation,
+      experienceId,
+      model,
+      contentType: parsed.contentType,
+      data: parsed.data,
+    });
+  }
+
+  if (/^https?:\/\//i.test(value)) {
+    const remote = await fetch(value, { cache: "no-store" });
+    if (!remote.ok) {
+      throw new Error(`Failed to fetch generated image asset (${remote.status})`);
+    }
+    const contentType = remote.headers.get("content-type") || "image/png";
+    const data = await remote.arrayBuffer();
+    return persistGeneratedAsset({
+      providerId,
+      orientation,
+      experienceId,
+      model,
+      contentType,
+      data,
+    });
+  }
+
+  return value;
 }
 
 function extractImageUrlFromJson(data: any): string | null {
@@ -48,6 +122,7 @@ async function requestImageGeneration(
   providerId: ProviderId,
   prompt: string,
   orientation: Orientation,
+  experienceId?: string | null,
 ) {
   const apiKey = providerId === "venice" ? process.env.VENICE_API_KEY : process.env.OPENAI_API_KEY;
   const endpoint = providerId === "venice" ? VENICE_IMAGES_URL : OPENAI_IMAGES_URL;
@@ -101,7 +176,14 @@ async function requestImageGeneration(
       return {
         ok: true as const,
         mode: "live" as const,
-        image_url: await bufferToDataUrl(buffer, contentType.startsWith("image/") ? contentType : "image/png"),
+        image_url: await persistGeneratedAsset({
+          providerId,
+          orientation,
+          experienceId,
+          model,
+          contentType: contentType.startsWith("image/") ? contentType : "image/png",
+          data: buffer,
+        }),
         model,
       };
     }
@@ -137,7 +219,7 @@ async function requestImageGeneration(
     return {
       ok: true as const,
       mode: "live" as const,
-      image_url: url,
+      image_url: await normalizeImageAssetUrl(providerId, experienceId, orientation, model, url),
       model,
     };
   } catch (error) {
@@ -180,7 +262,7 @@ export async function POST(request: NextRequest) {
 
     const results = await Promise.all(
       prompts.map(async ({ orientation, prompt }) => {
-        const result = await requestImageGeneration(provider_id, prompt, orientation);
+        const result = await requestImageGeneration(provider_id, prompt, orientation, experience_id);
         return {
           orientation,
           prompt,
