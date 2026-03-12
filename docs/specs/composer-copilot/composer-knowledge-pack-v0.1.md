@@ -405,11 +405,31 @@ services/copilot/kb/composer/templates.ts
 services/copilot/kb/composer/providers.ts
 services/copilot/kb/composer/review.ts
 services/copilot/kb/composer/domains/qriptopian.ts
+services/copilot/kb/composer/domains/metaknyts.ts
+services/copilot/kb/composer/economics.ts
 ```
+
+Add:
+
+- `Qriptopian` base context pack
+- `metaKnyts` override pack layered within Qriptopian
+- inference economics knowledge:
+  - cost posture by provider/skill
+  - payment expectations
+  - creator-paid vs user-paid execution framing
+- ownership/provenance knowledge:
+  - creator persona association
+  - generated asset storage
+  - receipt linkage expectations
 
 ### Phase 3
 
 Move toward retrieval-backed storage and tenant/domain overlays.
+
+Add:
+
+- trust-and-cost routing knowledge for ClawRouter-style orchestration
+- broader `metaMe` context overlays above Qriptopian/metaKnyts
 
 ## Retrieval guidance
 

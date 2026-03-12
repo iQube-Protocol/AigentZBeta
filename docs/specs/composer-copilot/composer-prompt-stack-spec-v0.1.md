@@ -224,10 +224,25 @@ That is enough to demonstrate a true continuous Composer copilot.
 - tenant/domain prompt augmentations
 - stored KB docs
 - retrieval pipeline
+- codex-context resolution:
+  - `Qriptopian` as the primary domain pack
+  - `metaKnyts` as a focused sub-context layered on top of Qriptopian
+- ownership/persistence prompt inputs:
+  - creator persona
+  - generated asset refs
+  - receipt refs
+- inference economics prompt inputs:
+  - cost envelope
+  - payer model
+  - budget sensitivity
 
 ### Phase 3
 
 - generalized agent prompt registry for Runtime, Qriptopian, and other copilots
+- trust-and-cost routing augmentations:
+  - route by trust, cost, latency, and policy fit
+  - support ClawRouter-style execution reasoning
+- broader `metaMe` context layering above Qriptopian/metaKnyts
 
 ## Success criteria
 

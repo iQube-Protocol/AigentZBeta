@@ -86,7 +86,6 @@ type ExperienceQube = {
   creator_id: string;
   template_id: string;
   status: string;
-  metadata?: Record<string, any>;
   configuration?: Record<string, any>;
   components?: Array<{
     component_type: 'DataQube' | 'ContentQube' | 'ToolQube' | 'ModelQube' | 'AgentQube';
@@ -95,6 +94,26 @@ type ExperienceQube = {
     visibility: 'private' | 'tenant' | 'public';
     required_entitlements: string[];
     allowed_roles: string[];
+  };
+  metadata?: Record<string, any> & {
+    creator_persona?: { id?: string; name?: string };
+    codex_context?: {
+      active_codex_id?: string;
+      active_codex_name?: string;
+      parent_codex_id?: string;
+      parent_codex_name?: string;
+      inheritance_mode?: "direct" | "inherited";
+    };
+    generated_assets?: Array<{
+      id: string;
+      type: "image" | "video";
+      label: string;
+      provider?: string;
+      orientation?: "portrait" | "landscape";
+      asset_url?: string;
+      storage_path?: string;
+      receipt_ref?: string;
+    }>;
   };
 };
 
@@ -155,6 +174,57 @@ function buildImagePromptVariants(prompt: string, contextLabel: string) {
 function buildVideoPrompt(prompt: string, contextLabel: string) {
   const style = inferVisualStyleFromPrompt(prompt);
   return `Create a concise ${style} video for ${contextLabel}. ${prompt}. Keep the scene focused, motion readable, composition strong, and suitable for a runtime-grade experience.`;
+}
+
+function resolveComposerCodexContext(codexId: string, codexLabel: string) {
+  const normalizedId = (codexId || "").toLowerCase();
+  const normalizedLabel = (codexLabel || "").toLowerCase();
+  const isMetaKnyts =
+    normalizedId.includes("metaknyts") ||
+    normalizedId.includes("knyt") ||
+    normalizedLabel.includes("metaknyts") ||
+    normalizedLabel.includes("knyt");
+
+  if (isMetaKnyts) {
+    return {
+      activeCodexId: codexId || "metaknyts",
+      activeCodexName: codexLabel || "metaKnyts",
+      parentCodexId: "qripto-codex",
+      parentCodexName: "Qriptopian",
+      codexInheritanceMode: "inherited" as const,
+      codexNotes: [
+        "metaKnyts inherits the broader Qriptopian context.",
+        "Favor metaKnyts-specific lore, visual language, and templates when relevant.",
+      ],
+    };
+  }
+
+  return {
+    activeCodexId: codexId || "qripto-codex",
+    activeCodexName: codexLabel || "Qriptopian",
+    parentCodexId: undefined,
+    parentCodexName: undefined,
+    codexInheritanceMode: "direct" as const,
+    codexNotes: ["Using the broader Qriptopian codex context."],
+  };
+}
+
+function extractGeneratedAssetsFromExperience(experience: ExperienceQube | null | undefined) {
+  const generatedAssets = experience?.metadata?.generated_assets;
+  if (!Array.isArray(generatedAssets)) return [];
+  return generatedAssets.map((asset) => ({
+    id: String(asset.id || `${experience?.id || "asset"}:${asset.label || "generated"}`),
+    type: asset.type === "video" ? "video" : "image",
+    label: String(asset.label || "Generated asset"),
+    provider: asset.provider ? String(asset.provider) : undefined,
+    orientation:
+      asset.orientation === "portrait" || asset.orientation === "landscape"
+        ? asset.orientation
+        : undefined,
+    assetUrl: asset.asset_url ? String(asset.asset_url) : undefined,
+    storagePath: asset.storage_path ? String(asset.storage_path) : undefined,
+    receiptRef: asset.receipt_ref ? String(asset.receipt_ref) : undefined,
+  }));
 }
 
 function mapStudioTemplateToSessionTemplate(templateId: string) {
@@ -2527,7 +2597,33 @@ export const ComposerStudio = () => {
       });
       if (!res.ok) throw new Error("Failed to complete session");
       const data = await res.json();
-      const completedExperience = data.experience_qube || null;
+      const returnedExperience = data.experience_qube || null;
+      const codexLabel =
+        copilotContextOptions.find((opt) => opt.id === copilotContextId)?.label || "Qriptopian";
+      const creatorPersonaName = userId || "Studio User";
+      const codexContext = resolveComposerCodexContext(copilotContextId, codexLabel);
+      const generatedAssets = extractGeneratedAssetsFromExperience(returnedExperience);
+      const completedExperience = returnedExperience
+        ? {
+            ...returnedExperience,
+            creator_id: returnedExperience.creator_id || userId,
+            metadata: {
+              ...(returnedExperience.metadata || {}),
+              creator_persona: {
+                id: userId,
+                name: creatorPersonaName,
+              },
+              codex_context: {
+                active_codex_id: codexContext.activeCodexId,
+                active_codex_name: codexContext.activeCodexName,
+                parent_codex_id: codexContext.parentCodexId,
+                parent_codex_name: codexContext.parentCodexName,
+                inheritance_mode: codexContext.codexInheritanceMode,
+              },
+              generated_assets: generatedAssets,
+            },
+          }
+        : null;
       setExperience(completedExperience);
       setSession((prev) => (prev ? { ...prev, status: "completed" } : prev));
       if (completedExperience) {
@@ -2901,6 +2997,7 @@ export const ComposerStudio = () => {
               : "mixed";
       const contextLabel =
         copilotContextOptions.find((opt) => opt.id === copilotContextId)?.label || "The Qriptopian";
+      const activeCodexContext = resolveComposerCodexContext(copilotContextId, contextLabel);
 
       const selectedProviders = new Set<string>();
       const selectedSkills = new Set<string>();
@@ -2976,6 +3073,14 @@ export const ComposerStudio = () => {
       if (typeof videoPromptStep.prompt === "string" && videoPromptStep.prompt.trim()) {
         suggestedPrompts.video = videoPromptStep.prompt;
       }
+      const intentStep = mergedData?.intent_timebox || {};
+      const editableExperienceName =
+        typeof intentStep.experience_name === "string" && intentStep.experience_name.trim()
+          ? intentStep.experience_name
+          : undefined;
+      const generatedAssets = extractGeneratedAssetsFromExperience(
+        previewExperience || experience || selectedExperience || null
+      );
 
       const portraitNeeded =
         Boolean(suggestedPrompts.imagePortrait) ||
@@ -2995,6 +3100,12 @@ export const ComposerStudio = () => {
           tenantId,
           userId,
           personaId: userId,
+          activeCodexId: activeCodexContext.activeCodexId,
+          activeCodexName: activeCodexContext.activeCodexName,
+          parentCodexId: activeCodexContext.parentCodexId,
+          parentCodexName: activeCodexContext.parentCodexName,
+          codexInheritanceMode: activeCodexContext.codexInheritanceMode,
+          codexNotes: activeCodexContext.codexNotes,
           currentPhase: activePhase,
           activeExperienceTab:
             experiencePanelTab === "template"
@@ -3019,6 +3130,11 @@ export const ComposerStudio = () => {
           customizationFields:
             currentStep?.id && typeof stepValues === "object" ? stepValues : sessionData,
           suggestedPrompts,
+          editableExperienceName,
+          editableImagePortraitPrompt: suggestedPrompts.imagePortrait,
+          editableImageLandscapePrompt: suggestedPrompts.imageLandscape,
+          editableVideoPrompt: suggestedPrompts.video,
+          providerBindingMode: "strict",
           selectedProviders: Array.from(selectedProviders),
           selectedSkills: Array.from(selectedSkills),
           selectedResources,
@@ -3056,9 +3172,12 @@ export const ComposerStudio = () => {
           parityStatus: isParityExpanded ? "ready" : "idle",
           surfacePlanStatus: studioAnalysisTab === "surfaces" ? "ready" : "idle",
           dvnReceiptStatus: studioAnalysisTab === "receipts" ? "ready" : "idle",
-          personaContext: { id: userId, name: contextLabel },
+          personaContext: { id: userId, name: userId || "Studio User" },
           activeDataQubes: [],
           activeContentQubes: [],
+          creatorPersonaId: userId,
+          creatorPersonaName: userId || "Studio User",
+          generatedAssets,
           deploymentTargets: ["Studio Preview", "MCP App Deployment", "Discord via MCP"],
           recommendedDeploymentTarget: "Studio Preview",
           deploymentReady: Boolean(selectedExperienceId || previewExperience?.id),
@@ -3086,6 +3205,7 @@ export const ComposerStudio = () => {
       previewDevice,
       previewExperience?.id,
       previewExperience?.name,
+      selectedExperience,
       resourcesPanelTab,
       runtimePreviewLoaded,
       selectedExperienceId,

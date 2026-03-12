@@ -308,7 +308,21 @@ This prompt is successful if Composer Copilot can:
 Later revisions should add:
 
 - stronger tenant/domain augmentations
+- codex-context inheritance:
+  - `Qriptopian` base context
+  - `metaKnyts` focused override context
 - richer policy-aware phrasing
 - deployment-target specialization
 - voice-aware behavior
 - deeper persona/DataQube/ContentQube reasoning
+- creator/owner-aware behavior for generated experiences and assets
+- explicit cost visibility and payer-awareness in recommendations
+
+## Phase 3 extensions
+
+Later revisions should also add:
+
+- trust-and-cost routing guidance for provider/skill choice
+- QriptoCent-aware inference economics
+- ClawRouter-style orchestration reasoning
+- broader `metaMe` context layering

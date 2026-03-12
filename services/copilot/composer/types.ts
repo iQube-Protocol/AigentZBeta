@@ -58,6 +58,15 @@ export interface ComposerUserContext {
   activeContentQubes?: ComposerActivatedQube[];
 }
 
+export interface ComposerCodexContext {
+  activeCodexId?: string;
+  activeCodexName?: string;
+  parentCodexId?: string;
+  parentCodexName?: string;
+  inheritanceMode?: "direct" | "inherited";
+  notes?: string[];
+}
+
 export interface ComposerStudioContext {
   currentPhase: ComposerStudioPhase;
   activeExperienceTab?: ComposerExperienceTab;
@@ -87,6 +96,14 @@ export interface ComposerCustomizationContext {
   unresolvedQuestions?: string[];
 }
 
+export interface ComposerEditableGenerationContext {
+  experienceName?: string;
+  imagePortraitPrompt?: string;
+  imageLandscapePrompt?: string;
+  videoPrompt?: string;
+  providerBindingMode?: "strict" | "advisory";
+}
+
 export interface ComposerSelectedResource {
   id: string;
   name: string;
@@ -97,6 +114,17 @@ export interface ComposerSelectedResource {
 export interface ComposerGenerationCostEnvelope {
   status?: "stubbed" | "estimated" | "known";
   notes?: string[];
+}
+
+export interface ComposerGeneratedAssetRef {
+  id: string;
+  type: "image" | "video";
+  label: string;
+  provider?: string;
+  orientation?: "portrait" | "landscape";
+  assetUrl?: string;
+  storagePath?: string;
+  receiptRef?: string;
 }
 
 export interface ComposerResourceContext {
@@ -124,6 +152,9 @@ export interface ComposerExperienceContext {
   selectedExperienceQubeId?: string;
   selectedExperienceQubeName?: string;
   availableExperienceQubeIds?: string[];
+  creatorPersonaId?: string;
+  creatorPersonaName?: string;
+  generatedAssets?: ComposerGeneratedAssetRef[];
 }
 
 export interface ComposerPreviewContext {
@@ -154,9 +185,11 @@ export interface ComposerDeploymentContext {
 export interface ComposerSessionContext {
   sessionIdentity: ComposerSessionIdentity;
   userContext: ComposerUserContext;
+  codexContext: ComposerCodexContext;
   studioContext: ComposerStudioContext;
   templateContext: ComposerTemplateContext;
   customizationContext: ComposerCustomizationContext;
+  editableGenerationContext: ComposerEditableGenerationContext;
   resourceContext: ComposerResourceContext;
   designContext: ComposerDesignContext;
   experienceContext: ComposerExperienceContext;
@@ -253,10 +286,21 @@ export interface BuildComposerSessionContextInput {
   candidateTemplateIds?: string[];
   inferredIntent?: string;
   inferredMediaMode?: ComposerMediaMode;
+  activeCodexId?: string;
+  activeCodexName?: string;
+  parentCodexId?: string;
+  parentCodexName?: string;
+  codexInheritanceMode?: "direct" | "inherited";
+  codexNotes?: string[];
   customizationFields?: Record<string, string | number | boolean | null>;
   suggestedPrompt?: string;
   suggestedPrompts?: ComposerSuggestedPrompts;
   unresolvedQuestions?: string[];
+  editableExperienceName?: string;
+  editableImagePortraitPrompt?: string;
+  editableImageLandscapePrompt?: string;
+  editableVideoPrompt?: string;
+  providerBindingMode?: "strict" | "advisory";
   selectedProviders?: string[];
   selectedSkills?: string[];
   selectedResources?: ComposerSelectedResource[];
@@ -284,4 +328,7 @@ export interface BuildComposerSessionContextInput {
   personaContext?: ComposerPersonaContext;
   activeDataQubes?: ComposerActivatedQube[];
   activeContentQubes?: ComposerActivatedQube[];
+  creatorPersonaId?: string;
+  creatorPersonaName?: string;
+  generatedAssets?: ComposerGeneratedAssetRef[];
 }

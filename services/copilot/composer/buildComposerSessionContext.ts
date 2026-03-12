@@ -19,6 +19,14 @@ export function buildComposerSessionContext(
       activeDataQubes: input.activeDataQubes ?? [],
       activeContentQubes: input.activeContentQubes ?? [],
     },
+    codexContext: {
+      activeCodexId: input.activeCodexId,
+      activeCodexName: input.activeCodexName,
+      parentCodexId: input.parentCodexId,
+      parentCodexName: input.parentCodexName,
+      inheritanceMode: input.codexInheritanceMode ?? "direct",
+      notes: input.codexNotes ?? [],
+    },
     studioContext: {
       currentPhase: input.currentPhase ?? "Intent",
       activeExperienceTab: input.activeExperienceTab,
@@ -38,6 +46,13 @@ export function buildComposerSessionContext(
       suggestedPrompt: input.suggestedPrompt,
       suggestedPrompts: input.suggestedPrompts,
       unresolvedQuestions: input.unresolvedQuestions ?? [],
+    },
+    editableGenerationContext: {
+      experienceName: input.editableExperienceName,
+      imagePortraitPrompt: input.editableImagePortraitPrompt,
+      imageLandscapePrompt: input.editableImageLandscapePrompt,
+      videoPrompt: input.editableVideoPrompt,
+      providerBindingMode: input.providerBindingMode ?? "strict",
     },
     resourceContext: {
       selectedProviders: input.selectedProviders ?? [],
@@ -63,6 +78,9 @@ export function buildComposerSessionContext(
       selectedExperienceQubeId: input.selectedExperienceQubeId,
       selectedExperienceQubeName: input.selectedExperienceQubeName,
       availableExperienceQubeIds: input.availableExperienceQubeIds ?? [],
+      creatorPersonaId: input.creatorPersonaId,
+      creatorPersonaName: input.creatorPersonaName,
+      generatedAssets: input.generatedAssets ?? [],
     },
     previewContext: {
       device: input.previewDevice,
@@ -139,6 +157,30 @@ export function renderComposerSessionContext(
           .map((q) => q.name)
           .join(", ")}`
       : "Active ContentQubes: none",
+    context.codexContext.activeCodexName
+      ? `Active Codex: ${context.codexContext.activeCodexName}`
+      : "Active Codex: none",
+    context.codexContext.parentCodexName
+      ? `Parent Codex: ${context.codexContext.parentCodexName}`
+      : null,
+    context.editableGenerationContext.experienceName
+      ? `Editable experience name: ${context.editableGenerationContext.experienceName}`
+      : null,
+    context.editableGenerationContext.imagePortraitPrompt
+      ? "Editable portrait prompt: available"
+      : null,
+    context.editableGenerationContext.imageLandscapePrompt
+      ? "Editable landscape prompt: available"
+      : null,
+    context.editableGenerationContext.videoPrompt
+      ? "Editable video prompt: available"
+      : null,
+    context.experienceContext.creatorPersonaName
+      ? `Creator persona: ${context.experienceContext.creatorPersonaName}`
+      : null,
+    context.experienceContext.generatedAssets?.length
+      ? `Generated assets: ${context.experienceContext.generatedAssets.length}`
+      : "Generated assets: none",
   ];
 
   return lines.filter(Boolean).join("\n");

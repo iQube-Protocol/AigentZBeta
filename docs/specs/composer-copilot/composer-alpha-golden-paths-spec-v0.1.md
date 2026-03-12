@@ -211,12 +211,36 @@ Even if not fully used, alpha should reserve these fields:
 - provider/skill selection guidance
 - resource summarization
 - orientation-aware image planning
+- editable generation fields for:
+  - experience name
+  - image/video prompt
+- creator/owner binding:
+  - associate creator persona with the generated ExperienceQube
+  - prepare generated asset persistence with receipt linkage
+- codex-context specialization:
+  - `Qriptopian` base context
+  - `metaKnyts` focused override context within Qriptopian
+- inference economics visibility:
+  - show expected generation cost posture
+  - capture who is expected to pay
+  - surface margin implications between fulfillment cost and experience pricing
+- strict provider binding for generation skills:
+  - selected skill determines allowed provider endpoint
+  - no silent cross-provider substitution for generation actions
 
 ### Phase 3: Review and deployment path
 
 - parity-aware guidance
 - DVN/surface-plan awareness
 - MCP deployment guidance
+- trust-and-cost routing:
+  - route experiences to the most trustworthy and cost-effective skills
+  - use ClawRouter-style orchestration to balance trust, cost, latency, and policy fit
+- Qc-backed execution planning:
+  - use QriptoCent economics for micro-inference and asset-generation payments
+  - make creator-paid vs user-paid execution explicit
+- proof-aware persistence:
+  - bind generated assets, receipts, and deployment actions into a verifiable supply chain
 
 ## Success definition
 
