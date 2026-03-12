@@ -168,8 +168,8 @@ function deriveExperienceNameFromPrompt(prompt: string, fallback: string): strin
 function buildImagePromptVariants(prompt: string, contextLabel: string) {
   const style = inferVisualStyleFromPrompt(prompt);
   return {
-    portrait: `Create a ${style} portrait hero image for ${contextLabel}. ${prompt}. Vertical composition, strong focal subject, premium lighting, runtime-grade polish.`,
-    landscape: `Create a ${style} landscape hero image for ${contextLabel}. ${prompt}. Wide cinematic composition, strong depth, editorial clarity, runtime-grade polish.`,
+    portrait: `Create a ${style} vertical-format hero image for ${contextLabel}. ${prompt}. Use portrait orientation only as framing. Vertical composition, strong focal subject, premium lighting, runtime-grade polish.`,
+    landscape: `Create a ${style} horizontal-format hero image for ${contextLabel}. ${prompt}. Use widescreen framing only. Do not depict a natural landscape unless the prompt explicitly asks for one. Wide cinematic composition, strong depth, editorial clarity, runtime-grade polish.`,
   };
 }
 

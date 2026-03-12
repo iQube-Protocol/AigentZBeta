@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ImageIcon, Loader2, RefreshCw, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { ImageIcon, Loader2, RefreshCw, AlertTriangle, CheckCircle2, FileText } from "lucide-react";
 
 interface SkillImagePlayerProps {
   provider_id?: "openai" | "venice";
@@ -31,6 +31,7 @@ interface GenerationResponse {
   images: GeneratedImage[];
   fallback_reason?: string;
   error?: string;
+  receipt?: Record<string, unknown>;
 }
 
 const providerLabel = (provider: "openai" | "venice") =>
@@ -46,6 +47,7 @@ export default function SkillImagePlayer({
 }: SkillImagePlayerProps) {
   const [state, setState] = useState<"idle" | "invoking" | "done" | "error">("idle");
   const [result, setResult] = useState<GenerationResponse | null>(null);
+  const [showReceipt, setShowReceipt] = useState(false);
 
   const availablePrompts = useMemo(
     () =>
@@ -64,6 +66,7 @@ export default function SkillImagePlayer({
     if (availablePrompts.length === 0) return;
     setState("invoking");
     setResult(null);
+    setShowReceipt(false);
     try {
       const res = await fetch("/api/skills/image/generate", {
         method: "POST",
@@ -116,6 +119,17 @@ export default function SkillImagePlayer({
           <Badge variant="outline" className="border-slate-700 text-[10px] text-slate-400">
             {visual_style}
           </Badge>
+          {state === "done" && result?.receipt && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 text-xs text-slate-400"
+              onClick={() => setShowReceipt((value) => !value)}
+            >
+              <FileText className="mr-1 h-3 w-3" />
+              {showReceipt ? "Hide Receipt" : "Show Receipt"}
+            </Button>
+          )}
           <Button size="sm" variant="ghost" className="h-7 text-xs text-slate-400" onClick={invoke}>
             <RefreshCw className="mr-1 h-3 w-3" />
             {state === "idle" ? "Generate" : "Regenerate"}
@@ -208,6 +222,15 @@ export default function SkillImagePlayer({
         {state === "error" && (
           <div className="rounded-xl border border-rose-500/30 bg-rose-500/5 p-4 text-sm text-rose-200">
             {result?.error || "Image generation failed."}
+          </div>
+        )}
+
+        {showReceipt && result?.receipt && (
+          <div className="rounded-xl border border-slate-800 bg-black/20 p-3">
+            <div className="mb-2 text-[10px] uppercase tracking-widest text-slate-500">DVN Receipt</div>
+            <pre className="max-h-48 overflow-auto rounded-lg bg-black/30 p-3 text-[10px] text-slate-300">
+              {JSON.stringify(result.receipt, null, 2)}
+            </pre>
           </div>
         )}
       </div>

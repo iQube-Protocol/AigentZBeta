@@ -370,12 +370,35 @@ export async function POST(request: NextRequest) {
     const live = results.filter((item) => item.ok);
     const simulated = results.filter((item) => !item.ok);
 
+    const receipt = {
+      receipt_id: `rcpt_image_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      receipt_type: "skill.image.generated",
+      timestamp: new Date().toISOString(),
+      payload: {
+        provider: provider_id,
+        experience_id: experience_id || null,
+        mode: simulated.length > 0 && live.length === 0 ? "simulation" : "live",
+        prompts: prompts.map((item) => ({
+          orientation: item.orientation,
+          prompt: item.prompt,
+        })),
+        outputs: results.map((item) => ({
+          orientation: item.orientation,
+          ok: item.ok,
+          model: item.model,
+          image_url: item.image_url || null,
+          error: item.error || null,
+        })),
+      },
+    };
+
     return NextResponse.json({
       ok: live.length > 0,
       provider: provider_id,
       experience_id: experience_id || null,
       mode: simulated.length > 0 && live.length === 0 ? "simulation" : "live",
       images: results,
+      receipt,
       fallback_reason:
         simulated.length > 0 && live.length === 0
           ? simulated.map((item) => `${item.orientation}: ${item.error}`).join(" | ")
