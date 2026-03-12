@@ -66,11 +66,25 @@ export async function GET(
     const data = await res.json().catch(() => null);
 
     if (!res.ok) {
+      const errorMessage = data?.error?.message || data?.error || `Venice API ${res.status}`;
+
+      // Venice retrieve can intermittently return upstream 5xx while the media
+      // is still being finalized. Treat those as transient processing states so
+      // the client keeps polling instead of falling into a 502 loop.
+      if (res.status >= 500) {
+        return NextResponse.json({
+          ready: false,
+          status: "PROCESSING",
+          progress: 95,
+          transient_error: errorMessage,
+        });
+      }
+
       return NextResponse.json({
         ready: false,
         status: "error",
-        error: data?.error?.message || data?.error || `Venice API ${res.status}`,
-      }, { status: 502 });
+        error: errorMessage,
+      }, { status: 200 });
     }
 
     const status = data?.status || "PROCESSING";
@@ -81,6 +95,14 @@ export async function GET(
         status: "completed",
         progress: 100,
         video_url: remoteVideoUrl,
+      });
+    }
+    if (String(status).toLowerCase() === "completed") {
+      return NextResponse.json({
+        ready: true,
+        status: "completed",
+        progress: 100,
+        video_url: `/api/skills/video/venice/${queueId}?model=${encodeURIComponent(model)}`,
       });
     }
     const avgTime = data?.average_execution_time || 0;
@@ -96,6 +118,11 @@ export async function GET(
     });
   } catch (err: any) {
     const msg = err?.name === "AbortError" ? "Status check timed out" : (err.message || String(err));
-    return NextResponse.json({ ready: false, status: "error", error: msg }, { status: 502 });
+    return NextResponse.json({
+      ready: false,
+      status: "PROCESSING",
+      progress: 95,
+      transient_error: msg,
+    });
   }
 }
