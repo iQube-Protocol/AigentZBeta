@@ -18,6 +18,7 @@ import {
   Clapperboard,
   Info,
 } from "lucide-react";
+import { persistGeneratedAssetsForExperience } from "@/services/composer/generatedAssetClient";
 
 interface SkillVideoPlayerProps {
   skill_id: string;
@@ -89,6 +90,7 @@ export default function SkillVideoPlayer({
   const [result, setResult] = useState<InvocationResult | null>(null);
   const [showReceipt, setShowReceipt] = useState(false);
   const [playbackRetryCount, setPlaybackRetryCount] = useState(0);
+  const [persistedVideoKey, setPersistedVideoKey] = useState<string | null>(null);
   const initialProvider = inferProviderFromSkillId(skill_id);
   const resolvedProvider = result?.provider || initialProvider;
   const providerLabel = getProviderLabel(resolvedProvider);
@@ -97,6 +99,7 @@ export default function SkillVideoPlayer({
     setState("invoking");
     setResult(null);
     setPlaybackRetryCount(0);
+    setPersistedVideoKey(null);
     try {
       const res = await fetch("/api/skills/invoke", {
         method: "POST",
@@ -154,6 +157,32 @@ export default function SkillVideoPlayer({
     }
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [state, isLive, result?.video_url, result?.generation_id, checkStatus]);
+
+  useEffect(() => {
+    if (!experience_id || state !== "done" || !isLive || !result?.video_url) return;
+    const generationKey = `${result.video_url}:${result.generation_id || ""}:${result.provider || ""}`;
+    if (generationKey === persistedVideoKey) return;
+
+    persistGeneratedAssetsForExperience({
+      experienceId: experience_id,
+      assets: [
+        {
+          id: `${experience_id}:video`,
+          type: "video",
+          label: "Generated video",
+          provider: result.provider,
+          assetUrl: result.video_url,
+          receiptRef:
+            typeof result.receipt?.receipt_id === "string" ? result.receipt.receipt_id : undefined,
+          prompt,
+          createdAt: new Date().toISOString(),
+        },
+      ],
+      receipt: result.receipt,
+    })
+      .then(() => setPersistedVideoKey(generationKey))
+      .catch(() => undefined);
+  }, [experience_id, isLive, persistedVideoKey, prompt, result, state]);
 
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-900/60 overflow-hidden">

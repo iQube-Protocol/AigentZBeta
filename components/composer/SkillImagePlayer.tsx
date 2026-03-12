@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ImageIcon, Loader2, RefreshCw, AlertTriangle, CheckCircle2, FileText } from "lucide-react";
+import { persistGeneratedAssetsForExperience } from "@/services/composer/generatedAssetClient";
 
 interface SkillImagePlayerProps {
   provider_id?: "openai" | "venice";
@@ -48,6 +49,7 @@ export default function SkillImagePlayer({
   const [state, setState] = useState<"idle" | "invoking" | "done" | "error">("idle");
   const [result, setResult] = useState<GenerationResponse | null>(null);
   const [showReceipt, setShowReceipt] = useState(false);
+  const [persistedGenerationKey, setPersistedGenerationKey] = useState<string | null>(null);
 
   const availablePrompts = useMemo(
     () =>
@@ -67,6 +69,7 @@ export default function SkillImagePlayer({
     setState("invoking");
     setResult(null);
     setShowReceipt(false);
+    setPersistedGenerationKey(null);
     try {
       const res = await fetch("/api/skills/image/generate", {
         method: "POST",
@@ -107,6 +110,41 @@ export default function SkillImagePlayer({
     if (!autoInvoke || state !== "idle") return;
     void invoke();
   }, [autoInvoke, invoke, state]);
+
+  useEffect(() => {
+    if (!experience_id || state !== "done" || result?.mode !== "live") return;
+
+    const liveImages = result.images.filter(
+      (image) => image.ok && typeof image.image_url === "string" && image.image_url.length > 0
+    );
+    if (liveImages.length === 0) return;
+
+    const generationKey = liveImages
+      .map((image) => `${image.orientation}:${image.image_url}:${image.model || ""}`)
+      .join("|");
+    if (!generationKey || generationKey === persistedGenerationKey) return;
+
+    const assets = liveImages.map((image) => ({
+      id: `${experience_id}:${image.orientation}:image`,
+      type: "image" as const,
+      label: `${image.orientation === "portrait" ? "Portrait" : "Landscape"} generated image`,
+      provider: result.provider,
+      orientation: image.orientation,
+      assetUrl: image.image_url,
+      receiptRef:
+        typeof result.receipt?.receipt_id === "string" ? result.receipt.receipt_id : undefined,
+      prompt: image.prompt,
+      createdAt: new Date().toISOString(),
+    }));
+
+    persistGeneratedAssetsForExperience({
+      experienceId: experience_id,
+      assets,
+      receipt: result.receipt,
+    })
+      .then(() => setPersistedGenerationKey(generationKey))
+      .catch(() => undefined);
+  }, [experience_id, persistedGenerationKey, result, state]);
 
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60">
