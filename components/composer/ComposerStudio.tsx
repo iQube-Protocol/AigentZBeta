@@ -27,6 +27,7 @@ import {
   getComposerProviderKnowledge,
   getComposerTemplateKnowledge,
 } from "@/services/copilot/composer";
+import { resolveRuntimeIdentity } from "@/services/runtime/identityResolver";
 
 type ComposerField = {
   id: string;
@@ -982,6 +983,8 @@ export const ComposerStudio = () => {
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [tenantId, setTenantId] = useState(DEFAULT_TENANT);
   const [userId, setUserId] = useState(DEFAULT_USER);
+  const [activePersonaId, setActivePersonaId] = useState<string | null>(null);
+  const [activePersonaName, setActivePersonaName] = useState<string | null>(null);
   const [session, setSession] = useState<ComposerSession | null>(null);
   const [sessionTemplate, setSessionTemplate] = useState<ExperienceTemplate | null>(null);
   const [sessionData, setSessionData] = useState<Record<string, any>>({});
@@ -1062,6 +1065,29 @@ export const ComposerStudio = () => {
 
     return restoreViewport;
   }, [isStudioExpanded]);
+
+  useEffect(() => {
+    let active = true;
+
+    resolveRuntimeIdentity({ userId, tenantId })
+      .then((identity) => {
+        if (!active) return;
+        setActivePersonaId(identity.activePersonaId || null);
+        setActivePersonaName(identity.activePersonaName || null);
+        if (identity.tenantId && identity.tenantId !== tenantId) {
+          setTenantId(identity.tenantId);
+        }
+      })
+      .catch(() => {
+        if (!active) return;
+        setActivePersonaId(null);
+        setActivePersonaName(null);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [tenantId, userId]);
 
   // Delete experience function
   const handleDeleteExperience = async (experience: ExperienceQube) => {
@@ -1160,7 +1186,7 @@ export const ComposerStudio = () => {
           tool: mcpTool,
           input,
           tenantId,
-          personaId: userId,
+          personaId: activePersonaId || userId,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -1195,7 +1221,7 @@ export const ComposerStudio = () => {
           tool: mcpTool,
           tenantId,
           experienceId: mcpExperience.id,
-          personaId: userId,
+          personaId: activePersonaId || userId,
           message: mcpMessage,
           channelId: normalizedChannelId,
           inviteUrl: mcpDiscordInvite,
@@ -2601,17 +2627,19 @@ export const ComposerStudio = () => {
       const codexLabel =
         copilotContextOptions.find((opt) => opt.id === copilotContextId)?.label || "Qriptopian";
       const creatorPersonaName = userId || "Studio User";
+      const resolvedCreatorPersonaId = activePersonaId || userId;
+      const resolvedCreatorPersonaName = activePersonaName || activePersonaId || creatorPersonaName;
       const codexContext = resolveComposerCodexContext(copilotContextId, codexLabel);
       const generatedAssets = extractGeneratedAssetsFromExperience(returnedExperience);
       const completedExperience = returnedExperience
-        ? {
+          ? {
             ...returnedExperience,
             creator_id: returnedExperience.creator_id || userId,
             metadata: {
               ...(returnedExperience.metadata || {}),
               creator_persona: {
-                id: userId,
-                name: creatorPersonaName,
+                id: resolvedCreatorPersonaId,
+                name: resolvedCreatorPersonaName,
               },
               codex_context: {
                 active_codex_id: codexContext.activeCodexId,
@@ -3099,7 +3127,7 @@ export const ComposerStudio = () => {
           sessionId: session?.id || `composer-${Date.now()}`,
           tenantId,
           userId,
-          personaId: userId,
+          personaId: activePersonaId || userId,
           activeCodexId: activeCodexContext.activeCodexId,
           activeCodexName: activeCodexContext.activeCodexName,
           parentCodexId: activeCodexContext.parentCodexId,
@@ -3172,11 +3200,14 @@ export const ComposerStudio = () => {
           parityStatus: isParityExpanded ? "ready" : "idle",
           surfacePlanStatus: studioAnalysisTab === "surfaces" ? "ready" : "idle",
           dvnReceiptStatus: studioAnalysisTab === "receipts" ? "ready" : "idle",
-          personaContext: { id: userId, name: userId || "Studio User" },
+          personaContext: {
+            id: activePersonaId || userId,
+            name: activePersonaName || activePersonaId || userId || "Studio User",
+          },
           activeDataQubes: [],
           activeContentQubes: [],
-          creatorPersonaId: userId,
-          creatorPersonaName: userId || "Studio User",
+          creatorPersonaId: activePersonaId || userId,
+          creatorPersonaName: activePersonaName || activePersonaId || userId || "Studio User",
           generatedAssets,
           deploymentTargets: ["Studio Preview", "MCP App Deployment", "Discord via MCP"],
           recommendedDeploymentTarget: "Studio Preview",
@@ -3190,6 +3221,8 @@ export const ComposerStudio = () => {
     },
     [
       activeStyleQubeId,
+      activePersonaId,
+      activePersonaName,
       copilotContextId,
       copilotContextOptions,
       currentStep?.id,
