@@ -13,6 +13,12 @@ const VENICE_IMAGE_MODEL_FALLBACKS = [
   "hidream",
   "flux-2-pro",
 ].filter((value): value is string => Boolean(value));
+const GENERATED_MEDIA_BUCKET_CANDIDATES = [
+  process.env.SUPABASE_STORAGE_BUCKET,
+  "content-assets",
+  "assets",
+  "codex-lite",
+].filter((value, index, array): value is string => Boolean(value) && array.indexOf(value) === index);
 
 type ProviderId = "openai" | "venice";
 type Orientation = "portrait" | "landscape";
@@ -52,7 +58,6 @@ async function persistGeneratedAsset(options: {
   data: ArrayBuffer;
 }) {
   const adapter = StorageAdapterFactory.getAdapter("supabase");
-  const bucket = "content-assets";
   const safeModel = options.model.replace(/[^a-zA-Z0-9._-]/g, "_");
   const extension = options.contentType.includes("jpeg")
     ? "jpg"
@@ -60,14 +65,23 @@ async function persistGeneratedAsset(options: {
     ? "webp"
     : "png";
   const path = `generated/${options.providerId}/images/${options.experienceId || "studio"}/${options.orientation}-${Date.now()}-${safeModel}.${extension}`;
+  const errors: string[] = [];
 
-  const uploaded = await adapter.upload(bucket, path, options.data, {
-    contentType: options.contentType,
-    upsert: true,
-    cacheControl: "31536000",
-  });
+  for (const bucket of GENERATED_MEDIA_BUCKET_CANDIDATES) {
+    try {
+      const uploaded = await adapter.upload(bucket, path, options.data, {
+        contentType: options.contentType,
+        upsert: true,
+        cacheControl: "31536000",
+      });
 
-  return uploaded.publicUrl || adapter.getPublicUrl(bucket, path);
+      return uploaded.publicUrl || adapter.getPublicUrl(bucket, path);
+    } catch (error) {
+      errors.push(`${bucket}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  throw new Error(errors.join(" | "));
 }
 
 async function normalizeImageAssetUrl(
