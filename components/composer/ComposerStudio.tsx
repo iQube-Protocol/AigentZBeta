@@ -27,6 +27,7 @@ import {
   getComposerProviderKnowledge,
   getComposerTemplateKnowledge,
 } from "@/services/copilot/composer";
+import type { ComposerGeneratedAssetRef } from "@/services/copilot/composer/types";
 import { resolveRuntimeIdentity } from "@/services/runtime/identityResolver";
 
 type ComposerField = {
@@ -210,12 +211,14 @@ function resolveComposerCodexContext(codexId: string, codexLabel: string) {
   };
 }
 
-function extractGeneratedAssetsFromExperience(experience: ExperienceQube | null | undefined) {
+function extractGeneratedAssetsFromExperience(
+  experience: ExperienceQube | null | undefined
+): ComposerGeneratedAssetRef[] {
   const generatedAssets = experience?.metadata?.generated_assets;
   if (!Array.isArray(generatedAssets)) return [];
   return generatedAssets.map((asset) => ({
     id: String(asset.id || `${experience?.id || "asset"}:${asset.label || "generated"}`),
-    type: asset.type === "video" ? "video" : "image",
+    type: asset.type === "video" ? ("video" as const) : ("image" as const),
     label: String(asset.label || "Generated asset"),
     provider: asset.provider ? String(asset.provider) : undefined,
     orientation:
