@@ -35,23 +35,27 @@ const OPENAI_VIDEOS_URL = "https://api.openai.com/v1/videos";
 
 // Venice Video API
 const VENICE_VIDEO_BASE = "https://api.venice.ai/api/v1/video";
-const VENICE_DEFAULT_MODEL = process.env.VENICE_VIDEO_MODEL || "wan-2.5-preview-text-to-video";
+const VENICE_DEFAULT_MODEL = process.env.VENICE_VIDEO_MODEL || "ltx-2-19b-full-text-to-video";
 const VENICE_MODELS_URL = "https://api.venice.ai/api/v1/models?type=video";
 const VENICE_QUOTE_URL = "https://api.venice.ai/api/v1/video/quote";
 
 const VENICE_PREFERRED_TEXT_TO_VIDEO_MODELS = [
   process.env.VENICE_VIDEO_MODEL,
-  "wan-2.5-preview-text-to-video",
-  "wan-2.2-a14b-text-to-video",
-  "wan-2.6-text-to-video",
+  "ltx-2-19b-full-text-to-video",
   "kling-2.6-pro-text-to-video",
   "kling-2.5-turbo-pro-text-to-video",
-  "ltx-2-19b-full-text-to-video",
   "longcat-distilled-text-to-video",
   "longcat-text-to-video",
   "veo3.1-fast-text-to-video",
   "veo3-full-text-to-video",
+  "wan-2.5-preview-text-to-video",
+  "wan-2.6-text-to-video",
+  "wan-2.2-a14b-text-to-video",
 ].filter((value): value is string => Boolean(value));
+
+const VENICE_DISABLED_ALPHA_MODELS = new Set([
+  "wan-2.2-a14b-text-to-video",
+]);
 
 // Which skill IDs route to Venice vs OpenAI
 const VENICE_SKILL_IDS = new Set(["venice_video_gen"]);
@@ -122,11 +126,18 @@ async function createVeniceJob(
   aspectRatio: string,
   model?: string,
 ): Promise<{ queue_id: string; model: string }> {
-  const dur = seconds <= 5 ? "5s" : "10s"; // Venice supports 5s or 10s
-  const candidateModels = await resolveVeniceVideoModels(apiKey, model);
+  const candidateModels = (await resolveVeniceVideoModels(apiKey, model)).filter(
+    (candidate) => !VENICE_DISABLED_ALPHA_MODELS.has(candidate)
+  );
   const errors: string[] = [];
 
   for (const veniceModel of candidateModels) {
+    const dur: "5s" | "10s" =
+      veniceModel === "wan-2.2-a14b-text-to-video"
+        ? "5s"
+        : seconds <= 5
+        ? "5s"
+        : "10s"; // Venice supports 5s or 10s
     const quote = await quoteVeniceVideo(apiKey, veniceModel, dur, aspectRatio);
     if (!quote.ok) {
       errors.push(`${veniceModel}: ${quote.error}`);
@@ -211,8 +222,8 @@ async function resolveVeniceVideoModels(apiKey: string, requestedModel?: string)
     }
 
     const candidateIds = requestedModel
-      ? [requestedModel, ...VENICE_PREFERRED_TEXT_TO_VIDEO_MODELS]
-      : VENICE_PREFERRED_TEXT_TO_VIDEO_MODELS;
+      ? [requestedModel, VENICE_DEFAULT_MODEL, ...VENICE_PREFERRED_TEXT_TO_VIDEO_MODELS]
+      : [VENICE_DEFAULT_MODEL, ...VENICE_PREFERRED_TEXT_TO_VIDEO_MODELS];
     const ordered: string[] = [];
 
     for (const candidate of candidateIds) {
