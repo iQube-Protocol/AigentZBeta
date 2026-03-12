@@ -6,7 +6,13 @@ export const runtime = "nodejs";
 const OPENAI_IMAGES_URL = "https://api.openai.com/v1/images/generations";
 const VENICE_IMAGES_URL = "https://api.venice.ai/api/v1/image/generate";
 const OPENAI_IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL || "gpt-image-1";
-const VENICE_IMAGE_MODEL = process.env.VENICE_IMAGE_MODEL || "fluently-xl";
+const VENICE_IMAGE_MODEL = process.env.VENICE_IMAGE_MODEL || "flux-2-max";
+const VENICE_IMAGE_MODEL_FALLBACKS = [
+  process.env.VENICE_IMAGE_MODEL,
+  "flux-2-max",
+  "lustify-sdxl",
+  "lustify-v7",
+].filter((value): value is string => Boolean(value));
 
 type ProviderId = "openai" | "venice";
 type Orientation = "portrait" | "landscape";
@@ -141,86 +147,94 @@ async function requestImageGeneration(
 
   try {
     const veniceDims = resolveVeniceDimensions(orientation);
-    const res = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(
-        providerId === "venice"
-          ? {
-              model,
-              prompt,
-              width: veniceDims.width,
-              height: veniceDims.height,
-              aspect_ratio: veniceDims.aspectRatio,
-              format: "png",
-              return_binary: false,
-              safe_mode: false,
-            }
-          : {
-              model,
-              prompt,
-              size: resolveImageSize(orientation),
-              n: 1,
-              response_format: "b64_json",
-            }
-      ),
-      signal: controller.signal,
-    }).finally(() => clearTimeout(timeout));
+    const modelsToTry = providerId === "venice" ? VENICE_IMAGE_MODEL_FALLBACKS : [model];
+    const errors: string[] = [];
 
-    const contentType = res.headers.get("content-type") || "";
-    if (res.ok && (contentType.startsWith("image/") || contentType.startsWith("application/octet-stream"))) {
-      const buffer = await res.arrayBuffer();
+    for (const candidateModel of modelsToTry) {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(
+          providerId === "venice"
+            ? {
+                model: candidateModel,
+                prompt,
+                width: veniceDims.width,
+                height: veniceDims.height,
+                aspect_ratio: veniceDims.aspectRatio,
+                format: "png",
+                return_binary: false,
+                safe_mode: false,
+              }
+            : {
+                model: candidateModel,
+                prompt,
+                size: resolveImageSize(orientation),
+                n: 1,
+                response_format: "b64_json",
+              }
+        ),
+        signal: controller.signal,
+      });
+
+      const contentType = res.headers.get("content-type") || "";
+      if (res.ok && (contentType.startsWith("image/") || contentType.startsWith("application/octet-stream"))) {
+        const buffer = await res.arrayBuffer();
+        return {
+          ok: true as const,
+          mode: "live" as const,
+          image_url: await persistGeneratedAsset({
+            providerId,
+            orientation,
+            experienceId,
+            model: candidateModel,
+            contentType: contentType.startsWith("image/") ? contentType : "image/png",
+            data: buffer,
+          }),
+          model: candidateModel,
+        };
+      }
+
+      const rawText = await res.text().catch(() => "");
+      let data: any = null;
+      try {
+        data = rawText ? JSON.parse(rawText) : null;
+      } catch {
+        data = rawText || null;
+      }
+
+      if (!res.ok) {
+        const msg =
+          (typeof data?.error?.message === "string" && data.error.message) ||
+          (typeof data?.message === "string" && data.message) ||
+          (typeof data?.error === "string" && data.error) ||
+          (typeof data === "string" && data) ||
+          `${providerId} image API ${res.status}: ${res.statusText}`;
+        errors.push(`${candidateModel}: ${msg}`);
+        continue;
+      }
+
+      const url = extractImageUrlFromJson(data);
+      if (!url) {
+        errors.push(`${candidateModel}: ${providerId} image API returned no image payload (${contentType || "unknown content type"})`);
+        continue;
+      }
+
       return {
         ok: true as const,
         mode: "live" as const,
-        image_url: await persistGeneratedAsset({
-          providerId,
-          orientation,
-          experienceId,
-          model,
-          contentType: contentType.startsWith("image/") ? contentType : "image/png",
-          data: buffer,
-        }),
-        model,
-      };
-    }
-
-    const rawText = await res.text().catch(() => "");
-    let data: any = null;
-    try {
-      data = rawText ? JSON.parse(rawText) : null;
-    } catch {
-      data = rawText || null;
-    }
-
-    if (!res.ok) {
-      const msg =
-        (typeof data?.error?.message === "string" && data.error.message) ||
-        (typeof data?.message === "string" && data.message) ||
-        (typeof data?.error === "string" && data.error) ||
-        (typeof data === "string" && data) ||
-        `${providerId} image API ${res.status}: ${res.statusText}`;
-      return { ok: false as const, mode: "simulation" as const, error: msg };
-    }
-
-    const url = extractImageUrlFromJson(data);
-
-    if (!url) {
-      return {
-        ok: false as const,
-        mode: "simulation" as const,
-        error: `${providerId} image API returned no image payload (${contentType || "unknown content type"})`,
+        image_url: await normalizeImageAssetUrl(providerId, experienceId, orientation, candidateModel, url),
+        model: candidateModel,
       };
     }
 
     return {
-      ok: true as const,
-      mode: "live" as const,
-      image_url: await normalizeImageAssetUrl(providerId, experienceId, orientation, model, url),
-      model,
+      ok: false as const,
+      mode: "simulation" as const,
+      error: errors.join(" | ") || `${providerId} image generation failed`,
     };
   } catch (error) {
     return {
