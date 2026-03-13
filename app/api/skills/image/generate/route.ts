@@ -210,7 +210,7 @@ async function requestImageGeneration(
   }
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), providerId === "openai" ? 12_000 : 20_000);
+  const timeout = setTimeout(() => controller.abort(), providerId === "openai" ? 25_000 : 20_000);
 
   try {
     const veniceDims = resolveVeniceDimensions(orientation);
