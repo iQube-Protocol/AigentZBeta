@@ -210,7 +210,7 @@ async function requestImageGeneration(
   }
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 60_000);
+  const timeout = setTimeout(() => controller.abort(), providerId === "openai" ? 12_000 : 20_000);
 
   try {
     const veniceDims = resolveVeniceDimensions(orientation);
@@ -240,6 +240,7 @@ async function requestImageGeneration(
                 prompt,
                 size: resolveImageSize(orientation),
                 n: 1,
+                quality: "low",
               }
         ),
         signal: controller.signal,
@@ -318,7 +319,7 @@ async function requestImageGeneration(
     return {
       ok: false as const,
       mode: "simulation" as const,
-      error: error instanceof Error ? error.message : String(error),
+      error: error instanceof Error ? (error.name === "AbortError" ? `${providerId} image generation timed out before completion` : error.message) : String(error),
     };
   } finally {
     clearTimeout(timeout);

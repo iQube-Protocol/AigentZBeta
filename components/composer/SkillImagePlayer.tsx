@@ -94,8 +94,8 @@ export default function SkillImagePlayer({
     setShowReceipt(false);
     setPersistedGenerationKey(null);
     try {
-      const responses = await Promise.all(
-        availablePrompts.map(async (item) => {
+      const responses: GenerationResponse[] = [];
+      for (const item of availablePrompts) {
           const payload =
             item.orientation === "portrait"
               ? {
@@ -135,9 +135,8 @@ export default function SkillImagePlayer({
               error: `Image generation request failed (${res.status} ${res.statusText || "Unknown Error"})`,
             };
           }
-          return data;
-        })
-      );
+          responses.push(data);
+      }
 
       const data = mergeGenerationResults(provider_id, responses);
       setResult(data);
