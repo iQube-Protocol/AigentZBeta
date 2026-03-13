@@ -56,7 +56,7 @@ type ProviderId = "openai" | "venice";
 type Orientation = "portrait" | "landscape";
 
 function resolveImageSize(orientation: Orientation) {
-  return orientation === "portrait" ? "1024x1280" : "1280x1024";
+  return orientation === "portrait" ? "1024x1536" : "1536x1024";
 }
 
 function resolveVeniceDimensions(orientation: Orientation) {
