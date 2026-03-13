@@ -38,6 +38,29 @@ interface GenerationResponse {
 const providerLabel = (provider: "openai" | "venice") =>
   provider === "venice" ? "Venice" : "OpenAI";
 
+function mergeGenerationResults(
+  provider: "openai" | "venice",
+  results: GenerationResponse[],
+): GenerationResponse {
+  const images = results.flatMap((result) => result.images || []);
+  const hasLive = results.some((result) => result.ok && result.mode === "live");
+  const fallbackReasons = results
+    .map((result) => result.fallback_reason)
+    .filter((value): value is string => Boolean(value));
+  const error = results.map((result) => result.error).filter((value): value is string => Boolean(value)).join(" | ") || undefined;
+  const receipt = results.find((result) => result.receipt)?.receipt;
+
+  return {
+    ok: hasLive,
+    provider,
+    mode: hasLive ? "live" : "simulation",
+    images,
+    receipt,
+    error,
+    fallback_reason: fallbackReasons.length > 0 ? fallbackReasons.join(" | ") : undefined,
+  };
+}
+
 export default function SkillImagePlayer({
   provider_id = "venice",
   portrait_prompt,
@@ -71,38 +94,52 @@ export default function SkillImagePlayer({
     setShowReceipt(false);
     setPersistedGenerationKey(null);
     try {
-      const res = await fetch("/api/skills/image/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          provider_id,
-          portrait_prompt,
-          landscape_prompt,
-          experience_id,
-        }),
-      });
-      const rawText = await res.text().catch(() => "");
-      let data: GenerationResponse;
-      try {
-        data = JSON.parse(rawText) as GenerationResponse;
-      } catch {
-        const trimmed = rawText.trim();
-        data = {
-          ok: false,
-          provider: provider_id,
-          images: [],
-          error:
-            trimmed ||
-            `Image generation request failed (${res.status} ${res.statusText || "Unknown Error"})`,
-        };
-      }
-      if (!res.ok && !data.error) {
-        data = {
-          ...data,
-          ok: false,
-          error: `Image generation request failed (${res.status} ${res.statusText || "Unknown Error"})`,
-        };
-      }
+      const responses = await Promise.all(
+        availablePrompts.map(async (item) => {
+          const payload =
+            item.orientation === "portrait"
+              ? {
+                  provider_id,
+                  portrait_prompt: item.prompt,
+                  experience_id,
+                }
+              : {
+                  provider_id,
+                  landscape_prompt: item.prompt,
+                  experience_id,
+                };
+          const res = await fetch("/api/skills/image/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          const rawText = await res.text().catch(() => "");
+          let data: GenerationResponse;
+          try {
+            data = JSON.parse(rawText) as GenerationResponse;
+          } catch {
+            const trimmed = rawText.trim();
+            data = {
+              ok: false,
+              provider: provider_id,
+              images: [],
+              error:
+                trimmed ||
+                `Image generation request failed (${res.status} ${res.statusText || "Unknown Error"})`,
+            };
+          }
+          if (!res.ok && !data.error) {
+            data = {
+              ...data,
+              ok: false,
+              error: `Image generation request failed (${res.status} ${res.statusText || "Unknown Error"})`,
+            };
+          }
+          return data;
+        })
+      );
+
+      const data = mergeGenerationResults(provider_id, responses);
       setResult(data);
       setState(data.ok || data.mode === "simulation" ? "done" : "error");
     } catch (error: any) {
