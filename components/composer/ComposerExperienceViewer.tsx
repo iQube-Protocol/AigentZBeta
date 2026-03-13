@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { SmartTriadProvider } from "@/app/components/content/SmartTriadProvider";
 import { SmartTriadSurfaces } from "@/app/components/content/SmartTriadSurfaces";
@@ -22,11 +23,13 @@ const DEFAULT_PERSONA_ID = "00000000-0000-0000-0000-000000000001";
 
 export const ComposerExperienceViewer = ({ experienceId }: { experienceId: string }) => {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [experience, setExperience] = useState<ExperienceQube | null>(null);
   const [packet, setPacket] = useState<Record<string, any> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showPacket, setShowPacket] = useState(false);
+  const isEmbeddedPreview = searchParams?.get("embed") === "1";
 
   useEffect(() => {
     let active = true;
@@ -62,7 +65,7 @@ export const ComposerExperienceViewer = ({ experienceId }: { experienceId: strin
 
   if (loading) {
     return (
-      <div data-parity-root="experience-viewer" className="h-full overflow-y-auto bg-slate-900 p-6">
+      <div data-parity-root="experience-viewer" className={`h-full overflow-y-auto bg-slate-900 ${isEmbeddedPreview ? "p-0" : "p-6"}`}>
         <div className="max-w-5xl mx-auto flex items-center gap-2 text-slate-400">
           <Loader2 className="h-4 w-4 animate-spin" />
           Loading experience...
@@ -73,14 +76,16 @@ export const ComposerExperienceViewer = ({ experienceId }: { experienceId: strin
 
   if (error || !experience) {
     return (
-      <div data-parity-root="experience-viewer" className="h-full overflow-y-auto bg-slate-900 p-6">
+      <div data-parity-root="experience-viewer" className={`h-full overflow-y-auto bg-slate-900 ${isEmbeddedPreview ? "p-0" : "p-6"}`}>
         <div className="max-w-5xl mx-auto space-y-3">
-          <button
-            className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-slate-200"
-            onClick={() => router.push("/studio/composer")}
-          >
-            <ArrowLeft className="h-4 w-4" /> Back to Composer
-          </button>
+          {!isEmbeddedPreview && (
+            <button
+              className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-slate-200"
+              onClick={() => router.push("/studio/composer")}
+            >
+              <ArrowLeft className="h-4 w-4" /> Back to Composer
+            </button>
+          )}
           <div className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-4 text-rose-100">
             {error || "Experience not found."}
           </div>
@@ -91,22 +96,24 @@ export const ComposerExperienceViewer = ({ experienceId }: { experienceId: strin
 
   return (
     <SmartTriadProvider personaId={DEFAULT_PERSONA_ID} agentId="aigent-z">
-      <div data-parity-root="experience-viewer" className="h-full overflow-y-auto bg-slate-900 p-6">
-        <div className="max-w-6xl mx-auto space-y-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <button
-              className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-slate-200"
-              onClick={() => router.push("/studio/composer")}
-            >
-              <ArrowLeft className="h-4 w-4" /> Back to Composer
-            </button>
-            <button
-              onClick={() => setShowPacket((prev) => !prev)}
-              className="text-xs text-slate-400 hover:text-slate-200"
-            >
-              {showPacket ? "Hide Packet" : "Show Packet"}
-            </button>
-          </div>
+      <div data-parity-root="experience-viewer" className={`h-full overflow-y-auto bg-slate-900 ${isEmbeddedPreview ? "p-0" : "p-6"}`}>
+        <div className={`${isEmbeddedPreview ? "h-full" : "mx-auto max-w-6xl space-y-6"}`}>
+          {!isEmbeddedPreview && (
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <button
+                className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-slate-200"
+                onClick={() => router.push("/studio/composer")}
+              >
+                <ArrowLeft className="h-4 w-4" /> Back to Composer
+              </button>
+              <button
+                onClick={() => setShowPacket((prev) => !prev)}
+                className="text-xs text-slate-400 hover:text-slate-200"
+              >
+                {showPacket ? "Hide Packet" : "Show Packet"}
+              </button>
+            </div>
+          )}
 
           <ExperienceLiquidRenderer
             experience={experience}
@@ -114,14 +121,14 @@ export const ComposerExperienceViewer = ({ experienceId }: { experienceId: strin
             personaId={DEFAULT_PERSONA_ID}
           />
 
-          {showPacket && (
+          {!isEmbeddedPreview && showPacket && (
             <pre className="max-h-96 overflow-auto rounded-xl bg-black/40 p-4 text-xs text-slate-200">
               {JSON.stringify(packet, null, 2)}
             </pre>
           )}
         </div>
 
-        <SmartTriadSurfaces personaId={DEFAULT_PERSONA_ID} />
+        {!isEmbeddedPreview && <SmartTriadSurfaces personaId={DEFAULT_PERSONA_ID} />}
       </div>
     </SmartTriadProvider>
   );

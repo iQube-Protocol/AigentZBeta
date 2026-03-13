@@ -18,8 +18,12 @@ import {
   Clock,
   Clapperboard,
   Info,
-  Brain,
-  Globe,
+  Film,
+  Sparkles,
+  Camera,
+  Palette,
+  Brush,
+  Newspaper,
 } from "lucide-react";
 import { persistGeneratedAssetsForExperience } from "@/services/composer/generatedAssetClient";
 
@@ -80,8 +84,32 @@ function getProviderLabel(provider: "venice" | "openai") {
   return provider === "venice" ? "Venice" : "OpenAI Sora";
 }
 
+const PROVIDER_ICON_URL: Record<"venice" | "openai", string> = {
+  openai: "/llm_model_logos/openai.png",
+  venice: "/llm_model_logos/venice.png",
+};
+
 function ProviderIcon({ provider, className }: { provider: "venice" | "openai"; className?: string }) {
-  return provider === "venice" ? <Globe className={className} /> : <Brain className={className} />;
+  const darkModeClass = provider === "openai" ? "dark:invert dark:brightness-200 dark:contrast-200" : "";
+  return (
+    <img
+      src={PROVIDER_ICON_URL[provider]}
+      alt={`${provider} logo`}
+      className={`rounded-[2px] object-contain ${className || "h-4 w-4"} ${darkModeClass}`}
+      loading="lazy"
+      decoding="async"
+    />
+  );
+}
+
+function StyleIcon({ style, className }: { style: string; className?: string }) {
+  const normalized = style.toLowerCase();
+  if (normalized.includes("editorial") || normalized.includes("article")) return <Newspaper className={className} />;
+  if (normalized.includes("cinematic")) return <Clapperboard className={className} />;
+  if (normalized.includes("photo")) return <Camera className={className} />;
+  if (normalized.includes("comic")) return <Brush className={className} />;
+  if (normalized.includes("illustration") || normalized.includes("art")) return <Palette className={className} />;
+  return <Sparkles className={className} />;
 }
 
 export default function SkillVideoPlayer({
@@ -211,15 +239,25 @@ export default function SkillVideoPlayer({
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-slate-800/60">
         <div className="flex items-center gap-2">
-          <ProviderIcon provider={resolvedProvider} className="h-5 w-5 text-cyan-400" />
-          <span className="hidden text-sm font-semibold text-white sm:inline">{providerLabel} Video Generation</span>
-          <span className="text-sm font-semibold text-white sm:hidden">Video Generation</span>
+          <ProviderIcon provider={resolvedProvider} className="h-5 w-5" />
+          <span className="hidden text-sm font-semibold text-white sm:inline">{providerLabel}</span>
+          <Film className="h-5 w-5 text-cyan-300" />
+          <span className="hidden text-sm font-semibold text-white sm:inline">Video Generation</span>
+          <span className="text-sm font-semibold text-white sm:hidden">Video</span>
           {result?.skill_composite != null && (
             <TrustDots composite={result.skill_composite} />
           )}
         </div>
-        {state === "done" && result?.receipt && (
-          <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button size="icon" variant="ghost" className="h-8 w-8 text-slate-400">
+                <StyleIcon style={style} className="h-4.5 w-4.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">{style}</TooltipContent>
+          </Tooltip>
+          {state === "done" && result?.receipt && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -231,10 +269,10 @@ export default function SkillVideoPlayer({
                   <FileText className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>{showReceipt ? "Hide receipt" : "Show receipt"}</TooltipContent>
+              <TooltipContent side="bottom">{showReceipt ? "Hide receipt" : "Show receipt"}</TooltipContent>
             </Tooltip>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Main content area */}
@@ -446,12 +484,12 @@ export default function SkillVideoPlayer({
                 )}
               </div>
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button size="icon" variant="ghost" className="h-8 w-8 text-slate-400" onClick={invoke}>
-                    <RefreshCw className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Regenerate</TooltipContent>
+              <TooltipTrigger asChild>
+                <Button size="icon" variant="ghost" className="h-8 w-8 text-slate-400" onClick={invoke}>
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+                <TooltipContent side="bottom">Regenerate</TooltipContent>
               </Tooltip>
             </div>
           </div>

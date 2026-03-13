@@ -333,12 +333,26 @@ function mergeExperienceResourceSummary(
   const skillSelection = config.skill_selection || {};
   const imageGeneration = config.image_generation || {};
   const generatedAssets = Array.isArray(metadata.generated_assets) ? metadata.generated_assets : [];
+  const generatedReceipts = metadata.generated_receipts && typeof metadata.generated_receipts === "object"
+    ? Object.values(metadata.generated_receipts as Record<string, any>)
+    : [];
+
+  const selectedModel =
+    generatedReceipts
+      .flatMap((receipt: any) => (Array.isArray(receipt?.payload?.outputs) ? receipt.payload.outputs : []))
+      .map((output: any) => (typeof output?.model === "string" ? output.model : null))
+      .find((value: string | null): value is string => Boolean(value)) ||
+    (typeof imageGeneration.model === "string" ? imageGeneration.model : null) ||
+    (typeof skillSelection.model === "string" ? skillSelection.model : null);
 
   if (skillSelection.skill_id) {
     pushUnique(summary.skills, "Active video skill", skillSelection.skill_id);
   }
   if (imageGeneration.provider_id) {
     pushUnique(summary.skills, "Image provider", imageGeneration.provider_id);
+  }
+  if (selectedModel) {
+    pushUnique(summary.resources, "Model selected", selectedModel);
   }
   if (generatedAssets.length > 0) {
     pushUnique(summary.resources, "Generated assets", `${generatedAssets.length} persisted asset${generatedAssets.length === 1 ? "" : "s"}`);
@@ -3825,6 +3839,15 @@ export const ComposerStudio = () => {
                           <div className="flex items-center justify-between gap-3"><span className="text-slate-400">Template chosen</span><span>{selectedTemplate?.name || "Not selected"}</span></div>
                           <div className="flex items-center justify-between gap-3"><span className="text-slate-400">Tenant</span><span>{tenantId}</span></div>
                           <div className="flex items-center justify-between gap-3"><span className="text-slate-400">User</span><span>{userId}</span></div>
+                          {activeExperienceResourceSummary.resources
+                            .filter((item) => item.label === "Model selected")
+                            .slice(0, 1)
+                            .map((item) => (
+                              <div key={`${item.label}-${item.value}`} className="flex items-center justify-between gap-3">
+                                <span className="text-slate-400">{item.label}</span>
+                                <span>{item.value}</span>
+                              </div>
+                            ))}
                         </div>
                       </div>
 

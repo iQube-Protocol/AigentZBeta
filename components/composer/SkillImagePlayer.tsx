@@ -2,9 +2,8 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Brain, Globe, ImageIcon, Loader2, RefreshCw, AlertTriangle, CheckCircle2, FileText, Clapperboard } from "lucide-react";
+import { Newspaper, Sparkles, ImageIcon, Loader2, RefreshCw, AlertTriangle, CheckCircle2, FileText, Clapperboard, Camera, Palette, Brush } from "lucide-react";
 import { persistGeneratedAssetsForExperience } from "@/services/composer/generatedAssetClient";
 
 interface SkillImagePlayerProps {
@@ -41,12 +40,32 @@ interface GenerationResponse {
 const providerLabel = (provider: "openai" | "venice") =>
   provider === "venice" ? "Venice" : "OpenAI";
 
+const PROVIDER_ICON_URL: Record<"openai" | "venice", string> = {
+  openai: "/llm_model_logos/openai.png",
+  venice: "/llm_model_logos/venice.png",
+};
+
 function ProviderIcon({ provider, className }: { provider: "openai" | "venice"; className?: string }) {
-  return provider === "venice" ? (
-    <Globe className={className} />
-  ) : (
-    <Brain className={className} />
+  const darkModeClass = provider === "openai" ? "dark:invert dark:brightness-200 dark:contrast-200" : "";
+  return (
+    <img
+      src={PROVIDER_ICON_URL[provider]}
+      alt={`${provider} logo`}
+      className={`rounded-[2px] object-contain ${className || "h-4 w-4"} ${darkModeClass}`}
+      loading="lazy"
+      decoding="async"
+    />
   );
+}
+
+function StyleIcon({ style, className }: { style: string; className?: string }) {
+  const normalized = style.toLowerCase();
+  if (normalized.includes("editorial") || normalized.includes("article")) return <Newspaper className={className} />;
+  if (normalized.includes("cinematic")) return <Clapperboard className={className} />;
+  if (normalized.includes("photo")) return <Camera className={className} />;
+  if (normalized.includes("comic")) return <Brush className={className} />;
+  if (normalized.includes("illustration") || normalized.includes("art")) return <Palette className={className} />;
+  return <Sparkles className={className} />;
 }
 
 function mergeGenerationResults(
@@ -220,19 +239,20 @@ export default function SkillImagePlayer({
     <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60">
       <div className="flex items-center justify-between border-b border-slate-800/60 p-4">
         <div className="flex items-center gap-2">
-          <ProviderIcon provider={provider_id} className="h-5 w-5 text-cyan-400" />
-          <span className="hidden text-sm font-semibold text-white sm:inline">{providerLabel(provider_id)} Image Generation</span>
-          <span className="text-sm font-semibold text-white sm:hidden">Image Generation</span>
+          <ProviderIcon provider={provider_id} className="h-5 w-5" />
+          <span className="hidden text-sm font-semibold text-white sm:inline">{providerLabel(provider_id)}</span>
+          <ImageIcon className="h-5 w-5 text-cyan-300" />
+          <span className="hidden text-sm font-semibold text-white sm:inline">Image Generation</span>
+          <span className="text-sm font-semibold text-white sm:hidden">Image</span>
         </div>
         <div className="flex items-center gap-2">
           <Tooltip>
             <TooltipTrigger asChild>
-              <Badge variant="outline" className="border-slate-700 text-[10px] text-slate-400">
-                <Clapperboard className="h-3.5 w-3.5 sm:mr-1" />
-                <span className="hidden sm:inline">{visual_style}</span>
-              </Badge>
+              <Button size="icon" variant="ghost" className="h-8 w-8 text-slate-400">
+                <StyleIcon style={visual_style} className="h-4.5 w-4.5" />
+              </Button>
             </TooltipTrigger>
-            <TooltipContent>{visual_style}</TooltipContent>
+            <TooltipContent side="bottom">{visual_style}</TooltipContent>
           </Tooltip>
           {state === "done" && result?.receipt && (
             <Tooltip>
@@ -246,7 +266,7 @@ export default function SkillImagePlayer({
                   <FileText className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>{showReceipt ? "Hide receipt" : "Show receipt"}</TooltipContent>
+              <TooltipContent side="bottom">{showReceipt ? "Hide receipt" : "Show receipt"}</TooltipContent>
             </Tooltip>
           )}
           <Tooltip>
@@ -255,7 +275,7 @@ export default function SkillImagePlayer({
                 <RefreshCw className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>{state === "idle" ? "Generate" : "Regenerate"}</TooltipContent>
+            <TooltipContent side="bottom">{state === "idle" ? "Generate" : "Regenerate"}</TooltipContent>
           </Tooltip>
         </div>
       </div>
