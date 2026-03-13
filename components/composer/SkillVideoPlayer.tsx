@@ -3,6 +3,7 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dots } from "@/components/registry/scoreUtils";
 import {
   Play,
@@ -17,6 +18,8 @@ import {
   Clock,
   Clapperboard,
   Info,
+  Brain,
+  Globe,
 } from "lucide-react";
 import { persistGeneratedAssetsForExperience } from "@/services/composer/generatedAssetClient";
 
@@ -31,6 +34,8 @@ interface SkillVideoPlayerProps {
   trust_override?: boolean;
   autoInvoke?: boolean;
   venice_model?: string;
+  initial_video_url?: string;
+  initial_receipt?: Record<string, unknown>;
 }
 
 interface InvocationResult {
@@ -75,6 +80,10 @@ function getProviderLabel(provider: "venice" | "openai") {
   return provider === "venice" ? "Venice" : "OpenAI Sora";
 }
 
+function ProviderIcon({ provider, className }: { provider: "venice" | "openai"; className?: string }) {
+  return provider === "venice" ? <Globe className={className} /> : <Brain className={className} />;
+}
+
 export default function SkillVideoPlayer({
   skill_id,
   prompt,
@@ -85,13 +94,26 @@ export default function SkillVideoPlayer({
   experience_id,
   trust_override = false,
   venice_model,
+  initial_video_url,
+  initial_receipt,
 }: SkillVideoPlayerProps) {
-  const [state, setState] = useState<"idle" | "invoking" | "done" | "error">("idle");
-  const [result, setResult] = useState<InvocationResult | null>(null);
+  const initialProvider = inferProviderFromSkillId(skill_id);
+  const [state, setState] = useState<"idle" | "invoking" | "done" | "error">(initial_video_url ? "done" : "idle");
+  const [result, setResult] = useState<InvocationResult | null>(
+    initial_video_url
+      ? {
+          ok: true,
+          mode: "live",
+          provider: initialProvider,
+          video_url: initial_video_url,
+          receipt: initial_receipt,
+          skill_composite: 78,
+        }
+      : null
+  );
   const [showReceipt, setShowReceipt] = useState(false);
   const [playbackRetryCount, setPlaybackRetryCount] = useState(0);
   const [persistedVideoKey, setPersistedVideoKey] = useState<string | null>(null);
-  const initialProvider = inferProviderFromSkillId(skill_id);
   const resolvedProvider = result?.provider || initialProvider;
   const providerLabel = getProviderLabel(resolvedProvider);
 
@@ -189,22 +211,29 @@ export default function SkillVideoPlayer({
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-slate-800/60">
         <div className="flex items-center gap-2">
-          <Video className="h-5 w-5 text-cyan-400" />
-          <span className="text-sm font-semibold text-white">{providerLabel} Video Generation</span>
+          <ProviderIcon provider={resolvedProvider} className="h-5 w-5 text-cyan-400" />
+          <span className="hidden text-sm font-semibold text-white sm:inline">{providerLabel} Video Generation</span>
+          <span className="text-sm font-semibold text-white sm:hidden">Video Generation</span>
           {result?.skill_composite != null && (
             <TrustDots composite={result.skill_composite} />
           )}
         </div>
         {state === "done" && result?.receipt && (
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-6 text-[10px] text-slate-400"
-            onClick={() => setShowReceipt((p) => !p)}
-          >
-            <FileText className="h-3 w-3 mr-1" />
-            {showReceipt ? "Hide" : "Receipt"}
-          </Button>
+          <div className="flex items-center gap-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8 text-slate-400"
+                  onClick={() => setShowReceipt((p) => !p)}
+                >
+                  <FileText className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{showReceipt ? "Hide receipt" : "Show receipt"}</TooltipContent>
+            </Tooltip>
+          </div>
         )}
       </div>
 
@@ -416,10 +445,14 @@ export default function SkillVideoPlayer({
                   <span className="text-[10px] text-slate-500 font-mono">{result.invocation_id}</span>
                 )}
               </div>
-              <Button size="sm" variant="ghost" className="h-7 text-xs text-slate-400" onClick={invoke}>
-                <RefreshCw className="h-3 w-3 mr-1" />
-                Regenerate
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button size="icon" variant="ghost" className="h-8 w-8 text-slate-400" onClick={invoke}>
+                    <RefreshCw className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Regenerate</TooltipContent>
+              </Tooltip>
             </div>
           </div>
         )}

@@ -47,6 +47,8 @@ export function ExperienceLiquidRenderer({
         creative_pack={packet.skill.creative_pack}
         experience_id={experience.id}
         trust_override={packet.skill.trust_override}
+        initial_video_url={packet.skill.video_url}
+        initial_receipt={packet.skill.initial_receipt}
       />
     );
   }
@@ -60,6 +62,8 @@ export function ExperienceLiquidRenderer({
         visual_style={packet.image_generation.visual_style}
         experience_id={experience.id}
         autoInvoke={packet.image_generation.auto_invoke !== false}
+        initial_images={packet.image_generation.initial_images}
+        initial_receipt={packet.image_generation.initial_receipt}
       />
     );
   }

@@ -96,12 +96,17 @@ function getVideoSkillSubhead(skillId: string) {
 
 function buildSkillPacket(experience: any) {
   const config = experience.configuration || {};
+  const metadata = experience.metadata || {};
   const intent = config.intent_timebox || {};
   const skillSel = config.skill_selection || {};
   const videoPrompt = config.video_prompt || {};
   const wallet = config.wallet_rewards || {};
   const rewardAmount = Number(wallet.reward_amount || 0);
   const skillId = skillSel.skill_id || "sora_video_gen_curated";
+  const generatedAssets = Array.isArray(metadata.generated_assets) ? metadata.generated_assets : [];
+  const videoAsset = generatedAssets.find(
+    (asset: any) => asset?.type === "video" && typeof asset?.asset_url === "string" && asset.asset_url
+  );
 
   return {
     packet_version: "1.0",
@@ -132,7 +137,8 @@ function buildSkillPacket(experience: any) {
       aspect_ratio: videoPrompt.aspect_ratio || "16:9",
       style: videoPrompt.style || "cinematic",
       creative_pack: intent.creative_pack || null,
-    },
+      video_url: videoAsset?.asset_url || null,
+      },
     ui: {
       primary_template: "skill:video_player_v1",
       layout: "centered",
@@ -153,8 +159,13 @@ function buildSkillPacket(experience: any) {
             aspect_ratio: videoPrompt.aspect_ratio || "16:9",
             style: videoPrompt.style || "cinematic",
             creative_pack: intent.creative_pack || null,
-            autoInvoke: false,
+            autoInvoke: !videoAsset?.asset_url,
             venice_model: skillSel.venice_model || undefined,
+            video_url: videoAsset?.asset_url || undefined,
+            initial_receipt:
+              videoAsset?.receipt_ref && metadata.generated_receipts
+                ? metadata.generated_receipts[videoAsset.receipt_ref] || undefined
+                : undefined,
           },
         },
       ],
@@ -169,9 +180,30 @@ function buildSkillPacket(experience: any) {
 
 function buildImagePacket(experience: any) {
   const config = experience.configuration || {};
+  const metadata = experience.metadata || {};
   const intent = config.intent_timebox || {};
   const imageGeneration = config.image_generation || {};
   const providerId = imageGeneration.provider_id || "venice";
+  const generatedAssets = Array.isArray(metadata.generated_assets) ? metadata.generated_assets : [];
+  const initialImages = generatedAssets
+    .filter(
+      (asset: any) =>
+        asset?.type === "image" &&
+        (asset?.orientation === "portrait" || asset?.orientation === "landscape") &&
+        typeof asset?.asset_url === "string" &&
+        asset.asset_url
+    )
+    .map((asset: any) => ({
+      orientation: asset.orientation,
+      prompt:
+        asset.orientation === "portrait"
+          ? imageGeneration.portrait_prompt || ""
+          : imageGeneration.landscape_prompt || "",
+      ok: true,
+      mode: "live",
+      image_url: asset.asset_url,
+      model: asset.provider || providerId,
+    }));
 
   return {
     packet_version: "1.0",
@@ -199,7 +231,14 @@ function buildImagePacket(experience: any) {
       portrait_prompt: imageGeneration.portrait_prompt || "",
       landscape_prompt: imageGeneration.landscape_prompt || "",
       visual_style: imageGeneration.visual_style || "editorial",
-      auto_invoke: true,
+      auto_invoke: initialImages.length === 0,
+      initial_images: initialImages,
+      initial_receipt:
+        initialImages.length > 0 && metadata.generated_receipts
+          ? metadata.generated_receipts[
+              generatedAssets.find((asset: any) => asset?.type === "image" && asset?.receipt_ref)?.receipt_ref
+            ] || undefined
+          : undefined,
     },
     ui: {
       primary_template: "skill:image_player_v1",
@@ -219,7 +258,14 @@ function buildImagePacket(experience: any) {
             portrait_prompt: imageGeneration.portrait_prompt || "",
             landscape_prompt: imageGeneration.landscape_prompt || "",
             visual_style: imageGeneration.visual_style || "editorial",
-            autoInvoke: true,
+            autoInvoke: initialImages.length === 0,
+            initial_images: initialImages,
+            initial_receipt:
+              initialImages.length > 0 && metadata.generated_receipts
+                ? metadata.generated_receipts[
+                    generatedAssets.find((asset: any) => asset?.type === "image" && asset?.receipt_ref)?.receipt_ref
+                  ] || undefined
+                : undefined,
           },
         },
       ],

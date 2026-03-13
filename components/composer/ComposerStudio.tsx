@@ -308,6 +308,58 @@ function summarizeExperienceResources(
   return { skills, resources, userData };
 }
 
+function mergeExperienceResourceSummary(
+  baseSummary: ReturnType<typeof summarizeExperienceResources>,
+  activeExperience: ExperienceQube | null | undefined
+) {
+  const summary = {
+    skills: [...baseSummary.skills],
+    resources: [...baseSummary.resources],
+    userData: [...baseSummary.userData],
+  };
+  const existing = new Set(
+    [...summary.skills, ...summary.resources, ...summary.userData].map((item) => `${item.label}:${item.value}`)
+  );
+  const pushUnique = (bucket: Array<{ label: string; value: string }>, label: string, value: unknown) => {
+    if (value === null || value === undefined || value === "") return;
+    const entry = `${label}:${String(value)}`;
+    if (existing.has(entry)) return;
+    existing.add(entry);
+    bucket.push({ label, value: String(value) });
+  };
+
+  const config = activeExperience?.configuration || {};
+  const metadata = activeExperience?.metadata || {};
+  const skillSelection = config.skill_selection || {};
+  const imageGeneration = config.image_generation || {};
+  const generatedAssets = Array.isArray(metadata.generated_assets) ? metadata.generated_assets : [];
+
+  if (skillSelection.skill_id) {
+    pushUnique(summary.skills, "Active video skill", skillSelection.skill_id);
+  }
+  if (imageGeneration.provider_id) {
+    pushUnique(summary.skills, "Image provider", imageGeneration.provider_id);
+  }
+  if (generatedAssets.length > 0) {
+    pushUnique(summary.resources, "Generated assets", `${generatedAssets.length} persisted asset${generatedAssets.length === 1 ? "" : "s"}`);
+    generatedAssets.forEach((asset: any) => {
+      pushUnique(
+        summary.resources,
+        asset.type === "video" ? "Generated video" : `Generated ${asset.orientation || "image"}`,
+        asset.provider || asset.label || "Persisted media"
+      );
+    });
+  }
+  if (metadata.creator_persona?.name || metadata.creator_persona?.id) {
+    pushUnique(summary.resources, "Creator persona", metadata.creator_persona.name || metadata.creator_persona.id);
+  }
+  if (activeExperience?.template_id) {
+    pushUnique(summary.resources, "Experience template", activeExperience.template_id);
+  }
+
+  return summary;
+}
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
 }
@@ -3003,6 +3055,12 @@ export const ComposerStudio = () => {
   const experienceResourceSummary = useMemo(() => {
     return summarizeExperienceResources(sessionTemplate, mergedData);
   }, [mergedData, sessionTemplate]);
+  const activeExperienceResourceSummary = useMemo(() => {
+    return mergeExperienceResourceSummary(
+      experienceResourceSummary,
+      previewExperience || selectedExperience || experience || null
+    );
+  }, [experience, experienceResourceSummary, previewExperience, selectedExperience]);
   const buildComposerChatRequestContext = useCallback(
     (prompt: string) => {
       const lower = prompt.toLowerCase();
@@ -3773,8 +3831,8 @@ export const ComposerStudio = () => {
                       <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
                         <div className="text-sm font-semibold text-white">Skills selected in customization</div>
                         <div className="mt-3 space-y-2">
-                          {experienceResourceSummary.skills.length > 0 ? (
-                            experienceResourceSummary.skills.map((item) => (
+                          {activeExperienceResourceSummary.skills.length > 0 ? (
+                            activeExperienceResourceSummary.skills.map((item) => (
                               <div key={`${item.label}-${item.value}`} className="flex items-center justify-between gap-3 text-sm text-slate-200">
                                 <span className="text-slate-400">{item.label}</span>
                                 <span className="text-right">{item.value}</span>
@@ -3792,8 +3850,8 @@ export const ComposerStudio = () => {
                           Registry-backed resources and template-configured dependencies will be collected here.
                         </div>
                         <div className="mt-3 space-y-2">
-                          {experienceResourceSummary.resources.length > 0 ? (
-                            experienceResourceSummary.resources.map((item) => (
+                          {activeExperienceResourceSummary.resources.length > 0 ? (
+                            activeExperienceResourceSummary.resources.map((item) => (
                               <div key={`${item.label}-${item.value}`} className="flex items-center justify-between gap-3 text-sm text-slate-200">
                                 <span className="text-slate-400">{item.label}</span>
                                 <span className="text-right">{item.value}</span>
@@ -3814,8 +3872,8 @@ export const ComposerStudio = () => {
                       <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
                         <div className="text-sm font-semibold text-white">End-user data requirements</div>
                         <div className="mt-3 space-y-2">
-                          {experienceResourceSummary.userData.length > 0 ? (
-                            experienceResourceSummary.userData.map((item) => (
+                          {activeExperienceResourceSummary.userData.length > 0 ? (
+                            activeExperienceResourceSummary.userData.map((item) => (
                               <div key={`${item.label}-${item.value}`} className="flex items-center justify-between gap-3 text-sm text-slate-200">
                                 <span className="text-slate-400">{item.label}</span>
                                 <span className="text-right">{item.value}</span>

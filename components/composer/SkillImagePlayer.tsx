@@ -3,7 +3,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ImageIcon, Loader2, RefreshCw, AlertTriangle, CheckCircle2, FileText } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Brain, Globe, ImageIcon, Loader2, RefreshCw, AlertTriangle, CheckCircle2, FileText, Clapperboard } from "lucide-react";
 import { persistGeneratedAssetsForExperience } from "@/services/composer/generatedAssetClient";
 
 interface SkillImagePlayerProps {
@@ -13,6 +14,8 @@ interface SkillImagePlayerProps {
   visual_style?: string;
   experience_id?: string;
   autoInvoke?: boolean;
+  initial_images?: GeneratedImage[];
+  initial_receipt?: Record<string, unknown>;
 }
 
 interface GeneratedImage {
@@ -37,6 +40,14 @@ interface GenerationResponse {
 
 const providerLabel = (provider: "openai" | "venice") =>
   provider === "venice" ? "Venice" : "OpenAI";
+
+function ProviderIcon({ provider, className }: { provider: "openai" | "venice"; className?: string }) {
+  return provider === "venice" ? (
+    <Globe className={className} />
+  ) : (
+    <Brain className={className} />
+  );
+}
 
 function mergeGenerationResults(
   provider: "openai" | "venice",
@@ -68,9 +79,22 @@ export default function SkillImagePlayer({
   visual_style = "editorial",
   experience_id,
   autoInvoke = false,
+  initial_images,
+  initial_receipt,
 }: SkillImagePlayerProps) {
-  const [state, setState] = useState<"idle" | "invoking" | "done" | "error">("idle");
-  const [result, setResult] = useState<GenerationResponse | null>(null);
+  const hasInitialImages = Array.isArray(initial_images) && initial_images.some((image) => Boolean(image?.image_url));
+  const [state, setState] = useState<"idle" | "invoking" | "done" | "error">(hasInitialImages ? "done" : "idle");
+  const [result, setResult] = useState<GenerationResponse | null>(
+    hasInitialImages
+      ? {
+          ok: true,
+          provider: provider_id,
+          mode: "live",
+          images: initial_images || [],
+          receipt: initial_receipt,
+        }
+      : null
+  );
   const [showReceipt, setShowReceipt] = useState(false);
   const [persistedGenerationKey, setPersistedGenerationKey] = useState<string | null>(null);
 
@@ -153,9 +177,9 @@ export default function SkillImagePlayer({
   }, [availablePrompts.length, experience_id, landscape_prompt, portrait_prompt, provider_id]);
 
   useEffect(() => {
-    if (!autoInvoke || state !== "idle") return;
+    if (!autoInvoke || state !== "idle" || hasInitialImages) return;
     void invoke();
-  }, [autoInvoke, invoke, state]);
+  }, [autoInvoke, hasInitialImages, invoke, state]);
 
   useEffect(() => {
     if (!experience_id || state !== "done" || result?.mode !== "live") return;
@@ -196,28 +220,43 @@ export default function SkillImagePlayer({
     <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60">
       <div className="flex items-center justify-between border-b border-slate-800/60 p-4">
         <div className="flex items-center gap-2">
-          <ImageIcon className="h-5 w-5 text-cyan-400" />
-          <span className="text-sm font-semibold text-white">{providerLabel(provider_id)} Image Generation</span>
+          <ProviderIcon provider={provider_id} className="h-5 w-5 text-cyan-400" />
+          <span className="hidden text-sm font-semibold text-white sm:inline">{providerLabel(provider_id)} Image Generation</span>
+          <span className="text-sm font-semibold text-white sm:hidden">Image Generation</span>
         </div>
         <div className="flex items-center gap-2">
-          <Badge variant="outline" className="border-slate-700 text-[10px] text-slate-400">
-            {visual_style}
-          </Badge>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge variant="outline" className="border-slate-700 text-[10px] text-slate-400">
+                <Clapperboard className="h-3.5 w-3.5 sm:mr-1" />
+                <span className="hidden sm:inline">{visual_style}</span>
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent>{visual_style}</TooltipContent>
+          </Tooltip>
           {state === "done" && result?.receipt && (
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-7 text-xs text-slate-400"
-              onClick={() => setShowReceipt((value) => !value)}
-            >
-              <FileText className="mr-1 h-3 w-3" />
-              {showReceipt ? "Hide Receipt" : "Show Receipt"}
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8 text-slate-400"
+                  onClick={() => setShowReceipt((value) => !value)}
+                >
+                  <FileText className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{showReceipt ? "Hide receipt" : "Show receipt"}</TooltipContent>
+            </Tooltip>
           )}
-          <Button size="sm" variant="ghost" className="h-7 text-xs text-slate-400" onClick={invoke}>
-            <RefreshCw className="mr-1 h-3 w-3" />
-            {state === "idle" ? "Generate" : "Regenerate"}
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button size="icon" variant="ghost" className="h-8 w-8 text-slate-400" onClick={invoke}>
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{state === "idle" ? "Generate" : "Regenerate"}</TooltipContent>
+          </Tooltip>
         </div>
       </div>
 
