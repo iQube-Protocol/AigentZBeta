@@ -249,7 +249,6 @@ async function requestImageGeneration(
                 prompt,
                 size: resolveImageSize(orientation),
                 n: 1,
-                response_format: "b64_json",
               }
         ),
         signal: controller.signal,
