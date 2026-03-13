@@ -76,11 +76,6 @@ function dataUrlToBuffer(value: string) {
   };
 }
 
-function arrayBufferToDataUrl(data: ArrayBuffer, contentType: string) {
-  const base64 = Buffer.from(data).toString("base64");
-  return `data:${contentType};base64,${base64}`;
-}
-
 async function persistGeneratedAsset(options: {
   providerId: ProviderId;
   orientation: Orientation;
@@ -143,18 +138,14 @@ async function normalizeImageAssetUrl(
   if (value.startsWith("data:")) {
     const parsed = dataUrlToBuffer(value);
     if (!parsed) return value;
-    try {
-      return await persistGeneratedAsset({
-        providerId,
-        orientation,
-        experienceId,
-        model,
-        contentType: parsed.contentType,
-        data: parsed.data,
-      });
-    } catch {
-      return value;
-    }
+    return await persistGeneratedAsset({
+      providerId,
+      orientation,
+      experienceId,
+      model,
+      contentType: parsed.contentType,
+      data: parsed.data,
+    });
   }
 
   if (/^https?:\/\//i.test(value)) {
@@ -258,9 +249,8 @@ async function requestImageGeneration(
       if (res.ok && (contentType.startsWith("image/") || contentType.startsWith("application/octet-stream"))) {
         const buffer = await res.arrayBuffer();
         const normalizedContentType = contentType.startsWith("image/") ? contentType : "image/png";
-        let imageUrl: string;
         try {
-          imageUrl = await persistGeneratedAsset({
+          const imageUrl = await persistGeneratedAsset({
             providerId,
             orientation,
             experienceId,
@@ -268,15 +258,16 @@ async function requestImageGeneration(
             contentType: normalizedContentType,
             data: buffer,
           });
+          return {
+            ok: true as const,
+            mode: "live" as const,
+            image_url: imageUrl,
+            model: candidateModel,
+          };
         } catch {
-          imageUrl = arrayBufferToDataUrl(buffer, normalizedContentType);
+          errors.push(`${candidateModel}: Generated image could not be persisted to storage`);
+          continue;
         }
-        return {
-          ok: true as const,
-          mode: "live" as const,
-          image_url: imageUrl,
-          model: candidateModel,
-        };
       }
 
       const rawText = await res.text().catch(() => "");
@@ -304,12 +295,18 @@ async function requestImageGeneration(
         continue;
       }
 
-      return {
-        ok: true as const,
-        mode: "live" as const,
-        image_url: await normalizeImageAssetUrl(providerId, experienceId, orientation, candidateModel, url),
-        model: candidateModel,
-      };
+      try {
+        return {
+          ok: true as const,
+          mode: "live" as const,
+          image_url: await normalizeImageAssetUrl(providerId, experienceId, orientation, candidateModel, url),
+          model: candidateModel,
+        };
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        errors.push(`${candidateModel}: ${msg}`);
+        continue;
+      }
     }
 
     return {
