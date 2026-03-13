@@ -86,11 +86,21 @@ export default function SkillImagePlayer({
       try {
         data = JSON.parse(rawText) as GenerationResponse;
       } catch {
+        const trimmed = rawText.trim();
         data = {
           ok: false,
           provider: provider_id,
           images: [],
-          error: rawText || "Invalid image response",
+          error:
+            trimmed ||
+            `Image generation request failed (${res.status} ${res.statusText || "Unknown Error"})`,
+        };
+      }
+      if (!res.ok && !data.error) {
+        data = {
+          ...data,
+          ok: false,
+          error: `Image generation request failed (${res.status} ${res.statusText || "Unknown Error"})`,
         };
       }
       setResult(data);
