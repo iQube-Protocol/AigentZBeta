@@ -1,4 +1,5 @@
 import type { ComposerGeneratedAssetRef } from "@/services/copilot/composer/types";
+import { recordRuntimeLifecycleContribution } from "@/services/composer/runtimeLifecycleClient";
 
 type ExperienceMetadata = {
   generated_assets?: Array<Record<string, unknown>>;
@@ -14,6 +15,13 @@ type ExperienceQubeResponse = {
     tenant_id?: string;
     metadata?: ExperienceMetadata;
   };
+};
+
+type LifecycleSummary = {
+  generatedImageCount?: number;
+  generatedVideoCount?: number;
+  lastGeneratedAt?: string;
+  lastGeneratedByPersonaId?: string;
 };
 
 export type PersistableGeneratedAsset = ComposerGeneratedAssetRef & {
@@ -106,6 +114,12 @@ export async function persistGeneratedAssetsForExperience(options: {
   const existingData = (await existingResponse.json()) as ExperienceQubeResponse;
   const tenantId = existingData.experience_qube?.tenant_id || "tnt_clawhack";
   const existingMetadata = (existingData.experience_qube?.metadata || {}) as ExperienceMetadata;
+  const creatorPersonaId =
+    typeof existingMetadata.creator_persona === "object" &&
+    existingMetadata.creator_persona &&
+    typeof (existingMetadata.creator_persona as Record<string, unknown>).id === "string"
+      ? ((existingMetadata.creator_persona as Record<string, unknown>).id as string)
+      : undefined;
   const existingAssets = Array.isArray(existingMetadata.generated_assets)
     ? existingMetadata.generated_assets
     : [];
@@ -147,6 +161,19 @@ export async function persistGeneratedAssetsForExperience(options: {
     nextDprReceiptsById.set(normalizedReceipt.receipt_id, normalizedReceipt);
   }
 
+  const now = new Date().toISOString();
+  const previousLifecycle =
+    existingMetadata.lifecycle_summary &&
+    typeof existingMetadata.lifecycle_summary === "object"
+      ? (existingMetadata.lifecycle_summary as LifecycleSummary)
+      : {};
+  const generatedImageCount =
+    (previousLifecycle.generatedImageCount || 0) +
+    options.assets.filter((asset) => asset.type === "image").length;
+  const generatedVideoCount =
+    (previousLifecycle.generatedVideoCount || 0) +
+    options.assets.filter((asset) => asset.type === "video").length;
+
   const updateResponse = await fetch(`/api/composer/experiences/${options.experienceId}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
@@ -155,11 +182,41 @@ export async function persistGeneratedAssetsForExperience(options: {
         generated_assets: Array.from(nextAssetsByKey.values()),
         generated_receipts: nextReceipts,
         dprReceipts: Array.from(nextDprReceiptsById.values()).slice(-100),
+        lifecycle_summary: {
+          ...previousLifecycle,
+          generatedImageCount,
+          generatedVideoCount,
+          lastGeneratedAt: now,
+          lastGeneratedByPersonaId:
+            creatorPersonaId || previousLifecycle.lastGeneratedByPersonaId,
+        },
       },
     }),
   });
 
   if (!updateResponse.ok) {
     throw new Error(`Failed to persist generated assets for ${options.experienceId}`);
+  }
+
+  const assetTypes = new Set(options.assets.map((asset) => asset.type));
+  if (assetTypes.has("image")) {
+    void recordRuntimeLifecycleContribution({
+      tenantId,
+      personaId: creatorPersonaId,
+      experienceId: options.experienceId,
+      contributionType: "generated_image",
+      source: "studio-generated-asset",
+      units: options.assets.filter((asset) => asset.type === "image").length,
+    }).catch(() => undefined);
+  }
+  if (assetTypes.has("video")) {
+    void recordRuntimeLifecycleContribution({
+      tenantId,
+      personaId: creatorPersonaId,
+      experienceId: options.experienceId,
+      contributionType: "generated_video",
+      source: "studio-generated-asset",
+      units: options.assets.filter((asset) => asset.type === "video").length,
+    }).catch(() => undefined);
   }
 }

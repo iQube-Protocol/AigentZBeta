@@ -30,6 +30,7 @@ import {
 } from "@/services/copilot/composer";
 import type { ComposerGeneratedAssetRef } from "@/services/copilot/composer/types";
 import { resolveRuntimeIdentity } from "@/services/runtime/identityResolver";
+import { recordRuntimeLifecycleContribution } from "@/services/composer/runtimeLifecycleClient";
 
 type ComposerField = {
   id: string;
@@ -169,8 +170,8 @@ function deriveExperienceNameFromPrompt(prompt: string, fallback: string): strin
 function buildImagePromptVariants(prompt: string, contextLabel: string) {
   const style = inferVisualStyleFromPrompt(prompt);
   return {
-    portrait: `Create a ${style} vertical-format hero image for ${contextLabel}. ${prompt}. Use portrait orientation only as framing. Vertical composition, strong focal subject, premium lighting, runtime-grade polish.`,
-    landscape: `Create a ${style} horizontal-format hero image for ${contextLabel}. ${prompt}. Use widescreen framing only. Do not depict a natural landscape unless the prompt explicitly asks for one. Wide cinematic composition, strong depth, editorial clarity, runtime-grade polish.`,
+    portrait: `Create a ${style} vertical-format hero image for ${contextLabel}. ${prompt}. Use portrait orientation only as framing. Keep all title text, logos, and key visual subjects fully inside the visible frame with generous safe margins. Do not crop or truncate any important text or focal elements at the edges. Vertical composition, strong focal subject, premium lighting, runtime-grade polish.`,
+    landscape: `Create a ${style} horizontal-format hero image for ${contextLabel}. ${prompt}. Use widescreen framing only. Do not depict a natural landscape unless the prompt explicitly asks for one. Keep all title text, logos, and key visual subjects fully inside the visible frame with generous safe margins. Do not crop or truncate any important text or focal elements at the edges. Wide cinematic composition, strong depth, editorial clarity, runtime-grade polish.`,
   };
 }
 
@@ -1199,6 +1200,7 @@ export const ComposerStudio = () => {
     const fallbackId = exp?.id || selectedExperienceId || experience?.id || null;
     if (fallbackId) setSelectedExperienceId(fallbackId);
     setPreviewAction(`${actionPrefix} ${exp?.name || "Experience"}`);
+    void recordExperienceLifecycle("experience_preview", exp, "studio-preview");
   };
 
   const launchExperience = async (exp: ExperienceQube | null) => {
@@ -1218,6 +1220,7 @@ export const ComposerStudio = () => {
         return;
       }
 
+      void recordExperienceLifecycle("experience_launch", exp, "studio-launch");
       router.push(`/studio/composer/experience/${encodeURIComponent(experienceId)}`);
     } catch {
       openRuntimePreviewForExperience(exp, "Launch fallback");
@@ -2846,6 +2849,72 @@ export const ComposerStudio = () => {
     if (experience?.id === experienceId && updatedExperience) {
       setExperience(updatedExperience);
     }
+  };
+
+  const recordExperienceLifecycle = async (
+    action: "experience_preview" | "experience_launch",
+    exp: ExperienceQube | null | undefined,
+    source: string
+  ) => {
+    if (!exp?.id) return;
+
+    const metadata = exp.metadata || {};
+    const previousLifecycle =
+      metadata.lifecycle_summary && typeof metadata.lifecycle_summary === "object"
+        ? (metadata.lifecycle_summary as Record<string, any>)
+        : {};
+
+    const nextLifecycle = {
+      ...previousLifecycle,
+      previewCount:
+        action === "experience_preview"
+          ? (Number(previousLifecycle.previewCount) || 0) + 1
+          : Number(previousLifecycle.previewCount) || 0,
+      launchCount:
+        action === "experience_launch"
+          ? (Number(previousLifecycle.launchCount) || 0) + 1
+          : Number(previousLifecycle.launchCount) || 0,
+      lastPreviewAt:
+        action === "experience_preview"
+          ? new Date().toISOString()
+          : previousLifecycle.lastPreviewAt,
+      lastLaunchAt:
+        action === "experience_launch"
+          ? new Date().toISOString()
+          : previousLifecycle.lastLaunchAt,
+      lastLifecyclePersonaId: activePersonaId || userId,
+    };
+
+    void persistExperienceUpdate(
+      exp.id,
+      {
+        name: exp.name,
+        description: exp.description,
+        goal: exp.goal,
+        mechanics: exp.mechanics,
+        metrics: exp.metrics,
+        template_id: exp.template_id,
+        status: exp.status,
+        configuration: exp.configuration,
+        components: exp.components,
+        execution: (exp as any).execution,
+        access: exp.access,
+        metadata: {
+          ...metadata,
+          lifecycle_summary: nextLifecycle,
+        },
+      },
+      `Failed to record ${action}.`
+    ).catch(() => undefined);
+
+    void recordRuntimeLifecycleContribution({
+      tenantId: exp.tenant_id || tenantId,
+      personaId: activePersonaId || userId,
+      experienceId: exp.id,
+      contributionType: action,
+      source,
+      units: 1,
+    }).catch(() => undefined);
   };
   const handleSaveEditableGeneration = async () => {
     const nextIntentTimebox = {
