@@ -7,6 +7,7 @@ import { AlertTriangle, BarChart, Book, BookOpen, Bot, CheckCircle2, ChevronDown
 import { useCopilotAction } from "@copilotkit/react-core";
 import { createShellMessage } from "@metame/iframe-bridge";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { DevicePreviewSwitcher } from "@/components/preview/DevicePreviewSwitcher";
 import type { DeviceType } from "@/components/preview/DevicePreviewSwitcher";
 import { SmartTriadProvider } from "@/app/components/content";
@@ -1094,6 +1095,11 @@ export const ComposerStudio = () => {
   const isStudioExpanded = true;
   const [experiencePanelTab, setExperiencePanelTab] = useState("template");
   const [resourcesPanelTab, setResourcesPanelTab] = useState("experience");
+  const [editableExperienceName, setEditableExperienceName] = useState("");
+  const [editableImagePortraitPrompt, setEditableImagePortraitPrompt] = useState("");
+  const [editableImageLandscapePrompt, setEditableImageLandscapePrompt] = useState("");
+  const [editableVideoPrompt, setEditableVideoPrompt] = useState("");
+  const [isSavingEditableGeneration, setIsSavingEditableGeneration] = useState(false);
   const { data: codexList } = useCodexList({ useDefaults: true });
   const [copilotContextId, setCopilotContextId] = useState("qripto-codex");
   const [codexContentItems, setCodexContentItems] = useState<ComposerMediaItem[]>([]);
@@ -1852,6 +1858,10 @@ export const ComposerStudio = () => {
     if (!selectedExperienceId) return experience;
     return experiences.find((exp) => exp.id === selectedExperienceId) || experience;
   }, [selectedExperienceId, experiences, experience]);
+  const activeExperienceForEditing = useMemo(
+    () => previewExperience || selectedExperience || experience || null,
+    [experience, previewExperience, selectedExperience]
+  );
   const previewExperienceMedia = useMemo(
     () => resolveExperiencePrimaryMedia(previewExperience, codexContentItems),
     [previewExperience, codexContentItems]
@@ -2837,6 +2847,136 @@ export const ComposerStudio = () => {
       setExperience(updatedExperience);
     }
   };
+  const handleSaveEditableGeneration = async () => {
+    const nextIntentTimebox = {
+      ...(asRecord(sessionData.intent_timebox) || {}),
+      ...(asRecord(stepData.intent_timebox) || {}),
+      experience_name: editableExperienceName.trim(),
+    };
+    const nextImageGeneration = {
+      ...(asRecord(sessionData.image_generation) || {}),
+      ...(asRecord(stepData.image_generation) || {}),
+      portrait_prompt: editableImagePortraitPrompt.trim(),
+      landscape_prompt: editableImageLandscapePrompt.trim(),
+    };
+    const nextVideoPrompt = {
+      ...(asRecord(sessionData.video_prompt) || {}),
+      ...(asRecord(stepData.video_prompt) || {}),
+      prompt: editableVideoPrompt.trim(),
+    };
+
+    const nextSessionData = {
+      ...sessionData,
+      intent_timebox: nextIntentTimebox,
+      ...(editableImagePortraitPrompt.trim() || editableImageLandscapePrompt.trim()
+        ? { image_generation: nextImageGeneration }
+        : {}),
+      ...(editableVideoPrompt.trim() ? { video_prompt: nextVideoPrompt } : {}),
+    };
+
+    const nextStepData = {
+      ...stepData,
+      ...(Object.keys(nextIntentTimebox).length > 0 ? { intent_timebox: nextIntentTimebox } : {}),
+      ...(editableImagePortraitPrompt.trim() || editableImageLandscapePrompt.trim()
+        ? { image_generation: nextImageGeneration }
+        : {}),
+      ...(editableVideoPrompt.trim() ? { video_prompt: nextVideoPrompt } : {}),
+    };
+
+    try {
+      setIsSavingEditableGeneration(true);
+      setSessionError(null);
+      setSessionData(nextSessionData);
+      setStepData(nextStepData);
+
+      if (session?.id) {
+        const sessionRes = await fetch(`/api/composer/sessions/${session.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            current_step: session.current_step,
+            status: session.status,
+            data: nextSessionData,
+          }),
+        });
+        if (sessionRes.ok) {
+          const sessionJson = await sessionRes.json();
+          setSession(sessionJson.session || session);
+        }
+      }
+
+      if (activeExperienceForEditing?.id) {
+        const existingConfiguration = activeExperienceForEditing.configuration || {};
+        const existingMetadata = activeExperienceForEditing.metadata || {};
+        await persistExperienceUpdate(
+          activeExperienceForEditing.id,
+          {
+            name: editableExperienceName.trim() || activeExperienceForEditing.name,
+            description: activeExperienceForEditing.description,
+            goal: activeExperienceForEditing.goal,
+            mechanics: activeExperienceForEditing.mechanics,
+            metrics: activeExperienceForEditing.metrics,
+            template_id: activeExperienceForEditing.template_id,
+            status: activeExperienceForEditing.status,
+            configuration: {
+              ...existingConfiguration,
+              intent_timebox: {
+                ...(asRecord(existingConfiguration.intent_timebox) || {}),
+                experience_name: editableExperienceName.trim() || activeExperienceForEditing.name,
+              },
+              ...(editableImagePortraitPrompt.trim() || editableImageLandscapePrompt.trim()
+                ? {
+                    image_generation: {
+                      ...(asRecord(existingConfiguration.image_generation) || {}),
+                      portrait_prompt: editableImagePortraitPrompt.trim(),
+                      landscape_prompt: editableImageLandscapePrompt.trim(),
+                    },
+                  }
+                : {}),
+              ...(editableVideoPrompt.trim()
+                ? {
+                    video_prompt: {
+                      ...(asRecord(existingConfiguration.video_prompt) || {}),
+                      prompt: editableVideoPrompt.trim(),
+                    },
+                  }
+                : {}),
+            },
+            components: activeExperienceForEditing.components,
+            execution: (activeExperienceForEditing as any).execution,
+            access: activeExperienceForEditing.access,
+            metadata: {
+              ...existingMetadata,
+              editable_generation: {
+                experience_name: editableExperienceName.trim() || activeExperienceForEditing.name,
+                ...(editableImagePortraitPrompt.trim() || editableImageLandscapePrompt.trim()
+                  ? {
+                      image_generation: {
+                        portrait_prompt: editableImagePortraitPrompt.trim(),
+                        landscape_prompt: editableImageLandscapePrompt.trim(),
+                      },
+                    }
+                  : {}),
+                ...(editableVideoPrompt.trim()
+                  ? {
+                      video_prompt: {
+                        prompt: editableVideoPrompt.trim(),
+                      },
+                    }
+                  : {}),
+              },
+            },
+          },
+          "Failed to save generation edits."
+        );
+        setPreviewAction(`Updated ${editableExperienceName.trim() || activeExperienceForEditing.name}`);
+      }
+    } catch (err: any) {
+      setSessionError(err?.message || "Failed to save generation edits.");
+    } finally {
+      setIsSavingEditableGeneration(false);
+    }
+  };
 
   const handleLogAuditEvent = async (
     experienceId: string,
@@ -3075,6 +3215,64 @@ export const ComposerStudio = () => {
       previewExperience || selectedExperience || experience || null
     );
   }, [experience, experienceResourceSummary, previewExperience, selectedExperience]);
+  const editableGenerationDefaults = useMemo(() => {
+    const activeConfig = activeExperienceForEditing?.configuration || {};
+    const activeMetadata = activeExperienceForEditing?.metadata || {};
+    const metadataEditable = asRecord(activeMetadata.editable_generation) || {};
+    const intentTimebox =
+      (asRecord(mergedData?.intent_timebox) as Record<string, any> | null) ||
+      (asRecord(activeConfig.intent_timebox) as Record<string, any> | null) ||
+      (asRecord(metadataEditable.intent_timebox) as Record<string, any> | null) ||
+      {};
+    const imageGeneration =
+      (asRecord(mergedData?.image_generation) as Record<string, any> | null) ||
+      (asRecord(activeConfig.image_generation) as Record<string, any> | null) ||
+      (asRecord(metadataEditable.image_generation) as Record<string, any> | null) ||
+      {};
+    const videoPrompt =
+      (asRecord(mergedData?.video_prompt) as Record<string, any> | null) ||
+      (asRecord(activeConfig.video_prompt) as Record<string, any> | null) ||
+      (asRecord(metadataEditable.video_prompt) as Record<string, any> | null) ||
+      {};
+
+    return {
+      experienceName:
+        (typeof intentTimebox.experience_name === "string" && intentTimebox.experience_name.trim()
+          ? intentTimebox.experience_name
+          : null) ||
+        activeExperienceForEditing?.name ||
+        "",
+      imagePortraitPrompt:
+        (typeof imageGeneration.portrait_prompt === "string" && imageGeneration.portrait_prompt.trim()
+          ? imageGeneration.portrait_prompt
+          : "") || "",
+      imageLandscapePrompt:
+        (typeof imageGeneration.landscape_prompt === "string" && imageGeneration.landscape_prompt.trim()
+          ? imageGeneration.landscape_prompt
+          : "") || "",
+      videoPrompt:
+        (typeof videoPrompt.prompt === "string" && videoPrompt.prompt.trim() ? videoPrompt.prompt : "") || "",
+    };
+  }, [activeExperienceForEditing, mergedData]);
+  const editableGenerationSourceKey = useMemo(
+    () =>
+      [
+        activeExperienceForEditing?.id || "no-experience",
+        session?.id || "no-session",
+        editableGenerationDefaults.experienceName,
+        editableGenerationDefaults.imagePortraitPrompt,
+        editableGenerationDefaults.imageLandscapePrompt,
+        editableGenerationDefaults.videoPrompt,
+      ].join(":"),
+    [activeExperienceForEditing?.id, editableGenerationDefaults, session?.id]
+  );
+
+  useEffect(() => {
+    setEditableExperienceName(editableGenerationDefaults.experienceName);
+    setEditableImagePortraitPrompt(editableGenerationDefaults.imagePortraitPrompt);
+    setEditableImageLandscapePrompt(editableGenerationDefaults.imageLandscapePrompt);
+    setEditableVideoPrompt(editableGenerationDefaults.videoPrompt);
+  }, [editableGenerationSourceKey]);
   const buildComposerChatRequestContext = useCallback(
     (prompt: string) => {
       const lower = prompt.toLowerCase();
@@ -3177,10 +3375,11 @@ export const ComposerStudio = () => {
         suggestedPrompts.video = videoPromptStep.prompt;
       }
       const intentStep = mergedData?.intent_timebox || {};
-      const editableExperienceName =
-        typeof intentStep.experience_name === "string" && intentStep.experience_name.trim()
+      const resolvedEditableExperienceName =
+        editableExperienceName.trim() ||
+        (typeof intentStep.experience_name === "string" && intentStep.experience_name.trim()
           ? intentStep.experience_name
-          : undefined;
+          : undefined);
       const generatedAssets = extractGeneratedAssetsFromExperience(
         previewExperience || experience || selectedExperience || null
       );
@@ -3233,10 +3432,11 @@ export const ComposerStudio = () => {
           customizationFields:
             currentStep?.id && typeof stepValues === "object" ? stepValues : sessionData,
           suggestedPrompts,
-          editableExperienceName,
-          editableImagePortraitPrompt: suggestedPrompts.imagePortrait,
-          editableImageLandscapePrompt: suggestedPrompts.imageLandscape,
-          editableVideoPrompt: suggestedPrompts.video,
+          editableExperienceName: resolvedEditableExperienceName,
+          editableImagePortraitPrompt: editableImagePortraitPrompt.trim() || suggestedPrompts.imagePortrait,
+          editableImageLandscapePrompt:
+            editableImageLandscapePrompt.trim() || suggestedPrompts.imageLandscape,
+          editableVideoPrompt: editableVideoPrompt.trim() || suggestedPrompts.video,
           providerBindingMode: "strict",
           selectedProviders: Array.from(selectedProviders),
           selectedSkills: Array.from(selectedSkills),
@@ -3296,6 +3496,10 @@ export const ComposerStudio = () => {
     },
     [
       activeStyleQubeId,
+      editableExperienceName,
+      editableImageLandscapePrompt,
+      editableImagePortraitPrompt,
+      editableVideoPrompt,
       activePersonaId,
       activePersonaName,
       copilotContextId,
@@ -3833,6 +4037,76 @@ export const ComposerStudio = () => {
 
                   <TabsContent value="experience" className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1">
                     <div className="space-y-4">
+                      <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <div className="text-sm font-semibold text-white">Editable generation</div>
+                            <div className="mt-1 text-sm text-slate-400">
+                              Refine the experience name and the generated prompts before review, launch, or regeneration.
+                            </div>
+                          </div>
+                          <Button
+                            type="button"
+                            onClick={() => void handleSaveEditableGeneration()}
+                            disabled={isSavingEditableGeneration}
+                            className="shrink-0"
+                          >
+                            {isSavingEditableGeneration ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            Save edits
+                          </Button>
+                        </div>
+
+                        <div className="mt-4 space-y-4">
+                          <div className="space-y-2">
+                            <label className="text-xs uppercase tracking-widest text-slate-400">Experience name</label>
+                            <input
+                              value={editableExperienceName}
+                              onChange={(event) => setEditableExperienceName(event.target.value)}
+                              className="h-10 w-full rounded-lg border border-slate-700 bg-slate-900/70 px-3 text-sm text-white outline-none transition focus:border-fuchsia-400/50"
+                              placeholder="Name this experience"
+                            />
+                          </div>
+
+                          {(editableImagePortraitPrompt || editableImageLandscapePrompt) && (
+                            <div className="grid gap-4 xl:grid-cols-2">
+                              <div className="space-y-2">
+                                <label className="text-xs uppercase tracking-widest text-slate-400">Portrait prompt</label>
+                                <Textarea
+                                  value={editableImagePortraitPrompt}
+                                  onChange={(event) => setEditableImagePortraitPrompt(event.target.value)}
+                                  rows={6}
+                                  className="min-h-[144px] border-slate-700 bg-slate-900/70 text-white"
+                                  placeholder="Portrait image prompt"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <label className="text-xs uppercase tracking-widest text-slate-400">Landscape prompt</label>
+                                <Textarea
+                                  value={editableImageLandscapePrompt}
+                                  onChange={(event) => setEditableImageLandscapePrompt(event.target.value)}
+                                  rows={6}
+                                  className="min-h-[144px] border-slate-700 bg-slate-900/70 text-white"
+                                  placeholder="Landscape image prompt"
+                                />
+                              </div>
+                            </div>
+                          )}
+
+                          {editableVideoPrompt && (
+                            <div className="space-y-2">
+                              <label className="text-xs uppercase tracking-widest text-slate-400">Video prompt</label>
+                              <Textarea
+                                value={editableVideoPrompt}
+                                onChange={(event) => setEditableVideoPrompt(event.target.value)}
+                                rows={6}
+                                className="min-h-[144px] border-slate-700 bg-slate-900/70 text-white"
+                                placeholder="Video generation prompt"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
                       <div className={summaryCardClass}>
                         <div className="mb-2 text-xs uppercase tracking-widest text-slate-400">Session envelope</div>
                         <div className="space-y-2 text-sm text-slate-200">
