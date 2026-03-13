@@ -159,7 +159,7 @@ function buildSkillPacket(experience: any) {
             aspect_ratio: videoPrompt.aspect_ratio || "16:9",
             style: videoPrompt.style || "cinematic",
             creative_pack: intent.creative_pack || null,
-            autoInvoke: !videoAsset?.asset_url,
+            autoInvoke: false,
             venice_model: skillSel.venice_model || undefined,
             video_url: videoAsset?.asset_url || undefined,
             initial_receipt:
@@ -231,7 +231,7 @@ function buildImagePacket(experience: any) {
       portrait_prompt: imageGeneration.portrait_prompt || "",
       landscape_prompt: imageGeneration.landscape_prompt || "",
       visual_style: imageGeneration.visual_style || "editorial",
-      auto_invoke: initialImages.length === 0,
+      auto_invoke: false,
       initial_images: initialImages,
       initial_receipt:
         initialImages.length > 0 && metadata.generated_receipts
@@ -258,7 +258,7 @@ function buildImagePacket(experience: any) {
             portrait_prompt: imageGeneration.portrait_prompt || "",
             landscape_prompt: imageGeneration.landscape_prompt || "",
             visual_style: imageGeneration.visual_style || "editorial",
-            autoInvoke: initialImages.length === 0,
+            autoInvoke: false,
             initial_images: initialImages,
             initial_receipt:
               initialImages.length > 0 && metadata.generated_receipts
