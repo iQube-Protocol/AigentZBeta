@@ -103,6 +103,7 @@ export default function SkillImagePlayer({
 }: SkillImagePlayerProps) {
   const hasInitialImages = Array.isArray(initial_images) && initial_images.some((image) => Boolean(image?.image_url));
   const [state, setState] = useState<"idle" | "invoking" | "done" | "error">(hasInitialImages ? "done" : "idle");
+  const [resultSource, setResultSource] = useState<"saved" | "generated" | "none">(hasInitialImages ? "saved" : "none");
   const [result, setResult] = useState<GenerationResponse | null>(
     hasInitialImages
       ? {
@@ -136,6 +137,7 @@ export default function SkillImagePlayer({
     setResult(null);
     setShowReceipt(false);
     setPersistedGenerationKey(null);
+    setResultSource("none");
     try {
       const responses: GenerationResponse[] = [];
       for (const item of availablePrompts) {
@@ -184,6 +186,9 @@ export default function SkillImagePlayer({
       const data = mergeGenerationResults(provider_id, responses);
       setResult(data);
       setState(data.ok || data.mode === "simulation" ? "done" : "error");
+      if (data.ok && data.mode === "live") {
+        setResultSource("generated");
+      }
     } catch (error: any) {
       setResult({
         ok: false,
@@ -192,6 +197,7 @@ export default function SkillImagePlayer({
         error: error?.message || "Image generation failed",
       });
       setState("error");
+      setResultSource("none");
     }
   }, [availablePrompts.length, experience_id, landscape_prompt, portrait_prompt, provider_id]);
 
@@ -282,9 +288,9 @@ export default function SkillImagePlayer({
 
       <div className="p-4">
         {state === "idle" && (
-          <div className="space-y-3">
+          <div className="space-y-4">
             <p className="text-xs text-slate-400">
-              Generate orientation-aware article imagery from the prompts configured in the Studio customizer.
+              Generate orientation-aware article imagery from the prompts configured in the Studio customizer, or load the saved renders when they already exist in this ExperienceQube.
             </p>
             <div className="grid gap-3 md:grid-cols-2">
               {availablePrompts.map((item) => (
@@ -293,6 +299,12 @@ export default function SkillImagePlayer({
                   <div className="text-sm leading-relaxed text-slate-200">{item.prompt}</div>
                 </div>
               ))}
+            </div>
+            <div className="flex justify-center pt-1">
+              <Button onClick={invoke} className="bg-cyan-600 hover:bg-cyan-500 text-white">
+                <ImageIcon className="mr-2 h-4 w-4" />
+                Generate Images
+              </Button>
             </div>
           </div>
         )}
@@ -329,9 +341,16 @@ export default function SkillImagePlayer({
                       {image.orientation}
                     </div>
                     {image.ok && image.mode === "live" ? (
-                      <div className="flex items-center gap-1 text-[10px] text-emerald-300">
-                        <CheckCircle2 className="h-3 w-3" />
-                        Live
+                      <div className="flex items-center gap-2">
+                        {resultSource === "saved" && (
+                          <div className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] text-cyan-200">
+                            Last generated
+                          </div>
+                        )}
+                        <div className="flex items-center gap-1 text-[10px] text-emerald-300">
+                          <CheckCircle2 className="h-3 w-3" />
+                          Live
+                        </div>
                       </div>
                     ) : (
                       <div className="text-[10px] text-amber-300">Preview</div>

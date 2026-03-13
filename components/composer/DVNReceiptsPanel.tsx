@@ -170,7 +170,9 @@ export default function DVNReceiptsPanel({
       if (!resolvedChannelId) {
         const localFiltered = requestId
           ? localReceipts.filter((receipt) => receipt.payload.request_id === requestId)
-          : localReceipts;
+          : experienceId
+            ? localReceipts.filter((receipt) => receipt.payload?.experience_id === experienceId)
+            : localReceipts;
         localFiltered.sort(
           (a, b) =>
             new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
@@ -201,7 +203,9 @@ export default function DVNReceiptsPanel({
       const mergedReceipts = dedupeReceipts([...localReceipts, ...parsed]);
       const filteredByRequest: DVNReceipt[] = requestId
         ? mergedReceipts.filter((receipt) => receipt.payload.request_id === requestId)
-        : mergedReceipts;
+        : experienceId
+          ? mergedReceipts.filter((receipt) => receipt.payload?.experience_id === experienceId)
+          : mergedReceipts;
 
       filteredByRequest.sort(
         (a, b) =>
@@ -226,7 +230,10 @@ export default function DVNReceiptsPanel({
 
   const formatTimestamp = (ts: string) => {
     const date = new Date(ts);
-    return date.toLocaleTimeString() + "." + date.getMilliseconds().toString().padStart(3, "0");
+    return `${date.toLocaleDateString()} ${date.toLocaleTimeString()}.${date
+      .getMilliseconds()
+      .toString()
+      .padStart(3, "0")}`;
   };
 
   const exportReceipts = () => {

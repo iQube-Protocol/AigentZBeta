@@ -127,6 +127,7 @@ export default function SkillVideoPlayer({
 }: SkillVideoPlayerProps) {
   const initialProvider = inferProviderFromSkillId(skill_id);
   const [state, setState] = useState<"idle" | "invoking" | "done" | "error">(initial_video_url ? "done" : "idle");
+  const [resultSource, setResultSource] = useState<"saved" | "generated" | "none">(initial_video_url ? "saved" : "none");
   const [result, setResult] = useState<InvocationResult | null>(
     initial_video_url
       ? {
@@ -150,6 +151,7 @@ export default function SkillVideoPlayer({
     setResult(null);
     setPlaybackRetryCount(0);
     setPersistedVideoKey(null);
+    setResultSource("none");
     try {
       const res = await fetch("/api/skills/invoke", {
         method: "POST",
@@ -169,9 +171,13 @@ export default function SkillVideoPlayer({
       const data = await res.json().catch(() => ({ ok: false, error: "Invalid response from skill API" }));
       setResult(data);
       setState(data.ok ? "done" : "error");
+      if (data.ok && data.mode === "live") {
+        setResultSource("generated");
+      }
     } catch (err: any) {
       setResult({ ok: false, error: err?.message || "Invocation failed" });
       setState("error");
+      setResultSource("none");
     }
   }, [skill_id, prompt, duration, aspect_ratio, style, creative_pack, experience_id, trust_override, venice_model]);
 
@@ -439,6 +445,14 @@ export default function SkillVideoPlayer({
                 Check Again
               </Button>
             </div>
+          </div>
+        )}
+
+        {state === "done" && isLive && result?.video_url && resultSource === "saved" && (
+          <div className="mb-3 flex justify-end">
+            <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] text-cyan-200">
+              Last generated
+            </span>
           </div>
         )}
 
