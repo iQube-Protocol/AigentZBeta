@@ -109,6 +109,16 @@ async function resolveDvnChannelId(tenantId: string): Promise<string | null> {
   return typeof match?.channel_id === "string" ? match.channel_id : null;
 }
 
+function dedupeReceipts(receipts: DVNReceipt[]) {
+  const next = new Map<string, DVNReceipt>();
+  receipts.forEach((receipt) => {
+    if (typeof receipt?.receipt_id === "string" && receipt.receipt_id.trim()) {
+      next.set(receipt.receipt_id.trim(), receipt);
+    }
+  });
+  return Array.from(next.values());
+}
+
 export default function DVNReceiptsPanel({
   experienceId,
   requestId,
@@ -133,12 +143,39 @@ export default function DVNReceiptsPanel({
   const loadReceipts = async () => {
     setLoading(true);
     try {
+      const localReceiptsPromise = experienceId
+        ? fetch(`/api/composer/experiences/${experienceId}`, { cache: "no-store" })
+            .then(async (response) => {
+              if (!response.ok) return [];
+              const payload = await response.json();
+              const metadata = payload?.experience_qube?.metadata || {};
+              const dprReceipts = Array.isArray(metadata?.dprReceipts)
+                ? metadata.dprReceipts
+                : [];
+              const generatedReceipts = metadata?.generated_receipts && typeof metadata.generated_receipts === "object"
+                ? Object.values(metadata.generated_receipts)
+                : [];
+              return [...dprReceipts, ...generatedReceipts]
+                .filter((item): item is DVNReceipt => isReceiptShape(item));
+            })
+            .catch(() => [] as DVNReceipt[])
+        : Promise.resolve([] as DVNReceipt[]);
+
       const resolvedChannelId =
         process.env.NEXT_PUBLIC_QT_CHANNEL_DVN_RECEIPTS_ID ||
         (await resolveDvnChannelId(tenantId));
 
+      const localReceipts = await localReceiptsPromise;
+
       if (!resolvedChannelId) {
-        setReceipts([]);
+        const localFiltered = requestId
+          ? localReceipts.filter((receipt) => receipt.payload.request_id === requestId)
+          : localReceipts;
+        localFiltered.sort(
+          (a, b) =>
+            new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        );
+        setReceipts(dedupeReceipts(localFiltered));
         setLastRefresh(new Date());
         return;
       }
@@ -161,9 +198,10 @@ export default function DVNReceiptsPanel({
         .map((message) => parseReceiptFromMessage(message))
         .filter((item): item is DVNReceipt => Boolean(item));
 
+      const mergedReceipts = dedupeReceipts([...localReceipts, ...parsed]);
       const filteredByRequest: DVNReceipt[] = requestId
-        ? parsed.filter((receipt) => receipt.payload.request_id === requestId)
-        : parsed;
+        ? mergedReceipts.filter((receipt) => receipt.payload.request_id === requestId)
+        : mergedReceipts;
 
       filteredByRequest.sort(
         (a, b) =>

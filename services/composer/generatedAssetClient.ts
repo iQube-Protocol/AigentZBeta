@@ -3,12 +3,15 @@ import type { ComposerGeneratedAssetRef } from "@/services/copilot/composer/type
 type ExperienceMetadata = {
   generated_assets?: Array<Record<string, unknown>>;
   generated_receipts?: Record<string, unknown>;
+  dprReceipts?: Array<Record<string, unknown>>;
   [key: string]: unknown;
 };
 
 type ExperienceQubeResponse = {
   success?: boolean;
   experience_qube?: {
+    id?: string;
+    tenant_id?: string;
     metadata?: ExperienceMetadata;
   };
 };
@@ -44,6 +47,47 @@ function assetMergeKey(asset: Record<string, unknown>) {
   return `${type}:${provider}:${label}`;
 }
 
+function normalizeReceipt(
+  receipt: Record<string, unknown> | undefined,
+  tenantId: string,
+  experienceId: string,
+) {
+  if (!receipt) return null;
+  const receiptId =
+    typeof receipt.receipt_id === "string" && receipt.receipt_id.trim()
+      ? receipt.receipt_id.trim()
+      : null;
+  if (!receiptId) return null;
+
+  const timestamp =
+    typeof receipt.timestamp === "string" && receipt.timestamp.trim()
+      ? receipt.timestamp
+      : new Date().toISOString();
+  const receiptType =
+    typeof receipt.receipt_type === "string" && receipt.receipt_type.trim()
+      ? receipt.receipt_type
+      : "artifact.generated";
+  const payload =
+    receipt.payload && typeof receipt.payload === "object"
+      ? { ...(receipt.payload as Record<string, unknown>) }
+      : {};
+
+  return {
+    ...receipt,
+    receipt_id: receiptId,
+    tenant_id:
+      typeof receipt.tenant_id === "string" && receipt.tenant_id.trim()
+        ? receipt.tenant_id
+        : tenantId,
+    timestamp,
+    receipt_type: receiptType,
+    payload: {
+      experience_id: experienceId,
+      ...payload,
+    },
+  };
+}
+
 export async function persistGeneratedAssetsForExperience(options: {
   experienceId: string;
   assets: PersistableGeneratedAsset[];
@@ -60,6 +104,7 @@ export async function persistGeneratedAssetsForExperience(options: {
   }
 
   const existingData = (await existingResponse.json()) as ExperienceQubeResponse;
+  const tenantId = existingData.experience_qube?.tenant_id || "tnt_clawhack";
   const existingMetadata = (existingData.experience_qube?.metadata || {}) as ExperienceMetadata;
   const existingAssets = Array.isArray(existingMetadata.generated_assets)
     ? existingMetadata.generated_assets
@@ -82,6 +127,25 @@ export async function persistGeneratedAssetsForExperience(options: {
     ...(existingMetadata.generated_receipts || {}),
     ...(receiptId ? { [receiptId]: options.receipt } : {}),
   };
+  const normalizedReceipt = normalizeReceipt(options.receipt, tenantId, options.experienceId);
+  const existingDprReceipts = Array.isArray(existingMetadata.dprReceipts)
+    ? existingMetadata.dprReceipts.filter(
+        (item): item is Record<string, unknown> => Boolean(item && typeof item === "object"),
+      )
+    : [];
+  const nextDprReceiptsById = new Map<string, Record<string, unknown>>();
+  existingDprReceipts.forEach((receipt) => {
+    const existingReceiptId =
+      typeof receipt.receipt_id === "string" && receipt.receipt_id.trim()
+        ? receipt.receipt_id.trim()
+        : null;
+    if (existingReceiptId) {
+      nextDprReceiptsById.set(existingReceiptId, receipt);
+    }
+  });
+  if (normalizedReceipt) {
+    nextDprReceiptsById.set(normalizedReceipt.receipt_id, normalizedReceipt);
+  }
 
   const updateResponse = await fetch(`/api/composer/experiences/${options.experienceId}`, {
     method: "PUT",
@@ -90,6 +154,7 @@ export async function persistGeneratedAssetsForExperience(options: {
       metadata: {
         generated_assets: Array.from(nextAssetsByKey.values()),
         generated_receipts: nextReceipts,
+        dprReceipts: Array.from(nextDprReceiptsById.values()).slice(-100),
       },
     }),
   });
