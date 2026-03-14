@@ -171,6 +171,13 @@ function getSupabase() {
   return getSupabaseServer();
 }
 
+async function syncExperienceFallbackCaches(experience: ExperienceQubeData) {
+  if (!updateStoreExperienceQube(experience.id, experience)) {
+    createStoreExperienceQube(experience);
+  }
+  await upsertExperienceLocal(experience);
+}
+
 export async function createExperienceRecord(experience: ExperienceQubeData): Promise<ExperienceQubeData> {
   const supabase = getSupabase();
   if (!supabase) {
@@ -192,7 +199,9 @@ export async function createExperienceRecord(experience: ExperienceQubeData): Pr
     return experience;
   }
 
-  return mapRowToExperience(data as ExperienceRow);
+  const mapped = mapRowToExperience(data as ExperienceRow);
+  await syncExperienceFallbackCaches(mapped);
+  return mapped;
 }
 
 export async function getExperienceRecord(id: string): Promise<ExperienceQubeData | null> {
@@ -209,7 +218,9 @@ export async function getExperienceRecord(id: string): Promise<ExperienceQubeDat
     return (await getExperienceLocal(id)) || getStoreExperienceQube(id) || null;
   }
 
-  return mapRowToExperience(data as ExperienceRow);
+  const mapped = mapRowToExperience(data as ExperienceRow);
+  await syncExperienceFallbackCaches(mapped);
+  return mapped;
 }
 
 export async function listExperienceRecords(params: {
@@ -257,6 +268,9 @@ export async function listExperienceRecords(params: {
   }
 
   let items = (data as ExperienceRow[]).map(mapRowToExperience);
+  for (const item of items) {
+    await syncExperienceFallbackCaches(item);
+  }
   if (params.category) items = items.filter((exp) => exp.metadata.category === params.category);
   items.sort((a, b) => new Date(b.metadata.updated_at).getTime() - new Date(a.metadata.updated_at).getTime());
   const total = items.length;
@@ -304,7 +318,9 @@ export async function updateExperienceRecord(
     return success ? getStoreExperienceQube(id) || null : null;
   }
 
-  return mapRowToExperience(data as ExperienceRow);
+  const mapped = mapRowToExperience(data as ExperienceRow);
+  await syncExperienceFallbackCaches(mapped);
+  return mapped;
 }
 
 export async function deleteExperienceRecord(id: string): Promise<boolean> {
