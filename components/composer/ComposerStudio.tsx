@@ -3875,7 +3875,7 @@ export const ComposerStudio = () => {
     const raw = activeExperienceForEditing?.metadata?.deployment_history;
     if (!Array.isArray(raw)) return [];
     return raw
-      .filter((item): item is Record<string, any> => Boolean(item && typeof item === "object"))
+      .filter((item) => Boolean(item && typeof item === "object"))
       .sort(
         (a, b) =>
           new Date(String(b.deployed_at || 0)).getTime() -
