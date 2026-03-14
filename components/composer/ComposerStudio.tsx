@@ -4796,7 +4796,7 @@ export const ComposerStudio = () => {
                             filteredPersonaMediaLibrary.slice(0, 8).map((item) => (
                               <div
                                 key={item.id}
-                                className="grid gap-4 rounded-xl border border-slate-800 bg-slate-900/50 p-4 text-sm text-slate-200 lg:grid-cols-[140px_minmax(0,1fr)_auto]"
+                                className="grid gap-4 rounded-xl border border-slate-800 bg-slate-900/50 p-4 text-sm text-slate-200 md:grid-cols-[140px_minmax(0,1fr)]"
                               >
                                 <div className="overflow-hidden rounded-xl border border-slate-800 bg-slate-950/70">
                                   {item.assetUrl ? (
@@ -4826,11 +4826,11 @@ export const ComposerStudio = () => {
 
                                 <div className="min-w-0">
                                   {editingPersonaMediaId === item.id ? (
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex flex-wrap items-center gap-2">
                                       <input
                                         value={editingPersonaMediaLabel}
                                         onChange={(event) => setEditingPersonaMediaLabel(event.target.value)}
-                                        className="h-8 min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-900/70 px-2 text-sm text-white outline-none transition focus:border-fuchsia-400/50"
+                                        className="h-8 min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-900/70 px-2 text-sm text-white outline-none transition focus:border-fuchsia-400/50 md:min-w-[220px]"
                                       />
                                       <Button
                                         type="button"
@@ -4896,7 +4896,10 @@ export const ComposerStudio = () => {
                                       </span>
                                     ) : null}
                                   </div>
-                                  <div className="mt-3 grid gap-1 text-xs text-slate-400 sm:grid-cols-2">
+                                </div>
+
+                                <div className="space-y-3 md:col-span-2">
+                                  <div className="grid gap-1 text-xs text-slate-400 sm:grid-cols-2">
                                     {item.lastAction ? <div>State: {item.lastAction}</div> : null}
                                     {typeof item.useCount === "number" && item.useCount > 0 ? (
                                       <div>Reused: {item.useCount}</div>
@@ -4924,74 +4927,74 @@ export const ComposerStudio = () => {
                                       <div>Updated: {new Date(item.updatedAt).toLocaleString()}</div>
                                     ) : null}
                                   </div>
-                                </div>
-                                <div className="flex shrink-0 flex-wrap items-start justify-start gap-2 lg:max-w-[220px] lg:justify-end">
-                                  {editingPersonaMediaId !== item.id ? (
-                                    <Button
-                                      type="button"
-                                      size="sm"
-                                      variant="outline"
-                                      className="h-8 border-slate-700 bg-transparent px-2 text-xs text-slate-200 hover:border-fuchsia-400/60 hover:bg-slate-900"
-                                      onClick={() => handleStartEditingPersonaMedia(item)}
-                                    >
-                                      Rename
-                                    </Button>
-                                  ) : null}
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="outline"
-                                    className="h-8 border-slate-700 bg-transparent px-2 text-xs text-slate-200 hover:border-amber-400/60 hover:bg-slate-900"
-                                    disabled={archivingPersonaMediaId === item.id}
-                                    onClick={() => void handleToggleArchivePersonaMedia(item)}
-                                  >
-                                    {archivingPersonaMediaId === item.id ? (
-                                      <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    {editingPersonaMediaId !== item.id ? (
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-8 border-slate-700 bg-transparent px-2 text-xs text-slate-200 hover:border-fuchsia-400/60 hover:bg-slate-900"
+                                        onClick={() => handleStartEditingPersonaMedia(item)}
+                                      >
+                                        Rename
+                                      </Button>
                                     ) : null}
-                                    {item.archivedAt ? "Unarchive" : "Archive"}
-                                  </Button>
-                                  {activeExperienceForEditing?.id ? (
                                     <Button
                                       type="button"
                                       size="sm"
                                       variant="outline"
-                                      className="h-8 border-slate-700 bg-transparent px-2 text-xs text-slate-200 hover:border-fuchsia-400/60 hover:bg-slate-900"
-                                      disabled={pinningPersonaMediaId === item.id}
-                                      onClick={() => void handleTogglePersonaMediaPin(item)}
+                                      className="h-8 border-slate-700 bg-transparent px-2 text-xs text-slate-200 hover:border-amber-400/60 hover:bg-slate-900"
+                                      disabled={archivingPersonaMediaId === item.id}
+                                      onClick={() => void handleToggleArchivePersonaMedia(item)}
                                     >
-                                      {pinningPersonaMediaId === item.id ? (
+                                      {archivingPersonaMediaId === item.id ? (
                                         <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
                                       ) : null}
-                                      {item.pinnedToExperienceId === activeExperienceForEditing.id ? "Unpin" : "Pin"}
+                                      {item.archivedAt ? "Unarchive" : "Archive"}
                                     </Button>
-                                  ) : null}
-                                  {activeExperienceForEditing?.id && item.assetUrl ? (
-                                    <Button
-                                      type="button"
-                                      size="sm"
-                                      variant="outline"
-                                      className="h-8 border-slate-700 bg-transparent px-2 text-xs text-slate-200 hover:border-fuchsia-400/60 hover:bg-slate-900"
-                                      disabled={applyingPersonaMediaId === item.id}
-                                      onClick={() => void handleUsePersonaMediaInExperience(item)}
-                                    >
-                                      {applyingPersonaMediaId === item.id ? (
-                                        <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                                      ) : null}
-                                      Use in experience
-                                    </Button>
-                                  ) : null}
-                                  {item.assetUrl ? (
-                                    <a
-                                      href={item.assetUrl}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-200 transition hover:border-fuchsia-400/60 hover:text-white"
-                                    >
-                                      Open
-                                    </a>
-                                  ) : (
-                                    <span className="text-xs text-slate-500">Saved</span>
-                                  )}
+                                    {activeExperienceForEditing?.id ? (
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-8 border-slate-700 bg-transparent px-2 text-xs text-slate-200 hover:border-fuchsia-400/60 hover:bg-slate-900"
+                                        disabled={pinningPersonaMediaId === item.id}
+                                        onClick={() => void handleTogglePersonaMediaPin(item)}
+                                      >
+                                        {pinningPersonaMediaId === item.id ? (
+                                          <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                                        ) : null}
+                                        {item.pinnedToExperienceId === activeExperienceForEditing.id ? "Unpin" : "Pin"}
+                                      </Button>
+                                    ) : null}
+                                    {activeExperienceForEditing?.id && item.assetUrl ? (
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-8 border-slate-700 bg-transparent px-2 text-xs text-slate-200 hover:border-fuchsia-400/60 hover:bg-slate-900"
+                                        disabled={applyingPersonaMediaId === item.id}
+                                        onClick={() => void handleUsePersonaMediaInExperience(item)}
+                                      >
+                                        {applyingPersonaMediaId === item.id ? (
+                                          <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                                        ) : null}
+                                        Use in experience
+                                      </Button>
+                                    ) : null}
+                                    {item.assetUrl ? (
+                                      <a
+                                        href={item.assetUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-200 transition hover:border-fuchsia-400/60 hover:text-white"
+                                      >
+                                        Open
+                                      </a>
+                                    ) : (
+                                      <span className="text-xs text-slate-500">Saved</span>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
                             ))
