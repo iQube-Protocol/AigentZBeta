@@ -138,6 +138,66 @@ function isVideoAsset(asset: any): boolean {
   return asset?.type === "video" || asset?.media_type === "video";
 }
 
+function getGeneratedReceipts(metadata: any): Array<Record<string, any>> {
+  if (!metadata?.generated_receipts || typeof metadata.generated_receipts !== "object") {
+    return [];
+  }
+  return Object.values(metadata.generated_receipts).filter(
+    (receipt): receipt is Record<string, any> => Boolean(receipt && typeof receipt === "object")
+  );
+}
+
+function buildImageAssetsFromReceipts(metadata: any, imageGeneration: any, providerId: string) {
+  const receipts = getGeneratedReceipts(metadata);
+  const images: Array<{
+    orientation: "portrait" | "landscape";
+    prompt: string;
+    ok: true;
+    mode: "live";
+    image_url: string;
+    model: string;
+    receipt_id?: string;
+  }> = [];
+
+  for (const receipt of receipts) {
+    const outputs = Array.isArray(receipt?.payload?.outputs) ? receipt.payload.outputs : [];
+    for (const output of outputs) {
+      const orientation =
+        output?.orientation === "portrait" || output?.orientation === "landscape"
+          ? output.orientation
+          : null;
+      const imageUrl =
+        typeof output?.image_url === "string" && output.image_url.trim()
+          ? output.image_url.trim()
+          : null;
+      if (!orientation || !imageUrl) continue;
+      if (images.some((item) => item.orientation === orientation && item.image_url === imageUrl)) {
+        continue;
+      }
+      images.push({
+        orientation,
+        prompt:
+          orientation === "portrait"
+            ? imageGeneration.portrait_prompt || ""
+            : imageGeneration.landscape_prompt || "",
+        ok: true,
+        mode: "live",
+        image_url: imageUrl,
+        model:
+          (typeof output?.model === "string" && output.model) ||
+          (typeof receipt?.payload?.provider === "string" && receipt.payload.provider) ||
+          providerId,
+        receipt_id:
+          typeof receipt?.receipt_id === "string" && receipt.receipt_id.trim()
+            ? receipt.receipt_id.trim()
+            : undefined,
+      });
+    }
+  }
+
+  return images;
+}
+
 function buildSkillPacket(experience: any) {
   const config = experience.configuration || {};
   const metadata = experience.metadata || {};
@@ -237,22 +297,27 @@ function buildImagePacket(experience: any) {
       (asset?.orientation === "portrait" || asset?.orientation === "landscape") &&
       Boolean(getAssetUrl(asset))
   );
-  const initialImages = generatedAssets
-    .filter((asset: any) => imageAssets.includes(asset))
-    .map((asset: any) => ({
-      orientation: asset.orientation,
-      prompt:
-        asset.orientation === "portrait"
-          ? imageGeneration.portrait_prompt || ""
-          : imageGeneration.landscape_prompt || "",
-      ok: true,
-      mode: "live",
-      image_url: getAssetUrl(asset),
-      model: asset.provider || providerId,
-    }));
-  const imageReceiptRef = getAssetReceiptRef(
-    imageAssets.find((asset: any) => Boolean(getAssetReceiptRef(asset)))
-  );
+  const receiptBackfilledImages = buildImageAssetsFromReceipts(metadata, imageGeneration, providerId);
+  const initialImages =
+    imageAssets.length > 0
+      ? generatedAssets
+          .filter((asset: any) => imageAssets.includes(asset))
+          .map((asset: any) => ({
+            orientation: asset.orientation,
+            prompt:
+              asset.orientation === "portrait"
+                ? imageGeneration.portrait_prompt || ""
+                : imageGeneration.landscape_prompt || "",
+            ok: true,
+            mode: "live" as const,
+            image_url: getAssetUrl(asset) as string,
+            model: asset.provider || providerId,
+          }))
+      : receiptBackfilledImages;
+  const imageReceiptRef =
+    getAssetReceiptRef(imageAssets.find((asset: any) => Boolean(getAssetReceiptRef(asset)))) ||
+    receiptBackfilledImages.find((asset) => typeof asset.receipt_id === "string")?.receipt_id ||
+    null;
 
   return {
     packet_version: "1.0",
