@@ -3490,19 +3490,39 @@ export const ComposerStudio = () => {
   const filteredPersonaMediaLibrary = useMemo(() => {
     const activeExperienceId = activeExperienceForEditing?.id || null;
 
-    return personaMediaLibrary.filter((item) => {
-      if (personaMediaTypeFilter !== "all" && item.type !== personaMediaTypeFilter) {
-        return false;
-      }
-      if (personaMediaScopeFilter === "active") {
-        if (!activeExperienceId) return false;
-        return (
-          item.experienceId === activeExperienceId ||
-          item.lastUsedInExperienceId === activeExperienceId
-        );
-      }
-      return true;
-    });
+    return personaMediaLibrary
+      .filter((item) => {
+        if (personaMediaTypeFilter !== "all" && item.type !== personaMediaTypeFilter) {
+          return false;
+        }
+        if (personaMediaScopeFilter === "active") {
+          if (!activeExperienceId) return false;
+          return (
+            item.experienceId === activeExperienceId ||
+            item.lastUsedInExperienceId === activeExperienceId
+          );
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        const aActive = activeExperienceId && (a.experienceId === activeExperienceId || a.lastUsedInExperienceId === activeExperienceId) ? 1 : 0;
+        const bActive = activeExperienceId && (b.experienceId === activeExperienceId || b.lastUsedInExperienceId === activeExperienceId) ? 1 : 0;
+        if (aActive !== bActive) return bActive - aActive;
+
+        const aRelevantAt = new Date(
+          a.lastLaunchAt || a.lastPreviewAt || a.lastUsedAt || a.updatedAt || a.createdAt || 0
+        ).getTime();
+        const bRelevantAt = new Date(
+          b.lastLaunchAt || b.lastPreviewAt || b.lastUsedAt || b.updatedAt || b.createdAt || 0
+        ).getTime();
+        if (aRelevantAt !== bRelevantAt) return bRelevantAt - aRelevantAt;
+
+        const aUsageScore = (a.useCount || 0) + (a.launchCount || 0) + (a.previewCount || 0);
+        const bUsageScore = (b.useCount || 0) + (b.launchCount || 0) + (b.previewCount || 0);
+        if (aUsageScore !== bUsageScore) return bUsageScore - aUsageScore;
+
+        return String(a.label || "").localeCompare(String(b.label || ""));
+      });
   }, [activeExperienceForEditing?.id, personaMediaLibrary, personaMediaScopeFilter, personaMediaTypeFilter]);
   const editableGenerationSourceKey = useMemo(
     () =>
