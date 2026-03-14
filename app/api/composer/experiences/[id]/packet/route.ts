@@ -198,6 +198,17 @@ function buildImageAssetsFromReceipts(metadata: any, imageGeneration: any, provi
   return images;
 }
 
+function getAssetTimestamp(asset: any): number {
+  const raw =
+    (typeof asset?.created_at === "string" && asset.created_at) ||
+    (typeof asset?.createdAt === "string" && asset.createdAt) ||
+    (typeof asset?.timestamp === "string" && asset.timestamp) ||
+    null;
+  if (!raw) return 0;
+  const parsed = new Date(raw).getTime();
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 function buildSkillPacket(experience: any) {
   const config = experience.configuration || {};
   const metadata = experience.metadata || {};
@@ -317,7 +328,12 @@ function buildImagePacket(experience: any) {
     initialImagesByOrientation.set(image.orientation, image);
   }
   for (const image of savedImagesFromAssets) {
-    initialImagesByOrientation.set(image.orientation, image);
+    const existing = initialImagesByOrientation.get(image.orientation);
+    const existingTs = existing ? getAssetTimestamp(existing) : 0;
+    const currentTs = getAssetTimestamp(image);
+    if (!existing || currentTs >= existingTs) {
+      initialImagesByOrientation.set(image.orientation, image);
+    }
   }
   const initialImages = Array.from(initialImagesByOrientation.values()).sort((a, b) =>
     a.orientation === b.orientation ? 0 : a.orientation === "portrait" ? -1 : 1

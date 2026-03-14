@@ -68,6 +68,65 @@ function StyleIcon({ style, className }: { style: string; className?: string }) 
   return <Sparkles className={className} />;
 }
 
+function mergeImageReceipts(
+  provider: "openai" | "venice",
+  results: GenerationResponse[],
+): Record<string, unknown> | undefined {
+  const sourceReceipts = results
+    .map((result) => (result.receipt && typeof result.receipt === "object" ? result.receipt : null))
+    .filter((receipt): receipt is Record<string, unknown> => Boolean(receipt));
+
+  if (sourceReceipts.length === 0) return undefined;
+
+  const timestamps = sourceReceipts
+    .map((receipt) => (typeof receipt.timestamp === "string" ? receipt.timestamp : null))
+    .filter((timestamp): timestamp is string => Boolean(timestamp))
+    .sort();
+
+  const outputs = sourceReceipts.flatMap((receipt) => {
+    const payload =
+      receipt.payload && typeof receipt.payload === "object"
+        ? (receipt.payload as Record<string, unknown>)
+        : {};
+    return Array.isArray(payload.outputs) ? payload.outputs : [];
+  });
+
+  const prompts = sourceReceipts.flatMap((receipt) => {
+    const payload =
+      receipt.payload && typeof receipt.payload === "object"
+        ? (receipt.payload as Record<string, unknown>)
+        : {};
+    return Array.isArray(payload.prompts) ? payload.prompts : [];
+  });
+
+  const experienceId =
+    sourceReceipts
+      .map((receipt) => {
+        const payload =
+          receipt.payload && typeof receipt.payload === "object"
+            ? (receipt.payload as Record<string, unknown>)
+            : {};
+        return typeof payload.experience_id === "string" ? payload.experience_id : null;
+      })
+      .find((value): value is string => Boolean(value)) || null;
+
+  return {
+    receipt_id: `rcpt_image_combined_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    receipt_type: "skill.image.generated",
+    timestamp: timestamps[timestamps.length - 1] || new Date().toISOString(),
+    payload: {
+      provider,
+      experience_id: experienceId,
+      mode: results.some((result) => result.ok && result.mode === "live") ? "live" : "simulation",
+      prompts,
+      outputs,
+      source_receipt_ids: sourceReceipts
+        .map((receipt) => (typeof receipt.receipt_id === "string" ? receipt.receipt_id : null))
+        .filter((value): value is string => Boolean(value)),
+    },
+  };
+}
+
 function mergeGenerationResults(
   provider: "openai" | "venice",
   results: GenerationResponse[],
@@ -78,7 +137,7 @@ function mergeGenerationResults(
     .map((result) => result.fallback_reason)
     .filter((value): value is string => Boolean(value));
   const error = results.map((result) => result.error).filter((value): value is string => Boolean(value)).join(" | ") || undefined;
-  const receipt = results.find((result) => result.receipt)?.receipt;
+  const receipt = mergeImageReceipts(provider, results);
 
   return {
     ok: hasLive,
