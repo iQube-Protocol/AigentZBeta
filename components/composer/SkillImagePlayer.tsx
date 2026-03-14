@@ -317,6 +317,18 @@ export default function SkillImagePlayer({
       .then(() => {
         setPersistedGenerationKey(generationKey);
         window.dispatchEvent(new CustomEvent("composer:persona-media-updated"));
+        try {
+          window.parent?.postMessage(
+            {
+              type: "composer:persona-media-updated",
+              personaId: persona_id,
+              experienceId: experience_id,
+            },
+            window.location.origin,
+          );
+        } catch {
+          // Ignore cross-frame notification failures.
+        }
       })
       .catch(() => undefined);
   }, [experience_id, persona_id, persistedGenerationKey, result, state]);

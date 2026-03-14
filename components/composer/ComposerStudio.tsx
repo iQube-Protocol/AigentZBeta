@@ -3799,13 +3799,32 @@ export const ComposerStudio = () => {
       if (!active) return;
       void refreshPersonaMediaLibrary();
     };
+    const handlePersonaMediaMessage = (event: MessageEvent) => {
+      if (!active) return;
+      if (event.origin !== window.location.origin) return;
+      const data = event.data;
+      if (!data || typeof data !== "object") return;
+      if ((data as { type?: string }).type !== "composer:persona-media-updated") return;
+      void refreshPersonaMediaLibrary();
+    };
+    const handlePersonaMediaStorage = (event: StorageEvent) => {
+      if (!active) return;
+      const personaKey = (activePersonaId || userId || "").trim();
+      if (!personaKey) return;
+      if (event.key !== `composer_generated_media_library_v1:${personaKey}`) return;
+      void refreshPersonaMediaLibrary();
+    };
     window.addEventListener("composer:persona-media-updated", handlePersonaMediaUpdated);
+    window.addEventListener("message", handlePersonaMediaMessage);
+    window.addEventListener("storage", handlePersonaMediaStorage);
 
     return () => {
       active = false;
       window.removeEventListener("composer:persona-media-updated", handlePersonaMediaUpdated);
+      window.removeEventListener("message", handlePersonaMediaMessage);
+      window.removeEventListener("storage", handlePersonaMediaStorage);
     };
-  }, [refreshPersonaMediaLibrary]);
+  }, [activePersonaId, refreshPersonaMediaLibrary, userId]);
   const buildComposerChatRequestContext = useCallback(
     (prompt: string) => {
       const lower = prompt.toLowerCase();
