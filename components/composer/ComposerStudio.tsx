@@ -37,6 +37,7 @@ import {
   type ComposerDeploymentResult,
   type ComposerDeploymentTarget,
 } from "@/services/composer/deploymentBlock";
+import { buildComposerRoutingEnvelope } from "@/services/composer/routingEnvelope";
 import {
   markPersonaGeneratedMediaLifecycle,
   markPersonaGeneratedMediaUsage,
@@ -1663,52 +1664,44 @@ export const ComposerStudio = () => {
     const local = resolveExperiencePrimaryMedia(mcpExperience, codexContentItems);
     return local || inspectorFetchedMedia;
   }, [mcpExperience, codexContentItems, inspectorFetchedMedia]);
+  const routingEnvelope = useMemo(
+    () =>
+      buildComposerRoutingEnvelope({
+        mode: mcpDispatchMode,
+        selectedTarget: mcpDeploymentTarget,
+        selectedProvider: mcpProvider,
+        discordReady: Boolean(mcpDiscordStatus?.ready || mcpDiscordStatusState === "ok"),
+        runtimeReady: runtimePreviewLoaded,
+        hasPlayableMedia: Boolean(inspectorMediaPreview?.uri),
+      }),
+    [
+      inspectorMediaPreview?.uri,
+      mcpDeploymentTarget,
+      mcpDispatchMode,
+      mcpDiscordStatus?.ready,
+      mcpDiscordStatusState,
+      mcpProvider,
+      runtimePreviewLoaded,
+    ],
+  );
   const deploymentTargetCards = useMemo(() => {
-    const targets: ComposerDeploymentTarget[] = [
-      "studio_preview",
-      "runtime_launch",
-      "mcp_app",
-      "discord_mcp",
-    ];
-    return targets.map((target) => {
-      const latest = deploymentResultsByTarget[target];
-      const ready =
-        target === "studio_preview"
-          ? Boolean(mcpExperience?.id)
-          : target === "runtime_launch"
-            ? Boolean(mcpExperience?.id && runtimePreviewLoaded)
-            : target === "mcp_app"
-              ? Boolean(mcpExperience?.id)
-              : Boolean(
-                  mcpExperience?.id &&
-                    mcpProvider === "discord" &&
-                    (mcpDiscordStatus?.ready || mcpDiscordStatusState === "ok")
-                );
-      const note =
-        target === "studio_preview"
-          ? "Local Studio proof surface."
-          : target === "runtime_launch"
-            ? "Launchable runtime endpoint."
-            : target === "mcp_app"
-              ? "MCP-backed app deployment path."
-              : mcpProvider === "discord"
-                ? "Discord delivery via MCP dispatch."
-                : "Discord target requires Discord provider.";
+    return routingEnvelope.candidates.map((candidate) => {
+      const latest = deploymentResultsByTarget[candidate.target];
       return {
-        id: target,
-        label: getDeploymentTargetLabel(target),
-        ready,
-        note,
+        id: candidate.target,
+        label: getDeploymentTargetLabel(candidate.target),
+        ready: candidate.ready,
+        note: candidate.reasons[0] || "Deployment candidate",
         latest,
+        trustScore: candidate.trustScore,
+        costScore: candidate.costScore,
+        suitabilityScore: candidate.suitabilityScore,
+        watchouts: candidate.watchouts,
       };
     });
   }, [
     deploymentResultsByTarget,
-    mcpDiscordStatus?.ready,
-    mcpDiscordStatusState,
-    mcpExperience?.id,
-    mcpProvider,
-    runtimePreviewLoaded,
+    routingEnvelope,
   ]);
   const inspectorSourceBadge = useMemo(
     () =>
@@ -6330,6 +6323,12 @@ export const ComposerStudio = () => {
                 </div>
 
                 <div className="grid gap-2">
+                  <div className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-xs text-cyan-100">
+                    <div className="font-medium">
+                      Routing recommendation: {getDeploymentTargetLabel(routingEnvelope.recommendedTarget)}
+                    </div>
+                    <div className="mt-1 text-cyan-100/80">{routingEnvelope.summary}</div>
+                  </div>
                   {deploymentTargetCards.map((target) => (
                     <div
                       key={target.id}
@@ -6350,6 +6349,16 @@ export const ComposerStudio = () => {
                         </span>
                       </div>
                       <div className="mt-1 text-slate-400">{target.note}</div>
+                      <div className="mt-1 flex flex-wrap gap-3 text-[11px] text-slate-500">
+                        <span>trust {target.trustScore}/5</span>
+                        <span>cost {target.costScore}/5</span>
+                        <span>fit {target.suitabilityScore}</span>
+                      </div>
+                      {Array.isArray(target.watchouts) && target.watchouts.length > 0 ? (
+                        <div className="mt-1 text-[11px] text-amber-300/80">
+                          {target.watchouts.join(" · ")}
+                        </div>
+                      ) : null}
                       {target.latest ? (
                         <div className="mt-1 text-slate-500">
                           Last result: {target.latest.status}

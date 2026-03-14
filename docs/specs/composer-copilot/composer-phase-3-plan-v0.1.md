@@ -94,6 +94,7 @@ The first concrete Phase 3 implementation should be:
 2. route Studio provider dispatch through that block
 3. normalize deployment target metadata
 4. preserve deployment results in a consistent response shape
+5. add a trust-and-cost routing envelope that scores targets by readiness, trust, and cost posture
 
 ## 4. Shared Deployment Contract
 
@@ -124,6 +125,24 @@ The first concrete Phase 3 implementation should be:
 - `status`
 - `warnings`
 - `errors`
+
+## 4.1 Routing Envelope
+
+The first routing envelope is not full automatic orchestration.
+
+It should:
+
+- score deployment candidates
+- explain why a target is recommended
+- surface trust and cost posture in simple terms
+- show blockers before live dispatch
+
+Initial candidates:
+
+- `studio_preview`
+- `runtime_launch`
+- `mcp_app`
+- `discord_mcp`
 
 ## 5. Phase 3 Exit Criteria
 
