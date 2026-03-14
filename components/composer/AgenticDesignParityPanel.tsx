@@ -49,6 +49,22 @@ type AgenticDesignParityPanelProps = {
   experiences: ExperienceQubeLike[];
   previewExperience: ExperienceQubeLike | null;
   previewAction: string | null;
+  routingSummary?: string;
+  recommendedTargetLabel?: string;
+  deploymentGuidance?: Array<{
+    id: string;
+    label: string;
+    ready: boolean;
+    note: string;
+    trustScore: number;
+    costScore: number;
+    suitabilityScore: number;
+    watchouts?: string[];
+    latest?: {
+      status?: string;
+      mode?: string;
+    } | null;
+  }>;
   onOpenExperience?: (experienceId: string) => void;
   onOpenRuntimePreview?: () => void;
   onApplyRemedy?: (experienceId: string, patch: Partial<ExperienceQubeLike>, summary: string) => Promise<void>;
@@ -454,6 +470,9 @@ export function AgenticDesignParityPanel({
   experiences,
   previewExperience,
   previewAction,
+  routingSummary,
+  recommendedTargetLabel,
+  deploymentGuidance,
   onOpenExperience,
   onOpenRuntimePreview,
   onApplyRemedy,
@@ -796,6 +815,67 @@ export function AgenticDesignParityPanel({
           </Button>
         </div>
       </div>
+
+      {recommendedTargetLabel || routingSummary || (deploymentGuidance && deploymentGuidance.length > 0) ? (
+        <div className="mt-4 rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="text-xs uppercase tracking-[0.22em] text-cyan-200/80">
+                Deployment Guidance
+              </div>
+              <div className="mt-2 text-sm font-semibold text-white">
+                {recommendedTargetLabel
+                  ? `Recommended path: ${recommendedTargetLabel}`
+                  : "Routing envelope active"}
+              </div>
+              {routingSummary ? (
+                <div className="mt-1 max-w-3xl text-sm text-slate-300">{routingSummary}</div>
+              ) : null}
+            </div>
+            <Badge variant="outline" className="border-cyan-400/40 text-cyan-200">
+              Trust + Cost Envelope
+            </Badge>
+          </div>
+          {deploymentGuidance && deploymentGuidance.length > 0 ? (
+            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              {deploymentGuidance.map((target) => (
+                <div
+                  key={target.id}
+                  className={`rounded-xl border px-3 py-3 text-sm ${
+                    target.ready
+                      ? "border-emerald-500/20 bg-emerald-500/5"
+                      : "border-amber-500/20 bg-amber-500/5"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="font-medium text-white">{target.label}</div>
+                    <div className={target.ready ? "text-emerald-300" : "text-amber-300"}>
+                      {target.ready ? "ready" : "blocked"}
+                    </div>
+                  </div>
+                  <div className="mt-1 text-xs text-slate-400">{target.note}</div>
+                  <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-slate-500">
+                    <span>trust {target.trustScore}/5</span>
+                    <span>cost {target.costScore}/5</span>
+                    <span>fit {target.suitabilityScore}</span>
+                  </div>
+                  {target.watchouts && target.watchouts.length > 0 ? (
+                    <div className="mt-2 text-[11px] text-amber-200/90">
+                      {target.watchouts.join(" · ")}
+                    </div>
+                  ) : null}
+                  {target.latest ? (
+                    <div className="mt-2 text-[11px] text-slate-500">
+                      Last result: {target.latest.status || "unknown"}
+                      {target.latest.mode ? ` · ${target.latest.mode}` : ""}
+                    </div>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4 space-y-4">
         <TabsList className="grid w-full grid-cols-4 border border-slate-800 bg-slate-950/70">

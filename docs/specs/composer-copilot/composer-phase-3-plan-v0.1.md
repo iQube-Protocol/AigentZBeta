@@ -154,6 +154,25 @@ Phase 3 is complete enough when:
 - lifecycle and CRM hooks reflect deployment actions
 - trust-and-cost routing inputs are modeled and ready for stricter orchestration
 
+## 5.1 Phase 3 Bundle Sequence
+
+To avoid fragmenting deployment work into too many tiny releases, the remaining Phase 3 work should ship as three correlated bundles:
+
+1. `Phase 3A: Deployment State + Persistence`
+- deployment block created
+- deployment target readiness modeled
+- deployment history persisted on ExperienceQubes
+
+2. `Phase 3B: Trust-Cost Orchestration`
+- routing envelope surfaced in inspector, Resources, and Parity
+- target suitability explained using readiness, trust, and cost posture
+- deployment guidance visible outside the dispatch modal
+
+3. `Phase 3C: Production Deployment UX`
+- deployment remediation and retry guidance
+- clearer lifecycle proof and deployment receipts
+- tighter runtime / MCP / Discord handoff
+
 ## 6. Follow-on Phase
 
 Once Phase 3 is in place, the next step is:

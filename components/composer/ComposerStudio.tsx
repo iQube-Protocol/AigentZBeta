@@ -5263,6 +5263,57 @@ export const ComposerStudio = () => {
                         </div>
                       </div>
 
+                      <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <div className="text-sm font-semibold text-white">Deployment guidance</div>
+                            <div className="mt-1 text-sm text-slate-300">
+                              Recommended path: {getDeploymentTargetLabel(routingEnvelope.recommendedTarget)}
+                            </div>
+                            <div className="mt-1 text-sm text-slate-400">{routingEnvelope.summary}</div>
+                          </div>
+                          <span className="rounded-full border border-cyan-400/40 bg-cyan-500/10 px-3 py-1 text-xs font-medium text-cyan-200">
+                            Trust + Cost Envelope
+                          </span>
+                        </div>
+                        <div className="mt-4 grid gap-3 xl:grid-cols-2">
+                          {deploymentTargetCards.map((target) => (
+                            <div
+                              key={target.id}
+                              className={`rounded-lg border px-3 py-3 text-sm ${
+                                target.ready
+                                  ? "border-emerald-500/20 bg-emerald-500/5"
+                                  : "border-amber-500/20 bg-amber-500/5"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-3">
+                                <span className="font-medium text-white">{target.label}</span>
+                                <span className={target.ready ? "text-emerald-300" : "text-amber-300"}>
+                                  {target.ready ? "ready" : "blocked"}
+                                </span>
+                              </div>
+                              <div className="mt-1 text-xs text-slate-400">{target.note}</div>
+                              <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-slate-500">
+                                <span>trust {target.trustScore}/5</span>
+                                <span>cost {target.costScore}/5</span>
+                                <span>fit {target.suitabilityScore}</span>
+                              </div>
+                              {target.watchouts.length > 0 ? (
+                                <div className="mt-2 text-[11px] text-amber-200/90">
+                                  {target.watchouts.join(" · ")}
+                                </div>
+                              ) : null}
+                              {target.latest ? (
+                                <div className="mt-2 text-[11px] text-slate-500">
+                                  Last result: {target.latest.status}
+                                  {target.latest.mode ? ` · ${target.latest.mode}` : ""}
+                                </div>
+                              ) : null}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
                       <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
                         <div className="text-sm font-semibold text-white">Deployment history</div>
                         <div className="mt-3 space-y-2">
@@ -6257,6 +6308,9 @@ export const ComposerStudio = () => {
                       experiences={experiences}
                       previewExperience={previewExperience}
                       previewAction={previewAction}
+                      routingSummary={routingEnvelope.summary}
+                      recommendedTargetLabel={getDeploymentTargetLabel(routingEnvelope.recommendedTarget)}
+                      deploymentGuidance={deploymentTargetCards}
                       onOpenExperience={(experienceId) => {
                         router.push(`/studio/composer/experience/${encodeURIComponent(experienceId)}`);
                       }}
