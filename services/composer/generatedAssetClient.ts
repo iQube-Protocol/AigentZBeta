@@ -171,6 +171,76 @@ function mergePersonaMediaRecord(
   };
 }
 
+const PERSONA_MEDIA_LIBRARY_KEY = "composer_generated_media_library_v1";
+
+function getPersonaMediaLibraryStorageKey(personaId: string) {
+  return `${PERSONA_MEDIA_LIBRARY_KEY}:${personaId}`;
+}
+
+function readPersonaMediaLibraryFallback(personaId: string): PersonaGeneratedMediaRecord[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(getPersonaMediaLibraryStorageKey(personaId));
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (item): item is PersonaGeneratedMediaRecord => Boolean(item && typeof item === "object")
+    );
+  } catch {
+    return [];
+  }
+}
+
+function writePersonaMediaLibraryFallback(personaId: string, library: PersonaGeneratedMediaRecord[]) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      getPersonaMediaLibraryStorageKey(personaId),
+      JSON.stringify(library.slice(0, 100)),
+    );
+  } catch {
+    // Ignore local fallback storage failures.
+  }
+}
+
+async function loadPersonaMediaLibrary(personaId: string): Promise<PersonaGeneratedMediaRecord[]> {
+  const existingResponse = await fetch(
+    `/api/ops/state/user-preferences?userId=${encodeURIComponent(personaId)}&category=workflow&keys=${encodeURIComponent(PERSONA_MEDIA_LIBRARY_KEY)}`,
+    { cache: "no-store" }
+  );
+
+  if (existingResponse.ok) {
+    const existingJson = await existingResponse.json().catch(() => null);
+    const raw = existingJson?.preferences?.[PERSONA_MEDIA_LIBRARY_KEY];
+    if (Array.isArray(raw)) {
+      const library = raw.filter(
+        (item): item is PersonaGeneratedMediaRecord => Boolean(item && typeof item === "object")
+      );
+      if (library.length > 0) {
+        writePersonaMediaLibraryFallback(personaId, library);
+      }
+      return library;
+    }
+  }
+
+  return readPersonaMediaLibraryFallback(personaId);
+}
+
+async function savePersonaMediaLibrary(personaId: string, library: PersonaGeneratedMediaRecord[]) {
+  writePersonaMediaLibraryFallback(personaId, library);
+  await fetch("/api/ops/state/user-preferences", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      userId: personaId,
+      preferences: {
+        [PERSONA_MEDIA_LIBRARY_KEY]: library,
+      },
+    }),
+  });
+}
+
 async function persistPersonaGeneratedMediaLibrary(options: {
   personaId?: string;
   experienceId: string;
@@ -178,23 +248,7 @@ async function persistPersonaGeneratedMediaLibrary(options: {
 }) {
   const personaId = options.personaId?.trim();
   if (!personaId || options.assets.length === 0) return;
-
-  const key = "composer_generated_media_library_v1";
-  const existingResponse = await fetch(
-    `/api/ops/state/user-preferences?userId=${encodeURIComponent(personaId)}&category=workflow&keys=${encodeURIComponent(key)}`,
-    { cache: "no-store" }
-  );
-
-  let existingLibrary: PersonaGeneratedMediaRecord[] = [];
-  if (existingResponse.ok) {
-    const existingJson = await existingResponse.json().catch(() => null);
-    const raw = existingJson?.preferences?.[key];
-    if (Array.isArray(raw)) {
-      existingLibrary = raw.filter(
-        (item): item is PersonaGeneratedMediaRecord => Boolean(item && typeof item === "object")
-      );
-    }
-  }
+  const existingLibrary = await loadPersonaMediaLibrary(personaId);
 
   const nextById = new Map<string, PersonaGeneratedMediaRecord>();
   existingLibrary.forEach((item) => nextById.set(item.id, item));
@@ -210,16 +264,7 @@ async function persistPersonaGeneratedMediaLibrary(options: {
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
     .slice(0, 100);
 
-  await fetch("/api/ops/state/user-preferences", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      userId: personaId,
-      preferences: {
-        [key]: nextLibrary,
-      },
-    }),
-  });
+  await savePersonaMediaLibrary(personaId, nextLibrary);
 }
 
 export async function markPersonaGeneratedMediaUsage(options: {
@@ -231,22 +276,7 @@ export async function markPersonaGeneratedMediaUsage(options: {
   const mediaId = options.mediaId.trim();
   if (!personaId || !mediaId || !options.experienceId) return;
 
-  const key = "composer_generated_media_library_v1";
-  const existingResponse = await fetch(
-    `/api/ops/state/user-preferences?userId=${encodeURIComponent(personaId)}&category=workflow&keys=${encodeURIComponent(key)}`,
-    { cache: "no-store" }
-  );
-
-  let existingLibrary: PersonaGeneratedMediaRecord[] = [];
-  if (existingResponse.ok) {
-    const existingJson = await existingResponse.json().catch(() => null);
-    const raw = existingJson?.preferences?.[key];
-    if (Array.isArray(raw)) {
-      existingLibrary = raw.filter(
-        (item): item is PersonaGeneratedMediaRecord => Boolean(item && typeof item === "object")
-      );
-    }
-  }
+  const existingLibrary = await loadPersonaMediaLibrary(personaId);
 
   const now = new Date().toISOString();
   const nextLibrary = existingLibrary.map((item) =>
@@ -262,16 +292,7 @@ export async function markPersonaGeneratedMediaUsage(options: {
       : item
   );
 
-  await fetch("/api/ops/state/user-preferences", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      userId: personaId,
-      preferences: {
-        [key]: nextLibrary,
-      },
-    }),
-  });
+  await savePersonaMediaLibrary(personaId, nextLibrary);
 }
 
 export async function markPersonaGeneratedMediaLifecycle(options: {
@@ -284,22 +305,7 @@ export async function markPersonaGeneratedMediaLifecycle(options: {
   const experienceId = options.experienceId.trim();
   if (!personaId || !experienceId) return;
 
-  const key = "composer_generated_media_library_v1";
-  const existingResponse = await fetch(
-    `/api/ops/state/user-preferences?userId=${encodeURIComponent(personaId)}&category=workflow&keys=${encodeURIComponent(key)}`,
-    { cache: "no-store" }
-  );
-
-  let existingLibrary: PersonaGeneratedMediaRecord[] = [];
-  if (existingResponse.ok) {
-    const existingJson = await existingResponse.json().catch(() => null);
-    const raw = existingJson?.preferences?.[key];
-    if (Array.isArray(raw)) {
-      existingLibrary = raw.filter(
-        (item): item is PersonaGeneratedMediaRecord => Boolean(item && typeof item === "object")
-      );
-    }
-  }
+  const existingLibrary = await loadPersonaMediaLibrary(personaId);
 
   const now = new Date().toISOString();
   const nextLibrary = existingLibrary.map((item) => {
@@ -333,16 +339,7 @@ export async function markPersonaGeneratedMediaLifecycle(options: {
     };
   });
 
-  await fetch("/api/ops/state/user-preferences", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      userId: personaId,
-      preferences: {
-        [key]: nextLibrary,
-      },
-    }),
-  });
+  await savePersonaMediaLibrary(personaId, nextLibrary);
 }
 
 export async function setPersonaGeneratedMediaPinned(options: {
@@ -354,22 +351,7 @@ export async function setPersonaGeneratedMediaPinned(options: {
   const mediaId = options.mediaId.trim();
   if (!personaId || !mediaId) return;
 
-  const key = "composer_generated_media_library_v1";
-  const existingResponse = await fetch(
-    `/api/ops/state/user-preferences?userId=${encodeURIComponent(personaId)}&category=workflow&keys=${encodeURIComponent(key)}`,
-    { cache: "no-store" }
-  );
-
-  let existingLibrary: PersonaGeneratedMediaRecord[] = [];
-  if (existingResponse.ok) {
-    const existingJson = await existingResponse.json().catch(() => null);
-    const raw = existingJson?.preferences?.[key];
-    if (Array.isArray(raw)) {
-      existingLibrary = raw.filter(
-        (item): item is PersonaGeneratedMediaRecord => Boolean(item && typeof item === "object")
-      );
-    }
-  }
+  const existingLibrary = await loadPersonaMediaLibrary(personaId);
 
   const now = new Date().toISOString();
   const nextLibrary = existingLibrary.map((item) =>
@@ -383,16 +365,7 @@ export async function setPersonaGeneratedMediaPinned(options: {
       : item
   );
 
-  await fetch("/api/ops/state/user-preferences", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      userId: personaId,
-      preferences: {
-        [key]: nextLibrary,
-      },
-    }),
-  });
+  await savePersonaMediaLibrary(personaId, nextLibrary);
 }
 
 export async function updatePersonaGeneratedMediaRecord(options: {
@@ -404,22 +377,7 @@ export async function updatePersonaGeneratedMediaRecord(options: {
   const mediaId = options.mediaId.trim();
   if (!personaId || !mediaId) return;
 
-  const key = "composer_generated_media_library_v1";
-  const existingResponse = await fetch(
-    `/api/ops/state/user-preferences?userId=${encodeURIComponent(personaId)}&category=workflow&keys=${encodeURIComponent(key)}`,
-    { cache: "no-store" }
-  );
-
-  let existingLibrary: PersonaGeneratedMediaRecord[] = [];
-  if (existingResponse.ok) {
-    const existingJson = await existingResponse.json().catch(() => null);
-    const raw = existingJson?.preferences?.[key];
-    if (Array.isArray(raw)) {
-      existingLibrary = raw.filter(
-        (item): item is PersonaGeneratedMediaRecord => Boolean(item && typeof item === "object")
-      );
-    }
-  }
+  const existingLibrary = await loadPersonaMediaLibrary(personaId);
 
   const now = new Date().toISOString();
   const nextLibrary = existingLibrary.map((item) =>
@@ -432,16 +390,7 @@ export async function updatePersonaGeneratedMediaRecord(options: {
       : item
   );
 
-  await fetch("/api/ops/state/user-preferences", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      userId: personaId,
-      preferences: {
-        [key]: nextLibrary,
-      },
-    }),
-  });
+  await savePersonaMediaLibrary(personaId, nextLibrary);
 }
 
 export async function persistGeneratedAssetsForExperience(options: {

@@ -3732,9 +3732,26 @@ export const ComposerStudio = () => {
     )
       .then(async (response) => {
         const data = await response.json().catch(() => null);
-        const rawLibrary = data?.preferences?.composer_generated_media_library_v1;
-        if (!Array.isArray(rawLibrary)) {
-          setPersonaMediaLibrary([]);
+        const serverLibrary = Array.isArray(data?.preferences?.composer_generated_media_library_v1)
+          ? data.preferences.composer_generated_media_library_v1
+          : null;
+        const fallbackLibrary = (() => {
+          try {
+            const fallbackRaw = window.localStorage.getItem(
+              `composer_generated_media_library_v1:${personaKey}`
+            );
+            const fallbackParsed = fallbackRaw ? JSON.parse(fallbackRaw) : [];
+            return Array.isArray(fallbackParsed) ? fallbackParsed : [];
+          } catch {
+            return [];
+          }
+        })();
+        const rawLibrary =
+          Array.isArray(serverLibrary) && serverLibrary.length > 0
+            ? serverLibrary
+            : fallbackLibrary;
+        if (!Array.isArray(rawLibrary) || rawLibrary.length === 0) {
+          setPersonaMediaLibrary(Array.isArray(rawLibrary) ? rawLibrary : []);
           return;
         }
         setPersonaMediaLibrary(
@@ -3744,7 +3761,23 @@ export const ComposerStudio = () => {
         );
       })
       .catch(() => {
-        setPersonaMediaLibrary([]);
+        try {
+          const personaKeyFallback = (activePersonaId || userId || "").trim();
+          const fallbackRaw = window.localStorage.getItem(
+            `composer_generated_media_library_v1:${personaKeyFallback}`
+          );
+          const fallbackParsed = fallbackRaw ? JSON.parse(fallbackRaw) : [];
+          setPersonaMediaLibrary(
+            Array.isArray(fallbackParsed)
+              ? fallbackParsed.filter(
+                  (item): item is PersonaGeneratedMediaRecord =>
+                    Boolean(item && typeof item === "object")
+                )
+              : []
+          );
+        } catch {
+          setPersonaMediaLibrary([]);
+        }
       })
       .finally(() => {
         setPersonaMediaLibraryLoading(false);
