@@ -1128,6 +1128,8 @@ export const ComposerStudio = () => {
   const [personaMediaLibrary, setPersonaMediaLibrary] = useState<PersonaGeneratedMediaRecord[]>([]);
   const [personaMediaLibraryLoading, setPersonaMediaLibraryLoading] = useState(false);
   const [applyingPersonaMediaId, setApplyingPersonaMediaId] = useState<string | null>(null);
+  const [personaMediaScopeFilter, setPersonaMediaScopeFilter] = useState<"all" | "active">("all");
+  const [personaMediaTypeFilter, setPersonaMediaTypeFilter] = useState<"all" | "image" | "video">("all");
   const { data: codexList } = useCodexList({ useDefaults: true });
   const [copilotContextId, setCopilotContextId] = useState("qripto-codex");
   const [codexContentItems, setCodexContentItems] = useState<ComposerMediaItem[]>([]);
@@ -3448,6 +3450,23 @@ export const ComposerStudio = () => {
         (typeof videoPrompt.prompt === "string" && videoPrompt.prompt.trim() ? videoPrompt.prompt : "") || "",
     };
   }, [activeExperienceForEditing, mergedData]);
+  const filteredPersonaMediaLibrary = useMemo(() => {
+    const activeExperienceId = activeExperienceForEditing?.id || null;
+
+    return personaMediaLibrary.filter((item) => {
+      if (personaMediaTypeFilter !== "all" && item.type !== personaMediaTypeFilter) {
+        return false;
+      }
+      if (personaMediaScopeFilter === "active") {
+        if (!activeExperienceId) return false;
+        return (
+          item.experienceId === activeExperienceId ||
+          item.lastUsedInExperienceId === activeExperienceId
+        );
+      }
+      return true;
+    });
+  }, [activeExperienceForEditing?.id, personaMediaLibrary, personaMediaScopeFilter, personaMediaTypeFilter]);
   const editableGenerationSourceKey = useMemo(
     () =>
       [
@@ -4413,14 +4432,59 @@ export const ComposerStudio = () => {
                             {(activePersonaName || activePersonaId || userId || "persona").slice(0, 32)}
                           </div>
                         </div>
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                          <div className="flex items-center gap-2 rounded-full border border-slate-800 bg-slate-900/50 p-1">
+                            <button
+                              type="button"
+                              onClick={() => setPersonaMediaScopeFilter("all")}
+                              className={`rounded-full px-3 py-1 text-xs transition ${
+                                personaMediaScopeFilter === "all"
+                                  ? "bg-fuchsia-500/20 text-fuchsia-100"
+                                  : "text-slate-400 hover:text-white"
+                              }`}
+                            >
+                              All assets
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setPersonaMediaScopeFilter("active")}
+                              className={`rounded-full px-3 py-1 text-xs transition ${
+                                personaMediaScopeFilter === "active"
+                                  ? "bg-fuchsia-500/20 text-fuchsia-100"
+                                  : "text-slate-400 hover:text-white"
+                              }`}
+                            >
+                              Active experience
+                            </button>
+                          </div>
+                          <div className="flex items-center gap-2 rounded-full border border-slate-800 bg-slate-900/50 p-1">
+                            {(["all", "image", "video"] as const).map((value) => (
+                              <button
+                                key={value}
+                                type="button"
+                                onClick={() => setPersonaMediaTypeFilter(value)}
+                                className={`rounded-full px-3 py-1 text-xs capitalize transition ${
+                                  personaMediaTypeFilter === value
+                                    ? "bg-cyan-500/20 text-cyan-100"
+                                    : "text-slate-400 hover:text-white"
+                                }`}
+                              >
+                                {value === "all" ? "All media" : value}
+                              </button>
+                            ))}
+                          </div>
+                          <div className="text-xs text-slate-500">
+                            Showing {filteredPersonaMediaLibrary.length} of {personaMediaLibrary.length}
+                          </div>
+                        </div>
                         <div className="mt-3 space-y-2">
                           {personaMediaLibraryLoading ? (
                             <div className="flex items-center gap-2 text-sm text-slate-400">
                               <Loader2 className="h-4 w-4 animate-spin" />
                               Loading saved media...
                             </div>
-                          ) : personaMediaLibrary.length > 0 ? (
-                            personaMediaLibrary.slice(0, 8).map((item) => (
+                          ) : filteredPersonaMediaLibrary.length > 0 ? (
+                            filteredPersonaMediaLibrary.slice(0, 8).map((item) => (
                               <div
                                 key={item.id}
                                 className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-900/50 px-3 py-2 text-sm text-slate-200"
@@ -4431,6 +4495,12 @@ export const ComposerStudio = () => {
                                     <span>{item.type === "video" ? "Video" : "Image"}</span>
                                     {item.orientation ? <span>{item.orientation}</span> : null}
                                     {item.provider ? <span>{item.provider}</span> : null}
+                                    {activeExperienceForEditing?.id && item.experienceId === activeExperienceForEditing.id ? (
+                                      <span className="text-emerald-300">generated for active experience</span>
+                                    ) : null}
+                                    {activeExperienceForEditing?.id && item.lastUsedInExperienceId === activeExperienceForEditing.id ? (
+                                      <span className="text-cyan-300">last reused in active experience</span>
+                                    ) : null}
                                     {typeof item.useCount === "number" && item.useCount > 0 ? (
                                       <span>{item.useCount} reuse{item.useCount === 1 ? "" : "s"}</span>
                                     ) : null}
@@ -4474,6 +4544,10 @@ export const ComposerStudio = () => {
                                 </div>
                               </div>
                             ))
+                          ) : personaMediaLibrary.length > 0 ? (
+                            <div className="text-sm text-slate-400">
+                              No saved media matches the current library filters.
+                            </div>
                           ) : (
                             <div className="text-sm text-slate-400">
                               Generated image and video assets will appear here once they are saved for the active persona.
