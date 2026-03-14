@@ -42,6 +42,10 @@ type PersonaGeneratedMediaRecord = {
   lastUsedAt?: string;
   lastUsedInExperienceId?: string;
   lastAction?: "generated" | "reused";
+  previewCount?: number;
+  launchCount?: number;
+  lastPreviewAt?: string;
+  lastLaunchAt?: string;
 };
 
 export type PersistableGeneratedAsset = ComposerGeneratedAssetRef & {
@@ -150,6 +154,10 @@ function mergePersonaMediaRecord(
     lastUsedAt: existing?.lastUsedAt,
     lastUsedInExperienceId: existing?.lastUsedInExperienceId,
     lastAction: next.lastAction || existing?.lastAction || "generated",
+    previewCount: existing?.previewCount || 0,
+    launchCount: existing?.launchCount || 0,
+    lastPreviewAt: existing?.lastPreviewAt,
+    lastLaunchAt: existing?.lastLaunchAt,
   };
 }
 
@@ -243,6 +251,68 @@ export async function markPersonaGeneratedMediaUsage(options: {
         }
       : item
   );
+
+  await fetch("/api/ops/state/user-preferences", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      userId: personaId,
+      preferences: {
+        [key]: nextLibrary,
+      },
+    }),
+  });
+}
+
+export async function markPersonaGeneratedMediaLifecycle(options: {
+  personaId?: string;
+  experienceId: string;
+  action: "experience_preview" | "experience_launch";
+}) {
+  const personaId = options.personaId?.trim();
+  const experienceId = options.experienceId.trim();
+  if (!personaId || !experienceId) return;
+
+  const key = "composer_generated_media_library_v1";
+  const existingResponse = await fetch(
+    `/api/ops/state/user-preferences?userId=${encodeURIComponent(personaId)}&category=workflow&keys=${encodeURIComponent(key)}`,
+    { cache: "no-store" }
+  );
+
+  let existingLibrary: PersonaGeneratedMediaRecord[] = [];
+  if (existingResponse.ok) {
+    const existingJson = await existingResponse.json().catch(() => null);
+    const raw = existingJson?.preferences?.[key];
+    if (Array.isArray(raw)) {
+      existingLibrary = raw.filter(
+        (item): item is PersonaGeneratedMediaRecord => Boolean(item && typeof item === "object")
+      );
+    }
+  }
+
+  const now = new Date().toISOString();
+  const nextLibrary = existingLibrary.map((item) => {
+    const matchesExperience =
+      item.experienceId === experienceId || item.lastUsedInExperienceId === experienceId;
+    if (!matchesExperience) return item;
+
+    return {
+      ...item,
+      updatedAt: now,
+      previewCount:
+        options.action === "experience_preview"
+          ? (item.previewCount || 0) + 1
+          : item.previewCount || 0,
+      launchCount:
+        options.action === "experience_launch"
+          ? (item.launchCount || 0) + 1
+          : item.launchCount || 0,
+      lastPreviewAt:
+        options.action === "experience_preview" ? now : item.lastPreviewAt,
+      lastLaunchAt:
+        options.action === "experience_launch" ? now : item.lastLaunchAt,
+    };
+  });
 
   await fetch("/api/ops/state/user-preferences", {
     method: "POST",

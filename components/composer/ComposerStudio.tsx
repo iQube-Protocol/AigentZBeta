@@ -32,6 +32,7 @@ import type { ComposerGeneratedAssetRef } from "@/services/copilot/composer/type
 import { resolveRuntimeIdentity } from "@/services/runtime/identityResolver";
 import { recordRuntimeLifecycleContribution } from "@/services/composer/runtimeLifecycleClient";
 import {
+  markPersonaGeneratedMediaLifecycle,
   markPersonaGeneratedMediaUsage,
   persistGeneratedAssetsForExperience,
 } from "@/services/composer/generatedAssetClient";
@@ -151,6 +152,10 @@ type PersonaGeneratedMediaRecord = {
   lastUsedAt?: string;
   lastUsedInExperienceId?: string;
   lastAction?: "generated" | "reused";
+  previewCount?: number;
+  launchCount?: number;
+  lastPreviewAt?: string;
+  lastLaunchAt?: string;
 };
 
 type InspectorMediaPreview = {
@@ -2936,6 +2941,38 @@ export const ComposerStudio = () => {
       `Failed to record ${action}.`
     ).catch(() => undefined);
 
+    void markPersonaGeneratedMediaLifecycle({
+      personaId: activePersonaId || userId,
+      experienceId: exp.id,
+      action,
+    }).catch(() => undefined);
+
+    setPersonaMediaLibrary((prev) =>
+      prev.map((item) => {
+        const matchesExperience =
+          item.experienceId === exp.id || item.lastUsedInExperienceId === exp.id;
+        if (!matchesExperience) return item;
+
+        const now = new Date().toISOString();
+        return {
+          ...item,
+          updatedAt: now,
+          previewCount:
+            action === "experience_preview"
+              ? (item.previewCount || 0) + 1
+              : item.previewCount || 0,
+          launchCount:
+            action === "experience_launch"
+              ? (item.launchCount || 0) + 1
+              : item.launchCount || 0,
+          lastPreviewAt:
+            action === "experience_preview" ? now : item.lastPreviewAt,
+          lastLaunchAt:
+            action === "experience_launch" ? now : item.lastLaunchAt,
+        };
+      })
+    );
+
     void recordRuntimeLifecycleContribution({
       tenantId: exp.tenant_id || tenantId,
       personaId: activePersonaId || userId,
@@ -4504,9 +4541,21 @@ export const ComposerStudio = () => {
                                     {typeof item.useCount === "number" && item.useCount > 0 ? (
                                       <span>{item.useCount} reuse{item.useCount === 1 ? "" : "s"}</span>
                                     ) : null}
+                                    {typeof item.previewCount === "number" && item.previewCount > 0 ? (
+                                      <span>{item.previewCount} preview{item.previewCount === 1 ? "" : "s"}</span>
+                                    ) : null}
+                                    {typeof item.launchCount === "number" && item.launchCount > 0 ? (
+                                      <span>{item.launchCount} launch{item.launchCount === 1 ? "" : "es"}</span>
+                                    ) : null}
                                     {item.lastAction ? <span>{item.lastAction}</span> : null}
                                     {item.lastUsedAt ? (
                                       <span>last used {new Date(item.lastUsedAt).toLocaleString()}</span>
+                                    ) : null}
+                                    {item.lastPreviewAt ? (
+                                      <span>last preview {new Date(item.lastPreviewAt).toLocaleString()}</span>
+                                    ) : null}
+                                    {item.lastLaunchAt ? (
+                                      <span>last launch {new Date(item.lastLaunchAt).toLocaleString()}</span>
                                     ) : null}
                                     {item.updatedAt ? (
                                       <span>{new Date(item.updatedAt).toLocaleString()}</span>
