@@ -54,6 +54,7 @@ type SessionRow = {
 };
 
 function mapExperienceToRow(experience: ExperienceQubeData): ExperienceRow {
+  const metadata = (experience.metadata || {}) as Record<string, any>;
   return {
     id: experience.id,
     tenant_id: experience.tenant_id,
@@ -61,13 +62,17 @@ function mapExperienceToRow(experience: ExperienceQubeData): ExperienceRow {
     template_id: experience.template_id,
     status: experience.status,
     meta_qube: {
+      ...metadata,
       name: experience.name,
       description: experience.description,
-      category: experience.metadata.category,
-      tags: (experience.metadata as any).tags,
-      version: experience.metadata.version,
-      created_at: experience.metadata.created_at,
-      updated_at: experience.metadata.updated_at,
+      goal: experience.goal,
+      mechanics: experience.mechanics,
+      metrics: experience.metrics,
+      category: metadata.category,
+      tags: metadata.tags,
+      version: metadata.version,
+      created_at: metadata.created_at,
+      updated_at: metadata.updated_at,
     },
     blak_qube: {
       configuration: experience.configuration,
@@ -93,10 +98,18 @@ function normalizeAccess(input: Record<string, any> | null | undefined): Experie
 function mapRowToExperience(row: ExperienceRow): ExperienceQubeData {
   const meta = row.meta_qube || {};
   const blak = row.blak_qube || {};
+  const {
+    name,
+    description,
+    goal,
+    mechanics,
+    metrics,
+    ...restMeta
+  } = meta;
   return {
     id: row.id,
-    name: meta.name || "ExperienceQube",
-    description: meta.description || "",
+    name: name || "ExperienceQube",
+    description: description || "",
     tenant_id: row.tenant_id,
     creator_id: row.creator_id,
     template_id: row.template_id,
@@ -104,6 +117,7 @@ function mapRowToExperience(row: ExperienceRow): ExperienceQubeData {
     components: blak.components || [],
     configuration: blak.configuration || {},
     metadata: {
+      ...restMeta,
       created_at: meta.created_at || row.created_at,
       updated_at: meta.updated_at || row.updated_at,
       version: meta.version || "1.0.0",
@@ -117,9 +131,9 @@ function mapRowToExperience(row: ExperienceRow): ExperienceQubeData {
       max_concurrent_users: 10,
     },
     access: normalizeAccess(row.token_qube),
-    goal: "",
-    mechanics: "",
-    metrics: "",
+    goal: goal || "",
+    mechanics: mechanics || "",
+    metrics: metrics || "",
   };
 }
 
