@@ -82,6 +82,7 @@ export function buildDeploymentEnvelope(input: ComposerDeploymentRequest) {
     publishUrl: input.publishUrl || launchUrl,
     payload: {
       provider: requestedProvider,
+      target: input.target,
       mode: input.mode,
       tool: input.tool || "next.best",
       tenantId: input.tenantId,

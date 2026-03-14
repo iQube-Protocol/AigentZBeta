@@ -1372,6 +1372,15 @@ export const ComposerStudio = () => {
     try {
       const manualChannelId = mcpChannelId.trim();
       const normalizedChannelId = /^\d+$/.test(manualChannelId) ? manualChannelId : "";
+      const runtimeLaunchUrl = buildRuntimeLaunchUrl(mcpExperience);
+      const studioExperienceUrl =
+        typeof window !== "undefined"
+          ? `${window.location.origin}/studio/composer/experience/${encodeURIComponent(mcpExperience.id)}`
+          : `/studio/composer/experience/${encodeURIComponent(mcpExperience.id)}`;
+      const publishUrl =
+        mcpDeploymentTarget === "studio_preview"
+          ? studioExperienceUrl
+          : runtimeLaunchUrl || studioExperienceUrl;
       const deployment = await dispatchComposerDeployment({
         tenantId,
         experienceId: mcpExperience.id,
@@ -1383,7 +1392,7 @@ export const ComposerStudio = () => {
         message: mcpMessage,
         channelId: normalizedChannelId,
         inviteUrl: mcpDiscordInvite,
-        publishUrl: `/studio/composer/experience/${encodeURIComponent(mcpExperience.id)}`,
+        publishUrl,
         thumbnailUrl: inspectorMediaPreview?.uri || "",
         titleOverride: mcpExperience.name || "",
         campaignId: "experience-distribution-demo",
@@ -2070,6 +2079,23 @@ export const ComposerStudio = () => {
     previewExperienceMedia?.uri,
     selectedExperienceId,
   ]);
+  const buildRuntimeLaunchUrl = useCallback(
+    (exp: ExperienceQube | null | undefined) => {
+      if (typeof window === "undefined") return "";
+      const experienceId = exp?.id || selectedExperienceId || previewExperience?.id || "";
+      if (!experienceId) return "";
+      const params = new URLSearchParams({
+        capsule: experienceId,
+        experienceId,
+      });
+      if (exp?.name) params.set("experienceName", exp.name);
+      if (exp?.description) params.set("experienceDescription", exp.description);
+      const launchMedia = resolveExperiencePrimaryMedia(exp || null, codexContentItems);
+      if (launchMedia?.uri) params.set("experienceImage", launchMedia.uri);
+      return `${window.location.origin}/metame/runtime?${params.toString()}`;
+    },
+    [codexContentItems, previewExperience?.id, selectedExperienceId],
+  );
   const runtimePreviewShellWidthClass =
     previewDevice === "desktop"
       ? "w-full max-w-[1280px]"

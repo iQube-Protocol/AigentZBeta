@@ -214,13 +214,15 @@ export async function POST(request: NextRequest) {
       personaId,
     });
 
+    const publishUrlInput = normalizeString(body?.publishUrl);
+    const explicitPublishUrl = publishUrlInput ? toAbsoluteUrl(request.nextUrl.origin, publishUrlInput) : '';
     const primaryCta = mcpResponse.cta.primary;
-    const ctaUrl =
+    const fallbackCtaUrl =
       primaryCta?.target === 'url'
         ? toAbsoluteUrl(request.nextUrl.origin, String(primaryCta.value || ''))
         : `${request.nextUrl.origin}/studio/composer/experience/${encodeURIComponent(experienceId)}`;
-    const publishUrlInput = normalizeString(body?.publishUrl);
-    const publishUrl = publishUrlInput ? toAbsoluteUrl(request.nextUrl.origin, publishUrlInput) : ctaUrl;
+    const ctaUrl = explicitPublishUrl || fallbackCtaUrl;
+    const publishUrl = explicitPublishUrl || fallbackCtaUrl;
     const thumbnailInput = normalizeString(body?.thumbnailUrl);
     const thumbnailUrlRaw = thumbnailInput ? toAbsoluteUrl(request.nextUrl.origin, thumbnailInput) : '';
     const thumbnailUrl = /^https?:\/\//i.test(thumbnailUrlRaw) ? thumbnailUrlRaw : '';
