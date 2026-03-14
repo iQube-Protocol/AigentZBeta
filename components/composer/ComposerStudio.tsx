@@ -34,6 +34,7 @@ import { recordRuntimeLifecycleContribution } from "@/services/composer/runtimeL
 import {
   dispatchComposerDeployment,
   getDeploymentTargetLabel,
+  type ComposerDeliveryVariant,
   type ComposerDeploymentResult,
   type ComposerDeploymentTarget,
 } from "@/services/composer/deploymentBlock";
@@ -134,6 +135,7 @@ type ExperienceQube = {
     }>;
     deployment_state?: {
       last_target?: string;
+      last_variant?: string;
       last_status?: string;
       last_provider?: string;
       last_mode?: string;
@@ -142,12 +144,13 @@ type ExperienceQube = {
       last_deployed_at?: string;
       last_error?: string;
     };
-    deployment_history?: Array<{
-      id: string;
-      target: string;
-      provider?: string;
-      mode?: string;
-      status: string;
+      deployment_history?: Array<{
+        id: string;
+        target: string;
+        variant?: string;
+        provider?: string;
+        mode?: string;
+        status: string;
       publish_url?: string;
       launch_url?: string;
       source?: string;
@@ -1373,6 +1376,7 @@ export const ComposerStudio = () => {
       const manualChannelId = mcpChannelId.trim();
       const normalizedChannelId = /^\d+$/.test(manualChannelId) ? manualChannelId : "";
       const runtimeLaunchUrl = buildRuntimeLaunchUrl(mcpExperience);
+      const mediaAssetUrl = inspectorMediaPreview?.uri || "";
       const studioExperienceUrl =
         typeof window !== "undefined"
           ? `${window.location.origin}/studio/composer/experience/${encodeURIComponent(mcpExperience.id)}`
@@ -1380,20 +1384,29 @@ export const ComposerStudio = () => {
       const publishUrl =
         mcpDeploymentTarget === "studio_preview"
           ? studioExperienceUrl
-          : runtimeLaunchUrl || studioExperienceUrl;
+          : mcpDeliveryVariant === "asset_link" || mcpDeliveryVariant === "discord_asset_inline"
+            ? mediaAssetUrl || runtimeLaunchUrl || studioExperienceUrl
+            : runtimeLaunchUrl || studioExperienceUrl;
+      const effectiveTool =
+        mcpDeliveryVariant === "discord_asset_inline"
+          ? "share.compose"
+          : mcpDeliveryVariant === "discord_experience_inline"
+            ? "mini_runtime.get"
+            : mcpTool;
       const deployment = await dispatchComposerDeployment({
         tenantId,
         experienceId: mcpExperience.id,
         personaId: activePersonaId || userId,
         target: mcpDeploymentTarget,
+        variant: mcpDeliveryVariant,
         provider: mcpProvider,
         mode: mcpDispatchMode,
-        tool: mcpTool,
+        tool: effectiveTool,
         message: mcpMessage,
         channelId: normalizedChannelId,
         inviteUrl: mcpDiscordInvite,
         publishUrl,
-        thumbnailUrl: inspectorMediaPreview?.uri || "",
+        thumbnailUrl: mediaAssetUrl,
         titleOverride: mcpExperience.name || "",
         campaignId: "experience-distribution-demo",
       });
@@ -1686,6 +1699,7 @@ export const ComposerStudio = () => {
   >("next.best");
   const [mcpProvider, setMcpProvider] = useState<"discord" | "whatsapp" | "telegram">("discord");
   const [mcpDeploymentTarget, setMcpDeploymentTarget] = useState<ComposerDeploymentTarget>("discord_mcp");
+  const [mcpDeliveryVariant, setMcpDeliveryVariant] = useState<ComposerDeliveryVariant>("runtime_thin_client");
   const [mcpDispatchMode, setMcpDispatchMode] = useState<"simulate" | "live">("simulate");
   const [mcpChannelId, setMcpChannelId] = useState("886793716273119252");
   const [mcpDiscordInvite, setMcpDiscordInvite] = useState("https://discord.gg/Gzg9wDMVSB");
@@ -1839,6 +1853,12 @@ export const ComposerStudio = () => {
   }, [mcpDeploymentTarget, mcpProvider]);
 
   useEffect(() => {
+    if (mcpDeploymentTarget === "studio_preview" || mcpDeploymentTarget === "runtime_launch") {
+      setMcpDeliveryVariant("runtime_thin_client");
+    }
+  }, [mcpDeploymentTarget]);
+
+  useEffect(() => {
     if (!mcpExperience?.metadata?.deployment_history || !Array.isArray(mcpExperience.metadata.deployment_history)) {
       setDeploymentResultsByTarget({});
       return;
@@ -1855,10 +1875,11 @@ export const ComposerStudio = () => {
         : "";
       const currentAt = typeof entry.deployed_at === "string" ? entry.deployed_at : "";
       if (previousAt && currentAt && previousAt > currentAt) return;
-      nextByTarget[target] = {
-        ok: typeof entry.status === "string" ? entry.status !== "failed" : true,
-        target,
-        mode: typeof entry.mode === "string" ? (entry.mode as "simulate" | "live") : "simulate",
+	      nextByTarget[target] = {
+	        ok: typeof entry.status === "string" ? entry.status !== "failed" : true,
+	        target,
+	        variant: typeof entry.variant === "string" ? (entry.variant as ComposerDeliveryVariant) : undefined,
+	        mode: typeof entry.mode === "string" ? (entry.mode as "simulate" | "live") : "simulate",
         provider:
           typeof entry.provider === "string" && ["discord", "runtime", "mcp"].includes(entry.provider)
             ? (entry.provider as "discord" | "runtime" | "mcp")
@@ -3650,6 +3671,7 @@ export const ComposerStudio = () => {
       const nextEntry = {
         id: `deploy_${deployment.target}_${Date.now()}`,
         target: deployment.target,
+        variant: deployment.variant,
         provider: deployment.provider,
         mode: deployment.mode,
         status: deployment.status,
@@ -3684,6 +3706,7 @@ export const ComposerStudio = () => {
             ...metadata,
             deployment_state: {
               last_target: deployment.target,
+              last_variant: deployment.variant,
               last_status: deployment.status,
               last_provider: deployment.provider,
               last_mode: deployment.mode,
@@ -3922,6 +3945,7 @@ export const ComposerStudio = () => {
     if (inSession) {
       return {
         target: inSession.target,
+        variant: inSession.variant,
         status: inSession.status,
         provider: inSession.provider,
         mode: inSession.mode,
@@ -3938,6 +3962,9 @@ export const ComposerStudio = () => {
     if (activeExperienceDeploymentState?.last_target === mcpDeploymentTarget) {
       return {
         target: String(activeExperienceDeploymentState.last_target),
+        variant: typeof activeExperienceDeploymentState.last_variant === "string"
+          ? activeExperienceDeploymentState.last_variant
+          : undefined,
         status: String(activeExperienceDeploymentState.last_status || "unknown"),
         provider: typeof activeExperienceDeploymentState.last_provider === "string"
           ? activeExperienceDeploymentState.last_provider
@@ -5450,6 +5477,9 @@ export const ComposerStudio = () => {
                                 {activeExperienceDeploymentState.last_provider ? (
                                   <div>Provider: {String(activeExperienceDeploymentState.last_provider)}</div>
                                 ) : null}
+                                {activeExperienceDeploymentState.last_variant ? (
+                                  <div>Variant: {String(activeExperienceDeploymentState.last_variant)}</div>
+                                ) : null}
                                 {activeExperienceDeploymentState.last_mode ? (
                                   <div>Mode: {String(activeExperienceDeploymentState.last_mode)}</div>
                                 ) : null}
@@ -5522,6 +5552,7 @@ export const ComposerStudio = () => {
                                 </div>
                                 <div className="mt-1 grid gap-1 text-xs text-slate-400 sm:grid-cols-2">
                                   {entry.provider ? <div>Provider: {String(entry.provider)}</div> : null}
+                                  {entry.variant ? <div>Variant: {String(entry.variant)}</div> : null}
                                   {entry.mode ? <div>Mode: {String(entry.mode)}</div> : null}
                                   {entry.deployed_at ? (
                                     <div>At: {new Date(String(entry.deployed_at)).toLocaleString()}</div>
@@ -6776,6 +6807,20 @@ export const ComposerStudio = () => {
                   </select>
                 </div>
 
+                <div>
+                  <label className="mb-1 block text-xs text-slate-400">Delivery Variant</label>
+                  <select
+                    value={mcpDeliveryVariant}
+                    onChange={(e) => setMcpDeliveryVariant(e.target.value as ComposerDeliveryVariant)}
+                    className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
+                  >
+                    <option value="runtime_thin_client">Experience in metaMe runtime thin client</option>
+                    <option value="asset_link">Asset link outside Discord</option>
+                    <option value="discord_asset_inline">Asset rendered within Discord</option>
+                    <option value="discord_experience_inline">Experience scaffolded within Discord</option>
+                  </select>
+                </div>
+
                 <div className="grid gap-2">
                   <div className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-xs text-cyan-100">
                     <div className="font-medium">
@@ -7006,6 +7051,9 @@ export const ComposerStudio = () => {
                     <div>Target: {getDeploymentTargetLabel(mcpDeploymentTarget)}</div>
                     {latestSelectedDeploymentResult?.provider ? (
                       <div>Provider: {String(latestSelectedDeploymentResult.provider)}</div>
+                    ) : null}
+                    {latestSelectedDeploymentResult?.variant ? (
+                      <div>Variant: {String(latestSelectedDeploymentResult.variant)}</div>
                     ) : null}
                     {latestSelectedDeploymentResult?.mode ? (
                       <div>Mode: {String(latestSelectedDeploymentResult.mode)}</div>

@@ -140,6 +140,7 @@ export async function POST(request: NextRequest) {
     const experienceId = String(body?.experienceId || 'exp_metaknyt');
     const personaId = String(body?.personaId || 'prs_demo_guest');
     const dispatchMode = String(body?.mode || 'simulate').toLowerCase() === 'live' ? 'live' : 'simulate';
+    const deliveryVariant = normalizeString(body?.variant) || 'runtime_thin_client';
     const requestedTool = String(body?.tool || 'next.best') as ExperienceQubeTool;
     const tool: ExperienceQubeTool = SUPPORTED_TOOLS.has(requestedTool) ? requestedTool : 'next.best';
     const messageText = String(body?.message || '').trim();
@@ -240,6 +241,7 @@ export async function POST(request: NextRequest) {
       destination: envelope.channel.channel_id,
       kind: 'experience_qube',
       tool,
+      variant: deliveryVariant,
       ctaUrl,
       publishUrl,
       embed,
@@ -248,6 +250,15 @@ export async function POST(request: NextRequest) {
         .join('\n\n'),
       cta: mcpResponse.cta.primary || null,
     };
+    const warnings: string[] = [];
+    if (deliveryVariant === 'discord_experience_inline') {
+      warnings.push(
+        'Discord-native inline experience execution remains scaffolded. Current handoff uses the linked launch surface.'
+      );
+    }
+    if (deliveryVariant === 'runtime_thin_client') {
+      warnings.push('Runtime thin-client handoff depends on the linked metaMe runtime surface being publicly reachable.');
+    }
 
     const qubetalkSender = {
       id: normalizeString(body?.fromAgentId) || `mymessenger:${provider}`,
@@ -358,6 +369,7 @@ export async function POST(request: NextRequest) {
         provider,
         mode: dispatchMode,
         tool,
+        variant: deliveryVariant,
         thread_key: threadKey,
         intent_hint: envelope.intent_hint,
         depth_hint: envelope.depth_hint,
@@ -381,6 +393,7 @@ export async function POST(request: NextRequest) {
       mcpResponse,
       providerDispatch,
       liveDispatch,
+      warnings: warnings.length > 0 ? warnings : undefined,
       trace: {
         adapter: `myMessenger:${provider}`,
         bus: 'QubeTalk',

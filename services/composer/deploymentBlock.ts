@@ -6,12 +6,18 @@ export type ComposerDeploymentTarget =
 
 export type ComposerDeploymentMode = "simulate" | "live";
 export type ComposerMessengerProvider = "discord" | "whatsapp" | "telegram";
+export type ComposerDeliveryVariant =
+  | "asset_link"
+  | "discord_asset_inline"
+  | "discord_experience_inline"
+  | "runtime_thin_client";
 
 export type ComposerDeploymentRequest = {
   tenantId: string;
   experienceId: string;
   personaId: string;
   target: ComposerDeploymentTarget;
+  variant?: ComposerDeliveryVariant;
   mode: ComposerDeploymentMode;
   provider?: ComposerMessengerProvider;
   tool?: string;
@@ -27,6 +33,7 @@ export type ComposerDeploymentRequest = {
 export type ComposerDeploymentResult = {
   ok: boolean;
   target: ComposerDeploymentTarget;
+  variant?: ComposerDeliveryVariant;
   mode: ComposerDeploymentMode;
   provider: "discord" | "runtime" | "mcp";
   status: "ready" | "simulated" | "dispatched" | "failed";
@@ -70,11 +77,13 @@ export function resolveMessengerProvider(
 export function buildDeploymentEnvelope(input: ComposerDeploymentRequest) {
   const provider = resolveMessengerProvider(input.target);
   const requestedProvider = input.provider || "discord";
+  const variant = input.variant || "runtime_thin_client";
   const launchUrl = input.publishUrl || `/studio/composer/experience/${encodeURIComponent(input.experienceId)}`;
 
   return {
     provider,
     requestedProvider,
+    variant,
     mode: input.mode,
     target: input.target,
     targetLabel: getDeploymentTargetLabel(input.target),
@@ -83,6 +92,7 @@ export function buildDeploymentEnvelope(input: ComposerDeploymentRequest) {
     payload: {
       provider: requestedProvider,
       target: input.target,
+      variant,
       mode: input.mode,
       tool: input.tool || "next.best",
       tenantId: input.tenantId,
@@ -108,6 +118,7 @@ export async function dispatchComposerDeployment(
     return {
       ok: true,
       target: input.target,
+      variant: envelope.variant,
       mode: input.mode,
       provider: envelope.provider,
       status: input.target === "studio_preview" ? "ready" : "simulated",
@@ -134,6 +145,7 @@ export async function dispatchComposerDeployment(
     return {
       ok: false,
       target: input.target,
+      variant: envelope.variant,
       mode: input.mode,
       provider: envelope.provider,
       status: "failed",
@@ -145,9 +157,10 @@ export async function dispatchComposerDeployment(
   }
 
   return {
-    ok: true,
-    target: input.target,
-    mode: input.mode,
+      ok: true,
+      target: input.target,
+      variant: envelope.variant,
+      mode: input.mode,
     provider: envelope.provider,
     status: input.mode === "live" ? "dispatched" : "simulated",
     publishUrl: envelope.publishUrl,

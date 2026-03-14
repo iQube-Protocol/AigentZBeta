@@ -62,6 +62,13 @@ Each target should carry:
 - readiness state
 - resulting publish/launch URL if available
 
+Deployment also needs a `delivery variant` layer so the same target can support different handoff patterns:
+
+- `asset_link`
+- `discord_asset_inline`
+- `discord_experience_inline`
+- `runtime_thin_client`
+
 ### C. Trust-and-Cost Routing
 
 The deployment layer should be able to reason about:
