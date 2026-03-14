@@ -132,6 +132,28 @@ type ExperienceQube = {
       storage_path?: string;
       receipt_ref?: string;
     }>;
+    deployment_state?: {
+      last_target?: string;
+      last_status?: string;
+      last_provider?: string;
+      last_mode?: string;
+      last_publish_url?: string;
+      last_launch_url?: string;
+      last_deployed_at?: string;
+      last_error?: string;
+    };
+    deployment_history?: Array<{
+      id: string;
+      target: string;
+      provider?: string;
+      mode?: string;
+      status: string;
+      publish_url?: string;
+      launch_url?: string;
+      source?: string;
+      deployed_at: string;
+      error?: string;
+    }>;
   };
 };
 
@@ -414,6 +436,12 @@ function mergeExperienceResourceSummary(
   }
   if (activeExperience?.template_id) {
     pushUnique(summary.resources, "Experience template", activeExperience.template_id);
+  }
+  if (metadata.deployment_state && typeof metadata.deployment_state === "object") {
+    pushUnique(summary.resources, "Deployment target", metadata.deployment_state.last_target);
+    pushUnique(summary.resources, "Deployment status", metadata.deployment_state.last_status);
+    pushUnique(summary.resources, "Deployment provider", metadata.deployment_state.last_provider);
+    pushUnique(summary.resources, "Last deployed", metadata.deployment_state.last_deployed_at);
   }
 
   return summary;
@@ -1360,13 +1388,18 @@ export const ComposerStudio = () => {
         titleOverride: mcpExperience.name || "",
         campaignId: "experience-distribution-demo",
       });
-      if (!deployment.ok) {
-        throw new Error(deployment.error || "Failed to dispatch provider payload");
-      }
+      await persistExperienceDeploymentResult(
+        mcpExperience,
+        deployment,
+        `deployment-block:${mcpDeploymentTarget}`,
+      );
       setDeploymentResultsByTarget((prev) => ({
         ...prev,
         [deployment.target]: deployment,
       }));
+      if (!deployment.ok) {
+        throw new Error(deployment.error || "Failed to dispatch provider payload");
+      }
       setMcpResult({
         mode: "deployment-block",
         target: deployment.target,
@@ -1795,6 +1828,45 @@ export const ComposerStudio = () => {
       setMcpDeploymentTarget("mcp_app");
     }
   }, [mcpDeploymentTarget, mcpProvider]);
+
+  useEffect(() => {
+    if (!mcpExperience?.metadata?.deployment_history || !Array.isArray(mcpExperience.metadata.deployment_history)) {
+      setDeploymentResultsByTarget({});
+      return;
+    }
+
+    const nextByTarget: Partial<Record<ComposerDeploymentTarget, ComposerDeploymentResult>> = {};
+    mcpExperience.metadata.deployment_history.forEach((entry) => {
+      if (!entry || typeof entry !== "object") return;
+      const target = typeof entry.target === "string" ? (entry.target as ComposerDeploymentTarget) : null;
+      if (!target) return;
+      const previous = nextByTarget[target];
+      const previousAt = previous?.response && typeof previous.response.deployed_at === "string"
+        ? previous.response.deployed_at
+        : "";
+      const currentAt = typeof entry.deployed_at === "string" ? entry.deployed_at : "";
+      if (previousAt && currentAt && previousAt > currentAt) return;
+      nextByTarget[target] = {
+        ok: typeof entry.status === "string" ? entry.status !== "failed" : true,
+        target,
+        mode: typeof entry.mode === "string" ? (entry.mode as "simulate" | "live") : "simulate",
+        provider:
+          typeof entry.provider === "string" && ["discord", "runtime", "mcp"].includes(entry.provider)
+            ? (entry.provider as "discord" | "runtime" | "mcp")
+            : "mcp",
+        status:
+          typeof entry.status === "string" &&
+          ["ready", "simulated", "dispatched", "failed"].includes(entry.status)
+            ? (entry.status as "ready" | "simulated" | "dispatched" | "failed")
+            : "ready",
+        publishUrl: typeof entry.publish_url === "string" ? entry.publish_url : undefined,
+        launchUrl: typeof entry.launch_url === "string" ? entry.launch_url : undefined,
+        error: typeof entry.error === "string" ? entry.error : undefined,
+        response: { deployed_at: currentAt, source: entry.source },
+      };
+    });
+    setDeploymentResultsByTarget(nextByTarget);
+  }, [mcpExperience]);
 
   useEffect(() => {
     let cancelled = false;
@@ -2992,6 +3064,9 @@ export const ComposerStudio = () => {
     if (experience?.id === experienceId && updatedExperience) {
       setExperience(updatedExperience);
     }
+    if (mcpExperience?.id === experienceId && updatedExperience) {
+      setMcpExperience(updatedExperience);
+    }
   };
 
   const recordExperienceLifecycle = async (
@@ -3526,8 +3601,91 @@ export const ComposerStudio = () => {
         metadata: nextMetadata,
       },
       "Failed to log DPR event."
-    );
+      );
   };
+
+  const persistExperienceDeploymentResult = useCallback(
+    async (
+      exp: ExperienceQube | null | undefined,
+      deployment: ComposerDeploymentResult,
+      source: string,
+    ) => {
+      if (!exp?.id) return;
+
+      const metadata = exp.metadata || {};
+      const previousLifecycle =
+        metadata.lifecycle_summary && typeof metadata.lifecycle_summary === "object"
+          ? (metadata.lifecycle_summary as Record<string, any>)
+          : {};
+      const previousHistory = Array.isArray(metadata.deployment_history)
+        ? metadata.deployment_history
+        : [];
+      const deployedAt = new Date().toISOString();
+      const nextEntry = {
+        id: `deploy_${deployment.target}_${Date.now()}`,
+        target: deployment.target,
+        provider: deployment.provider,
+        mode: deployment.mode,
+        status: deployment.status,
+        publish_url: deployment.publishUrl,
+        launch_url: deployment.launchUrl,
+        source,
+        deployed_at: deployedAt,
+        error: deployment.error,
+      };
+      const nextLifecycle = {
+        ...previousLifecycle,
+        deploymentCount: (Number(previousLifecycle.deploymentCount) || 0) + 1,
+        lastDeploymentAt: deployedAt,
+        lastDeploymentPersonaId: activePersonaId || userId,
+      };
+
+      await persistExperienceUpdate(
+        exp.id,
+        {
+          name: exp.name,
+          description: exp.description,
+          goal: exp.goal,
+          mechanics: exp.mechanics,
+          metrics: exp.metrics,
+          template_id: exp.template_id,
+          status: exp.status,
+          configuration: exp.configuration,
+          components: exp.components,
+          execution: (exp as any).execution,
+          access: exp.access,
+          metadata: {
+            ...metadata,
+            deployment_state: {
+              last_target: deployment.target,
+              last_status: deployment.status,
+              last_provider: deployment.provider,
+              last_mode: deployment.mode,
+              last_publish_url: deployment.publishUrl,
+              last_launch_url: deployment.launchUrl,
+              last_deployed_at: deployedAt,
+              last_error: deployment.error,
+            },
+            deployment_history: [...previousHistory, nextEntry].slice(-25),
+            lifecycle_summary: nextLifecycle,
+          },
+        },
+        "Failed to persist deployment state.",
+      );
+
+      if (deployment.ok) {
+        void recordRuntimeLifecycleContribution({
+          tenantId,
+          personaId: activePersonaId || userId,
+          experienceId: exp.id,
+          contributionType: "deployment_dispatch",
+          source,
+          units: 1,
+        }).catch(() => undefined);
+      }
+    },
+    [activePersonaId, tenantId, userId],
+  );
 
   const handleApplyRemedy = async (
     experienceId: string,
@@ -3713,6 +3871,18 @@ export const ComposerStudio = () => {
         (typeof videoPrompt.prompt === "string" && videoPrompt.prompt.trim() ? videoPrompt.prompt : "") || "",
     };
   }, [activeExperienceForEditing, mergedData]);
+  const activeExperienceDeploymentHistory = useMemo(() => {
+    const raw = activeExperienceForEditing?.metadata?.deployment_history;
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .filter((item): item is Record<string, any> => Boolean(item && typeof item === "object"))
+      .sort(
+        (a, b) =>
+          new Date(String(b.deployed_at || 0)).getTime() -
+          new Date(String(a.deployed_at || 0)).getTime(),
+      )
+      .slice(0, 5);
+  }, [activeExperienceForEditing]);
   const filteredPersonaMediaLibrary = useMemo(() => {
     const activeExperienceId = activeExperienceForEditing?.id || null;
 
@@ -5090,6 +5260,51 @@ export const ComposerStudio = () => {
                         <div className="text-sm font-semibold text-white">Cost envelope</div>
                         <div className="mt-2 text-sm text-slate-400">
                           Skill costs, runtime resource fees, and user-facing charges are not defined yet. This section is stubbed for later pricing integration.
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                        <div className="text-sm font-semibold text-white">Deployment history</div>
+                        <div className="mt-3 space-y-2">
+                          {activeExperienceDeploymentHistory.length > 0 ? (
+                            activeExperienceDeploymentHistory.map((entry) => (
+                              <div
+                                key={String(entry.id || `${entry.target}-${entry.deployed_at}`)}
+                                className="rounded-lg border border-slate-800 bg-slate-900/50 px-3 py-2 text-sm text-slate-200"
+                              >
+                                <div className="flex items-center justify-between gap-3">
+                                  <span className="font-medium text-white">
+                                    {getDeploymentTargetLabel(String(entry.target) as ComposerDeploymentTarget)}
+                                  </span>
+                                  <span
+                                    className={
+                                      entry.status === "failed" ? "text-rose-300" : "text-emerald-300"
+                                    }
+                                  >
+                                    {String(entry.status || "unknown")}
+                                  </span>
+                                </div>
+                                <div className="mt-1 grid gap-1 text-xs text-slate-400 sm:grid-cols-2">
+                                  {entry.provider ? <div>Provider: {String(entry.provider)}</div> : null}
+                                  {entry.mode ? <div>Mode: {String(entry.mode)}</div> : null}
+                                  {entry.deployed_at ? (
+                                    <div>At: {new Date(String(entry.deployed_at)).toLocaleString()}</div>
+                                  ) : null}
+                                  {entry.source ? <div>Source: {String(entry.source)}</div> : null}
+                                  {entry.publish_url ? (
+                                    <div className="sm:col-span-2 truncate">Publish: {String(entry.publish_url)}</div>
+                                  ) : null}
+                                  {entry.error ? (
+                                    <div className="sm:col-span-2 text-rose-300">Error: {String(entry.error)}</div>
+                                  ) : null}
+                                </div>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="text-sm text-slate-400">
+                              Deployment actions will appear here once this ExperienceQube has been dispatched or simulated.
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>

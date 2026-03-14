@@ -3,7 +3,8 @@ type RuntimeLifecycleContributionType =
   | "experience_launch"
   | "generated_image"
   | "generated_video"
-  | "reused_saved_media";
+  | "reused_saved_media"
+  | "deployment_dispatch";
 
 export async function recordRuntimeLifecycleContribution(input: {
   tenantId?: string;
