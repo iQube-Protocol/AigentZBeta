@@ -17,9 +17,25 @@ type ExperienceQube = {
   template_id: string;
   status: string;
   configuration: Record<string, any>;
+  metadata?: Record<string, any>;
 };
 
 const DEFAULT_PERSONA_ID = "00000000-0000-0000-0000-000000000001";
+
+function resolveExperiencePersonaId(experience: ExperienceQube | null): string {
+  const creatorPersonaId =
+    typeof experience?.metadata?.creator_persona?.id === "string" &&
+    experience.metadata.creator_persona.id.trim()
+      ? experience.metadata.creator_persona.id.trim()
+      : null;
+  if (creatorPersonaId) return creatorPersonaId;
+
+  if (typeof experience?.creator_id === "string" && experience.creator_id.trim()) {
+    return experience.creator_id.trim();
+  }
+
+  return DEFAULT_PERSONA_ID;
+}
 
 export const ComposerExperienceViewer = ({ experienceId }: { experienceId: string }) => {
   const router = useRouter();
@@ -98,8 +114,10 @@ export const ComposerExperienceViewer = ({ experienceId }: { experienceId: strin
     );
   }
 
+  const resolvedPersonaId = resolveExperiencePersonaId(experience);
+
   return (
-    <SmartTriadProvider personaId={DEFAULT_PERSONA_ID} agentId="aigent-z">
+    <SmartTriadProvider personaId={resolvedPersonaId} agentId="aigent-z">
       <div data-parity-root="experience-viewer" className={`h-full overflow-y-auto bg-slate-900 ${isEmbeddedPreview ? "p-0" : "p-6"}`}>
         <div className={`${isEmbeddedPreview ? "h-full" : "mx-auto max-w-6xl space-y-6"}`}>
           {!isEmbeddedPreview && (
@@ -122,7 +140,7 @@ export const ComposerExperienceViewer = ({ experienceId }: { experienceId: strin
           <ExperienceLiquidRenderer
             experience={experience}
             packet={packet}
-            personaId={DEFAULT_PERSONA_ID}
+            personaId={resolvedPersonaId}
           />
 
           {!isEmbeddedPreview && showPacket && (
@@ -132,7 +150,7 @@ export const ComposerExperienceViewer = ({ experienceId }: { experienceId: strin
           )}
         </div>
 
-        {!isEmbeddedPreview && <SmartTriadSurfaces personaId={DEFAULT_PERSONA_ID} />}
+        {!isEmbeddedPreview && <SmartTriadSurfaces personaId={resolvedPersonaId} />}
       </div>
     </SmartTriadProvider>
   );
