@@ -172,10 +172,19 @@ function getSupabase() {
 }
 
 async function syncExperienceFallbackCaches(experience: ExperienceQubeData) {
-  if (!updateStoreExperienceQube(experience.id, experience)) {
-    createStoreExperienceQube(experience);
+  try {
+    if (!updateStoreExperienceQube(experience.id, experience)) {
+      createStoreExperienceQube(experience);
+    }
+  } catch (error) {
+    console.warn("Composer fallback store sync failed:", error);
   }
-  await upsertExperienceLocal(experience);
+
+  try {
+    await upsertExperienceLocal(experience);
+  } catch (error) {
+    console.warn("Composer local DB sync failed:", error);
+  }
 }
 
 export async function createExperienceRecord(experience: ExperienceQubeData): Promise<ExperienceQubeData> {
