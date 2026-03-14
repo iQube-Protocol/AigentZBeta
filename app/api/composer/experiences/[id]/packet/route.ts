@@ -298,22 +298,30 @@ function buildImagePacket(experience: any) {
       Boolean(getAssetUrl(asset))
   );
   const receiptBackfilledImages = buildImageAssetsFromReceipts(metadata, imageGeneration, providerId);
-  const initialImages =
-    imageAssets.length > 0
-      ? generatedAssets
-          .filter((asset: any) => imageAssets.includes(asset))
-          .map((asset: any) => ({
-            orientation: asset.orientation,
-            prompt:
-              asset.orientation === "portrait"
-                ? imageGeneration.portrait_prompt || ""
-                : imageGeneration.landscape_prompt || "",
-            ok: true,
-            mode: "live" as const,
-            image_url: getAssetUrl(asset) as string,
-            model: asset.provider || providerId,
-          }))
-      : receiptBackfilledImages;
+  const savedImagesFromAssets = generatedAssets
+    .filter((asset: any) => imageAssets.includes(asset))
+    .map((asset: any) => ({
+      orientation: asset.orientation,
+      prompt:
+        asset.orientation === "portrait"
+          ? imageGeneration.portrait_prompt || ""
+          : imageGeneration.landscape_prompt || "",
+      ok: true,
+      mode: "live" as const,
+      image_url: getAssetUrl(asset) as string,
+      model: asset.provider || providerId,
+      receipt_id: getAssetReceiptRef(asset) || undefined,
+    }));
+  const initialImagesByOrientation = new Map<string, (typeof receiptBackfilledImages)[number]>();
+  for (const image of receiptBackfilledImages) {
+    initialImagesByOrientation.set(image.orientation, image);
+  }
+  for (const image of savedImagesFromAssets) {
+    initialImagesByOrientation.set(image.orientation, image);
+  }
+  const initialImages = Array.from(initialImagesByOrientation.values()).sort((a, b) =>
+    a.orientation === b.orientation ? 0 : a.orientation === "portrait" ? -1 : 1
+  );
   const imageReceiptRef =
     getAssetReceiptRef(imageAssets.find((asset: any) => Boolean(getAssetReceiptRef(asset)))) ||
     receiptBackfilledImages.find((asset) => typeof asset.receipt_id === "string")?.receipt_id ||
