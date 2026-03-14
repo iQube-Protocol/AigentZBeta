@@ -31,7 +31,10 @@ import {
 import type { ComposerGeneratedAssetRef } from "@/services/copilot/composer/types";
 import { resolveRuntimeIdentity } from "@/services/runtime/identityResolver";
 import { recordRuntimeLifecycleContribution } from "@/services/composer/runtimeLifecycleClient";
-import { persistGeneratedAssetsForExperience } from "@/services/composer/generatedAssetClient";
+import {
+  markPersonaGeneratedMediaUsage,
+  persistGeneratedAssetsForExperience,
+} from "@/services/composer/generatedAssetClient";
 
 type ComposerField = {
   id: string;
@@ -144,6 +147,10 @@ type PersonaGeneratedMediaRecord = {
   prompt?: string;
   createdAt?: string;
   updatedAt: string;
+  useCount?: number;
+  lastUsedAt?: string;
+  lastUsedInExperienceId?: string;
+  lastAction?: "generated" | "reused";
 };
 
 type InspectorMediaPreview = {
@@ -3103,6 +3110,21 @@ export const ComposerStudio = () => {
         ],
       });
 
+      await markPersonaGeneratedMediaUsage({
+        personaId: activePersonaId || userId,
+        mediaId: item.id,
+        experienceId,
+      });
+
+      void recordRuntimeLifecycleContribution({
+        tenantId,
+        personaId: activePersonaId || userId,
+        experienceId,
+        contributionType: "reused_saved_media",
+        source: "studio-persona-library",
+        units: 1,
+      }).catch(() => undefined);
+
       const response = await fetch(`/api/composer/experiences/${experienceId}`, {
         cache: "no-store",
       });
@@ -3127,6 +3149,20 @@ export const ComposerStudio = () => {
         if (experience?.id === refreshedExperience.id) {
           setExperience(refreshedExperience);
         }
+        setPersonaMediaLibrary((prev) =>
+          prev.map((entry) =>
+            entry.id === item.id
+              ? {
+                  ...entry,
+                  updatedAt: new Date().toISOString(),
+                  useCount: (entry.useCount || 0) + 1,
+                  lastUsedAt: new Date().toISOString(),
+                  lastUsedInExperienceId: experienceId,
+                  lastAction: "reused",
+                }
+              : entry
+          )
+        );
         setPreviewAction(`Reused saved ${item.type} in ${refreshedExperience.name}`);
       }
     } catch (err: any) {
@@ -4395,6 +4431,13 @@ export const ComposerStudio = () => {
                                     <span>{item.type === "video" ? "Video" : "Image"}</span>
                                     {item.orientation ? <span>{item.orientation}</span> : null}
                                     {item.provider ? <span>{item.provider}</span> : null}
+                                    {typeof item.useCount === "number" && item.useCount > 0 ? (
+                                      <span>{item.useCount} reuse{item.useCount === 1 ? "" : "s"}</span>
+                                    ) : null}
+                                    {item.lastAction ? <span>{item.lastAction}</span> : null}
+                                    {item.lastUsedAt ? (
+                                      <span>last used {new Date(item.lastUsedAt).toLocaleString()}</span>
+                                    ) : null}
                                     {item.updatedAt ? (
                                       <span>{new Date(item.updatedAt).toLocaleString()}</span>
                                     ) : null}

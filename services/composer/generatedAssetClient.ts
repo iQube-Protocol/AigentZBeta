@@ -38,6 +38,10 @@ type PersonaGeneratedMediaRecord = {
   prompt?: string;
   createdAt?: string;
   updatedAt: string;
+  useCount?: number;
+  lastUsedAt?: string;
+  lastUsedInExperienceId?: string;
+  lastAction?: "generated" | "reused";
 };
 
 export type PersistableGeneratedAsset = ComposerGeneratedAssetRef & {
@@ -131,6 +135,21 @@ function toPersonaMediaRecord(
     prompt: asset.prompt,
     createdAt: asset.createdAt,
     updatedAt: new Date().toISOString(),
+    lastAction: "generated",
+  };
+}
+
+function mergePersonaMediaRecord(
+  existing: PersonaGeneratedMediaRecord | undefined,
+  next: PersonaGeneratedMediaRecord,
+): PersonaGeneratedMediaRecord {
+  return {
+    ...existing,
+    ...next,
+    useCount: existing?.useCount || 0,
+    lastUsedAt: existing?.lastUsedAt,
+    lastUsedInExperienceId: existing?.lastUsedInExperienceId,
+    lastAction: next.lastAction || existing?.lastAction || "generated",
   };
 }
 
@@ -162,15 +181,68 @@ async function persistPersonaGeneratedMediaLibrary(options: {
   const nextById = new Map<string, PersonaGeneratedMediaRecord>();
   existingLibrary.forEach((item) => nextById.set(item.id, item));
   options.assets.forEach((asset) => {
+    const nextRecord = toPersonaMediaRecord(options.experienceId, personaId, asset);
     nextById.set(
       asset.id,
-      toPersonaMediaRecord(options.experienceId, personaId, asset)
+      mergePersonaMediaRecord(nextById.get(asset.id), nextRecord)
     );
   });
 
   const nextLibrary = Array.from(nextById.values())
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
     .slice(0, 100);
+
+  await fetch("/api/ops/state/user-preferences", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      userId: personaId,
+      preferences: {
+        [key]: nextLibrary,
+      },
+    }),
+  });
+}
+
+export async function markPersonaGeneratedMediaUsage(options: {
+  personaId?: string;
+  mediaId: string;
+  experienceId: string;
+}) {
+  const personaId = options.personaId?.trim();
+  const mediaId = options.mediaId.trim();
+  if (!personaId || !mediaId || !options.experienceId) return;
+
+  const key = "composer_generated_media_library_v1";
+  const existingResponse = await fetch(
+    `/api/ops/state/user-preferences?userId=${encodeURIComponent(personaId)}&category=workflow&keys=${encodeURIComponent(key)}`,
+    { cache: "no-store" }
+  );
+
+  let existingLibrary: PersonaGeneratedMediaRecord[] = [];
+  if (existingResponse.ok) {
+    const existingJson = await existingResponse.json().catch(() => null);
+    const raw = existingJson?.preferences?.[key];
+    if (Array.isArray(raw)) {
+      existingLibrary = raw.filter(
+        (item): item is PersonaGeneratedMediaRecord => Boolean(item && typeof item === "object")
+      );
+    }
+  }
+
+  const now = new Date().toISOString();
+  const nextLibrary = existingLibrary.map((item) =>
+    item.id === mediaId
+      ? {
+          ...item,
+          updatedAt: now,
+          useCount: (item.useCount || 0) + 1,
+          lastUsedAt: now,
+          lastUsedInExperienceId: options.experienceId,
+          lastAction: "reused" as const,
+        }
+      : item
+  );
 
   await fetch("/api/ops/state/user-preferences", {
     method: "POST",
