@@ -35,6 +35,7 @@ import {
   markPersonaGeneratedMediaLifecycle,
   markPersonaGeneratedMediaUsage,
   persistGeneratedAssetsForExperience,
+  setPersonaGeneratedMediaPinned,
 } from "@/services/composer/generatedAssetClient";
 
 type ComposerField = {
@@ -156,6 +157,8 @@ type PersonaGeneratedMediaRecord = {
   launchCount?: number;
   lastPreviewAt?: string;
   lastLaunchAt?: string;
+  pinnedToExperienceId?: string;
+  pinnedAt?: string;
 };
 
 type InspectorMediaPreview = {
@@ -1133,6 +1136,7 @@ export const ComposerStudio = () => {
   const [personaMediaLibrary, setPersonaMediaLibrary] = useState<PersonaGeneratedMediaRecord[]>([]);
   const [personaMediaLibraryLoading, setPersonaMediaLibraryLoading] = useState(false);
   const [applyingPersonaMediaId, setApplyingPersonaMediaId] = useState<string | null>(null);
+  const [pinningPersonaMediaId, setPinningPersonaMediaId] = useState<string | null>(null);
   const [personaMediaScopeFilter, setPersonaMediaScopeFilter] = useState<"all" | "active">("all");
   const [personaMediaTypeFilter, setPersonaMediaTypeFilter] = useState<"all" | "image" | "video">("all");
   const { data: codexList } = useCodexList({ useDefaults: true });
@@ -3211,6 +3215,42 @@ export const ComposerStudio = () => {
     }
   };
 
+  const handleTogglePersonaMediaPin = async (item: PersonaGeneratedMediaRecord) => {
+    const activeExperienceId = activeExperienceForEditing?.id;
+    if (!activeExperienceId) return;
+
+    const nextPinnedExperienceId =
+      item.pinnedToExperienceId === activeExperienceId ? null : activeExperienceId;
+
+    try {
+      setPinningPersonaMediaId(item.id);
+      setSessionError(null);
+      await setPersonaGeneratedMediaPinned({
+        personaId: activePersonaId || userId,
+        mediaId: item.id,
+        pinnedToExperienceId: nextPinnedExperienceId,
+      });
+
+      const now = new Date().toISOString();
+      setPersonaMediaLibrary((prev) =>
+        prev.map((entry) =>
+          entry.id === item.id
+            ? {
+                ...entry,
+                updatedAt: now,
+                pinnedToExperienceId: nextPinnedExperienceId || undefined,
+                pinnedAt: nextPinnedExperienceId ? now : undefined,
+              }
+            : entry
+        )
+      );
+    } catch (err: any) {
+      setSessionError(err?.message || "Failed to update pinned media.");
+    } finally {
+      setPinningPersonaMediaId(null);
+    }
+  };
+
   const handleLogAuditEvent = async (
     experienceId: string,
     action: "pipeline_run" | "pipeline_error" | "remedy_proposed" | "remedy_rejected",
@@ -3505,6 +3545,10 @@ export const ComposerStudio = () => {
         return true;
       })
       .sort((a, b) => {
+        const aPinned = activeExperienceId && a.pinnedToExperienceId === activeExperienceId ? 1 : 0;
+        const bPinned = activeExperienceId && b.pinnedToExperienceId === activeExperienceId ? 1 : 0;
+        if (aPinned !== bPinned) return bPinned - aPinned;
+
         const aActive = activeExperienceId && (a.experienceId === activeExperienceId || a.lastUsedInExperienceId === activeExperienceId) ? 1 : 0;
         const bActive = activeExperienceId && (b.experienceId === activeExperienceId || b.lastUsedInExperienceId === activeExperienceId) ? 1 : 0;
         if (aActive !== bActive) return bActive - aActive;
@@ -4552,6 +4596,9 @@ export const ComposerStudio = () => {
                                     <span>{item.type === "video" ? "Video" : "Image"}</span>
                                     {item.orientation ? <span>{item.orientation}</span> : null}
                                     {item.provider ? <span>{item.provider}</span> : null}
+                                    {activeExperienceForEditing?.id && item.pinnedToExperienceId === activeExperienceForEditing.id ? (
+                                      <span className="text-fuchsia-300">pinned to active experience</span>
+                                    ) : null}
                                     {activeExperienceForEditing?.id && item.experienceId === activeExperienceForEditing.id ? (
                                       <span className="text-emerald-300">generated for active experience</span>
                                     ) : null}
@@ -4583,6 +4630,21 @@ export const ComposerStudio = () => {
                                   </div>
                                 </div>
                                 <div className="flex shrink-0 items-center gap-2">
+                                  {activeExperienceForEditing?.id ? (
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-8 border-slate-700 bg-transparent px-2 text-xs text-slate-200 hover:border-fuchsia-400/60 hover:bg-slate-900"
+                                      disabled={pinningPersonaMediaId === item.id}
+                                      onClick={() => void handleTogglePersonaMediaPin(item)}
+                                    >
+                                      {pinningPersonaMediaId === item.id ? (
+                                        <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                                      ) : null}
+                                      {item.pinnedToExperienceId === activeExperienceForEditing.id ? "Unpin" : "Pin"}
+                                    </Button>
+                                  ) : null}
                                   {activeExperienceForEditing?.id && item.assetUrl ? (
                                     <Button
                                       type="button"

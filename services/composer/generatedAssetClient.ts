@@ -46,6 +46,8 @@ type PersonaGeneratedMediaRecord = {
   launchCount?: number;
   lastPreviewAt?: string;
   lastLaunchAt?: string;
+  pinnedToExperienceId?: string;
+  pinnedAt?: string;
 };
 
 export type PersistableGeneratedAsset = ComposerGeneratedAssetRef & {
@@ -158,6 +160,8 @@ function mergePersonaMediaRecord(
     launchCount: existing?.launchCount || 0,
     lastPreviewAt: existing?.lastPreviewAt,
     lastLaunchAt: existing?.lastLaunchAt,
+    pinnedToExperienceId: existing?.pinnedToExperienceId,
+    pinnedAt: existing?.pinnedAt,
   };
 }
 
@@ -313,6 +317,56 @@ export async function markPersonaGeneratedMediaLifecycle(options: {
         options.action === "experience_launch" ? now : item.lastLaunchAt,
     };
   });
+
+  await fetch("/api/ops/state/user-preferences", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      userId: personaId,
+      preferences: {
+        [key]: nextLibrary,
+      },
+    }),
+  });
+}
+
+export async function setPersonaGeneratedMediaPinned(options: {
+  personaId?: string;
+  mediaId: string;
+  pinnedToExperienceId?: string | null;
+}) {
+  const personaId = options.personaId?.trim();
+  const mediaId = options.mediaId.trim();
+  if (!personaId || !mediaId) return;
+
+  const key = "composer_generated_media_library_v1";
+  const existingResponse = await fetch(
+    `/api/ops/state/user-preferences?userId=${encodeURIComponent(personaId)}&category=workflow&keys=${encodeURIComponent(key)}`,
+    { cache: "no-store" }
+  );
+
+  let existingLibrary: PersonaGeneratedMediaRecord[] = [];
+  if (existingResponse.ok) {
+    const existingJson = await existingResponse.json().catch(() => null);
+    const raw = existingJson?.preferences?.[key];
+    if (Array.isArray(raw)) {
+      existingLibrary = raw.filter(
+        (item): item is PersonaGeneratedMediaRecord => Boolean(item && typeof item === "object")
+      );
+    }
+  }
+
+  const now = new Date().toISOString();
+  const nextLibrary = existingLibrary.map((item) =>
+    item.id === mediaId
+      ? {
+          ...item,
+          updatedAt: now,
+          pinnedToExperienceId: options.pinnedToExperienceId || undefined,
+          pinnedAt: options.pinnedToExperienceId ? now : undefined,
+        }
+      : item
+  );
 
   await fetch("/api/ops/state/user-preferences", {
     method: "POST",
