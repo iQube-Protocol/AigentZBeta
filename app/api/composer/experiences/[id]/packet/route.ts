@@ -12,6 +12,16 @@ interface RouteParams {
 }
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+function jsonNoStore(body: unknown, init?: ResponseInit) {
+  const headers = new Headers(init?.headers);
+  headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  headers.set("Pragma", "no-cache");
+  headers.set("Expires", "0");
+  return NextResponse.json(body, { ...init, headers });
+}
 
 const DRAWER_GRID_VARIANTS = new Set([
   "1a",
@@ -413,19 +423,19 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
     if (!id) {
-      return NextResponse.json({ error: "ExperienceQube ID is required" }, { status: 400 });
+      return jsonNoStore({ error: "ExperienceQube ID is required" }, { status: 400 });
     }
 
     const experienceQube = await composerService.getExperienceQube(id);
     if (!experienceQube) {
-      return NextResponse.json({ error: "ExperienceQube not found" }, { status: 404 });
+      return jsonNoStore({ error: "ExperienceQube not found" }, { status: 404 });
     }
 
     const packet = buildPacket(experienceQube);
-    return NextResponse.json({ ok: true, packet });
+    return jsonNoStore({ ok: true, packet });
   } catch (error: any) {
     console.error("Composer packet GET error:", error);
-    return NextResponse.json(
+    return jsonNoStore(
       { error: error.message || "Failed to build packet" },
       { status: 500 }
     );

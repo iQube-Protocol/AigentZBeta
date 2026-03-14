@@ -14,13 +14,23 @@ interface RouteParams {
 }
 
 export const runtime = 'nodejs';
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+function jsonNoStore(body: unknown, init?: ResponseInit) {
+  const headers = new Headers(init?.headers);
+  headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  headers.set("Pragma", "no-cache");
+  headers.set("Expires", "0");
+  return NextResponse.json(body, { ...init, headers });
+}
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
     
     if (!id) {
-      return NextResponse.json({
+      return jsonNoStore({
         success: false,
         error: 'ExperienceQube ID is required',
       }, { status: 400 });
@@ -29,20 +39,20 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const experienceQube = await composerService.getExperienceQube(id);
 
     if (!experienceQube) {
-      return NextResponse.json({
+      return jsonNoStore({
         success: false,
         error: 'ExperienceQube not found',
       }, { status: 404 });
     }
 
-    return NextResponse.json({
+    return jsonNoStore({
       success: true,
       experience_qube: experienceQube,
     });
 
   } catch (error: any) {
     console.error('Composer ExperienceQube GET error:', error);
-    return NextResponse.json({
+    return jsonNoStore({
       success: false,
       error: error.message || 'Failed to retrieve ExperienceQube',
     }, { status: 500 });
@@ -55,7 +65,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const body = await request.json();
     
     if (!id) {
-      return NextResponse.json({
+      return jsonNoStore({
         success: false,
         error: 'ExperienceQube ID is required',
       }, { status: 400 });
@@ -64,7 +74,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     // Validate ExperienceQube exists
     const existingExperience = await composerService.getExperienceQube(id);
     if (!existingExperience) {
-      return NextResponse.json({
+      return jsonNoStore({
         success: false,
         error: 'ExperienceQube not found',
       }, { status: 404 });
@@ -92,14 +102,14 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     const updatedExperience = await composerService.updateExperienceQube(id, allowedUpdates);
 
-    return NextResponse.json({
+    return jsonNoStore({
       success: true,
       experience_qube: updatedExperience,
     });
 
   } catch (error: any) {
     console.error('Composer ExperienceQube PUT error:', error);
-    return NextResponse.json({
+    return jsonNoStore({
       success: false,
       error: error.message || 'Failed to update ExperienceQube',
     }, { status: 500 });
@@ -111,7 +121,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const { id } = await params;
     
     if (!id) {
-      return NextResponse.json({
+      return jsonNoStore({
         success: false,
         error: 'ExperienceQube ID is required',
       }, { status: 400 });
@@ -120,7 +130,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const deleted = await composerService.deleteExperienceQube(id);
 
     if (!deleted) {
-      return NextResponse.json({
+      return jsonNoStore({
         success: false,
         error: 'ExperienceQube not found',
       }, { status: 404 });
@@ -128,7 +138,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     console.log(`Deleted ExperienceQube: ${id}`);
 
-    return NextResponse.json({
+    return jsonNoStore({
       success: true,
       message: 'ExperienceQube deleted successfully',
       experience_qube_id: id,
@@ -136,7 +146,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
   } catch (error: any) {
     console.error('Composer ExperienceQube DELETE error:', error);
-    return NextResponse.json({
+    return jsonNoStore({
       success: false,
       error: error.message || 'Failed to delete ExperienceQube',
     }, { status: 500 });
@@ -149,7 +159,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const body = await request.json();
     
     if (!id) {
-      return NextResponse.json({
+      return jsonNoStore({
         success: false,
         error: 'ExperienceQube ID is required',
       }, { status: 400 });
@@ -159,7 +169,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       const experienceQube = await composerService.getExperienceQube(id);
       
       if (!experienceQube) {
-        return NextResponse.json({
+        return jsonNoStore({
           success: false,
           error: 'ExperienceQube not found',
         }, { status: 404 });
@@ -170,7 +180,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         experienceQube.configuration
       );
 
-      return NextResponse.json({
+      return jsonNoStore({
         success: true,
         validation,
         experience_qube_id: id,
@@ -178,14 +188,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       });
     }
 
-    return NextResponse.json({
+    return jsonNoStore({
       success: false,
       error: 'Unsupported action. Use: { "action": "validate" }',
     }, { status: 400 });
 
   } catch (error: any) {
     console.error('Composer ExperienceQube POST error:', error);
-    return NextResponse.json({
+    return jsonNoStore({
       success: false,
       error: error.message || 'Failed to process ExperienceQube request',
     }, { status: 500 });

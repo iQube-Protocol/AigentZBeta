@@ -36,7 +36,9 @@ export const ComposerExperienceViewer = ({ experienceId }: { experienceId: strin
     const load = async () => {
       try {
         setLoading(true);
-        const res = await fetch(`/api/composer/experiences/${experienceId}`);
+        const res = await fetch(`/api/composer/experiences/${experienceId}`, {
+          cache: "no-store",
+        });
         if (!res.ok) throw new Error(`Failed to load experience (${res.status})`);
         const text = await res.text();
         if (!text) throw new Error("Empty response from experience API");
@@ -44,7 +46,9 @@ export const ComposerExperienceViewer = ({ experienceId }: { experienceId: strin
         if (!active) return;
         setExperience(data.experience_qube);
 
-        const packetRes = await fetch(`/api/composer/experiences/${experienceId}/packet`);
+        const packetRes = await fetch(`/api/composer/experiences/${experienceId}/packet`, {
+          cache: "no-store",
+        });
         if (packetRes.ok) {
           const packetText = await packetRes.text();
           const packetData = packetText ? JSON.parse(packetText) : {};

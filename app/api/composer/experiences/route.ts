@@ -8,6 +8,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { composerService } from '@/services/composer/composerService';
 
 export const runtime = 'nodejs';
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+function jsonNoStore(body: unknown, init?: ResponseInit) {
+  const headers = new Headers(init?.headers);
+  headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  headers.set("Pragma", "no-cache");
+  headers.set("Expires", "0");
+  return NextResponse.json(body, { ...init, headers });
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,7 +27,7 @@ export async function POST(request: NextRequest) {
     const required = ['tenant_id', 'creator_id', 'template_id', 'name', 'description'];
     for (const field of required) {
       if (!body[field]) {
-        return NextResponse.json({
+        return jsonNoStore({
           success: false,
           error: `${field} is required`,
         }, { status: 400 });
@@ -35,14 +45,14 @@ export async function POST(request: NextRequest) {
 
     console.log(`Created ExperienceQube: ${experienceQube.id} for tenant: ${body.tenant_id}`);
 
-    return NextResponse.json({
+    return jsonNoStore({
       success: true,
       experience_qube: experienceQube,
     }, { status: 201 });
 
   } catch (error: any) {
     console.error('Composer ExperienceQube POST error:', error);
-    return NextResponse.json({
+    return jsonNoStore({
       success: false,
       error: error.message || 'Failed to create ExperienceQube',
     }, { status: 500 });
@@ -69,7 +79,7 @@ export async function GET(request: NextRequest) {
       offset,
     });
 
-    return NextResponse.json({
+    return jsonNoStore({
       success: true,
       experience_qubes: result.items,
       total: result.total,
@@ -85,7 +95,7 @@ export async function GET(request: NextRequest) {
 
   } catch (error: any) {
     console.error('Composer ExperienceQubes GET error:', error);
-    return NextResponse.json({
+    return jsonNoStore({
       success: false,
       error: error.message || 'Failed to retrieve ExperienceQubes',
     }, { status: 500 });
