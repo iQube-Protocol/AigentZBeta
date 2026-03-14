@@ -49,6 +49,7 @@ export function ExperienceLiquidRenderer({
         trust_override={packet.skill.trust_override}
         initial_video_url={packet.skill.video_url}
         initial_receipt={packet.skill.initial_receipt}
+        persona_id={personaId}
       />
     );
   }
@@ -64,6 +65,7 @@ export function ExperienceLiquidRenderer({
         autoInvoke={packet.image_generation.auto_invoke !== false}
         initial_images={packet.image_generation.initial_images}
         initial_receipt={packet.image_generation.initial_receipt}
+        persona_id={personaId}
       />
     );
   }

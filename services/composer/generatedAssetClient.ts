@@ -448,6 +448,7 @@ export async function persistGeneratedAssetsForExperience(options: {
   experienceId: string;
   assets: PersistableGeneratedAsset[];
   receipt?: Record<string, unknown>;
+  personaId?: string;
 }) {
   if (!options.experienceId || options.assets.length === 0) return;
 
@@ -463,11 +464,15 @@ export async function persistGeneratedAssetsForExperience(options: {
   const tenantId = existingData.experience_qube?.tenant_id || "tnt_clawhack";
   const existingMetadata = (existingData.experience_qube?.metadata || {}) as ExperienceMetadata;
   const creatorPersonaId =
-    typeof existingMetadata.creator_persona === "object" &&
+    options.personaId?.trim() ||
+    (typeof existingMetadata.creator_persona === "object" &&
     existingMetadata.creator_persona &&
     typeof (existingMetadata.creator_persona as Record<string, unknown>).id === "string"
-      ? ((existingMetadata.creator_persona as Record<string, unknown>).id as string)
-      : undefined;
+      ? ((existingMetadata.creator_persona as Record<string, unknown>).id as string).trim()
+      : typeof (existingData.experience_qube as Record<string, unknown> | undefined)?.creator_id === "string" &&
+          String((existingData.experience_qube as Record<string, unknown>).creator_id).trim()
+        ? String((existingData.experience_qube as Record<string, unknown>).creator_id).trim()
+        : undefined);
   const existingAssets = Array.isArray(existingMetadata.generated_assets)
     ? existingMetadata.generated_assets
     : [];

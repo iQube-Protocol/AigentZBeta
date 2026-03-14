@@ -40,6 +40,7 @@ interface SkillVideoPlayerProps {
   venice_model?: string;
   initial_video_url?: string;
   initial_receipt?: Record<string, unknown>;
+  persona_id?: string;
 }
 
 interface InvocationResult {
@@ -124,6 +125,7 @@ export default function SkillVideoPlayer({
   venice_model,
   initial_video_url,
   initial_receipt,
+  persona_id,
 }: SkillVideoPlayerProps) {
   const initialProvider = inferProviderFromSkillId(skill_id);
   const [state, setState] = useState<"idle" | "invoking" | "done" | "error">(initial_video_url ? "done" : "idle");
@@ -249,10 +251,14 @@ export default function SkillVideoPlayer({
         },
       ],
       receipt: result.receipt,
+      personaId: persona_id,
     })
-      .then(() => setPersistedVideoKey(generationKey))
+      .then(() => {
+        setPersistedVideoKey(generationKey);
+        window.dispatchEvent(new CustomEvent("composer:persona-media-updated"));
+      })
       .catch(() => undefined);
-  }, [experience_id, isLive, persistedVideoKey, prompt, result, state]);
+  }, [experience_id, isLive, persistedVideoKey, persona_id, prompt, result, state]);
 
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-900/60 overflow-hidden">

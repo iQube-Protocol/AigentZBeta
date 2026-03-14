@@ -2838,6 +2838,42 @@ export const ComposerStudio = () => {
         } catch (updateErr: any) {
           console.warn("Failed to update edited ExperienceQube:", updateErr);
         }
+      } else if (completedExperience) {
+        try {
+          const persistRes = await fetch(`/api/composer/experiences/${completedExperience.id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name: completedExperience.name,
+              description: completedExperience.description,
+              goal: completedExperience.goal,
+              mechanics: completedExperience.mechanics,
+              metrics: completedExperience.metrics,
+              template_id: completedExperience.template_id,
+              status: completedExperience.status,
+              configuration: completedExperience.configuration,
+              components: completedExperience.components,
+              execution: completedExperience.execution,
+              access: completedExperience.access,
+              metadata: completedExperience.metadata,
+            }),
+          });
+          if (!persistRes.ok) throw new Error("Failed to persist ExperienceQube metadata after completion.");
+          const persistedData = await persistRes.json();
+          const persistedExperience = persistedData.experience_qube || completedExperience;
+          setExperiences((prev) => {
+            const next = prev.map((exp) =>
+              exp.id === persistedExperience.id ? persistedExperience : exp
+            );
+            cacheExperiencesForTenant(tenantId, next);
+            return next;
+          });
+          setSelectedExperience(persistedExperience);
+          setSelectedExperienceId(persistedExperience.id);
+          setExperience(persistedExperience);
+        } catch (persistErr: any) {
+          console.warn("Failed to persist completed ExperienceQube metadata:", persistErr);
+        }
       }
     } catch (err: any) {
       setSessionError(err.message || "Failed to complete session");
@@ -3680,23 +3716,22 @@ export const ComposerStudio = () => {
     setEditableImageLandscapePrompt(editableGenerationDefaults.imageLandscapePrompt);
     setEditableVideoPrompt(editableGenerationDefaults.videoPrompt);
   }, [editableGenerationSourceKey]);
-  useEffect(() => {
+
+  const refreshPersonaMediaLibrary = useCallback(() => {
     const personaKey = (activePersonaId || userId || "").trim();
     if (!personaKey) {
       setPersonaMediaLibrary([]);
       return;
     }
 
-    let active = true;
     setPersonaMediaLibraryLoading(true);
 
-    fetch(
+    return fetch(
       `/api/ops/state/user-preferences?userId=${encodeURIComponent(personaKey)}&category=workflow&keys=${encodeURIComponent("composer_generated_media_library_v1")}`,
       { cache: "no-store" }
     )
       .then(async (response) => {
         const data = await response.json().catch(() => null);
-        if (!active) return;
         const rawLibrary = data?.preferences?.composer_generated_media_library_v1;
         if (!Array.isArray(rawLibrary)) {
           setPersonaMediaLibrary([]);
@@ -3709,18 +3744,35 @@ export const ComposerStudio = () => {
         );
       })
       .catch(() => {
-        if (!active) return;
         setPersonaMediaLibrary([]);
       })
       .finally(() => {
-        if (!active) return;
         setPersonaMediaLibraryLoading(false);
       });
+  }, [activePersonaId, userId]);
+
+  useEffect(() => {
+    let active = true;
+    const run = async () => {
+      try {
+        await refreshPersonaMediaLibrary();
+      } catch {
+        if (!active) return;
+      }
+    };
+    void run();
+
+    const handlePersonaMediaUpdated = () => {
+      if (!active) return;
+      void refreshPersonaMediaLibrary();
+    };
+    window.addEventListener("composer:persona-media-updated", handlePersonaMediaUpdated);
 
     return () => {
       active = false;
+      window.removeEventListener("composer:persona-media-updated", handlePersonaMediaUpdated);
     };
-  }, [activePersonaId, userId]);
+  }, [refreshPersonaMediaLibrary]);
   const buildComposerChatRequestContext = useCallback(
     (prompt: string) => {
       const lower = prompt.toLowerCase();

@@ -12,6 +12,7 @@ interface SkillImagePlayerProps {
   landscape_prompt?: string;
   visual_style?: string;
   experience_id?: string;
+  persona_id?: string;
   autoInvoke?: boolean;
   initial_images?: GeneratedImage[];
   initial_receipt?: Record<string, unknown>;
@@ -156,6 +157,7 @@ export default function SkillImagePlayer({
   landscape_prompt,
   visual_style = "editorial",
   experience_id,
+  persona_id,
   autoInvoke = false,
   initial_images,
   initial_receipt,
@@ -310,10 +312,14 @@ export default function SkillImagePlayer({
       experienceId: experience_id,
       assets,
       receipt: result.receipt,
+      personaId: persona_id,
     })
-      .then(() => setPersistedGenerationKey(generationKey))
+      .then(() => {
+        setPersistedGenerationKey(generationKey);
+        window.dispatchEvent(new CustomEvent("composer:persona-media-updated"));
+      })
       .catch(() => undefined);
-  }, [experience_id, persistedGenerationKey, result, state]);
+  }, [experience_id, persona_id, persistedGenerationKey, result, state]);
 
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60">
