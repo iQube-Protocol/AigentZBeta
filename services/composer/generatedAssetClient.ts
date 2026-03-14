@@ -24,6 +24,22 @@ type LifecycleSummary = {
   lastGeneratedByPersonaId?: string;
 };
 
+type PersonaGeneratedMediaRecord = {
+  id: string;
+  experienceId: string;
+  personaId: string;
+  type: "image" | "video";
+  label: string;
+  provider?: string;
+  orientation?: "portrait" | "landscape";
+  assetUrl?: string;
+  storagePath?: string;
+  receiptRef?: string;
+  prompt?: string;
+  createdAt?: string;
+  updatedAt: string;
+};
+
 export type PersistableGeneratedAsset = ComposerGeneratedAssetRef & {
   prompt?: string;
   createdAt?: string;
@@ -94,6 +110,78 @@ function normalizeReceipt(
       ...payload,
     },
   };
+}
+
+function toPersonaMediaRecord(
+  experienceId: string,
+  personaId: string,
+  asset: PersistableGeneratedAsset,
+): PersonaGeneratedMediaRecord {
+  return {
+    id: asset.id,
+    experienceId,
+    personaId,
+    type: asset.type,
+    label: asset.label,
+    provider: asset.provider,
+    orientation: asset.orientation,
+    assetUrl: asset.assetUrl,
+    storagePath: asset.storagePath,
+    receiptRef: asset.receiptRef,
+    prompt: asset.prompt,
+    createdAt: asset.createdAt,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+async function persistPersonaGeneratedMediaLibrary(options: {
+  personaId?: string;
+  experienceId: string;
+  assets: PersistableGeneratedAsset[];
+}) {
+  const personaId = options.personaId?.trim();
+  if (!personaId || options.assets.length === 0) return;
+
+  const key = "composer_generated_media_library_v1";
+  const existingResponse = await fetch(
+    `/api/ops/state/user-preferences?userId=${encodeURIComponent(personaId)}&category=workflow&keys=${encodeURIComponent(key)}`,
+    { cache: "no-store" }
+  );
+
+  let existingLibrary: PersonaGeneratedMediaRecord[] = [];
+  if (existingResponse.ok) {
+    const existingJson = await existingResponse.json().catch(() => null);
+    const raw = existingJson?.preferences?.[key];
+    if (Array.isArray(raw)) {
+      existingLibrary = raw.filter(
+        (item): item is PersonaGeneratedMediaRecord => Boolean(item && typeof item === "object")
+      );
+    }
+  }
+
+  const nextById = new Map<string, PersonaGeneratedMediaRecord>();
+  existingLibrary.forEach((item) => nextById.set(item.id, item));
+  options.assets.forEach((asset) => {
+    nextById.set(
+      asset.id,
+      toPersonaMediaRecord(options.experienceId, personaId, asset)
+    );
+  });
+
+  const nextLibrary = Array.from(nextById.values())
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+    .slice(0, 100);
+
+  await fetch("/api/ops/state/user-preferences", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      userId: personaId,
+      preferences: {
+        [key]: nextLibrary,
+      },
+    }),
+  });
 }
 
 export async function persistGeneratedAssetsForExperience(options: {
@@ -197,6 +285,12 @@ export async function persistGeneratedAssetsForExperience(options: {
   if (!updateResponse.ok) {
     throw new Error(`Failed to persist generated assets for ${options.experienceId}`);
   }
+
+  void persistPersonaGeneratedMediaLibrary({
+    personaId: creatorPersonaId,
+    experienceId: options.experienceId,
+    assets: options.assets,
+  }).catch(() => undefined);
 
   const assetTypes = new Set(options.assets.map((asset) => asset.type));
   if (assetTypes.has("image")) {
