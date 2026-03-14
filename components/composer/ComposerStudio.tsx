@@ -31,7 +31,12 @@ import {
 import type { ComposerGeneratedAssetRef } from "@/services/copilot/composer/types";
 import { resolveRuntimeIdentity } from "@/services/runtime/identityResolver";
 import { recordRuntimeLifecycleContribution } from "@/services/composer/runtimeLifecycleClient";
-import { dispatchComposerDeployment } from "@/services/composer/deploymentBlock";
+import {
+  dispatchComposerDeployment,
+  getDeploymentTargetLabel,
+  type ComposerDeploymentResult,
+  type ComposerDeploymentTarget,
+} from "@/services/composer/deploymentBlock";
 import {
   markPersonaGeneratedMediaLifecycle,
   markPersonaGeneratedMediaUsage,
@@ -1338,13 +1343,11 @@ export const ComposerStudio = () => {
     try {
       const manualChannelId = mcpChannelId.trim();
       const normalizedChannelId = /^\d+$/.test(manualChannelId) ? manualChannelId : "";
-      const deploymentTarget =
-        mcpProvider === "discord" ? "discord_mcp" : "mcp_app";
       const deployment = await dispatchComposerDeployment({
         tenantId,
         experienceId: mcpExperience.id,
         personaId: activePersonaId || userId,
-        target: deploymentTarget,
+        target: mcpDeploymentTarget,
         provider: mcpProvider,
         mode: mcpDispatchMode,
         tool: mcpTool,
@@ -1359,11 +1362,18 @@ export const ComposerStudio = () => {
       if (!deployment.ok) {
         throw new Error(deployment.error || "Failed to dispatch provider payload");
       }
+      setDeploymentResultsByTarget((prev) => ({
+        ...prev,
+        [deployment.target]: deployment,
+      }));
       setMcpResult({
         mode: "deployment-block",
         target: deployment.target,
         provider: mcpProvider,
-        output: deployment.response,
+        output: {
+          deployment,
+          ...(deployment.response || {}),
+        },
       });
     } catch (error: any) {
       setMcpError(error?.message || "Failed to dispatch provider payload");
@@ -1632,11 +1642,15 @@ export const ComposerStudio = () => {
     "pill.get" | "capsule.get" | "mini_runtime.get" | "codex.entry" | "invite.create" | "share.compose" | "next.best"
   >("next.best");
   const [mcpProvider, setMcpProvider] = useState<"discord" | "whatsapp" | "telegram">("discord");
+  const [mcpDeploymentTarget, setMcpDeploymentTarget] = useState<ComposerDeploymentTarget>("discord_mcp");
   const [mcpDispatchMode, setMcpDispatchMode] = useState<"simulate" | "live">("simulate");
   const [mcpChannelId, setMcpChannelId] = useState("886793716273119252");
   const [mcpDiscordInvite, setMcpDiscordInvite] = useState("https://discord.gg/Gzg9wDMVSB");
   const [mcpMessage, setMcpMessage] = useState("Show me a visual-first Qriptopian reading sprint.");
   const [mcpResult, setMcpResult] = useState<any>(null);
+  const [deploymentResultsByTarget, setDeploymentResultsByTarget] = useState<
+    Partial<Record<ComposerDeploymentTarget, ComposerDeploymentResult>>
+  >({});
   const [mcpError, setMcpError] = useState<string | null>(null);
   const [mcpLoading, setMcpLoading] = useState(false);
   const [mcpDiscordStatusLoading, setMcpDiscordStatusLoading] = useState(false);
@@ -1649,6 +1663,53 @@ export const ComposerStudio = () => {
     const local = resolveExperiencePrimaryMedia(mcpExperience, codexContentItems);
     return local || inspectorFetchedMedia;
   }, [mcpExperience, codexContentItems, inspectorFetchedMedia]);
+  const deploymentTargetCards = useMemo(() => {
+    const targets: ComposerDeploymentTarget[] = [
+      "studio_preview",
+      "runtime_launch",
+      "mcp_app",
+      "discord_mcp",
+    ];
+    return targets.map((target) => {
+      const latest = deploymentResultsByTarget[target];
+      const ready =
+        target === "studio_preview"
+          ? Boolean(mcpExperience?.id)
+          : target === "runtime_launch"
+            ? Boolean(mcpExperience?.id && runtimePreviewLoaded)
+            : target === "mcp_app"
+              ? Boolean(mcpExperience?.id)
+              : Boolean(
+                  mcpExperience?.id &&
+                    mcpProvider === "discord" &&
+                    (mcpDiscordStatus?.ready || mcpDiscordStatusState === "ok")
+                );
+      const note =
+        target === "studio_preview"
+          ? "Local Studio proof surface."
+          : target === "runtime_launch"
+            ? "Launchable runtime endpoint."
+            : target === "mcp_app"
+              ? "MCP-backed app deployment path."
+              : mcpProvider === "discord"
+                ? "Discord delivery via MCP dispatch."
+                : "Discord target requires Discord provider.";
+      return {
+        id: target,
+        label: getDeploymentTargetLabel(target),
+        ready,
+        note,
+        latest,
+      };
+    });
+  }, [
+    deploymentResultsByTarget,
+    mcpDiscordStatus?.ready,
+    mcpDiscordStatusState,
+    mcpExperience?.id,
+    mcpProvider,
+    runtimePreviewLoaded,
+  ]);
   const inspectorSourceBadge = useMemo(
     () =>
       resolveInspectorSourceBadge({
@@ -1735,6 +1796,12 @@ export const ComposerStudio = () => {
     setMcpDiscordStatusMessage("Not checked yet.");
     setMcpDiscordStatus(null);
   }, [mcpProvider, mcpChannelId, mcpDiscordInvite]);
+
+  useEffect(() => {
+    if (mcpDeploymentTarget === "discord_mcp" && mcpProvider !== "discord") {
+      setMcpDeploymentTarget("mcp_app");
+    }
+  }, [mcpDeploymentTarget, mcpProvider]);
 
   useEffect(() => {
     let cancelled = false;
@@ -6249,6 +6316,51 @@ export const ComposerStudio = () => {
                 </div>
 
                 <div>
+                  <label className="mb-1 block text-xs text-slate-400">Deployment Target</label>
+                  <select
+                    value={mcpDeploymentTarget}
+                    onChange={(e) => setMcpDeploymentTarget(e.target.value as ComposerDeploymentTarget)}
+                    className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
+                  >
+                    <option value="studio_preview">Studio Preview</option>
+                    <option value="runtime_launch">Runtime Launch</option>
+                    <option value="mcp_app">MCP App Deployment</option>
+                    <option value="discord_mcp">Discord via MCP</option>
+                  </select>
+                </div>
+
+                <div className="grid gap-2">
+                  {deploymentTargetCards.map((target) => (
+                    <div
+                      key={target.id}
+                      className={`rounded-lg border px-3 py-2 text-xs ${
+                        mcpDeploymentTarget === target.id
+                          ? "border-fuchsia-400/40 bg-fuchsia-500/10"
+                          : "border-slate-700 bg-slate-900/60"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-medium text-white">{target.label}</span>
+                        <span
+                          className={
+                            target.ready ? "text-emerald-300" : "text-amber-300"
+                          }
+                        >
+                          {target.ready ? "ready" : "blocked"}
+                        </span>
+                      </div>
+                      <div className="mt-1 text-slate-400">{target.note}</div>
+                      {target.latest ? (
+                        <div className="mt-1 text-slate-500">
+                          Last result: {target.latest.status}
+                          {target.latest.mode ? ` · ${target.latest.mode}` : ""}
+                        </div>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+
+                <div>
                   <label className="mb-1 block text-xs text-slate-400">Dispatch Mode</label>
                   <select
                     value={mcpDispatchMode}
@@ -6333,9 +6445,11 @@ export const ComposerStudio = () => {
                     disabled={mcpLoading}
                     className="rounded-lg border border-emerald-400/60 bg-emerald-400/10 px-3 py-2 text-sm font-semibold text-emerald-200 hover:bg-emerald-400/20 disabled:opacity-60"
                   >
-                    {mcpDispatchMode === "live" ? "Dispatch to Provider" : "Simulate Provider Dispatch"}
+                    {mcpDispatchMode === "live"
+                      ? `Deploy to ${getDeploymentTargetLabel(mcpDeploymentTarget)}`
+                      : `Simulate ${getDeploymentTargetLabel(mcpDeploymentTarget)}`}
                   </button>
-                  {mcpProvider === "discord" ? (
+                  {mcpDeploymentTarget === "discord_mcp" ? (
                     <button
                       type="button"
                       onClick={() => void checkDiscordConnectionStatus()}
@@ -6347,7 +6461,7 @@ export const ComposerStudio = () => {
                   ) : null}
                 </div>
 
-                {mcpProvider === "discord" && mcpDiscordStatus ? (
+                {mcpDeploymentTarget === "discord_mcp" && mcpDiscordStatus ? (
                   <div className="rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-xs">
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-slate-300">
@@ -6370,7 +6484,7 @@ export const ComposerStudio = () => {
                   </div>
                 ) : null}
 
-                {mcpProvider === "discord" ? (
+                {mcpDeploymentTarget === "discord_mcp" ? (
                   <div
                     className={`rounded-lg border px-3 py-2 text-xs ${
                       mcpDiscordStatusState === "ok"
