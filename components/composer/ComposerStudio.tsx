@@ -129,6 +129,22 @@ type ComposerMediaItem = {
   mediaUri: string;
 };
 
+type PersonaGeneratedMediaRecord = {
+  id: string;
+  experienceId: string;
+  personaId: string;
+  type: "image" | "video";
+  label: string;
+  provider?: string;
+  orientation?: "portrait" | "landscape";
+  assetUrl?: string;
+  storagePath?: string;
+  receiptRef?: string;
+  prompt?: string;
+  createdAt?: string;
+  updatedAt: string;
+};
+
 type InspectorMediaPreview = {
   uri: string;
   mediaType: "image" | "video";
@@ -1101,6 +1117,8 @@ export const ComposerStudio = () => {
   const [editableImageLandscapePrompt, setEditableImageLandscapePrompt] = useState("");
   const [editableVideoPrompt, setEditableVideoPrompt] = useState("");
   const [isSavingEditableGeneration, setIsSavingEditableGeneration] = useState(false);
+  const [personaMediaLibrary, setPersonaMediaLibrary] = useState<PersonaGeneratedMediaRecord[]>([]);
+  const [personaMediaLibraryLoading, setPersonaMediaLibraryLoading] = useState(false);
   const { data: codexList } = useCodexList({ useDefaults: true });
   const [copilotContextId, setCopilotContextId] = useState("qripto-codex");
   const [codexContentItems, setCodexContentItems] = useState<ComposerMediaItem[]>([]);
@@ -3342,6 +3360,47 @@ export const ComposerStudio = () => {
     setEditableImageLandscapePrompt(editableGenerationDefaults.imageLandscapePrompt);
     setEditableVideoPrompt(editableGenerationDefaults.videoPrompt);
   }, [editableGenerationSourceKey]);
+  useEffect(() => {
+    const personaKey = (activePersonaId || userId || "").trim();
+    if (!personaKey) {
+      setPersonaMediaLibrary([]);
+      return;
+    }
+
+    let active = true;
+    setPersonaMediaLibraryLoading(true);
+
+    fetch(
+      `/api/ops/state/user-preferences?userId=${encodeURIComponent(personaKey)}&category=workflow&keys=${encodeURIComponent("composer_generated_media_library_v1")}`,
+      { cache: "no-store" }
+    )
+      .then(async (response) => {
+        const data = await response.json().catch(() => null);
+        if (!active) return;
+        const rawLibrary = data?.preferences?.composer_generated_media_library_v1;
+        if (!Array.isArray(rawLibrary)) {
+          setPersonaMediaLibrary([]);
+          return;
+        }
+        setPersonaMediaLibrary(
+          rawLibrary
+            .filter((item): item is PersonaGeneratedMediaRecord => Boolean(item && typeof item === "object"))
+            .sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime())
+        );
+      })
+      .catch(() => {
+        if (!active) return;
+        setPersonaMediaLibrary([]);
+      })
+      .finally(() => {
+        if (!active) return;
+        setPersonaMediaLibraryLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [activePersonaId, userId]);
   const buildComposerChatRequestContext = useCallback(
     (prompt: string) => {
       const lower = prompt.toLowerCase();
@@ -4230,6 +4289,63 @@ export const ComposerStudio = () => {
                               <span className="rounded-full border border-slate-700 px-2 py-1">SkillQubes</span>
                               <span className="rounded-full border border-slate-700 px-2 py-1">BrowserQube</span>
                               <span className="rounded-full border border-slate-700 px-2 py-1">Voice stub</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <div className="text-sm font-semibold text-white">Persona media library</div>
+                            <div className="mt-2 text-sm text-slate-400">
+                              Recently generated persona-scoped media saved from Composer experiences.
+                            </div>
+                          </div>
+                          <div className="text-xs uppercase tracking-widest text-slate-500">
+                            {(activePersonaName || activePersonaId || userId || "persona").slice(0, 32)}
+                          </div>
+                        </div>
+                        <div className="mt-3 space-y-2">
+                          {personaMediaLibraryLoading ? (
+                            <div className="flex items-center gap-2 text-sm text-slate-400">
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Loading saved media...
+                            </div>
+                          ) : personaMediaLibrary.length > 0 ? (
+                            personaMediaLibrary.slice(0, 8).map((item) => (
+                              <div
+                                key={item.id}
+                                className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-900/50 px-3 py-2 text-sm text-slate-200"
+                              >
+                                <div className="min-w-0">
+                                  <div className="truncate font-medium text-white">{item.label}</div>
+                                  <div className="mt-1 flex flex-wrap gap-2 text-xs text-slate-400">
+                                    <span>{item.type === "video" ? "Video" : "Image"}</span>
+                                    {item.orientation ? <span>{item.orientation}</span> : null}
+                                    {item.provider ? <span>{item.provider}</span> : null}
+                                    {item.updatedAt ? (
+                                      <span>{new Date(item.updatedAt).toLocaleString()}</span>
+                                    ) : null}
+                                  </div>
+                                </div>
+                                {item.assetUrl ? (
+                                  <a
+                                    href={item.assetUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="shrink-0 rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-200 transition hover:border-fuchsia-400/60 hover:text-white"
+                                  >
+                                    Open
+                                  </a>
+                                ) : (
+                                  <span className="shrink-0 text-xs text-slate-500">Saved</span>
+                                )}
+                              </div>
+                            ))
+                          ) : (
+                            <div className="text-sm text-slate-400">
+                              Generated image and video assets will appear here once they are saved for the active persona.
                             </div>
                           )}
                         </div>
