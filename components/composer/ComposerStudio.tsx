@@ -31,6 +31,7 @@ import {
 import type { ComposerGeneratedAssetRef } from "@/services/copilot/composer/types";
 import { resolveRuntimeIdentity } from "@/services/runtime/identityResolver";
 import { recordRuntimeLifecycleContribution } from "@/services/composer/runtimeLifecycleClient";
+import { persistGeneratedAssetsForExperience } from "@/services/composer/generatedAssetClient";
 
 type ComposerField = {
   id: string;
@@ -1119,6 +1120,7 @@ export const ComposerStudio = () => {
   const [isSavingEditableGeneration, setIsSavingEditableGeneration] = useState(false);
   const [personaMediaLibrary, setPersonaMediaLibrary] = useState<PersonaGeneratedMediaRecord[]>([]);
   const [personaMediaLibraryLoading, setPersonaMediaLibraryLoading] = useState(false);
+  const [applyingPersonaMediaId, setApplyingPersonaMediaId] = useState<string | null>(null);
   const { data: codexList } = useCodexList({ useDefaults: true });
   const [copilotContextId, setCopilotContextId] = useState("qripto-codex");
   const [codexContentItems, setCodexContentItems] = useState<ComposerMediaItem[]>([]);
@@ -3065,6 +3067,75 @@ export const ComposerStudio = () => {
     }
   };
 
+  const handleUsePersonaMediaInExperience = async (item: PersonaGeneratedMediaRecord) => {
+    if (!activeExperienceForEditing?.id || !item.assetUrl) return;
+
+    const experienceId = activeExperienceForEditing.id;
+    const assetId =
+      item.type === "video"
+        ? `${experienceId}:video`
+        : `${experienceId}:${item.orientation === "landscape" ? "landscape" : "portrait"}:image`;
+
+    try {
+      setApplyingPersonaMediaId(item.id);
+      setSessionError(null);
+
+      await persistGeneratedAssetsForExperience({
+        experienceId,
+        assets: [
+          {
+            id: assetId,
+            type: item.type,
+            label:
+              item.type === "video"
+                ? "Generated video"
+                : item.orientation === "landscape"
+                  ? "Landscape generated image"
+                  : "Portrait generated image",
+            provider: item.provider,
+            orientation: item.type === "image" ? item.orientation : undefined,
+            assetUrl: item.assetUrl,
+            storagePath: item.storagePath,
+            receiptRef: item.receiptRef,
+            prompt: item.prompt,
+            createdAt: item.createdAt || item.updatedAt || new Date().toISOString(),
+          },
+        ],
+      });
+
+      const response = await fetch(`/api/composer/experiences/${experienceId}`, {
+        cache: "no-store",
+      });
+      if (!response.ok) {
+        throw new Error("Saved media was applied, but the experience could not be refreshed.");
+      }
+
+      const data = await response.json();
+      const refreshedExperience = data.experience_qube || null;
+      if (refreshedExperience) {
+        setExperiences((prev) => {
+          const exists = prev.some((exp) => exp.id === refreshedExperience.id);
+          const next = exists
+            ? prev.map((exp) => (exp.id === refreshedExperience.id ? refreshedExperience : exp))
+            : [refreshedExperience, ...prev];
+          cacheExperiencesForTenant(tenantId, next);
+          return next;
+        });
+        if (selectedExperienceId === refreshedExperience.id) {
+          setSelectedExperience(refreshedExperience);
+        }
+        if (experience?.id === refreshedExperience.id) {
+          setExperience(refreshedExperience);
+        }
+        setPreviewAction(`Reused saved ${item.type} in ${refreshedExperience.name}`);
+      }
+    } catch (err: any) {
+      setSessionError(err?.message || "Failed to apply saved media to this experience.");
+    } finally {
+      setApplyingPersonaMediaId(null);
+    }
+  };
+
   const handleLogAuditEvent = async (
     experienceId: string,
     action: "pipeline_run" | "pipeline_error" | "remedy_proposed" | "remedy_rejected",
@@ -4329,18 +4400,35 @@ export const ComposerStudio = () => {
                                     ) : null}
                                   </div>
                                 </div>
-                                {item.assetUrl ? (
-                                  <a
-                                    href={item.assetUrl}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="shrink-0 rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-200 transition hover:border-fuchsia-400/60 hover:text-white"
-                                  >
-                                    Open
-                                  </a>
-                                ) : (
-                                  <span className="shrink-0 text-xs text-slate-500">Saved</span>
-                                )}
+                                <div className="flex shrink-0 items-center gap-2">
+                                  {activeExperienceForEditing?.id && item.assetUrl ? (
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-8 border-slate-700 bg-transparent px-2 text-xs text-slate-200 hover:border-fuchsia-400/60 hover:bg-slate-900"
+                                      disabled={applyingPersonaMediaId === item.id}
+                                      onClick={() => void handleUsePersonaMediaInExperience(item)}
+                                    >
+                                      {applyingPersonaMediaId === item.id ? (
+                                        <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                                      ) : null}
+                                      Use in experience
+                                    </Button>
+                                  ) : null}
+                                  {item.assetUrl ? (
+                                    <a
+                                      href={item.assetUrl}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-200 transition hover:border-fuchsia-400/60 hover:text-white"
+                                    >
+                                      Open
+                                    </a>
+                                  ) : (
+                                    <span className="text-xs text-slate-500">Saved</span>
+                                  )}
+                                </div>
                               </div>
                             ))
                           ) : (
