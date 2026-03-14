@@ -31,6 +31,7 @@ import {
 import type { ComposerGeneratedAssetRef } from "@/services/copilot/composer/types";
 import { resolveRuntimeIdentity } from "@/services/runtime/identityResolver";
 import { recordRuntimeLifecycleContribution } from "@/services/composer/runtimeLifecycleClient";
+import { dispatchComposerDeployment } from "@/services/composer/deploymentBlock";
 import {
   markPersonaGeneratedMediaLifecycle,
   markPersonaGeneratedMediaUsage,
@@ -1337,33 +1338,32 @@ export const ComposerStudio = () => {
     try {
       const manualChannelId = mcpChannelId.trim();
       const normalizedChannelId = /^\d+$/.test(manualChannelId) ? manualChannelId : "";
-      const res = await fetch("/api/messenger/dispatch", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          provider: mcpProvider,
-          mode: mcpDispatchMode,
-          tool: mcpTool,
-          tenantId,
-          experienceId: mcpExperience.id,
-          personaId: activePersonaId || userId,
-          message: mcpMessage,
-          channelId: normalizedChannelId,
-          inviteUrl: mcpDiscordInvite,
-          publishUrl: `/studio/composer/experience/${encodeURIComponent(mcpExperience.id)}`,
-          thumbnailUrl: inspectorMediaPreview?.uri || "",
-          titleOverride: mcpExperience.name || "",
-          campaignId: "experience-distribution-demo",
-        }),
+      const deploymentTarget =
+        mcpProvider === "discord" ? "discord_mcp" : "mcp_app";
+      const deployment = await dispatchComposerDeployment({
+        tenantId,
+        experienceId: mcpExperience.id,
+        personaId: activePersonaId || userId,
+        target: deploymentTarget,
+        provider: mcpProvider,
+        mode: mcpDispatchMode,
+        tool: mcpTool,
+        message: mcpMessage,
+        channelId: normalizedChannelId,
+        inviteUrl: mcpDiscordInvite,
+        publishUrl: `/studio/composer/experience/${encodeURIComponent(mcpExperience.id)}`,
+        thumbnailUrl: inspectorMediaPreview?.uri || "",
+        titleOverride: mcpExperience.name || "",
+        campaignId: "experience-distribution-demo",
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data?.success) {
-        throw new Error(data?.error || "Failed to dispatch provider payload");
+      if (!deployment.ok) {
+        throw new Error(deployment.error || "Failed to dispatch provider payload");
       }
       setMcpResult({
-        mode: "provider-dispatch",
+        mode: "deployment-block",
+        target: deployment.target,
         provider: mcpProvider,
-        output: data,
+        output: deployment.response,
       });
     } catch (error: any) {
       setMcpError(error?.message || "Failed to dispatch provider payload");
@@ -1671,7 +1671,7 @@ export const ComposerStudio = () => {
 
     if (!mcpResult) return base;
 
-    if (mcpResult.mode === "provider-dispatch") {
+    if (mcpResult.mode === "provider-dispatch" || mcpResult.mode === "deployment-block") {
       const dispatch = mcpResult.output?.providerDispatch || {};
       const response = mcpResult.output?.mcpResponse || {};
       const responseArtifact = response?.artifact || {};
