@@ -4796,8 +4796,34 @@ export const ComposerStudio = () => {
                             filteredPersonaMediaLibrary.slice(0, 8).map((item) => (
                               <div
                                 key={item.id}
-                                className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-900/50 px-3 py-2 text-sm text-slate-200"
+                                className="grid gap-4 rounded-xl border border-slate-800 bg-slate-900/50 p-4 text-sm text-slate-200 lg:grid-cols-[140px_minmax(0,1fr)_auto]"
                               >
+                                <div className="overflow-hidden rounded-xl border border-slate-800 bg-slate-950/70">
+                                  {item.assetUrl ? (
+                                    item.type === "video" ? (
+                                      <video
+                                        src={item.assetUrl}
+                                        className="h-28 w-full object-cover"
+                                        muted
+                                        playsInline
+                                        preload="metadata"
+                                      />
+                                    ) : (
+                                      <img
+                                        src={item.assetUrl}
+                                        alt={item.label}
+                                        className="h-28 w-full object-cover"
+                                        loading="lazy"
+                                        decoding="async"
+                                      />
+                                    )
+                                  ) : (
+                                    <div className="flex h-28 items-center justify-center text-xs text-slate-500">
+                                      Saved asset
+                                    </div>
+                                  )}
+                                </div>
+
                                 <div className="min-w-0">
                                   {editingPersonaMediaId === item.id ? (
                                     <div className="flex items-center gap-2">
@@ -4835,51 +4861,71 @@ export const ComposerStudio = () => {
                                   ) : (
                                     <div className="truncate font-medium text-white">{item.label}</div>
                                   )}
-                                  <div className="mt-1 flex flex-wrap gap-2 text-xs text-slate-400">
-                                    <span>{item.type === "video" ? "Video" : "Image"}</span>
-                                    {item.orientation ? <span>{item.orientation}</span> : null}
-                                    {item.provider ? <span>{item.provider}</span> : null}
-                                    {item.archivedAt ? <span className="text-amber-300">archived</span> : null}
+                                  <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                                    <span className="rounded-full border border-slate-700 px-2 py-1 text-slate-300">
+                                      {item.type === "video" ? "Video" : "Image"}
+                                    </span>
+                                    {item.orientation ? (
+                                      <span className="rounded-full border border-slate-700 px-2 py-1 text-slate-300">
+                                        {item.orientation}
+                                      </span>
+                                    ) : null}
+                                    {item.provider ? (
+                                      <span className="rounded-full border border-slate-700 px-2 py-1 text-slate-300">
+                                        {item.provider}
+                                      </span>
+                                    ) : null}
+                                    {item.archivedAt ? (
+                                      <span className="rounded-full border border-amber-400/40 px-2 py-1 text-amber-300">
+                                        archived
+                                      </span>
+                                    ) : null}
                                     {activeExperienceForEditing?.id && item.pinnedToExperienceId === activeExperienceForEditing.id ? (
-                                      <span className="text-fuchsia-300">pinned to active experience</span>
+                                      <span className="rounded-full border border-fuchsia-400/40 px-2 py-1 text-fuchsia-300">
+                                        pinned to active experience
+                                      </span>
                                     ) : null}
                                     {activeExperienceForEditing?.id && item.experienceId === activeExperienceForEditing.id ? (
-                                      <span className="text-emerald-300">generated for active experience</span>
+                                      <span className="rounded-full border border-emerald-400/40 px-2 py-1 text-emerald-300">
+                                        generated for active experience
+                                      </span>
                                     ) : null}
                                     {activeExperienceForEditing?.id && item.lastUsedInExperienceId === activeExperienceForEditing.id ? (
-                                      <span className="text-cyan-300">last reused in active experience</span>
+                                      <span className="rounded-full border border-cyan-400/40 px-2 py-1 text-cyan-300">
+                                        last reused in active experience
+                                      </span>
                                     ) : null}
+                                  </div>
+                                  <div className="mt-3 grid gap-1 text-xs text-slate-400 sm:grid-cols-2">
+                                    {item.lastAction ? <div>State: {item.lastAction}</div> : null}
                                     {typeof item.useCount === "number" && item.useCount > 0 ? (
-                                      <span>{item.useCount} reuse{item.useCount === 1 ? "" : "s"}</span>
+                                      <div>Reused: {item.useCount}</div>
                                     ) : null}
                                     {typeof item.previewCount === "number" && item.previewCount > 0 ? (
-                                      <span>{item.previewCount} preview{item.previewCount === 1 ? "" : "s"}</span>
+                                      <div>Previewed: {item.previewCount}</div>
                                     ) : null}
                                     {typeof item.launchCount === "number" && item.launchCount > 0 ? (
-                                      <span>{item.launchCount} launch{item.launchCount === 1 ? "" : "es"}</span>
+                                      <div>Launched: {item.launchCount}</div>
                                     ) : null}
-                                    {item.lastDeliveryTarget ? (
-                                      <span>via {item.lastDeliveryTarget}</span>
-                                    ) : null}
+                                    {item.lastDeliveryTarget ? <div>Delivered via: {item.lastDeliveryTarget}</div> : null}
                                     {Array.isArray(item.deliveryTargets) && item.deliveryTargets.length > 0 ? (
-                                      <span>{item.deliveryTargets.join(" / ")}</span>
+                                      <div className="sm:col-span-2">Targets: {item.deliveryTargets.join(" / ")}</div>
                                     ) : null}
-                                    {item.lastAction ? <span>{item.lastAction}</span> : null}
                                     {item.lastUsedAt ? (
-                                      <span>last used {new Date(item.lastUsedAt).toLocaleString()}</span>
+                                      <div>Last used: {new Date(item.lastUsedAt).toLocaleString()}</div>
                                     ) : null}
                                     {item.lastPreviewAt ? (
-                                      <span>last preview {new Date(item.lastPreviewAt).toLocaleString()}</span>
+                                      <div>Last preview: {new Date(item.lastPreviewAt).toLocaleString()}</div>
                                     ) : null}
                                     {item.lastLaunchAt ? (
-                                      <span>last launch {new Date(item.lastLaunchAt).toLocaleString()}</span>
+                                      <div>Last launch: {new Date(item.lastLaunchAt).toLocaleString()}</div>
                                     ) : null}
                                     {item.updatedAt ? (
-                                      <span>{new Date(item.updatedAt).toLocaleString()}</span>
+                                      <div>Updated: {new Date(item.updatedAt).toLocaleString()}</div>
                                     ) : null}
                                   </div>
                                 </div>
-                                <div className="flex shrink-0 items-center gap-2">
+                                <div className="flex shrink-0 flex-wrap items-start justify-start gap-2 lg:max-w-[220px] lg:justify-end">
                                   {editingPersonaMediaId !== item.id ? (
                                     <Button
                                       type="button"
