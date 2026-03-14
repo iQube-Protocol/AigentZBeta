@@ -36,6 +36,7 @@ import {
   markPersonaGeneratedMediaUsage,
   persistGeneratedAssetsForExperience,
   setPersonaGeneratedMediaPinned,
+  updatePersonaGeneratedMediaRecord,
 } from "@/services/composer/generatedAssetClient";
 
 type ComposerField = {
@@ -161,6 +162,7 @@ type PersonaGeneratedMediaRecord = {
   pinnedAt?: string;
   deliveryTargets?: string[];
   lastDeliveryTarget?: string;
+  archivedAt?: string;
 };
 
 type InspectorMediaPreview = {
@@ -1139,6 +1141,11 @@ export const ComposerStudio = () => {
   const [personaMediaLibraryLoading, setPersonaMediaLibraryLoading] = useState(false);
   const [applyingPersonaMediaId, setApplyingPersonaMediaId] = useState<string | null>(null);
   const [pinningPersonaMediaId, setPinningPersonaMediaId] = useState<string | null>(null);
+  const [editingPersonaMediaId, setEditingPersonaMediaId] = useState<string | null>(null);
+  const [editingPersonaMediaLabel, setEditingPersonaMediaLabel] = useState("");
+  const [savingPersonaMediaLabelId, setSavingPersonaMediaLabelId] = useState<string | null>(null);
+  const [archivingPersonaMediaId, setArchivingPersonaMediaId] = useState<string | null>(null);
+  const [showArchivedPersonaMedia, setShowArchivedPersonaMedia] = useState(false);
   const [personaMediaScopeFilter, setPersonaMediaScopeFilter] = useState<"all" | "active">("all");
   const [personaMediaTypeFilter, setPersonaMediaTypeFilter] = useState<"all" | "image" | "video">("all");
   const { data: codexList } = useCodexList({ useDefaults: true });
@@ -3266,6 +3273,74 @@ export const ComposerStudio = () => {
     }
   };
 
+  const handleStartEditingPersonaMedia = (item: PersonaGeneratedMediaRecord) => {
+    setEditingPersonaMediaId(item.id);
+    setEditingPersonaMediaLabel(item.label);
+  };
+
+  const handleSavePersonaMediaLabel = async (item: PersonaGeneratedMediaRecord) => {
+    const nextLabel = editingPersonaMediaLabel.trim();
+    if (!nextLabel) {
+      setSessionError("Saved media label cannot be empty.");
+      return;
+    }
+
+    try {
+      setSavingPersonaMediaLabelId(item.id);
+      setSessionError(null);
+      await updatePersonaGeneratedMediaRecord({
+        personaId: activePersonaId || userId,
+        mediaId: item.id,
+        updates: { label: nextLabel },
+      });
+      const now = new Date().toISOString();
+      setPersonaMediaLibrary((prev) =>
+        prev.map((entry) =>
+          entry.id === item.id ? { ...entry, label: nextLabel, updatedAt: now } : entry
+        )
+      );
+      setEditingPersonaMediaId(null);
+      setEditingPersonaMediaLabel("");
+    } catch (err: any) {
+      setSessionError(err?.message || "Failed to save media label.");
+    } finally {
+      setSavingPersonaMediaLabelId(null);
+    }
+  };
+
+  const handleToggleArchivePersonaMedia = async (item: PersonaGeneratedMediaRecord) => {
+    const nextArchivedAt = item.archivedAt ? undefined : new Date().toISOString();
+    try {
+      setArchivingPersonaMediaId(item.id);
+      setSessionError(null);
+      await updatePersonaGeneratedMediaRecord({
+        personaId: activePersonaId || userId,
+        mediaId: item.id,
+        updates: { archivedAt: nextArchivedAt },
+      });
+      const now = new Date().toISOString();
+      setPersonaMediaLibrary((prev) =>
+        prev.map((entry) =>
+          entry.id === item.id
+            ? {
+                ...entry,
+                archivedAt: nextArchivedAt,
+                updatedAt: now,
+              }
+            : entry
+        )
+      );
+      if (editingPersonaMediaId === item.id) {
+        setEditingPersonaMediaId(null);
+        setEditingPersonaMediaLabel("");
+      }
+    } catch (err: any) {
+      setSessionError(err?.message || "Failed to update archived media.");
+    } finally {
+      setArchivingPersonaMediaId(null);
+    }
+  };
+
   const handleLogAuditEvent = async (
     experienceId: string,
     action: "pipeline_run" | "pipeline_error" | "remedy_proposed" | "remedy_rejected",
@@ -3547,6 +3622,9 @@ export const ComposerStudio = () => {
 
     return personaMediaLibrary
       .filter((item) => {
+        if (!showArchivedPersonaMedia && item.archivedAt) {
+          return false;
+        }
         if (personaMediaTypeFilter !== "all" && item.type !== personaMediaTypeFilter) {
           return false;
         }
@@ -3582,7 +3660,7 @@ export const ComposerStudio = () => {
 
         return String(a.label || "").localeCompare(String(b.label || ""));
       });
-  }, [activeExperienceForEditing?.id, personaMediaLibrary, personaMediaScopeFilter, personaMediaTypeFilter]);
+  }, [activeExperienceForEditing?.id, personaMediaLibrary, personaMediaScopeFilter, personaMediaTypeFilter, showArchivedPersonaMedia]);
   const editableGenerationSourceKey = useMemo(
     () =>
       [
@@ -4592,6 +4670,17 @@ export const ComposerStudio = () => {
                           <div className="text-xs text-slate-500">
                             Showing {filteredPersonaMediaLibrary.length} of {personaMediaLibrary.length}
                           </div>
+                          <button
+                            type="button"
+                            onClick={() => setShowArchivedPersonaMedia((value) => !value)}
+                            className={`rounded-full border px-3 py-1 text-xs transition ${
+                              showArchivedPersonaMedia
+                                ? "border-amber-400/40 bg-amber-500/10 text-amber-100"
+                                : "border-slate-700 text-slate-400 hover:text-white"
+                            }`}
+                          >
+                            {showArchivedPersonaMedia ? "Hide archived" : "Show archived"}
+                          </button>
                         </div>
                         <div className="mt-3 space-y-2">
                           {personaMediaLibraryLoading ? (
@@ -4606,11 +4695,47 @@ export const ComposerStudio = () => {
                                 className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-900/50 px-3 py-2 text-sm text-slate-200"
                               >
                                 <div className="min-w-0">
-                                  <div className="truncate font-medium text-white">{item.label}</div>
+                                  {editingPersonaMediaId === item.id ? (
+                                    <div className="flex items-center gap-2">
+                                      <input
+                                        value={editingPersonaMediaLabel}
+                                        onChange={(event) => setEditingPersonaMediaLabel(event.target.value)}
+                                        className="h-8 min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-900/70 px-2 text-sm text-white outline-none transition focus:border-fuchsia-400/50"
+                                      />
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-8 border-slate-700 bg-transparent px-2 text-xs text-slate-200"
+                                        disabled={savingPersonaMediaLabelId === item.id}
+                                        onClick={() => void handleSavePersonaMediaLabel(item)}
+                                      >
+                                        {savingPersonaMediaLabelId === item.id ? (
+                                          <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                                        ) : null}
+                                        Save
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-8 px-2 text-xs text-slate-400 hover:text-white"
+                                        onClick={() => {
+                                          setEditingPersonaMediaId(null);
+                                          setEditingPersonaMediaLabel("");
+                                        }}
+                                      >
+                                        Cancel
+                                      </Button>
+                                    </div>
+                                  ) : (
+                                    <div className="truncate font-medium text-white">{item.label}</div>
+                                  )}
                                   <div className="mt-1 flex flex-wrap gap-2 text-xs text-slate-400">
                                     <span>{item.type === "video" ? "Video" : "Image"}</span>
                                     {item.orientation ? <span>{item.orientation}</span> : null}
                                     {item.provider ? <span>{item.provider}</span> : null}
+                                    {item.archivedAt ? <span className="text-amber-300">archived</span> : null}
                                     {activeExperienceForEditing?.id && item.pinnedToExperienceId === activeExperienceForEditing.id ? (
                                       <span className="text-fuchsia-300">pinned to active experience</span>
                                     ) : null}
@@ -4651,6 +4776,30 @@ export const ComposerStudio = () => {
                                   </div>
                                 </div>
                                 <div className="flex shrink-0 items-center gap-2">
+                                  {editingPersonaMediaId !== item.id ? (
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-8 border-slate-700 bg-transparent px-2 text-xs text-slate-200 hover:border-fuchsia-400/60 hover:bg-slate-900"
+                                      onClick={() => handleStartEditingPersonaMedia(item)}
+                                    >
+                                      Rename
+                                    </Button>
+                                  ) : null}
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-8 border-slate-700 bg-transparent px-2 text-xs text-slate-200 hover:border-amber-400/60 hover:bg-slate-900"
+                                    disabled={archivingPersonaMediaId === item.id}
+                                    onClick={() => void handleToggleArchivePersonaMedia(item)}
+                                  >
+                                    {archivingPersonaMediaId === item.id ? (
+                                      <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                                    ) : null}
+                                    {item.archivedAt ? "Unarchive" : "Archive"}
+                                  </Button>
                                   {activeExperienceForEditing?.id ? (
                                     <Button
                                       type="button"

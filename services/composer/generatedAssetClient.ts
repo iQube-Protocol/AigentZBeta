@@ -50,6 +50,7 @@ type PersonaGeneratedMediaRecord = {
   pinnedAt?: string;
   deliveryTargets?: string[];
   lastDeliveryTarget?: string;
+  archivedAt?: string;
 };
 
 export type PersistableGeneratedAsset = ComposerGeneratedAssetRef & {
@@ -166,6 +167,7 @@ function mergePersonaMediaRecord(
     pinnedAt: existing?.pinnedAt,
     deliveryTargets: Array.isArray(existing?.deliveryTargets) ? existing.deliveryTargets : [],
     lastDeliveryTarget: existing?.lastDeliveryTarget,
+    archivedAt: next.archivedAt,
   };
 }
 
@@ -377,6 +379,55 @@ export async function setPersonaGeneratedMediaPinned(options: {
           updatedAt: now,
           pinnedToExperienceId: options.pinnedToExperienceId || undefined,
           pinnedAt: options.pinnedToExperienceId ? now : undefined,
+        }
+      : item
+  );
+
+  await fetch("/api/ops/state/user-preferences", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      userId: personaId,
+      preferences: {
+        [key]: nextLibrary,
+      },
+    }),
+  });
+}
+
+export async function updatePersonaGeneratedMediaRecord(options: {
+  personaId?: string;
+  mediaId: string;
+  updates: Partial<PersonaGeneratedMediaRecord>;
+}) {
+  const personaId = options.personaId?.trim();
+  const mediaId = options.mediaId.trim();
+  if (!personaId || !mediaId) return;
+
+  const key = "composer_generated_media_library_v1";
+  const existingResponse = await fetch(
+    `/api/ops/state/user-preferences?userId=${encodeURIComponent(personaId)}&category=workflow&keys=${encodeURIComponent(key)}`,
+    { cache: "no-store" }
+  );
+
+  let existingLibrary: PersonaGeneratedMediaRecord[] = [];
+  if (existingResponse.ok) {
+    const existingJson = await existingResponse.json().catch(() => null);
+    const raw = existingJson?.preferences?.[key];
+    if (Array.isArray(raw)) {
+      existingLibrary = raw.filter(
+        (item): item is PersonaGeneratedMediaRecord => Boolean(item && typeof item === "object")
+      );
+    }
+  }
+
+  const now = new Date().toISOString();
+  const nextLibrary = existingLibrary.map((item) =>
+    item.id === mediaId
+      ? {
+          ...item,
+          ...options.updates,
+          updatedAt: now,
         }
       : item
   );
