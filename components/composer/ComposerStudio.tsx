@@ -159,6 +159,8 @@ type PersonaGeneratedMediaRecord = {
   lastLaunchAt?: string;
   pinnedToExperienceId?: string;
   pinnedAt?: string;
+  deliveryTargets?: string[];
+  lastDeliveryTarget?: string;
 };
 
 type InspectorMediaPreview = {
@@ -2923,6 +2925,13 @@ export const ComposerStudio = () => {
       lastLifecyclePersonaId: activePersonaId || userId,
     };
 
+    const deliveryTarget =
+      action === "experience_preview"
+        ? "Studio Preview"
+        : action === "experience_launch"
+          ? "Runtime Launch"
+          : source;
+
     void persistExperienceUpdate(
       exp.id,
       {
@@ -2949,6 +2958,7 @@ export const ComposerStudio = () => {
       personaId: activePersonaId || userId,
       experienceId: exp.id,
       action,
+      deliveryTarget,
     }).catch(() => undefined);
 
     setPersonaMediaLibrary((prev) =>
@@ -2973,6 +2983,11 @@ export const ComposerStudio = () => {
             action === "experience_preview" ? now : item.lastPreviewAt,
           lastLaunchAt:
             action === "experience_launch" ? now : item.lastLaunchAt,
+          deliveryTargets:
+            deliveryTarget && !(item.deliveryTargets || []).includes(deliveryTarget)
+              ? [...(item.deliveryTargets || []), deliveryTarget]
+              : item.deliveryTargets,
+          lastDeliveryTarget: deliveryTarget || item.lastDeliveryTarget,
         };
       })
     );
@@ -4613,6 +4628,12 @@ export const ComposerStudio = () => {
                                     ) : null}
                                     {typeof item.launchCount === "number" && item.launchCount > 0 ? (
                                       <span>{item.launchCount} launch{item.launchCount === 1 ? "" : "es"}</span>
+                                    ) : null}
+                                    {item.lastDeliveryTarget ? (
+                                      <span>via {item.lastDeliveryTarget}</span>
+                                    ) : null}
+                                    {Array.isArray(item.deliveryTargets) && item.deliveryTargets.length > 0 ? (
+                                      <span>{item.deliveryTargets.join(" / ")}</span>
                                     ) : null}
                                     {item.lastAction ? <span>{item.lastAction}</span> : null}
                                     {item.lastUsedAt ? (

@@ -48,6 +48,8 @@ type PersonaGeneratedMediaRecord = {
   lastLaunchAt?: string;
   pinnedToExperienceId?: string;
   pinnedAt?: string;
+  deliveryTargets?: string[];
+  lastDeliveryTarget?: string;
 };
 
 export type PersistableGeneratedAsset = ComposerGeneratedAssetRef & {
@@ -162,6 +164,8 @@ function mergePersonaMediaRecord(
     lastLaunchAt: existing?.lastLaunchAt,
     pinnedToExperienceId: existing?.pinnedToExperienceId,
     pinnedAt: existing?.pinnedAt,
+    deliveryTargets: Array.isArray(existing?.deliveryTargets) ? existing.deliveryTargets : [],
+    lastDeliveryTarget: existing?.lastDeliveryTarget,
   };
 }
 
@@ -272,6 +276,7 @@ export async function markPersonaGeneratedMediaLifecycle(options: {
   personaId?: string;
   experienceId: string;
   action: "experience_preview" | "experience_launch";
+  deliveryTarget?: string;
 }) {
   const personaId = options.personaId?.trim();
   const experienceId = options.experienceId.trim();
@@ -300,6 +305,12 @@ export async function markPersonaGeneratedMediaLifecycle(options: {
       item.experienceId === experienceId || item.lastUsedInExperienceId === experienceId;
     if (!matchesExperience) return item;
 
+    const existingTargets = Array.isArray(item.deliveryTargets) ? item.deliveryTargets : [];
+    const nextTargets =
+      options.deliveryTarget && !existingTargets.includes(options.deliveryTarget)
+        ? [...existingTargets, options.deliveryTarget]
+        : existingTargets;
+
     return {
       ...item,
       updatedAt: now,
@@ -315,6 +326,8 @@ export async function markPersonaGeneratedMediaLifecycle(options: {
         options.action === "experience_preview" ? now : item.lastPreviewAt,
       lastLaunchAt:
         options.action === "experience_launch" ? now : item.lastLaunchAt,
+      deliveryTargets: nextTargets,
+      lastDeliveryTarget: options.deliveryTarget || item.lastDeliveryTarget,
     };
   });
 
