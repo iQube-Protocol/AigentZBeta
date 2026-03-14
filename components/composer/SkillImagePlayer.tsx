@@ -118,6 +118,21 @@ export default function SkillImagePlayer({
   const [showReceipt, setShowReceipt] = useState(false);
   const [persistedGenerationKey, setPersistedGenerationKey] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (!Array.isArray(initial_images) || !initial_images.some((image) => Boolean(image?.image_url))) {
+      return;
+    }
+    setResult({
+      ok: true,
+      provider: provider_id,
+      mode: "live",
+      images: initial_images,
+      receipt: initial_receipt,
+    });
+    setState("done");
+    setResultSource("saved");
+  }, [initial_images, initial_receipt, provider_id]);
+
   const availablePrompts = useMemo(
     () =>
       [

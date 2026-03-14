@@ -94,6 +94,40 @@ function getVideoSkillSubhead(skillId: string) {
   return "OpenAI Sora Video Generation";
 }
 
+function getAssetUrl(asset: any): string | null {
+  if (typeof asset?.asset_url === "string" && asset.asset_url.trim()) {
+    return asset.asset_url.trim();
+  }
+  if (typeof asset?.assetUrl === "string" && asset.assetUrl.trim()) {
+    return asset.assetUrl.trim();
+  }
+  if (typeof asset?.image_url === "string" && asset.image_url.trim()) {
+    return asset.image_url.trim();
+  }
+  if (typeof asset?.video_url === "string" && asset.video_url.trim()) {
+    return asset.video_url.trim();
+  }
+  return null;
+}
+
+function getAssetReceiptRef(asset: any): string | null {
+  if (typeof asset?.receipt_ref === "string" && asset.receipt_ref.trim()) {
+    return asset.receipt_ref.trim();
+  }
+  if (typeof asset?.receiptRef === "string" && asset.receiptRef.trim()) {
+    return asset.receiptRef.trim();
+  }
+  return null;
+}
+
+function isImageAsset(asset: any): boolean {
+  return asset?.type === "image" || asset?.media_type === "image";
+}
+
+function isVideoAsset(asset: any): boolean {
+  return asset?.type === "video" || asset?.media_type === "video";
+}
+
 function buildSkillPacket(experience: any) {
   const config = experience.configuration || {};
   const metadata = experience.metadata || {};
@@ -105,8 +139,10 @@ function buildSkillPacket(experience: any) {
   const skillId = skillSel.skill_id || "sora_video_gen_curated";
   const generatedAssets = Array.isArray(metadata.generated_assets) ? metadata.generated_assets : [];
   const videoAsset = generatedAssets.find(
-    (asset: any) => asset?.type === "video" && typeof asset?.asset_url === "string" && asset.asset_url
+    (asset: any) => isVideoAsset(asset) && Boolean(getAssetUrl(asset))
   );
+  const videoUrl = getAssetUrl(videoAsset);
+  const videoReceiptRef = getAssetReceiptRef(videoAsset);
 
   return {
     packet_version: "1.0",
@@ -137,7 +173,7 @@ function buildSkillPacket(experience: any) {
       aspect_ratio: videoPrompt.aspect_ratio || "16:9",
       style: videoPrompt.style || "cinematic",
       creative_pack: intent.creative_pack || null,
-      video_url: videoAsset?.asset_url || null,
+      video_url: videoUrl,
       },
     ui: {
       primary_template: "skill:video_player_v1",
@@ -161,10 +197,10 @@ function buildSkillPacket(experience: any) {
             creative_pack: intent.creative_pack || null,
             autoInvoke: false,
             venice_model: skillSel.venice_model || undefined,
-            video_url: videoAsset?.asset_url || undefined,
+            video_url: videoUrl || undefined,
             initial_receipt:
-              videoAsset?.receipt_ref && metadata.generated_receipts
-                ? metadata.generated_receipts[videoAsset.receipt_ref] || undefined
+              videoReceiptRef && metadata.generated_receipts
+                ? metadata.generated_receipts[videoReceiptRef] || undefined
                 : undefined,
           },
         },
@@ -185,14 +221,14 @@ function buildImagePacket(experience: any) {
   const imageGeneration = config.image_generation || {};
   const providerId = imageGeneration.provider_id || "venice";
   const generatedAssets = Array.isArray(metadata.generated_assets) ? metadata.generated_assets : [];
+  const imageAssets = generatedAssets.filter(
+    (asset: any) =>
+      isImageAsset(asset) &&
+      (asset?.orientation === "portrait" || asset?.orientation === "landscape") &&
+      Boolean(getAssetUrl(asset))
+  );
   const initialImages = generatedAssets
-    .filter(
-      (asset: any) =>
-        asset?.type === "image" &&
-        (asset?.orientation === "portrait" || asset?.orientation === "landscape") &&
-        typeof asset?.asset_url === "string" &&
-        asset.asset_url
-    )
+    .filter((asset: any) => imageAssets.includes(asset))
     .map((asset: any) => ({
       orientation: asset.orientation,
       prompt:
@@ -201,9 +237,12 @@ function buildImagePacket(experience: any) {
           : imageGeneration.landscape_prompt || "",
       ok: true,
       mode: "live",
-      image_url: asset.asset_url,
+      image_url: getAssetUrl(asset),
       model: asset.provider || providerId,
     }));
+  const imageReceiptRef = getAssetReceiptRef(
+    imageAssets.find((asset: any) => Boolean(getAssetReceiptRef(asset)))
+  );
 
   return {
     packet_version: "1.0",
@@ -235,9 +274,7 @@ function buildImagePacket(experience: any) {
       initial_images: initialImages,
       initial_receipt:
         initialImages.length > 0 && metadata.generated_receipts
-          ? metadata.generated_receipts[
-              generatedAssets.find((asset: any) => asset?.type === "image" && asset?.receipt_ref)?.receipt_ref
-            ] || undefined
+          ? metadata.generated_receipts[imageReceiptRef || ""] || undefined
           : undefined,
     },
     ui: {
@@ -262,9 +299,7 @@ function buildImagePacket(experience: any) {
             initial_images: initialImages,
             initial_receipt:
               initialImages.length > 0 && metadata.generated_receipts
-                ? metadata.generated_receipts[
-                    generatedAssets.find((asset: any) => asset?.type === "image" && asset?.receipt_ref)?.receipt_ref
-                  ] || undefined
+                ? metadata.generated_receipts[imageReceiptRef || ""] || undefined
                 : undefined,
           },
         },

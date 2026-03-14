@@ -146,6 +146,20 @@ export default function SkillVideoPlayer({
   const resolvedProvider = result?.provider || initialProvider;
   const providerLabel = getProviderLabel(resolvedProvider);
 
+  useEffect(() => {
+    if (!initial_video_url) return;
+    setResult({
+      ok: true,
+      mode: "live",
+      provider: initialProvider,
+      video_url: initial_video_url,
+      receipt: initial_receipt,
+      skill_composite: 78,
+    });
+    setState("done");
+    setResultSource("saved");
+  }, [initialProvider, initial_receipt, initial_video_url]);
+
   const invoke = useCallback(async () => {
     setState("invoking");
     setResult(null);
