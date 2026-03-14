@@ -20,6 +20,7 @@ interface DVNReceipt {
   timestamp: string;
   receipt_type: string;
   payload: {
+    experience_id?: string;
     thread_key?: string;
     request_id?: string;
     provider?: string;
