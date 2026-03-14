@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { composerService } from "@/services/composer/composerService";
 import { getTemplateRegistry } from "@/services/agui/TemplateRegistry";
+import { getSupabaseServer } from "@/app/api/_lib/supabaseServer";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -147,6 +148,86 @@ function getGeneratedReceipts(metadata: any): Array<Record<string, any>> {
   );
 }
 
+type PersonaGeneratedMediaRecord = {
+  id: string;
+  experienceId?: string;
+  personaId?: string;
+  type?: "image" | "video";
+  label?: string;
+  provider?: string;
+  orientation?: "portrait" | "landscape";
+  assetUrl?: string;
+  storagePath?: string;
+  receiptRef?: string;
+  prompt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+async function loadPersonaGeneratedMediaLibrary(personaId?: string) {
+  const normalizedPersonaId = typeof personaId === "string" ? personaId.trim() : "";
+  if (!normalizedPersonaId) return [] as PersonaGeneratedMediaRecord[];
+
+  const supabase = getSupabaseServer();
+  if (!supabase) return [] as PersonaGeneratedMediaRecord[];
+
+  const { data, error } = await supabase
+    .from("user_preferences")
+    .select("value")
+    .eq("user_id", normalizedPersonaId)
+    .eq("category", "workflow")
+    .eq("key", "composer_generated_media_library_v1")
+    .maybeSingle();
+
+  if (error) {
+    const code = (error as any).code;
+    const message = (error as any).message || "";
+    if (code === "PGRST205" || message.includes("user_preferences")) {
+      return [] as PersonaGeneratedMediaRecord[];
+    }
+    console.error("Failed to load persona generated media library:", error);
+    return [] as PersonaGeneratedMediaRecord[];
+  }
+
+  const raw = data?.value;
+  if (!Array.isArray(raw)) return [] as PersonaGeneratedMediaRecord[];
+
+  return raw.filter(
+    (item): item is PersonaGeneratedMediaRecord => Boolean(item && typeof item === "object")
+  );
+}
+
+function resolveCreatorPersonaId(experience: any) {
+  if (typeof experience?.metadata?.creator_persona?.id === "string" && experience.metadata.creator_persona.id.trim()) {
+    return experience.metadata.creator_persona.id.trim();
+  }
+  if (typeof experience?.creator_id === "string" && experience.creator_id.trim()) {
+    return experience.creator_id.trim();
+  }
+  return undefined;
+}
+
+function getPersonaLibraryAssetsForExperience(
+  library: PersonaGeneratedMediaRecord[],
+  experienceId: string
+) {
+  return library
+    .filter((item) => item.experienceId === experienceId && Boolean(item.assetUrl))
+    .map((item) => ({
+      id: item.id,
+      type: item.type,
+      label: item.label,
+      provider: item.provider,
+      orientation: item.orientation,
+      asset_url: item.assetUrl,
+      storage_path: item.storagePath,
+      receipt_ref: item.receiptRef,
+      prompt: item.prompt,
+      created_at: item.createdAt,
+      updated_at: item.updatedAt,
+    }));
+}
+
 function buildImageAssetsFromReceipts(metadata: any, imageGeneration: any, providerId: string) {
   const receipts = getGeneratedReceipts(metadata);
   const images: Array<{
@@ -209,7 +290,7 @@ function getAssetTimestamp(asset: any): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function buildSkillPacket(experience: any) {
+function buildSkillPacket(experience: any, personaLibraryAssets: any[] = []) {
   const config = experience.configuration || {};
   const metadata = experience.metadata || {};
   const intent = config.intent_timebox || {};
@@ -219,9 +300,10 @@ function buildSkillPacket(experience: any) {
   const rewardAmount = Number(wallet.reward_amount || 0);
   const skillId = skillSel.skill_id || "sora_video_gen_curated";
   const generatedAssets = Array.isArray(metadata.generated_assets) ? metadata.generated_assets : [];
-  const videoAsset = generatedAssets.find(
+  const candidateVideoAssets = [...generatedAssets, ...personaLibraryAssets].filter(
     (asset: any) => isVideoAsset(asset) && Boolean(getAssetUrl(asset))
   );
+  const videoAsset = candidateVideoAssets.sort((a: any, b: any) => getAssetTimestamp(b) - getAssetTimestamp(a))[0];
   const videoUrl = getAssetUrl(videoAsset);
   const videoReceiptRef = getAssetReceiptRef(videoAsset);
 
@@ -295,14 +377,15 @@ function buildSkillPacket(experience: any) {
   };
 }
 
-function buildImagePacket(experience: any) {
+function buildImagePacket(experience: any, personaLibraryAssets: any[] = []) {
   const config = experience.configuration || {};
   const metadata = experience.metadata || {};
   const intent = config.intent_timebox || {};
   const imageGeneration = config.image_generation || {};
   const providerId = imageGeneration.provider_id || "venice";
   const generatedAssets = Array.isArray(metadata.generated_assets) ? metadata.generated_assets : [];
-  const imageAssets = generatedAssets.filter(
+  const combinedAssets = [...generatedAssets, ...personaLibraryAssets];
+  const imageAssets = combinedAssets.filter(
     (asset: any) =>
       isImageAsset(asset) &&
       (asset?.orientation === "portrait" || asset?.orientation === "landscape") &&
@@ -412,12 +495,16 @@ function buildImagePacket(experience: any) {
   };
 }
 
-function buildPacket(experience: any) {
+async function buildPacket(experience: any) {
+  const creatorPersonaId = resolveCreatorPersonaId(experience);
+  const personaLibrary = await loadPersonaGeneratedMediaLibrary(creatorPersonaId);
+  const personaLibraryAssets = getPersonaLibraryAssetsForExperience(personaLibrary, experience.id);
+
   if (isSkillBacked(experience)) {
-    return buildSkillPacket(experience);
+    return buildSkillPacket(experience, personaLibraryAssets);
   }
   if (hasImageGeneration(experience)) {
-    return buildImagePacket(experience);
+    return buildImagePacket(experience, personaLibraryAssets);
   }
 
   const config = experience.configuration || {};
@@ -520,7 +607,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return jsonNoStore({ error: "ExperienceQube not found" }, { status: 404 });
     }
 
-    const packet = buildPacket(experienceQube);
+    const packet = await buildPacket(experienceQube);
     return jsonNoStore({ ok: true, packet });
   } catch (error: any) {
     console.error("Composer packet GET error:", error);
