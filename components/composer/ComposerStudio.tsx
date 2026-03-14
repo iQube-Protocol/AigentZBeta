@@ -3883,6 +3883,91 @@ export const ComposerStudio = () => {
       )
       .slice(0, 5);
   }, [activeExperienceForEditing]);
+  const activeExperienceDeploymentState = useMemo(() => {
+    const raw = activeExperienceForEditing?.metadata?.deployment_state;
+    return raw && typeof raw === "object" ? (raw as Record<string, any>) : null;
+  }, [activeExperienceForEditing]);
+  const selectedDeploymentCard = useMemo(
+    () => deploymentTargetCards.find((target) => target.id === mcpDeploymentTarget) || null,
+    [deploymentTargetCards, mcpDeploymentTarget],
+  );
+  const latestSelectedDeploymentResult = useMemo(() => {
+    const inSession = deploymentResultsByTarget[mcpDeploymentTarget];
+    if (inSession) {
+      return {
+        target: inSession.target,
+        status: inSession.status,
+        provider: inSession.provider,
+        mode: inSession.mode,
+        publishUrl: inSession.publishUrl,
+        launchUrl: inSession.launchUrl,
+        warnings: inSession.warnings,
+        error: inSession.error,
+        deployedAt:
+          activeExperienceDeploymentState?.last_target === mcpDeploymentTarget
+            ? String(activeExperienceDeploymentState.last_deployed_at || "")
+            : undefined,
+      };
+    }
+    if (activeExperienceDeploymentState?.last_target === mcpDeploymentTarget) {
+      return {
+        target: String(activeExperienceDeploymentState.last_target),
+        status: String(activeExperienceDeploymentState.last_status || "unknown"),
+        provider: typeof activeExperienceDeploymentState.last_provider === "string"
+          ? activeExperienceDeploymentState.last_provider
+          : undefined,
+        mode: typeof activeExperienceDeploymentState.last_mode === "string"
+          ? activeExperienceDeploymentState.last_mode
+          : undefined,
+        publishUrl: typeof activeExperienceDeploymentState.last_publish_url === "string"
+          ? activeExperienceDeploymentState.last_publish_url
+          : undefined,
+        launchUrl: typeof activeExperienceDeploymentState.last_launch_url === "string"
+          ? activeExperienceDeploymentState.last_launch_url
+          : undefined,
+        warnings: undefined as string[] | undefined,
+        error: typeof activeExperienceDeploymentState.last_error === "string"
+          ? activeExperienceDeploymentState.last_error
+          : undefined,
+        deployedAt: typeof activeExperienceDeploymentState.last_deployed_at === "string"
+          ? activeExperienceDeploymentState.last_deployed_at
+          : undefined,
+      };
+    }
+    return null;
+  }, [activeExperienceDeploymentState, deploymentResultsByTarget, mcpDeploymentTarget]);
+  const inspectorRemediationSteps = useMemo(() => {
+    const steps: string[] = [];
+
+    if (selectedDeploymentCard?.watchouts?.length) {
+      steps.push(...selectedDeploymentCard.watchouts);
+    }
+    if (mcpDeploymentTarget === "discord_mcp" && !(mcpDiscordStatus?.ready || mcpDiscordStatusState === "ok")) {
+      steps.push("Run Check Discord Connection and confirm a valid channel or invite before live dispatch.");
+    }
+    if (mcpDeploymentTarget === "runtime_launch" && !inspectorMediaPreview?.uri) {
+      steps.push("Generate or attach a playable image or video artifact before runtime launch.");
+    }
+    if (latestSelectedDeploymentResult?.error) {
+      steps.push(`Latest failure: ${latestSelectedDeploymentResult.error}`);
+    }
+    if (mcpDispatchMode === "live" && selectedDeploymentCard && !selectedDeploymentCard.ready) {
+      steps.push("Use Simulation first to verify the deployment payload before retrying live dispatch.");
+    }
+    if (steps.length === 0) {
+      steps.push("No major blockers detected. You can dispatch this target or open the generated launch surface.");
+    }
+
+    return Array.from(new Set(steps)).slice(0, 4);
+  }, [
+    inspectorMediaPreview?.uri,
+    latestSelectedDeploymentResult,
+    mcpDeploymentTarget,
+    mcpDispatchMode,
+    mcpDiscordStatus?.ready,
+    mcpDiscordStatusState,
+    selectedDeploymentCard,
+  ]);
   const filteredPersonaMediaLibrary = useMemo(() => {
     const activeExperienceId = activeExperienceForEditing?.id || null;
 
@@ -5315,6 +5400,80 @@ export const ComposerStudio = () => {
                       </div>
 
                       <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                        <div className="text-sm font-semibold text-white">Latest deployment proof</div>
+                        <div className="mt-3 space-y-2">
+                          {activeExperienceDeploymentState ? (
+                            <div className="rounded-lg border border-slate-800 bg-slate-900/50 px-3 py-3 text-sm text-slate-200">
+                              <div className="flex items-center justify-between gap-3">
+                                <span className="font-medium text-white">
+                                  {getDeploymentTargetLabel(
+                                    String(activeExperienceDeploymentState.last_target || "studio_preview") as ComposerDeploymentTarget,
+                                  )}
+                                </span>
+                                <span
+                                  className={
+                                    String(activeExperienceDeploymentState.last_status || "") === "failed"
+                                      ? "text-rose-300"
+                                      : "text-emerald-300"
+                                  }
+                                >
+                                  {String(activeExperienceDeploymentState.last_status || "unknown")}
+                                </span>
+                              </div>
+                              <div className="mt-2 grid gap-1 text-xs text-slate-400 sm:grid-cols-2">
+                                {activeExperienceDeploymentState.last_provider ? (
+                                  <div>Provider: {String(activeExperienceDeploymentState.last_provider)}</div>
+                                ) : null}
+                                {activeExperienceDeploymentState.last_mode ? (
+                                  <div>Mode: {String(activeExperienceDeploymentState.last_mode)}</div>
+                                ) : null}
+                                {activeExperienceDeploymentState.last_deployed_at ? (
+                                  <div>
+                                    At: {new Date(String(activeExperienceDeploymentState.last_deployed_at)).toLocaleString()}
+                                  </div>
+                                ) : null}
+                                {activeExperienceDeploymentState.last_publish_url ? (
+                                  <div className="sm:col-span-2">
+                                    Publish:{" "}
+                                    <a
+                                      href={String(activeExperienceDeploymentState.last_publish_url)}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="text-cyan-200 underline underline-offset-2"
+                                    >
+                                      Open publish surface
+                                    </a>
+                                  </div>
+                                ) : null}
+                                {activeExperienceDeploymentState.last_launch_url ? (
+                                  <div className="sm:col-span-2">
+                                    Launch:{" "}
+                                    <a
+                                      href={String(activeExperienceDeploymentState.last_launch_url)}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="text-cyan-200 underline underline-offset-2"
+                                    >
+                                      Open launch surface
+                                    </a>
+                                  </div>
+                                ) : null}
+                                {activeExperienceDeploymentState.last_error ? (
+                                  <div className="sm:col-span-2 text-rose-300">
+                                    Error: {String(activeExperienceDeploymentState.last_error)}
+                                  </div>
+                                ) : null}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="text-sm text-slate-400">
+                              No deployment proof is recorded yet for this ExperienceQube.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
                         <div className="text-sm font-semibold text-white">Deployment history</div>
                         <div className="mt-3 space-y-2">
                           {activeExperienceDeploymentHistory.length > 0 ? (
@@ -6727,6 +6886,26 @@ export const ComposerStudio = () => {
                       ? `Deploy to ${getDeploymentTargetLabel(mcpDeploymentTarget)}`
                       : `Simulate ${getDeploymentTargetLabel(mcpDeploymentTarget)}`}
                   </button>
+                  {routingEnvelope.recommendedTarget !== mcpDeploymentTarget ? (
+                    <button
+                      type="button"
+                      onClick={() => setMcpDeploymentTarget(routingEnvelope.recommendedTarget)}
+                      disabled={mcpLoading}
+                      className="rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm font-semibold text-slate-200 hover:border-cyan-400/50 hover:text-white disabled:opacity-60"
+                    >
+                      Use recommended target
+                    </button>
+                  ) : null}
+                  {latestSelectedDeploymentResult ? (
+                    <button
+                      type="button"
+                      onClick={() => void runProviderDispatchSimulation()}
+                      disabled={mcpLoading}
+                      className="rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm font-semibold text-slate-200 hover:border-fuchsia-400/50 hover:text-white disabled:opacity-60"
+                    >
+                      Retry target
+                    </button>
+                  ) : null}
                   {mcpDeploymentTarget === "discord_mcp" ? (
                     <button
                       type="button"
@@ -6781,6 +6960,75 @@ export const ComposerStudio = () => {
                     {mcpError}
                   </div>
                 )}
+
+                <div className="rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-3 text-xs">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="font-medium text-white">Selected target proof</div>
+                    <span
+                      className={
+                        latestSelectedDeploymentResult?.status === "failed"
+                          ? "text-rose-300"
+                          : latestSelectedDeploymentResult
+                            ? "text-emerald-300"
+                            : "text-slate-400"
+                      }
+                    >
+                      {latestSelectedDeploymentResult?.status || "No result yet"}
+                    </span>
+                  </div>
+                  <div className="mt-2 grid gap-1 text-slate-400">
+                    <div>Target: {getDeploymentTargetLabel(mcpDeploymentTarget)}</div>
+                    {latestSelectedDeploymentResult?.provider ? (
+                      <div>Provider: {String(latestSelectedDeploymentResult.provider)}</div>
+                    ) : null}
+                    {latestSelectedDeploymentResult?.mode ? (
+                      <div>Mode: {String(latestSelectedDeploymentResult.mode)}</div>
+                    ) : null}
+                    {latestSelectedDeploymentResult?.deployedAt ? (
+                      <div>At: {new Date(String(latestSelectedDeploymentResult.deployedAt)).toLocaleString()}</div>
+                    ) : null}
+                    {latestSelectedDeploymentResult?.warnings && latestSelectedDeploymentResult.warnings.length > 0 ? (
+                      <div className="text-amber-200/90">
+                        Warnings: {latestSelectedDeploymentResult.warnings.join(" · ")}
+                      </div>
+                    ) : null}
+                    {latestSelectedDeploymentResult?.error ? (
+                      <div className="text-rose-300">Error: {latestSelectedDeploymentResult.error}</div>
+                    ) : null}
+                    {latestSelectedDeploymentResult?.publishUrl ? (
+                      <a
+                        href={latestSelectedDeploymentResult.publishUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-cyan-200 underline underline-offset-2"
+                      >
+                        Open publish surface
+                      </a>
+                    ) : null}
+                    {latestSelectedDeploymentResult?.launchUrl ? (
+                      <a
+                        href={latestSelectedDeploymentResult.launchUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-cyan-200 underline underline-offset-2"
+                      >
+                        Open launch surface
+                      </a>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-3 text-xs">
+                  <div className="font-medium text-white">Deployment remediation</div>
+                  <div className="mt-2 space-y-2 text-slate-300">
+                    {inspectorRemediationSteps.map((step, index) => (
+                      <div key={`${index}-${step}`} className="flex items-start gap-2">
+                        <span className="mt-0.5 text-amber-300">{index + 1}.</span>
+                        <span>{step}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
 
               <div className="flex min-h-[420px] max-h-[calc(92vh-130px)] flex-col overflow-hidden rounded-xl border border-slate-800 bg-slate-950/50 p-4">

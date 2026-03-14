@@ -172,6 +172,8 @@ To avoid fragmenting deployment work into too many tiny releases, the remaining 
 - deployment remediation and retry guidance
 - clearer lifecycle proof and deployment receipts
 - tighter runtime / MCP / Discord handoff
+- quick actions to apply the recommended target or retry the selected target
+- deployment proof visible both in inspector and in the main Resources flow
 
 ## 6. Follow-on Phase
 
