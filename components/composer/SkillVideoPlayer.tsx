@@ -62,6 +62,8 @@ interface InvocationResult {
   sora_fallback_reason?: string;
   provider?: "venice" | "openai";
   venice_model?: string;
+  provider_status?: string;
+  provider_progress?: number;
 }
 
 // Convert skill composite (0–100) to trust dot scale (0–10)
@@ -198,7 +200,11 @@ export default function SkillVideoPlayer({
       if (data.ok && data.mode === "live") {
         setResultSource("generated");
         if (!data.video_url && data.generation_id) {
-          setStatusMessage(`Waiting for ${providerLabel} to finish the video job.`);
+          setStatusMessage(
+            data.provider_status
+              ? `Current ${providerLabel} status: ${String(data.provider_status).toLowerCase()}.`
+              : `Waiting for ${providerLabel} to finish the video job.`
+          );
         }
       }
     } catch (err: any) {
@@ -222,11 +228,39 @@ export default function SkillVideoPlayer({
         setPollAttempts(0);
         setAutoPollPaused(false);
         setStatusMessage(null);
-        setResult(prev => prev ? { ...prev, video_url: data.video_url } : prev);
+        setResult(prev =>
+          prev
+            ? {
+                ...prev,
+                video_url: data.video_url,
+                provider_status: data.status,
+                provider_progress: typeof data.progress === "number" ? data.progress : prev.provider_progress,
+              }
+            : prev
+        );
       } else if (data?.status === "failed" || data?.status === "error") {
-        setResult(prev => prev ? { ...prev, error: data.error || "Generation failed" } : prev);
+        setResult(prev =>
+          prev
+            ? {
+                ...prev,
+                error: data.error || "Generation failed",
+                provider_status: data.status,
+                provider_progress: typeof data.progress === "number" ? data.progress : prev.provider_progress,
+              }
+            : prev
+        );
         setState("error");
       } else {
+        setResult(prev =>
+          prev
+            ? {
+                ...prev,
+                provider_status: typeof data?.status === "string" ? data.status : prev.provider_status,
+                provider_progress:
+                  typeof data?.progress === "number" ? data.progress : prev.provider_progress,
+              }
+            : prev
+        );
         setPollAttempts((count) => {
           const next = count + 1;
           if (next >= MAX_AUTO_POLL_ATTEMPTS) {
@@ -235,7 +269,11 @@ export default function SkillVideoPlayer({
               `${providerLabel} is still processing this video. Auto-checking is paused for now. Use Check Again or Regenerate.`
             );
           } else if (typeof data?.status === "string") {
-            setStatusMessage(`Current ${providerLabel} status: ${data.status.toLowerCase()}.`);
+            const progressLabel =
+              typeof data?.progress === "number" && Number.isFinite(data.progress)
+                ? ` ${Math.max(0, Math.round(data.progress))}%`
+                : "";
+            setStatusMessage(`Current ${providerLabel} status: ${data.status.toLowerCase()}.${progressLabel}`);
           }
           return next;
         });
@@ -515,6 +553,14 @@ export default function SkillVideoPlayer({
                 </p>
                 {statusMessage && (
                   <p className="text-[10px] text-cyan-300/70 mt-2">{statusMessage}</p>
+                )}
+                {result?.provider_status && (
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    Provider state: <span className="font-mono">{result.provider_status}</span>
+                    {typeof result.provider_progress === "number" && Number.isFinite(result.provider_progress)
+                      ? ` · ${Math.max(0, Math.round(result.provider_progress))}%`
+                      : ""}
+                  </p>
                 )}
                 {result?.generation_id && (
                   <p className="text-[10px] text-slate-500 font-mono mt-2">Generation: {result.generation_id}</p>

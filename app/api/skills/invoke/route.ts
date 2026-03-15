@@ -373,6 +373,8 @@ export async function POST(request: NextRequest) {
     let generationId: string | null = null;
     let provider: "venice" | "openai" = isVenice ? "venice" : "openai";
     let veniceModel: string | null = null;
+    let providerStatus: string | null = null;
+    let providerProgress: number | null = null;
 
     if (apiKey && (isVenice || apiKey.startsWith("sk-"))) {
       try {
@@ -382,12 +384,16 @@ export async function POST(request: NextRequest) {
           generationId = vJob.queue_id;
           veniceModel = vJob.model;
           mode = "live";
+          providerStatus = "queued";
+          providerProgress = 0;
           generationMetadata = { provider: "venice", model: veniceModel, queue_id: generationId };
         } else {
         console.log(`[SkillInvoke] Attempting live Sora generation for: "${prompt.substring(0, 60)}..."`);
         const job = await createSoraJob(apiKey, prompt, duration, aspect_ratio);
         generationId = job.id || null;
         console.log(`[SkillInvoke] Sora job created: ${generationId}, status: ${job.status}`);
+        providerStatus = typeof job.status === "string" ? job.status : "queued";
+        providerProgress = typeof job.progress === "number" ? job.progress : 0;
 
         if (job.status === "completed") {
           // Immediate completion (rare) — serve via proxy
@@ -488,6 +494,8 @@ export async function POST(request: NextRequest) {
       receipt,
       provider,
       venice_model: veniceModel || undefined,
+      provider_status: providerStatus || undefined,
+      provider_progress: providerProgress ?? undefined,
       generation_metadata: generationMetadata,
       fallback_reason: mode === "simulation" && generationMetadata?.note ? String(generationMetadata.note) : undefined,
     });
