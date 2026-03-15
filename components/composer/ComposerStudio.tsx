@@ -2654,17 +2654,18 @@ export const ComposerStudio = () => {
       if (wantsVideo) {
         const contextLabel =
           copilotContextOptions.find((opt) => opt.id === copilotContextId)?.label || "The Qriptopian";
-        const providerId =
-          /openai/.test(lower) && !/venice/.test(lower)
-            ? "openai"
-            : "venice";
+        const explicitlyOpenAI = /openai/.test(lower) && !/venice/.test(lower);
+        const explicitlyVenice = /venice/.test(lower);
+        const providerId = explicitlyOpenAI ? "openai" : explicitlyVenice ? "venice" : null;
         const useCommunity = /community|openclaw/.test(lower);
         const skillId =
           useCommunity
             ? "sora_video_gen_community"
             : providerId === "venice"
               ? "venice_video_gen"
-              : "sora_video_gen_curated";
+              : providerId === "openai"
+                ? "sora_video_gen_curated"
+                : null;
         const suggestedPrompt = buildVideoPrompt(prompt, contextLabel);
         const experienceName = deriveExperienceNameFromPrompt(
           prompt,
@@ -2681,7 +2682,7 @@ export const ComposerStudio = () => {
             goal: prompt,
           },
           skill_selection: {
-            skill_id: skillId,
+            ...(skillId ? { skill_id: skillId } : {}),
             trust_override: useCommunity,
           },
           video_prompt: {
@@ -2693,25 +2694,34 @@ export const ComposerStudio = () => {
                 ? "cinematic"
                 : inferVisualStyleFromPrompt(prompt),
           },
+          delegation_stub: {
+            human_selection_required: true,
+            delegated_provider_selection: false,
+            delegation_mode: "future_agentic_routing",
+            delegation_note:
+              "Human-in-the-loop provider and skill selection required for now. Agentic delegation can route this later.",
+          },
         };
 
-        const seeded = await startSeededSessionForTemplate("sora-video-generation", seedData, 2);
-        const providerKnowledge = getComposerProviderKnowledge(providerId);
+        const seeded = await startSeededSessionForTemplate("sora-video-generation", seedData, 1);
+        const providerKnowledge = providerId ? getComposerProviderKnowledge(providerId) : null;
 
         return seeded.ok
           ? [
-              `I set up a **video-led experience path** in **${seeded.templateName || "Sora Video Generation"}** and opened **Customizer** on the video prompt step.`,
+              `I set up a **video-led experience path** in **${seeded.templateName || "Sora Video Generation"}** and opened **Customizer** on **Skill Selection** first.`,
               "",
-              `**Recommended provider**: ${providerKnowledge?.name || providerId}`,
-              `- ${providerKnowledge?.strengths[0] || "Good fit for alpha video generation"}`,
-              `- ${providerKnowledge?.watchouts[0] || "Remember that video is still the more expensive path."}`,
+              `**Provider selection**: human-in-the-loop`,
+              providerKnowledge?.name
+                ? `- Seeded provider hint: ${providerKnowledge.name}`
+                : `- No provider has been preselected so you can choose between OpenAI, Venice, or community explicitly.`,
+              `- Future path stubbed: agentic delegation can select the provider/skill later.`,
               "",
-              `**Selected skill**: ${skillId}`,
+              `**Selected skill**: ${skillId || "Choose in Skill Selection"}`,
               "",
               `**Suggested prompt**`,
               suggestedPrompt,
               "",
-              `Next, review duration, aspect ratio, and style in **Customizer**, then open **Resources** to inspect the selected skill path, provider, and cost envelope.`,
+              `Next, confirm the video skill in **Skill Selection**, then continue into **Video Prompt** to review duration, aspect ratio, and style before checking **Resources**.`,
             ].join("\n")
           : `I prepared a video-led path and a first-pass prompt, but I couldn't open the Customizer session automatically: ${seeded.error}`;
       }
