@@ -1669,6 +1669,18 @@ export const ComposerStudio = () => {
   const [mcpDiscordStatusMessage, setMcpDiscordStatusMessage] = useState("Not checked yet.");
   const [inspectorFetchedMedia, setInspectorFetchedMedia] = useState<InspectorMediaPreview | null>(null);
   const [inspectorRenderMode, setInspectorRenderMode] = useState<"card" | "thread">("card");
+  const inspectorUsesMessengerProvider = mcpDeploymentTarget === "discord_mcp";
+  const inspectorUsesDiscordFields = mcpDeploymentTarget === "discord_mcp";
+  const inspectorProviderLabel =
+    mcpDeploymentTarget === "runtime_launch"
+      ? mcpDeliveryVariant === "runtime_thin_client"
+        ? "METAME THIN CLIENT"
+        : "METAME RUNTIME"
+      : mcpDeploymentTarget === "studio_preview"
+        ? "STUDIO PREVIEW"
+        : mcpDeploymentTarget === "mcp_app"
+          ? "MCP APP"
+          : mcpProvider.toUpperCase();
   const resolvedInspectorDeploymentArtifact = useMemo(
     () =>
       resolveExperienceDeploymentArtifact({
@@ -1743,7 +1755,7 @@ export const ComposerStudio = () => {
       shareText: "",
       depth: "",
       ctaLabel: "",
-      providerLabel: mcpProvider.toUpperCase(),
+      providerLabel: inspectorProviderLabel,
       thumbnailUri: inspectorMediaPreview?.uri || "",
       thumbnailType: inspectorMediaPreview?.mediaType || "",
     };
@@ -1772,7 +1784,14 @@ export const ComposerStudio = () => {
         shareText: responseArtifact?.share_text || "",
         depth: response?.depth || "",
         ctaLabel: dispatch?.cta?.label || "",
-        providerLabel: String(dispatch?.provider || mcpProvider).toUpperCase(),
+        providerLabel:
+          dispatch?.provider === "runtime"
+            ? mcpDeliveryVariant === "runtime_thin_client"
+              ? "METAME THIN CLIENT"
+              : "METAME RUNTIME"
+            : dispatch?.provider === "mcp"
+              ? "MCP APP"
+              : String(dispatch?.provider || mcpProvider).toUpperCase(),
         thumbnailUri: responseThumbnailUri || base.thumbnailUri,
         thumbnailType: responseThumbnailUri ? responseThumbnailType : base.thumbnailType,
       };
@@ -1799,14 +1818,14 @@ export const ComposerStudio = () => {
         shareText: responseArtifact?.share_text || "",
         depth: response?.depth || "",
         ctaLabel: response?.cta?.primary?.label || "",
-        providerLabel: mcpProvider.toUpperCase(),
+        providerLabel: inspectorProviderLabel,
         thumbnailUri: responseThumbnailUri || base.thumbnailUri,
         thumbnailType: responseThumbnailUri ? responseThumbnailType : base.thumbnailType,
       };
     }
 
     return base;
-  }, [mcpResult, mcpExperience?.name, mcpMessage, mcpProvider, inspectorMediaPreview]);
+  }, [inspectorMediaPreview, inspectorProviderLabel, mcpDeliveryVariant, mcpExperience?.name, mcpMessage, mcpProvider, mcpResult]);
 
   useEffect(() => {
     if (mcpProvider !== "discord") return;
@@ -6942,19 +6961,6 @@ export const ComposerStudio = () => {
             <div className="grid max-h-[calc(92vh-90px)] gap-4 overflow-hidden p-5 lg:grid-cols-[420px_1fr]">
               <div className="max-h-[calc(92vh-130px)] space-y-4 overflow-y-auto rounded-xl border border-slate-800 bg-slate-950/40 p-4">
                 <div>
-                  <label className="mb-1 block text-xs text-slate-400">Provider</label>
-                  <select
-                    value={mcpProvider}
-                    onChange={(e) => setMcpProvider(e.target.value as "discord" | "whatsapp" | "telegram")}
-                    className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
-                  >
-                    <option value="discord">Discord</option>
-                    <option value="whatsapp">WhatsApp</option>
-                    <option value="telegram">Telegram</option>
-                  </select>
-                </div>
-
-                <div>
                   <label className="mb-1 block text-xs text-slate-400">Deployment Target</label>
                   <select
                     value={mcpDeploymentTarget}
@@ -6967,6 +6973,34 @@ export const ComposerStudio = () => {
                     <option value="discord_mcp">Discord via MCP</option>
                   </select>
                 </div>
+
+                {inspectorUsesMessengerProvider ? (
+                  <div>
+                    <label className="mb-1 block text-xs text-slate-400">Messenger Provider</label>
+                    <select
+                      value={mcpProvider}
+                      onChange={(e) => setMcpProvider(e.target.value as "discord" | "whatsapp" | "telegram")}
+                      className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
+                    >
+                      <option value="discord">Discord</option>
+                      <option value="whatsapp">WhatsApp</option>
+                      <option value="telegram">Telegram</option>
+                    </select>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2 text-xs text-slate-300">
+                    <div className="font-medium text-white">Deployment Surface</div>
+                    <div className="mt-1">
+                      {mcpDeploymentTarget === "runtime_launch"
+                        ? mcpDeliveryVariant === "runtime_thin_client"
+                          ? "metaMe runtime thin client"
+                          : "metaMe runtime"
+                        : mcpDeploymentTarget === "studio_preview"
+                          ? "Studio preview"
+                          : "MCP app deployment"}
+                    </div>
+                  </div>
+                )}
 
                 <div>
                   <label className="mb-1 block text-xs text-slate-400">Delivery Variant</label>
@@ -7042,25 +7076,29 @@ export const ComposerStudio = () => {
                   </select>
                 </div>
 
-                <div>
-                  <label className="mb-1 block text-xs text-slate-400">Channel ID (Discord, numeric)</label>
-                  <input
-                    value={mcpChannelId}
-                    onChange={(e) => setMcpChannelId(e.target.value)}
-                    className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
-                    placeholder="Optional override, e.g. 1234567890123456789"
-                  />
-                </div>
+                {inspectorUsesDiscordFields ? (
+                  <>
+                    <div>
+                      <label className="mb-1 block text-xs text-slate-400">Channel ID (Discord, numeric)</label>
+                      <input
+                        value={mcpChannelId}
+                        onChange={(e) => setMcpChannelId(e.target.value)}
+                        className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
+                        placeholder="Optional override, e.g. 1234567890123456789"
+                      />
+                    </div>
 
-                <div>
-                  <label className="mb-1 block text-xs text-slate-400">Discord Invite (optional)</label>
-                  <input
-                    value={mcpDiscordInvite}
-                    onChange={(e) => setMcpDiscordInvite(e.target.value)}
-                    className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
-                    placeholder="https://discord.gg/..."
-                  />
-                </div>
+                    <div>
+                      <label className="mb-1 block text-xs text-slate-400">Discord Invite (optional)</label>
+                      <input
+                        value={mcpDiscordInvite}
+                        onChange={(e) => setMcpDiscordInvite(e.target.value)}
+                        className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
+                        placeholder="https://discord.gg/..."
+                      />
+                    </div>
+                  </>
+                ) : null}
 
                 <div>
                   <label className="mb-1 block text-xs text-slate-400">MCP Tool</label>
