@@ -96,6 +96,9 @@ function hasImageGeneration(experience: any): boolean {
 }
 
 function getVideoSkillSubhead(skillId: string) {
+  if (!skillId) {
+    return "Select a video skill before generating";
+  }
   if (skillId === "venice_video_gen") {
     return "Venice Video Generation";
   }
@@ -298,7 +301,8 @@ function buildSkillPacket(experience: any, personaLibraryAssets: any[] = []) {
   const videoPrompt = config.video_prompt || {};
   const wallet = config.wallet_rewards || {};
   const rewardAmount = Number(wallet.reward_amount || 0);
-  const skillId = skillSel.skill_id || "sora_video_gen_curated";
+  const skillId =
+    typeof skillSel.skill_id === "string" && skillSel.skill_id.trim() ? skillSel.skill_id.trim() : "";
   const generatedAssets = Array.isArray(metadata.generated_assets) ? metadata.generated_assets : [];
   const candidateVideoAssets = [...generatedAssets, ...personaLibraryAssets].filter(
     (asset: any) => isVideoAsset(asset) && Boolean(getAssetUrl(asset))
@@ -315,7 +319,7 @@ function buildSkillPacket(experience: any, personaLibraryAssets: any[] = []) {
     intent: {
       verb: "generate_video",
       target_type: "skill_invocation",
-      target_ids: [skillId],
+      target_ids: skillId ? [skillId] : [],
       constraints: {
         experience_id: experience.id,
         goal: intent.goal,

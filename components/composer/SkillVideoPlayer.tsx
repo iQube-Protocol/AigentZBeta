@@ -167,6 +167,7 @@ export default function SkillVideoPlayer({
   }, [initialProvider, initial_receipt, initial_video_url]);
 
   const invoke = useCallback(async () => {
+    if (!skill_id) return;
     setState("invoking");
     setResult(null);
     setPlaybackRetryCount(0);
@@ -360,6 +361,15 @@ export default function SkillVideoPlayer({
       <div className="p-4">
         {state === "idle" && (
           <div className="space-y-4">
+            {!skill_id && (
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
+                <p className="text-sm font-medium text-amber-200">Select a video skill first</p>
+                <p className="mt-1 text-xs leading-relaxed text-amber-300/70">
+                  Choose <span className="font-medium text-amber-200">OpenAI</span>, <span className="font-medium text-amber-200">Venice</span>, or community in
+                  Customizer before generating this video.
+                </p>
+              </div>
+            )}
             {/* Prompt preview */}
             <div className="rounded-xl border border-slate-700/50 bg-black/20 p-4">
               <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-2">Prompt</p>
@@ -387,7 +397,7 @@ export default function SkillVideoPlayer({
             </div>
             {/* Generate button */}
             <div className="flex justify-center pt-2">
-              <Button onClick={invoke} className="bg-cyan-600 hover:bg-cyan-500 text-white">
+              <Button onClick={invoke} disabled={!skill_id} className="bg-cyan-600 hover:bg-cyan-500 text-white disabled:opacity-50">
                 <Play className="h-4 w-4 mr-2" />
                 Generate Video
               </Button>

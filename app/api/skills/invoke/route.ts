@@ -134,77 +134,61 @@ async function createVeniceJob(
   aspectRatio: string,
   model?: string,
 ): Promise<{ queue_id: string; model: string }> {
-  const candidateModels = (await resolveVeniceVideoModels(apiKey, model)).filter(
-    (candidate) => !VENICE_DISABLED_ALPHA_MODELS.has(candidate)
-  );
-  const errors: string[] = [];
-
-  for (const veniceModel of candidateModels) {
-    const dur: "5s" | "10s" =
-      veniceModel === "wan-2.2-a14b-text-to-video"
-        ? "5s"
-        : seconds <= 5
-        ? "5s"
-        : "10s"; // Venice supports 5s or 10s
-    const quote = await quoteVeniceVideo(apiKey, veniceModel, dur, aspectRatio);
-    if (!quote.ok) {
-      if (isVeniceInsufficientBalanceError(quote.error)) {
-        throw new Error(`Venice account has insufficient credits for video generation. ${quote.error}`);
-      }
-      errors.push(`${veniceModel}: ${quote.error}`);
-      continue;
+  const veniceModel = (model || VENICE_DEFAULT_MODEL).trim();
+  const dur: "5s" | "10s" = seconds <= 5 ? "5s" : "10s";
+  const quote = await quoteVeniceVideo(apiKey, veniceModel, dur, aspectRatio);
+  if (!quote.ok) {
+    if (isVeniceInsufficientBalanceError(quote.error)) {
+      throw new Error(`Venice account has insufficient credits for video generation. ${quote.error}`);
     }
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 25_000);
-
-    const res = await fetch(`${VENICE_VIDEO_BASE}/queue`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: veniceModel,
-        prompt,
-        duration: dur,
-        aspect_ratio: aspectRatio,
-        resolution: "720p",
-      }),
-      signal: controller.signal,
-    }).finally(() => clearTimeout(timeout));
-
-    const rawText = await res.text().catch(() => "");
-    let data: any = null;
-    try {
-      data = rawText ? JSON.parse(rawText) : null;
-    } catch {
-      data = rawText || null;
-    }
-
-    if (!res.ok) {
-      const msg =
-        (typeof data?.error?.message === "string" && data.error.message) ||
-        (typeof data?.message === "string" && data.message) ||
-        (typeof data?.error === "string" && data.error) ||
-        (typeof data === "string" && data) ||
-        `Venice API ${res.status}: ${res.statusText}`;
-      if (isVeniceInsufficientBalanceError(msg)) {
-        throw new Error(`Venice account has insufficient credits for video generation. ${msg}`);
-      }
-      errors.push(`${veniceModel}: (${res.status}) ${msg}`);
-      continue;
-    }
-
-    if (!data?.queue_id) {
-      errors.push(`${veniceModel}: Venice API returned no queue_id`);
-      continue;
-    }
-
-    return { queue_id: data.queue_id, model: data.model || veniceModel };
+    throw new Error(`${veniceModel}: ${quote.error}`);
   }
 
-  throw new Error(errors.length > 0 ? errors.slice(0, 3).join(" | ") : "No compatible Venice text-to-video model accepted this request");
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 20_000);
+
+  const res = await fetch(`${VENICE_VIDEO_BASE}/queue`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: veniceModel,
+      prompt,
+      duration: dur,
+      aspect_ratio: aspectRatio,
+      resolution: "720p",
+    }),
+    signal: controller.signal,
+  }).finally(() => clearTimeout(timeout));
+
+  const rawText = await res.text().catch(() => "");
+  let data: any = null;
+  try {
+    data = rawText ? JSON.parse(rawText) : null;
+  } catch {
+    data = rawText || null;
+  }
+
+  if (!res.ok) {
+    const msg =
+      (typeof data?.error?.message === "string" && data.error.message) ||
+      (typeof data?.message === "string" && data.message) ||
+      (typeof data?.error === "string" && data.error) ||
+      (typeof data === "string" && data) ||
+      `Venice API ${res.status}: ${res.statusText}`;
+    if (isVeniceInsufficientBalanceError(msg)) {
+      throw new Error(`Venice account has insufficient credits for video generation. ${msg}`);
+    }
+    throw new Error(`${veniceModel}: (${res.status}) ${msg}`);
+  }
+
+  if (!data?.queue_id) {
+    throw new Error(`${veniceModel}: Venice API returned no queue_id`);
+  }
+
+  return { queue_id: data.queue_id, model: data.model || veniceModel };
 }
 
 async function resolveVeniceVideoModels(apiKey: string, requestedModel?: string): Promise<string[]> {
