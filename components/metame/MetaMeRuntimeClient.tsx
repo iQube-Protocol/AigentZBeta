@@ -1594,13 +1594,65 @@ export default function MetaMeRuntimeClient() {
       }
 
       if (content.runtimeSource === "experience") {
-        const frameSrc =
-          withDeviceParam(content.runtimeLaunchHref || "", activeDevice) ||
-          `/studio/composer/experience/${encodeURIComponent(content.id)}?embed=1&device=${activeDevice}`;
-        return renderRuntimeFramePanel(content, intent, {
-          label: "ExperienceQube Runtime",
-          frameSrc,
-        });
+        const heroImage = resolveCapsuleCoverImage(content);
+        const previewMedia = content.runtimePreviewMediaUri || null;
+        const mediaImage = !isLikelyVideoUri(previewMedia) ? previewMedia || heroImage : heroImage;
+        const { videoStyle, imageStyle } = resolveSmartMediaPanelStyles(activeDevice, intent);
+        return (
+          <div className="rounded-2xl border border-cyan-400/25 bg-slate-950/85 p-3 space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.18em] text-cyan-300/80">ExperienceQube Runtime</p>
+                <p className="text-sm font-semibold text-white">{content.title}</p>
+              </div>
+              <div className="flex items-center gap-1.5">
+                {content.runtimeContentKind ? (
+                  <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-slate-200">
+                    {content.runtimeContentKind}
+                  </span>
+                ) : null}
+                <span className="rounded-full border border-cyan-400/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] text-cyan-200">
+                  {activeDevice === "mobile" ? "portrait-first" : "landscape-first"}
+                </span>
+              </div>
+            </div>
+
+            {isLikelyVideoUri(previewMedia) ? (
+              <video
+                src={previewMedia || undefined}
+                poster={heroImage || undefined}
+                controls
+                className="w-full rounded-xl border border-white/10 bg-slate-950 object-cover"
+                style={videoStyle}
+              />
+            ) : mediaImage ? (
+              <img
+                src={mediaImage}
+                alt={content.title}
+                className="w-full rounded-xl border border-white/10 object-cover"
+                style={imageStyle}
+                loading="lazy"
+              />
+            ) : (
+              <div className="rounded-xl border border-amber-400/25 bg-amber-500/10 p-2 text-[11px] text-amber-100">
+                Asset unavailable for this ExperienceQube.
+              </div>
+            )}
+
+            <p className="text-[11px] text-slate-400">
+              Rendering the published experience media directly in runtime to avoid nested iframe shells.
+            </p>
+
+            {content.runtimeLaunchHref ? (
+              <a
+                href={content.runtimeLaunchHref}
+                className="inline-flex rounded-lg border border-cyan-300/30 bg-cyan-500/15 px-3 py-1.5 text-[11px] text-cyan-100 hover:bg-cyan-500/25"
+              >
+                Open Source Experience
+              </a>
+            ) : null}
+          </div>
+        );
       }
 
       return (
