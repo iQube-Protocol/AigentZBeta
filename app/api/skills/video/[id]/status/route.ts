@@ -9,6 +9,8 @@ import { NextRequest, NextResponse } from "next/server";
  */
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -33,6 +35,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     const res = await fetch(`https://api.openai.com/v1/videos/${videoId}`, {
       headers: { Authorization: `Bearer ${apiKey}` },
       signal: controller.signal,
+      cache: "no-store",
     }).finally(() => clearTimeout(timeout));
 
     const data = await res.json().catch(() => null);
@@ -51,6 +54,9 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
         status: "completed",
         progress: 100,
         video_url: `/api/skills/video/${videoId}`,
+        checked_at: new Date().toISOString(),
+      }, {
+        headers: { "Cache-Control": "no-store, no-cache, must-revalidate" },
       });
     }
 
@@ -60,6 +66,9 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
         status: "failed",
         progress,
         error: data?.error?.message || "Generation failed",
+        checked_at: new Date().toISOString(),
+      }, {
+        headers: { "Cache-Control": "no-store, no-cache, must-revalidate" },
       });
     }
 
@@ -68,9 +77,15 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       ready: false,
       status,
       progress,
+      checked_at: new Date().toISOString(),
+    }, {
+      headers: { "Cache-Control": "no-store, no-cache, must-revalidate" },
     });
   } catch (err: any) {
     const msg = err?.name === "AbortError" ? "Status check timed out" : (err?.message || "Unknown error");
-    return NextResponse.json({ ready: false, status: "error", error: msg });
+    return NextResponse.json(
+      { ready: false, status: "error", error: msg, checked_at: new Date().toISOString() },
+      { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } }
+    );
   }
 }

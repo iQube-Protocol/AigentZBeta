@@ -221,7 +221,10 @@ export default function SkillVideoPlayer({
       const statusUrl = isV
         ? `/api/skills/video/venice/${result.generation_id}/status?model=${encodeURIComponent(result.venice_model || "")}`
         : `/api/skills/video/${result.generation_id}/status`;
-      const res = await fetch(statusUrl);
+      const separator = statusUrl.includes("?") ? "&" : "?";
+      const res = await fetch(`${statusUrl}${separator}_ts=${Date.now()}`, {
+        cache: "no-store",
+      });
       const data = await res.json().catch(() => null);
       if (data?.ready && data?.video_url) {
         setPlaybackRetryCount(0);
