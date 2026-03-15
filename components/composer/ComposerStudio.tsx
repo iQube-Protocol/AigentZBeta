@@ -39,6 +39,7 @@ import {
   type ComposerDeploymentTarget,
 } from "@/services/composer/deploymentBlock";
 import { resolveExperienceDeploymentArtifact } from "@/services/composer/deploymentArtifactResolver";
+import { buildRuntimeDeliveryProfile } from "@/services/composer/runtimeDeliveryProfile";
 import { buildComposerRoutingEnvelope } from "@/services/composer/routingEnvelope";
 import {
   markPersonaGeneratedMediaLifecycle,
@@ -144,6 +145,7 @@ type ExperienceQube = {
       last_launch_url?: string;
       last_deployed_at?: string;
       last_error?: string;
+      last_runtime_profile?: Record<string, any>;
     };
       deployment_history?: Array<{
         id: string;
@@ -157,6 +159,7 @@ type ExperienceQube = {
       source?: string;
       deployed_at: string;
       error?: string;
+      runtime_profile?: Record<string, any>;
     }>;
   };
 };
@@ -1280,7 +1283,16 @@ export const ComposerStudio = () => {
     try {
       const manualChannelId = mcpChannelId.trim();
       const normalizedChannelId = /^\d+$/.test(manualChannelId) ? manualChannelId : "";
-      const runtimeLaunchUrl = buildRuntimeLaunchUrl(mcpExperience);
+      const runtimeProfile = buildRuntimeDeliveryProfile({
+        experience: mcpExperience,
+        personaLibraryAssets: personaMediaLibrary as unknown as Array<Record<string, unknown>>,
+        target: mcpDeploymentTarget,
+        variant: mcpDeliveryVariant,
+      });
+      const runtimeLaunchUrl = buildRuntimeLaunchUrl(mcpExperience, {
+        target: mcpDeploymentTarget,
+        variant: mcpDeliveryVariant,
+      });
       const mediaAssetUrl = resolvedInspectorDeploymentArtifact.artifact?.url || "";
       const mediaPreviewUrl =
         resolvedInspectorDeploymentArtifact.preview?.url ||
@@ -1318,6 +1330,7 @@ export const ComposerStudio = () => {
         thumbnailUrl: mediaPreviewUrl || mediaAssetUrl,
         titleOverride: mcpExperience.name || "",
         campaignId: "experience-distribution-demo",
+        runtimeProfile,
       });
       await persistExperienceDeploymentResult(
         mcpExperience,
@@ -2014,6 +2027,16 @@ export const ComposerStudio = () => {
       ),
     [codexContentItems, personaMediaLibrary, previewExperience]
   );
+  const previewRuntimeDeliveryProfile = useMemo(
+    () =>
+      buildRuntimeDeliveryProfile({
+        experience: previewExperience,
+        personaLibraryAssets: personaMediaLibrary as unknown as Array<Record<string, unknown>>,
+        target: "runtime_launch",
+        variant: "runtime_thin_client",
+      }),
+    [personaMediaLibrary, previewExperience],
+  );
   const runtimePreviewSrc = useMemo(() => {
     const capsuleId = selectedExperienceId || previewExperience?.id || "capsule-metaknyt-play";
     const experienceId = selectedExperienceId || previewExperience?.id || "";
@@ -2026,6 +2049,27 @@ export const ComposerStudio = () => {
     if (previewExperience?.name) params.set("experienceName", previewExperience.name);
     if (previewExperience?.description) params.set("experienceDescription", previewExperience.description);
     if (previewExperienceMedia?.uri) params.set("experienceImage", previewExperienceMedia.uri);
+    if (previewRuntimeDeliveryProfile.imageAssets.portrait) {
+      params.set("experienceImagePortrait", previewRuntimeDeliveryProfile.imageAssets.portrait);
+    }
+    if (previewRuntimeDeliveryProfile.imageAssets.landscape) {
+      params.set("experienceImageLandscape", previewRuntimeDeliveryProfile.imageAssets.landscape);
+    }
+    if (previewRuntimeDeliveryProfile.videoAssetUrl) {
+      params.set("experienceVideo", previewRuntimeDeliveryProfile.videoAssetUrl);
+    }
+    params.set("runtimeIntent", previewRuntimeDeliveryProfile.intent);
+    params.set("runtimeQuickLink", previewRuntimeDeliveryProfile.quickLink);
+    params.set("contentKind", previewRuntimeDeliveryProfile.contentKind);
+    params.set("activeCodexId", previewRuntimeDeliveryProfile.codexContext.activeCodexId);
+    params.set("activeCodexName", previewRuntimeDeliveryProfile.codexContext.activeCodexName);
+    params.set("runtimeCartridge", previewRuntimeDeliveryProfile.runtimeCartridge);
+    params.set("preferredImageOrientationMobile", previewRuntimeDeliveryProfile.preferredImageOrientationByDevice.mobile);
+    params.set("preferredImageOrientationTablet", previewRuntimeDeliveryProfile.preferredImageOrientationByDevice.tablet);
+    params.set("preferredImageOrientationDesktop", previewRuntimeDeliveryProfile.preferredImageOrientationByDevice.desktop);
+    params.set("personaAssignment", previewRuntimeDeliveryProfile.stubAssignments.personaAssignment);
+    params.set("crmCohortAssignment", previewRuntimeDeliveryProfile.stubAssignments.crmCohortAssignment);
+    params.set("policyAssignment", previewRuntimeDeliveryProfile.stubAssignments.policyAssignment);
     if (previewNonce > 0) params.set("nonce", String(previewNonce));
     return `/metame/runtime?${params.toString()}`;
   }, [
@@ -2034,16 +2078,47 @@ export const ComposerStudio = () => {
     previewExperience?.id,
     previewExperience?.name,
     previewExperienceMedia?.uri,
+    previewRuntimeDeliveryProfile.contentKind,
+    previewRuntimeDeliveryProfile.codexContext.activeCodexId,
+    previewRuntimeDeliveryProfile.codexContext.activeCodexName,
+    previewRuntimeDeliveryProfile.imageAssets.landscape,
+    previewRuntimeDeliveryProfile.imageAssets.portrait,
+    previewRuntimeDeliveryProfile.intent,
+    previewRuntimeDeliveryProfile.preferredImageOrientationByDevice.desktop,
+    previewRuntimeDeliveryProfile.preferredImageOrientationByDevice.mobile,
+    previewRuntimeDeliveryProfile.preferredImageOrientationByDevice.tablet,
+    previewRuntimeDeliveryProfile.quickLink,
+    previewRuntimeDeliveryProfile.runtimeCartridge,
+    previewRuntimeDeliveryProfile.stubAssignments.crmCohortAssignment,
+    previewRuntimeDeliveryProfile.stubAssignments.personaAssignment,
+    previewRuntimeDeliveryProfile.stubAssignments.policyAssignment,
+    previewRuntimeDeliveryProfile.videoAssetUrl,
     selectedExperienceId,
   ]);
   const buildRuntimeLaunchUrl = useCallback(
-    (exp: ExperienceQube | null | undefined) => {
+    (
+      exp: ExperienceQube | null | undefined,
+      options?: {
+        target?: ComposerDeploymentTarget;
+        variant?: ComposerDeliveryVariant;
+      },
+    ) => {
       if (typeof window === "undefined") return "";
       const experienceId = exp?.id || selectedExperienceId || previewExperience?.id || "";
       if (!experienceId) return "";
+      const target = options?.target || "runtime_launch";
+      const variant = options?.variant || "runtime_thin_client";
+      const runtimeProfile = buildRuntimeDeliveryProfile({
+        experience: exp || null,
+        personaLibraryAssets: personaMediaLibrary as unknown as Array<Record<string, unknown>>,
+        target,
+        variant,
+      });
       const params = new URLSearchParams({
         capsule: experienceId,
         experienceId,
+        deliveryTarget: target,
+        deliveryVariant: variant,
       });
       if (exp?.name) params.set("experienceName", exp.name);
       if (exp?.description) params.set("experienceDescription", exp.description);
@@ -2051,9 +2126,26 @@ export const ComposerStudio = () => {
         exp || null,
         codexContentItems,
         personaMediaLibrary,
-        "runtime_thin_client",
+        variant,
       );
       if (launchMedia?.uri) params.set("experienceImage", launchMedia.uri);
+      if (runtimeProfile.imageAssets.portrait) params.set("experienceImagePortrait", runtimeProfile.imageAssets.portrait);
+      if (runtimeProfile.imageAssets.landscape) params.set("experienceImageLandscape", runtimeProfile.imageAssets.landscape);
+      if (runtimeProfile.videoAssetUrl) params.set("experienceVideo", runtimeProfile.videoAssetUrl);
+      params.set("runtimeIntent", runtimeProfile.intent);
+      params.set("runtimeQuickLink", runtimeProfile.quickLink);
+      params.set("contentKind", runtimeProfile.contentKind);
+      params.set("activeCodexId", runtimeProfile.codexContext.activeCodexId);
+      params.set("activeCodexName", runtimeProfile.codexContext.activeCodexName);
+      params.set("runtimeCartridge", runtimeProfile.runtimeCartridge);
+      params.set("preferredImageOrientationMobile", runtimeProfile.preferredImageOrientationByDevice.mobile);
+      params.set("preferredImageOrientationTablet", runtimeProfile.preferredImageOrientationByDevice.tablet);
+      params.set("preferredImageOrientationDesktop", runtimeProfile.preferredImageOrientationByDevice.desktop);
+      params.set("personaAssignment", runtimeProfile.stubAssignments.personaAssignment);
+      params.set("crmCohortAssignment", runtimeProfile.stubAssignments.crmCohortAssignment);
+      params.set("policyAssignment", runtimeProfile.stubAssignments.policyAssignment);
+      if (runtimeProfile.surfaceHints.shellMode === "thin") params.set("shell", "thin");
+      if (runtimeProfile.surfaceHints.chromeMode === "content-only") params.set("chrome", "content-only");
       return `${window.location.origin}/metame/runtime?${params.toString()}`;
     },
     [codexContentItems, personaMediaLibrary, previewExperience?.id, selectedExperienceId],
@@ -3622,6 +3714,7 @@ export const ComposerStudio = () => {
         source,
         deployed_at: deployedAt,
         error: deployment.error,
+        runtime_profile: deployment.runtimeProfile,
       };
       const nextLifecycle = {
         ...previousLifecycle,
@@ -3656,6 +3749,7 @@ export const ComposerStudio = () => {
               last_launch_url: deployment.launchUrl,
               last_deployed_at: deployedAt,
               last_error: deployment.error,
+              last_runtime_profile: deployment.runtimeProfile,
             },
             deployment_history: [...previousHistory, nextEntry].slice(-25),
             lifecycle_summary: nextLifecycle,

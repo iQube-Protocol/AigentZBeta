@@ -1,3 +1,5 @@
+import type { ComposerRuntimeDeliveryProfile } from "./runtimeDeliveryProfile";
+
 export type ComposerDeploymentTarget =
   | "studio_preview"
   | "runtime_launch"
@@ -28,6 +30,7 @@ export type ComposerDeploymentRequest = {
   thumbnailUrl?: string;
   titleOverride?: string;
   campaignId?: string;
+  runtimeProfile?: ComposerRuntimeDeliveryProfile;
 };
 
 export type ComposerDeploymentResult = {
@@ -42,6 +45,7 @@ export type ComposerDeploymentResult = {
   response?: Record<string, unknown>;
   warnings?: string[];
   error?: string;
+  runtimeProfile?: ComposerRuntimeDeliveryProfile;
 };
 
 export function getDeploymentTargetLabel(target: ComposerDeploymentTarget): string {
@@ -105,6 +109,7 @@ export function buildDeploymentEnvelope(input: ComposerDeploymentRequest) {
       thumbnailUrl: input.thumbnailUrl || "",
       titleOverride: input.titleOverride || "",
       campaignId: input.campaignId || "experience-distribution-demo",
+      runtimeProfile: input.runtimeProfile,
     },
   };
 }
@@ -130,7 +135,9 @@ export async function dispatchComposerDeployment(
           input.target === "studio_preview"
             ? "Deployment is represented by the active Studio preview."
             : "Runtime launch prepared from deployment block scaffold.",
+        runtimeProfile: input.runtimeProfile,
       },
+      runtimeProfile: input.runtimeProfile,
     };
   }
 
@@ -153,6 +160,7 @@ export async function dispatchComposerDeployment(
       launchUrl: envelope.launchUrl,
       response: data,
       error: data?.error || "Failed to dispatch deployment payload",
+      runtimeProfile: input.runtimeProfile,
     };
   }
 
@@ -167,5 +175,6 @@ export async function dispatchComposerDeployment(
     launchUrl: envelope.launchUrl,
     response: data,
     warnings: Array.isArray(data?.warnings) ? data.warnings : undefined,
+    runtimeProfile: input.runtimeProfile,
   };
 }

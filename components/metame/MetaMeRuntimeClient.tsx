@@ -858,11 +858,25 @@ function buildPreviewExperienceCapsule(input: {
   title?: string | null;
   description?: string | null;
   imageUri?: string | null;
+  imagePortraitUri?: string | null;
+  imageLandscapeUri?: string | null;
+  videoUri?: string | null;
+  intent?: RuntimeIntent | null;
+  quickLink?: RuntimeIntent | null;
+  contentKind?: "article" | "video" | "character" | "episode" | "generic" | null;
+  activeCodexId?: string | null;
+  activeCodexName?: string | null;
+  runtimeCartridge?: string | null;
+  personaAssignment?: string | null;
+  crmCohortAssignment?: string | null;
+  policyAssignment?: string | null;
 }): RuntimeCapsule {
   const capsuleId = input.selectedCapsuleId || input.experienceId;
   const title = (input.title || "").trim() || "Experience Preview";
   const description = (input.description || "").trim() || "Runtime preview launched from Studio ExperienceQube.";
   const imageUri = (input.imageUri || "").trim();
+  const intent = input.intent || "read";
+  const quickLink = input.quickLink || intent;
   return {
     id: capsuleId,
     type: "SmartContentQube",
@@ -875,8 +889,8 @@ function buildPreviewExperienceCapsule(input: {
     creatorRootDid: "did:iq:composer",
     tenantId: "metame",
     modalities: {
-      read: { enabled: true },
-      watch: { enabled: false },
+      read: { enabled: intent === "read" || quickLink === "read" },
+      watch: { enabled: Boolean(input.videoUri) || intent === "watch" || quickLink === "watch" },
       listen: { enabled: false },
       interact: { enabled: true },
     },
@@ -887,7 +901,7 @@ function buildPreviewExperienceCapsule(input: {
     },
     libraryMetadata: {
       category: "capsule",
-      tags: ["capsule", "experience", "preview"],
+      tags: ["capsule", "experience", "preview", intent, quickLink],
       recommendedShelf: "capsules",
       expiry: { model: "permanent" },
       ownership: { status: "available", libraryStatus: "owned" },
@@ -899,10 +913,47 @@ function buildPreviewExperienceCapsule(input: {
     runtimeLaunchHref: `/studio/composer/experience/${encodeURIComponent(input.experienceId)}?embed=1`,
     runtimeLaunchType: "experience",
     runtimeAssetStatus: "resolved",
-    runtimeModalityHints: ["play", "read"],
-    runtimeContentKind: "episode",
-    runtimePreviewMediaUri: null,
+    runtimeModalityHints: ["play", intent, quickLink],
+    runtimeContentKind: input.contentKind || "episode",
+    runtimePreviewMediaUri: input.videoUri || input.imageLandscapeUri || input.imagePortraitUri || imageUri || null,
+    metadata: {
+      runtimeDeliveryProfile: {
+        intent,
+        quickLink,
+        activeCodexId: input.activeCodexId || null,
+        activeCodexName: input.activeCodexName || null,
+        runtimeCartridge: input.runtimeCartridge || null,
+        personaAssignment: input.personaAssignment || null,
+        crmCohortAssignment: input.crmCohortAssignment || null,
+        policyAssignment: input.policyAssignment || null,
+      },
+    },
   } as unknown as RuntimeCapsule;
+}
+
+function chooseExperiencePreviewImage(input: {
+  device: DeviceType;
+  fallbackImage?: string | null;
+  portraitImage?: string | null;
+  landscapeImage?: string | null;
+  preferredMobile?: "portrait" | "landscape" | null;
+  preferredTablet?: "portrait" | "landscape" | null;
+  preferredDesktop?: "portrait" | "landscape" | null;
+}) {
+  const fallbackImage = (input.fallbackImage || "").trim();
+  const portraitImage = (input.portraitImage || "").trim();
+  const landscapeImage = (input.landscapeImage || "").trim();
+  const preferred =
+    input.device === "mobile"
+      ? input.preferredMobile
+      : input.device === "tablet"
+        ? input.preferredTablet
+        : input.preferredDesktop;
+  if (preferred === "portrait" && portraitImage) return portraitImage;
+  if (preferred === "landscape" && landscapeImage) return landscapeImage;
+  if (input.device === "mobile" && portraitImage) return portraitImage;
+  if ((input.device === "tablet" || input.device === "desktop") && landscapeImage) return landscapeImage;
+  return portraitImage || landscapeImage || fallbackImage || null;
 }
 
 export default function MetaMeRuntimeClient() {
@@ -916,6 +967,21 @@ export default function MetaMeRuntimeClient() {
   const selectedExperienceName = searchParams?.get("experienceName");
   const selectedExperienceDescription = searchParams?.get("experienceDescription");
   const selectedExperienceImage = searchParams?.get("experienceImage");
+  const selectedExperienceImagePortrait = searchParams?.get("experienceImagePortrait");
+  const selectedExperienceImageLandscape = searchParams?.get("experienceImageLandscape");
+  const selectedExperienceVideo = searchParams?.get("experienceVideo");
+  const runtimeIntentParam = coerceRuntimeIntent(searchParams?.get("runtimeIntent"));
+  const runtimeQuickLinkParam = coerceRuntimeIntent(searchParams?.get("runtimeQuickLink"));
+  const runtimeContentKindParam = searchParams?.get("contentKind");
+  const runtimeActiveCodexId = searchParams?.get("activeCodexId");
+  const runtimeActiveCodexName = searchParams?.get("activeCodexName");
+  const runtimeCartridge = searchParams?.get("runtimeCartridge");
+  const runtimePersonaAssignment = searchParams?.get("personaAssignment");
+  const runtimeCrmCohortAssignment = searchParams?.get("crmCohortAssignment");
+  const runtimePolicyAssignment = searchParams?.get("policyAssignment");
+  const preferredImageOrientationMobile = searchParams?.get("preferredImageOrientationMobile");
+  const preferredImageOrientationTablet = searchParams?.get("preferredImageOrientationTablet");
+  const preferredImageOrientationDesktop = searchParams?.get("preferredImageOrientationDesktop");
   const deviceParam = (searchParams?.get("device") as DeviceType) || "mobile";
   const defaultDevice: DeviceType =
     deviceParam === "desktop" || deviceParam === "tablet" || deviceParam === "mobile" ? deviceParam : "mobile";
@@ -954,6 +1020,36 @@ export default function MetaMeRuntimeClient() {
   const activeModel = selectedModelByAgent[selectedAgent.id] || defaultSelectionFromProviders(activeAgentProviders);
   const trustProvider = activeModel?.providerId;
   const activePersonaKey = activePersonaId || (selectedAgent.id === "aigent-moneypenny" ? "moneypenny" : "kn0w1");
+  const selectedAdaptiveExperienceImage = useMemo(
+    () =>
+      chooseExperiencePreviewImage({
+        device: activeDevice,
+        fallbackImage: selectedExperienceImage,
+        portraitImage: selectedExperienceImagePortrait,
+        landscapeImage: selectedExperienceImageLandscape,
+        preferredMobile:
+          preferredImageOrientationMobile === "portrait" || preferredImageOrientationMobile === "landscape"
+            ? preferredImageOrientationMobile
+            : null,
+        preferredTablet:
+          preferredImageOrientationTablet === "portrait" || preferredImageOrientationTablet === "landscape"
+            ? preferredImageOrientationTablet
+            : null,
+        preferredDesktop:
+          preferredImageOrientationDesktop === "portrait" || preferredImageOrientationDesktop === "landscape"
+            ? preferredImageOrientationDesktop
+            : null,
+      }),
+    [
+      activeDevice,
+      preferredImageOrientationDesktop,
+      preferredImageOrientationMobile,
+      preferredImageOrientationTablet,
+      selectedExperienceImage,
+      selectedExperienceImageLandscape,
+      selectedExperienceImagePortrait,
+    ],
+  );
 
   const refreshPersonaMemory = useCallback((personaKey: string) => {
     setPersonaMemoryEntries(readRuntimePersonaMemoryEntries(personaKey));
@@ -1120,6 +1216,11 @@ export default function MetaMeRuntimeClient() {
   const [capsuleContents, setCapsuleContents] = useState<RuntimeCapsule[]>([]);
   const [selectedCapsuleLocal, setSelectedCapsuleLocal] = useState<string | null>(null);
   const [lastIntent, setLastIntent] = useState<RuntimeIntent>("find");
+  useEffect(() => {
+    if (runtimeIntentParam) {
+      setLastIntent(runtimeIntentParam);
+    }
+  }, [runtimeIntentParam]);
   const autoLaunchedCapsuleRef = useRef<string | null>(null);
   const activeCodexPanelMessageIdsRef = useRef<Set<string>>(new Set());
   const pendingRuntimeEventsRef = useRef<Array<{ type: RuntimeInboundType; payload: Record<string, unknown> }>>([]);
@@ -1175,14 +1276,45 @@ export default function MetaMeRuntimeClient() {
       selectedCapsuleId,
       title: selectedExperienceName,
       description: selectedExperienceDescription,
-      imageUri: selectedExperienceImage,
+      imageUri: selectedAdaptiveExperienceImage,
+      imagePortraitUri: selectedExperienceImagePortrait,
+      imageLandscapeUri: selectedExperienceImageLandscape,
+      videoUri: selectedExperienceVideo,
+      intent: runtimeIntentParam,
+      quickLink: runtimeQuickLinkParam,
+      activeCodexId: runtimeActiveCodexId,
+      activeCodexName: runtimeActiveCodexName,
+      runtimeCartridge,
+      personaAssignment: runtimePersonaAssignment,
+      crmCohortAssignment: runtimeCrmCohortAssignment,
+      policyAssignment: runtimePolicyAssignment,
+      contentKind:
+        runtimeContentKindParam === "article" ||
+        runtimeContentKindParam === "video" ||
+        runtimeContentKindParam === "character" ||
+        runtimeContentKindParam === "episode" ||
+        runtimeContentKindParam === "generic"
+          ? runtimeContentKindParam
+          : null,
     });
   }, [
+    runtimeActiveCodexId,
+    runtimeActiveCodexName,
+    runtimeCartridge,
+    runtimeCrmCohortAssignment,
+    runtimeContentKindParam,
+    runtimeIntentParam,
+    runtimePersonaAssignment,
+    runtimePolicyAssignment,
+    runtimeQuickLinkParam,
+    selectedAdaptiveExperienceImage,
     selectedCapsuleId,
     selectedExperienceDescription,
     selectedExperienceId,
-    selectedExperienceImage,
+    selectedExperienceImageLandscape,
+    selectedExperienceImagePortrait,
     selectedExperienceName,
+    selectedExperienceVideo,
   ]);
 
   const fetchRuntimeCapsules = useCallback(

@@ -141,6 +141,10 @@ export async function POST(request: NextRequest) {
     const personaId = String(body?.personaId || 'prs_demo_guest');
     const dispatchMode = String(body?.mode || 'simulate').toLowerCase() === 'live' ? 'live' : 'simulate';
     const deliveryVariant = normalizeString(body?.variant) || 'runtime_thin_client';
+    const runtimeProfile =
+      body?.runtimeProfile && typeof body.runtimeProfile === 'object' && !Array.isArray(body.runtimeProfile)
+        ? body.runtimeProfile
+        : null;
     const requestedTool = String(body?.tool || 'next.best') as ExperienceQubeTool;
     const tool: ExperienceQubeTool = SUPPORTED_TOOLS.has(requestedTool) ? requestedTool : 'next.best';
     const messageText = String(body?.message || '').trim();
@@ -242,6 +246,7 @@ export async function POST(request: NextRequest) {
       kind: 'experience_qube',
       tool,
       variant: deliveryVariant,
+      runtimeProfile,
       ctaUrl,
       publishUrl,
       embed,
@@ -370,6 +375,7 @@ export async function POST(request: NextRequest) {
         mode: dispatchMode,
         tool,
         variant: deliveryVariant,
+        runtimeProfile,
         thread_key: threadKey,
         intent_hint: envelope.intent_hint,
         depth_hint: envelope.depth_hint,
@@ -393,6 +399,7 @@ export async function POST(request: NextRequest) {
       mcpResponse,
       providerDispatch,
       liveDispatch,
+      runtimeProfile,
       warnings: warnings.length > 0 ? warnings : undefined,
       trace: {
         adapter: `myMessenger:${provider}`,
