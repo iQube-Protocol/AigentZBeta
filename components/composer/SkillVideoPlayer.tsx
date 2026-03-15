@@ -127,6 +127,7 @@ export default function SkillVideoPlayer({
   initial_receipt,
   persona_id,
 }: SkillVideoPlayerProps) {
+  const MAX_AUTO_POLL_ATTEMPTS = 8;
   const initialProvider = inferProviderFromSkillId(skill_id);
   const [state, setState] = useState<"idle" | "invoking" | "done" | "error">(initial_video_url ? "done" : "idle");
   const [resultSource, setResultSource] = useState<"saved" | "generated" | "none">(initial_video_url ? "saved" : "none");
@@ -145,6 +146,9 @@ export default function SkillVideoPlayer({
   const [showReceipt, setShowReceipt] = useState(false);
   const [playbackRetryCount, setPlaybackRetryCount] = useState(0);
   const [persistedVideoKey, setPersistedVideoKey] = useState<string | null>(null);
+  const [pollAttempts, setPollAttempts] = useState(0);
+  const [autoPollPaused, setAutoPollPaused] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const resolvedProvider = result?.provider || initialProvider;
   const providerLabel = getProviderLabel(resolvedProvider);
 
@@ -168,6 +172,9 @@ export default function SkillVideoPlayer({
     setPlaybackRetryCount(0);
     setPersistedVideoKey(null);
     setResultSource("none");
+    setPollAttempts(0);
+    setAutoPollPaused(false);
+    setStatusMessage(null);
     try {
       const res = await fetch("/api/skills/invoke", {
         method: "POST",
@@ -189,6 +196,9 @@ export default function SkillVideoPlayer({
       setState(data.ok ? "done" : "error");
       if (data.ok && data.mode === "live") {
         setResultSource("generated");
+        if (!data.video_url && data.generation_id) {
+          setStatusMessage(`Waiting for ${providerLabel} to finish the video job.`);
+        }
       }
     } catch (err: any) {
       setResult({ ok: false, error: err?.message || "Invocation failed" });
@@ -208,13 +218,40 @@ export default function SkillVideoPlayer({
       const data = await res.json().catch(() => null);
       if (data?.ready && data?.video_url) {
         setPlaybackRetryCount(0);
+        setPollAttempts(0);
+        setAutoPollPaused(false);
+        setStatusMessage(null);
         setResult(prev => prev ? { ...prev, video_url: data.video_url } : prev);
       } else if (data?.status === "failed" || data?.status === "error") {
         setResult(prev => prev ? { ...prev, error: data.error || "Generation failed" } : prev);
         setState("error");
+      } else {
+        setPollAttempts((count) => {
+          const next = count + 1;
+          if (next >= MAX_AUTO_POLL_ATTEMPTS) {
+            setAutoPollPaused(true);
+            setStatusMessage(
+              `${providerLabel} is still processing this video. Auto-checking is paused for now. Use Check Again or Regenerate.`
+            );
+          } else if (typeof data?.status === "string") {
+            setStatusMessage(`Current ${providerLabel} status: ${data.status.toLowerCase()}.`);
+          }
+          return next;
+        });
       }
-    } catch { /* still generating */ }
-  }, [result?.generation_id, result?.provider, result?.venice_model]);
+    } catch {
+      setPollAttempts((count) => {
+        const next = count + 1;
+        if (next >= MAX_AUTO_POLL_ATTEMPTS) {
+          setAutoPollPaused(true);
+          setStatusMessage(
+            `${providerLabel} status checks are taking too long. Auto-checking is paused for now. Use Check Again or Regenerate.`
+          );
+        }
+        return next;
+      });
+    }
+  }, [MAX_AUTO_POLL_ATTEMPTS, providerLabel, result?.generation_id, result?.provider, result?.venice_model]);
 
   const isSimulation = result?.mode === "simulation";
   const isLive = result?.mode === "live";
@@ -222,13 +259,19 @@ export default function SkillVideoPlayer({
   // Auto-poll every 15s while in "live + no video_url" state
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   useEffect(() => {
-    const shouldPoll = state === "done" && isLive && !result?.video_url && result?.generation_id;
+    const shouldPoll =
+      state === "done" &&
+      isLive &&
+      !result?.video_url &&
+      result?.generation_id &&
+      !autoPollPaused &&
+      pollAttempts < MAX_AUTO_POLL_ATTEMPTS;
     if (shouldPoll) {
       checkStatus(); // immediate first check
       pollRef.current = setInterval(checkStatus, 15_000);
     }
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [state, isLive, result?.video_url, result?.generation_id, checkStatus]);
+  }, [MAX_AUTO_POLL_ATTEMPTS, autoPollPaused, checkStatus, isLive, pollAttempts, result?.generation_id, result?.video_url, state]);
 
   useEffect(() => {
     if (!experience_id || state !== "done" || !isLive || !result?.video_url) return;
@@ -456,8 +499,13 @@ export default function SkillVideoPlayer({
                 <p className="text-sm font-medium text-cyan-200">Video Generation In Progress</p>
                 <p className="text-xs text-cyan-300/70 mt-1 leading-relaxed">
                   {providerLabel} is generating your video. This can take 1–3 minutes.
-                  Auto-checking every 15 seconds — the video will appear automatically when ready.
+                  {autoPollPaused
+                    ? " Auto-checking is paused until you manually check again."
+                    : " Auto-checking every 15 seconds — the video will appear automatically when ready."}
                 </p>
+                {statusMessage && (
+                  <p className="text-[10px] text-cyan-300/70 mt-2">{statusMessage}</p>
+                )}
                 {result?.generation_id && (
                   <p className="text-[10px] text-slate-500 font-mono mt-2">Generation: {result.generation_id}</p>
                 )}
