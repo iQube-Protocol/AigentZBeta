@@ -8,8 +8,9 @@ Phase 3 should answer:
 
 - how an ExperienceQube gets deployed as a standalone block
 - how deployment targets are modeled consistently
+- how artifact selection is separated from delivery and transport
 - how trust, cost, and readiness influence deployment decisions
-- how runtime, MCP, and Discord delivery share one contract
+- how Studio, runtime, thin client, MCP, Discord, and future adapters share one contract
 
 ## 1. Phase 3 Goal
 
@@ -23,6 +24,34 @@ It is the stage where the current blocks become:
 - proof-aware
 - target-aware
 - trust-and-cost-aware
+- artifact-aware
+- adapter-aware
+
+## 1.1 Universal Deployment Manager
+
+Phase 3 should now be treated as a universal deployment manager, not a Discord-first deployment layer.
+
+The core model should be:
+
+1. `artifact selection`
+- what is being deployed
+
+2. `delivery mode`
+- how that artifact should be consumed
+
+3. `destination adapter`
+- where and through what transport it is being delivered
+
+The deployment manager should therefore support the same deployment contract across:
+
+- Studio preview
+- launcher / experience viewer
+- metaMe runtime
+- metaMe runtime thin client
+- MCP app dispatch
+- Discord
+- later: XMTP
+- later: AA API
 
 ## 2. Core Workstreams
 
@@ -40,12 +69,48 @@ Minimum contract:
 - source `experienceId`
 - `personaId`
 - deployment target
+- artifact selection
+- delivery mode
 - dispatch mode
 - delivery payload
 - status / errors
 - receipt and lifecycle hook integration
 
-### B. Deployment Targets
+### B. Artifact Resolution
+
+Deployment should choose one explicit artifact instead of implicitly reusing whatever preview image happens to be available.
+
+Artifact classes should include:
+
+- `generated_image`
+- `generated_video`
+- `experience_card`
+- `runtime_experience`
+- `thin_client_runtime`
+- `context_image` as last-resort fallback only
+
+The system should always know:
+
+- which artifact was selected
+- why it was selected
+- what URL was actually deployed
+- what preview media was used in the deployment proof
+
+### C. Delivery Modes
+
+Delivery mode is distinct from destination target.
+
+Initial modes should include:
+
+- `asset_link`
+- `inline_asset`
+- `inline_experience`
+- `browser_launch`
+- `thin_client_handoff`
+
+These should work across multiple destinations instead of being hardcoded to one messenger.
+
+### D. Destination Adapters
 
 Phase 3 deployment targets should start with:
 
@@ -62,14 +127,20 @@ Each target should carry:
 - readiness state
 - resulting publish/launch URL if available
 
-Deployment also needs a `delivery variant` layer so the same target can support different handoff patterns:
+Initial delivery variants currently modeled in code map onto the broader delivery-mode system and should evolve toward it:
 
 - `asset_link`
 - `discord_asset_inline`
 - `discord_experience_inline`
 - `runtime_thin_client`
 
-### C. Trust-and-Cost Routing
+Later adapters should include:
+
+- `xmtp`
+- `aa_api`
+- other transport-specific adapters
+
+### E. Trust-and-Cost Routing
 
 The deployment layer should be able to reason about:
 
@@ -84,7 +155,7 @@ Initial Phase 3 requirement:
 - keep provider binding strict for generation
 - prepare a routing envelope for later ClawRouter-style selection
 
-### D. Proof and Lifecycle
+### F. Proof and Lifecycle
 
 Deployment should update:
 
@@ -92,6 +163,25 @@ Deployment should update:
 - persona media delivery targets
 - CRM contribution hooks
 - deployment receipts or dispatch metadata where available
+- deployment artifact proof
+
+## 2.1 Universal Deployment Contract
+
+The generic deployment manager should eventually persist:
+
+- `artifact_type`
+- `artifact_url`
+- `preview_media_url`
+- `launch_url`
+- `delivery_mode`
+- `destination_type`
+- `destination_adapter`
+- `transport_tool`
+- `variant`
+- `status`
+- `warnings`
+- `errors`
+- `receipt/proof`
 
 ## 3. First Implementation Slice
 
@@ -102,6 +192,7 @@ The first concrete Phase 3 implementation should be:
 3. normalize deployment target metadata
 4. preserve deployment results in a consistent response shape
 5. add a trust-and-cost routing envelope that scores targets by readiness, trust, and cost posture
+6. separate artifact resolution from deployment target selection
 
 ## 4. Shared Deployment Contract
 
@@ -151,12 +242,33 @@ Initial candidates:
 - `mcp_app`
 - `discord_mcp`
 
+## 4.2 Deployment Validation Matrix
+
+Each delivery pattern should be validated against the same matrix:
+
+1. `generated image -> asset link`
+2. `generated image -> inline asset`
+3. `generated image -> runtime thin client`
+4. `generated video -> asset link`
+5. `generated video -> inline asset`
+6. `generated video -> runtime thin client`
+7. `experience card -> inline experience`
+8. `experience card -> runtime thin client`
+
+For each:
+
+- inspector preview must match the deployed artifact
+- deployment proof must record the correct artifact and delivery mode
+- destination URL or inline media must match the selected generated asset, not fallback context art
+
 ## 5. Phase 3 Exit Criteria
 
 Phase 3 is complete enough when:
 
 - deployment is a standalone reusable unit
 - runtime / MCP / Discord deployment share one contract
+- artifact resolution is explicit and reliable
+- delivery mode is distinct from destination adapter
 - deployment state is visible in Studio
 - lifecycle and CRM hooks reflect deployment actions
 - trust-and-cost routing inputs are modeled and ready for stricter orchestration
@@ -181,6 +293,12 @@ To avoid fragmenting deployment work into too many tiny releases, the remaining 
 - tighter runtime / MCP / Discord handoff
 - quick actions to apply the recommended target or retry the selected target
 - deployment proof visible both in inspector and in the main Resources flow
+
+4. `Phase 3D: Universal Deployment Manager`
+- shared artifact resolver
+- delivery-mode normalization
+- destination adapter separation
+- validation matrix across Studio, runtime, thin client, and external channels
 
 ## 6. Follow-on Phase
 
