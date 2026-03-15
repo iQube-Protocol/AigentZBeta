@@ -138,6 +138,7 @@ type ExperienceQube = {
     deployment_state?: {
       last_target?: string;
       last_variant?: string;
+      last_destination_surface?: string;
       last_status?: string;
       last_provider?: string;
       last_mode?: string;
@@ -151,6 +152,7 @@ type ExperienceQube = {
         id: string;
         target: string;
         variant?: string;
+        destination_surface?: string;
         provider?: string;
         mode?: string;
         status: string;
@@ -518,6 +520,29 @@ function buildSectionLookupPlans(tag: string | null): ContentSectionLookupPlan[]
   if (normalized === "knowdz-creative") return [{ section: "21knowdz", tab: "creative" }, { section: "21knowdz" }];
   if (normalized === "knowdz-devs") return [{ section: "21knowdz", tab: "dev" }, { section: "21knowdz" }];
   return [{ section: normalized }];
+}
+
+function getDeploymentDestinationSurfaceLabel(
+  target: ComposerDeploymentTarget | string | null | undefined,
+  variant?: string | null,
+) {
+  if (target === "studio_preview") return "Studio preview";
+  if (target === "runtime_launch") {
+    return variant === "runtime_thin_client" ? "metaMe runtime thin client" : "metaMe runtime";
+  }
+  if (target === "discord_mcp") {
+    if (variant === "discord_asset_inline") return "Discord inline asset";
+    if (variant === "discord_experience_inline") return "Discord inline experience";
+    if (variant === "asset_link") return "External asset link";
+    return "Discord via MCP";
+  }
+  if (target === "mcp_app") {
+    if (variant === "asset_link") return "External asset link";
+    if (variant === "runtime_thin_client") return "metaMe runtime thin client";
+    if (variant === "runtime_standard") return "metaMe runtime";
+    return "MCP app surface";
+  }
+  return "Deployment surface";
 }
 
 function pickMediaFromSectionContent(items: any[], preferredIds: string[]): InspectorMediaPreview | null {
@@ -3714,6 +3739,10 @@ export const ComposerStudio = () => {
         id: `deploy_${deployment.target}_${Date.now()}`,
         target: deployment.target,
         variant: deployment.variant,
+        destination_surface:
+          typeof deployment.response?.destinationSurface === "string"
+            ? deployment.response.destinationSurface
+            : undefined,
         provider: deployment.provider,
         mode: deployment.mode,
         status: deployment.status,
@@ -3750,6 +3779,10 @@ export const ComposerStudio = () => {
             deployment_state: {
               last_target: deployment.target,
               last_variant: deployment.variant,
+              last_destination_surface:
+                typeof deployment.response?.destinationSurface === "string"
+                  ? deployment.response.destinationSurface
+                  : undefined,
               last_status: deployment.status,
               last_provider: deployment.provider,
               last_mode: deployment.mode,
@@ -3990,6 +4023,10 @@ export const ComposerStudio = () => {
       return {
         target: inSession.target,
         variant: inSession.variant,
+        destinationSurface:
+          typeof inSession.response?.destinationSurface === "string"
+            ? inSession.response.destinationSurface
+            : getDeploymentDestinationSurfaceLabel(inSession.target, inSession.variant),
         status: inSession.status,
         provider: inSession.provider,
         mode: inSession.mode,
@@ -3997,6 +4034,10 @@ export const ComposerStudio = () => {
         launchUrl: inSession.launchUrl,
         warnings: inSession.warnings,
         error: inSession.error,
+        runtimeProfile: inSession.runtimeProfile,
+        nextActions: Array.isArray(inSession.response?.nextActions)
+          ? (inSession.response.nextActions as string[])
+          : undefined,
         deployedAt:
           activeExperienceDeploymentState?.last_target === mcpDeploymentTarget
             ? String(activeExperienceDeploymentState.last_deployed_at || "")
@@ -4009,6 +4050,17 @@ export const ComposerStudio = () => {
         variant: typeof activeExperienceDeploymentState.last_variant === "string"
           ? activeExperienceDeploymentState.last_variant
           : undefined,
+        destinationSurface:
+          typeof activeExperienceDeploymentState.last_destination_surface === "string"
+            ? activeExperienceDeploymentState.last_destination_surface
+            : getDeploymentDestinationSurfaceLabel(
+                typeof activeExperienceDeploymentState.last_target === "string"
+                  ? activeExperienceDeploymentState.last_target
+                  : null,
+                typeof activeExperienceDeploymentState.last_variant === "string"
+                  ? activeExperienceDeploymentState.last_variant
+                  : undefined,
+              ),
         status: String(activeExperienceDeploymentState.last_status || "unknown"),
         provider: typeof activeExperienceDeploymentState.last_provider === "string"
           ? activeExperienceDeploymentState.last_provider
@@ -4026,6 +4078,11 @@ export const ComposerStudio = () => {
         error: typeof activeExperienceDeploymentState.last_error === "string"
           ? activeExperienceDeploymentState.last_error
           : undefined,
+        runtimeProfile:
+          activeExperienceDeploymentState.last_runtime_profile &&
+          typeof activeExperienceDeploymentState.last_runtime_profile === "object"
+            ? (activeExperienceDeploymentState.last_runtime_profile as Record<string, any>)
+            : undefined,
         deployedAt: typeof activeExperienceDeploymentState.last_deployed_at === "string"
           ? activeExperienceDeploymentState.last_deployed_at
           : undefined,
@@ -5524,8 +5581,26 @@ export const ComposerStudio = () => {
                                 {activeExperienceDeploymentState.last_variant ? (
                                   <div>Variant: {String(activeExperienceDeploymentState.last_variant)}</div>
                                 ) : null}
+                                {activeExperienceDeploymentState.last_destination_surface ? (
+                                  <div>Surface: {String(activeExperienceDeploymentState.last_destination_surface)}</div>
+                                ) : null}
                                 {activeExperienceDeploymentState.last_mode ? (
                                   <div>Mode: {String(activeExperienceDeploymentState.last_mode)}</div>
+                                ) : null}
+                                {activeExperienceDeploymentState.last_runtime_profile &&
+                                typeof activeExperienceDeploymentState.last_runtime_profile === "object" ? (
+                                  <>
+                                    <div>
+                                      Intent: {String((activeExperienceDeploymentState.last_runtime_profile as Record<string, any>).intent || "read")}
+                                    </div>
+                                    <div>
+                                      Quick link: {String((activeExperienceDeploymentState.last_runtime_profile as Record<string, any>).quickLink || "read")}
+                                    </div>
+                                    <div className="sm:col-span-2">
+                                      Codex: {String(((activeExperienceDeploymentState.last_runtime_profile as Record<string, any>).codexContext as Record<string, any> | undefined)?.activeCodexName || ((activeExperienceDeploymentState.last_runtime_profile as Record<string, any>).codexContext as Record<string, any> | undefined)?.activeCodexId || "Unknown")}
+                                    </div>
+                                    <div>Cartridge: {String((activeExperienceDeploymentState.last_runtime_profile as Record<string, any>).runtimeCartridge || "metame")}</div>
+                                  </>
                                 ) : null}
                                 {activeExperienceDeploymentState.last_deployed_at ? (
                                   <div>
@@ -5597,9 +5672,16 @@ export const ComposerStudio = () => {
                                 <div className="mt-1 grid gap-1 text-xs text-slate-400 sm:grid-cols-2">
                                   {entry.provider ? <div>Provider: {String(entry.provider)}</div> : null}
                                   {entry.variant ? <div>Variant: {String(entry.variant)}</div> : null}
+                                  {entry.destination_surface ? <div>Surface: {String(entry.destination_surface)}</div> : null}
                                   {entry.mode ? <div>Mode: {String(entry.mode)}</div> : null}
                                   {entry.deployed_at ? (
                                     <div>At: {new Date(String(entry.deployed_at)).toLocaleString()}</div>
+                                  ) : null}
+                                  {entry.runtime_profile && typeof entry.runtime_profile === "object" ? (
+                                    <>
+                                      <div>Intent: {String((entry.runtime_profile as Record<string, any>).intent || "read")}</div>
+                                      <div>Quick link: {String((entry.runtime_profile as Record<string, any>).quickLink || "read")}</div>
+                                    </>
                                   ) : null}
                                   {entry.source ? <div>Source: {String(entry.source)}</div> : null}
                                   {entry.publish_url ? (
@@ -7094,6 +7176,9 @@ export const ComposerStudio = () => {
                   </div>
                   <div className="mt-2 grid gap-1 text-slate-400">
                     <div>Target: {getDeploymentTargetLabel(mcpDeploymentTarget)}</div>
+                    {latestSelectedDeploymentResult?.destinationSurface ? (
+                      <div>Surface: {String(latestSelectedDeploymentResult.destinationSurface)}</div>
+                    ) : null}
                     {latestSelectedDeploymentResult?.provider ? (
                       <div>Provider: {String(latestSelectedDeploymentResult.provider)}</div>
                     ) : null}
@@ -7109,6 +7194,19 @@ export const ComposerStudio = () => {
                     {latestSelectedDeploymentResult?.warnings && latestSelectedDeploymentResult.warnings.length > 0 ? (
                       <div className="text-amber-200/90">
                         Warnings: {latestSelectedDeploymentResult.warnings.join(" · ")}
+                      </div>
+                    ) : null}
+                    {latestSelectedDeploymentResult?.runtimeProfile ? (
+                      <>
+                        <div>Intent: {String(latestSelectedDeploymentResult.runtimeProfile.intent)}</div>
+                        <div>Quick link: {String(latestSelectedDeploymentResult.runtimeProfile.quickLink)}</div>
+                        <div>Codex: {String(latestSelectedDeploymentResult.runtimeProfile.codexContext?.activeCodexName || latestSelectedDeploymentResult.runtimeProfile.codexContext?.activeCodexId || "Unknown")}</div>
+                        <div>Cartridge: {String(latestSelectedDeploymentResult.runtimeProfile.runtimeCartridge || "metame")}</div>
+                      </>
+                    ) : null}
+                    {latestSelectedDeploymentResult?.nextActions && latestSelectedDeploymentResult.nextActions.length > 0 ? (
+                      <div className="text-cyan-100">
+                        Next: {latestSelectedDeploymentResult.nextActions.join(" · ")}
                       </div>
                     ) : null}
                     {latestSelectedDeploymentResult?.error ? (
