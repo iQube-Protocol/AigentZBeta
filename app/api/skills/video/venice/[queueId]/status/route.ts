@@ -67,23 +67,11 @@ export async function GET(
 
     if (!res.ok) {
       const errorMessage = data?.error?.message || data?.error || `Venice API ${res.status}`;
-
-      // Venice retrieve can intermittently return upstream 5xx while the media
-      // is still being finalized. Treat those as transient processing states so
-      // the client keeps polling instead of falling into a 502 loop.
-      if (res.status >= 500) {
-        return NextResponse.json({
-          ready: false,
-          status: "PROCESSING",
-          progress: 95,
-          transient_error: errorMessage,
-        });
-      }
-
       return NextResponse.json({
         ready: false,
         status: "error",
         error: errorMessage,
+        transient_error: res.status >= 500 ? errorMessage : undefined,
       }, { status: 200 });
     }
 
@@ -120,9 +108,9 @@ export async function GET(
     const msg = err?.name === "AbortError" ? "Status check timed out" : (err.message || String(err));
     return NextResponse.json({
       ready: false,
-      status: "PROCESSING",
-      progress: 95,
+      status: "error",
+      error: msg,
       transient_error: msg,
-    });
+    }, { status: 200 });
   }
 }
