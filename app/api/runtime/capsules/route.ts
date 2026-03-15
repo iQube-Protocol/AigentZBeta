@@ -443,6 +443,9 @@ function scoreCapsule(capsule: RuntimeCapsuleRecord, prompt: string, intent: str
   if (intent === "watch" && capsule.metadata.modalityHints.includes("watch")) score += 4;
   if (intent === "read" && capsule.metadata.modalityHints.includes("read")) score += 3;
   if (intent === "play" && (capsule.metadata.contentKind === "video" || capsule.metadata.contentKind === "episode")) score += 3;
+  if (intent === "make" && capsule.metadata.surfaceIntent === "make") score += 8;
+  if (intent === "make" && capsule.sourceType === "experience") score += 5;
+  if (intent === "make" && capsule.metadata.contentKind === "article") score += 2;
 
   const searchable = `${capsule.title} ${capsule.description} ${(capsule.metadata.modalityHints || []).join(" ")}`.toLowerCase();
   const words = prompt

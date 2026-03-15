@@ -24,8 +24,10 @@ type PersonaMediaLike = RecordLike & {
 };
 
 export type RuntimeSurfaceIntent = "read" | "watch";
+export type RuntimeMenuIntent = "make" | "play";
 
 export type ComposerRuntimeDeliveryProfile = {
+  menuIntent: RuntimeMenuIntent;
   intent: RuntimeSurfaceIntent;
   quickLink: RuntimeSurfaceIntent;
   contentKind: "article" | "video" | "generic";
@@ -196,6 +198,7 @@ export function buildRuntimeDeliveryProfile(options: {
   const primaryCodexTab = derivePrimaryCodexTab(activeCodexId, contentKind, intent, metadata);
 
   return {
+    menuIntent: "make",
     intent,
     quickLink: intent,
     contentKind,

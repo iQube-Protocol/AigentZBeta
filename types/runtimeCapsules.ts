@@ -20,6 +20,7 @@ export interface RuntimeCapsuleMetadata {
   codexTab?: string;
   runtimeCartridge?: string;
   projectionId?: string;
+  surfaceIntent?: "make" | "play";
   modalityHints: string[];
   durationMinutes?: number | null;
   priceLabel?: string | null;

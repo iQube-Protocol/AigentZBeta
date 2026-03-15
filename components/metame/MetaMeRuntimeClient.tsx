@@ -629,6 +629,9 @@ function scoreContent(content: RuntimeCapsule, prompt: string, intent: RuntimeIn
   if (intent === "play" && content.runtimeSource === "smart-content") score += 5;
   if (intent === "watch" && isLikelyVideoUri(content.runtimePreviewMediaUri || null)) score += 3;
   if (intent !== "play" && content.runtimeSource === "experience") score += 1;
+  if (intent === "make" && content.runtimeSource === "experience") score += 8;
+  if (intent === "make" && content.runtimeContentKind === "article") score += 2;
+  if (intent === "make" && content.metadata?.runtimeDeliveryProfile?.menuIntent === "make") score += 4;
   return score;
 }
 
@@ -805,6 +808,7 @@ function fromRuntimeCapsuleRecord(record: RuntimeCapsuleRecord): RuntimeCapsule 
   const modalityHints = record.metadata?.modalityHints || [];
   const slug = record.metadata?.codexSlug || record.id;
   const sourceLabel = record.sourceType;
+  const surfaceIntent = record.metadata?.surfaceIntent || (record.sourceType === "experience" ? "make" : "play");
   return {
     id: record.id,
     type: "SmartContentQube",
@@ -849,6 +853,11 @@ function fromRuntimeCapsuleRecord(record: RuntimeCapsuleRecord): RuntimeCapsule 
     runtimeStatus: record.metadata?.status ?? null,
     runtimeContentKind: record.metadata?.contentKind ?? null,
     runtimePreviewMediaUri: record.metadata?.previewMediaUri ?? null,
+    metadata: {
+      runtimeDeliveryProfile: {
+        menuIntent: surfaceIntent,
+      },
+    },
   } as unknown as RuntimeCapsule;
 }
 
@@ -926,6 +935,7 @@ function buildPreviewExperienceCapsule(input: {
         activeCodexName: input.activeCodexName || null,
         activeCodexTab: input.activeCodexTab || null,
         runtimeCartridge: input.runtimeCartridge || null,
+        menuIntent: "make",
         personaAssignment: input.personaAssignment || null,
         crmCohortAssignment: input.crmCohortAssignment || null,
         policyAssignment: input.policyAssignment || null,

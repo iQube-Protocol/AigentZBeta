@@ -1,7 +1,7 @@
 import { getCodexById } from "@/data/codex-configs";
 import { resolveExperienceDeploymentArtifact } from "@/services/composer/deploymentArtifactResolver";
 import type { ComposerDeliveryVariant, ComposerDeploymentTarget } from "@/services/composer/deploymentBlock";
-import type { ComposerRuntimeDeliveryProfile } from "@/services/composer/runtimeDeliveryProfile";
+import type { ComposerRuntimeDeliveryProfile, RuntimeMenuIntent } from "@/services/composer/runtimeDeliveryProfile";
 import type { RuntimeCapsuleRecord } from "@/types/runtimeCapsules";
 
 type RecordLike = Record<string, unknown>;
@@ -34,6 +34,7 @@ export type RuntimeCapsuleProjection = {
   primary_codex_tab: string;
   cartridge_id: string;
   content_kind: "article" | "video" | "generic";
+  menu_intent: RuntimeMenuIntent;
   intent: "read" | "watch";
   quick_link: "read" | "watch";
   portrait_asset?: string;
@@ -163,6 +164,7 @@ export function buildExperienceRuntimeProjection(input: {
     primary_codex_tab: primaryCodexTab,
     cartridge_id: input.runtimeProfile.runtimeCartridge,
     content_kind: input.runtimeProfile.contentKind,
+    menu_intent: input.runtimeProfile.menuIntent,
     intent: input.runtimeProfile.intent,
     quick_link: input.runtimeProfile.quickLink,
     portrait_asset: input.runtimeProfile.imageAssets.portrait,
@@ -219,7 +221,7 @@ export function runtimeProjectionToCapsuleRecord(input: {
   const launchParams = new URLSearchParams({
     capsule: input.experience.id,
     experienceId: input.experience.id,
-    runtimeIntent: input.projection.intent,
+    runtimeIntent: input.projection.menu_intent,
     runtimeQuickLink: input.projection.quick_link,
     contentKind: input.projection.content_kind,
     activeCodexId: input.projection.primary_codex_id,
@@ -265,6 +267,7 @@ export function runtimeProjectionToCapsuleRecord(input: {
       codexTab: input.projection.primary_codex_tab,
       runtimeCartridge: input.projection.cartridge_id,
       projectionId: input.projection.projection_id,
+      surfaceIntent: input.projection.menu_intent,
       modalityHints,
       durationMinutes: null,
       priceLabel: null,
