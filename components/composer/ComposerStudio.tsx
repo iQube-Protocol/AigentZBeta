@@ -43,7 +43,7 @@ import { buildRuntimeDeliveryProfile } from "@/services/composer/runtimeDelivery
 import {
   buildExperienceRuntimeProjection,
   resolveRuntimeCodexTabForExperience,
-} from "@/services/composer/runtimeProjectionService";
+} from "@/services/composer/runtimeProjectionShared";
 import { buildComposerRoutingEnvelope } from "@/services/composer/routingEnvelope";
 import {
   markPersonaGeneratedMediaLifecycle,
