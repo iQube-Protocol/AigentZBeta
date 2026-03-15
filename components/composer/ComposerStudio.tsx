@@ -172,6 +172,34 @@ type ExperienceQube = {
   };
 };
 
+const DEFAULT_RUNTIME_IFRAME_URL = "https://runtime.metame.com/metame/runtime?embed=1&shell=thin";
+const DEFAULT_RUNTIME_IFRAME_PATH = "/metame/runtime";
+
+function normalizeRuntimeIframePath(pathname: string): string {
+  const trimmed = pathname.replace(/\/+$/, "") || "/";
+  if (trimmed === "/runtime" || trimmed === "/") {
+    return DEFAULT_RUNTIME_IFRAME_PATH;
+  }
+  return trimmed;
+}
+
+function resolveRuntimeBaseUrl() {
+  const raw =
+    process.env.NEXT_PUBLIC_RUNTIME_IFRAME_URL ||
+    process.env.NEXT_PUBLIC_RUNTIME_IFRAME_ORIGIN ||
+    DEFAULT_RUNTIME_IFRAME_URL;
+
+  try {
+    const parsed = new URL(raw);
+    parsed.pathname = normalizeRuntimeIframePath(parsed.pathname);
+    parsed.search = "";
+    parsed.hash = "";
+    return parsed;
+  } catch {
+    return new URL(DEFAULT_RUNTIME_IFRAME_URL);
+  }
+}
+
 type ComposerMediaItem = {
   id: string;
   label: string;
@@ -2231,7 +2259,9 @@ export const ComposerStudio = () => {
       params.set("policyAssignment", runtimeProfile.stubAssignments.policyAssignment);
       if (runtimeProfile.surfaceHints.shellMode === "thin") params.set("shell", "thin");
       if (runtimeProfile.surfaceHints.chromeMode === "content-only") params.set("chrome", "content-only");
-      return `${window.location.origin}/metame/runtime?${params.toString()}`;
+      const runtimeBaseUrl = resolveRuntimeBaseUrl();
+      runtimeBaseUrl.search = params.toString();
+      return runtimeBaseUrl.toString();
     },
     [codexContentItems, personaMediaLibrary, previewExperience?.id, selectedExperienceId],
   );
