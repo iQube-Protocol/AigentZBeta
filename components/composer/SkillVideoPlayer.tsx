@@ -64,6 +64,7 @@ interface InvocationResult {
   venice_model?: string;
   provider_status?: string;
   provider_progress?: number;
+  invocation_phase?: "provider_submit" | "job_accepted" | "polling" | "completed" | "failed";
 }
 
 // Convert skill composite (0–100) to trust dot scale (0–10)
@@ -179,9 +180,12 @@ export default function SkillVideoPlayer({
     setAutoPollPaused(false);
     setStatusMessage(null);
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 40_000);
       const res = await fetch("/api/skills/invoke", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
           skill_id,
           prompt,
@@ -193,9 +197,21 @@ export default function SkillVideoPlayer({
           trust_override,
           venice_model: venice_model || undefined,
         }),
-      });
+      }).finally(() => clearTimeout(timeout));
       const data = await res.json().catch(() => ({ ok: false, error: "Invalid response from skill API" }));
-      setResult(data);
+      setResult({
+        ...data,
+        invocation_phase:
+          data.ok && data.mode === "live"
+            ? data.video_url
+              ? "completed"
+              : data.generation_id
+                ? "job_accepted"
+                : "failed"
+            : data.ok
+              ? undefined
+              : "failed",
+      });
       setState(data.ok ? "done" : "error");
       if (data.ok && data.mode === "live") {
         setResultSource("generated");
@@ -205,10 +221,25 @@ export default function SkillVideoPlayer({
               ? `Current ${providerLabel} status: ${String(data.provider_status).toLowerCase()}.`
               : `Waiting for ${providerLabel} to finish the video job.`
           );
+        } else if (!data.video_url) {
+          setResult({
+            ...data,
+            ok: false,
+            error: `${providerLabel} accepted no generation id for this request.`,
+            invocation_phase: "failed",
+          });
+          setState("error");
         }
       }
     } catch (err: any) {
-      setResult({ ok: false, error: err?.message || "Invocation failed" });
+      const timedOut = err?.name === "AbortError";
+      setResult({
+        ok: false,
+        error: timedOut
+          ? `${providerLabel} did not acknowledge the video request within 40 seconds.`
+          : err?.message || "Invocation failed",
+        invocation_phase: "failed",
+      });
       setState("error");
       setResultSource("none");
     }
@@ -556,6 +587,11 @@ export default function SkillVideoPlayer({
                 </p>
                 {statusMessage && (
                   <p className="text-[10px] text-cyan-300/70 mt-2">{statusMessage}</p>
+                )}
+                {result?.invocation_phase && (
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    Phase: <span className="font-mono">{result.invocation_phase}</span>
+                  </p>
                 )}
                 {result?.provider_status && (
                   <p className="text-[10px] text-slate-500 mt-1">

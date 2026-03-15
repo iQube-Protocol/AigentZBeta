@@ -382,6 +382,9 @@ export async function POST(request: NextRequest) {
           // Venice path
           const vJob = await createVeniceJob(apiKey, prompt, duration, aspect_ratio, body.venice_model);
           generationId = vJob.queue_id;
+          if (!generationId) {
+            throw new Error("Venice video API returned no queue_id");
+          }
           veniceModel = vJob.model;
           mode = "live";
           providerStatus = "queued";
@@ -391,6 +394,9 @@ export async function POST(request: NextRequest) {
         console.log(`[SkillInvoke] Attempting live Sora generation for: "${prompt.substring(0, 60)}..."`);
         const job = await createSoraJob(apiKey, prompt, duration, aspect_ratio);
         generationId = job.id || null;
+        if (!generationId && job.status !== "completed") {
+          throw new Error("OpenAI video API returned no generation id");
+        }
         console.log(`[SkillInvoke] Sora job created: ${generationId}, status: ${job.status}`);
         providerStatus = typeof job.status === "string" ? job.status : "queued";
         providerProgress = typeof job.progress === "number" ? job.progress : 0;
