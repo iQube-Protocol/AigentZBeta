@@ -40,6 +40,10 @@ import {
 } from "@/services/composer/deploymentBlock";
 import { resolveExperienceDeploymentArtifact } from "@/services/composer/deploymentArtifactResolver";
 import { buildRuntimeDeliveryProfile } from "@/services/composer/runtimeDeliveryProfile";
+import {
+  buildExperienceRuntimeProjection,
+  resolveRuntimeCodexTabForExperience,
+} from "@/services/composer/runtimeProjectionService";
 import { buildComposerRoutingEnvelope } from "@/services/composer/routingEnvelope";
 import {
   markPersonaGeneratedMediaLifecycle,
@@ -147,6 +151,7 @@ type ExperienceQube = {
       last_deployed_at?: string;
       last_error?: string;
       last_runtime_profile?: Record<string, any>;
+      last_runtime_projection?: Record<string, any>;
     };
       deployment_history?: Array<{
         id: string;
@@ -162,6 +167,7 @@ type ExperienceQube = {
       deployed_at: string;
       error?: string;
       runtime_profile?: Record<string, any>;
+      runtime_projection?: Record<string, any>;
     }>;
   };
 };
@@ -2096,6 +2102,13 @@ export const ComposerStudio = () => {
     params.set("contentKind", previewRuntimeDeliveryProfile.contentKind);
     params.set("activeCodexId", previewRuntimeDeliveryProfile.codexContext.activeCodexId);
     params.set("activeCodexName", previewRuntimeDeliveryProfile.codexContext.activeCodexName);
+    params.set(
+      "runtimeCodexTab",
+      resolveRuntimeCodexTabForExperience({
+        experience: previewExperience,
+        runtimeProfile: previewRuntimeDeliveryProfile,
+      }),
+    );
     params.set("runtimeCartridge", previewRuntimeDeliveryProfile.runtimeCartridge);
     params.set("preferredImageOrientationMobile", previewRuntimeDeliveryProfile.preferredImageOrientationByDevice.mobile);
     params.set("preferredImageOrientationTablet", previewRuntimeDeliveryProfile.preferredImageOrientationByDevice.tablet);
@@ -2114,6 +2127,7 @@ export const ComposerStudio = () => {
     previewRuntimeDeliveryProfile.contentKind,
     previewRuntimeDeliveryProfile.codexContext.activeCodexId,
     previewRuntimeDeliveryProfile.codexContext.activeCodexName,
+    previewRuntimeDeliveryProfile.codexContext.primaryCodexTab,
     previewRuntimeDeliveryProfile.imageAssets.landscape,
     previewRuntimeDeliveryProfile.imageAssets.portrait,
     previewRuntimeDeliveryProfile.intent,
@@ -2170,6 +2184,13 @@ export const ComposerStudio = () => {
       params.set("contentKind", runtimeProfile.contentKind);
       params.set("activeCodexId", runtimeProfile.codexContext.activeCodexId);
       params.set("activeCodexName", runtimeProfile.codexContext.activeCodexName);
+      params.set(
+        "runtimeCodexTab",
+        resolveRuntimeCodexTabForExperience({
+          experience: exp || null,
+          runtimeProfile,
+        }),
+      );
       params.set("runtimeCartridge", runtimeProfile.runtimeCartridge);
       params.set("preferredImageOrientationMobile", runtimeProfile.preferredImageOrientationByDevice.mobile);
       params.set("preferredImageOrientationTablet", runtimeProfile.preferredImageOrientationByDevice.tablet);
@@ -3735,6 +3756,17 @@ export const ComposerStudio = () => {
         ? metadata.deployment_history
         : [];
       const deployedAt = new Date().toISOString();
+      const runtimeProjection =
+        deployment.target === "runtime_launch" && deployment.runtimeProfile
+          ? buildExperienceRuntimeProjection({
+              experience: exp,
+              runtimeProfile: deployment.runtimeProfile,
+              target: deployment.target,
+              variant: deployment.variant || "runtime_standard",
+              publishUrl: deployment.publishUrl,
+              launchUrl: deployment.launchUrl,
+            })
+          : undefined;
       const nextEntry = {
         id: `deploy_${deployment.target}_${Date.now()}`,
         target: deployment.target,
@@ -3752,6 +3784,7 @@ export const ComposerStudio = () => {
         deployed_at: deployedAt,
         error: deployment.error,
         runtime_profile: deployment.runtimeProfile,
+        runtime_projection: runtimeProjection,
       };
       const nextLifecycle = {
         ...previousLifecycle,
@@ -3791,7 +3824,9 @@ export const ComposerStudio = () => {
               last_deployed_at: deployedAt,
               last_error: deployment.error,
               last_runtime_profile: deployment.runtimeProfile,
+              last_runtime_projection: runtimeProjection,
             },
+            runtime_publication: runtimeProjection || metadata.runtime_publication,
             deployment_history: [...previousHistory, nextEntry].slice(-25),
             lifecycle_summary: nextLifecycle,
           },

@@ -15,7 +15,11 @@ export interface RuntimeCapsuleLaunchTarget {
 
 export interface RuntimeCapsuleMetadata {
   tenantId?: string;
+  codexId?: string;
   codexSlug?: string;
+  codexTab?: string;
+  runtimeCartridge?: string;
+  projectionId?: string;
   modalityHints: string[];
   durationMinutes?: number | null;
   priceLabel?: string | null;

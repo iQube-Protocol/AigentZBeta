@@ -32,6 +32,7 @@ export type ComposerRuntimeDeliveryProfile = {
   codexContext: {
     activeCodexId: string;
     activeCodexName: string;
+    primaryCodexTab: string;
   };
   runtimeCartridge: string;
   preferredImageOrientationByDevice: {
@@ -141,6 +142,38 @@ function deriveIntent(experience: ExperienceLike | null, assets: RecordLike[]): 
   return { intent: "read", contentKind: "generic" };
 }
 
+function deriveRuntimeCartridge(codexId: string, metadata: RecordLike): string {
+  const explicit = firstNonEmptyString([
+    metadata.runtime_cartridge,
+    metadata.cartridge_id,
+    asRecord(metadata.runtime_publication)?.cartridge_id,
+  ]);
+  if (explicit) return explicit;
+  if (codexId === "qripto-codex" || codexId === "knyt-codex") return "Qriptopian";
+  if (codexId === "aigentiq-codex") return "AgentiQ";
+  return "metaMe";
+}
+
+function derivePrimaryCodexTab(
+  codexId: string,
+  contentKind: "article" | "video" | "generic",
+  intent: RuntimeSurfaceIntent,
+  metadata: RecordLike,
+): string {
+  const explicit = firstNonEmptyString([
+    metadata.runtime_publication_primary_codex_tab,
+    asRecord(metadata.runtime_publication)?.primary_codex_tab,
+    asRecord(metadata.deployment_preferences)?.target_codex_tab,
+  ]);
+  if (explicit) return explicit;
+  if (codexId === "knyt-codex") return "scrolls";
+  if (codexId === "qripto-codex") {
+    if (contentKind === "article" || intent === "read" || intent === "watch") return "features";
+    return "codex";
+  }
+  return "experiences";
+}
+
 export function buildRuntimeDeliveryProfile(options: {
   experience: ExperienceLike | null;
   personaLibraryAssets?: PersonaMediaLike[];
@@ -160,6 +193,7 @@ export function buildRuntimeDeliveryProfile(options: {
   const codexContext = asRecord(metadata.codex_context) ?? {};
   const activeCodexId = firstNonEmptyString([codexContext.active_codex_id]) || "qripto-codex";
   const activeCodexName = firstNonEmptyString([codexContext.active_codex_name]) || "Qriptopian";
+  const primaryCodexTab = derivePrimaryCodexTab(activeCodexId, contentKind, intent, metadata);
 
   return {
     intent,
@@ -168,8 +202,9 @@ export function buildRuntimeDeliveryProfile(options: {
     codexContext: {
       activeCodexId,
       activeCodexName,
+      primaryCodexTab,
     },
-    runtimeCartridge: "metame",
+    runtimeCartridge: deriveRuntimeCartridge(activeCodexId, metadata),
     preferredImageOrientationByDevice: {
       mobile: "portrait",
       tablet: "landscape",

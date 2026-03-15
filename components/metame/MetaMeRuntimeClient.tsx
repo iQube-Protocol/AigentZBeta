@@ -839,7 +839,7 @@ function fromRuntimeCapsuleRecord(record: RuntimeCapsuleRecord): RuntimeCapsule 
     createdAt: new Date().toISOString(),
     runtimeSource,
     runtimeCodexSlug: record.metadata?.codexSlug,
-    runtimeCodexInitialTab: record.sourceType === "codex" ? "codex" : undefined,
+    runtimeCodexInitialTab: record.metadata?.codexTab || (record.sourceType === "codex" ? "codex" : undefined),
     runtimeLaunchHref: record.launchTarget?.href,
     runtimeLaunchType: record.launchTarget?.type,
     runtimeAssetStatus: record.assetStatus,
@@ -866,6 +866,7 @@ function buildPreviewExperienceCapsule(input: {
   contentKind?: "article" | "video" | "character" | "episode" | "generic" | null;
   activeCodexId?: string | null;
   activeCodexName?: string | null;
+  activeCodexTab?: string | null;
   runtimeCartridge?: string | null;
   personaAssignment?: string | null;
   crmCohortAssignment?: string | null;
@@ -910,6 +911,7 @@ function buildPreviewExperienceCapsule(input: {
     status: "published",
     createdAt: new Date().toISOString(),
     runtimeSource: "experience",
+    runtimeCodexInitialTab: input.activeCodexTab || undefined,
     runtimeLaunchHref: `/studio/composer/experience/${encodeURIComponent(input.experienceId)}?embed=1`,
     runtimeLaunchType: "experience",
     runtimeAssetStatus: "resolved",
@@ -922,6 +924,7 @@ function buildPreviewExperienceCapsule(input: {
         quickLink,
         activeCodexId: input.activeCodexId || null,
         activeCodexName: input.activeCodexName || null,
+        activeCodexTab: input.activeCodexTab || null,
         runtimeCartridge: input.runtimeCartridge || null,
         personaAssignment: input.personaAssignment || null,
         crmCohortAssignment: input.crmCohortAssignment || null,
@@ -975,6 +978,7 @@ export default function MetaMeRuntimeClient() {
   const runtimeContentKindParam = searchParams?.get("contentKind");
   const runtimeActiveCodexId = searchParams?.get("activeCodexId");
   const runtimeActiveCodexName = searchParams?.get("activeCodexName");
+  const runtimeCodexTab = searchParams?.get("runtimeCodexTab");
   const runtimeCartridge = searchParams?.get("runtimeCartridge");
   const runtimePersonaAssignment = searchParams?.get("personaAssignment");
   const runtimeCrmCohortAssignment = searchParams?.get("crmCohortAssignment");
@@ -1284,6 +1288,7 @@ export default function MetaMeRuntimeClient() {
       quickLink: runtimeQuickLinkParam,
       activeCodexId: runtimeActiveCodexId,
       activeCodexName: runtimeActiveCodexName,
+      activeCodexTab: runtimeCodexTab,
       runtimeCartridge,
       personaAssignment: runtimePersonaAssignment,
       crmCohortAssignment: runtimeCrmCohortAssignment,
@@ -1301,6 +1306,7 @@ export default function MetaMeRuntimeClient() {
     runtimeActiveCodexId,
     runtimeActiveCodexName,
     runtimeCartridge,
+    runtimeCodexTab,
     runtimeCrmCohortAssignment,
     runtimeContentKindParam,
     runtimeIntentParam,
@@ -1324,6 +1330,9 @@ export default function MetaMeRuntimeClient() {
       if (options?.intent) params.set("intent", options.intent);
       if (options?.query) params.set("q", options.query);
       if (options?.nonce) params.set("nonce", String(options.nonce));
+      if (runtimeActiveCodexId) params.set("codexId", runtimeActiveCodexId);
+      if (runtimeCodexTab) params.set("codexTab", runtimeCodexTab);
+      if (runtimeCartridge) params.set("cartridge", runtimeCartridge);
       const response = await fetch(`/api/runtime/capsules?${params.toString()}`, { cache: "no-store" });
       if (!response.ok) throw new Error(`Runtime capsules API failed with ${response.status}`);
       const payload = await response.json();
@@ -1332,7 +1341,7 @@ export default function MetaMeRuntimeClient() {
       if (mapped.length > 0) return mapped;
       return options?.allowFallback ? DEFAULT_CONTENTS : [];
     },
-    []
+    [runtimeActiveCodexId, runtimeCartridge, runtimeCodexTab]
   );
 
   const fetchRuntimeData = useCallback(async () => {

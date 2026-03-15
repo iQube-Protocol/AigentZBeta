@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { listPublishedRuntimeCapsuleRecords } from "@/services/composer/runtimeProjectionService";
 import { getSmartContentService } from "@/services/content";
 import type { SmartContentQube } from "@/types/smartContent";
 import type { RuntimeCapsuleAssetRef, RuntimeCapsuleRecord, RuntimeCapsulesResponse } from "@/types/runtimeCapsules";
@@ -482,6 +483,13 @@ function dedupeCapsules(rows: RuntimeCapsuleRecord[]): RuntimeCapsuleRecord[] {
   return [...byImage.values(), ...withoutImage];
 }
 
+function slugForCodexFilter(codexId: string | null): string | null {
+  if (!codexId) return null;
+  if (codexId === "qripto-codex") return "qripto";
+  if (codexId === "knyt-codex") return "knyt";
+  return codexId.replace(/-codex$/i, "");
+}
+
 function shuffleWithSeed<T>(rows: T[], seed: number): T[] {
   const next = [...rows];
   let state = (Math.abs(seed || Date.now()) >>> 0) || 0x9e3779b9;
@@ -506,6 +514,9 @@ export async function GET(request: NextRequest) {
     const intent = normalizeString(searchParams.get("intent")).toLowerCase() || "find";
     const nonce = Number(searchParams.get("nonce") || Date.now());
     const limit = Math.max(1, Math.min(60, Number(searchParams.get("limit") || 40)));
+    const codexId = normalizeString(searchParams.get("codexId")) || null;
+    const codexTab = normalizeString(searchParams.get("codexTab")) || null;
+    const cartridge = normalizeString(searchParams.get("cartridge")) || null;
 
     const smartContentService = getSmartContentService();
     const [qriptoSmart, knytSmart] = await Promise.all([
@@ -525,7 +536,15 @@ export async function GET(request: NextRequest) {
       fetchInternalJson<KnytCardsResponse>(request, "/api/codex/knyt-cards?series=metaKnyts"),
     ]);
 
+    const publishedExperienceCapsules = await listPublishedRuntimeCapsuleRecords({
+      codexId,
+      codexTab,
+      cartridge,
+      limit: 200,
+    }).catch(() => []);
+
     const primaryCapsules = [
+      ...publishedExperienceCapsules,
       ...mapQriptoSectionCapsules(qriptoHome),
       ...mapQriptoSectionCapsules({
         sections: {
@@ -539,8 +558,12 @@ export async function GET(request: NextRequest) {
       ...mapSmartContentCapsules(knytSmart.data || [], "knyt"),
     ];
     const capsules = primaryCapsules.length > 0 ? primaryCapsules : mapFallbackExportCapsules();
+    const codexSlugFilter = slugForCodexFilter(codexId);
+    const scopedCapsules = codexSlugFilter
+      ? capsules.filter((capsule) => !capsule.metadata.codexSlug || capsule.metadata.codexSlug === codexSlugFilter)
+      : capsules;
 
-    const byId = capsules.filter(
+    const byId = scopedCapsules.filter(
       (capsule, index, rows) =>
         capsule.assetStatus === "resolved" &&
         rows.findIndex((row) => row.id === capsule.id) === index
