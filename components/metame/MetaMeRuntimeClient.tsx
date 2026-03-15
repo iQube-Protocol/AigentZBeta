@@ -64,6 +64,7 @@ type RuntimeAgent = {
 type RuntimeAgentModelMap = Record<string, AgentModelSelection | null>;
 type RuntimeCapsule = SmartContentQube & {
   runtimeSource: RuntimeContentSource;
+  runtimeMenuIntent?: "make" | "play";
   runtimeCodexSlug?: string;
   runtimeCodexInitialTab?: string;
   runtimeLaunchHref?: string;
@@ -631,7 +632,7 @@ function scoreContent(content: RuntimeCapsule, prompt: string, intent: RuntimeIn
   if (intent !== "play" && content.runtimeSource === "experience") score += 1;
   if (intent === "make" && content.runtimeSource === "experience") score += 8;
   if (intent === "make" && content.runtimeContentKind === "article") score += 2;
-  if (intent === "make" && content.metadata?.runtimeDeliveryProfile?.menuIntent === "make") score += 4;
+  if (intent === "make" && content.runtimeMenuIntent === "make") score += 4;
   return score;
 }
 
@@ -842,6 +843,7 @@ function fromRuntimeCapsuleRecord(record: RuntimeCapsuleRecord): RuntimeCapsule 
     status: (record.metadata?.status as "draft" | "published" | "archived" | "scheduled") || "published",
     createdAt: new Date().toISOString(),
     runtimeSource,
+    runtimeMenuIntent: surfaceIntent,
     runtimeCodexSlug: record.metadata?.codexSlug,
     runtimeCodexInitialTab: record.metadata?.codexTab || (record.sourceType === "codex" ? "codex" : undefined),
     runtimeLaunchHref: record.launchTarget?.href,
@@ -853,11 +855,6 @@ function fromRuntimeCapsuleRecord(record: RuntimeCapsuleRecord): RuntimeCapsule 
     runtimeStatus: record.metadata?.status ?? null,
     runtimeContentKind: record.metadata?.contentKind ?? null,
     runtimePreviewMediaUri: record.metadata?.previewMediaUri ?? null,
-    metadata: {
-      runtimeDeliveryProfile: {
-        menuIntent: surfaceIntent,
-      },
-    },
   } as unknown as RuntimeCapsule;
 }
 
@@ -920,6 +917,7 @@ function buildPreviewExperienceCapsule(input: {
     status: "published",
     createdAt: new Date().toISOString(),
     runtimeSource: "experience",
+    runtimeMenuIntent: "make",
     runtimeCodexInitialTab: input.activeCodexTab || undefined,
     runtimeLaunchHref: `/studio/composer/experience/${encodeURIComponent(input.experienceId)}?embed=1`,
     runtimeLaunchType: "experience",
@@ -927,20 +925,6 @@ function buildPreviewExperienceCapsule(input: {
     runtimeModalityHints: ["play", intent, quickLink],
     runtimeContentKind: input.contentKind || "episode",
     runtimePreviewMediaUri: input.videoUri || input.imageLandscapeUri || input.imagePortraitUri || imageUri || null,
-    metadata: {
-      runtimeDeliveryProfile: {
-        intent,
-        quickLink,
-        activeCodexId: input.activeCodexId || null,
-        activeCodexName: input.activeCodexName || null,
-        activeCodexTab: input.activeCodexTab || null,
-        runtimeCartridge: input.runtimeCartridge || null,
-        menuIntent: "make",
-        personaAssignment: input.personaAssignment || null,
-        crmCohortAssignment: input.crmCohortAssignment || null,
-        policyAssignment: input.policyAssignment || null,
-      },
-    },
   } as unknown as RuntimeCapsule;
 }
 
