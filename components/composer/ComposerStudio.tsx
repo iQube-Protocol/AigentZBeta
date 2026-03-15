@@ -1621,7 +1621,7 @@ export const ComposerStudio = () => {
   >("next.best");
   const [mcpProvider, setMcpProvider] = useState<"discord" | "whatsapp" | "telegram">("discord");
   const [mcpDeploymentTarget, setMcpDeploymentTarget] = useState<ComposerDeploymentTarget>("discord_mcp");
-  const [mcpDeliveryVariant, setMcpDeliveryVariant] = useState<ComposerDeliveryVariant>("runtime_thin_client");
+  const [mcpDeliveryVariant, setMcpDeliveryVariant] = useState<ComposerDeliveryVariant>("runtime_standard");
   const [mcpDispatchMode, setMcpDispatchMode] = useState<"simulate" | "live">("simulate");
   const [mcpChannelId, setMcpChannelId] = useState("886793716273119252");
   const [mcpDiscordInvite, setMcpDiscordInvite] = useState("https://discord.gg/Gzg9wDMVSB");
@@ -1791,10 +1791,18 @@ export const ComposerStudio = () => {
   }, [mcpDeploymentTarget, mcpProvider]);
 
   useEffect(() => {
-    if (mcpDeploymentTarget === "studio_preview" || mcpDeploymentTarget === "runtime_launch") {
-      setMcpDeliveryVariant("runtime_thin_client");
+    if (mcpDeploymentTarget === "studio_preview") {
+      setMcpDeliveryVariant("runtime_standard");
+      return;
     }
-  }, [mcpDeploymentTarget]);
+    if (
+      mcpDeploymentTarget === "runtime_launch" &&
+      mcpDeliveryVariant !== "runtime_standard" &&
+      mcpDeliveryVariant !== "runtime_thin_client"
+    ) {
+      setMcpDeliveryVariant("runtime_standard");
+    }
+  }, [mcpDeliveryVariant, mcpDeploymentTarget]);
 
   useEffect(() => {
     if (!mcpExperience?.metadata?.deployment_history || !Array.isArray(mcpExperience.metadata.deployment_history)) {
@@ -2033,7 +2041,7 @@ export const ComposerStudio = () => {
         experience: previewExperience,
         personaLibraryAssets: personaMediaLibrary as unknown as Array<Record<string, unknown>>,
         target: "runtime_launch",
-        variant: "runtime_thin_client",
+        variant: "runtime_standard",
       }),
     [personaMediaLibrary, previewExperience],
   );
@@ -2107,7 +2115,7 @@ export const ComposerStudio = () => {
       const experienceId = exp?.id || selectedExperienceId || previewExperience?.id || "";
       if (!experienceId) return "";
       const target = options?.target || "runtime_launch";
-      const variant = options?.variant || "runtime_thin_client";
+      const variant = options?.variant || "runtime_standard";
       const runtimeProfile = buildRuntimeDeliveryProfile({
         experience: exp || null,
         personaLibraryAssets: personaMediaLibrary as unknown as Array<Record<string, unknown>>,
@@ -6850,6 +6858,7 @@ export const ComposerStudio = () => {
                     onChange={(e) => setMcpDeliveryVariant(e.target.value as ComposerDeliveryVariant)}
                     className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
                   >
+                    <option value="runtime_standard">Experience in full metaMe runtime</option>
                     <option value="runtime_thin_client">Experience in metaMe runtime thin client</option>
                     <option value="asset_link">Asset link outside Discord</option>
                     <option value="discord_asset_inline">Asset rendered within Discord</option>

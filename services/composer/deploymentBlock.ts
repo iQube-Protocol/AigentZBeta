@@ -9,6 +9,7 @@ export type ComposerDeploymentTarget =
 export type ComposerDeploymentMode = "simulate" | "live";
 export type ComposerMessengerProvider = "discord" | "whatsapp" | "telegram";
 export type ComposerDeliveryVariant =
+  | "runtime_standard"
   | "asset_link"
   | "discord_asset_inline"
   | "discord_experience_inline"
@@ -81,7 +82,7 @@ export function resolveMessengerProvider(
 export function buildDeploymentEnvelope(input: ComposerDeploymentRequest) {
   const provider = resolveMessengerProvider(input.target);
   const requestedProvider = input.provider || "discord";
-  const variant = input.variant || "runtime_thin_client";
+  const variant = input.variant || "runtime_standard";
   const launchUrl = input.publishUrl || `/studio/composer/experience/${encodeURIComponent(input.experienceId)}`;
 
   return {
@@ -120,6 +121,12 @@ export async function dispatchComposerDeployment(
   const envelope = buildDeploymentEnvelope(input);
 
   if (input.target === "studio_preview" || input.target === "runtime_launch") {
+    const destinationSurface =
+      input.target === "studio_preview"
+        ? "studio_preview"
+        : envelope.variant === "runtime_thin_client"
+          ? "runtime_thin_client"
+          : "runtime";
     return {
       ok: true,
       target: input.target,
@@ -131,11 +138,20 @@ export async function dispatchComposerDeployment(
       launchUrl: envelope.launchUrl,
       response: {
         targetLabel: envelope.targetLabel,
+        destinationSurface,
         note:
           input.target === "studio_preview"
             ? "Deployment is represented by the active Studio preview."
-            : "Runtime launch prepared from deployment block scaffold.",
+            : envelope.variant === "runtime_thin_client"
+              ? "Runtime thin-client launch prepared with content-only shell handoff."
+              : "Runtime launch prepared for the full metaMe runtime surface.",
         runtimeProfile: input.runtimeProfile,
+        nextActions:
+          input.target === "studio_preview"
+            ? ["Review in Studio preview"]
+            : envelope.variant === "runtime_thin_client"
+              ? ["Open in thin client", "Validate read/watch quick link routing"]
+              : ["Open in runtime", "Validate runtime cartridge and codex routing"],
       },
       runtimeProfile: input.runtimeProfile,
     };
