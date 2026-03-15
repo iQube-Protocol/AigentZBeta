@@ -277,7 +277,7 @@ export function runtimeProjectionToCapsuleRecord(input: {
     },
     launchTarget: {
       type: "experience",
-      href: input.projection.launch_url || `/metame/runtime?${launchParams.toString()}`,
+      href: `/studio/composer/experience/${encodeURIComponent(input.experience.id)}?embed=1&${launchParams.toString()}`,
     },
   };
 }
