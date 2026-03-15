@@ -38,6 +38,7 @@ import {
   type ComposerDeploymentResult,
   type ComposerDeploymentTarget,
 } from "@/services/composer/deploymentBlock";
+import { resolveExperienceDeploymentArtifact } from "@/services/composer/deploymentArtifactResolver";
 import { buildComposerRoutingEnvelope } from "@/services/composer/routingEnvelope";
 import {
   markPersonaGeneratedMediaLifecycle,
@@ -472,120 +473,24 @@ function inferMediaType(uri: string, preferred?: string | null): "image" | "vide
 
 function resolveExperiencePrimaryMedia(
   experience: ExperienceQube | null,
-  codexItems: ComposerMediaItem[]
+  codexItems: ComposerMediaItem[],
+  personaLibraryAssets: PersonaGeneratedMediaRecord[] = [],
+  variant: ComposerDeliveryVariant = "runtime_thin_client",
 ): InspectorMediaPreview | null {
   if (!experience) return null;
 
-  const config = asRecord(experience.configuration) ?? {};
-  const metadata = asRecord(experience.metadata) ?? {};
-  const contentSelection = asRecord(config.content_selection) ?? {};
-
-  const mediaById = new Map<string, ComposerMediaItem>();
-  [...codexItems, ...QRIPTO_CONTENT_ITEMS].forEach((item) => {
-    if (!item?.id) return;
-    if (!mediaById.has(item.id)) {
-      mediaById.set(item.id, item);
-    }
+  const resolved = resolveExperienceDeploymentArtifact({
+    experience,
+    variant,
+    personaLibraryAssets: personaLibraryAssets as unknown as Array<Record<string, unknown>>,
+    contextItems: [...codexItems, ...QRIPTO_CONTENT_ITEMS],
   });
-
-  const selectedIds: string[] = [];
-  const addSelectedId = (value: unknown) => {
-    if (typeof value === "string" && value.trim().length > 0) {
-      selectedIds.push(value.trim());
-    }
+  const candidate = resolved.preview || resolved.context;
+  if (!candidate?.url) return null;
+  return {
+    uri: candidate.url,
+    mediaType: candidate.mediaType,
   };
-  if (Array.isArray(contentSelection.content_items)) {
-    contentSelection.content_items.forEach(addSelectedId);
-  }
-  addSelectedId(contentSelection.feature_item_id);
-  addSelectedId(contentSelection.primary_content_id);
-  addSelectedId(config.primary_content_id);
-  addSelectedId(metadata.primary_content_id);
-
-  for (const id of selectedIds) {
-    const item = mediaById.get(id);
-    if (item?.mediaUri) {
-      return {
-        uri: item.mediaUri,
-        mediaType: inferMediaType(item.mediaUri, item.mediaType),
-      };
-    }
-  }
-
-  const selectedTag = firstNonEmptyString([
-    contentSelection.content_tag,
-    config.content_tag,
-    metadata.content_tag,
-  ]);
-  if (selectedTag) {
-    const item = [...codexItems, ...QRIPTO_CONTENT_ITEMS].find(
-      (candidate) => candidate.tag === selectedTag && candidate.mediaUri
-    );
-    if (item?.mediaUri) {
-      return {
-        uri: item.mediaUri,
-        mediaType: inferMediaType(item.mediaUri, item.mediaType),
-      };
-    }
-  }
-
-  const candidateContainers = [
-    contentSelection,
-    config,
-    metadata,
-    asRecord(config.runtime),
-    asRecord(config.card),
-    asRecord(config.modalities),
-    asRecord(metadata.modalities),
-    asRecord(asRecord(config.modalities)?.watch),
-    asRecord(asRecord(metadata.modalities)?.watch),
-  ].filter(Boolean) as Record<string, unknown>[];
-
-  const videoKeys = [
-    "primary_video_uri",
-    "video_uri",
-    "videoUrl",
-    "video_url",
-    "watch_video_url",
-    "trailer_url",
-  ];
-  for (const container of candidateContainers) {
-    const uri = firstNonEmptyString(videoKeys.map((key) => container[key]));
-    if (uri) return { uri, mediaType: "video" };
-  }
-
-  const imageKeys = [
-    "primary_image_uri",
-    "image_uri",
-    "imageUrl",
-    "image_url",
-    "thumbnail",
-    "thumbnailUrl",
-    "thumbnail_url",
-    "cover",
-    "coverImageUri",
-    "cover_image_uri",
-    "cover_image_url",
-    "heroImage",
-    "hero_image",
-    "poster",
-    "poster_url",
-    "image",
-  ];
-  for (const container of candidateContainers) {
-    const uri = firstNonEmptyString(imageKeys.map((key) => container[key]));
-    if (uri) return { uri, mediaType: "image" };
-  }
-
-  const firstCodexMedia = [...codexItems, ...QRIPTO_CONTENT_ITEMS].find((item) => Boolean(item.mediaUri));
-  if (firstCodexMedia?.mediaUri) {
-    return {
-      uri: firstCodexMedia.mediaUri,
-      mediaType: inferMediaType(firstCodexMedia.mediaUri, firstCodexMedia.mediaType),
-    };
-  }
-
-  return null;
 }
 
 function buildSectionLookupPlans(tag: string | null): ContentSectionLookupPlan[] {
@@ -1376,7 +1281,11 @@ export const ComposerStudio = () => {
       const manualChannelId = mcpChannelId.trim();
       const normalizedChannelId = /^\d+$/.test(manualChannelId) ? manualChannelId : "";
       const runtimeLaunchUrl = buildRuntimeLaunchUrl(mcpExperience);
-      const mediaAssetUrl = inspectorMediaPreview?.uri || "";
+      const mediaAssetUrl = resolvedInspectorDeploymentArtifact.artifact?.url || "";
+      const mediaPreviewUrl =
+        resolvedInspectorDeploymentArtifact.preview?.url ||
+        resolvedInspectorDeploymentArtifact.context?.url ||
+        "";
       const studioExperienceUrl =
         typeof window !== "undefined"
           ? `${window.location.origin}/studio/composer/experience/${encodeURIComponent(mcpExperience.id)}`
@@ -1406,7 +1315,7 @@ export const ComposerStudio = () => {
         channelId: normalizedChannelId,
         inviteUrl: mcpDiscordInvite,
         publishUrl,
-        thumbnailUrl: mediaAssetUrl,
+        thumbnailUrl: mediaPreviewUrl || mediaAssetUrl,
         titleOverride: mcpExperience.name || "",
         campaignId: "experience-distribution-demo",
       });
@@ -1716,10 +1625,26 @@ export const ComposerStudio = () => {
   const [mcpDiscordStatusMessage, setMcpDiscordStatusMessage] = useState("Not checked yet.");
   const [inspectorFetchedMedia, setInspectorFetchedMedia] = useState<InspectorMediaPreview | null>(null);
   const [inspectorRenderMode, setInspectorRenderMode] = useState<"card" | "thread">("card");
+  const resolvedInspectorDeploymentArtifact = useMemo(
+    () =>
+      resolveExperienceDeploymentArtifact({
+        experience: mcpExperience,
+        variant: mcpDeliveryVariant,
+        personaLibraryAssets: personaMediaLibrary as unknown as Array<Record<string, unknown>>,
+        contextItems: [...codexContentItems, ...QRIPTO_CONTENT_ITEMS],
+      }),
+    [codexContentItems, mcpDeliveryVariant, mcpExperience, personaMediaLibrary],
+  );
   const inspectorMediaPreview = useMemo(() => {
-    const local = resolveExperiencePrimaryMedia(mcpExperience, codexContentItems);
-    return local || inspectorFetchedMedia;
-  }, [mcpExperience, codexContentItems, inspectorFetchedMedia]);
+    const local = resolvedInspectorDeploymentArtifact.preview || resolvedInspectorDeploymentArtifact.context;
+    if (local?.url) {
+      return {
+        uri: local.url,
+        mediaType: local.mediaType,
+      };
+    }
+    return inspectorFetchedMedia;
+  }, [inspectorFetchedMedia, resolvedInspectorDeploymentArtifact]);
   const routingEnvelope = useMemo(
     () =>
       buildComposerRoutingEnvelope({
@@ -1906,7 +1831,12 @@ export const ComposerStudio = () => {
         return;
       }
 
-      const local = resolveExperiencePrimaryMedia(mcpExperience, codexContentItems);
+      const local = resolveExperiencePrimaryMedia(
+        mcpExperience,
+        codexContentItems,
+        personaMediaLibrary,
+        mcpDeliveryVariant,
+      );
       if (local) {
         setInspectorFetchedMedia(null);
         return;
@@ -1952,7 +1882,7 @@ export const ComposerStudio = () => {
     return () => {
       cancelled = true;
     };
-  }, [mcpExperience, codexContentItems]);
+  }, [codexContentItems, mcpDeliveryVariant, mcpExperience, personaMediaLibrary]);
 
   useEffect(() => {
     let active = true;
@@ -2075,8 +2005,14 @@ export const ComposerStudio = () => {
     [experience, previewExperience, selectedExperience]
   );
   const previewExperienceMedia = useMemo(
-    () => resolveExperiencePrimaryMedia(previewExperience, codexContentItems),
-    [previewExperience, codexContentItems]
+    () =>
+      resolveExperiencePrimaryMedia(
+        previewExperience,
+        codexContentItems,
+        personaMediaLibrary,
+        "runtime_thin_client",
+      ),
+    [codexContentItems, personaMediaLibrary, previewExperience]
   );
   const runtimePreviewSrc = useMemo(() => {
     const capsuleId = selectedExperienceId || previewExperience?.id || "capsule-metaknyt-play";
@@ -2111,11 +2047,16 @@ export const ComposerStudio = () => {
       });
       if (exp?.name) params.set("experienceName", exp.name);
       if (exp?.description) params.set("experienceDescription", exp.description);
-      const launchMedia = resolveExperiencePrimaryMedia(exp || null, codexContentItems);
+      const launchMedia = resolveExperiencePrimaryMedia(
+        exp || null,
+        codexContentItems,
+        personaMediaLibrary,
+        "runtime_thin_client",
+      );
       if (launchMedia?.uri) params.set("experienceImage", launchMedia.uri);
       return `${window.location.origin}/metame/runtime?${params.toString()}`;
     },
-    [codexContentItems, previewExperience?.id, selectedExperienceId],
+    [codexContentItems, personaMediaLibrary, previewExperience?.id, selectedExperienceId],
   );
   const runtimePreviewShellWidthClass =
     previewDevice === "desktop"
@@ -3391,6 +3332,7 @@ export const ComposerStudio = () => {
             createdAt: item.createdAt || item.updatedAt || new Date().toISOString(),
           },
         ],
+        preferredAssetId: assetId,
       });
 
       await markPersonaGeneratedMediaUsage({

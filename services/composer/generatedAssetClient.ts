@@ -398,6 +398,7 @@ export async function persistGeneratedAssetsForExperience(options: {
   assets: PersistableGeneratedAsset[];
   receipt?: Record<string, unknown>;
   personaId?: string;
+  preferredAssetId?: string;
 }) {
   if (!options.experienceId || options.assets.length === 0) return;
 
@@ -482,6 +483,9 @@ export async function persistGeneratedAssetsForExperience(options: {
     body: JSON.stringify({
       metadata: {
         generated_assets: Array.from(nextAssetsByKey.values()),
+        ...(options.preferredAssetId
+          ? { deployment_preferred_asset_id: options.preferredAssetId }
+          : {}),
         generated_receipts: nextReceipts,
         dprReceipts: Array.from(nextDprReceiptsById.values()).slice(-100),
         lifecycle_summary: {
