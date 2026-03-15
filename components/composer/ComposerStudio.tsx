@@ -229,6 +229,18 @@ function inferComposerMediaModeFromPrompt(prompt: string): "image" | "video" | "
   return "mixed";
 }
 
+function promptWantsVideo(prompt: string) {
+  return /(video|trailer|clip|motion|animate|animated|film|cinematic sequence|sora|venice)/.test(
+    prompt.toLowerCase()
+  );
+}
+
+function promptWantsImage(prompt: string) {
+  return /(image|hero image|illustration|artwork|portrait|landscape|visual|poster|cover art)/.test(
+    prompt.toLowerCase()
+  );
+}
+
 function inferVisualStyleFromPrompt(prompt: string): string {
   const lower = prompt.toLowerCase();
   if (/(comic|graphic novel|panel)/.test(lower)) return "comic";
@@ -2506,6 +2518,8 @@ export const ComposerStudio = () => {
   const handleComposerUserPrompt = useCallback(
     async (prompt: string) => {
       const lower = prompt.toLowerCase();
+      const wantsVideo = promptWantsVideo(prompt);
+      const wantsImage = promptWantsImage(prompt);
       const templateName = sessionTemplate?.name || selectedTemplate?.name || "the current template";
       const imageGenerationStep = mergedData?.image_generation || {};
       const videoPromptStep = mergedData?.video_prompt || {};
@@ -2637,7 +2651,75 @@ export const ComposerStudio = () => {
         ].join("\n");
       }
 
-      if (/(image|hero image|illustration|artwork|portrait|landscape|qriptopian article|editorial)/.test(lower)) {
+      if (wantsVideo) {
+        const contextLabel =
+          copilotContextOptions.find((opt) => opt.id === copilotContextId)?.label || "The Qriptopian";
+        const providerId =
+          /openai/.test(lower) && !/venice/.test(lower)
+            ? "openai"
+            : "venice";
+        const useCommunity = /community|openclaw/.test(lower);
+        const skillId =
+          useCommunity
+            ? "sora_video_gen_community"
+            : providerId === "venice"
+              ? "venice_video_gen"
+              : "sora_video_gen_curated";
+        const suggestedPrompt = buildVideoPrompt(prompt, contextLabel);
+        const experienceName = deriveExperienceNameFromPrompt(
+          prompt,
+          providerId === "venice" ? "Venice Video Experience" : "Sora Video Experience"
+        );
+
+        setTemplateIntent("task");
+        setSelectedTemplateId("sora-video-generation");
+        setTemplateQuery(`${contextLabel}: ${prompt} video sora venice ai-generation skill toolqube`);
+
+        const seedData = {
+          intent_timebox: {
+            experience_name: experienceName,
+            goal: prompt,
+          },
+          skill_selection: {
+            skill_id: skillId,
+            trust_override: useCommunity,
+          },
+          video_prompt: {
+            prompt: suggestedPrompt,
+            duration: /12/.test(lower) ? 12 : /4/.test(lower) ? 4 : 8,
+            aspect_ratio: /portrait|vertical|9:16/.test(lower) ? "9:16" : "16:9",
+            style:
+              inferVisualStyleFromPrompt(prompt) === "editorial"
+                ? "cinematic"
+                : inferVisualStyleFromPrompt(prompt),
+          },
+        };
+
+        const seeded = await startSeededSessionForTemplate("sora-video-generation", seedData, 2);
+        const providerKnowledge = getComposerProviderKnowledge(providerId);
+
+        return seeded.ok
+          ? [
+              `I set up a **video-led experience path** in **${seeded.templateName || "Sora Video Generation"}** and opened **Customizer** on the video prompt step.`,
+              "",
+              `**Recommended provider**: ${providerKnowledge?.name || providerId}`,
+              `- ${providerKnowledge?.strengths[0] || "Good fit for alpha video generation"}`,
+              `- ${providerKnowledge?.watchouts[0] || "Remember that video is still the more expensive path."}`,
+              "",
+              `**Selected skill**: ${skillId}`,
+              "",
+              `**Suggested prompt**`,
+              suggestedPrompt,
+              "",
+              `Next, review duration, aspect ratio, and style in **Customizer**, then open **Resources** to inspect the selected skill path, provider, and cost envelope.`,
+            ].join("\n")
+          : `I prepared a video-led path and a first-pass prompt, but I couldn't open the Customizer session automatically: ${seeded.error}`;
+      }
+
+      if (
+        wantsImage ||
+        (!wantsVideo && /(qriptopian article|editorial)/.test(lower))
+      ) {
         const contextLabel =
           copilotContextOptions.find((opt) => opt.id === copilotContextId)?.label || "The Qriptopian";
         const providerId = /openai/.test(lower) && !/venice/.test(lower) ? "openai" : "venice";
@@ -2691,68 +2773,6 @@ export const ComposerStudio = () => {
                 : `This follows the current alpha path for article and capsule imagery: template selection, provider choice, portrait + landscape planning, then Resources and Preview review.`,
             ].join("\n")
           : `I prepared an image-led article path, but I couldn't open the Customizer session automatically: ${seeded.error}`;
-      }
-
-      if (/(video|sora|trailer|clip|motion)/.test(lower)) {
-        const contextLabel =
-          copilotContextOptions.find((opt) => opt.id === copilotContextId)?.label || "The Qriptopian";
-        const providerId =
-          /openai/.test(lower) && !/venice/.test(lower)
-            ? "openai"
-            : "venice";
-        const useCommunity = /community|openclaw/.test(lower);
-        const skillId =
-          useCommunity
-            ? "sora_video_gen_community"
-            : providerId === "venice"
-            ? "venice_video_gen"
-            : "sora_video_gen_curated";
-        const suggestedPrompt = buildVideoPrompt(prompt, contextLabel);
-        const experienceName = deriveExperienceNameFromPrompt(
-          prompt,
-          providerId === "venice" ? "Venice Video Experience" : "Sora Video Experience"
-        );
-
-        setTemplateIntent("task");
-        setSelectedTemplateId("sora-video-generation");
-        setTemplateQuery(`${contextLabel}: ${prompt} video sora venice ai-generation skill toolqube`);
-
-        const seedData = {
-          intent_timebox: {
-            experience_name: experienceName,
-            goal: prompt,
-          },
-          skill_selection: {
-            skill_id: skillId,
-            trust_override: useCommunity,
-          },
-          video_prompt: {
-            prompt: suggestedPrompt,
-            duration: /12/.test(lower) ? 12 : /4/.test(lower) ? 4 : 8,
-            aspect_ratio: /portrait|vertical|9:16/.test(lower) ? "9:16" : "16:9",
-            style: inferVisualStyleFromPrompt(prompt) === "editorial" ? "cinematic" : inferVisualStyleFromPrompt(prompt),
-          },
-        };
-
-        const seeded = await startSeededSessionForTemplate("sora-video-generation", seedData, 2);
-        const providerKnowledge = getComposerProviderKnowledge(providerId);
-
-        return seeded.ok
-          ? [
-              `I set up a **video-led experience path** in **${seeded.templateName || "Sora Video Generation"}** and opened **Customizer** on the video prompt step.`,
-              "",
-              `**Recommended provider**: ${providerKnowledge?.name || providerId}`,
-              `- ${providerKnowledge?.strengths[0] || "Good fit for alpha video generation"}`,
-              `- ${providerKnowledge?.watchouts[0] || "Remember that video is still the more expensive path."}`,
-              "",
-              `**Selected skill**: ${skillId}`,
-              "",
-              `**Suggested prompt**`,
-              suggestedPrompt,
-              "",
-              `Next, review duration, aspect ratio, and style in **Customizer**, then open **Resources** to inspect the selected skill path, provider, and cost envelope.`,
-            ].join("\n")
-          : `I prepared a video-led path and a first-pass prompt, but I couldn't open the Customizer session automatically: ${seeded.error}`;
       }
 
       return undefined;
