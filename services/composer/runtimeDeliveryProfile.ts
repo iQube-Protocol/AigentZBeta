@@ -137,9 +137,10 @@ function deriveIntent(experience: ExperienceLike | null, assets: RecordLike[]): 
   const hasVideo = assets.some((asset) => assetType(asset) === "video");
   const articleLike = /(article|reading|read|sprint|editorial|feature)/.test(haystack);
   const videoLike = /(video|watch|trailer|motion|clip)/.test(haystack);
+  const explicitVideoTemplate = typeof experience?.template_id === "string" && experience.template_id === "sora-video-generation";
 
+  if ((explicitVideoTemplate || videoLike) && hasVideo) return { intent: "watch", contentKind: "video" };
   if (articleLike) return { intent: "read", contentKind: "article" };
-  if (videoLike && hasVideo && !hasImage) return { intent: "watch", contentKind: "video" };
   if (hasImage || hasVideo) return { intent: "read", contentKind: hasVideo && !hasImage ? "video" : "article" };
   return { intent: "read", contentKind: "generic" };
 }

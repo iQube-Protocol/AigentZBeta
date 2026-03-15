@@ -3806,12 +3806,14 @@ export const ComposerStudio = () => {
         : [];
       const deployedAt = new Date().toISOString();
       const runtimeProjection =
-        deployment.target === "runtime_launch" && deployment.runtimeProfile
+        (deployment.target === "runtime_launch" || deployment.target === "runtime_thin_client") && deployment.runtimeProfile
           ? buildExperienceRuntimeProjection({
               experience: exp,
               runtimeProfile: deployment.runtimeProfile,
               target: deployment.target,
-              variant: deployment.variant || "runtime_standard",
+              variant:
+                deployment.variant ||
+                (deployment.target === "runtime_thin_client" ? "runtime_thin_client" : "runtime_standard"),
               publishUrl: deployment.publishUrl,
               launchUrl: deployment.launchUrl,
             })
