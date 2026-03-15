@@ -3,6 +3,7 @@ import type { ComposerRuntimeDeliveryProfile } from "./runtimeDeliveryProfile";
 export type ComposerDeploymentTarget =
   | "studio_preview"
   | "runtime_launch"
+  | "runtime_thin_client"
   | "mcp_app"
   | "discord_mcp";
 
@@ -55,6 +56,8 @@ export function getDeploymentTargetLabel(target: ComposerDeploymentTarget): stri
       return "Studio Preview";
     case "runtime_launch":
       return "Runtime Launch";
+    case "runtime_thin_client":
+      return "Runtime Thin Client";
     case "mcp_app":
       return "MCP App Deployment";
     case "discord_mcp":
@@ -71,6 +74,7 @@ export function resolveMessengerProvider(
     case "discord_mcp":
       return "discord";
     case "runtime_launch":
+    case "runtime_thin_client":
       return "runtime";
     case "mcp_app":
     case "studio_preview":
@@ -120,11 +124,15 @@ export async function dispatchComposerDeployment(
 ): Promise<ComposerDeploymentResult> {
   const envelope = buildDeploymentEnvelope(input);
 
-  if (input.target === "studio_preview" || input.target === "runtime_launch") {
+  if (
+    input.target === "studio_preview" ||
+    input.target === "runtime_launch" ||
+    input.target === "runtime_thin_client"
+  ) {
     const destinationSurface =
       input.target === "studio_preview"
         ? "studio_preview"
-        : envelope.variant === "runtime_thin_client"
+        : input.target === "runtime_thin_client" || envelope.variant === "runtime_thin_client"
           ? "runtime_thin_client"
           : "runtime";
     return {
@@ -142,14 +150,14 @@ export async function dispatchComposerDeployment(
         note:
           input.target === "studio_preview"
             ? "Deployment is represented by the active Studio preview."
-            : envelope.variant === "runtime_thin_client"
+            : input.target === "runtime_thin_client" || envelope.variant === "runtime_thin_client"
               ? "Runtime thin-client launch prepared with content-only shell handoff."
               : "Runtime launch prepared for the full metaMe runtime surface.",
         runtimeProfile: input.runtimeProfile,
         nextActions:
           input.target === "studio_preview"
             ? ["Review in Studio preview"]
-            : envelope.variant === "runtime_thin_client"
+            : input.target === "runtime_thin_client" || envelope.variant === "runtime_thin_client"
               ? ["Open in thin client", "Validate read/watch quick link routing"]
               : ["Open in runtime", "Validate runtime cartridge and codex routing"],
       },
