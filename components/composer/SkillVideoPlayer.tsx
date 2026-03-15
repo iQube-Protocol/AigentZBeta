@@ -329,8 +329,8 @@ export default function SkillVideoPlayer({
   const isSimulation = result?.mode === "simulation";
   const isLive = result?.mode === "live";
 
-  // Auto-poll every 15s while in "live + no video_url" state
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Auto-poll with a single-shot timer so each status check schedules the next one cleanly.
+  const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     const shouldPoll =
       state === "done" &&
@@ -340,10 +340,12 @@ export default function SkillVideoPlayer({
       !autoPollPaused &&
       pollAttempts < MAX_AUTO_POLL_ATTEMPTS;
     if (shouldPoll) {
-      checkStatus(); // immediate first check
-      pollRef.current = setInterval(checkStatus, 15_000);
+      const delay = pollAttempts === 0 ? 0 : 15_000;
+      pollRef.current = setTimeout(checkStatus, delay);
     }
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+    return () => {
+      if (pollRef.current) clearTimeout(pollRef.current);
+    };
   }, [MAX_AUTO_POLL_ATTEMPTS, autoPollPaused, checkStatus, isLive, pollAttempts, result?.generation_id, result?.video_url, state]);
 
   useEffect(() => {
