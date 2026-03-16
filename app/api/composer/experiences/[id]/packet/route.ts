@@ -192,6 +192,63 @@ type PersonaGeneratedMediaRecord = {
   pinnedToExperienceId?: string;
 };
 
+type CompositionBundle = {
+  presetId: "image_article_bundle" | "video_article_bundle";
+  label: string;
+  summary: string;
+  blockKinds: string[];
+  sequencing: string[];
+  nextActions: string[];
+  appliedAt?: string;
+  entryIntent?: string;
+};
+
+function getCompositionBundle(experience: any): CompositionBundle | null {
+  const raw = experience?.metadata?.composition_bundle;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const presetId = typeof raw.presetId === "string" ? raw.presetId : "";
+  if (presetId !== "image_article_bundle" && presetId !== "video_article_bundle") return null;
+  return {
+    presetId,
+    label: typeof raw.label === "string" && raw.label.trim() ? raw.label.trim() : presetId,
+    summary: typeof raw.summary === "string" ? raw.summary : "",
+    blockKinds: Array.isArray(raw.blockKinds)
+      ? raw.blockKinds.filter((item: unknown): item is string => typeof item === "string")
+      : [],
+    sequencing: Array.isArray(raw.sequencing)
+      ? raw.sequencing.filter((item: unknown): item is string => typeof item === "string")
+      : [],
+    nextActions: Array.isArray(raw.nextActions)
+      ? raw.nextActions.filter((item: unknown): item is string => typeof item === "string")
+      : [],
+    appliedAt: typeof raw.appliedAt === "string" ? raw.appliedAt : undefined,
+    entryIntent: typeof raw.entryIntent === "string" ? raw.entryIntent : undefined,
+  };
+}
+
+function buildArticleDraftContext(experience: any) {
+  const config = experience.configuration || {};
+  const metadata = experience.metadata || {};
+  const intent = config.intent_timebox || {};
+  const content = config.content_selection || {};
+
+  return {
+    title:
+      (typeof metadata.article_title === "string" && metadata.article_title.trim()) ||
+      (typeof experience.name === "string" && experience.name.trim()) ||
+      "Editorial draft",
+    prompt:
+      (typeof metadata.article_prompt === "string" && metadata.article_prompt.trim()) ||
+      (typeof intent.goal === "string" && intent.goal.trim()) ||
+      (typeof experience.description === "string" && experience.description.trim()) ||
+      "",
+    issueSlug: typeof content.issue_slug === "string" ? content.issue_slug : undefined,
+    featureItemId: typeof content.feature_item_id === "string" ? content.feature_item_id : undefined,
+    supportingItemIds: Array.isArray(content.supporting_item_ids) ? content.supporting_item_ids : [],
+    mode: "supporting_context",
+  };
+}
+
 async function loadPersonaGeneratedMediaLibrary(personaId?: string) {
   const normalizedPersonaId = typeof personaId === "string" ? personaId.trim() : "";
   if (!normalizedPersonaId) return [] as PersonaGeneratedMediaRecord[];
@@ -339,6 +396,9 @@ function buildSkillPacket(experience: any, personaLibraryAssets: any[] = []) {
   const skillSel = config.skill_selection || {};
   const videoPrompt = config.video_prompt || {};
   const wallet = config.wallet_rewards || {};
+  const compositionBundle = getCompositionBundle(experience);
+  const articleDraft =
+    compositionBundle?.blockKinds.includes("article_draft") ? buildArticleDraftContext(experience) : undefined;
   const rewardAmount = Number(wallet.reward_amount || 0);
   const skillId =
     typeof skillSel.skill_id === "string" && skillSel.skill_id.trim() ? skillSel.skill_id.trim() : "";
@@ -374,6 +434,13 @@ function buildSkillPacket(experience: any, personaLibraryAssets: any[] = []) {
         reward_amount: rewardAmount,
       },
     },
+    composition: compositionBundle
+      ? {
+          ...compositionBundle,
+          media_mode: "video",
+        }
+      : undefined,
+    article_draft: articleDraft,
     skill: {
       skill_id: skillId,
       trust_override: skillSel.trust_override === true,
@@ -389,7 +456,9 @@ function buildSkillPacket(experience: any, personaLibraryAssets: any[] = []) {
       primary_template: "skill:video_player_v1",
       layout: "centered",
       title: experience.name,
-      subhead: getVideoSkillSubhead(skillId),
+      subhead: compositionBundle
+        ? `${compositionBundle.label} • ${getVideoSkillSubhead(skillId)}`
+        : getVideoSkillSubhead(skillId),
       template_selection: {
         template_id: "skill:video_player_v1",
         reason: "Skill-backed experience — SkillVideoPlayer",
@@ -429,6 +498,9 @@ function buildImagePacket(experience: any, personaLibraryAssets: any[] = []) {
   const metadata = experience.metadata || {};
   const intent = config.intent_timebox || {};
   const imageGeneration = config.image_generation || {};
+  const compositionBundle = getCompositionBundle(experience);
+  const articleDraft =
+    compositionBundle?.blockKinds.includes("article_draft") ? buildArticleDraftContext(experience) : undefined;
   const providerId = imageGeneration.provider_id || "venice";
   const generatedAssets = Array.isArray(metadata.generated_assets) ? metadata.generated_assets : [];
   const combinedAssets = [...generatedAssets, ...personaLibraryAssets];
@@ -494,6 +566,13 @@ function buildImagePacket(experience: any, personaLibraryAssets: any[] = []) {
         landscape_prompt: imageGeneration.landscape_prompt || null,
       },
     },
+    composition: compositionBundle
+      ? {
+          ...compositionBundle,
+          media_mode: "image",
+        }
+      : undefined,
+    article_draft: articleDraft,
     image_generation: {
       provider_id: providerId,
       portrait_prompt: imageGeneration.portrait_prompt || "",
@@ -510,7 +589,11 @@ function buildImagePacket(experience: any, personaLibraryAssets: any[] = []) {
       primary_template: "skill:image_player_v1",
       layout: "centered",
       title: experience.name,
-      subhead: providerId === "venice" ? "Venice Article Imagery" : "OpenAI Article Imagery",
+      subhead: compositionBundle
+        ? `${compositionBundle.label} • ${providerId === "venice" ? "Venice Article Imagery" : "OpenAI Article Imagery"}`
+        : providerId === "venice"
+          ? "Venice Article Imagery"
+          : "OpenAI Article Imagery",
       template_selection: {
         template_id: "skill:image_player_v1",
         reason: "Image-backed experience — SkillImagePlayer",

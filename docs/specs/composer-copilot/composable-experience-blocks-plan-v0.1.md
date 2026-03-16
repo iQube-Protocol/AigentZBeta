@@ -217,6 +217,21 @@ Status:
   - `Video + Article`
 - this pass persists composition intent into ExperienceQube metadata/configuration without yet changing packet or runtime behavior
 
+### Phase 4 Second Implementation Slice
+
+The next concrete Phase `4` slice should be:
+
+1. read `composition_bundle` from the active ExperienceQube during packet assembly
+2. attach bundle-aware article context, sequencing, and next actions to image/video packets
+3. render a lightweight bundle brief above skill-backed image/video experiences
+4. keep launcher/runtime behavior unchanged until packet-driven bundle behavior is stable
+
+Status:
+
+- complete
+- `Image + Article` and `Video + Article` bundle presets now influence packet assembly
+- skill-backed experiences now render bundle-aware sequencing and article context in the Experience viewer
+
 ## 6. Block Contract Model
 
 Each production-grade block should eventually expose a common contract:
