@@ -1429,7 +1429,12 @@ export const ComposerStudio = () => {
       setMcpResult({
         mode: "deployment-block",
         target: deployment.target,
-        provider: mcpProvider,
+        provider:
+          mcpDeploymentTarget === "discord_mcp"
+            ? mcpProvider
+            : deployment.provider === "runtime"
+              ? "runtime"
+              : "mcp",
         output: {
           deployment,
           ...(deployment.response || {}),
