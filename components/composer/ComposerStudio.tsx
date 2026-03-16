@@ -2146,7 +2146,9 @@ export const ComposerStudio = () => {
     });
     if (previewExperience?.name) params.set("experienceName", previewExperience.name);
     if (previewExperience?.description) params.set("experienceDescription", previewExperience.description);
-    if (previewExperienceMedia?.uri) params.set("experienceImage", previewExperienceMedia.uri);
+    if (previewExperienceMedia?.uri && previewExperienceMedia.mediaType !== "video") {
+      params.set("experienceImage", previewExperienceMedia.uri);
+    }
     if (previewRuntimeDeliveryProfile.imageAssets.portrait) {
       params.set("experienceImagePortrait", previewRuntimeDeliveryProfile.imageAssets.portrait);
     }
@@ -2234,7 +2236,9 @@ export const ComposerStudio = () => {
         personaMediaLibrary,
         variant,
       );
-      if (launchMedia?.uri) params.set("experienceImage", launchMedia.uri);
+      if (launchMedia?.uri && launchMedia.mediaType !== "video") {
+        params.set("experienceImage", launchMedia.uri);
+      }
       if (runtimeProfile.imageAssets.portrait) params.set("experienceImagePortrait", runtimeProfile.imageAssets.portrait);
       if (runtimeProfile.imageAssets.landscape) params.set("experienceImageLandscape", runtimeProfile.imageAssets.landscape);
       if (runtimeProfile.videoAssetUrl) params.set("experienceVideo", runtimeProfile.videoAssetUrl);

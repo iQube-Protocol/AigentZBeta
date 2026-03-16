@@ -293,6 +293,14 @@ function getAssetTimestamp(asset: any): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function getAssetPriority(asset: any): number {
+  const url = getAssetUrl(asset) || "";
+  if (/\/api\/skills\/video\//i.test(url)) return -10;
+  if (/supabase\.co\/storage\/v1\/object\/public\//i.test(url)) return 10;
+  if (/^https?:\/\//i.test(url)) return 5;
+  return 0;
+}
+
 function buildSkillPacket(experience: any, personaLibraryAssets: any[] = []) {
   const config = experience.configuration || {};
   const metadata = experience.metadata || {};
@@ -307,7 +315,11 @@ function buildSkillPacket(experience: any, personaLibraryAssets: any[] = []) {
   const candidateVideoAssets = [...generatedAssets, ...personaLibraryAssets].filter(
     (asset: any) => isVideoAsset(asset) && Boolean(getAssetUrl(asset))
   );
-  const videoAsset = candidateVideoAssets.sort((a: any, b: any) => getAssetTimestamp(b) - getAssetTimestamp(a))[0];
+  const videoAsset = candidateVideoAssets.sort((a: any, b: any) => {
+    const priorityDelta = getAssetPriority(b) - getAssetPriority(a);
+    if (priorityDelta !== 0) return priorityDelta;
+    return getAssetTimestamp(b) - getAssetTimestamp(a);
+  })[0];
   const videoUrl = getAssetUrl(videoAsset);
   const videoReceiptRef = getAssetReceiptRef(videoAsset);
 
