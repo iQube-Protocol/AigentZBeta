@@ -236,10 +236,14 @@ export async function POST(request: NextRequest) {
       deliveryVariant === 'discord_asset_inline' && isDirectMediaUrl ? explicitPublishUrl : '';
     const inlineAssetIsImage = /\.(png|jpe?g|webp|gif)(\?|$)/i.test(inlineAssetUrl);
     const inlineAssetIsVideo = /\.(mp4|m4v|mov|webm|ogg)(\?|$)/i.test(inlineAssetUrl);
+    const videoInlineFallsBackToExternal = deliveryVariant === 'discord_asset_inline' && inlineAssetIsVideo;
     const embed = {
       title: normalizeString(body?.titleOverride) || mcpResponse.artifact.title || `ExperienceQube ${experienceId}`,
       description: mcpResponse.artifact.body?.slice(0, 4000) || undefined,
-      url: deliveryVariant === 'discord_asset_inline' ? undefined : publishUrl || undefined,
+      url:
+        deliveryVariant === 'discord_asset_inline' && !videoInlineFallsBackToExternal
+          ? undefined
+          : publishUrl || undefined,
       image:
         inlineAssetIsImage
           ? { url: inlineAssetUrl }
@@ -249,19 +253,15 @@ export async function POST(request: NextRequest) {
       footer: { text: `ExperienceQube • ${experienceId}` },
     };
     const openLine =
-      deliveryVariant === 'discord_asset_inline'
-        ? inlineAssetUrl && inlineAssetIsVideo
-          ? inlineAssetUrl
-          : ''
+      deliveryVariant === 'discord_asset_inline' && !videoInlineFallsBackToExternal
+        ? ''
         : ctaUrl
           ? `Open ExperienceQube: ${ctaUrl}`
           : '';
     const providerDispatchText =
-      deliveryVariant === 'discord_asset_inline' && inlineAssetUrl && inlineAssetIsVideo
-        ? inlineAssetUrl
-        : [mcpResponse.artifact.title, mcpResponse.artifact.body, openLine, mcpResponse.artifact.share_text]
-            .filter(Boolean)
-            .join('\n\n');
+      [mcpResponse.artifact.title, mcpResponse.artifact.body, openLine, mcpResponse.artifact.share_text]
+        .filter(Boolean)
+        .join('\n\n');
 
     const providerDispatch = {
       provider,
