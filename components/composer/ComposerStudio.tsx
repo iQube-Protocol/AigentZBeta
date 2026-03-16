@@ -38,8 +38,11 @@ import {
   type ComposerDeploymentCapability,
   type ComposerDeploymentCapabilityState,
   type ComposerDeploymentDeliveryMode,
+  getDeploymentAdapterDeclaration,
   getDeploymentTargetLabel,
   getSupportedVariantsForTarget,
+  resolveDeploymentCapability,
+  resolveDeploymentDeliveryMode,
   type ComposerDeliveryVariant,
   type ComposerDeploymentResult,
   type ComposerDeploymentTarget,
@@ -1980,17 +1983,47 @@ export const ComposerStudio = () => {
       if (!entry || typeof entry !== "object") return;
       const target = typeof entry.target === "string" ? (entry.target as ComposerDeploymentTarget) : null;
       if (!target) return;
+      const variant =
+        typeof entry.variant === "string" ? (entry.variant as ComposerDeliveryVariant) : undefined;
+      const capability = entry.capability_state
+        ? ({
+            adapter:
+              typeof entry.destination_adapter === "string"
+                ? (entry.destination_adapter as ComposerDeploymentAdapter)
+                : resolveDeploymentCapability({ target, variant }).adapter,
+            state: String(entry.capability_state) as ComposerDeploymentCapabilityState,
+            summary:
+              typeof entry.capability_summary === "string"
+                ? entry.capability_summary
+                : resolveDeploymentCapability({ target, variant }).summary,
+            constraints: Array.isArray(entry.capability_constraints)
+              ? entry.capability_constraints.filter((item): item is string => typeof item === "string")
+              : resolveDeploymentCapability({ target, variant }).constraints,
+          } as ComposerDeploymentCapability)
+        : resolveDeploymentCapability({ target, variant });
+      const adapterDeclaration =
+        entry.adapter_declaration && typeof entry.adapter_declaration === "object"
+          ? (entry.adapter_declaration as ComposerDeploymentAdapterDeclaration)
+          : getDeploymentAdapterDeclaration(capability.adapter);
+      const deliveryMode =
+        typeof entry.delivery_mode === "string"
+          ? (entry.delivery_mode as ComposerDeploymentDeliveryMode)
+          : resolveDeploymentDeliveryMode({ target, variant });
+      const destinationAdapter =
+        typeof entry.destination_adapter === "string"
+          ? (entry.destination_adapter as ComposerDeploymentAdapter)
+          : capability.adapter;
       const previous = nextByTarget[target];
       const previousAt = previous?.response && typeof previous.response.deployed_at === "string"
         ? previous.response.deployed_at
         : "";
       const currentAt = typeof entry.deployed_at === "string" ? entry.deployed_at : "";
       if (previousAt && currentAt && previousAt > currentAt) return;
-	      nextByTarget[target] = {
-	        ok: typeof entry.status === "string" ? entry.status !== "failed" : true,
-	        target,
-	        variant: typeof entry.variant === "string" ? (entry.variant as ComposerDeliveryVariant) : undefined,
-	        mode: typeof entry.mode === "string" ? (entry.mode as "simulate" | "live") : "simulate",
+      nextByTarget[target] = {
+        ok: typeof entry.status === "string" ? entry.status !== "failed" : true,
+        target,
+        variant,
+        mode: typeof entry.mode === "string" ? (entry.mode as "simulate" | "live") : "simulate",
         provider:
           typeof entry.provider === "string" && ["discord", "runtime", "mcp"].includes(entry.provider)
             ? (entry.provider as "discord" | "runtime" | "mcp")
@@ -2004,6 +2037,10 @@ export const ComposerStudio = () => {
         launchUrl: typeof entry.launch_url === "string" ? entry.launch_url : undefined,
         error: typeof entry.error === "string" ? entry.error : undefined,
         response: { deployed_at: currentAt, source: entry.source },
+        capability,
+        adapterDeclaration,
+        deliveryMode,
+        destinationAdapter,
       };
     });
     setDeploymentResultsByTarget(nextByTarget);
