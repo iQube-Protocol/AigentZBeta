@@ -3,13 +3,12 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
   AAClient,
-  type BrowserEventsSubscription,
-  type BrowserSessionResponse,
 } from "@metame/aa-client";
 import type {
   BrowserErrorPayload,
   BrowserRuntimeEvent,
   BrowserRuntimeToShellType,
+  BrowserSessionResponse,
   BrowserSurfaceState,
 } from "@metame/browser-contracts";
 import type { ShellInboundMessage } from "@metame/iframe-bridge";
@@ -30,7 +29,7 @@ function toErrorPayload(error: unknown, sessionId?: string): BrowserErrorPayload
 }
 
 export function useBrowserCapabilityController({ enabled, emitShellEvent }: UseBrowserCapabilityControllerOptions) {
-  const subscriptionRef = useRef<BrowserEventsSubscription | null>(null);
+  const subscriptionRef = useRef<{ close: () => void } | null>(null);
   const activeSessionIdRef = useRef<string | null>(null);
   const surfaceStateRef = useRef<BrowserSurfaceState | null>(null);
 
