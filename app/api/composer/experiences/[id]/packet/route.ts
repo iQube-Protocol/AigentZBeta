@@ -83,7 +83,12 @@ function selectPrimaryTemplate(experience: any) {
 function isSkillBacked(experience: any): boolean {
   const templateId = experience.template_id || "";
   const config = experience.configuration || {};
-  return templateId === "sora-video-generation" || !!config.skill_selection?.skill_id;
+  const metadata = experience.metadata || {};
+  const generatedAssets = Array.isArray(metadata.generated_assets) ? metadata.generated_assets : [];
+  const hasSavedVideo = generatedAssets.some((asset: any) => isVideoAsset(asset) && Boolean(getAssetUrl(asset)));
+  const hasVideoPrompt =
+    typeof config.video_prompt?.prompt === "string" && config.video_prompt.prompt.trim().length > 0;
+  return templateId === "sora-video-generation" || !!config.skill_selection?.skill_id || hasSavedVideo || hasVideoPrompt;
 }
 
 function hasImageGeneration(experience: any): boolean {

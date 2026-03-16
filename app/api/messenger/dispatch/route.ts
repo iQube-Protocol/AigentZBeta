@@ -234,12 +234,14 @@ export async function POST(request: NextRequest) {
     const thumbnailUrl = /^https?:\/\//i.test(thumbnailUrlRaw) ? thumbnailUrlRaw : '';
     const inlineAssetUrl =
       deliveryVariant === 'discord_asset_inline' && isDirectMediaUrl ? explicitPublishUrl : '';
+    const inlineAssetIsImage = /\.(png|jpe?g|webp|gif)(\?|$)/i.test(inlineAssetUrl);
+    const inlineAssetIsVideo = /\.(mp4|m4v|mov|webm|ogg)(\?|$)/i.test(inlineAssetUrl);
     const embed = {
       title: normalizeString(body?.titleOverride) || mcpResponse.artifact.title || `ExperienceQube ${experienceId}`,
       description: mcpResponse.artifact.body?.slice(0, 4000) || undefined,
       url: deliveryVariant === 'discord_asset_inline' ? undefined : publishUrl || undefined,
       image:
-        /\.(png|jpe?g|webp|gif)(\?|$)/i.test(inlineAssetUrl)
+        inlineAssetIsImage
           ? { url: inlineAssetUrl }
           : thumbnailUrl
             ? { url: thumbnailUrl }
@@ -248,14 +250,14 @@ export async function POST(request: NextRequest) {
     };
     const openLine =
       deliveryVariant === 'discord_asset_inline'
-        ? inlineAssetUrl && /\.(mp4|m4v|mov|webm|ogg)(\?|$)/i.test(inlineAssetUrl)
+        ? inlineAssetUrl && inlineAssetIsVideo
           ? inlineAssetUrl
           : ''
         : ctaUrl
           ? `Open ExperienceQube: ${ctaUrl}`
           : '';
     const providerDispatchText =
-      deliveryVariant === 'discord_asset_inline' && inlineAssetUrl && /\.(mp4|m4v|mov|webm|ogg)(\?|$)/i.test(inlineAssetUrl)
+      deliveryVariant === 'discord_asset_inline' && inlineAssetUrl && inlineAssetIsVideo
         ? inlineAssetUrl
         : [mcpResponse.artifact.title, mcpResponse.artifact.body, openLine, mcpResponse.artifact.share_text]
             .filter(Boolean)
