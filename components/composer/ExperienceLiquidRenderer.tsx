@@ -16,13 +16,13 @@ function CompositionBundleBrief({ packet }: { packet: Record<string, any> }) {
 
   const articleDraft =
     packet?.article_draft && typeof packet.article_draft === "object" ? packet.article_draft : null;
-  const sequencing = Array.isArray(composition.sequencing)
+  const sequencing: string[] = Array.isArray(composition.sequencing)
     ? composition.sequencing.filter((item: unknown): item is string => typeof item === "string")
     : [];
-  const nextActions = Array.isArray(composition.nextActions)
+  const nextActions: string[] = Array.isArray(composition.nextActions)
     ? composition.nextActions.filter((item: unknown): item is string => typeof item === "string")
     : [];
-  const blockKinds = Array.isArray(composition.blockKinds)
+  const blockKinds: string[] = Array.isArray(composition.blockKinds)
     ? composition.blockKinds.filter((item: unknown): item is string => typeof item === "string")
     : [];
 
