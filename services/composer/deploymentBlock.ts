@@ -161,6 +161,19 @@ export function getDeploymentAdapterDeclaration(
   return DEPLOYMENT_ADAPTER_DECLARATIONS[adapter];
 }
 
+export function listDeploymentAdapterDeclarations(): ComposerDeploymentAdapterDeclaration[] {
+  const orderedAdapters: ComposerDeploymentAdapter[] = [
+    "studio",
+    "runtime",
+    "thin_client",
+    "mcp_app",
+    "discord_mcp",
+    "aa_api",
+    "xmtp",
+  ];
+  return orderedAdapters.map((adapter) => DEPLOYMENT_ADAPTER_DECLARATIONS[adapter]);
+}
+
 export function getSupportedVariantsForTarget(
   target: ComposerDeploymentTarget,
 ): ComposerDeliveryVariant[] {
@@ -367,6 +380,56 @@ export function validateDeploymentSupport(params: {
     deliveryMode,
     destinationAdapter: capability.adapter,
   };
+}
+
+export function resolveDeploymentFallbackGuidance(params: {
+  target: ComposerDeploymentTarget;
+  variant?: ComposerDeliveryVariant;
+}): string[] {
+  const capability = resolveDeploymentCapability(params);
+  if (capability.state === "supported") {
+    return ["This adapter is fully supported for the selected delivery mode."];
+  }
+
+  if (capability.adapter === "thin_client") {
+    return [
+      "Fallback: use Studio Preview for proof loops while thin-client parity catches up.",
+      "Fallback: use Runtime Launch when full runtime behavior is acceptable.",
+    ];
+  }
+
+  if (capability.adapter === "runtime") {
+    return [
+      "Fallback: use Studio Preview to verify artifacts before runtime handoff.",
+      "Fallback: use Discord asset link for external distribution while runtime parity is stabilised.",
+    ];
+  }
+
+  if (capability.adapter === "discord_mcp") {
+    if (params.variant === "discord_experience_inline") {
+      return [
+        "Fallback: switch to Asset link outside Discord for the supported path.",
+        "Fallback: use Runtime Launch if the experience should execute outside Discord.",
+      ];
+    }
+    if (params.variant === "discord_asset_inline") {
+      return [
+        "Fallback: switch to Asset link outside Discord for the reliable distribution path.",
+      ];
+    }
+  }
+
+  if (capability.adapter === "mcp_app") {
+    return [
+      "Fallback: choose Runtime Launch or Discord via MCP for an active downstream adapter.",
+    ];
+  }
+
+  if (capability.adapter === "aa_api" || capability.adapter === "xmtp") {
+    return ["Planned adapter only. Use Runtime Launch or Discord via MCP for active delivery today."];
+  }
+
+  return ["Fallback: use Studio Preview while this adapter path is refined."];
 }
 
 export function getDeploymentTargetLabel(target: ComposerDeploymentTarget): string {

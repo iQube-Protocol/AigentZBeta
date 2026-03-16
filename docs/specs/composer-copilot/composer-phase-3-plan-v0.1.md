@@ -348,6 +348,17 @@ The first `3D` slice is now in progress:
     - `destination_adapter`
   - dispatch-time rejection of unsupported target / variant / mode combinations
 
+### 4.4.2.2 Phase 3D-B Focus
+
+`3D-B` now focuses on:
+
+- adapter catalog / coverage visibility in Studio
+- adapter-specific fallback and remediation guidance
+- clearer separation between:
+  - active adapters
+  - planned adapters
+- proof surfaces that show not just what was selected, but what the recommended fallback path is when an adapter is limited or scaffolded
+
 ### 4.4.3 Exit Criteria
 
 `3D` is complete enough when:

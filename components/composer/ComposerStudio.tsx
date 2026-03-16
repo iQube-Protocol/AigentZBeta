@@ -41,6 +41,8 @@ import {
   getDeploymentAdapterDeclaration,
   getDeploymentTargetLabel,
   getSupportedVariantsForTarget,
+  listDeploymentAdapterDeclarations,
+  resolveDeploymentFallbackGuidance,
   resolveDeploymentCapability,
   resolveDeploymentDeliveryMode,
   type ComposerDeliveryVariant,
@@ -1855,6 +1857,10 @@ export const ComposerStudio = () => {
     deploymentResultsByTarget,
     routingEnvelope,
   ]);
+  const deploymentAdapterCatalog = useMemo(
+    () => listDeploymentAdapterDeclarations(),
+    [],
+  );
   const inspectorSourceBadge = useMemo(
     () =>
       resolveInspectorSourceBadge({
@@ -4427,6 +4433,10 @@ export const ComposerStudio = () => {
   }, [activeExperienceDeploymentState, deploymentResultsByTarget, mcpDeploymentTarget]);
   const inspectorRemediationSteps = useMemo(() => {
     const steps: string[] = [];
+    const fallbackGuidance = resolveDeploymentFallbackGuidance({
+      target: mcpDeploymentTarget,
+      variant: mcpDeliveryVariant,
+    });
 
     if (selectedDeploymentCard?.watchouts?.length) {
       steps.push(...selectedDeploymentCard.watchouts);
@@ -4443,6 +4453,9 @@ export const ComposerStudio = () => {
     if (mcpDispatchMode === "live" && selectedDeploymentCard && !selectedDeploymentCard.ready) {
       steps.push("Use Simulation first to verify the deployment payload before retrying live dispatch.");
     }
+    if (fallbackGuidance.length > 0) {
+      steps.push(...fallbackGuidance);
+    }
     if (steps.length === 0) {
       steps.push("No major blockers detected. You can dispatch this target or open the generated launch surface.");
     }
@@ -4455,6 +4468,7 @@ export const ComposerStudio = () => {
     mcpDispatchMode,
     mcpDiscordStatus?.ready,
     mcpDiscordStatusState,
+    mcpDeliveryVariant,
     selectedDeploymentCard,
   ]);
   const filteredPersonaMediaLibrary = useMemo(() => {
@@ -5904,6 +5918,60 @@ export const ComposerStudio = () => {
                                   {target.latest.mode ? ` · ${target.latest.mode}` : ""}
                                 </div>
                               ) : null}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <div className="text-sm font-semibold text-white">Adapter coverage</div>
+                            <div className="mt-1 text-sm text-slate-400">
+                              Active and planned deployment adapters on the universal deployment contract.
+                            </div>
+                          </div>
+                          <span className="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-300">
+                            3D-B proof surfaces
+                          </span>
+                        </div>
+                        <div className="mt-3 grid gap-3 md:grid-cols-2">
+                          {deploymentAdapterCatalog.map((adapter) => (
+                            <div
+                              key={adapter.adapter}
+                              className={`rounded-lg border px-3 py-3 text-sm ${
+                                adapter.availability === "active"
+                                  ? "border-slate-800 bg-slate-900/50"
+                                  : "border-dashed border-slate-700 bg-slate-950/40"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="font-medium text-white">{adapter.label}</div>
+                                <span
+                                  className={
+                                    adapter.availability === "active"
+                                      ? "text-emerald-300"
+                                      : "text-fuchsia-200"
+                                  }
+                                >
+                                  {adapter.availability}
+                                </span>
+                              </div>
+                              <div className="mt-1 text-xs text-slate-400">{adapter.note}</div>
+                              {adapter.supportedTargets.length > 0 ? (
+                                <div className="mt-2 text-[11px] text-slate-500">
+                                  Targets: {adapter.supportedTargets.map((target) => getDeploymentTargetLabel(target)).join(" · ")}
+                                </div>
+                              ) : (
+                                <div className="mt-2 text-[11px] text-slate-500">Targets: planned</div>
+                              )}
+                              {adapter.supportedVariants.length > 0 ? (
+                                <div className="mt-1 text-[11px] text-slate-500">
+                                  Variants: {adapter.supportedVariants.map((variant) => getDeliveryVariantLabel(variant)).join(" · ")}
+                                </div>
+                              ) : (
+                                <div className="mt-1 text-[11px] text-slate-500">Variants: planned</div>
+                              )}
                             </div>
                           ))}
                         </div>
@@ -7710,6 +7778,12 @@ export const ComposerStudio = () => {
                         Constraints: {selectedDeploymentCard.capabilityConstraints.join(" · ")}
                       </div>
                     ) : null}
+                    <div className="text-slate-400">
+                      Fallbacks: {resolveDeploymentFallbackGuidance({
+                        target: mcpDeploymentTarget,
+                        variant: mcpDeliveryVariant,
+                      }).join(" · ")}
+                    </div>
                     {latestSelectedDeploymentResult?.runtimeProfile ? (
                       <>
                         <div>Intent: {String(latestSelectedDeploymentResult.runtimeProfile.intent)}</div>
