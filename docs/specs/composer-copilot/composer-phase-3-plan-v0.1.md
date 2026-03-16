@@ -358,6 +358,9 @@ The first `3D` slice is now in progress:
   - active adapters
   - planned adapters
 - proof surfaces that show not just what was selected, but what the recommended fallback path is when an adapter is limited or scaffolded
+- planned-adapter onboarding notes for:
+  - `aa_api`
+  - `xmtp`
 
 ### 4.4.3 Exit Criteria
 

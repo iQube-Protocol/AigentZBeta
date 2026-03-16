@@ -43,6 +43,7 @@ import {
   getSupportedVariantsForTarget,
   listDeploymentAdapterDeclarations,
   resolveDeploymentFallbackGuidance,
+  resolveDeploymentRemediationActions,
   resolveDeploymentCapability,
   resolveDeploymentDeliveryMode,
   type ComposerDeliveryVariant,
@@ -4437,6 +4438,10 @@ export const ComposerStudio = () => {
       target: mcpDeploymentTarget,
       variant: mcpDeliveryVariant,
     });
+    const remediationActions = resolveDeploymentRemediationActions({
+      target: mcpDeploymentTarget,
+      variant: mcpDeliveryVariant,
+    });
 
     if (selectedDeploymentCard?.watchouts?.length) {
       steps.push(...selectedDeploymentCard.watchouts);
@@ -4455,6 +4460,9 @@ export const ComposerStudio = () => {
     }
     if (fallbackGuidance.length > 0) {
       steps.push(...fallbackGuidance);
+    }
+    if (remediationActions.length > 0) {
+      steps.push(...remediationActions);
     }
     if (steps.length === 0) {
       steps.push("No major blockers detected. You can dispatch this target or open the generated launch surface.");
@@ -5972,6 +5980,11 @@ export const ComposerStudio = () => {
                               ) : (
                                 <div className="mt-1 text-[11px] text-slate-500">Variants: planned</div>
                               )}
+                              {Array.isArray(adapter.onboarding) && adapter.onboarding.length > 0 ? (
+                                <div className="mt-2 text-[11px] text-slate-400">
+                                  Next: {adapter.onboarding.join(" · ")}
+                                </div>
+                              ) : null}
                             </div>
                           ))}
                         </div>
@@ -7780,6 +7793,12 @@ export const ComposerStudio = () => {
                     ) : null}
                     <div className="text-slate-400">
                       Fallbacks: {resolveDeploymentFallbackGuidance({
+                        target: mcpDeploymentTarget,
+                        variant: mcpDeliveryVariant,
+                      }).join(" · ")}
+                    </div>
+                    <div className="text-slate-400">
+                      Actions: {resolveDeploymentRemediationActions({
                         target: mcpDeploymentTarget,
                         variant: mcpDeliveryVariant,
                       }).join(" · ")}

@@ -39,6 +39,7 @@ export type ComposerDeploymentAdapterDeclaration = {
   supportedTargets: ComposerDeploymentTarget[];
   supportedVariants: ComposerDeliveryVariant[];
   note: string;
+  onboarding?: string[];
 };
 
 export type ComposerDeploymentCapability = {
@@ -98,6 +99,7 @@ export const DEPLOYMENT_ADAPTER_DECLARATIONS: Record<
     supportedTargets: ["studio_preview"],
     supportedVariants: ["runtime_standard"],
     note: "Internal proof and review surface for Composer iterations.",
+    onboarding: ["Use Studio Preview as the baseline proof loop before external deployment."],
   },
   runtime: {
     adapter: "runtime",
@@ -107,6 +109,7 @@ export const DEPLOYMENT_ADAPTER_DECLARATIONS: Record<
     supportedTargets: ["runtime_launch"],
     supportedVariants: ["runtime_standard"],
     note: "Primary runtime handoff for full-surface launches.",
+    onboarding: ["Use Runtime Launch once the artifact is verified in Studio and codex routing is set."],
   },
   thin_client: {
     adapter: "thin_client",
@@ -116,6 +119,7 @@ export const DEPLOYMENT_ADAPTER_DECLARATIONS: Record<
     supportedTargets: ["runtime_launch", "runtime_thin_client"],
     supportedVariants: ["runtime_thin_client"],
     note: "Thin-client handoff with content-only runtime chrome.",
+    onboarding: ["Use thin-client handoff when you want the runtime shell minimized and content-first rendering."],
   },
   mcp_app: {
     adapter: "mcp_app",
@@ -125,6 +129,7 @@ export const DEPLOYMENT_ADAPTER_DECLARATIONS: Record<
     supportedTargets: ["mcp_app"],
     supportedVariants: ["asset_link", "runtime_standard", "runtime_thin_client"],
     note: "Reusable scaffold that hands off to downstream delivery adapters.",
+    onboarding: ["Use MCP App as an intermediate adapter when the final delivery destination is still being selected."],
   },
   discord_mcp: {
     adapter: "discord_mcp",
@@ -134,6 +139,7 @@ export const DEPLOYMENT_ADAPTER_DECLARATIONS: Record<
     supportedTargets: ["discord_mcp"],
     supportedVariants: ["asset_link", "discord_asset_inline", "discord_experience_inline"],
     note: "Discord transport adapter with external-link support and partial inline media support.",
+    onboarding: ["Use Discord via MCP for distribution workflows after the artifact and destination channel are confirmed."],
   },
   aa_api: {
     adapter: "aa_api",
@@ -143,6 +149,10 @@ export const DEPLOYMENT_ADAPTER_DECLARATIONS: Record<
     supportedTargets: [],
     supportedVariants: [],
     note: "Planned structured runtime/app adapter for post-3D expansion.",
+    onboarding: [
+      "Planned onboarding: define AA API payload schema and transport contract.",
+      "Planned onboarding: map deployment proof into AA API response envelopes.",
+    ],
   },
   xmtp: {
     adapter: "xmtp",
@@ -152,6 +162,10 @@ export const DEPLOYMENT_ADAPTER_DECLARATIONS: Record<
     supportedTargets: [],
     supportedVariants: [],
     note: "Planned messaging adapter for wallet-native distribution.",
+    onboarding: [
+      "Planned onboarding: define wallet-address routing and transport envelope requirements.",
+      "Planned onboarding: map proof/receipt payloads into XMTP message semantics.",
+    ],
   },
 };
 
@@ -430,6 +444,58 @@ export function resolveDeploymentFallbackGuidance(params: {
   }
 
   return ["Fallback: use Studio Preview while this adapter path is refined."];
+}
+
+export function resolveDeploymentRemediationActions(params: {
+  target: ComposerDeploymentTarget;
+  variant?: ComposerDeliveryVariant;
+}): string[] {
+  const capability = resolveDeploymentCapability(params);
+  const adapterDeclaration = getDeploymentAdapterDeclaration(capability.adapter);
+
+  if (adapterDeclaration.availability === "planned") {
+    return adapterDeclaration.onboarding || ["Planned adapter. No active remediation path yet."];
+  }
+
+  if (capability.adapter === "discord_mcp") {
+    if (params.variant === "discord_experience_inline") {
+      return [
+        "Switch to Asset link outside Discord for the supported path.",
+        "Use Check Discord Connection before live dispatch.",
+      ];
+    }
+    if (params.variant === "discord_asset_inline") {
+      return [
+        "Confirm the media URL is directly accessible before dispatch.",
+        "Fallback to Asset link outside Discord if inline client behavior is inconsistent.",
+      ];
+    }
+    return [
+      "Confirm the destination channel or invite is valid before live dispatch.",
+    ];
+  }
+
+  if (capability.adapter === "thin_client") {
+    return [
+      "Verify codex, tab, and cartridge routing before dispatch.",
+      "Fallback to full Runtime Launch if thin-client parity is incomplete.",
+    ];
+  }
+
+  if (capability.adapter === "runtime") {
+    return [
+      "Validate runtime proof and codex routing in Studio before live handoff.",
+      "Fallback to Studio Preview if runtime media behavior is still under review.",
+    ];
+  }
+
+  if (capability.adapter === "mcp_app") {
+    return [
+      "Select a downstream active adapter before treating MCP deployment as final delivery.",
+    ];
+  }
+
+  return adapterDeclaration.onboarding || ["No additional remediation required."];
 }
 
 export function getDeploymentTargetLabel(target: ComposerDeploymentTarget): string {
