@@ -57,6 +57,12 @@ import {
   resolveRuntimeCodexTabForExperience,
 } from "@/services/composer/runtimeProjectionShared";
 import { buildExperienceBlockManifest } from "@/services/composer/experienceBlockManifest";
+import {
+  buildExperienceBundlePresetPatch,
+  getAppliedExperienceBundle,
+  listExperienceBundlePresets,
+  type ExperienceBundlePresetId,
+} from "@/services/composer/experienceBundlePresets";
 import { buildComposerRoutingEnvelope } from "@/services/composer/routingEnvelope";
 import {
   markPersonaGeneratedMediaLifecycle,
@@ -1206,6 +1212,7 @@ export const ComposerStudio = () => {
   const [showExperienceModal, setShowExperienceModal] = useState(false);
   const [experienceModalTab, setExperienceModalTab] = useState<"goal" | "mechanics" | "metrics">("goal");
   const [experienceToDelete, setExperienceToDelete] = useState<ExperienceQube | null>(null);
+  const [applyingBundlePresetId, setApplyingBundlePresetId] = useState<ExperienceBundlePresetId | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [editingExperienceId, setEditingExperienceId] = useState<string | null>(null);
@@ -4193,6 +4200,54 @@ export const ComposerStudio = () => {
     setPreviewAction(`Remedy applied: ${summary}`);
   };
 
+  const handleApplyBundlePreset = useCallback(
+    async (presetId: ExperienceBundlePresetId) => {
+      if (!activeExperienceForEditing?.id) {
+        setSessionError("Select an ExperienceQube before applying a bundle preset.");
+        return;
+      }
+      const preset = activeExperienceBundlePresets.find((item) => item.id === presetId);
+      if (!preset) {
+        setSessionError("Requested bundle preset is not available.");
+        return;
+      }
+
+      setApplyingBundlePresetId(presetId);
+      setSessionError(null);
+      try {
+        const patch = buildExperienceBundlePresetPatch(
+          activeExperienceForEditing,
+          activeExperienceBlockManifest,
+          preset,
+        );
+        await persistExperienceUpdate(
+          activeExperienceForEditing.id,
+          {
+            name: activeExperienceForEditing.name,
+            description: activeExperienceForEditing.description,
+            goal: activeExperienceForEditing.goal,
+            mechanics: activeExperienceForEditing.mechanics,
+            metrics: activeExperienceForEditing.metrics,
+            template_id: activeExperienceForEditing.template_id,
+            status: activeExperienceForEditing.status,
+            configuration: patch.configuration,
+            components: activeExperienceForEditing.components,
+            execution: (activeExperienceForEditing as any).execution,
+            access: activeExperienceForEditing.access,
+            metadata: patch.metadata,
+          },
+          "Failed to apply Make bundle preset.",
+        );
+        setPreviewAction(`Applied ${preset.label} bundle`);
+      } catch (error: any) {
+        setSessionError(error?.message || "Failed to apply Make bundle preset.");
+      } finally {
+        setApplyingBundlePresetId(null);
+      }
+    },
+    [activeExperienceBlockManifest, activeExperienceBundlePresets, activeExperienceForEditing],
+  );
+
   const updateField = (stepId: string, fieldId: string, value: any) => {
     setStepData((prev) => ({
       ...prev,
@@ -4305,6 +4360,14 @@ export const ComposerStudio = () => {
   }, [activeExperienceForEditing]);
   const activeExperienceBlockManifest = useMemo(
     () => buildExperienceBlockManifest(activeExperienceForEditing),
+    [activeExperienceForEditing],
+  );
+  const activeExperienceBundlePresets = useMemo(
+    () => listExperienceBundlePresets(activeExperienceBlockManifest),
+    [activeExperienceBlockManifest],
+  );
+  const activeAppliedExperienceBundle = useMemo(
+    () => getAppliedExperienceBundle(activeExperienceForEditing),
     [activeExperienceForEditing],
   );
   const activeExperienceDeploymentState = useMemo(() => {
@@ -5937,6 +6000,78 @@ export const ComposerStudio = () => {
                                 {activeExperienceBlockManifest.nextCompositionOpportunities.map((item) => (
                                   <div key={item}>{item}</div>
                                 ))}
+                              </div>
+                            </div>
+                            <div className="border-t border-slate-800 pt-3">
+                              <div className="font-medium text-white">Make bundle presets</div>
+                              <div className="mt-2 space-y-3">
+                                {activeAppliedExperienceBundle ? (
+                                  <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/5 px-3 py-3 text-xs text-cyan-100">
+                                    <div className="font-medium text-white">
+                                      Active bundle: {activeAppliedExperienceBundle.label}
+                                    </div>
+                                    <div className="mt-1 text-cyan-100/80">
+                                      {activeAppliedExperienceBundle.summary}
+                                    </div>
+                                    <div className="mt-2 text-cyan-100/70">
+                                      Applied{" "}
+                                      {activeAppliedExperienceBundle.appliedAt
+                                        ? new Date(activeAppliedExperienceBundle.appliedAt).toLocaleString()
+                                        : "recently"}
+                                    </div>
+                                  </div>
+                                ) : null}
+                                {activeExperienceBundlePresets.map((preset) => {
+                                  const isActive = activeAppliedExperienceBundle?.presetId === preset.id;
+                                  const isLoading = applyingBundlePresetId === preset.id;
+                                  return (
+                                    <div
+                                      key={preset.id}
+                                      className="rounded-lg border border-slate-800 bg-slate-950/50 px-3 py-3"
+                                    >
+                                      <div className="flex items-start justify-between gap-3">
+                                        <div>
+                                          <div className="flex flex-wrap items-center gap-2">
+                                            <div className="text-sm font-medium text-white">{preset.label}</div>
+                                            <span
+                                              className={`rounded-full border px-2 py-0.5 text-[11px] ${
+                                                preset.recommended
+                                                  ? "border-emerald-400/30 text-emerald-300"
+                                                  : "border-slate-700 text-slate-400"
+                                              }`}
+                                            >
+                                              {preset.recommended ? "recommended" : "available"}
+                                            </span>
+                                            {isActive ? (
+                                              <span className="rounded-full border border-cyan-400/30 px-2 py-0.5 text-[11px] text-cyan-300">
+                                                active
+                                              </span>
+                                            ) : null}
+                                          </div>
+                                          <div className="mt-1 text-xs text-slate-400">{preset.summary}</div>
+                                          <div className="mt-2 text-[11px] text-slate-500">
+                                            Blocks: {preset.blockKinds.join(" · ")}
+                                          </div>
+                                        </div>
+                                        <Button
+                                          type="button"
+                                          size="sm"
+                                          variant={isActive ? "secondary" : "outline"}
+                                          disabled={isLoading}
+                                          onClick={() => void handleApplyBundlePreset(preset.id)}
+                                          className="border-slate-700 text-xs text-slate-200"
+                                        >
+                                          {isLoading ? "Applying..." : isActive ? "Reapply" : "Apply"}
+                                        </Button>
+                                      </div>
+                                      <div className="mt-3 space-y-1 text-[11px] text-slate-500">
+                                        {preset.sequencing.map((step) => (
+                                          <div key={step}>{step}</div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
                               </div>
                             </div>
                           </div>

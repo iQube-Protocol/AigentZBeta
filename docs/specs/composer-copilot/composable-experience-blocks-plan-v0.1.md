@@ -208,6 +208,15 @@ The first concrete Phase `4` slice should be:
 3. surface composition readiness and sequencing in Studio
 4. use that manifest as the starting contract for future bundled `Make` flows
 
+Status:
+
+- complete
+- Studio now infers block readiness for the active ExperienceQube
+- Studio also supports first-pass `Make` bundle preset application for:
+  - `Image + Article`
+  - `Video + Article`
+- this pass persists composition intent into ExperienceQube metadata/configuration without yet changing packet or runtime behavior
+
 ## 6. Block Contract Model
 
 Each production-grade block should eventually expose a common contract:
