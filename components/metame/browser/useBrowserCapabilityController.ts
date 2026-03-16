@@ -4,21 +4,82 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
   AAClient,
 } from "@metame/aa-client";
-import type {
-  BrowserErrorPayload,
-  BrowserRuntimeEvent,
-  BrowserRuntimeToShellType,
-  BrowserSessionResponse,
-  BrowserSurfaceState,
-} from "@metame/browser-contracts";
 import type { ShellInboundMessage } from "@metame/iframe-bridge";
 
 const STORAGE_KEY = "metame.browser.activeSessionId";
 
 type UseBrowserCapabilityControllerOptions = {
   enabled: boolean;
-  emitShellEvent: (type: BrowserRuntimeToShellType, payload: Record<string, unknown>) => void;
+  emitShellEvent: (type: string, payload: Record<string, unknown>) => void;
 };
+
+type BrowserRuntimeToShellType = string;
+
+type BrowserErrorPayload = {
+  sessionId?: string;
+  message: string;
+  code: string;
+};
+
+type BrowserSurfaceState = {
+  shellSurfaceState?: string;
+  visible?: boolean;
+  focused?: boolean;
+  bounds?: {
+    x?: number;
+    y?: number;
+    width?: number;
+    height?: number;
+  };
+  [key: string]: unknown;
+};
+
+type BrowserRuntimeEvent = {
+  type: BrowserRuntimeToShellType;
+  payload: Record<string, any>;
+};
+
+type BrowserSessionResponse = {
+  session: {
+    sessionId: string;
+    status?: string;
+    [key: string]: unknown;
+  };
+  mountPayload?: {
+    sessionId: string;
+    [key: string]: unknown;
+  } | null;
+  surfaceState?: BrowserSurfaceState | null;
+  badges?: Record<string, unknown> | null;
+  [key: string]: unknown;
+};
+
+type BrowserOpenInput = {
+  intent?: string;
+  url?: string;
+  query?: string;
+  openMode?: "open" | "search" | "research";
+};
+
+function normalizeUrl(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (/^[a-z0-9.-]+\.[a-z]{2,}(?:\/.*)?$/i.test(trimmed)) return `https://${trimmed}`;
+  return undefined;
+}
+
+function resolveTargetUrl(input: BrowserOpenInput | undefined): string | undefined {
+  const directUrl = normalizeUrl(input?.url);
+  if (directUrl) return directUrl;
+
+  const query = input?.query?.trim();
+  if (!query) return undefined;
+
+  const encoded = encodeURIComponent(query);
+  return `https://www.google.com/search?q=${encoded}`;
+}
 
 function toErrorPayload(error: unknown, sessionId?: string): BrowserErrorPayload {
   return {
@@ -113,7 +174,7 @@ export function useBrowserCapabilityController({ enabled, emitShellEvent }: UseB
   );
 
   const openBrowser = useCallback(
-    async (input?: { intent?: string; url?: string }) => {
+    async (input?: BrowserOpenInput) => {
       if (!aaClient) {
         emitBrowserError(new Error("AA browser client is not configured"));
         return;
@@ -122,6 +183,7 @@ export function useBrowserCapabilityController({ enabled, emitShellEvent }: UseB
       try {
         let sessionId = activeSessionIdRef.current;
         let aggregate: BrowserSessionResponse | null = null;
+        const targetUrl = resolveTargetUrl(input);
 
         if (sessionId) {
           try {
@@ -137,11 +199,16 @@ export function useBrowserCapabilityController({ enabled, emitShellEvent }: UseB
         if (!aggregate) {
           const created = await aaClient.createBrowserSession({
             intent: input?.intent,
-            targetUrl: input?.url,
+            targetUrl,
+            url: input?.url,
+            query: input?.query,
+            openMode: input?.openMode,
             mountMode: "overlay",
           });
           aggregate = created;
           sessionId = created.session.sessionId;
+        } else if (sessionId && targetUrl) {
+          aggregate = await aaClient.navigateBrowserSession(sessionId, { url: targetUrl });
         }
 
         if (!sessionId) {
@@ -191,6 +258,11 @@ export function useBrowserCapabilityController({ enabled, emitShellEvent }: UseB
         void openBrowser({
           intent: typeof payload.intent === "string" ? payload.intent : undefined,
           url: typeof payload.url === "string" ? payload.url : undefined,
+          query: typeof payload.query === "string" ? payload.query : undefined,
+          openMode:
+            payload.openMode === "open" || payload.openMode === "search" || payload.openMode === "research"
+              ? payload.openMode
+              : undefined,
         });
         return true;
       }
