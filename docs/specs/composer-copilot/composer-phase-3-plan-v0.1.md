@@ -317,6 +317,17 @@ It should focus on universal deployment-manager hardening rather than continuing
   - thin client
   - messenger adapters
 
+### 4.4.2.1 Current Status
+
+The first `3D` slice is now in progress:
+
+- shared deployment results carry explicit adapter capability state:
+  - `supported`
+  - `limited`
+  - `scaffolded`
+- routing/readiness now penalizes partial adapters instead of presenting them as equivalent
+- inspector proof and saved deployment proof/history now surface capability summaries and constraints
+
 ### 4.4.3 Exit Criteria
 
 `3D` is complete enough when:

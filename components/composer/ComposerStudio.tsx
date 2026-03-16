@@ -33,6 +33,8 @@ import { resolveRuntimeIdentity } from "@/services/runtime/identityResolver";
 import { recordRuntimeLifecycleContribution } from "@/services/composer/runtimeLifecycleClient";
 import {
   dispatchComposerDeployment,
+  type ComposerDeploymentCapability,
+  type ComposerDeploymentCapabilityState,
   getDeploymentTargetLabel,
   type ComposerDeliveryVariant,
   type ComposerDeploymentResult,
@@ -144,6 +146,9 @@ type ExperienceQube = {
       last_variant?: string;
       last_destination_surface?: string;
       last_status?: string;
+      last_capability_state?: string;
+      last_capability_summary?: string;
+      last_capability_constraints?: string[];
       last_provider?: string;
       last_mode?: string;
       last_publish_url?: string;
@@ -161,6 +166,9 @@ type ExperienceQube = {
         provider?: string;
         mode?: string;
         status: string;
+      capability_state?: string;
+      capability_summary?: string;
+      capability_constraints?: string[];
       publish_url?: string;
       launch_url?: string;
       source?: string;
@@ -598,6 +606,20 @@ function getDeploymentDestinationSurfaceLabel(
     return "MCP app surface";
   }
   return "Deployment surface";
+}
+
+function getCapabilityToneClass(state: ComposerDeploymentCapabilityState | string | null | undefined) {
+  if (state === "supported") return "text-emerald-300";
+  if (state === "limited") return "text-amber-200";
+  if (state === "scaffolded") return "text-fuchsia-200";
+  return "text-slate-400";
+}
+
+function getCapabilityLabel(state: ComposerDeploymentCapabilityState | string | null | undefined) {
+  if (state === "supported") return "Supported";
+  if (state === "limited") return "Limited";
+  if (state === "scaffolded") return "Scaffolded";
+  return "Unclassified";
 }
 
 function pickMediaFromSectionContent(items: any[], preferredIds: string[]): InspectorMediaPreview | null {
@@ -1786,6 +1808,9 @@ export const ComposerStudio = () => {
         ready: candidate.ready,
         note: candidate.reasons[0] || "Deployment candidate",
         latest,
+        capabilityState: candidate.capabilityState,
+        capabilitySummary: candidate.capabilitySummary,
+        capabilityConstraints: candidate.capabilityConstraints,
         trustScore: candidate.trustScore,
         costScore: candidate.costScore,
         suitabilityScore: candidate.suitabilityScore,
@@ -3932,6 +3957,9 @@ export const ComposerStudio = () => {
         provider: deployment.provider,
         mode: deployment.mode,
         status: deployment.status,
+        capability_state: deployment.capability.state,
+        capability_summary: deployment.capability.summary,
+        capability_constraints: deployment.capability.constraints,
         publish_url: deployment.publishUrl,
         launch_url: deployment.launchUrl,
         source,
@@ -3971,6 +3999,9 @@ export const ComposerStudio = () => {
                   ? deployment.response.destinationSurface
                   : undefined,
               last_status: deployment.status,
+              last_capability_state: deployment.capability.state,
+              last_capability_summary: deployment.capability.summary,
+              last_capability_constraints: deployment.capability.constraints,
               last_provider: deployment.provider,
               last_mode: deployment.mode,
               last_publish_url: deployment.publishUrl,
@@ -4217,6 +4248,7 @@ export const ComposerStudio = () => {
             ? inSession.response.destinationSurface
             : getDeploymentDestinationSurfaceLabel(inSession.target, inSession.variant),
         status: inSession.status,
+        capability: inSession.capability,
         provider: inSession.provider,
         mode: inSession.mode,
         publishUrl: inSession.publishUrl,
@@ -4251,6 +4283,38 @@ export const ComposerStudio = () => {
                   : undefined,
               ),
         status: String(activeExperienceDeploymentState.last_status || "unknown"),
+        capability:
+          typeof activeExperienceDeploymentState.last_capability_state === "string"
+            ? ({
+                adapter:
+                  typeof activeExperienceDeploymentState.last_provider === "string" &&
+                  activeExperienceDeploymentState.last_provider === "runtime"
+                    ? "runtime"
+                    : typeof activeExperienceDeploymentState.last_provider === "string" &&
+                        activeExperienceDeploymentState.last_provider === "discord"
+                      ? "discord_mcp"
+                      : typeof activeExperienceDeploymentState.last_target === "string" &&
+                          activeExperienceDeploymentState.last_target === "studio_preview"
+                        ? "studio"
+                        : typeof activeExperienceDeploymentState.last_target === "string" &&
+                            activeExperienceDeploymentState.last_target === "runtime_thin_client"
+                          ? "thin_client"
+                          : typeof activeExperienceDeploymentState.last_target === "string" &&
+                              activeExperienceDeploymentState.last_target === "mcp_app"
+                            ? "mcp_app"
+                            : "runtime",
+                state: activeExperienceDeploymentState.last_capability_state as ComposerDeploymentCapabilityState,
+                summary:
+                  typeof activeExperienceDeploymentState.last_capability_summary === "string"
+                    ? activeExperienceDeploymentState.last_capability_summary
+                    : "Capability summary unavailable.",
+                constraints: Array.isArray(activeExperienceDeploymentState.last_capability_constraints)
+                  ? activeExperienceDeploymentState.last_capability_constraints.filter(
+                      (item): item is string => typeof item === "string",
+                    )
+                  : undefined,
+              } as ComposerDeploymentCapability)
+            : undefined,
         provider: typeof activeExperienceDeploymentState.last_provider === "string"
           ? activeExperienceDeploymentState.last_provider
           : undefined,
@@ -5739,6 +5803,9 @@ export const ComposerStudio = () => {
                                 </span>
                               </div>
                               <div className="mt-1 text-xs text-slate-400">{target.note}</div>
+                              <div className={`mt-1 text-[11px] ${getCapabilityToneClass(target.capabilityState)}`}>
+                                {getCapabilityLabel(target.capabilityState)}: {target.capabilitySummary}
+                              </div>
                               <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-slate-500">
                                 <span>trust {target.trustScore}/5</span>
                                 <span>cost {target.costScore}/5</span>
@@ -5771,17 +5838,29 @@ export const ComposerStudio = () => {
                                     String(activeExperienceDeploymentState.last_target || "studio_preview") as ComposerDeploymentTarget,
                                   )}
                                 </span>
-                                <span
-                                  className={
-                                    String(activeExperienceDeploymentState.last_status || "") === "failed"
-                                      ? "text-rose-300"
-                                      : "text-emerald-300"
-                                  }
-                                >
-                                  {String(activeExperienceDeploymentState.last_status || "unknown")}
-                                </span>
+                                <div className="flex items-center gap-3">
+                                  {activeExperienceDeploymentState.last_capability_state ? (
+                                    <span className={getCapabilityToneClass(String(activeExperienceDeploymentState.last_capability_state))}>
+                                      {getCapabilityLabel(String(activeExperienceDeploymentState.last_capability_state))}
+                                    </span>
+                                  ) : null}
+                                  <span
+                                    className={
+                                      String(activeExperienceDeploymentState.last_status || "") === "failed"
+                                        ? "text-rose-300"
+                                        : "text-emerald-300"
+                                    }
+                                  >
+                                    {String(activeExperienceDeploymentState.last_status || "unknown")}
+                                  </span>
+                                </div>
                               </div>
                               <div className="mt-2 grid gap-1 text-xs text-slate-400 sm:grid-cols-2">
+                                {activeExperienceDeploymentState.last_capability_summary ? (
+                                  <div className="sm:col-span-2">
+                                    Capability: {String(activeExperienceDeploymentState.last_capability_summary)}
+                                  </div>
+                                ) : null}
                                 {activeExperienceDeploymentState.last_provider ? (
                                   <div>Provider: {String(activeExperienceDeploymentState.last_provider)}</div>
                                 ) : null}
@@ -5793,6 +5872,12 @@ export const ComposerStudio = () => {
                                 ) : null}
                                 {activeExperienceDeploymentState.last_mode ? (
                                   <div>Mode: {String(activeExperienceDeploymentState.last_mode)}</div>
+                                ) : null}
+                                {Array.isArray(activeExperienceDeploymentState.last_capability_constraints) &&
+                                activeExperienceDeploymentState.last_capability_constraints.length > 0 ? (
+                                  <div className="sm:col-span-2 text-amber-200/90">
+                                    Constraints: {activeExperienceDeploymentState.last_capability_constraints.join(" · ")}
+                                  </div>
                                 ) : null}
                                 {activeExperienceDeploymentState.last_runtime_profile &&
                                 typeof activeExperienceDeploymentState.last_runtime_profile === "object" ? (
@@ -5868,19 +5953,36 @@ export const ComposerStudio = () => {
                                   <span className="font-medium text-white">
                                     {getDeploymentTargetLabel(String(entry.target) as ComposerDeploymentTarget)}
                                   </span>
-                                  <span
-                                    className={
-                                      entry.status === "failed" ? "text-rose-300" : "text-emerald-300"
-                                    }
-                                  >
-                                    {String(entry.status || "unknown")}
-                                  </span>
+                                  <div className="flex items-center gap-3">
+                                    {entry.capability_state ? (
+                                      <span className={getCapabilityToneClass(String(entry.capability_state))}>
+                                        {getCapabilityLabel(String(entry.capability_state))}
+                                      </span>
+                                    ) : null}
+                                    <span
+                                      className={
+                                        entry.status === "failed" ? "text-rose-300" : "text-emerald-300"
+                                      }
+                                    >
+                                      {String(entry.status || "unknown")}
+                                    </span>
+                                  </div>
                                 </div>
                                 <div className="mt-1 grid gap-1 text-xs text-slate-400 sm:grid-cols-2">
+                                  {entry.capability_summary ? (
+                                    <div className="sm:col-span-2">
+                                      Capability: {String(entry.capability_summary)}
+                                    </div>
+                                  ) : null}
                                   {entry.provider ? <div>Provider: {String(entry.provider)}</div> : null}
                                   {entry.variant ? <div>Variant: {String(entry.variant)}</div> : null}
                                   {entry.destination_surface ? <div>Surface: {String(entry.destination_surface)}</div> : null}
                                   {entry.mode ? <div>Mode: {String(entry.mode)}</div> : null}
+                                  {Array.isArray(entry.capability_constraints) && entry.capability_constraints.length > 0 ? (
+                                    <div className="sm:col-span-2 text-amber-200/90">
+                                      Constraints: {entry.capability_constraints.join(" · ")}
+                                    </div>
+                                  ) : null}
                                   {entry.deployed_at ? (
                                     <div>At: {new Date(String(entry.deployed_at)).toLocaleString()}</div>
                                   ) : null}
@@ -7197,6 +7299,9 @@ export const ComposerStudio = () => {
                         </span>
                       </div>
                       <div className="mt-1 text-slate-400">{target.note}</div>
+                      <div className={`mt-1 text-[11px] ${getCapabilityToneClass(target.capabilityState)}`}>
+                        {getCapabilityLabel(target.capabilityState)}: {target.capabilitySummary}
+                      </div>
                       <div className="mt-1 flex flex-wrap gap-3 text-[11px] text-slate-500">
                         <span>trust {target.trustScore}/5</span>
                         <span>cost {target.costScore}/5</span>
@@ -7388,20 +7493,32 @@ export const ComposerStudio = () => {
                 <div className="rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-3 text-xs">
                   <div className="flex items-center justify-between gap-3">
                     <div className="font-medium text-white">Selected target proof</div>
-                    <span
-                      className={
-                        latestSelectedDeploymentResult?.status === "failed"
-                          ? "text-rose-300"
-                          : latestSelectedDeploymentResult
-                            ? "text-emerald-300"
-                            : "text-slate-400"
-                      }
-                    >
-                      {latestSelectedDeploymentResult?.status || "No result yet"}
-                    </span>
+                    <div className="flex items-center gap-3">
+                      {latestSelectedDeploymentResult?.capability?.state ? (
+                        <span className={getCapabilityToneClass(latestSelectedDeploymentResult.capability.state)}>
+                          {getCapabilityLabel(latestSelectedDeploymentResult.capability.state)}
+                        </span>
+                      ) : null}
+                      <span
+                        className={
+                          latestSelectedDeploymentResult?.status === "failed"
+                            ? "text-rose-300"
+                            : latestSelectedDeploymentResult
+                              ? "text-emerald-300"
+                              : "text-slate-400"
+                        }
+                      >
+                        {latestSelectedDeploymentResult?.status || "No result yet"}
+                      </span>
+                    </div>
                   </div>
                   <div className="mt-2 grid gap-1 text-slate-400">
                     <div>Target: {getDeploymentTargetLabel(mcpDeploymentTarget)}</div>
+                    {latestSelectedDeploymentResult?.capability?.summary ? (
+                      <div>Capability: {latestSelectedDeploymentResult.capability.summary}</div>
+                    ) : selectedDeploymentCard?.capabilitySummary ? (
+                      <div>Capability: {selectedDeploymentCard.capabilitySummary}</div>
+                    ) : null}
                     {latestSelectedDeploymentResult?.destinationSurface ? (
                       <div>Surface: {String(latestSelectedDeploymentResult.destinationSurface)}</div>
                     ) : null}
@@ -7420,6 +7537,17 @@ export const ComposerStudio = () => {
                     {latestSelectedDeploymentResult?.warnings && latestSelectedDeploymentResult.warnings.length > 0 ? (
                       <div className="text-amber-200/90">
                         Warnings: {latestSelectedDeploymentResult.warnings.join(" · ")}
+                      </div>
+                    ) : null}
+                    {latestSelectedDeploymentResult?.capability?.constraints &&
+                    latestSelectedDeploymentResult.capability.constraints.length > 0 ? (
+                      <div className="text-amber-200/90">
+                        Constraints: {latestSelectedDeploymentResult.capability.constraints.join(" · ")}
+                      </div>
+                    ) : selectedDeploymentCard?.capabilityConstraints &&
+                      selectedDeploymentCard.capabilityConstraints.length > 0 ? (
+                      <div className="text-amber-200/90">
+                        Constraints: {selectedDeploymentCard.capabilityConstraints.join(" · ")}
                       </div>
                     ) : null}
                     {latestSelectedDeploymentResult?.runtimeProfile ? (

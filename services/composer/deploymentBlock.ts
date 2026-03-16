@@ -15,6 +15,20 @@ export type ComposerDeliveryVariant =
   | "discord_asset_inline"
   | "discord_experience_inline"
   | "runtime_thin_client";
+export type ComposerDeploymentCapabilityState = "supported" | "limited" | "scaffolded";
+export type ComposerDeploymentAdapter =
+  | "studio"
+  | "runtime"
+  | "thin_client"
+  | "mcp_app"
+  | "discord_mcp";
+
+export type ComposerDeploymentCapability = {
+  adapter: ComposerDeploymentAdapter;
+  state: ComposerDeploymentCapabilityState;
+  summary: string;
+  constraints?: string[];
+};
 
 export type ComposerDeploymentRequest = {
   tenantId: string;
@@ -48,7 +62,103 @@ export type ComposerDeploymentResult = {
   warnings?: string[];
   error?: string;
   runtimeProfile?: ComposerRuntimeDeliveryProfile;
+  capability: ComposerDeploymentCapability;
 };
+
+export function resolveDeploymentCapability(params: {
+  target: ComposerDeploymentTarget;
+  variant?: ComposerDeliveryVariant;
+}): ComposerDeploymentCapability {
+  if (params.target === "studio_preview") {
+    return {
+      adapter: "studio",
+      state: "supported",
+      summary: "First-class internal proof and review surface.",
+    };
+  }
+
+  if (params.target === "runtime_thin_client") {
+    return {
+      adapter: "thin_client",
+      state: "limited",
+      summary: "Thin-client runtime handoff is available, but media parity still depends on runtime-host support.",
+      constraints: [
+        "Video rendering and execution still depend on runtime-host parity.",
+      ],
+    };
+  }
+
+  if (params.target === "runtime_launch") {
+    if (params.variant === "runtime_thin_client") {
+      return {
+        adapter: "thin_client",
+        state: "limited",
+        summary: "Thin-client runtime handoff is available, but media parity still depends on runtime-host support.",
+        constraints: [
+          "Video rendering and execution still depend on runtime-host parity.",
+        ],
+      };
+    }
+    return {
+      adapter: "runtime",
+      state: "limited",
+      summary: "Runtime launch is wired, but media-specific parity still varies by destination surface.",
+      constraints: [
+        "Video runtime publication remains under active validation.",
+      ],
+    };
+  }
+
+  if (params.target === "mcp_app") {
+    return {
+      adapter: "mcp_app",
+      state: "scaffolded",
+      summary: "MCP deployment is a reusable scaffold; downstream adapters still determine final delivery behavior.",
+      constraints: [
+        "Delivery depends on the selected destination adapter.",
+      ],
+    };
+  }
+
+  if (params.target === "discord_mcp") {
+    if (params.variant === "discord_experience_inline") {
+      return {
+        adapter: "discord_mcp",
+        state: "scaffolded",
+        summary: "Discord-native experience rendering is scaffolded, not production-ready.",
+        constraints: [
+          "Experience execution inside Discord is not fully implemented.",
+        ],
+      };
+    }
+    if (params.variant === "discord_asset_inline") {
+      return {
+        adapter: "discord_mcp",
+        state: "limited",
+        summary: "Discord asset delivery works through shared media URLs, not true native upload or attachment parity.",
+        constraints: [
+          "Inline video still depends on Discord client behavior for direct media URLs.",
+        ],
+      };
+    }
+    return {
+      adapter: "discord_mcp",
+      state: "supported",
+      summary: "External link dispatch is the currently supported Discord delivery mode.",
+    };
+  }
+
+  return {
+    adapter: "mcp_app",
+    state: "scaffolded",
+    summary: "Deployment adapter capability has not been classified yet.",
+  };
+}
+
+function buildCapabilityWarnings(capability: ComposerDeploymentCapability): string[] {
+  if (capability.state === "supported") return [];
+  return [capability.summary, ...(capability.constraints || [])];
+}
 
 export function getDeploymentTargetLabel(target: ComposerDeploymentTarget): string {
   switch (target) {
@@ -123,6 +233,11 @@ export async function dispatchComposerDeployment(
   input: ComposerDeploymentRequest,
 ): Promise<ComposerDeploymentResult> {
   const envelope = buildDeploymentEnvelope(input);
+  const capability = resolveDeploymentCapability({
+    target: input.target,
+    variant: envelope.variant,
+  });
+  const capabilityWarnings = buildCapabilityWarnings(capability);
 
   if (
     input.target === "studio_preview" ||
@@ -147,6 +262,7 @@ export async function dispatchComposerDeployment(
       response: {
         targetLabel: envelope.targetLabel,
         destinationSurface,
+        capability,
         note:
           input.target === "studio_preview"
             ? "Deployment is represented by the active Studio preview."
@@ -161,7 +277,9 @@ export async function dispatchComposerDeployment(
               ? ["Open in thin client", "Validate read/watch quick link routing"]
               : ["Open in runtime", "Validate runtime cartridge and codex routing"],
       },
+      warnings: capabilityWarnings.length > 0 ? capabilityWarnings : undefined,
       runtimeProfile: input.runtimeProfile,
+      capability,
     };
   }
 
@@ -183,22 +301,29 @@ export async function dispatchComposerDeployment(
       publishUrl: envelope.publishUrl,
       launchUrl: envelope.launchUrl,
       response: data,
+      warnings: capabilityWarnings.length > 0 ? capabilityWarnings : undefined,
       error: data?.error || "Failed to dispatch deployment payload",
       runtimeProfile: input.runtimeProfile,
+      capability,
     };
   }
 
+  const responseWarnings = Array.isArray(data?.warnings) ? data.warnings.filter((item): item is string => typeof item === "string") : [];
   return {
-      ok: true,
-      target: input.target,
-      variant: envelope.variant,
-      mode: input.mode,
+    ok: true,
+    target: input.target,
+    variant: envelope.variant,
+    mode: input.mode,
     provider: envelope.provider,
     status: input.mode === "live" ? "dispatched" : "simulated",
     publishUrl: envelope.publishUrl,
     launchUrl: envelope.launchUrl,
-    response: data,
-    warnings: Array.isArray(data?.warnings) ? data.warnings : undefined,
+    response: {
+      ...(data && typeof data === "object" ? data : {}),
+      capability,
+    },
+    warnings: [...responseWarnings, ...capabilityWarnings].filter((value, index, array) => array.indexOf(value) === index),
     runtimeProfile: input.runtimeProfile,
+    capability,
   };
 }

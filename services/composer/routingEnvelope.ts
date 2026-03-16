@@ -1,13 +1,19 @@
 import type {
+  ComposerDeploymentCapabilityState,
   ComposerDeploymentMode,
   ComposerDeploymentTarget,
   ComposerMessengerProvider,
+  ComposerDeliveryVariant,
 } from "./deploymentBlock";
+import { resolveDeploymentCapability } from "./deploymentBlock";
 
 export type RoutingCandidate = {
   target: ComposerDeploymentTarget;
   provider: ComposerMessengerProvider | "runtime";
   ready: boolean;
+  capabilityState: ComposerDeploymentCapabilityState;
+  capabilitySummary: string;
+  capabilityConstraints: string[];
   trustScore: number;
   costScore: number;
   suitabilityScore: number;
@@ -35,15 +41,31 @@ function buildCandidate(params: {
   target: ComposerDeploymentTarget;
   provider: ComposerMessengerProvider | "runtime";
   ready: boolean;
+  variant?: ComposerDeliveryVariant;
   trustScore: number;
   costScore: number;
   reasons: string[];
   watchouts: string[];
 }): RoutingCandidate {
   const readinessBonus = params.ready ? 2 : 0;
-  const suitabilityScore = params.trustScore + params.costScore + readinessBonus;
+  const capability = resolveDeploymentCapability({
+    target: params.target,
+    variant: params.variant,
+  });
+  const capabilityPenalty =
+    capability.state === "supported" ? 0 : capability.state === "limited" ? 1 : 3;
+  const suitabilityScore = params.trustScore + params.costScore + readinessBonus - capabilityPenalty;
   return {
     ...params,
+    capabilityState: capability.state,
+    capabilitySummary: capability.summary,
+    capabilityConstraints: capability.constraints || [],
+    watchouts: [
+      ...params.watchouts,
+      ...(capability.state === "supported"
+        ? []
+        : [capability.summary, ...(capability.constraints || [])]),
+    ].filter(Boolean),
     suitabilityScore,
   };
 }
@@ -97,6 +119,7 @@ export function buildComposerRoutingEnvelope(
     target: "discord_mcp",
     provider: "discord",
     ready: input.discordReady && input.hasPlayableMedia,
+    variant: "asset_link",
     trustScore: 3,
     costScore: 4,
     reasons: [
