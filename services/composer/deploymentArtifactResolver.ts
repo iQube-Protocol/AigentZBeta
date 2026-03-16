@@ -246,6 +246,7 @@ function resolveContextMedia(
         mediaType: inferMediaType(item.mediaUri, item.mediaType || null),
         source: "context",
         timestamp: 0,
+        priority: getAssetPriority(item.mediaUri),
       };
     }
   }
@@ -264,6 +265,7 @@ function resolveContextMedia(
         mediaType: inferMediaType(tagged.mediaUri, tagged.mediaType || null),
         source: "context",
         timestamp: 0,
+        priority: getAssetPriority(tagged.mediaUri),
       };
     }
   }
@@ -276,6 +278,7 @@ function resolveContextMedia(
     mediaType: inferMediaType(fallback.mediaUri, fallback.mediaType || null),
     source: "context",
     timestamp: 0,
+    priority: getAssetPriority(fallback.mediaUri),
   };
 }
 
