@@ -1617,6 +1617,18 @@ export default function MetaMeRuntimeClient() {
               </div>
             </div>
 
+            {heroImage ? (
+              <div className="relative overflow-hidden rounded-xl border border-white/10">
+                <img
+                  src={heroImage}
+                  alt={`${content.title} context`}
+                  className="h-28 w-full object-cover"
+                  loading="lazy"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent" />
+              </div>
+            ) : null}
+
             {isLikelyVideoUri(previewMedia) ? (
               <video
                 src={previewMedia || undefined}
