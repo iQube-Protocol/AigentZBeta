@@ -1712,10 +1712,13 @@ export default function MetaMeRuntimeClient() {
     if (autoLaunchedCapsuleRef.current === queryPreviewCapsule.id) return;
     autoLaunchedCapsuleRef.current = queryPreviewCapsule.id;
     setShowWelcome(false);
-    setLastIntent("play");
+    const launchIntent =
+      runtimeIntentParam ||
+      (queryPreviewCapsule.runtimeContentKind === "video" ? "watch" : "play");
+    setLastIntent(launchIntent);
     setSelectedCapsuleLocal(queryPreviewCapsule.id);
-    launchCapsule(queryPreviewCapsule, "play");
-  }, [launchCapsule, queryPreviewCapsule]);
+    launchCapsule(queryPreviewCapsule, launchIntent);
+  }, [launchCapsule, queryPreviewCapsule, runtimeIntentParam]);
 
   useEffect(() => {
     const readNavigateClose = (data: unknown): { isClose: boolean; codexId: string | null } => {
@@ -1878,7 +1881,16 @@ export default function MetaMeRuntimeClient() {
                   }}
                 >
                   <div className="relative h-full w-full">
-                    {heroImage ? (
+                    {content.runtimeSource === "experience" && isLikelyVideoUri(content.runtimePreviewMediaUri || null) ? (
+                      <video
+                        src={content.runtimePreviewMediaUri || undefined}
+                        poster={heroImage || undefined}
+                        className="h-full w-full object-cover"
+                        muted
+                        playsInline
+                        preload="metadata"
+                      />
+                    ) : heroImage ? (
                       <img src={heroImage} alt={content.title} className="h-full w-full object-cover" loading="lazy" />
                     ) : (
                       <div className="h-full w-full bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" />

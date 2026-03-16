@@ -446,6 +446,7 @@ function scoreCapsule(capsule: RuntimeCapsuleRecord, prompt: string, intent: str
   if (intent === "make" && capsule.metadata.surfaceIntent === "make") score += 8;
   if (intent === "make" && capsule.sourceType === "experience") score += 5;
   if (intent === "make" && capsule.metadata.contentKind === "article") score += 2;
+  if (intent === "make" && capsule.metadata.contentKind === "video") score += 3;
 
   const searchable = `${capsule.title} ${capsule.description} ${(capsule.metadata.modalityHints || []).join(" ")}`.toLowerCase();
   const words = prompt

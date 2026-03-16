@@ -139,12 +139,30 @@ function getAssetReceiptRef(asset: any): string | null {
   return null;
 }
 
+function isVideoUri(value: unknown): boolean {
+  return typeof value === "string" && /\.(mp4|m4v|mov|webm|ogg)(\?|$)/i.test(value.trim());
+}
+
+function isImageUri(value: unknown): boolean {
+  return typeof value === "string" && /\.(png|jpe?g|webp|gif|avif|svg)(\?|$)/i.test(value.trim());
+}
+
 function isImageAsset(asset: any): boolean {
-  return asset?.type === "image" || asset?.media_type === "image";
+  return (
+    asset?.type === "image" ||
+    asset?.media_type === "image" ||
+    isImageUri(getAssetUrl(asset)) ||
+    isImageUri(asset?.storage_path)
+  );
 }
 
 function isVideoAsset(asset: any): boolean {
-  return asset?.type === "video" || asset?.media_type === "video";
+  return (
+    asset?.type === "video" ||
+    asset?.media_type === "video" ||
+    isVideoUri(getAssetUrl(asset)) ||
+    isVideoUri(asset?.storage_path)
+  );
 }
 
 function getGeneratedReceipts(metadata: any): Array<Record<string, any>> {
@@ -170,6 +188,8 @@ type PersonaGeneratedMediaRecord = {
   prompt?: string;
   createdAt?: string;
   updatedAt?: string;
+  lastUsedInExperienceId?: string;
+  pinnedToExperienceId?: string;
 };
 
 async function loadPersonaGeneratedMediaLibrary(personaId?: string) {
@@ -220,7 +240,13 @@ function getPersonaLibraryAssetsForExperience(
   experienceId: string
 ) {
   return library
-    .filter((item) => item.experienceId === experienceId && Boolean(item.assetUrl))
+    .filter(
+      (item) =>
+        Boolean(item.assetUrl) &&
+        (item.experienceId === experienceId ||
+          item.lastUsedInExperienceId === experienceId ||
+          item.pinnedToExperienceId === experienceId)
+    )
     .map((item) => ({
       id: item.id,
       type: item.type,

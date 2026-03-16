@@ -2249,12 +2249,13 @@ export const ComposerStudio = () => {
         target,
         variant,
       });
-      const params = new URLSearchParams({
-        capsule: experienceId,
-        experienceId,
-        deliveryTarget: target,
-        deliveryVariant: variant,
-      });
+      const runtimeBaseUrl = resolveRuntimeBaseUrl();
+      const params = new URLSearchParams(runtimeBaseUrl.search);
+      params.set("capsule", experienceId);
+      params.set("experienceId", experienceId);
+      params.set("deliveryTarget", target);
+      params.set("deliveryVariant", variant);
+      params.set("embed", "1");
       if (exp?.name) params.set("experienceName", exp.name);
       if (exp?.description) params.set("experienceDescription", exp.description);
       const launchMedia = resolveExperiencePrimaryMedia(
@@ -2288,9 +2289,16 @@ export const ComposerStudio = () => {
       params.set("personaAssignment", runtimeProfile.stubAssignments.personaAssignment);
       params.set("crmCohortAssignment", runtimeProfile.stubAssignments.crmCohortAssignment);
       params.set("policyAssignment", runtimeProfile.stubAssignments.policyAssignment);
-      if (runtimeProfile.surfaceHints.shellMode === "thin") params.set("shell", "thin");
-      if (runtimeProfile.surfaceHints.chromeMode === "content-only") params.set("chrome", "content-only");
-      const runtimeBaseUrl = resolveRuntimeBaseUrl();
+      if (runtimeProfile.surfaceHints.shellMode === "thin") {
+        params.set("shell", "thin");
+      } else {
+        params.delete("shell");
+      }
+      if (runtimeProfile.surfaceHints.chromeMode === "content-only") {
+        params.set("chrome", "content-only");
+      } else {
+        params.delete("chrome");
+      }
       runtimeBaseUrl.search = params.toString();
       return runtimeBaseUrl.toString();
     },
