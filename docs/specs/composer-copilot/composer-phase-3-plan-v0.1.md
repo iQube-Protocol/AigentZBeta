@@ -261,6 +261,71 @@ For each:
 - deployment proof must record the correct artifact and delivery mode
 - destination URL or inline media must match the selected generated asset, not fallback context art
 
+## 4.3 Current Status
+
+### 4.3.1 Completed Enough
+
+- `3A` Deployment state + persistence
+- `3B` Trust-cost orchestration
+- `3C` Deployment remediation / proof UX foundation
+
+### 4.3.2 Deferred 3C Backlog
+
+The following `3C` items remain open, but are now explicitly deferred so Phase `3D` can proceed without blocking on the same video/runtime loop:
+
+- close the runtime handoff completely for video in:
+  - `runtime_launch`
+  - `runtime_thin_client`
+- close launcher parity for saved video so it mirrors image behavior:
+  - load saved video first
+  - offer regenerate
+- stabilize Discord video delivery at the currently supported level:
+  - reliable external/open link
+  - true native inline video remains a later adapter-specific task
+- complete the remaining deployment validation matrix for:
+  - `generated_video -> asset link`
+  - `generated_video -> runtime thin client`
+  - launcher reuse parity for video
+
+These are now treated as late-`3C` backlog, not as blockers for the next deployment-manager bundle.
+
+## 4.4 Next Bundle: Phase 3D
+
+Phase `3D` is now the active next bundle.
+
+It should focus on universal deployment-manager hardening rather than continuing to loop on the same unresolved video/runtime edge cases.
+
+### 4.4.1 Objectives
+
+- strengthen the universal deployment contract across all supported targets
+- separate supported behavior from scaffolded behavior more clearly in proof/readiness views
+- expand destination-adapter coverage beyond today’s partial runtime/Discord paths
+- prepare adapter-grade integrations for:
+  - `xmtp`
+  - `aa_api`
+  - future transport-specific deployment adapters
+
+### 4.4.2 Scope
+
+- adapter capability modeling
+- adapter-specific warnings / scaffold markers
+- proof normalization across supported and unsupported variants
+- stronger destination typing and supported-mode declarations
+- cleaner handoff contracts between:
+  - Composer
+  - runtime
+  - thin client
+  - messenger adapters
+
+### 4.4.3 Exit Criteria
+
+`3D` is complete enough when:
+
+- destination adapters advertise what they actually support
+- unsupported/scaffolded variants are explicit in inspector and proof views
+- deployment proof is clean and comparable across targets
+- future adapters can be added without changing the core artifact/delivery contract
+
 ## 5. Phase 3 Exit Criteria
 
 Phase 3 is complete enough when:
