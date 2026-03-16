@@ -234,7 +234,9 @@ export function runtimeProjectionToCapsuleRecord(input: {
   });
   if (input.experience.name) launchParams.set("experienceName", input.experience.name);
   if (input.experience.description) launchParams.set("experienceDescription", input.experience.description);
-  if (input.projection.preferred_asset) launchParams.set("experienceImage", input.projection.preferred_asset);
+  if (input.projection.preferred_asset && input.projection.content_kind !== "video") {
+    launchParams.set("experienceImage", input.projection.preferred_asset);
+  }
   if (input.projection.portrait_asset) launchParams.set("experienceImagePortrait", input.projection.portrait_asset);
   if (input.projection.landscape_asset) launchParams.set("experienceImageLandscape", input.projection.landscape_asset);
   if (input.projection.video_asset) launchParams.set("experienceVideo", input.projection.video_asset);

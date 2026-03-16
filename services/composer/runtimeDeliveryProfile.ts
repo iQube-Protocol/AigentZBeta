@@ -90,6 +90,14 @@ function assetType(asset: RecordLike): "image" | "video" {
   return /\.((mp4|mov|webm|m4v))(\?|$)/i.test(assetUrl(asset) || "") ? "video" : "image";
 }
 
+function assetPriority(asset: RecordLike): number {
+  const url = assetUrl(asset) || "";
+  if (/\/api\/skills\/video\//i.test(url)) return -10;
+  if (/supabase\.co\/storage\/v1\/object\/public\//i.test(url)) return 10;
+  if (/^https?:\/\//i.test(url)) return 5;
+  return 0;
+}
+
 function assetTimestamp(asset: RecordLike): number {
   const raw = firstNonEmptyString([asset.updatedAt, asset.updated_at, asset.createdAt, asset.created_at, asset.timestamp]);
   if (!raw) return 0;
@@ -116,7 +124,11 @@ function collectRelevantAssets(experience: ExperienceLike | null, personaAssets:
   const personaGenerated = Array.isArray(personaAssets)
     ? personaAssets.filter((item) => experienceMatch(item, experienceId))
     : [];
-  return [...experienceGenerated, ...personaGenerated].sort((a, b) => assetTimestamp(b) - assetTimestamp(a));
+  return [...experienceGenerated, ...personaGenerated].sort((a, b) => {
+    const priorityDelta = assetPriority(b) - assetPriority(a);
+    if (priorityDelta !== 0) return priorityDelta;
+    return assetTimestamp(b) - assetTimestamp(a);
+  });
 }
 
 function deriveIntent(experience: ExperienceLike | null, assets: RecordLike[]): {

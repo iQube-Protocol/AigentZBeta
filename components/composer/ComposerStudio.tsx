@@ -522,6 +522,14 @@ function inferMediaType(uri: string, preferred?: string | null): "image" | "vide
   return "image";
 }
 
+function isLegacyVideoProxyUrl(uri: string | null | undefined) {
+  return typeof uri === "string" && /\/api\/skills\/video\//i.test(uri);
+}
+
+function canInlineVideoUri(uri: string | null | undefined) {
+  return Boolean(uri) && !isLegacyVideoProxyUrl(uri);
+}
+
 function resolveExperiencePrimaryMedia(
   experience: ExperienceQube | null,
   codexItems: ComposerMediaItem[],
@@ -538,6 +546,7 @@ function resolveExperiencePrimaryMedia(
   });
   const candidate = resolved.preview || resolved.context;
   if (!candidate?.url) return null;
+  if (candidate.mediaType === "video" && !canInlineVideoUri(candidate.url)) return null;
   return {
     uri: candidate.url,
     mediaType: candidate.mediaType,
@@ -1796,7 +1805,10 @@ export const ComposerStudio = () => {
       depth: "",
       ctaLabel: "",
       providerLabel: inspectorProviderLabel,
-      thumbnailUri: inspectorMediaPreview?.uri || "",
+      thumbnailUri:
+        inspectorMediaPreview?.mediaType === "video" && !canInlineVideoUri(inspectorMediaPreview?.uri)
+          ? ""
+          : inspectorMediaPreview?.uri || "",
       thumbnailType: inspectorMediaPreview?.mediaType || "",
     };
 
@@ -1818,6 +1830,10 @@ export const ComposerStudio = () => {
         responseThumbnailUri || base.thumbnailUri,
         typeof responseArtifact?.media_type === "string" ? responseArtifact.media_type : undefined
       );
+      const safeThumbnailUri =
+        responseThumbnailType === "video" && !canInlineVideoUri(responseThumbnailUri || base.thumbnailUri)
+          ? ""
+          : responseThumbnailUri || base.thumbnailUri;
       return {
         title: responseArtifact?.title || base.title,
         body: responseArtifact?.body || dispatch?.text || base.body,
@@ -1832,8 +1848,8 @@ export const ComposerStudio = () => {
             : dispatch?.provider === "mcp"
               ? "MCP APP"
               : String(dispatch?.provider || mcpProvider).toUpperCase(),
-        thumbnailUri: responseThumbnailUri || base.thumbnailUri,
-        thumbnailType: responseThumbnailUri ? responseThumbnailType : base.thumbnailType,
+        thumbnailUri: safeThumbnailUri,
+        thumbnailType: safeThumbnailUri ? responseThumbnailType : base.thumbnailType,
       };
     }
 
@@ -1852,6 +1868,10 @@ export const ComposerStudio = () => {
         responseThumbnailUri || base.thumbnailUri,
         typeof responseArtifact?.media_type === "string" ? responseArtifact.media_type : undefined
       );
+      const safeThumbnailUri =
+        responseThumbnailType === "video" && !canInlineVideoUri(responseThumbnailUri || base.thumbnailUri)
+          ? ""
+          : responseThumbnailUri || base.thumbnailUri;
       return {
         title: responseArtifact?.title || base.title,
         body: responseArtifact?.body || base.body,
@@ -1859,8 +1879,8 @@ export const ComposerStudio = () => {
         depth: response?.depth || "",
         ctaLabel: response?.cta?.primary?.label || "",
         providerLabel: inspectorProviderLabel,
-        thumbnailUri: responseThumbnailUri || base.thumbnailUri,
-        thumbnailType: responseThumbnailUri ? responseThumbnailType : base.thumbnailType,
+        thumbnailUri: safeThumbnailUri,
+        thumbnailType: safeThumbnailUri ? responseThumbnailType : base.thumbnailType,
       };
     }
 
@@ -5389,7 +5409,7 @@ export const ComposerStudio = () => {
                               >
                                 <div className="overflow-hidden rounded-xl border border-slate-800 bg-slate-950/70">
                                   {item.assetUrl ? (
-                                    item.type === "video" ? (
+                                    item.type === "video" && canInlineVideoUri(item.assetUrl) ? (
                                       <video
                                         src={item.assetUrl}
                                         className="h-28 w-full object-cover"
@@ -5397,6 +5417,10 @@ export const ComposerStudio = () => {
                                         playsInline
                                         preload="metadata"
                                       />
+                                    ) : item.type === "video" ? (
+                                      <div className="flex h-28 items-center justify-center text-xs text-slate-500">
+                                        Saved video
+                                      </div>
                                     ) : (
                                       <img
                                         src={item.assetUrl}

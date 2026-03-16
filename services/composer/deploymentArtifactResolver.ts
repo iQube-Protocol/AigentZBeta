@@ -23,6 +23,7 @@ type ResolvedMediaCandidate = {
   provider?: string;
   source: "experience_asset" | "persona_asset" | "receipt" | "context";
   timestamp: number;
+  priority: number;
 };
 
 export type ResolvedDeploymentArtifact = {
@@ -70,6 +71,13 @@ function getAssetUrl(asset: RecordLike): string | null {
   ]);
 }
 
+function getAssetPriority(url: string): number {
+  if (/\/api\/skills\/video\//i.test(url)) return -10;
+  if (/supabase\.co\/storage\/v1\/object\/public\//i.test(url)) return 10;
+  if (/^https?:\/\//i.test(url)) return 5;
+  return 0;
+}
+
 function normalizeAsset(
   asset: RecordLike,
   source: ResolvedMediaCandidate["source"],
@@ -101,6 +109,7 @@ function normalizeAsset(
       getTimestamp(asset.updatedAt),
       getTimestamp(asset.timestamp),
     ),
+    priority: getAssetPriority(url),
   };
 }
 
@@ -271,6 +280,8 @@ function resolveContextMedia(
 }
 
 function rankByNewest(a: ResolvedMediaCandidate, b: ResolvedMediaCandidate) {
+  const priorityDelta = b.priority - a.priority;
+  if (priorityDelta !== 0) return priorityDelta;
   return b.timestamp - a.timestamp;
 }
 
@@ -280,7 +291,7 @@ function selectPreferredCandidate(
 ): ResolvedMediaCandidate | null {
   if (preferredAssetId) {
     const explicit = candidates.find((candidate) => candidate.id === preferredAssetId);
-    if (explicit) return explicit;
+    if (explicit && explicit.priority >= 0) return explicit;
   }
 
   const videos = candidates.filter((candidate) => candidate.mediaType === "video").sort(rankByNewest);

@@ -88,6 +88,10 @@ function getProviderLabel(provider: "venice" | "openai") {
   return provider === "venice" ? "Venice" : "OpenAI Sora";
 }
 
+function isLegacyVideoProxyUrl(uri: string | undefined) {
+  return typeof uri === "string" && /\/api\/skills\/video\//i.test(uri);
+}
+
 const PROVIDER_ICON_URL: Record<"venice" | "openai", string> = {
   openai: "/llm_model_logos/openai.png",
   venice: "/llm_model_logos/venice.png",
@@ -132,15 +136,16 @@ export default function SkillVideoPlayer({
 }: SkillVideoPlayerProps) {
   const MAX_AUTO_POLL_ATTEMPTS = 8;
   const initialProvider = inferProviderFromSkillId(skill_id);
-  const [state, setState] = useState<"idle" | "invoking" | "done" | "error">(initial_video_url ? "done" : "idle");
-  const [resultSource, setResultSource] = useState<"saved" | "generated" | "none">(initial_video_url ? "saved" : "none");
+  const resolvedInitialVideoUrl = isLegacyVideoProxyUrl(initial_video_url) ? undefined : initial_video_url;
+  const [state, setState] = useState<"idle" | "invoking" | "done" | "error">(resolvedInitialVideoUrl ? "done" : "idle");
+  const [resultSource, setResultSource] = useState<"saved" | "generated" | "none">(resolvedInitialVideoUrl ? "saved" : "none");
   const [result, setResult] = useState<InvocationResult | null>(
-    initial_video_url
+    resolvedInitialVideoUrl
       ? {
           ok: true,
           mode: "live",
           provider: initialProvider,
-          video_url: initial_video_url,
+          video_url: resolvedInitialVideoUrl,
           receipt: initial_receipt,
           skill_composite: 78,
         }
@@ -156,18 +161,18 @@ export default function SkillVideoPlayer({
   const providerLabel = getProviderLabel(resolvedProvider);
 
   useEffect(() => {
-    if (!initial_video_url) return;
+    if (!resolvedInitialVideoUrl) return;
     setResult({
       ok: true,
       mode: "live",
       provider: initialProvider,
-      video_url: initial_video_url,
+      video_url: resolvedInitialVideoUrl,
       receipt: initial_receipt,
       skill_composite: 78,
     });
     setState("done");
     setResultSource("saved");
-  }, [initialProvider, initial_receipt, initial_video_url]);
+  }, [initialProvider, initial_receipt, resolvedInitialVideoUrl]);
 
   const invoke = useCallback(async () => {
     if (!skill_id) return;
