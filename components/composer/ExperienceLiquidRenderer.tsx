@@ -9,6 +9,10 @@ function CompositionBundleBrief({ packet }: { packet: Record<string, any> }) {
   const composition =
     packet?.composition && typeof packet.composition === "object" ? packet.composition : null;
   if (!composition) return null;
+  const sequencingState =
+    composition.sequencing_state && typeof composition.sequencing_state === "object"
+      ? composition.sequencing_state
+      : null;
 
   const articleDraft =
     packet?.article_draft && typeof packet.article_draft === "object" ? packet.article_draft : null;
@@ -43,6 +47,41 @@ function CompositionBundleBrief({ packet }: { packet: Record<string, any> }) {
 
       {blockKinds.length > 0 ? (
         <div className="mt-3 text-xs text-slate-400">Blocks: {blockKinds.join(" · ")}</div>
+      ) : null}
+
+      {sequencingState ? (
+        <div className="mt-3 rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Bundle Progress</div>
+            {typeof sequencingState.progressLabel === "string" ? (
+              <span className="rounded-full border border-slate-700 px-2.5 py-1 text-[11px] text-slate-300">
+                {sequencingState.progressLabel}
+              </span>
+            ) : null}
+          </div>
+          <div className="mt-2 grid gap-2 text-xs text-slate-400 sm:grid-cols-3">
+            <div>
+              <div className="text-slate-500">Completed</div>
+              <div className="mt-1 text-slate-200">
+                {Array.isArray(sequencingState.completedBlocks) && sequencingState.completedBlocks.length > 0
+                  ? sequencingState.completedBlocks.join(" · ")
+                  : "None yet"}
+              </div>
+            </div>
+            <div>
+              <div className="text-slate-500">Active now</div>
+              <div className="mt-1 text-white">
+                {typeof sequencingState.activeBlock === "string" ? sequencingState.activeBlock : "Bundle complete"}
+              </div>
+            </div>
+            <div>
+              <div className="text-slate-500">Next</div>
+              <div className="mt-1 text-slate-200">
+                {typeof sequencingState.nextBlock === "string" ? sequencingState.nextBlock : "Ready to deploy/use"}
+              </div>
+            </div>
+          </div>
+        </div>
       ) : null}
 
       {articleDraft ? (

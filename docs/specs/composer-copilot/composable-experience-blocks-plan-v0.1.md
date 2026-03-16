@@ -232,6 +232,33 @@ Status:
 - `Image + Article` and `Video + Article` bundle presets now influence packet assembly
 - skill-backed experiences now render bundle-aware sequencing and article context in the Experience viewer
 
+### Phase 4 Third Implementation Slice
+
+The next concrete Phase `4` slice should be:
+
+1. resolve explicit bundle sequencing state from the active ExperienceQube
+2. attach completed/active/next block state to bundle-aware packets
+3. render bundle progress in the Experience viewer so composition becomes operational, not just descriptive
+4. keep bundle execution packet-driven before introducing new template/customizer branches
+
+Status:
+
+- complete
+- bundle-aware packets now carry completed/active/next block sequencing state
+- skill-backed experiences now show bundle progress alongside article context and next actions
+
+### Phase 4 Planned Follow-on
+
+The next broader Phase `4` work should include:
+
+1. dedicated bundle templates for:
+   - `Image + Article`
+   - `Video + Article`
+   - later multi-block `Image + Video + Copy + Deploy`
+2. customizer flows that treat bundles as first-class compositions rather than single-block experiences
+3. block-aware editing handoff so the user can move intentionally between media, copy, and deployment steps
+4. packet/runtime alignment once bundle template and customizer flows are stable
+
 ## 6. Block Contract Model
 
 Each production-grade block should eventually expose a common contract:

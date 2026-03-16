@@ -6,6 +6,10 @@ import type {
 type RecordLike = Record<string, unknown>;
 
 type ExperienceLike = {
+  template_id?: string | null;
+  name?: string | null;
+  description?: string | null;
+  goal?: string | null;
   metadata?: RecordLike | null;
   configuration?: RecordLike | null;
 };
@@ -32,6 +36,77 @@ export type AppliedExperienceBundle = {
   appliedAt: string;
   entryIntent: "make";
 };
+
+export type ExperienceBundleSequencingState = {
+  completedBlocks: ExperienceBlockKind[];
+  activeBlock: ExperienceBlockKind | null;
+  nextBlock: ExperienceBlockKind | null;
+  progressLabel: string;
+  completedCount: number;
+  totalCount: number;
+};
+
+function asRecord(value: unknown): RecordLike | null {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as RecordLike) : null;
+}
+
+function firstString(values: unknown[]): string | null {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return null;
+}
+
+function hasGeneratedAssetType(experience: ExperienceLike | null | undefined, type: "image" | "video") {
+  const metadata = asRecord(experience?.metadata) ?? {};
+  const assets = Array.isArray(metadata.generated_assets) ? metadata.generated_assets : [];
+  return assets.some((asset) => {
+    const record = asRecord(asset);
+    if (!record) return false;
+    const explicitType = firstString([record.type, record.media_type]);
+    if (explicitType) return explicitType === type;
+    const url = firstString([
+      record.asset_url,
+      record.assetUrl,
+      record.video_url,
+      record.videoUrl,
+      record.image_url,
+      record.imageUrl,
+      record.url,
+      record.storage_path,
+    ]);
+    return type === "video"
+      ? Boolean(url && /\.(mp4|m4v|mov|webm|ogg)(\?|$)/i.test(url))
+      : Boolean(url && /\.(png|jpe?g|webp|gif|avif|svg)(\?|$)/i.test(url));
+  });
+}
+
+function hasArticleDraftSignal(experience: ExperienceLike | null | undefined) {
+  const metadata = asRecord(experience?.metadata) ?? {};
+  const configuration = asRecord(experience?.configuration) ?? {};
+  const contentSelection = asRecord(configuration.content_selection) ?? {};
+  const articlePrompt = firstString([metadata.article_prompt, metadata.article_title]);
+  const contentFeature = firstString([contentSelection.feature_item_id, contentSelection.issue_slug]);
+  const haystack = [
+    experience?.template_id,
+    experience?.name,
+    experience?.description,
+    experience?.goal,
+    articlePrompt,
+    contentFeature,
+  ]
+    .filter((value): value is string => typeof value === "string")
+    .join(" ")
+    .toLowerCase();
+
+  return Boolean(articlePrompt || contentFeature || /(article|editorial|reading|read|feature|copy|draft)/.test(haystack));
+}
+
+function hasDeploymentState(experience: ExperienceLike | null | undefined) {
+  const metadata = asRecord(experience?.metadata) ?? {};
+  const deploymentState = asRecord(metadata.deployment_state);
+  return Boolean(deploymentState && firstString([deploymentState.last_target, deploymentState.last_status]));
+}
 
 function supportsBundle(manifest: ExperienceBlockManifest, requiredKinds: ExperienceBlockKind[]) {
   const availableKinds = new Set(manifest.blocks.map((block) => block.kind));
@@ -149,5 +224,51 @@ export function buildExperienceBundlePresetPatch(
       },
     },
     bundle: nextBundle,
+  };
+}
+
+export function resolveExperienceBundleSequencingState(
+  experience: ExperienceLike | null | undefined,
+  bundle: AppliedExperienceBundle | null | undefined,
+): ExperienceBundleSequencingState | null {
+  if (!bundle) return null;
+
+  const completedBlocks: ExperienceBlockKind[] = [];
+  const mediaBlock: ExperienceBlockKind =
+    bundle.presetId === "video_article_bundle" ? "video_generation" : "image_generation";
+
+  if (mediaBlock === "image_generation" && hasGeneratedAssetType(experience, "image")) {
+    completedBlocks.push("image_generation");
+  }
+  if (mediaBlock === "video_generation" && hasGeneratedAssetType(experience, "video")) {
+    completedBlocks.push("video_generation");
+  }
+  if (bundle.blockKinds.includes("article_draft") && hasArticleDraftSignal(experience)) {
+    completedBlocks.push("article_draft");
+  }
+  if (bundle.blockKinds.includes("deployment") && hasDeploymentState(experience)) {
+    completedBlocks.push("deployment");
+  }
+
+  const orderedBlocks = bundle.blockKinds.filter(
+    (kind): kind is ExperienceBlockKind =>
+      kind === "image_generation" ||
+      kind === "video_generation" ||
+      kind === "article_draft" ||
+      kind === "deployment",
+  );
+  const activeBlock = orderedBlocks.find((kind) => !completedBlocks.includes(kind)) || null;
+  const activeIndex = activeBlock ? orderedBlocks.indexOf(activeBlock) : -1;
+  const nextBlock = activeBlock && activeIndex >= 0 && activeIndex + 1 < orderedBlocks.length
+    ? orderedBlocks[activeIndex + 1]
+    : null;
+
+  return {
+    completedBlocks,
+    activeBlock,
+    nextBlock,
+    progressLabel: `${completedBlocks.length}/${orderedBlocks.length} blocks complete`,
+    completedCount: completedBlocks.length,
+    totalCount: orderedBlocks.length,
   };
 }

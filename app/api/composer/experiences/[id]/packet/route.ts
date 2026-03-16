@@ -7,6 +7,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { composerService } from "@/services/composer/composerService";
 import { getTemplateRegistry } from "@/services/agui/TemplateRegistry";
 import { getSupabaseServer } from "@/app/api/_lib/supabaseServer";
+import {
+  getAppliedExperienceBundle,
+  resolveExperienceBundleSequencingState,
+} from "@/services/composer/experienceBundlePresets";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -192,40 +196,6 @@ type PersonaGeneratedMediaRecord = {
   pinnedToExperienceId?: string;
 };
 
-type CompositionBundle = {
-  presetId: "image_article_bundle" | "video_article_bundle";
-  label: string;
-  summary: string;
-  blockKinds: string[];
-  sequencing: string[];
-  nextActions: string[];
-  appliedAt?: string;
-  entryIntent?: string;
-};
-
-function getCompositionBundle(experience: any): CompositionBundle | null {
-  const raw = experience?.metadata?.composition_bundle;
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
-  const presetId = typeof raw.presetId === "string" ? raw.presetId : "";
-  if (presetId !== "image_article_bundle" && presetId !== "video_article_bundle") return null;
-  return {
-    presetId,
-    label: typeof raw.label === "string" && raw.label.trim() ? raw.label.trim() : presetId,
-    summary: typeof raw.summary === "string" ? raw.summary : "",
-    blockKinds: Array.isArray(raw.blockKinds)
-      ? raw.blockKinds.filter((item: unknown): item is string => typeof item === "string")
-      : [],
-    sequencing: Array.isArray(raw.sequencing)
-      ? raw.sequencing.filter((item: unknown): item is string => typeof item === "string")
-      : [],
-    nextActions: Array.isArray(raw.nextActions)
-      ? raw.nextActions.filter((item: unknown): item is string => typeof item === "string")
-      : [],
-    appliedAt: typeof raw.appliedAt === "string" ? raw.appliedAt : undefined,
-    entryIntent: typeof raw.entryIntent === "string" ? raw.entryIntent : undefined,
-  };
-}
-
 function buildArticleDraftContext(experience: any) {
   const config = experience.configuration || {};
   const metadata = experience.metadata || {};
@@ -396,7 +366,8 @@ function buildSkillPacket(experience: any, personaLibraryAssets: any[] = []) {
   const skillSel = config.skill_selection || {};
   const videoPrompt = config.video_prompt || {};
   const wallet = config.wallet_rewards || {};
-  const compositionBundle = getCompositionBundle(experience);
+  const compositionBundle = getAppliedExperienceBundle(experience);
+  const sequencingState = resolveExperienceBundleSequencingState(experience, compositionBundle);
   const articleDraft =
     compositionBundle?.blockKinds.includes("article_draft") ? buildArticleDraftContext(experience) : undefined;
   const rewardAmount = Number(wallet.reward_amount || 0);
@@ -438,6 +409,7 @@ function buildSkillPacket(experience: any, personaLibraryAssets: any[] = []) {
       ? {
           ...compositionBundle,
           media_mode: "video",
+          sequencing_state: sequencingState,
         }
       : undefined,
     article_draft: articleDraft,
@@ -498,7 +470,8 @@ function buildImagePacket(experience: any, personaLibraryAssets: any[] = []) {
   const metadata = experience.metadata || {};
   const intent = config.intent_timebox || {};
   const imageGeneration = config.image_generation || {};
-  const compositionBundle = getCompositionBundle(experience);
+  const compositionBundle = getAppliedExperienceBundle(experience);
+  const sequencingState = resolveExperienceBundleSequencingState(experience, compositionBundle);
   const articleDraft =
     compositionBundle?.blockKinds.includes("article_draft") ? buildArticleDraftContext(experience) : undefined;
   const providerId = imageGeneration.provider_id || "venice";
@@ -570,6 +543,7 @@ function buildImagePacket(experience: any, personaLibraryAssets: any[] = []) {
       ? {
           ...compositionBundle,
           media_mode: "image",
+          sequencing_state: sequencingState,
         }
       : undefined,
     article_draft: articleDraft,
