@@ -15,6 +15,12 @@ export type ComposerDeliveryVariant =
   | "discord_asset_inline"
   | "discord_experience_inline"
   | "runtime_thin_client";
+export type ComposerDeploymentDeliveryMode =
+  | "asset_link"
+  | "inline_asset"
+  | "inline_experience"
+  | "browser_launch"
+  | "thin_client_handoff";
 export type ComposerDeploymentCapabilityState = "supported" | "limited" | "scaffolded";
 export type ComposerDeploymentAdapter =
   | "studio"
@@ -76,6 +82,8 @@ export type ComposerDeploymentResult = {
   runtimeProfile?: ComposerRuntimeDeliveryProfile;
   capability: ComposerDeploymentCapability;
   adapterDeclaration: ComposerDeploymentAdapterDeclaration;
+  deliveryMode: ComposerDeploymentDeliveryMode;
+  destinationAdapter: ComposerDeploymentAdapter;
 };
 
 export const DEPLOYMENT_ADAPTER_DECLARATIONS: Record<
@@ -151,6 +159,39 @@ export function getDeploymentAdapterDeclaration(
   adapter: ComposerDeploymentAdapter,
 ): ComposerDeploymentAdapterDeclaration {
   return DEPLOYMENT_ADAPTER_DECLARATIONS[adapter];
+}
+
+export function getSupportedVariantsForTarget(
+  target: ComposerDeploymentTarget,
+): ComposerDeliveryVariant[] {
+  switch (target) {
+    case "studio_preview":
+      return ["runtime_standard"];
+    case "runtime_launch":
+      return ["runtime_standard", "runtime_thin_client"];
+    case "runtime_thin_client":
+      return ["runtime_thin_client"];
+    case "mcp_app":
+      return ["asset_link", "runtime_standard", "runtime_thin_client"];
+    case "discord_mcp":
+      return ["asset_link", "discord_asset_inline", "discord_experience_inline"];
+    default:
+      return ["runtime_standard"];
+  }
+}
+
+export function resolveDeploymentDeliveryMode(params: {
+  target: ComposerDeploymentTarget;
+  variant?: ComposerDeliveryVariant;
+}): ComposerDeploymentDeliveryMode {
+  if (params.target === "studio_preview") return "browser_launch";
+  if (params.target === "runtime_thin_client" || params.variant === "runtime_thin_client") {
+    return "thin_client_handoff";
+  }
+  if (params.variant === "discord_asset_inline") return "inline_asset";
+  if (params.variant === "discord_experience_inline") return "inline_experience";
+  if (params.variant === "asset_link") return "asset_link";
+  return "browser_launch";
 }
 
 export function resolveDeploymentCapability(params: {
@@ -256,6 +297,78 @@ export function resolveDeploymentAdapterDeclaration(params: {
   return getDeploymentAdapterDeclaration(capability.adapter);
 }
 
+export function validateDeploymentSupport(params: {
+  target: ComposerDeploymentTarget;
+  variant?: ComposerDeliveryVariant;
+  mode: ComposerDeploymentMode;
+}): {
+  ok: boolean;
+  error?: string;
+  warnings: string[];
+  capability: ComposerDeploymentCapability;
+  adapterDeclaration: ComposerDeploymentAdapterDeclaration;
+  deliveryMode: ComposerDeploymentDeliveryMode;
+  destinationAdapter: ComposerDeploymentAdapter;
+} {
+  const resolvedVariant =
+    params.variant || getSupportedVariantsForTarget(params.target)[0] || "runtime_standard";
+  const capability = resolveDeploymentCapability({
+    target: params.target,
+    variant: resolvedVariant,
+  });
+  const adapterDeclaration = getDeploymentAdapterDeclaration(capability.adapter);
+  const deliveryMode = resolveDeploymentDeliveryMode({
+    target: params.target,
+    variant: resolvedVariant,
+  });
+  const warnings = buildCapabilityWarnings(capability);
+
+  if (!adapterDeclaration.supportedTargets.includes(params.target)) {
+    return {
+      ok: false,
+      error: `${adapterDeclaration.label} does not support the ${params.target} target.`,
+      warnings,
+      capability,
+      adapterDeclaration,
+      deliveryMode,
+      destinationAdapter: capability.adapter,
+    };
+  }
+
+  if (!adapterDeclaration.supportedVariants.includes(resolvedVariant)) {
+    return {
+      ok: false,
+      error: `${adapterDeclaration.label} does not support the ${resolvedVariant} delivery variant.`,
+      warnings,
+      capability,
+      adapterDeclaration,
+      deliveryMode,
+      destinationAdapter: capability.adapter,
+    };
+  }
+
+  if (!adapterDeclaration.supportedModes.includes(params.mode)) {
+    return {
+      ok: false,
+      error: `${adapterDeclaration.label} does not support ${params.mode} mode.`,
+      warnings,
+      capability,
+      adapterDeclaration,
+      deliveryMode,
+      destinationAdapter: capability.adapter,
+    };
+  }
+
+  return {
+    ok: true,
+    warnings,
+    capability,
+    adapterDeclaration,
+    deliveryMode,
+    destinationAdapter: capability.adapter,
+  };
+}
+
 export function getDeploymentTargetLabel(target: ComposerDeploymentTarget): string {
   switch (target) {
     case "studio_preview":
@@ -329,12 +442,43 @@ export async function dispatchComposerDeployment(
   input: ComposerDeploymentRequest,
 ): Promise<ComposerDeploymentResult> {
   const envelope = buildDeploymentEnvelope(input);
-  const capability = resolveDeploymentCapability({
+  const support = validateDeploymentSupport({
     target: input.target,
     variant: envelope.variant,
+    mode: input.mode,
   });
-  const adapterDeclaration = getDeploymentAdapterDeclaration(capability.adapter);
-  const capabilityWarnings = buildCapabilityWarnings(capability);
+  const capability = support.capability;
+  const adapterDeclaration = support.adapterDeclaration;
+  const capabilityWarnings = support.warnings;
+  const deliveryMode = support.deliveryMode;
+  const destinationAdapter = support.destinationAdapter;
+
+  if (!support.ok) {
+    return {
+      ok: false,
+      target: input.target,
+      variant: envelope.variant,
+      mode: input.mode,
+      provider: envelope.provider,
+      status: "failed",
+      publishUrl: envelope.publishUrl,
+      launchUrl: envelope.launchUrl,
+      response: {
+        targetLabel: envelope.targetLabel,
+        capability,
+        adapterDeclaration,
+        deliveryMode,
+        destinationAdapter,
+      },
+      warnings: capabilityWarnings.length > 0 ? capabilityWarnings : undefined,
+      error: support.error || "Unsupported deployment combination",
+      runtimeProfile: input.runtimeProfile,
+      capability,
+      adapterDeclaration,
+      deliveryMode,
+      destinationAdapter,
+    };
+  }
 
   if (
     input.target === "studio_preview" ||
@@ -361,6 +505,8 @@ export async function dispatchComposerDeployment(
         destinationSurface,
         capability,
         adapterDeclaration,
+        deliveryMode,
+        destinationAdapter,
         note:
           input.target === "studio_preview"
             ? "Deployment is represented by the active Studio preview."
@@ -379,6 +525,8 @@ export async function dispatchComposerDeployment(
       runtimeProfile: input.runtimeProfile,
       capability,
       adapterDeclaration,
+      deliveryMode,
+      destinationAdapter,
     };
   }
 
@@ -405,6 +553,8 @@ export async function dispatchComposerDeployment(
       runtimeProfile: input.runtimeProfile,
       capability,
       adapterDeclaration,
+      deliveryMode,
+      destinationAdapter,
     };
   }
 
@@ -422,10 +572,14 @@ export async function dispatchComposerDeployment(
       ...(data && typeof data === "object" ? data : {}),
       capability,
       adapterDeclaration,
+      deliveryMode,
+      destinationAdapter,
     },
     warnings: [...responseWarnings, ...capabilityWarnings].filter((value, index, array) => array.indexOf(value) === index),
     runtimeProfile: input.runtimeProfile,
     capability,
     adapterDeclaration,
+    deliveryMode,
+    destinationAdapter,
   };
 }

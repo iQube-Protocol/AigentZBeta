@@ -32,11 +32,14 @@ import type { ComposerGeneratedAssetRef } from "@/services/copilot/composer/type
 import { resolveRuntimeIdentity } from "@/services/runtime/identityResolver";
 import { recordRuntimeLifecycleContribution } from "@/services/composer/runtimeLifecycleClient";
 import {
+  type ComposerDeploymentAdapter,
   type ComposerDeploymentAdapterDeclaration,
   dispatchComposerDeployment,
   type ComposerDeploymentCapability,
   type ComposerDeploymentCapabilityState,
+  type ComposerDeploymentDeliveryMode,
   getDeploymentTargetLabel,
+  getSupportedVariantsForTarget,
   type ComposerDeliveryVariant,
   type ComposerDeploymentResult,
   type ComposerDeploymentTarget,
@@ -151,6 +154,8 @@ type ExperienceQube = {
       last_capability_summary?: string;
       last_capability_constraints?: string[];
       last_adapter_declaration?: Record<string, any>;
+      last_delivery_mode?: string;
+      last_destination_adapter?: string;
       last_provider?: string;
       last_mode?: string;
       last_publish_url?: string;
@@ -172,6 +177,8 @@ type ExperienceQube = {
       capability_summary?: string;
       capability_constraints?: string[];
       adapter_declaration?: Record<string, any>;
+      delivery_mode?: string;
+      destination_adapter?: string;
       publish_url?: string;
       launch_url?: string;
       source?: string;
@@ -623,6 +630,23 @@ function getCapabilityLabel(state: ComposerDeploymentCapabilityState | string | 
   if (state === "limited") return "Limited";
   if (state === "scaffolded") return "Scaffolded";
   return "Unclassified";
+}
+
+function getDeliveryVariantLabel(variant: ComposerDeliveryVariant) {
+  switch (variant) {
+    case "runtime_standard":
+      return "Experience in full metaMe runtime";
+    case "runtime_thin_client":
+      return "Experience in metaMe runtime thin client";
+    case "asset_link":
+      return "Asset link outside Discord";
+    case "discord_asset_inline":
+      return "Asset rendered within Discord";
+    case "discord_experience_inline":
+      return "Experience scaffolded within Discord";
+    default:
+      return variant;
+  }
 }
 
 function pickMediaFromSectionContent(items: any[], preferredIds: string[]): InspectorMediaPreview | null {
@@ -1752,6 +1776,10 @@ export const ComposerStudio = () => {
   const [inspectorRenderMode, setInspectorRenderMode] = useState<"card" | "thread">("card");
   const inspectorUsesMessengerProvider = mcpDeploymentTarget === "discord_mcp";
   const inspectorUsesDiscordFields = mcpDeploymentTarget === "discord_mcp";
+  const availableDeliveryVariants = useMemo(
+    () => getSupportedVariantsForTarget(mcpDeploymentTarget),
+    [mcpDeploymentTarget],
+  );
   const inspectorProviderLabel =
     mcpDeploymentTarget === "runtime_launch"
       ? mcpDeliveryVariant === "runtime_thin_client"
@@ -1936,18 +1964,10 @@ export const ComposerStudio = () => {
   }, [mcpDeploymentTarget, mcpProvider]);
 
   useEffect(() => {
-    if (mcpDeploymentTarget === "studio_preview") {
-      setMcpDeliveryVariant("runtime_standard");
-      return;
+    if (!availableDeliveryVariants.includes(mcpDeliveryVariant)) {
+      setMcpDeliveryVariant(availableDeliveryVariants[0] || "runtime_standard");
     }
-    if (
-      mcpDeploymentTarget === "runtime_launch" &&
-      mcpDeliveryVariant !== "runtime_standard" &&
-      mcpDeliveryVariant !== "runtime_thin_client"
-    ) {
-      setMcpDeliveryVariant("runtime_standard");
-    }
-  }, [mcpDeliveryVariant, mcpDeploymentTarget]);
+  }, [availableDeliveryVariants, mcpDeliveryVariant]);
 
   useEffect(() => {
     if (!mcpExperience?.metadata?.deployment_history || !Array.isArray(mcpExperience.metadata.deployment_history)) {
@@ -3964,6 +3984,8 @@ export const ComposerStudio = () => {
         capability_summary: deployment.capability.summary,
         capability_constraints: deployment.capability.constraints,
         adapter_declaration: deployment.adapterDeclaration,
+        delivery_mode: deployment.deliveryMode,
+        destination_adapter: deployment.destinationAdapter,
         publish_url: deployment.publishUrl,
         launch_url: deployment.launchUrl,
         source,
@@ -4007,6 +4029,8 @@ export const ComposerStudio = () => {
               last_capability_summary: deployment.capability.summary,
               last_capability_constraints: deployment.capability.constraints,
               last_adapter_declaration: deployment.adapterDeclaration,
+              last_delivery_mode: deployment.deliveryMode,
+              last_destination_adapter: deployment.destinationAdapter,
               last_provider: deployment.provider,
               last_mode: deployment.mode,
               last_publish_url: deployment.publishUrl,
@@ -4255,6 +4279,8 @@ export const ComposerStudio = () => {
         status: inSession.status,
         capability: inSession.capability,
         adapterDeclaration: inSession.adapterDeclaration,
+        deliveryMode: inSession.deliveryMode,
+        destinationAdapter: inSession.destinationAdapter,
         provider: inSession.provider,
         mode: inSession.mode,
         publishUrl: inSession.publishUrl,
@@ -4325,6 +4351,14 @@ export const ComposerStudio = () => {
           activeExperienceDeploymentState.last_adapter_declaration &&
           typeof activeExperienceDeploymentState.last_adapter_declaration === "object"
             ? (activeExperienceDeploymentState.last_adapter_declaration as ComposerDeploymentAdapterDeclaration)
+            : undefined,
+        deliveryMode:
+          typeof activeExperienceDeploymentState.last_delivery_mode === "string"
+            ? (activeExperienceDeploymentState.last_delivery_mode as ComposerDeploymentDeliveryMode)
+            : undefined,
+        destinationAdapter:
+          typeof activeExperienceDeploymentState.last_destination_adapter === "string"
+            ? (activeExperienceDeploymentState.last_destination_adapter as ComposerDeploymentAdapter)
             : undefined,
         provider: typeof activeExperienceDeploymentState.last_provider === "string"
           ? activeExperienceDeploymentState.last_provider
@@ -5895,6 +5929,16 @@ export const ComposerStudio = () => {
                                     ) : null}
                                   </>
                                 ) : null}
+                                {activeExperienceDeploymentState.last_destination_adapter ? (
+                                  <div>
+                                    Destination adapter: {String(activeExperienceDeploymentState.last_destination_adapter)}
+                                  </div>
+                                ) : null}
+                                {activeExperienceDeploymentState.last_delivery_mode ? (
+                                  <div>
+                                    Delivery mode: {String(activeExperienceDeploymentState.last_delivery_mode)}
+                                  </div>
+                                ) : null}
                                 {activeExperienceDeploymentState.last_provider ? (
                                   <div>Provider: {String(activeExperienceDeploymentState.last_provider)}</div>
                                 ) : null}
@@ -6018,6 +6062,8 @@ export const ComposerStudio = () => {
                                       </div>
                                     </>
                                   ) : null}
+                                  {entry.destination_adapter ? <div>Destination adapter: {String(entry.destination_adapter)}</div> : null}
+                                  {entry.delivery_mode ? <div>Delivery mode: {String(entry.delivery_mode)}</div> : null}
                                   {entry.provider ? <div>Provider: {String(entry.provider)}</div> : null}
                                   {entry.variant ? <div>Variant: {String(entry.variant)}</div> : null}
                                   {entry.destination_surface ? <div>Surface: {String(entry.destination_surface)}</div> : null}
@@ -7263,7 +7309,14 @@ export const ComposerStudio = () => {
                   <label className="mb-1 block text-xs text-slate-400">Deployment Target</label>
                   <select
                     value={mcpDeploymentTarget}
-                    onChange={(e) => setMcpDeploymentTarget(e.target.value as ComposerDeploymentTarget)}
+                    onChange={(e) => {
+                      const nextTarget = e.target.value as ComposerDeploymentTarget;
+                      const supportedVariants = getSupportedVariantsForTarget(nextTarget);
+                      setMcpDeploymentTarget(nextTarget);
+                      if (!supportedVariants.includes(mcpDeliveryVariant)) {
+                        setMcpDeliveryVariant(supportedVariants[0] || "runtime_standard");
+                      }
+                    }}
                     className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
                   >
                     <option value="studio_preview">Studio Preview</option>
@@ -7308,11 +7361,11 @@ export const ComposerStudio = () => {
                     onChange={(e) => setMcpDeliveryVariant(e.target.value as ComposerDeliveryVariant)}
                     className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
                   >
-                    <option value="runtime_standard">Experience in full metaMe runtime</option>
-                    <option value="runtime_thin_client">Experience in metaMe runtime thin client</option>
-                    <option value="asset_link">Asset link outside Discord</option>
-                    <option value="discord_asset_inline">Asset rendered within Discord</option>
-                    <option value="discord_experience_inline">Experience scaffolded within Discord</option>
+                    {availableDeliveryVariants.map((variant) => (
+                      <option key={variant} value={variant}>
+                        {getDeliveryVariantLabel(variant)}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -7582,6 +7635,12 @@ export const ComposerStudio = () => {
                           </div>
                         ) : null}
                       </>
+                    ) : null}
+                    {latestSelectedDeploymentResult?.destinationAdapter ? (
+                      <div>Destination adapter: {latestSelectedDeploymentResult.destinationAdapter}</div>
+                    ) : null}
+                    {latestSelectedDeploymentResult?.deliveryMode ? (
+                      <div>Delivery mode: {latestSelectedDeploymentResult.deliveryMode}</div>
                     ) : null}
                     {latestSelectedDeploymentResult?.destinationSurface ? (
                       <div>Surface: {String(latestSelectedDeploymentResult.destinationSurface)}</div>

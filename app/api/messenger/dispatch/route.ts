@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { runExperienceQubeTool, type ExperienceQubeTool } from '@/services/mcp/experienceQubeTools';
 import { createChannel, createMessage, getChannel } from '@/services/qubetalk/qubetalkStore';
 import {
+  type ComposerDeliveryVariant,
+  type ComposerDeploymentMode,
+  type ComposerDeploymentTarget,
+  validateDeploymentSupport,
+} from '@/services/composer/deploymentBlock';
+import {
   type MessengerProvider,
   type QubeTalkEnvelope,
   computeThreadKeyV1,
@@ -139,12 +145,33 @@ export async function POST(request: NextRequest) {
     const tenantId = String(body?.tenantId || 'qripto-codex');
     const experienceId = String(body?.experienceId || 'exp_metaknyt');
     const personaId = String(body?.personaId || 'prs_demo_guest');
-    const dispatchMode = String(body?.mode || 'simulate').toLowerCase() === 'live' ? 'live' : 'simulate';
-    const deliveryVariant = normalizeString(body?.variant) || 'runtime_thin_client';
+    const dispatchMode: ComposerDeploymentMode =
+      String(body?.mode || 'simulate').toLowerCase() === 'live' ? 'live' : 'simulate';
+    const deploymentTarget = String(body?.target || 'discord_mcp') as ComposerDeploymentTarget;
+    const deliveryVariant = (normalizeString(body?.variant) || 'runtime_thin_client') as ComposerDeliveryVariant;
     const runtimeProfile =
       body?.runtimeProfile && typeof body.runtimeProfile === 'object' && !Array.isArray(body.runtimeProfile)
         ? body.runtimeProfile
         : null;
+    const support = validateDeploymentSupport({
+      target: deploymentTarget,
+      variant: deliveryVariant,
+      mode: dispatchMode,
+    });
+    if (!support.ok) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: support.error || 'Unsupported deployment combination.',
+          warnings: support.warnings.length > 0 ? support.warnings : undefined,
+          capability: support.capability,
+          adapterDeclaration: support.adapterDeclaration,
+          deliveryMode: support.deliveryMode,
+          destinationAdapter: support.destinationAdapter,
+        },
+        { status: 400 }
+      );
+    }
     const requestedTool = String(body?.tool || 'next.best') as ExperienceQubeTool;
     const tool: ExperienceQubeTool = SUPPORTED_TOOLS.has(requestedTool) ? requestedTool : 'next.best';
     const messageText = String(body?.message || '').trim();
@@ -277,6 +304,7 @@ export async function POST(request: NextRequest) {
       cta: mcpResponse.cta.primary || null,
     };
     const warnings: string[] = [];
+    warnings.push(...support.warnings);
     if (deliveryVariant === 'discord_experience_inline') {
       warnings.push(
         'Discord-native inline experience execution remains scaffolded. Current handoff uses the linked launch surface.'
@@ -397,6 +425,8 @@ export async function POST(request: NextRequest) {
         tool,
         variant: deliveryVariant,
         runtimeProfile,
+        deliveryMode: support.deliveryMode,
+        destinationAdapter: support.destinationAdapter,
         thread_key: threadKey,
         intent_hint: envelope.intent_hint,
         depth_hint: envelope.depth_hint,
@@ -421,6 +451,10 @@ export async function POST(request: NextRequest) {
       providerDispatch,
       liveDispatch,
       runtimeProfile,
+      capability: support.capability,
+      adapterDeclaration: support.adapterDeclaration,
+      deliveryMode: support.deliveryMode,
+      destinationAdapter: support.destinationAdapter,
       warnings: warnings.length > 0 ? warnings : undefined,
       trace: {
         adapter: `myMessenger:${provider}`,

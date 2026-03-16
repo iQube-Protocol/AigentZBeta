@@ -295,6 +295,13 @@ Phase `3D` is now the active next bundle.
 
 It should focus on universal deployment-manager hardening rather than continuing to loop on the same unresolved video/runtime edge cases.
 
+### 4.4.0 Bundle Structure
+
+Phase `3D` is grouped into two logical bundles:
+
+- `3D-A`: adapter contract + enforcement
+- `3D-B`: adapter expansion + proof surfaces
+
 ### 4.4.1 Objectives
 
 - strengthen the universal deployment contract across all supported targets
@@ -334,6 +341,12 @@ The first `3D` slice is now in progress:
   - `xmtp`
 - routing/readiness now penalizes partial adapters instead of presenting them as equivalent
 - inspector proof and saved deployment proof/history now surface capability summaries and constraints
+- active `3D-A` work now also includes:
+  - target-aware variant support in the inspector
+  - normalized proof fields for:
+    - `delivery_mode`
+    - `destination_adapter`
+  - dispatch-time rejection of unsupported target / variant / mode combinations
 
 ### 4.4.3 Exit Criteria
 
