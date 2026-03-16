@@ -263,6 +263,34 @@ For each:
 
 ## 4.3 Current Status
 
+### 4.3.0 Project Progress Snapshot
+
+The Composer project is now at the following practical state:
+
+- `2A`: complete enough
+  - guided Composer flow is in place
+  - template/customizer/resources/experiences flow is operational
+- `2B`: complete enough
+  - ExperienceQube persistence works for the supported path
+  - media generation became explicit rather than automatic
+  - saved image reuse works for the supported path
+- `2C`: complete enough
+  - persona media library exists
+  - persona-scoped reuse, pinning, filtering, rename/archive, lifecycle, and delivery-target history are in place
+- `3A`: complete enough
+  - deployment state and persistence are on the ExperienceQube
+- `3B`: complete enough
+  - trust/cost/readiness guidance is surfaced in Studio
+- `3C`: partially complete
+  - proof/remediation UX is in place
+  - image deployment path is largely serviceable
+  - runtime/launcher/Discord video parity remains deferred backlog
+- `3D`: complete enough at current stopping point
+  - universal deployment contract is now explicit
+  - adapter capability, support declarations, enforcement, fallback guidance, remediation guidance, and planned-adapter onboarding are all in place
+
+This means the program is ready to stop extending adapter scaffolding for now and move into the next broader phase.
+
 ### 4.3.1 Completed Enough
 
 - `3A` Deployment state + persistence
@@ -362,6 +390,29 @@ The first `3D` slice is now in progress:
   - `aa_api`
   - `xmtp`
 
+### 4.4.2.3 Stop Point
+
+`3D` is intentionally stopping here for now.
+
+What is now in place:
+
+- adapter capability states
+- adapter support declarations
+- dispatch-time enforcement of supported combinations
+- target-aware variant selection
+- normalized proof fields
+- adapter catalog visibility
+- fallback guidance
+- remediation guidance
+- planned-adapter onboarding notes
+
+What is intentionally not being extended further right now:
+
+- deeper `aa_api` transport scaffolding
+- deeper `xmtp` transport scaffolding
+- more adapter-specific UX beyond the current proof/remediation surfaces
+- resolving the deferred late-`3C` runtime/launcher/Discord video issues as part of `3D`
+
 ### 4.4.3 Exit Criteria
 
 `3D` is complete enough when:
@@ -416,3 +467,28 @@ Once Phase 3 is in place, the next step is:
 
 - extract image, video, article, and deployment into production-grade composable blocks
 - then assemble richer multi-block experiences from those finished units
+
+## 7. Recommended Next Broader Phase
+
+The next broader phase should now begin.
+
+Recommended Phase `4` focus:
+
+- multi-block ExperienceQube composition
+- `Make`-first bundled creation flows
+- block sequencing and shared state
+- editable image / video / copy bundles
+- clearer block contracts between:
+  - image generation
+  - video generation
+  - copy/article generation
+  - deployment
+- stronger codex-aware and persona-aware orchestration at the bundle level
+
+Phase `4` should treat the current single-block golden paths as foundation blocks, not as the end-state product.
+
+Immediate recommendation:
+
+1. freeze `3D` at the current stopping point
+2. carry the deferred late-`3C` issues as backlog
+3. activate Phase `4` for compound experience composition and `Make`-oriented bundled flows

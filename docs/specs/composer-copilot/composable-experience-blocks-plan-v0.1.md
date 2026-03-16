@@ -189,6 +189,12 @@ Includes:
 - orchestration sequencing
 - reusable block contracts
 
+Current activation note:
+
+- Phase `4` should now be treated as the active broader phase after pausing `3D` adapter expansion
+- the current single-block image, video, article, and deployment paths should be treated as foundation blocks
+- unresolved late-`3C` runtime/launcher/Discord video issues remain backlog, not Phase `4` blockers
+
 ## 6. Block Contract Model
 
 Each production-grade block should eventually expose a common contract:
@@ -234,3 +240,12 @@ Instead:
 3. then extract the common block contract from those completed implementations
 
 That is the lowest-risk and highest-leverage path.
+
+Updated status:
+
+- this recommendation has now effectively been satisfied far enough to proceed
+- deployment is now modeled as a standalone reusable unit
+- the next step is to move from single-block proof paths into:
+  - bundled image/video/copy creation
+  - shared block state
+  - codex-aware block sequencing
