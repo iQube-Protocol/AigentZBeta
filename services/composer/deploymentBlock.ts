@@ -558,7 +558,9 @@ export async function dispatchComposerDeployment(
     };
   }
 
-  const responseWarnings = Array.isArray(data?.warnings) ? data.warnings.filter((item): item is string => typeof item === "string") : [];
+  const responseWarnings = Array.isArray(data?.warnings)
+    ? (data.warnings as unknown[]).filter((item): item is string => typeof item === "string")
+    : [];
   return {
     ok: true,
     target: input.target,
