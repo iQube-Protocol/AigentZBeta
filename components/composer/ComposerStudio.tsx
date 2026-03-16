@@ -56,6 +56,7 @@ import {
   buildExperienceRuntimeProjection,
   resolveRuntimeCodexTabForExperience,
 } from "@/services/composer/runtimeProjectionShared";
+import { buildExperienceBlockManifest } from "@/services/composer/experienceBlockManifest";
 import { buildComposerRoutingEnvelope } from "@/services/composer/routingEnvelope";
 import {
   markPersonaGeneratedMediaLifecycle,
@@ -4302,6 +4303,10 @@ export const ComposerStudio = () => {
       )
       .slice(0, 5);
   }, [activeExperienceForEditing]);
+  const activeExperienceBlockManifest = useMemo(
+    () => buildExperienceBlockManifest(activeExperienceForEditing),
+    [activeExperienceForEditing],
+  );
   const activeExperienceDeploymentState = useMemo(() => {
     const raw = activeExperienceForEditing?.metadata?.deployment_state;
     return raw && typeof raw === "object" ? (raw as Record<string, any>) : null;
@@ -5851,6 +5856,90 @@ export const ComposerStudio = () => {
                               Generated image and video assets will appear here once they are saved for the active persona.
                             </div>
                           )}
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <div className="text-sm font-semibold text-white">Block composition readiness</div>
+                            <div className="mt-1 text-sm text-slate-400">
+                              Phase 4 foundation view of this ExperienceQube as reusable image, video, article, and deployment blocks.
+                            </div>
+                          </div>
+                          <span
+                            className={`rounded-full border px-3 py-1 text-xs ${
+                              activeExperienceBlockManifest.primaryFlow === "compound_ready"
+                                ? "border-emerald-400/40 text-emerald-300"
+                                : "border-slate-700 text-slate-300"
+                            }`}
+                          >
+                            {activeExperienceBlockManifest.primaryFlow === "compound_ready"
+                              ? "compound-ready"
+                              : "single-block foundation"}
+                          </span>
+                        </div>
+                        <div className="mt-3 grid gap-3 lg:grid-cols-[1.2fr_0.8fr]">
+                          <div className="space-y-2">
+                            {activeExperienceBlockManifest.blocks.length > 0 ? (
+                              activeExperienceBlockManifest.blocks.map((block) => (
+                                <div
+                                  key={block.id}
+                                  className="rounded-lg border border-slate-800 bg-slate-900/50 px-3 py-3 text-sm text-slate-200"
+                                >
+                                  <div className="flex items-center justify-between gap-3">
+                                    <div className="font-medium text-white">{block.label}</div>
+                                    <span
+                                      className={
+                                        block.state === "ready"
+                                          ? "text-emerald-300"
+                                          : block.state === "partial"
+                                            ? "text-amber-200"
+                                            : "text-fuchsia-200"
+                                      }
+                                    >
+                                      {block.state}
+                                    </span>
+                                  </div>
+                                  <div className="mt-2 grid gap-1 text-xs text-slate-400 sm:grid-cols-2">
+                                    <div>Inputs: {block.inputs.join(" · ")}</div>
+                                    <div>Outputs: {block.outputs.join(" · ")}</div>
+                                    {block.dependsOn.length > 0 ? (
+                                      <div className="sm:col-span-2">Depends on: {block.dependsOn.join(" · ")}</div>
+                                    ) : null}
+                                    {block.evidence.length > 0 ? (
+                                      <div className="sm:col-span-2">Evidence: {block.evidence.join(" · ")}</div>
+                                    ) : null}
+                                    {block.notes.length > 0 ? (
+                                      <div className="sm:col-span-2 text-slate-500">Notes: {block.notes.join(" · ")}</div>
+                                    ) : null}
+                                  </div>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="text-sm text-slate-400">
+                                No composition blocks are inferred yet for this ExperienceQube.
+                              </div>
+                            )}
+                          </div>
+                          <div className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/50 px-3 py-3 text-sm text-slate-200">
+                            <div>
+                              <div className="font-medium text-white">Sequencing</div>
+                              <div className="mt-2 space-y-2 text-xs text-slate-400">
+                                {activeExperienceBlockManifest.sequencing.map((step) => (
+                                  <div key={step}>{step}</div>
+                                ))}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="font-medium text-white">Next composition opportunities</div>
+                              <div className="mt-2 space-y-2 text-xs text-slate-400">
+                                {activeExperienceBlockManifest.nextCompositionOpportunities.map((item) => (
+                                  <div key={item}>{item}</div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       </div>
 

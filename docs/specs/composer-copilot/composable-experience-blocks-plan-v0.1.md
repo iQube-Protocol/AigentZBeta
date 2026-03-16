@@ -195,6 +195,19 @@ Current activation note:
 - the current single-block image, video, article, and deployment paths should be treated as foundation blocks
 - unresolved late-`3C` runtime/launcher/Discord video issues remain backlog, not Phase `4` blockers
 
+### Phase 4 First Implementation Slice
+
+The first concrete Phase `4` slice should be:
+
+1. define a shared `ExperienceBlockManifest`
+2. infer current ExperienceQubes into block bundles:
+   - image generation
+   - video generation
+   - article draft
+   - deployment
+3. surface composition readiness and sequencing in Studio
+4. use that manifest as the starting contract for future bundled `Make` flows
+
 ## 6. Block Contract Model
 
 Each production-grade block should eventually expose a common contract:
