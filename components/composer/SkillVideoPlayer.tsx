@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useCallback, useEffect, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -11,6 +12,7 @@ import {
   getExperienceProviderLabel,
 } from "@/components/composer/ExperienceBlockChrome";
 import {
+  ArrowLeft,
   Play,
   Loader2,
   AlertTriangle,
@@ -105,8 +107,10 @@ export default function SkillVideoPlayer({
   initial_receipt,
   persona_id,
 }: SkillVideoPlayerProps) {
+  const searchParams = useSearchParams();
   const MAX_AUTO_POLL_ATTEMPTS = 8;
   const initialProvider = inferProviderFromSkillId(skill_id);
+  const showRuntimeBack = searchParams?.get("from") === "runtime";
   const resolvedInitialVideoUrl = isLegacyVideoProxyUrl(initial_video_url) ? undefined : initial_video_url;
   const [state, setState] = useState<"idle" | "invoking" | "done" | "error">(resolvedInitialVideoUrl ? "done" : "idle");
   const [resultSource, setResultSource] = useState<"saved" | "generated" | "none">(resolvedInitialVideoUrl ? "saved" : "none");
@@ -388,7 +392,7 @@ export default function SkillVideoPlayer({
           <Tooltip>
             <TooltipTrigger asChild>
               <Button size="icon" variant="ghost" className="h-8 w-8 text-slate-400">
-                <ExperienceStyleIcon style={style} className="h-4.5 w-4.5" />
+                <ExperienceStyleIcon style={style} className="h-5 w-5" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom">{style}</TooltipContent>
@@ -402,12 +406,35 @@ export default function SkillVideoPlayer({
                   className="h-8 w-8 text-slate-400"
                   onClick={() => setShowReceipt((p) => !p)}
                 >
-                  <FileText className="h-4 w-4" />
+                  <FileText className="h-5 w-5" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="bottom">{showReceipt ? "Hide receipt" : "Show receipt"}</TooltipContent>
             </Tooltip>
           )}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button size="icon" variant="ghost" className="h-8 w-8 text-slate-400" onClick={invoke}>
+                <RefreshCw className="h-5 w-5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">{state === "idle" ? "Generate" : "Regenerate"}</TooltipContent>
+          </Tooltip>
+          {showRuntimeBack ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8 text-slate-400"
+                  onClick={() => window.history.back()}
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Back to runtime</TooltipContent>
+            </Tooltip>
+          ) : null}
           </>
         }
       />

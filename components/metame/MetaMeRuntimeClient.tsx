@@ -28,6 +28,7 @@ import {
   readRuntimePersonaMemoryEntries,
   type RuntimePersonaMemoryEntry,
 } from "@/components/metame/runtimePersonaMemory";
+import { useBrowserCapabilityController } from "@/components/metame/browser/useBrowserCapabilityController";
 import {
   getStaticAgentLlmProviders,
   type AgentModelSelection,
@@ -35,7 +36,6 @@ import {
   type LlmProviderId,
 } from "@/services/metame/agentLlmOrchestra";
 import {
-  ArrowLeft,
   BookOpen,
   Bot,
   ChevronDown,
@@ -629,6 +629,12 @@ function inferRuntimeExperienceStyle(content: RuntimeCapsule): string {
   const text = `${content.title} ${content.description}`.toLowerCase();
   if (/\b(video|watch|cinematic|film|sora)\b/.test(text)) return "cinematic";
   return "editorial";
+}
+
+function runtimeContentKindIcon(kind: RuntimeCapsule["runtimeContentKind"]) {
+  if (kind === "video") return <Tv className="h-3.5 w-3.5" />;
+  if (kind === "article") return <BookOpen className="h-3.5 w-3.5" />;
+  return <Hexagon className="h-3.5 w-3.5" />;
 }
 
 function scoreContent(content: RuntimeCapsule, prompt: string, intent: RuntimeIntent): number {
@@ -1486,11 +1492,6 @@ export default function MetaMeRuntimeClient() {
     });
     setSelectedCapsuleLocal(null);
   }, []);
-  const returnToRuntimeHome = useCallback(() => {
-    setSelectedCapsuleLocal(null);
-    setMessages((prev) => prev.filter((message) => !(message?.variant === "panel" && message.id !== "capsule-panel")));
-  }, []);
-
   const renderRuntimeFramePanel = useCallback(
     (content: RuntimeCapsule, intent: RuntimeIntent, options: { label: string; frameSrc: string }) => {
       const moduleConfig = resolveRuntimeModule(activeDevice, intent);
@@ -1621,35 +1622,36 @@ export default function MetaMeRuntimeClient() {
         const provider = detectExperienceProviderFromAssetUri(previewMedia || heroImage || content.runtimeLaunchHref || null);
         const primaryKind = isLikelyVideoUri(previewMedia) ? "video" : "image";
         const styleLabel = inferRuntimeExperienceStyle(content);
-        const sourceExperienceHref = content.runtimeLaunchHref ? withQueryParam(content.runtimeLaunchHref, "device", activeDevice) : null;
+        const sourceExperienceHref = content.runtimeLaunchHref
+          ? withQueryParam(withQueryParam(content.runtimeLaunchHref, "device", activeDevice), "from", "runtime")
+          : null;
         const receiptHref = sourceExperienceHref ? withQueryParam(sourceExperienceHref, "focus", "receipt") : null;
         const regenerateHref = sourceExperienceHref ? withQueryParam(sourceExperienceHref, "action", "regenerate") : null;
         return (
           <div className="rounded-2xl border border-cyan-400/25 bg-slate-950/85 p-3 space-y-3">
             <div className="flex items-start justify-between gap-3">
-              <div className="flex items-start gap-2">
-                <button
-                  type="button"
-                  onClick={returnToRuntimeHome}
-                  className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-slate-300 transition hover:bg-white/10 hover:text-white"
-                  title="Back to runtime home"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                </button>
-                <div>
-                  <p className="text-[10px] uppercase tracking-[0.18em] text-cyan-300/80">ExperienceQube Runtime</p>
-                  <p className="text-sm font-semibold text-white">{content.title}</p>
-                </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.18em] text-cyan-300/80">ExperienceQube Runtime</p>
+                <p className="text-sm font-semibold text-white">{content.title}</p>
               </div>
               <div className="flex items-center gap-1.5">
                 {content.runtimeContentKind ? (
-                  <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-slate-200">
-                    {content.runtimeContentKind}
+                  <span
+                    className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-slate-200"
+                    title={content.runtimeContentKind}
+                  >
+                    {runtimeContentKindIcon(content.runtimeContentKind)}
+                    <span className={activeDevice === "mobile" ? "sr-only" : ""}>{content.runtimeContentKind}</span>
                   </span>
                 ) : null}
-                <span className="inline-flex items-center gap-1 rounded-full border border-cyan-400/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] text-cyan-200">
+                <span
+                  className="inline-flex items-center gap-1 rounded-full border border-cyan-400/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] text-cyan-200"
+                  title={activeDevice === "mobile" ? "portrait-first" : "landscape-first"}
+                >
                   <span className={`inline-block rounded-[2px] border border-current ${activeDevice === "mobile" ? "h-3 w-2" : "h-2 w-3"}`} />
-                  {activeDevice === "mobile" ? "portrait-first" : "landscape-first"}
+                  <span className={activeDevice === "mobile" ? "sr-only" : ""}>
+                    {activeDevice === "mobile" ? "portrait-first" : "landscape-first"}
+                  </span>
                 </span>
               </div>
             </div>
@@ -1678,7 +1680,7 @@ export default function MetaMeRuntimeClient() {
                       className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400"
                       title={styleLabel}
                     >
-                      <ExperienceStyleIcon style={styleLabel} className="h-4 w-4" />
+                      <ExperienceStyleIcon style={styleLabel} className="h-5 w-5" />
                     </div>
                     {receiptHref ? (
                       <a
@@ -1686,7 +1688,7 @@ export default function MetaMeRuntimeClient() {
                         className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 transition hover:bg-white/5 hover:text-cyan-200"
                         title="Open receipt details"
                       >
-                        <FileText className="h-4 w-4" />
+                        <FileText className="h-5 w-5" />
                       </a>
                     ) : null}
                     {regenerateHref ? (
@@ -1695,7 +1697,7 @@ export default function MetaMeRuntimeClient() {
                         className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 transition hover:bg-white/5 hover:text-cyan-200"
                         title="Open source experience to regenerate"
                       >
-                        <RefreshCw className="h-4 w-4" />
+                        <RefreshCw className="h-5 w-5" />
                       </a>
                     ) : null}
                     {sourceExperienceHref ? (
@@ -1704,7 +1706,7 @@ export default function MetaMeRuntimeClient() {
                         className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 transition hover:bg-white/5 hover:text-cyan-200"
                         title="Pop out source experience"
                       >
-                        <SquareArrowOutUpRight className="h-4 w-4" />
+                        <SquareArrowOutUpRight className="h-5 w-5" />
                       </a>
                     ) : null}
                   </div>
@@ -1789,7 +1791,7 @@ export default function MetaMeRuntimeClient() {
         </div>
       );
     },
-    [activeDevice, renderRuntimeFramePanel, returnToRuntimeHome]
+    [activeDevice, renderRuntimeFramePanel]
   );
 
   const launchCapsule = useCallback(
@@ -1961,7 +1963,9 @@ export default function MetaMeRuntimeClient() {
               const heroImage = resolveCapsuleCoverImage(content);
               const modalityLabel = content.runtimeModalityHints?.slice(0, 2).join(" · ") || "details";
               const styleLabel = inferRuntimeExperienceStyle(content);
-              const sourceExperienceHref = content.runtimeLaunchHref ? withQueryParam(content.runtimeLaunchHref, "device", activeDevice) : null;
+              const sourceExperienceHref = content.runtimeLaunchHref
+                ? withQueryParam(withQueryParam(content.runtimeLaunchHref, "device", activeDevice), "from", "runtime")
+                : null;
               const receiptHref = sourceExperienceHref ? withQueryParam(sourceExperienceHref, "focus", "receipt") : null;
               const regenerateHref = sourceExperienceHref ? withQueryParam(sourceExperienceHref, "action", "regenerate") : null;
               const sourceBadgeClass =
@@ -2022,7 +2026,7 @@ export default function MetaMeRuntimeClient() {
                             className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-slate-900/60 text-white/80"
                             title={styleLabel}
                           >
-                            <ExperienceStyleIcon style={styleLabel} className="h-3.5 w-3.5" />
+                            <ExperienceStyleIcon style={styleLabel} className="h-5 w-5" />
                           </span>
                         ) : null}
                       </div>
@@ -2034,7 +2038,7 @@ export default function MetaMeRuntimeClient() {
                             className="rounded-full border border-white/20 bg-slate-900/60 p-1.5 text-white/80 hover:text-white"
                             title="Open receipt details"
                           >
-                            <FileText className="h-3.5 w-3.5" />
+                            <FileText className="h-5 w-5" />
                           </a>
                         ) : null}
                         {content.runtimeSource === "experience" && regenerateHref ? (
@@ -2044,7 +2048,7 @@ export default function MetaMeRuntimeClient() {
                             className="rounded-full border border-white/20 bg-slate-900/60 p-1.5 text-white/80 hover:text-white"
                             title="Open source experience to regenerate"
                           >
-                            <RefreshCw className="h-3.5 w-3.5" />
+                            <RefreshCw className="h-5 w-5" />
                           </a>
                         ) : null}
                         <button
@@ -2056,7 +2060,7 @@ export default function MetaMeRuntimeClient() {
                           className="rounded-full border border-white/20 bg-slate-900/60 p-1.5 text-white/80 hover:text-white"
                           title="Pop out experience"
                         >
-                          <Eye className="h-3.5 w-3.5" />
+                          <Eye className="h-5 w-5" />
                         </button>
                         <button
                           type="button"
@@ -2067,7 +2071,7 @@ export default function MetaMeRuntimeClient() {
                           className="rounded-full border border-white/20 bg-slate-900/60 p-1.5 text-white/80 hover:text-white"
                           title="Launch"
                         >
-                          <PlayCircle className="h-3.5 w-3.5" />
+                          <PlayCircle className="h-5 w-5" />
                         </button>
                         <button
                           type="button"
@@ -2087,7 +2091,7 @@ export default function MetaMeRuntimeClient() {
                           className="rounded-full border border-white/20 bg-slate-900/60 p-1.5 text-white/80 hover:text-white"
                           title="Share"
                         >
-                          <Share2 className="h-3.5 w-3.5" />
+                          <Share2 className="h-5 w-5" />
                         </button>
                       </div>
                     </div>
@@ -2171,6 +2175,13 @@ export default function MetaMeRuntimeClient() {
     },
     []
   );
+
+  const { handleShellBridgeMessage: handleBrowserShellBridgeMessage } = useBrowserCapabilityController({
+    enabled: embedMode,
+    emitShellEvent: (type, payload) => {
+      postRuntimeEvent(type, payload);
+    },
+  });
 
   const handlePrompt = useCallback(
     async (
@@ -2649,6 +2660,10 @@ export default function MetaMeRuntimeClient() {
         return;
       }
 
+      if (handleBrowserShellBridgeMessage(message)) {
+        return;
+      }
+
       if (message.type === "SELECTOR_CHANGE") {
         const aigentId = typeof payload.aigent_id === "string" ? payload.aigent_id : null;
         const llmId = typeof payload.llm_id === "string" ? payload.llm_id : null;
@@ -2736,6 +2751,7 @@ export default function MetaMeRuntimeClient() {
     thinShellMode,
     relayCloseCodexToNestedFrames,
     flushQueuedRuntimeEvents,
+    handleBrowserShellBridgeMessage,
   ]);
 
   useEffect(() => {

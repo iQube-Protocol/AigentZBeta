@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { ImageIcon, Loader2, RefreshCw, AlertTriangle, CheckCircle2, FileText } from "lucide-react";
+import { ArrowLeft, ImageIcon, Loader2, RefreshCw, AlertTriangle, CheckCircle2, FileText } from "lucide-react";
 import {
   ExperienceBlockHeader,
   ExperienceStyleIcon,
@@ -138,7 +139,9 @@ export default function SkillImagePlayer({
   initial_images,
   initial_receipt,
 }: SkillImagePlayerProps) {
+  const searchParams = useSearchParams();
   const hasInitialImages = Array.isArray(initial_images) && initial_images.some((image) => Boolean(image?.image_url));
+  const showRuntimeBack = searchParams?.get("from") === "runtime";
   const [state, setState] = useState<"idle" | "invoking" | "done" | "error">(hasInitialImages ? "done" : "idle");
   const [resultSource, setResultSource] = useState<"saved" | "generated" | "none">(hasInitialImages ? "saved" : "none");
   const [result, setResult] = useState<GenerationResponse | null>(
@@ -328,7 +331,7 @@ export default function SkillImagePlayer({
           <Tooltip>
             <TooltipTrigger asChild>
               <Button size="icon" variant="ghost" className="h-8 w-8 text-slate-400">
-                <ExperienceStyleIcon style={visual_style} className="h-4.5 w-4.5" />
+                <ExperienceStyleIcon style={visual_style} className="h-5 w-5" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom">{visual_style}</TooltipContent>
@@ -342,7 +345,7 @@ export default function SkillImagePlayer({
                   className="h-8 w-8 text-slate-400"
                   onClick={() => setShowReceipt((value) => !value)}
                 >
-                  <FileText className="h-4 w-4" />
+                  <FileText className="h-5 w-5" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="bottom">{showReceipt ? "Hide receipt" : "Show receipt"}</TooltipContent>
@@ -351,11 +354,26 @@ export default function SkillImagePlayer({
           <Tooltip>
             <TooltipTrigger asChild>
               <Button size="icon" variant="ghost" className="h-8 w-8 text-slate-400" onClick={invoke}>
-                <RefreshCw className="h-4 w-4" />
+                <RefreshCw className="h-5 w-5" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom">{state === "idle" ? "Generate" : "Regenerate"}</TooltipContent>
           </Tooltip>
+          {showRuntimeBack ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8 text-slate-400"
+                  onClick={() => window.history.back()}
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Back to runtime</TooltipContent>
+            </Tooltip>
+          ) : null}
           </>
         }
       />
