@@ -4200,54 +4200,6 @@ export const ComposerStudio = () => {
     setPreviewAction(`Remedy applied: ${summary}`);
   };
 
-  const handleApplyBundlePreset = useCallback(
-    async (presetId: ExperienceBundlePresetId) => {
-      if (!activeExperienceForEditing?.id) {
-        setSessionError("Select an ExperienceQube before applying a bundle preset.");
-        return;
-      }
-      const preset = activeExperienceBundlePresets.find((item) => item.id === presetId);
-      if (!preset) {
-        setSessionError("Requested bundle preset is not available.");
-        return;
-      }
-
-      setApplyingBundlePresetId(presetId);
-      setSessionError(null);
-      try {
-        const patch = buildExperienceBundlePresetPatch(
-          activeExperienceForEditing,
-          activeExperienceBlockManifest,
-          preset,
-        );
-        await persistExperienceUpdate(
-          activeExperienceForEditing.id,
-          {
-            name: activeExperienceForEditing.name,
-            description: activeExperienceForEditing.description,
-            goal: activeExperienceForEditing.goal,
-            mechanics: activeExperienceForEditing.mechanics,
-            metrics: activeExperienceForEditing.metrics,
-            template_id: activeExperienceForEditing.template_id,
-            status: activeExperienceForEditing.status,
-            configuration: patch.configuration,
-            components: activeExperienceForEditing.components,
-            execution: (activeExperienceForEditing as any).execution,
-            access: activeExperienceForEditing.access,
-            metadata: patch.metadata,
-          },
-          "Failed to apply Make bundle preset.",
-        );
-        setPreviewAction(`Applied ${preset.label} bundle`);
-      } catch (error: any) {
-        setSessionError(error?.message || "Failed to apply Make bundle preset.");
-      } finally {
-        setApplyingBundlePresetId(null);
-      }
-    },
-    [activeExperienceBlockManifest, activeExperienceBundlePresets, activeExperienceForEditing],
-  );
-
   const updateField = (stepId: string, fieldId: string, value: any) => {
     setStepData((prev) => ({
       ...prev,
@@ -4369,6 +4321,53 @@ export const ComposerStudio = () => {
   const activeAppliedExperienceBundle = useMemo(
     () => getAppliedExperienceBundle(activeExperienceForEditing),
     [activeExperienceForEditing],
+  );
+  const handleApplyBundlePreset = useCallback(
+    async (presetId: ExperienceBundlePresetId) => {
+      if (!activeExperienceForEditing?.id) {
+        setSessionError("Select an ExperienceQube before applying a bundle preset.");
+        return;
+      }
+      const preset = activeExperienceBundlePresets.find((item) => item.id === presetId);
+      if (!preset) {
+        setSessionError("Requested bundle preset is not available.");
+        return;
+      }
+
+      setApplyingBundlePresetId(presetId);
+      setSessionError(null);
+      try {
+        const patch = buildExperienceBundlePresetPatch(
+          activeExperienceForEditing,
+          activeExperienceBlockManifest,
+          preset,
+        );
+        await persistExperienceUpdate(
+          activeExperienceForEditing.id,
+          {
+            name: activeExperienceForEditing.name,
+            description: activeExperienceForEditing.description,
+            goal: activeExperienceForEditing.goal,
+            mechanics: activeExperienceForEditing.mechanics,
+            metrics: activeExperienceForEditing.metrics,
+            template_id: activeExperienceForEditing.template_id,
+            status: activeExperienceForEditing.status,
+            configuration: patch.configuration,
+            components: activeExperienceForEditing.components,
+            execution: (activeExperienceForEditing as any).execution,
+            access: activeExperienceForEditing.access,
+            metadata: patch.metadata,
+          },
+          "Failed to apply Make bundle preset.",
+        );
+        setPreviewAction(`Applied ${preset.label} bundle`);
+      } catch (error: any) {
+        setSessionError(error?.message || "Failed to apply Make bundle preset.");
+      } finally {
+        setApplyingBundlePresetId(null);
+      }
+    },
+    [activeExperienceBlockManifest, activeExperienceBundlePresets, activeExperienceForEditing],
   );
   const activeExperienceDeploymentState = useMemo(() => {
     const raw = activeExperienceForEditing?.metadata?.deployment_state;
