@@ -254,6 +254,12 @@ export async function POST(request: NextRequest) {
         : ctaUrl
           ? `Open ExperienceQube: ${ctaUrl}`
           : '';
+    const providerDispatchText =
+      deliveryVariant === 'discord_asset_inline' && inlineAssetUrl && /\.(mp4|m4v|mov|webm|ogg)(\?|$)/i.test(inlineAssetUrl)
+        ? inlineAssetUrl
+        : [mcpResponse.artifact.title, mcpResponse.artifact.body, openLine, mcpResponse.artifact.share_text]
+            .filter(Boolean)
+            .join('\n\n');
 
     const providerDispatch = {
       provider,
@@ -265,9 +271,7 @@ export async function POST(request: NextRequest) {
       ctaUrl,
       publishUrl,
       embed,
-      text: [mcpResponse.artifact.title, mcpResponse.artifact.body, openLine, mcpResponse.artifact.share_text]
-        .filter(Boolean)
-        .join('\n\n'),
+      text: providerDispatchText,
       cta: mcpResponse.cta.primary || null,
     };
     const warnings: string[] = [];

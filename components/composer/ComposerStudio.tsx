@@ -1361,15 +1361,17 @@ export const ComposerStudio = () => {
     setMcpLoading(true);
     setMcpError(null);
     try {
+      const latestExperience =
+        (await refreshExperienceFromServer(mcpExperience.id).catch(() => null)) || mcpExperience;
       const manualChannelId = mcpChannelId.trim();
       const normalizedChannelId = /^\d+$/.test(manualChannelId) ? manualChannelId : "";
       const runtimeProfile = buildRuntimeDeliveryProfile({
-        experience: mcpExperience,
+        experience: latestExperience,
         personaLibraryAssets: personaMediaLibrary as unknown as Array<Record<string, unknown>>,
         target: mcpDeploymentTarget,
         variant: mcpDeliveryVariant,
       });
-      const runtimeLaunchUrl = buildRuntimeLaunchUrl(mcpExperience, {
+      const runtimeLaunchUrl = buildRuntimeLaunchUrl(latestExperience, {
         target: mcpDeploymentTarget,
         variant: mcpDeliveryVariant,
       });
@@ -1380,8 +1382,8 @@ export const ComposerStudio = () => {
         "";
       const studioExperienceUrl =
         typeof window !== "undefined"
-          ? `${window.location.origin}/studio/composer/experience/${encodeURIComponent(mcpExperience.id)}`
-          : `/studio/composer/experience/${encodeURIComponent(mcpExperience.id)}`;
+          ? `${window.location.origin}/studio/composer/experience/${encodeURIComponent(latestExperience.id)}`
+          : `/studio/composer/experience/${encodeURIComponent(latestExperience.id)}`;
       const publishUrl =
         mcpDeploymentTarget === "studio_preview"
           ? studioExperienceUrl
@@ -1396,7 +1398,7 @@ export const ComposerStudio = () => {
             : mcpTool;
       const deployment = await dispatchComposerDeployment({
         tenantId,
-        experienceId: mcpExperience.id,
+        experienceId: latestExperience.id,
         personaId: activePersonaId || userId,
         target: mcpDeploymentTarget,
         variant: mcpDeliveryVariant,
@@ -1408,12 +1410,12 @@ export const ComposerStudio = () => {
         inviteUrl: mcpDiscordInvite,
         publishUrl,
         thumbnailUrl: mediaPreviewUrl || mediaAssetUrl,
-        titleOverride: mcpExperience.name || "",
+        titleOverride: latestExperience.name || "",
         campaignId: "experience-distribution-demo",
         runtimeProfile,
       });
       await persistExperienceDeploymentResult(
-        mcpExperience,
+        latestExperience,
         deployment,
         `deployment-block:${mcpDeploymentTarget}`,
       );
@@ -3306,6 +3308,40 @@ export const ComposerStudio = () => {
     }
   };
 
+  const refreshExperienceFromServer = useCallback(
+    async (experienceId: string) => {
+      const res = await fetch(`/api/composer/experiences/${experienceId}`, {
+        cache: "no-store",
+      });
+      if (!res.ok) {
+        throw new Error("Failed to refresh experience.");
+      }
+      const data = await res.json();
+      const refreshedExperience = data.experience_qube || null;
+      if (!refreshedExperience) return null;
+
+      setExperiences((prev) => {
+        const exists = prev.some((exp) => exp.id === refreshedExperience.id);
+        const next = exists
+          ? prev.map((exp) => (exp.id === refreshedExperience.id ? refreshedExperience : exp))
+          : [refreshedExperience, ...prev];
+        cacheExperiencesForTenant(tenantId, next);
+        return next;
+      });
+      if (selectedExperienceId === refreshedExperience.id) {
+        setSelectedExperience(refreshedExperience);
+      }
+      if (experience?.id === refreshedExperience.id) {
+        setExperience(refreshedExperience);
+      }
+      if (mcpExperience?.id === refreshedExperience.id) {
+        setMcpExperience(refreshedExperience);
+      }
+      return refreshedExperience;
+    },
+    [experience?.id, mcpExperience?.id, selectedExperienceId, tenantId],
+  );
+
   const recordExperienceLifecycle = async (
     action: "experience_preview" | "experience_launch",
     exp: ExperienceQube | null | undefined,
@@ -4404,9 +4440,16 @@ export const ComposerStudio = () => {
     };
     void run();
 
-    const handlePersonaMediaUpdated = () => {
+    const handlePersonaMediaUpdated = (event?: Event) => {
       if (!active) return;
       void refreshPersonaMediaLibrary();
+      const experienceId =
+        event && "detail" in event && event.detail && typeof (event.detail as { experienceId?: unknown }).experienceId === "string"
+          ? ((event.detail as { experienceId?: string }).experienceId as string)
+          : undefined;
+      if (experienceId) {
+        void refreshExperienceFromServer(experienceId).catch(() => undefined);
+      }
     };
     const handlePersonaMediaMessage = (event: MessageEvent) => {
       if (!active) return;
@@ -4415,6 +4458,13 @@ export const ComposerStudio = () => {
       if (!data || typeof data !== "object") return;
       if ((data as { type?: string }).type !== "composer:persona-media-updated") return;
       void refreshPersonaMediaLibrary();
+      const experienceId =
+        typeof (data as { experienceId?: unknown }).experienceId === "string"
+          ? ((data as { experienceId?: string }).experienceId as string)
+          : undefined;
+      if (experienceId) {
+        void refreshExperienceFromServer(experienceId).catch(() => undefined);
+      }
     };
     const handlePersonaMediaStorage = (event: StorageEvent) => {
       if (!active) return;
@@ -4433,7 +4483,7 @@ export const ComposerStudio = () => {
       window.removeEventListener("message", handlePersonaMediaMessage);
       window.removeEventListener("storage", handlePersonaMediaStorage);
     };
-  }, [activePersonaId, refreshPersonaMediaLibrary, userId]);
+  }, [activePersonaId, refreshExperienceFromServer, refreshPersonaMediaLibrary, userId]);
   const buildComposerChatRequestContext = useCallback(
     (prompt: string) => {
       const lower = prompt.toLowerCase();

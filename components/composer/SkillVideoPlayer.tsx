@@ -378,7 +378,14 @@ export default function SkillVideoPlayer({
     })
       .then(() => {
         setPersistedVideoKey(generationKey);
-        window.dispatchEvent(new CustomEvent("composer:persona-media-updated"));
+        window.dispatchEvent(
+          new CustomEvent("composer:persona-media-updated", {
+            detail: {
+              personaId: persona_id,
+              experienceId: experience_id,
+            },
+          })
+        );
         try {
           window.parent?.postMessage(
             {
