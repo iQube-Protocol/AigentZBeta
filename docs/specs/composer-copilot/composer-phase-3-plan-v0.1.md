@@ -325,6 +325,13 @@ The first `3D` slice is now in progress:
   - `supported`
   - `limited`
   - `scaffolded`
+- active adapters now declare their supported:
+  - targets
+  - variants
+  - modes
+- future adapter stubs now exist for:
+  - `aa_api`
+  - `xmtp`
 - routing/readiness now penalizes partial adapters instead of presenting them as equivalent
 - inspector proof and saved deployment proof/history now surface capability summaries and constraints
 

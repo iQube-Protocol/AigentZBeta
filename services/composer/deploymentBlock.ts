@@ -21,7 +21,19 @@ export type ComposerDeploymentAdapter =
   | "runtime"
   | "thin_client"
   | "mcp_app"
-  | "discord_mcp";
+  | "discord_mcp"
+  | "aa_api"
+  | "xmtp";
+
+export type ComposerDeploymentAdapterDeclaration = {
+  adapter: ComposerDeploymentAdapter;
+  label: string;
+  availability: "active" | "planned";
+  supportedModes: ComposerDeploymentMode[];
+  supportedTargets: ComposerDeploymentTarget[];
+  supportedVariants: ComposerDeliveryVariant[];
+  note: string;
+};
 
 export type ComposerDeploymentCapability = {
   adapter: ComposerDeploymentAdapter;
@@ -63,7 +75,83 @@ export type ComposerDeploymentResult = {
   error?: string;
   runtimeProfile?: ComposerRuntimeDeliveryProfile;
   capability: ComposerDeploymentCapability;
+  adapterDeclaration: ComposerDeploymentAdapterDeclaration;
 };
+
+export const DEPLOYMENT_ADAPTER_DECLARATIONS: Record<
+  ComposerDeploymentAdapter,
+  ComposerDeploymentAdapterDeclaration
+> = {
+  studio: {
+    adapter: "studio",
+    label: "Studio Preview",
+    availability: "active",
+    supportedModes: ["simulate", "live"],
+    supportedTargets: ["studio_preview"],
+    supportedVariants: ["runtime_standard"],
+    note: "Internal proof and review surface for Composer iterations.",
+  },
+  runtime: {
+    adapter: "runtime",
+    label: "metaMe Runtime",
+    availability: "active",
+    supportedModes: ["simulate", "live"],
+    supportedTargets: ["runtime_launch"],
+    supportedVariants: ["runtime_standard"],
+    note: "Primary runtime handoff for full-surface launches.",
+  },
+  thin_client: {
+    adapter: "thin_client",
+    label: "metaMe Runtime Thin Client",
+    availability: "active",
+    supportedModes: ["simulate", "live"],
+    supportedTargets: ["runtime_launch", "runtime_thin_client"],
+    supportedVariants: ["runtime_thin_client"],
+    note: "Thin-client handoff with content-only runtime chrome.",
+  },
+  mcp_app: {
+    adapter: "mcp_app",
+    label: "ExperienceQube MCP App",
+    availability: "active",
+    supportedModes: ["simulate", "live"],
+    supportedTargets: ["mcp_app"],
+    supportedVariants: ["asset_link", "runtime_standard", "runtime_thin_client"],
+    note: "Reusable scaffold that hands off to downstream delivery adapters.",
+  },
+  discord_mcp: {
+    adapter: "discord_mcp",
+    label: "Discord via MCP",
+    availability: "active",
+    supportedModes: ["simulate", "live"],
+    supportedTargets: ["discord_mcp"],
+    supportedVariants: ["asset_link", "discord_asset_inline", "discord_experience_inline"],
+    note: "Discord transport adapter with external-link support and partial inline media support.",
+  },
+  aa_api: {
+    adapter: "aa_api",
+    label: "AA API",
+    availability: "planned",
+    supportedModes: [],
+    supportedTargets: [],
+    supportedVariants: [],
+    note: "Planned structured runtime/app adapter for post-3D expansion.",
+  },
+  xmtp: {
+    adapter: "xmtp",
+    label: "XMTP",
+    availability: "planned",
+    supportedModes: [],
+    supportedTargets: [],
+    supportedVariants: [],
+    note: "Planned messaging adapter for wallet-native distribution.",
+  },
+};
+
+export function getDeploymentAdapterDeclaration(
+  adapter: ComposerDeploymentAdapter,
+): ComposerDeploymentAdapterDeclaration {
+  return DEPLOYMENT_ADAPTER_DECLARATIONS[adapter];
+}
 
 export function resolveDeploymentCapability(params: {
   target: ComposerDeploymentTarget;
@@ -160,6 +248,14 @@ function buildCapabilityWarnings(capability: ComposerDeploymentCapability): stri
   return [capability.summary, ...(capability.constraints || [])];
 }
 
+export function resolveDeploymentAdapterDeclaration(params: {
+  target: ComposerDeploymentTarget;
+  variant?: ComposerDeliveryVariant;
+}): ComposerDeploymentAdapterDeclaration {
+  const capability = resolveDeploymentCapability(params);
+  return getDeploymentAdapterDeclaration(capability.adapter);
+}
+
 export function getDeploymentTargetLabel(target: ComposerDeploymentTarget): string {
   switch (target) {
     case "studio_preview":
@@ -237,6 +333,7 @@ export async function dispatchComposerDeployment(
     target: input.target,
     variant: envelope.variant,
   });
+  const adapterDeclaration = getDeploymentAdapterDeclaration(capability.adapter);
   const capabilityWarnings = buildCapabilityWarnings(capability);
 
   if (
@@ -263,6 +360,7 @@ export async function dispatchComposerDeployment(
         targetLabel: envelope.targetLabel,
         destinationSurface,
         capability,
+        adapterDeclaration,
         note:
           input.target === "studio_preview"
             ? "Deployment is represented by the active Studio preview."
@@ -280,6 +378,7 @@ export async function dispatchComposerDeployment(
       warnings: capabilityWarnings.length > 0 ? capabilityWarnings : undefined,
       runtimeProfile: input.runtimeProfile,
       capability,
+      adapterDeclaration,
     };
   }
 
@@ -305,6 +404,7 @@ export async function dispatchComposerDeployment(
       error: data?.error || "Failed to dispatch deployment payload",
       runtimeProfile: input.runtimeProfile,
       capability,
+      adapterDeclaration,
     };
   }
 
@@ -321,9 +421,11 @@ export async function dispatchComposerDeployment(
     response: {
       ...(data && typeof data === "object" ? data : {}),
       capability,
+      adapterDeclaration,
     },
     warnings: [...responseWarnings, ...capabilityWarnings].filter((value, index, array) => array.indexOf(value) === index),
     runtimeProfile: input.runtimeProfile,
     capability,
+    adapterDeclaration,
   };
 }

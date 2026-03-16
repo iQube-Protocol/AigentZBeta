@@ -32,6 +32,7 @@ import type { ComposerGeneratedAssetRef } from "@/services/copilot/composer/type
 import { resolveRuntimeIdentity } from "@/services/runtime/identityResolver";
 import { recordRuntimeLifecycleContribution } from "@/services/composer/runtimeLifecycleClient";
 import {
+  type ComposerDeploymentAdapterDeclaration,
   dispatchComposerDeployment,
   type ComposerDeploymentCapability,
   type ComposerDeploymentCapabilityState,
@@ -149,6 +150,7 @@ type ExperienceQube = {
       last_capability_state?: string;
       last_capability_summary?: string;
       last_capability_constraints?: string[];
+      last_adapter_declaration?: Record<string, any>;
       last_provider?: string;
       last_mode?: string;
       last_publish_url?: string;
@@ -169,6 +171,7 @@ type ExperienceQube = {
       capability_state?: string;
       capability_summary?: string;
       capability_constraints?: string[];
+      adapter_declaration?: Record<string, any>;
       publish_url?: string;
       launch_url?: string;
       source?: string;
@@ -3960,6 +3963,7 @@ export const ComposerStudio = () => {
         capability_state: deployment.capability.state,
         capability_summary: deployment.capability.summary,
         capability_constraints: deployment.capability.constraints,
+        adapter_declaration: deployment.adapterDeclaration,
         publish_url: deployment.publishUrl,
         launch_url: deployment.launchUrl,
         source,
@@ -4002,6 +4006,7 @@ export const ComposerStudio = () => {
               last_capability_state: deployment.capability.state,
               last_capability_summary: deployment.capability.summary,
               last_capability_constraints: deployment.capability.constraints,
+              last_adapter_declaration: deployment.adapterDeclaration,
               last_provider: deployment.provider,
               last_mode: deployment.mode,
               last_publish_url: deployment.publishUrl,
@@ -4249,6 +4254,7 @@ export const ComposerStudio = () => {
             : getDeploymentDestinationSurfaceLabel(inSession.target, inSession.variant),
         status: inSession.status,
         capability: inSession.capability,
+        adapterDeclaration: inSession.adapterDeclaration,
         provider: inSession.provider,
         mode: inSession.mode,
         publishUrl: inSession.publishUrl,
@@ -4314,6 +4320,11 @@ export const ComposerStudio = () => {
                     )
                   : undefined,
               } as ComposerDeploymentCapability)
+            : undefined,
+        adapterDeclaration:
+          activeExperienceDeploymentState.last_adapter_declaration &&
+          typeof activeExperienceDeploymentState.last_adapter_declaration === "object"
+            ? (activeExperienceDeploymentState.last_adapter_declaration as ComposerDeploymentAdapterDeclaration)
             : undefined,
         provider: typeof activeExperienceDeploymentState.last_provider === "string"
           ? activeExperienceDeploymentState.last_provider
@@ -5861,6 +5872,29 @@ export const ComposerStudio = () => {
                                     Capability: {String(activeExperienceDeploymentState.last_capability_summary)}
                                   </div>
                                 ) : null}
+                                {activeExperienceDeploymentState.last_adapter_declaration &&
+                                typeof activeExperienceDeploymentState.last_adapter_declaration === "object" ? (
+                                  <>
+                                    <div>
+                                      Adapter: {String((activeExperienceDeploymentState.last_adapter_declaration as Record<string, any>).label || (activeExperienceDeploymentState.last_adapter_declaration as Record<string, any>).adapter || "Unknown")}
+                                    </div>
+                                    <div>
+                                      Availability: {String((activeExperienceDeploymentState.last_adapter_declaration as Record<string, any>).availability || "active")}
+                                    </div>
+                                    {Array.isArray((activeExperienceDeploymentState.last_adapter_declaration as Record<string, any>).supportedModes) &&
+                                    ((activeExperienceDeploymentState.last_adapter_declaration as Record<string, any>).supportedModes as unknown[]).length > 0 ? (
+                                      <div className="sm:col-span-2">
+                                        Supported modes: {((activeExperienceDeploymentState.last_adapter_declaration as Record<string, any>).supportedModes as unknown[]).join(" · ")}
+                                      </div>
+                                    ) : null}
+                                    {Array.isArray((activeExperienceDeploymentState.last_adapter_declaration as Record<string, any>).supportedVariants) &&
+                                    ((activeExperienceDeploymentState.last_adapter_declaration as Record<string, any>).supportedVariants as unknown[]).length > 0 ? (
+                                      <div className="sm:col-span-2">
+                                        Supported variants: {((activeExperienceDeploymentState.last_adapter_declaration as Record<string, any>).supportedVariants as unknown[]).join(" · ")}
+                                      </div>
+                                    ) : null}
+                                  </>
+                                ) : null}
                                 {activeExperienceDeploymentState.last_provider ? (
                                   <div>Provider: {String(activeExperienceDeploymentState.last_provider)}</div>
                                 ) : null}
@@ -5973,6 +6007,16 @@ export const ComposerStudio = () => {
                                     <div className="sm:col-span-2">
                                       Capability: {String(entry.capability_summary)}
                                     </div>
+                                  ) : null}
+                                  {entry.adapter_declaration && typeof entry.adapter_declaration === "object" ? (
+                                    <>
+                                      <div>
+                                        Adapter: {String((entry.adapter_declaration as Record<string, any>).label || (entry.adapter_declaration as Record<string, any>).adapter || "Unknown")}
+                                      </div>
+                                      <div>
+                                        Availability: {String((entry.adapter_declaration as Record<string, any>).availability || "active")}
+                                      </div>
+                                    </>
                                   ) : null}
                                   {entry.provider ? <div>Provider: {String(entry.provider)}</div> : null}
                                   {entry.variant ? <div>Variant: {String(entry.variant)}</div> : null}
@@ -7518,6 +7562,26 @@ export const ComposerStudio = () => {
                       <div>Capability: {latestSelectedDeploymentResult.capability.summary}</div>
                     ) : selectedDeploymentCard?.capabilitySummary ? (
                       <div>Capability: {selectedDeploymentCard.capabilitySummary}</div>
+                    ) : null}
+                    {latestSelectedDeploymentResult?.adapterDeclaration ? (
+                      <>
+                        <div>
+                          Adapter: {latestSelectedDeploymentResult.adapterDeclaration.label}
+                        </div>
+                        <div>
+                          Availability: {latestSelectedDeploymentResult.adapterDeclaration.availability}
+                        </div>
+                        {latestSelectedDeploymentResult.adapterDeclaration.supportedModes.length > 0 ? (
+                          <div>
+                            Supported modes: {latestSelectedDeploymentResult.adapterDeclaration.supportedModes.join(" · ")}
+                          </div>
+                        ) : null}
+                        {latestSelectedDeploymentResult.adapterDeclaration.supportedVariants.length > 0 ? (
+                          <div>
+                            Supported variants: {latestSelectedDeploymentResult.adapterDeclaration.supportedVariants.join(" · ")}
+                          </div>
+                        ) : null}
+                      </>
                     ) : null}
                     {latestSelectedDeploymentResult?.destinationSurface ? (
                       <div>Surface: {String(latestSelectedDeploymentResult.destinationSurface)}</div>
