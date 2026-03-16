@@ -13,6 +13,10 @@ import { PreviewFrame } from "@/components/preview/PreviewFrame";
 import { DevicePreviewSwitcher, type DeviceType } from "@/components/preview/DevicePreviewSwitcher";
 import { useToast } from "@/components/ui/toaster";
 import {
+  detectExperienceProviderFromAssetUri,
+  ExperienceBlockHeader,
+} from "@/components/composer/ExperienceBlockChrome";
+import {
   buildLaunchMessageId,
   normalizeCodexId,
   readCodexClose,
@@ -46,6 +50,7 @@ import {
   RotateCcw,
   Send,
   Share2,
+  SquareArrowOutUpRight,
   Tv,
   Users,
 } from "lucide-react";
@@ -1598,6 +1603,8 @@ export default function MetaMeRuntimeClient() {
         const previewMedia = content.runtimePreviewMediaUri || null;
         const mediaImage = !isLikelyVideoUri(previewMedia) ? previewMedia || heroImage : heroImage;
         const { videoStyle, imageStyle } = resolveSmartMediaPanelStyles(activeDevice, intent);
+        const provider = detectExperienceProviderFromAssetUri(previewMedia || heroImage || content.runtimeLaunchHref || null);
+        const primaryKind = isLikelyVideoUri(previewMedia) ? "video" : "image";
         return (
           <div className="rounded-2xl border border-cyan-400/25 bg-slate-950/85 p-3 space-y-3">
             <div className="flex items-start justify-between gap-3">
@@ -1629,27 +1636,63 @@ export default function MetaMeRuntimeClient() {
               </div>
             ) : null}
 
-            {isLikelyVideoUri(previewMedia) ? (
-              <video
-                src={previewMedia || undefined}
-                poster={heroImage || undefined}
-                controls
-                className="w-full rounded-xl border border-white/10 bg-slate-950 object-cover"
-                style={videoStyle}
+            <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60">
+              <ExperienceBlockHeader
+                kind={primaryKind}
+                provider={provider}
+                title={primaryKind === "video" ? "Video Generation" : "Image Generation"}
+                mobileTitle={primaryKind === "video" ? "Video" : "Image"}
+                rightActions={
+                  content.runtimeLaunchHref ? (
+                    <a
+                      href={content.runtimeLaunchHref}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 transition hover:bg-white/5 hover:text-cyan-200"
+                    >
+                      <SquareArrowOutUpRight className="h-4 w-4" />
+                    </a>
+                  ) : null
+                }
               />
-            ) : mediaImage ? (
-              <img
-                src={mediaImage}
-                alt={content.title}
-                className="w-full rounded-xl border border-white/10 object-cover"
-                style={imageStyle}
-                loading="lazy"
-              />
-            ) : (
-              <div className="rounded-xl border border-amber-400/25 bg-amber-500/10 p-2 text-[11px] text-amber-100">
-                Asset unavailable for this ExperienceQube.
+
+              <div className="p-4 pt-3 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="text-xs font-medium uppercase tracking-widest text-slate-400">
+                    {primaryKind === "video" ? "video" : "preview"}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] text-cyan-200">
+                      Last generated
+                    </div>
+                    <div className="flex items-center gap-1 text-[10px] text-emerald-300">
+                      <Eye className="h-3 w-3" />
+                      Live
+                    </div>
+                  </div>
+                </div>
+
+                {isLikelyVideoUri(previewMedia) ? (
+                  <video
+                    src={previewMedia || undefined}
+                    poster={heroImage || undefined}
+                    controls
+                    className="w-full rounded-xl border border-white/10 bg-slate-950 object-cover"
+                    style={videoStyle}
+                  />
+                ) : mediaImage ? (
+                  <img
+                    src={mediaImage}
+                    alt={content.title}
+                    className="w-full rounded-xl border border-white/10 object-cover"
+                    style={imageStyle}
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="rounded-xl border border-amber-400/25 bg-amber-500/10 p-2 text-[11px] text-amber-100">
+                    Asset unavailable for this ExperienceQube.
+                  </div>
+                )}
               </div>
-            )}
+            </div>
 
             <p className="text-[11px] text-slate-400">
               Rendering the published experience media directly in runtime to avoid nested iframe shells.

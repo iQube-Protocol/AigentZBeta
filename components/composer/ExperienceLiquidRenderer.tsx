@@ -2,6 +2,7 @@
 
 import { liquidTemplateRegistry } from "@/app/triad/components/codex/liquidTemplates/registry";
 import { LiquidUIPlaceholderTemplate } from "@/app/triad/components/codex/liquidTemplates/LiquidUIPlaceholderTemplate";
+import { ExperienceBlockHeader } from "@/components/composer/ExperienceBlockChrome";
 import SkillVideoPlayer from "@/components/composer/SkillVideoPlayer";
 import SkillImagePlayer from "@/components/composer/SkillImagePlayer";
 
@@ -86,7 +87,12 @@ function CompositionBundleBrief({ packet }: { packet: Record<string, any> }) {
 
       {articleDraft ? (
         <div className="mt-3 rounded-xl border border-slate-800 bg-slate-950/60 p-3">
-          <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Article Context</div>
+          <ExperienceBlockHeader
+            kind="copy"
+            title="Article Draft"
+            mobileTitle="Copy"
+            className="flex items-center justify-between pb-3"
+          />
           <div className="mt-1 font-medium text-white">
             {typeof articleDraft.title === "string" && articleDraft.title ? articleDraft.title : "Editorial draft"}
           </div>

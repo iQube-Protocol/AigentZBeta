@@ -6,6 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dots } from "@/components/registry/scoreUtils";
 import {
+  ExperienceBlockHeader,
+  ExperienceStyleIcon,
+  getExperienceProviderLabel,
+} from "@/components/composer/ExperienceBlockChrome";
+import {
   Play,
   Loader2,
   AlertTriangle,
@@ -18,12 +23,6 @@ import {
   Clock,
   Clapperboard,
   Info,
-  Film,
-  Sparkles,
-  Camera,
-  Palette,
-  Brush,
-  Newspaper,
 } from "lucide-react";
 import { persistGeneratedAssetsForExperience } from "@/services/composer/generatedAssetClient";
 
@@ -85,39 +84,11 @@ function inferProviderFromSkillId(skillId: string): "venice" | "openai" {
 }
 
 function getProviderLabel(provider: "venice" | "openai") {
-  return provider === "venice" ? "Venice" : "OpenAI Sora";
+  return provider === "openai" ? "OpenAI Sora" : getExperienceProviderLabel(provider) || "Venice";
 }
 
 function isLegacyVideoProxyUrl(uri: string | undefined) {
   return typeof uri === "string" && /\/api\/skills\/video\//i.test(uri);
-}
-
-const PROVIDER_ICON_URL: Record<"venice" | "openai", string> = {
-  openai: "/llm_model_logos/openai.png",
-  venice: "/llm_model_logos/venice.png",
-};
-
-function ProviderIcon({ provider, className }: { provider: "venice" | "openai"; className?: string }) {
-  const darkModeClass = provider === "openai" ? "dark:invert dark:brightness-200 dark:contrast-200" : "";
-  return (
-    <img
-      src={PROVIDER_ICON_URL[provider]}
-      alt={`${provider} logo`}
-      className={`rounded-[2px] object-contain ${className || "h-4 w-4"} ${darkModeClass}`}
-      loading="lazy"
-      decoding="async"
-    />
-  );
-}
-
-function StyleIcon({ style, className }: { style: string; className?: string }) {
-  const normalized = style.toLowerCase();
-  if (normalized.includes("editorial") || normalized.includes("article")) return <Newspaper className={className} />;
-  if (normalized.includes("cinematic")) return <Clapperboard className={className} />;
-  if (normalized.includes("photo")) return <Camera className={className} />;
-  if (normalized.includes("comic")) return <Brush className={className} />;
-  if (normalized.includes("illustration") || normalized.includes("art")) return <Palette className={className} />;
-  return <Sparkles className={className} />;
 }
 
 export default function SkillVideoPlayer({
@@ -405,22 +376,19 @@ export default function SkillVideoPlayer({
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-900/60 overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-slate-800/60">
-        <div className="flex items-center gap-2">
-          <ProviderIcon provider={resolvedProvider} className="h-5 w-5" />
-          <span className="hidden text-sm font-semibold text-white sm:inline">{providerLabel}</span>
-          <Film className="h-5 w-5 text-cyan-300" />
-          <span className="hidden text-sm font-semibold text-white sm:inline">Video Generation</span>
-          <span className="text-sm font-semibold text-white sm:hidden">Video</span>
-          {result?.skill_composite != null && (
-            <TrustDots composite={result.skill_composite} />
-          )}
-        </div>
-        <div className="flex items-center gap-1">
+      <ExperienceBlockHeader
+        kind="video"
+        provider={resolvedProvider}
+        providerLabel={providerLabel}
+        title="Video Generation"
+        mobileTitle="Video"
+        trustNode={result?.skill_composite != null ? <TrustDots composite={result.skill_composite} /> : null}
+        rightActions={
+          <>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button size="icon" variant="ghost" className="h-8 w-8 text-slate-400">
-                <StyleIcon style={style} className="h-4.5 w-4.5" />
+                <ExperienceStyleIcon style={style} className="h-4.5 w-4.5" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom">{style}</TooltipContent>
@@ -440,8 +408,9 @@ export default function SkillVideoPlayer({
               <TooltipContent side="bottom">{showReceipt ? "Hide receipt" : "Show receipt"}</TooltipContent>
             </Tooltip>
           )}
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {/* Main content area */}
       <div className="p-4">

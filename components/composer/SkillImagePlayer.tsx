@@ -3,7 +3,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Newspaper, Sparkles, ImageIcon, Loader2, RefreshCw, AlertTriangle, CheckCircle2, FileText, Clapperboard, Camera, Palette, Brush } from "lucide-react";
+import { ImageIcon, Loader2, RefreshCw, AlertTriangle, CheckCircle2, FileText } from "lucide-react";
+import {
+  ExperienceBlockHeader,
+  ExperienceStyleIcon,
+  getExperienceProviderLabel,
+} from "@/components/composer/ExperienceBlockChrome";
 import { persistGeneratedAssetsForExperience } from "@/services/composer/generatedAssetClient";
 
 interface SkillImagePlayerProps {
@@ -38,36 +43,7 @@ interface GenerationResponse {
   receipt?: Record<string, unknown>;
 }
 
-const providerLabel = (provider: "openai" | "venice") =>
-  provider === "venice" ? "Venice" : "OpenAI";
-
-const PROVIDER_ICON_URL: Record<"openai" | "venice", string> = {
-  openai: "/llm_model_logos/openai.png",
-  venice: "/llm_model_logos/venice.png",
-};
-
-function ProviderIcon({ provider, className }: { provider: "openai" | "venice"; className?: string }) {
-  const darkModeClass = provider === "openai" ? "dark:invert dark:brightness-200 dark:contrast-200" : "";
-  return (
-    <img
-      src={PROVIDER_ICON_URL[provider]}
-      alt={`${provider} logo`}
-      className={`rounded-[2px] object-contain ${className || "h-4 w-4"} ${darkModeClass}`}
-      loading="lazy"
-      decoding="async"
-    />
-  );
-}
-
-function StyleIcon({ style, className }: { style: string; className?: string }) {
-  const normalized = style.toLowerCase();
-  if (normalized.includes("editorial") || normalized.includes("article")) return <Newspaper className={className} />;
-  if (normalized.includes("cinematic")) return <Clapperboard className={className} />;
-  if (normalized.includes("photo")) return <Camera className={className} />;
-  if (normalized.includes("comic")) return <Brush className={className} />;
-  if (normalized.includes("illustration") || normalized.includes("art")) return <Palette className={className} />;
-  return <Sparkles className={className} />;
-}
+const providerLabel = (provider: "openai" | "venice") => getExperienceProviderLabel(provider) || "OpenAI";
 
 function mergeImageReceipts(
   provider: "openai" | "venice",
@@ -342,19 +318,17 @@ export default function SkillImagePlayer({
 
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60">
-      <div className="flex items-center justify-between border-b border-slate-800/60 p-4">
-        <div className="flex items-center gap-2">
-          <ProviderIcon provider={provider_id} className="h-5 w-5" />
-          <span className="hidden text-sm font-semibold text-white sm:inline">{providerLabel(provider_id)}</span>
-          <ImageIcon className="h-5 w-5 text-cyan-300" />
-          <span className="hidden text-sm font-semibold text-white sm:inline">Image Generation</span>
-          <span className="text-sm font-semibold text-white sm:hidden">Image</span>
-        </div>
-        <div className="flex items-center gap-2">
+      <ExperienceBlockHeader
+        kind="image"
+        provider={provider_id}
+        title="Image Generation"
+        mobileTitle="Image"
+        rightActions={
+          <>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button size="icon" variant="ghost" className="h-8 w-8 text-slate-400">
-                <StyleIcon style={visual_style} className="h-4.5 w-4.5" />
+                <ExperienceStyleIcon style={visual_style} className="h-4.5 w-4.5" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom">{visual_style}</TooltipContent>
@@ -382,8 +356,9 @@ export default function SkillImagePlayer({
             </TooltipTrigger>
             <TooltipContent side="bottom">{state === "idle" ? "Generate" : "Regenerate"}</TooltipContent>
           </Tooltip>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       <div className="p-4">
         {state === "idle" && (
