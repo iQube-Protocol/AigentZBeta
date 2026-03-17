@@ -127,6 +127,10 @@ function resolveAaBrowserBaseUrl(runtimeConfig: RuntimeAaConfig | null): string 
 
   if (runtimeConfig?.baseUrl) return runtimeConfig.baseUrl;
 
+  if (typeof window !== "undefined" && window.location?.origin) {
+    return `${window.location.origin.replace(/\/+$/, "")}/api/`;
+  }
+
   const supabaseUrl = asNonEmptyString(process.env.NEXT_PUBLIC_SUPABASE_URL);
   if (supabaseUrl) {
     return `${supabaseUrl.replace(/\/+$/, "")}/functions/v1/aa-proxy/`;
