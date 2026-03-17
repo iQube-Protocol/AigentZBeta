@@ -27,6 +27,12 @@ const nextConfig = {
     // Temporary alias: resolve SDK to source until dist is present in npm tarball
     config.resolve = config.resolve || {};
     config.resolve.alias = config.resolve.alias || {};
+    config.resolve.extensionAlias = {
+      ...(config.resolve.extensionAlias || {}),
+      ".js": [".ts", ".tsx", ".js"],
+      ".mjs": [".mts", ".mjs"],
+      ".cjs": [".cts", ".cjs"],
+    };
     config.resolve.alias["@qriptoagentiq/core-client"] = require("path").join(
       __dirname,
       "node_modules/@qriptoagentiq/core-client/src/index.ts"
