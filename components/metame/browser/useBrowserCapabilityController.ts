@@ -119,6 +119,14 @@ function readRuntimeAaConfig(): RuntimeAaConfig | null {
   }
 }
 
+function unwrapBrowserPayload(payload: Record<string, unknown>): Record<string, unknown> {
+  const nested = payload.payload;
+  if (nested && typeof nested === "object" && !Array.isArray(nested)) {
+    return nested as Record<string, unknown>;
+  }
+  return payload;
+}
+
 export function useBrowserCapabilityController({ enabled, emitShellEvent }: UseBrowserCapabilityControllerOptions) {
   const subscriptionRef = useRef<{ close: () => void } | null>(null);
   const activeSessionIdRef = useRef<string | null>(null);
@@ -475,7 +483,7 @@ export function useBrowserCapabilityController({ enabled, emitShellEvent }: UseB
     (message: ShellInboundMessage): boolean => {
       if (!message.type.startsWith("browser.")) return false;
 
-      const payload = message.payload || {};
+      const payload = unwrapBrowserPayload(message.payload || {});
       const sessionId =
         typeof payload.sessionId === "string" ? payload.sessionId : activeSessionIdRef.current || undefined;
 

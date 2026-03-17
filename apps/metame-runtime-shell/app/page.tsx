@@ -389,6 +389,14 @@ export default function RuntimeShellHomePage() {
   useEffect(() => {
     if (!config || !runtimeOrigin || !iframeLoaded || handoffSent) return;
 
+    const handoffContext = {
+      ...config.iframe.bootstrap.context,
+      ...(process.env.NEXT_PUBLIC_AA_API_BASE_URL
+        ? { aa_api_base_url: process.env.NEXT_PUBLIC_AA_API_BASE_URL }
+        : {}),
+      ...(process.env.NEXT_PUBLIC_AA_API_TOKEN ? { aa_api_token: process.env.NEXT_PUBLIC_AA_API_TOKEN } : {}),
+    };
+
     const readySent = postShellEvent("SHELL_READY", {
       iframe_url: runtimeUrl,
       shell_version: "0.1.0",
@@ -396,7 +404,7 @@ export default function RuntimeShellHomePage() {
 
     const handoffSentNow = postShellEvent("HANDOFF", {
       handoff_token: config.iframe.bootstrap.handoff_token,
-      context: config.iframe.bootstrap.context,
+      context: handoffContext,
     });
 
     if (readySent && handoffSentNow) {
