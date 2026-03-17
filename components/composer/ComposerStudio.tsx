@@ -564,6 +564,98 @@ const ARTICLE_DRAFT_OUTPUT_OPTIONS = [
   { value: "next_action", label: "Next Action" },
 ] as const;
 
+type ArticleDraftArtifact = {
+  title: string;
+  deck: string;
+  opening: string;
+  sections: Array<{ heading: string; body: string }>;
+  takeaways: string[];
+  glossary: Array<{ term: string; definition: string }>;
+  nextAction: string | null;
+};
+
+function trimTrailingPunctuation(value: string) {
+  return value.trim().replace(/[.?!]+$/g, "");
+}
+
+function sentence(value: string, fallback: string) {
+  const normalized = trimTrailingPunctuation(value || "");
+  if (!normalized) return fallback;
+  return `${normalized}.`;
+}
+
+function buildArticleDraftArtifact(params: {
+  experienceName?: string | null;
+  title?: string | null;
+  prompt?: string | null;
+  outputs?: string[];
+  takeawaysCount?: number;
+  mediaMode?: "image" | "video";
+}): ArticleDraftArtifact | null {
+  const title = firstNonEmptyString([params.title, params.experienceName, "Editorial draft"]);
+  const prompt = firstNonEmptyString([params.prompt]);
+  if (!title && !prompt) return null;
+
+  const outputs = normalizeStringArray(params.outputs);
+  const takeawaysCount = Math.min(Math.max(params.takeawaysCount || 3, 1), 5);
+  const mediaNoun = params.mediaMode === "video" ? "video experience" : "visual experience";
+  const promptSentence = sentence(
+    prompt || "",
+    `Frame the current ${mediaNoun} with a supporting editorial narrative`,
+  );
+  const deck = `${title || "Editorial draft"} pairs the current ${mediaNoun} with copy that explains why it matters and what the audience should do next.`;
+  const opening = `${promptSentence} This draft is structured to help the audience understand the core idea quickly, then move into the supporting details with confidence.`;
+  const sections = [
+    {
+      heading: "Why this matters",
+      body: `Use this section to establish the editorial thesis behind ${title || "the experience"} and explain why the audience should care right now.`,
+    },
+    {
+      heading: params.mediaMode === "video" ? "How to watch this" : "How to read the visual",
+      body: `Anchor the audience in the primary ${mediaNoun}, call out the important cues to notice, and connect those cues back to the editorial prompt.`,
+    },
+    {
+      heading: "What to do next",
+      body: "Close with the strongest practical takeaway, the intended action, and any reward, quest, or follow-on experience the audience should open next.",
+    },
+  ];
+
+  const takeaways = Array.from({ length: takeawaysCount }, (_, index) => {
+    if (index === 0) return `Lead with the core thesis behind ${title || "this experience"}.`;
+    if (index === 1) return `Tie the ${mediaNoun} directly to the supporting editorial explanation.`;
+    if (index === 2) return "Make the audience's next action explicit and easy to follow.";
+    if (index === 3) return "Use the supporting copy to reinforce trust, provenance, and reward context.";
+    return "Keep the closing summary concise enough to work as a launch or share-ready capsule.";
+  });
+
+  const glossary = outputs.includes("glossary")
+    ? [
+        {
+          term: "Editorial frame",
+          definition: "The short narrative layer that explains what the audience is seeing and why it matters.",
+        },
+        {
+          term: "Supporting context",
+          definition: "Companion copy that turns a media asset into a guided experience rather than a standalone artifact.",
+        },
+      ]
+    : [];
+
+  const nextAction = outputs.includes("next_action")
+    ? "Prompt the user to continue into the linked experience, unlock the next capsule, or share the strongest takeaway."
+    : null;
+
+  return {
+    title: title || "Editorial draft",
+    deck,
+    opening,
+    sections,
+    takeaways: outputs.includes("takeaways") ? takeaways : [],
+    glossary,
+    nextAction,
+  };
+}
+
 function resolveBundlePreferredStepId(
   blockKind: string | null | undefined,
   sessionData: Record<string, any> | null | undefined,
@@ -3336,6 +3428,15 @@ export const ComposerStudio = () => {
           asRecord(mergedData.intent_timebox)?.goal,
           returnedExperience?.description,
         ]) || null;
+      const articleGenerated =
+        buildArticleDraftArtifact({
+          experienceName: returnedExperience?.name,
+          title: articleTitle,
+          prompt: articlePrompt,
+          outputs: articleOutputs,
+          takeawaysCount: articleTakeawaysCount,
+          mediaMode: getAppliedExperienceBundle(returnedExperience)?.presetId === "video_article_bundle" ? "video" : "image",
+        }) || null;
       const completedExperience = returnedExperience
           ? {
             ...returnedExperience,
@@ -3352,6 +3453,7 @@ export const ComposerStudio = () => {
                       ...(typeof articleTakeawaysCount === "number"
                         ? { takeaways_count: articleTakeawaysCount }
                         : {}),
+                      ...(articleGenerated ? { generated: articleGenerated } : {}),
                     },
                     ...(articleOutputs.length > 0 || typeof articleTakeawaysCount === "number"
                       ? {
@@ -3393,6 +3495,7 @@ export const ComposerStudio = () => {
                         ...(typeof articleTakeawaysCount === "number"
                           ? { takeaways_count: articleTakeawaysCount }
                           : {}),
+                        ...(articleGenerated ? { generated: articleGenerated } : {}),
                       },
                       ...(articleOutputs.length > 0 || typeof articleTakeawaysCount === "number"
                         ? {
@@ -3722,6 +3825,8 @@ export const ComposerStudio = () => {
         articleOutputs.length > 0 ||
         editableArticleTakeawaysCount !== 3,
     );
+    const articleGeneratedDraft =
+      hasArticleDraftState && editableArticleDraftPreview ? editableArticleDraftPreview : null;
     const nextIntentTimebox = {
       ...(asRecord(sessionData.intent_timebox) || {}),
       ...(asRecord(stepData.intent_timebox) || {}),
@@ -3745,6 +3850,7 @@ export const ComposerStudio = () => {
       ...(editableArticlePrompt.trim() ? { prompt: editableArticlePrompt.trim() } : {}),
       ...(articleOutputs.length > 0 ? { outputs: articleOutputs } : {}),
       ...(editableArticleTakeawaysCount > 0 ? { takeaways_count: editableArticleTakeawaysCount } : {}),
+      ...(articleGeneratedDraft ? { generated: articleGeneratedDraft } : {}),
     };
     const nextCopilotOutput = {
       ...(asRecord(sessionData.copilot_output) || {}),
@@ -4517,6 +4623,10 @@ export const ComposerStudio = () => {
         : typeof copilotOutput.takeaways_count === "number"
           ? copilotOutput.takeaways_count
           : 3;
+    const articleGenerated =
+      (asRecord(articleDraft.generated) as Record<string, any> | null) ||
+      (asRecord(metadataEditable.article_draft)?.generated as Record<string, any> | null) ||
+      null;
 
     return {
       experienceName:
@@ -4547,6 +4657,7 @@ export const ComposerStudio = () => {
       articleOutputs,
       articleTakeawaysCount:
         typeof takeawaysCount === "number" && Number.isFinite(takeawaysCount) ? takeawaysCount : 3,
+      articleGenerated,
     };
   }, [activeExperienceForEditing, mergedData]);
   const showEditableArticleDraft = useMemo(() => {
@@ -4555,11 +4666,36 @@ export const ComposerStudio = () => {
       Boolean(activeBundle?.blockKinds.includes("article_draft")) ||
       Boolean(
         editableGenerationDefaults.articleTitle ||
-          editableGenerationDefaults.articlePrompt ||
-          editableGenerationDefaults.articleOutputs.length > 0,
+        editableGenerationDefaults.articlePrompt ||
+          editableGenerationDefaults.articleOutputs.length > 0 ||
+          editableGenerationDefaults.articleGenerated,
       )
     );
   }, [activeExperienceForEditing, editableGenerationDefaults]);
+  const editableArticleDraftPreview = useMemo(
+    () =>
+      buildArticleDraftArtifact({
+        experienceName: editableExperienceName.trim() || editableGenerationDefaults.experienceName,
+        title: editableArticleTitle.trim(),
+        prompt: editableArticlePrompt.trim(),
+        outputs: editableArticleOutputs,
+        takeawaysCount: editableArticleTakeawaysCount,
+        mediaMode:
+          activeAppliedExperienceBundle?.presetId === "video_article_bundle" ? "video" : "image",
+      }) ||
+      (editableGenerationDefaults.articleGenerated as ArticleDraftArtifact | null) ||
+      null,
+    [
+      activeAppliedExperienceBundle?.presetId,
+      editableArticleOutputs,
+      editableArticlePrompt,
+      editableArticleTakeawaysCount,
+      editableArticleTitle,
+      editableExperienceName,
+      editableGenerationDefaults.articleGenerated,
+      editableGenerationDefaults.experienceName,
+    ],
+  );
   const activeExperienceDeploymentHistory = useMemo(() => {
     const raw = activeExperienceForEditing?.metadata?.deployment_history;
     if (!Array.isArray(raw)) return [];
@@ -5969,6 +6105,74 @@ export const ComposerStudio = () => {
                                   className="w-full"
                                 />
                               </div>
+                              {editableArticleDraftPreview ? (
+                                <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4">
+                                  <div className="flex items-center justify-between gap-3">
+                                    <div>
+                                      <div className="text-xs uppercase tracking-widest text-cyan-300">Draft review</div>
+                                      <div className="mt-1 text-sm font-semibold text-white">
+                                        {editableArticleDraftPreview.title}
+                                      </div>
+                                    </div>
+                                    <span className="rounded-full border border-cyan-400/30 px-2.5 py-1 text-[11px] text-cyan-200">
+                                      bundle copy
+                                    </span>
+                                  </div>
+                                  <div className="mt-3 text-sm text-slate-200">
+                                    {editableArticleDraftPreview.deck}
+                                  </div>
+                                  <div className="mt-2 text-xs text-slate-400">
+                                    {editableArticleDraftPreview.opening}
+                                  </div>
+                                  <div className="mt-4 grid gap-3 xl:grid-cols-2">
+                                    {editableArticleDraftPreview.sections.map((section) => (
+                                      <div
+                                        key={section.heading}
+                                        className="rounded-xl border border-slate-800 bg-slate-950/60 p-3"
+                                      >
+                                        <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">
+                                          {section.heading}
+                                        </div>
+                                        <div className="mt-1 text-xs text-slate-300">{section.body}</div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                  {editableArticleDraftPreview.takeaways.length > 0 ? (
+                                    <div className="mt-4">
+                                      <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">
+                                        Takeaways
+                                      </div>
+                                      <div className="mt-2 space-y-1 text-xs text-slate-300">
+                                        {editableArticleDraftPreview.takeaways.map((item) => (
+                                          <div key={item}>{item}</div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ) : null}
+                                  {editableArticleDraftPreview.glossary.length > 0 ? (
+                                    <div className="mt-4">
+                                      <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">
+                                        Glossary
+                                      </div>
+                                      <div className="mt-2 space-y-2 text-xs text-slate-300">
+                                        {editableArticleDraftPreview.glossary.map((item) => (
+                                          <div key={item.term}>
+                                            <span className="font-medium text-white">{item.term}</span>: {item.definition}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ) : null}
+                                  {editableArticleDraftPreview.nextAction ? (
+                                    <div className="mt-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-xs text-emerald-100">
+                                      <div className="text-[11px] uppercase tracking-[0.16em] text-emerald-300">
+                                        Next action
+                                      </div>
+                                      <div className="mt-1">{editableArticleDraftPreview.nextAction}</div>
+                                    </div>
+                                  ) : null}
+                                </div>
+                              ) : null}
                             </div>
                           )}
                         </div>

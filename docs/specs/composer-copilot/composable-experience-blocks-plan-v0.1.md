@@ -280,6 +280,22 @@ Status:
 - article title, prompt, scaffold outputs, and takeaway count now persist through session save and ExperienceQube update paths
 - packet/runtime bundle briefs now consume persisted article-draft fields instead of relying only on fallback metadata
 
+### Phase 4 Sixth Implementation Slice
+
+The next concrete Phase `4` slice should be:
+
+1. turn the article block into an operational draft-review surface rather than only an input form
+2. derive a structured draft artifact from the saved article block inputs
+3. persist that artifact with the ExperienceQube so packet/runtime can reuse it
+4. keep the first pass deterministic until dedicated copy-generation adapters are introduced
+
+Status:
+
+- complete
+- Customizer now renders a bundle-aware article draft review surface with deck, opening, sections, takeaways, glossary, and next action
+- the generated article draft artifact now persists in `configuration.article_draft.generated`
+- packet/runtime bundle briefs now surface the same generated draft artifact for review outside Customizer
+
 The next broader Phase `4` work should include:
 
 1. dedicated bundle templates for:

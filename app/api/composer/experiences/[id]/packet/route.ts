@@ -214,6 +214,8 @@ function buildArticleDraftContext(experience: any) {
       : typeof copilotOutput.takeaways_count === "number"
         ? copilotOutput.takeaways_count
         : undefined;
+  const generated =
+    articleDraft.generated && typeof articleDraft.generated === "object" ? articleDraft.generated : undefined;
 
   return {
     title:
@@ -232,6 +234,7 @@ function buildArticleDraftContext(experience: any) {
     supportingItemIds: Array.isArray(content.supporting_item_ids) ? content.supporting_item_ids : [],
     outputs: outputs.filter((item: unknown): item is string => typeof item === "string" && item.trim().length > 0),
     takeawaysCount,
+    generated,
     mode:
       (typeof articleDraft.mode === "string" && articleDraft.mode.trim()) ||
       (outputs.length > 0 ? outputs.join(", ") : "supporting_context"),

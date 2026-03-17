@@ -17,6 +17,8 @@ function CompositionBundleBrief({ packet }: { packet: Record<string, any> }) {
 
   const articleDraft =
     packet?.article_draft && typeof packet.article_draft === "object" ? packet.article_draft : null;
+  const articleGenerated =
+    articleDraft?.generated && typeof articleDraft.generated === "object" ? articleDraft.generated : null;
   const articleOutputs: string[] =
     articleDraft && Array.isArray(articleDraft.outputs)
       ? articleDraft.outputs.filter((item: unknown): item is string => typeof item === "string")
@@ -103,6 +105,12 @@ function CompositionBundleBrief({ packet }: { packet: Record<string, any> }) {
           {typeof articleDraft.prompt === "string" && articleDraft.prompt ? (
             <div className="mt-1 text-xs text-slate-400">{articleDraft.prompt}</div>
           ) : null}
+          {typeof articleGenerated?.deck === "string" && articleGenerated.deck ? (
+            <div className="mt-3 text-sm text-slate-300">{articleGenerated.deck}</div>
+          ) : null}
+          {typeof articleGenerated?.opening === "string" && articleGenerated.opening ? (
+            <div className="mt-2 text-xs text-slate-400">{articleGenerated.opening}</div>
+          ) : null}
           {articleOutputs.length > 0 ? (
             <div className="mt-3 flex flex-wrap gap-2">
               {articleOutputs.map((item) => (
@@ -118,6 +126,24 @@ function CompositionBundleBrief({ packet }: { packet: Record<string, any> }) {
                   {articleDraft.takeawaysCount} takeaways
                 </span>
               ) : null}
+            </div>
+          ) : null}
+          {Array.isArray(articleGenerated?.sections) && articleGenerated.sections.length > 0 ? (
+            <div className="mt-3 space-y-2">
+              {articleGenerated.sections.slice(0, 2).map((section: any) => (
+                <div key={section.heading} className="rounded-xl border border-slate-800 bg-slate-900/50 p-3">
+                  <div className="text-xs font-medium uppercase tracking-[0.16em] text-slate-500">
+                    {section.heading}
+                  </div>
+                  <div className="mt-1 text-xs text-slate-300">{section.body}</div>
+                </div>
+              ))}
+            </div>
+          ) : null}
+          {typeof articleGenerated?.nextAction === "string" && articleGenerated.nextAction ? (
+            <div className="mt-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-xs text-emerald-100">
+              <div className="text-[11px] uppercase tracking-[0.16em] text-emerald-300">Next Action</div>
+              <div className="mt-1">{articleGenerated.nextAction}</div>
             </div>
           ) : null}
         </div>
