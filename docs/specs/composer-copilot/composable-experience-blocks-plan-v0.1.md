@@ -249,6 +249,21 @@ Status:
 
 ### Phase 4 Planned Follow-on
 
+### Phase 4 Fourth Implementation Slice
+
+The next concrete Phase `4` slice should be:
+
+1. make bundle preset application drive Customizer entry, not just metadata persistence
+2. resolve the active bundle block into a preferred template step
+3. open the active ExperienceQube on that step when a bundle is applied
+4. show a bundle progress/jump control inside Customizer so the user can move intentionally between blocks
+
+Status:
+
+- complete
+- applying `Image + Article` or `Video + Article` now opens the active ExperienceQube into Customizer on the preferred bundle step
+- Customizer now shows active bundle progress and can jump to the current bundle block directly
+
 The next broader Phase `4` work should include:
 
 1. dedicated bundle templates for:

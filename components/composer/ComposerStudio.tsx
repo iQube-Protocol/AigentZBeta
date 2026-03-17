@@ -61,6 +61,7 @@ import {
   buildExperienceBundlePresetPatch,
   getAppliedExperienceBundle,
   listExperienceBundlePresets,
+  resolveExperienceBundleSequencingState,
   type ExperienceBundlePresetId,
 } from "@/services/composer/experienceBundlePresets";
 import { buildComposerRoutingEnvelope } from "@/services/composer/routingEnvelope";
@@ -544,6 +545,37 @@ function firstNonEmptyString(values: unknown[]): string | null {
     }
   }
   return null;
+}
+
+function resolveBundlePreferredStepId(
+  blockKind: string | null | undefined,
+  sessionData: Record<string, any> | null | undefined,
+) {
+  if (blockKind === "image_generation") {
+    return "image_generation";
+  }
+  if (blockKind === "video_generation") {
+    const selectedSkillId = sessionData?.skill_selection?.skill_id;
+    return typeof selectedSkillId === "string" && selectedSkillId.trim() ? "video_prompt" : "skill_selection";
+  }
+  if (blockKind === "article_draft") {
+    const contentStep = sessionData?.content_selection;
+    const hasContentSelection =
+      Boolean(contentStep?.feature_item_id) ||
+      Boolean(contentStep?.issue_slug) ||
+      (Array.isArray(contentStep?.supporting_item_ids) && contentStep.supporting_item_ids.length > 0);
+    return hasContentSelection ? "copilot_output" : "content_selection";
+  }
+  if (blockKind === "deployment") {
+    return "wallet_rewards";
+  }
+  return null;
+}
+
+function resolveStepIndexForId(steps: ComposerStep[], preferredStepId: string | null | undefined) {
+  if (!preferredStepId) return null;
+  const index = steps.findIndex((step) => step.id === preferredStepId);
+  return index >= 0 ? index : null;
 }
 
 function inferMediaType(uri: string, preferred?: string | null): "image" | "video" {
@@ -1551,7 +1583,12 @@ export const ComposerStudio = () => {
     }
   };
 
-  const handleEditExperience = async (experience: ExperienceQube) => {
+  const handleEditExperience = async (
+    experience: ExperienceQube,
+    options?: {
+      preferredStepId?: string | null;
+    }
+  ) => {
     setEditingExperienceId(experience.id);
     const templateId = experience.template_id?.trim();
     if (!templateId) {
@@ -1591,11 +1628,14 @@ export const ComposerStudio = () => {
       if (!createRes.ok) throw new Error("Failed to open a template customization session");
       const createData = await createRes.json();
 
+      const preferredStepIndex = resolveStepIndexForId(createData.template?.steps || [], options?.preferredStepId);
+      const initialStep = preferredStepIndex ?? 0;
+
       const updateRes = await fetch(`/api/composer/sessions/${createData.session.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          current_step: 0,
+          current_step: initialStep,
           status: "active",
           data: seedData,
         }),
@@ -1604,7 +1644,7 @@ export const ComposerStudio = () => {
       const updateData = await updateRes.json();
 
       setSelectedTemplateId(templateId);
-      setSession(updateData.session || { ...createData.session, current_step: 0, data: seedData });
+      setSession(updateData.session || { ...createData.session, current_step: initialStep, data: seedData });
       setSessionTemplate({
         ...(createData.template || {}),
         steps: createData.template?.steps || [],
@@ -3063,6 +3103,14 @@ export const ComposerStudio = () => {
       [currentStep.id]: stepValues,
     };
   }, [currentStep, sessionData, stepValues]);
+  const bundleCustomizerTargetStepIndex = useMemo(() => {
+    if (!sessionTemplate || !activeExperienceBundleSequencingState) return null;
+    const preferredStepId = resolveBundlePreferredStepId(
+      activeExperienceBundleSequencingState.activeBlock,
+      mergedData,
+    );
+    return resolveStepIndexForId(sessionTemplate.steps || [], preferredStepId);
+  }, [activeExperienceBundleSequencingState, mergedData, sessionTemplate]);
 
   const experienceResourceCounts = useMemo(() => {
     const summary = summarizeExperienceResources(sessionTemplate, mergedData);
@@ -3196,6 +3244,18 @@ export const ComposerStudio = () => {
     const data = await res.json();
     setSession(data.session);
     setSessionData(nextData);
+  };
+
+  const handleJumpToBundleStep = async () => {
+    if (!session || bundleCustomizerTargetStepIndex === null) return;
+    try {
+      setIsSaving(true);
+      await updateSession(bundleCustomizerTargetStepIndex);
+    } catch (err: any) {
+      setSessionError(err.message || "Failed to move to the active bundle step");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleNext = async () => {
@@ -4322,6 +4382,10 @@ export const ComposerStudio = () => {
     () => getAppliedExperienceBundle(activeExperienceForEditing),
     [activeExperienceForEditing],
   );
+  const activeExperienceBundleSequencingState = useMemo(
+    () => resolveExperienceBundleSequencingState(activeExperienceForEditing, activeAppliedExperienceBundle),
+    [activeAppliedExperienceBundle, activeExperienceForEditing],
+  );
   const handleApplyBundlePreset = useCallback(
     async (presetId: ExperienceBundlePresetId) => {
       if (!activeExperienceForEditing?.id) {
@@ -4359,6 +4423,21 @@ export const ComposerStudio = () => {
             metadata: patch.metadata,
           },
           "Failed to apply Make bundle preset.",
+        );
+        const patchedExperience = {
+          ...activeExperienceForEditing,
+          configuration: patch.configuration,
+          metadata: patch.metadata,
+        } as ExperienceQube;
+        setExperiencePanelTab("customizer");
+        await handleEditExperience(
+          patchedExperience,
+          {
+            preferredStepId: resolveBundlePreferredStepId(
+              resolveExperienceBundleSequencingState(patchedExperience, patch.bundle)?.activeBlock,
+              patch.configuration,
+            ),
+          }
         );
         setPreviewAction(`Applied ${preset.label} bundle`);
       } catch (error: any) {
@@ -5301,6 +5380,42 @@ export const ComposerStudio = () => {
                 )}
                 {session && sessionTemplate && (
                   <div className="max-h-[560px] space-y-4 overflow-y-auto pr-1">
+                    {activeAppliedExperienceBundle && activeExperienceBundleSequencingState && (
+                      <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <div className="text-xs uppercase tracking-widest text-cyan-300">Make Bundle</div>
+                            <div className="mt-1 text-sm font-semibold text-white">
+                              {activeAppliedExperienceBundle.label}
+                            </div>
+                            <div className="mt-1 text-xs text-slate-300">
+                              {activeExperienceBundleSequencingState.progressLabel}
+                            </div>
+                            <div className="mt-2 text-xs text-slate-400">
+                              Active block: {activeExperienceBundleSequencingState.activeBlock || "Bundle complete"}
+                            </div>
+                            {activeExperienceBundleSequencingState.nextBlock ? (
+                              <div className="mt-1 text-xs text-slate-500">
+                                Next block: {activeExperienceBundleSequencingState.nextBlock}
+                              </div>
+                            ) : null}
+                          </div>
+                          {bundleCustomizerTargetStepIndex !== null &&
+                          bundleCustomizerTargetStepIndex !== (session.current_step || 0) ? (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => void handleJumpToBundleStep()}
+                              disabled={isSaving}
+                              className="border-cyan-400/30 text-cyan-100"
+                            >
+                              Jump to active block
+                            </Button>
+                          ) : null}
+                        </div>
+                      </div>
+                    )}
                     <div className="space-y-2">
                       {sessionTemplate.steps.map((step, idx) => (
                         <div key={step.id} className="flex items-start gap-3">
