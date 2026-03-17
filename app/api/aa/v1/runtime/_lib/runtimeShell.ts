@@ -293,6 +293,14 @@ function resolveIframeOrigin(iframeUrl: string): string {
   }
 }
 
+function resolveAaApiBaseUrl(): string | null {
+  return asString(process.env.NEXT_PUBLIC_AA_API_BASE_URL) || asString(process.env.AA_API_BASE_URL);
+}
+
+function resolveAaApiToken(): string | null {
+  return asString(process.env.NEXT_PUBLIC_AA_API_TOKEN) || asString(process.env.AA_API_TOKEN);
+}
+
 function getAgentById(agentId: string): SelectorOption {
   return AGENT_OPTIONS.find((agent) => agent.id === agentId) || AGENT_OPTIONS[0];
 }
@@ -474,6 +482,8 @@ export function buildShellConfig(ctx: RuntimeContext, state: RuntimeState) {
   const reliability = Math.max(1, Math.min(10, baseScores.reliability - (ctx.processing ? 0.3 : 0)));
   const iframeUrl = resolveIframeUrl();
   const iframeOrigin = resolveIframeOrigin(iframeUrl);
+  const aaApiBaseUrl = resolveAaApiBaseUrl();
+  const aaApiToken = resolveAaApiToken();
 
   return {
     tenant_id: ctx.tenantId,
@@ -518,6 +528,8 @@ export function buildShellConfig(ctx: RuntimeContext, state: RuntimeState) {
           last_action_id: state.last_action_id,
           persona_id: ctx.personaId,
           tenant_id: ctx.tenantId,
+          ...(aaApiBaseUrl ? { aa_api_base_url: aaApiBaseUrl } : {}),
+          ...(aaApiToken ? { aa_api_token: aaApiToken } : {}),
         },
       },
     },
@@ -729,4 +741,3 @@ export function postPromptActionPayload(request: NextRequest, body: Record<strin
     },
   };
 }
-

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import {
   AAClient,
 } from "@metame/aa-client";
@@ -16,6 +16,18 @@ import type {
 import type { ShellInboundMessage } from "@metame/iframe-bridge";
 
 const STORAGE_KEY = "metame.browser.activeSessionId";
+const AA_CONFIG_STORAGE_KEY = "metame.browser.aaClientConfig";
+
+type RuntimeAaConfig = {
+  baseUrl: string;
+  token: string | null;
+};
+
+declare global {
+  interface Window {
+    __METAME_RUNTIME_AA_CONFIG__?: RuntimeAaConfig;
+  }
+}
 
 type UseBrowserCapabilityControllerOptions = {
   enabled: boolean;
@@ -75,18 +87,69 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
+function asNonEmptyString(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function readRuntimeAaConfig(): RuntimeAaConfig | null {
+  if (typeof window === "undefined") return null;
+
+  const fromWindow = window.__METAME_RUNTIME_AA_CONFIG__;
+  if (fromWindow?.baseUrl) {
+    return {
+      baseUrl: fromWindow.baseUrl,
+      token: fromWindow.token ?? null,
+    };
+  }
+
+  try {
+    const raw = sessionStorage.getItem(AA_CONFIG_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const baseUrl = asNonEmptyString(parsed.baseUrl);
+    if (!baseUrl) return null;
+    return {
+      baseUrl,
+      token: asNonEmptyString(parsed.token),
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function useBrowserCapabilityController({ enabled, emitShellEvent }: UseBrowserCapabilityControllerOptions) {
   const subscriptionRef = useRef<{ close: () => void } | null>(null);
   const activeSessionIdRef = useRef<string | null>(null);
   const surfaceStateRef = useRef<BrowserSurfaceState | null>(null);
+  const aaClientRef = useRef<{
+    baseUrl: string;
+    token: string | null;
+    client: AAClient;
+  } | null>(null);
 
-  const aaClient = useMemo(() => {
-    const baseUrl = process.env.NEXT_PUBLIC_AA_API_BASE_URL;
+  const getAaClient = useCallback(() => {
+    const runtimeConfig = readRuntimeAaConfig();
+    const baseUrl = process.env.NEXT_PUBLIC_AA_API_BASE_URL || runtimeConfig?.baseUrl || null;
     if (!baseUrl) return null;
-    return new AAClient({
+
+    const token = process.env.NEXT_PUBLIC_AA_API_TOKEN || runtimeConfig?.token || null;
+    const cached = aaClientRef.current;
+    if (cached && cached.baseUrl === baseUrl && cached.token === token) {
+      return cached.client;
+    }
+
+    const client = new AAClient({
       baseUrl,
-      getAuthToken: () => process.env.NEXT_PUBLIC_AA_API_TOKEN ?? null,
+      getAuthToken: () => token,
     });
+    aaClientRef.current = {
+      baseUrl,
+      token,
+      client,
+    };
+    return client;
   }, []);
 
   const emitBrowserError = useCallback(
@@ -142,6 +205,7 @@ export function useBrowserCapabilityController({ enabled, emitShellEvent }: UseB
 
   const subscribe = useCallback(
     (sessionId: string) => {
+      const aaClient = getAaClient();
       if (!aaClient) return;
       closeSubscription();
       subscriptionRef.current = aaClient.subscribeToBrowserSessionEvents(sessionId, {
@@ -149,7 +213,7 @@ export function useBrowserCapabilityController({ enabled, emitShellEvent }: UseB
         onError: (error) => emitBrowserError(error, sessionId),
       });
     },
-    [aaClient, closeSubscription, consumeRuntimeEvent, emitBrowserError]
+    [closeSubscription, consumeRuntimeEvent, emitBrowserError, getAaClient]
   );
 
   const patchSurfaceState = useCallback(
@@ -168,6 +232,7 @@ export function useBrowserCapabilityController({ enabled, emitShellEvent }: UseB
 
   const refreshDrawerData = useCallback(
     async (sessionId: string) => {
+      const aaClient = getAaClient();
       if (!aaClient) {
         emitActionStatus({
           sessionId,
@@ -208,11 +273,12 @@ export function useBrowserCapabilityController({ enabled, emitShellEvent }: UseB
         emitBrowserError(error, sessionId);
       }
     },
-    [aaClient, emitActionStatus, emitBrowserError, emitShellEvent]
+    [emitActionStatus, emitBrowserError, emitShellEvent, getAaClient]
   );
 
   const requestExtract = useCallback(
     async (sessionId: string, payload: Record<string, unknown>) => {
+      const aaClient = getAaClient();
       if (!aaClient) {
         emitActionStatus({
           sessionId,
@@ -249,11 +315,12 @@ export function useBrowserCapabilityController({ enabled, emitShellEvent }: UseB
         emitBrowserError(error, sessionId);
       }
     },
-    [aaClient, emitActionStatus, emitBrowserError, refreshDrawerData]
+    [emitActionStatus, emitBrowserError, getAaClient, refreshDrawerData]
   );
 
   const requestSave = useCallback(
     async (sessionId: string, payload: Record<string, unknown>) => {
+      const aaClient = getAaClient();
       if (!aaClient) {
         emitActionStatus({
           sessionId,
@@ -290,11 +357,12 @@ export function useBrowserCapabilityController({ enabled, emitShellEvent }: UseB
         emitBrowserError(error, sessionId);
       }
     },
-    [aaClient, emitActionStatus, emitBrowserError, refreshDrawerData]
+    [emitActionStatus, emitBrowserError, getAaClient, refreshDrawerData]
   );
 
   const openBrowser = useCallback(
     async (input?: BrowserOpenInput) => {
+      const aaClient = getAaClient();
       if (!aaClient) {
         emitBrowserError(new Error("AA browser client is not configured"));
         return;
@@ -342,11 +410,12 @@ export function useBrowserCapabilityController({ enabled, emitShellEvent }: UseB
         emitBrowserError(error, activeSessionIdRef.current || undefined);
       }
     },
-    [aaClient, attachAggregate, emitBrowserError, subscribe]
+    [attachAggregate, emitBrowserError, getAaClient, subscribe]
   );
 
   const closeBrowser = useCallback(
     async (sessionId: string) => {
+      const aaClient = getAaClient();
       if (!aaClient) {
         emitBrowserError(new Error("AA browser client is not configured"), sessionId);
         return;
@@ -363,11 +432,12 @@ export function useBrowserCapabilityController({ enabled, emitShellEvent }: UseB
         emitBrowserError(error, sessionId);
       }
     },
-    [aaClient, closeSubscription, emitBrowserError, emitShellEvent]
+    [closeSubscription, emitBrowserError, emitShellEvent, getAaClient]
   );
 
   const startTakeover = useCallback(
     async (sessionId: string) => {
+      const aaClient = getAaClient();
       if (!aaClient) {
         emitBrowserError(new Error("AA browser client is not configured"), sessionId);
         return;
@@ -380,11 +450,12 @@ export function useBrowserCapabilityController({ enabled, emitShellEvent }: UseB
         emitBrowserError(error, sessionId);
       }
     },
-    [aaClient, attachAggregate, emitBrowserError]
+    [attachAggregate, emitBrowserError, getAaClient]
   );
 
   const endTakeover = useCallback(
     async (sessionId: string) => {
+      const aaClient = getAaClient();
       if (!aaClient) {
         emitBrowserError(new Error("AA browser client is not configured"), sessionId);
         return;
@@ -397,7 +468,7 @@ export function useBrowserCapabilityController({ enabled, emitShellEvent }: UseB
         emitBrowserError(error, sessionId);
       }
     },
-    [aaClient, attachAggregate, emitBrowserError]
+    [attachAggregate, emitBrowserError, getAaClient]
   );
 
   const handleShellBridgeMessage = useCallback(
@@ -508,7 +579,9 @@ export function useBrowserCapabilityController({ enabled, emitShellEvent }: UseB
   );
 
   useEffect(() => {
-    if (!enabled || !aaClient) return;
+    if (!enabled) return;
+    const aaClient = getAaClient();
+    if (!aaClient) return;
     const storedSessionId = sessionStorage.getItem(STORAGE_KEY);
     if (!storedSessionId) return;
 
@@ -531,7 +604,7 @@ export function useBrowserCapabilityController({ enabled, emitShellEvent }: UseB
       cancelled = true;
       closeSubscription();
     };
-  }, [aaClient, attachAggregate, closeSubscription, enabled, subscribe]);
+  }, [attachAggregate, closeSubscription, enabled, getAaClient, subscribe]);
 
   return {
     handleShellBridgeMessage,

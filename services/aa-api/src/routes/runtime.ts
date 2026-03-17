@@ -513,6 +513,14 @@ function resolveIframeOrigin(iframeUrl: string): string {
   return explicitOrigin;
 }
 
+function resolveAaApiBaseUrl(): string | null {
+  return asString(process.env.NEXT_PUBLIC_AA_API_BASE_URL) || asString(process.env.AA_API_BASE_URL);
+}
+
+function resolveAaApiToken(): string | null {
+  return asString(process.env.NEXT_PUBLIC_AA_API_TOKEN) || asString(process.env.AA_API_TOKEN);
+}
+
 function buildMenu(state: RuntimeState) {
   return {
     mode: state.menu_mode,
@@ -561,6 +569,8 @@ function buildShellConfig(ctx: RuntimeContext, state: RuntimeState) {
   const reliability = trustStateFromScore(providerScores.reliability);
   const iframeUrl = resolveIframeUrl();
   const iframeOrigin = resolveIframeOrigin(iframeUrl);
+  const aaApiBaseUrl = resolveAaApiBaseUrl();
+  const aaApiToken = resolveAaApiToken();
 
   return {
     tenant_id: ctx.tenantId,
@@ -603,6 +613,8 @@ function buildShellConfig(ctx: RuntimeContext, state: RuntimeState) {
           device: ctx.deviceHint,
           menu_mode: state.menu_mode,
           last_action_id: state.last_action_id,
+          ...(aaApiBaseUrl ? { aa_api_base_url: aaApiBaseUrl } : {}),
+          ...(aaApiToken ? { aa_api_token: aaApiToken } : {}),
         },
       },
     },

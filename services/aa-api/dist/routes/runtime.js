@@ -386,6 +386,12 @@ function resolveIframeOrigin(iframeUrl) {
     }
     return explicitOrigin;
 }
+function resolveAaApiBaseUrl() {
+    return asString(process.env.NEXT_PUBLIC_AA_API_BASE_URL) || asString(process.env.AA_API_BASE_URL);
+}
+function resolveAaApiToken() {
+    return asString(process.env.NEXT_PUBLIC_AA_API_TOKEN) || asString(process.env.AA_API_TOKEN);
+}
 function buildMenu(state) {
     return {
         mode: state.menu_mode,
@@ -433,6 +439,8 @@ function buildShellConfig(ctx, state) {
     const reliability = trustStateFromScore(providerScores.reliability);
     const iframeUrl = resolveIframeUrl();
     const iframeOrigin = resolveIframeOrigin(iframeUrl);
+    const aaApiBaseUrl = resolveAaApiBaseUrl();
+    const aaApiToken = resolveAaApiToken();
     return {
         tenant_id: ctx.tenantId,
         persona_id: ctx.personaId,
@@ -474,6 +482,8 @@ function buildShellConfig(ctx, state) {
                     device: ctx.deviceHint,
                     menu_mode: state.menu_mode,
                     last_action_id: state.last_action_id,
+                    ...(aaApiBaseUrl ? { aa_api_base_url: aaApiBaseUrl } : {}),
+                    ...(aaApiToken ? { aa_api_token: aaApiToken } : {}),
                 },
             },
         },

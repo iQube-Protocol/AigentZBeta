@@ -2592,6 +2592,39 @@ export default function MetaMeRuntimeClient() {
       }
     }
 
+    function syncBrowserAaConfig(payload: Record<string, unknown>) {
+      const baseUrl =
+        typeof payload.aa_api_base_url === "string" && payload.aa_api_base_url.trim().length > 0
+          ? payload.aa_api_base_url.trim()
+          : null;
+      const token =
+        typeof payload.aa_api_token === "string" && payload.aa_api_token.trim().length > 0
+          ? payload.aa_api_token.trim()
+          : null;
+
+      if (!baseUrl) return;
+
+      const runtimeConfig = {
+        baseUrl,
+        token,
+      };
+
+      try {
+        sessionStorage.setItem("metame.browser.aaClientConfig", JSON.stringify(runtimeConfig));
+      } catch {
+        // Ignore storage failures; the in-memory runtime copy is enough for the current session.
+      }
+
+      (
+        window as Window & {
+          __METAME_RUNTIME_AA_CONFIG__?: {
+            baseUrl: string;
+            token: string | null;
+          };
+        }
+      ).__METAME_RUNTIME_AA_CONFIG__ = runtimeConfig;
+    }
+
     function onShellMessage(event: MessageEvent) {
       if (event.source !== window.parent) return;
       if (!isShellOutboundMessage(event.data)) return;
@@ -2643,6 +2676,7 @@ export default function MetaMeRuntimeClient() {
         if (thinModeHint) setThinShellMode(true);
 
         syncDeviceFromPayload(handoffContext);
+        syncBrowserAaConfig(handoffContext);
 
         if (!runtimeReadyPostedRef.current) {
           runtimeReadyPostedRef.current = true;
