@@ -304,6 +304,7 @@ export default function RuntimeShellHomePage() {
     return new AAClient({
       baseUrl,
       getAuthToken: () => process.env.NEXT_PUBLIC_AA_API_TOKEN ?? null,
+      fetchImpl: (...args) => window.fetch(...args),
       onRequestLog: appendDiagnosticsAaLog,
     });
   }, []);

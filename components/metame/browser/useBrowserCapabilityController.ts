@@ -167,6 +167,7 @@ export function useBrowserCapabilityController({ enabled, emitShellEvent }: UseB
     const client = new AAClient({
       baseUrl,
       getAuthToken: () => token,
+      fetchImpl: (...args) => window.fetch(...args),
     });
     aaClientRef.current = {
       baseUrl,
