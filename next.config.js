@@ -48,6 +48,8 @@ const nextConfig = {
       if (Array.isArray(config.externals)) {
         config.externals.push("pdf-parse");
         config.externals.push("@napi-rs/canvas");
+        config.externals.push("playwright-core");
+        config.externals.push("playwright");
         // Avoid externalizing OpenTelemetry for edge/middleware bundles.
         // (External requires can break middleware in dev with "Native module not found".)
       }
