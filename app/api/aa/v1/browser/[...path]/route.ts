@@ -425,7 +425,7 @@ async function handleRequest(request: NextRequest, context: RouteContext): Promi
     }
 
     if (path.length === 1 && request.method === "POST") {
-      return handleCreateSession(request, auth);
+      return await handleCreateSession(request, auth);
     }
 
     const sessionId = path[1];
@@ -438,11 +438,11 @@ async function handleRequest(request: NextRequest, context: RouteContext): Promi
     }
 
     if (request.method === "POST" && path.length === 3) {
-      return handleSessionPost(sessionId, path[2], request, auth);
+      return await handleSessionPost(sessionId, path[2], request, auth);
     }
 
     if (request.method === "POST" && path.length === 4) {
-      return handleNestedSessionPost(sessionId, path[2], path[3], request, auth);
+      return await handleNestedSessionPost(sessionId, path[2], path[3], request, auth);
     }
 
     return json({ error: "Not found" }, { status: 404 });
