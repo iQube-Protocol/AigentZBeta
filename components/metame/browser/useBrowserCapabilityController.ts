@@ -89,6 +89,14 @@ function toErrorPayload(error: unknown, sessionId?: string): BrowserErrorPayload
   };
 }
 
+function hasSessionId(payload: Record<string, unknown>): payload is Record<string, unknown> & { sessionId: string } {
+  return typeof payload.sessionId === "string";
+}
+
+function isBrowserSurfaceStatePayload(payload: Record<string, unknown>): payload is BrowserSurfaceState {
+  return true;
+}
+
 export function useBrowserCapabilityController({ enabled, emitShellEvent }: UseBrowserCapabilityControllerOptions) {
   const subscriptionRef = useRef<{ close: () => void } | null>(null);
   const activeSessionIdRef = useRef<string | null>(null);
@@ -117,11 +125,11 @@ export function useBrowserCapabilityController({ enabled, emitShellEvent }: UseB
 
   const consumeRuntimeEvent = useCallback(
     (event: BrowserRuntimeEvent) => {
-      if (event.type === "browser.mount") {
+      if (event.type === "browser.mount" && hasSessionId(event.payload)) {
         activeSessionIdRef.current = event.payload.sessionId;
         sessionStorage.setItem(STORAGE_KEY, event.payload.sessionId);
       }
-      if (event.type === "browser.surface.state") {
+      if (event.type === "browser.surface.state" && isBrowserSurfaceStatePayload(event.payload)) {
         surfaceStateRef.current = event.payload;
       }
       emitShellEvent(event.type, event.payload);
