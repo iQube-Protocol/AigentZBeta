@@ -2558,8 +2558,8 @@ export const ComposerStudio = () => {
     [experience, previewExperience, selectedExperience]
   );
   const bundleTemplateTargetExperience = useMemo(
-    () => activeExperienceForEditing || experiences[0] || null,
-    [activeExperienceForEditing, experiences],
+    () => activeExperienceForEditing || null,
+    [activeExperienceForEditing],
   );
   const previewExperienceMedia = useMemo(
     () =>
@@ -2601,6 +2601,14 @@ export const ComposerStudio = () => {
   const runtimePreviewSrc = useMemo(() => {
     const capsuleId = selectedExperienceId || previewExperience?.id || "capsule-metaknyt-play";
     const experienceId = selectedExperienceId || previewExperience?.id || "";
+    const previewHasArticleDraft = Boolean(previewExperienceArticleDraft);
+    const previewHasVideo = Boolean(previewRuntimeDeliveryProfile.videoAssetUrl);
+    const previewContentKind =
+      previewHasArticleDraft && !previewHasVideo ? "article" : previewRuntimeDeliveryProfile.contentKind;
+    const previewIntent =
+      previewHasArticleDraft && !previewHasVideo ? "read" : previewRuntimeDeliveryProfile.intent;
+    const previewQuickLink =
+      previewHasArticleDraft && !previewHasVideo ? "read" : previewRuntimeDeliveryProfile.quickLink;
     const params = new URLSearchParams({
       preview: "1",
       capsule: capsuleId,
@@ -2624,9 +2632,9 @@ export const ComposerStudio = () => {
     if (previewExperienceArticleDraft) {
       params.set("experienceArticleDraft", previewExperienceArticleDraft);
     }
-    params.set("runtimeIntent", previewRuntimeDeliveryProfile.intent);
-    params.set("runtimeQuickLink", previewRuntimeDeliveryProfile.quickLink);
-    params.set("contentKind", previewRuntimeDeliveryProfile.contentKind);
+    params.set("runtimeIntent", previewIntent);
+    params.set("runtimeQuickLink", previewQuickLink);
+    params.set("contentKind", previewContentKind);
     params.set("activeCodexId", previewRuntimeDeliveryProfile.codexContext.activeCodexId);
     params.set("activeCodexName", previewRuntimeDeliveryProfile.codexContext.activeCodexName);
     params.set(
@@ -3332,8 +3340,8 @@ export const ComposerStudio = () => {
       setSelectedTemplateId(null);
       return;
     }
-    if (!selectedTemplateId || !filteredTemplates.some((t) => t.id === selectedTemplateId)) {
-      setSelectedTemplateId(filteredTemplates[0].id);
+    if (selectedTemplateId && !filteredTemplates.some((t) => t.id === selectedTemplateId)) {
+      setSelectedTemplateId(null);
     }
   }, [filteredTemplates, selectedTemplateId]);
 
@@ -5194,8 +5202,8 @@ export const ComposerStudio = () => {
     await persistBundleBlockStatus("article_draft", "in_progress", {
       previewAction: "Article draft moved back to refinement",
     });
-    await handleJumpToBundleBlock("article_draft");
-  }, [handleJumpToBundleBlock, persistBundleBlockStatus]);
+    await handleOpenBundleBlockByKind("article_draft");
+  }, [handleOpenBundleBlockByKind, persistBundleBlockStatus]);
   const handleRegenerateArticleDraft = useCallback(async () => {
     const generated = await requestArticleDraftArtifact({
       experienceName: editableExperienceName.trim() || editableGenerationDefaults.experienceName,
@@ -6426,7 +6434,7 @@ export const ComposerStudio = () => {
                   <div className="max-h-[560px] space-y-4 overflow-y-auto pr-1">
                     {activeAppliedExperienceBundle && activeExperienceBundleSequencingState && (
                       <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4">
-                        <div className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
+                        <div className="space-y-4">
                           <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
                             <div className="text-[11px] uppercase tracking-[0.18em] text-cyan-300">Bundle Blocks</div>
                             <div className="mt-3 space-y-2">
@@ -6434,7 +6442,7 @@ export const ComposerStudio = () => {
                                 <button
                                   key={block.kind}
                                   type="button"
-                                  onClick={() => void handleJumpToBundleBlock(block.kind)}
+                                  onClick={() => void handleOpenBundleBlockByKind(block.kind)}
                                   className={`w-full rounded-xl border px-3 py-2 text-left transition ${
                                     block.isActive
                                       ? "border-cyan-400/30 bg-cyan-500/10"
@@ -6465,7 +6473,7 @@ export const ComposerStudio = () => {
                               ))}
                             </div>
                           </div>
-                          <div>
+                          <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
                             <div className="flex flex-wrap items-start justify-between gap-3">
                               <div>
                                 <div className="text-xs uppercase tracking-widest text-cyan-300">Make Bundle</div>
@@ -6521,14 +6529,13 @@ export const ComposerStudio = () => {
                                 ) : null}
                               </div>
                             </div>
-                            {activeExperienceBundleFlowTarget &&
-                            activeExperienceBundleFlowTarget.templateId !== sessionTemplate.id ? (
+                            {activeExperienceBundleFlowTarget && activeExperienceBundleFlowTarget.templateId !== sessionTemplate.id ? (
                               <div className="mt-3 text-xs text-slate-400">
                                 {activeExperienceBundleFlowTarget.summary}
                               </div>
                             ) : null}
                             <div className="mt-4 space-y-3">
-                              <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+                              <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-3">
                                 <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">
                                   Sequencing
                                 </div>
@@ -6538,7 +6545,7 @@ export const ComposerStudio = () => {
                                   ))}
                                 </div>
                               </div>
-                              <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+                              <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-3">
                                 <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">
                                   Next Actions
                                 </div>

@@ -71,10 +71,6 @@ function CompositionBundleBrief({
           ),
       )
     : [];
-  const articleOutputs: string[] =
-    articleDraft && Array.isArray(articleDraft.outputs)
-      ? articleDraft.outputs.filter((item: unknown): item is string => typeof item === "string")
-      : [];
   const sequencing: string[] = Array.isArray(composition.sequencing)
     ? composition.sequencing.filter((item: unknown): item is string => typeof item === "string")
     : [];
@@ -205,31 +201,11 @@ function CompositionBundleBrief({
           <div className="mt-1 font-medium text-white">
             {typeof articleDraft.title === "string" && articleDraft.title ? articleDraft.title : "Editorial draft"}
           </div>
-          {typeof articleDraft.prompt === "string" && articleDraft.prompt ? (
-            <div className="mt-1 text-xs text-slate-400">{articleDraft.prompt}</div>
-          ) : null}
           {typeof articleGenerated?.deck === "string" && articleGenerated.deck ? (
             <div className="mt-3 text-sm text-slate-300">{articleGenerated.deck}</div>
           ) : null}
           {typeof articleGenerated?.opening === "string" && articleGenerated.opening ? (
             <div className="mt-2 text-xs text-slate-400">{articleGenerated.opening}</div>
-          ) : null}
-          {articleOutputs.length > 0 ? (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {articleOutputs.map((item) => (
-                <span
-                  key={item}
-                  className="rounded-full border border-slate-700 bg-slate-900/70 px-2.5 py-1 text-[11px] text-slate-300"
-                >
-                  {item}
-                </span>
-              ))}
-              {typeof articleDraft.takeawaysCount === "number" ? (
-                <span className="rounded-full border border-slate-700 bg-slate-900/70 px-2.5 py-1 text-[11px] text-slate-300">
-                  {articleDraft.takeawaysCount} takeaways
-                </span>
-              ) : null}
-            </div>
           ) : null}
           {articleSections.length > 0 ? (
             <div className="mt-3 space-y-2">
@@ -299,7 +275,7 @@ function CompositionBundleBrief({
         </div>
       ) : null}
 
-      <div className="mt-3 grid gap-3 lg:grid-cols-2">
+      <div className="mt-3 space-y-3">
         <div>
           <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Sequencing</div>
           <div className="mt-2 space-y-1 text-xs text-slate-400">

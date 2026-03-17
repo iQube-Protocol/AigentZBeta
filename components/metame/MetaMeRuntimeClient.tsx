@@ -1716,7 +1716,7 @@ export default function MetaMeRuntimeClient() {
         const regenerateHref = sourceExperienceHref ? withQueryParam(sourceExperienceHref, "action", "regenerate") : null;
         const articleDraft = content.runtimeArticleDraft || null;
         return (
-          <div className="rounded-2xl border border-cyan-400/25 bg-slate-950/85 p-3 space-y-3">
+          <div className="max-h-full overflow-y-auto rounded-2xl border border-cyan-400/25 bg-slate-950/85 p-3 space-y-3">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-[10px] uppercase tracking-[0.18em] text-cyan-300/80">ExperienceQube Runtime</p>
@@ -3487,6 +3487,19 @@ export default function MetaMeRuntimeClient() {
 
   if (embedMode) {
     const embedWidthClass = isRuntimeFullscreen || thinShellMode ? "w-full" : runtimeDeviceWidthClass;
+    const previewIntent =
+      runtimeIntentParam || (queryPreviewCapsule?.runtimeContentKind === "video" ? "watch" : "read");
+    if (queryPreviewCapsule) {
+      return (
+        <div className="h-full w-full overflow-hidden bg-slate-950 p-0">
+          <div className={`h-full ${embedWidthClass}`}>
+            <div className="h-full overflow-y-auto bg-slate-950 px-3 py-3">
+              {buildRuntimeCapsulePanel(queryPreviewCapsule, previewIntent)}
+            </div>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="h-full w-full bg-slate-950 p-0">
         <div className={`h-full ${embedWidthClass}`}>{showWelcome ? welcomeSurface : runtimeSurface}</div>

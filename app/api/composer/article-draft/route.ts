@@ -205,7 +205,7 @@ export async function POST(request: NextRequest) {
           content:
             "You are an editorial experience writer. Return strict JSON only with keys: title, deck, opening, sections, takeaways, glossary, nextAction. " +
             "Write concrete consumer-facing copy for a bundled media + article experience. Do not use placeholders or meta commentary. " +
-            "Each section body should be substantive and specific to the prompt and context.",
+            "Each section body should be substantive, specific to the prompt and context, and read like part of one coherent article rather than isolated notes.",
         },
         {
           role: "user",
@@ -220,8 +220,8 @@ export async function POST(request: NextRequest) {
             contextHints,
             requirements: {
               deck: "1-2 sentences",
-              opening: "1 short paragraph",
-              sections: "3 or 4 sections, each with a heading and 2-4 sentences",
+              opening: "1 substantive opening paragraph",
+              sections: "3 or 4 sections, each with a heading and 4-6 sentences",
               takeaways: outputs.includes("takeaways") ? `${takeawaysCount} concise takeaways` : "omit if not requested",
               glossary: outputs.includes("glossary") ? "2-4 glossary terms" : "omit if not requested",
               nextAction: outputs.includes("next_action") ? "1 concise CTA" : "omit if not requested",
