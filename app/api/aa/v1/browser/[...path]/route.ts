@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 const DEFAULT_AA_PROXY_BASE_URL =
   "https://bsjhfvctmduxhohtllly.supabase.co/functions/v1/aa-proxy/";
@@ -30,37 +31,63 @@ async function proxyBrowserRequest(
   request: NextRequest,
   context: { params: { path?: string[] } }
 ): Promise<Response> {
-  const pathSegments = context.params.path ?? [];
-  const upstreamUrl = buildUpstreamUrl(request, pathSegments);
+  try {
+    const pathSegments = context.params.path ?? [];
+    const upstreamUrl = buildUpstreamUrl(request, pathSegments);
 
-  const headers = new Headers();
-  const contentType = request.headers.get("content-type");
-  const authorization = request.headers.get("authorization");
-  const tenantId = request.headers.get("x-tenant-id");
-  const personaId = request.headers.get("x-persona-id");
+    const headers = new Headers();
+    const contentType = request.headers.get("content-type");
+    const authorization = request.headers.get("authorization");
+    const tenantId = request.headers.get("x-tenant-id");
+    const personaId = request.headers.get("x-persona-id");
 
-  if (contentType) headers.set("content-type", contentType);
-  if (authorization) headers.set("authorization", authorization);
-  if (tenantId) headers.set("x-tenant-id", tenantId);
-  if (personaId) headers.set("x-persona-id", personaId);
+    if (contentType) headers.set("content-type", contentType);
+    if (authorization) headers.set("authorization", authorization);
+    if (tenantId) headers.set("x-tenant-id", tenantId);
+    if (personaId) headers.set("x-persona-id", personaId);
 
-  const init: RequestInit = {
-    method: request.method,
-    headers,
-    redirect: "follow",
-  };
+    const init: RequestInit = {
+      method: request.method,
+      headers,
+      redirect: "follow",
+    };
 
-  if (request.method !== "GET" && request.method !== "HEAD") {
-    init.body = await request.text();
+    if (request.method !== "GET" && request.method !== "HEAD") {
+      init.body = await request.text();
+    }
+
+    const upstream = await fetch(upstreamUrl, init);
+    const contentTypeHeader = upstream.headers.get("content-type") || "application/json";
+    const isEventStream = contentTypeHeader.includes("text/event-stream");
+
+    if (isEventStream) {
+      return new Response(upstream.body, {
+        status: upstream.status,
+        statusText: upstream.statusText,
+        headers: {
+          "content-type": contentTypeHeader,
+          "cache-control": upstream.headers.get("cache-control") || "no-cache, no-transform",
+        },
+      });
+    }
+
+    const body = await upstream.text();
+    return new Response(body, {
+      status: upstream.status,
+      statusText: upstream.statusText,
+      headers: {
+        "content-type": contentTypeHeader,
+      },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown browser proxy error";
+    return new Response(JSON.stringify({ error: message }), {
+      status: 502,
+      headers: {
+        "content-type": "application/json",
+      },
+    });
   }
-
-  const upstream = await fetch(upstreamUrl, init);
-  const responseHeaders = new Headers(upstream.headers);
-  return new Response(upstream.body, {
-    status: upstream.status,
-    statusText: upstream.statusText,
-    headers: responseHeaders,
-  });
 }
 
 export async function GET(request: NextRequest, context: { params: { path?: string[] } }) {
