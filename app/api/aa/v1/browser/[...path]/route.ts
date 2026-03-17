@@ -18,12 +18,19 @@ function normalizeAaBaseUrl(baseUrl: string): string {
   return baseUrl.replace(/\/aa\/v1\/?$/i, "").replace(/\/+$/, "");
 }
 
+function isSupabaseAaProxy(baseUrl: string): boolean {
+  return /\/functions\/v1\/aa-proxy\/?$/i.test(baseUrl);
+}
+
 function resolveAaBaseUrls(): string[] {
   const configured =
     asNonEmptyString(process.env.AA_API_BASE_URL) ||
     asNonEmptyString(process.env.NEXT_PUBLIC_AA_API_BASE_URL);
   if (configured) {
-    return [normalizeAaBaseUrl(configured)];
+    const normalized = normalizeAaBaseUrl(configured);
+    if (!isSupabaseAaProxy(normalized)) {
+      return [normalized];
+    }
   }
   return DEFAULT_AA_UPSTREAMS.map(normalizeAaBaseUrl);
 }
