@@ -517,7 +517,7 @@ export class AAClient {
         headers.set("Authorization", `Bearer ${token}`);
       }
 
-      const response = await this.fetchImpl(url, {
+      const response = await this.fetchImpl.call(globalThis, url, {
         ...init,
         headers,
       });
