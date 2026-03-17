@@ -17,6 +17,10 @@ function CompositionBundleBrief({ packet }: { packet: Record<string, any> }) {
 
   const articleDraft =
     packet?.article_draft && typeof packet.article_draft === "object" ? packet.article_draft : null;
+  const articleOutputs: string[] =
+    articleDraft && Array.isArray(articleDraft.outputs)
+      ? articleDraft.outputs.filter((item: unknown): item is string => typeof item === "string")
+      : [];
   const sequencing: string[] = Array.isArray(composition.sequencing)
     ? composition.sequencing.filter((item: unknown): item is string => typeof item === "string")
     : [];
@@ -98,6 +102,23 @@ function CompositionBundleBrief({ packet }: { packet: Record<string, any> }) {
           </div>
           {typeof articleDraft.prompt === "string" && articleDraft.prompt ? (
             <div className="mt-1 text-xs text-slate-400">{articleDraft.prompt}</div>
+          ) : null}
+          {articleOutputs.length > 0 ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {articleOutputs.map((item) => (
+                <span
+                  key={item}
+                  className="rounded-full border border-slate-700 bg-slate-900/70 px-2.5 py-1 text-[11px] text-slate-300"
+                >
+                  {item}
+                </span>
+              ))}
+              {typeof articleDraft.takeawaysCount === "number" ? (
+                <span className="rounded-full border border-slate-700 bg-slate-900/70 px-2.5 py-1 text-[11px] text-slate-300">
+                  {articleDraft.takeawaysCount} takeaways
+                </span>
+              ) : null}
+            </div>
           ) : null}
         </div>
       ) : null}

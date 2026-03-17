@@ -201,13 +201,28 @@ function buildArticleDraftContext(experience: any) {
   const metadata = experience.metadata || {};
   const intent = config.intent_timebox || {};
   const content = config.content_selection || {};
+  const articleDraft = config.article_draft || {};
+  const copilotOutput = config.copilot_output || {};
+  const outputs = Array.isArray(articleDraft.outputs)
+    ? articleDraft.outputs
+    : Array.isArray(copilotOutput.outputs)
+      ? copilotOutput.outputs
+      : [];
+  const takeawaysCount =
+    typeof articleDraft.takeaways_count === "number"
+      ? articleDraft.takeaways_count
+      : typeof copilotOutput.takeaways_count === "number"
+        ? copilotOutput.takeaways_count
+        : undefined;
 
   return {
     title:
+      (typeof articleDraft.title === "string" && articleDraft.title.trim()) ||
       (typeof metadata.article_title === "string" && metadata.article_title.trim()) ||
       (typeof experience.name === "string" && experience.name.trim()) ||
       "Editorial draft",
     prompt:
+      (typeof articleDraft.prompt === "string" && articleDraft.prompt.trim()) ||
       (typeof metadata.article_prompt === "string" && metadata.article_prompt.trim()) ||
       (typeof intent.goal === "string" && intent.goal.trim()) ||
       (typeof experience.description === "string" && experience.description.trim()) ||
@@ -215,7 +230,11 @@ function buildArticleDraftContext(experience: any) {
     issueSlug: typeof content.issue_slug === "string" ? content.issue_slug : undefined,
     featureItemId: typeof content.feature_item_id === "string" ? content.feature_item_id : undefined,
     supportingItemIds: Array.isArray(content.supporting_item_ids) ? content.supporting_item_ids : [],
-    mode: "supporting_context",
+    outputs: outputs.filter((item: unknown): item is string => typeof item === "string" && item.trim().length > 0),
+    takeawaysCount,
+    mode:
+      (typeof articleDraft.mode === "string" && articleDraft.mode.trim()) ||
+      (outputs.length > 0 ? outputs.join(", ") : "supporting_context"),
   };
 }
 

@@ -264,6 +264,22 @@ Status:
 - applying `Image + Article` or `Video + Article` now opens the active ExperienceQube into Customizer on the preferred bundle step
 - Customizer now shows active bundle progress and can jump to the current bundle block directly
 
+### Phase 4 Fifth Implementation Slice
+
+The next concrete Phase `4` slice should be:
+
+1. make `Article Draft` a first-class editable block inside the existing Customizer/resources flow
+2. persist article draft title, prompt, and scaffold state into session data as well as ExperienceQube config/metadata
+3. let packet assembly consume those persisted article fields directly
+4. keep the flow additive so bundle-aware copy editing works without introducing new template branches yet
+
+Status:
+
+- complete
+- the editable generation panel now supports bundle-aware article draft editing
+- article title, prompt, scaffold outputs, and takeaway count now persist through session save and ExperienceQube update paths
+- packet/runtime bundle briefs now consume persisted article-draft fields instead of relying only on fallback metadata
+
 The next broader Phase `4` work should include:
 
 1. dedicated bundle templates for:

@@ -547,6 +547,23 @@ function firstNonEmptyString(values: unknown[]): string | null {
   return null;
 }
 
+function normalizeStringArray(values: unknown): string[] {
+  if (!Array.isArray(values)) return [];
+  return Array.from(
+    new Set(
+      values
+        .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+        .map((value) => value.trim()),
+    ),
+  );
+}
+
+const ARTICLE_DRAFT_OUTPUT_OPTIONS = [
+  { value: "takeaways", label: "3 Takeaways" },
+  { value: "glossary", label: "Glossary" },
+  { value: "next_action", label: "Next Action" },
+] as const;
+
 function resolveBundlePreferredStepId(
   blockKind: string | null | undefined,
   sessionData: Record<string, any> | null | undefined,
@@ -1257,6 +1274,10 @@ export const ComposerStudio = () => {
   const [editableImagePortraitPrompt, setEditableImagePortraitPrompt] = useState("");
   const [editableImageLandscapePrompt, setEditableImageLandscapePrompt] = useState("");
   const [editableVideoPrompt, setEditableVideoPrompt] = useState("");
+  const [editableArticleTitle, setEditableArticleTitle] = useState("");
+  const [editableArticlePrompt, setEditableArticlePrompt] = useState("");
+  const [editableArticleOutputs, setEditableArticleOutputs] = useState<string[]>([]);
+  const [editableArticleTakeawaysCount, setEditableArticleTakeawaysCount] = useState(3);
   const [isSavingEditableGeneration, setIsSavingEditableGeneration] = useState(false);
   const [personaMediaLibrary, setPersonaMediaLibrary] = useState<PersonaGeneratedMediaRecord[]>([]);
   const [personaMediaLibraryLoading, setPersonaMediaLibraryLoading] = useState(false);
@@ -3296,10 +3317,56 @@ export const ComposerStudio = () => {
       const resolvedCreatorPersonaName = activePersonaName || activePersonaId || creatorPersonaName;
       const codexContext = resolveComposerCodexContext(copilotContextId, codexLabel);
       const generatedAssets = extractGeneratedAssetsFromExperience(returnedExperience);
+      const articleDraftStep = asRecord(mergedData.article_draft) || {};
+      const copilotOutputStep = asRecord(mergedData.copilot_output) || {};
+      const articleOutputs = normalizeStringArray(articleDraftStep.outputs ?? copilotOutputStep.outputs);
+      const articleTakeawaysCount =
+        typeof articleDraftStep.takeaways_count === "number"
+          ? articleDraftStep.takeaways_count
+          : typeof copilotOutputStep.takeaways_count === "number"
+            ? copilotOutputStep.takeaways_count
+            : undefined;
+      const articleTitle =
+        firstNonEmptyString([articleDraftStep.title, returnedExperience?.metadata?.article_title, returnedExperience?.name]) ||
+        null;
+      const articlePrompt =
+        firstNonEmptyString([
+          articleDraftStep.prompt,
+          returnedExperience?.metadata?.article_prompt,
+          asRecord(mergedData.intent_timebox)?.goal,
+          returnedExperience?.description,
+        ]) || null;
       const completedExperience = returnedExperience
           ? {
             ...returnedExperience,
             creator_id: returnedExperience.creator_id || userId,
+            configuration: {
+              ...(returnedExperience.configuration || {}),
+              ...(articleTitle || articlePrompt || articleOutputs.length > 0 || typeof articleTakeawaysCount === "number"
+                ? {
+                    article_draft: {
+                      ...(asRecord(returnedExperience.configuration?.article_draft) || {}),
+                      ...(articleTitle ? { title: articleTitle } : {}),
+                      ...(articlePrompt ? { prompt: articlePrompt } : {}),
+                      ...(articleOutputs.length > 0 ? { outputs: articleOutputs } : {}),
+                      ...(typeof articleTakeawaysCount === "number"
+                        ? { takeaways_count: articleTakeawaysCount }
+                        : {}),
+                    },
+                    ...(articleOutputs.length > 0 || typeof articleTakeawaysCount === "number"
+                      ? {
+                          copilot_output: {
+                            ...(asRecord(returnedExperience.configuration?.copilot_output) || {}),
+                            ...(articleOutputs.length > 0 ? { outputs: articleOutputs } : {}),
+                            ...(typeof articleTakeawaysCount === "number"
+                              ? { takeaways_count: articleTakeawaysCount }
+                              : {}),
+                          },
+                        }
+                      : {}),
+                  }
+                : {}),
+            },
             metadata: {
               ...(returnedExperience.metadata || {}),
               creator_persona: {
@@ -3312,6 +3379,33 @@ export const ComposerStudio = () => {
                 parent_codex_id: codexContext.parentCodexId,
                 parent_codex_name: codexContext.parentCodexName,
                 inheritance_mode: codexContext.codexInheritanceMode,
+              },
+              ...(articleTitle ? { article_title: articleTitle } : {}),
+              ...(articlePrompt ? { article_prompt: articlePrompt } : {}),
+              editable_generation: {
+                ...(asRecord(returnedExperience.metadata?.editable_generation) || {}),
+                ...(articleTitle || articlePrompt || articleOutputs.length > 0 || typeof articleTakeawaysCount === "number"
+                  ? {
+                      article_draft: {
+                        ...(articleTitle ? { title: articleTitle } : {}),
+                        ...(articlePrompt ? { prompt: articlePrompt } : {}),
+                        ...(articleOutputs.length > 0 ? { outputs: articleOutputs } : {}),
+                        ...(typeof articleTakeawaysCount === "number"
+                          ? { takeaways_count: articleTakeawaysCount }
+                          : {}),
+                      },
+                      ...(articleOutputs.length > 0 || typeof articleTakeawaysCount === "number"
+                        ? {
+                            copilot_output: {
+                              ...(articleOutputs.length > 0 ? { outputs: articleOutputs } : {}),
+                              ...(typeof articleTakeawaysCount === "number"
+                                ? { takeaways_count: articleTakeawaysCount }
+                                : {}),
+                            },
+                          }
+                        : {}),
+                    }
+                  : {}),
               },
               generated_assets: generatedAssets,
             },
@@ -3618,6 +3712,16 @@ export const ComposerStudio = () => {
     }).catch(() => undefined);
   };
   const handleSaveEditableGeneration = async () => {
+    const articleOutputs = normalizeStringArray(editableArticleOutputs);
+    const activeBundle = getAppliedExperienceBundle(activeExperienceForEditing);
+    const articleDraftRequested = Boolean(activeBundle?.blockKinds.includes("article_draft"));
+    const hasArticleDraftState = Boolean(
+      articleDraftRequested ||
+        editableArticleTitle.trim() ||
+        editableArticlePrompt.trim() ||
+        articleOutputs.length > 0 ||
+        editableArticleTakeawaysCount !== 3,
+    );
     const nextIntentTimebox = {
       ...(asRecord(sessionData.intent_timebox) || {}),
       ...(asRecord(stepData.intent_timebox) || {}),
@@ -3634,6 +3738,20 @@ export const ComposerStudio = () => {
       ...(asRecord(stepData.video_prompt) || {}),
       prompt: editableVideoPrompt.trim(),
     };
+    const nextArticleDraft = {
+      ...(asRecord(sessionData.article_draft) || {}),
+      ...(asRecord(stepData.article_draft) || {}),
+      ...(editableArticleTitle.trim() ? { title: editableArticleTitle.trim() } : {}),
+      ...(editableArticlePrompt.trim() ? { prompt: editableArticlePrompt.trim() } : {}),
+      ...(articleOutputs.length > 0 ? { outputs: articleOutputs } : {}),
+      ...(editableArticleTakeawaysCount > 0 ? { takeaways_count: editableArticleTakeawaysCount } : {}),
+    };
+    const nextCopilotOutput = {
+      ...(asRecord(sessionData.copilot_output) || {}),
+      ...(asRecord(stepData.copilot_output) || {}),
+      ...(articleOutputs.length > 0 ? { outputs: articleOutputs } : {}),
+      ...(editableArticleTakeawaysCount > 0 ? { takeaways_count: editableArticleTakeawaysCount } : {}),
+    };
 
     const nextSessionData = {
       ...sessionData,
@@ -3642,6 +3760,8 @@ export const ComposerStudio = () => {
         ? { image_generation: nextImageGeneration }
         : {}),
       ...(editableVideoPrompt.trim() ? { video_prompt: nextVideoPrompt } : {}),
+      ...(hasArticleDraftState ? { article_draft: nextArticleDraft } : {}),
+      ...(hasArticleDraftState ? { copilot_output: nextCopilotOutput } : {}),
     };
 
     const nextStepData = {
@@ -3651,6 +3771,8 @@ export const ComposerStudio = () => {
         ? { image_generation: nextImageGeneration }
         : {}),
       ...(editableVideoPrompt.trim() ? { video_prompt: nextVideoPrompt } : {}),
+      ...(hasArticleDraftState ? { article_draft: nextArticleDraft } : {}),
+      ...(hasArticleDraftState ? { copilot_output: nextCopilotOutput } : {}),
     };
 
     try {
@@ -3711,12 +3833,38 @@ export const ComposerStudio = () => {
                     },
                   }
                 : {}),
+              ...(hasArticleDraftState
+                ? {
+                    article_draft: {
+                      ...(asRecord(existingConfiguration.article_draft) || {}),
+                      ...(editableArticleTitle.trim() ? { title: editableArticleTitle.trim() } : {}),
+                      ...(editableArticlePrompt.trim() ? { prompt: editableArticlePrompt.trim() } : {}),
+                      ...(articleOutputs.length > 0 ? { outputs: articleOutputs } : {}),
+                      ...(editableArticleTakeawaysCount > 0
+                        ? { takeaways_count: editableArticleTakeawaysCount }
+                        : {}),
+                    },
+                  }
+                : {}),
+              ...(hasArticleDraftState
+                ? {
+                    copilot_output: {
+                      ...(asRecord(existingConfiguration.copilot_output) || {}),
+                      ...(articleOutputs.length > 0 ? { outputs: articleOutputs } : {}),
+                      ...(editableArticleTakeawaysCount > 0
+                        ? { takeaways_count: editableArticleTakeawaysCount }
+                        : {}),
+                    },
+                  }
+                : {}),
             },
             components: activeExperienceForEditing.components,
             execution: (activeExperienceForEditing as any).execution,
             access: activeExperienceForEditing.access,
             metadata: {
               ...existingMetadata,
+              ...(editableArticleTitle.trim() ? { article_title: editableArticleTitle.trim() } : {}),
+              ...(editableArticlePrompt.trim() ? { article_prompt: editableArticlePrompt.trim() } : {}),
               editable_generation: {
                 experience_name: editableExperienceName.trim() || activeExperienceForEditing.name,
                 ...(editableImagePortraitPrompt.trim() || editableImageLandscapePrompt.trim()
@@ -3731,6 +3879,28 @@ export const ComposerStudio = () => {
                   ? {
                       video_prompt: {
                         prompt: editableVideoPrompt.trim(),
+                      },
+                    }
+                  : {}),
+                ...(hasArticleDraftState
+                  ? {
+                      article_draft: {
+                        ...(editableArticleTitle.trim() ? { title: editableArticleTitle.trim() } : {}),
+                        ...(editableArticlePrompt.trim() ? { prompt: editableArticlePrompt.trim() } : {}),
+                        ...(articleOutputs.length > 0 ? { outputs: articleOutputs } : {}),
+                        ...(editableArticleTakeawaysCount > 0
+                          ? { takeaways_count: editableArticleTakeawaysCount }
+                          : {}),
+                      },
+                    }
+                  : {}),
+                ...(hasArticleDraftState
+                  ? {
+                      copilot_output: {
+                        ...(articleOutputs.length > 0 ? { outputs: articleOutputs } : {}),
+                        ...(editableArticleTakeawaysCount > 0
+                          ? { takeaways_count: editableArticleTakeawaysCount }
+                          : {}),
                       },
                     }
                   : {}),
@@ -4330,6 +4500,23 @@ export const ComposerStudio = () => {
       (asRecord(activeConfig.video_prompt) as Record<string, any> | null) ||
       (asRecord(metadataEditable.video_prompt) as Record<string, any> | null) ||
       {};
+    const articleDraft =
+      (asRecord(mergedData?.article_draft) as Record<string, any> | null) ||
+      (asRecord(activeConfig.article_draft) as Record<string, any> | null) ||
+      (asRecord(metadataEditable.article_draft) as Record<string, any> | null) ||
+      {};
+    const copilotOutput =
+      (asRecord(mergedData?.copilot_output) as Record<string, any> | null) ||
+      (asRecord(activeConfig.copilot_output) as Record<string, any> | null) ||
+      (asRecord(metadataEditable.copilot_output) as Record<string, any> | null) ||
+      {};
+    const articleOutputs = normalizeStringArray(articleDraft.outputs ?? copilotOutput.outputs);
+    const takeawaysCount =
+      typeof articleDraft.takeaways_count === "number"
+        ? articleDraft.takeaways_count
+        : typeof copilotOutput.takeaways_count === "number"
+          ? copilotOutput.takeaways_count
+          : 3;
 
     return {
       experienceName:
@@ -4348,8 +4535,31 @@ export const ComposerStudio = () => {
           : "") || "",
       videoPrompt:
         (typeof videoPrompt.prompt === "string" && videoPrompt.prompt.trim() ? videoPrompt.prompt : "") || "",
+      articleTitle:
+        firstNonEmptyString([articleDraft.title, activeMetadata.article_title, activeExperienceForEditing?.name]) || "",
+      articlePrompt:
+        firstNonEmptyString([
+          articleDraft.prompt,
+          activeMetadata.article_prompt,
+          intentTimebox.goal,
+          activeExperienceForEditing?.description,
+        ]) || "",
+      articleOutputs,
+      articleTakeawaysCount:
+        typeof takeawaysCount === "number" && Number.isFinite(takeawaysCount) ? takeawaysCount : 3,
     };
   }, [activeExperienceForEditing, mergedData]);
+  const showEditableArticleDraft = useMemo(() => {
+    const activeBundle = getAppliedExperienceBundle(activeExperienceForEditing);
+    return (
+      Boolean(activeBundle?.blockKinds.includes("article_draft")) ||
+      Boolean(
+        editableGenerationDefaults.articleTitle ||
+          editableGenerationDefaults.articlePrompt ||
+          editableGenerationDefaults.articleOutputs.length > 0,
+      )
+    );
+  }, [activeExperienceForEditing, editableGenerationDefaults]);
   const activeExperienceDeploymentHistory = useMemo(() => {
     const raw = activeExperienceForEditing?.metadata?.deployment_history;
     if (!Array.isArray(raw)) return [];
@@ -4678,6 +4888,10 @@ export const ComposerStudio = () => {
         editableGenerationDefaults.imagePortraitPrompt,
         editableGenerationDefaults.imageLandscapePrompt,
         editableGenerationDefaults.videoPrompt,
+        editableGenerationDefaults.articleTitle,
+        editableGenerationDefaults.articlePrompt,
+        editableGenerationDefaults.articleOutputs.join("|"),
+        String(editableGenerationDefaults.articleTakeawaysCount),
       ].join(":"),
     [activeExperienceForEditing?.id, editableGenerationDefaults, session?.id]
   );
@@ -4687,6 +4901,10 @@ export const ComposerStudio = () => {
     setEditableImagePortraitPrompt(editableGenerationDefaults.imagePortraitPrompt);
     setEditableImageLandscapePrompt(editableGenerationDefaults.imageLandscapePrompt);
     setEditableVideoPrompt(editableGenerationDefaults.videoPrompt);
+    setEditableArticleTitle(editableGenerationDefaults.articleTitle);
+    setEditableArticlePrompt(editableGenerationDefaults.articlePrompt);
+    setEditableArticleOutputs(editableGenerationDefaults.articleOutputs);
+    setEditableArticleTakeawaysCount(editableGenerationDefaults.articleTakeawaysCount);
   }, [editableGenerationSourceKey]);
 
   const refreshPersonaMediaLibrary = useCallback(() => {
@@ -5676,6 +5894,81 @@ export const ComposerStudio = () => {
                                 className="min-h-[144px] border-slate-700 bg-slate-900/70 text-white"
                                 placeholder="Video generation prompt"
                               />
+                            </div>
+                          )}
+
+                          {showEditableArticleDraft && (
+                            <div className="space-y-4 rounded-xl border border-slate-800 bg-slate-950/50 p-4">
+                              <div>
+                                <div className="text-xs uppercase tracking-widest text-slate-400">Article draft</div>
+                                <div className="mt-1 text-sm text-slate-400">
+                                  Define the copy block that should ship with this Make bundle.
+                                </div>
+                              </div>
+                              <div className="grid gap-4 xl:grid-cols-2">
+                                <div className="space-y-2">
+                                  <label className="text-xs uppercase tracking-widest text-slate-400">Article title</label>
+                                  <input
+                                    value={editableArticleTitle}
+                                    onChange={(event) => setEditableArticleTitle(event.target.value)}
+                                    className="h-10 w-full rounded-lg border border-slate-700 bg-slate-900/70 px-3 text-sm text-white outline-none transition focus:border-fuchsia-400/50"
+                                    placeholder="Supporting article title"
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <label className="text-xs uppercase tracking-widest text-slate-400">Draft scaffold</label>
+                                  <div className="grid gap-2 sm:grid-cols-2">
+                                    {ARTICLE_DRAFT_OUTPUT_OPTIONS.map((option) => {
+                                      const selected = editableArticleOutputs.includes(option.value);
+                                      return (
+                                        <label
+                                          key={option.value}
+                                          className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm text-slate-200"
+                                        >
+                                          <input
+                                            type="checkbox"
+                                            checked={selected}
+                                            onChange={(event) => {
+                                              setEditableArticleOutputs((prev) => {
+                                                const next = new Set(prev);
+                                                if (event.target.checked) next.add(option.value);
+                                                else next.delete(option.value);
+                                                return Array.from(next);
+                                              });
+                                            }}
+                                          />
+                                          {option.label}
+                                        </label>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="space-y-2">
+                                <label className="text-xs uppercase tracking-widest text-slate-400">Article prompt</label>
+                                <Textarea
+                                  value={editableArticlePrompt}
+                                  onChange={(event) => setEditableArticlePrompt(event.target.value)}
+                                  rows={5}
+                                  className="min-h-[132px] border-slate-700 bg-slate-900/70 text-white"
+                                  placeholder="What should the supporting article explain, frame, or teach?"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between gap-3">
+                                  <label className="text-xs uppercase tracking-widest text-slate-400">Takeaways count</label>
+                                  <div className="text-xs text-slate-500">{editableArticleTakeawaysCount}</div>
+                                </div>
+                                <input
+                                  type="range"
+                                  min={1}
+                                  max={5}
+                                  step={1}
+                                  value={editableArticleTakeawaysCount}
+                                  onChange={(event) => setEditableArticleTakeawaysCount(Number(event.target.value))}
+                                  className="w-full"
+                                />
+                              </div>
                             </div>
                           )}
                         </div>
