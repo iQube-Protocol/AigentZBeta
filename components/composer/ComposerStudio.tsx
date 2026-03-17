@@ -2460,6 +2460,10 @@ export const ComposerStudio = () => {
     () => previewExperience || selectedExperience || experience || null,
     [experience, previewExperience, selectedExperience]
   );
+  const bundleTemplateTargetExperience = useMemo(
+    () => activeExperienceForEditing || experiences[0] || null,
+    [activeExperienceForEditing, experiences],
+  );
   const previewExperienceMedia = useMemo(
     () =>
       resolveExperiencePrimaryMedia(
@@ -4865,20 +4869,20 @@ export const ComposerStudio = () => {
       .slice(0, 5);
   }, [activeExperienceForEditing]);
   const activeExperienceBlockManifest = useMemo(
-    () => buildExperienceBlockManifest(activeExperienceForEditing),
-    [activeExperienceForEditing],
+    () => buildExperienceBlockManifest(bundleTemplateTargetExperience),
+    [bundleTemplateTargetExperience],
   );
   const activeExperienceBundlePresets = useMemo(
     () => listExperienceBundlePresets(activeExperienceBlockManifest),
     [activeExperienceBlockManifest],
   );
   const activeAppliedExperienceBundle = useMemo(
-    () => getAppliedExperienceBundle(activeExperienceForEditing),
-    [activeExperienceForEditing],
+    () => getAppliedExperienceBundle(bundleTemplateTargetExperience),
+    [bundleTemplateTargetExperience],
   );
   const activeExperienceBundleSequencingState = useMemo(
-    () => resolveExperienceBundleSequencingState(activeExperienceForEditing, activeAppliedExperienceBundle),
-    [activeAppliedExperienceBundle, activeExperienceForEditing],
+    () => resolveExperienceBundleSequencingState(bundleTemplateTargetExperience, activeAppliedExperienceBundle),
+    [activeAppliedExperienceBundle, bundleTemplateTargetExperience],
   );
   const activeExperienceBundleFlowTarget = useMemo(
     () =>
@@ -5087,7 +5091,7 @@ export const ComposerStudio = () => {
   }, [handleOpenBundleBlockByKind, persistBundleBlockStatus]);
   const handleApplyBundlePreset = useCallback(
     async (presetId: ExperienceBundlePresetId) => {
-      if (!activeExperienceForEditing?.id) {
+      if (!bundleTemplateTargetExperience?.id) {
         setSessionError("Select an ExperienceQube before applying a bundle preset.");
         return;
       }
@@ -5101,33 +5105,35 @@ export const ComposerStudio = () => {
       setSessionError(null);
       try {
         const patch = buildExperienceBundlePresetPatch(
-          activeExperienceForEditing,
+          bundleTemplateTargetExperience,
           activeExperienceBlockManifest,
           preset,
         );
         await persistExperienceUpdate(
-          activeExperienceForEditing.id,
+          bundleTemplateTargetExperience.id,
           {
-            name: activeExperienceForEditing.name,
-            description: activeExperienceForEditing.description,
-            goal: activeExperienceForEditing.goal,
-            mechanics: activeExperienceForEditing.mechanics,
-            metrics: activeExperienceForEditing.metrics,
-            template_id: activeExperienceForEditing.template_id,
-            status: activeExperienceForEditing.status,
+            name: bundleTemplateTargetExperience.name,
+            description: bundleTemplateTargetExperience.description,
+            goal: bundleTemplateTargetExperience.goal,
+            mechanics: bundleTemplateTargetExperience.mechanics,
+            metrics: bundleTemplateTargetExperience.metrics,
+            template_id: bundleTemplateTargetExperience.template_id,
+            status: bundleTemplateTargetExperience.status,
             configuration: patch.configuration,
-            components: activeExperienceForEditing.components,
-            execution: (activeExperienceForEditing as any).execution,
-            access: activeExperienceForEditing.access,
+            components: bundleTemplateTargetExperience.components,
+            execution: (bundleTemplateTargetExperience as any).execution,
+            access: bundleTemplateTargetExperience.access,
             metadata: patch.metadata,
           },
           "Failed to apply Make bundle preset.",
         );
         const patchedExperience = {
-          ...activeExperienceForEditing,
+          ...bundleTemplateTargetExperience,
           configuration: patch.configuration,
           metadata: patch.metadata,
         } as ExperienceQube;
+        setSelectedExperience(patchedExperience);
+        setSelectedExperienceId(patchedExperience.id);
         setExperiencePanelTab("customizer");
         await handleEditExperience(
           patchedExperience,
@@ -5145,7 +5151,7 @@ export const ComposerStudio = () => {
         setApplyingBundlePresetId(null);
       }
     },
-    [activeExperienceBlockManifest, activeExperienceBundlePresets, activeExperienceForEditing],
+    [activeExperienceBlockManifest, activeExperienceBundlePresets, bundleTemplateTargetExperience],
   );
   const activeExperienceDeploymentState = useMemo(() => {
     const raw = activeExperienceForEditing?.metadata?.deployment_state;
@@ -6014,6 +6020,11 @@ export const ComposerStudio = () => {
                         Active: {activeAppliedExperienceBundle.bundleTemplateLabel}
                       </span>
                     ) : null}
+                    {bundleTemplateTargetExperience ? (
+                      <span className="rounded-full border border-slate-700 px-2 py-0.5 text-[11px] text-slate-300">
+                        Target: {bundleTemplateTargetExperience.name}
+                      </span>
+                    ) : null}
                   </div>
                   <div className="mt-3 grid gap-3">
                     {activeExperienceBundlePresets.map((preset) => {
@@ -6046,12 +6057,12 @@ export const ComposerStudio = () => {
                               type="button"
                               size="sm"
                               variant={isActive ? "secondary" : "outline"}
-                              disabled={isLoading || !activeExperienceForEditing}
+                              disabled={isLoading || !bundleTemplateTargetExperience}
                               onClick={() => void handleApplyBundlePreset(preset.id)}
                               className="border-cyan-400/20 text-xs text-slate-100"
                               title={
-                                activeExperienceForEditing
-                                  ? `Apply ${preset.bundleTemplateLabel}`
+                                bundleTemplateTargetExperience
+                                  ? `Apply ${preset.bundleTemplateLabel} to ${bundleTemplateTargetExperience.name}`
                                   : "Select an ExperienceQube in Experiences before applying a bundle template."
                               }
                             >
@@ -6061,7 +6072,7 @@ export const ComposerStudio = () => {
                         </div>
                       );
                     })}
-                    {!activeExperienceForEditing ? (
+                    {!bundleTemplateTargetExperience ? (
                       <div className="rounded-lg border border-slate-800 bg-slate-950/50 px-3 py-3 text-xs text-slate-400">
                         Select an ExperienceQube in <span className="text-slate-200">Experiences</span> to attach a bundle template and open the corresponding multi-block flow.
                       </div>
