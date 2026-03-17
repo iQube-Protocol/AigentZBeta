@@ -5002,6 +5002,39 @@ export const ComposerStudio = () => {
     },
     [mergedData, session, sessionTemplate],
   );
+  const handleOpenBundleBlockByKind = useCallback(
+    async (blockKind: "image_generation" | "video_generation" | "article_draft" | "deployment") => {
+      if (!activeExperienceForEditing || !activeAppliedExperienceBundle) return;
+      const flowTarget = resolveExperienceBundleFlowTarget(activeAppliedExperienceBundle, blockKind);
+      if (!flowTarget) return;
+      const preferredStepId = resolveBundlePreferredStepId(blockKind, mergedData);
+      if (sessionTemplate?.id === flowTarget.templateId && session) {
+        await handleJumpToBundleBlock(blockKind);
+        return;
+      }
+      const seeded = await startSeededSessionForTemplate(
+        flowTarget.templateId,
+        buildBundleFlowSeedData(activeExperienceForEditing, mergedData),
+        {
+          preferredStepId,
+          preserveExperience: activeExperienceForEditing,
+          editingExperienceId: activeExperienceForEditing.id,
+        },
+      );
+      if (seeded.ok) {
+        setPreviewAction(`Opened ${flowTarget.label}`);
+      }
+    },
+    [
+      activeAppliedExperienceBundle,
+      activeExperienceForEditing,
+      handleJumpToBundleBlock,
+      mergedData,
+      session,
+      sessionTemplate,
+      startSeededSessionForTemplate,
+    ],
+  );
   const handleAcceptArticleDraft = useCallback(async () => {
     await persistBundleBlockStatus("article_draft", "accepted", {
       previewAction: "Accepted article draft bundle block",
@@ -5024,6 +5057,34 @@ export const ComposerStudio = () => {
       previewAction: "Regenerated article draft review artifact",
     });
   }, [editableArticleDraftPreview, persistBundleBlockStatus]);
+  const handleAcceptMediaBlock = useCallback(
+    async (blockKind: "image_generation" | "video_generation") => {
+      await persistBundleBlockStatus(blockKind, "accepted", {
+        previewAction: `Accepted ${blockKind === "image_generation" ? "image" : "video"} bundle block`,
+      });
+    },
+    [persistBundleBlockStatus],
+  );
+  const handleRefineMediaBlock = useCallback(
+    async (blockKind: "image_generation" | "video_generation") => {
+      await persistBundleBlockStatus(blockKind, "in_progress", {
+        previewAction: `Reopened ${blockKind === "image_generation" ? "image" : "video"} bundle block`,
+      });
+      await handleOpenBundleBlockByKind(blockKind);
+    },
+    [handleOpenBundleBlockByKind, persistBundleBlockStatus],
+  );
+  const handleAcceptDeploymentBlock = useCallback(async () => {
+    await persistBundleBlockStatus("deployment", "accepted", {
+      previewAction: "Marked deployment bundle block complete",
+    });
+  }, [persistBundleBlockStatus]);
+  const handleReviewDeploymentBlock = useCallback(async () => {
+    await persistBundleBlockStatus("deployment", "in_progress", {
+      previewAction: "Reopened deployment bundle block",
+    });
+    await handleOpenBundleBlockByKind("deployment");
+  }, [handleOpenBundleBlockByKind, persistBundleBlockStatus]);
   const handleApplyBundlePreset = useCallback(
     async (presetId: ExperienceBundlePresetId) => {
       if (!activeExperienceForEditing?.id) {
@@ -6261,6 +6322,105 @@ export const ComposerStudio = () => {
                                       className="bg-emerald-500 text-white hover:bg-emerald-400"
                                     >
                                       Accept Draft
+                                    </Button>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : null}
+                            {activeExperienceBundleSequencingState.activeBlock === "image_generation" ? (
+                              <div className="mt-4 rounded-xl border border-cyan-400/20 bg-cyan-500/5 p-3">
+                                <div className="flex flex-wrap items-center justify-between gap-3">
+                                  <div>
+                                    <div className="text-[11px] uppercase tracking-[0.16em] text-cyan-300">
+                                      Image Block Controls
+                                    </div>
+                                    <div className="mt-1 text-xs text-slate-300">
+                                      Continue image work or lock the image block when the hero visuals are final.
+                                    </div>
+                                  </div>
+                                  <div className="flex flex-wrap gap-2">
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => void handleRefineMediaBlock("image_generation")}
+                                      className="border-cyan-400/30 text-cyan-100"
+                                    >
+                                      Continue
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      onClick={() => void handleAcceptMediaBlock("image_generation")}
+                                      className="bg-emerald-500 text-white hover:bg-emerald-400"
+                                    >
+                                      Mark Locked
+                                    </Button>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : null}
+                            {activeExperienceBundleSequencingState.activeBlock === "video_generation" ? (
+                              <div className="mt-4 rounded-xl border border-fuchsia-400/20 bg-fuchsia-500/5 p-3">
+                                <div className="flex flex-wrap items-center justify-between gap-3">
+                                  <div>
+                                    <div className="text-[11px] uppercase tracking-[0.16em] text-fuchsia-300">
+                                      Video Block Controls
+                                    </div>
+                                    <div className="mt-1 text-xs text-slate-300">
+                                      Continue video work or lock the video block when the motion asset is final.
+                                    </div>
+                                  </div>
+                                  <div className="flex flex-wrap gap-2">
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => void handleRefineMediaBlock("video_generation")}
+                                      className="border-fuchsia-400/30 text-fuchsia-100"
+                                    >
+                                      Continue
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      onClick={() => void handleAcceptMediaBlock("video_generation")}
+                                      className="bg-emerald-500 text-white hover:bg-emerald-400"
+                                    >
+                                      Mark Locked
+                                    </Button>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : null}
+                            {activeExperienceBundleSequencingState.activeBlock === "deployment" ? (
+                              <div className="mt-4 rounded-xl border border-emerald-400/20 bg-emerald-500/5 p-3">
+                                <div className="flex flex-wrap items-center justify-between gap-3">
+                                  <div>
+                                    <div className="text-[11px] uppercase tracking-[0.16em] text-emerald-300">
+                                      Deployment Block Controls
+                                    </div>
+                                    <div className="mt-1 text-xs text-slate-300">
+                                      Review deployment configuration or mark the bundle as deployed.
+                                    </div>
+                                  </div>
+                                  <div className="flex flex-wrap gap-2">
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => void handleReviewDeploymentBlock()}
+                                      className="border-emerald-400/30 text-emerald-100"
+                                    >
+                                      Review Deployment
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      onClick={() => void handleAcceptDeploymentBlock()}
+                                      className="bg-emerald-500 text-white hover:bg-emerald-400"
+                                    >
+                                      Mark Deployed
                                     </Button>
                                   </div>
                                 </div>

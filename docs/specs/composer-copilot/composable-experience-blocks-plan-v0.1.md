@@ -338,6 +338,21 @@ Status:
 - bundle-aware Customizer now resolves the owning flow template for the active block
 - when the active block belongs to a different template, Customizer can open the correct flow while preserving the active ExperienceQube edit session
 
+### Phase 4-C Bundle Block Controls
+
+The next concrete Phase `4` slice should be:
+
+1. extend bundle block controls to image, video, and deployment blocks (not just article draft)
+2. make block status transitions explicit for media + deployment
+3. ensure each active block can reopen its owning flow for refinement
+
+Status:
+
+- complete
+- image/video/deployment blocks now expose explicit `Continue`/`Mark Locked`/`Review Deployment` controls
+- bundle block status updates persist through the same block-status contract
+- media and deployment blocks can reopen their owning flow without losing the active ExperienceQube context
+
 The next broader Phase `4` work should include:
 
 1. dedicated bundle templates for:
