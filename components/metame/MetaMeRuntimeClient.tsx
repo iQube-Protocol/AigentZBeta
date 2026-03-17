@@ -44,6 +44,7 @@ import {
   Eye,
   Headphones,
   Hexagon,
+  Image as ImageIcon,
   Maximize2,
   Minimize2,
   Pencil,
@@ -643,10 +644,30 @@ function inferRuntimeExperienceStyle(content: RuntimeCapsule): string {
   return "editorial";
 }
 
-function runtimeContentKindIcon(kind: RuntimeCapsule["runtimeContentKind"]) {
+function runtimeContentKindIcon(kind: RuntimeCapsule["runtimeContentKind"] | "image") {
+  if (kind === "image") return <ImageIcon className="h-3.5 w-3.5" />;
   if (kind === "video") return <Tv className="h-3.5 w-3.5" />;
   if (kind === "article") return <BookOpen className="h-3.5 w-3.5" />;
   return <Hexagon className="h-3.5 w-3.5" />;
+}
+
+function deriveRuntimeExperienceKinds(content: RuntimeCapsule): Array<"image" | "video" | "article"> {
+  const kinds: Array<"image" | "video" | "article"> = [];
+  if (content.runtimeArticleDraft) {
+    kinds.push("article");
+  }
+  if (isLikelyVideoUri(content.runtimePreviewMediaUri || null)) {
+    kinds.unshift("video");
+  } else if (content.runtimePreviewMediaUri || resolveCapsuleCoverImage(content)) {
+    kinds.unshift("image");
+  } else if (content.runtimeContentKind === "video") {
+    kinds.unshift("video");
+  } else if (content.runtimeContentKind === "article") {
+    kinds.push("article");
+  } else if (content.runtimeContentKind) {
+    kinds.unshift("image");
+  }
+  return Array.from(new Set(kinds));
 }
 
 function scoreContent(content: RuntimeCapsule, prompt: string, intent: RuntimeIntent): number {
@@ -1705,6 +1726,7 @@ export default function MetaMeRuntimeClient() {
         const { videoStyle, imageStyle } = resolveSmartMediaPanelStyles(activeDevice, intent);
         const provider = detectExperienceProviderFromAssetUri(previewMedia || heroImage || content.runtimeLaunchHref || null);
         const primaryKind = isLikelyVideoUri(previewMedia) ? "video" : "image";
+        const experienceKinds = deriveRuntimeExperienceKinds(content);
         const styleLabel = inferRuntimeExperienceStyle(content);
         const sourceExperienceHref = content.runtimeAuthoringHref
           ? withQueryParam(withQueryParam(content.runtimeAuthoringHref, "device", activeDevice), "from", "runtime")
@@ -1723,15 +1745,16 @@ export default function MetaMeRuntimeClient() {
                 <p className="text-sm font-semibold text-white">{content.title}</p>
               </div>
               <div className="flex items-center gap-1.5">
-                {content.runtimeContentKind ? (
+                {experienceKinds.map((kind) => (
                   <span
+                    key={kind}
                     className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-slate-200"
-                    title={content.runtimeContentKind}
+                    title={kind}
                   >
-                    {runtimeContentKindIcon(content.runtimeContentKind)}
-                    <span className={activeDevice === "mobile" ? "sr-only" : ""}>{content.runtimeContentKind}</span>
+                    {runtimeContentKindIcon(kind)}
+                    <span className={activeDevice === "mobile" ? "sr-only" : ""}>{kind}</span>
                   </span>
-                ) : null}
+                ))}
                 <span
                   className="inline-flex items-center gap-1 rounded-full border border-cyan-400/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] text-cyan-200"
                   title={activeDevice === "mobile" ? "portrait-first" : "landscape-first"}
@@ -1770,7 +1793,7 @@ export default function MetaMeRuntimeClient() {
                     >
                       <ExperienceStyleIcon style={styleLabel} className="h-5 w-5" />
                     </div>
-                    {receiptHref ? (
+                    {embedMode && receiptHref ? (
                       <a
                         href={receiptHref}
                         target="_top"
@@ -1781,7 +1804,7 @@ export default function MetaMeRuntimeClient() {
                         <FileText className="h-5 w-5" />
                       </a>
                     ) : null}
-                    {regenerateHref ? (
+                    {embedMode && regenerateHref ? (
                       <a
                         href={regenerateHref}
                         target="_top"
@@ -1792,7 +1815,7 @@ export default function MetaMeRuntimeClient() {
                         <RefreshCw className="h-5 w-5" />
                       </a>
                     ) : null}
-                    {consumerExperienceHref ? (
+                    {embedMode && consumerExperienceHref ? (
                       <a
                         href={consumerExperienceHref}
                         target="_blank"
@@ -1900,7 +1923,7 @@ export default function MetaMeRuntimeClient() {
               </div>
             ) : null}
 
-            {consumerExperienceHref ? (
+            {embedMode && consumerExperienceHref ? (
               <a
                 href={consumerExperienceHref}
                 target="_blank"
@@ -1936,7 +1959,7 @@ export default function MetaMeRuntimeClient() {
         </div>
       );
     },
-    [activeDevice, renderRuntimeFramePanel]
+    [activeDevice, embedMode, renderRuntimeFramePanel]
   );
 
   const launchCapsule = useCallback(
@@ -2106,6 +2129,7 @@ export default function MetaMeRuntimeClient() {
               const isSelected = content.id === activeCapsuleId;
               const progressValue = /awakenings|play|episode/i.test(content.title) ? 33 : 0;
               const heroImage = resolveCapsuleCoverImage(content);
+              const experienceKinds = content.runtimeSource === "experience" ? deriveRuntimeExperienceKinds(content) : [];
               const modalityLabel = content.runtimeModalityHints?.slice(0, 2).join(" · ") || "details";
               const styleLabel = inferRuntimeExperienceStyle(content);
               const authoringExperienceHref = content.runtimeAuthoringHref
@@ -2173,6 +2197,16 @@ export default function MetaMeRuntimeClient() {
                         <span className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide ${sourceBadgeClass}`}>
                           {sourceLabel}
                         </span>
+                        {experienceKinds.map((kind) => (
+                          <span
+                            key={`${content.id}-${kind}`}
+                            className="inline-flex items-center gap-1 rounded-full border border-white/20 bg-slate-900/60 px-2 py-0.5 text-[10px] text-white/80"
+                            title={kind}
+                          >
+                            {runtimeContentKindIcon(kind)}
+                            <span className={activeDevice === "mobile" ? "sr-only" : ""}>{kind}</span>
+                          </span>
+                        ))}
                         {content.runtimeSource === "experience" ? (
                           <span
                             className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-slate-900/60 text-white/80"
@@ -2183,7 +2217,7 @@ export default function MetaMeRuntimeClient() {
                         ) : null}
                       </div>
                       <div className="flex items-center gap-1">
-                        {content.runtimeSource === "experience" && receiptHref ? (
+                        {embedMode && content.runtimeSource === "experience" && receiptHref ? (
                           <a
                             href={receiptHref}
                             target="_top"
@@ -2195,7 +2229,7 @@ export default function MetaMeRuntimeClient() {
                             <FileText className="h-5 w-5" />
                           </a>
                         ) : null}
-                        {content.runtimeSource === "experience" && regenerateHref ? (
+                        {embedMode && content.runtimeSource === "experience" && regenerateHref ? (
                           <a
                             href={regenerateHref}
                             target="_top"
@@ -2282,7 +2316,7 @@ export default function MetaMeRuntimeClient() {
         </div>
       </div>
     ),
-    [activeCapsuleId, buildSharePanel, capsuleContents, launchCapsule]
+    [activeCapsuleId, activeDevice, buildSharePanel, capsuleContents, embedMode, launchCapsule]
   );
 
   useEffect(() => {
@@ -3524,6 +3558,56 @@ export default function MetaMeRuntimeClient() {
       <DevicePreviewSwitcher value={device} onChange={onChange} />
     </div>
   );
+
+  if (queryPreviewCapsule) {
+    const launchIntent =
+      runtimeIntentParam || (queryPreviewCapsule.runtimeContentKind === "video" ? "watch" : "read");
+    const heroImage = resolveCapsuleCoverImage(queryPreviewCapsule);
+    const experienceKinds = deriveRuntimeExperienceKinds(queryPreviewCapsule);
+    return (
+      <div className="min-h-screen bg-slate-950 text-white px-4 py-6">
+        <div className="mx-auto w-full max-w-[960px] space-y-4">
+          {runtimeToolbar(activeDevice, setActiveDevice)}
+          <div className="rounded-2xl border border-white/10 bg-slate-900/70 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.18em] text-cyan-300/80">Experience chip</div>
+                <div className="mt-1 text-base font-semibold text-white">{queryPreviewCapsule.title}</div>
+                <div className="mt-1 text-sm text-slate-300 line-clamp-2">{queryPreviewCapsule.description}</div>
+              </div>
+              <div className="flex flex-wrap items-center justify-end gap-1.5">
+                {experienceKinds.map((kind) => (
+                  <span
+                    key={`selected-${kind}`}
+                    className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-slate-200"
+                    title={kind}
+                  >
+                    {runtimeContentKindIcon(kind)}
+                    <span className={activeDevice === "mobile" ? "sr-only" : ""}>{kind}</span>
+                  </span>
+                ))}
+                <span
+                  className="inline-flex items-center gap-1 rounded-full border border-cyan-400/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] text-cyan-200"
+                  title={activeDevice === "mobile" ? "portrait-first" : "landscape-first"}
+                >
+                  <span className={`inline-block rounded-[2px] border border-current ${activeDevice === "mobile" ? "h-3 w-2" : "h-2 w-3"}`} />
+                  <span className={activeDevice === "mobile" ? "sr-only" : ""}>
+                    {activeDevice === "mobile" ? "portrait-first" : "landscape-first"}
+                  </span>
+                </span>
+              </div>
+            </div>
+            {heroImage ? (
+              <div className="mt-3 overflow-hidden rounded-xl border border-white/10">
+                <img src={heroImage} alt={queryPreviewCapsule.title} className="h-40 w-full object-cover" loading="lazy" />
+              </div>
+            ) : null}
+          </div>
+          {buildRuntimeCapsulePanel(queryPreviewCapsule, launchIntent)}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-white px-4 py-6">

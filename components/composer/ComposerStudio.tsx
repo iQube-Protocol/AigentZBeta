@@ -1770,6 +1770,7 @@ export const ComposerStudio = () => {
     }
   ) => {
     setEditingExperienceId(experience.id);
+    setSelectedExperienceId(experience.id);
     const templateId = experience.template_id?.trim();
     if (!templateId) {
       setSessionError("This ExperienceQube is missing a template id and cannot be edited.");
@@ -6273,12 +6274,16 @@ export const ComposerStudio = () => {
                   </div>
                 )}
                 <div className="mb-4 rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <div className="text-xs uppercase tracking-widest text-cyan-300">Bundle Templates</div>
-                      <div className="mt-1 text-sm font-semibold text-white">Make bundle authoring</div>
-                      <div className="mt-1 text-xs text-slate-300">
-                        Apply a bundle template to the active ExperienceQube to move directly into a multi-block Make flow.
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <div className="text-xs uppercase tracking-widest text-cyan-300">Bundle Templates</div>
+                          <div className="mt-1 text-sm font-semibold text-white">Make bundle authoring</div>
+                          <div className="mt-1 text-xs text-slate-300">
+                        Apply a bundle template to the selected ExperienceQube to move directly into a multi-block Make flow.
+                      </div>
+                      <div className="mt-2 text-[11px] text-slate-400">
+                        Select an ExperienceQube in <span className="text-slate-200">Experiences</span> or open one in{" "}
+                        <span className="text-slate-200">Customizer</span> first. That selected ExperienceQube becomes the bundle target.
                       </div>
                     </div>
                     {activeAppliedExperienceBundle ? (
@@ -7487,7 +7492,7 @@ export const ComposerStudio = () => {
                               : "single-block foundation"}
                           </span>
                         </div>
-                        <div className="mt-3 grid gap-3 lg:grid-cols-[1.2fr_0.8fr]">
+                        <div className="mt-3 space-y-3">
                           <div className="space-y-2">
                             {activeExperienceBlockManifest.blocks.length > 0 ? (
                               activeExperienceBlockManifest.blocks.map((block) => (
