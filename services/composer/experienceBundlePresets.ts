@@ -76,6 +76,8 @@ export type ExperienceBundleSequencingState = {
   blocks: ExperienceBundleBlockState[];
 };
 
+export type ExperienceBundleBlockOutputs = Partial<Record<ExperienceBlockKind, RecordLike>>;
+
 function asRecord(value: unknown): RecordLike | null {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as RecordLike) : null;
 }
@@ -87,7 +89,125 @@ function firstString(values: unknown[]): string | null {
   return null;
 }
 
+function getAssetTimestamp(asset: RecordLike | null): number {
+  if (!asset) return 0;
+  const raw = firstString([asset.created_at, asset.createdAt, asset.timestamp]);
+  if (!raw) return 0;
+  const parsed = new Date(raw).getTime();
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function normalizeGeneratedAsset(asset: unknown): RecordLike | null {
+  const record = asRecord(asset);
+  if (!record) return null;
+  const assetUrl = firstString([
+    record.asset_url,
+    record.assetUrl,
+    record.video_url,
+    record.videoUrl,
+    record.image_url,
+    record.imageUrl,
+    record.url,
+    record.storage_path,
+  ]);
+  if (!assetUrl) return null;
+  const type =
+    firstString([record.type, record.media_type]) ||
+    (/\.(mp4|m4v|mov|webm|ogg)(\?|$)/i.test(assetUrl) ? "video" : "image");
+  return {
+    id: firstString([record.id]) || assetUrl,
+    type,
+    label: firstString([record.label]) || `${type} asset`,
+    provider: firstString([record.provider]),
+    orientation: firstString([record.orientation]),
+    asset_url: assetUrl,
+    storage_path: firstString([record.storage_path]),
+    receipt_ref: firstString([record.receipt_ref, record.receiptRef]),
+    prompt: firstString([record.prompt]),
+    created_at: firstString([record.created_at, record.createdAt, record.timestamp]),
+  };
+}
+
+function buildInferredMediaOutput(
+  experience: ExperienceLike | null | undefined,
+  type: "image" | "video",
+): RecordLike | null {
+  const metadata = asRecord(experience?.metadata) ?? {};
+  const assets = Array.isArray(metadata.generated_assets) ? metadata.generated_assets : [];
+  const normalized = assets
+    .map((asset) => normalizeGeneratedAsset(asset))
+    .filter((asset): asset is RecordLike => Boolean(asset))
+    .filter((asset) => firstString([asset.type]) === type)
+    .sort((a, b) => getAssetTimestamp(b) - getAssetTimestamp(a));
+
+  if (type === "video") {
+    const videoAsset = normalized[0];
+    if (!videoAsset) return null;
+    return {
+      type: "video",
+      asset_url: firstString([videoAsset.asset_url]),
+      receipt_ref: firstString([videoAsset.receipt_ref]),
+      provider: firstString([videoAsset.provider]),
+      label: firstString([videoAsset.label]),
+    };
+  }
+
+  const imageAssets = normalized.filter((asset) =>
+    ["portrait", "landscape"].includes(firstString([asset.orientation]) || ""),
+  );
+  if (imageAssets.length === 0) return null;
+  const portrait = imageAssets.find((asset) => firstString([asset.orientation]) === "portrait") || null;
+  const landscape = imageAssets.find((asset) => firstString([asset.orientation]) === "landscape") || null;
+  return {
+    type: "image",
+    assets: imageAssets.map((asset) => ({
+      type: "image",
+      orientation: firstString([asset.orientation]),
+      asset_url: firstString([asset.asset_url]),
+      receipt_ref: firstString([asset.receipt_ref]),
+      provider: firstString([asset.provider]),
+      label: firstString([asset.label]),
+    })),
+    portrait_url: firstString([portrait?.asset_url]),
+    landscape_url: firstString([landscape?.asset_url]),
+  };
+}
+
+function buildInferredArticleOutput(experience: ExperienceLike | null | undefined): RecordLike | null {
+  const configuration = asRecord(experience?.configuration) ?? {};
+  const articleDraft = asRecord(configuration.article_draft) ?? {};
+  const generated = asRecord(articleDraft.generated);
+  if (!generated) return null;
+  return {
+    generated,
+    title: firstString([articleDraft.title, generated.title, experience?.name]),
+    prompt: firstString([articleDraft.prompt, experience?.description, experience?.goal]),
+    outputs: Array.isArray(articleDraft.outputs)
+      ? articleDraft.outputs.filter((item): item is string => typeof item === "string")
+      : [],
+    takeaways_count:
+      typeof articleDraft.takeaways_count === "number" ? articleDraft.takeaways_count : undefined,
+  };
+}
+
+function buildInferredDeploymentOutput(experience: ExperienceLike | null | undefined): RecordLike | null {
+  const metadata = asRecord(experience?.metadata) ?? {};
+  const deploymentState = asRecord(metadata.deployment_state);
+  if (!deploymentState) return null;
+  return {
+    last_target: firstString([deploymentState.last_target]),
+    last_status: firstString([deploymentState.last_status]),
+    last_provider: firstString([deploymentState.last_provider]),
+    last_launch_url: firstString([deploymentState.last_launch_url]),
+    last_publish_url: firstString([deploymentState.last_publish_url]),
+    last_deployed_at: firstString([deploymentState.last_deployed_at]),
+  };
+}
+
 function hasGeneratedAssetType(experience: ExperienceLike | null | undefined, type: "image" | "video") {
+  const bundleOutputs = resolveExperienceBundleBlockOutputs(experience);
+  if (type === "video" && bundleOutputs.video_generation) return true;
+  if (type === "image" && bundleOutputs.image_generation) return true;
   const metadata = asRecord(experience?.metadata) ?? {};
   const assets = Array.isArray(metadata.generated_assets) ? metadata.generated_assets : [];
   return assets.some((asset) => {
@@ -133,15 +253,44 @@ function hasArticleDraftSignal(experience: ExperienceLike | null | undefined) {
 }
 
 function hasGeneratedArticleDraft(experience: ExperienceLike | null | undefined) {
+  const bundleOutputs = resolveExperienceBundleBlockOutputs(experience);
+  if (bundleOutputs.article_draft) return true;
   const configuration = asRecord(experience?.configuration) ?? {};
   const articleDraft = asRecord(configuration.article_draft) ?? {};
   return Boolean(articleDraft.generated && typeof articleDraft.generated === "object");
 }
 
 function hasDeploymentState(experience: ExperienceLike | null | undefined) {
+  const bundleOutputs = resolveExperienceBundleBlockOutputs(experience);
+  if (bundleOutputs.deployment) return true;
   const metadata = asRecord(experience?.metadata) ?? {};
   const deploymentState = asRecord(metadata.deployment_state);
   return Boolean(deploymentState && firstString([deploymentState.last_target, deploymentState.last_status]));
+}
+
+export function resolveExperienceBundleBlockOutputs(
+  experience: ExperienceLike | null | undefined,
+): ExperienceBundleBlockOutputs {
+  const metadata = asRecord(experience?.metadata) ?? {};
+  const configuration = asRecord(experience?.configuration) ?? {};
+  const metadataState = asRecord(metadata.composition_bundle_state) ?? {};
+  const configurationState = asRecord(configuration.make_bundle) ?? {};
+  const fromMetadata = asRecord(metadataState.block_outputs) ?? {};
+  const fromConfiguration = asRecord(configurationState.block_outputs) ?? {};
+  const merged = { ...fromConfiguration, ...fromMetadata };
+  const resolved: ExperienceBundleBlockOutputs = {};
+
+  const persistedImage = asRecord(merged.image_generation);
+  const persistedVideo = asRecord(merged.video_generation);
+  const persistedArticle = asRecord(merged.article_draft);
+  const persistedDeployment = asRecord(merged.deployment);
+
+  resolved.image_generation = persistedImage || buildInferredMediaOutput(experience, "image") || undefined;
+  resolved.video_generation = persistedVideo || buildInferredMediaOutput(experience, "video") || undefined;
+  resolved.article_draft = persistedArticle || buildInferredArticleOutput(experience) || undefined;
+  resolved.deployment = persistedDeployment || buildInferredDeploymentOutput(experience) || undefined;
+
+  return resolved;
 }
 
 function getPersistedBundleBlockStatuses(
@@ -326,6 +475,7 @@ export function buildExperienceBundlePresetPatch(
           ...(preset.blockKinds.includes("article_draft") ? { article_draft: "not_started" } : {}),
           ...(preset.blockKinds.includes("deployment") ? { deployment: "not_started" } : {}),
         },
+        block_outputs: {},
         updatedAt: now,
       },
     },
@@ -338,6 +488,7 @@ export function buildExperienceBundlePresetPatch(
           ...(preset.blockKinds.includes("article_draft") ? { article_draft: "not_started" } : {}),
           ...(preset.blockKinds.includes("deployment") ? { deployment: "not_started" } : {}),
         },
+        block_outputs: {},
         updatedAt: now,
       },
       composition_manifest: {
@@ -360,6 +511,7 @@ export function resolveExperienceBundleSequencingState(
 
   const acceptedBlocks: ExperienceBlockKind[] = [];
   const persistedStatuses = getPersistedBundleBlockStatuses(experience);
+  const blockOutputs = resolveExperienceBundleBlockOutputs(experience);
   const mediaBlock: ExperienceBlockKind =
     bundle.presetId === "video_article_bundle" ? "video_generation" : "image_generation";
 
@@ -377,20 +529,20 @@ export function resolveExperienceBundleSequencingState(
       status =
         persisted === "accepted"
           ? "accepted"
-          : hasGeneratedAssetType(experience, "image")
+          : blockOutputs.image_generation || hasGeneratedAssetType(experience, "image")
             ? "accepted"
             : persisted || "in_progress";
     } else if (kind === "video_generation") {
       status =
         persisted === "accepted"
           ? "accepted"
-          : hasGeneratedAssetType(experience, "video")
+          : blockOutputs.video_generation || hasGeneratedAssetType(experience, "video")
             ? "accepted"
             : persisted || "in_progress";
     } else if (kind === "article_draft") {
       if (persisted === "accepted" || persisted === "in_progress") {
         status = persisted;
-      } else if (hasGeneratedArticleDraft(experience)) {
+      } else if (blockOutputs.article_draft || hasGeneratedArticleDraft(experience)) {
         status = "ready_for_review";
       } else if (hasArticleDraftSignal(experience)) {
         status = "in_progress";
@@ -398,7 +550,7 @@ export function resolveExperienceBundleSequencingState(
     } else if (kind === "deployment") {
       if (persisted === "accepted") {
         status = "accepted";
-      } else if (hasDeploymentState(experience)) {
+      } else if (blockOutputs.deployment || hasDeploymentState(experience)) {
         status = "accepted";
       } else if (persisted) {
         status = persisted;

@@ -61,6 +61,7 @@ import {
   buildExperienceBundlePresetPatch,
   getAppliedExperienceBundle,
   listExperienceBundlePresets,
+  resolveExperienceBundleBlockOutputs,
   resolveExperienceBundleFlowTarget,
   resolveExperienceBundleSequencingState,
   type ExperienceBundleBlockStatus,
@@ -5082,6 +5083,7 @@ export const ComposerStudio = () => {
       status: ExperienceBundleBlockStatus,
       options?: {
         generatedArticleDraft?: Record<string, any> | null;
+        blockOutput?: Record<string, any> | null;
         previewAction?: string;
       },
     ) => {
@@ -5097,6 +5099,22 @@ export const ComposerStudio = () => {
         ...(asRecord(compositionBundleState.block_statuses) || {}),
         [blockKind]: status,
       };
+      const existingBlockOutputs = {
+        ...(asRecord(makeBundle.block_outputs) || {}),
+        ...(asRecord(compositionBundleState.block_outputs) || {}),
+      };
+      const mergedBlockOutputs = {
+        ...existingBlockOutputs,
+        ...(options?.blockOutput ? { [blockKind]: options.blockOutput } : {}),
+        ...(options?.generatedArticleDraft
+          ? {
+              article_draft: {
+                ...(asRecord(existingBlockOutputs.article_draft) || {}),
+                generated: options.generatedArticleDraft,
+              },
+            }
+          : {}),
+      };
       const editableGenerationMetadata = asRecord(existingMetadata.editable_generation) || {};
       const nextConfiguration = {
         ...existingConfiguration,
@@ -5108,6 +5126,7 @@ export const ComposerStudio = () => {
           entryIntent: activeAppliedExperienceBundle.entryIntent,
           blockKinds: activeAppliedExperienceBundle.blockKinds,
           block_statuses: mergedStatuses,
+          block_outputs: mergedBlockOutputs,
           updatedAt: now,
         },
         ...(options?.generatedArticleDraft
@@ -5124,6 +5143,7 @@ export const ComposerStudio = () => {
         composition_bundle_state: {
           ...compositionBundleState,
           block_statuses: mergedStatuses,
+          block_outputs: mergedBlockOutputs,
           updatedAt: now,
         },
         ...(options?.generatedArticleDraft
@@ -5215,10 +5235,12 @@ export const ComposerStudio = () => {
     ],
   );
   const handleAcceptArticleDraft = useCallback(async () => {
+    const articleOutput = resolveExperienceBundleBlockOutputs(activeExperienceForEditing).article_draft || null;
     await persistBundleBlockStatus("article_draft", "accepted", {
+      blockOutput: articleOutput ? { ...articleOutput } : undefined,
       previewAction: "Accepted article draft bundle block",
     });
-  }, [persistBundleBlockStatus]);
+  }, [activeExperienceForEditing, persistBundleBlockStatus]);
   const handleRefineArticleDraft = useCallback(async () => {
     await persistBundleBlockStatus("article_draft", "in_progress", {
       previewAction: "Article draft moved back to refinement",
@@ -5251,6 +5273,18 @@ export const ComposerStudio = () => {
         generatedAt: new Date().toISOString(),
         revision: Date.now(),
       },
+      blockOutput: {
+        ...(asRecord(resolveExperienceBundleBlockOutputs(activeExperienceForEditing).article_draft) || {}),
+        generated: {
+          ...generated,
+          generatedAt: new Date().toISOString(),
+          revision: Date.now(),
+        },
+        title: editableArticleTitle.trim() || editableGenerationDefaults.articleTitle,
+        prompt: editableArticlePrompt.trim() || editableGenerationDefaults.articlePrompt,
+        outputs: editableArticleOutputs,
+        takeaways_count: editableArticleTakeawaysCount,
+      },
       previewAction: "Regenerated article draft review artifact",
     });
   }, [
@@ -5271,11 +5305,13 @@ export const ComposerStudio = () => {
   ]);
   const handleAcceptMediaBlock = useCallback(
     async (blockKind: "image_generation" | "video_generation") => {
+      const blockOutput = resolveExperienceBundleBlockOutputs(activeExperienceForEditing)[blockKind] || null;
       await persistBundleBlockStatus(blockKind, "accepted", {
+        blockOutput: blockOutput ? { ...blockOutput } : undefined,
         previewAction: `Accepted ${blockKind === "image_generation" ? "image" : "video"} bundle block`,
       });
     },
-    [persistBundleBlockStatus],
+    [activeExperienceForEditing, persistBundleBlockStatus],
   );
   const handleRefineMediaBlock = useCallback(
     async (blockKind: "image_generation" | "video_generation") => {
@@ -5287,10 +5323,12 @@ export const ComposerStudio = () => {
     [handleOpenBundleBlockByKind, persistBundleBlockStatus],
   );
   const handleAcceptDeploymentBlock = useCallback(async () => {
+    const deploymentOutput = resolveExperienceBundleBlockOutputs(activeExperienceForEditing).deployment || null;
     await persistBundleBlockStatus("deployment", "accepted", {
+      blockOutput: deploymentOutput ? { ...deploymentOutput } : undefined,
       previewAction: "Marked deployment bundle block complete",
     });
-  }, [persistBundleBlockStatus]);
+  }, [activeExperienceForEditing, persistBundleBlockStatus]);
   const handleReviewDeploymentBlock = useCallback(async () => {
     await persistBundleBlockStatus("deployment", "in_progress", {
       previewAction: "Reopened deployment bundle block",
@@ -5364,6 +5402,20 @@ export const ComposerStudio = () => {
                   ...(asRecord(asRecord(patchConfigurationRecord.make_bundle)?.block_statuses) || {}),
                   article_draft: seededArticleDraft ? "ready_for_review" : "in_progress",
                 },
+                block_outputs: {
+                  ...(asRecord(asRecord(patchConfigurationRecord.make_bundle)?.block_outputs) || {}),
+                  ...(seededArticleDraft
+                    ? {
+                        article_draft: {
+                          title: seededArticleTitle,
+                          prompt: seededArticlePrompt,
+                          outputs: seededArticleOutputs,
+                          takeaways_count: 3,
+                          generated: seededArticleDraft,
+                        },
+                      }
+                    : {}),
+                },
               },
             }
           : patch.configuration;
@@ -5377,6 +5429,20 @@ export const ComposerStudio = () => {
                 block_statuses: {
                   ...(asRecord(asRecord(patchMetadataRecord.composition_bundle_state)?.block_statuses) || {}),
                   article_draft: seededArticleDraft ? "ready_for_review" : "in_progress",
+                },
+                block_outputs: {
+                  ...(asRecord(asRecord(patchMetadataRecord.composition_bundle_state)?.block_outputs) || {}),
+                  ...(seededArticleDraft
+                    ? {
+                        article_draft: {
+                          title: seededArticleTitle,
+                          prompt: seededArticlePrompt,
+                          outputs: seededArticleOutputs,
+                          takeaways_count: 3,
+                          generated: seededArticleDraft,
+                        },
+                      }
+                    : {}),
                 },
               },
               editable_generation: {

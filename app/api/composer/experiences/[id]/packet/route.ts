@@ -9,6 +9,7 @@ import { getTemplateRegistry } from "@/services/agui/TemplateRegistry";
 import { getSupabaseServer } from "@/app/api/_lib/supabaseServer";
 import {
   getAppliedExperienceBundle,
+  resolveExperienceBundleBlockOutputs,
   resolveExperienceBundleSequencingState,
 } from "@/services/composer/experienceBundlePresets";
 
@@ -202,28 +203,39 @@ function buildArticleDraftContext(experience: any) {
   const intent = config.intent_timebox || {};
   const content = config.content_selection || {};
   const articleDraft = config.article_draft || {};
+  const acceptedArticleDraft = getBundleOutputRecord(experience, "article_draft") || {};
   const copilotOutput = config.copilot_output || {};
-  const outputs = Array.isArray(articleDraft.outputs)
-    ? articleDraft.outputs
-    : Array.isArray(copilotOutput.outputs)
-      ? copilotOutput.outputs
-      : [];
+  const outputs = Array.isArray(acceptedArticleDraft.outputs)
+    ? acceptedArticleDraft.outputs
+    : Array.isArray(articleDraft.outputs)
+      ? articleDraft.outputs
+      : Array.isArray(copilotOutput.outputs)
+        ? copilotOutput.outputs
+        : [];
   const takeawaysCount =
-    typeof articleDraft.takeaways_count === "number"
-      ? articleDraft.takeaways_count
-      : typeof copilotOutput.takeaways_count === "number"
-        ? copilotOutput.takeaways_count
-        : undefined;
+    typeof acceptedArticleDraft.takeaways_count === "number"
+      ? acceptedArticleDraft.takeaways_count
+      : typeof articleDraft.takeaways_count === "number"
+        ? articleDraft.takeaways_count
+        : typeof copilotOutput.takeaways_count === "number"
+          ? copilotOutput.takeaways_count
+          : undefined;
   const generated =
-    articleDraft.generated && typeof articleDraft.generated === "object" ? articleDraft.generated : undefined;
+    acceptedArticleDraft.generated && typeof acceptedArticleDraft.generated === "object"
+      ? acceptedArticleDraft.generated
+      : articleDraft.generated && typeof articleDraft.generated === "object"
+        ? articleDraft.generated
+        : undefined;
 
   return {
     title:
+      (typeof acceptedArticleDraft.title === "string" && acceptedArticleDraft.title.trim()) ||
       (typeof articleDraft.title === "string" && articleDraft.title.trim()) ||
       (typeof metadata.article_title === "string" && metadata.article_title.trim()) ||
       (typeof experience.name === "string" && experience.name.trim()) ||
       "Editorial draft",
     prompt:
+      (typeof acceptedArticleDraft.prompt === "string" && acceptedArticleDraft.prompt.trim()) ||
       (typeof articleDraft.prompt === "string" && articleDraft.prompt.trim()) ||
       (typeof metadata.article_prompt === "string" && metadata.article_prompt.trim()) ||
       (typeof intent.goal === "string" && intent.goal.trim()) ||
@@ -236,6 +248,7 @@ function buildArticleDraftContext(experience: any) {
     takeawaysCount,
     generated,
     mode:
+      (typeof acceptedArticleDraft.mode === "string" && acceptedArticleDraft.mode.trim()) ||
       (typeof articleDraft.mode === "string" && articleDraft.mode.trim()) ||
       (outputs.length > 0 ? outputs.join(", ") : "supporting_context"),
   };
@@ -381,6 +394,72 @@ function getAssetPriority(asset: any): number {
   return 0;
 }
 
+function getBundleOutputRecord(experience: any, blockKind: "image_generation" | "video_generation" | "article_draft" | "deployment") {
+  const outputs = resolveExperienceBundleBlockOutputs(experience);
+  const output = outputs[blockKind];
+  return output && typeof output === "object" ? output : null;
+}
+
+function getBundleVideoAsset(experience: any) {
+  const output = getBundleOutputRecord(experience, "video_generation");
+  if (!output) return null;
+  const url =
+    (typeof output.asset_url === "string" && output.asset_url.trim()) ||
+    (typeof output.video_url === "string" && output.video_url.trim()) ||
+    null;
+  if (!url) return null;
+  return {
+    type: "video",
+    asset_url: url,
+    receipt_ref:
+      (typeof output.receipt_ref === "string" && output.receipt_ref.trim()) ||
+      (typeof output.receiptRef === "string" && output.receiptRef.trim()) ||
+      undefined,
+    provider: typeof output.provider === "string" ? output.provider : undefined,
+    label: typeof output.label === "string" ? output.label : "Accepted video asset",
+  };
+}
+
+function getBundleImageAssets(experience: any) {
+  const output = getBundleOutputRecord(experience, "image_generation");
+  if (!output) return [] as any[];
+  const assets = Array.isArray(output.assets)
+    ? output.assets.filter((asset): asset is Record<string, any> => Boolean(asset && typeof asset === "object"))
+    : [];
+  const normalized = assets
+    .map((asset) => ({
+      type: "image",
+      orientation:
+        asset.orientation === "portrait" || asset.orientation === "landscape" ? asset.orientation : undefined,
+      asset_url:
+        (typeof asset.asset_url === "string" && asset.asset_url.trim()) ||
+        (typeof asset.image_url === "string" && asset.image_url.trim()) ||
+        null,
+      receipt_ref:
+        (typeof asset.receipt_ref === "string" && asset.receipt_ref.trim()) ||
+        (typeof asset.receiptRef === "string" && asset.receiptRef.trim()) ||
+        undefined,
+      provider: typeof asset.provider === "string" ? asset.provider : undefined,
+      label: typeof asset.label === "string" ? asset.label : undefined,
+    }))
+    .filter((asset) => Boolean(asset.asset_url));
+
+  if (normalized.length > 0) return normalized;
+
+  const portraitUrl =
+    typeof output.portrait_url === "string" && output.portrait_url.trim() ? output.portrait_url.trim() : null;
+  const landscapeUrl =
+    typeof output.landscape_url === "string" && output.landscape_url.trim() ? output.landscape_url.trim() : null;
+  return [
+    portraitUrl
+      ? { type: "image", orientation: "portrait", asset_url: portraitUrl, provider: output.provider || undefined }
+      : null,
+    landscapeUrl
+      ? { type: "image", orientation: "landscape", asset_url: landscapeUrl, provider: output.provider || undefined }
+      : null,
+  ].filter(Boolean);
+}
+
 function buildSkillPacket(experience: any, personaLibraryAssets: any[] = []) {
   const config = experience.configuration || {};
   const metadata = experience.metadata || {};
@@ -396,7 +475,8 @@ function buildSkillPacket(experience: any, personaLibraryAssets: any[] = []) {
   const skillId =
     typeof skillSel.skill_id === "string" && skillSel.skill_id.trim() ? skillSel.skill_id.trim() : "";
   const generatedAssets = Array.isArray(metadata.generated_assets) ? metadata.generated_assets : [];
-  const candidateVideoAssets = [...generatedAssets, ...personaLibraryAssets].filter(
+  const acceptedVideoAsset = getBundleVideoAsset(experience);
+  const candidateVideoAssets = [acceptedVideoAsset, ...generatedAssets, ...personaLibraryAssets].filter(
     (asset: any) => isVideoAsset(asset) && Boolean(getAssetUrl(asset))
   );
   const videoAsset = candidateVideoAssets.sort((a: any, b: any) => {
@@ -498,7 +578,8 @@ function buildImagePacket(experience: any, personaLibraryAssets: any[] = []) {
     compositionBundle?.blockKinds.includes("article_draft") ? buildArticleDraftContext(experience) : undefined;
   const providerId = imageGeneration.provider_id || "venice";
   const generatedAssets = Array.isArray(metadata.generated_assets) ? metadata.generated_assets : [];
-  const combinedAssets = [...generatedAssets, ...personaLibraryAssets];
+  const acceptedImageAssets = getBundleImageAssets(experience);
+  const combinedAssets = [...acceptedImageAssets, ...generatedAssets, ...personaLibraryAssets];
   const imageAssets = combinedAssets.filter(
     (asset: any) =>
       isImageAsset(asset) &&
