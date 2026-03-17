@@ -1,142 +1,420 @@
+import crypto from "crypto";
 import { NextRequest } from "next/server";
+import jwt from "jsonwebtoken";
+import { subscribeBrowserEvents } from "../../../../../../services/aa-api/src/browser/events";
+import { browserSessionService } from "../../../../../../services/aa-api/src/browser/sessionService";
+import { browserbaseProviderAdapter } from "../../../../../../services/aa-api/src/browser/providers/browserbase";
+import { browserPlaywrightExec } from "../../../../../../services/aa-api/src/browser/exec/playwright";
+import { browserStagehandExec } from "../../../../../../services/aa-api/src/browser/exec/stagehand";
+import type {
+  BrowserAuthScope,
+  BrowserMountMode,
+  BrowserSessionAggregate,
+} from "../../../../../../services/aa-api/src/browser/types";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const DEFAULT_AA_UPSTREAMS = [
-  "https://aa.dev-beta.aigentz.me",
-  "https://aigentzbeta-production.up.railway.app",
-];
+type RouteContext = {
+  params: {
+    path?: string[];
+  };
+};
 
-function asNonEmptyString(value: string | undefined | null): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
+function json(data: unknown, init?: ResponseInit): Response {
+  return Response.json(data, init);
 }
 
-function normalizeAaBaseUrl(baseUrl: string): string {
-  return baseUrl.replace(/\/aa\/v1\/?$/i, "").replace(/\/+$/, "");
+function getDefaultAuthScope(): BrowserAuthScope {
+  return {
+    tenantId: process.env.DEFAULT_TENANT_ID || "metame",
+    personaId: process.env.DEFAULT_PERSONA_ID || "guest",
+    did: "did:metame:runtime-shell",
+    userId: "did:metame:runtime-shell",
+  };
 }
 
-function isSupabaseAaProxy(baseUrl: string): boolean {
-  return /\/functions\/v1\/aa-proxy\/?$/i.test(baseUrl);
+function getBearerToken(request: NextRequest): string | null {
+  const header = request.headers.get("authorization") || "";
+  if (header.startsWith("Bearer ")) {
+    const token = header.slice(7).trim();
+    if (token) return token;
+  }
+  const queryToken = request.nextUrl.searchParams.get("access_token");
+  return queryToken && queryToken.trim().length > 0 ? queryToken.trim() : null;
 }
 
-function resolveAaBaseUrls(): string[] {
-  const configured =
-    asNonEmptyString(process.env.AA_API_BASE_URL) ||
-    asNonEmptyString(process.env.NEXT_PUBLIC_AA_API_BASE_URL);
-  if (configured) {
-    const normalized = normalizeAaBaseUrl(configured);
-    if (!isSupabaseAaProxy(normalized)) {
-      return [normalized];
+function resolveAuthScope(request: NextRequest): BrowserAuthScope {
+  const token = getBearerToken(request);
+  const staticToken = process.env.NEXT_PUBLIC_AA_API_TOKEN || process.env.AA_API_TOKEN || null;
+  const secret = process.env.AA_JWT_SECRET || process.env.SUPABASE_JWT_SECRET || null;
+
+  if (token && staticToken && token === staticToken) {
+    return getDefaultAuthScope();
+  }
+
+  if (token && secret) {
+    try {
+      const payload = jwt.verify(token, secret) as Record<string, unknown>;
+      return {
+        did: typeof payload.did === "string" ? payload.did : undefined,
+        userId: typeof payload.user_id === "string" ? payload.user_id : undefined,
+        tenantId:
+          typeof payload.tenant_id === "string"
+            ? payload.tenant_id
+            : process.env.DEFAULT_TENANT_ID || "metame",
+        personaId:
+          typeof payload.persona_id === "string"
+            ? payload.persona_id
+            : process.env.DEFAULT_PERSONA_ID ||
+              (typeof payload.did === "string" ? payload.did : "guest"),
+      };
+    } catch {
+      return getDefaultAuthScope();
     }
   }
-  return DEFAULT_AA_UPSTREAMS.map(normalizeAaBaseUrl);
+
+  return getDefaultAuthScope();
 }
 
-function buildUpstreamUrl(baseUrl: string, request: NextRequest, pathSegments: string[]): string {
-  const joinedPath = pathSegments.join("/");
-  const query = request.nextUrl.search || "";
-  return `${baseUrl}/aa/v1/browser/${joinedPath}${query}`;
-}
-
-async function proxyBrowserRequest(
-  request: NextRequest,
-  context: { params: { path?: string[] } }
-): Promise<Response> {
+async function parseRequestBody(request: NextRequest): Promise<Record<string, unknown>> {
+  const raw = await request.text();
+  if (!raw) return {};
   try {
-    const pathSegments = context.params.path ?? [];
-    const requestBody = request.method !== "GET" && request.method !== "HEAD" ? await request.text() : undefined;
-    const upstreams = resolveAaBaseUrls();
-    let lastResponse: Response | null = null;
-    let lastBody = "";
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    // ignore invalid JSON
+  }
+  return {};
+}
 
-    for (const upstreamBaseUrl of upstreams) {
-      const upstreamUrl = buildUpstreamUrl(upstreamBaseUrl, request, pathSegments);
-      const headers = new Headers();
-      const contentType = request.headers.get("content-type");
-      const authorization = request.headers.get("authorization");
-      const tenantId = request.headers.get("x-tenant-id");
-      const personaId = request.headers.get("x-persona-id");
+function serializeAggregate(aggregate: BrowserSessionAggregate) {
+  return {
+    session: aggregate.session,
+    mountPayload: aggregate.mountPayload,
+    surfaceState: aggregate.surfaceState,
+    badges: aggregate.badges,
+  };
+}
 
-      if (contentType) headers.set("content-type", contentType);
-      if (authorization) headers.set("authorization", authorization);
-      if (tenantId) headers.set("x-tenant-id", tenantId);
-      if (personaId) headers.set("x-persona-id", personaId);
+function errorStatus(message: string): number {
+  if (/unknown browser session|browser session not found/i.test(message)) return 404;
+  return 400;
+}
 
-      const init: RequestInit = {
-        method: request.method,
-        headers,
-        redirect: "follow",
-        body: requestBody,
+function errorResponse(error: unknown): Response {
+  const message = error instanceof Error ? error.message : "Unknown browser error";
+  return json({ error: message }, { status: errorStatus(message) });
+}
+
+function assertBrowserSessionAccess(aggregate: BrowserSessionAggregate, auth: BrowserAuthScope): void {
+  const matchesUser =
+    (typeof auth.userId === "string" && auth.userId === aggregate.session.userId) ||
+    (typeof auth.did === "string" && auth.did === aggregate.session.userId);
+  const matchesPersona =
+    typeof auth.personaId === "string" &&
+    typeof aggregate.session.personaId === "string" &&
+    auth.personaId === aggregate.session.personaId;
+  const matchesTenant =
+    typeof auth.tenantId === "string" &&
+    typeof aggregate.session.tenantId === "string" &&
+    auth.tenantId === aggregate.session.tenantId;
+
+  if (aggregate.session.userId) {
+    if (!matchesUser) throw new Error("Browser session not found");
+    return;
+  }
+
+  if (aggregate.session.personaId) {
+    if (!matchesPersona) throw new Error("Browser session not found");
+    return;
+  }
+
+  if (aggregate.session.tenantId && !matchesTenant) {
+    throw new Error("Browser session not found");
+  }
+}
+
+function getScopedSession(sessionId: string, auth: BrowserAuthScope): BrowserSessionAggregate {
+  const aggregate = browserSessionService.getSession(sessionId);
+  if (!aggregate) {
+    throw new Error("Browser session not found");
+  }
+  assertBrowserSessionAccess(aggregate, auth);
+  return aggregate;
+}
+
+function parseMountMode(value: unknown): BrowserMountMode | undefined {
+  if (value === "overlay" || value === "docked" || value === "panel") {
+    return value;
+  }
+  return undefined;
+}
+
+async function handleCreateSession(request: NextRequest, auth: BrowserAuthScope): Promise<Response> {
+  const body = await parseRequestBody(request);
+  const requestedUrl =
+    typeof body.targetUrl === "string" ? body.targetUrl : typeof body.url === "string" ? body.url : null;
+  const aggregate = await browserSessionService.createSession({
+    auth,
+    intent: typeof body.intent === "string" ? body.intent : null,
+    mountMode: parseMountMode(body.mountMode),
+    targetUrl: requestedUrl,
+  });
+  return json(serializeAggregate(aggregate));
+}
+
+function handleEvents(sessionId: string, auth: BrowserAuthScope, request: NextRequest): Response {
+  const aggregate = getScopedSession(sessionId, auth);
+  const encoder = new TextEncoder();
+  let unsubscribe = () => {};
+  let closed = false;
+
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      const write = (chunk: string) => {
+        if (!closed) {
+          controller.enqueue(encoder.encode(chunk));
+        }
       };
 
-      const upstream = await fetch(upstreamUrl, init);
-      const contentTypeHeader = upstream.headers.get("content-type") || "application/json";
-      const isEventStream = contentTypeHeader.includes("text/event-stream");
+      write(`event: browser.surface.state\n`);
+      write(`data: ${JSON.stringify(aggregate.surfaceState)}\n\n`);
+      write(`event: browser.badges.update\n`);
+      write(`data: ${JSON.stringify(aggregate.badges)}\n\n`);
+      write(`event: browser.takeover.state\n`);
+      write(
+        `data: ${JSON.stringify({
+          sessionId: aggregate.session.sessionId,
+          active: aggregate.surfaceState.takeoverActive,
+        })}\n\n`
+      );
 
-      if (isEventStream) {
-        return new Response(upstream.body, {
-          status: upstream.status,
-          statusText: upstream.statusText,
-          headers: {
-            "content-type": contentTypeHeader,
-            "cache-control": upstream.headers.get("cache-control") || "no-cache, no-transform",
-          },
+      unsubscribe = subscribeBrowserEvents(sessionId, {
+        id: crypto.randomUUID(),
+        res: { write },
+      });
+
+      const heartbeat = setInterval(() => {
+        write(`: keepalive\n\n`);
+      }, 15000);
+
+      const close = () => {
+        if (closed) return;
+        closed = true;
+        clearInterval(heartbeat);
+        unsubscribe();
+        controller.close();
+      };
+
+      request.signal.addEventListener("abort", close, { once: true });
+    },
+    cancel() {
+      closed = true;
+      unsubscribe();
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "content-type": "text/event-stream",
+      "cache-control": "no-cache, no-transform",
+      connection: "keep-alive",
+    },
+  });
+}
+
+async function handleSessionPost(
+  sessionId: string,
+  action: string,
+  request: NextRequest,
+  auth: BrowserAuthScope
+): Promise<Response> {
+  getScopedSession(sessionId, auth);
+  const body = await parseRequestBody(request);
+
+  switch (action) {
+    case "close":
+      return json(serializeAggregate(await browserSessionService.closeSession(sessionId)));
+    case "suspend":
+      return json(serializeAggregate(await browserSessionService.suspendSession(sessionId)));
+    case "resume":
+      return json(serializeAggregate(await browserSessionService.resumeSession(sessionId)));
+    case "mount":
+      return json(serializeAggregate(await browserSessionService.mountSession(sessionId)));
+    case "unmount":
+      return json(serializeAggregate(await browserSessionService.unmountSession(sessionId)));
+    case "navigate": {
+      const url = typeof body.url === "string" ? body.url : null;
+      if (!url) return json({ error: "url is required" }, { status: 400 });
+      return json(serializeAggregate(await browserSessionService.navigate(sessionId, url, "navigate")));
+    }
+    case "back":
+      return json(serializeAggregate(await browserSessionService.navigate(sessionId, "", "back")));
+    case "forward":
+      return json(serializeAggregate(await browserSessionService.navigate(sessionId, "", "forward")));
+    case "refresh":
+      return json(serializeAggregate(await browserSessionService.navigate(sessionId, "", "refresh")));
+    case "extract":
+      return json(
+        await browserSessionService.extractFromSession(sessionId, {
+          prompt: typeof body.prompt === "string" ? body.prompt : null,
+          schema:
+            body.schema && typeof body.schema === "object" && !Array.isArray(body.schema)
+              ? (body.schema as Record<string, unknown>)
+              : null,
+        })
+      );
+    case "save":
+      return json(
+        await browserSessionService.saveSessionOutput(sessionId, {
+          destinationType: typeof body.destinationType === "string" ? body.destinationType : undefined,
+          destinationId: typeof body.destinationId === "string" ? body.destinationId : null,
+          artifactId: typeof body.artifactId === "string" ? body.artifactId : null,
+          metadata:
+            body.metadata && typeof body.metadata === "object" && !Array.isArray(body.metadata)
+              ? (body.metadata as Record<string, unknown>)
+              : {},
+          savedBy: auth.userId || auth.did || null,
+        })
+      );
+    default:
+      return json({ error: "Not found" }, { status: 404 });
+  }
+}
+
+async function handleNestedSessionPost(
+  sessionId: string,
+  scope: string,
+  action: string,
+  request: NextRequest,
+  auth: BrowserAuthScope
+): Promise<Response> {
+  getScopedSession(sessionId, auth);
+  const body = await parseRequestBody(request);
+
+  if (scope === "agent") {
+    switch (action) {
+      case "run":
+        return json({
+          ...(await browserSessionService.runAgentTask(sessionId, {
+            instruction: typeof body.instruction === "string" ? body.instruction : null,
+            payload: body,
+          })),
+          stagehand: browserStagehandExec.getStatus(),
         });
-      }
+      case "pause":
+        return json(serializeAggregate(await browserSessionService.pauseAgentExecution(sessionId)));
+      case "resume":
+        return json(serializeAggregate(await browserSessionService.resumeAgentExecution(sessionId)));
+      default:
+        return json({ error: "Not found" }, { status: 404 });
+    }
+  }
 
-      const body = await upstream.text();
-      lastResponse = upstream;
-      lastBody = body;
+  if (scope === "takeover") {
+    switch (action) {
+      case "start":
+        return json(serializeAggregate(await browserSessionService.startTakeover(sessionId)));
+      case "end":
+        return json(serializeAggregate(await browserSessionService.endTakeover(sessionId)));
+      default:
+        return json({ error: "Not found" }, { status: 404 });
+    }
+  }
 
-      const shouldTryNextUpstream =
-        !upstream.ok &&
-        upstreamBaseUrl !== upstreams[upstreams.length - 1] &&
-        (upstream.status >= 500 ||
-          upstream.status === 404 ||
-          (upstream.status === 400 && body.toLowerCase().includes("unknown action")));
+  return json({ error: "Not found" }, { status: 404 });
+}
 
-      if (shouldTryNextUpstream) {
-        continue;
-      }
+function handleSessionGet(sessionId: string, action: string | null, auth: BrowserAuthScope, request: NextRequest): Response {
+  const aggregate = getScopedSession(sessionId, auth);
 
-      return new Response(body, {
-        status: upstream.status,
-        statusText: upstream.statusText,
+  if (!action) {
+    return json(serializeAggregate(aggregate));
+  }
+
+  switch (action) {
+    case "surface-state":
+      return json({ surfaceState: aggregate.surfaceState });
+    case "events":
+      return handleEvents(sessionId, auth, request);
+    case "history":
+      return json({ history: aggregate.history });
+    case "artifacts":
+      return json({ artifacts: aggregate.artifacts });
+    case "receipts":
+      return json({ receipts: aggregate.receipts });
+    default:
+      return json({ error: "Not found" }, { status: 404 });
+  }
+}
+
+async function handleRequest(request: NextRequest, context: RouteContext): Promise<Response> {
+  const auth = resolveAuthScope(request);
+  const path = context.params.path ?? [];
+
+  try {
+    if (request.method === "OPTIONS") {
+      return new Response(null, {
+        status: 204,
         headers: {
-          "content-type": contentTypeHeader,
+          "access-control-allow-methods": "GET, POST, OPTIONS",
+          "access-control-allow-headers": "Content-Type, Authorization",
+          "access-control-max-age": "600",
         },
       });
     }
 
-    return new Response(lastBody || JSON.stringify({ error: "Browser upstream unavailable" }), {
-      status: lastResponse?.status || 502,
-      statusText: lastResponse?.statusText || "Bad Gateway",
-      headers: {
-        "content-type": lastResponse?.headers.get("content-type") || "application/json",
-      },
-    });
+    if (path.length === 1 && path[0] === "status" && request.method === "GET") {
+      return json({
+        provider: browserbaseProviderAdapter.getStatus(),
+        playwright: browserPlaywrightExec.getStatus(),
+        stagehand: browserStagehandExec.getStatus(),
+      });
+    }
+
+    if (path[0] !== "sessions") {
+      return json({ error: "Not found" }, { status: 404 });
+    }
+
+    if (path.length === 1 && request.method === "POST") {
+      return handleCreateSession(request, auth);
+    }
+
+    const sessionId = path[1];
+    if (!sessionId) {
+      return json({ error: "Not found" }, { status: 404 });
+    }
+
+    if (request.method === "GET") {
+      return handleSessionGet(sessionId, path[2] || null, auth, request);
+    }
+
+    if (request.method === "POST" && path.length === 3) {
+      return handleSessionPost(sessionId, path[2], request, auth);
+    }
+
+    if (request.method === "POST" && path.length === 4) {
+      return handleNestedSessionPost(sessionId, path[2], path[3], request, auth);
+    }
+
+    return json({ error: "Not found" }, { status: 404 });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown browser proxy error";
-    return new Response(JSON.stringify({ error: message }), {
-      status: 502,
-      headers: {
-        "content-type": "application/json",
-      },
-    });
+    return errorResponse(error);
   }
 }
 
-export async function GET(request: NextRequest, context: { params: { path?: string[] } }) {
-  return proxyBrowserRequest(request, context);
+export async function GET(request: NextRequest, context: RouteContext): Promise<Response> {
+  return handleRequest(request, context);
 }
 
-export async function POST(request: NextRequest, context: { params: { path?: string[] } }) {
-  return proxyBrowserRequest(request, context);
+export async function POST(request: NextRequest, context: RouteContext): Promise<Response> {
+  return handleRequest(request, context);
 }
 
-export async function OPTIONS(request: NextRequest, context: { params: { path?: string[] } }) {
-  return proxyBrowserRequest(request, context);
+export async function OPTIONS(request: NextRequest, context: RouteContext): Promise<Response> {
+  return handleRequest(request, context);
 }

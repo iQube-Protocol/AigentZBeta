@@ -3,29 +3,6 @@ const isDev = process.env.NODE_ENV !== "production";
 const isAmplifyBuild = Boolean(process.env.AWS_BRANCH || process.env.AMPLIFY_APP_ID);
 const embedPolicy = require("./configs/embed/policy.v1.json");
 const EMBED_CSP = `frame-ancestors ${embedPolicy.frameAncestors.join(" ")};`;
-const DEFAULT_AA_BROWSER_BASE = "https://aa.dev-beta.aigentz.me";
-
-function normalizeAaBaseUrl(baseUrl) {
-  return baseUrl.replace(/\/aa\/v1\/?$/i, "").replace(/\/+$/, "");
-}
-
-function isSupabaseAaProxy(baseUrl) {
-  return /\/functions\/v1\/aa-proxy\/?$/i.test(baseUrl);
-}
-
-function resolveAaBrowserBase() {
-  const configured = process.env.AA_API_BASE_URL || process.env.NEXT_PUBLIC_AA_API_BASE_URL || "";
-  const trimmed = configured.trim();
-  if (trimmed) {
-    const normalized = normalizeAaBaseUrl(trimmed);
-    if (!isSupabaseAaProxy(normalized)) {
-      return normalized;
-    }
-  }
-  return DEFAULT_AA_BROWSER_BASE;
-}
-
-const AA_BROWSER_BASE = resolveAaBrowserBase();
 
 const nextConfig = {
   // Disable double-invocation and extra checks in dev to speed up refresh
@@ -76,12 +53,6 @@ const nextConfig = {
   async rewrites() {
     return {
       // Keep clean separation: local API under /api, external backend under /core
-      beforeFiles: [
-        {
-          source: "/api/aa/v1/browser/:path*",
-          destination: `${AA_BROWSER_BASE}/aa/v1/browser/:path*`,
-        },
-      ],
       afterFiles: [
         {
           source: "/core/:path*",

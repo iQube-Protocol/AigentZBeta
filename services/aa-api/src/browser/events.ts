@@ -1,5 +1,3 @@
-import type { Response } from 'express';
-
 type BrowserEventName =
   | 'browser.mount'
   | 'browser.unmount'
@@ -9,9 +7,13 @@ type BrowserEventName =
   | 'browser.badges.update'
   | 'browser.error';
 
+type BrowserEventWriter = {
+  write: (chunk: string) => void;
+};
+
 type BrowserEventSink = {
   id: string;
-  res: Response;
+  res: BrowserEventWriter;
 };
 
 const sinks = new Map<string, Set<BrowserEventSink>>();
