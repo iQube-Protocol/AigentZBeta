@@ -14,6 +14,10 @@ function CompositionBundleBrief({ packet }: { packet: Record<string, any> }) {
     composition.sequencing_state && typeof composition.sequencing_state === "object"
       ? composition.sequencing_state
       : null;
+  const bundleBlocks =
+    sequencingState && Array.isArray((sequencingState as any).blocks)
+      ? ((sequencingState as any).blocks as Array<Record<string, any>>)
+      : [];
 
   const articleDraft =
     packet?.article_draft && typeof packet.article_draft === "object" ? packet.article_draft : null;
@@ -41,6 +45,9 @@ function CompositionBundleBrief({ packet }: { packet: Record<string, any> }) {
           <div className="mt-1 text-base font-semibold text-white">
             {typeof composition.label === "string" ? composition.label : "Composed experience"}
           </div>
+          {typeof composition.bundleTemplateLabel === "string" && composition.bundleTemplateLabel ? (
+            <div className="mt-1 text-xs text-slate-400">{composition.bundleTemplateLabel}</div>
+          ) : null}
           {typeof composition.summary === "string" && composition.summary ? (
             <div className="mt-1 text-sm text-slate-300">{composition.summary}</div>
           ) : null}
@@ -54,6 +61,18 @@ function CompositionBundleBrief({ packet }: { packet: Record<string, any> }) {
 
       {blockKinds.length > 0 ? (
         <div className="mt-3 text-xs text-slate-400">Blocks: {blockKinds.join(" · ")}</div>
+      ) : null}
+      {bundleBlocks.length > 0 ? (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {bundleBlocks.map((block) => (
+            <span
+              key={String(block.kind)}
+              className="rounded-full border border-slate-700 bg-slate-900/70 px-2.5 py-1 text-[11px] text-slate-300"
+            >
+              {String(block.label || block.kind)} · {String(block.status || "not_started").replace(/_/g, " ")}
+            </span>
+          ))}
+        </div>
       ) : null}
 
       {sequencingState ? (

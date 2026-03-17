@@ -62,6 +62,7 @@ import {
   getAppliedExperienceBundle,
   listExperienceBundlePresets,
   resolveExperienceBundleSequencingState,
+  type ExperienceBundleBlockStatus,
   type ExperienceBundlePresetId,
 } from "@/services/composer/experienceBundlePresets";
 import { buildComposerRoutingEnvelope } from "@/services/composer/routingEnvelope";
@@ -685,6 +686,19 @@ function resolveStepIndexForId(steps: ComposerStep[], preferredStepId: string | 
   if (!preferredStepId) return null;
   const index = steps.findIndex((step) => step.id === preferredStepId);
   return index >= 0 ? index : null;
+}
+
+function getBundleStatusClasses(status: ExperienceBundleBlockStatus) {
+  if (status === "accepted") {
+    return "border-emerald-400/30 bg-emerald-500/10 text-emerald-200";
+  }
+  if (status === "ready_for_review") {
+    return "border-amber-400/30 bg-amber-500/10 text-amber-100";
+  }
+  if (status === "in_progress") {
+    return "border-cyan-400/30 bg-cyan-500/10 text-cyan-100";
+  }
+  return "border-slate-700 bg-slate-900/70 text-slate-400";
 }
 
 function inferMediaType(uri: string, preferred?: string | null): "image" | "video" {
@@ -3428,6 +3442,15 @@ export const ComposerStudio = () => {
           asRecord(mergedData.intent_timebox)?.goal,
           returnedExperience?.description,
         ]) || null;
+      const existingBundleState = asRecord(returnedExperience?.metadata?.composition_bundle_state) || {};
+      const existingMakeBundle = asRecord(returnedExperience?.configuration?.make_bundle) || {};
+      const mergedBlockStatuses = {
+        ...(asRecord(existingMakeBundle.block_statuses) || {}),
+        ...(asRecord(existingBundleState.block_statuses) || {}),
+        ...(articleTitle || articlePrompt || articleOutputs.length > 0 || typeof articleTakeawaysCount === "number"
+          ? { article_draft: "ready_for_review" }
+          : {}),
+      };
       const articleGenerated =
         buildArticleDraftArtifact({
           experienceName: returnedExperience?.name,
@@ -3443,6 +3466,14 @@ export const ComposerStudio = () => {
             creator_id: returnedExperience.creator_id || userId,
             configuration: {
               ...(returnedExperience.configuration || {}),
+              ...(Object.keys(mergedBlockStatuses).length > 0
+                ? {
+                    make_bundle: {
+                      ...existingMakeBundle,
+                      block_statuses: mergedBlockStatuses,
+                    },
+                  }
+                : {}),
               ...(articleTitle || articlePrompt || articleOutputs.length > 0 || typeof articleTakeawaysCount === "number"
                 ? {
                     article_draft: {
@@ -3482,6 +3513,14 @@ export const ComposerStudio = () => {
                 parent_codex_name: codexContext.parentCodexName,
                 inheritance_mode: codexContext.codexInheritanceMode,
               },
+              ...(Object.keys(mergedBlockStatuses).length > 0
+                ? {
+                    composition_bundle_state: {
+                      ...existingBundleState,
+                      block_statuses: mergedBlockStatuses,
+                    },
+                  }
+                : {}),
               ...(articleTitle ? { article_title: articleTitle } : {}),
               ...(articlePrompt ? { article_prompt: articlePrompt } : {}),
               editable_generation: {
@@ -3906,6 +3945,13 @@ export const ComposerStudio = () => {
       if (activeExperienceForEditing?.id) {
         const existingConfiguration = activeExperienceForEditing.configuration || {};
         const existingMetadata = activeExperienceForEditing.metadata || {};
+        const existingMakeBundle = asRecord(existingConfiguration.make_bundle) || {};
+        const existingBundleState = asRecord(existingMetadata.composition_bundle_state) || {};
+        const mergedBlockStatuses = {
+          ...(asRecord(existingMakeBundle.block_statuses) || {}),
+          ...(asRecord(existingBundleState.block_statuses) || {}),
+          ...(hasArticleDraftState ? { article_draft: "ready_for_review" } : {}),
+        };
         await persistExperienceUpdate(
           activeExperienceForEditing.id,
           {
@@ -3918,6 +3964,14 @@ export const ComposerStudio = () => {
             status: activeExperienceForEditing.status,
             configuration: {
               ...existingConfiguration,
+              ...(Object.keys(mergedBlockStatuses).length > 0
+                ? {
+                    make_bundle: {
+                      ...existingMakeBundle,
+                      block_statuses: mergedBlockStatuses,
+                    },
+                  }
+                : {}),
               intent_timebox: {
                 ...(asRecord(existingConfiguration.intent_timebox) || {}),
                 experience_name: editableExperienceName.trim() || activeExperienceForEditing.name,
@@ -3969,6 +4023,14 @@ export const ComposerStudio = () => {
             access: activeExperienceForEditing.access,
             metadata: {
               ...existingMetadata,
+              ...(Object.keys(mergedBlockStatuses).length > 0
+                ? {
+                    composition_bundle_state: {
+                      ...existingBundleState,
+                      block_statuses: mergedBlockStatuses,
+                    },
+                  }
+                : {}),
               ...(editableArticleTitle.trim() ? { article_title: editableArticleTitle.trim() } : {}),
               ...(editableArticlePrompt.trim() ? { article_prompt: editableArticlePrompt.trim() } : {}),
               editable_generation: {
@@ -4681,12 +4743,14 @@ export const ComposerStudio = () => {
         outputs: editableArticleOutputs,
         takeawaysCount: editableArticleTakeawaysCount,
         mediaMode:
-          activeAppliedExperienceBundle?.presetId === "video_article_bundle" ? "video" : "image",
+          getAppliedExperienceBundle(activeExperienceForEditing)?.presetId === "video_article_bundle"
+            ? "video"
+            : "image",
       }) ||
       (editableGenerationDefaults.articleGenerated as ArticleDraftArtifact | null) ||
       null,
     [
-      activeAppliedExperienceBundle?.presetId,
+      activeExperienceForEditing,
       editableArticleOutputs,
       editableArticlePrompt,
       editableArticleTakeawaysCount,
@@ -4732,6 +4796,133 @@ export const ComposerStudio = () => {
     );
     return resolveStepIndexForId(sessionTemplate.steps || [], preferredStepId);
   }, [activeExperienceBundleSequencingState, mergedData, sessionTemplate]);
+  const persistBundleBlockStatus = useCallback(
+    async (
+      blockKind: "image_generation" | "video_generation" | "article_draft" | "deployment",
+      status: ExperienceBundleBlockStatus,
+      options?: {
+        generatedArticleDraft?: Record<string, any> | null;
+        previewAction?: string;
+      },
+    ) => {
+      if (!activeExperienceForEditing || !activeAppliedExperienceBundle) return;
+
+      const now = new Date().toISOString();
+      const existingConfiguration = activeExperienceForEditing.configuration || {};
+      const existingMetadata = activeExperienceForEditing.metadata || {};
+      const makeBundle = asRecord(existingConfiguration.make_bundle) || {};
+      const compositionBundleState = asRecord(existingMetadata.composition_bundle_state) || {};
+      const mergedStatuses = {
+        ...(asRecord(makeBundle.block_statuses) || {}),
+        ...(asRecord(compositionBundleState.block_statuses) || {}),
+        [blockKind]: status,
+      };
+      const editableGenerationMetadata = asRecord(existingMetadata.editable_generation) || {};
+      const nextConfiguration = {
+        ...existingConfiguration,
+        make_bundle: {
+          ...makeBundle,
+          presetId: activeAppliedExperienceBundle.presetId,
+          bundleTemplateId: activeAppliedExperienceBundle.bundleTemplateId,
+          bundleTemplateLabel: activeAppliedExperienceBundle.bundleTemplateLabel,
+          entryIntent: activeAppliedExperienceBundle.entryIntent,
+          blockKinds: activeAppliedExperienceBundle.blockKinds,
+          block_statuses: mergedStatuses,
+          updatedAt: now,
+        },
+        ...(options?.generatedArticleDraft
+          ? {
+              article_draft: {
+                ...(asRecord(existingConfiguration.article_draft) || {}),
+                generated: options.generatedArticleDraft,
+              },
+            }
+          : {}),
+      };
+      const nextMetadata = {
+        ...existingMetadata,
+        composition_bundle_state: {
+          ...compositionBundleState,
+          block_statuses: mergedStatuses,
+          updatedAt: now,
+        },
+        ...(options?.generatedArticleDraft
+          ? {
+              editable_generation: {
+                ...editableGenerationMetadata,
+                article_draft: {
+                  ...(asRecord(editableGenerationMetadata.article_draft) || {}),
+                  generated: options.generatedArticleDraft,
+                },
+              },
+            }
+          : {}),
+      };
+
+      await persistExperienceUpdate(
+        activeExperienceForEditing.id,
+        {
+          name: activeExperienceForEditing.name,
+          description: activeExperienceForEditing.description,
+          goal: activeExperienceForEditing.goal,
+          mechanics: activeExperienceForEditing.mechanics,
+          metrics: activeExperienceForEditing.metrics,
+          template_id: activeExperienceForEditing.template_id,
+          status: activeExperienceForEditing.status,
+          configuration: nextConfiguration,
+          components: activeExperienceForEditing.components,
+          execution: (activeExperienceForEditing as any).execution,
+          access: activeExperienceForEditing.access,
+          metadata: nextMetadata,
+        },
+        `Failed to update ${blockKind} bundle status.`,
+      );
+
+      if (options?.previewAction) {
+        setPreviewAction(options.previewAction);
+      }
+    },
+    [activeAppliedExperienceBundle, activeExperienceForEditing],
+  );
+  const handleJumpToBundleBlock = useCallback(
+    async (blockKind: "image_generation" | "video_generation" | "article_draft" | "deployment") => {
+      if (!sessionTemplate || !session) return;
+      const preferredStepId = resolveBundlePreferredStepId(blockKind, mergedData);
+      const stepIndex = resolveStepIndexForId(sessionTemplate.steps || [], preferredStepId);
+      if (stepIndex === null || stepIndex === (session.current_step || 0)) return;
+      try {
+        setIsSaving(true);
+        await updateSession(stepIndex);
+      } catch (err: any) {
+        setSessionError(err.message || `Failed to move to ${blockKind}`);
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [mergedData, session, sessionTemplate],
+  );
+  const handleAcceptArticleDraft = useCallback(async () => {
+    await persistBundleBlockStatus("article_draft", "accepted", {
+      previewAction: "Accepted article draft bundle block",
+    });
+  }, [persistBundleBlockStatus]);
+  const handleRefineArticleDraft = useCallback(async () => {
+    await persistBundleBlockStatus("article_draft", "in_progress", {
+      previewAction: "Article draft moved back to refinement",
+    });
+    await handleJumpToBundleBlock("article_draft");
+  }, [handleJumpToBundleBlock, persistBundleBlockStatus]);
+  const handleRegenerateArticleDraft = useCallback(async () => {
+    if (!editableArticleDraftPreview) return;
+    await persistBundleBlockStatus("article_draft", "ready_for_review", {
+      generatedArticleDraft: {
+        ...editableArticleDraftPreview,
+        generatedAt: new Date().toISOString(),
+        revision: Date.now(),
+      },
+      previewAction: "Regenerated article draft review artifact",
+    });
+  }, [editableArticleDraftPreview, persistBundleBlockStatus]);
   const handleApplyBundlePreset = useCallback(
     async (presetId: ExperienceBundlePresetId) => {
       if (!activeExperienceForEditing?.id) {
@@ -5736,37 +5927,151 @@ export const ComposerStudio = () => {
                   <div className="max-h-[560px] space-y-4 overflow-y-auto pr-1">
                     {activeAppliedExperienceBundle && activeExperienceBundleSequencingState && (
                       <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4">
-                        <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
+                          <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+                            <div className="text-[11px] uppercase tracking-[0.18em] text-cyan-300">Bundle Blocks</div>
+                            <div className="mt-3 space-y-2">
+                              {activeExperienceBundleSequencingState.blocks.map((block) => (
+                                <button
+                                  key={block.kind}
+                                  type="button"
+                                  onClick={() => void handleJumpToBundleBlock(block.kind)}
+                                  className={`w-full rounded-xl border px-3 py-2 text-left transition ${
+                                    block.isActive
+                                      ? "border-cyan-400/30 bg-cyan-500/10"
+                                      : "border-slate-800 bg-slate-900/50 hover:border-slate-700"
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between gap-2">
+                                    <div className="text-sm font-medium text-white">{block.label}</div>
+                                    {block.isActive ? (
+                                      <span className="rounded-full border border-cyan-400/30 px-2 py-0.5 text-[10px] text-cyan-200">
+                                        active
+                                      </span>
+                                    ) : block.isNext ? (
+                                      <span className="rounded-full border border-slate-700 px-2 py-0.5 text-[10px] text-slate-400">
+                                        next
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                  <div className="mt-2 flex items-center justify-between gap-2">
+                                    <span
+                                      className={`rounded-full border px-2 py-0.5 text-[10px] ${getBundleStatusClasses(block.status)}`}
+                                    >
+                                      {block.status.replace(/_/g, " ")}
+                                    </span>
+                                    <span className="text-[10px] text-slate-500">{block.suggestedAction}</span>
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
                           <div>
-                            <div className="text-xs uppercase tracking-widest text-cyan-300">Make Bundle</div>
-                            <div className="mt-1 text-sm font-semibold text-white">
-                              {activeAppliedExperienceBundle.label}
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <div>
+                                <div className="text-xs uppercase tracking-widest text-cyan-300">Make Bundle</div>
+                                <div className="mt-1 text-sm font-semibold text-white">
+                                  {activeAppliedExperienceBundle.label}
+                                </div>
+                                <div className="mt-1 text-xs text-slate-300">
+                                  {activeAppliedExperienceBundle.bundleTemplateLabel} · {activeAppliedExperienceBundle.bundleTemplateId}
+                                </div>
+                                <div className="mt-2 text-xs text-slate-300">
+                                  {activeExperienceBundleSequencingState.progressLabel}
+                                </div>
+                                <div className="mt-2 text-xs text-slate-400">
+                                  Active block: {activeExperienceBundleSequencingState.activeBlock || "Bundle complete"}
+                                </div>
+                                {activeExperienceBundleSequencingState.nextBlock ? (
+                                  <div className="mt-1 text-xs text-slate-500">
+                                    Next block: {activeExperienceBundleSequencingState.nextBlock}
+                                  </div>
+                                ) : null}
+                              </div>
+                              {bundleCustomizerTargetStepIndex !== null &&
+                              bundleCustomizerTargetStepIndex !== (session.current_step || 0) ? (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => void handleJumpToBundleStep()}
+                                  disabled={isSaving}
+                                  className="border-cyan-400/30 text-cyan-100"
+                                >
+                                  Jump to active block
+                                </Button>
+                              ) : null}
                             </div>
-                            <div className="mt-1 text-xs text-slate-300">
-                              {activeExperienceBundleSequencingState.progressLabel}
+                            <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                              <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+                                <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">
+                                  Sequencing
+                                </div>
+                                <div className="mt-2 space-y-1 text-xs text-slate-300">
+                                  {activeAppliedExperienceBundle.sequencing.map((step) => (
+                                    <div key={step}>{step}</div>
+                                  ))}
+                                </div>
+                              </div>
+                              <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+                                <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">
+                                  Next Actions
+                                </div>
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                  {activeAppliedExperienceBundle.nextActions.map((item) => (
+                                    <span
+                                      key={item}
+                                      className="rounded-full border border-slate-700 bg-slate-900/70 px-2.5 py-1 text-[11px] text-slate-300"
+                                    >
+                                      {item}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
                             </div>
-                            <div className="mt-2 text-xs text-slate-400">
-                              Active block: {activeExperienceBundleSequencingState.activeBlock || "Bundle complete"}
-                            </div>
-                            {activeExperienceBundleSequencingState.nextBlock ? (
-                              <div className="mt-1 text-xs text-slate-500">
-                                Next block: {activeExperienceBundleSequencingState.nextBlock}
+                            {activeExperienceBundleSequencingState.activeBlock === "article_draft" ? (
+                              <div className="mt-4 rounded-xl border border-amber-400/20 bg-amber-500/5 p-3">
+                                <div className="flex flex-wrap items-center justify-between gap-3">
+                                  <div>
+                                    <div className="text-[11px] uppercase tracking-[0.16em] text-amber-300">
+                                      Article Review Controls
+                                    </div>
+                                    <div className="mt-1 text-xs text-slate-300">
+                                      Accept the current draft, move it back to refinement, or regenerate the bundle review artifact.
+                                    </div>
+                                  </div>
+                                  <div className="flex flex-wrap gap-2">
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => void handleRefineArticleDraft()}
+                                      className="border-slate-700 text-slate-200"
+                                    >
+                                      Refine
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => void handleRegenerateArticleDraft()}
+                                      className="border-cyan-400/30 text-cyan-100"
+                                    >
+                                      Regenerate
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      onClick={() => void handleAcceptArticleDraft()}
+                                      className="bg-emerald-500 text-white hover:bg-emerald-400"
+                                    >
+                                      Accept Draft
+                                    </Button>
+                                  </div>
+                                </div>
                               </div>
                             ) : null}
                           </div>
-                          {bundleCustomizerTargetStepIndex !== null &&
-                          bundleCustomizerTargetStepIndex !== (session.current_step || 0) ? (
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() => void handleJumpToBundleStep()}
-                              disabled={isSaving}
-                              className="border-cyan-400/30 text-cyan-100"
-                            >
-                              Jump to active block
-                            </Button>
-                          ) : null}
                         </div>
                       </div>
                     )}
@@ -6662,6 +6967,9 @@ export const ComposerStudio = () => {
                                           <div className="mt-1 text-xs text-slate-400">{preset.summary}</div>
                                           <div className="mt-2 text-[11px] text-slate-500">
                                             Blocks: {preset.blockKinds.join(" · ")}
+                                          </div>
+                                          <div className="mt-1 text-[11px] text-slate-500">
+                                            Bundle template: {preset.bundleTemplateLabel}
                                           </div>
                                         </div>
                                         <Button

@@ -296,6 +296,32 @@ Status:
 - the generated article draft artifact now persists in `configuration.article_draft.generated`
 - packet/runtime bundle briefs now surface the same generated draft artifact for review outside Customizer
 
+### Phase 4-A Bundle Authoring
+
+The bundled Phase `4-A` authoring drop should include:
+
+1. dedicated bundle-template identity for:
+   - `Image + Article`
+   - `Video + Article`
+2. an explicit bundle block status model:
+   - `not_started`
+   - `in_progress`
+   - `ready_for_review`
+   - `accepted`
+3. a bundle-aware Customizer shell with a block rail instead of only a banner
+4. article-block review actions:
+   - accept
+   - refine
+   - regenerate
+
+Status:
+
+- complete
+- bundle presets now carry dedicated bundle-template identity into ExperienceQube state
+- bundle sequencing now resolves explicit block statuses rather than only inferred completion
+- Customizer now renders a block rail / authoring shell for active bundles
+- article review controls now support accept, refine, and regenerate transitions
+
 The next broader Phase `4` work should include:
 
 1. dedicated bundle templates for:
