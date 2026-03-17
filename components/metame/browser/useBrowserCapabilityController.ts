@@ -17,6 +17,8 @@ import type { ShellInboundMessage } from "@metame/iframe-bridge";
 
 const STORAGE_KEY = "metame.browser.activeSessionId";
 const AA_CONFIG_STORAGE_KEY = "metame.browser.aaClientConfig";
+const DEFAULT_AA_PROXY_BASE_URL =
+  "https://bsjhfvctmduxhohtllly.supabase.co/functions/v1/aa-proxy/";
 
 type RuntimeAaConfig = {
   baseUrl: string;
@@ -119,6 +121,20 @@ function readRuntimeAaConfig(): RuntimeAaConfig | null {
   }
 }
 
+function resolveAaBrowserBaseUrl(runtimeConfig: RuntimeAaConfig | null): string | null {
+  const fromEnv = asNonEmptyString(process.env.NEXT_PUBLIC_AA_API_BASE_URL);
+  if (fromEnv) return fromEnv;
+
+  if (runtimeConfig?.baseUrl) return runtimeConfig.baseUrl;
+
+  const supabaseUrl = asNonEmptyString(process.env.NEXT_PUBLIC_SUPABASE_URL);
+  if (supabaseUrl) {
+    return `${supabaseUrl.replace(/\/+$/, "")}/functions/v1/aa-proxy/`;
+  }
+
+  return DEFAULT_AA_PROXY_BASE_URL;
+}
+
 function unwrapBrowserPayload(payload: Record<string, unknown>): Record<string, unknown> {
   const nested = payload.payload;
   if (nested && typeof nested === "object" && !Array.isArray(nested)) {
@@ -139,7 +155,7 @@ export function useBrowserCapabilityController({ enabled, emitShellEvent }: UseB
 
   const getAaClient = useCallback(() => {
     const runtimeConfig = readRuntimeAaConfig();
-    const baseUrl = process.env.NEXT_PUBLIC_AA_API_BASE_URL || runtimeConfig?.baseUrl || null;
+    const baseUrl = resolveAaBrowserBaseUrl(runtimeConfig);
     if (!baseUrl) return null;
 
     const token = process.env.NEXT_PUBLIC_AA_API_TOKEN || runtimeConfig?.token || null;
