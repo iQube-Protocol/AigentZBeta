@@ -5311,11 +5311,13 @@ export const ComposerStudio = () => {
               ]),
             })
           : null;
+        const patchConfigurationRecord = patch.configuration as Record<string, unknown>;
+        const patchMetadataRecord = patch.metadata as Record<string, unknown>;
         const patchConfiguration = shouldSeedArticleDraft
           ? {
               ...patch.configuration,
               article_draft: {
-                ...(asRecord(patch.configuration.article_draft) || {}),
+                ...(asRecord(patchConfigurationRecord.article_draft) || {}),
                 title: seededArticleTitle,
                 prompt: seededArticlePrompt,
                 outputs: seededArticleOutputs,
@@ -5323,14 +5325,14 @@ export const ComposerStudio = () => {
                 ...(seededArticleDraft ? { generated: seededArticleDraft } : {}),
               },
               copilot_output: {
-                ...(asRecord(patch.configuration.copilot_output) || {}),
+                ...(asRecord(patchConfigurationRecord.copilot_output) || {}),
                 outputs: seededArticleOutputs,
                 takeaways_count: 3,
               },
               make_bundle: {
-                ...(asRecord(patch.configuration.make_bundle) || {}),
+                ...(asRecord(patchConfigurationRecord.make_bundle) || {}),
                 block_statuses: {
-                  ...(asRecord(asRecord(patch.configuration.make_bundle)?.block_statuses) || {}),
+                  ...(asRecord(asRecord(patchConfigurationRecord.make_bundle)?.block_statuses) || {}),
                   article_draft: seededArticleDraft ? "ready_for_review" : "in_progress",
                 },
               },
@@ -5342,14 +5344,14 @@ export const ComposerStudio = () => {
               article_title: seededArticleTitle,
               article_prompt: seededArticlePrompt,
               composition_bundle_state: {
-                ...(asRecord(patch.metadata.composition_bundle_state) || {}),
+                ...(asRecord(patchMetadataRecord.composition_bundle_state) || {}),
                 block_statuses: {
-                  ...(asRecord(asRecord(patch.metadata.composition_bundle_state)?.block_statuses) || {}),
+                  ...(asRecord(asRecord(patchMetadataRecord.composition_bundle_state)?.block_statuses) || {}),
                   article_draft: seededArticleDraft ? "ready_for_review" : "in_progress",
                 },
               },
               editable_generation: {
-                ...(asRecord(patch.metadata.editable_generation) || {}),
+                ...(asRecord(patchMetadataRecord.editable_generation) || {}),
                 article_draft: {
                   title: seededArticleTitle,
                   prompt: seededArticlePrompt,
