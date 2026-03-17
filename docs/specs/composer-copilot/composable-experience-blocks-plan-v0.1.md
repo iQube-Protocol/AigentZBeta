@@ -264,6 +264,95 @@ Status:
 - applying `Image + Article` or `Video + Article` now opens the active ExperienceQube into Customizer on the preferred bundle step
 - Customizer now shows active bundle progress and can jump to the current bundle block directly
 
+### Phase 4 Fifth Implementation Slice
+
+The next concrete Phase `4` slice should be:
+
+1. make `Article Draft` a first-class editable block inside the existing Customizer/resources flow
+2. persist article draft title, prompt, and scaffold state into session data as well as ExperienceQube config/metadata
+3. let packet assembly consume those persisted article fields directly
+4. keep the flow additive so bundle-aware copy editing works without introducing new template branches yet
+
+Status:
+
+- complete
+- the editable generation panel now supports bundle-aware article draft editing
+- article title, prompt, scaffold outputs, and takeaway count now persist through session save and ExperienceQube update paths
+- packet/runtime bundle briefs now consume persisted article-draft fields instead of relying only on fallback metadata
+
+### Phase 4 Sixth Implementation Slice
+
+The next concrete Phase `4` slice should be:
+
+1. turn the article block into an operational draft-review surface rather than only an input form
+2. derive a structured draft artifact from the saved article block inputs
+3. persist that artifact with the ExperienceQube so packet/runtime can reuse it
+4. keep the first pass deterministic until dedicated copy-generation adapters are introduced
+
+Status:
+
+- complete
+- Customizer now renders a bundle-aware article draft review surface with deck, opening, sections, takeaways, glossary, and next action
+- the generated article draft artifact now persists in `configuration.article_draft.generated`
+- packet/runtime bundle briefs now surface the same generated draft artifact for review outside Customizer
+
+### Phase 4-A Bundle Authoring
+
+The bundled Phase `4-A` authoring drop should include:
+
+1. dedicated bundle-template identity for:
+   - `Image + Article`
+   - `Video + Article`
+2. an explicit bundle block status model:
+   - `not_started`
+   - `in_progress`
+   - `ready_for_review`
+   - `accepted`
+3. a bundle-aware Customizer shell with a block rail instead of only a banner
+4. article-block review actions:
+   - accept
+   - refine
+   - regenerate
+
+Status:
+
+- complete
+- bundle presets now carry dedicated bundle-template identity into ExperienceQube state
+- bundle sequencing now resolves explicit block statuses rather than only inferred completion
+- Customizer now renders a block rail / authoring shell for active bundles
+- article review controls now support accept, refine, and regenerate transitions
+
+### Phase 4-B Bundle Entry + Handoff
+
+The next concrete Phase `4` slice should be:
+
+1. surface bundle templates directly in the `Template` tab instead of only under `Resources`
+2. let the active bundle block declare which underlying template flow should own that block
+3. allow Customizer to hand off into that target flow when the current template does not support the active block directly
+4. keep the handoff scoped to the active ExperienceQube so bundle editing remains continuous rather than spawning disconnected drafts
+
+Status:
+
+- complete
+- `Template` now surfaces `Image + Article` and `Video + Article` bundle authoring entries directly
+- bundle-aware Customizer now resolves the owning flow template for the active block
+- when the active block belongs to a different template, Customizer can open the correct flow while preserving the active ExperienceQube edit session
+
+### Phase 4-C Bundle Block Controls
+
+The next concrete Phase `4` slice should be:
+
+1. extend bundle block controls to image, video, and deployment blocks (not just article draft)
+2. make block status transitions explicit for media + deployment
+3. ensure each active block can reopen its owning flow for refinement
+
+Status:
+
+- complete
+- image/video/deployment blocks now expose explicit `Continue`/`Mark Locked`/`Review Deployment` controls
+- bundle block status updates persist through the same block-status contract
+- media and deployment blocks can reopen their owning flow without losing the active ExperienceQube context
+
 The next broader Phase `4` work should include:
 
 1. dedicated bundle templates for:

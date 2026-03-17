@@ -21,6 +21,8 @@ export type ExperienceBundlePreset = {
   label: string;
   summary: string;
   blockKinds: ExperienceBlockKind[];
+  bundleTemplateId: string;
+  bundleTemplateLabel: string;
   sequencing: string[];
   nextActions: string[];
   recommended: boolean;
@@ -31,10 +33,37 @@ export type AppliedExperienceBundle = {
   label: string;
   summary: string;
   blockKinds: ExperienceBlockKind[];
+  bundleTemplateId: string;
+  bundleTemplateLabel: string;
   sequencing: string[];
   nextActions: string[];
   appliedAt: string;
   entryIntent: "make";
+};
+
+export type ExperienceBundleBlockStatus =
+  | "not_started"
+  | "in_progress"
+  | "ready_for_review"
+  | "accepted";
+
+export type ExperienceBundleBlockState = {
+  kind: ExperienceBlockKind;
+  label: string;
+  status: ExperienceBundleBlockStatus;
+  isActive: boolean;
+  isNext: boolean;
+  templateId: string;
+  templateLabel: string;
+  suggestedAction: string;
+};
+
+export type ExperienceBundleFlowTarget = {
+  blockKind: ExperienceBlockKind;
+  templateId: string;
+  templateLabel: string;
+  label: string;
+  summary: string;
 };
 
 export type ExperienceBundleSequencingState = {
@@ -44,6 +73,7 @@ export type ExperienceBundleSequencingState = {
   progressLabel: string;
   completedCount: number;
   totalCount: number;
+  blocks: ExperienceBundleBlockState[];
 };
 
 function asRecord(value: unknown): RecordLike | null {
@@ -102,10 +132,76 @@ function hasArticleDraftSignal(experience: ExperienceLike | null | undefined) {
   return Boolean(articlePrompt || contentFeature || /(article|editorial|reading|read|feature|copy|draft)/.test(haystack));
 }
 
+function hasGeneratedArticleDraft(experience: ExperienceLike | null | undefined) {
+  const configuration = asRecord(experience?.configuration) ?? {};
+  const articleDraft = asRecord(configuration.article_draft) ?? {};
+  return Boolean(articleDraft.generated && typeof articleDraft.generated === "object");
+}
+
 function hasDeploymentState(experience: ExperienceLike | null | undefined) {
   const metadata = asRecord(experience?.metadata) ?? {};
   const deploymentState = asRecord(metadata.deployment_state);
   return Boolean(deploymentState && firstString([deploymentState.last_target, deploymentState.last_status]));
+}
+
+function getPersistedBundleBlockStatuses(
+  experience: ExperienceLike | null | undefined,
+): Partial<Record<ExperienceBlockKind, ExperienceBundleBlockStatus>> {
+  const metadata = asRecord(experience?.metadata) ?? {};
+  const configuration = asRecord(experience?.configuration) ?? {};
+  const metadataState = asRecord(metadata.composition_bundle_state) ?? {};
+  const configurationState = asRecord(configuration.make_bundle) ?? {};
+  const fromMetadata = asRecord(metadataState.block_statuses) ?? {};
+  const fromConfiguration = asRecord(configurationState.block_statuses) ?? {};
+  const merged = { ...fromConfiguration, ...fromMetadata };
+  const resolved: Partial<Record<ExperienceBlockKind, ExperienceBundleBlockStatus>> = {};
+  for (const kind of ["image_generation", "video_generation", "article_draft", "deployment"] as const) {
+    const value = merged[kind];
+    if (
+      value === "not_started" ||
+      value === "in_progress" ||
+      value === "ready_for_review" ||
+      value === "accepted"
+    ) {
+      resolved[kind] = value;
+    }
+  }
+  return resolved;
+}
+
+function getBundleTemplateDescriptor(presetId: ExperienceBundlePresetId) {
+  return presetId === "video_article_bundle"
+    ? {
+        id: "bundle:video_article_stack_v1",
+        label: "Watch Companion Stack",
+      }
+    : {
+        id: "bundle:image_article_stack_v1",
+        label: "Editorial Experience Stack",
+      };
+}
+
+function getBlockLabel(kind: ExperienceBlockKind) {
+  if (kind === "image_generation") return "Image Generation";
+  if (kind === "video_generation") return "Video Generation";
+  if (kind === "article_draft") return "Article Draft";
+  return "Deployment";
+}
+
+function getSuggestedAction(kind: ExperienceBlockKind, status: ExperienceBundleBlockStatus) {
+  if (kind === "article_draft") {
+    if (status === "ready_for_review") return "Review draft";
+    if (status === "accepted") return "Move to deployment";
+    if (status === "in_progress") return "Refine copy";
+    return "Start draft";
+  }
+  if (kind === "deployment") {
+    return status === "accepted" ? "Deployment complete" : "Prepare deployment";
+  }
+  if (kind === "video_generation") {
+    return status === "accepted" ? "Video locked" : status === "in_progress" ? "Continue video work" : "Start video";
+  }
+  return status === "accepted" ? "Image locked" : status === "in_progress" ? "Continue image work" : "Start image";
 }
 
 function supportsBundle(manifest: ExperienceBlockManifest, requiredKinds: ExperienceBlockKind[]) {
@@ -120,6 +216,8 @@ export function listExperienceBundlePresets(manifest: ExperienceBlockManifest): 
       label: "Image + Article",
       summary: "Bundle visual generation with editorial drafting for Make-oriented article experiences.",
       blockKinds: ["image_generation", "article_draft", "deployment"],
+      bundleTemplateId: "bundle:image_article_stack_v1",
+      bundleTemplateLabel: "Editorial Experience Stack",
       sequencing: [
         "Lock hero/supporting image generation first.",
         "Layer article draft and editorial structure on top of the selected imagery.",
@@ -133,6 +231,8 @@ export function listExperienceBundlePresets(manifest: ExperienceBlockManifest): 
       label: "Video + Article",
       summary: "Bundle motion-led generation with editorial support for Make-oriented watch experiences.",
       blockKinds: ["video_generation", "article_draft", "deployment"],
+      bundleTemplateId: "bundle:video_article_stack_v1",
+      bundleTemplateLabel: "Watch Companion Stack",
       sequencing: [
         "Generate or bind the primary video asset first.",
         "Add supporting editorial copy and article context around the selected video.",
@@ -154,6 +254,14 @@ export function getAppliedExperienceBundle(experience: ExperienceLike | null | u
     presetId,
     label: typeof record.label === "string" ? record.label : presetId,
     summary: typeof record.summary === "string" ? record.summary : "",
+    bundleTemplateId:
+      typeof record.bundleTemplateId === "string"
+        ? record.bundleTemplateId
+        : getBundleTemplateDescriptor(presetId).id,
+    bundleTemplateLabel:
+      typeof record.bundleTemplateLabel === "string"
+        ? record.bundleTemplateLabel
+        : getBundleTemplateDescriptor(presetId).label,
     blockKinds: Array.isArray(record.blockKinds)
       ? record.blockKinds.filter(
           (kind): kind is ExperienceBlockKind =>
@@ -194,6 +302,8 @@ export function buildExperienceBundlePresetPatch(
     label: preset.label,
     summary: preset.summary,
     blockKinds: preset.blockKinds,
+    bundleTemplateId: preset.bundleTemplateId,
+    bundleTemplateLabel: preset.bundleTemplateLabel,
     sequencing: preset.sequencing,
     nextActions: preset.nextActions,
     appliedAt: now,
@@ -205,16 +315,31 @@ export function buildExperienceBundlePresetPatch(
       ...existingConfiguration,
       make_bundle: {
         presetId: preset.id,
+        bundleTemplateId: preset.bundleTemplateId,
+        bundleTemplateLabel: preset.bundleTemplateLabel,
         entryIntent: "make",
         recommended: preset.recommended,
         primaryFlow: manifest.primaryFlow,
         blockKinds: preset.blockKinds,
+        block_statuses: {
+          [preset.blockKinds[0]]: "in_progress",
+          ...(preset.blockKinds.includes("article_draft") ? { article_draft: "not_started" } : {}),
+          ...(preset.blockKinds.includes("deployment") ? { deployment: "not_started" } : {}),
+        },
         updatedAt: now,
       },
     },
     metadata: {
       ...existingMetadata,
       composition_bundle: nextBundle,
+      composition_bundle_state: {
+        block_statuses: {
+          [preset.blockKinds[0]]: "in_progress",
+          ...(preset.blockKinds.includes("article_draft") ? { article_draft: "not_started" } : {}),
+          ...(preset.blockKinds.includes("deployment") ? { deployment: "not_started" } : {}),
+        },
+        updatedAt: now,
+      },
       composition_manifest: {
         primaryFlow: manifest.primaryFlow,
         blockCount: manifest.blockCount,
@@ -233,22 +358,10 @@ export function resolveExperienceBundleSequencingState(
 ): ExperienceBundleSequencingState | null {
   if (!bundle) return null;
 
-  const completedBlocks: ExperienceBlockKind[] = [];
+  const acceptedBlocks: ExperienceBlockKind[] = [];
+  const persistedStatuses = getPersistedBundleBlockStatuses(experience);
   const mediaBlock: ExperienceBlockKind =
     bundle.presetId === "video_article_bundle" ? "video_generation" : "image_generation";
-
-  if (mediaBlock === "image_generation" && hasGeneratedAssetType(experience, "image")) {
-    completedBlocks.push("image_generation");
-  }
-  if (mediaBlock === "video_generation" && hasGeneratedAssetType(experience, "video")) {
-    completedBlocks.push("video_generation");
-  }
-  if (bundle.blockKinds.includes("article_draft") && hasArticleDraftSignal(experience)) {
-    completedBlocks.push("article_draft");
-  }
-  if (bundle.blockKinds.includes("deployment") && hasDeploymentState(experience)) {
-    completedBlocks.push("deployment");
-  }
 
   const orderedBlocks = bundle.blockKinds.filter(
     (kind): kind is ExperienceBlockKind =>
@@ -257,18 +370,126 @@ export function resolveExperienceBundleSequencingState(
       kind === "article_draft" ||
       kind === "deployment",
   );
-  const activeBlock = orderedBlocks.find((kind) => !completedBlocks.includes(kind)) || null;
+  const blocks = orderedBlocks.map((kind): ExperienceBundleBlockState => {
+    const persisted = persistedStatuses[kind];
+    let status: ExperienceBundleBlockStatus = "not_started";
+    if (kind === "image_generation") {
+      status =
+        persisted === "accepted"
+          ? "accepted"
+          : hasGeneratedAssetType(experience, "image")
+            ? "accepted"
+            : persisted || "in_progress";
+    } else if (kind === "video_generation") {
+      status =
+        persisted === "accepted"
+          ? "accepted"
+          : hasGeneratedAssetType(experience, "video")
+            ? "accepted"
+            : persisted || "in_progress";
+    } else if (kind === "article_draft") {
+      if (persisted === "accepted" || persisted === "in_progress") {
+        status = persisted;
+      } else if (hasGeneratedArticleDraft(experience)) {
+        status = "ready_for_review";
+      } else if (hasArticleDraftSignal(experience)) {
+        status = "in_progress";
+      }
+    } else if (kind === "deployment") {
+      if (persisted === "accepted") {
+        status = "accepted";
+      } else if (hasDeploymentState(experience)) {
+        status = "accepted";
+      } else if (persisted) {
+        status = persisted;
+      }
+    }
+    if (status === "accepted") acceptedBlocks.push(kind);
+    return {
+      kind,
+      label: getBlockLabel(kind),
+      status,
+      isActive: false,
+      isNext: false,
+      templateId: bundle.bundleTemplateId,
+      templateLabel: bundle.bundleTemplateLabel,
+      suggestedAction: getSuggestedAction(kind, status),
+    };
+  });
+
+  const activeBlockRecord = blocks.find((block) => block.status !== "accepted") || null;
+  const activeBlock = activeBlockRecord?.kind || null;
   const activeIndex = activeBlock ? orderedBlocks.indexOf(activeBlock) : -1;
   const nextBlock = activeBlock && activeIndex >= 0 && activeIndex + 1 < orderedBlocks.length
     ? orderedBlocks[activeIndex + 1]
     : null;
+  blocks.forEach((block) => {
+    block.isActive = block.kind === activeBlock;
+    block.isNext = block.kind === nextBlock;
+    if (
+      block.kind === "deployment" &&
+      block.status === "not_started" &&
+      blocks
+        .filter((entry) => entry.kind !== "deployment")
+        .every((entry) => entry.status === "accepted")
+    ) {
+      block.status = "in_progress";
+      block.suggestedAction = getSuggestedAction(block.kind, block.status);
+    }
+  });
 
   return {
-    completedBlocks,
+    completedBlocks: acceptedBlocks,
     activeBlock,
     nextBlock,
-    progressLabel: `${completedBlocks.length}/${orderedBlocks.length} blocks complete`,
-    completedCount: completedBlocks.length,
+    progressLabel: `${acceptedBlocks.length}/${orderedBlocks.length} blocks accepted`,
+    completedCount: acceptedBlocks.length,
     totalCount: orderedBlocks.length,
+    blocks,
+  };
+}
+
+export function resolveExperienceBundleFlowTarget(
+  bundle: AppliedExperienceBundle | null | undefined,
+  blockKind: ExperienceBlockKind | null | undefined,
+): ExperienceBundleFlowTarget | null {
+  if (!bundle || !blockKind) return null;
+
+  if (blockKind === "video_generation") {
+    return {
+      blockKind,
+      templateId: "sora-video-generation",
+      templateLabel: "Sora Video Generation",
+      label: "video generation flow",
+      summary: "Open the video skill flow to generate or refine the primary motion asset.",
+    };
+  }
+
+  if (blockKind === "image_generation") {
+    return {
+      blockKind,
+      templateId: "qriptopian_reading_sprint_v0",
+      templateLabel: "Qriptopian Reading Sprint",
+      label: "image generation flow",
+      summary: "Open the reading-sprint customizer on hero image generation.",
+    };
+  }
+
+  if (blockKind === "article_draft") {
+    return {
+      blockKind,
+      templateId: "qriptopian_reading_sprint_v0",
+      templateLabel: "Qriptopian Reading Sprint",
+      label: "article draft flow",
+      summary: "Open the article-oriented customizer to select content and shape supporting copy.",
+    };
+  }
+
+  return {
+    blockKind,
+    templateId: bundle.presetId === "video_article_bundle" ? "sora-video-generation" : "qriptopian_reading_sprint_v0",
+    templateLabel: bundle.presetId === "video_article_bundle" ? "Sora Video Generation" : "Qriptopian Reading Sprint",
+    label: "deployment flow",
+    summary: "Return to the bundle source experience and finish deployment and reward configuration.",
   };
 }
