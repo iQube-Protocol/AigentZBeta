@@ -21,6 +21,50 @@ type RouteContext = {
   };
 };
 
+type BrowserSessionServiceApi = {
+  createSession: (input: {
+    auth: BrowserAuthScope;
+    intent?: string | null;
+    mountMode?: BrowserMountMode;
+    targetUrl?: string | null;
+  }) => Promise<BrowserSessionAggregate>;
+  getSession: (sessionId: string) => BrowserSessionAggregate | null;
+  closeSession: (sessionId: string) => Promise<BrowserSessionAggregate>;
+  suspendSession: (sessionId: string) => Promise<BrowserSessionAggregate>;
+  resumeSession: (sessionId: string) => Promise<BrowserSessionAggregate>;
+  mountSession: (sessionId: string) => Promise<BrowserSessionAggregate>;
+  unmountSession: (sessionId: string) => Promise<BrowserSessionAggregate>;
+  navigate: (
+    sessionId: string,
+    url: string,
+    action: "navigate" | "back" | "forward" | "refresh"
+  ) => Promise<BrowserSessionAggregate>;
+  runAgentTask: (
+    sessionId: string,
+    input: { instruction?: string | null; payload: Record<string, unknown> }
+  ) => Promise<Record<string, unknown>>;
+  pauseAgentExecution: (sessionId: string) => Promise<BrowserSessionAggregate>;
+  resumeAgentExecution: (sessionId: string) => Promise<BrowserSessionAggregate>;
+  startTakeover: (sessionId: string) => Promise<BrowserSessionAggregate>;
+  endTakeover: (sessionId: string) => Promise<BrowserSessionAggregate>;
+  extractFromSession: (
+    sessionId: string,
+    input: { prompt?: string | null; schema?: Record<string, unknown> | null }
+  ) => Promise<Record<string, unknown>>;
+  saveSessionOutput: (
+    sessionId: string,
+    input: {
+      destinationType?: string;
+      destinationId?: string | null;
+      artifactId?: string | null;
+      metadata: Record<string, unknown>;
+      savedBy?: string | null;
+    }
+  ) => Promise<Record<string, unknown>>;
+};
+
+const typedBrowserSessionService = browserSessionService as unknown as BrowserSessionServiceApi;
+
 function json(data: unknown, init?: ResponseInit): Response {
   return Response.json(data, init);
 }
@@ -139,7 +183,7 @@ function assertBrowserSessionAccess(aggregate: BrowserSessionAggregate, auth: Br
 }
 
 function getScopedSession(sessionId: string, auth: BrowserAuthScope): BrowserSessionAggregate {
-  const aggregate = browserSessionService.getSession(sessionId);
+  const aggregate = typedBrowserSessionService.getSession(sessionId);
   if (!aggregate) {
     throw new Error("Browser session not found");
   }
@@ -158,7 +202,7 @@ async function handleCreateSession(request: NextRequest, auth: BrowserAuthScope)
   const body = await parseRequestBody(request);
   const requestedUrl =
     typeof body.targetUrl === "string" ? body.targetUrl : typeof body.url === "string" ? body.url : null;
-  const aggregate = await browserSessionService.createSession({
+  const aggregate = await typedBrowserSessionService.createSession({
     auth,
     intent: typeof body.intent === "string" ? body.intent : null,
     mountMode: parseMountMode(body.mountMode),
@@ -238,29 +282,29 @@ async function handleSessionPost(
 
   switch (action) {
     case "close":
-      return json(serializeAggregate(await browserSessionService.closeSession(sessionId)));
+      return json(serializeAggregate(await typedBrowserSessionService.closeSession(sessionId)));
     case "suspend":
-      return json(serializeAggregate(await browserSessionService.suspendSession(sessionId)));
+      return json(serializeAggregate(await typedBrowserSessionService.suspendSession(sessionId)));
     case "resume":
-      return json(serializeAggregate(await browserSessionService.resumeSession(sessionId)));
+      return json(serializeAggregate(await typedBrowserSessionService.resumeSession(sessionId)));
     case "mount":
-      return json(serializeAggregate(await browserSessionService.mountSession(sessionId)));
+      return json(serializeAggregate(await typedBrowserSessionService.mountSession(sessionId)));
     case "unmount":
-      return json(serializeAggregate(await browserSessionService.unmountSession(sessionId)));
+      return json(serializeAggregate(await typedBrowserSessionService.unmountSession(sessionId)));
     case "navigate": {
       const url = typeof body.url === "string" ? body.url : null;
       if (!url) return json({ error: "url is required" }, { status: 400 });
-      return json(serializeAggregate(await browserSessionService.navigate(sessionId, url, "navigate")));
+      return json(serializeAggregate(await typedBrowserSessionService.navigate(sessionId, url, "navigate")));
     }
     case "back":
-      return json(serializeAggregate(await browserSessionService.navigate(sessionId, "", "back")));
+      return json(serializeAggregate(await typedBrowserSessionService.navigate(sessionId, "", "back")));
     case "forward":
-      return json(serializeAggregate(await browserSessionService.navigate(sessionId, "", "forward")));
+      return json(serializeAggregate(await typedBrowserSessionService.navigate(sessionId, "", "forward")));
     case "refresh":
-      return json(serializeAggregate(await browserSessionService.navigate(sessionId, "", "refresh")));
+      return json(serializeAggregate(await typedBrowserSessionService.navigate(sessionId, "", "refresh")));
     case "extract":
       return json(
-        await browserSessionService.extractFromSession(sessionId, {
+        await typedBrowserSessionService.extractFromSession(sessionId, {
           prompt: typeof body.prompt === "string" ? body.prompt : null,
           schema:
             body.schema && typeof body.schema === "object" && !Array.isArray(body.schema)
@@ -270,7 +314,7 @@ async function handleSessionPost(
       );
     case "save":
       return json(
-        await browserSessionService.saveSessionOutput(sessionId, {
+        await typedBrowserSessionService.saveSessionOutput(sessionId, {
           destinationType: typeof body.destinationType === "string" ? body.destinationType : undefined,
           destinationId: typeof body.destinationId === "string" ? body.destinationId : null,
           artifactId: typeof body.artifactId === "string" ? body.artifactId : null,
@@ -300,16 +344,16 @@ async function handleNestedSessionPost(
     switch (action) {
       case "run":
         return json({
-          ...(await browserSessionService.runAgentTask(sessionId, {
+          ...(await typedBrowserSessionService.runAgentTask(sessionId, {
             instruction: typeof body.instruction === "string" ? body.instruction : null,
             payload: body,
           })),
           stagehand: browserStagehandExec.getStatus(),
         });
       case "pause":
-        return json(serializeAggregate(await browserSessionService.pauseAgentExecution(sessionId)));
+        return json(serializeAggregate(await typedBrowserSessionService.pauseAgentExecution(sessionId)));
       case "resume":
-        return json(serializeAggregate(await browserSessionService.resumeAgentExecution(sessionId)));
+        return json(serializeAggregate(await typedBrowserSessionService.resumeAgentExecution(sessionId)));
       default:
         return json({ error: "Not found" }, { status: 404 });
     }
@@ -318,9 +362,9 @@ async function handleNestedSessionPost(
   if (scope === "takeover") {
     switch (action) {
       case "start":
-        return json(serializeAggregate(await browserSessionService.startTakeover(sessionId)));
+        return json(serializeAggregate(await typedBrowserSessionService.startTakeover(sessionId)));
       case "end":
-        return json(serializeAggregate(await browserSessionService.endTakeover(sessionId)));
+        return json(serializeAggregate(await typedBrowserSessionService.endTakeover(sessionId)));
       default:
         return json({ error: "Not found" }, { status: 404 });
     }
