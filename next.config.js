@@ -15,6 +15,9 @@ const nextConfig = {
     "@qriptoagentiq/a2a-client",
     "@agentiq/article-reader",
     "@metame/contracts",
+    "@metame/aa-client",
+    "@metame/browser-contracts",
+    "@metame/iframe-bridge",
   ],
   // Ignore ESLint errors during build (legacy code cleanup in progress)
   eslint: {

@@ -1,11 +1,15 @@
 "use client";
 
 import type { RuntimeMenu, RuntimeMenuItem } from "@metame/aa-client";
+import { BrowserLaunchEntry } from "./browser/BrowserLaunchEntry";
 
 type SmartMenuProps = {
   menu: RuntimeMenu;
   busyActionId: string | null;
   onAction: (item: RuntimeMenuItem, payload?: Record<string, unknown>) => void;
+  browserEnabled?: boolean;
+  browserActive?: boolean;
+  onBrowserLaunch?: () => void;
 };
 
 function selectEdgeItems(items: RuntimeMenuItem[]): { left: RuntimeMenuItem | null; right: RuntimeMenuItem | null } {
@@ -42,7 +46,7 @@ function MenuActionButton({
   );
 }
 
-export function SmartMenu({ menu, busyActionId, onAction }: SmartMenuProps) {
+export function SmartMenu({ menu, busyActionId, onAction, browserEnabled = false, browserActive = false, onBrowserLaunch }: SmartMenuProps) {
   const coreItems = menu.items.filter(isCore);
   const { left: leftEdge, right: rightEdge } = selectEdgeItems(menu.items);
   const edgeEnabled = !!(leftEdge?.enabled || rightEdge?.enabled);
@@ -51,6 +55,11 @@ export function SmartMenu({ menu, busyActionId, onAction }: SmartMenuProps) {
   if (shouldCollapseCenter) {
     return (
       <nav className="runtime-menu" aria-label="metaMe smart menu">
+        {browserEnabled && onBrowserLaunch ? (
+          <div className="browser-launch-row">
+            <BrowserLaunchEntry active={browserActive} onOpen={onBrowserLaunch} />
+          </div>
+        ) : null}
         <div className="menu-row-collapsed">
           {leftEdge ? (
             <MenuActionButton item={leftEdge} busyActionId={busyActionId} onAction={(item) => onAction(item)} />
@@ -94,6 +103,11 @@ export function SmartMenu({ menu, busyActionId, onAction }: SmartMenuProps) {
 
   return (
     <nav className="runtime-menu" aria-label="metaMe smart menu">
+      {browserEnabled && onBrowserLaunch ? (
+        <div className="browser-launch-row">
+          <BrowserLaunchEntry active={browserActive} onOpen={onBrowserLaunch} />
+        </div>
+      ) : null}
       <div className="menu-row" style={{ gridTemplateColumns: `repeat(${displayItems.length}, minmax(0, 1fr))` }}>
         {displayItems.map((item) => (
           <MenuActionButton key={item.id} item={item} busyActionId={busyActionId} onAction={(next) => onAction(next)} />

@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@metame/aa-client": "file:../../packages/aa-client",
+    "@metame/browser-contracts": "file:../../packages/browser-contracts",
     "@metame/iframe-bridge": "file:../../packages/iframe-bridge",
     "@metame/qubetalk-client": "file:../../packages/qubetalk-client",
     "next": "^14.0.0",

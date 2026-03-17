@@ -12,7 +12,9 @@
     "dev": "tsc --watch",
     "typecheck": "tsc --noEmit"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@metame/browser-contracts": "file:../browser-contracts"
+  },
   "devDependencies": {
     "typescript": "^5.0.0"
   },

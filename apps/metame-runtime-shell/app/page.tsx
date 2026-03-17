@@ -18,6 +18,14 @@ import {
   type RuntimeInboundMessage,
   type ShellOutboundType,
 } from "@metame/iframe-bridge";
+import type {
+  BrowserBadgeState,
+  BrowserErrorPayload,
+  BrowserMountPayload,
+  BrowserStepState,
+  BrowserSurfaceState,
+} from "@metame/browser-contracts";
+import { BrowserSurfaceHost } from "./components/browser/BrowserSurfaceHost";
 import { RuntimeFrame } from "./components/RuntimeFrame";
 import { RuntimeHeader } from "./components/RuntimeHeader";
 import { SmartMenu } from "./components/SmartMenu";
@@ -29,6 +37,151 @@ import {
 
 const RUNTIME_ORIGIN_ENV = process.env.NEXT_PUBLIC_RUNTIME_IFRAME_ORIGIN ?? "";
 const RUNTIME_URL_ENV = process.env.NEXT_PUBLIC_RUNTIME_IFRAME_URL ?? "";
+const BROWSER_MVP_ENABLED = process.env.NEXT_PUBLIC_BROWSER_MVP_ENABLED === "true";
+
+type BrowserShellEntry = {
+  mountPayload?: BrowserMountPayload;
+  surfaceState?: BrowserSurfaceState;
+  badges?: BrowserBadgeState;
+  step?: BrowserStepState;
+  error?: BrowserErrorPayload | null;
+};
+
+type BrowserShellStore = {
+  activeSessionId: string | null;
+  entries: Record<string, BrowserShellEntry>;
+};
+
+type BrowserShellAction =
+  | { type: "mount"; payload: BrowserMountPayload }
+  | { type: "unmount"; payload: { sessionId: string } }
+  | { type: "surface"; payload: BrowserSurfaceState }
+  | { type: "badges"; payload: BrowserBadgeState }
+  | { type: "step"; payload: BrowserStepState }
+  | { type: "error"; payload: BrowserErrorPayload }
+  | { type: "local_surface"; payload: { sessionId: string; patch: Partial<BrowserSurfaceState> } };
+
+const INITIAL_BROWSER_STORE: BrowserShellStore = {
+  activeSessionId: null,
+  entries: {},
+};
+
+function shouldIgnoreBrowserUpdate(store: BrowserShellStore, sessionId: string): boolean {
+  return !!store.activeSessionId && store.activeSessionId !== sessionId;
+}
+
+function browserShellReducer(store: BrowserShellStore, action: BrowserShellAction): BrowserShellStore {
+  if (action.type === "mount") {
+    const sessionId = action.payload.sessionId;
+    return {
+      activeSessionId: sessionId,
+      entries: {
+        ...store.entries,
+        [sessionId]: {
+          ...(store.entries[sessionId] || {}),
+          mountPayload: action.payload,
+          error: null,
+        },
+      },
+    };
+  }
+
+  if (action.type === "unmount") {
+    if (store.activeSessionId !== action.payload.sessionId) {
+      return store;
+    }
+    return {
+      activeSessionId: null,
+      entries: {
+        ...store.entries,
+        [action.payload.sessionId]: {
+          ...(store.entries[action.payload.sessionId] || {}),
+          surfaceState: store.entries[action.payload.sessionId]?.surfaceState
+            ? {
+                ...store.entries[action.payload.sessionId]!.surfaceState!,
+                mounted: false,
+                visible: false,
+              }
+            : undefined,
+        },
+      },
+    };
+  }
+
+  if (action.type === "surface") {
+    if (shouldIgnoreBrowserUpdate(store, action.payload.sessionId)) return store;
+    return {
+      activeSessionId: store.activeSessionId ?? action.payload.sessionId,
+      entries: {
+        ...store.entries,
+        [action.payload.sessionId]: {
+          ...(store.entries[action.payload.sessionId] || {}),
+          surfaceState: action.payload,
+        },
+      },
+    };
+  }
+
+  if (action.type === "badges") {
+    if (shouldIgnoreBrowserUpdate(store, action.payload.sessionId)) return store;
+    return {
+      activeSessionId: store.activeSessionId ?? action.payload.sessionId,
+      entries: {
+        ...store.entries,
+        [action.payload.sessionId]: {
+          ...(store.entries[action.payload.sessionId] || {}),
+          badges: action.payload,
+        },
+      },
+    };
+  }
+
+  if (action.type === "step") {
+    if (shouldIgnoreBrowserUpdate(store, action.payload.sessionId)) return store;
+    return {
+      activeSessionId: store.activeSessionId ?? action.payload.sessionId,
+      entries: {
+        ...store.entries,
+        [action.payload.sessionId]: {
+          ...(store.entries[action.payload.sessionId] || {}),
+          step: action.payload,
+        },
+      },
+    };
+  }
+
+  if (action.type === "error") {
+    const sessionId = action.payload.sessionId || store.activeSessionId;
+    if (!sessionId) return store;
+    if (shouldIgnoreBrowserUpdate(store, sessionId)) return store;
+    return {
+      activeSessionId: store.activeSessionId ?? sessionId,
+      entries: {
+        ...store.entries,
+        [sessionId]: {
+          ...(store.entries[sessionId] || {}),
+          error: action.payload,
+        },
+      },
+    };
+  }
+
+  const current = store.entries[action.payload.sessionId];
+  if (!current?.surfaceState) return store;
+  return {
+    ...store,
+    entries: {
+      ...store.entries,
+      [action.payload.sessionId]: {
+        ...current,
+        surfaceState: {
+          ...current.surfaceState,
+          ...action.payload.patch,
+        },
+      },
+    },
+  };
+}
 
 function ensureThinShellIframeUrl(input: string): string {
   if (!input) return input;
@@ -90,6 +243,7 @@ export default function RuntimeShellHomePage() {
   const [runtimeReady, setRuntimeReady] = useState(false);
   const [handoffSent, setHandoffSent] = useState(false);
   const [runtimeFrameLayout, setRuntimeFrameLayout] = useState<"default" | "narrow" | "wide">("default");
+  const [browserStore, setBrowserStore] = useState<BrowserShellStore>(INITIAL_BROWSER_STORE);
 
   const aaClient = useMemo(() => {
     const baseUrl = process.env.NEXT_PUBLIC_AA_API_BASE_URL;
@@ -242,6 +396,46 @@ export default function RuntimeShellHomePage() {
         return;
       }
 
+      if (message.type === "browser.mount") {
+        setBrowserStore((current) => browserShellReducer(current, { type: "mount", payload: message.payload as BrowserMountPayload }));
+        return;
+      }
+
+      if (message.type === "browser.unmount") {
+        setBrowserStore((current) =>
+          browserShellReducer(current, { type: "unmount", payload: message.payload as { sessionId: string } })
+        );
+        return;
+      }
+
+      if (message.type === "browser.surface.state") {
+        setBrowserStore((current) =>
+          browserShellReducer(current, { type: "surface", payload: message.payload as BrowserSurfaceState })
+        );
+        return;
+      }
+
+      if (message.type === "browser.badges.update") {
+        setBrowserStore((current) =>
+          browserShellReducer(current, { type: "badges", payload: message.payload as BrowserBadgeState })
+        );
+        return;
+      }
+
+      if (message.type === "browser.step.update") {
+        setBrowserStore((current) =>
+          browserShellReducer(current, { type: "step", payload: message.payload as BrowserStepState })
+        );
+        return;
+      }
+
+      if (message.type === "browser.error") {
+        setBrowserStore((current) =>
+          browserShellReducer(current, { type: "error", payload: message.payload as BrowserErrorPayload })
+        );
+        return;
+      }
+
       if (message.type === "REQUEST_TRUST_REFRESH") {
         void refreshConfig();
         return;
@@ -386,6 +580,63 @@ export default function RuntimeShellHomePage() {
     [aaClient, config, postShellEvent]
   );
 
+  const activeBrowserEntry = browserStore.activeSessionId ? browserStore.entries[browserStore.activeSessionId] : null;
+
+  const handleBrowserLaunch = useCallback(() => {
+    postShellEvent("browser.open.request", { intent: "Open browser" });
+  }, [postShellEvent]);
+
+  const handleBrowserClose = useCallback(() => {
+    const sessionId = browserStore.activeSessionId;
+    if (!sessionId) return;
+    setBrowserStore((current) =>
+      browserShellReducer(current, { type: "local_surface", payload: { sessionId, patch: { visible: false } } })
+    );
+    postShellEvent("browser.close.request", { sessionId });
+  }, [browserStore.activeSessionId, postShellEvent]);
+
+  const handleBrowserMinimize = useCallback(() => {
+    const sessionId = browserStore.activeSessionId;
+    if (!sessionId) return;
+    setBrowserStore((current) =>
+      browserShellReducer(current, {
+        type: "local_surface",
+        payload: { sessionId, patch: { shellSurfaceState: "minimized", visible: true } },
+      })
+    );
+    postShellEvent("browser.minimize.request", { sessionId });
+  }, [browserStore.activeSessionId, postShellEvent]);
+
+  const handleBrowserExpand = useCallback(() => {
+    const sessionId = browserStore.activeSessionId;
+    if (!sessionId) return;
+    setBrowserStore((current) =>
+      browserShellReducer(current, {
+        type: "local_surface",
+        payload: { sessionId, patch: { shellSurfaceState: "expanded", visible: true } },
+      })
+    );
+    postShellEvent("browser.expand.request", { sessionId });
+  }, [browserStore.activeSessionId, postShellEvent]);
+
+  const handleBrowserFocus = useCallback(
+    (focused: boolean) => {
+      const sessionId = browserStore.activeSessionId;
+      if (!sessionId) return;
+      postShellEvent("browser.focus.changed", { sessionId, focused });
+    },
+    [browserStore.activeSessionId, postShellEvent]
+  );
+
+  const handleBrowserBoundsChanged = useCallback(
+    (bounds: BrowserSurfaceState["bounds"]) => {
+      const sessionId = browserStore.activeSessionId;
+      if (!sessionId) return;
+      postShellEvent("browser.surface.bounds.changed", { sessionId, bounds });
+    },
+    [browserStore.activeSessionId, postShellEvent]
+  );
+
   const hasRuntimeEndpoint = Boolean(runtimeUrl && runtimeOrigin);
 
   if (loading && !config) {
@@ -436,18 +687,41 @@ export default function RuntimeShellHomePage() {
               </span>
               <span className="status-pill">{runtimeReady ? "Runtime ready" : "Handshake pending"}</span>
             </div>
-            <RuntimeFrame
-              iframeRef={iframeRef}
-              src={runtimeUrl}
-              runtimeReady={runtimeReady}
-              onLoad={() => setIframeLoaded(true)}
-              layoutMode={runtimeFrameLayout}
-            />
+            <div className="runtime-stage">
+              <RuntimeFrame
+                iframeRef={iframeRef}
+                src={runtimeUrl}
+                runtimeReady={runtimeReady}
+                onLoad={() => setIframeLoaded(true)}
+                layoutMode={runtimeFrameLayout}
+              />
+              {BROWSER_MVP_ENABLED && activeBrowserEntry?.mountPayload && activeBrowserEntry.surfaceState ? (
+                <BrowserSurfaceHost
+                  mountPayload={activeBrowserEntry.mountPayload}
+                  surfaceState={activeBrowserEntry.surfaceState}
+                  badges={activeBrowserEntry.badges}
+                  step={activeBrowserEntry.step}
+                  error={activeBrowserEntry.error}
+                  onClose={handleBrowserClose}
+                  onMinimize={handleBrowserMinimize}
+                  onExpand={handleBrowserExpand}
+                  onFocusChanged={handleBrowserFocus}
+                  onBoundsChanged={handleBrowserBoundsChanged}
+                />
+              ) : null}
+            </div>
           </>
         )}
       </section>
 
-      <SmartMenu menu={config.menu} busyActionId={busyActionId} onAction={handleMenuAction} />
+      <SmartMenu
+        menu={config.menu}
+        busyActionId={busyActionId}
+        onAction={handleMenuAction}
+        browserEnabled={BROWSER_MVP_ENABLED}
+        browserActive={Boolean(browserStore.activeSessionId)}
+        onBrowserLaunch={handleBrowserLaunch}
+      />
     </main>
   );
 }

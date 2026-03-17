@@ -45,6 +45,11 @@ a {
   padding: 0.5rem 0.75rem;
 }
 
+.runtime-stage {
+  position: relative;
+  min-height: 360px;
+}
+
 .shell-chip {
   display: inline-flex;
   align-items: center;
@@ -179,6 +184,132 @@ a {
   background: color-mix(in srgb, #f7fbff 90%, transparent);
   backdrop-filter: blur(10px);
   padding: 0.55rem 0.6rem calc(0.55rem + env(safe-area-inset-bottom));
+}
+
+.browser-launch-row {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 0.55rem;
+}
+
+.browser-launch-entry {
+  border: 1px solid var(--stroke);
+  background: linear-gradient(135deg, #ffffff 0%, #e8f0ff 100%);
+  color: var(--ink);
+  border-radius: 999px;
+  min-height: 2.4rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.browser-surface-host {
+  position: absolute;
+  inset: 0;
+  z-index: 45;
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  gap: 0.45rem;
+  padding: 0.55rem;
+  border-radius: 1.1rem;
+  border: 1px solid rgba(100, 116, 139, 0.34);
+  background: color-mix(in srgb, white 78%, #dbeafe);
+  box-shadow: 0 28px 60px rgba(15, 23, 42, 0.22);
+  backdrop-filter: blur(18px);
+}
+
+.browser-surface-chrome {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.browser-surface-meta {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+}
+
+.browser-surface-domain {
+  font-size: 0.75rem;
+  color: var(--ink-muted);
+  margin-top: 0.15rem;
+}
+
+.browser-surface-actions {
+  display: inline-flex;
+  gap: 0.35rem;
+}
+
+.browser-surface-actions button,
+.browser-minimized-pill {
+  border: 1px solid var(--stroke);
+  background: var(--panel);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 0.45rem 0.8rem;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.browser-live-frame {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 0.9rem;
+  background: #ffffff;
+}
+
+.browser-status-rail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.browser-step-pill,
+.browser-badge-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.34rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  font-size: 0.7rem;
+  color: var(--ink-muted);
+}
+
+.browser-step-running {
+  color: #1d4ed8;
+}
+
+.browser-step-completed {
+  color: #0f766e;
+}
+
+.browser-step-error {
+  color: #b42318;
+}
+
+.browser-error-banner {
+  border: 1px solid rgba(180, 35, 24, 0.2);
+  background: rgba(254, 226, 226, 0.9);
+  color: #991b1b;
+  border-radius: 0.8rem;
+  padding: 0.65rem 0.8rem;
+  font-size: 0.78rem;
+}
+
+.browser-minimized-pill {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(5rem + env(safe-area-inset-bottom));
+  z-index: 45;
+  justify-self: center;
+  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.18);
+  white-space: nowrap;
 }
 
 .menu-row {
@@ -408,5 +539,14 @@ a {
   .runtime-frame-wrap-wide {
     width: 100%;
     margin-left: 0;
+  }
+
+  .browser-surface-host {
+    inset: 0;
+  }
+
+  .browser-surface-meta {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }

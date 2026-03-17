@@ -1,3 +1,23 @@
+import {
+  browserArtifactsResponseSchema,
+  browserCreateSessionResponseSchema,
+  browserHistoryResponseSchema,
+  browserNavigateRequestSchema,
+  browserReceiptsResponseSchema,
+  browserRuntimeEventSchema,
+  browserSessionResponseSchema,
+  browserSurfaceStateResponseSchema,
+  type BrowserArtifactsResponse,
+  type BrowserCreateSessionRequest,
+  type BrowserCreateSessionResponse,
+  type BrowserHistoryResponse,
+  type BrowserNavigateRequest,
+  type BrowserReceiptsResponse,
+  type BrowserRuntimeEvent,
+  type BrowserSessionResponse,
+  type BrowserSurfaceStateResponse,
+} from "@metame/browser-contracts";
+
 export type TrustState = "ok" | "warn" | "fail";
 
 export type SelectorOption = {
@@ -144,6 +164,10 @@ export type AAClientOptions = {
   onRequestLog?: (entry: AARequestLog) => void;
 };
 
+export type BrowserEventsSubscription = {
+  close: () => void;
+};
+
 function normalizeBaseUrl(baseUrl: string): string {
   return baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
 }
@@ -229,6 +253,162 @@ export class AAClient {
     });
   }
 
+  async createBrowserSession(payload: BrowserCreateSessionRequest = {}): Promise<BrowserCreateSessionResponse> {
+    const response = await this.request<BrowserCreateSessionResponse>(this.runtimePath("browser/sessions"), {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    return browserCreateSessionResponseSchema.parse(response);
+  }
+
+  async getBrowserSession(sessionId: string): Promise<BrowserSessionResponse> {
+    const response = await this.request<BrowserSessionResponse>(this.runtimePath(`browser/sessions/${sessionId}`), {
+      method: "GET",
+    });
+    return browserSessionResponseSchema.parse(response);
+  }
+
+  async closeBrowserSession(sessionId: string): Promise<BrowserSessionResponse> {
+    const response = await this.request<BrowserSessionResponse>(this.runtimePath(`browser/sessions/${sessionId}/close`), {
+      method: "POST",
+    });
+    return browserSessionResponseSchema.parse(response);
+  }
+
+  async suspendBrowserSession(sessionId: string): Promise<BrowserSessionResponse> {
+    const response = await this.request<BrowserSessionResponse>(this.runtimePath(`browser/sessions/${sessionId}/suspend`), {
+      method: "POST",
+    });
+    return browserSessionResponseSchema.parse(response);
+  }
+
+  async resumeBrowserSession(sessionId: string): Promise<BrowserSessionResponse> {
+    const response = await this.request<BrowserSessionResponse>(this.runtimePath(`browser/sessions/${sessionId}/resume`), {
+      method: "POST",
+    });
+    return browserSessionResponseSchema.parse(response);
+  }
+
+  async mountBrowserSession(sessionId: string): Promise<BrowserSessionResponse> {
+    const response = await this.request<BrowserSessionResponse>(this.runtimePath(`browser/sessions/${sessionId}/mount`), {
+      method: "POST",
+    });
+    return browserSessionResponseSchema.parse(response);
+  }
+
+  async unmountBrowserSession(sessionId: string): Promise<BrowserSessionResponse> {
+    const response = await this.request<BrowserSessionResponse>(this.runtimePath(`browser/sessions/${sessionId}/unmount`), {
+      method: "POST",
+    });
+    return browserSessionResponseSchema.parse(response);
+  }
+
+  async getBrowserSurfaceState(sessionId: string): Promise<BrowserSurfaceStateResponse> {
+    const response = await this.request<BrowserSurfaceStateResponse>(
+      this.runtimePath(`browser/sessions/${sessionId}/surface-state`),
+      {
+        method: "GET",
+      }
+    );
+    return browserSurfaceStateResponseSchema.parse(response);
+  }
+
+  async navigateBrowserSession(sessionId: string, payload: BrowserNavigateRequest): Promise<BrowserSessionResponse> {
+    const nextPayload = browserNavigateRequestSchema.parse(payload);
+    const response = await this.request<BrowserSessionResponse>(this.runtimePath(`browser/sessions/${sessionId}/navigate`), {
+      method: "POST",
+      body: JSON.stringify(nextPayload),
+    });
+    return browserSessionResponseSchema.parse(response);
+  }
+
+  async browserBack(sessionId: string): Promise<BrowserSessionResponse> {
+    const response = await this.request<BrowserSessionResponse>(this.runtimePath(`browser/sessions/${sessionId}/back`), {
+      method: "POST",
+    });
+    return browserSessionResponseSchema.parse(response);
+  }
+
+  async browserForward(sessionId: string): Promise<BrowserSessionResponse> {
+    const response = await this.request<BrowserSessionResponse>(this.runtimePath(`browser/sessions/${sessionId}/forward`), {
+      method: "POST",
+    });
+    return browserSessionResponseSchema.parse(response);
+  }
+
+  async browserRefresh(sessionId: string): Promise<BrowserSessionResponse> {
+    const response = await this.request<BrowserSessionResponse>(this.runtimePath(`browser/sessions/${sessionId}/refresh`), {
+      method: "POST",
+    });
+    return browserSessionResponseSchema.parse(response);
+  }
+
+  async getBrowserHistory(sessionId: string): Promise<BrowserHistoryResponse> {
+    const response = await this.request<BrowserHistoryResponse>(this.runtimePath(`browser/sessions/${sessionId}/history`), {
+      method: "GET",
+    });
+    return browserHistoryResponseSchema.parse(response);
+  }
+
+  async getBrowserArtifacts(sessionId: string): Promise<BrowserArtifactsResponse> {
+    const response = await this.request<BrowserArtifactsResponse>(
+      this.runtimePath(`browser/sessions/${sessionId}/artifacts`),
+      {
+        method: "GET",
+      }
+    );
+    return browserArtifactsResponseSchema.parse(response);
+  }
+
+  async getBrowserReceipts(sessionId: string): Promise<BrowserReceiptsResponse> {
+    const response = await this.request<BrowserReceiptsResponse>(this.runtimePath(`browser/sessions/${sessionId}/receipts`), {
+      method: "GET",
+    });
+    return browserReceiptsResponseSchema.parse(response);
+  }
+
+  async browserSave(sessionId: string, payload: Record<string, unknown> = {}): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(this.runtimePath(`browser/sessions/${sessionId}/save`), {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  subscribeToBrowserSessionEvents(
+    sessionId: string,
+    handlers: {
+      onEvent: (event: BrowserRuntimeEvent) => void;
+      onOpen?: () => void;
+      onError?: (error: Error) => void;
+    }
+  ): BrowserEventsSubscription {
+    const url = new URL(this.runtimePath(`browser/sessions/${sessionId}/events`), this.baseUrl);
+    const eventNames = [
+      "browser.mount",
+      "browser.unmount",
+      "browser.surface.state",
+      "browser.step.update",
+      "browser.takeover.state",
+      "browser.badges.update",
+      "browser.error",
+    ] as const;
+
+    const source = new EventSource(this.withAccessToken(url));
+    source.onopen = () => handlers.onOpen?.();
+    source.onerror = () => handlers.onError?.(new Error(`Browser SSE stream error for session ${sessionId}`));
+
+    for (const eventName of eventNames) {
+      source.addEventListener(eventName, (rawEvent) => {
+        const parsed = this.parseBrowserRuntimeEvent(rawEvent, eventName);
+        if (parsed) handlers.onEvent(parsed);
+      });
+    }
+
+    return {
+      close: () => source.close(),
+    };
+  }
+
   private resolveRuntimePrefix(baseUrl: string): string {
     try {
       const pathname = new URL(baseUrl).pathname.replace(/\/+$/, "");
@@ -243,6 +423,27 @@ export class AAClient {
 
   private runtimePath(path: string): string {
     return `${this.runtimePrefix}${path.replace(/^\//, "")}`;
+  }
+
+  private withAccessToken(url: URL): string {
+    const token = process.env.NEXT_PUBLIC_AA_API_TOKEN;
+    if (token) {
+      url.searchParams.set("access_token", token);
+    }
+    return url.toString();
+  }
+
+  private parseBrowserRuntimeEvent(event: Event, type: BrowserRuntimeEvent["type"]): BrowserRuntimeEvent | null {
+    if (!("data" in event) || typeof event.data !== "string") {
+      return null;
+    }
+
+    try {
+      const parsed = JSON.parse(event.data);
+      return browserRuntimeEventSchema.parse({ type, payload: parsed });
+    } catch {
+      return null;
+    }
   }
 
   private async request<T>(path: string, init: RequestInit): Promise<T> {

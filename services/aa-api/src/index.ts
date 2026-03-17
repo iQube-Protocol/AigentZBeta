@@ -12,6 +12,7 @@ import { sseRouter } from './sse.js';
 import { quotesRouter } from './routes/quotes.js';
 import { supabaseRouter } from './routes/supabase.js';
 import { runtimeRouter } from './routes/runtime.js';
+import { browserRouter } from './routes/browser.js';
 
 const app = express();
 app.use(helmet());
@@ -85,6 +86,7 @@ app.use('/aa/v1/updates', sseRouter);
 app.use('/aa/v1/quotes', quotesRouter);
 app.use('/aa/v1/supabase', supabaseRouter);
 app.use('/aa/v1/runtime', runtimeRouter);
+app.use('/aa/v1/browser', browserRouter);
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 

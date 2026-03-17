@@ -4,16 +4,16 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
   AAClient,
 } from "@metame/aa-client";
-import type { ShellInboundMessage } from "@metame/iframe-bridge";
+import type { RuntimeInboundType, ShellInboundMessage } from "@metame/iframe-bridge";
 
 const STORAGE_KEY = "metame.browser.activeSessionId";
 
 type UseBrowserCapabilityControllerOptions = {
   enabled: boolean;
-  emitShellEvent: (type: string, payload: Record<string, unknown>) => void;
+  emitShellEvent: (type: BrowserRuntimeToShellType, payload: Record<string, unknown>) => void;
 };
 
-type BrowserRuntimeToShellType = string;
+type BrowserRuntimeToShellType = Extract<RuntimeInboundType, `browser.${string}`>;
 
 type BrowserErrorPayload = {
   sessionId?: string;
@@ -36,7 +36,7 @@ type BrowserSurfaceState = {
 
 type BrowserRuntimeEvent = {
   type: BrowserRuntimeToShellType;
-  payload: Record<string, any>;
+  payload: Record<string, unknown>;
 };
 
 type BrowserSessionResponse = {

@@ -27,6 +27,8 @@
       "@metame/contracts/*": ["./packages/metame-contracts/src/*"],
       "@metame/aa-client": ["./packages/aa-client/src/index.ts"],
       "@metame/aa-client/*": ["./packages/aa-client/src/*"],
+      "@metame/browser-contracts": ["./packages/browser-contracts/src/index.ts"],
+      "@metame/browser-contracts/*": ["./packages/browser-contracts/src/*"],
       "@metame/iframe-bridge": ["./packages/iframe-bridge/src/index.ts"],
       "@metame/iframe-bridge/*": ["./packages/iframe-bridge/src/*"],
       "@metame/qubetalk-client": ["./packages/qubetalk-client/src/index.ts"],

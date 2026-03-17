@@ -1,3 +1,10 @@
+import {
+  browserRuntimeToShellTypes,
+  browserShellToRuntimeTypes,
+  type BrowserRuntimeToShellType,
+  type BrowserShellToRuntimeType,
+} from "@metame/browser-contracts";
+
 export type ShellOutboundType =
   | "SHELL_READY"
   | "HANDOFF"
@@ -6,7 +13,8 @@ export type ShellOutboundType =
   | "CONTEXT_UPDATE"
   | "PROMPT_SUBMIT"
   | "RESET_WELCOME"
-  | "DEVICE_CONTEXT_UPDATE";
+  | "DEVICE_CONTEXT_UPDATE"
+  | BrowserShellToRuntimeType;
 
 export type RuntimeInboundType =
   | "RUNTIME_READY"
@@ -20,7 +28,8 @@ export type RuntimeInboundType =
   | "INFERENCE_START"
   | "PROCESSING_START"
   | "INFERENCE_COMPLETE"
-  | "RENDER_COMPLETE";
+  | "RENDER_COMPLETE"
+  | BrowserRuntimeToShellType;
 
 export type BridgeSource = "shell" | "runtime";
 
@@ -112,6 +121,7 @@ export function isRuntimeInboundMessage(value: unknown): value is RuntimeInbound
     "PROCESSING_START",
     "INFERENCE_COMPLETE",
     "RENDER_COMPLETE",
+    ...browserRuntimeToShellTypes,
   ];
   return runtimeTypes.includes(value.type as RuntimeInboundType);
 }
@@ -127,6 +137,7 @@ export function isShellOutboundMessage(value: unknown): value is ShellInboundMes
     "PROMPT_SUBMIT",
     "RESET_WELCOME",
     "DEVICE_CONTEXT_UPDATE",
+    ...browserShellToRuntimeTypes,
   ];
   return shellTypes.includes(value.type as ShellOutboundType);
 }
