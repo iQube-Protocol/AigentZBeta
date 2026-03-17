@@ -1,5 +1,6 @@
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
+const runtimeImport = new Function('specifier', 'return import(specifier)');
 function resolvePlaywrightPackage() {
     try {
         require.resolve('playwright-core');
@@ -30,7 +31,9 @@ export class BrowserPlaywrightExec {
         if (!packageName) {
             return null;
         }
-        const playwrightModule = await import(packageName);
+        // Keep Playwright loading runtime-only so Next's webpack build does not
+        // try to bundle Playwright's recorder/Vite assets into the app route.
+        const playwrightModule = await runtimeImport(packageName);
         return playwrightModule.chromium || playwrightModule.default?.chromium || null;
     }
     async navigate(input) {
