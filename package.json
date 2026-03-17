@@ -33,6 +33,8 @@
     "aa:dev": "DOTENV_CONFIG_PATH=../../.env.local npm --prefix services/aa-api run dev",
     "aa:build": "DOTENV_CONFIG_PATH=../../.env.local npm --prefix services/aa-api run build",
     "aa:start": "DOTENV_CONFIG_PATH=../../.env.local npm --prefix services/aa-api run start",
+    "browser:smoke": "npm --prefix services/aa-api run build && node scripts/browser-smoke.mjs",
+    "browser:verify": "npm --prefix apps/metame-runtime-shell run typecheck && npm test -- --run tests/browser-contracts.test.ts && npm run browser:smoke",
     "wallet:install": "npm --prefix services/agentiq-wallet install",
     "wallet:dev": "DOTENV_CONFIG_PATH=../../.env.local npm --prefix services/agentiq-wallet run dev",
     "wallet:build": "DOTENV_CONFIG_PATH=../../.env.local npm --prefix services/agentiq-wallet run build",

@@ -9,6 +9,9 @@ export const browserShellToRuntimeTypes = [
   "browser.takeover.request",
   "browser.resume.request",
   "browser.surface.bounds.changed",
+  "browser.drawer.refresh.request",
+  "browser.extract.request",
+  "browser.save.request",
 ] as const;
 
 export const browserRuntimeToShellTypes = [
@@ -18,6 +21,8 @@ export const browserRuntimeToShellTypes = [
   "browser.step.update",
   "browser.takeover.state",
   "browser.badges.update",
+  "browser.drawer.data",
+  "browser.action.status",
   "browser.error",
 ] as const;
 
@@ -184,6 +189,19 @@ export const browserReceiptSchema = z.object({
   createdAt: z.string(),
 });
 
+export const browserSaveRecordSchema = z.object({
+  id: z.string(),
+  sessionId: z.string(),
+  artifactId: z.string().nullable().optional(),
+  historyEventId: z.string().nullable().optional(),
+  destinationType: z.enum(["estate", "codex", "cartridge"]),
+  destinationId: z.string().nullable().optional(),
+  savedBy: z.string().nullable().optional(),
+  metadata: z.record(z.any()).default({}),
+  receiptRef: z.string().nullable().optional(),
+  createdAt: z.string(),
+});
+
 export const browserCreateSessionRequestSchema = z.object({
   intent: z.string().optional(),
   mountMode: browserMountModeSchema.optional(),
@@ -227,6 +245,32 @@ export const browserReceiptsResponseSchema = z.object({
   receipts: z.array(browserReceiptSchema),
 });
 
+export const browserExtractResponseSchema = z.object({
+  sessionId: z.string(),
+  artifact: browserArtifactSchema,
+});
+
+export const browserSaveResponseSchema = z.object({
+  saved: z.literal(true),
+  sessionId: z.string(),
+  save: browserSaveRecordSchema,
+});
+
+export const browserDrawerDataSchema = z.object({
+  sessionId: z.string(),
+  history: z.array(browserHistoryEventSchema),
+  artifacts: z.array(browserArtifactSchema),
+  receipts: z.array(browserReceiptSchema),
+  refreshedAt: z.string(),
+});
+
+export const browserActionStatusSchema = z.object({
+  sessionId: z.string(),
+  action: z.enum(["drawer_refresh", "extract", "save"]),
+  status: z.enum(["running", "completed", "error"]),
+  message: z.string(),
+});
+
 export const browserTakeoverStateSchema = z.object({
   sessionId: z.string(),
   active: z.boolean(),
@@ -245,6 +289,8 @@ export const browserRuntimeEventSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("browser.step.update"), payload: browserStepStateSchema }),
   z.object({ type: z.literal("browser.takeover.state"), payload: browserTakeoverStateSchema }),
   z.object({ type: z.literal("browser.badges.update"), payload: browserBadgeStateSchema }),
+  z.object({ type: z.literal("browser.drawer.data"), payload: browserDrawerDataSchema }),
+  z.object({ type: z.literal("browser.action.status"), payload: browserActionStatusSchema }),
   z.object({ type: z.literal("browser.error"), payload: browserErrorPayloadSchema }),
 ]);
 
@@ -257,6 +303,7 @@ export type BrowserSession = z.infer<typeof browserSessionSchema>;
 export type BrowserHistoryEvent = z.infer<typeof browserHistoryEventSchema>;
 export type BrowserArtifact = z.infer<typeof browserArtifactSchema>;
 export type BrowserReceipt = z.infer<typeof browserReceiptSchema>;
+export type BrowserSaveRecord = z.infer<typeof browserSaveRecordSchema>;
 export type BrowserCreateSessionRequest = z.infer<typeof browserCreateSessionRequestSchema>;
 export type BrowserCreateSessionResponse = z.infer<typeof browserCreateSessionResponseSchema>;
 export type BrowserSessionResponse = z.infer<typeof browserSessionResponseSchema>;
@@ -265,6 +312,10 @@ export type BrowserSurfaceStateResponse = z.infer<typeof browserSurfaceStateResp
 export type BrowserHistoryResponse = z.infer<typeof browserHistoryResponseSchema>;
 export type BrowserArtifactsResponse = z.infer<typeof browserArtifactsResponseSchema>;
 export type BrowserReceiptsResponse = z.infer<typeof browserReceiptsResponseSchema>;
+export type BrowserExtractResponse = z.infer<typeof browserExtractResponseSchema>;
+export type BrowserSaveResponse = z.infer<typeof browserSaveResponseSchema>;
+export type BrowserDrawerDataPayload = z.infer<typeof browserDrawerDataSchema>;
+export type BrowserActionStatus = z.infer<typeof browserActionStatusSchema>;
 export type BrowserTakeoverState = z.infer<typeof browserTakeoverStateSchema>;
 export type BrowserErrorPayload = z.infer<typeof browserErrorPayloadSchema>;
 export type BrowserRuntimeEvent = z.infer<typeof browserRuntimeEventSchema>;

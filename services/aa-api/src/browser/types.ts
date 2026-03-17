@@ -131,6 +131,7 @@ export type BrowserHistoryEventRecord = {
 export type BrowserArtifactRecord = {
   id: string;
   sessionId: string;
+  userId: string;
   artifactType: 'extract' | 'screenshot' | 'download' | 'trace' | 'har' | 'pdf' | 'summary' | 'dom_snapshot';
   sourceUrl?: string | null;
   sourceTitle?: string | null;
@@ -151,6 +152,19 @@ export type BrowserReceiptRecord = {
   createdAt: string;
 };
 
+export type BrowserSaveRecord = {
+  id: string;
+  sessionId: string;
+  artifactId?: string | null;
+  historyEventId?: string | null;
+  destinationType: 'estate' | 'codex' | 'cartridge';
+  destinationId?: string | null;
+  savedBy?: string | null;
+  metadata: Record<string, unknown>;
+  receiptRef?: string | null;
+  createdAt: string;
+};
+
 export type BrowserSessionAggregate = {
   session: BrowserSessionRecord;
   surfaceState: BrowserSurfaceStateRecord;
@@ -159,4 +173,5 @@ export type BrowserSessionAggregate = {
   history: BrowserHistoryEventRecord[];
   artifacts: BrowserArtifactRecord[];
   receipts: BrowserReceiptRecord[];
+  saves: BrowserSaveRecord[];
 };

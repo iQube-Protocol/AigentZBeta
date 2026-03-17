@@ -189,6 +189,8 @@ browserRouter.get('/sessions/:sessionId/events', requireAuth, async (req, res) =
   res.write(`data: ${JSON.stringify(aggregate.surfaceState)}\n\n`);
   res.write(`event: browser.badges.update\n`);
   res.write(`data: ${JSON.stringify(aggregate.badges)}\n\n`);
+  res.write(`event: browser.takeover.state\n`);
+  res.write(`data: ${JSON.stringify({ sessionId: aggregate.session.sessionId, active: aggregate.surfaceState.takeoverActive })}\n\n`);
 
   const unsubscribe = subscribeBrowserEvents(req.params.sessionId, {
     id: crypto.randomUUID(),
@@ -244,31 +246,76 @@ browserRouter.post('/sessions/:sessionId/refresh', requireAuth, async (req, res)
   }
 });
 
-browserRouter.post('/sessions/:sessionId/agent/run', requireAuth, async (_req, res) => {
-  res.status(501).json({
-    error: 'Stagehand agent execution is not implemented in Slice 1',
-    stagehand: browserStagehandExec.getStatus(),
-  });
+browserRouter.post('/sessions/:sessionId/agent/run', requireAuth, async (req, res) => {
+  try {
+    getScopedSession(req);
+    const result = await browserSessionService.runAgentTask(req.params.sessionId, {
+      instruction: typeof req.body?.instruction === 'string' ? req.body.instruction : null,
+      payload: req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {},
+    });
+    res.json({
+      ...result,
+      stagehand: browserStagehandExec.getStatus(),
+    });
+  } catch (error) {
+    handleRouteError(res, error);
+  }
 });
 
-browserRouter.post('/sessions/:sessionId/agent/pause', requireAuth, async (_req, res) => {
-  res.status(501).json({ error: 'Agent pause is not implemented in Slice 1' });
+browserRouter.post('/sessions/:sessionId/agent/pause', requireAuth, async (req, res) => {
+  try {
+    getScopedSession(req);
+    const aggregate = await browserSessionService.pauseAgentExecution(req.params.sessionId);
+    res.json(serializeAggregate(aggregate));
+  } catch (error) {
+    handleRouteError(res, error);
+  }
 });
 
-browserRouter.post('/sessions/:sessionId/agent/resume', requireAuth, async (_req, res) => {
-  res.status(501).json({ error: 'Agent resume is not implemented in Slice 1' });
+browserRouter.post('/sessions/:sessionId/agent/resume', requireAuth, async (req, res) => {
+  try {
+    getScopedSession(req);
+    const aggregate = await browserSessionService.resumeAgentExecution(req.params.sessionId);
+    res.json(serializeAggregate(aggregate));
+  } catch (error) {
+    handleRouteError(res, error);
+  }
 });
 
-browserRouter.post('/sessions/:sessionId/takeover/start', requireAuth, async (_req, res) => {
-  res.status(501).json({ error: 'Takeover is not implemented in Slice 1' });
+browserRouter.post('/sessions/:sessionId/takeover/start', requireAuth, async (req, res) => {
+  try {
+    getScopedSession(req);
+    const aggregate = await browserSessionService.startTakeover(req.params.sessionId);
+    res.json(serializeAggregate(aggregate));
+  } catch (error) {
+    handleRouteError(res, error);
+  }
 });
 
-browserRouter.post('/sessions/:sessionId/takeover/end', requireAuth, async (_req, res) => {
-  res.status(501).json({ error: 'Takeover end is not implemented in Slice 1' });
+browserRouter.post('/sessions/:sessionId/takeover/end', requireAuth, async (req, res) => {
+  try {
+    getScopedSession(req);
+    const aggregate = await browserSessionService.endTakeover(req.params.sessionId);
+    res.json(serializeAggregate(aggregate));
+  } catch (error) {
+    handleRouteError(res, error);
+  }
 });
 
-browserRouter.post('/sessions/:sessionId/extract', requireAuth, async (_req, res) => {
-  res.status(501).json({ error: 'Extract is not implemented in Slice 1' });
+browserRouter.post('/sessions/:sessionId/extract', requireAuth, async (req, res) => {
+  try {
+    getScopedSession(req);
+    const result = await browserSessionService.extractFromSession(req.params.sessionId, {
+      prompt: typeof req.body?.prompt === 'string' ? req.body.prompt : null,
+      schema:
+        req.body?.schema && typeof req.body.schema === 'object' && !Array.isArray(req.body.schema)
+          ? req.body.schema
+          : null,
+    });
+    res.json(result);
+  } catch (error) {
+    handleRouteError(res, error);
+  }
 });
 
 browserRouter.get('/sessions/:sessionId/history', requireAuth, async (req, res) => {
@@ -308,12 +355,22 @@ browserRouter.post('/sessions/:sessionId/save', requireAuth, async (req, res) =>
   } catch (error) {
     return handleRouteError(res, error);
   }
-  res.json({
-    saved: false,
-    sessionId: aggregate.session.sessionId,
-    message: 'Save flows land in a later slice',
-    payload: req.body || {},
-  });
+  try {
+    const auth = getAuthScope(req);
+    const result = await browserSessionService.saveSessionOutput(aggregate.session.sessionId, {
+      destinationType: typeof req.body?.destinationType === 'string' ? req.body.destinationType : undefined,
+      destinationId: typeof req.body?.destinationId === 'string' ? req.body.destinationId : null,
+      artifactId: typeof req.body?.artifactId === 'string' ? req.body.artifactId : null,
+      metadata:
+        req.body?.metadata && typeof req.body.metadata === 'object' && !Array.isArray(req.body.metadata)
+          ? req.body.metadata
+          : {},
+      savedBy: auth.userId || auth.did || null,
+    });
+    res.json(result);
+  } catch (error) {
+    handleRouteError(res, error);
+  }
 });
 
 browserRouter.get('/status', requireAuth, (_req, res) => {

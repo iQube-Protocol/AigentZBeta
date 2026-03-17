@@ -107,6 +107,58 @@ describe("browser contracts", () => {
     ).toBe("browser.mount");
   });
 
+  it("parses drawer data runtime events and shell-side extract requests", () => {
+    const runtimeMessage = createRuntimeMessage("browser.drawer.data", {
+      sessionId: "session-1",
+      history: [],
+      artifacts: [],
+      receipts: [],
+      refreshedAt: new Date().toISOString(),
+    });
+    const shellMessage = createShellMessage("browser.extract.request", {
+      sessionId: "session-1",
+      prompt: "Extract current page",
+    });
+
+    expect(isRuntimeInboundMessage(runtimeMessage)).toBe(true);
+    expect(isShellOutboundMessage(shellMessage)).toBe(true);
+    expect(
+      browserRuntimeEventSchema.parse({
+        type: runtimeMessage.type,
+        payload: runtimeMessage.payload,
+      }).type
+    ).toBe("browser.drawer.data");
+  });
+
+  it("accepts bridge-driven drawer refresh, save requests, and action status events", () => {
+    const refreshMessage = createShellMessage("browser.drawer.refresh.request", {
+      sessionId: "session-1",
+    });
+    const saveMessage = createShellMessage("browser.save.request", {
+      sessionId: "session-1",
+      destinationType: "estate",
+      metadata: {
+        source: "thin_shell",
+      },
+    });
+    const statusMessage = createRuntimeMessage("browser.action.status", {
+      sessionId: "session-1",
+      action: "save",
+      status: "completed",
+      message: "Saved browser output to estate.",
+    });
+
+    expect(isShellOutboundMessage(refreshMessage)).toBe(true);
+    expect(isShellOutboundMessage(saveMessage)).toBe(true);
+    expect(isRuntimeInboundMessage(statusMessage)).toBe(true);
+    expect(
+      browserRuntimeEventSchema.parse({
+        type: statusMessage.type,
+        payload: statusMessage.payload,
+      }).type
+    ).toBe("browser.action.status");
+  });
+
   it("accepts URL and search-oriented browser open payloads", () => {
     expect(
       browserCreateSessionRequestSchema.parse({

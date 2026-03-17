@@ -4,7 +4,16 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
   AAClient,
 } from "@metame/aa-client";
-import type { RuntimeInboundType, ShellInboundMessage } from "@metame/iframe-bridge";
+import type {
+  BrowserActionStatus,
+  BrowserDrawerDataPayload,
+  BrowserErrorPayload,
+  BrowserRuntimeEvent,
+  BrowserSessionResponse,
+  BrowserSurfaceState,
+  SurfaceBounds,
+} from "@metame/browser-contracts";
+import type { ShellInboundMessage } from "@metame/iframe-bridge";
 
 const STORAGE_KEY = "metame.browser.activeSessionId";
 
@@ -13,46 +22,7 @@ type UseBrowserCapabilityControllerOptions = {
   emitShellEvent: (type: BrowserRuntimeToShellType, payload: Record<string, unknown>) => void;
 };
 
-type BrowserRuntimeToShellType = Extract<RuntimeInboundType, `browser.${string}`>;
-
-type BrowserErrorPayload = {
-  sessionId?: string;
-  message: string;
-  code: string;
-};
-
-type BrowserSurfaceState = {
-  shellSurfaceState?: string;
-  visible?: boolean;
-  focused?: boolean;
-  bounds?: {
-    x?: number;
-    y?: number;
-    width?: number;
-    height?: number;
-  };
-  [key: string]: unknown;
-};
-
-type BrowserRuntimeEvent = {
-  type: BrowserRuntimeToShellType;
-  payload: Record<string, unknown>;
-};
-
-type BrowserSessionResponse = {
-  session: {
-    sessionId: string;
-    status?: string;
-    [key: string]: unknown;
-  };
-  mountPayload?: {
-    sessionId: string;
-    [key: string]: unknown;
-  } | null;
-  surfaceState?: BrowserSurfaceState | null;
-  badges?: Record<string, unknown> | null;
-  [key: string]: unknown;
-};
+type BrowserRuntimeToShellType = BrowserRuntimeEvent["type"];
 
 type BrowserOpenInput = {
   intent?: string;
@@ -89,12 +59,20 @@ function toErrorPayload(error: unknown, sessionId?: string): BrowserErrorPayload
   };
 }
 
-function hasSessionId(payload: Record<string, unknown>): payload is Record<string, unknown> & { sessionId: string } {
-  return typeof payload.sessionId === "string";
+function toSurfaceBounds(
+  bounds: Record<string, unknown>,
+  fallback: SurfaceBounds
+): SurfaceBounds {
+  return {
+    x: Number(bounds.x ?? fallback.x),
+    y: Number(bounds.y ?? fallback.y),
+    width: Number(bounds.width ?? fallback.width),
+    height: Number(bounds.height ?? fallback.height),
+  };
 }
 
-function isBrowserSurfaceStatePayload(payload: Record<string, unknown>): payload is BrowserSurfaceState {
-  return true;
+function nowIso(): string {
+  return new Date().toISOString();
 }
 
 export function useBrowserCapabilityController({ enabled, emitShellEvent }: UseBrowserCapabilityControllerOptions) {
@@ -118,6 +96,13 @@ export function useBrowserCapabilityController({ enabled, emitShellEvent }: UseB
     [emitShellEvent]
   );
 
+  const emitActionStatus = useCallback(
+    (payload: BrowserActionStatus) => {
+      emitShellEvent("browser.action.status", payload);
+    },
+    [emitShellEvent]
+  );
+
   const closeSubscription = useCallback(() => {
     subscriptionRef.current?.close();
     subscriptionRef.current = null;
@@ -125,11 +110,11 @@ export function useBrowserCapabilityController({ enabled, emitShellEvent }: UseB
 
   const consumeRuntimeEvent = useCallback(
     (event: BrowserRuntimeEvent) => {
-      if (event.type === "browser.mount" && hasSessionId(event.payload)) {
+      if (event.type === "browser.mount") {
         activeSessionIdRef.current = event.payload.sessionId;
         sessionStorage.setItem(STORAGE_KEY, event.payload.sessionId);
       }
-      if (event.type === "browser.surface.state" && isBrowserSurfaceStatePayload(event.payload)) {
+      if (event.type === "browser.surface.state") {
         surfaceStateRef.current = event.payload;
       }
       emitShellEvent(event.type, event.payload);
@@ -179,6 +164,133 @@ export function useBrowserCapabilityController({ enabled, emitShellEvent }: UseB
       emitShellEvent("browser.surface.state", next);
     },
     [emitShellEvent]
+  );
+
+  const refreshDrawerData = useCallback(
+    async (sessionId: string) => {
+      if (!aaClient) {
+        emitActionStatus({
+          sessionId,
+          action: "drawer_refresh",
+          status: "error",
+          message: "AA browser client is not configured",
+        });
+        return;
+      }
+
+      try {
+        const [historyResponse, artifactsResponse, receiptsResponse] = await Promise.all([
+          aaClient.getBrowserHistory(sessionId),
+          aaClient.getBrowserArtifacts(sessionId),
+          aaClient.getBrowserReceipts(sessionId),
+        ]);
+        const payload: BrowserDrawerDataPayload = {
+          sessionId,
+          history: historyResponse.history,
+          artifacts: artifactsResponse.artifacts,
+          receipts: receiptsResponse.receipts,
+          refreshedAt: nowIso(),
+        };
+        emitShellEvent("browser.drawer.data", payload);
+        emitActionStatus({
+          sessionId,
+          action: "drawer_refresh",
+          status: "completed",
+          message: "Browser history synced",
+        });
+      } catch (error) {
+        emitActionStatus({
+          sessionId,
+          action: "drawer_refresh",
+          status: "error",
+          message: error instanceof Error ? error.message : "Unable to refresh browser history",
+        });
+        emitBrowserError(error, sessionId);
+      }
+    },
+    [aaClient, emitActionStatus, emitBrowserError, emitShellEvent]
+  );
+
+  const requestExtract = useCallback(
+    async (sessionId: string, payload: Record<string, unknown>) => {
+      if (!aaClient) {
+        emitActionStatus({
+          sessionId,
+          action: "extract",
+          status: "error",
+          message: "AA browser client is not configured",
+        });
+        return;
+      }
+
+      emitActionStatus({
+        sessionId,
+        action: "extract",
+        status: "running",
+        message: "Extracting current page details into runtime artifacts…",
+      });
+
+      try {
+        const result = await aaClient.extractBrowserSession(sessionId, payload);
+        emitActionStatus({
+          sessionId,
+          action: "extract",
+          status: "completed",
+          message: `Extract saved as ${result.artifact.artifactType} artifact.`,
+        });
+        await refreshDrawerData(sessionId);
+      } catch (error) {
+        emitActionStatus({
+          sessionId,
+          action: "extract",
+          status: "error",
+          message: error instanceof Error ? error.message : "Extract failed",
+        });
+        emitBrowserError(error, sessionId);
+      }
+    },
+    [aaClient, emitActionStatus, emitBrowserError, refreshDrawerData]
+  );
+
+  const requestSave = useCallback(
+    async (sessionId: string, payload: Record<string, unknown>) => {
+      if (!aaClient) {
+        emitActionStatus({
+          sessionId,
+          action: "save",
+          status: "error",
+          message: "AA browser client is not configured",
+        });
+        return;
+      }
+
+      emitActionStatus({
+        sessionId,
+        action: "save",
+        status: "running",
+        message: "Saving browser output into the runtime estate…",
+      });
+
+      try {
+        const result = await aaClient.browserSave(sessionId, payload);
+        emitActionStatus({
+          sessionId,
+          action: "save",
+          status: "completed",
+          message: `Saved browser output to ${result.save.destinationType}.`,
+        });
+        await refreshDrawerData(sessionId);
+      } catch (error) {
+        emitActionStatus({
+          sessionId,
+          action: "save",
+          status: "error",
+          message: error instanceof Error ? error.message : "Save failed",
+        });
+        emitBrowserError(error, sessionId);
+      }
+    },
+    [aaClient, emitActionStatus, emitBrowserError, refreshDrawerData]
   );
 
   const openBrowser = useCallback(
@@ -254,6 +366,40 @@ export function useBrowserCapabilityController({ enabled, emitShellEvent }: UseB
     [aaClient, closeSubscription, emitBrowserError, emitShellEvent]
   );
 
+  const startTakeover = useCallback(
+    async (sessionId: string) => {
+      if (!aaClient) {
+        emitBrowserError(new Error("AA browser client is not configured"), sessionId);
+        return;
+      }
+
+      try {
+        const aggregate = await aaClient.startBrowserTakeover(sessionId);
+        attachAggregate(aggregate);
+      } catch (error) {
+        emitBrowserError(error, sessionId);
+      }
+    },
+    [aaClient, attachAggregate, emitBrowserError]
+  );
+
+  const endTakeover = useCallback(
+    async (sessionId: string) => {
+      if (!aaClient) {
+        emitBrowserError(new Error("AA browser client is not configured"), sessionId);
+        return;
+      }
+
+      try {
+        const aggregate = await aaClient.endBrowserTakeover(sessionId);
+        attachAggregate(aggregate);
+      } catch (error) {
+        emitBrowserError(error, sessionId);
+      }
+    },
+    [aaClient, attachAggregate, emitBrowserError]
+  );
+
   const handleShellBridgeMessage = useCallback(
     (message: ShellInboundMessage): boolean => {
       if (!message.type.startsWith("browser.")) return false;
@@ -309,25 +455,56 @@ export function useBrowserCapabilityController({ enabled, emitShellEvent }: UseB
         const nextBounds = payload.bounds;
         if (nextBounds && typeof nextBounds === "object") {
           patchSurfaceState({
-            bounds: {
-              x: Number((nextBounds as Record<string, unknown>).x ?? surfaceStateRef.current.bounds.x),
-              y: Number((nextBounds as Record<string, unknown>).y ?? surfaceStateRef.current.bounds.y),
-              width: Number((nextBounds as Record<string, unknown>).width ?? surfaceStateRef.current.bounds.width),
-              height: Number((nextBounds as Record<string, unknown>).height ?? surfaceStateRef.current.bounds.height),
-            },
+            bounds: toSurfaceBounds(nextBounds as Record<string, unknown>, surfaceStateRef.current.bounds),
           });
         }
         return true;
       }
 
-      if (message.type === "browser.takeover.request" || message.type === "browser.resume.request") {
-        emitBrowserError(new Error("Takeover and resume land in a later slice"), sessionId);
+      if (message.type === "browser.drawer.refresh.request") {
+        if (sessionId) {
+          emitActionStatus({
+            sessionId,
+            action: "drawer_refresh",
+            status: "running",
+            message: "Refreshing browser history",
+          });
+          void refreshDrawerData(sessionId);
+        }
+        return true;
+      }
+
+      if (message.type === "browser.extract.request") {
+        if (sessionId) {
+          void requestExtract(sessionId, payload);
+        }
+        return true;
+      }
+
+      if (message.type === "browser.save.request") {
+        if (sessionId) {
+          void requestSave(sessionId, payload);
+        }
+        return true;
+      }
+
+      if (message.type === "browser.takeover.request") {
+        if (sessionId) {
+          void startTakeover(sessionId);
+        }
+        return true;
+      }
+
+      if (message.type === "browser.resume.request") {
+        if (sessionId) {
+          void endTakeover(sessionId);
+        }
         return true;
       }
 
       return false;
     },
-    [closeBrowser, emitBrowserError, openBrowser, patchSurfaceState]
+    [closeBrowser, emitActionStatus, endTakeover, openBrowser, patchSurfaceState, refreshDrawerData, requestExtract, requestSave, startTakeover]
   );
 
   useEffect(() => {

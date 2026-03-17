@@ -19,12 +19,19 @@ import {
   type ShellOutboundType,
 } from "@metame/iframe-bridge";
 import type {
+  BrowserActionStatus,
+  BrowserArtifact,
   BrowserBadgeState,
+  BrowserDrawerDataPayload,
   BrowserErrorPayload,
+  BrowserHistoryEvent,
   BrowserMountPayload,
+  BrowserReceipt,
   BrowserStepState,
   BrowserSurfaceState,
 } from "@metame/browser-contracts";
+import { BrowserHistoryDrawer } from "./components/browser/BrowserHistoryDrawer";
+import { BrowserSessionPanel } from "./components/browser/BrowserSessionPanel";
 import { BrowserSurfaceHost } from "./components/browser/BrowserSurfaceHost";
 import { RuntimeFrame } from "./components/RuntimeFrame";
 import { RuntimeHeader } from "./components/RuntimeHeader";
@@ -52,10 +59,24 @@ type BrowserShellStore = {
   entries: Record<string, BrowserShellEntry>;
 };
 
+type BrowserDrawerData = {
+  loading: boolean;
+  refreshedAt: string | null;
+  history: BrowserHistoryEvent[];
+  artifacts: BrowserArtifact[];
+  receipts: BrowserReceipt[];
+};
+
+type BrowserControlStatus = {
+  tone: "idle" | "running" | "success" | "error";
+  message: string;
+} | null;
+
 type BrowserShellAction =
   | { type: "mount"; payload: BrowserMountPayload }
   | { type: "unmount"; payload: { sessionId: string } }
   | { type: "surface"; payload: BrowserSurfaceState }
+  | { type: "takeover"; payload: { sessionId: string; active: boolean } }
   | { type: "badges"; payload: BrowserBadgeState }
   | { type: "step"; payload: BrowserStepState }
   | { type: "error"; payload: BrowserErrorPayload }
@@ -117,6 +138,25 @@ function browserShellReducer(store: BrowserShellStore, action: BrowserShellActio
         [action.payload.sessionId]: {
           ...(store.entries[action.payload.sessionId] || {}),
           surfaceState: action.payload,
+        },
+      },
+    };
+  }
+
+  if (action.type === "takeover") {
+    if (shouldIgnoreBrowserUpdate(store, action.payload.sessionId)) return store;
+    const current = store.entries[action.payload.sessionId];
+    if (!current?.surfaceState) return store;
+    return {
+      activeSessionId: store.activeSessionId ?? action.payload.sessionId,
+      entries: {
+        ...store.entries,
+        [action.payload.sessionId]: {
+          ...current,
+          surfaceState: {
+            ...current.surfaceState,
+            takeoverActive: action.payload.active,
+          },
         },
       },
     };
@@ -235,6 +275,7 @@ function isWalletLayoutMessage(
 export default function RuntimeShellHomePage() {
   const router = useRouter();
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const activeBrowserSessionIdRef = useRef<string | null>(null);
   const [config, setConfig] = useState<RuntimeShellConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -244,6 +285,17 @@ export default function RuntimeShellHomePage() {
   const [handoffSent, setHandoffSent] = useState(false);
   const [runtimeFrameLayout, setRuntimeFrameLayout] = useState<"default" | "narrow" | "wide">("default");
   const [browserStore, setBrowserStore] = useState<BrowserShellStore>(INITIAL_BROWSER_STORE);
+  const [browserDrawerOpen, setBrowserDrawerOpen] = useState(false);
+  const [browserDrawerData, setBrowserDrawerData] = useState<BrowserDrawerData>({
+    loading: false,
+    refreshedAt: null,
+    history: [],
+    artifacts: [],
+    receipts: [],
+  });
+  const [browserControlBusy, setBrowserControlBusy] = useState(false);
+  const [browserControlStatus, setBrowserControlStatus] = useState<BrowserControlStatus>(null);
+  const lastDrawerRefreshStepRef = useRef<string | null>(null);
 
   const aaClient = useMemo(() => {
     const baseUrl = process.env.NEXT_PUBLIC_AA_API_BASE_URL;
@@ -397,13 +449,29 @@ export default function RuntimeShellHomePage() {
       }
 
       if (message.type === "browser.mount") {
+        const payload = message.payload as BrowserMountPayload;
+        activeBrowserSessionIdRef.current = payload.sessionId;
         setBrowserStore((current) => browserShellReducer(current, { type: "mount", payload: message.payload as BrowserMountPayload }));
         return;
       }
 
       if (message.type === "browser.unmount") {
+        const payload = message.payload as { sessionId: string };
+        if (activeBrowserSessionIdRef.current === payload.sessionId) {
+          activeBrowserSessionIdRef.current = null;
+          setBrowserDrawerOpen(false);
+          setBrowserControlBusy(false);
+          setBrowserControlStatus(null);
+          setBrowserDrawerData({
+            loading: false,
+            refreshedAt: null,
+            history: [],
+            artifacts: [],
+            receipts: [],
+          });
+        }
         setBrowserStore((current) =>
-          browserShellReducer(current, { type: "unmount", payload: message.payload as { sessionId: string } })
+          browserShellReducer(current, { type: "unmount", payload })
         );
         return;
       }
@@ -415,10 +483,75 @@ export default function RuntimeShellHomePage() {
         return;
       }
 
+      if (message.type === "browser.takeover.state") {
+        setBrowserStore((current) =>
+          browserShellReducer(current, {
+            type: "takeover",
+            payload: message.payload as { sessionId: string; active: boolean },
+          })
+        );
+        return;
+      }
+
       if (message.type === "browser.badges.update") {
         setBrowserStore((current) =>
           browserShellReducer(current, { type: "badges", payload: message.payload as BrowserBadgeState })
         );
+        return;
+      }
+
+      if (message.type === "browser.drawer.data") {
+        const payload = message.payload as BrowserDrawerDataPayload;
+        if (activeBrowserSessionIdRef.current && activeBrowserSessionIdRef.current !== payload.sessionId) {
+          return;
+        }
+        setBrowserDrawerData({
+          loading: false,
+          refreshedAt: payload.refreshedAt,
+          history: payload.history,
+          artifacts: payload.artifacts,
+          receipts: payload.receipts,
+        });
+        return;
+      }
+
+      if (message.type === "browser.action.status") {
+        const payload = message.payload as BrowserActionStatus;
+        if (activeBrowserSessionIdRef.current && activeBrowserSessionIdRef.current !== payload.sessionId) {
+          return;
+        }
+        if (payload.action === "drawer_refresh") {
+          if (payload.status === "running") {
+            setBrowserDrawerData((current) => ({
+              ...current,
+              loading: true,
+            }));
+          } else {
+            setBrowserDrawerData((current) => ({
+              ...current,
+              loading: false,
+            }));
+          }
+          if (payload.status === "error") {
+            setError(payload.message);
+          }
+        }
+
+        if (payload.action === "extract" || payload.action === "save") {
+          setBrowserControlBusy(payload.status === "running");
+          setBrowserControlStatus({
+            tone:
+              payload.status === "running"
+                ? "running"
+                : payload.status === "completed"
+                  ? "success"
+                  : "error",
+            message: payload.message,
+          });
+          if (payload.status === "error") {
+            setError(payload.message);
+          }
+        }
         return;
       }
 
@@ -582,6 +715,75 @@ export default function RuntimeShellHomePage() {
 
   const activeBrowserEntry = browserStore.activeSessionId ? browserStore.entries[browserStore.activeSessionId] : null;
 
+  useEffect(() => {
+    activeBrowserSessionIdRef.current = browserStore.activeSessionId;
+  }, [browserStore.activeSessionId]);
+
+  useEffect(() => {
+    if (!browserStore.activeSessionId) {
+      setBrowserDrawerOpen(false);
+      setBrowserControlBusy(false);
+      setBrowserControlStatus(null);
+    }
+    setBrowserDrawerData({
+      loading: false,
+      refreshedAt: null,
+      history: [],
+      artifacts: [],
+      receipts: [],
+    });
+    lastDrawerRefreshStepRef.current = null;
+  }, [browserStore.activeSessionId]);
+
+  const refreshBrowserDrawer = useCallback(async () => {
+    const sessionId = browserStore.activeSessionId;
+    if (!sessionId) return;
+
+    setBrowserDrawerData((current) => ({
+      ...current,
+      loading: true,
+    }));
+    setError(null);
+    const sent = postShellEvent("browser.drawer.refresh.request", { sessionId });
+    if (!sent) {
+      setBrowserDrawerData((current) => ({
+        ...current,
+        loading: false,
+      }));
+      setError("Unable to request browser history refresh");
+    }
+  }, [browserStore.activeSessionId, postShellEvent]);
+
+  useEffect(() => {
+    if (!browserDrawerOpen) return;
+    void refreshBrowserDrawer();
+  }, [browserDrawerOpen, refreshBrowserDrawer]);
+
+  useEffect(() => {
+    if (!browserDrawerOpen) return;
+    if (browserDrawerData.loading) return;
+    if (!activeBrowserEntry?.step) return;
+    if (activeBrowserEntry.step.status !== "completed" && activeBrowserEntry.step.status !== "error") return;
+    if (lastDrawerRefreshStepRef.current === activeBrowserEntry.step.stepId) return;
+
+    lastDrawerRefreshStepRef.current = activeBrowserEntry.step.stepId;
+    void refreshBrowserDrawer();
+  }, [activeBrowserEntry?.step, browserDrawerData.loading, browserDrawerOpen, refreshBrowserDrawer]);
+
+  useEffect(() => {
+    if (!browserControlStatus) return;
+    if (browserControlStatus.tone === "running") return;
+
+    const timeoutId = window.setTimeout(() => {
+      setBrowserControlStatus((current) => {
+        if (!current || current.tone === "running") return current;
+        return null;
+      });
+    }, 3200);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [browserControlStatus]);
+
   const handleBrowserLaunch = useCallback(() => {
     postShellEvent("browser.open.request", { intent: "Open browser" });
   }, [postShellEvent]);
@@ -628,6 +830,18 @@ export default function RuntimeShellHomePage() {
     [browserStore.activeSessionId, postShellEvent]
   );
 
+  const handleBrowserTakeover = useCallback(() => {
+    const sessionId = browserStore.activeSessionId;
+    if (!sessionId) return;
+    postShellEvent("browser.takeover.request", { sessionId });
+  }, [browserStore.activeSessionId, postShellEvent]);
+
+  const handleBrowserResume = useCallback(() => {
+    const sessionId = browserStore.activeSessionId;
+    if (!sessionId) return;
+    postShellEvent("browser.resume.request", { sessionId });
+  }, [browserStore.activeSessionId, postShellEvent]);
+
   const handleBrowserBoundsChanged = useCallback(
     (bounds: BrowserSurfaceState["bounds"]) => {
       const sessionId = browserStore.activeSessionId;
@@ -636,6 +850,71 @@ export default function RuntimeShellHomePage() {
     },
     [browserStore.activeSessionId, postShellEvent]
   );
+
+  const handleBrowserDrawerToggle = useCallback(() => {
+    setBrowserDrawerOpen((current) => !current);
+  }, []);
+
+  const handleBrowserExtract = useCallback(async () => {
+    const sessionId = browserStore.activeSessionId;
+    if (!sessionId) return;
+
+    setBrowserControlBusy(true);
+    setBrowserDrawerOpen(true);
+    setBrowserDrawerData((current) => ({
+      ...current,
+      loading: true,
+    }));
+    setError(null);
+    const sent = postShellEvent("browser.extract.request", {
+      sessionId,
+      prompt: "Extract the current page details for the thin shell drawer",
+    });
+    if (!sent) {
+      setBrowserControlBusy(false);
+      setBrowserDrawerData((current) => ({
+        ...current,
+        loading: false,
+      }));
+      setBrowserControlStatus({
+        tone: "error",
+        message: "Unable to request browser extract",
+      });
+      setError("Unable to request browser extract");
+    }
+  }, [browserStore.activeSessionId, postShellEvent]);
+
+  const handleBrowserSave = useCallback(async () => {
+    const sessionId = browserStore.activeSessionId;
+    if (!sessionId) return;
+
+    setBrowserControlBusy(true);
+    setBrowserDrawerOpen(true);
+    setBrowserDrawerData((current) => ({
+      ...current,
+      loading: true,
+    }));
+    setError(null);
+    const sent = postShellEvent("browser.save.request", {
+      sessionId,
+      destinationType: "estate",
+      metadata: {
+        source: "thin_shell",
+      },
+    });
+    if (!sent) {
+      setBrowserControlBusy(false);
+      setBrowserDrawerData((current) => ({
+        ...current,
+        loading: false,
+      }));
+      setBrowserControlStatus({
+        tone: "error",
+        message: "Unable to request browser save",
+      });
+      setError("Unable to request browser save");
+    }
+  }, [browserStore.activeSessionId, postShellEvent]);
 
   const hasRuntimeEndpoint = Boolean(runtimeUrl && runtimeOrigin);
 
@@ -702,6 +981,8 @@ export default function RuntimeShellHomePage() {
                   badges={activeBrowserEntry.badges}
                   step={activeBrowserEntry.step}
                   error={activeBrowserEntry.error}
+                  onTakeover={handleBrowserTakeover}
+                  onResume={handleBrowserResume}
                   onClose={handleBrowserClose}
                   onMinimize={handleBrowserMinimize}
                   onExpand={handleBrowserExpand}
@@ -710,6 +991,42 @@ export default function RuntimeShellHomePage() {
                 />
               ) : null}
             </div>
+            {BROWSER_MVP_ENABLED && activeBrowserEntry?.mountPayload && activeBrowserEntry.surfaceState ? (
+              <BrowserSessionPanel
+                mountPayload={activeBrowserEntry.mountPayload}
+                surfaceState={activeBrowserEntry.surfaceState}
+                badges={activeBrowserEntry.badges}
+                step={activeBrowserEntry.step}
+                error={activeBrowserEntry.error}
+                actionStatus={browserControlStatus}
+                historyCount={browserDrawerData.history.length}
+                artifactCount={browserDrawerData.artifacts.length}
+                receiptCount={browserDrawerData.receipts.length}
+                drawerOpen={browserDrawerOpen}
+                controlsBusy={browserControlBusy}
+                onToggleDrawer={handleBrowserDrawerToggle}
+                onExtract={handleBrowserExtract}
+                onSave={handleBrowserSave}
+                onTakeover={handleBrowserTakeover}
+                onResume={handleBrowserResume}
+                onMinimize={handleBrowserMinimize}
+                onExpand={handleBrowserExpand}
+                onClose={handleBrowserClose}
+              />
+            ) : null}
+            {BROWSER_MVP_ENABLED && activeBrowserEntry?.mountPayload && activeBrowserEntry.surfaceState ? (
+              <BrowserHistoryDrawer
+                open={browserDrawerOpen}
+                loading={browserDrawerData.loading}
+                refreshedAt={browserDrawerData.refreshedAt}
+                history={browserDrawerData.history}
+                artifacts={browserDrawerData.artifacts}
+                receipts={browserDrawerData.receipts}
+                onRefresh={() => {
+                  void refreshBrowserDrawer();
+                }}
+              />
+            ) : null}
           </>
         )}
       </section>

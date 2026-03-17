@@ -6,6 +6,8 @@ type BrowserSurfaceChromeProps = {
   mountPayload: BrowserMountPayload;
   surfaceState: BrowserSurfaceState;
   badges?: BrowserBadgeState;
+  onTakeover: () => void;
+  onResume: () => void;
   onClose: () => void;
   onMinimize: () => void;
   onExpand: () => void;
@@ -15,6 +17,8 @@ export function BrowserSurfaceChrome({
   mountPayload,
   surfaceState,
   badges,
+  onTakeover,
+  onResume,
   onClose,
   onMinimize,
   onExpand,
@@ -29,6 +33,9 @@ export function BrowserSurfaceChrome({
           <div className="browser-surface-domain">{badges?.domain || mountPayload.chrome.domain || "Runtime controlled"}</div>
         </div>
         <div className="browser-surface-actions">
+          <button type="button" onClick={surfaceState.takeoverActive ? onResume : onTakeover}>
+            {surfaceState.takeoverActive ? "Resume" : "Take Over"}
+          </button>
           <button type="button" onClick={minimized ? onExpand : onMinimize}>
             {minimized ? "Expand" : "Minimize"}
           </button>

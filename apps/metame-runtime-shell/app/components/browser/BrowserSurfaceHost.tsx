@@ -13,6 +13,8 @@ type BrowserSurfaceHostProps = {
   badges?: BrowserBadgeState;
   step?: BrowserStepState;
   error?: BrowserErrorPayload | null;
+  onTakeover: () => void;
+  onResume: () => void;
   onClose: () => void;
   onMinimize: () => void;
   onExpand: () => void;
@@ -26,6 +28,8 @@ export function BrowserSurfaceHost({
   badges,
   step,
   error,
+  onTakeover,
+  onResume,
   onClose,
   onMinimize,
   onExpand,
@@ -84,11 +88,14 @@ export function BrowserSurfaceHost({
         mountPayload={mountPayload}
         surfaceState={surfaceState}
         badges={badges}
+        onTakeover={onTakeover}
+        onResume={onResume}
         onClose={onClose}
         onMinimize={onMinimize}
         onExpand={onExpand}
       />
       <BrowserStatusRail badges={badges} step={step} />
+      {surfaceState.takeoverActive ? <div className="browser-takeover-banner">Human takeover active</div> : null}
       {error ? <div className="browser-error-banner">{error.message}</div> : null}
       <BrowserLiveViewFrame title={mountPayload.chrome.title} src={mountPayload.liveView.url} onFocusChange={onFocusChanged} />
     </div>

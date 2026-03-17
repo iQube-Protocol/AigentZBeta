@@ -1,19 +1,23 @@
 import {
   browserArtifactsResponseSchema,
   browserCreateSessionResponseSchema,
+  browserExtractResponseSchema,
   browserHistoryResponseSchema,
   browserNavigateRequestSchema,
   browserReceiptsResponseSchema,
   browserRuntimeEventSchema,
+  browserSaveResponseSchema,
   browserSessionResponseSchema,
   browserSurfaceStateResponseSchema,
   type BrowserArtifactsResponse,
   type BrowserCreateSessionRequest,
   type BrowserCreateSessionResponse,
+  type BrowserExtractResponse,
   type BrowserHistoryResponse,
   type BrowserNavigateRequest,
   type BrowserReceiptsResponse,
   type BrowserRuntimeEvent,
+  type BrowserSaveResponse,
   type BrowserSessionResponse,
   type BrowserSurfaceStateResponse,
 } from "@metame/browser-contracts";
@@ -343,6 +347,55 @@ export class AAClient {
     return browserSessionResponseSchema.parse(response);
   }
 
+  async runBrowserAgent(sessionId: string, payload: Record<string, unknown> = {}): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(this.runtimePath(`browser/sessions/${sessionId}/agent/run`), {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async pauseBrowserAgent(sessionId: string): Promise<BrowserSessionResponse> {
+    const response = await this.request<BrowserSessionResponse>(this.runtimePath(`browser/sessions/${sessionId}/agent/pause`), {
+      method: "POST",
+    });
+    return browserSessionResponseSchema.parse(response);
+  }
+
+  async resumeBrowserAgent(sessionId: string): Promise<BrowserSessionResponse> {
+    const response = await this.request<BrowserSessionResponse>(this.runtimePath(`browser/sessions/${sessionId}/agent/resume`), {
+      method: "POST",
+    });
+    return browserSessionResponseSchema.parse(response);
+  }
+
+  async startBrowserTakeover(sessionId: string): Promise<BrowserSessionResponse> {
+    const response = await this.request<BrowserSessionResponse>(
+      this.runtimePath(`browser/sessions/${sessionId}/takeover/start`),
+      {
+        method: "POST",
+      }
+    );
+    return browserSessionResponseSchema.parse(response);
+  }
+
+  async endBrowserTakeover(sessionId: string): Promise<BrowserSessionResponse> {
+    const response = await this.request<BrowserSessionResponse>(
+      this.runtimePath(`browser/sessions/${sessionId}/takeover/end`),
+      {
+        method: "POST",
+      }
+    );
+    return browserSessionResponseSchema.parse(response);
+  }
+
+  async extractBrowserSession(sessionId: string, payload: Record<string, unknown> = {}): Promise<BrowserExtractResponse> {
+    const response = await this.request<BrowserExtractResponse>(this.runtimePath(`browser/sessions/${sessionId}/extract`), {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    return browserExtractResponseSchema.parse(response);
+  }
+
   async getBrowserHistory(sessionId: string): Promise<BrowserHistoryResponse> {
     const response = await this.request<BrowserHistoryResponse>(this.runtimePath(`browser/sessions/${sessionId}/history`), {
       method: "GET",
@@ -367,11 +420,12 @@ export class AAClient {
     return browserReceiptsResponseSchema.parse(response);
   }
 
-  async browserSave(sessionId: string, payload: Record<string, unknown> = {}): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(this.runtimePath(`browser/sessions/${sessionId}/save`), {
+  async browserSave(sessionId: string, payload: Record<string, unknown> = {}): Promise<BrowserSaveResponse> {
+    const response = await this.request<BrowserSaveResponse>(this.runtimePath(`browser/sessions/${sessionId}/save`), {
       method: "POST",
       body: JSON.stringify(payload),
     });
+    return browserSaveResponseSchema.parse(response);
   }
 
   subscribeToBrowserSessionEvents(

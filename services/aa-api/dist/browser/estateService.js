@@ -66,6 +66,26 @@ export class BrowserEstateService {
             console.warn('[browser-estate] appendHistory failed', error);
         }
     }
+    async appendArtifact(artifact) {
+        try {
+            await supabase.from('browser_artifacts').insert({
+                id: artifact.id,
+                session_id: artifact.sessionId,
+                user_id: artifact.userId,
+                artifact_type: artifact.artifactType,
+                source_url: artifact.sourceUrl || null,
+                source_title: artifact.sourceTitle || null,
+                mime_type: artifact.mimeType || null,
+                storage_path: artifact.storagePath || null,
+                metadata: artifact.metadata,
+                receipt_ref: artifact.receiptRef || null,
+                created_at: artifact.createdAt,
+            });
+        }
+        catch (error) {
+            console.warn('[browser-estate] appendArtifact failed', error);
+        }
+    }
     async appendReceipt(receipt) {
         try {
             await supabase.from('browser_receipts').insert({
@@ -80,6 +100,25 @@ export class BrowserEstateService {
         }
         catch (error) {
             console.warn('[browser-estate] appendReceipt failed', error);
+        }
+    }
+    async appendSave(save) {
+        try {
+            await supabase.from('browser_saves').insert({
+                id: save.id,
+                session_id: save.sessionId,
+                artifact_id: save.artifactId || null,
+                history_event_id: save.historyEventId || null,
+                destination_type: save.destinationType,
+                destination_id: save.destinationId || null,
+                saved_by: save.savedBy || null,
+                metadata: save.metadata,
+                receipt_ref: save.receiptRef || null,
+                created_at: save.createdAt,
+            });
+        }
+        catch (error) {
+            console.warn('[browser-estate] appendSave failed', error);
         }
     }
 }
