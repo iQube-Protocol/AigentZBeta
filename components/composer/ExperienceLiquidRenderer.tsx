@@ -1,12 +1,33 @@
 "use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { liquidTemplateRegistry } from "@/app/triad/components/codex/liquidTemplates/registry";
 import { LiquidUIPlaceholderTemplate } from "@/app/triad/components/codex/liquidTemplates/LiquidUIPlaceholderTemplate";
 import { ExperienceBlockHeader } from "@/components/composer/ExperienceBlockChrome";
 import SkillVideoPlayer from "@/components/composer/SkillVideoPlayer";
 import SkillImagePlayer from "@/components/composer/SkillImagePlayer";
+import { BookOpen, ChevronDown, ChevronUp, PencilLine } from "lucide-react";
 
-function CompositionBundleBrief({ packet }: { packet: Record<string, any> }) {
+type ArticleDraftSection = {
+  heading: string;
+  body: string;
+};
+
+type ArticleDraftGlossaryEntry = {
+  term: string;
+  definition: string;
+};
+
+function CompositionBundleBrief({
+  packet,
+  experienceId,
+}: {
+  packet: Record<string, any>;
+  experienceId: string;
+}) {
+  const router = useRouter();
+  const [articleExpanded, setArticleExpanded] = useState(false);
   const composition =
     packet?.composition && typeof packet.composition === "object" ? packet.composition : null;
   if (!composition) return null;
@@ -23,6 +44,33 @@ function CompositionBundleBrief({ packet }: { packet: Record<string, any> }) {
     packet?.article_draft && typeof packet.article_draft === "object" ? packet.article_draft : null;
   const articleGenerated =
     articleDraft?.generated && typeof articleDraft.generated === "object" ? articleDraft.generated : null;
+  const articleSections: ArticleDraftSection[] = Array.isArray(articleGenerated?.sections)
+    ? articleGenerated.sections.filter(
+        (section: unknown): section is ArticleDraftSection =>
+          Boolean(
+            section &&
+              typeof section === "object" &&
+              !Array.isArray(section) &&
+              typeof (section as ArticleDraftSection).heading === "string" &&
+              typeof (section as ArticleDraftSection).body === "string",
+          ),
+      )
+    : [];
+  const articleTakeaways: string[] = Array.isArray(articleGenerated?.takeaways)
+    ? articleGenerated.takeaways.filter((item: unknown): item is string => typeof item === "string")
+    : [];
+  const articleGlossary: ArticleDraftGlossaryEntry[] = Array.isArray(articleGenerated?.glossary)
+    ? articleGenerated.glossary.filter(
+        (item: unknown): item is ArticleDraftGlossaryEntry =>
+          Boolean(
+            item &&
+              typeof item === "object" &&
+              !Array.isArray(item) &&
+              typeof (item as ArticleDraftGlossaryEntry).term === "string" &&
+              typeof (item as ArticleDraftGlossaryEntry).definition === "string",
+          ),
+      )
+    : [];
   const articleOutputs: string[] =
     articleDraft && Array.isArray(articleDraft.outputs)
       ? articleDraft.outputs.filter((item: unknown): item is string => typeof item === "string")
@@ -36,6 +84,21 @@ function CompositionBundleBrief({ packet }: { packet: Record<string, any> }) {
   const blockKinds: string[] = Array.isArray(composition.blockKinds)
     ? composition.blockKinds.filter((item: unknown): item is string => typeof item === "string")
     : [];
+  const visibleArticleSections = articleExpanded ? articleSections : articleSections.slice(0, 2);
+  const canExpandArticle =
+    articleSections.length > visibleArticleSections.length ||
+    articleTakeaways.length > 0 ||
+    articleGlossary.length > 0 ||
+    Boolean(articleGenerated?.nextAction);
+
+  const handleEditDraft = () => {
+    const params = new URLSearchParams({
+      experienceId,
+      panel: "customizer",
+      bundleBlock: "article_draft",
+    });
+    router.push(`/studio/composer?${params.toString()}`);
+  };
 
   return (
     <div className="mb-4 rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-4 text-sm text-slate-200">
@@ -116,6 +179,27 @@ function CompositionBundleBrief({ packet }: { packet: Record<string, any> }) {
             kind="copy"
             title="Article Draft"
             mobileTitle="Copy"
+            rightActions={
+              <>
+                <button
+                  type="button"
+                  onClick={() => setArticleExpanded((current) => !current)}
+                  className="inline-flex items-center gap-1 rounded-full border border-cyan-500/30 px-2.5 py-1 text-[11px] text-cyan-200 transition hover:border-cyan-400/50 hover:text-cyan-100"
+                >
+                  <BookOpen className="h-3.5 w-3.5" />
+                  <span>{articleExpanded ? "Collapse" : "Read Draft"}</span>
+                  {articleExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleEditDraft}
+                  className="inline-flex items-center gap-1 rounded-full border border-slate-700 px-2.5 py-1 text-[11px] text-slate-200 transition hover:border-slate-500 hover:text-white"
+                >
+                  <PencilLine className="h-3.5 w-3.5" />
+                  <span>Edit Draft</span>
+                </button>
+              </>
+            }
             className="flex items-center justify-between pb-3"
           />
           <div className="mt-1 font-medium text-white">
@@ -147,9 +231,9 @@ function CompositionBundleBrief({ packet }: { packet: Record<string, any> }) {
               ) : null}
             </div>
           ) : null}
-          {Array.isArray(articleGenerated?.sections) && articleGenerated.sections.length > 0 ? (
+          {articleSections.length > 0 ? (
             <div className="mt-3 space-y-2">
-              {articleGenerated.sections.slice(0, 2).map((section: any) => (
+              {visibleArticleSections.map((section) => (
                 <div key={section.heading} className="rounded-xl border border-slate-800 bg-slate-900/50 p-3">
                   <div className="text-xs font-medium uppercase tracking-[0.16em] text-slate-500">
                     {section.heading}
@@ -159,10 +243,57 @@ function CompositionBundleBrief({ packet }: { packet: Record<string, any> }) {
               ))}
             </div>
           ) : null}
+          {!articleExpanded && articleSections.length > visibleArticleSections.length ? (
+            <div className="mt-3 text-xs text-slate-500">
+              {articleSections.length - visibleArticleSections.length} more sections available in the full draft.
+            </div>
+          ) : null}
+          {articleExpanded && articleTakeaways.length > 0 ? (
+            <div className="mt-3 rounded-xl border border-slate-800 bg-slate-900/50 p-3">
+              <div className="text-xs font-medium uppercase tracking-[0.16em] text-slate-500">Takeaways</div>
+              <div className="mt-2 space-y-2 text-xs text-slate-300">
+                {articleTakeaways.map((takeaway) => (
+                  <div key={takeaway}>{takeaway}</div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+          {articleExpanded && articleGlossary.length > 0 ? (
+            <div className="mt-3 rounded-xl border border-slate-800 bg-slate-900/50 p-3">
+              <div className="text-xs font-medium uppercase tracking-[0.16em] text-slate-500">Glossary</div>
+              <div className="mt-2 space-y-2 text-xs text-slate-300">
+                {articleGlossary.map((entry) => (
+                  <div key={entry.term}>
+                    <span className="font-medium text-white">{entry.term}:</span> {entry.definition}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
           {typeof articleGenerated?.nextAction === "string" && articleGenerated.nextAction ? (
             <div className="mt-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-xs text-emerald-100">
               <div className="text-[11px] uppercase tracking-[0.16em] text-emerald-300">Next Action</div>
               <div className="mt-1">{articleGenerated.nextAction}</div>
+            </div>
+          ) : null}
+          {canExpandArticle ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setArticleExpanded((current) => !current)}
+                className="inline-flex items-center gap-1 rounded-full border border-cyan-500/30 px-2.5 py-1 text-[11px] text-cyan-200 transition hover:border-cyan-400/50 hover:text-cyan-100"
+              >
+                <BookOpen className="h-3.5 w-3.5" />
+                <span>{articleExpanded ? "Show Summary" : "Read Full Draft"}</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleEditDraft}
+                className="inline-flex items-center gap-1 rounded-full border border-slate-700 px-2.5 py-1 text-[11px] text-slate-200 transition hover:border-slate-500 hover:text-white"
+              >
+                <PencilLine className="h-3.5 w-3.5" />
+                <span>Edit in Customizer</span>
+              </button>
             </div>
           ) : null}
         </div>
@@ -229,7 +360,7 @@ export function ExperienceLiquidRenderer({
   if (templateKey === "skill:video_player_v1" && packet.skill) {
     return (
       <>
-        <CompositionBundleBrief packet={packet} />
+        <CompositionBundleBrief packet={packet} experienceId={experience.id} />
         <SkillVideoPlayer
           skill_id={packet.skill.skill_id}
           prompt={packet.skill.prompt}
@@ -250,7 +381,7 @@ export function ExperienceLiquidRenderer({
   if (templateKey === "skill:image_player_v1" && packet.image_generation) {
     return (
       <>
-        <CompositionBundleBrief packet={packet} />
+        <CompositionBundleBrief packet={packet} experienceId={experience.id} />
         <SkillImagePlayer
           provider_id={packet.image_generation.provider_id}
           portrait_prompt={packet.image_generation.portrait_prompt}

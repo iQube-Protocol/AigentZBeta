@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertTriangle, BarChart, Book, BookOpen, Bot, CheckCircle2, ChevronDown, ChevronUp, Circle, Code, Edit, Eye, FileText, Hexagon, LayoutGrid, List, Loader2, Monitor, MonitorIcon, Moon, Palette, Play, PlayCircle, RefreshCw, Share2, Shield, ShieldCheck, SlidersHorizontal, Smartphone, Sparkles, Sun, Target, Tablet, Trash2, Tv, Upload, Users, Volume2, Type } from "lucide-react";
 import { useCopilotAction } from "@copilotkit/react-core";
@@ -1368,7 +1368,9 @@ const QRIPTO_TEMPLATE_SEEDS: ExperienceTemplate[] = [
 
 export const ComposerStudio = () => {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const templateCustomizerRef = useRef<HTMLDivElement | null>(null);
+  const queryHydrationKeyRef = useRef<string | null>(null);
   const [templates, setTemplates] = useState<ExperienceTemplate[]>(() => {
     const cached = composerStudioCache.templates || [];
     const merged = [...cached];
@@ -1843,6 +1845,57 @@ export const ComposerStudio = () => {
       setIsSaving(false);
     }
   };
+
+  const requestedExperienceId =
+    typeof searchParams?.get("experienceId") === "string" && searchParams.get("experienceId")?.trim()
+      ? searchParams.get("experienceId")!.trim()
+      : null;
+  const requestedPanel =
+    searchParams?.get("panel") === "customizer" ||
+    searchParams?.get("panel") === "resources" ||
+    searchParams?.get("panel") === "exqubes" ||
+    searchParams?.get("panel") === "template"
+      ? searchParams.get("panel")
+      : null;
+  const requestedBundleBlock =
+    searchParams?.get("bundleBlock") === "image_generation" ||
+    searchParams?.get("bundleBlock") === "video_generation" ||
+    searchParams?.get("bundleBlock") === "article_draft" ||
+    searchParams?.get("bundleBlock") === "deployment"
+      ? searchParams.get("bundleBlock")
+      : null;
+
+  useEffect(() => {
+    if (!requestedExperienceId) return;
+
+    const hydrationKey = `${requestedExperienceId}:${requestedPanel || ""}:${requestedBundleBlock || ""}`;
+    if (queryHydrationKeyRef.current === hydrationKey) return;
+
+    const targetExperience =
+      experiences.find((candidate) => candidate.id === requestedExperienceId) ||
+      (experience?.id === requestedExperienceId ? experience : null);
+    if (!targetExperience) return;
+
+    queryHydrationKeyRef.current = hydrationKey;
+    setSelectedExperienceId(targetExperience.id);
+    setSelectedExperience(targetExperience);
+
+    if (requestedPanel) {
+      setExperiencePanelTab(requestedPanel);
+    }
+
+    if (requestedPanel === "customizer") {
+      void handleEditExperience(targetExperience, {
+        preferredStepId: resolveBundlePreferredStepId(requestedBundleBlock, targetExperience.configuration || {}),
+      });
+    }
+  }, [
+    experience,
+    experiences,
+    requestedBundleBlock,
+    requestedExperienceId,
+    requestedPanel,
+  ]);
 
   const styleQubeThemeTokens = designQube?.tokens?.themes?.[designTheme];
   const styleQubeColors = styleQubeThemeTokens?.color || {};
