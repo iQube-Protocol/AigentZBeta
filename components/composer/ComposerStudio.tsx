@@ -3103,14 +3103,6 @@ export const ComposerStudio = () => {
       [currentStep.id]: stepValues,
     };
   }, [currentStep, sessionData, stepValues]);
-  const bundleCustomizerTargetStepIndex = useMemo(() => {
-    if (!sessionTemplate || !activeExperienceBundleSequencingState) return null;
-    const preferredStepId = resolveBundlePreferredStepId(
-      activeExperienceBundleSequencingState.activeBlock,
-      mergedData,
-    );
-    return resolveStepIndexForId(sessionTemplate.steps || [], preferredStepId);
-  }, [activeExperienceBundleSequencingState, mergedData, sessionTemplate]);
 
   const experienceResourceCounts = useMemo(() => {
     const summary = summarizeExperienceResources(sessionTemplate, mergedData);
@@ -4386,6 +4378,14 @@ export const ComposerStudio = () => {
     () => resolveExperienceBundleSequencingState(activeExperienceForEditing, activeAppliedExperienceBundle),
     [activeAppliedExperienceBundle, activeExperienceForEditing],
   );
+  const bundleCustomizerTargetStepIndex = useMemo(() => {
+    if (!sessionTemplate || !activeExperienceBundleSequencingState) return null;
+    const preferredStepId = resolveBundlePreferredStepId(
+      activeExperienceBundleSequencingState.activeBlock,
+      mergedData,
+    );
+    return resolveStepIndexForId(sessionTemplate.steps || [], preferredStepId);
+  }, [activeExperienceBundleSequencingState, mergedData, sessionTemplate]);
   const handleApplyBundlePreset = useCallback(
     async (presetId: ExperienceBundlePresetId) => {
       if (!activeExperienceForEditing?.id) {
