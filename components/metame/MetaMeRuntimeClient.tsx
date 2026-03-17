@@ -70,12 +70,23 @@ type RuntimeAgent = {
 };
 
 type RuntimeAgentModelMap = Record<string, AgentModelSelection | null>;
+type RuntimeArticleDraft = {
+  title: string;
+  deck: string;
+  opening: string;
+  sections: Array<{ heading: string; body: string }>;
+  takeaways: string[];
+  glossary: Array<{ term: string; definition: string }>;
+  nextAction: string | null;
+};
+
 type RuntimeCapsule = SmartContentQube & {
   runtimeSource: RuntimeContentSource;
   runtimeMenuIntent?: "make" | "play";
   runtimeCodexSlug?: string;
   runtimeCodexInitialTab?: string;
   runtimeLaunchHref?: string;
+  runtimeAuthoringHref?: string;
   runtimeLaunchType?: "experience" | "codex" | "content";
   runtimeAssetStatus?: "resolved" | "missing";
   runtimeModalityHints?: string[];
@@ -84,6 +95,7 @@ type RuntimeCapsule = SmartContentQube & {
   runtimeStatus?: string | null;
   runtimeContentKind?: "article" | "video" | "character" | "episode" | "generic" | null;
   runtimePreviewMediaUri?: string | null;
+  runtimeArticleDraft?: RuntimeArticleDraft | null;
 };
 
 type RuntimeModuleConfig = {
@@ -899,6 +911,7 @@ function buildPreviewExperienceCapsule(input: {
   personaAssignment?: string | null;
   crmCohortAssignment?: string | null;
   policyAssignment?: string | null;
+  articleDraft?: RuntimeArticleDraft | null;
 }): RuntimeCapsule {
   const capsuleId = input.selectedCapsuleId || input.experienceId;
   const title = (input.title || "").trim() || "Experience Preview";
@@ -906,6 +919,27 @@ function buildPreviewExperienceCapsule(input: {
   const imageUri = (input.imageUri || "").trim();
   const intent = input.intent || "read";
   const quickLink = input.quickLink || intent;
+  const launchParams = new URLSearchParams({
+    capsule: capsuleId,
+    experienceId: input.experienceId,
+    experienceName: title,
+    experienceDescription: description,
+    runtimeIntent: intent,
+    runtimeQuickLink: quickLink,
+    contentKind: input.contentKind || "episode",
+  });
+  if (imageUri) launchParams.set("experienceImage", imageUri);
+  if (input.imagePortraitUri) launchParams.set("experienceImagePortrait", input.imagePortraitUri);
+  if (input.imageLandscapeUri) launchParams.set("experienceImageLandscape", input.imageLandscapeUri);
+  if (input.videoUri) launchParams.set("experienceVideo", input.videoUri);
+  if (input.activeCodexId) launchParams.set("activeCodexId", input.activeCodexId);
+  if (input.activeCodexName) launchParams.set("activeCodexName", input.activeCodexName);
+  if (input.activeCodexTab) launchParams.set("runtimeCodexTab", input.activeCodexTab);
+  if (input.runtimeCartridge) launchParams.set("runtimeCartridge", input.runtimeCartridge);
+  if (input.personaAssignment) launchParams.set("personaAssignment", input.personaAssignment);
+  if (input.crmCohortAssignment) launchParams.set("crmCohortAssignment", input.crmCohortAssignment);
+  if (input.policyAssignment) launchParams.set("policyAssignment", input.policyAssignment);
+  if (input.articleDraft) launchParams.set("experienceArticleDraft", JSON.stringify(input.articleDraft));
   return {
     id: capsuleId,
     type: "SmartContentQube",
@@ -941,13 +975,60 @@ function buildPreviewExperienceCapsule(input: {
     runtimeSource: "experience",
     runtimeMenuIntent: "make",
     runtimeCodexInitialTab: input.activeCodexTab || undefined,
-    runtimeLaunchHref: `/studio/composer/experience/${encodeURIComponent(input.experienceId)}?embed=1`,
+    runtimeLaunchHref: `/metame/runtime?${launchParams.toString()}`,
+    runtimeAuthoringHref: `/studio/composer?experienceId=${encodeURIComponent(input.experienceId)}&panel=customizer`,
     runtimeLaunchType: "experience",
     runtimeAssetStatus: "resolved",
     runtimeModalityHints: ["play", intent, quickLink],
     runtimeContentKind: input.contentKind || "episode",
     runtimePreviewMediaUri: input.videoUri || input.imageLandscapeUri || input.imagePortraitUri || imageUri || null,
+    runtimeArticleDraft: input.articleDraft || null,
   } as unknown as RuntimeCapsule;
+}
+
+function parseRuntimeArticleDraft(value: string | null | undefined): RuntimeArticleDraft | null {
+  if (!value) return null;
+  try {
+    const parsed = JSON.parse(value);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+    const record = parsed as Record<string, unknown>;
+    const sections = Array.isArray(record.sections)
+      ? record.sections.filter(
+          (item): item is { heading: string; body: string } =>
+            Boolean(
+              item &&
+                typeof item === "object" &&
+                !Array.isArray(item) &&
+                typeof (item as { heading?: unknown }).heading === "string" &&
+                typeof (item as { body?: unknown }).body === "string",
+            ),
+        )
+      : [];
+    return {
+      title: typeof record.title === "string" ? record.title : "Editorial draft",
+      deck: typeof record.deck === "string" ? record.deck : "",
+      opening: typeof record.opening === "string" ? record.opening : "",
+      sections,
+      takeaways: Array.isArray(record.takeaways)
+        ? record.takeaways.filter((item): item is string => typeof item === "string")
+        : [],
+      glossary: Array.isArray(record.glossary)
+        ? record.glossary.filter(
+            (item): item is { term: string; definition: string } =>
+              Boolean(
+                item &&
+                  typeof item === "object" &&
+                  !Array.isArray(item) &&
+                  typeof (item as { term?: unknown }).term === "string" &&
+                  typeof (item as { definition?: unknown }).definition === "string",
+              ),
+          )
+        : [],
+      nextAction: typeof record.nextAction === "string" ? record.nextAction : null,
+    };
+  } catch {
+    return null;
+  }
 }
 
 function chooseExperiencePreviewImage(input: {
@@ -989,6 +1070,7 @@ export default function MetaMeRuntimeClient() {
   const selectedExperienceImagePortrait = searchParams?.get("experienceImagePortrait");
   const selectedExperienceImageLandscape = searchParams?.get("experienceImageLandscape");
   const selectedExperienceVideo = searchParams?.get("experienceVideo");
+  const selectedExperienceArticleDraft = parseRuntimeArticleDraft(searchParams?.get("experienceArticleDraft"));
   const runtimeIntentParam = coerceRuntimeIntent(searchParams?.get("runtimeIntent"));
   const runtimeQuickLinkParam = coerceRuntimeIntent(searchParams?.get("runtimeQuickLink"));
   const runtimeContentKindParam = searchParams?.get("contentKind");
@@ -1300,6 +1382,7 @@ export default function MetaMeRuntimeClient() {
       imagePortraitUri: selectedExperienceImagePortrait,
       imageLandscapeUri: selectedExperienceImageLandscape,
       videoUri: selectedExperienceVideo,
+      articleDraft: selectedExperienceArticleDraft,
       intent: runtimeIntentParam,
       quickLink: runtimeQuickLinkParam,
       activeCodexId: runtimeActiveCodexId,
@@ -1335,6 +1418,7 @@ export default function MetaMeRuntimeClient() {
     selectedExperienceId,
     selectedExperienceImageLandscape,
     selectedExperienceImagePortrait,
+    selectedExperienceArticleDraft,
     selectedExperienceName,
     selectedExperienceVideo,
   ]);
@@ -1622,11 +1706,15 @@ export default function MetaMeRuntimeClient() {
         const provider = detectExperienceProviderFromAssetUri(previewMedia || heroImage || content.runtimeLaunchHref || null);
         const primaryKind = isLikelyVideoUri(previewMedia) ? "video" : "image";
         const styleLabel = inferRuntimeExperienceStyle(content);
-        const sourceExperienceHref = content.runtimeLaunchHref
-          ? withQueryParam(withQueryParam(content.runtimeLaunchHref, "device", activeDevice), "from", "runtime")
+        const sourceExperienceHref = content.runtimeAuthoringHref
+          ? withQueryParam(withQueryParam(content.runtimeAuthoringHref, "device", activeDevice), "from", "runtime")
+          : null;
+        const consumerExperienceHref = content.runtimeLaunchHref
+          ? withQueryParam(content.runtimeLaunchHref, "device", activeDevice)
           : null;
         const receiptHref = sourceExperienceHref ? withQueryParam(sourceExperienceHref, "focus", "receipt") : null;
         const regenerateHref = sourceExperienceHref ? withQueryParam(sourceExperienceHref, "action", "regenerate") : null;
+        const articleDraft = content.runtimeArticleDraft || null;
         return (
           <div className="rounded-2xl border border-cyan-400/25 bg-slate-950/85 p-3 space-y-3">
             <div className="flex items-start justify-between gap-3">
@@ -1685,6 +1773,8 @@ export default function MetaMeRuntimeClient() {
                     {receiptHref ? (
                       <a
                         href={receiptHref}
+                        target="_top"
+                        rel="noopener noreferrer"
                         className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 transition hover:bg-white/5 hover:text-cyan-200"
                         title="Open receipt details"
                       >
@@ -1694,17 +1784,21 @@ export default function MetaMeRuntimeClient() {
                     {regenerateHref ? (
                       <a
                         href={regenerateHref}
+                        target="_top"
+                        rel="noopener noreferrer"
                         className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 transition hover:bg-white/5 hover:text-cyan-200"
                         title="Open source experience to regenerate"
                       >
                         <RefreshCw className="h-5 w-5" />
                       </a>
                     ) : null}
-                    {sourceExperienceHref ? (
+                    {consumerExperienceHref ? (
                       <a
-                        href={sourceExperienceHref}
+                        href={consumerExperienceHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
                         className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 transition hover:bg-white/5 hover:text-cyan-200"
-                        title="Pop out source experience"
+                        title="Pop out experience"
                       >
                         <SquareArrowOutUpRight className="h-5 w-5" />
                       </a>
@@ -1757,12 +1851,63 @@ export default function MetaMeRuntimeClient() {
               Rendering the published experience media directly in runtime to avoid nested iframe shells.
             </p>
 
-            {sourceExperienceHref ? (
+            {content.runtimeContentKind === "article" && articleDraft ? (
+              <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-4 space-y-3">
+                <div>
+                  <div className="text-[10px] uppercase tracking-[0.18em] text-cyan-300/80">Article</div>
+                  <div className="mt-1 text-base font-semibold text-white">{articleDraft.title}</div>
+                  {articleDraft.deck ? <div className="mt-2 text-sm text-slate-200">{articleDraft.deck}</div> : null}
+                  {articleDraft.opening ? <div className="mt-2 text-xs text-slate-400">{articleDraft.opening}</div> : null}
+                </div>
+                {articleDraft.sections.length > 0 ? (
+                  <div className="space-y-3">
+                    {articleDraft.sections.map((section) => (
+                      <div key={section.heading} className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+                        <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">{section.heading}</div>
+                        <div className="mt-1 text-sm text-slate-200">{section.body}</div>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+                {articleDraft.takeaways.length > 0 ? (
+                  <div>
+                    <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Takeaways</div>
+                    <div className="mt-2 space-y-1 text-xs text-slate-300">
+                      {articleDraft.takeaways.map((item) => (
+                        <div key={item}>{item}</div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+                {articleDraft.glossary.length > 0 ? (
+                  <div>
+                    <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Glossary</div>
+                    <div className="mt-2 space-y-2 text-xs text-slate-300">
+                      {articleDraft.glossary.map((item) => (
+                        <div key={item.term}>
+                          <span className="font-medium text-white">{item.term}</span>: {item.definition}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+                {articleDraft.nextAction ? (
+                  <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-xs text-emerald-100">
+                    <div className="text-[11px] uppercase tracking-[0.16em] text-emerald-300">Next action</div>
+                    <div className="mt-1">{articleDraft.nextAction}</div>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
+            {consumerExperienceHref ? (
               <a
-                href={sourceExperienceHref}
+                href={consumerExperienceHref}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="inline-flex rounded-lg border border-cyan-300/30 bg-cyan-500/15 px-3 py-1.5 text-[11px] text-cyan-100 hover:bg-cyan-500/25"
               >
-                Open Source Experience
+                Open Experience
               </a>
             ) : null}
           </div>
@@ -1963,11 +2108,18 @@ export default function MetaMeRuntimeClient() {
               const heroImage = resolveCapsuleCoverImage(content);
               const modalityLabel = content.runtimeModalityHints?.slice(0, 2).join(" · ") || "details";
               const styleLabel = inferRuntimeExperienceStyle(content);
-              const sourceExperienceHref = content.runtimeLaunchHref
-                ? withQueryParam(withQueryParam(content.runtimeLaunchHref, "device", activeDevice), "from", "runtime")
+              const authoringExperienceHref = content.runtimeAuthoringHref
+                ? withQueryParam(withQueryParam(content.runtimeAuthoringHref, "device", activeDevice), "from", "runtime")
                 : null;
-              const receiptHref = sourceExperienceHref ? withQueryParam(sourceExperienceHref, "focus", "receipt") : null;
-              const regenerateHref = sourceExperienceHref ? withQueryParam(sourceExperienceHref, "action", "regenerate") : null;
+              const consumerExperienceHref = content.runtimeLaunchHref
+                ? withQueryParam(content.runtimeLaunchHref, "device", activeDevice)
+                : null;
+              const receiptHref = authoringExperienceHref
+                ? withQueryParam(authoringExperienceHref, "focus", "receipt")
+                : null;
+              const regenerateHref = authoringExperienceHref
+                ? withQueryParam(authoringExperienceHref, "action", "regenerate")
+                : null;
               const sourceBadgeClass =
                 content.runtimeSource === "codex"
                   ? "border-cyan-300/45 bg-cyan-500/20 text-cyan-100"
@@ -2034,6 +2186,8 @@ export default function MetaMeRuntimeClient() {
                         {content.runtimeSource === "experience" && receiptHref ? (
                           <a
                             href={receiptHref}
+                            target="_top"
+                            rel="noopener noreferrer"
                             onClick={(event) => event.stopPropagation()}
                             className="rounded-full border border-white/20 bg-slate-900/60 p-1.5 text-white/80 hover:text-white"
                             title="Open receipt details"
@@ -2044,6 +2198,8 @@ export default function MetaMeRuntimeClient() {
                         {content.runtimeSource === "experience" && regenerateHref ? (
                           <a
                             href={regenerateHref}
+                            target="_top"
+                            rel="noopener noreferrer"
                             onClick={(event) => event.stopPropagation()}
                             className="rounded-full border border-white/20 bg-slate-900/60 p-1.5 text-white/80 hover:text-white"
                             title="Open source experience to regenerate"
@@ -2055,6 +2211,10 @@ export default function MetaMeRuntimeClient() {
                           type="button"
                           onClick={(event) => {
                             event.stopPropagation();
+                            if (consumerExperienceHref) {
+                              window.open(consumerExperienceHref, "_blank", "noopener,noreferrer");
+                              return;
+                            }
                             launchCapsule(content);
                           }}
                           className="rounded-full border border-white/20 bg-slate-900/60 p-1.5 text-white/80 hover:text-white"

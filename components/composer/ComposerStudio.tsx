@@ -1846,6 +1846,50 @@ export const ComposerStudio = () => {
     }
   };
 
+  const requestArticleDraftArtifact = useCallback(
+    async (params: {
+      experienceName?: string | null;
+      title?: string | null;
+      prompt?: string | null;
+      outputs?: string[];
+      takeawaysCount?: number;
+      mediaMode?: "image" | "video";
+      contextHints?: string[];
+    }) => {
+      const fallback =
+        buildArticleDraftArtifact({
+          experienceName: params.experienceName,
+          title: params.title,
+          prompt: params.prompt,
+          outputs: params.outputs,
+          takeawaysCount: params.takeawaysCount,
+          mediaMode: params.mediaMode,
+        }) || null;
+
+      try {
+        const response = await fetch("/api/composer/article-draft", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            experienceName: params.experienceName,
+            title: params.title,
+            prompt: params.prompt,
+            outputs: params.outputs,
+            takeawaysCount: params.takeawaysCount,
+            mediaMode: params.mediaMode,
+            contextHints: params.contextHints,
+          }),
+        });
+        if (!response.ok) return fallback;
+        const data = await response.json();
+        return (data?.articleDraft as ArticleDraftArtifact | null) || fallback;
+      } catch {
+        return fallback;
+      }
+    },
+    [],
+  );
+
   const requestedExperienceId =
     typeof searchParams?.get("experienceId") === "string" && searchParams.get("experienceId")?.trim()
       ? searchParams.get("experienceId")!.trim()
@@ -2537,6 +2581,23 @@ export const ComposerStudio = () => {
       }),
     [personaMediaLibrary, previewExperience],
   );
+  const previewExperienceArticleDraft = useMemo(() => {
+    const config = previewExperience?.configuration;
+    const metadata = previewExperience?.metadata;
+    const articleDraft =
+      config && typeof config === "object" && !Array.isArray(config)
+        ? asRecord((config as Record<string, unknown>).article_draft)
+        : null;
+    const editableGeneration =
+      metadata && typeof metadata === "object" && !Array.isArray(metadata)
+        ? asRecord((metadata as Record<string, unknown>).editable_generation)
+        : null;
+    const editableArticleDraft = editableGeneration ? asRecord(editableGeneration.article_draft) : null;
+    const generated = articleDraft?.generated ?? editableArticleDraft?.generated;
+    return generated && typeof generated === "object" && !Array.isArray(generated)
+      ? JSON.stringify(generated)
+      : null;
+  }, [previewExperience]);
   const runtimePreviewSrc = useMemo(() => {
     const capsuleId = selectedExperienceId || previewExperience?.id || "capsule-metaknyt-play";
     const experienceId = selectedExperienceId || previewExperience?.id || "";
@@ -2559,6 +2620,9 @@ export const ComposerStudio = () => {
     }
     if (previewRuntimeDeliveryProfile.videoAssetUrl) {
       params.set("experienceVideo", previewRuntimeDeliveryProfile.videoAssetUrl);
+    }
+    if (previewExperienceArticleDraft) {
+      params.set("experienceArticleDraft", previewExperienceArticleDraft);
     }
     params.set("runtimeIntent", previewRuntimeDeliveryProfile.intent);
     params.set("runtimeQuickLink", previewRuntimeDeliveryProfile.quickLink);
@@ -2586,6 +2650,7 @@ export const ComposerStudio = () => {
     previewExperience?.description,
     previewExperience?.id,
     previewExperience?.name,
+    previewExperienceArticleDraft,
     previewExperienceMedia?.uri,
     previewRuntimeDeliveryProfile.contentKind,
     previewRuntimeDeliveryProfile.codexContext.activeCodexId,
@@ -3601,14 +3666,24 @@ export const ComposerStudio = () => {
           : {}),
       };
       const articleGenerated =
-        buildArticleDraftArtifact({
-          experienceName: returnedExperience?.name,
-          title: articleTitle,
-          prompt: articlePrompt,
-          outputs: articleOutputs,
-          takeawaysCount: articleTakeawaysCount,
-          mediaMode: getAppliedExperienceBundle(returnedExperience)?.presetId === "video_article_bundle" ? "video" : "image",
-        }) || null;
+        articleTitle || articlePrompt || articleOutputs.length > 0 || typeof articleTakeawaysCount === "number"
+          ? await requestArticleDraftArtifact({
+              experienceName: returnedExperience?.name,
+              title: articleTitle,
+              prompt: articlePrompt,
+              outputs: articleOutputs,
+              takeawaysCount: articleTakeawaysCount,
+              mediaMode:
+                getAppliedExperienceBundle(returnedExperience)?.presetId === "video_article_bundle" ? "video" : "image",
+              contextHints: normalizeStringArray([
+                returnedExperience?.description,
+                returnedExperience?.goal,
+                asRecord(mergedData.image_generation)?.portrait_prompt,
+                asRecord(mergedData.image_generation)?.landscape_prompt,
+                asRecord(mergedData.video_prompt)?.prompt,
+              ]),
+            })
+          : null;
       const completedExperience = returnedExperience
           ? {
             ...returnedExperience,
@@ -4013,8 +4088,26 @@ export const ComposerStudio = () => {
         articleOutputs.length > 0 ||
         editableArticleTakeawaysCount !== 3,
     );
-    const articleGeneratedDraft =
-      hasArticleDraftState && editableArticleDraftPreview ? editableArticleDraftPreview : null;
+    const articleGeneratedDraft = hasArticleDraftState
+      ? await requestArticleDraftArtifact({
+          experienceName: editableExperienceName.trim() || editableGenerationDefaults.experienceName,
+          title: editableArticleTitle.trim() || editableGenerationDefaults.articleTitle,
+          prompt: editableArticlePrompt.trim() || editableGenerationDefaults.articlePrompt,
+          outputs: articleOutputs,
+          takeawaysCount: editableArticleTakeawaysCount,
+          mediaMode:
+            getAppliedExperienceBundle(activeExperienceForEditing)?.presetId === "video_article_bundle"
+              ? "video"
+              : "image",
+          contextHints: normalizeStringArray([
+            activeExperienceForEditing?.description,
+            activeExperienceForEditing?.goal,
+            editableImagePortraitPrompt.trim(),
+            editableImageLandscapePrompt.trim(),
+            editableVideoPrompt.trim(),
+          ]),
+        })
+      : null;
     const nextIntentTimebox = {
       ...(asRecord(sessionData.intent_timebox) || {}),
       ...(asRecord(stepData.intent_timebox) || {}),
@@ -4885,6 +4978,7 @@ export const ComposerStudio = () => {
   }, [activeExperienceForEditing, editableGenerationDefaults]);
   const editableArticleDraftPreview = useMemo(
     () =>
+      (editableGenerationDefaults.articleGenerated as ArticleDraftArtifact | null) ||
       buildArticleDraftArtifact({
         experienceName: editableExperienceName.trim() || editableGenerationDefaults.experienceName,
         title: editableArticleTitle.trim(),
@@ -4896,7 +4990,6 @@ export const ComposerStudio = () => {
             ? "video"
             : "image",
       }) ||
-      (editableGenerationDefaults.articleGenerated as ArticleDraftArtifact | null) ||
       null,
     [
       activeExperienceForEditing,
@@ -5104,16 +5197,49 @@ export const ComposerStudio = () => {
     await handleJumpToBundleBlock("article_draft");
   }, [handleJumpToBundleBlock, persistBundleBlockStatus]);
   const handleRegenerateArticleDraft = useCallback(async () => {
-    if (!editableArticleDraftPreview) return;
+    const generated = await requestArticleDraftArtifact({
+      experienceName: editableExperienceName.trim() || editableGenerationDefaults.experienceName,
+      title: editableArticleTitle.trim() || editableGenerationDefaults.articleTitle,
+      prompt: editableArticlePrompt.trim() || editableGenerationDefaults.articlePrompt,
+      outputs: editableArticleOutputs,
+      takeawaysCount: editableArticleTakeawaysCount,
+      mediaMode:
+        getAppliedExperienceBundle(activeExperienceForEditing)?.presetId === "video_article_bundle"
+          ? "video"
+          : "image",
+      contextHints: normalizeStringArray([
+        activeExperienceForEditing?.description,
+        activeExperienceForEditing?.goal,
+        editableImagePortraitPrompt.trim(),
+        editableImageLandscapePrompt.trim(),
+        editableVideoPrompt.trim(),
+      ]),
+    });
+    if (!generated) return;
     await persistBundleBlockStatus("article_draft", "ready_for_review", {
       generatedArticleDraft: {
-        ...editableArticleDraftPreview,
+        ...generated,
         generatedAt: new Date().toISOString(),
         revision: Date.now(),
       },
       previewAction: "Regenerated article draft review artifact",
     });
-  }, [editableArticleDraftPreview, persistBundleBlockStatus]);
+  }, [
+    activeExperienceForEditing,
+    editableArticleOutputs,
+    editableArticlePrompt,
+    editableArticleTakeawaysCount,
+    editableArticleTitle,
+    editableExperienceName,
+    editableGenerationDefaults.articlePrompt,
+    editableGenerationDefaults.articleTitle,
+    editableGenerationDefaults.experienceName,
+    editableImageLandscapePrompt,
+    editableImagePortraitPrompt,
+    editableVideoPrompt,
+    persistBundleBlockStatus,
+    requestArticleDraftArtifact,
+  ]);
   const handleAcceptMediaBlock = useCallback(
     async (blockKind: "image_generation" | "video_generation") => {
       await persistBundleBlockStatus(blockKind, "accepted", {
@@ -5162,6 +5288,78 @@ export const ComposerStudio = () => {
           activeExperienceBlockManifest,
           preset,
         );
+        const shouldSeedArticleDraft = preset.blockKinds.includes("article_draft");
+        const seededArticleOutputs = ["takeaways", "next_action"];
+        const seededArticleTitle = bundleTemplateTargetExperience.name || "Editorial draft";
+        const seededArticlePrompt =
+          firstNonEmptyString([
+            bundleTemplateTargetExperience.description,
+            bundleTemplateTargetExperience.goal,
+            "Write a supporting article that explains the generated media experience and gives the audience a clear next step.",
+          ]) || "";
+        const seededArticleDraft = shouldSeedArticleDraft
+          ? await requestArticleDraftArtifact({
+              experienceName: bundleTemplateTargetExperience.name,
+              title: seededArticleTitle,
+              prompt: seededArticlePrompt,
+              outputs: seededArticleOutputs,
+              takeawaysCount: 3,
+              mediaMode: preset.id === "video_article_bundle" ? "video" : "image",
+              contextHints: normalizeStringArray([
+                bundleTemplateTargetExperience.description,
+                bundleTemplateTargetExperience.goal,
+              ]),
+            })
+          : null;
+        const patchConfiguration = shouldSeedArticleDraft
+          ? {
+              ...patch.configuration,
+              article_draft: {
+                ...(asRecord(patch.configuration.article_draft) || {}),
+                title: seededArticleTitle,
+                prompt: seededArticlePrompt,
+                outputs: seededArticleOutputs,
+                takeaways_count: 3,
+                ...(seededArticleDraft ? { generated: seededArticleDraft } : {}),
+              },
+              copilot_output: {
+                ...(asRecord(patch.configuration.copilot_output) || {}),
+                outputs: seededArticleOutputs,
+                takeaways_count: 3,
+              },
+              make_bundle: {
+                ...(asRecord(patch.configuration.make_bundle) || {}),
+                block_statuses: {
+                  ...(asRecord(asRecord(patch.configuration.make_bundle)?.block_statuses) || {}),
+                  article_draft: seededArticleDraft ? "ready_for_review" : "in_progress",
+                },
+              },
+            }
+          : patch.configuration;
+        const patchMetadata = shouldSeedArticleDraft
+          ? {
+              ...patch.metadata,
+              article_title: seededArticleTitle,
+              article_prompt: seededArticlePrompt,
+              composition_bundle_state: {
+                ...(asRecord(patch.metadata.composition_bundle_state) || {}),
+                block_statuses: {
+                  ...(asRecord(asRecord(patch.metadata.composition_bundle_state)?.block_statuses) || {}),
+                  article_draft: seededArticleDraft ? "ready_for_review" : "in_progress",
+                },
+              },
+              editable_generation: {
+                ...(asRecord(patch.metadata.editable_generation) || {}),
+                article_draft: {
+                  title: seededArticleTitle,
+                  prompt: seededArticlePrompt,
+                  outputs: seededArticleOutputs,
+                  takeaways_count: 3,
+                  ...(seededArticleDraft ? { generated: seededArticleDraft } : {}),
+                },
+              },
+            }
+          : patch.metadata;
         await persistExperienceUpdate(
           bundleTemplateTargetExperience.id,
           {
@@ -5172,18 +5370,18 @@ export const ComposerStudio = () => {
             metrics: bundleTemplateTargetExperience.metrics,
             template_id: bundleTemplateTargetExperience.template_id,
             status: bundleTemplateTargetExperience.status,
-            configuration: patch.configuration,
+            configuration: patchConfiguration,
             components: bundleTemplateTargetExperience.components,
             execution: (bundleTemplateTargetExperience as any).execution,
             access: bundleTemplateTargetExperience.access,
-            metadata: patch.metadata,
+            metadata: patchMetadata,
           },
           "Failed to apply Make bundle preset.",
         );
         const patchedExperience = {
           ...bundleTemplateTargetExperience,
-          configuration: patch.configuration,
-          metadata: patch.metadata,
+          configuration: patchConfiguration,
+          metadata: patchMetadata,
         } as ExperienceQube;
         setSelectedExperience(patchedExperience);
         setSelectedExperienceId(patchedExperience.id);
@@ -5193,7 +5391,7 @@ export const ComposerStudio = () => {
           {
             preferredStepId: resolveBundlePreferredStepId(
               resolveExperienceBundleSequencingState(patchedExperience, patch.bundle)?.activeBlock,
-              patch.configuration,
+              patchConfiguration,
             ),
           }
         );
@@ -5204,7 +5402,12 @@ export const ComposerStudio = () => {
         setApplyingBundlePresetId(null);
       }
     },
-    [activeExperienceBlockManifest, activeExperienceBundlePresets, bundleTemplateTargetExperience],
+    [
+      activeExperienceBlockManifest,
+      activeExperienceBundlePresets,
+      bundleTemplateTargetExperience,
+      requestArticleDraftArtifact,
+    ],
   );
   const activeExperienceDeploymentState = useMemo(() => {
     const raw = activeExperienceForEditing?.metadata?.deployment_state;
@@ -6322,7 +6525,7 @@ export const ComposerStudio = () => {
                                 {activeExperienceBundleFlowTarget.summary}
                               </div>
                             ) : null}
-                            <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                            <div className="mt-4 space-y-3">
                               <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
                                 <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">
                                   Sequencing
@@ -6720,7 +6923,7 @@ export const ComposerStudio = () => {
                           </div>
 
                           {(editableImagePortraitPrompt || editableImageLandscapePrompt) && (
-                            <div className="grid gap-4 xl:grid-cols-2">
+                            <div className="space-y-4">
                               <div className="space-y-2">
                                 <label className="text-xs uppercase tracking-widest text-slate-400">Portrait prompt</label>
                                 <Textarea
@@ -6765,43 +6968,41 @@ export const ComposerStudio = () => {
                                   Define the copy block that should ship with this Make bundle.
                                 </div>
                               </div>
-                              <div className="grid gap-4 xl:grid-cols-2">
+                              <div className="space-y-2">
+                                <label className="text-xs uppercase tracking-widest text-slate-400">Article title</label>
+                                <input
+                                  value={editableArticleTitle}
+                                  onChange={(event) => setEditableArticleTitle(event.target.value)}
+                                  className="h-10 w-full rounded-lg border border-slate-700 bg-slate-900/70 px-3 text-sm text-white outline-none transition focus:border-fuchsia-400/50"
+                                  placeholder="Supporting article title"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <label className="text-xs uppercase tracking-widest text-slate-400">Draft scaffold</label>
                                 <div className="space-y-2">
-                                  <label className="text-xs uppercase tracking-widest text-slate-400">Article title</label>
-                                  <input
-                                    value={editableArticleTitle}
-                                    onChange={(event) => setEditableArticleTitle(event.target.value)}
-                                    className="h-10 w-full rounded-lg border border-slate-700 bg-slate-900/70 px-3 text-sm text-white outline-none transition focus:border-fuchsia-400/50"
-                                    placeholder="Supporting article title"
-                                  />
-                                </div>
-                                <div className="space-y-2">
-                                  <label className="text-xs uppercase tracking-widest text-slate-400">Draft scaffold</label>
-                                  <div className="grid gap-2 sm:grid-cols-2">
-                                    {ARTICLE_DRAFT_OUTPUT_OPTIONS.map((option) => {
-                                      const selected = editableArticleOutputs.includes(option.value);
-                                      return (
-                                        <label
-                                          key={option.value}
-                                          className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm text-slate-200"
-                                        >
-                                          <input
-                                            type="checkbox"
-                                            checked={selected}
-                                            onChange={(event) => {
-                                              setEditableArticleOutputs((prev) => {
-                                                const next = new Set(prev);
-                                                if (event.target.checked) next.add(option.value);
-                                                else next.delete(option.value);
-                                                return Array.from(next);
-                                              });
-                                            }}
-                                          />
-                                          {option.label}
-                                        </label>
-                                      );
-                                    })}
-                                  </div>
+                                  {ARTICLE_DRAFT_OUTPUT_OPTIONS.map((option) => {
+                                    const selected = editableArticleOutputs.includes(option.value);
+                                    return (
+                                      <label
+                                        key={option.value}
+                                        className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm text-slate-200"
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          checked={selected}
+                                          onChange={(event) => {
+                                            setEditableArticleOutputs((prev) => {
+                                              const next = new Set(prev);
+                                              if (event.target.checked) next.add(option.value);
+                                              else next.delete(option.value);
+                                              return Array.from(next);
+                                            });
+                                          }}
+                                        />
+                                        {option.label}
+                                      </label>
+                                    );
+                                  })}
                                 </div>
                               </div>
                               <div className="space-y-2">
@@ -6848,7 +7049,7 @@ export const ComposerStudio = () => {
                                   <div className="mt-2 text-xs text-slate-400">
                                     {editableArticleDraftPreview.opening}
                                   </div>
-                                  <div className="mt-4 grid gap-3 xl:grid-cols-2">
+                                  <div className="mt-4 space-y-3">
                                     {editableArticleDraftPreview.sections.map((section) => (
                                       <div
                                         key={section.heading}
