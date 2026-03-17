@@ -84,6 +84,29 @@ function pickCurrentPage(debug: BrowserbaseDebugResponse | null): { url?: string
   return debug.pages[0] || null;
 }
 
+function compactJsonValue(value: unknown): unknown {
+  if (value === null || typeof value === 'undefined') return undefined;
+  if (Array.isArray(value)) {
+    const next = value
+      .map((entry) => compactJsonValue(entry))
+      .filter((entry) => typeof entry !== 'undefined');
+    return next;
+  }
+  if (typeof value === 'object') {
+    const next = Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .map(([key, entry]) => [key, compactJsonValue(entry)] as const)
+        .filter(([, entry]) => typeof entry !== 'undefined')
+    );
+    return next;
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  }
+  return value;
+}
+
 export class BrowserbaseProviderAdapter {
   getStatus(): BrowserbaseProviderStatus {
     if (!env.BROWSERBASE_API_KEY || !env.BROWSERBASE_PROJECT_ID) {
@@ -173,17 +196,19 @@ export class BrowserbaseProviderAdapter {
   }
 
   async createSession(input: BrowserbaseCreateSessionInput = {}): Promise<BrowserbaseProviderSession> {
+    const body = compactJsonValue({
+      projectId: env.BROWSERBASE_PROJECT_ID,
+      contextId: input.contextId || env.BROWSERBASE_CONTEXT_ID || undefined,
+      keepAlive: input.keepAlive ?? env.BROWSERBASE_KEEP_ALIVE,
+      proxies: input.proxies ?? env.BROWSERBASE_PROXIES,
+      region: input.region || env.BROWSERBASE_REGION || undefined,
+      timeout: input.timeoutSeconds ?? env.BROWSERBASE_SESSION_TIMEOUT_SECONDS,
+      userMetadata: input.userMetadata || undefined,
+    });
+
     const session = await this.request<BrowserbaseSessionResponse>('/v1/sessions', {
       method: 'POST',
-      body: JSON.stringify({
-        projectId: env.BROWSERBASE_PROJECT_ID,
-        contextId: input.contextId || env.BROWSERBASE_CONTEXT_ID || undefined,
-        keepAlive: input.keepAlive ?? env.BROWSERBASE_KEEP_ALIVE,
-        proxies: input.proxies ?? env.BROWSERBASE_PROXIES,
-        region: input.region || env.BROWSERBASE_REGION || undefined,
-        timeout: input.timeoutSeconds ?? env.BROWSERBASE_SESSION_TIMEOUT_SECONDS,
-        userMetadata: input.userMetadata || undefined,
-      }),
+      body: JSON.stringify(body || {}),
     });
 
     let debug: BrowserbaseDebugResponse | null = null;
