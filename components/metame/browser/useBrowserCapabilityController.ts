@@ -588,31 +588,15 @@ export function useBrowserCapabilityController({ enabled, emitShellEvent }: UseB
 
   useEffect(() => {
     if (!enabled) return;
-    const aaClient = getAaClient();
-    if (!aaClient) return;
     const storedSessionId = sessionStorage.getItem(STORAGE_KEY);
-    if (!storedSessionId) return;
-
-    let cancelled = false;
-    void aaClient
-      .getBrowserSession(storedSessionId)
-      .then((aggregate) => {
-        if (cancelled || aggregate.session.status === "closed") {
-          sessionStorage.removeItem(STORAGE_KEY);
-          return;
-        }
-        attachAggregate(aggregate);
-        subscribe(storedSessionId);
-      })
-      .catch(() => {
-        sessionStorage.removeItem(STORAGE_KEY);
-      });
-
+    if (storedSessionId) {
+      // Avoid reopening stale browser sessions on runtime load. Browser launch should be explicit.
+      sessionStorage.removeItem(STORAGE_KEY);
+    }
     return () => {
-      cancelled = true;
       closeSubscription();
     };
-  }, [attachAggregate, closeSubscription, enabled, getAaClient, subscribe]);
+  }, [closeSubscription, enabled]);
 
   return {
     handleShellBridgeMessage,
