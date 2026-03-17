@@ -670,6 +670,24 @@ function deriveRuntimeExperienceKinds(content: RuntimeCapsule): Array<"image" | 
   return Array.from(new Set(kinds));
 }
 
+function deriveRuntimeExperienceQuickActions(
+  content: RuntimeCapsule,
+  intent: RuntimeIntent,
+): Array<{ kind: "watch" | "read" | "listen" | "share"; label: string }> {
+  const actions: Array<{ kind: "watch" | "read" | "listen" | "share"; label: string }> = [];
+  if (isLikelyVideoUri(content.runtimePreviewMediaUri || null) || content.runtimeContentKind === "video") {
+    actions.push({ kind: "watch", label: "Watch" });
+  }
+  if (content.runtimeArticleDraft || content.runtimeContentKind === "article") {
+    actions.push({ kind: "read", label: "Read" });
+  }
+  if (content.modalities?.listen?.enabled || intent === "listen") {
+    actions.push({ kind: "listen", label: "Listen" });
+  }
+  actions.push({ kind: "share", label: "Share" });
+  return actions;
+}
+
 function scoreContent(content: RuntimeCapsule, prompt: string, intent: RuntimeIntent): number {
   let score = 0;
   if (modalityEnabled(content, intent)) score += 5;
@@ -918,6 +936,7 @@ function buildPreviewExperienceCapsule(input: {
   selectedCapsuleId: string | null;
   title?: string | null;
   description?: string | null;
+  contextImageUri?: string | null;
   imageUri?: string | null;
   imagePortraitUri?: string | null;
   imageLandscapeUri?: string | null;
@@ -937,6 +956,7 @@ function buildPreviewExperienceCapsule(input: {
   const capsuleId = input.selectedCapsuleId || input.experienceId;
   const title = (input.title || "").trim() || "Experience Preview";
   const description = (input.description || "").trim() || "Runtime preview launched from Studio ExperienceQube.";
+  const contextImageUri = (input.contextImageUri || "").trim();
   const imageUri = (input.imageUri || "").trim();
   const intent = input.intent || "read";
   const quickLink = input.quickLink || intent;
@@ -949,6 +969,7 @@ function buildPreviewExperienceCapsule(input: {
     runtimeQuickLink: quickLink,
     contentKind: input.contentKind || "episode",
   });
+  if (contextImageUri) launchParams.set("experienceContextImage", contextImageUri);
   if (imageUri) launchParams.set("experienceImage", imageUri);
   if (input.imagePortraitUri) launchParams.set("experienceImagePortrait", input.imagePortraitUri);
   if (input.imageLandscapeUri) launchParams.set("experienceImageLandscape", input.imageLandscapeUri);
@@ -969,7 +990,7 @@ function buildPreviewExperienceCapsule(input: {
     slug: `experience-preview-${input.experienceId}`,
     version: 1,
     description,
-    coverImageUri: imageUri || FAILSAFE_QRIPTO_IMAGE,
+    coverImageUri: contextImageUri || input.imageLandscapeUri || imageUri || FAILSAFE_QRIPTO_IMAGE,
     creatorRootDid: "did:iq:composer",
     tenantId: "metame",
     modalities: {
@@ -1002,7 +1023,7 @@ function buildPreviewExperienceCapsule(input: {
     runtimeAssetStatus: "resolved",
     runtimeModalityHints: ["play", intent, quickLink],
     runtimeContentKind: input.contentKind || "episode",
-    runtimePreviewMediaUri: input.videoUri || input.imageLandscapeUri || input.imagePortraitUri || imageUri || null,
+    runtimePreviewMediaUri: input.videoUri || imageUri || input.imagePortraitUri || input.imageLandscapeUri || null,
     runtimeArticleDraft: input.articleDraft || null,
   } as unknown as RuntimeCapsule;
 }
@@ -1087,6 +1108,7 @@ export default function MetaMeRuntimeClient() {
   const selectedExperienceId = searchParams?.get("experienceId")?.trim() || null;
   const selectedExperienceName = searchParams?.get("experienceName");
   const selectedExperienceDescription = searchParams?.get("experienceDescription");
+  const selectedExperienceContextImage = searchParams?.get("experienceContextImage");
   const selectedExperienceImage = searchParams?.get("experienceImage");
   const selectedExperienceImagePortrait = searchParams?.get("experienceImagePortrait");
   const selectedExperienceImageLandscape = searchParams?.get("experienceImageLandscape");
@@ -1399,6 +1421,7 @@ export default function MetaMeRuntimeClient() {
       selectedCapsuleId,
       title: selectedExperienceName,
       description: selectedExperienceDescription,
+      contextImageUri: selectedExperienceContextImage,
       imageUri: selectedAdaptiveExperienceImage,
       imagePortraitUri: selectedExperienceImagePortrait,
       imageLandscapeUri: selectedExperienceImageLandscape,
@@ -1435,6 +1458,7 @@ export default function MetaMeRuntimeClient() {
     runtimeQuickLinkParam,
     selectedAdaptiveExperienceImage,
     selectedCapsuleId,
+    selectedExperienceContextImage,
     selectedExperienceDescription,
     selectedExperienceId,
     selectedExperienceImageLandscape,
@@ -1737,8 +1761,15 @@ export default function MetaMeRuntimeClient() {
         const receiptHref = sourceExperienceHref ? withQueryParam(sourceExperienceHref, "focus", "receipt") : null;
         const regenerateHref = sourceExperienceHref ? withQueryParam(sourceExperienceHref, "action", "regenerate") : null;
         const articleDraft = content.runtimeArticleDraft || null;
+        const quickActions = deriveRuntimeExperienceQuickActions(content, intent);
+        const mediaAnchorId = `experience-${content.id}-media`;
+        const articleAnchorId = `experience-${content.id}-article`;
         return (
-          <div className="max-h-full overflow-y-auto rounded-2xl border border-cyan-400/25 bg-slate-950/85 p-3 space-y-3">
+          <div
+            className={`rounded-2xl border border-cyan-400/25 bg-slate-950/85 p-3 space-y-3 ${
+              embedMode ? "max-h-full overflow-y-auto" : ""
+            }`}
+          >
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-[10px] uppercase tracking-[0.18em] text-cyan-300/80">ExperienceQube Runtime</p>
@@ -1779,7 +1810,7 @@ export default function MetaMeRuntimeClient() {
               </div>
             ) : null}
 
-            <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60">
+            <div id={mediaAnchorId} className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60">
               <ExperienceBlockHeader
                 kind={primaryKind}
                 provider={provider}
@@ -1874,8 +1905,73 @@ export default function MetaMeRuntimeClient() {
               Rendering the published experience media directly in runtime to avoid nested iframe shells.
             </p>
 
+            {!embedMode ? (
+              <div className="flex flex-wrap items-center gap-2">
+                {quickActions.map((action) => {
+                  if (action.kind === "watch") {
+                    return (
+                      <a
+                        key={`${content.id}-${action.kind}`}
+                        href={`#${mediaAnchorId}`}
+                        className="inline-flex items-center gap-2 rounded-full border border-cyan-300/25 bg-cyan-500/10 px-3 py-1.5 text-xs text-cyan-100 transition hover:bg-cyan-500/20"
+                      >
+                        <PlayCircle className="h-4 w-4" />
+                        {action.label}
+                      </a>
+                    );
+                  }
+                  if (action.kind === "read") {
+                    return (
+                      <a
+                        key={`${content.id}-${action.kind}`}
+                        href={`#${articleAnchorId}`}
+                        className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs text-slate-100 transition hover:bg-white/10"
+                      >
+                        <BookOpen className="h-4 w-4" />
+                        {action.label}
+                      </a>
+                    );
+                  }
+                  if (action.kind === "listen") {
+                    return (
+                      <a
+                        key={`${content.id}-${action.kind}`}
+                        href={`#${articleAnchorId}`}
+                        className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs text-slate-100 transition hover:bg-white/10"
+                      >
+                        <Headphones className="h-4 w-4" />
+                        {action.label}
+                      </a>
+                    );
+                  }
+                  return (
+                    <button
+                      key={`${content.id}-${action.kind}`}
+                      type="button"
+                      onClick={() =>
+                        setMessages((prev) => [
+                          ...prev,
+                          {
+                            id: `share-panel-${Date.now()}`,
+                            role: "assistant",
+                            content: buildSharePanel(content.title),
+                            timestamp: new Date(),
+                            variant: "panel",
+                          },
+                        ])
+                      }
+                      className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs text-slate-100 transition hover:bg-white/10"
+                    >
+                      <Share2 className="h-4 w-4" />
+                      {action.label}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
+
             {content.runtimeContentKind === "article" && articleDraft ? (
-              <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-4 space-y-3">
+              <div id={articleAnchorId} className="rounded-2xl border border-white/10 bg-slate-900/60 p-4 space-y-3">
                 <div>
                   <div className="text-[10px] uppercase tracking-[0.18em] text-cyan-300/80">Article</div>
                   <div className="mt-1 text-base font-semibold text-white">{articleDraft.title}</div>
@@ -1959,7 +2055,7 @@ export default function MetaMeRuntimeClient() {
         </div>
       );
     },
-    [activeDevice, embedMode, renderRuntimeFramePanel]
+    [activeDevice, buildSharePanel, embedMode, renderRuntimeFramePanel]
   );
 
   const launchCapsule = useCallback(
@@ -3514,7 +3610,7 @@ export default function MetaMeRuntimeClient() {
 
   const runtimeDeviceWidthClass =
     activeDevice === "desktop"
-      ? "w-full"
+      ? "mx-auto w-full max-w-[1240px]"
       : activeDevice === "tablet"
         ? "mx-auto w-full max-w-[860px]"
         : "mx-auto w-full max-w-[430px]";
@@ -3566,7 +3662,7 @@ export default function MetaMeRuntimeClient() {
     const experienceKinds = deriveRuntimeExperienceKinds(queryPreviewCapsule);
     return (
       <div className="min-h-screen bg-slate-950 text-white px-4 py-6">
-        <div className="mx-auto w-full max-w-[960px] space-y-4">
+        <div className={`mx-auto w-full space-y-4 ${runtimeDeviceWidthClass}`}>
           {runtimeToolbar(activeDevice, setActiveDevice)}
           <div className="rounded-2xl border border-white/10 bg-slate-900/70 p-4">
             <div className="flex items-start justify-between gap-3">

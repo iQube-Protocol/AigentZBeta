@@ -2618,6 +2618,11 @@ export const ComposerStudio = () => {
     });
     if (previewExperience?.name) params.set("experienceName", previewExperience.name);
     if (previewExperience?.description) params.set("experienceDescription", previewExperience.description);
+    if (previewRuntimeDeliveryProfile.imageAssets.landscape) {
+      params.set("experienceContextImage", previewRuntimeDeliveryProfile.imageAssets.landscape);
+    } else if (previewExperienceMedia?.uri && previewExperienceMedia.mediaType !== "video") {
+      params.set("experienceContextImage", previewExperienceMedia.uri);
+    }
     if (previewExperienceMedia?.uri && previewExperienceMedia.mediaType !== "video") {
       params.set("experienceImage", previewExperienceMedia.uri);
     }
@@ -2707,12 +2712,18 @@ export const ComposerStudio = () => {
       params.set("embed", "1");
       if (exp?.name) params.set("experienceName", exp.name);
       if (exp?.description) params.set("experienceDescription", exp.description);
+      if (runtimeProfile.imageAssets.landscape) {
+        params.set("experienceContextImage", runtimeProfile.imageAssets.landscape);
+      }
       const launchMedia = resolveExperiencePrimaryMedia(
         exp || null,
         codexContentItems,
         personaMediaLibrary,
         variant,
       );
+      if (!runtimeProfile.imageAssets.landscape && launchMedia?.uri && launchMedia.mediaType !== "video") {
+        params.set("experienceContextImage", launchMedia.uri);
+      }
       if (launchMedia?.uri && launchMedia.mediaType !== "video") {
         params.set("experienceImage", launchMedia.uri);
       }
@@ -4194,6 +4205,7 @@ export const ComposerStudio = () => {
       }
 
       if (activeExperienceForEditing?.id) {
+        setSelectedExperienceId(activeExperienceForEditing.id);
         const existingConfiguration = activeExperienceForEditing.configuration || {};
         const existingMetadata = activeExperienceForEditing.metadata || {};
         const existingMakeBundle = asRecord(existingConfiguration.make_bundle) || {};
@@ -4328,6 +4340,14 @@ export const ComposerStudio = () => {
           },
           "Failed to save generation edits."
         );
+        const refreshedExperience = await refreshExperienceFromServer(activeExperienceForEditing.id).catch(() => null);
+        if (refreshedExperience) {
+          setSelectedExperience(refreshedExperience);
+          if (experience?.id === refreshedExperience.id) {
+            setExperience(refreshedExperience);
+          }
+        }
+        setPreviewNonce(Date.now());
         setPreviewAction(`Updated ${editableExperienceName.trim() || activeExperienceForEditing.name}`);
       }
     } catch (err: any) {
