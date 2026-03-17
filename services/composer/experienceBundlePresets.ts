@@ -58,6 +58,14 @@ export type ExperienceBundleBlockState = {
   suggestedAction: string;
 };
 
+export type ExperienceBundleFlowTarget = {
+  blockKind: ExperienceBlockKind;
+  templateId: string;
+  templateLabel: string;
+  label: string;
+  summary: string;
+};
+
 export type ExperienceBundleSequencingState = {
   completedBlocks: ExperienceBlockKind[];
   activeBlock: ExperienceBlockKind | null;
@@ -438,5 +446,50 @@ export function resolveExperienceBundleSequencingState(
     completedCount: acceptedBlocks.length,
     totalCount: orderedBlocks.length,
     blocks,
+  };
+}
+
+export function resolveExperienceBundleFlowTarget(
+  bundle: AppliedExperienceBundle | null | undefined,
+  blockKind: ExperienceBlockKind | null | undefined,
+): ExperienceBundleFlowTarget | null {
+  if (!bundle || !blockKind) return null;
+
+  if (blockKind === "video_generation") {
+    return {
+      blockKind,
+      templateId: "sora-video-generation",
+      templateLabel: "Sora Video Generation",
+      label: "video generation flow",
+      summary: "Open the video skill flow to generate or refine the primary motion asset.",
+    };
+  }
+
+  if (blockKind === "image_generation") {
+    return {
+      blockKind,
+      templateId: "qriptopian_reading_sprint_v0",
+      templateLabel: "Qriptopian Reading Sprint",
+      label: "image generation flow",
+      summary: "Open the reading-sprint customizer on hero image generation.",
+    };
+  }
+
+  if (blockKind === "article_draft") {
+    return {
+      blockKind,
+      templateId: "qriptopian_reading_sprint_v0",
+      templateLabel: "Qriptopian Reading Sprint",
+      label: "article draft flow",
+      summary: "Open the article-oriented customizer to select content and shape supporting copy.",
+    };
+  }
+
+  return {
+    blockKind,
+    templateId: bundle.presetId === "video_article_bundle" ? "sora-video-generation" : "qriptopian_reading_sprint_v0",
+    templateLabel: bundle.presetId === "video_article_bundle" ? "Sora Video Generation" : "Qriptopian Reading Sprint",
+    label: "deployment flow",
+    summary: "Return to the bundle source experience and finish deployment and reward configuration.",
   };
 }

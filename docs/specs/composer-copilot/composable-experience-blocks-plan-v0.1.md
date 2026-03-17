@@ -322,6 +322,22 @@ Status:
 - Customizer now renders a block rail / authoring shell for active bundles
 - article review controls now support accept, refine, and regenerate transitions
 
+### Phase 4-B Bundle Entry + Handoff
+
+The next concrete Phase `4` slice should be:
+
+1. surface bundle templates directly in the `Template` tab instead of only under `Resources`
+2. let the active bundle block declare which underlying template flow should own that block
+3. allow Customizer to hand off into that target flow when the current template does not support the active block directly
+4. keep the handoff scoped to the active ExperienceQube so bundle editing remains continuous rather than spawning disconnected drafts
+
+Status:
+
+- complete
+- `Template` now surfaces `Image + Article` and `Video + Article` bundle authoring entries directly
+- bundle-aware Customizer now resolves the owning flow template for the active block
+- when the active block belongs to a different template, Customizer can open the correct flow while preserving the active ExperienceQube edit session
+
 The next broader Phase `4` work should include:
 
 1. dedicated bundle templates for:
