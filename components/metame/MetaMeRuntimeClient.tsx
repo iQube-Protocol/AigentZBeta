@@ -28,7 +28,6 @@ import {
   readRuntimePersonaMemoryEntries,
   type RuntimePersonaMemoryEntry,
 } from "@/components/metame/runtimePersonaMemory";
-import { useBrowserCapabilityController } from "@/components/metame/browser/useBrowserCapabilityController";
 import {
   getStaticAgentLlmProviders,
   type AgentModelSelection,
@@ -85,6 +84,12 @@ type RuntimeCapsule = SmartContentQube & {
   runtimeContentKind?: "article" | "video" | "character" | "episode" | "generic" | null;
   runtimePreviewMediaUri?: string | null;
 };
+
+function useBrowserCapabilityControllerFallback() {
+  return {
+    handleShellBridgeMessage: (_message: ShellInboundMessage) => false,
+  };
+}
 
 type RuntimeModuleConfig = {
   id: string;
@@ -2176,12 +2181,7 @@ export default function MetaMeRuntimeClient() {
     []
   );
 
-  const { handleShellBridgeMessage: handleBrowserShellBridgeMessage } = useBrowserCapabilityController({
-    enabled: embedMode,
-    emitShellEvent: (type, payload) => {
-      postRuntimeEvent(type, payload);
-    },
-  });
+  const { handleShellBridgeMessage: handleBrowserShellBridgeMessage } = useBrowserCapabilityControllerFallback();
 
   const handlePrompt = useCallback(
     async (
