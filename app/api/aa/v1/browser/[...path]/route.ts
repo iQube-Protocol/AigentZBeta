@@ -28,7 +28,7 @@ type BrowserSessionServiceApi = {
     mountMode?: BrowserMountMode;
     targetUrl?: string | null;
   }) => Promise<BrowserSessionAggregate>;
-  getSession: (sessionId: string) => BrowserSessionAggregate | null;
+  getSession: (sessionId: string) => Promise<BrowserSessionAggregate | null>;
   closeSession: (sessionId: string) => Promise<BrowserSessionAggregate>;
   suspendSession: (sessionId: string) => Promise<BrowserSessionAggregate>;
   resumeSession: (sessionId: string) => Promise<BrowserSessionAggregate>;
@@ -182,8 +182,8 @@ function assertBrowserSessionAccess(aggregate: BrowserSessionAggregate, auth: Br
   }
 }
 
-function getScopedSession(sessionId: string, auth: BrowserAuthScope): BrowserSessionAggregate {
-  const aggregate = typedBrowserSessionService.getSession(sessionId);
+async function getScopedSession(sessionId: string, auth: BrowserAuthScope): Promise<BrowserSessionAggregate> {
+  const aggregate = await typedBrowserSessionService.getSession(sessionId);
   if (!aggregate) {
     throw new Error("Browser session not found");
   }
@@ -211,8 +211,8 @@ async function handleCreateSession(request: NextRequest, auth: BrowserAuthScope)
   return json(serializeAggregate(aggregate));
 }
 
-function handleEvents(sessionId: string, auth: BrowserAuthScope, request: NextRequest): Response {
-  const aggregate = getScopedSession(sessionId, auth);
+async function handleEvents(sessionId: string, auth: BrowserAuthScope, request: NextRequest): Promise<Response> {
+  const aggregate = await getScopedSession(sessionId, auth);
   const encoder = new TextEncoder();
   let unsubscribe = () => {};
   let closed = false;
@@ -277,7 +277,7 @@ async function handleSessionPost(
   request: NextRequest,
   auth: BrowserAuthScope
 ): Promise<Response> {
-  getScopedSession(sessionId, auth);
+  await getScopedSession(sessionId, auth);
   const body = await parseRequestBody(request);
 
   switch (action) {
@@ -337,7 +337,7 @@ async function handleNestedSessionPost(
   request: NextRequest,
   auth: BrowserAuthScope
 ): Promise<Response> {
-  getScopedSession(sessionId, auth);
+  await getScopedSession(sessionId, auth);
   const body = await parseRequestBody(request);
 
   if (scope === "agent") {
@@ -373,8 +373,13 @@ async function handleNestedSessionPost(
   return json({ error: "Not found" }, { status: 404 });
 }
 
-function handleSessionGet(sessionId: string, action: string | null, auth: BrowserAuthScope, request: NextRequest): Response {
-  const aggregate = getScopedSession(sessionId, auth);
+async function handleSessionGet(
+  sessionId: string,
+  action: string | null,
+  auth: BrowserAuthScope,
+  request: NextRequest
+): Promise<Response> {
+  const aggregate = await getScopedSession(sessionId, auth);
 
   if (!action) {
     return json(serializeAggregate(aggregate));
@@ -384,7 +389,7 @@ function handleSessionGet(sessionId: string, action: string | null, auth: Browse
     case "surface-state":
       return json({ surfaceState: aggregate.surfaceState });
     case "events":
-      return handleEvents(sessionId, auth, request);
+      return await handleEvents(sessionId, auth, request);
     case "history":
       return json({ history: aggregate.history });
     case "artifacts":
@@ -434,7 +439,7 @@ async function handleRequest(request: NextRequest, context: RouteContext): Promi
     }
 
     if (request.method === "GET") {
-      return handleSessionGet(sessionId, path[2] || null, auth, request);
+      return await handleSessionGet(sessionId, path[2] || null, auth, request);
     }
 
     if (request.method === "POST" && path.length === 3) {

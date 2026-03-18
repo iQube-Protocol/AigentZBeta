@@ -58,8 +58,8 @@ function assertBrowserSessionAccess(aggregate, auth) {
         throw new Error('Browser session not found');
     }
 }
-function getScopedSession(req) {
-    const aggregate = browserSessionService.getSession(req.params.sessionId);
+async function getScopedSession(req) {
+    const aggregate = await browserSessionService.getSession(req.params.sessionId);
     if (!aggregate) {
         throw new Error('Browser session not found');
     }
@@ -88,7 +88,7 @@ browserRouter.post('/sessions', requireAuth, async (req, res) => {
 });
 browserRouter.get('/sessions/:sessionId', requireAuth, async (req, res) => {
     try {
-        const aggregate = getScopedSession(req);
+        const aggregate = await getScopedSession(req);
         res.json(serializeAggregate(aggregate));
     }
     catch (error) {
@@ -97,7 +97,7 @@ browserRouter.get('/sessions/:sessionId', requireAuth, async (req, res) => {
 });
 browserRouter.post('/sessions/:sessionId/close', requireAuth, async (req, res) => {
     try {
-        getScopedSession(req);
+        await getScopedSession(req);
         const aggregate = await browserSessionService.closeSession(req.params.sessionId);
         res.json(serializeAggregate(aggregate));
     }
@@ -107,7 +107,7 @@ browserRouter.post('/sessions/:sessionId/close', requireAuth, async (req, res) =
 });
 browserRouter.post('/sessions/:sessionId/suspend', requireAuth, async (req, res) => {
     try {
-        getScopedSession(req);
+        await getScopedSession(req);
         const aggregate = await browserSessionService.suspendSession(req.params.sessionId);
         res.json(serializeAggregate(aggregate));
     }
@@ -117,7 +117,7 @@ browserRouter.post('/sessions/:sessionId/suspend', requireAuth, async (req, res)
 });
 browserRouter.post('/sessions/:sessionId/resume', requireAuth, async (req, res) => {
     try {
-        getScopedSession(req);
+        await getScopedSession(req);
         const aggregate = await browserSessionService.resumeSession(req.params.sessionId);
         res.json(serializeAggregate(aggregate));
     }
@@ -127,7 +127,7 @@ browserRouter.post('/sessions/:sessionId/resume', requireAuth, async (req, res) 
 });
 browserRouter.post('/sessions/:sessionId/mount', requireAuth, async (req, res) => {
     try {
-        getScopedSession(req);
+        await getScopedSession(req);
         const aggregate = await browserSessionService.mountSession(req.params.sessionId);
         res.json(serializeAggregate(aggregate));
     }
@@ -137,7 +137,7 @@ browserRouter.post('/sessions/:sessionId/mount', requireAuth, async (req, res) =
 });
 browserRouter.post('/sessions/:sessionId/unmount', requireAuth, async (req, res) => {
     try {
-        getScopedSession(req);
+        await getScopedSession(req);
         const aggregate = await browserSessionService.unmountSession(req.params.sessionId);
         res.json(serializeAggregate(aggregate));
     }
@@ -147,7 +147,7 @@ browserRouter.post('/sessions/:sessionId/unmount', requireAuth, async (req, res)
 });
 browserRouter.get('/sessions/:sessionId/surface-state', requireAuth, async (req, res) => {
     try {
-        const aggregate = getScopedSession(req);
+        const aggregate = await getScopedSession(req);
         res.json({ surfaceState: aggregate.surfaceState });
     }
     catch (error) {
@@ -157,7 +157,7 @@ browserRouter.get('/sessions/:sessionId/surface-state', requireAuth, async (req,
 browserRouter.get('/sessions/:sessionId/events', requireAuth, async (req, res) => {
     let aggregate;
     try {
-        aggregate = getScopedSession(req);
+        aggregate = await getScopedSession(req);
     }
     catch (error) {
         return handleRouteError(res, error);
@@ -184,7 +184,7 @@ browserRouter.get('/sessions/:sessionId/events', requireAuth, async (req, res) =
 });
 browserRouter.post('/sessions/:sessionId/navigate', requireAuth, async (req, res) => {
     try {
-        getScopedSession(req);
+        await getScopedSession(req);
         const url = typeof req.body?.url === 'string' ? req.body.url : null;
         if (!url) {
             return res.status(400).json({ error: 'url is required' });
@@ -198,7 +198,7 @@ browserRouter.post('/sessions/:sessionId/navigate', requireAuth, async (req, res
 });
 browserRouter.post('/sessions/:sessionId/back', requireAuth, async (req, res) => {
     try {
-        getScopedSession(req);
+        await getScopedSession(req);
         const aggregate = await browserSessionService.navigate(req.params.sessionId, '', 'back');
         res.json(serializeAggregate(aggregate));
     }
@@ -208,7 +208,7 @@ browserRouter.post('/sessions/:sessionId/back', requireAuth, async (req, res) =>
 });
 browserRouter.post('/sessions/:sessionId/forward', requireAuth, async (req, res) => {
     try {
-        getScopedSession(req);
+        await getScopedSession(req);
         const aggregate = await browserSessionService.navigate(req.params.sessionId, '', 'forward');
         res.json(serializeAggregate(aggregate));
     }
@@ -218,7 +218,7 @@ browserRouter.post('/sessions/:sessionId/forward', requireAuth, async (req, res)
 });
 browserRouter.post('/sessions/:sessionId/refresh', requireAuth, async (req, res) => {
     try {
-        getScopedSession(req);
+        await getScopedSession(req);
         const aggregate = await browserSessionService.navigate(req.params.sessionId, '', 'refresh');
         res.json(serializeAggregate(aggregate));
     }
@@ -228,7 +228,7 @@ browserRouter.post('/sessions/:sessionId/refresh', requireAuth, async (req, res)
 });
 browserRouter.post('/sessions/:sessionId/agent/run', requireAuth, async (req, res) => {
     try {
-        getScopedSession(req);
+        await getScopedSession(req);
         const result = await browserSessionService.runAgentTask(req.params.sessionId, {
             instruction: typeof req.body?.instruction === 'string' ? req.body.instruction : null,
             payload: req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {},
@@ -244,7 +244,7 @@ browserRouter.post('/sessions/:sessionId/agent/run', requireAuth, async (req, re
 });
 browserRouter.post('/sessions/:sessionId/agent/pause', requireAuth, async (req, res) => {
     try {
-        getScopedSession(req);
+        await getScopedSession(req);
         const aggregate = await browserSessionService.pauseAgentExecution(req.params.sessionId);
         res.json(serializeAggregate(aggregate));
     }
@@ -254,7 +254,7 @@ browserRouter.post('/sessions/:sessionId/agent/pause', requireAuth, async (req, 
 });
 browserRouter.post('/sessions/:sessionId/agent/resume', requireAuth, async (req, res) => {
     try {
-        getScopedSession(req);
+        await getScopedSession(req);
         const aggregate = await browserSessionService.resumeAgentExecution(req.params.sessionId);
         res.json(serializeAggregate(aggregate));
     }
@@ -264,7 +264,7 @@ browserRouter.post('/sessions/:sessionId/agent/resume', requireAuth, async (req,
 });
 browserRouter.post('/sessions/:sessionId/takeover/start', requireAuth, async (req, res) => {
     try {
-        getScopedSession(req);
+        await getScopedSession(req);
         const aggregate = await browserSessionService.startTakeover(req.params.sessionId);
         res.json(serializeAggregate(aggregate));
     }
@@ -274,7 +274,7 @@ browserRouter.post('/sessions/:sessionId/takeover/start', requireAuth, async (re
 });
 browserRouter.post('/sessions/:sessionId/takeover/end', requireAuth, async (req, res) => {
     try {
-        getScopedSession(req);
+        await getScopedSession(req);
         const aggregate = await browserSessionService.endTakeover(req.params.sessionId);
         res.json(serializeAggregate(aggregate));
     }
@@ -284,7 +284,7 @@ browserRouter.post('/sessions/:sessionId/takeover/end', requireAuth, async (req,
 });
 browserRouter.post('/sessions/:sessionId/extract', requireAuth, async (req, res) => {
     try {
-        getScopedSession(req);
+        await getScopedSession(req);
         const result = await browserSessionService.extractFromSession(req.params.sessionId, {
             prompt: typeof req.body?.prompt === 'string' ? req.body.prompt : null,
             schema: req.body?.schema && typeof req.body.schema === 'object' && !Array.isArray(req.body.schema)
@@ -300,7 +300,7 @@ browserRouter.post('/sessions/:sessionId/extract', requireAuth, async (req, res)
 browserRouter.get('/sessions/:sessionId/history', requireAuth, async (req, res) => {
     let aggregate;
     try {
-        aggregate = getScopedSession(req);
+        aggregate = await getScopedSession(req);
     }
     catch (error) {
         return handleRouteError(res, error);
@@ -310,7 +310,7 @@ browserRouter.get('/sessions/:sessionId/history', requireAuth, async (req, res) 
 browserRouter.get('/sessions/:sessionId/artifacts', requireAuth, async (req, res) => {
     let aggregate;
     try {
-        aggregate = getScopedSession(req);
+        aggregate = await getScopedSession(req);
     }
     catch (error) {
         return handleRouteError(res, error);
@@ -320,7 +320,7 @@ browserRouter.get('/sessions/:sessionId/artifacts', requireAuth, async (req, res
 browserRouter.get('/sessions/:sessionId/receipts', requireAuth, async (req, res) => {
     let aggregate;
     try {
-        aggregate = getScopedSession(req);
+        aggregate = await getScopedSession(req);
     }
     catch (error) {
         return handleRouteError(res, error);
@@ -330,7 +330,7 @@ browserRouter.get('/sessions/:sessionId/receipts', requireAuth, async (req, res)
 browserRouter.post('/sessions/:sessionId/save', requireAuth, async (req, res) => {
     let aggregate;
     try {
-        aggregate = getScopedSession(req);
+        aggregate = await getScopedSession(req);
     }
     catch (error) {
         return handleRouteError(res, error);

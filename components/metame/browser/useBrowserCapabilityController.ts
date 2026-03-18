@@ -149,6 +149,7 @@ function unwrapBrowserPayload(payload: Record<string, unknown>): Record<string, 
 
 export function useBrowserCapabilityController({ enabled, emitShellEvent }: UseBrowserCapabilityControllerOptions) {
   const subscriptionRef = useRef<{ close: () => void } | null>(null);
+  const pollRef = useRef<number | null>(null);
   const activeSessionIdRef = useRef<string | null>(null);
   const surfaceStateRef = useRef<BrowserSurfaceState | null>(null);
   const aaClientRef = useRef<{
@@ -200,6 +201,13 @@ export function useBrowserCapabilityController({ enabled, emitShellEvent }: UseB
     subscriptionRef.current = null;
   }, []);
 
+  const closePoll = useCallback(() => {
+    if (pollRef.current !== null) {
+      window.clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  }, []);
+
   const consumeRuntimeEvent = useCallback(
     (event: BrowserRuntimeEvent) => {
       if (event.type === "browser.mount") {
@@ -228,8 +236,46 @@ export function useBrowserCapabilityController({ enabled, emitShellEvent }: UseB
       if (aggregate.badges) {
         emitShellEvent("browser.badges.update", aggregate.badges);
       }
+      emitShellEvent("browser.step.update", {
+        sessionId: aggregate.session.sessionId,
+        stepId: `browser-step-${Date.now()}`,
+        label: "Browser session ready",
+        status: "completed",
+        actor: "system",
+        message: aggregate.session.currentUrl || "Live browser mounted",
+        timestamp: nowIso(),
+      });
     },
     [emitShellEvent]
+  );
+
+  const pollSessionState = useCallback(
+    async (sessionId: string) => {
+      const aaClient = getAaClient();
+      if (!aaClient) return;
+      try {
+        const [aggregate, surface] = await Promise.all([
+          aaClient.getBrowserSession(sessionId),
+          aaClient.getBrowserSurfaceState(sessionId),
+        ]);
+        attachAggregate(aggregate);
+        emitShellEvent("browser.surface.state", surface.surfaceState);
+      } catch {
+        // Keep polling fallback quiet; direct action failures already surface concrete errors.
+      }
+    },
+    [attachAggregate, emitShellEvent, getAaClient]
+  );
+
+  const startPoll = useCallback(
+    (sessionId: string) => {
+      closePoll();
+      void pollSessionState(sessionId);
+      pollRef.current = window.setInterval(() => {
+        void pollSessionState(sessionId);
+      }, 2500);
+    },
+    [closePoll, pollSessionState]
   );
 
   const subscribe = useCallback(
@@ -239,10 +285,10 @@ export function useBrowserCapabilityController({ enabled, emitShellEvent }: UseB
       closeSubscription();
       subscriptionRef.current = aaClient.subscribeToBrowserSessionEvents(sessionId, {
         onEvent: consumeRuntimeEvent,
-        onError: (error) => emitBrowserError(error, sessionId),
+        onError: () => startPoll(sessionId),
       });
     },
-    [closeSubscription, consumeRuntimeEvent, emitBrowserError, getAaClient]
+    [closeSubscription, consumeRuntimeEvent, getAaClient, startPoll]
   );
 
   const patchSurfaceState = useCallback(
@@ -434,6 +480,7 @@ export function useBrowserCapabilityController({ enabled, emitShellEvent }: UseB
 
         const mounted = await aaClient.mountBrowserSession(sessionId);
         attachAggregate(mounted);
+        startPoll(sessionId);
         subscribe(sessionId);
       } catch (error) {
         emitBrowserError(error, activeSessionIdRef.current || undefined);
@@ -453,6 +500,7 @@ export function useBrowserCapabilityController({ enabled, emitShellEvent }: UseB
       try {
         await aaClient.closeBrowserSession(sessionId);
         closeSubscription();
+        closePoll();
         activeSessionIdRef.current = null;
         surfaceStateRef.current = null;
         sessionStorage.removeItem(STORAGE_KEY);
@@ -461,7 +509,7 @@ export function useBrowserCapabilityController({ enabled, emitShellEvent }: UseB
         emitBrowserError(error, sessionId);
       }
     },
-    [closeSubscription, emitBrowserError, emitShellEvent, getAaClient]
+    [closePoll, closeSubscription, emitBrowserError, emitShellEvent, getAaClient]
   );
 
   const startTakeover = useCallback(
@@ -615,9 +663,10 @@ export function useBrowserCapabilityController({ enabled, emitShellEvent }: UseB
       sessionStorage.removeItem(STORAGE_KEY);
     }
     return () => {
+      closePoll();
       closeSubscription();
     };
-  }, [closeSubscription, enabled]);
+  }, [closePoll, closeSubscription, enabled]);
 
   return {
     handleShellBridgeMessage,

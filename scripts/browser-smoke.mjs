@@ -85,7 +85,7 @@ async function main() {
     unsubscribe();
   }
 
-  const aggregate = browserSessionService.getSession(sessionId);
+  const aggregate = await browserSessionService.getSession(sessionId);
 
   assert(aggregate, "browser smoke did not retain a session aggregate");
   assert(aggregate.session.status === "closed", "browser smoke session was not closed");

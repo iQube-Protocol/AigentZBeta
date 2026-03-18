@@ -11,6 +11,7 @@ const DEFAULT_BOUNDS = {
     width: 390,
     height: 640,
 };
+const DEFAULT_START_URL = 'https://example.com/';
 function nowIso() {
     return new Date().toISOString();
 }
@@ -37,6 +38,34 @@ function buildTitle(url) {
 }
 export class BrowserSessionService {
     sessions = new Map();
+    async hydrateSession(sessionId) {
+        const existing = this.sessions.get(sessionId);
+        if (existing)
+            return existing;
+        const [session, surfaceState, history, artifacts, receipts, saves] = await Promise.all([
+            browserEstateService.loadSession(sessionId),
+            browserEstateService.loadSurfaceState(sessionId),
+            browserEstateService.loadHistory(sessionId),
+            browserEstateService.loadArtifacts(sessionId),
+            browserEstateService.loadReceipts(sessionId),
+            browserEstateService.loadSaves(sessionId),
+        ]);
+        if (!session || !surfaceState)
+            return null;
+        const aggregate = {
+            session,
+            surfaceState,
+            mountPayload: await browserMountService.buildMountPayload(session, surfaceState),
+            badges: browserMountService.buildBadges(session),
+            history,
+            artifacts,
+            receipts,
+            saves,
+        };
+        await this.refreshDerivedFields(aggregate);
+        this.sessions.set(sessionId, aggregate);
+        return aggregate;
+    }
     async recordHistory(aggregate, event) {
         const historyEvent = {
             id: crypto.randomUUID(),
@@ -118,9 +147,9 @@ export class BrowserSessionService {
             trustMode: policy.trustMode,
             privacyMode: policy.privacyMode,
             status: 'active',
-            currentUrl: input.targetUrl || 'https://metame.browser.local/session',
-            currentTitle: buildTitle(input.targetUrl || 'https://metame.browser.local/session'),
-            currentDomain: buildDomain(input.targetUrl || 'https://metame.browser.local/session'),
+            currentUrl: input.targetUrl || DEFAULT_START_URL,
+            currentTitle: buildTitle(input.targetUrl || DEFAULT_START_URL),
+            currentDomain: buildDomain(input.targetUrl || DEFAULT_START_URL),
             createdAt,
             updatedAt: createdAt,
             tenantId: input.auth.tenantId,
@@ -154,8 +183,8 @@ export class BrowserSessionService {
             receipts: [],
             saves: [],
         };
-        if (input.targetUrl) {
-            const navigation = await browserGatewayService.navigate(session, input.targetUrl, 'navigate');
+        {
+            const navigation = await browserGatewayService.navigate(session, session.currentUrl || DEFAULT_START_URL, 'navigate');
             if (navigation.currentUrl) {
                 session.currentUrl = navigation.currentUrl;
             }
@@ -182,18 +211,18 @@ export class BrowserSessionService {
         this.emitStep(session.sessionId, 'Browser session ready', 'completed');
         return aggregate;
     }
-    getSession(sessionId) {
-        return this.sessions.get(sessionId) || null;
+    async getSession(sessionId) {
+        return this.hydrateSession(sessionId);
     }
-    getRequiredSession(sessionId) {
-        const aggregate = this.sessions.get(sessionId);
+    async getRequiredSession(sessionId) {
+        const aggregate = await this.hydrateSession(sessionId);
         if (!aggregate) {
             throw new Error(`Unknown browser session: ${sessionId}`);
         }
         return aggregate;
     }
     async mountSession(sessionId) {
-        const aggregate = this.getRequiredSession(sessionId);
+        const aggregate = await this.getRequiredSession(sessionId);
         aggregate.surfaceState.mounted = true;
         aggregate.surfaceState.visible = true;
         aggregate.surfaceState.focused = true;
@@ -216,7 +245,7 @@ export class BrowserSessionService {
         return aggregate;
     }
     async unmountSession(sessionId) {
-        const aggregate = this.getRequiredSession(sessionId);
+        const aggregate = await this.getRequiredSession(sessionId);
         aggregate.surfaceState.mounted = false;
         aggregate.surfaceState.visible = false;
         aggregate.surfaceState.focused = false;
@@ -227,7 +256,7 @@ export class BrowserSessionService {
         return aggregate;
     }
     async closeSession(sessionId) {
-        const aggregate = this.getRequiredSession(sessionId);
+        const aggregate = await this.getRequiredSession(sessionId);
         try {
             await browserGatewayService.closeProviderSession(aggregate.session);
         }
@@ -256,7 +285,7 @@ export class BrowserSessionService {
         return aggregate;
     }
     async suspendSession(sessionId) {
-        const aggregate = this.getRequiredSession(sessionId);
+        const aggregate = await this.getRequiredSession(sessionId);
         aggregate.session.status = 'suspended';
         aggregate.surfaceState.focused = false;
         await this.refreshDerivedFields(aggregate);
@@ -266,7 +295,7 @@ export class BrowserSessionService {
         return aggregate;
     }
     async resumeSession(sessionId) {
-        const aggregate = this.getRequiredSession(sessionId);
+        const aggregate = await this.getRequiredSession(sessionId);
         aggregate.session.status = 'active';
         aggregate.surfaceState.visible = true;
         aggregate.surfaceState.takeoverActive = false;
@@ -286,21 +315,21 @@ export class BrowserSessionService {
         return aggregate;
     }
     async pauseAgentExecution(sessionId) {
-        const aggregate = this.getRequiredSession(sessionId);
+        const aggregate = await this.getRequiredSession(sessionId);
         this.emitStep(sessionId, 'Agent paused', 'waiting', 'Waiting for runtime resume');
         await this.persistAggregate(aggregate);
         this.emitState(aggregate);
         return aggregate;
     }
     async resumeAgentExecution(sessionId) {
-        const aggregate = this.getRequiredSession(sessionId);
+        const aggregate = await this.getRequiredSession(sessionId);
         this.emitStep(sessionId, 'Agent resumed', 'running', aggregate.session.currentUrl || undefined);
         await this.persistAggregate(aggregate);
         this.emitState(aggregate);
         return aggregate;
     }
     async startTakeover(sessionId) {
-        const aggregate = this.getRequiredSession(sessionId);
+        const aggregate = await this.getRequiredSession(sessionId);
         aggregate.surfaceState.takeoverActive = true;
         aggregate.surfaceState.visible = true;
         aggregate.surfaceState.focused = true;
@@ -322,7 +351,7 @@ export class BrowserSessionService {
         return aggregate;
     }
     async endTakeover(sessionId) {
-        const aggregate = this.getRequiredSession(sessionId);
+        const aggregate = await this.getRequiredSession(sessionId);
         aggregate.surfaceState.takeoverActive = false;
         aggregate.surfaceState.focused = false;
         await this.refreshDerivedFields(aggregate);
@@ -342,7 +371,7 @@ export class BrowserSessionService {
         return aggregate;
     }
     async setShellSurfaceState(sessionId, input) {
-        const aggregate = this.getRequiredSession(sessionId);
+        const aggregate = await this.getRequiredSession(sessionId);
         if (input.shellSurfaceState) {
             aggregate.surfaceState.shellSurfaceState = input.shellSurfaceState;
         }
@@ -361,7 +390,7 @@ export class BrowserSessionService {
         return aggregate;
     }
     async navigate(sessionId, url, action) {
-        const aggregate = this.getRequiredSession(sessionId);
+        const aggregate = await this.getRequiredSession(sessionId);
         this.emitStep(sessionId, action === 'navigate' ? 'Navigating browser' : `Running ${action}`, 'running', url);
         const navigation = await browserGatewayService.navigate(aggregate.session, url, action);
         if (action === 'navigate') {
@@ -396,7 +425,7 @@ export class BrowserSessionService {
         return aggregate;
     }
     async saveSessionOutput(sessionId, input) {
-        const aggregate = this.getRequiredSession(sessionId);
+        const aggregate = await this.getRequiredSession(sessionId);
         const destinationType = input.destinationType === 'codex' || input.destinationType === 'cartridge' ? input.destinationType : 'estate';
         const historyEvent = await this.recordHistory(aggregate, {
             sessionId,
@@ -437,7 +466,7 @@ export class BrowserSessionService {
         };
     }
     async runAgentTask(sessionId, input) {
-        const aggregate = this.getRequiredSession(sessionId);
+        const aggregate = await this.getRequiredSession(sessionId);
         const instruction = input.instruction || 'Review the current page';
         this.emitStep(sessionId, 'Agent task running', 'running', instruction);
         await this.recordHistory(aggregate, {
@@ -467,7 +496,7 @@ export class BrowserSessionService {
         };
     }
     async extractFromSession(sessionId, input) {
-        const aggregate = this.getRequiredSession(sessionId);
+        const aggregate = await this.getRequiredSession(sessionId);
         const prompt = input.prompt || 'Extract structured page details';
         this.emitStep(sessionId, 'Extracting page data', 'running', prompt);
         const historyEvent = await this.recordHistory(aggregate, {

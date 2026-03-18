@@ -24,6 +24,7 @@ const DEFAULT_BOUNDS: SurfaceBounds = {
   width: 390,
   height: 640,
 };
+const DEFAULT_START_URL = 'https://example.com/';
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -50,6 +51,36 @@ function buildTitle(url: string | null): string {
 
 export class BrowserSessionService {
   private readonly sessions = new Map<string, BrowserSessionAggregate>();
+
+  private async hydrateSession(sessionId: string): Promise<BrowserSessionAggregate | null> {
+    const existing = this.sessions.get(sessionId);
+    if (existing) return existing;
+
+    const [session, surfaceState, history, artifacts, receipts, saves] = await Promise.all([
+      browserEstateService.loadSession(sessionId),
+      browserEstateService.loadSurfaceState(sessionId),
+      browserEstateService.loadHistory(sessionId),
+      browserEstateService.loadArtifacts(sessionId),
+      browserEstateService.loadReceipts(sessionId),
+      browserEstateService.loadSaves(sessionId),
+    ]);
+
+    if (!session || !surfaceState) return null;
+
+    const aggregate: BrowserSessionAggregate = {
+      session,
+      surfaceState,
+      mountPayload: await browserMountService.buildMountPayload(session, surfaceState),
+      badges: browserMountService.buildBadges(session),
+      history,
+      artifacts,
+      receipts,
+      saves,
+    };
+    await this.refreshDerivedFields(aggregate);
+    this.sessions.set(sessionId, aggregate);
+    return aggregate;
+  }
 
   private async recordHistory(
     aggregate: BrowserSessionAggregate,
@@ -154,9 +185,9 @@ export class BrowserSessionService {
       trustMode: policy.trustMode,
       privacyMode: policy.privacyMode,
       status: 'active',
-      currentUrl: input.targetUrl || 'https://metame.browser.local/session',
-      currentTitle: buildTitle(input.targetUrl || 'https://metame.browser.local/session'),
-      currentDomain: buildDomain(input.targetUrl || 'https://metame.browser.local/session'),
+      currentUrl: input.targetUrl || DEFAULT_START_URL,
+      currentTitle: buildTitle(input.targetUrl || DEFAULT_START_URL),
+      currentDomain: buildDomain(input.targetUrl || DEFAULT_START_URL),
       createdAt,
       updatedAt: createdAt,
       tenantId: input.auth.tenantId,
@@ -190,8 +221,8 @@ export class BrowserSessionService {
       receipts: [],
       saves: [],
     };
-    if (input.targetUrl) {
-      const navigation = await browserGatewayService.navigate(session, input.targetUrl, 'navigate');
+    {
+      const navigation = await browserGatewayService.navigate(session, session.currentUrl || DEFAULT_START_URL, 'navigate');
       if (navigation.currentUrl) {
         session.currentUrl = navigation.currentUrl;
       }
@@ -219,12 +250,12 @@ export class BrowserSessionService {
     return aggregate;
   }
 
-  getSession(sessionId: string): BrowserSessionAggregate | null {
-    return this.sessions.get(sessionId) || null;
+  async getSession(sessionId: string): Promise<BrowserSessionAggregate | null> {
+    return this.hydrateSession(sessionId);
   }
 
-  private getRequiredSession(sessionId: string): BrowserSessionAggregate {
-    const aggregate = this.sessions.get(sessionId);
+  private async getRequiredSession(sessionId: string): Promise<BrowserSessionAggregate> {
+    const aggregate = await this.hydrateSession(sessionId);
     if (!aggregate) {
       throw new Error(`Unknown browser session: ${sessionId}`);
     }
@@ -232,7 +263,7 @@ export class BrowserSessionService {
   }
 
   async mountSession(sessionId: string): Promise<BrowserSessionAggregate> {
-    const aggregate = this.getRequiredSession(sessionId);
+    const aggregate = await this.getRequiredSession(sessionId);
     aggregate.surfaceState.mounted = true;
     aggregate.surfaceState.visible = true;
     aggregate.surfaceState.focused = true;
@@ -256,7 +287,7 @@ export class BrowserSessionService {
   }
 
   async unmountSession(sessionId: string): Promise<BrowserSessionAggregate> {
-    const aggregate = this.getRequiredSession(sessionId);
+    const aggregate = await this.getRequiredSession(sessionId);
     aggregate.surfaceState.mounted = false;
     aggregate.surfaceState.visible = false;
     aggregate.surfaceState.focused = false;
@@ -268,7 +299,7 @@ export class BrowserSessionService {
   }
 
   async closeSession(sessionId: string): Promise<BrowserSessionAggregate> {
-    const aggregate = this.getRequiredSession(sessionId);
+    const aggregate = await this.getRequiredSession(sessionId);
     try {
       await browserGatewayService.closeProviderSession(aggregate.session);
     } catch (error) {
@@ -297,7 +328,7 @@ export class BrowserSessionService {
   }
 
   async suspendSession(sessionId: string): Promise<BrowserSessionAggregate> {
-    const aggregate = this.getRequiredSession(sessionId);
+    const aggregate = await this.getRequiredSession(sessionId);
     aggregate.session.status = 'suspended';
     aggregate.surfaceState.focused = false;
     await this.refreshDerivedFields(aggregate);
@@ -308,7 +339,7 @@ export class BrowserSessionService {
   }
 
   async resumeSession(sessionId: string): Promise<BrowserSessionAggregate> {
-    const aggregate = this.getRequiredSession(sessionId);
+    const aggregate = await this.getRequiredSession(sessionId);
     aggregate.session.status = 'active';
     aggregate.surfaceState.visible = true;
     aggregate.surfaceState.takeoverActive = false;
@@ -329,7 +360,7 @@ export class BrowserSessionService {
   }
 
   async pauseAgentExecution(sessionId: string): Promise<BrowserSessionAggregate> {
-    const aggregate = this.getRequiredSession(sessionId);
+    const aggregate = await this.getRequiredSession(sessionId);
     this.emitStep(sessionId, 'Agent paused', 'waiting', 'Waiting for runtime resume');
     await this.persistAggregate(aggregate);
     this.emitState(aggregate);
@@ -337,7 +368,7 @@ export class BrowserSessionService {
   }
 
   async resumeAgentExecution(sessionId: string): Promise<BrowserSessionAggregate> {
-    const aggregate = this.getRequiredSession(sessionId);
+    const aggregate = await this.getRequiredSession(sessionId);
     this.emitStep(sessionId, 'Agent resumed', 'running', aggregate.session.currentUrl || undefined);
     await this.persistAggregate(aggregate);
     this.emitState(aggregate);
@@ -345,7 +376,7 @@ export class BrowserSessionService {
   }
 
   async startTakeover(sessionId: string): Promise<BrowserSessionAggregate> {
-    const aggregate = this.getRequiredSession(sessionId);
+    const aggregate = await this.getRequiredSession(sessionId);
     aggregate.surfaceState.takeoverActive = true;
     aggregate.surfaceState.visible = true;
     aggregate.surfaceState.focused = true;
@@ -368,7 +399,7 @@ export class BrowserSessionService {
   }
 
   async endTakeover(sessionId: string): Promise<BrowserSessionAggregate> {
-    const aggregate = this.getRequiredSession(sessionId);
+    const aggregate = await this.getRequiredSession(sessionId);
     aggregate.surfaceState.takeoverActive = false;
     aggregate.surfaceState.focused = false;
     await this.refreshDerivedFields(aggregate);
@@ -392,7 +423,7 @@ export class BrowserSessionService {
     sessionId: string,
     input: Partial<Pick<BrowserSurfaceStateRecord, 'shellSurfaceState' | 'focused' | 'bounds' | 'visible'>>
   ): Promise<BrowserSessionAggregate> {
-    const aggregate = this.getRequiredSession(sessionId);
+    const aggregate = await this.getRequiredSession(sessionId);
     if (input.shellSurfaceState) {
       aggregate.surfaceState.shellSurfaceState = input.shellSurfaceState;
     }
@@ -412,7 +443,7 @@ export class BrowserSessionService {
   }
 
   async navigate(sessionId: string, url: string, action: 'navigate' | 'back' | 'forward' | 'refresh'): Promise<BrowserSessionAggregate> {
-    const aggregate = this.getRequiredSession(sessionId);
+    const aggregate = await this.getRequiredSession(sessionId);
     this.emitStep(sessionId, action === 'navigate' ? 'Navigating browser' : `Running ${action}`, 'running', url);
     const navigation = await browserGatewayService.navigate(aggregate.session, url, action);
     if (action === 'navigate') {
@@ -456,7 +487,7 @@ export class BrowserSessionService {
       savedBy?: string | null;
     }
   ): Promise<{ saved: true; sessionId: string; save: BrowserSaveRecord }> {
-    const aggregate = this.getRequiredSession(sessionId);
+    const aggregate = await this.getRequiredSession(sessionId);
     const destinationType =
       input.destinationType === 'codex' || input.destinationType === 'cartridge' ? input.destinationType : 'estate';
     const historyEvent = await this.recordHistory(aggregate, {
@@ -505,7 +536,7 @@ export class BrowserSessionService {
       payload?: Record<string, unknown>;
     }
   ): Promise<{ sessionId: string; ran: true; result: { instruction: string; summary: string } }> {
-    const aggregate = this.getRequiredSession(sessionId);
+    const aggregate = await this.getRequiredSession(sessionId);
     const instruction = input.instruction || 'Review the current page';
     this.emitStep(sessionId, 'Agent task running', 'running', instruction);
     await this.recordHistory(aggregate, {
@@ -542,7 +573,7 @@ export class BrowserSessionService {
       schema?: Record<string, unknown> | null;
     }
   ): Promise<{ sessionId: string; artifact: BrowserArtifactRecord }> {
-    const aggregate = this.getRequiredSession(sessionId);
+    const aggregate = await this.getRequiredSession(sessionId);
     const prompt = input.prompt || 'Extract structured page details';
     this.emitStep(sessionId, 'Extracting page data', 'running', prompt);
     const historyEvent = await this.recordHistory(aggregate, {

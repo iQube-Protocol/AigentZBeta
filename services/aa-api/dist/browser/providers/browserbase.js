@@ -125,7 +125,11 @@ export class BrowserbaseProviderAdapter {
             keepAlive: input.keepAlive ?? env.BROWSERBASE_KEEP_ALIVE,
             proxies: input.proxies ?? env.BROWSERBASE_PROXIES,
             region: input.region || env.BROWSERBASE_REGION || undefined,
-            timeout: input.timeoutSeconds ?? env.BROWSERBASE_SESSION_TIMEOUT_SECONDS,
+            browserSettings: input.timeoutSeconds ?? env.BROWSERBASE_SESSION_TIMEOUT_SECONDS
+                ? {
+                    timeout: input.timeoutSeconds ?? env.BROWSERBASE_SESSION_TIMEOUT_SECONDS,
+                }
+                : undefined,
             userMetadata: input.userMetadata || undefined,
         });
         const session = await this.request('/v1/sessions', {
