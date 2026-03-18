@@ -53,6 +53,7 @@ export type RuntimeCapsuleProjection = {
     crm_cohort_assignment: string;
     policy_assignment: string;
   };
+  experience_context?: RecordLike;
 };
 
 function asRecord(value: unknown): RecordLike | null {
@@ -192,6 +193,7 @@ export function buildExperienceRuntimeProjection(input: {
       crm_cohort_assignment: input.runtimeProfile.stubAssignments.crmCohortAssignment,
       policy_assignment: input.runtimeProfile.stubAssignments.policyAssignment,
     },
+    experience_context: input.runtimeProfile.experienceContext,
   };
 }
 
@@ -234,6 +236,9 @@ export function runtimeProjectionToCapsuleRecord(input: {
   });
   if (input.experience.name) launchParams.set("experienceName", input.experience.name);
   if (input.experience.description) launchParams.set("experienceDescription", input.experience.description);
+  if (input.projection.experience_context) {
+    launchParams.set("experienceContext", JSON.stringify(input.projection.experience_context));
+  }
   if (input.projection.preferred_asset && input.projection.content_kind !== "video") {
     launchParams.set("experienceImage", input.projection.preferred_asset);
   }
@@ -276,6 +281,7 @@ export function runtimeProjectionToCapsuleRecord(input: {
       status: input.experience.status || "published",
       contentKind: input.projection.content_kind,
       previewMediaUri: input.projection.video_asset || input.projection.preview_asset || null,
+      activeExperienceContext: input.projection.experience_context || undefined,
     },
     launchTarget: {
       type: "experience",

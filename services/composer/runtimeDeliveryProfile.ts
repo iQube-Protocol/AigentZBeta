@@ -1,4 +1,8 @@
 import type { ComposerDeliveryVariant, ComposerDeploymentTarget } from "./deploymentBlock";
+import {
+  getAppliedExperienceBundle,
+  resolveExperienceBundleBlockOutputs,
+} from "@/services/composer/experienceBundlePresets";
 
 type RecordLike = Record<string, unknown>;
 
@@ -58,6 +62,24 @@ export type ComposerRuntimeDeliveryProfile = {
     crmCohortAssignment: string;
     policyAssignment: string;
   };
+  experienceContext: {
+    experienceId?: string;
+    bundlePresetId?: string;
+    acceptedBlockOutputs: Record<string, unknown>;
+    blockStatuses: Record<string, unknown>;
+    policyScope: {
+      personaAssignment: string;
+      crmCohortAssignment: string;
+      policyAssignment: string;
+    };
+    allowedActions: string[];
+    inferenceContext: {
+      experienceName?: string;
+      experienceDescription?: string;
+      contentKind: "article" | "video" | "generic";
+      intent: RuntimeSurfaceIntent;
+    };
+  };
 };
 
 function asRecord(value: unknown): RecordLike | null {
@@ -114,6 +136,21 @@ function experienceMatch(asset: PersonaMediaLike, experienceId?: string): boolea
 }
 
 function collectRelevantAssets(experience: ExperienceLike | null, personaAssets: PersonaMediaLike[]) {
+  const bundleOutputs = resolveExperienceBundleBlockOutputs(experience);
+  const bundleAssets: RecordLike[] = [];
+  const imageOutput = asRecord(bundleOutputs.image_generation);
+  const videoOutput = asRecord(bundleOutputs.video_generation);
+  if (imageOutput) {
+    const imageAssets = Array.isArray(imageOutput.assets)
+      ? imageOutput.assets
+          .map((item) => asRecord(item))
+          .filter((item): item is RecordLike => Boolean(item))
+      : [];
+    bundleAssets.push(...imageAssets);
+  }
+  if (videoOutput) {
+    bundleAssets.push(videoOutput);
+  }
   const metadata = asRecord(experience?.metadata) ?? {};
   const experienceGenerated = Array.isArray(metadata.generated_assets)
     ? metadata.generated_assets
@@ -124,7 +161,7 @@ function collectRelevantAssets(experience: ExperienceLike | null, personaAssets:
   const personaGenerated = Array.isArray(personaAssets)
     ? personaAssets.filter((item) => experienceMatch(item, experienceId))
     : [];
-  return [...experienceGenerated, ...personaGenerated].sort((a, b) => {
+  return [...bundleAssets, ...experienceGenerated, ...personaGenerated].sort((a, b) => {
     const priorityDelta = assetPriority(b) - assetPriority(a);
     if (priorityDelta !== 0) return priorityDelta;
     return assetTimestamp(b) - assetTimestamp(a);
@@ -147,12 +184,14 @@ function deriveIntent(experience: ExperienceLike | null, assets: RecordLike[]): 
 
   const hasImage = assets.some((asset) => assetType(asset) === "image");
   const hasVideo = assets.some((asset) => assetType(asset) === "video");
+  const bundleOutputs = resolveExperienceBundleBlockOutputs(experience);
+  const hasArticleDraft = Boolean(bundleOutputs.article_draft);
   const articleLike = /(article|reading|read|sprint|editorial|feature)/.test(haystack);
   const videoLike = /(video|watch|trailer|motion|clip)/.test(haystack);
   const explicitVideoTemplate = typeof experience?.template_id === "string" && experience.template_id === "sora-video-generation";
 
   if ((explicitVideoTemplate || videoLike) && hasVideo) return { intent: "watch", contentKind: "video" };
-  if (articleLike) return { intent: "read", contentKind: "article" };
+  if (hasArticleDraft || articleLike) return { intent: "read", contentKind: "article" };
   if (hasImage || hasVideo) return { intent: "read", contentKind: hasVideo && !hasImage ? "video" : "article" };
   return { intent: "read", contentKind: "generic" };
 }
@@ -205,10 +244,30 @@ export function buildRuntimeDeliveryProfile(options: {
   const video = assets.find((asset) => assetType(asset) === "video");
   const { intent, contentKind } = deriveIntent(options.experience, assets);
   const metadata = asRecord(options.experience?.metadata) ?? {};
+  const bundle = getAppliedExperienceBundle(options.experience);
+  const bundleOutputs = resolveExperienceBundleBlockOutputs(options.experience);
+  const compositionBundleState = asRecord(metadata.composition_bundle_state) ?? {};
+  const blockStatuses = asRecord(compositionBundleState.block_statuses) ?? {};
   const codexContext = asRecord(metadata.codex_context) ?? {};
   const activeCodexId = firstNonEmptyString([codexContext.active_codex_id]) || "qripto-codex";
   const activeCodexName = firstNonEmptyString([codexContext.active_codex_name]) || "Qriptopian";
   const primaryCodexTab = derivePrimaryCodexTab(activeCodexId, contentKind, intent, metadata);
+
+  const policyScope = {
+    personaAssignment: "stub:active_persona_or_creator_persona",
+    crmCohortAssignment: "stub:dynamic_crm_cohort",
+    policyAssignment: "stub:persona_content_policy",
+  };
+  const allowedActions = Array.from(
+    new Set(
+      [
+        intent === "watch" ? "watch" : null,
+        contentKind === "article" ? "read" : null,
+        "share",
+        options.target === "runtime_launch" ? "infer" : null,
+      ].filter((value): value is string => Boolean(value)),
+    ),
+  );
 
   return {
     menuIntent: "make",
@@ -238,9 +297,21 @@ export function buildRuntimeDeliveryProfile(options: {
       chromeMode: options.variant === "runtime_thin_client" ? "content-only" : "full",
     },
     stubAssignments: {
-      personaAssignment: "stub:active_persona_or_creator_persona",
-      crmCohortAssignment: "stub:dynamic_crm_cohort",
-      policyAssignment: "stub:persona_content_policy",
+      ...policyScope,
+    },
+    experienceContext: {
+      experienceId: options.experience?.id,
+      bundlePresetId: bundle?.presetId,
+      acceptedBlockOutputs: bundleOutputs,
+      blockStatuses,
+      policyScope,
+      allowedActions,
+      inferenceContext: {
+        experienceName: options.experience?.name || undefined,
+        experienceDescription: options.experience?.description || undefined,
+        contentKind,
+        intent,
+      },
     },
   };
 }

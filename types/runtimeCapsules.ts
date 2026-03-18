@@ -27,6 +27,7 @@ export interface RuntimeCapsuleMetadata {
   status?: string | null;
   contentKind?: "article" | "video" | "character" | "episode" | "generic";
   previewMediaUri?: string | null;
+  activeExperienceContext?: Record<string, unknown>;
 }
 
 export interface RuntimeCapsuleRecord {

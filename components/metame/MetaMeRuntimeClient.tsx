@@ -81,6 +81,16 @@ type RuntimeArticleDraft = {
   nextAction: string | null;
 };
 
+type RuntimeExperienceContext = {
+  experienceId?: string;
+  bundlePresetId?: string;
+  acceptedBlockOutputs?: Record<string, unknown>;
+  blockStatuses?: Record<string, unknown>;
+  policyScope?: Record<string, unknown>;
+  allowedActions?: string[];
+  inferenceContext?: Record<string, unknown>;
+};
+
 type RuntimeCapsule = SmartContentQube & {
   runtimeSource: RuntimeContentSource;
   runtimeMenuIntent?: "make" | "play";
@@ -97,6 +107,7 @@ type RuntimeCapsule = SmartContentQube & {
   runtimeContentKind?: "article" | "video" | "character" | "episode" | "generic" | null;
   runtimePreviewMediaUri?: string | null;
   runtimeArticleDraft?: RuntimeArticleDraft | null;
+  runtimeExperienceContext?: RuntimeExperienceContext | null;
 };
 
 type RuntimeModuleConfig = {
@@ -653,12 +664,21 @@ function runtimeContentKindIcon(kind: RuntimeCapsule["runtimeContentKind"] | "im
 
 function deriveRuntimeExperienceKinds(content: RuntimeCapsule): Array<"image" | "video" | "article"> {
   const kinds: Array<"image" | "video" | "article"> = [];
-  if (content.runtimeArticleDraft) {
+  if (resolveRuntimeArticleDraft(content)) {
     kinds.push("article");
   }
-  if (isLikelyVideoUri(content.runtimePreviewMediaUri || null)) {
+  const experienceContext = resolveRuntimeExperienceContext(content);
+  const acceptedOutputs = asRecord(experienceContext?.acceptedBlockOutputs) ?? {};
+  if (
+    isLikelyVideoUri(content.runtimePreviewMediaUri || null) ||
+    Boolean(asRecord(acceptedOutputs.video_generation))
+  ) {
     kinds.unshift("video");
-  } else if (content.runtimePreviewMediaUri || resolveCapsuleCoverImage(content)) {
+  } else if (
+    content.runtimePreviewMediaUri ||
+    resolveCapsuleCoverImage(content) ||
+    Boolean(asRecord(acceptedOutputs.image_generation))
+  ) {
     kinds.unshift("image");
   } else if (content.runtimeContentKind === "video") {
     kinds.unshift("video");
@@ -674,17 +694,32 @@ function deriveRuntimeExperienceQuickActions(
   content: RuntimeCapsule,
   intent: RuntimeIntent,
 ): Array<{ kind: "watch" | "read" | "listen" | "share"; label: string }> {
+  const experienceContext = resolveRuntimeExperienceContext(content);
+  const allowedActions = Array.isArray(experienceContext?.allowedActions)
+    ? new Set(
+        experienceContext.allowedActions.filter(
+          (action): action is "watch" | "read" | "listen" | "share" =>
+            action === "watch" || action === "read" || action === "listen" || action === "share",
+        ),
+      )
+    : null;
   const actions: Array<{ kind: "watch" | "read" | "listen" | "share"; label: string }> = [];
-  if (isLikelyVideoUri(content.runtimePreviewMediaUri || null) || content.runtimeContentKind === "video") {
+  if (
+    allowedActions?.has("watch") ||
+    isLikelyVideoUri(content.runtimePreviewMediaUri || null) ||
+    content.runtimeContentKind === "video"
+  ) {
     actions.push({ kind: "watch", label: "Watch" });
   }
-  if (content.runtimeArticleDraft || content.runtimeContentKind === "article") {
+  if (allowedActions?.has("read") || resolveRuntimeArticleDraft(content) || content.runtimeContentKind === "article") {
     actions.push({ kind: "read", label: "Read" });
   }
-  if (content.modalities?.listen?.enabled || intent === "listen") {
+  if (allowedActions?.has("listen") || content.modalities?.listen?.enabled || intent === "listen") {
     actions.push({ kind: "listen", label: "Listen" });
   }
-  actions.push({ kind: "share", label: "Share" });
+  if (allowedActions?.has("share") ?? true) {
+    actions.push({ kind: "share", label: "Share" });
+  }
   return actions;
 }
 
@@ -928,6 +963,7 @@ function fromRuntimeCapsuleRecord(record: RuntimeCapsuleRecord): RuntimeCapsule 
     runtimeStatus: record.metadata?.status ?? null,
     runtimeContentKind: record.metadata?.contentKind ?? null,
     runtimePreviewMediaUri: record.metadata?.previewMediaUri ?? null,
+    runtimeExperienceContext: record.metadata?.activeExperienceContext ?? null,
   } as unknown as RuntimeCapsule;
 }
 
@@ -952,6 +988,7 @@ function buildPreviewExperienceCapsule(input: {
   crmCohortAssignment?: string | null;
   policyAssignment?: string | null;
   articleDraft?: RuntimeArticleDraft | null;
+  experienceContext?: RuntimeExperienceContext | null;
 }): RuntimeCapsule {
   const capsuleId = input.selectedCapsuleId || input.experienceId;
   const title = (input.title || "").trim() || "Experience Preview";
@@ -982,6 +1019,7 @@ function buildPreviewExperienceCapsule(input: {
   if (input.crmCohortAssignment) launchParams.set("crmCohortAssignment", input.crmCohortAssignment);
   if (input.policyAssignment) launchParams.set("policyAssignment", input.policyAssignment);
   if (input.articleDraft) launchParams.set("experienceArticleDraft", JSON.stringify(input.articleDraft));
+  if (input.experienceContext) launchParams.set("experienceContext", JSON.stringify(input.experienceContext));
   return {
     id: capsuleId,
     type: "SmartContentQube",
@@ -1025,6 +1063,7 @@ function buildPreviewExperienceCapsule(input: {
     runtimeContentKind: input.contentKind || "episode",
     runtimePreviewMediaUri: input.videoUri || imageUri || input.imagePortraitUri || input.imageLandscapeUri || null,
     runtimeArticleDraft: input.articleDraft || null,
+    runtimeExperienceContext: input.experienceContext || null,
   } as unknown as RuntimeCapsule;
 }
 
@@ -1073,6 +1112,42 @@ function parseRuntimeArticleDraft(value: string | null | undefined): RuntimeArti
   }
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+}
+
+function resolveRuntimeExperienceContext(content: RuntimeCapsule): RuntimeExperienceContext | null {
+  const record = asRecord(content.runtimeExperienceContext);
+  return record ? (record as RuntimeExperienceContext) : null;
+}
+
+function resolveRuntimeArticleDraft(content: RuntimeCapsule): RuntimeArticleDraft | null {
+  if (content.runtimeArticleDraft) return content.runtimeArticleDraft;
+  const context = resolveRuntimeExperienceContext(content);
+  const acceptedOutputs = asRecord(context?.acceptedBlockOutputs) ?? {};
+  const articleOutput = asRecord(acceptedOutputs.article_draft);
+  const generated = asRecord(articleOutput?.generated);
+  if (!generated) return null;
+  return parseRuntimeArticleDraft(JSON.stringify(generated));
+}
+
+function resolveRuntimeExperienceShellState(content: RuntimeCapsule | null) {
+  if (!content || content.runtimeSource !== "experience") return null;
+  const context = resolveRuntimeExperienceContext(content);
+  const quickActions = deriveRuntimeExperienceQuickActions(content, content.runtimeContentKind === "video" ? "watch" : "read")
+    .map((action) => action.kind);
+  return {
+    experience_id: content.id,
+    experience_title: content.title,
+    runtime_source: content.runtimeSource,
+    content_kind: content.runtimeContentKind || "generic",
+    launch_href: content.runtimeLaunchHref || null,
+    modality_hints: content.runtimeModalityHints || [],
+    quick_actions: quickActions,
+    experience_context: context,
+  };
+}
+
 function chooseExperiencePreviewImage(input: {
   device: DeviceType;
   fallbackImage?: string | null;
@@ -1108,6 +1183,7 @@ export default function MetaMeRuntimeClient() {
   const selectedExperienceId = searchParams?.get("experienceId")?.trim() || null;
   const selectedExperienceName = searchParams?.get("experienceName");
   const selectedExperienceDescription = searchParams?.get("experienceDescription");
+  const selectedExperienceContext = searchParams?.get("experienceContext");
   const selectedExperienceContextImage = searchParams?.get("experienceContextImage");
   const selectedExperienceImage = searchParams?.get("experienceImage");
   const selectedExperienceImagePortrait = searchParams?.get("experienceImagePortrait");
@@ -1414,6 +1490,18 @@ export default function MetaMeRuntimeClient() {
       }
     }
   }, []);
+  const parsedSelectedExperienceContext = useMemo(() => {
+    if (!selectedExperienceContext) return null;
+    try {
+      const parsed = JSON.parse(selectedExperienceContext);
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+        ? (parsed as Record<string, unknown>)
+        : null;
+    } catch {
+      return null;
+    }
+  }, [selectedExperienceContext]);
+
   const queryPreviewCapsule = useMemo(() => {
     if (!selectedExperienceId) return null;
     return buildPreviewExperienceCapsule({
@@ -1436,6 +1524,7 @@ export default function MetaMeRuntimeClient() {
       personaAssignment: runtimePersonaAssignment,
       crmCohortAssignment: runtimeCrmCohortAssignment,
       policyAssignment: runtimePolicyAssignment,
+      experienceContext: parsedSelectedExperienceContext,
       contentKind:
         runtimeContentKindParam === "article" ||
         runtimeContentKindParam === "video" ||
@@ -1446,6 +1535,7 @@ export default function MetaMeRuntimeClient() {
           : null,
     });
   }, [
+    parsedSelectedExperienceContext,
     runtimeActiveCodexId,
     runtimeActiveCodexName,
     runtimeCartridge,
@@ -1458,15 +1548,21 @@ export default function MetaMeRuntimeClient() {
     runtimeQuickLinkParam,
     selectedAdaptiveExperienceImage,
     selectedCapsuleId,
+    selectedExperienceArticleDraft,
     selectedExperienceContextImage,
     selectedExperienceDescription,
     selectedExperienceId,
     selectedExperienceImageLandscape,
     selectedExperienceImagePortrait,
-    selectedExperienceArticleDraft,
     selectedExperienceName,
     selectedExperienceVideo,
   ]);
+
+  const activeRuntimeExperience = useMemo(() => {
+    const pool = queryPreviewCapsule ? [queryPreviewCapsule, ...allContents] : allContents;
+    const active = pool.find((content) => content.id === activeCapsuleId) || queryPreviewCapsule || null;
+    return active && active.runtimeSource === "experience" ? active : null;
+  }, [activeCapsuleId, allContents, queryPreviewCapsule]);
 
   const fetchRuntimeCapsules = useCallback(
     async (options?: { intent?: RuntimeIntent; query?: string; allowFallback?: boolean; nonce?: number }): Promise<RuntimeCapsule[]> => {
@@ -1752,6 +1848,7 @@ export default function MetaMeRuntimeClient() {
         const primaryKind = isLikelyVideoUri(previewMedia) ? "video" : "image";
         const experienceKinds = deriveRuntimeExperienceKinds(content);
         const styleLabel = inferRuntimeExperienceStyle(content);
+        const experienceContext = resolveRuntimeExperienceContext(content);
         const sourceExperienceHref = content.runtimeAuthoringHref
           ? withQueryParam(withQueryParam(content.runtimeAuthoringHref, "device", activeDevice), "from", "runtime")
           : null;
@@ -1760,7 +1857,7 @@ export default function MetaMeRuntimeClient() {
           : null;
         const receiptHref = sourceExperienceHref ? withQueryParam(sourceExperienceHref, "focus", "receipt") : null;
         const regenerateHref = sourceExperienceHref ? withQueryParam(sourceExperienceHref, "action", "regenerate") : null;
-        const articleDraft = content.runtimeArticleDraft || null;
+        const articleDraft = resolveRuntimeArticleDraft(content);
         const quickActions = deriveRuntimeExperienceQuickActions(content, intent);
         const mediaAnchorId = `experience-${content.id}-media`;
         const articleAnchorId = `experience-${content.id}-article`;
@@ -1905,6 +2002,39 @@ export default function MetaMeRuntimeClient() {
               Rendering the published experience media directly in runtime to avoid nested iframe shells.
             </p>
 
+            {!embedMode && experienceContext ? (
+              <div className="rounded-2xl border border-cyan-400/20 bg-cyan-500/5 p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-[10px] uppercase tracking-[0.18em] text-cyan-300/80">Active Experience</div>
+                    <div className="mt-1 text-sm font-semibold text-white">
+                      {typeof experienceContext.inferenceContext?.experienceName === "string"
+                        ? experienceContext.inferenceContext.experienceName
+                        : content.title}
+                    </div>
+                    {typeof experienceContext.inferenceContext?.experienceDescription === "string" &&
+                    experienceContext.inferenceContext.experienceDescription.trim() ? (
+                      <div className="mt-1 text-xs text-slate-300">
+                        {experienceContext.inferenceContext.experienceDescription}
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className="flex flex-wrap items-center justify-end gap-1.5">
+                    {Array.isArray(experienceContext.allowedActions)
+                      ? experienceContext.allowedActions.map((action) => (
+                          <span
+                            key={`${content.id}-${action}`}
+                            className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-slate-200"
+                          >
+                            {action}
+                          </span>
+                        ))
+                      : null}
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
             {!embedMode ? (
               <div className="flex flex-wrap items-center gap-2">
                 {quickActions.map((action) => {
@@ -1970,7 +2100,7 @@ export default function MetaMeRuntimeClient() {
               </div>
             ) : null}
 
-            {content.runtimeContentKind === "article" && articleDraft ? (
+            {(content.runtimeContentKind === "article" || articleDraft) && articleDraft ? (
               <div id={articleAnchorId} className="rounded-2xl border border-white/10 bg-slate-900/60 p-4 space-y-3">
                 <div>
                   <div className="text-[10px] uppercase tracking-[0.18em] text-cyan-300/80">Article</div>
@@ -3101,6 +3231,13 @@ export default function MetaMeRuntimeClient() {
 
     previousWelcomeRef.current = showWelcome;
   }, [activeDevice, embedMode, isRuntimeFullscreen, lastIntent, postRuntimeEvent, runtimeProcessing, showWelcome, thinShellMode]);
+
+  useEffect(() => {
+    if (!embedMode) return;
+    postRuntimeEvent("STATE_SYNC", {
+      active_experience: resolveRuntimeExperienceShellState(activeRuntimeExperience),
+    });
+  }, [activeRuntimeExperience, embedMode, postRuntimeEvent]);
 
   useEffect(() => {
     if (!embedMode) return;
