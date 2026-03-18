@@ -16,14 +16,33 @@ function resolvePlaywrightPackage() {
 export class BrowserPlaywrightExec {
     getStatus() {
         const packageName = resolvePlaywrightPackage();
+        const configured = packageName ? this.canLoadPackage(packageName) : false;
         return {
-            configured: Boolean(packageName),
-            mode: packageName ? 'remote-cdp' : 'mock',
-            packageName,
+            configured,
+            mode: configured ? 'remote-cdp' : 'mock',
+            packageName: configured ? packageName : null,
             message: packageName
-                ? 'Playwright substrate is available for remote CDP control.'
+                ? configured
+                    ? 'Playwright substrate is available for remote CDP control.'
+                    : 'Playwright package is not available in the deployed runtime; falling back to provider-only mode.'
                 : 'Install playwright-core (or playwright) in services/aa-api to enable remote browser control.',
         };
+    }
+    canLoadPackage(packageName) {
+        try {
+            require(packageName);
+            return true;
+        }
+        catch {
+            const indexPath = packageName === 'playwright-core' ? 'playwright-core/index.js' : 'playwright/index.js';
+            try {
+                require(indexPath);
+                return true;
+            }
+            catch {
+                return false;
+            }
+        }
     }
     async loadChromium() {
         const packageName = resolvePlaywrightPackage();
@@ -40,7 +59,8 @@ export class BrowserPlaywrightExec {
                 playwrightModule = require(indexPath);
             }
             catch {
-                throw requireError;
+                console.warn('[browser-playwright] unable to load Playwright package in runtime', requireError);
+                return null;
             }
         }
         return playwrightModule.chromium || playwrightModule.default?.chromium || null;
