@@ -2600,6 +2600,23 @@ export const ComposerStudio = () => {
       ? JSON.stringify(generated)
       : null;
   }, [previewExperience]);
+  const serializeExperienceArticleDraft = useCallback((exp: ExperienceQube | null | undefined) => {
+    const config = exp?.configuration;
+    const metadata = exp?.metadata;
+    const articleDraft =
+      config && typeof config === "object" && !Array.isArray(config)
+        ? asRecord((config as Record<string, unknown>).article_draft)
+        : null;
+    const editableGeneration =
+      metadata && typeof metadata === "object" && !Array.isArray(metadata)
+        ? asRecord((metadata as Record<string, unknown>).editable_generation)
+        : null;
+    const editableArticleDraft = editableGeneration ? asRecord(editableGeneration.article_draft) : null;
+    const generated = articleDraft?.generated ?? editableArticleDraft?.generated;
+    return generated && typeof generated === "object" && !Array.isArray(generated)
+      ? JSON.stringify(generated)
+      : null;
+  }, []);
   const runtimePreviewSrc = useMemo(() => {
     const capsuleId = selectedExperienceId || previewExperience?.id || "capsule-metaknyt-play";
     const experienceId = selectedExperienceId || previewExperience?.id || "";
@@ -2744,6 +2761,13 @@ export const ComposerStudio = () => {
         }),
       );
       params.set("runtimeCartridge", runtimeProfile.runtimeCartridge);
+      if (runtimeProfile.experienceContext) {
+        params.set("experienceContext", JSON.stringify(runtimeProfile.experienceContext));
+      }
+      const experienceArticleDraft = serializeExperienceArticleDraft(exp || null);
+      if (experienceArticleDraft) {
+        params.set("experienceArticleDraft", experienceArticleDraft);
+      }
       params.set("preferredImageOrientationMobile", runtimeProfile.preferredImageOrientationByDevice.mobile);
       params.set("preferredImageOrientationTablet", runtimeProfile.preferredImageOrientationByDevice.tablet);
       params.set("preferredImageOrientationDesktop", runtimeProfile.preferredImageOrientationByDevice.desktop);
@@ -2763,7 +2787,7 @@ export const ComposerStudio = () => {
       runtimeBaseUrl.search = params.toString();
       return runtimeBaseUrl.toString();
     },
-    [codexContentItems, personaMediaLibrary, previewExperience?.id, selectedExperienceId],
+    [codexContentItems, personaMediaLibrary, previewExperience?.id, selectedExperienceId, serializeExperienceArticleDraft],
   );
   const runtimePreviewShellWidthClass =
     previewDevice === "desktop"

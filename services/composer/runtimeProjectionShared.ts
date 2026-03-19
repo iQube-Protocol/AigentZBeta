@@ -67,6 +67,13 @@ function firstNonEmptyString(values: unknown[]): string | null {
   return null;
 }
 
+function serializeArticleDraftFromContext(context: RecordLike | null | undefined) {
+  const acceptedOutputs = asRecord(context?.acceptedBlockOutputs) ?? {};
+  const articleOutput = asRecord(acceptedOutputs.article_draft) ?? {};
+  const generated = asRecord(articleOutput.generated);
+  return generated ? JSON.stringify(generated) : null;
+}
+
 function slugForCodexId(codexId: string) {
   const configured = getCodexById(codexId);
   if (configured?.slug) return configured.slug;
@@ -238,6 +245,10 @@ export function runtimeProjectionToCapsuleRecord(input: {
   if (input.experience.description) launchParams.set("experienceDescription", input.experience.description);
   if (input.projection.experience_context) {
     launchParams.set("experienceContext", JSON.stringify(input.projection.experience_context));
+  }
+  const serializedArticleDraft = serializeArticleDraftFromContext(input.projection.experience_context);
+  if (serializedArticleDraft) {
+    launchParams.set("experienceArticleDraft", serializedArticleDraft);
   }
   if (input.projection.preferred_asset && input.projection.content_kind !== "video") {
     launchParams.set("experienceImage", input.projection.preferred_asset);
