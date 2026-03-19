@@ -258,11 +258,13 @@ export function buildRuntimeDeliveryProfile(options: {
     crmCohortAssignment: "stub:dynamic_crm_cohort",
     policyAssignment: "stub:persona_content_policy",
   };
+  const hasAcceptedVideo = Boolean(bundleOutputs.video_generation) || Boolean(video);
+  const hasAcceptedArticle = Boolean(bundleOutputs.article_draft) || contentKind === "article";
   const allowedActions = Array.from(
     new Set(
       [
-        intent === "watch" ? "watch" : null,
-        contentKind === "article" ? "read" : null,
+        hasAcceptedVideo || intent === "watch" ? "watch" : null,
+        hasAcceptedArticle || intent === "read" ? "read" : null,
         "share",
         options.target === "runtime_launch" ? "infer" : null,
       ].filter((value): value is string => Boolean(value)),

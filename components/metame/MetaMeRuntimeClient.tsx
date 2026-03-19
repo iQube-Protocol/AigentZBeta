@@ -1134,8 +1134,9 @@ function resolveRuntimeArticleDraft(content: RuntimeCapsule): RuntimeArticleDraf
 function resolveRuntimeExperienceShellState(content: RuntimeCapsule | null) {
   if (!content || content.runtimeSource !== "experience") return null;
   const context = resolveRuntimeExperienceContext(content);
-  const quickActions = deriveRuntimeExperienceQuickActions(content, content.runtimeContentKind === "video" ? "watch" : "read")
-    .map((action) => action.kind);
+  const quickActions = deriveRuntimeExperienceQuickActions(content, defaultRuntimeIntentForCapsule(content)).map(
+    (action) => action.kind,
+  );
   return {
     experience_id: content.id,
     experience_title: content.title,
@@ -1174,6 +1175,14 @@ function resolveRuntimeExperienceBundleLabel(content: RuntimeCapsule): string | 
   if (kinds.includes("article")) return "Article";
   if (kinds.includes("image")) return "Image";
   return null;
+}
+
+function defaultRuntimeIntentForCapsule(content: RuntimeCapsule): RuntimeIntent {
+  const quickActions = deriveRuntimeExperienceQuickActions(content, content.runtimeContentKind === "video" ? "watch" : "read");
+  if (quickActions.some((action) => action.kind === "watch")) return "watch";
+  if (quickActions.some((action) => action.kind === "read")) return "read";
+  if (quickActions.some((action) => action.kind === "listen")) return "listen";
+  return "play";
 }
 
 function chooseExperiencePreviewImage(input: {
@@ -2248,9 +2257,7 @@ export default function MetaMeRuntimeClient() {
     if (autoLaunchedCapsuleRef.current === queryPreviewCapsule.id) return;
     autoLaunchedCapsuleRef.current = queryPreviewCapsule.id;
     setShowWelcome(false);
-    const launchIntent =
-      runtimeIntentParam ||
-      (queryPreviewCapsule.runtimeContentKind === "video" ? "watch" : "play");
+    const launchIntent = runtimeIntentParam || defaultRuntimeIntentForCapsule(queryPreviewCapsule);
     setLastIntent(launchIntent);
     setSelectedCapsuleLocal(queryPreviewCapsule.id);
     launchCapsule(queryPreviewCapsule, launchIntent);
@@ -3852,8 +3859,7 @@ export default function MetaMeRuntimeClient() {
 
   if (embedMode) {
     const embedWidthClass = isRuntimeFullscreen || thinShellMode ? "w-full" : runtimeDeviceWidthClass;
-    const previewIntent =
-      runtimeIntentParam || (queryPreviewCapsule?.runtimeContentKind === "video" ? "watch" : "read");
+    const previewIntent = runtimeIntentParam || (queryPreviewCapsule ? defaultRuntimeIntentForCapsule(queryPreviewCapsule) : "read");
     if (queryPreviewCapsule) {
       return (
         <div className="h-full w-full overflow-hidden bg-slate-950 p-0">
@@ -3894,8 +3900,7 @@ export default function MetaMeRuntimeClient() {
   );
 
   if (queryPreviewCapsule) {
-    const launchIntent =
-      runtimeIntentParam || (queryPreviewCapsule.runtimeContentKind === "video" ? "watch" : "read");
+    const launchIntent = runtimeIntentParam || defaultRuntimeIntentForCapsule(queryPreviewCapsule);
     return (
       <div className="min-h-screen bg-slate-950 text-white px-4 py-6">
         <div className={`mx-auto w-full space-y-4 ${runtimeDeviceWidthClass}`}>
