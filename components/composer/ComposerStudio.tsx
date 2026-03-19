@@ -71,6 +71,7 @@ import { buildComposerRoutingEnvelope } from "@/services/composer/routingEnvelop
 import {
   markPersonaGeneratedMediaLifecycle,
   markPersonaGeneratedMediaUsage,
+  type PersistableGeneratedAsset,
   persistGeneratedAssetsForExperience,
   setPersonaGeneratedMediaPinned,
   updatePersonaGeneratedMediaRecord,
@@ -1890,6 +1891,88 @@ export const ComposerStudio = () => {
       }
     },
     [],
+  );
+  const requestImageBundleArtifacts = useCallback(
+    async (params: {
+      experienceId: string;
+      providerId?: "openai" | "venice" | null;
+      portraitPrompt?: string | null;
+      landscapePrompt?: string | null;
+    }) => {
+      const providerId = params.providerId === "venice" ? "venice" : "openai";
+      const promptEntries = [
+        params.portraitPrompt?.trim()
+          ? { orientation: "portrait" as const, prompt: params.portraitPrompt.trim() }
+          : null,
+        params.landscapePrompt?.trim()
+          ? { orientation: "landscape" as const, prompt: params.landscapePrompt.trim() }
+          : null,
+      ].filter(Boolean) as Array<{ orientation: "portrait" | "landscape"; prompt: string }>;
+
+      if (promptEntries.length === 0) return [];
+
+      const persistedAssets: PersistableGeneratedAsset[] = [];
+      for (const entry of promptEntries) {
+        const payload =
+          entry.orientation === "portrait"
+            ? {
+                provider_id: providerId,
+                portrait_prompt: entry.prompt,
+                experience_id: params.experienceId,
+              }
+            : {
+                provider_id: providerId,
+                landscape_prompt: entry.prompt,
+                experience_id: params.experienceId,
+              };
+
+        const response = await fetch("/api/skills/image/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = (await response.json().catch(() => null)) as
+          | {
+              provider?: "openai" | "venice";
+              receipt?: Record<string, unknown>;
+              images?: Array<{
+                image_url?: string;
+                orientation?: "portrait" | "landscape";
+                model?: string;
+                prompt?: string;
+              }>;
+            }
+          | null;
+        const assets = Array.isArray(data?.images)
+          ? data.images
+              .filter((image): image is NonNullable<typeof data>["images"][number] => Boolean(image?.image_url))
+              .map((image) => ({
+                id: `${params.experienceId}:${entry.orientation}:image`,
+                type: "image" as const,
+                label: entry.orientation === "portrait" ? "Portrait generated image" : "Landscape generated image",
+                provider: image?.model || data?.provider || providerId,
+                orientation: image?.orientation || entry.orientation,
+                assetUrl: image?.image_url || "",
+                receiptRef:
+                  typeof data?.receipt?.receipt_id === "string" ? String(data.receipt.receipt_id) : undefined,
+                prompt: image?.prompt || entry.prompt,
+                createdAt: new Date().toISOString(),
+              }))
+          : [];
+        if (assets.length === 0) continue;
+        await persistGeneratedAssetsForExperience({
+          experienceId: params.experienceId,
+          assets,
+          receipt: data?.receipt,
+          personaId: activePersonaId || userId,
+          preferredAssetId: assets[0].id,
+        });
+        persistedAssets.push(...assets);
+      }
+
+      return persistedAssets;
+    },
+    [activePersonaId, userId],
   );
 
   const requestedExperienceId =
@@ -5497,11 +5580,27 @@ export const ComposerStudio = () => {
           },
           "Failed to apply Make bundle preset.",
         );
-        const patchedExperience = {
+        if (preset.id === "image_article_bundle") {
+          const imageGenerationConfig = asRecord(patchConfiguration.image_generation) || {};
+          await requestImageBundleArtifacts({
+            experienceId: bundleTemplateTargetExperience.id,
+            providerId:
+              typeof imageGenerationConfig.provider_id === "string"
+                ? (imageGenerationConfig.provider_id as "openai" | "venice")
+                : "openai",
+            portraitPrompt:
+              typeof imageGenerationConfig.portrait_prompt === "string" ? imageGenerationConfig.portrait_prompt : null,
+            landscapePrompt:
+              typeof imageGenerationConfig.landscape_prompt === "string" ? imageGenerationConfig.landscape_prompt : null,
+          }).catch(() => []);
+        }
+        const refreshedPatchedExperience =
+          (await refreshExperienceFromServer(bundleTemplateTargetExperience.id).catch(() => null)) || null;
+        const patchedExperience = (refreshedPatchedExperience || {
           ...bundleTemplateTargetExperience,
           configuration: patchConfiguration,
           metadata: patchMetadata,
-        } as ExperienceQube;
+        }) as ExperienceQube;
         setSelectedExperience(patchedExperience);
         setSelectedExperienceId(patchedExperience.id);
         setExperiencePanelTab("customizer");
@@ -5514,7 +5613,11 @@ export const ComposerStudio = () => {
             ),
           }
         );
-        setPreviewAction(`Applied ${preset.label} bundle`);
+        setPreviewAction(
+          preset.id === "image_article_bundle"
+            ? `Applied ${preset.label} bundle and generated starter imagery`
+            : `Applied ${preset.label} bundle`,
+        );
       } catch (error: any) {
         setSessionError(error?.message || "Failed to apply Make bundle preset.");
       } finally {
@@ -5525,6 +5628,7 @@ export const ComposerStudio = () => {
       activeExperienceBlockManifest,
       activeExperienceBundlePresets,
       bundleTemplateTargetExperience,
+      requestImageBundleArtifacts,
       requestArticleDraftArtifact,
     ],
   );
