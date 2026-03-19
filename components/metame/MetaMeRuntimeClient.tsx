@@ -1879,8 +1879,8 @@ export default function MetaMeRuntimeClient() {
         typeof fetchedExperience.description === "string" ? fetchedExperience.description : null,
         typeof fetchedExperience.goal === "string" ? fetchedExperience.goal : null,
       ]);
-
-      let generatedDraft = resolveRuntimeArticleDraft(options?.content || activeRuntimeExperience) || null;
+      const runtimeContent = options?.content ?? activeRuntimeExperience ?? queryPreviewDisplayCapsule ?? null;
+      let generatedDraft = runtimeContent ? resolveRuntimeArticleDraft(runtimeContent) || null : null;
       let usedRegenerations = runtimeEditorState.budget.usedRegenerations;
       if (options?.regenerate) {
         const nextSpend = runtimeEditorState.budget.estimatedCostUsd * (usedRegenerations + 1);
@@ -1899,9 +1899,7 @@ export default function MetaMeRuntimeClient() {
             prompt: runtimeEditorState.articlePrompt,
             outputs: articleOutputs,
             takeawaysCount: runtimeEditorState.takeawaysCount,
-            mediaMode: resolveRuntimeMediaMode(
-              options?.content || activeRuntimeExperience || (queryPreviewDisplayCapsule as RuntimeCapsule),
-            ),
+            mediaMode: runtimeContent ? resolveRuntimeMediaMode(runtimeContent) : "image",
             contextHints: articleContextHints,
           }),
         });
