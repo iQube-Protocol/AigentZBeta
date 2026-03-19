@@ -91,6 +91,24 @@ type RuntimeExperienceContext = {
   inferenceContext?: Record<string, unknown>;
 };
 
+type RuntimeCustomizationBudget = {
+  maxRegenerations: number;
+  maxSpendUsd: number;
+  estimatedCostUsd: number;
+  usedRegenerations: number;
+};
+
+type RuntimeEditorState = {
+  experienceId: string;
+  experienceName: string;
+  articleTitle: string;
+  articlePrompt: string;
+  articleOutputs: string[];
+  takeawaysCount: number;
+  budget: RuntimeCustomizationBudget;
+  fetchedExperience: Record<string, unknown> | null;
+};
+
 type RuntimeCapsule = SmartContentQube & {
   runtimeSource: RuntimeContentSource;
   runtimeMenuIntent?: "make" | "play";
@@ -989,6 +1007,7 @@ function buildPreviewExperienceCapsule(input: {
   policyAssignment?: string | null;
   articleDraft?: RuntimeArticleDraft | null;
   experienceContext?: RuntimeExperienceContext | null;
+  runtimeAdminMode?: boolean;
 }): RuntimeCapsule {
   const capsuleId = input.selectedCapsuleId || input.experienceId;
   const title = (input.title || "").trim() || "Experience Preview";
@@ -1020,6 +1039,7 @@ function buildPreviewExperienceCapsule(input: {
   if (input.policyAssignment) launchParams.set("policyAssignment", input.policyAssignment);
   if (input.articleDraft) launchParams.set("experienceArticleDraft", JSON.stringify(input.articleDraft));
   if (input.experienceContext) launchParams.set("experienceContext", JSON.stringify(input.experienceContext));
+  if (input.runtimeAdminMode) launchParams.set("runtimeAdmin", "1");
   return {
     id: capsuleId,
     type: "SmartContentQube",
@@ -1112,6 +1132,12 @@ function parseRuntimeArticleDraft(value: string | null | undefined): RuntimeArti
   }
 }
 
+function normalizeStringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+    : [];
+}
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
 }
@@ -1185,6 +1211,29 @@ function defaultRuntimeIntentForCapsule(content: RuntimeCapsule): RuntimeIntent 
   return "play";
 }
 
+function resolveRuntimeExperienceId(content: RuntimeCapsule | null): string | null {
+  if (!content || content.runtimeSource !== "experience") return null;
+  const context = resolveRuntimeExperienceContext(content);
+  if (typeof context?.experienceId === "string" && context.experienceId.trim()) return context.experienceId.trim();
+  const href = content.runtimeLaunchHref || "";
+  if (href) {
+    try {
+      const url = new URL(href, "https://runtime.metame.local");
+      const fromQuery = url.searchParams.get("experienceId");
+      if (fromQuery?.trim()) return fromQuery.trim();
+    } catch {
+      const match = href.match(/[?&]experienceId=([^&#]+)/);
+      if (match?.[1]) return decodeURIComponent(match[1]).trim();
+    }
+  }
+  if (content.id.startsWith("experience-")) return content.id.replace(/^experience-/, "");
+  return content.id || null;
+}
+
+function resolveRuntimeMediaMode(content: RuntimeCapsule): "image" | "video" {
+  return deriveRuntimeExperienceKinds(content).includes("video") ? "video" : "image";
+}
+
 function chooseExperiencePreviewImage(input: {
   device: DeviceType;
   fallbackImage?: string | null;
@@ -1229,6 +1278,7 @@ export default function MetaMeRuntimeClient() {
   const selectedExperienceArticleDraft = parseRuntimeArticleDraft(searchParams?.get("experienceArticleDraft"));
   const runtimeIntentParam = coerceRuntimeIntent(searchParams?.get("runtimeIntent"));
   const runtimeQuickLinkParam = coerceRuntimeIntent(searchParams?.get("runtimeQuickLink"));
+  const runtimeAdminMode = searchParams?.get("runtimeAdmin") === "1" || searchParams?.get("admin") === "1";
   const runtimeContentKindParam = searchParams?.get("contentKind");
   const runtimeActiveCodexId = searchParams?.get("activeCodexId");
   const runtimeActiveCodexName = searchParams?.get("activeCodexName");
@@ -1469,6 +1519,14 @@ export default function MetaMeRuntimeClient() {
   const [channels, setChannels] = useState<Array<{ channel_id: string; participants: string[] }>>([]);
   const [channelsLoading, setChannelsLoading] = useState(false);
   const [runtimeProcessing, setRuntimeProcessing] = useState(false);
+  const [runtimeEditorOpen, setRuntimeEditorOpen] = useState(false);
+  const [runtimeEditorLoading, setRuntimeEditorLoading] = useState(false);
+  const [runtimeEditorSaving, setRuntimeEditorSaving] = useState(false);
+  const [runtimeEditorError, setRuntimeEditorError] = useState<string | null>(null);
+  const [runtimeEditorState, setRuntimeEditorState] = useState<RuntimeEditorState | null>(null);
+  const [runtimeExperienceOverrides, setRuntimeExperienceOverrides] = useState<
+    Record<string, { articleDraft?: RuntimeArticleDraft | null; articlePrompt?: string; articleTitle?: string }>
+  >({});
 
   const [allContents, setAllContents] = useState<RuntimeCapsule[]>([]);
   const [capsuleContents, setCapsuleContents] = useState<RuntimeCapsule[]>([]);
@@ -1562,6 +1620,7 @@ export default function MetaMeRuntimeClient() {
       crmCohortAssignment: runtimeCrmCohortAssignment,
       policyAssignment: runtimePolicyAssignment,
       experienceContext: parsedSelectedExperienceContext,
+      runtimeAdminMode: embedMode || runtimeAdminMode,
       contentKind:
         runtimeContentKindParam === "article" ||
         runtimeContentKindParam === "video" ||
@@ -1580,6 +1639,7 @@ export default function MetaMeRuntimeClient() {
     runtimeCrmCohortAssignment,
     runtimeContentKindParam,
     runtimeIntentParam,
+    runtimeAdminMode,
     runtimePersonaAssignment,
     runtimePolicyAssignment,
     runtimeQuickLinkParam,
@@ -1595,11 +1655,32 @@ export default function MetaMeRuntimeClient() {
     selectedExperienceVideo,
   ]);
 
+  const queryPreviewDisplayCapsule = useMemo(() => {
+    if (!queryPreviewCapsule) return null;
+    const experienceId = resolveRuntimeExperienceId(queryPreviewCapsule);
+    const override = experienceId ? runtimeExperienceOverrides[experienceId] : null;
+    if (!override) return queryPreviewCapsule;
+    return {
+      ...queryPreviewCapsule,
+      runtimeArticleDraft: override.articleDraft ?? queryPreviewCapsule.runtimeArticleDraft,
+    };
+  }, [queryPreviewCapsule, runtimeExperienceOverrides]);
+
   const activeRuntimeExperience = useMemo(() => {
-    const pool = queryPreviewCapsule ? [queryPreviewCapsule, ...allContents] : allContents;
-    const active = pool.find((content) => content.id === activeCapsuleId) || queryPreviewCapsule || null;
+    const pool = queryPreviewDisplayCapsule ? [queryPreviewDisplayCapsule, ...allContents] : allContents;
+    const active = pool.find((content) => content.id === activeCapsuleId) || queryPreviewDisplayCapsule || null;
+    if (active) {
+      const experienceId = resolveRuntimeExperienceId(active);
+      if (experienceId && runtimeExperienceOverrides[experienceId]) {
+        const override = runtimeExperienceOverrides[experienceId];
+        return {
+          ...active,
+          runtimeArticleDraft: override.articleDraft ?? active.runtimeArticleDraft,
+        };
+      }
+    }
     return active && active.runtimeSource === "experience" ? active : null;
-  }, [activeCapsuleId, allContents, queryPreviewCapsule]);
+  }, [activeCapsuleId, allContents, queryPreviewDisplayCapsule, runtimeExperienceOverrides]);
 
   const fetchRuntimeCapsules = useCallback(
     async (options?: { intent?: RuntimeIntent; query?: string; allowFallback?: boolean; nonce?: number }): Promise<RuntimeCapsule[]> => {
@@ -1643,26 +1724,26 @@ export default function MetaMeRuntimeClient() {
   }, [fetchRuntimeData]);
 
   useEffect(() => {
-    if (!queryPreviewCapsule) return;
+    if (!queryPreviewDisplayCapsule) return;
     setAllContents((prev) => {
-      const existing = prev.find((item) => item.id === queryPreviewCapsule.id);
+      const existing = prev.find((item) => item.id === queryPreviewDisplayCapsule.id);
       if (
         existing &&
-        existing.title === queryPreviewCapsule.title &&
-        existing.description === queryPreviewCapsule.description &&
-        existing.coverImageUri === queryPreviewCapsule.coverImageUri &&
-        existing.runtimeLaunchHref === queryPreviewCapsule.runtimeLaunchHref
+        existing.title === queryPreviewDisplayCapsule.title &&
+        existing.description === queryPreviewDisplayCapsule.description &&
+        existing.coverImageUri === queryPreviewDisplayCapsule.coverImageUri &&
+        existing.runtimeLaunchHref === queryPreviewDisplayCapsule.runtimeLaunchHref
       ) {
         return prev;
       }
-      const next = prev.filter((item) => item.id !== queryPreviewCapsule.id);
-      return [queryPreviewCapsule, ...next];
+      const next = prev.filter((item) => item.id !== queryPreviewDisplayCapsule.id);
+      return [queryPreviewDisplayCapsule, ...next];
     });
     setCapsuleContents((prev) => {
-      const withoutQueryCapsule = prev.filter((item) => item.id !== queryPreviewCapsule.id);
-      return selectCapsulesForDisplay([queryPreviewCapsule, ...withoutQueryCapsule], 6);
+      const withoutQueryCapsule = prev.filter((item) => item.id !== queryPreviewDisplayCapsule.id);
+      return selectCapsulesForDisplay([queryPreviewDisplayCapsule, ...withoutQueryCapsule], 6);
     });
-  }, [queryPreviewCapsule]);
+  }, [queryPreviewDisplayCapsule]);
 
   useEffect(() => {
     let mounted = true;
@@ -1704,6 +1785,242 @@ export default function MetaMeRuntimeClient() {
     refreshPersonaMemory(activePersonaKey);
     toast("Runtime reset to welcome", "info");
   }, [activePersonaKey, fetchRuntimeData, refreshPersonaMemory, toast]);
+
+  const openRuntimeEditor = useCallback(
+    async (content: RuntimeCapsule) => {
+      const experienceId = resolveRuntimeExperienceId(content);
+      if (!experienceId) return;
+      setRuntimeEditorOpen(true);
+      setRuntimeEditorLoading(true);
+      setRuntimeEditorError(null);
+      try {
+        const res = await fetch(`/api/composer/experiences/${encodeURIComponent(experienceId)}`, { cache: "no-store" });
+        if (!res.ok) throw new Error("Failed to load ExperienceQube for runtime editing.");
+        const data = await res.json();
+        const fetchedExperience =
+          data?.experience_qube && typeof data.experience_qube === "object" && !Array.isArray(data.experience_qube)
+            ? (data.experience_qube as Record<string, unknown>)
+            : null;
+        if (!fetchedExperience) throw new Error("ExperienceQube payload missing.");
+        const configuration = asRecord(fetchedExperience.configuration) ?? {};
+        const metadata = asRecord(fetchedExperience.metadata) ?? {};
+        const articleDraft = asRecord(configuration.article_draft) ?? {};
+        const runtimeAdminControls = asRecord(metadata.runtime_admin_controls) ?? {};
+        const runtimeAdminState = asRecord(metadata.runtime_admin_state) ?? {};
+        const budgetRecord = asRecord(runtimeAdminControls.article_draft);
+        const budget = asRecord(budgetRecord) ?? {};
+        setRuntimeEditorState({
+          experienceId,
+          experienceName:
+            (typeof fetchedExperience.name === "string" && fetchedExperience.name) || content.title,
+          articleTitle:
+            (typeof articleDraft.title === "string" && articleDraft.title) ||
+            resolveRuntimeArticleDraft(content)?.title ||
+            content.title,
+          articlePrompt:
+            (typeof articleDraft.prompt === "string" && articleDraft.prompt) ||
+            (typeof fetchedExperience.description === "string" ? fetchedExperience.description : "") ||
+            "",
+          articleOutputs: Array.isArray(articleDraft.outputs)
+            ? articleDraft.outputs.filter((item): item is string => typeof item === "string")
+            : ["takeaways", "next_action"],
+          takeawaysCount:
+            typeof articleDraft.takeaways_count === "number" && Number.isFinite(articleDraft.takeaways_count)
+              ? articleDraft.takeaways_count
+              : 3,
+          budget: {
+            maxRegenerations:
+              typeof budget.max_regenerations === "number" && Number.isFinite(budget.max_regenerations)
+                ? budget.max_regenerations
+                : 3,
+            maxSpendUsd:
+              typeof budget.max_spend_usd === "number" && Number.isFinite(budget.max_spend_usd)
+                ? budget.max_spend_usd
+                : 0.1,
+            estimatedCostUsd:
+              typeof budget.estimated_cost_usd === "number" && Number.isFinite(budget.estimated_cost_usd)
+                ? budget.estimated_cost_usd
+                : 0.02,
+            usedRegenerations:
+              typeof runtimeAdminState.article_draft_regenerations === "number" &&
+              Number.isFinite(runtimeAdminState.article_draft_regenerations)
+                ? runtimeAdminState.article_draft_regenerations
+                : 0,
+          },
+          fetchedExperience,
+        });
+      } catch (error: any) {
+        setRuntimeEditorError(error?.message || "Failed to open runtime editor.");
+      } finally {
+        setRuntimeEditorLoading(false);
+      }
+    },
+    [],
+  );
+
+  const persistRuntimeEditorState = useCallback(
+    async (options?: { regenerate?: boolean; content?: RuntimeCapsule | null }) => {
+      if (!runtimeEditorState?.fetchedExperience) return;
+      const fetchedExperience = runtimeEditorState.fetchedExperience;
+      const configuration = asRecord(fetchedExperience.configuration) ?? {};
+      const metadata = asRecord(fetchedExperience.metadata) ?? {};
+      const makeBundle = asRecord(configuration.make_bundle) ?? {};
+      const bundleState = asRecord(metadata.composition_bundle_state) ?? {};
+      const blockStatuses = {
+        ...(asRecord(makeBundle.block_statuses) || {}),
+        ...(asRecord(bundleState.block_statuses) || {}),
+      };
+      const blockOutputs = {
+        ...(asRecord(makeBundle.block_outputs) || {}),
+        ...(asRecord(bundleState.block_outputs) || {}),
+      };
+      const articleOutputs = runtimeEditorState.articleOutputs;
+      const articleContextHints = normalizeStringArray([
+        typeof fetchedExperience.description === "string" ? fetchedExperience.description : null,
+        typeof fetchedExperience.goal === "string" ? fetchedExperience.goal : null,
+      ]);
+
+      let generatedDraft = resolveRuntimeArticleDraft(options?.content || activeRuntimeExperience) || null;
+      let usedRegenerations = runtimeEditorState.budget.usedRegenerations;
+      if (options?.regenerate) {
+        const nextSpend = runtimeEditorState.budget.estimatedCostUsd * (usedRegenerations + 1);
+        if (usedRegenerations >= runtimeEditorState.budget.maxRegenerations) {
+          throw new Error("Article regeneration budget exhausted.");
+        }
+        if (nextSpend > runtimeEditorState.budget.maxSpendUsd + 1e-9) {
+          throw new Error("Article regeneration spend cap exceeded.");
+        }
+        const response = await fetch("/api/composer/article-draft", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            experienceName: runtimeEditorState.experienceName,
+            title: runtimeEditorState.articleTitle,
+            prompt: runtimeEditorState.articlePrompt,
+            outputs: articleOutputs,
+            takeawaysCount: runtimeEditorState.takeawaysCount,
+            mediaMode: resolveRuntimeMediaMode(
+              options?.content || activeRuntimeExperience || (queryPreviewDisplayCapsule as RuntimeCapsule),
+            ),
+            contextHints: articleContextHints,
+          }),
+        });
+        if (!response.ok) throw new Error("Failed to regenerate article draft.");
+        const data = await response.json();
+        generatedDraft = (data?.articleDraft as RuntimeArticleDraft | null) || generatedDraft;
+        usedRegenerations += 1;
+      }
+
+      const articleOutput = {
+        ...(asRecord(blockOutputs.article_draft) || {}),
+        title: runtimeEditorState.articleTitle,
+        prompt: runtimeEditorState.articlePrompt,
+        outputs: articleOutputs,
+        takeaways_count: runtimeEditorState.takeawaysCount,
+        ...(generatedDraft ? { generated: generatedDraft } : {}),
+      };
+
+      const nextConfiguration = {
+        ...configuration,
+        article_draft: {
+          ...(asRecord(configuration.article_draft) || {}),
+          title: runtimeEditorState.articleTitle,
+          prompt: runtimeEditorState.articlePrompt,
+          outputs: articleOutputs,
+          takeaways_count: runtimeEditorState.takeawaysCount,
+          ...(generatedDraft ? { generated: generatedDraft } : {}),
+        },
+        make_bundle: {
+          ...makeBundle,
+          block_statuses: {
+            ...blockStatuses,
+            article_draft: generatedDraft ? "ready_for_review" : blockStatuses.article_draft || "in_progress",
+          },
+          block_outputs: {
+            ...blockOutputs,
+            article_draft: articleOutput,
+          },
+        },
+      };
+
+      const nextMetadata = {
+        ...metadata,
+        composition_bundle_state: {
+          ...bundleState,
+          block_statuses: {
+            ...blockStatuses,
+            article_draft: generatedDraft ? "ready_for_review" : blockStatuses.article_draft || "in_progress",
+          },
+          block_outputs: {
+            ...blockOutputs,
+            article_draft: articleOutput,
+          },
+        },
+        runtime_admin_controls: {
+          ...(asRecord(metadata.runtime_admin_controls) || {}),
+          article_draft: {
+            max_regenerations: runtimeEditorState.budget.maxRegenerations,
+            max_spend_usd: runtimeEditorState.budget.maxSpendUsd,
+            estimated_cost_usd: runtimeEditorState.budget.estimatedCostUsd,
+          },
+        },
+        runtime_admin_state: {
+          ...(asRecord(metadata.runtime_admin_state) || {}),
+          article_draft_regenerations: usedRegenerations,
+        },
+      };
+
+      const payload = {
+        name: fetchedExperience.name,
+        description: fetchedExperience.description,
+        goal: fetchedExperience.goal,
+        mechanics: fetchedExperience.mechanics,
+        metrics: fetchedExperience.metrics,
+        template_id: fetchedExperience.template_id,
+        status: fetchedExperience.status,
+        configuration: nextConfiguration,
+        components: fetchedExperience.components,
+        execution: fetchedExperience.execution,
+        access: fetchedExperience.access,
+        metadata: nextMetadata,
+      };
+
+      const updateRes = await fetch(`/api/composer/experiences/${encodeURIComponent(runtimeEditorState.experienceId)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!updateRes.ok) throw new Error("Failed to persist runtime experience updates.");
+      const updateData = await updateRes.json();
+      const updatedExperience =
+        updateData?.experience_qube && typeof updateData.experience_qube === "object" && !Array.isArray(updateData.experience_qube)
+          ? (updateData.experience_qube as Record<string, unknown>)
+          : fetchedExperience;
+
+      setRuntimeEditorState((prev) =>
+        prev
+          ? {
+              ...prev,
+              budget: {
+                ...prev.budget,
+                usedRegenerations,
+              },
+              fetchedExperience: updatedExperience,
+            }
+          : prev,
+      );
+      setRuntimeExperienceOverrides((prev) => ({
+        ...prev,
+        [runtimeEditorState.experienceId]: {
+          articleDraft: generatedDraft,
+          articlePrompt: runtimeEditorState.articlePrompt,
+          articleTitle: runtimeEditorState.articleTitle,
+        },
+      }));
+      toast(options?.regenerate ? "Runtime article regenerated" : "Runtime article settings saved", "success");
+    },
+    [activeRuntimeExperience, queryPreviewDisplayCapsule, runtimeEditorState, toast],
+  );
 
   const buildSharePanel = useCallback(
     (capsuleTitle: string) => {
@@ -2250,18 +2567,18 @@ export default function MetaMeRuntimeClient() {
   );
 
   useEffect(() => {
-    if (!queryPreviewCapsule) {
+    if (!queryPreviewDisplayCapsule) {
       autoLaunchedCapsuleRef.current = null;
       return;
     }
-    if (autoLaunchedCapsuleRef.current === queryPreviewCapsule.id) return;
-    autoLaunchedCapsuleRef.current = queryPreviewCapsule.id;
+    if (autoLaunchedCapsuleRef.current === queryPreviewDisplayCapsule.id) return;
+    autoLaunchedCapsuleRef.current = queryPreviewDisplayCapsule.id;
     setShowWelcome(false);
-    const launchIntent = runtimeIntentParam || defaultRuntimeIntentForCapsule(queryPreviewCapsule);
+    const launchIntent = runtimeIntentParam || defaultRuntimeIntentForCapsule(queryPreviewDisplayCapsule);
     setLastIntent(launchIntent);
-    setSelectedCapsuleLocal(queryPreviewCapsule.id);
-    launchCapsule(queryPreviewCapsule, launchIntent);
-  }, [launchCapsule, queryPreviewCapsule, runtimeIntentParam]);
+    setSelectedCapsuleLocal(queryPreviewDisplayCapsule.id);
+    launchCapsule(queryPreviewDisplayCapsule, launchIntent);
+  }, [launchCapsule, queryPreviewDisplayCapsule, runtimeIntentParam]);
 
   useEffect(() => {
     const readNavigateClose = (data: unknown): { isClose: boolean; codexId: string | null } => {
@@ -3857,17 +4174,270 @@ export default function MetaMeRuntimeClient() {
     [activeDevice, embedMode],
   );
 
+  const runtimeEditorPanel =
+    runtimeAdminMode && queryPreviewDisplayCapsule ? (
+      <div className="rounded-2xl border border-violet-400/25 bg-slate-900/70 p-4 space-y-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.18em] text-violet-300/80">Runtime Admin</div>
+            <div className="mt-1 text-base font-semibold text-white">Customize and regenerate</div>
+            <div className="mt-1 text-sm text-slate-300">
+              This edits the active ExperienceQube from runtime and publishes changes back to the bundle.
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                if (runtimeEditorOpen) {
+                  setRuntimeEditorOpen(false);
+                  return;
+                }
+                void openRuntimeEditor(queryPreviewDisplayCapsule);
+              }}
+              className="inline-flex items-center gap-2 rounded-full border border-violet-300/25 bg-violet-500/10 px-3 py-1.5 text-xs text-violet-100 transition hover:bg-violet-500/20"
+            >
+              <Pencil className="h-4 w-4" />
+              {runtimeEditorOpen ? "Close editor" : "Customize"}
+            </button>
+          </div>
+        </div>
+
+        {runtimeEditorOpen ? (
+          runtimeEditorLoading ? (
+            <div className="rounded-xl border border-white/10 bg-slate-950/60 p-3 text-sm text-slate-300">
+              Loading ExperienceQube settings...
+            </div>
+          ) : runtimeEditorState ? (
+            <div className="space-y-4">
+              {runtimeEditorError ? (
+                <div className="rounded-xl border border-rose-400/25 bg-rose-500/10 p-3 text-sm text-rose-100">
+                  {runtimeEditorError}
+                </div>
+              ) : null}
+              <div className="grid gap-4">
+                <label className="grid gap-2">
+                  <span className="text-[11px] uppercase tracking-[0.16em] text-slate-400">Article title</span>
+                  <input
+                    value={runtimeEditorState.articleTitle}
+                    onChange={(event) =>
+                      setRuntimeEditorState((prev) => (prev ? { ...prev, articleTitle: event.target.value } : prev))
+                    }
+                    className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white outline-none focus:border-cyan-300/40"
+                  />
+                </label>
+                <label className="grid gap-2">
+                  <span className="text-[11px] uppercase tracking-[0.16em] text-slate-400">Article prompt</span>
+                  <textarea
+                    value={runtimeEditorState.articlePrompt}
+                    onChange={(event) =>
+                      setRuntimeEditorState((prev) => (prev ? { ...prev, articlePrompt: event.target.value } : prev))
+                    }
+                    rows={5}
+                    className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white outline-none focus:border-cyan-300/40"
+                  />
+                </label>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <label className="grid gap-2">
+                    <span className="text-[11px] uppercase tracking-[0.16em] text-slate-400">Takeaways</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={5}
+                      value={runtimeEditorState.takeawaysCount}
+                      onChange={(event) =>
+                        setRuntimeEditorState((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                takeawaysCount: Math.min(5, Math.max(1, Number(event.target.value) || 1)),
+                              }
+                            : prev,
+                        )
+                      }
+                      className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white outline-none focus:border-cyan-300/40"
+                    />
+                  </label>
+                  <div className="grid gap-2">
+                    <span className="text-[11px] uppercase tracking-[0.16em] text-slate-400">Outputs</span>
+                    <div className="flex flex-wrap gap-2">
+                      {["takeaways", "glossary", "next_action"].map((output) => {
+                        const enabled = runtimeEditorState.articleOutputs.includes(output);
+                        return (
+                          <button
+                            key={output}
+                            type="button"
+                            onClick={() =>
+                              setRuntimeEditorState((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      articleOutputs: enabled
+                                        ? prev.articleOutputs.filter((item) => item !== output)
+                                        : [...prev.articleOutputs, output],
+                                    }
+                                  : prev,
+                              )
+                            }
+                            className={`rounded-full border px-3 py-1 text-xs transition ${
+                              enabled
+                                ? "border-cyan-300/30 bg-cyan-500/10 text-cyan-100"
+                                : "border-white/10 bg-white/5 text-slate-300"
+                            }`}
+                          >
+                            {output}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+                <div className="rounded-xl border border-emerald-400/20 bg-emerald-500/5 p-3">
+                  <div className="text-[11px] uppercase tracking-[0.16em] text-emerald-300">Budget controls</div>
+                  <div className="mt-3 grid gap-3 md:grid-cols-3">
+                    <label className="grid gap-2">
+                      <span className="text-xs text-slate-300">Max regenerations</span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={20}
+                        value={runtimeEditorState.budget.maxRegenerations}
+                        onChange={(event) =>
+                          setRuntimeEditorState((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  budget: {
+                                    ...prev.budget,
+                                    maxRegenerations: Math.min(20, Math.max(1, Number(event.target.value) || 1)),
+                                  },
+                                }
+                              : prev,
+                          )
+                        }
+                        className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white outline-none focus:border-cyan-300/40"
+                      />
+                    </label>
+                    <label className="grid gap-2">
+                      <span className="text-xs text-slate-300">Spend cap (USD)</span>
+                      <input
+                        type="number"
+                        min={0.01}
+                        step={0.01}
+                        value={runtimeEditorState.budget.maxSpendUsd}
+                        onChange={(event) =>
+                          setRuntimeEditorState((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  budget: {
+                                    ...prev.budget,
+                                    maxSpendUsd: Math.max(0.01, Number(event.target.value) || 0.01),
+                                  },
+                                }
+                              : prev,
+                          )
+                        }
+                        className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white outline-none focus:border-cyan-300/40"
+                      />
+                    </label>
+                    <label className="grid gap-2">
+                      <span className="text-xs text-slate-300">Estimated cost / regen</span>
+                      <input
+                        type="number"
+                        min={0.001}
+                        step={0.001}
+                        value={runtimeEditorState.budget.estimatedCostUsd}
+                        onChange={(event) =>
+                          setRuntimeEditorState((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  budget: {
+                                    ...prev.budget,
+                                    estimatedCostUsd: Math.max(0.001, Number(event.target.value) || 0.001),
+                                  },
+                                }
+                              : prev,
+                          )
+                        }
+                        className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white outline-none focus:border-cyan-300/40"
+                      />
+                    </label>
+                  </div>
+                  <div className="mt-3 text-xs text-slate-300">
+                    Used regenerations: {runtimeEditorState.budget.usedRegenerations} / {runtimeEditorState.budget.maxRegenerations}
+                    {" · "}
+                    Estimated spend: $
+                    {(runtimeEditorState.budget.usedRegenerations * runtimeEditorState.budget.estimatedCostUsd).toFixed(3)}
+                    {" / $"}
+                    {runtimeEditorState.budget.maxSpendUsd.toFixed(2)}
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={runtimeEditorSaving}
+                    onClick={async () => {
+                      try {
+                        setRuntimeEditorSaving(true);
+                        setRuntimeEditorError(null);
+                        await persistRuntimeEditorState({ regenerate: false, content: queryPreviewDisplayCapsule });
+                      } catch (error: any) {
+                        setRuntimeEditorError(error?.message || "Failed to save runtime article settings.");
+                      } finally {
+                        setRuntimeEditorSaving(false);
+                      }
+                    }}
+                    className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs text-slate-100 transition hover:bg-white/10 disabled:opacity-50"
+                  >
+                    Save settings
+                  </button>
+                  <button
+                    type="button"
+                    disabled={
+                      runtimeEditorSaving ||
+                      runtimeEditorState.budget.usedRegenerations >= runtimeEditorState.budget.maxRegenerations ||
+                      runtimeEditorState.budget.estimatedCostUsd * (runtimeEditorState.budget.usedRegenerations + 1) >
+                        runtimeEditorState.budget.maxSpendUsd + 1e-9
+                    }
+                    onClick={async () => {
+                      try {
+                        setRuntimeEditorSaving(true);
+                        setRuntimeEditorError(null);
+                        await persistRuntimeEditorState({ regenerate: true, content: queryPreviewDisplayCapsule });
+                      } catch (error: any) {
+                        setRuntimeEditorError(error?.message || "Failed to regenerate runtime article draft.");
+                      } finally {
+                        setRuntimeEditorSaving(false);
+                      }
+                    }}
+                    className="inline-flex items-center gap-2 rounded-full border border-cyan-300/25 bg-cyan-500/10 px-3 py-1.5 text-xs text-cyan-100 transition hover:bg-cyan-500/20 disabled:opacity-50"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                    Regenerate + publish
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null
+        ) : null}
+      </div>
+    ) : null;
+
   if (embedMode) {
     const embedWidthClass = isRuntimeFullscreen || thinShellMode ? "w-full" : runtimeDeviceWidthClass;
-    const previewIntent = runtimeIntentParam || (queryPreviewCapsule ? defaultRuntimeIntentForCapsule(queryPreviewCapsule) : "read");
-    if (queryPreviewCapsule) {
+    const previewIntent =
+      runtimeIntentParam || (queryPreviewDisplayCapsule ? defaultRuntimeIntentForCapsule(queryPreviewDisplayCapsule) : "read");
+    if (queryPreviewDisplayCapsule) {
       return (
         <div className="h-full w-full overflow-hidden bg-slate-950 p-0">
           <div className={`h-full ${embedWidthClass}`}>
             <div className="h-full overflow-y-auto bg-slate-950 px-3 py-3">
               <div className="space-y-3">
-                {renderRuntimeExperienceChip(queryPreviewCapsule, previewIntent)}
-                {buildRuntimeCapsulePanel(queryPreviewCapsule, previewIntent)}
+                {renderRuntimeExperienceChip(queryPreviewDisplayCapsule, previewIntent)}
+                {runtimeEditorPanel}
+                {buildRuntimeCapsulePanel(queryPreviewDisplayCapsule, previewIntent)}
               </div>
             </div>
           </div>
@@ -3899,14 +4469,15 @@ export default function MetaMeRuntimeClient() {
     </div>
   );
 
-  if (queryPreviewCapsule) {
-    const launchIntent = runtimeIntentParam || defaultRuntimeIntentForCapsule(queryPreviewCapsule);
+  if (queryPreviewDisplayCapsule) {
+    const launchIntent = runtimeIntentParam || defaultRuntimeIntentForCapsule(queryPreviewDisplayCapsule);
     return (
       <div className="min-h-screen bg-slate-950 text-white px-4 py-6">
         <div className={`mx-auto w-full space-y-4 ${runtimeDeviceWidthClass}`}>
           {runtimeToolbar(activeDevice, setActiveDevice)}
-          {renderRuntimeExperienceChip(queryPreviewCapsule, launchIntent)}
-          {buildRuntimeCapsulePanel(queryPreviewCapsule, launchIntent)}
+          {renderRuntimeExperienceChip(queryPreviewDisplayCapsule, launchIntent)}
+          {runtimeEditorPanel}
+          {buildRuntimeCapsulePanel(queryPreviewDisplayCapsule, launchIntent)}
         </div>
       </div>
     );
