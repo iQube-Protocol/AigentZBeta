@@ -3811,7 +3811,7 @@ export const ComposerStudio = () => {
               ]),
             })
           : null;
-      const completedExperience = returnedExperience
+      let completedExperience = returnedExperience
           ? {
             ...returnedExperience,
             creator_id: returnedExperience.creator_id || userId,
@@ -3904,6 +3904,25 @@ export const ComposerStudio = () => {
             },
           }
         : null;
+      if (completedExperience && getAppliedExperienceBundle(completedExperience)?.presetId === "image_article_bundle") {
+        const imageGenerationConfig = asRecord(completedExperience.configuration?.image_generation) || {};
+        await requestImageBundleArtifacts({
+          experienceId: completedExperience.id,
+          providerId:
+            typeof imageGenerationConfig.provider_id === "string"
+              ? (imageGenerationConfig.provider_id as "openai" | "venice")
+              : "openai",
+          portraitPrompt:
+            typeof imageGenerationConfig.portrait_prompt === "string" ? imageGenerationConfig.portrait_prompt : null,
+          landscapePrompt:
+            typeof imageGenerationConfig.landscape_prompt === "string" ? imageGenerationConfig.landscape_prompt : null,
+        }).catch(() => []);
+        const refreshedCompletedExperience =
+          (await refreshExperienceFromServer(completedExperience.id).catch(() => null)) || null;
+        if (refreshedCompletedExperience) {
+          completedExperience = refreshedCompletedExperience;
+        }
+      }
       setExperience(completedExperience);
       setSession((prev) => (prev ? { ...prev, status: "completed" } : prev));
       if (completedExperience) {
@@ -5581,20 +5600,6 @@ export const ComposerStudio = () => {
           },
           "Failed to apply Make bundle preset.",
         );
-        if (preset.id === "image_article_bundle") {
-          const imageGenerationConfig = asRecord(patchConfigurationRecord.image_generation) || {};
-          await requestImageBundleArtifacts({
-            experienceId: bundleTemplateTargetExperience.id,
-            providerId:
-              typeof imageGenerationConfig.provider_id === "string"
-                ? (imageGenerationConfig.provider_id as "openai" | "venice")
-                : "openai",
-            portraitPrompt:
-              typeof imageGenerationConfig.portrait_prompt === "string" ? imageGenerationConfig.portrait_prompt : null,
-            landscapePrompt:
-              typeof imageGenerationConfig.landscape_prompt === "string" ? imageGenerationConfig.landscape_prompt : null,
-          }).catch(() => []);
-        }
         const refreshedPatchedExperience =
           (await refreshExperienceFromServer(bundleTemplateTargetExperience.id).catch(() => null)) || null;
         const patchedExperience = (refreshedPatchedExperience || {
@@ -5614,11 +5619,7 @@ export const ComposerStudio = () => {
             ),
           }
         );
-        setPreviewAction(
-          preset.id === "image_article_bundle"
-            ? `Applied ${preset.label} bundle and generated starter imagery`
-            : `Applied ${preset.label} bundle`,
-        );
+        setPreviewAction(`Applied ${preset.label} bundle`);
       } catch (error: any) {
         setSessionError(error?.message || "Failed to apply Make bundle preset.");
       } finally {
@@ -5629,7 +5630,6 @@ export const ComposerStudio = () => {
       activeExperienceBlockManifest,
       activeExperienceBundlePresets,
       bundleTemplateTargetExperience,
-      requestImageBundleArtifacts,
       requestArticleDraftArtifact,
     ],
   );
