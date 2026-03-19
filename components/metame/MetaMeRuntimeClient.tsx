@@ -1148,6 +1148,34 @@ function resolveRuntimeExperienceShellState(content: RuntimeCapsule | null) {
   };
 }
 
+function resolveRuntimeExperienceSummary(content: RuntimeCapsule): { headline: string; summary: string } {
+  const articleDraft = resolveRuntimeArticleDraft(content);
+  const context = resolveRuntimeExperienceContext(content);
+  const fallbackDescription = content.description || "Open this experience to explore the full bundle.";
+  const headline =
+    articleDraft?.title ||
+    (typeof context?.inferenceContext?.experienceName === "string" ? context.inferenceContext.experienceName : null) ||
+    content.title;
+  const summary =
+    articleDraft?.deck ||
+    articleDraft?.opening ||
+    (typeof context?.inferenceContext?.experienceDescription === "string"
+      ? context.inferenceContext.experienceDescription
+      : null) ||
+    fallbackDescription;
+  return { headline, summary };
+}
+
+function resolveRuntimeExperienceBundleLabel(content: RuntimeCapsule): string | null {
+  const kinds = deriveRuntimeExperienceKinds(content);
+  if (kinds.includes("video") && kinds.includes("article")) return "Video + Article";
+  if (kinds.includes("image") && kinds.includes("article")) return "Image + Article";
+  if (kinds.includes("video")) return "Video";
+  if (kinds.includes("article")) return "Article";
+  if (kinds.includes("image")) return "Image";
+  return null;
+}
+
 function chooseExperiencePreviewImage(input: {
   device: DeviceType;
   fallbackImage?: string | null;
@@ -3752,6 +3780,76 @@ export default function MetaMeRuntimeClient() {
         ? "mx-auto w-full max-w-[860px]"
         : "mx-auto w-full max-w-[430px]";
 
+  const renderRuntimeExperienceChip = useCallback(
+    (content: RuntimeCapsule, intent: RuntimeIntent) => {
+      const heroImage = resolveCapsuleCoverImage(content);
+      const experienceKinds = deriveRuntimeExperienceKinds(content);
+      const bundleLabel = resolveRuntimeExperienceBundleLabel(content);
+      const { headline, summary } = resolveRuntimeExperienceSummary(content);
+      const quickActions = deriveRuntimeExperienceQuickActions(content, intent);
+      const consumerExperienceHref = content.runtimeLaunchHref
+        ? withQueryParam(content.runtimeLaunchHref, "device", activeDevice)
+        : null;
+      return (
+        <div className="rounded-2xl border border-white/10 bg-slate-900/70 p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="text-[10px] uppercase tracking-[0.18em] text-cyan-300/80">Experience chip</div>
+              <div className="mt-1 text-base font-semibold text-white">{headline}</div>
+              <div className="mt-1 text-sm text-slate-300 line-clamp-3">{summary}</div>
+            </div>
+            <div className="flex flex-wrap items-center justify-end gap-1.5">
+              {bundleLabel ? (
+                <span className="rounded-full border border-cyan-400/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] text-cyan-200">
+                  {bundleLabel}
+                </span>
+              ) : null}
+              {experienceKinds.map((kind) => (
+                <span
+                  key={`chip-${content.id}-${kind}`}
+                  className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-slate-200"
+                  title={kind}
+                >
+                  {runtimeContentKindIcon(kind)}
+                  <span className={activeDevice === "mobile" ? "sr-only" : ""}>{kind}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+          {heroImage ? (
+            <div className="mt-3 overflow-hidden rounded-xl border border-white/10">
+              <img src={heroImage} alt={content.title} className="h-40 w-full object-cover" loading="lazy" />
+            </div>
+          ) : null}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {quickActions.map((action) => (
+              <span
+                key={`chip-action-${content.id}-${action.kind}`}
+                className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-slate-200"
+              >
+                {action.kind === "watch" ? <PlayCircle className="h-3.5 w-3.5" /> : null}
+                {action.kind === "read" ? <BookOpen className="h-3.5 w-3.5" /> : null}
+                {action.kind === "listen" ? <Headphones className="h-3.5 w-3.5" /> : null}
+                {action.kind === "share" ? <Share2 className="h-3.5 w-3.5" /> : null}
+                {action.label}
+              </span>
+            ))}
+            {consumerExperienceHref && !embedMode ? (
+              <a
+                href={consumerExperienceHref}
+                className="inline-flex items-center gap-1 rounded-full border border-cyan-300/25 bg-cyan-500/10 px-3 py-1 text-[11px] text-cyan-100 transition hover:bg-cyan-500/20"
+              >
+                <Eye className="h-3.5 w-3.5" />
+                Enter experience
+              </a>
+            ) : null}
+          </div>
+        </div>
+      );
+    },
+    [activeDevice, embedMode],
+  );
+
   if (embedMode) {
     const embedWidthClass = isRuntimeFullscreen || thinShellMode ? "w-full" : runtimeDeviceWidthClass;
     const previewIntent =
@@ -3761,7 +3859,10 @@ export default function MetaMeRuntimeClient() {
         <div className="h-full w-full overflow-hidden bg-slate-950 p-0">
           <div className={`h-full ${embedWidthClass}`}>
             <div className="h-full overflow-y-auto bg-slate-950 px-3 py-3">
-              {buildRuntimeCapsulePanel(queryPreviewCapsule, previewIntent)}
+              <div className="space-y-3">
+                {renderRuntimeExperienceChip(queryPreviewCapsule, previewIntent)}
+                {buildRuntimeCapsulePanel(queryPreviewCapsule, previewIntent)}
+              </div>
             </div>
           </div>
         </div>
@@ -3795,47 +3896,11 @@ export default function MetaMeRuntimeClient() {
   if (queryPreviewCapsule) {
     const launchIntent =
       runtimeIntentParam || (queryPreviewCapsule.runtimeContentKind === "video" ? "watch" : "read");
-    const heroImage = resolveCapsuleCoverImage(queryPreviewCapsule);
-    const experienceKinds = deriveRuntimeExperienceKinds(queryPreviewCapsule);
     return (
       <div className="min-h-screen bg-slate-950 text-white px-4 py-6">
         <div className={`mx-auto w-full space-y-4 ${runtimeDeviceWidthClass}`}>
           {runtimeToolbar(activeDevice, setActiveDevice)}
-          <div className="rounded-2xl border border-white/10 bg-slate-900/70 p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="text-[10px] uppercase tracking-[0.18em] text-cyan-300/80">Experience chip</div>
-                <div className="mt-1 text-base font-semibold text-white">{queryPreviewCapsule.title}</div>
-                <div className="mt-1 text-sm text-slate-300 line-clamp-2">{queryPreviewCapsule.description}</div>
-              </div>
-              <div className="flex flex-wrap items-center justify-end gap-1.5">
-                {experienceKinds.map((kind) => (
-                  <span
-                    key={`selected-${kind}`}
-                    className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-slate-200"
-                    title={kind}
-                  >
-                    {runtimeContentKindIcon(kind)}
-                    <span className={activeDevice === "mobile" ? "sr-only" : ""}>{kind}</span>
-                  </span>
-                ))}
-                <span
-                  className="inline-flex items-center gap-1 rounded-full border border-cyan-400/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] text-cyan-200"
-                  title={activeDevice === "mobile" ? "portrait-first" : "landscape-first"}
-                >
-                  <span className={`inline-block rounded-[2px] border border-current ${activeDevice === "mobile" ? "h-3 w-2" : "h-2 w-3"}`} />
-                  <span className={activeDevice === "mobile" ? "sr-only" : ""}>
-                    {activeDevice === "mobile" ? "portrait-first" : "landscape-first"}
-                  </span>
-                </span>
-              </div>
-            </div>
-            {heroImage ? (
-              <div className="mt-3 overflow-hidden rounded-xl border border-white/10">
-                <img src={heroImage} alt={queryPreviewCapsule.title} className="h-40 w-full object-cover" loading="lazy" />
-              </div>
-            ) : null}
-          </div>
+          {renderRuntimeExperienceChip(queryPreviewCapsule, launchIntent)}
           {buildRuntimeCapsulePanel(queryPreviewCapsule, launchIntent)}
         </div>
       </div>

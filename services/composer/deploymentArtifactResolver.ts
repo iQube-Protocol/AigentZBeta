@@ -1,4 +1,5 @@
 import type { ComposerDeliveryVariant } from "@/services/composer/deploymentBlock";
+import { resolveExperienceBundleBlockOutputs } from "@/services/composer/experienceBundlePresets";
 
 type RecordLike = Record<string, unknown>;
 
@@ -189,6 +190,27 @@ function normalizeReceiptAssets(metadata: RecordLike): ResolvedMediaCandidate[] 
   return candidates;
 }
 
+function normalizeBundleOutputAssets(experience: ExperienceLike | null): ResolvedMediaCandidate[] {
+  const outputs = resolveExperienceBundleBlockOutputs(experience);
+  const candidates: ResolvedMediaCandidate[] = [];
+  const imageOutput = asRecord(outputs.image_generation);
+  const videoOutput = asRecord(outputs.video_generation);
+
+  if (imageOutput && Array.isArray(imageOutput.assets)) {
+    imageOutput.assets.forEach((asset) => {
+      const normalized = normalizeAsset(asRecord(asset) || {}, "experience_asset");
+      if (normalized) candidates.push(normalized);
+    });
+  }
+
+  if (videoOutput) {
+    const normalized = normalizeAsset(videoOutput, "experience_asset");
+    if (normalized) candidates.push(normalized);
+  }
+
+  return candidates;
+}
+
 function isPersonaAssetRelevantToExperience(asset: RecordLike, experienceId?: string): boolean {
   if (!experienceId) return false;
   const directExperienceId = firstNonEmptyString([asset.experienceId, asset.experience_id]);
@@ -344,6 +366,7 @@ export function resolveExperienceDeploymentArtifact(options: {
     null;
   const experienceId = typeof experience?.id === "string" ? experience.id : undefined;
 
+  const bundleAssets = normalizeBundleOutputAssets(experience);
   const experienceAssets = Array.isArray(metadata.generated_assets)
     ? metadata.generated_assets
         .map((asset) => normalizeAsset(asRecord(asset) || {}, "experience_asset"))
@@ -358,7 +381,7 @@ export function resolveExperienceDeploymentArtifact(options: {
   const receiptAssets = normalizeReceiptAssets(metadata);
   const context = resolveContextMedia(experience, options.contextItems || []);
 
-  const candidates = [...experienceAssets, ...personaAssets, ...receiptAssets].filter(
+  const candidates = [...bundleAssets, ...experienceAssets, ...personaAssets, ...receiptAssets].filter(
     (candidate, index, list) =>
       list.findIndex(
         (other) =>
