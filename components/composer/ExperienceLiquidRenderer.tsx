@@ -30,9 +30,8 @@ function CompositionBundleBrief({
   const [articleExpanded, setArticleExpanded] = useState(false);
   const composition =
     packet?.composition && typeof packet.composition === "object" ? packet.composition : null;
-  if (!composition) return null;
   const sequencingState =
-    composition.sequencing_state && typeof composition.sequencing_state === "object"
+    composition && composition.sequencing_state && typeof composition.sequencing_state === "object"
       ? composition.sequencing_state
       : null;
   const bundleBlocks =
@@ -71,13 +70,13 @@ function CompositionBundleBrief({
           ),
       )
     : [];
-  const sequencing: string[] = Array.isArray(composition.sequencing)
+  const sequencing: string[] = Array.isArray(composition?.sequencing)
     ? composition.sequencing.filter((item: unknown): item is string => typeof item === "string")
     : [];
-  const nextActions: string[] = Array.isArray(composition.nextActions)
+  const nextActions: string[] = Array.isArray(composition?.nextActions)
     ? composition.nextActions.filter((item: unknown): item is string => typeof item === "string")
     : [];
-  const blockKinds: string[] = Array.isArray(composition.blockKinds)
+  const blockKinds: string[] = Array.isArray(composition?.blockKinds)
     ? composition.blockKinds.filter((item: unknown): item is string => typeof item === "string")
     : [];
   const visibleArticleSections = articleExpanded ? articleSections : articleSections.slice(0, 2);
@@ -86,6 +85,7 @@ function CompositionBundleBrief({
     articleTakeaways.length > 0 ||
     articleGlossary.length > 0 ||
     Boolean(articleGenerated?.nextAction);
+  if (!composition && !articleDraft) return null;
 
   const handleEditDraft = () => {
     const params = new URLSearchParams({
@@ -98,30 +98,41 @@ function CompositionBundleBrief({
 
   return (
     <div className="mb-4 rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-4 text-sm text-slate-200">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <div className="text-xs uppercase tracking-[0.22em] text-cyan-300">Make Bundle</div>
-          <div className="mt-1 text-base font-semibold text-white">
-            {typeof composition.label === "string" ? composition.label : "Composed experience"}
+      {composition ? (
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="text-xs uppercase tracking-[0.22em] text-cyan-300">Make Bundle</div>
+            <div className="mt-1 text-base font-semibold text-white">
+              {typeof composition.label === "string" ? composition.label : "Composed experience"}
+            </div>
+            {typeof composition.bundleTemplateLabel === "string" && composition.bundleTemplateLabel ? (
+              <div className="mt-1 text-xs text-slate-400">{composition.bundleTemplateLabel}</div>
+            ) : null}
+            {typeof composition.summary === "string" && composition.summary ? (
+              <div className="mt-1 text-sm text-slate-300">{composition.summary}</div>
+            ) : null}
           </div>
-          {typeof composition.bundleTemplateLabel === "string" && composition.bundleTemplateLabel ? (
-            <div className="mt-1 text-xs text-slate-400">{composition.bundleTemplateLabel}</div>
-          ) : null}
-          {typeof composition.summary === "string" && composition.summary ? (
-            <div className="mt-1 text-sm text-slate-300">{composition.summary}</div>
+          {typeof composition.media_mode === "string" ? (
+            <span className="rounded-full border border-cyan-400/30 px-3 py-1 text-xs text-cyan-200">
+              {composition.media_mode}
+            </span>
           ) : null}
         </div>
-        {typeof composition.media_mode === "string" ? (
-          <span className="rounded-full border border-cyan-400/30 px-3 py-1 text-xs text-cyan-200">
-            {composition.media_mode}
-          </span>
-        ) : null}
-      </div>
+      ) : (
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="text-xs uppercase tracking-[0.22em] text-cyan-300">Article Companion</div>
+            <div className="mt-1 text-base font-semibold text-white">
+              {typeof articleDraft?.title === "string" && articleDraft.title ? articleDraft.title : "Editorial draft"}
+            </div>
+          </div>
+        </div>
+      )}
 
-      {blockKinds.length > 0 ? (
+      {composition && blockKinds.length > 0 ? (
         <div className="mt-3 text-xs text-slate-400">Blocks: {blockKinds.join(" · ")}</div>
       ) : null}
-      {bundleBlocks.length > 0 ? (
+      {composition && bundleBlocks.length > 0 ? (
         <div className="mt-3 flex flex-wrap gap-2">
           {bundleBlocks.map((block) => (
             <span
@@ -134,7 +145,7 @@ function CompositionBundleBrief({
         </div>
       ) : null}
 
-      {sequencingState ? (
+      {composition && sequencingState ? (
         <div className="mt-3 rounded-xl border border-slate-800 bg-slate-950/60 p-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Bundle Progress</div>

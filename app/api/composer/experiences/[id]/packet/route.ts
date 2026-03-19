@@ -254,6 +254,15 @@ function buildArticleDraftContext(experience: any) {
   };
 }
 
+function shouldIncludeArticleDraft(experience: any, compositionBundle: ReturnType<typeof getAppliedExperienceBundle>) {
+  if (compositionBundle?.blockKinds.includes("article_draft")) return true;
+  const acceptedArticleDraft = getBundleOutputRecord(experience, "article_draft");
+  if (acceptedArticleDraft && typeof acceptedArticleDraft === "object") return true;
+  const config = experience?.configuration || {};
+  const articleDraft = config.article_draft || {};
+  return Boolean(articleDraft && typeof articleDraft.generated === "object");
+}
+
 async function loadPersonaGeneratedMediaLibrary(personaId?: string) {
   const normalizedPersonaId = typeof personaId === "string" ? personaId.trim() : "";
   if (!normalizedPersonaId) return [] as PersonaGeneratedMediaRecord[];
@@ -469,8 +478,9 @@ function buildSkillPacket(experience: any, personaLibraryAssets: any[] = []) {
   const wallet = config.wallet_rewards || {};
   const compositionBundle = getAppliedExperienceBundle(experience);
   const sequencingState = resolveExperienceBundleSequencingState(experience, compositionBundle);
-  const articleDraft =
-    compositionBundle?.blockKinds.includes("article_draft") ? buildArticleDraftContext(experience) : undefined;
+  const articleDraft = shouldIncludeArticleDraft(experience, compositionBundle)
+    ? buildArticleDraftContext(experience)
+    : undefined;
   const rewardAmount = Number(wallet.reward_amount || 0);
   const skillId =
     typeof skillSel.skill_id === "string" && skillSel.skill_id.trim() ? skillSel.skill_id.trim() : "";
@@ -574,8 +584,9 @@ function buildImagePacket(experience: any, personaLibraryAssets: any[] = []) {
   const imageGeneration = config.image_generation || {};
   const compositionBundle = getAppliedExperienceBundle(experience);
   const sequencingState = resolveExperienceBundleSequencingState(experience, compositionBundle);
-  const articleDraft =
-    compositionBundle?.blockKinds.includes("article_draft") ? buildArticleDraftContext(experience) : undefined;
+  const articleDraft = shouldIncludeArticleDraft(experience, compositionBundle)
+    ? buildArticleDraftContext(experience)
+    : undefined;
   const providerId = imageGeneration.provider_id || "openai";
   const generatedAssets = Array.isArray(metadata.generated_assets) ? metadata.generated_assets : [];
   const acceptedImageAssets = getBundleImageAssets(experience);
