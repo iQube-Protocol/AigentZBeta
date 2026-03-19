@@ -5582,7 +5582,7 @@ export const ComposerStudio = () => {
           "Failed to apply Make bundle preset.",
         );
         if (preset.id === "image_article_bundle") {
-          const imageGenerationConfig = asRecord(patchConfiguration.image_generation) || {};
+          const imageGenerationConfig = asRecord(patchConfigurationRecord.image_generation) || {};
           await requestImageBundleArtifacts({
             experienceId: bundleTemplateTargetExperience.id,
             providerId:
