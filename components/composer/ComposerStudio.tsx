@@ -1322,14 +1322,14 @@ const QRIPTO_TEMPLATE_SEEDS: ExperienceTemplate[] = [
       {
         id: "skill_selection",
         title: "Skill Selection",
-        description: "Choose between Venice, curated OpenAI Sora, or community OpenClaw-backed video generation.",
+        description: "Choose between curated OpenAI Sora, Venice, or community OpenClaw-backed video generation.",
         type: "selection",
         required: true,
         component_type: "ToolQube",
         ui_config: {
           layout: "form",
           fields: [
-            { id: "skill_id", name: "Video Skill", type: "select", required: true, options: [{ value: "venice_video_gen", label: "Venice Video Gen — Badge A, Trusted", description: "Preferred alpha path for live video generation and lower friction than Sora billing-gated runs." }, { value: "sora_video_gen_curated", label: "Sora Video Gen (Curated) — Badge A, Trusted", description: "First-party OpenAI curated skill. Stable CI, org-backed, high trust." }, { value: "sora_video_gen_community", label: "Sora Video Gen (Community) — Badge C, Basic", description: "Community-maintained OpenClaw skill. Variable review posture." }] },
+            { id: "skill_id", name: "Video Skill", type: "select", required: true, default_value: "sora_video_gen_curated", options: [{ value: "sora_video_gen_curated", label: "Sora Video Gen (Curated) — Badge A, Trusted", description: "First-party OpenAI curated skill. Stable CI, org-backed, high trust." }, { value: "venice_video_gen", label: "Venice Video Gen — Badge A, Trusted", description: "Alternative trusted provider path for video generation." }, { value: "sora_video_gen_community", label: "Sora Video Gen (Community) — Badge C, Basic", description: "Community-maintained OpenClaw skill. Variable review posture." }] },
             { id: "trust_override", name: "Accept lower trust badge?", type: "checkbox", required: false, help_text: "Check to allow community skill even if below hydration threshold." },
           ],
         },
@@ -3088,7 +3088,7 @@ export const ComposerStudio = () => {
           `- ${venice?.strengths[0] || "Useful as a primary or fallback provider"}`,
           `- ${venice?.operationalNotes[1] || "Good alpha path for image and video workflows"}`,
           "",
-          `For image-led article work I can guide either provider and explicitly plan **portrait + landscape** variants. For video-led work, I generally recommend **Venice** when you want a resilient alpha path and **OpenAI** when you want the strongest first-party path.`,
+          `For image-led article work I can guide either provider and explicitly plan **portrait + landscape** variants. For video-led work, I now generally recommend **OpenAI** as the default first-party path and keep **Venice** as the alternative provider path.`,
         ].join("\n");
       }
 
@@ -3186,16 +3186,14 @@ export const ComposerStudio = () => {
           copilotContextOptions.find((opt) => opt.id === copilotContextId)?.label || "The Qriptopian";
         const explicitlyOpenAI = /openai/.test(lower) && !/venice/.test(lower);
         const explicitlyVenice = /venice/.test(lower);
-        const providerId = explicitlyOpenAI ? "openai" : explicitlyVenice ? "venice" : null;
+        const providerId = explicitlyOpenAI ? "openai" : explicitlyVenice ? "venice" : "openai";
         const useCommunity = /community|openclaw/.test(lower);
         const skillId =
           useCommunity
             ? "sora_video_gen_community"
             : providerId === "venice"
               ? "venice_video_gen"
-              : providerId === "openai"
-                ? "sora_video_gen_curated"
-                : null;
+              : "sora_video_gen_curated";
         const suggestedPrompt = buildVideoPrompt(prompt, contextLabel);
         const experienceName = deriveExperienceNameFromPrompt(
           prompt,
@@ -3264,7 +3262,7 @@ export const ComposerStudio = () => {
       ) {
         const contextLabel =
           copilotContextOptions.find((opt) => opt.id === copilotContextId)?.label || "The Qriptopian";
-        const providerId = /openai/.test(lower) && !/venice/.test(lower) ? "openai" : "venice";
+        const providerId = /venice/.test(lower) && !/openai/.test(lower) ? "venice" : "openai";
         const promptVariants = buildImagePromptVariants(prompt, contextLabel);
         const experienceName = deriveExperienceNameFromPrompt(prompt, "Qriptopian Image Experience");
 

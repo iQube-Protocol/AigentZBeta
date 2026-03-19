@@ -481,6 +481,7 @@ export function initializeDefaultTemplates(): void {
               name: 'Image Provider',
               type: 'select',
               required: false,
+              default_value: 'openai',
               options: [
                 { value: 'openai', label: 'OpenAI Image Generation' },
                 { value: 'venice', label: 'Venice Image Generation' },
@@ -631,6 +632,7 @@ export function initializeDefaultTemplates(): void {
           fields: [
             {
               id: 'skill_id', name: 'Sora Skill', type: 'select', required: true,
+              default_value: 'sora_video_gen_curated',
               options: [
                 { value: 'sora_video_gen_curated', label: 'Sora Video Gen (Curated) — Badge A, Trusted' },
                 { value: 'venice_video_gen', label: 'Venice Video Gen — Badge A, Trusted' },

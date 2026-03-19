@@ -576,7 +576,7 @@ function buildImagePacket(experience: any, personaLibraryAssets: any[] = []) {
   const sequencingState = resolveExperienceBundleSequencingState(experience, compositionBundle);
   const articleDraft =
     compositionBundle?.blockKinds.includes("article_draft") ? buildArticleDraftContext(experience) : undefined;
-  const providerId = imageGeneration.provider_id || "venice";
+  const providerId = imageGeneration.provider_id || "openai";
   const generatedAssets = Array.isArray(metadata.generated_assets) ? metadata.generated_assets : [];
   const acceptedImageAssets = getBundleImageAssets(experience);
   const combinedAssets = [...acceptedImageAssets, ...generatedAssets, ...personaLibraryAssets];

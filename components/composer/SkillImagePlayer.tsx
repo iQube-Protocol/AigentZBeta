@@ -129,7 +129,7 @@ function mergeGenerationResults(
 }
 
 export default function SkillImagePlayer({
-  provider_id = "venice",
+  provider_id = "openai",
   portrait_prompt,
   landscape_prompt,
   visual_style = "editorial",
