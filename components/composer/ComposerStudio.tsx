@@ -1899,6 +1899,12 @@ export const ComposerStudio = () => {
       portraitPrompt?: string | null;
       landscapePrompt?: string | null;
     }) => {
+      type GeneratedImageResponseItem = {
+        image_url?: string;
+        orientation?: "portrait" | "landscape";
+        model?: string;
+        prompt?: string;
+      };
       const providerId = params.providerId === "venice" ? "venice" : "openai";
       const promptEntries = [
         params.portraitPrompt?.trim()
@@ -1935,17 +1941,12 @@ export const ComposerStudio = () => {
           | {
               provider?: "openai" | "venice";
               receipt?: Record<string, unknown>;
-              images?: Array<{
-                image_url?: string;
-                orientation?: "portrait" | "landscape";
-                model?: string;
-                prompt?: string;
-              }>;
+              images?: GeneratedImageResponseItem[];
             }
           | null;
         const assets = Array.isArray(data?.images)
           ? data.images
-              .filter((image): image is NonNullable<typeof data>["images"][number] => Boolean(image?.image_url))
+              .filter((image): image is GeneratedImageResponseItem => Boolean(image?.image_url))
               .map((image) => ({
                 id: `${params.experienceId}:${entry.orientation}:image`,
                 type: "image" as const,
