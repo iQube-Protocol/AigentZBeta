@@ -1570,6 +1570,10 @@ export const ComposerStudio = () => {
         return;
       }
 
+      if (!exp) {
+        return;
+      }
+
       void recordExperienceLifecycle("experience_launch", exp, "studio-launch");
 
       const profile = buildRuntimeDeliveryProfile({
