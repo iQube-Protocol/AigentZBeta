@@ -6337,7 +6337,24 @@ export const ComposerStudio = () => {
             <Hexagon className="h-4 w-4 text-[#ff7f50]" />
             <h2 className="text-lg font-semibold text-white">Runtime Preview</h2>
           </div>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
+            {(() => {
+              const makeBundle = asRecord(previewExperience?.configuration?.make_bundle);
+              const blockKinds = Array.isArray(makeBundle?.blockKinds) ? makeBundle.blockKinds as string[] : [];
+              const blockStatuses = asRecord(makeBundle?.block_statuses);
+              if (!blockKinds.includes("image_generation")) return null;
+              if (blockStatuses?.image_generation === "accepted") return null;
+              return (
+                <button
+                  onClick={() => void launchExperience(previewExperience)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-violet-400/60 bg-violet-400/10 px-2.5 py-1 text-xs text-violet-200 hover:bg-violet-400/20"
+                  title="Generate Images"
+                >
+                  <Sparkles className="h-3 w-3" />
+                  Generate Images
+                </button>
+              );
+            })()}
             <DevicePreviewSwitcher value={previewDevice} onChange={setPreviewDevice} />
           </div>
         </div>

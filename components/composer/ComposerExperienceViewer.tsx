@@ -101,7 +101,7 @@ export const ComposerExperienceViewer = ({ experienceId }: { experienceId: strin
           {!isEmbeddedPreview && (
             <button
               className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-slate-200"
-              onClick={() => router.push("/studio/composer")}
+              onClick={() => router.push(`/studio/composer?panel=exqubes&experienceId=${encodeURIComponent(experienceId)}`)}
             >
               <ArrowLeft className="h-4 w-4" /> Back to Composer
             </button>
@@ -124,7 +124,7 @@ export const ComposerExperienceViewer = ({ experienceId }: { experienceId: strin
             <div className="flex flex-wrap items-center justify-between gap-3">
               <button
                 className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-slate-200"
-                onClick={() => router.push("/studio/composer")}
+                onClick={() => router.push(`/studio/composer?panel=exqubes&experienceId=${encodeURIComponent(experienceId)}`)}
               >
                 <ArrowLeft className="h-4 w-4" /> Back to Composer
               </button>
