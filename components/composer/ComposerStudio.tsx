@@ -1917,50 +1917,50 @@ export const ComposerStudio = () => {
 
       if (promptEntries.length === 0) return [];
 
-      const persistedAssets: PersistableGeneratedAsset[] = [];
-      for (const entry of promptEntries) {
-        const payload =
-          entry.orientation === "portrait"
-            ? {
-                provider_id: providerId,
-                portrait_prompt: entry.prompt,
-                experience_id: params.experienceId,
-              }
-            : {
-                provider_id: providerId,
-                landscape_prompt: entry.prompt,
-                experience_id: params.experienceId,
-              };
+      const portraitEntry = promptEntries.find((e) => e.orientation === "portrait");
+      const landscapeEntry = promptEntries.find((e) => e.orientation === "landscape");
+      const payload = {
+        provider_id: providerId,
+        experience_id: params.experienceId,
+        ...(portraitEntry ? { portrait_prompt: portraitEntry.prompt } : {}),
+        ...(landscapeEntry ? { landscape_prompt: landscapeEntry.prompt } : {}),
+      };
 
-        const response = await fetch("/api/skills/image/generate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        const data = (await response.json().catch(() => null)) as
-          | {
-              provider?: "openai" | "venice";
-              receipt?: Record<string, unknown>;
-              images?: GeneratedImageResponseItem[];
-            }
-          | null;
-        const assets = Array.isArray(data?.images)
-          ? data.images
-              .filter((image): image is GeneratedImageResponseItem => Boolean(image?.image_url))
-              .map((image) => ({
-                id: `${params.experienceId}:${entry.orientation}:image`,
+      const response = await fetch("/api/skills/image/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = (await response.json().catch(() => null)) as
+        | {
+            provider?: "openai" | "venice";
+            receipt?: Record<string, unknown>;
+            images?: GeneratedImageResponseItem[];
+          }
+        | null;
+
+      const promptMap = new Map(promptEntries.map((e) => [e.orientation, e.prompt]));
+      const assets = Array.isArray(data?.images)
+        ? data.images
+            .filter((image): image is GeneratedImageResponseItem => Boolean(image?.image_url))
+            .map((image) => {
+              const orientation = (image?.orientation as "portrait" | "landscape") || "portrait";
+              return {
+                id: `${params.experienceId}:${orientation}:image`,
                 type: "image" as const,
-                label: entry.orientation === "portrait" ? "Portrait generated image" : "Landscape generated image",
+                label: orientation === "portrait" ? "Portrait generated image" : "Landscape generated image",
                 provider: image?.model || data?.provider || providerId,
-                orientation: image?.orientation || entry.orientation,
+                orientation,
                 assetUrl: image?.image_url || "",
                 receiptRef:
                   typeof data?.receipt?.receipt_id === "string" ? String(data.receipt.receipt_id) : undefined,
-                prompt: image?.prompt || entry.prompt,
+                prompt: image?.prompt || promptMap.get(orientation) || "",
                 createdAt: new Date().toISOString(),
-              }))
-          : [];
-        if (assets.length === 0) continue;
+              };
+            })
+        : [];
+
+      if (assets.length > 0) {
         await persistGeneratedAssetsForExperience({
           experienceId: params.experienceId,
           assets,
@@ -1968,10 +1968,9 @@ export const ComposerStudio = () => {
           personaId: activePersonaId || userId,
           preferredAssetId: assets[0].id,
         });
-        persistedAssets.push(...assets);
       }
 
-      return persistedAssets;
+      return assets;
     },
     [activePersonaId, userId],
   );
@@ -3910,7 +3909,7 @@ export const ComposerStudio = () => {
       const bundleCheckSource = editingExpForBundleCheck ?? completedExperience;
       const imageBundleTargetId = editingExperienceId || completedExperience?.id;
       if (completedExperience && getAppliedExperienceBundle(bundleCheckSource)?.presetId === "image_article_bundle" && imageBundleTargetId) {
-        const imageGenerationConfig = asRecord(completedExperience.configuration?.image_generation) || {};
+        const imageGenerationConfig = asRecord(bundleCheckSource?.configuration?.image_generation) || {};
         await requestImageBundleArtifacts({
           experienceId: imageBundleTargetId,
           providerId:
