@@ -3904,10 +3904,15 @@ export const ComposerStudio = () => {
             },
           }
         : null;
-      if (completedExperience && getAppliedExperienceBundle(completedExperience)?.presetId === "image_article_bundle") {
+      const editingExpForBundleCheck = editingExperienceId
+        ? experiences.find((e) => e.id === editingExperienceId) ?? null
+        : null;
+      const bundleCheckSource = editingExpForBundleCheck ?? completedExperience;
+      const imageBundleTargetId = editingExperienceId || completedExperience?.id;
+      if (completedExperience && getAppliedExperienceBundle(bundleCheckSource)?.presetId === "image_article_bundle" && imageBundleTargetId) {
         const imageGenerationConfig = asRecord(completedExperience.configuration?.image_generation) || {};
         await requestImageBundleArtifacts({
-          experienceId: completedExperience.id,
+          experienceId: imageBundleTargetId,
           providerId:
             typeof imageGenerationConfig.provider_id === "string"
               ? (imageGenerationConfig.provider_id as "openai" | "venice")
@@ -3918,7 +3923,7 @@ export const ComposerStudio = () => {
             typeof imageGenerationConfig.landscape_prompt === "string" ? imageGenerationConfig.landscape_prompt : null,
         }).catch(() => []);
         const refreshedCompletedExperience =
-          (await refreshExperienceFromServer(completedExperience.id).catch(() => null)) || null;
+          (await refreshExperienceFromServer(imageBundleTargetId).catch(() => null)) || null;
         if (refreshedCompletedExperience) {
           completedExperience = refreshedCompletedExperience;
         }
