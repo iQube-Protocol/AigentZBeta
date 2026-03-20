@@ -9039,6 +9039,25 @@ export const ComposerStudio = () => {
                             >
                               <Play className="h-3 w-3" />
                             </button>
+                            {(() => {
+                              const makeBundle = asRecord(exp.configuration?.make_bundle);
+                              const blockKinds = Array.isArray(makeBundle?.blockKinds) ? makeBundle.blockKinds as string[] : [];
+                              const blockStatuses = asRecord(makeBundle?.block_statuses);
+                              if (!blockKinds.includes("image_generation")) return null;
+                              if (blockStatuses?.image_generation === "accepted") return null;
+                              return (
+                                <button
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    void launchExperience(exp);
+                                  }}
+                                  className="rounded-lg border border-violet-400/60 bg-violet-400/10 p-2 text-violet-200 hover:bg-violet-400/20"
+                                  title="Generate Images"
+                                >
+                                  <Sparkles className="h-3 w-3" />
+                                </button>
+                              );
+                            })()}
                             <button
                               onClick={(event) => {
                                 event.stopPropagation();
