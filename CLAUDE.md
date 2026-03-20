@@ -117,6 +117,8 @@ When asked to "deploy", always deploy to **dev** unless explicitly told otherwis
 4. The `merge-claude-to-dev` GitHub Actions workflow auto-merges to `dev`
 5. Amplify picks up the `dev` branch change and triggers the build
 
+**Avoid doc-only deploys:** Pushing CLAUDE.md or other doc-only changes to the `claude/` branch triggers a full Amplify build. Batch documentation updates with the next code change rather than pushing them standalone.
+
 **Branch naming is critical for push to succeed:**
 - The branch MUST start with `claude/` and end with the session ID suffix (e.g. `claude/find-latest-commit-qQYRq`)
 - Pushing to any other branch name will fail with a 403 error

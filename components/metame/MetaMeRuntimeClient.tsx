@@ -127,6 +127,7 @@ type RuntimeCapsule = SmartContentQube & {
   runtimePreviewMediaUri?: string | null;
   runtimeArticleDraft?: RuntimeArticleDraft | null;
   runtimeExperienceContext?: RuntimeExperienceContext | null;
+  configuration?: Record<string, unknown>;
 };
 
 type RuntimeModuleConfig = {
