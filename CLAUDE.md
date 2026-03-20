@@ -104,6 +104,8 @@ When asked to "deploy", always deploy to **dev** unless explicitly told otherwis
 3. The `merge-claude-to-dev` GitHub Actions workflow auto-merges to `dev`
 4. Amplify picks up the `dev` branch change and triggers the build
 
+**Prerequisite:** The `merge-claude-to-dev.yml` workflow must be present on the `main` branch for GitHub Actions to recognise `claude/**` push triggers. If auto-deploy stops working, check `main` has this file. Branch `fix/add-merge-workflow` contains the fix — merge it to `main` to restore.
+
 **Other environments** (staging, main) — only deploy there if the user explicitly requests it.
 
 ---
