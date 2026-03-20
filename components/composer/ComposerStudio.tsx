@@ -1571,7 +1571,34 @@ export const ComposerStudio = () => {
       }
 
       void recordExperienceLifecycle("experience_launch", exp, "studio-launch");
-      router.push(`/studio/composer/experience/${encodeURIComponent(experienceId)}`);
+
+      const profile = buildRuntimeDeliveryProfile({
+        experience: exp,
+        personaLibraryAssets: personaMediaLibrary as unknown as Array<Record<string, unknown>>,
+        target: "runtime_launch",
+        variant: "runtime_standard",
+      });
+      const articleDraftStr = serializeExperienceArticleDraft(exp);
+      const hasArticle = Boolean(articleDraftStr);
+      const hasVideo = Boolean(profile.videoAssetUrl);
+      const params = new URLSearchParams({
+        capsule: experienceId,
+        experienceId,
+        contentKind: hasArticle && !hasVideo ? "article" : profile.contentKind,
+        runtimeIntent: hasArticle && !hasVideo ? "read" : profile.intent,
+        runtimeQuickLink: hasArticle && !hasVideo ? "read" : profile.quickLink,
+        runtimeCartridge: profile.runtimeCartridge,
+        activeCodexId: profile.codexContext.activeCodexId,
+        activeCodexName: profile.codexContext.activeCodexName,
+      });
+      if (exp.name) params.set("experienceName", exp.name);
+      if (exp.description) params.set("experienceDescription", exp.description);
+      if (profile.imageAssets.landscape) params.set("experienceContextImage", profile.imageAssets.landscape);
+      if (profile.imageAssets.portrait) params.set("experienceImagePortrait", profile.imageAssets.portrait);
+      if (profile.imageAssets.landscape) params.set("experienceImageLandscape", profile.imageAssets.landscape);
+      if (profile.videoAssetUrl) params.set("experienceVideo", profile.videoAssetUrl);
+      if (articleDraftStr) params.set("experienceArticleDraft", articleDraftStr);
+      router.push(`/metame/runtime?${params.toString()}`);
     } catch {
       openRuntimePreviewForExperience(exp, "Launch fallback");
     }
