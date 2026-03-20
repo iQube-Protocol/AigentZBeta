@@ -93,7 +93,14 @@ function isSkillBacked(experience: any): boolean {
   const hasSavedVideo = generatedAssets.some((asset: any) => isVideoAsset(asset) && Boolean(getAssetUrl(asset)));
   const hasVideoPrompt =
     typeof config.video_prompt?.prompt === "string" && config.video_prompt.prompt.trim().length > 0;
-  return templateId === "sora-video-generation" || !!config.skill_selection?.skill_id || hasSavedVideo || hasVideoPrompt;
+  const isVideoBundle = metadata.composition_bundle?.presetId === "video_article_bundle";
+  return (
+    templateId === "sora-video-generation" ||
+    !!config.skill_selection?.skill_id ||
+    hasSavedVideo ||
+    hasVideoPrompt ||
+    isVideoBundle
+  );
 }
 
 function hasImageGeneration(experience: any): boolean {
