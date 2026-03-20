@@ -2508,7 +2508,14 @@ export default function MetaMeRuntimeClient() {
               const makeBundle = asRecord(content.configuration?.make_bundle);
               const blockKinds = Array.isArray(makeBundle?.blockKinds) ? makeBundle.blockKinds as string[] : [];
               const blockStatuses = asRecord(makeBundle?.block_statuses);
-              const needsImages = blockKinds.includes("image_generation") && blockStatuses?.image_generation !== "accepted";
+              const imageGen = asRecord(content.configuration?.image_generation);
+              const hasImagePrompts = typeof imageGen?.portrait_prompt === "string" && (imageGen.portrait_prompt as string).trim().length > 0;
+              const generatedAssets = Array.isArray(content.metadata?.generated_assets) ? content.metadata.generated_assets as { orientation?: string }[] : [];
+              const hasGeneratedImages = generatedAssets.some((a) => a?.orientation === "portrait" || a?.orientation === "landscape");
+              const needsImages =
+                (blockKinds.includes("image_generation") || hasImagePrompts) &&
+                !hasGeneratedImages &&
+                blockStatuses?.image_generation !== "accepted";
               if (needsImages) {
                 return (
                   <button

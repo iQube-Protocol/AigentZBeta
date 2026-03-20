@@ -3915,11 +3915,13 @@ export const ComposerStudio = () => {
         : null;
       const bundleCheckSource = editingExpForBundleCheck ?? completedExperience;
       const imageBundleTargetId = editingExperienceId || completedExperience?.id;
-      if (completedExperience && getAppliedExperienceBundle(bundleCheckSource)?.presetId === "image_article_bundle" && imageBundleTargetId) {
-        const imageGenerationConfig =
-          asRecord(completedExperience?.configuration?.image_generation) ||
-          asRecord(bundleCheckSource?.configuration?.image_generation) ||
-          {};
+      const imageGenerationConfig =
+        asRecord(completedExperience?.configuration?.image_generation) ||
+        asRecord(bundleCheckSource?.configuration?.image_generation) ||
+        {};
+      const isImageBundle = getAppliedExperienceBundle(bundleCheckSource)?.presetId === "image_article_bundle";
+      const hasImagePrompts = typeof imageGenerationConfig.portrait_prompt === "string" && (imageGenerationConfig.portrait_prompt as string).trim().length > 0;
+      if (completedExperience && (isImageBundle || hasImagePrompts) && imageBundleTargetId) {
         await requestImageBundleArtifacts({
           experienceId: imageBundleTargetId,
           providerId:
