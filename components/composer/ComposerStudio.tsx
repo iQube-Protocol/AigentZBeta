@@ -6012,6 +6012,25 @@ export const ComposerStudio = () => {
       window.removeEventListener("storage", handlePersonaMediaStorage);
     };
   }, [activePersonaId, refreshExperienceFromServer, refreshPersonaMediaLibrary, userId]);
+
+  useEffect(() => {
+    const handleGenerateImagesMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      const data = event.data;
+      if (!data || typeof data !== "object") return;
+      if ((data as { type?: string }).type !== "composer:generate-images") return;
+      const imageGen = asRecord(previewExperience?.configuration?.image_generation);
+      const portraitPrompt = typeof imageGen?.portrait_prompt === "string" ? imageGen.portrait_prompt : null;
+      const landscapePrompt = typeof imageGen?.landscape_prompt === "string" ? imageGen.landscape_prompt : null;
+      const experienceId = previewExperience?.id?.toString().trim();
+      if (!experienceId) return;
+      void requestImageBundleArtifacts({ experienceId, portraitPrompt, landscapePrompt })
+        .then(() => refreshExperienceFromServer(experienceId).catch(() => undefined));
+    };
+    window.addEventListener("message", handleGenerateImagesMessage);
+    return () => window.removeEventListener("message", handleGenerateImagesMessage);
+  }, [previewExperience, requestImageBundleArtifacts, refreshExperienceFromServer]);
+
   const buildComposerChatRequestContext = useCallback(
     (prompt: string) => {
       const lower = prompt.toLowerCase();
@@ -6338,23 +6357,6 @@ export const ComposerStudio = () => {
             <h2 className="text-lg font-semibold text-white">Runtime Preview</h2>
           </div>
           <div className="ml-auto flex items-center gap-2">
-            {(() => {
-              const makeBundle = asRecord(previewExperience?.configuration?.make_bundle);
-              const blockKinds = Array.isArray(makeBundle?.blockKinds) ? makeBundle.blockKinds as string[] : [];
-              const blockStatuses = asRecord(makeBundle?.block_statuses);
-              if (!blockKinds.includes("image_generation")) return null;
-              if (blockStatuses?.image_generation === "accepted") return null;
-              return (
-                <button
-                  onClick={() => void launchExperience(previewExperience)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-violet-400/60 bg-violet-400/10 px-2.5 py-1 text-xs text-violet-200 hover:bg-violet-400/20"
-                  title="Generate Images"
-                >
-                  <Sparkles className="h-3 w-3" />
-                  Generate Images
-                </button>
-              );
-            })()}
             <DevicePreviewSwitcher value={previewDevice} onChange={setPreviewDevice} />
           </div>
         </div>
