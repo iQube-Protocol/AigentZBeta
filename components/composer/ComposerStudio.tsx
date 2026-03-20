@@ -3862,6 +3862,12 @@ export const ComposerStudio = () => {
             },
             metadata: {
               ...(returnedExperience.metadata || {}),
+              // Preserve composition_bundle from the editing experience so the packet
+              // route can correctly identify video_article_bundle → buildSkillPacket.
+              // Session completion creates a new experience without this field.
+              ...(editingExpForBundleCheck?.metadata?.composition_bundle
+                ? { composition_bundle: editingExpForBundleCheck.metadata.composition_bundle }
+                : {}),
               creator_persona: {
                 id: resolvedCreatorPersonaId,
                 name: resolvedCreatorPersonaName,
