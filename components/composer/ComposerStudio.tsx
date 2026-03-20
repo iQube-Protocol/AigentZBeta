@@ -3922,6 +3922,7 @@ export const ComposerStudio = () => {
       const isImageBundle = getAppliedExperienceBundle(bundleCheckSource)?.presetId === "image_article_bundle";
       const hasImagePrompts = typeof imageGenerationConfig.portrait_prompt === "string" && (imageGenerationConfig.portrait_prompt as string).trim().length > 0;
       if (completedExperience && (isImageBundle || hasImagePrompts) && imageBundleTargetId) {
+        const articleDraftToPreserve = completedExperience.configuration?.article_draft;
         await requestImageBundleArtifacts({
           experienceId: imageBundleTargetId,
           providerId:
@@ -3936,7 +3937,13 @@ export const ComposerStudio = () => {
         const refreshedCompletedExperience =
           (await refreshExperienceFromServer(imageBundleTargetId).catch(() => null)) || null;
         if (refreshedCompletedExperience) {
-          completedExperience = refreshedCompletedExperience;
+          completedExperience = {
+            ...refreshedCompletedExperience,
+            configuration: {
+              ...refreshedCompletedExperience.configuration,
+              ...(articleDraftToPreserve ? { article_draft: articleDraftToPreserve } : {}),
+            },
+          };
         }
       }
       setExperience(completedExperience);
