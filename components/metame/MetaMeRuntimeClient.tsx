@@ -1079,7 +1079,7 @@ function buildPreviewExperienceCapsule(input: {
     runtimeMenuIntent: "make",
     runtimeCodexInitialTab: input.activeCodexTab || undefined,
     runtimeLaunchHref: `/metame/runtime?${launchParams.toString()}`,
-    runtimeAuthoringHref: `/studio/composer?experienceId=${encodeURIComponent(input.experienceId)}&panel=customizer`,
+    runtimeAuthoringHref: `/studio/composer?experienceId=${encodeURIComponent(input.experienceId)}&panel=exqubes`,
     runtimeLaunchType: "experience",
     runtimeAssetStatus: "resolved",
     runtimeModalityHints: ["play", intent, quickLink],
@@ -2200,7 +2200,11 @@ export default function MetaMeRuntimeClient() {
         const mediaImage = !isLikelyVideoUri(previewMedia) ? previewMedia || heroImage : heroImage;
         const { videoStyle, imageStyle } = resolveSmartMediaPanelStyles(activeDevice, intent);
         const provider = detectExperienceProviderFromAssetUri(previewMedia || heroImage || content.runtimeLaunchHref || null);
-        const primaryKind = isLikelyVideoUri(previewMedia) ? "video" : "image";
+        const makeBundle = asRecord(content.configuration?.make_bundle);
+        const isVideoBundleOrKind =
+          makeBundle?.presetId === "video_article_bundle" ||
+          content.runtimeContentKind === "video";
+        const primaryKind = (isLikelyVideoUri(previewMedia) || isVideoBundleOrKind) ? "video" : "image";
         const experienceKinds = deriveRuntimeExperienceKinds(content);
         const styleLabel = inferRuntimeExperienceStyle(content);
         const experienceContext = resolveRuntimeExperienceContext(content);
@@ -2210,7 +2214,12 @@ export default function MetaMeRuntimeClient() {
         const consumerExperienceHref = content.runtimeLaunchHref
           ? withQueryParam(content.runtimeLaunchHref, "device", activeDevice)
           : null;
-        const receiptHref = sourceExperienceHref ? withQueryParam(sourceExperienceHref, "focus", "receipt") : null;
+        // Receipt links to the standalone experience viewer (where packet details render)
+        // rather than the composer studio, so the user sees the full receipt in context.
+        const receiptHref =
+          content.runtimeAuthoringHref && content.id
+            ? `/studio/composer/experience/${encodeURIComponent(content.id)}?from=runtime&focus=receipt`
+            : null;
         const regenerateHref = sourceExperienceHref ? withQueryParam(sourceExperienceHref, "action", "regenerate") : null;
         const articleDraft = resolveRuntimeArticleDraft(content);
         const quickActions = deriveRuntimeExperienceQuickActions(content, intent);
@@ -2276,7 +2285,7 @@ export default function MetaMeRuntimeClient() {
                     >
                       <ExperienceStyleIcon style={styleLabel} className="h-5 w-5" />
                     </div>
-                    {embedMode && receiptHref ? (
+                    {embedMode && receiptHref && previewMedia ? (
                       <a
                         href={receiptHref}
                         target="_top"
