@@ -3788,6 +3788,11 @@ export const ComposerStudio = () => {
         ]) || null;
       const existingBundleState = asRecord(returnedExperience?.metadata?.composition_bundle_state) || {};
       const existingMakeBundle = asRecord(returnedExperience?.configuration?.make_bundle) || {};
+      const editingExpForBundleCheck = editingExperienceId
+        ? experiences.find((e) => e.id === editingExperienceId) ?? null
+        : null;
+      const preAppliedBundleBlockKinds =
+        getAppliedExperienceBundle(editingExpForBundleCheck ?? returnedExperience)?.blockKinds ?? null;
       const mergedBlockStatuses = {
         ...(asRecord(existingMakeBundle.block_statuses) || {}),
         ...(asRecord(existingBundleState.block_statuses) || {}),
@@ -3824,6 +3829,7 @@ export const ComposerStudio = () => {
                 ? {
                     make_bundle: {
                       ...existingMakeBundle,
+                      ...(preAppliedBundleBlockKinds?.length ? { blockKinds: preAppliedBundleBlockKinds } : {}),
                       block_statuses: mergedBlockStatuses,
                     },
                   }
@@ -3906,9 +3912,6 @@ export const ComposerStudio = () => {
               generated_assets: generatedAssets,
             },
           }
-        : null;
-      const editingExpForBundleCheck = editingExperienceId
-        ? experiences.find((e) => e.id === editingExperienceId) ?? null
         : null;
       const bundleCheckSource = editingExpForBundleCheck ?? completedExperience;
       const imageBundleTargetId = editingExperienceId || completedExperience?.id;
