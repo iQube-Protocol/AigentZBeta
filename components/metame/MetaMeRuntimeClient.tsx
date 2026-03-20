@@ -2504,40 +2504,43 @@ export default function MetaMeRuntimeClient() {
               </div>
             ) : null}
 
-            {embedMode && consumerExperienceHref ? (
-              <a
-                href={consumerExperienceHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex rounded-lg border border-cyan-300/30 bg-cyan-500/15 px-3 py-1.5 text-[11px] text-cyan-100 hover:bg-cyan-500/25"
-              >
-                Open Experience
-              </a>
-            ) : null}
-
             {embedMode && (() => {
               const makeBundle = asRecord(content.configuration?.make_bundle);
               const blockKinds = Array.isArray(makeBundle?.blockKinds) ? makeBundle.blockKinds as string[] : [];
               const blockStatuses = asRecord(makeBundle?.block_statuses);
-              if (!blockKinds.includes("image_generation")) return null;
-              if (blockStatuses?.image_generation === "accepted") return null;
-              return (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (typeof window !== "undefined" && window.parent !== window) {
-                      window.parent.postMessage(
-                        { type: "composer:generate-images", experienceId: String(content.id || "") },
-                        window.location.origin,
-                      );
-                    }
-                  }}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-violet-400/60 bg-violet-400/10 px-3 py-1.5 text-[11px] text-violet-100 hover:bg-violet-400/20"
-                >
-                  <Sparkles className="h-3 w-3" />
-                  Generate Images
-                </button>
-              );
+              const needsImages = blockKinds.includes("image_generation") && blockStatuses?.image_generation !== "accepted";
+              if (needsImages) {
+                return (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (typeof window !== "undefined" && window.parent !== window) {
+                        window.parent.postMessage(
+                          { type: "composer:generate-images", experienceId: String(content.id || "") },
+                          window.location.origin,
+                        );
+                      }
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-violet-400/60 bg-violet-400/10 px-3 py-1.5 text-[11px] text-violet-100 hover:bg-violet-400/20"
+                  >
+                    <Sparkles className="h-3 w-3" />
+                    Generate Images
+                  </button>
+                );
+              }
+              if (consumerExperienceHref) {
+                return (
+                  <a
+                    href={consumerExperienceHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex rounded-lg border border-cyan-300/30 bg-cyan-500/15 px-3 py-1.5 text-[11px] text-cyan-100 hover:bg-cyan-500/25"
+                  >
+                    Open Experience
+                  </a>
+                );
+              }
+              return null;
             })()}
 
           </div>

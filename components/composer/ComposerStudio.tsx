@@ -3916,7 +3916,10 @@ export const ComposerStudio = () => {
       const bundleCheckSource = editingExpForBundleCheck ?? completedExperience;
       const imageBundleTargetId = editingExperienceId || completedExperience?.id;
       if (completedExperience && getAppliedExperienceBundle(bundleCheckSource)?.presetId === "image_article_bundle" && imageBundleTargetId) {
-        const imageGenerationConfig = asRecord(bundleCheckSource?.configuration?.image_generation) || {};
+        const imageGenerationConfig =
+          asRecord(completedExperience?.configuration?.image_generation) ||
+          asRecord(bundleCheckSource?.configuration?.image_generation) ||
+          {};
         await requestImageBundleArtifacts({
           experienceId: imageBundleTargetId,
           providerId:
