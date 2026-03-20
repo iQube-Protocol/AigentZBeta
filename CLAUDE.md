@@ -100,9 +100,15 @@ When asked to "deploy", always deploy to **dev** unless explicitly told otherwis
 
 **How to deploy to dev:**
 1. Update `.amplify-deploy` with a new timestamp: `echo "Deploy trigger $(date)" > .amplify-deploy`
-2. Commit and push to the current `claude/` branch
-3. The `merge-claude-to-dev` GitHub Actions workflow auto-merges to `dev`
-4. Amplify picks up the `dev` branch change and triggers the build
+2. Commit with: `git add .amplify-deploy && git commit -m "trigger deploy to dev"`
+3. Push with: `git push -u origin claude/<session-branch-name>`
+4. The `merge-claude-to-dev` GitHub Actions workflow auto-merges to `dev`
+5. Amplify picks up the `dev` branch change and triggers the build
+
+**Branch naming is critical for push to succeed:**
+- The branch MUST start with `claude/` and end with the session ID suffix (e.g. `claude/find-latest-commit-qQYRq`)
+- Pushing to any other branch name will fail with a 403 error
+- To find the current branch: `git branch --show-current`
 
 **Prerequisite:** The `merge-claude-to-dev.yml` workflow must be present on the `main` branch for GitHub Actions to recognise `claude/**` push triggers. If auto-deploy stops working, check `main` has this file. Branch `fix/add-merge-workflow` contains the fix — merge it to `main` to restore.
 
