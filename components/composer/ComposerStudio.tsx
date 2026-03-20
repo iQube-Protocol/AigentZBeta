@@ -3922,7 +3922,8 @@ export const ComposerStudio = () => {
       const isImageBundle = getAppliedExperienceBundle(bundleCheckSource)?.presetId === "image_article_bundle";
       const isVideoBundle = getAppliedExperienceBundle(bundleCheckSource)?.presetId === "video_article_bundle";
       const hasImagePrompts = typeof imageGenerationConfig.portrait_prompt === "string" && (imageGenerationConfig.portrait_prompt as string).trim().length > 0;
-      const hasVideoPrompt = typeof asRecord(mergedData?.video_prompt)?.prompt === "string" && (asRecord(mergedData.video_prompt).prompt as string).trim().length > 0;
+      const videoPromptRecord = asRecord(mergedData?.video_prompt);
+      const hasVideoPrompt = typeof videoPromptRecord?.prompt === "string" && (videoPromptRecord.prompt as string).trim().length > 0;
       const shouldAutoGenerateImages = isImageBundle || (hasImagePrompts && !isVideoBundle && !hasVideoPrompt);
       if (completedExperience && shouldAutoGenerateImages && imageBundleTargetId) {
         const articleDraftToPreserve = completedExperience.configuration?.article_draft;
