@@ -80,6 +80,18 @@ New work should land in the correct layer. Don't mix concerns across layers.
 
 ---
 
+## Local Development Path
+
+The canonical local root for this project is:
+
+```
+/Users/hal1/CascadeProjects/AigentZBeta
+```
+
+This may change in the future — update this section if the local path moves.
+
+---
+
 ## Key Directories
 
 ```
