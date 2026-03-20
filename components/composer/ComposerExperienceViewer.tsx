@@ -44,8 +44,9 @@ export const ComposerExperienceViewer = ({ experienceId }: { experienceId: strin
   const [packet, setPacket] = useState<Record<string, any> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showPacket, setShowPacket] = useState(false);
   const isEmbeddedPreview = searchParams?.get("embed") === "1";
+  const focusReceipt = searchParams?.get("focus") === "receipt";
+  const [showPacket, setShowPacket] = useState(focusReceipt);
 
   useEffect(() => {
     let active = true;

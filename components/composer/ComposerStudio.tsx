@@ -1296,6 +1296,118 @@ const QRIPTO_TEMPLATE_SEEDS: ExperienceTemplate[] = [
     ],
   },
   {
+    id: "ai-image-generation",
+    name: "AI Image Generation",
+    description: "Generate standalone AI portrait and landscape images — no article. OpenAI or Venice provider.",
+    category: "image",
+    complexity: "beginner",
+    estimated_time: 10,
+    required_components: ["image_player"],
+    optional_components: ["rewards"],
+    tags: ["image", "ai-generation", "portrait", "landscape", "openai", "venice"],
+    steps: [
+      {
+        id: "intent_timebox",
+        title: "Image Intent",
+        description: "Name this image experience and describe what you want to create.",
+        type: "configuration",
+        required: true,
+        ui_config: {
+          layout: "form",
+          fields: [
+            { id: "experience_name", name: "Experience name", type: "text", required: true },
+            { id: "goal", name: "Goal", type: "textarea", required: false },
+          ],
+        },
+      },
+      {
+        id: "image_generation",
+        title: "Image Generation",
+        description: "Configure the AI image generation prompts and provider.",
+        type: "configuration",
+        required: true,
+        ui_config: {
+          layout: "form",
+          fields: [
+            { id: "provider_id", name: "Provider", type: "select", required: true, default_value: "openai", options: [{ value: "openai", label: "OpenAI DALL·E" }, { value: "venice", label: "Venice AI" }] },
+            { id: "portrait_prompt", name: "Portrait prompt (9:16)", type: "textarea", required: true, help_text: "Describe the portrait image scene." },
+            { id: "landscape_prompt", name: "Landscape prompt (16:9)", type: "textarea", required: false, help_text: "Describe the landscape image scene." },
+            { id: "visual_style", name: "Visual style", type: "select", required: false, options: [{ value: "editorial", label: "Editorial" }, { value: "cinematic", label: "Cinematic" }, { value: "photorealistic", label: "Photorealistic" }, { value: "illustrated", label: "Illustrated" }] },
+          ],
+        },
+      },
+      {
+        id: "wallet_rewards",
+        title: "Rewards (Optional)",
+        description: "Configure optional rewards for viewing this image experience.",
+        type: "configuration",
+        required: false,
+        ui_config: {
+          layout: "form",
+          fields: [
+            { id: "reward_amount", name: "Reward amount (Q¢)", type: "text", required: false },
+          ],
+        },
+      },
+    ],
+  },
+  {
+    id: "ai-article-draft",
+    name: "Article Draft",
+    description: "Write and publish a standalone article — no images or video. Structured takeaways and editorial copy.",
+    category: "article",
+    complexity: "beginner",
+    estimated_time: 20,
+    required_components: ["article_reader"],
+    optional_components: ["rewards"],
+    tags: ["article", "editorial", "writing", "draft", "copy"],
+    steps: [
+      {
+        id: "intent_timebox",
+        title: "Article Intent",
+        description: "Name this article and describe what you want to write.",
+        type: "configuration",
+        required: true,
+        ui_config: {
+          layout: "form",
+          fields: [
+            { id: "experience_name", name: "Experience name", type: "text", required: true },
+            { id: "goal", name: "Goal / topic", type: "textarea", required: true },
+          ],
+        },
+      },
+      {
+        id: "article_draft",
+        title: "Article Draft",
+        description: "Configure the article title, prompt, and structure.",
+        type: "configuration",
+        required: true,
+        ui_config: {
+          layout: "form",
+          fields: [
+            { id: "title", name: "Article title", type: "text", required: true },
+            { id: "prompt", name: "Article prompt", type: "textarea", required: true, help_text: "What should the article cover? Include tone, audience, and key points." },
+            { id: "outputs", name: "Include sections", type: "multiselect", required: false, options: [{ value: "takeaways", label: "Key takeaways" }, { value: "next_action", label: "Next action" }, { value: "summary", label: "Summary" }] },
+            { id: "takeaways_count", name: "Number of takeaways", type: "slider", required: false, validation: { min: 1, max: 5, step: 1 } },
+          ],
+        },
+      },
+      {
+        id: "wallet_rewards",
+        title: "Rewards (Optional)",
+        description: "Set optional reward for reading completion.",
+        type: "configuration",
+        required: false,
+        ui_config: {
+          layout: "form",
+          fields: [
+            { id: "reward_amount", name: "Reward amount (Q¢)", type: "text", required: false },
+          ],
+        },
+      },
+    ],
+  },
+  {
     id: "sora-video-generation",
     name: "Sora Video Generation",
     description: "Generate AI video using OpenAI Sora skill — curated or community. Full supply chain with trust badges, PoSR, and DVN receipts.",
@@ -3367,6 +3479,94 @@ export const ComposerStudio = () => {
           : `I prepared a video-led path and a first-pass prompt, but I couldn't open the Customizer session automatically: ${seeded.error}`;
       }
 
+      const wantsArticle = /(article|write|writing|editorial|blog|essay|draft)\b/.test(lower);
+
+      // Image-only: user asks for images without article or story writing
+      if (wantsImage && !wantsArticle && !wantsVideo) {
+        const contextLabel =
+          copilotContextOptions.find((opt) => opt.id === copilotContextId)?.label || "The Qriptopian";
+        const providerId = /venice/.test(lower) && !/openai/.test(lower) ? "venice" : "openai";
+        const promptVariants = buildImagePromptVariants(prompt, contextLabel);
+        const experienceName = deriveExperienceNameFromPrompt(prompt, "Image Experience");
+
+        setTemplateIntent("task");
+        setSelectedTemplateId("ai-image-generation");
+        setTemplateQuery(`${contextLabel}: ${prompt} image portrait landscape`);
+
+        const seedData = {
+          intent_timebox: {
+            experience_name: experienceName,
+            goal: prompt,
+          },
+          image_generation: {
+            provider_id: providerId,
+            portrait_prompt: promptVariants.portrait,
+            landscape_prompt: promptVariants.landscape,
+            visual_style: inferVisualStyleFromPrompt(prompt),
+          },
+        };
+
+        const seeded = await startSeededSessionForTemplate("qriptopian_reading_sprint_v0", seedData, {
+          currentStep: 1,
+        });
+        const providerKnowledge = getComposerProviderKnowledge(providerId);
+
+        return seeded.ok
+          ? [
+              `I set up a **standalone image path** in **${seeded.templateName || "AI Image Generation"}** and opened **Customizer** on the image step.`,
+              "",
+              `**Provider**: ${providerKnowledge?.name || providerId}`,
+              "",
+              `**Portrait prompt**: ${promptVariants.portrait}`,
+              `**Landscape prompt**: ${promptVariants.landscape}`,
+              "",
+              `Review the prompts in the Customizer, then hit **Run** to generate. To add an article alongside, switch to the Image + Article bundle preset.`,
+            ].join("\n")
+          : `I prepared a standalone image path, but couldn't open the Customizer automatically: ${seeded.error}`;
+      }
+
+      // Article-only: user asks for article/writing without images or video
+      if (wantsArticle && !wantsImage && !wantsVideo) {
+        const contextLabel =
+          copilotContextOptions.find((opt) => opt.id === copilotContextId)?.label || "The Qriptopian";
+        const experienceName = deriveExperienceNameFromPrompt(prompt, "Article Experience");
+        const articleTitle = experienceName;
+        const articlePrompt = prompt;
+
+        setTemplateIntent("article");
+        setSelectedTemplateId("ai-article-draft");
+        setTemplateQuery(`${contextLabel}: ${prompt} article editorial draft`);
+
+        const seedData = {
+          intent_timebox: {
+            experience_name: experienceName,
+            goal: prompt,
+          },
+          article_draft: {
+            title: articleTitle,
+            prompt: articlePrompt,
+            outputs: ["takeaways", "next_action"],
+            takeaways_count: 3,
+          },
+        };
+
+        const seeded = await startSeededSessionForTemplate("qriptopian_reading_sprint_v0", seedData, {
+          currentStep: 1,
+        });
+
+        return seeded.ok
+          ? [
+              `I set up a **standalone article path** in **${seeded.templateName || "Article Draft"}** and opened **Customizer** on the article step.`,
+              "",
+              `**Article**: ${articleTitle}`,
+              `**Prompt**: ${articlePrompt}`,
+              "",
+              `Review in Customizer, then hit **Run** to generate. To add images alongside, switch to the Image + Article bundle preset. To add video, switch to the Video + Article bundle.`,
+            ].join("\n")
+          : `I prepared a standalone article path, but couldn't open the Customizer automatically: ${seeded.error}`;
+      }
+
+      // Image + article: user asks for images with article context, or editorial
       if (
         wantsImage ||
         (!wantsVideo && /(qriptopian article|editorial)/.test(lower))
