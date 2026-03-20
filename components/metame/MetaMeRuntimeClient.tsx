@@ -2501,16 +2501,6 @@ export default function MetaMeRuntimeClient() {
               </div>
             ) : null}
 
-            {embedMode && consumerExperienceHref ? (
-              <a
-                href={consumerExperienceHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex rounded-lg border border-cyan-300/30 bg-cyan-500/15 px-3 py-1.5 text-[11px] text-cyan-100 hover:bg-cyan-500/25"
-              >
-                Open Experience
-              </a>
-            ) : null}
           </div>
         );
       }

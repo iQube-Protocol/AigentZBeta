@@ -7,7 +7,7 @@ import { LiquidUIPlaceholderTemplate } from "@/app/triad/components/codex/liquid
 import { ExperienceBlockHeader } from "@/components/composer/ExperienceBlockChrome";
 import SkillVideoPlayer from "@/components/composer/SkillVideoPlayer";
 import SkillImagePlayer from "@/components/composer/SkillImagePlayer";
-import { BookOpen, ChevronDown, ChevronUp, PencilLine } from "lucide-react";
+import { BookOpen, ChevronDown, ChevronUp, Image, PencilLine } from "lucide-react";
 
 type ArticleDraftSection = {
   heading: string;
@@ -334,6 +334,7 @@ export function ExperienceLiquidRenderer({
   personaId,
 }: ExperienceLiquidRendererProps) {
   const templateKey = packet?.ui?.primary_template as string | undefined;
+  const [generateImages, setGenerateImages] = useState(false);
 
   if (!packet) {
     return (
@@ -366,20 +367,44 @@ export function ExperienceLiquidRenderer({
   }
 
   if (templateKey === "skill:image_player_v1" && packet.image_generation) {
+    const hasImages =
+      Array.isArray(packet.image_generation.initial_images) &&
+      packet.image_generation.initial_images.length > 0;
+
     return (
       <>
         <CompositionBundleBrief packet={packet} experienceId={experience.id} />
-        <SkillImagePlayer
-          provider_id={packet.image_generation.provider_id}
-          portrait_prompt={packet.image_generation.portrait_prompt}
-          landscape_prompt={packet.image_generation.landscape_prompt}
-          visual_style={packet.image_generation.visual_style}
-          experience_id={experience.id}
-          autoInvoke={packet.image_generation.auto_invoke !== false}
-          initial_images={packet.image_generation.initial_images}
-          initial_receipt={packet.image_generation.initial_receipt}
-          persona_id={personaId}
-        />
+        {hasImages || generateImages ? (
+          <SkillImagePlayer
+            provider_id={packet.image_generation.provider_id}
+            portrait_prompt={packet.image_generation.portrait_prompt}
+            landscape_prompt={packet.image_generation.landscape_prompt}
+            visual_style={packet.image_generation.visual_style}
+            experience_id={experience.id}
+            autoInvoke={!hasImages}
+            initial_images={packet.image_generation.initial_images}
+            initial_receipt={packet.image_generation.initial_receipt}
+            persona_id={personaId}
+          />
+        ) : (
+          <div className="rounded-2xl border border-slate-700 bg-slate-900/60 p-6 text-center">
+            <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full border border-slate-600 bg-slate-800">
+              <Image className="h-5 w-5 text-slate-400" />
+            </div>
+            <div className="text-sm font-medium text-slate-200">No images generated yet</div>
+            <div className="mt-1 text-xs text-slate-500">
+              You can edit image prompts in the Resources tab before generating.
+            </div>
+            <button
+              type="button"
+              onClick={() => setGenerateImages(true)}
+              className="mt-4 inline-flex items-center gap-2 rounded-lg border border-emerald-400/60 bg-emerald-400/10 px-4 py-2 text-sm text-emerald-200 hover:bg-emerald-400/20"
+            >
+              <Image className="h-4 w-4" />
+              Generate Images
+            </button>
+          </div>
+        )}
       </>
     );
   }
