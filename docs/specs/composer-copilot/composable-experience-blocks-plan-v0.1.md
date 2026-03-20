@@ -363,6 +363,76 @@ The next broader Phase `4` work should include:
 3. block-aware editing handoff so the user can move intentionally between media, copy, and deployment steps
 4. packet/runtime alignment once bundle template and customizer flows are stable
 
+### Phase 4-D Bundle Article Draft Generation
+
+The next concrete Phase `4` slice should be:
+
+1. add a dedicated server-side article draft generation API (`/api/composer/article-draft`)
+2. generate structured article drafts from bundle inputs via LLM (title, deck, opening, sections, takeaways, glossary, next action)
+3. surface the generated draft in the Customizer review surface
+4. fix runtime article preview to consume the generated draft correctly
+
+Status:
+
+- complete
+- `/api/composer/article-draft` now generates structured article drafts using the bundle's article title, prompt, codex context, and persona context
+- deterministic fallback artifact construction is in place for cases where LLM generation is unavailable
+- Customizer draft review surface now consumes LLM-generated output
+- runtime article preview flow fixed to render the persisted draft artifact correctly
+
+### Phase 4-E Bundle Output Persistence + Runtime Article Flow
+
+The next concrete Phase `4` slice should be:
+
+1. persist accepted bundle block outputs (article draft artifact, block status) into ExperienceQube configuration
+2. ensure packet assembly reads persisted article-draft outputs rather than re-deriving from raw inputs
+3. polish the runtime bundle article presentation so it reads cleanly as a runtime surface, not a Studio form
+4. align bundle action labels and delivery profile across runtime and Studio
+
+Status:
+
+- complete
+- accepted bundle block outputs are now persisted via `experienceBundlePresets` service and reflected in the ExperienceQube packet
+- packet route now reads persisted `article_draft.generated` and `article_draft.outputs` directly
+- runtime bundle presentation polished: article structure, section rendering, takeaways, and next-action are rendered as a staged surface
+- bundle action labels and `runtimeDeliveryProfile` aligned between Studio and runtime client
+- bundle article preview flow and article patch typing fixed
+
+### Phase 4-F Runtime Article Delivery
+
+The next concrete Phase `4` slice should be:
+
+1. carry article draft data forward into runtime launch payloads via `runtimeProjectionShared`
+2. render article companions alongside skill-backed image/video experiences in the Experience viewer
+3. add a full runtime article customization surface so end users can read and interact with bundle articles inside the runtime
+4. ensure runtime customization null handling is safe when article fields are absent
+
+Status:
+
+- complete
+- `runtimeProjectionShared` now projects article draft fields into runtime launch payloads
+- Experience viewer (`ExperienceLiquidRenderer`) now renders article companion panels on skill experiences when a bundle article is present
+- `MetaMeRuntimeClient` now includes a full article customization surface (article title, deck, sections, takeaways, glossary, next action) rendered within the runtime shell
+- null handling hardened for runtime customization paths where article config is absent
+- media generation provider defaults to OpenAI when no explicit provider is configured
+
+### Phase 4-G Image Bundle Generation
+
+The next concrete Phase `4` slice should be:
+
+1. add image generation as a first-class bundle output for `image_article_bundle` experiences
+2. generate portrait and landscape image variants from bundle image-generation config at the right point in the lifecycle
+3. persist generated image assets against the ExperienceQube via `persistGeneratedAssetsForExperience`
+4. trigger image generation on session completion rather than on preset apply, so prompts reflect the final authored state
+
+Status:
+
+- complete
+- `requestImageBundleArtifacts` generates portrait and landscape image variants using the bundle's `image_generation` config (provider, portrait prompt, landscape prompt)
+- image generation is triggered on session completion (not preset apply) so the prompts reflect the fully authored experience
+- generated image assets are persisted against the ExperienceQube and the refreshed experience is set as the active completed state
+- bundle preset image config typing and bundled image response typing are both correct
+
 ## 6. Block Contract Model
 
 Each production-grade block should eventually expose a common contract:
@@ -411,9 +481,14 @@ That is the lowest-risk and highest-leverage path.
 
 Updated status:
 
-- this recommendation has now effectively been satisfied far enough to proceed
-- deployment is now modeled as a standalone reusable unit
-- the next step is to move from single-block proof paths into:
-  - bundled image/video/copy creation
-  - shared block state
-  - codex-aware block sequencing
+- Phase 4 through 4-G is now complete
+- the full `Image + Article` bundle golden path is operational:
+  - bundle template identity and block status model in place
+  - Customizer authoring shell with block rail
+  - article draft generation, review, accept/refine/regenerate
+  - article draft persisted and consumed by packet and runtime
+  - article rendered in runtime as a first-class customization surface
+  - image generation triggered on completion with portrait/landscape variants
+  - generated image assets persisted against the ExperienceQube
+- the `Video + Article` bundle path is structurally aligned but image generation is scoped to image bundles only
+- current work is refinement of the `image_article_bundle` golden path, not new phase scope
