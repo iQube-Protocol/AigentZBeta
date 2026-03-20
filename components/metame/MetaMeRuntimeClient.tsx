@@ -2510,8 +2510,10 @@ export default function MetaMeRuntimeClient() {
               const blockStatuses = asRecord(makeBundle?.block_statuses);
               const imageGen = asRecord(content.configuration?.image_generation);
               const hasImagePrompts = typeof imageGen?.portrait_prompt === "string" && (imageGen.portrait_prompt as string).trim().length > 0;
+              const videoPrompt = asRecord(content.configuration?.video_prompt);
+              const hasVideoContent = typeof videoPrompt?.prompt === "string" && (videoPrompt.prompt as string).trim().length > 0;
               const needsImages =
-                (blockKinds.includes("image_generation") || hasImagePrompts) &&
+                (blockKinds.includes("image_generation") || (hasImagePrompts && !hasVideoContent)) &&
                 blockStatuses?.image_generation !== "accepted";
               if (needsImages) {
                 return (
