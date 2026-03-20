@@ -1575,34 +1575,7 @@ export const ComposerStudio = () => {
       }
 
       void recordExperienceLifecycle("experience_launch", exp, "studio-launch");
-
-      const profile = buildRuntimeDeliveryProfile({
-        experience: exp,
-        personaLibraryAssets: personaMediaLibrary as unknown as Array<Record<string, unknown>>,
-        target: "runtime_launch",
-        variant: "runtime_standard",
-      });
-      const articleDraftStr = serializeExperienceArticleDraft(exp);
-      const hasArticle = Boolean(articleDraftStr);
-      const hasVideo = Boolean(profile.videoAssetUrl);
-      const params = new URLSearchParams({
-        capsule: experienceId,
-        experienceId,
-        contentKind: hasArticle && !hasVideo ? "article" : profile.contentKind,
-        runtimeIntent: hasArticle && !hasVideo ? "read" : profile.intent,
-        runtimeQuickLink: hasArticle && !hasVideo ? "read" : profile.quickLink,
-        runtimeCartridge: profile.runtimeCartridge,
-        activeCodexId: profile.codexContext.activeCodexId,
-        activeCodexName: profile.codexContext.activeCodexName,
-      });
-      if (exp.name) params.set("experienceName", exp.name);
-      if (exp.description) params.set("experienceDescription", exp.description);
-      if (profile.imageAssets.landscape) params.set("experienceContextImage", profile.imageAssets.landscape);
-      if (profile.imageAssets.portrait) params.set("experienceImagePortrait", profile.imageAssets.portrait);
-      if (profile.imageAssets.landscape) params.set("experienceImageLandscape", profile.imageAssets.landscape);
-      if (profile.videoAssetUrl) params.set("experienceVideo", profile.videoAssetUrl);
-      if (articleDraftStr) params.set("experienceArticleDraft", articleDraftStr);
-      router.push(`/metame/runtime?${params.toString()}`);
+      router.push(`/studio/composer/experience/${encodeURIComponent(experienceId)}`);
     } catch {
       openRuntimePreviewForExperience(exp, "Launch fallback");
     }
@@ -9066,6 +9039,25 @@ export const ComposerStudio = () => {
                             >
                               <Play className="h-3 w-3" />
                             </button>
+                            {(() => {
+                              const makeBundle = asRecord(exp.configuration?.make_bundle);
+                              const blockKinds = Array.isArray(makeBundle?.blockKinds) ? makeBundle.blockKinds as string[] : [];
+                              const blockStatuses = asRecord(makeBundle?.block_statuses);
+                              if (!blockKinds.includes("image_generation")) return null;
+                              if (blockStatuses?.image_generation === "accepted") return null;
+                              return (
+                                <button
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    void launchExperience(exp);
+                                  }}
+                                  className="rounded-lg border border-violet-400/60 bg-violet-400/10 p-2 text-violet-200 hover:bg-violet-400/20"
+                                  title="Generate Images"
+                                >
+                                  <Sparkles className="h-3 w-3" />
+                                </button>
+                              );
+                            })()}
                             <button
                               onClick={(event) => {
                                 event.stopPropagation();

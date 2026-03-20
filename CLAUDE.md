@@ -94,6 +94,20 @@ docs/                  — Architecture, operator manuals, progress reports
 
 ---
 
+## Deployment
+
+When asked to "deploy", always deploy to **dev** unless explicitly told otherwise.
+
+**How to deploy to dev:**
+1. Update `.amplify-deploy` with a new timestamp: `echo "Deploy trigger $(date)" > .amplify-deploy`
+2. Commit and push to the current `claude/` branch
+3. The `merge-claude-to-dev` GitHub Actions workflow auto-merges to `dev`
+4. Amplify picks up the `dev` branch change and triggers the build
+
+**Other environments** (staging, main) — only deploy there if the user explicitly requests it.
+
+---
+
 ## Adding to This File
 
 When a new rule, pattern, or constraint is established during development, add it here immediately.
