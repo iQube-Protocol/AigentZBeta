@@ -2109,6 +2109,15 @@ export const ComposerStudio = () => {
     searchParams?.get("bundleBlock") === "deployment"
       ? searchParams.get("bundleBlock")
       : null;
+  const requestedFocus = searchParams?.get("focus") || null;
+
+  // Auto-open the DVN Receipts tab when navigated back from runtime with focus=receipt
+  useEffect(() => {
+    if (requestedFocus === "receipt") {
+      setStudioAnalysisTab("receipts");
+      setIsParityExpanded(true);
+    }
+  }, [requestedFocus]);
 
   useEffect(() => {
     if (!requestedExperienceId) return;
@@ -3506,7 +3515,7 @@ export const ComposerStudio = () => {
           },
         };
 
-        const seeded = await startSeededSessionForTemplate("qriptopian_reading_sprint_v0", seedData, {
+        const seeded = await startSeededSessionForTemplate("ai-image-generation", seedData, {
           currentStep: 1,
         });
         const providerKnowledge = getComposerProviderKnowledge(providerId);
@@ -3550,7 +3559,7 @@ export const ComposerStudio = () => {
           },
         };
 
-        const seeded = await startSeededSessionForTemplate("qriptopian_reading_sprint_v0", seedData, {
+        const seeded = await startSeededSessionForTemplate("ai-article-draft", seedData, {
           currentStep: 1,
         });
 
