@@ -66,6 +66,7 @@ interface InvocationResult {
   provider_status?: string;
   provider_progress?: number;
   invocation_phase?: "provider_submit" | "job_accepted" | "polling" | "completed" | "failed";
+  thumbnail_url?: string;
 }
 
 // Convert skill composite (0–100) to trust dot scale (0–10)
@@ -249,6 +250,7 @@ export default function SkillVideoPlayer({
                 video_url: data.video_url,
                 provider_status: data.status,
                 provider_progress: typeof data.progress === "number" ? data.progress : prev.provider_progress,
+                ...(typeof data.thumbnail_url === "string" ? { thumbnail_url: data.thumbnail_url } : {}),
               }
             : prev
         );
@@ -347,6 +349,21 @@ export default function SkillVideoPlayer({
           prompt,
           createdAt: new Date().toISOString(),
         },
+        // Persist thumbnail as a companion portrait image so it surfaces as coverImageUri / OG image
+        ...(result.thumbnail_url
+          ? [
+              {
+                id: `${experience_id}:video:thumbnail`,
+                type: "image" as const,
+                label: "Video thumbnail",
+                provider: result.provider,
+                orientation: "portrait" as const,
+                assetUrl: result.thumbnail_url,
+                prompt,
+                createdAt: new Date().toISOString(),
+              },
+            ]
+          : []),
       ],
       receipt: result.receipt,
       personaId: persona_id,

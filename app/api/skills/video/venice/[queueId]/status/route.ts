@@ -1,4 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  extractThumbnailFromBuffer,
+  extractThumbnailFromUrl,
+  persistThumbnailAsset,
+} from "@/app/api/skills/video/_thumbnail";
 
 export const runtime = "nodejs";
 
@@ -52,13 +57,22 @@ export async function GET(
 
     const contentType = res.headers.get("content-type") || "";
 
-    // If Venice returns video binary directly, defer the heavy download to the dedicated media route.
+    // If Venice returns video binary directly, extract thumbnail then redirect to the proxy for the full video.
     if (contentType.startsWith("video/") || contentType.startsWith("application/octet-stream")) {
+      const proxyUrl = `/api/skills/video/venice/${queueId}?model=${encodeURIComponent(model)}`;
+      const videoBytes = res.body ? Buffer.from(await res.arrayBuffer()) : null;
+      const thumbBuffer = videoBytes
+        ? await extractThumbnailFromBuffer(videoBytes, queueId).catch(() => null)
+        : null;
+      const thumbnailUrl = thumbBuffer
+        ? await persistThumbnailAsset(thumbBuffer, queueId, "venice").catch(() => null)
+        : null;
       return NextResponse.json({
         ready: true,
         status: "completed",
         progress: 100,
-        video_url: `/api/skills/video/venice/${queueId}?model=${encodeURIComponent(model)}`,
+        video_url: proxyUrl,
+        ...(thumbnailUrl ? { thumbnail_url: thumbnailUrl } : {}),
       });
     }
 
@@ -78,19 +92,32 @@ export async function GET(
     const status = data?.status || "PROCESSING";
     const remoteVideoUrl = extractRemoteVideoUrl(data);
     if (String(status).toLowerCase() === "completed" && remoteVideoUrl) {
+      // Venice returned a remote URL — fetch a partial range for thumbnail extraction.
+      const thumbBuffer = await extractThumbnailFromUrl(remoteVideoUrl, queueId).catch(() => null);
+      const thumbnailUrl = thumbBuffer
+        ? await persistThumbnailAsset(thumbBuffer, queueId, "venice").catch(() => null)
+        : null;
       return NextResponse.json({
         ready: true,
         status: "completed",
         progress: 100,
         video_url: remoteVideoUrl,
+        ...(thumbnailUrl ? { thumbnail_url: thumbnailUrl } : {}),
       });
     }
     if (String(status).toLowerCase() === "completed") {
+      // Completed but no remote URL — extract from proxy stream via range request.
+      const proxyUrl = `/api/skills/video/venice/${queueId}?model=${encodeURIComponent(model)}`;
+      const thumbBuffer = await extractThumbnailFromUrl(proxyUrl, queueId).catch(() => null);
+      const thumbnailUrl = thumbBuffer
+        ? await persistThumbnailAsset(thumbBuffer, queueId, "venice").catch(() => null)
+        : null;
       return NextResponse.json({
         ready: true,
         status: "completed",
         progress: 100,
-        video_url: `/api/skills/video/venice/${queueId}?model=${encodeURIComponent(model)}`,
+        video_url: proxyUrl,
+        ...(thumbnailUrl ? { thumbnail_url: thumbnailUrl } : {}),
       });
     }
     const avgTime = data?.average_execution_time || 0;

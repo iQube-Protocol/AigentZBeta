@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { StorageAdapterFactory } from "@/services/content/storageAdapter";
 import { createClient } from "@supabase/supabase-js";
+import {
+  extractThumbnailFromBuffer,
+  persistThumbnailAsset,
+} from "@/app/api/skills/video/_thumbnail";
 
 /**
  * GET /api/skills/video/[id]/status
@@ -162,11 +166,18 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
         data: buffer,
       });
 
+      // Extract and persist a JPEG thumbnail at 1 s — ready alongside the video.
+      const thumbBuffer = await extractThumbnailFromBuffer(Buffer.from(buffer), videoId).catch(() => null);
+      const thumbnailUrl = thumbBuffer
+        ? await persistThumbnailAsset(thumbBuffer, videoId, "openai").catch(() => null)
+        : null;
+
       return NextResponse.json({
         ready: true,
         status: "completed",
         progress: 100,
         video_url: persistedUrl,
+        ...(thumbnailUrl ? { thumbnail_url: thumbnailUrl } : {}),
         checked_at: new Date().toISOString(),
       }, {
         headers: { "Cache-Control": "no-store, no-cache, must-revalidate" },
