@@ -136,13 +136,8 @@ async function createVeniceJob(
 ): Promise<{ queue_id: string; model: string }> {
   const veniceModel = (model || VENICE_DEFAULT_MODEL).trim();
   const dur: "5s" | "10s" = seconds <= 5 ? "5s" : "10s";
-  const quote = await quoteVeniceVideo(apiKey, veniceModel, dur, aspectRatio);
-  if (!quote.ok) {
-    if (isVeniceInsufficientBalanceError(quote.error)) {
-      throw new Error(`Venice account has insufficient credits for video generation. ${quote.error}`);
-    }
-    throw new Error(`${veniceModel}: ${quote.error}`);
-  }
+  // Quote pre-flight removed — the queue call itself returns a clear error
+  // for insufficient balance, saving up to 10 s of extra round-trip latency.
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 20_000);
