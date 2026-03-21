@@ -2606,6 +2606,78 @@ export default function MetaMeRuntimeClient() {
     [buildRuntimeCapsulePanel, lastIntent]
   );
 
+  // Moved earlier than its original location (was after runtimeSurface) so the auto-launch
+  // effect below can reference it without a temporal dead zone error.
+  const renderRuntimeExperienceChip = useCallback(
+    (content: RuntimeCapsule, intent: RuntimeIntent) => {
+      const heroImage = resolveCapsuleCoverImage(content);
+      const experienceKinds = deriveRuntimeExperienceKinds(content);
+      const bundleLabel = resolveRuntimeExperienceBundleLabel(content);
+      const { headline, summary } = resolveRuntimeExperienceSummary(content);
+      const quickActions = deriveRuntimeExperienceQuickActions(content, intent);
+      const consumerExperienceHref = content.runtimeLaunchHref
+        ? withQueryParam(content.runtimeLaunchHref, "device", activeDevice)
+        : null;
+      return (
+        <div className="rounded-2xl border border-white/10 bg-slate-900/70 p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="text-[10px] uppercase tracking-[0.18em] text-cyan-300/80">Experience chip</div>
+              <div className="mt-1 text-base font-semibold text-white">{headline}</div>
+              <div className="mt-1 text-sm text-slate-300 line-clamp-3">{summary}</div>
+            </div>
+            <div className="flex flex-wrap items-center justify-end gap-1.5">
+              {bundleLabel ? (
+                <span className="rounded-full border border-cyan-400/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] text-cyan-200">
+                  {bundleLabel}
+                </span>
+              ) : null}
+              {experienceKinds.map((kind) => (
+                <span
+                  key={`chip-${content.id}-${kind}`}
+                  className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-slate-200"
+                  title={kind}
+                >
+                  {runtimeContentKindIcon(kind)}
+                  <span className={activeDevice === "mobile" ? "sr-only" : ""}>{kind}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+          {heroImage ? (
+            <div className="mt-3 overflow-hidden rounded-xl border border-white/10">
+              <img src={heroImage} alt={content.title} className="h-40 w-full object-cover" loading="lazy" />
+            </div>
+          ) : null}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {quickActions.map((action) => (
+              <span
+                key={`chip-action-${content.id}-${action.kind}`}
+                className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-slate-200"
+              >
+                {action.kind === "watch" ? <PlayCircle className="h-3.5 w-3.5" /> : null}
+                {action.kind === "read" ? <BookOpen className="h-3.5 w-3.5" /> : null}
+                {action.kind === "listen" ? <Headphones className="h-3.5 w-3.5" /> : null}
+                {action.kind === "share" ? <Share2 className="h-3.5 w-3.5" /> : null}
+                {action.label}
+              </span>
+            ))}
+            {consumerExperienceHref && !embedMode ? (
+              <a
+                href={consumerExperienceHref}
+                className="inline-flex items-center gap-1 rounded-full border border-cyan-300/25 bg-cyan-500/10 px-3 py-1 text-[11px] text-cyan-100 transition hover:bg-cyan-500/20"
+              >
+                <Eye className="h-3.5 w-3.5" />
+                Enter experience
+              </a>
+            ) : null}
+          </div>
+        </div>
+      );
+    },
+    [activeDevice, embedMode],
+  );
+
   useEffect(() => {
     if (!queryPreviewDisplayCapsule) {
       autoLaunchedCapsuleRef.current = null;
@@ -2617,8 +2689,23 @@ export default function MetaMeRuntimeClient() {
     const launchIntent = runtimeIntentParam || defaultRuntimeIntentForCapsule(queryPreviewDisplayCapsule);
     setLastIntent(launchIntent);
     setSelectedCapsuleLocal(queryPreviewDisplayCapsule.id);
+    // In embed mode, prepend a compact chip message so the chip appears inside the shell's
+    // scrollable message stream rather than in a separate header above it.
+    if (embedMode) {
+      const chipMessageId = `capsule-chip-${queryPreviewDisplayCapsule.id}`;
+      setMessages((prev) => [
+        ...prev.filter((m) => !m.id.startsWith("capsule-chip-")),
+        {
+          id: chipMessageId,
+          role: "assistant" as const,
+          content: renderRuntimeExperienceChip(queryPreviewDisplayCapsule, launchIntent),
+          timestamp: new Date(),
+          variant: "panel" as const,
+        },
+      ]);
+    }
     launchCapsule(queryPreviewDisplayCapsule, launchIntent);
-  }, [launchCapsule, queryPreviewDisplayCapsule, runtimeIntentParam]);
+  }, [embedMode, launchCapsule, queryPreviewDisplayCapsule, renderRuntimeExperienceChip, runtimeIntentParam]);
 
   // When queryPreviewDisplayCapsule changes due to runtimeExperienceOverrides (same id, updated
   // article draft), refresh the already-launched message panel in the shell in-place.
@@ -4163,76 +4250,6 @@ export default function MetaMeRuntimeClient() {
         ? "mx-auto w-full max-w-[860px]"
         : "mx-auto w-full max-w-[430px]";
 
-  const renderRuntimeExperienceChip = useCallback(
-    (content: RuntimeCapsule, intent: RuntimeIntent) => {
-      const heroImage = resolveCapsuleCoverImage(content);
-      const experienceKinds = deriveRuntimeExperienceKinds(content);
-      const bundleLabel = resolveRuntimeExperienceBundleLabel(content);
-      const { headline, summary } = resolveRuntimeExperienceSummary(content);
-      const quickActions = deriveRuntimeExperienceQuickActions(content, intent);
-      const consumerExperienceHref = content.runtimeLaunchHref
-        ? withQueryParam(content.runtimeLaunchHref, "device", activeDevice)
-        : null;
-      return (
-        <div className="rounded-2xl border border-white/10 bg-slate-900/70 p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="text-[10px] uppercase tracking-[0.18em] text-cyan-300/80">Experience chip</div>
-              <div className="mt-1 text-base font-semibold text-white">{headline}</div>
-              <div className="mt-1 text-sm text-slate-300 line-clamp-3">{summary}</div>
-            </div>
-            <div className="flex flex-wrap items-center justify-end gap-1.5">
-              {bundleLabel ? (
-                <span className="rounded-full border border-cyan-400/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] text-cyan-200">
-                  {bundleLabel}
-                </span>
-              ) : null}
-              {experienceKinds.map((kind) => (
-                <span
-                  key={`chip-${content.id}-${kind}`}
-                  className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-slate-200"
-                  title={kind}
-                >
-                  {runtimeContentKindIcon(kind)}
-                  <span className={activeDevice === "mobile" ? "sr-only" : ""}>{kind}</span>
-                </span>
-              ))}
-            </div>
-          </div>
-          {heroImage ? (
-            <div className="mt-3 overflow-hidden rounded-xl border border-white/10">
-              <img src={heroImage} alt={content.title} className="h-40 w-full object-cover" loading="lazy" />
-            </div>
-          ) : null}
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            {quickActions.map((action) => (
-              <span
-                key={`chip-action-${content.id}-${action.kind}`}
-                className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-slate-200"
-              >
-                {action.kind === "watch" ? <PlayCircle className="h-3.5 w-3.5" /> : null}
-                {action.kind === "read" ? <BookOpen className="h-3.5 w-3.5" /> : null}
-                {action.kind === "listen" ? <Headphones className="h-3.5 w-3.5" /> : null}
-                {action.kind === "share" ? <Share2 className="h-3.5 w-3.5" /> : null}
-                {action.label}
-              </span>
-            ))}
-            {consumerExperienceHref && !embedMode ? (
-              <a
-                href={consumerExperienceHref}
-                className="inline-flex items-center gap-1 rounded-full border border-cyan-300/25 bg-cyan-500/10 px-3 py-1 text-[11px] text-cyan-100 transition hover:bg-cyan-500/20"
-              >
-                <Eye className="h-3.5 w-3.5" />
-                Enter experience
-              </a>
-            ) : null}
-          </div>
-        </div>
-      );
-    },
-    [activeDevice, embedMode],
-  );
-
   const runtimeEditorPanel =
     runtimeAdminMode && queryPreviewDisplayCapsule ? (
       <div className="rounded-2xl border border-violet-400/25 bg-slate-900/70 p-4 space-y-4">
@@ -4486,15 +4503,15 @@ export default function MetaMeRuntimeClient() {
 
   if (embedMode) {
     const embedWidthClass = isRuntimeFullscreen || thinShellMode ? "w-full" : runtimeDeviceWidthClass;
-    const previewIntent =
-      runtimeIntentParam || (queryPreviewDisplayCapsule ? defaultRuntimeIntentForCapsule(queryPreviewDisplayCapsule) : "read");
     if (queryPreviewDisplayCapsule) {
       return (
         <div className="h-full w-full overflow-hidden bg-slate-950 flex flex-col p-0">
-          <div className="shrink-0 overflow-y-auto space-y-3 px-3 pt-3">
-            {renderRuntimeExperienceChip(queryPreviewDisplayCapsule, previewIntent)}
-            {runtimeEditorPanel}
-          </div>
+          {/* Editor panel shown above shell only in admin mode; null in normal usage so shell gets full height */}
+          {runtimeAdminMode && runtimeEditorPanel ? (
+            <div className="shrink-0 border-b border-white/10 overflow-y-auto px-3 py-2">
+              {runtimeEditorPanel}
+            </div>
+          ) : null}
           <div className={`flex-1 min-h-0 ${embedWidthClass}`}>
             {showWelcome ? welcomeSurface : runtimeSurface}
           </div>
