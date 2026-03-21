@@ -691,10 +691,128 @@ export function initializeDefaultTemplates(): void {
     tags: ['video', 'sora', 'creative', 'skill', 'openclaw'],
   };
 
+  // AI Image Generation Template (standalone images, no article)
+  const aiImageGeneration: TemplateData = {
+    id: 'ai-image-generation',
+    name: 'AI Image Generation',
+    description: 'Generate standalone AI portrait and landscape images — no article.',
+    category: 'interactive',
+    complexity: 'beginner',
+    estimated_time: 10,
+    required_components: ['ToolQube'],
+    optional_components: [],
+    steps: [
+      {
+        id: 'intent_timebox',
+        title: 'Image Intent',
+        description: 'Name this image experience and describe what you want to create.',
+        type: 'configuration',
+        required: true,
+        ui_config: {
+          layout: 'form',
+          fields: [
+            { id: 'experience_name', name: 'Experience name', type: 'text', required: true },
+            { id: 'goal', name: 'Goal', type: 'textarea', required: false },
+          ],
+        },
+      },
+      {
+        id: 'image_generation',
+        title: 'Image Generation',
+        description: 'Configure AI image prompts and provider.',
+        type: 'configuration',
+        required: true,
+        ui_config: {
+          layout: 'form',
+          fields: [
+            { id: 'provider_id', name: 'Provider', type: 'select', required: true, default_value: 'openai', options: [{ value: 'openai', label: 'OpenAI DALL·E' }, { value: 'venice', label: 'Venice AI' }] },
+            { id: 'portrait_prompt', name: 'Portrait prompt (9:16)', type: 'textarea', required: true },
+            { id: 'landscape_prompt', name: 'Landscape prompt (16:9)', type: 'textarea', required: false },
+            { id: 'visual_style', name: 'Visual style', type: 'select', required: false, options: [{ value: 'editorial', label: 'Editorial' }, { value: 'cinematic', label: 'Cinematic' }, { value: 'photorealistic', label: 'Photorealistic' }, { value: 'illustrated', label: 'Illustrated' }] },
+          ],
+        },
+      },
+      {
+        id: 'wallet_rewards',
+        title: 'Rewards (Optional)',
+        description: 'Optional rewards for viewing this image experience.',
+        type: 'configuration',
+        required: false,
+        ui_config: {
+          layout: 'form',
+          fields: [
+            { id: 'reward_amount', name: 'Reward amount (Q¢)', type: 'text', required: false },
+          ],
+        },
+      },
+    ],
+    tags: ['image', 'ai-generation', 'portrait', 'landscape', 'openai', 'venice'],
+  };
+
+  // AI Article Draft Template (standalone article, no images or video)
+  const aiArticleDraft: TemplateData = {
+    id: 'ai-article-draft',
+    name: 'Article Draft',
+    description: 'Write and publish a standalone article — no images or video.',
+    category: 'content',
+    complexity: 'beginner',
+    estimated_time: 20,
+    required_components: ['ContentQube'],
+    optional_components: [],
+    steps: [
+      {
+        id: 'intent_timebox',
+        title: 'Article Intent',
+        description: 'Name this article and describe what you want to write.',
+        type: 'configuration',
+        required: true,
+        ui_config: {
+          layout: 'form',
+          fields: [
+            { id: 'experience_name', name: 'Experience name', type: 'text', required: true },
+            { id: 'goal', name: 'Goal / topic', type: 'textarea', required: true },
+          ],
+        },
+      },
+      {
+        id: 'article_draft',
+        title: 'Article Draft',
+        description: 'Configure article title, prompt, and structure.',
+        type: 'configuration',
+        required: true,
+        ui_config: {
+          layout: 'form',
+          fields: [
+            { id: 'title', name: 'Article title', type: 'text', required: true },
+            { id: 'prompt', name: 'Article prompt', type: 'textarea', required: true },
+            { id: 'outputs', name: 'Include sections', type: 'multiselect', required: false, options: [{ value: 'takeaways', label: 'Key takeaways' }, { value: 'next_action', label: 'Next action' }, { value: 'summary', label: 'Summary' }] },
+            { id: 'takeaways_count', name: 'Number of takeaways', type: 'slider', required: false, validation: { min: 1, max: 5, step: 1 } },
+          ],
+        },
+      },
+      {
+        id: 'wallet_rewards',
+        title: 'Rewards (Optional)',
+        description: 'Optional reward for reading completion.',
+        type: 'configuration',
+        required: false,
+        ui_config: {
+          layout: 'form',
+          fields: [
+            { id: 'reward_amount', name: 'Reward amount (Q¢)', type: 'text', required: false },
+          ],
+        },
+      },
+    ],
+    tags: ['article', 'editorial', 'writing', 'draft'],
+  };
+
   createTemplate(contentAnalysisTemplate);
   createTemplate(interactiveStoryTemplate);
   createTemplate(qriptopianReadingSprint);
   createTemplate(soraVideoGeneration);
+  createTemplate(aiImageGeneration);
+  createTemplate(aiArticleDraft);
 }
 
 // Initialize default templates on import
