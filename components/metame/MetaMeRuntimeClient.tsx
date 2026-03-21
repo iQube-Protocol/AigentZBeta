@@ -483,6 +483,8 @@ function normalizeImageCandidate(candidate: unknown): string | null {
   if (typeof candidate !== "string") return null;
   const value = candidate.trim();
   if (!value) return null;
+  // Reject video URIs — they cannot be used as <img> src or og:image
+  if (isLikelyVideoUri(value)) return null;
   if (value.startsWith("http://") || value.startsWith("https://") || value.startsWith("/")) return value;
   if (/\.(png|jpg|jpeg|webp|gif|avif|svg)$/i.test(value)) return value;
   return null;
@@ -2648,6 +2650,16 @@ export default function MetaMeRuntimeClient() {
             <div className="mt-3 overflow-hidden rounded-xl border border-white/10">
               <img src={heroImage} alt={content.title} className="h-40 w-full object-cover" loading="lazy" />
             </div>
+          ) : isLikelyVideoUri(content.runtimePreviewMediaUri || null) ? (
+            <div className="mt-3 overflow-hidden rounded-xl border border-white/10">
+              <video
+                src={content.runtimePreviewMediaUri || undefined}
+                className="h-40 w-full object-cover"
+                muted
+                playsInline
+                preload="metadata"
+              />
+            </div>
           ) : null}
           <div className="mt-3 flex flex-wrap items-center gap-2">
             {quickActions.map((action) => (
@@ -2900,7 +2912,7 @@ export default function MetaMeRuntimeClient() {
                   }}
                 >
                   <div className="relative h-full w-full">
-                    {content.runtimeSource === "experience" && isLikelyVideoUri(content.runtimePreviewMediaUri || null) ? (
+                    {isLikelyVideoUri(content.runtimePreviewMediaUri || null) ? (
                       <video
                         src={content.runtimePreviewMediaUri || undefined}
                         poster={heroImage || undefined}
@@ -4100,7 +4112,7 @@ export default function MetaMeRuntimeClient() {
         onMessagesChange={setMessages}
         quickPrompts={thinShellMode ? [] : quickPrompts}
         onPrompt={handlePrompt}
-        floatingInput={!thinShellMode && !embedPreviewMode}
+        floatingInput={false}
         disablePromptInput={thinShellMode || embedPreviewMode}
         showTrustIndicators={!thinShellMode}
         disableActivationButton
