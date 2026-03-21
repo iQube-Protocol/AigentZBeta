@@ -2701,7 +2701,7 @@ export default function MetaMeRuntimeClient() {
   useEffect(() => {
     if (!queryPreviewDisplayCapsule || !autoLaunchedCapsuleRef.current) return;
     if (autoLaunchedCapsuleRef.current !== queryPreviewDisplayCapsule.id) return;
-    const cap = queryPreviewDisplayCapsule as Record<string, unknown>;
+    const cap = queryPreviewDisplayCapsule as unknown as Record<string, unknown>;
     const updateKey = [
       String(cap.id ?? ""),
       runtimeIntentParam ?? "",
