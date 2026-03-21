@@ -4048,9 +4048,9 @@ export default function MetaMeRuntimeClient() {
 
   // In embed-preview mode (embedMode + a selected experience capsule) we disable the
   // floating prompt input to eliminate CodexCopilotLayer's invisible h-28 hover zone that
-  // sits 112px tall above the footer and interferes with scrolling. The runtimeMenu is
-  // rendered as a sibling shrink-0 div outside CodexCopilotLayer so it sits flush with
-  // the bottom of the scroll area.
+  // sits 112px tall above the footer and interferes with scrolling.
+  // runtimeMenu is intentionally omitted from runtimeSurface — menu parity with the thin
+  // client will be addressed separately.
   const embedPreviewMode = embedMode && !!queryPreviewDisplayCapsule;
   const runtimeSurface = (
     <div className="metame-runtime-layer relative h-full w-full rounded-[5px] bg-slate-950 text-white overflow-hidden flex flex-col">
@@ -4076,18 +4076,14 @@ export default function MetaMeRuntimeClient() {
         onMessagesChange={setMessages}
         quickPrompts={thinShellMode ? [] : quickPrompts}
         onPrompt={handlePrompt}
-        footerContent={thinShellMode || embedPreviewMode ? null : runtimeMenu}
         floatingInput={!thinShellMode && !embedPreviewMode}
         disablePromptInput={thinShellMode || embedPreviewMode}
         showTrustIndicators={!thinShellMode}
         disableActivationButton
         showQuickPromptsToggle={!thinShellMode}
         trustProvider={trustProvider}
-        className={embedPreviewMode ? "flex-1 min-h-0" : "h-full"}
+        className="h-full"
       />
-      {embedPreviewMode && !thinShellMode ? (
-        <div className="shrink-0">{runtimeMenu}</div>
-      ) : null}
     </div>
   );
 
