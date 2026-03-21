@@ -2694,9 +2694,23 @@ export default function MetaMeRuntimeClient() {
 
   // When queryPreviewDisplayCapsule changes due to runtimeExperienceOverrides (same id, updated
   // article draft), refresh the already-launched message panel in the shell in-place.
+  // Guard with a stable key so we only call setMessages (and trigger scrollChatToBottom) when
+  // content has actually changed — not just because queryPreviewDisplayCapsule got a new object
+  // reference from useMemo.
+  const lastInPlaceUpdateKeyRef = useRef<string>("");
   useEffect(() => {
     if (!queryPreviewDisplayCapsule || !autoLaunchedCapsuleRef.current) return;
     if (autoLaunchedCapsuleRef.current !== queryPreviewDisplayCapsule.id) return;
+    const cap = queryPreviewDisplayCapsule as Record<string, unknown>;
+    const updateKey = [
+      String(cap.id ?? ""),
+      runtimeIntentParam ?? "",
+      String(cap.title ?? ""),
+      String(cap.articleTitle ?? ""),
+      JSON.stringify(cap.articleDraft ?? null),
+    ].join("\x00");
+    if (updateKey === lastInPlaceUpdateKeyRef.current) return;
+    lastInPlaceUpdateKeyRef.current = updateKey;
     const launchMessageId = buildLaunchMessageId({
       runtimeSource: queryPreviewDisplayCapsule.runtimeSource,
       runtimeCodexSlug: queryPreviewDisplayCapsule.runtimeCodexSlug || null,
@@ -3028,13 +3042,24 @@ export default function MetaMeRuntimeClient() {
     [activeCapsuleId, activeDevice, buildSharePanel, capsuleContents, embedMode, launchCapsule]
   );
 
+  // Gate capsule-panel message updates by capsule ID list + active capsule + device.
+  // capsulePanel (JSX) always produces a new reference even when content is identical;
+  // calling setMessages on every re-memo would change displayMessages and fire
+  // scrollChatToBottom() unnecessarily. Only update when the meaningful identifiers change.
+  const capsulePanelHashRef = useRef<string>("");
+  const capsulePanelTimestampRef = useRef<Date>(new Date());
   useEffect(() => {
     if (showWelcome) return;
+    const hash = [activeDevice, activeCapsuleId ?? "", capsuleContents.map((c) => c.id).join(",")].join("|");
+    if (hash === capsulePanelHashRef.current) return;
+    capsulePanelHashRef.current = hash;
+    // Reuse the same timestamp so the message object itself doesn't change reference
+    // unnecessarily when only the JSX content updates.
     const panelMsg = {
       id: "capsule-panel",
       role: "assistant" as const,
       content: capsulePanel,
-      timestamp: new Date(),
+      timestamp: capsulePanelTimestampRef.current,
       variant: "panel" as const,
     };
     setMessages((prev) => {
@@ -3043,7 +3068,7 @@ export default function MetaMeRuntimeClient() {
       // keeping them visible. Experience content sits above and is readable by scrolling up.
       return [...withoutPanel, panelMsg];
     });
-  }, [capsulePanel, embedMode, showWelcome]);
+  }, [activeCapsuleId, activeDevice, capsuleContents, capsulePanel, embedMode, showWelcome]);
 
   const flushQueuedRuntimeEvents = useCallback(() => {
     if (typeof window === "undefined") return;
@@ -4042,11 +4067,14 @@ export default function MetaMeRuntimeClient() {
     </div>
   );
 
-  // In embed-preview mode (embedMode + a selected experience capsule) we disable the
-  // floating prompt input to eliminate CodexCopilotLayer's invisible h-28 hover zone that
-  // sits 112px tall above the footer and interferes with scrolling. runtimeMenu is rendered
-  // as a shrink-0 sibling outside CodexCopilotLayer in embedPreviewMode so it sits flush at
-  // the bottom without causing the h-full overflow issue.
+  // runtimeMenu is always rendered as a shrink-0 sibling outside CodexCopilotLayer so it
+  // is reliably visible in all views (live, embed, embed-preview). Passing it as footerContent
+  // to CodexCopilotLayer is unreliable: footerContent lives inside the !disablePromptInput
+  // block inside an absolute bottom-0 div, which can be clipped or hidden by the floating
+  // input overlay. Using a sibling guarantees correct flex layout in every mode.
+  //
+  // In embed-preview mode we also disable the floating prompt input to eliminate
+  // CodexCopilotLayer's invisible h-28 hover zone (112px) that overlaps the scroll area.
   const embedPreviewMode = embedMode && !!queryPreviewDisplayCapsule;
   const runtimeSurface = (
     <div className="metame-runtime-layer relative h-full w-full rounded-[5px] bg-slate-950 text-white overflow-hidden flex flex-col">
@@ -4072,18 +4100,15 @@ export default function MetaMeRuntimeClient() {
         onMessagesChange={setMessages}
         quickPrompts={thinShellMode ? [] : quickPrompts}
         onPrompt={handlePrompt}
-        footerContent={thinShellMode || embedPreviewMode ? null : runtimeMenu}
         floatingInput={!thinShellMode && !embedPreviewMode}
         disablePromptInput={thinShellMode || embedPreviewMode}
         showTrustIndicators={!thinShellMode}
         disableActivationButton
         showQuickPromptsToggle={!thinShellMode}
         trustProvider={trustProvider}
-        className={embedPreviewMode ? "flex-1 min-h-0" : "h-full"}
+        className="flex-1 min-h-0"
       />
-      {embedPreviewMode && !thinShellMode ? (
-        <div className="shrink-0">{runtimeMenu}</div>
-      ) : null}
+      {!thinShellMode ? <div className="shrink-0">{runtimeMenu}</div> : null}
     </div>
   );
 
