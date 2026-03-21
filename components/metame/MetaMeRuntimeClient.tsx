@@ -4083,7 +4083,7 @@ export default function MetaMeRuntimeClient() {
         disableActivationButton
         showQuickPromptsToggle={!thinShellMode}
         trustProvider={trustProvider}
-        className="h-full"
+        className={embedPreviewMode ? "flex-1 min-h-0" : "h-full"}
       />
       {embedPreviewMode && !thinShellMode ? (
         <div className="shrink-0">{runtimeMenu}</div>
@@ -4541,19 +4541,9 @@ export default function MetaMeRuntimeClient() {
     </div>
   );
 
-  if (queryPreviewDisplayCapsule) {
-    const launchIntent = runtimeIntentParam || defaultRuntimeIntentForCapsule(queryPreviewDisplayCapsule);
-    return (
-      <div className="min-h-screen bg-slate-950 text-white px-4 py-6">
-        <div className={`mx-auto w-full space-y-4 ${runtimeDeviceWidthClass}`}>
-          {runtimeToolbar(activeDevice, setActiveDevice)}
-          {renderRuntimeExperienceChip(queryPreviewDisplayCapsule, launchIntent)}
-          {runtimeEditorPanel}
-          {buildRuntimeCapsulePanel(queryPreviewDisplayCapsule, launchIntent)}
-        </div>
-      </div>
-    );
-  }
+  // Non-embed queryPreviewDisplayCapsule falls through to the PreviewFrame path below,
+  // which shows runtimeSurface (CodexCopilotLayer with full header/footer shell). The
+  // auto-launch effect adds the experience content as messages inside the shell.
 
   return (
     <div className="min-h-screen bg-slate-950 text-white px-4 py-6">
