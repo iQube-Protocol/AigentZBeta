@@ -2689,23 +2689,8 @@ export default function MetaMeRuntimeClient() {
     const launchIntent = runtimeIntentParam || defaultRuntimeIntentForCapsule(queryPreviewDisplayCapsule);
     setLastIntent(launchIntent);
     setSelectedCapsuleLocal(queryPreviewDisplayCapsule.id);
-    // In embed mode, prepend a compact chip message so the chip appears inside the shell's
-    // scrollable message stream rather than in a separate header above it.
-    if (embedMode) {
-      const chipMessageId = `capsule-chip-${queryPreviewDisplayCapsule.id}`;
-      setMessages((prev) => [
-        ...prev.filter((m) => !m.id.startsWith("capsule-chip-")),
-        {
-          id: chipMessageId,
-          role: "assistant" as const,
-          content: renderRuntimeExperienceChip(queryPreviewDisplayCapsule, launchIntent),
-          timestamp: new Date(),
-          variant: "panel" as const,
-        },
-      ]);
-    }
     launchCapsule(queryPreviewDisplayCapsule, launchIntent);
-  }, [embedMode, launchCapsule, queryPreviewDisplayCapsule, renderRuntimeExperienceChip, runtimeIntentParam]);
+  }, [launchCapsule, queryPreviewDisplayCapsule, runtimeIntentParam]);
 
   // When queryPreviewDisplayCapsule changes due to runtimeExperienceOverrides (same id, updated
   // article draft), refresh the already-launched message panel in the shell in-place.
@@ -3045,20 +3030,24 @@ export default function MetaMeRuntimeClient() {
 
   useEffect(() => {
     if (showWelcome) return;
+    const panelMsg = {
+      id: "capsule-panel",
+      role: "assistant" as const,
+      content: capsulePanel,
+      timestamp: new Date(),
+      variant: "panel" as const,
+    };
     setMessages((prev) => {
       const withoutPanel = prev.filter((message) => message.id !== "capsule-panel");
-      return [
-        ...withoutPanel,
-        {
-          id: "capsule-panel",
-          role: "assistant",
-          content: capsulePanel,
-          timestamp: new Date(),
-          variant: "panel",
-        },
-      ];
+      // In embed preview the experience panel is appended last by launchCapsule, so
+      // scrollChatToBottom() will land on it. Put the carousel first so the user
+      // naturally sees the experience content without fighting auto-scroll.
+      if (embedMode && autoLaunchedCapsuleRef.current) {
+        return [panelMsg, ...withoutPanel];
+      }
+      return [...withoutPanel, panelMsg];
     });
-  }, [capsulePanel, showWelcome]);
+  }, [capsulePanel, embedMode, showWelcome]);
 
   const flushQueuedRuntimeEvents = useCallback(() => {
     if (typeof window === "undefined") return;
@@ -4057,6 +4046,12 @@ export default function MetaMeRuntimeClient() {
     </div>
   );
 
+  // In embed-preview mode (embedMode + a selected experience capsule) we disable the
+  // floating prompt input to eliminate CodexCopilotLayer's invisible h-28 hover zone that
+  // sits 112px tall above the footer and interferes with scrolling. The runtimeMenu is
+  // rendered as a sibling shrink-0 div outside CodexCopilotLayer so it sits flush with
+  // the bottom of the scroll area.
+  const embedPreviewMode = embedMode && !!queryPreviewDisplayCapsule;
   const runtimeSurface = (
     <div className="metame-runtime-layer relative h-full w-full rounded-[5px] bg-slate-950 text-white overflow-hidden flex flex-col">
       <style jsx global>{`
@@ -4081,15 +4076,18 @@ export default function MetaMeRuntimeClient() {
         onMessagesChange={setMessages}
         quickPrompts={thinShellMode ? [] : quickPrompts}
         onPrompt={handlePrompt}
-        footerContent={thinShellMode ? null : runtimeMenu}
-        floatingInput={!thinShellMode}
-        disablePromptInput={thinShellMode}
+        footerContent={thinShellMode || embedPreviewMode ? null : runtimeMenu}
+        floatingInput={!thinShellMode && !embedPreviewMode}
+        disablePromptInput={thinShellMode || embedPreviewMode}
         showTrustIndicators={!thinShellMode}
         disableActivationButton
         showQuickPromptsToggle={!thinShellMode}
         trustProvider={trustProvider}
         className="h-full"
       />
+      {embedPreviewMode && !thinShellMode ? (
+        <div className="shrink-0">{runtimeMenu}</div>
+      ) : null}
     </div>
   );
 
