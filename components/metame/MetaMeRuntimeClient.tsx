@@ -3039,12 +3039,8 @@ export default function MetaMeRuntimeClient() {
     };
     setMessages((prev) => {
       const withoutPanel = prev.filter((message) => message.id !== "capsule-panel");
-      // In embed preview the experience panel is appended last by launchCapsule, so
-      // scrollChatToBottom() will land on it. Put the carousel first so the user
-      // naturally sees the experience content without fighting auto-scroll.
-      if (embedMode && autoLaunchedCapsuleRef.current) {
-        return [panelMsg, ...withoutPanel];
-      }
+      // Carousel always goes last so scrollChatToBottom() lands on the thumbnails,
+      // keeping them visible. Experience content sits above and is readable by scrolling up.
       return [...withoutPanel, panelMsg];
     });
   }, [capsulePanel, embedMode, showWelcome]);
@@ -4048,9 +4044,9 @@ export default function MetaMeRuntimeClient() {
 
   // In embed-preview mode (embedMode + a selected experience capsule) we disable the
   // floating prompt input to eliminate CodexCopilotLayer's invisible h-28 hover zone that
-  // sits 112px tall above the footer and interferes with scrolling.
-  // runtimeMenu is intentionally omitted from runtimeSurface — menu parity with the thin
-  // client will be addressed separately.
+  // sits 112px tall above the footer and interferes with scrolling. runtimeMenu is rendered
+  // as a shrink-0 sibling outside CodexCopilotLayer in embedPreviewMode so it sits flush at
+  // the bottom without causing the h-full overflow issue.
   const embedPreviewMode = embedMode && !!queryPreviewDisplayCapsule;
   const runtimeSurface = (
     <div className="metame-runtime-layer relative h-full w-full rounded-[5px] bg-slate-950 text-white overflow-hidden flex flex-col">
@@ -4076,14 +4072,18 @@ export default function MetaMeRuntimeClient() {
         onMessagesChange={setMessages}
         quickPrompts={thinShellMode ? [] : quickPrompts}
         onPrompt={handlePrompt}
+        footerContent={thinShellMode || embedPreviewMode ? null : runtimeMenu}
         floatingInput={!thinShellMode && !embedPreviewMode}
         disablePromptInput={thinShellMode || embedPreviewMode}
         showTrustIndicators={!thinShellMode}
         disableActivationButton
         showQuickPromptsToggle={!thinShellMode}
         trustProvider={trustProvider}
-        className="h-full"
+        className={embedPreviewMode ? "flex-1 min-h-0" : "h-full"}
       />
+      {embedPreviewMode && !thinShellMode ? (
+        <div className="shrink-0">{runtimeMenu}</div>
+      ) : null}
     </div>
   );
 
