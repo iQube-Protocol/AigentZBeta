@@ -2105,9 +2105,12 @@ export const ComposerStudio = () => {
       if (!prompt) return null;
 
       const skillId = params.skillId || "venice_video_gen";
+      const invokeController = new AbortController();
+      const invokeTimeout = setTimeout(() => invokeController.abort(), 35_000);
       const response = await fetch("/api/skills/invoke", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: invokeController.signal,
         body: JSON.stringify({
           skill_id: skillId,
           prompt,
@@ -2117,7 +2120,7 @@ export const ComposerStudio = () => {
           experience_id: params.experienceId,
           trust_override: params.trustOverride ?? false,
         }),
-      });
+      }).finally(() => clearTimeout(invokeTimeout));
       const data = (await response.json().catch(() => null)) as {
         ok?: boolean;
         generation_id?: string | null;

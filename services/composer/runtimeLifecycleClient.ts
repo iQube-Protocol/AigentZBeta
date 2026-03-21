@@ -6,6 +6,8 @@ type RuntimeLifecycleContributionType =
   | "reused_saved_media"
   | "deployment_dispatch";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function recordRuntimeLifecycleContribution(input: {
   tenantId?: string;
   personaId?: string;
@@ -17,7 +19,9 @@ export async function recordRuntimeLifecycleContribution(input: {
   const tenantId = input.tenantId?.trim();
   const personaId = input.personaId?.trim();
 
-  if (!tenantId || !personaId) return null;
+  // crm_contributions.persona_id is a UUID column — skip if the active
+  // identity is a DID-style or wallet handle rather than a registered CRM UUID.
+  if (!tenantId || !personaId || !UUID_RE.test(personaId)) return null;
 
   try {
     const response = await fetch("/api/crm/contributions", {
