@@ -141,10 +141,15 @@ export async function persistThumbnailAsset(
 ): Promise<string | null> {
   const adapter = StorageAdapterFactory.getAdapter("supabase");
   const path = `generated/${namespace}/thumbnails/${id}-thumb.jpg`;
+  // adapter.upload expects Blob | ArrayBuffer | File — extract the underlying ArrayBuffer
+  const data: ArrayBuffer = jpegBuffer.buffer.slice(
+    jpegBuffer.byteOffset,
+    jpegBuffer.byteOffset + jpegBuffer.byteLength,
+  ) as ArrayBuffer;
 
   for (const bucket of THUMBNAIL_BUCKET_CANDIDATES) {
     try {
-      const uploaded = await adapter.upload(bucket, path, jpegBuffer, {
+      const uploaded = await adapter.upload(bucket, path, data, {
         contentType: "image/jpeg",
         upsert: true,
         cacheControl: "31536000",
@@ -155,7 +160,7 @@ export async function persistThumbnailAsset(
       if (/bucket not found/i.test(msg)) {
         try {
           await ensureBucket(bucket);
-          const uploaded = await adapter.upload(bucket, path, jpegBuffer, {
+          const uploaded = await adapter.upload(bucket, path, data, {
             contentType: "image/jpeg",
             upsert: true,
             cacheControl: "31536000",
