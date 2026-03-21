@@ -2091,6 +2091,77 @@ export const ComposerStudio = () => {
     [activePersonaId, userId],
   );
 
+  const requestVideoBundleArtifacts = useCallback(
+    async (params: {
+      experienceId: string;
+      skillId?: string | null;
+      prompt: string;
+      duration?: number | null;
+      aspectRatio?: string | null;
+      style?: string | null;
+      trustOverride?: boolean;
+    }) => {
+      const prompt = params.prompt.trim();
+      if (!prompt) return null;
+
+      const skillId = params.skillId || "venice_video_gen";
+      const response = await fetch("/api/skills/invoke", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          skill_id: skillId,
+          prompt,
+          duration: params.duration ?? 10,
+          aspect_ratio: params.aspectRatio || "16:9",
+          style: params.style || "cinematic",
+          experience_id: params.experienceId,
+          trust_override: params.trustOverride ?? false,
+        }),
+      });
+      const data = (await response.json().catch(() => null)) as {
+        ok?: boolean;
+        generation_id?: string | null;
+        video_url?: string | null;
+        provider?: "venice" | "openai";
+        venice_model?: string;
+        receipt?: Record<string, unknown>;
+      } | null;
+
+      if (!data?.ok || !data.generation_id) return null;
+
+      const provider = data.provider || "venice";
+      const generationId = data.generation_id;
+      const videoUrl =
+        data.video_url ||
+        (provider === "venice" && data.venice_model
+          ? `/api/skills/video/venice/${generationId}?model=${encodeURIComponent(data.venice_model)}`
+          : `/api/skills/video/${generationId}`);
+
+      const asset: PersistableGeneratedAsset = {
+        id: `${params.experienceId}:video:${generationId}`,
+        type: "video",
+        label: "Generated video",
+        provider,
+        assetUrl: videoUrl,
+        receiptRef:
+          typeof data.receipt?.receipt_id === "string" ? String(data.receipt.receipt_id) : undefined,
+        prompt,
+        createdAt: new Date().toISOString(),
+      };
+
+      await persistGeneratedAssetsForExperience({
+        experienceId: params.experienceId,
+        assets: [asset],
+        receipt: data.receipt,
+        personaId: activePersonaId || userId,
+        preferredAssetId: asset.id,
+      });
+
+      return asset;
+    },
+    [activePersonaId, userId],
+  );
+
   const requestedExperienceId =
     typeof searchParams?.get("experienceId") === "string" && searchParams.get("experienceId")?.trim()
       ? searchParams.get("experienceId")!.trim()
@@ -4140,6 +4211,7 @@ export const ComposerStudio = () => {
       const videoPromptRecord = asRecord(mergedData?.video_prompt);
       const hasVideoPrompt = typeof videoPromptRecord?.prompt === "string" && (videoPromptRecord.prompt as string).trim().length > 0;
       const shouldAutoGenerateImages = isImageBundle || (hasImagePrompts && !isVideoBundle && !hasVideoPrompt);
+      const shouldAutoGenerateVideo = isVideoBundle && hasVideoPrompt;
       if (completedExperience && shouldAutoGenerateImages && imageBundleTargetId) {
         const articleDraftToPreserve = completedExperience.configuration?.article_draft;
         await requestImageBundleArtifacts({
@@ -4163,6 +4235,30 @@ export const ComposerStudio = () => {
               ...(articleDraftToPreserve ? { article_draft: articleDraftToPreserve } : {}),
             },
           };
+        }
+      }
+      if (completedExperience && shouldAutoGenerateVideo && imageBundleTargetId) {
+        const skillSelectionRecord = asRecord(mergedData?.skill_selection);
+        const rawSkillId = skillSelectionRecord?.skill_id;
+        const skillId = typeof rawSkillId === "string" && rawSkillId.trim() ? rawSkillId.trim() : "venice_video_gen";
+        const trustOverride = skillSelectionRecord?.trust_override === true;
+        const videoPrompt = typeof videoPromptRecord?.prompt === "string" ? (videoPromptRecord.prompt as string).trim() : "";
+        const duration = typeof videoPromptRecord?.duration === "number" ? (videoPromptRecord.duration as number) : 10;
+        const aspectRatio = typeof videoPromptRecord?.aspect_ratio === "string" ? (videoPromptRecord.aspect_ratio as string) : "16:9";
+        const style = typeof videoPromptRecord?.style === "string" ? (videoPromptRecord.style as string) : "cinematic";
+        await requestVideoBundleArtifacts({
+          experienceId: imageBundleTargetId,
+          skillId,
+          prompt: videoPrompt,
+          duration,
+          aspectRatio,
+          style,
+          trustOverride,
+        }).catch(() => null);
+        const refreshedCompletedExperience =
+          (await refreshExperienceFromServer(imageBundleTargetId).catch(() => null)) || null;
+        if (refreshedCompletedExperience) {
+          completedExperience = refreshedCompletedExperience;
         }
       }
       setExperience(completedExperience);
