@@ -2620,6 +2620,25 @@ export default function MetaMeRuntimeClient() {
     launchCapsule(queryPreviewDisplayCapsule, launchIntent);
   }, [launchCapsule, queryPreviewDisplayCapsule, runtimeIntentParam]);
 
+  // When queryPreviewDisplayCapsule changes due to runtimeExperienceOverrides (same id, updated
+  // article draft), refresh the already-launched message panel in the shell in-place.
+  useEffect(() => {
+    if (!queryPreviewDisplayCapsule || !autoLaunchedCapsuleRef.current) return;
+    if (autoLaunchedCapsuleRef.current !== queryPreviewDisplayCapsule.id) return;
+    const launchMessageId = buildLaunchMessageId({
+      runtimeSource: queryPreviewDisplayCapsule.runtimeSource,
+      runtimeCodexSlug: queryPreviewDisplayCapsule.runtimeCodexSlug || null,
+    });
+    const launchIntent = runtimeIntentParam || defaultRuntimeIntentForCapsule(queryPreviewDisplayCapsule);
+    setMessages((prev) =>
+      prev.map((message) =>
+        message.id === launchMessageId
+          ? { ...message, content: buildRuntimeCapsulePanel(queryPreviewDisplayCapsule, launchIntent) }
+          : message,
+      ),
+    );
+  }, [buildRuntimeCapsulePanel, queryPreviewDisplayCapsule, runtimeIntentParam]);
+
   useEffect(() => {
     const readNavigateClose = (data: unknown): { isClose: boolean; codexId: string | null } => {
       if (!data || typeof data !== "object" || Array.isArray(data)) {
@@ -4471,15 +4490,13 @@ export default function MetaMeRuntimeClient() {
       runtimeIntentParam || (queryPreviewDisplayCapsule ? defaultRuntimeIntentForCapsule(queryPreviewDisplayCapsule) : "read");
     if (queryPreviewDisplayCapsule) {
       return (
-        <div className="h-full w-full overflow-hidden bg-slate-950 p-0">
-          <div className={`h-full ${embedWidthClass}`}>
-            <div className="h-full overflow-y-auto bg-slate-950 px-3 py-3">
-              <div className="space-y-3">
-                {renderRuntimeExperienceChip(queryPreviewDisplayCapsule, previewIntent)}
-                {runtimeEditorPanel}
-                {buildRuntimeCapsulePanel(queryPreviewDisplayCapsule, previewIntent)}
-              </div>
-            </div>
+        <div className="h-full w-full overflow-hidden bg-slate-950 flex flex-col p-0">
+          <div className="shrink-0 overflow-y-auto space-y-3 px-3 pt-3">
+            {renderRuntimeExperienceChip(queryPreviewDisplayCapsule, previewIntent)}
+            {runtimeEditorPanel}
+          </div>
+          <div className={`flex-1 min-h-0 ${embedWidthClass}`}>
+            {showWelcome ? welcomeSurface : runtimeSurface}
           </div>
         </div>
       );
