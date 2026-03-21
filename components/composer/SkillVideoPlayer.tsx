@@ -109,7 +109,9 @@ export default function SkillVideoPlayer({
   persona_id,
 }: SkillVideoPlayerProps) {
   const searchParams = useSearchParams();
-  const MAX_AUTO_POLL_ATTEMPTS = 8;
+  // Sora jobs typically complete in 3–5 min. First poll fires immediately,
+  // then every 15 s — 24 attempts covers ~5 min 45 s total.
+  const MAX_AUTO_POLL_ATTEMPTS = 24;
   const initialProvider = inferProviderFromSkillId(skill_id);
   const showRuntimeBack = searchParams?.get("from") === "runtime";
   const resolvedInitialVideoUrl = isLegacyVideoProxyUrl(initial_video_url) ? undefined : initial_video_url;
