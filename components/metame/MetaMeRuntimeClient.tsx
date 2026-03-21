@@ -1524,6 +1524,7 @@ export default function MetaMeRuntimeClient() {
   const [channels, setChannels] = useState<Array<{ channel_id: string; participants: string[] }>>([]);
   const [channelsLoading, setChannelsLoading] = useState(false);
   const [runtimeProcessing, setRuntimeProcessing] = useState(false);
+  const [livePromptValue, setLivePromptValue] = useState("");
   const [runtimeEditorOpen, setRuntimeEditorOpen] = useState(false);
   const [runtimeEditorLoading, setRuntimeEditorLoading] = useState(false);
   const [runtimeEditorSaving, setRuntimeEditorSaving] = useState(false);
@@ -4079,14 +4080,11 @@ export default function MetaMeRuntimeClient() {
     </div>
   );
 
-  // runtimeMenu is always rendered as a shrink-0 sibling outside CodexCopilotLayer so it
-  // is reliably visible in all views (live, embed, embed-preview). Passing it as footerContent
-  // to CodexCopilotLayer is unreliable: footerContent lives inside the !disablePromptInput
-  // block inside an absolute bottom-0 div, which can be clipped or hidden by the floating
-  // input overlay. Using a sibling guarantees correct flex layout in every mode.
-  //
-  // In embed-preview mode we also disable the floating prompt input to eliminate
-  // CodexCopilotLayer's invisible h-28 hover zone (112px) that overlaps the scroll area.
+  // The scroll area (CodexCopilotLayer) must fill the full viewport height so content
+  // reaches all the way behind the floating overlay bar at the bottom.
+  // disablePromptInput=true → resolvedFooterHeight=0 → scroll area bottom: 0.
+  // The prompt input and runtimeMenu are rendered in a single absolute z-30 overlay that
+  // sits on top of the scroll content in the z-axis, so the viewport "scrolls behind" them.
   const embedPreviewMode = embedMode && !!queryPreviewDisplayCapsule;
   const runtimeSurface = (
     <div className="metame-runtime-layer relative h-full w-full rounded-[5px] bg-slate-950 text-white overflow-hidden flex flex-col">
@@ -4107,20 +4105,56 @@ export default function MetaMeRuntimeClient() {
         showNavMenu={false}
         showWalletMenu={false}
         panelBorder={false}
-        promptPlaceholder="What do you want to do today?"
         messages={messages}
         onMessagesChange={setMessages}
-        quickPrompts={thinShellMode ? [] : quickPrompts}
+        quickPrompts={[]}
         onPrompt={handlePrompt}
         floatingInput={false}
-        disablePromptInput={thinShellMode || embedPreviewMode}
+        disablePromptInput
         showTrustIndicators={!thinShellMode}
         disableActivationButton
-        showQuickPromptsToggle={!thinShellMode}
+        showQuickPromptsToggle={false}
         trustProvider={trustProvider}
         className="flex-1 min-h-0"
       />
-      {!thinShellMode ? <div className="shrink-0">{runtimeMenu}</div> : null}
+      {/* Absolute overlay: prompt bar (live view only) + runtimeMenu stacked at bottom */}
+      {!thinShellMode ? (
+        <div className="absolute inset-x-0 bottom-0 z-30 bg-slate-950/95 backdrop-blur-sm">
+          {!embedPreviewMode ? (
+            <div className="px-3 pt-2 pb-1">
+              <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-slate-900/80 px-3 py-1.5 shadow-lg backdrop-blur-xl">
+                <input
+                  type="text"
+                  value={livePromptValue}
+                  onChange={(e) => setLivePromptValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && livePromptValue.trim()) {
+                      handlePrompt(livePromptValue);
+                      setLivePromptValue("");
+                    }
+                  }}
+                  placeholder="What do you want to do today?"
+                  className="flex-1 bg-transparent text-sm text-white placeholder-slate-400 focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (livePromptValue.trim()) {
+                      handlePrompt(livePromptValue);
+                      setLivePromptValue("");
+                    }
+                  }}
+                  disabled={!livePromptValue.trim()}
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-cyan-500 text-white transition-colors hover:bg-cyan-600 disabled:bg-slate-700 disabled:text-slate-500"
+                >
+                  <Send className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          ) : null}
+          {runtimeMenu}
+        </div>
+      ) : null}
     </div>
   );
 
