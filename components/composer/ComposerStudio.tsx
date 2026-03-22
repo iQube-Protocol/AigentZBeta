@@ -4208,8 +4208,14 @@ export const ComposerStudio = () => {
         asRecord(completedExperience?.configuration?.image_generation) ||
         asRecord(bundleCheckSource?.configuration?.image_generation) ||
         {};
-      const isImageBundle = getAppliedExperienceBundle(bundleCheckSource)?.presetId === "image_article_bundle";
-      const isVideoBundle = getAppliedExperienceBundle(bundleCheckSource)?.presetId === "video_article_bundle";
+      const isImageBundle =
+        getAppliedExperienceBundle(bundleCheckSource)?.presetId === "image_article_bundle" ||
+        asRecord(bundleCheckSource?.configuration?.make_bundle)?.presetId === "image_article_bundle" ||
+        asRecord(completedExperience?.configuration?.make_bundle)?.presetId === "image_article_bundle";
+      const isVideoBundle =
+        getAppliedExperienceBundle(bundleCheckSource)?.presetId === "video_article_bundle" ||
+        asRecord(bundleCheckSource?.configuration?.make_bundle)?.presetId === "video_article_bundle" ||
+        asRecord(completedExperience?.configuration?.make_bundle)?.presetId === "video_article_bundle";
       const hasImagePrompts = typeof imageGenerationConfig.portrait_prompt === "string" && (imageGenerationConfig.portrait_prompt as string).trim().length > 0;
       // Mirror the image pattern: read from the completed experience configuration first
       // (session.data is saved as configuration), then fall back to React session state.
