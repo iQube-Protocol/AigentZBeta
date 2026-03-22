@@ -360,6 +360,8 @@ export function ExperienceLiquidRenderer({
           initial_video_url={packet.skill.video_url}
           initial_receipt={packet.skill.initial_receipt}
           persona_id={personaId}
+          initial_generation_id={packet.skill.generation_id}
+          initial_venice_model={packet.skill.venice_model_for_status}
         />
       </>
     );

@@ -258,7 +258,17 @@ export async function POST(request: NextRequest) {
     const publishUrl = explicitPublishUrl || fallbackCtaUrl;
     const thumbnailInput = normalizeString(body?.thumbnailUrl);
     const thumbnailUrlRaw = thumbnailInput ? toAbsoluteUrl(request.nextUrl.origin, thumbnailInput) : '';
-    const thumbnailUrl = /^https?:\/\//i.test(thumbnailUrlRaw) ? thumbnailUrlRaw : '';
+    // Exclude video proxy paths — Discord embed images must be static image URLs,
+    // not video streams. Proxy URLs (/api/skills/video/…) return video/mp4 and
+    // Discord silently drops them, leaving the chip blank.
+    const thumbnailUrl = (() => {
+      if (!/^https?:\/\//i.test(thumbnailUrlRaw)) return '';
+      try {
+        const u = new URL(thumbnailUrlRaw);
+        if (/^\/api\/skills\/video\//i.test(u.pathname)) return '';
+      } catch { /* ignore malformed URLs */ }
+      return thumbnailUrlRaw;
+    })();
     const inlineAssetUrl =
       deliveryVariant === 'discord_asset_inline' && isDirectMediaUrl ? explicitPublishUrl : '';
     const inlineAssetIsImage = /\.(png|jpe?g|webp|gif)(\?|$)/i.test(inlineAssetUrl);
