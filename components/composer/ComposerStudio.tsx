@@ -4507,8 +4507,9 @@ export const ComposerStudio = () => {
   );
 
   // Poll the Sora status endpoint while the preview video URL is a proxy URL (still generating).
-  // When the video completes, refresh the experience and bump the preview nonce so the iframe
-  // reloads automatically with the real Supabase URL + thumbnail — no manual reload needed.
+  // Stops automatically on first "ready" detection or after MAX_POLL_ATTEMPTS (~10 min).
+  // NOTE: Venice and other providers use different status URLs — multi-provider abstraction
+  // is tracked as a backlog item; SkillVideoPlayer inside the iframe already handles it.
   useEffect(() => {
     const proxyUrl = previewRuntimeDeliveryProfile.videoAssetUrl;
     if (!isLegacyVideoProxyUrl(proxyUrl)) return;
@@ -4517,19 +4518,32 @@ export const ComposerStudio = () => {
     if (!generationId) return;
     const activeExperienceId = selectedExperienceId || previewExperience?.id;
     if (!activeExperienceId) return;
+
+    const MAX_POLL_ATTEMPTS = 40; // 40 × 15 s ≈ 10 min hard cutoff
+    let attempts = 0;
     let cancelled = false;
+    let intervalId: ReturnType<typeof setInterval>;
+
     const poll = async () => {
+      if (cancelled || attempts >= MAX_POLL_ATTEMPTS) {
+        clearInterval(intervalId);
+        return;
+      }
+      attempts++;
       try {
         const res = await fetch(`/api/skills/video/${generationId}/status`, { cache: "no-store" });
         if (!res.ok || cancelled) return;
         const data = (await res.json()) as { ready?: boolean };
         if (data.ready && !cancelled) {
+          cancelled = true;
+          clearInterval(intervalId);
           await refreshExperienceFromServer(activeExperienceId).catch(() => undefined);
-          if (!cancelled) setPreviewNonce(Date.now());
+          setPreviewNonce(Date.now());
         }
       } catch { /* ignore transient network errors */ }
     };
-    const intervalId = setInterval(() => void poll(), 15_000);
+
+    intervalId = setInterval(() => void poll(), 15_000);
     void poll(); // immediate first check on mount
     return () => { cancelled = true; clearInterval(intervalId); };
   }, [
@@ -6394,7 +6408,11 @@ export const ComposerStudio = () => {
           ? ((event.detail as { experienceId?: string }).experienceId as string)
           : undefined;
       if (experienceId) {
-        void refreshExperienceFromServer(experienceId).catch(() => undefined);
+        // Refresh experience data then reload the preview iframe so it picks up the
+        // Supabase video URL + portrait thumbnail — mirroring how the Thin Client works.
+        void refreshExperienceFromServer(experienceId)
+          .then(() => { if (active) setPreviewNonce(Date.now()); })
+          .catch(() => undefined);
       }
     };
     const handlePersonaMediaMessage = (event: MessageEvent) => {
@@ -6409,7 +6427,11 @@ export const ComposerStudio = () => {
           ? ((data as { experienceId?: string }).experienceId as string)
           : undefined;
       if (experienceId) {
-        void refreshExperienceFromServer(experienceId).catch(() => undefined);
+        // Refresh experience data then reload the preview iframe so it picks up the
+        // Supabase video URL + portrait thumbnail — mirroring how the Thin Client works.
+        void refreshExperienceFromServer(experienceId)
+          .then(() => { if (active) setPreviewNonce(Date.now()); })
+          .catch(() => undefined);
       }
     };
     const handlePersonaMediaStorage = (event: StorageEvent) => {
