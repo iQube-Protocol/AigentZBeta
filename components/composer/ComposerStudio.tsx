@@ -4547,39 +4547,57 @@ export const ComposerStudio = () => {
     if (!activeExperienceId) return;
 
     const MAX_POLL_ATTEMPTS = 40; // 40 × 15 s ≈ 10 min hard cutoff
+    const MAX_CONSECUTIVE_ERRORS = 3; // give up on banner after 3 back-to-back errors (video expired/unavailable)
     let attempts = 0;
+    let consecutiveErrors = 0;
     let cancelled = false;
     let intervalId: ReturnType<typeof setInterval>;
+
+    const markComplete = async (thumbnailUrl?: string) => {
+      cancelled = true;
+      clearInterval(intervalId);
+      completedVideoGenerationIds.current.add(generationId);
+      setConfirmedCompleteGenerationId(generationId);
+      if (thumbnailUrl) {
+        await persistGeneratedAssetsForExperience({
+          experienceId: activeExperienceId,
+          assets: [{
+            id: `${activeExperienceId}:video:thumbnail`,
+            type: "image",
+            label: "Video thumbnail",
+            orientation: "portrait",
+            assetUrl: thumbnailUrl,
+          }],
+        }).catch(() => undefined);
+      }
+      await refreshExperienceFromServerRef.current(activeExperienceId).catch(() => undefined);
+    };
 
     const poll = async () => {
       if (cancelled || attempts >= MAX_POLL_ATTEMPTS) { clearInterval(intervalId); return; }
       attempts++;
       try {
         const res = await fetch(`/api/skills/video/${generationId}/status`, { cache: "no-store" });
-        if (!res.ok || cancelled) return;
-        const data = (await res.json()) as { ready?: boolean; thumbnail_url?: string };
-        if (data.ready && !cancelled) {
-          cancelled = true;
-          clearInterval(intervalId);
-          // Mark complete BEFORE state updates so any dep-triggered re-run is a no-op.
-          completedVideoGenerationIds.current.add(generationId);
-          setConfirmedCompleteGenerationId(generationId); // clears the banner + enables experienceVideo param
-          // Persist the thumbnail directly (don't rely on SkillVideoPlayer inside the iframe).
-          if (data.thumbnail_url) {
-            await persistGeneratedAssetsForExperience({
-              experienceId: activeExperienceId,
-              assets: [{
-                id: `${activeExperienceId}:video:thumbnail`,
-                type: "image",
-                label: "Video thumbnail",
-                orientation: "portrait",
-                assetUrl: data.thumbnail_url,
-              }],
-            }).catch(() => undefined);
+        if (cancelled) return;
+        if (!res.ok) {
+          consecutiveErrors++;
+          if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+            // Status endpoint consistently failing — video was likely completed and has expired
+            // on OpenAI. Clear the banner so it doesn't spin forever.
+            await markComplete();
           }
-          await refreshExperienceFromServerRef.current(activeExperienceId).catch(() => undefined);
-          // runtimePreviewSrc will change naturally: confirmedCompleteGenerationId enables
-          // experienceVideo, and imageAssets.portrait is now set from the thumbnail.
+          return;
+        }
+        consecutiveErrors = 0;
+        const data = (await res.json()) as { ready?: boolean; status?: string; thumbnail_url?: string };
+        if (data.ready && !cancelled) {
+          await markComplete(data.thumbnail_url);
+        } else if (data.status === "error" && !cancelled) {
+          // Terminal error from status route (e.g. OpenAI 404 for expired video).
+          consecutiveErrors++;
+          if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+            await markComplete();
+          }
         }
       } catch { /* ignore transient network errors */ }
     };
