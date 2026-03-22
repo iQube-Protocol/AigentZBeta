@@ -1,16 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 import { extractThumbnailFromBuffer, persistThumbnailAsset } from "@/app/api/skills/video/_thumbnail";
 
 /**
  * GET /api/skills/video/[id]/status
  *
  * Lightweight status check for a Sora video generation job.
- * Calls GET /v1/videos/{video_id} (metadata only, no content download)
- * and returns the current status so the client can poll cheaply.
  *
- * When completed, returns the proxy URL (/api/skills/video/[id]) so the
- * client can stream the video without this endpoint downloading the full
- * content inline (which would exceed Lambda timeouts).
+ * Fast path: if the video has already been uploaded to Supabase by the proxy
+ * route, return ready:true immediately without calling OpenAI (whose videos
+ * expire ~1 h after generation).
+ *
+ * Slow path: call GET /v1/videos/{video_id} (metadata only) to check status.
+ * On completed: download first 4 MB to extract a thumbnail, upload both to
+ * Supabase, return the proxy URL + thumbnail_url.
  */
 
 export const runtime = "nodejs";
@@ -21,11 +24,80 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
+const BUCKET_CANDIDATES = [
+  process.env.SUPABASE_STORAGE_BUCKET,
+  "content-assets",
+  "assets",
+  "codex-lite",
+].filter((v, i, arr): v is string => Boolean(v) && arr.indexOf(v) === i);
+
+function getSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+  if (!url || !key) return null;
+  return createClient(url, key);
+}
+
+/** Returns the Supabase public URL if the video is already cached there. */
+async function findCachedVideoUrl(videoId: string): Promise<string | null> {
+  const supabase = getSupabase();
+  if (!supabase) return null;
+  const path = `generated/openai/videos/${videoId}.mp4`;
+  for (const bucket of BUCKET_CANDIDATES) {
+    const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+    if (!data?.publicUrl) continue;
+    try {
+      const check = await fetch(data.publicUrl, { method: "HEAD", cache: "no-store" });
+      if (check.ok) return data.publicUrl;
+    } catch {
+      // not in this bucket — try next
+    }
+  }
+  return null;
+}
+
+/** Returns the Supabase thumbnail URL if the thumbnail is already cached. */
+async function findCachedThumbnailUrl(videoId: string): Promise<string | null> {
+  const supabase = getSupabase();
+  if (!supabase) return null;
+  const path = `generated/openai/thumbnails/${videoId}-thumb.jpg`;
+  for (const bucket of BUCKET_CANDIDATES) {
+    const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+    if (!data?.publicUrl) continue;
+    try {
+      const check = await fetch(data.publicUrl, { method: "HEAD", cache: "no-store" });
+      if (check.ok) return data.publicUrl;
+    } catch {
+      // not in this bucket — try next
+    }
+  }
+  return null;
+}
+
 export async function GET(_request: NextRequest, { params }: RouteParams) {
   const { id: videoId } = await params;
 
   if (!videoId) {
     return NextResponse.json({ error: "Video ID is required" }, { status: 400 });
+  }
+
+  const proxyUrl = `/api/skills/video/${videoId}`;
+
+  // Fast path: video already uploaded to Supabase by the proxy route.
+  // OpenAI purges videos after ~1 hour so we must not rely on their API for old jobs.
+  const cachedVideoUrl = await findCachedVideoUrl(videoId).catch(() => null);
+  if (cachedVideoUrl) {
+    const cachedThumbnailUrl = await findCachedThumbnailUrl(videoId).catch(() => null);
+    return NextResponse.json({
+      ready: true,
+      status: "completed",
+      progress: 100,
+      video_url: proxyUrl,
+      ...(cachedThumbnailUrl ? { thumbnail_url: cachedThumbnailUrl } : {}),
+      checked_at: new Date().toISOString(),
+    }, {
+      headers: { "Cache-Control": "no-store, no-cache, must-revalidate" },
+    });
   }
 
   const apiKey = process.env.OPENAI_API_KEY;
@@ -54,11 +126,8 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     const progress: number = data?.progress ?? 0;
 
     if (status === "completed") {
-      const proxyUrl = `/api/skills/video/${videoId}`;
-
       // Extract a thumbnail from the first 4 MB of the video content.
-      // This mirrors the Venice status route pattern. Best-effort — any failure
-      // is swallowed so the status response is never blocked.
+      // Best-effort — any failure is swallowed so the status response is never blocked.
       let thumbnailUrl: string | null = null;
       try {
         const thumbController = new AbortController();
@@ -69,7 +138,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
           signal: thumbController.signal,
           cache: "no-store",
         });
-        // If OpenAI doesn't honour Range requests, retry without the header to get the full body.
+        // If OpenAI doesn't honour Range requests, retry without the header.
         if (contentRes.status === 416) {
           contentRes = await fetch(contentUrl, {
             headers: { Authorization: `Bearer ${apiKey}` },
