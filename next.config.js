@@ -10,6 +10,14 @@ const nextConfig = {
   swcMinify: true,
   // Keep standalone only for Amplify build environments to avoid local tracing edge-cases.
   output: isAmplifyBuild ? "standalone" : undefined,
+  // Prevent playwright and other native/large packages from being bundled in server routes.
+  // This reduces per-page memory pressure and avoids "Critical dependency" warnings.
+  serverExternalPackages: ["playwright", "playwright-core", "pdf-parse", "@napi-rs/canvas"],
+  experimental: {
+    // Limit worker parallelism on Amplify to avoid ENOMEM when forking page-data workers.
+    // The main build process consumes ~3 GB; each forked worker needs additional RAM.
+    cpus: isAmplifyBuild ? 1 : undefined,
+  },
   transpilePackages: [
     "@qriptoagentiq/core-client",
     "@qriptoagentiq/a2a-client",
