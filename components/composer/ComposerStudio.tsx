@@ -2873,39 +2873,6 @@ export const ComposerStudio = () => {
       }),
     [personaMediaLibrary, previewExperience],
   );
-  // Poll the Sora status endpoint while the preview video URL is a proxy URL (still generating).
-  // When the video is ready, refresh the experience and bump the preview nonce so the iframe
-  // reloads with the real Supabase URL + thumbnail — no manual "Reload Preview" needed.
-  useEffect(() => {
-    const proxyUrl = previewRuntimeDeliveryProfile.videoAssetUrl;
-    if (!isLegacyVideoProxyUrl(proxyUrl)) return;
-    const match = proxyUrl!.match(/\/api\/skills\/video\/([^/?#]+)/i);
-    const generationId = match?.[1];
-    if (!generationId) return;
-    const activeExperienceId = selectedExperienceId || previewExperience?.id;
-    if (!activeExperienceId) return;
-    let cancelled = false;
-    const poll = async () => {
-      try {
-        const res = await fetch(`/api/skills/video/${generationId}/status`, { cache: "no-store" });
-        if (!res.ok || cancelled) return;
-        const data = (await res.json()) as { ready?: boolean };
-        if (data.ready && !cancelled) {
-          await refreshExperienceFromServer(activeExperienceId).catch(() => undefined);
-          if (!cancelled) setPreviewNonce(Date.now());
-        }
-      } catch { /* ignore transient errors */ }
-    };
-    const intervalId = setInterval(() => void poll(), 15_000);
-    void poll(); // immediate first check
-    return () => { cancelled = true; clearInterval(intervalId); };
-  }, [
-    previewRuntimeDeliveryProfile.videoAssetUrl,
-    selectedExperienceId,
-    previewExperience?.id,
-    refreshExperienceFromServer,
-  ]);
-
   const previewExperienceArticleDraft = useMemo(() => {
     const config = previewExperience?.configuration;
     const metadata = previewExperience?.metadata;
@@ -4538,6 +4505,39 @@ export const ComposerStudio = () => {
     },
     [experience?.id, mcpExperience?.id, selectedExperienceId, tenantId],
   );
+
+  // Poll the Sora status endpoint while the preview video URL is a proxy URL (still generating).
+  // When the video completes, refresh the experience and bump the preview nonce so the iframe
+  // reloads automatically with the real Supabase URL + thumbnail — no manual reload needed.
+  useEffect(() => {
+    const proxyUrl = previewRuntimeDeliveryProfile.videoAssetUrl;
+    if (!isLegacyVideoProxyUrl(proxyUrl)) return;
+    const match = proxyUrl!.match(/\/api\/skills\/video\/([^/?#]+)/i);
+    const generationId = match?.[1];
+    if (!generationId) return;
+    const activeExperienceId = selectedExperienceId || previewExperience?.id;
+    if (!activeExperienceId) return;
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/skills/video/${generationId}/status`, { cache: "no-store" });
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as { ready?: boolean };
+        if (data.ready && !cancelled) {
+          await refreshExperienceFromServer(activeExperienceId).catch(() => undefined);
+          if (!cancelled) setPreviewNonce(Date.now());
+        }
+      } catch { /* ignore transient network errors */ }
+    };
+    const intervalId = setInterval(() => void poll(), 15_000);
+    void poll(); // immediate first check on mount
+    return () => { cancelled = true; clearInterval(intervalId); };
+  }, [
+    previewRuntimeDeliveryProfile.videoAssetUrl,
+    selectedExperienceId,
+    previewExperience?.id,
+    refreshExperienceFromServer,
+  ]);
 
   const recordExperienceLifecycle = async (
     action: "experience_preview" | "experience_launch",
