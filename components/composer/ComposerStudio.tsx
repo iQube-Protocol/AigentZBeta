@@ -1768,10 +1768,18 @@ export const ComposerStudio = () => {
         target: mcpDeploymentTarget,
         variant: mcpDeliveryVariant,
       });
-      const mediaAssetUrl = resolvedInspectorDeploymentArtifact.artifact?.url || "";
+      // Compute artifact from the freshly-fetched experience, not the stale useMemo
+      // (React state updates from refreshExperienceFromServer haven't re-rendered yet).
+      const latestArtifact = resolveExperienceDeploymentArtifact({
+        experience: latestExperience,
+        variant: mcpDeliveryVariant,
+        personaLibraryAssets: personaMediaLibrary as unknown as Array<Record<string, unknown>>,
+        contextItems: [...codexContentItems, ...QRIPTO_CONTENT_ITEMS],
+      });
+      const mediaAssetUrl = latestArtifact.artifact?.url || "";
       const mediaPreviewUrl =
-        resolvedInspectorDeploymentArtifact.preview?.url ||
-        resolvedInspectorDeploymentArtifact.context?.url ||
+        latestArtifact.preview?.url ||
+        latestArtifact.context?.url ||
         "";
       const studioExperienceUrl =
         typeof window !== "undefined"
