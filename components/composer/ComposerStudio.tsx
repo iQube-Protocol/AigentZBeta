@@ -2952,7 +2952,14 @@ export const ComposerStudio = () => {
     if (previewRuntimeDeliveryProfile.imageAssets.landscape) {
       params.set("experienceImageLandscape", previewRuntimeDeliveryProfile.imageAssets.landscape);
     }
-    if (canInlineVideoUri(previewRuntimeDeliveryProfile.videoAssetUrl)) {
+    // Pass video URL to the iframe if it's a direct URL, or if it's a proxy URL that has
+    // been confirmed complete by polling (proxy route then 302→Supabase CDN for playback).
+    const videoIsConfirmedComplete =
+      currentVideoGenerationId != null && currentVideoGenerationId === confirmedCompleteGenerationId;
+    if (
+      canInlineVideoUri(previewRuntimeDeliveryProfile.videoAssetUrl) ||
+      (videoIsConfirmedComplete && previewRuntimeDeliveryProfile.videoAssetUrl)
+    ) {
       params.set("experienceVideo", previewRuntimeDeliveryProfile.videoAssetUrl!);
     }
     if (previewExperienceArticleDraft) {
@@ -3002,6 +3009,8 @@ export const ComposerStudio = () => {
     previewRuntimeDeliveryProfile.stubAssignments.personaAssignment,
     previewRuntimeDeliveryProfile.stubAssignments.policyAssignment,
     previewRuntimeDeliveryProfile.videoAssetUrl,
+    confirmedCompleteGenerationId,
+    currentVideoGenerationId,
     selectedExperienceId,
   ]);
   const buildRuntimeLaunchUrl = useCallback(
@@ -4548,15 +4557,29 @@ export const ComposerStudio = () => {
       try {
         const res = await fetch(`/api/skills/video/${generationId}/status`, { cache: "no-store" });
         if (!res.ok || cancelled) return;
-        const data = (await res.json()) as { ready?: boolean };
+        const data = (await res.json()) as { ready?: boolean; thumbnail_url?: string };
         if (data.ready && !cancelled) {
           cancelled = true;
           clearInterval(intervalId);
           // Mark complete BEFORE state updates so any dep-triggered re-run is a no-op.
           completedVideoGenerationIds.current.add(generationId);
-          setConfirmedCompleteGenerationId(generationId); // clears the banner
+          setConfirmedCompleteGenerationId(generationId); // clears the banner + enables experienceVideo param
+          // Persist the thumbnail directly (don't rely on SkillVideoPlayer inside the iframe).
+          if (data.thumbnail_url) {
+            await persistGeneratedAssetsForExperience({
+              experienceId: activeExperienceId,
+              assets: [{
+                id: `${activeExperienceId}:video:thumbnail`,
+                type: "image",
+                label: "Video thumbnail",
+                orientation: "portrait",
+                assetUrl: data.thumbnail_url,
+              }],
+            }).catch(() => undefined);
+          }
           await refreshExperienceFromServerRef.current(activeExperienceId).catch(() => undefined);
-          setPreviewNonce(Date.now()); // one-time reload to pick up Supabase URL
+          // runtimePreviewSrc will change naturally: confirmedCompleteGenerationId enables
+          // experienceVideo, and imageAssets.portrait is now set from the thumbnail.
         }
       } catch { /* ignore transient network errors */ }
     };
@@ -9526,20 +9549,29 @@ export const ComposerStudio = () => {
                             const hasProxyVideo = genAssets.some(
                               (a) => a.type === "video" && isLegacyVideoProxyUrl(String(a.assetUrl ?? a.asset_url ?? "")),
                             );
+                            // A non-proxy portrait image alongside the proxy video means the thumbnail
+                            // was saved by the polling effect — the video is done.
+                            const hasPortraitThumbnail = genAssets.some(
+                              (a) =>
+                                a.type === "image" &&
+                                a.orientation === "portrait" &&
+                                !isLegacyVideoProxyUrl(String(a.assetUrl ?? a.asset_url ?? "")) &&
+                                Boolean(a.assetUrl ?? a.asset_url),
+                            );
                             const hasReadyVideo = genAssets.some(
                               (a) =>
                                 a.type === "video" &&
                                 !isLegacyVideoProxyUrl(String(a.assetUrl ?? a.asset_url ?? "")) &&
                                 (a.assetUrl || a.asset_url),
                             );
-                            if (hasProxyVideo)
+                            if (hasProxyVideo && !hasPortraitThumbnail)
                               return (
                                 <span className="flex items-center gap-1 rounded-full border border-sky-600/60 bg-sky-600/10 px-2 py-0.5 text-sky-300">
                                   <Loader2 className="h-2.5 w-2.5 animate-spin" />
                                   Video generating
                                 </span>
                               );
-                            if (hasReadyVideo)
+                            if (hasReadyVideo || (hasProxyVideo && hasPortraitThumbnail))
                               return (
                                 <span className="rounded-full border border-emerald-600/60 bg-emerald-600/10 px-2 py-0.5 text-emerald-300">
                                   Video ready
