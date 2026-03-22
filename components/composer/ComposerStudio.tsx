@@ -2940,7 +2940,7 @@ export const ComposerStudio = () => {
     if (previewRuntimeDeliveryProfile.imageAssets.landscape) {
       params.set("experienceImageLandscape", previewRuntimeDeliveryProfile.imageAssets.landscape);
     }
-    if (previewRuntimeDeliveryProfile.videoAssetUrl) {
+    if (previewRuntimeDeliveryProfile.videoAssetUrl && !isLegacyVideoProxyUrl(previewRuntimeDeliveryProfile.videoAssetUrl)) {
       params.set("experienceVideo", previewRuntimeDeliveryProfile.videoAssetUrl);
     }
     if (previewExperienceArticleDraft) {
@@ -6745,6 +6745,12 @@ export const ComposerStudio = () => {
             <DevicePreviewSwitcher value={previewDevice} onChange={setPreviewDevice} />
           </div>
         </div>
+        {isLegacyVideoProxyUrl(previewRuntimeDeliveryProfile.videoAssetUrl) && (
+          <div className="mx-4 mb-1 flex items-center gap-2 rounded-md border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-xs text-slate-300">
+            <Loader2 className="h-3 w-3 shrink-0 animate-spin text-sky-400" />
+            <span>Video generating — open the launcher to track progress</span>
+          </div>
+        )}
         <div className="flex-1 px-4 pb-4 pt-2.5">
           <div className="relative h-full overflow-hidden rounded-2xl bg-slate-950/70">
             {!runtimePreviewLoaded && !runtimePreviewErrored && (
