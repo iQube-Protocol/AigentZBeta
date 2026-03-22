@@ -54,6 +54,15 @@ function extractDiscordInviteCode(value: string): string | null {
   return null;
 }
 
+function resolveRequestOrigin(request: NextRequest): string {
+  const proto = request.headers.get('x-forwarded-proto')?.split(',')[0]?.trim() || 'https';
+  const host =
+    request.headers.get('x-forwarded-host')?.split(',')[0]?.trim() ||
+    request.headers.get('host')?.split(',')[0]?.trim() ||
+    request.nextUrl.host;
+  return `${proto}://${host}`;
+}
+
 function toAbsoluteUrl(origin: string, value: string): string {
   if (!value) return value;
   if (/^https?:\/\//i.test(value)) return value;
@@ -247,17 +256,18 @@ export async function POST(request: NextRequest) {
     });
 
     const publishUrlInput = normalizeString(body?.publishUrl);
-    const explicitPublishUrl = publishUrlInput ? toAbsoluteUrl(request.nextUrl.origin, publishUrlInput) : '';
+    const requestOrigin = resolveRequestOrigin(request);
+    const explicitPublishUrl = publishUrlInput ? toAbsoluteUrl(requestOrigin, publishUrlInput) : '';
     const isDirectMediaUrl = /\.(png|jpe?g|webp|gif|mp4|m4v|mov|webm|ogg)(\?|$)/i.test(explicitPublishUrl);
     const primaryCta = mcpResponse.cta.primary;
     const fallbackCtaUrl =
       primaryCta?.target === 'url'
-        ? toAbsoluteUrl(request.nextUrl.origin, String(primaryCta.value || ''))
-        : `${request.nextUrl.origin}/studio/composer/experience/${encodeURIComponent(experienceId)}`;
+        ? toAbsoluteUrl(requestOrigin, String(primaryCta.value || ''))
+        : `${requestOrigin}/studio/composer/experience/${encodeURIComponent(experienceId)}`;
     const ctaUrl = explicitPublishUrl || fallbackCtaUrl;
     const publishUrl = explicitPublishUrl || fallbackCtaUrl;
     const thumbnailInput = normalizeString(body?.thumbnailUrl);
-    const thumbnailUrlRaw = thumbnailInput ? toAbsoluteUrl(request.nextUrl.origin, thumbnailInput) : '';
+    const thumbnailUrlRaw = thumbnailInput ? toAbsoluteUrl(requestOrigin, thumbnailInput) : '';
     // Exclude video proxy paths — Discord embed images must be static image URLs,
     // not video streams. Proxy URLs (/api/skills/video/…) return video/mp4 and
     // Discord silently drops them, leaving the chip blank.
