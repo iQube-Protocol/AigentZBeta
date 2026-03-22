@@ -2873,6 +2873,39 @@ export const ComposerStudio = () => {
       }),
     [personaMediaLibrary, previewExperience],
   );
+  // Poll the Sora status endpoint while the preview video URL is a proxy URL (still generating).
+  // When the video is ready, refresh the experience and bump the preview nonce so the iframe
+  // reloads with the real Supabase URL + thumbnail — no manual "Reload Preview" needed.
+  useEffect(() => {
+    const proxyUrl = previewRuntimeDeliveryProfile.videoAssetUrl;
+    if (!isLegacyVideoProxyUrl(proxyUrl)) return;
+    const match = proxyUrl!.match(/\/api\/skills\/video\/([^/?#]+)/i);
+    const generationId = match?.[1];
+    if (!generationId) return;
+    const activeExperienceId = selectedExperienceId || previewExperience?.id;
+    if (!activeExperienceId) return;
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/skills/video/${generationId}/status`, { cache: "no-store" });
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as { ready?: boolean };
+        if (data.ready && !cancelled) {
+          await refreshExperienceFromServer(activeExperienceId).catch(() => undefined);
+          if (!cancelled) setPreviewNonce(Date.now());
+        }
+      } catch { /* ignore transient errors */ }
+    };
+    const intervalId = setInterval(() => void poll(), 15_000);
+    void poll(); // immediate first check
+    return () => { cancelled = true; clearInterval(intervalId); };
+  }, [
+    previewRuntimeDeliveryProfile.videoAssetUrl,
+    selectedExperienceId,
+    previewExperience?.id,
+    refreshExperienceFromServer,
+  ]);
+
   const previewExperienceArticleDraft = useMemo(() => {
     const config = previewExperience?.configuration;
     const metadata = previewExperience?.metadata;
@@ -2940,8 +2973,8 @@ export const ComposerStudio = () => {
     if (previewRuntimeDeliveryProfile.imageAssets.landscape) {
       params.set("experienceImageLandscape", previewRuntimeDeliveryProfile.imageAssets.landscape);
     }
-    if (previewRuntimeDeliveryProfile.videoAssetUrl) {
-      params.set("experienceVideo", previewRuntimeDeliveryProfile.videoAssetUrl);
+    if (canInlineVideoUri(previewRuntimeDeliveryProfile.videoAssetUrl)) {
+      params.set("experienceVideo", previewRuntimeDeliveryProfile.videoAssetUrl!);
     }
     if (previewExperienceArticleDraft) {
       params.set("experienceArticleDraft", previewExperienceArticleDraft);
@@ -6748,7 +6781,16 @@ export const ComposerStudio = () => {
         {isLegacyVideoProxyUrl(previewRuntimeDeliveryProfile.videoAssetUrl) && (
           <div className="mx-4 mb-1 flex items-center gap-2 rounded-md border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-xs text-slate-300">
             <Loader2 className="h-3 w-3 shrink-0 animate-spin text-sky-400" />
-            <span className="flex-1">Video generating — open the launcher to track, then reload when done</span>
+            <span className="flex-1">
+              Video generating — open the{" "}
+              <a
+                href={`/studio/composer/experience/${encodeURIComponent(previewExperience?.id ?? "")}`}
+                className="text-sky-400 underline hover:text-sky-300"
+              >
+                launcher
+              </a>
+              {" "}to track progress
+            </span>
             <button
               type="button"
               onClick={() => setPreviewNonce(Date.now())}
@@ -9443,6 +9485,34 @@ export const ComposerStudio = () => {
                               🎁 +{exp.configuration.wallet_rewards.reward_amount} Q¢
                             </span>
                           )}
+                          {(() => {
+                            const genAssets = Array.isArray((exp.metadata as Record<string, unknown>)?.generated_assets)
+                              ? (exp.metadata as Record<string, unknown>).generated_assets as Record<string, unknown>[]
+                              : [];
+                            const hasProxyVideo = genAssets.some(
+                              (a) => a.type === "video" && isLegacyVideoProxyUrl(String(a.assetUrl ?? a.asset_url ?? "")),
+                            );
+                            const hasReadyVideo = genAssets.some(
+                              (a) =>
+                                a.type === "video" &&
+                                !isLegacyVideoProxyUrl(String(a.assetUrl ?? a.asset_url ?? "")) &&
+                                (a.assetUrl || a.asset_url),
+                            );
+                            if (hasProxyVideo)
+                              return (
+                                <span className="flex items-center gap-1 rounded-full border border-sky-600/60 bg-sky-600/10 px-2 py-0.5 text-sky-300">
+                                  <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                                  Video generating
+                                </span>
+                              );
+                            if (hasReadyVideo)
+                              return (
+                                <span className="rounded-full border border-emerald-600/60 bg-emerald-600/10 px-2 py-0.5 text-emerald-300">
+                                  Video ready
+                                </span>
+                              );
+                            return null;
+                          })()}
                         </div>
                         <div className="mt-3 flex items-center justify-between gap-3">
                           <div className="flex items-center gap-2">
