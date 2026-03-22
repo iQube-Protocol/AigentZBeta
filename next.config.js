@@ -12,7 +12,7 @@ const nextConfig = {
   output: isAmplifyBuild ? "standalone" : undefined,
   // Prevent playwright and other native/large packages from being bundled in server routes.
   // This reduces per-page memory pressure and avoids "Critical dependency" warnings.
-  serverExternalPackages: ["playwright", "playwright-core", "pdf-parse", "@napi-rs/canvas"],
+  serverExternalPackages: ["playwright", "playwright-core", "pdf-parse", "@napi-rs/canvas", "ffmpeg-static"],
   experimental: {
     // Limit worker parallelism on Amplify to avoid ENOMEM when forking page-data workers.
     // The main build process consumes ~3 GB; each forked worker needs additional RAM.
