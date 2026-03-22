@@ -2368,6 +2368,11 @@ export const ComposerStudio = () => {
   const [previewDevice, setPreviewDevice] = useState<DeviceType>("mobile");
   const [previewAction, setPreviewAction] = useState<string | null>(null);
   const [previewNonce, setPreviewNonce] = useState(0);
+  // Tracks the generationId confirmed complete by polling — clears the banner without needing
+  // to store a Supabase URL (proxy URL stays in generated_assets by design).
+  const [confirmedCompleteGenerationId, setConfirmedCompleteGenerationId] = useState<string | null>(null);
+  // Ref-set of completed generationIds prevents re-polling after effect dep changes.
+  const completedVideoGenerationIds = useRef(new Set<string>());
   const [runtimePreviewLoaded, setRuntimePreviewLoaded] = useState(false);
   const [runtimePreviewErrored, setRuntimePreviewErrored] = useState(false);
   const runtimePreviewIframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -2873,6 +2878,13 @@ export const ComposerStudio = () => {
       }),
     [personaMediaLibrary, previewExperience],
   );
+  // Extracts the Sora generationId from the proxy URL so the polling effect and banner
+  // condition both work from the same derived value.
+  const currentVideoGenerationId = useMemo(() => {
+    const url = previewRuntimeDeliveryProfile.videoAssetUrl;
+    if (!isLegacyVideoProxyUrl(url)) return null;
+    return url!.match(/\/api\/skills\/video\/([^/?#]+)/i)?.[1] ?? null;
+  }, [previewRuntimeDeliveryProfile.videoAssetUrl]);
   const previewExperienceArticleDraft = useMemo(() => {
     const config = previewExperience?.configuration;
     const metadata = previewExperience?.metadata;
@@ -4506,16 +4518,22 @@ export const ComposerStudio = () => {
     [experience?.id, mcpExperience?.id, selectedExperienceId, tenantId],
   );
 
-  // Poll the Sora status endpoint while the preview video URL is a proxy URL (still generating).
-  // Stops automatically on first "ready" detection or after MAX_POLL_ATTEMPTS (~10 min).
-  // NOTE: Venice and other providers use different status URLs — multi-provider abstraction
-  // is tracked as a backlog item; SkillVideoPlayer inside the iframe already handles it.
+  // Keep a stable ref to refreshExperienceFromServer so the polling effect doesn't have to
+  // list it as a dep (calling it triggers setExperience → ref change → infinite effect re-run).
+  const refreshExperienceFromServerRef = useRef(refreshExperienceFromServer);
+  refreshExperienceFromServerRef.current = refreshExperienceFromServer;
+
+  // Poll the Sora status endpoint while a proxy video URL is active.
+  // Uses currentVideoGenerationId (derived from the proxy URL) as the sole trigger — so the
+  // effect only starts once per unique generation, not every render.
+  // Stops on first ready=true or after MAX_POLL_ATTEMPTS (~10 min).
+  // NOTE: Venice and other providers are handled by SkillVideoPlayer inside the iframe; this
+  // loop is OpenAI-only and is tracked as a multi-provider backlog item.
   useEffect(() => {
-    const proxyUrl = previewRuntimeDeliveryProfile.videoAssetUrl;
-    if (!isLegacyVideoProxyUrl(proxyUrl)) return;
-    const match = proxyUrl!.match(/\/api\/skills\/video\/([^/?#]+)/i);
-    const generationId = match?.[1];
+    const generationId = currentVideoGenerationId;
     if (!generationId) return;
+    // Skip if already confirmed complete this session (guard against effect re-runs).
+    if (completedVideoGenerationIds.current.has(generationId)) return;
     const activeExperienceId = selectedExperienceId || previewExperience?.id;
     if (!activeExperienceId) return;
 
@@ -4525,10 +4543,7 @@ export const ComposerStudio = () => {
     let intervalId: ReturnType<typeof setInterval>;
 
     const poll = async () => {
-      if (cancelled || attempts >= MAX_POLL_ATTEMPTS) {
-        clearInterval(intervalId);
-        return;
-      }
+      if (cancelled || attempts >= MAX_POLL_ATTEMPTS) { clearInterval(intervalId); return; }
       attempts++;
       try {
         const res = await fetch(`/api/skills/video/${generationId}/status`, { cache: "no-store" });
@@ -4537,21 +4552,19 @@ export const ComposerStudio = () => {
         if (data.ready && !cancelled) {
           cancelled = true;
           clearInterval(intervalId);
-          await refreshExperienceFromServer(activeExperienceId).catch(() => undefined);
-          setPreviewNonce(Date.now());
+          // Mark complete BEFORE state updates so any dep-triggered re-run is a no-op.
+          completedVideoGenerationIds.current.add(generationId);
+          setConfirmedCompleteGenerationId(generationId); // clears the banner
+          await refreshExperienceFromServerRef.current(activeExperienceId).catch(() => undefined);
+          setPreviewNonce(Date.now()); // one-time reload to pick up Supabase URL
         }
       } catch { /* ignore transient network errors */ }
     };
 
     intervalId = setInterval(() => void poll(), 15_000);
-    void poll(); // immediate first check on mount
+    void poll();
     return () => { cancelled = true; clearInterval(intervalId); };
-  }, [
-    previewRuntimeDeliveryProfile.videoAssetUrl,
-    selectedExperienceId,
-    previewExperience?.id,
-    refreshExperienceFromServer,
-  ]);
+  }, [currentVideoGenerationId, selectedExperienceId, previewExperience?.id]);
 
   const recordExperienceLifecycle = async (
     action: "experience_preview" | "experience_launch",
@@ -6408,11 +6421,10 @@ export const ComposerStudio = () => {
           ? ((event.detail as { experienceId?: string }).experienceId as string)
           : undefined;
       if (experienceId) {
-        // Refresh experience data then reload the preview iframe so it picks up the
-        // Supabase video URL + portrait thumbnail — mirroring how the Thin Client works.
-        void refreshExperienceFromServer(experienceId)
-          .then(() => { if (active) setPreviewNonce(Date.now()); })
-          .catch(() => undefined);
+        // Refresh experience data; runtimePreviewSrc will change naturally when
+        // imageAssets.portrait is added, causing the iframe to reload without an
+        // explicit setPreviewNonce (which would cause an infinite reload loop).
+        void refreshExperienceFromServer(experienceId).catch(() => undefined);
       }
     };
     const handlePersonaMediaMessage = (event: MessageEvent) => {
@@ -6427,11 +6439,10 @@ export const ComposerStudio = () => {
           ? ((data as { experienceId?: string }).experienceId as string)
           : undefined;
       if (experienceId) {
-        // Refresh experience data then reload the preview iframe so it picks up the
-        // Supabase video URL + portrait thumbnail — mirroring how the Thin Client works.
-        void refreshExperienceFromServer(experienceId)
-          .then(() => { if (active) setPreviewNonce(Date.now()); })
-          .catch(() => undefined);
+        // Refresh experience data; runtimePreviewSrc will change naturally when
+        // imageAssets.portrait is added, causing the iframe to reload without an
+        // explicit setPreviewNonce (which would cause an infinite reload loop).
+        void refreshExperienceFromServer(experienceId).catch(() => undefined);
       }
     };
     const handlePersonaMediaStorage = (event: StorageEvent) => {
@@ -6800,7 +6811,8 @@ export const ComposerStudio = () => {
             <DevicePreviewSwitcher value={previewDevice} onChange={setPreviewDevice} />
           </div>
         </div>
-        {isLegacyVideoProxyUrl(previewRuntimeDeliveryProfile.videoAssetUrl) && (
+        {isLegacyVideoProxyUrl(previewRuntimeDeliveryProfile.videoAssetUrl) &&
+          currentVideoGenerationId !== confirmedCompleteGenerationId && (
           <div className="mx-4 mb-1 flex items-center gap-2 rounded-md border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-xs text-slate-300">
             <Loader2 className="h-3 w-3 shrink-0 animate-spin text-sky-400" />
             <span className="flex-1">

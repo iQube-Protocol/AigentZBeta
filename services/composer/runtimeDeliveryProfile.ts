@@ -109,7 +109,10 @@ function assetType(asset: RecordLike): "image" | "video" {
   const explicit = firstNonEmptyString([asset.type, asset.media_type]);
   if (explicit === "video") return "video";
   if (explicit === "image") return "image";
-  return /\.((mp4|mov|webm|m4v))(\?|$)/i.test(assetUrl(asset) || "") ? "video" : "image";
+  const url = assetUrl(asset) || "";
+  // Proxy video URLs (/api/skills/video/...) have no file extension — treat them as video explicitly.
+  if (/\/api\/skills\/video\//i.test(url)) return "video";
+  return /\.((mp4|mov|webm|m4v))(\?|$)/i.test(url) ? "video" : "image";
 }
 
 function assetPriority(asset: RecordLike): number {
