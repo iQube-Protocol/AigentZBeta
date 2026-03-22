@@ -381,7 +381,7 @@ export default function SkillVideoPlayer({
       experienceId: experience_id,
       assets: [
         {
-          id: `${experience_id}:video`,
+          id: `${experience_id}:video:${result.generation_id || ""}`,
           type: "video",
           label: "Generated video",
           provider: result.provider,

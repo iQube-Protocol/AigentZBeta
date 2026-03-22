@@ -27,13 +27,16 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
   }
 
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30_000);
     const res = await fetch(
       `https://api.openai.com/v1/videos/${videoId}/content`,
       {
         headers: { Authorization: `Bearer ${apiKey}` },
         redirect: "follow",
+        signal: controller.signal,
       },
-    );
+    ).finally(() => clearTimeout(timeout));
 
     if (!res.ok) {
       const errBody = await res.text().catch(() => "");
