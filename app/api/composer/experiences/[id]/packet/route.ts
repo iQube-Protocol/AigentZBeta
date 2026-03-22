@@ -506,6 +506,23 @@ function buildSkillPacket(experience: any, personaLibraryAssets: any[] = []) {
   const videoUrl = getAssetUrl(videoAsset);
   const videoReceiptRef = getAssetReceiptRef(videoAsset);
 
+  // Extract generation_id and venice_model so SkillVideoPlayer can resume
+  // polling when the bundle auto-generated a job that is still in progress.
+  // Asset id format: "${experienceId}:video:${generationId}"
+  const videoGenerationId: string | null = (() => {
+    const assetId = typeof videoAsset?.id === "string" ? videoAsset.id : "";
+    const idx = assetId.lastIndexOf(":video:");
+    if (idx < 0) return null;
+    const candidate = assetId.slice(idx + ":video:".length);
+    return candidate || null;
+  })();
+  // Venice proxy URL encodes the model: /api/skills/video/venice/QUEUE_ID?model=MODEL
+  const videoVeniceModel: string | null = (() => {
+    const url = videoUrl || "";
+    const m = url.match(/\/api\/skills\/video\/venice\/[^?]+\?model=([^&]+)/i);
+    return m ? decodeURIComponent(m[1]) : null;
+  })();
+
   return {
     packet_version: "1.0",
     packet_id: `pkt_${experience.id}`,
@@ -544,6 +561,8 @@ function buildSkillPacket(experience: any, personaLibraryAssets: any[] = []) {
       style: videoPrompt.style || "cinematic",
       creative_pack: intent.creative_pack || null,
       video_url: videoUrl,
+      generation_id: videoGenerationId || undefined,
+      venice_model_for_status: videoVeniceModel || undefined,
       },
     ui: {
       primary_template: "skill:video_player_v1",

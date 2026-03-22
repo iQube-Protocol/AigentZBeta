@@ -42,6 +42,10 @@ interface SkillVideoPlayerProps {
   initial_video_url?: string;
   initial_receipt?: Record<string, unknown>;
   persona_id?: string;
+  /** Resume status-polling for a previously submitted job (bundle auto-gen). */
+  initial_generation_id?: string;
+  /** Venice model required for the status URL when resuming a Venice job. */
+  initial_venice_model?: string;
 }
 
 interface InvocationResult {
@@ -107,6 +111,8 @@ export default function SkillVideoPlayer({
   initial_video_url,
   initial_receipt,
   persona_id,
+  initial_generation_id,
+  initial_venice_model,
 }: SkillVideoPlayerProps) {
   const searchParams = useSearchParams();
   // Sora jobs typically complete in 3–5 min. First poll fires immediately,
@@ -115,8 +121,16 @@ export default function SkillVideoPlayer({
   const initialProvider = inferProviderFromSkillId(skill_id);
   const showRuntimeBack = searchParams?.get("from") === "runtime";
   const resolvedInitialVideoUrl = isLegacyVideoProxyUrl(initial_video_url) ? undefined : initial_video_url;
-  const [state, setState] = useState<"idle" | "invoking" | "done" | "error">(resolvedInitialVideoUrl ? "done" : "idle");
-  const [resultSource, setResultSource] = useState<"saved" | "generated" | "none">(resolvedInitialVideoUrl ? "saved" : "none");
+  // When a bundle auto-generated a job (proxy URL saved) but the video isn't
+  // ready yet, initial_generation_id lets us resume polling immediately.
+  const resolvedInitialGenerationId =
+    !resolvedInitialVideoUrl && initial_generation_id ? initial_generation_id : undefined;
+  const [state, setState] = useState<"idle" | "invoking" | "done" | "error">(
+    resolvedInitialVideoUrl || resolvedInitialGenerationId ? "done" : "idle"
+  );
+  const [resultSource, setResultSource] = useState<"saved" | "generated" | "none">(
+    resolvedInitialVideoUrl ? "saved" : resolvedInitialGenerationId ? "generated" : "none"
+  );
   const [result, setResult] = useState<InvocationResult | null>(
     resolvedInitialVideoUrl
       ? {
@@ -127,7 +141,16 @@ export default function SkillVideoPlayer({
           receipt: initial_receipt,
           skill_composite: 78,
         }
-      : null
+      : resolvedInitialGenerationId
+        ? {
+            ok: true,
+            mode: "live",
+            provider: initialProvider,
+            generation_id: resolvedInitialGenerationId,
+            venice_model: initial_venice_model,
+            invocation_phase: "job_accepted",
+          }
+        : null
   );
   const [showReceipt, setShowReceipt] = useState(false);
   const [playbackRetryCount, setPlaybackRetryCount] = useState(0);
@@ -151,6 +174,23 @@ export default function SkillVideoPlayer({
     setState("done");
     setResultSource("saved");
   }, [initialProvider, initial_receipt, resolvedInitialVideoUrl]);
+
+  // Resume polling when the parent provides a generation_id from a bundle job.
+  useEffect(() => {
+    if (!resolvedInitialGenerationId) return;
+    setResult({
+      ok: true,
+      mode: "live",
+      provider: initialProvider,
+      generation_id: resolvedInitialGenerationId,
+      venice_model: initial_venice_model,
+      invocation_phase: "job_accepted",
+    });
+    setState("done");
+    setResultSource("generated");
+    setPollAttempts(0);
+    setAutoPollPaused(false);
+  }, [initialProvider, initial_venice_model, resolvedInitialGenerationId]);
 
   const invoke = useCallback(async () => {
     if (!skill_id) return;
