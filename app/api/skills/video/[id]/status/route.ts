@@ -62,15 +62,22 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       let thumbnailUrl: string | null = null;
       try {
         const thumbController = new AbortController();
-        const thumbTimeout = setTimeout(() => thumbController.abort(), 20_000);
-        const contentRes = await fetch(`https://api.openai.com/v1/videos/${videoId}/content`, {
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            Range: "bytes=0-4194303",
-          },
+        const thumbTimeout = setTimeout(() => thumbController.abort(), 25_000);
+        const contentUrl = `https://api.openai.com/v1/videos/${videoId}/content`;
+        let contentRes = await fetch(contentUrl, {
+          headers: { Authorization: `Bearer ${apiKey}`, Range: "bytes=0-4194303" },
           signal: thumbController.signal,
           cache: "no-store",
-        }).finally(() => clearTimeout(thumbTimeout));
+        });
+        // If OpenAI doesn't honour Range requests, retry without the header to get the full body.
+        if (contentRes.status === 416) {
+          contentRes = await fetch(contentUrl, {
+            headers: { Authorization: `Bearer ${apiKey}` },
+            signal: thumbController.signal,
+            cache: "no-store",
+          });
+        }
+        clearTimeout(thumbTimeout);
         if (contentRes.ok || contentRes.status === 206) {
           const partial = Buffer.from(await contentRes.arrayBuffer());
           const thumbBuffer = await extractThumbnailFromBuffer(partial, videoId).catch(() => null);
