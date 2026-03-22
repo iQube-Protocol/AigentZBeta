@@ -476,7 +476,7 @@ function resolveCapsuleCoverImage(content: RuntimeCapsule) {
 
 function isLikelyVideoUri(uri: string | null | undefined): boolean {
   if (!uri) return false;
-  return /(\.mp4|\.mov|\.webm|\.m3u8)(\?.*)?$/i.test(uri) || uri.includes("/api/content/video/");
+  return /(\.mp4|\.mov|\.webm|\.m3u8)(\?.*)?$/i.test(uri) || uri.includes("/api/content/video/") || /\/api\/skills\/video\//i.test(uri);
 }
 
 function normalizeImageCandidate(candidate: unknown): string | null {

@@ -336,20 +336,31 @@ function selectPreviewCandidate(
   artifact: ResolvedMediaCandidate | null,
   variant: ComposerDeliveryVariant,
 ): ResolvedMediaCandidate | null {
-  if (artifact?.mediaType === "video") return artifact;
+  const isDiscord =
+    variant === "discord_asset_inline" || variant === "discord_experience_inline";
+
+  // For Discord embeds the preview must be a static image — video proxy URLs
+  // return video/mp4 which Discord silently drops.  Fall through to find an
+  // image candidate instead of returning the video artifact.
+  if (artifact?.mediaType === "video" && !isDiscord) return artifact;
 
   const landscapeImages = candidates
     .filter((candidate) => candidate.mediaType === "image" && candidate.orientation === "landscape")
     .sort(rankByNewest);
-  if (
-    variant === "discord_asset_inline" ||
-    variant === "discord_experience_inline" ||
-    variant === "runtime_thin_client"
-  ) {
+  const portraitImages = candidates
+    .filter((candidate) => candidate.mediaType === "image" && candidate.orientation === "portrait")
+    .sort(rankByNewest);
+  if (isDiscord || variant === "runtime_thin_client") {
     if (landscapeImages[0]) return landscapeImages[0];
+    if (portraitImages[0]) return portraitImages[0];
   }
 
-  return artifact || landscapeImages[0] || candidates.sort(rankByNewest)[0] || null;
+  // For Discord, return null when no static image exists so the caller can
+  // fall through to context media (e.g. codex hero image) instead of using
+  // a video proxy URL that Discord would silently drop.
+  if (isDiscord) return landscapeImages[0] || portraitImages[0] || null;
+
+  return artifact || landscapeImages[0] || portraitImages[0] || candidates.sort(rankByNewest)[0] || null;
 }
 
 export function resolveExperienceDeploymentArtifact(options: {
