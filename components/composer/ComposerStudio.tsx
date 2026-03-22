@@ -4211,7 +4211,16 @@ export const ComposerStudio = () => {
       const isImageBundle = getAppliedExperienceBundle(bundleCheckSource)?.presetId === "image_article_bundle";
       const isVideoBundle = getAppliedExperienceBundle(bundleCheckSource)?.presetId === "video_article_bundle";
       const hasImagePrompts = typeof imageGenerationConfig.portrait_prompt === "string" && (imageGenerationConfig.portrait_prompt as string).trim().length > 0;
-      const videoPromptRecord = asRecord(mergedData?.video_prompt);
+      // Mirror the image pattern: read from the completed experience configuration first
+      // (session.data is saved as configuration), then fall back to React session state.
+      const videoPromptRecord =
+        asRecord(completedExperience?.configuration?.video_prompt) ||
+        asRecord(bundleCheckSource?.configuration?.video_prompt) ||
+        asRecord(mergedData?.video_prompt);
+      const skillSelectionRecord =
+        asRecord(completedExperience?.configuration?.skill_selection) ||
+        asRecord(bundleCheckSource?.configuration?.skill_selection) ||
+        asRecord(mergedData?.skill_selection);
       const hasVideoPrompt = typeof videoPromptRecord?.prompt === "string" && (videoPromptRecord.prompt as string).trim().length > 0;
       const shouldAutoGenerateImages = isImageBundle || (hasImagePrompts && !isVideoBundle && !hasVideoPrompt);
       const shouldAutoGenerateVideo = isVideoBundle && hasVideoPrompt;
@@ -4241,7 +4250,6 @@ export const ComposerStudio = () => {
         }
       }
       if (completedExperience && shouldAutoGenerateVideo && imageBundleTargetId) {
-        const skillSelectionRecord = asRecord(mergedData?.skill_selection);
         const rawSkillId = skillSelectionRecord?.skill_id;
         const skillId = typeof rawSkillId === "string" && rawSkillId.trim() ? rawSkillId.trim() : "venice_video_gen";
         const trustOverride = skillSelectionRecord?.trust_override === true;
