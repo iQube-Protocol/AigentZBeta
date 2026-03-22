@@ -4223,7 +4223,10 @@ export const ComposerStudio = () => {
       const isVideoBundle =
         getAppliedExperienceBundle(bundleCheckSource)?.presetId === "video_article_bundle" ||
         asRecord(bundleCheckSource?.configuration?.make_bundle)?.presetId === "video_article_bundle" ||
-        asRecord(completedExperience?.configuration?.make_bundle)?.presetId === "video_article_bundle";
+        asRecord(completedExperience?.configuration?.make_bundle)?.presetId === "video_article_bundle" ||
+        // Direct template check: if the completed session IS the video generation template,
+        // treat it as a video session regardless of whether bundle metadata propagated.
+        session.template_id === "sora-video-generation";
       const hasImagePrompts = typeof imageGenerationConfig.portrait_prompt === "string" && (imageGenerationConfig.portrait_prompt as string).trim().length > 0;
       // Mirror the image pattern: read from the completed experience configuration first
       // (session.data is saved as configuration), then fall back to React session state.
@@ -4238,6 +4241,24 @@ export const ComposerStudio = () => {
       const hasVideoPrompt = typeof videoPromptRecord?.prompt === "string" && (videoPromptRecord.prompt as string).trim().length > 0;
       const shouldAutoGenerateImages = isImageBundle || (hasImagePrompts && !isVideoBundle && !hasVideoPrompt);
       const shouldAutoGenerateVideo = isVideoBundle && hasVideoPrompt;
+      // Diagnostic: log auto-gen decision tree so we can trace failures in production
+      console.info("[AutoGen] decision", {
+        isImageBundle,
+        isVideoBundle,
+        hasImagePrompts,
+        hasVideoPrompt,
+        shouldAutoGenerateImages,
+        shouldAutoGenerateVideo,
+        sessionTemplateId: session.template_id,
+        makeBundlePresetId: asRecord(completedExperience?.configuration?.make_bundle)?.presetId,
+        bundleCheckPresetId: asRecord(bundleCheckSource?.configuration?.make_bundle)?.presetId,
+        compositionBundlePresetId: getAppliedExperienceBundle(bundleCheckSource)?.presetId,
+        videoPromptSnippet: typeof videoPromptRecord?.prompt === "string" ? (videoPromptRecord.prompt as string).substring(0, 60) : null,
+        imagePromptSnippet: typeof imageGenerationConfig?.portrait_prompt === "string" ? (imageGenerationConfig.portrait_prompt as string).substring(0, 60) : null,
+        imageBundleTargetId,
+        editingExperienceId,
+        completedExperienceId: completedExperience?.id,
+      });
       if (completedExperience && shouldAutoGenerateImages && imageBundleTargetId) {
         const articleDraftToPreserve = completedExperience.configuration?.article_draft;
         await requestImageBundleArtifacts({
