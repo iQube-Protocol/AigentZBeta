@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { extractThumbnailFromBuffer, persistThumbnailAsset } from "@/app/api/skills/video/_thumbnail";
 
 /**
  * GET /api/skills/video/[id]
@@ -122,6 +123,13 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     const body = await res.arrayBuffer();
 
     const supabaseUrl = await uploadToSupabase(videoId, body, contentType);
+
+    // Extract and persist thumbnail while we have the full buffer.
+    // Fire-and-forget — thumbnail failure must not block the video redirect.
+    extractThumbnailFromBuffer(Buffer.from(body), videoId)
+      .then((thumbBuffer) => thumbBuffer ? persistThumbnailAsset(thumbBuffer, videoId, "openai") : null)
+      .catch(() => null);
+
     return NextResponse.redirect(supabaseUrl, { status: 302 });
   } catch (err: any) {
     const msg = err?.name === "AbortError"
