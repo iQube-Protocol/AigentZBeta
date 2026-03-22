@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { extractThumbnailFromBuffer, persistThumbnailAsset } from "@/app/api/skills/video/_thumbnail";
 
 /**
  * GET /api/skills/video/[id]/status
@@ -53,15 +54,40 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     const progress: number = data?.progress ?? 0;
 
     if (status === "completed") {
-      // Return the proxy URL immediately — downloading and re-uploading the
-      // full video inline blocks for 30 s+ on Lambda and causes the status
-      // poll to time out. The proxy endpoint streams from OpenAI on demand.
       const proxyUrl = `/api/skills/video/${videoId}`;
+
+      // Extract a thumbnail from the first 4 MB of the video content.
+      // This mirrors the Venice status route pattern. Best-effort — any failure
+      // is swallowed so the status response is never blocked.
+      let thumbnailUrl: string | null = null;
+      try {
+        const thumbController = new AbortController();
+        const thumbTimeout = setTimeout(() => thumbController.abort(), 20_000);
+        const contentRes = await fetch(`https://api.openai.com/v1/videos/${videoId}/content`, {
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            Range: "bytes=0-4194303",
+          },
+          signal: thumbController.signal,
+          cache: "no-store",
+        }).finally(() => clearTimeout(thumbTimeout));
+        if (contentRes.ok || contentRes.status === 206) {
+          const partial = Buffer.from(await contentRes.arrayBuffer());
+          const thumbBuffer = await extractThumbnailFromBuffer(partial, videoId).catch(() => null);
+          if (thumbBuffer) {
+            thumbnailUrl = await persistThumbnailAsset(thumbBuffer, videoId, "openai").catch(() => null);
+          }
+        }
+      } catch {
+        // Thumbnail is optional — continue without it.
+      }
+
       return NextResponse.json({
         ready: true,
         status: "completed",
         progress: 100,
         video_url: proxyUrl,
+        ...(thumbnailUrl ? { thumbnail_url: thumbnailUrl } : {}),
         checked_at: new Date().toISOString(),
       }, {
         headers: { "Cache-Control": "no-store, no-cache, must-revalidate" },

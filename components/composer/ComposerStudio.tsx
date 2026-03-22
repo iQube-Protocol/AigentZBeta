@@ -4285,6 +4285,9 @@ export const ComposerStudio = () => {
         }
       }
       if (completedExperience && shouldAutoGenerateVideo && imageBundleTargetId) {
+        // Preserve article_draft before the server refresh overwrites it,
+        // mirroring the same pattern used in the image bundle block above.
+        const articleDraftToPreserve = completedExperience.configuration?.article_draft;
         const rawSkillId = skillSelectionRecord?.skill_id;
         const skillId = typeof rawSkillId === "string" && rawSkillId.trim() ? rawSkillId.trim() : "venice_video_gen";
         const trustOverride = skillSelectionRecord?.trust_override === true;
@@ -4304,7 +4307,13 @@ export const ComposerStudio = () => {
         const refreshedCompletedExperience =
           (await refreshExperienceFromServer(imageBundleTargetId).catch(() => null)) || null;
         if (refreshedCompletedExperience) {
-          completedExperience = refreshedCompletedExperience;
+          completedExperience = {
+            ...refreshedCompletedExperience,
+            configuration: {
+              ...refreshedCompletedExperience.configuration,
+              ...(articleDraftToPreserve ? { article_draft: articleDraftToPreserve } : {}),
+            },
+          };
         }
       }
       setExperience(completedExperience);
