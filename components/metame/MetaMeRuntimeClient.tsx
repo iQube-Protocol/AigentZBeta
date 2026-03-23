@@ -2225,6 +2225,7 @@ export default function MetaMeRuntimeClient() {
         const articleAnchorId = `experience-${content.id}-article`;
         return (
           <div
+            data-embed-panel
             className={`rounded-2xl border border-cyan-400/25 bg-slate-950/85 p-3 space-y-3 ${
               embedMode ? "max-h-full overflow-y-auto" : ""
             }`}
@@ -2704,6 +2705,17 @@ export default function MetaMeRuntimeClient() {
     setSelectedCapsuleLocal(queryPreviewDisplayCapsule.id);
     launchCapsule(queryPreviewDisplayCapsule, launchIntent);
   }, [launchCapsule, queryPreviewDisplayCapsule, runtimeIntentParam]);
+
+  // After an experience auto-launches in embed mode, CopilotKit scrolls to the bottom
+  // (showing the thumbnail carousel). Override by scrolling the capsule panel back into
+  // view at the top after a short delay so the hero/context area is shown first.
+  useEffect(() => {
+    if (!embedMode || !queryPreviewDisplayCapsule) return;
+    const t = setTimeout(() => {
+      document.querySelector("[data-embed-panel]")?.scrollIntoView({ block: "start", behavior: "instant" });
+    }, 150);
+    return () => clearTimeout(t);
+  }, [embedMode, queryPreviewDisplayCapsule?.id]);
 
   // When queryPreviewDisplayCapsule changes due to runtimeExperienceOverrides (same id, updated
   // article draft), refresh the already-launched message panel in the shell in-place.
