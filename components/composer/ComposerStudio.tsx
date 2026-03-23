@@ -4611,59 +4611,6 @@ export const ComposerStudio = () => {
     return () => { cancelled = true; clearInterval(intervalId); };
   }, [currentVideoGenerationId, selectedExperienceId, previewExperience?.id]);
 
-  // One-time batch check on initial experiences load: for every experience that has a proxy
-  // video URL without a portrait thumbnail (video not yet confirmed done), hit the status
-  // endpoint once. If ready, persist the thumbnail, clear the banner, and refresh the experience.
-  const batchVideoCheckedRef = useRef(false);
-  useEffect(() => {
-    if (batchVideoCheckedRef.current || experiences.length === 0) return;
-    batchVideoCheckedRef.current = true;
-    for (const exp of experiences) {
-      const genAssets = Array.isArray((exp.metadata as Record<string, unknown>)?.generated_assets)
-        ? (exp.metadata as Record<string, unknown>).generated_assets as Record<string, unknown>[]
-        : [];
-      const proxyVideo = genAssets.find(
-        (a) => a.type === "video" && isLegacyVideoProxyUrl(String(a.assetUrl ?? a.asset_url ?? "")),
-      );
-      if (!proxyVideo) continue;
-      const hasPortraitThumbnail = genAssets.some(
-        (a) =>
-          a.type === "image" &&
-          a.orientation === "portrait" &&
-          !isLegacyVideoProxyUrl(String(a.assetUrl ?? a.asset_url ?? "")) &&
-          Boolean(a.assetUrl ?? a.asset_url),
-      );
-      if (hasPortraitThumbnail) continue;
-      const proxyUrl = String(proxyVideo.assetUrl ?? proxyVideo.asset_url ?? "");
-      const genId = proxyUrl.match(/\/api\/skills\/video\/([^/?#]+)/i)?.[1];
-      if (!genId || completedVideoGenerationIds.current.has(genId)) continue;
-      const expId = exp.id;
-      void (async () => {
-        try {
-          const res = await fetch(`/api/skills/video/${genId}/status`, { cache: "no-store" });
-          if (!res.ok) return;
-          const data = (await res.json()) as { ready?: boolean; thumbnail_url?: string };
-          if (!data.ready) return;
-          completedVideoGenerationIds.current.add(genId);
-          setConfirmedCompleteGenerationId(genId);
-          if (data.thumbnail_url) {
-            await persistGeneratedAssetsForExperience({
-              experienceId: expId,
-              assets: [{
-                id: `${expId}:video:thumbnail`,
-                type: "image",
-                label: "Video thumbnail",
-                orientation: "portrait",
-                assetUrl: data.thumbnail_url,
-              }],
-            }).catch(() => undefined);
-          }
-          await refreshExperienceFromServerRef.current(expId).catch(() => undefined);
-        } catch { /* ignore */ }
-      })();
-    }
-  }, [experiences]);
-
   const recordExperienceLifecycle = async (
     action: "experience_preview" | "experience_launch",
     exp: ExperienceQube | null | undefined,
