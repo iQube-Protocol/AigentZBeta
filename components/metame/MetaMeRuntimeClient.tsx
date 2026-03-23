@@ -3077,10 +3077,8 @@ export default function MetaMeRuntimeClient() {
     };
     setMessages((prev) => {
       const withoutPanel = prev.filter((message) => message.id !== "capsule-panel");
-      // In embed/preview mode: put carousel first so scrollChatToBottom() lands on the
-      // hero/context content (the user's entry point), not the thumbnail strip.
-      // In live mode: keep carousel last so it's the first thing visible.
-      if (embedMode) return [panelMsg, ...withoutPanel];
+      // Carousel always goes last so scrollChatToBottom() lands on the thumbnails,
+      // keeping them visible. Experience content sits above and is readable by scrolling up.
       return [...withoutPanel, panelMsg];
     });
   }, [activeCapsuleId, activeDevice, capsuleContents, capsulePanel, embedMode, showWelcome]);
