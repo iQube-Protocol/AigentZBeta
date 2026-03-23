@@ -4612,8 +4612,8 @@ export const ComposerStudio = () => {
   }, [currentVideoGenerationId, selectedExperienceId, previewExperience?.id]);
 
   // One-time batch check on initial experiences load: for every experience that has a proxy
-  // video URL but no portrait thumbnail, hit the status endpoint once. If ready, persist
-  // the thumbnail and refresh that experience so the badge flips without needing it selected.
+  // video URL without a portrait thumbnail (video not yet confirmed done), hit the status
+  // endpoint once. If ready, persist the thumbnail, clear the banner, and refresh the experience.
   const batchVideoCheckedRef = useRef(false);
   useEffect(() => {
     if (batchVideoCheckedRef.current || experiences.length === 0) return;
@@ -4645,6 +4645,7 @@ export const ComposerStudio = () => {
           const data = (await res.json()) as { ready?: boolean; thumbnail_url?: string };
           if (!data.ready) return;
           completedVideoGenerationIds.current.add(genId);
+          setConfirmedCompleteGenerationId(genId);
           if (data.thumbnail_url) {
             await persistGeneratedAssetsForExperience({
               experienceId: expId,
@@ -9616,43 +9617,6 @@ export const ComposerStudio = () => {
                               🎁 +{exp.configuration.wallet_rewards.reward_amount} Q¢
                             </span>
                           )}
-                          {(() => {
-                            const genAssets = Array.isArray((exp.metadata as Record<string, unknown>)?.generated_assets)
-                              ? (exp.metadata as Record<string, unknown>).generated_assets as Record<string, unknown>[]
-                              : [];
-                            const hasProxyVideo = genAssets.some(
-                              (a) => a.type === "video" && isLegacyVideoProxyUrl(String(a.assetUrl ?? a.asset_url ?? "")),
-                            );
-                            // A non-proxy portrait image alongside the proxy video means the thumbnail
-                            // was saved by the polling effect — the video is done.
-                            const hasPortraitThumbnail = genAssets.some(
-                              (a) =>
-                                a.type === "image" &&
-                                a.orientation === "portrait" &&
-                                !isLegacyVideoProxyUrl(String(a.assetUrl ?? a.asset_url ?? "")) &&
-                                Boolean(a.assetUrl ?? a.asset_url),
-                            );
-                            const hasReadyVideo = genAssets.some(
-                              (a) =>
-                                a.type === "video" &&
-                                !isLegacyVideoProxyUrl(String(a.assetUrl ?? a.asset_url ?? "")) &&
-                                (a.assetUrl || a.asset_url),
-                            );
-                            if (hasProxyVideo && !hasPortraitThumbnail)
-                              return (
-                                <span className="flex items-center gap-1 rounded-full border border-sky-600/60 bg-sky-600/10 px-2 py-0.5 text-sky-300">
-                                  <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                                  Video generating
-                                </span>
-                              );
-                            if (hasReadyVideo || (hasProxyVideo && hasPortraitThumbnail))
-                              return (
-                                <span className="rounded-full border border-emerald-600/60 bg-emerald-600/10 px-2 py-0.5 text-emerald-300">
-                                  Video ready
-                                </span>
-                              );
-                            return null;
-                          })()}
                         </div>
                         <div className="mt-3 flex items-center justify-between gap-3">
                           <div className="flex items-center gap-2">
