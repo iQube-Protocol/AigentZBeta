@@ -2942,6 +2942,8 @@ export const ComposerStudio = () => {
       params.set("experienceContextImage", previewRuntimeDeliveryProfile.imageAssets.landscape);
     } else if (previewExperienceMedia?.uri && previewExperienceMedia.mediaType !== "video") {
       params.set("experienceContextImage", previewExperienceMedia.uri);
+    } else if (previewRuntimeDeliveryProfile.imageAssets.portrait) {
+      params.set("experienceContextImage", previewRuntimeDeliveryProfile.imageAssets.portrait);
     }
     if (previewExperienceMedia?.uri && previewExperienceMedia.mediaType !== "video") {
       params.set("experienceImage", previewExperienceMedia.uri);
@@ -3052,6 +3054,8 @@ export const ComposerStudio = () => {
       );
       if (!runtimeProfile.imageAssets.landscape && launchMedia?.uri && launchMedia.mediaType !== "video") {
         params.set("experienceContextImage", launchMedia.uri);
+      } else if (!runtimeProfile.imageAssets.landscape && !launchMedia?.uri && runtimeProfile.imageAssets.portrait) {
+        params.set("experienceContextImage", runtimeProfile.imageAssets.portrait);
       }
       if (launchMedia?.uri && launchMedia.mediaType !== "video") {
         params.set("experienceImage", launchMedia.uri);
@@ -4606,6 +4610,58 @@ export const ComposerStudio = () => {
     void poll();
     return () => { cancelled = true; clearInterval(intervalId); };
   }, [currentVideoGenerationId, selectedExperienceId, previewExperience?.id]);
+
+  // One-time batch check on initial experiences load: for every experience that has a proxy
+  // video URL but no portrait thumbnail, hit the status endpoint once. If ready, persist
+  // the thumbnail and refresh that experience so the badge flips without needing it selected.
+  const batchVideoCheckedRef = useRef(false);
+  useEffect(() => {
+    if (batchVideoCheckedRef.current || experiences.length === 0) return;
+    batchVideoCheckedRef.current = true;
+    for (const exp of experiences) {
+      const genAssets = Array.isArray((exp.metadata as Record<string, unknown>)?.generated_assets)
+        ? (exp.metadata as Record<string, unknown>).generated_assets as Record<string, unknown>[]
+        : [];
+      const proxyVideo = genAssets.find(
+        (a) => a.type === "video" && isLegacyVideoProxyUrl(String(a.assetUrl ?? a.asset_url ?? "")),
+      );
+      if (!proxyVideo) continue;
+      const hasPortraitThumbnail = genAssets.some(
+        (a) =>
+          a.type === "image" &&
+          a.orientation === "portrait" &&
+          !isLegacyVideoProxyUrl(String(a.assetUrl ?? a.asset_url ?? "")) &&
+          Boolean(a.assetUrl ?? a.asset_url),
+      );
+      if (hasPortraitThumbnail) continue;
+      const proxyUrl = String(proxyVideo.assetUrl ?? proxyVideo.asset_url ?? "");
+      const genId = proxyUrl.match(/\/api\/skills\/video\/([^/?#]+)/i)?.[1];
+      if (!genId || completedVideoGenerationIds.current.has(genId)) continue;
+      const expId = exp.id;
+      void (async () => {
+        try {
+          const res = await fetch(`/api/skills/video/${genId}/status`, { cache: "no-store" });
+          if (!res.ok) return;
+          const data = (await res.json()) as { ready?: boolean; thumbnail_url?: string };
+          if (!data.ready) return;
+          completedVideoGenerationIds.current.add(genId);
+          if (data.thumbnail_url) {
+            await persistGeneratedAssetsForExperience({
+              experienceId: expId,
+              assets: [{
+                id: `${expId}:video:thumbnail`,
+                type: "image",
+                label: "Video thumbnail",
+                orientation: "portrait",
+                assetUrl: data.thumbnail_url,
+              }],
+            }).catch(() => undefined);
+          }
+          await refreshExperienceFromServerRef.current(expId).catch(() => undefined);
+        } catch { /* ignore */ }
+      })();
+    }
+  }, [experiences]);
 
   const recordExperienceLifecycle = async (
     action: "experience_preview" | "experience_launch",

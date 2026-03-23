@@ -1053,7 +1053,7 @@ function buildPreviewExperienceCapsule(input: {
     slug: `experience-preview-${input.experienceId}`,
     version: 1,
     description,
-    coverImageUri: contextImageUri || input.imageLandscapeUri || imageUri || FAILSAFE_QRIPTO_IMAGE,
+    coverImageUri: contextImageUri || input.imageLandscapeUri || imageUri || input.imagePortraitUri || FAILSAFE_QRIPTO_IMAGE,
     creatorRootDid: "did:iq:composer",
     tenantId: "metame",
     modalities: {
@@ -3077,8 +3077,10 @@ export default function MetaMeRuntimeClient() {
     };
     setMessages((prev) => {
       const withoutPanel = prev.filter((message) => message.id !== "capsule-panel");
-      // Carousel always goes last so scrollChatToBottom() lands on the thumbnails,
-      // keeping them visible. Experience content sits above and is readable by scrolling up.
+      // In embed/preview mode: put carousel first so scrollChatToBottom() lands on the
+      // hero/context content (the user's entry point), not the thumbnail strip.
+      // In live mode: keep carousel last so it's the first thing visible.
+      if (embedMode) return [panelMsg, ...withoutPanel];
       return [...withoutPanel, panelMsg];
     });
   }, [activeCapsuleId, activeDevice, capsuleContents, capsulePanel, embedMode, showWelcome]);
