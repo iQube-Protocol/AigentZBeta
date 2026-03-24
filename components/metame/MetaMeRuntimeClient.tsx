@@ -4140,6 +4140,7 @@ export default function MetaMeRuntimeClient() {
         floatingInput={false}
         disablePromptInput
         showTrustIndicators={!thinShellMode}
+        isProcessing={runtimeProcessing}
         disableActivationButton
         showQuickPromptsToggle={false}
         trustProvider={trustProvider}

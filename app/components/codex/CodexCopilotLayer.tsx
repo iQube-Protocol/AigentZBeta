@@ -76,6 +76,7 @@ interface CodexCopilotLayerProps {
   showQuickPromptsToggle?: boolean;
   enableInferenceRendering?: boolean;
   showTrustIndicators?: boolean;
+  isProcessing?: boolean;
   trustProvider?: "openai" | "venice" | "chaingpt" | "thirdweb" | "anthropic";
   showNavMenu?: boolean;
   showWalletMenu?: boolean;
@@ -152,6 +153,7 @@ export function CodexCopilotLayer({
   disableActivationButton = false,
   enableInferenceRendering = false,
   showTrustIndicators = true,
+  isProcessing: externalIsProcessing,
   trustProvider,
   showNavMenu = true,
   showWalletMenu = true,
@@ -824,11 +826,11 @@ export function CodexCopilotLayer({
                         >
                           <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-white/70">
                             <span className="text-[10px] text-white/60">R</span>
-                            {renderDots(getReliabilityScore(), "reliability", isLoading)}
+                            {renderDots(getReliabilityScore(), "reliability", isLoading || !!externalIsProcessing)}
                           </div>
                           <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-white/70">
                             <span className="text-[10px] text-white/60">T</span>
-                            {renderDots(getTrustScore(), "trust", isLoading)}
+                            {renderDots(getTrustScore(), "trust", isLoading || !!externalIsProcessing)}
                           </div>
                         </div>
                       ) : null}
