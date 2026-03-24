@@ -1,0 +1,28 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd /home/user/AigentZBeta && bash scripts/qubetalk-claude.sh send --thread dev-exec --title \"Claude Code session started\" --body \"Agent session active on $(git branch --show-current 2>/dev/null || echo unknown)\" --severity info 2>/dev/null || true",
+            "timeout": 15,
+            "statusMessage": "Announcing to QubeTalk..."
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd /home/user/AigentZBeta && bash scripts/qubetalk-claude.sh send --thread dev-exec --title \"Claude Code session stopped\" --body \"Agent session ended\" --severity info 2>/dev/null || true",
+            "timeout": 15,
+            "statusMessage": "Notifying QubeTalk..."
+          }
+        ]
+      }
+    ]
+  }
+}
