@@ -204,7 +204,7 @@ export async function createExperienceRecord(experience: ExperienceQubeData): Pr
   if (error || !data) {
     console.warn("Composer persistence fallback (create experience)", error?.message || error);
     // Attach supabase_error to the experience metadata so the API can surface it
-    (experience as Record<string, unknown>)._supabase_write_error = error?.message || "unknown";
+    (experience as unknown as Record<string, unknown>)._supabase_write_error = error?.message || "unknown";
     createStoreExperienceQube(experience);
     await upsertExperienceLocal(experience);
     return experience;
