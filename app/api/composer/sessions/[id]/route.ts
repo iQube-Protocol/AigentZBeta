@@ -121,11 +121,19 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     console.log(`Completed composer session: ${id} -> ExperienceQube: ${experienceQube.id}`);
 
+    const supabaseWriteError = (experienceQube as Record<string, unknown>)._supabase_write_error;
+    if (supabaseWriteError) {
+      console.warn(`[ExperienceQube] Supabase write failed for ${experienceQube.id}:`, supabaseWriteError);
+    }
+
     return NextResponse.json({
       success: true,
       experience_qube: experienceQube,
       session_id: id,
       completed_at: new Date().toISOString(),
+      // Warn caller when Supabase write failed — experience is only in Lambda memory and will
+      // not survive a cold start.  Check SUPABASE_SERVICE_ROLE_KEY and table RLS policies.
+      ...(supabaseWriteError ? { warning: `Supabase write failed: ${supabaseWriteError}. Experience is not persisted.` } : {}),
     });
 
   } catch (error: any) {
