@@ -138,6 +138,49 @@ Always deploy to **dev** unless explicitly told otherwise.
 
 ---
 
+## QubeTalk — Agent Messaging
+
+All Claude Code agents **must** use QubeTalk to announce activity and coordinate with other agents.
+
+### CLI utility
+
+```bash
+# Send a status message
+bash scripts/qubetalk-claude.sh send \
+  --thread dev-exec \
+  --title "Short title" \
+  --body "Detailed message body" \
+  --severity info        # info | warn | blocker
+
+# Read recent channel history
+bash scripts/qubetalk-claude.sh history --limit 20
+```
+
+The script loads keys automatically from `.env.local` / `.env.local.temp` — no manual setup needed.
+
+### Required usage patterns
+
+| When | Thread | Example title |
+|------|--------|---------------|
+| Session start | `dev-exec` | `Claude Code session started — <branch>` |
+| Session end / task complete | `dev-exec` | `Claude Code session complete — <summary>` |
+| Spec decision / architecture choice | `spec` | `Decision: <what and why>` |
+| API wiring change | `api-wiring` | `Changed: <endpoint or contract>` |
+| Blocker encountered | `dev-exec` | `Blocker: <description>` |
+
+### Channel & rules
+
+- **Channel:** `metame-runtime-thinclient`
+- **Agent ID:** `claude-code` (consistent across all sessions)
+- **DB `type` field:** `text | delegation | response | system | receipt`
+- **Threads:** `spec | api-wiring | ui-shell | dev-exec | ops`
+- **Metadata type:** `task | decision | question | status | patch | log`
+- **Severity:** `info | warn | blocker`
+
+Post at session start and end at minimum. Post blockers and key decisions in real time.
+
+---
+
 ## Adding to This File
 
 When a new rule, pattern, or constraint is established during development, add it here immediately.
