@@ -9,6 +9,7 @@ import {
   type ShellInboundMessage,
 } from "@metame/iframe-bridge";
 import { CodexCopilotLayer, type CopilotMessage } from "@/app/components/codex/CodexCopilotLayer";
+import SmartWalletDrawer from "@/app/components/content/SmartWalletDrawer";
 import { PreviewFrame } from "@/components/preview/PreviewFrame";
 import { DevicePreviewSwitcher, type DeviceType } from "@/components/preview/DevicePreviewSwitcher";
 import { useToast } from "@/components/ui/toaster";
@@ -1313,6 +1314,7 @@ export default function MetaMeRuntimeClient() {
   const shellContextRef = useRef<{ tenant_id?: string; persona_id?: string }>({});
   const runtimeReadyPostedRef = useRef(false);
   const [activePersonaId, setActivePersonaId] = useState<string | null>(null);
+  const [walletDrawerOpen, setWalletDrawerOpen] = useState(false);
 
   const [selectedAgent, setSelectedAgent] = useState<RuntimeAgent>(RUNTIME_AGENTS[0]);
   const [showAgentSelector, setShowAgentSelector] = useState(false);
@@ -3667,6 +3669,19 @@ export default function MetaMeRuntimeClient() {
       }
 
       if (message.type === "MENU_ACTION") {
+        const menuActionId =
+          typeof payload.action_id === "string"
+            ? payload.action_id
+            : typeof payload.item_id === "string"
+              ? payload.item_id
+              : null;
+        const DRAWER_ACTION_HANDLERS: Record<string, () => void> = {
+          wallet: () => setWalletDrawerOpen(true),
+        };
+        if (menuActionId && menuActionId in DRAWER_ACTION_HANDLERS) {
+          DRAWER_ACTION_HANDLERS[menuActionId]?.();
+          return;
+        }
         if (
           payload.action_id === "close_codex" ||
           payload.item_id === "close_codex" ||
@@ -4146,6 +4161,14 @@ export default function MetaMeRuntimeClient() {
         trustProvider={trustProvider}
         className="flex-1 min-h-0"
       />
+      <SmartWalletDrawer
+        open={walletDrawerOpen}
+        onClose={() => setWalletDrawerOpen(false)}
+        variant="overlay"
+        agent={{ id: activePersonaId || selectedAgent.id, name: selectedAgent.label }}
+        personaId={activePersonaId || undefined}
+        initialTab="wallet"
+      />
       {/* Absolute overlay: prompt bar (live view only) + runtimeMenu stacked at bottom */}
       {!thinShellMode ? (
         <div className="absolute inset-x-0 bottom-0 z-30 bg-slate-950/95 backdrop-blur-sm">
@@ -4334,6 +4357,14 @@ export default function MetaMeRuntimeClient() {
           {runtimeMenu}
         </div>
       ) : null}
+      <SmartWalletDrawer
+        open={walletDrawerOpen}
+        onClose={() => setWalletDrawerOpen(false)}
+        variant="overlay"
+        agent={{ id: activePersonaId || selectedAgent.id, name: selectedAgent.label }}
+        personaId={activePersonaId || undefined}
+        initialTab="wallet"
+      />
     </div>
   );
 
