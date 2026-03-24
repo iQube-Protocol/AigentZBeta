@@ -131,6 +131,7 @@ Always deploy to **dev** unless explicitly told otherwise.
 ### Prerequisites / Gotchas
 
 - The `merge-claude-to-dev.yml` workflow **must exist on the `main` branch** for GitHub Actions to recognise `claude/**` push triggers. If auto-deploy stops working, check `main` has this file. Branch `fix/add-merge-workflow` contains the fix — merge it to `main` to restore.
+- **If auto-merge is broken**: push directly to `dev` as a fallback. First merge `origin/dev` into your session branch to avoid non-fast-forward rejection: `git merge origin/dev --no-edit`, resolve any conflicts, then `git push origin HEAD:dev`.
 - **Avoid doc-only deploys:** Pushing only `CLAUDE.md` or other documentation to a `claude/` branch triggers a full Amplify build. Batch doc updates with the next code change instead.
 - The session branch name is critical — find the current branch with `git branch --show-current` before pushing.
 - **Other environments** (staging, main) — only deploy there if the user explicitly requests it.
