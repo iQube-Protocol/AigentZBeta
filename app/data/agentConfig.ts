@@ -100,8 +100,29 @@ export const agentConfigs: Record<string, AgentConfig> = {
       base: true,
       optimism: true,
       polygon: true,
-      bitcoin: true, // Show all 7 chains
+      bitcoin: true,
       solana: true
+    }
+  },
+  "aigent-marketa": {
+    id: "aigent-marketa",
+    name: "Aigent Marketa",
+    fioId: "marketa@aigent",
+    color: "pink",
+    // Wallet keys stored encrypted in Supabase — use AgentKeyService to retrieve
+    walletAddresses: {
+      evmAddress: "0xD1A2e3F4B5c6d7E8f9A0b1C2d3E4f5A6B7c8D9e0",
+      btcAddress: "tb1qmarketa1234567890abcdef1234567890abcdef",
+      solanaAddress: "MarketaWallet123456789ABCDEFGHIJKLMNOPQRS"
+    },
+    supportedChains: {
+      ethereum: true,
+      arbitrum: true,
+      base: true,
+      optimism: true,
+      polygon: true,
+      bitcoin: false,
+      solana: false
     }
   }
 };
