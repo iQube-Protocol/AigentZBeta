@@ -6150,6 +6150,14 @@ export const ComposerStudio = () => {
     () => deploymentTargetCards.find((target) => target.id === mcpDeploymentTarget) || null,
     [deploymentTargetCards, mcpDeploymentTarget],
   );
+  // The inspector may be open for a different experience than the editor.
+  // Use mcpExperience's persisted deployment state as the fallback source,
+  // not activeExperienceForEditing (which tracks the studio editor's experience).
+  const mcpExperienceDeploymentState = useMemo(() => {
+    const raw = mcpExperience?.metadata?.deployment_state;
+    return raw && typeof raw === "object" ? (raw as Record<string, any>) : null;
+  }, [mcpExperience]);
+
   const latestSelectedDeploymentResult = useMemo(() => {
     const inSession = deploymentResultsByTarget[mcpDeploymentTarget];
     if (inSession) {
@@ -6176,102 +6184,102 @@ export const ComposerStudio = () => {
           ? (inSession.response.nextActions as string[])
           : undefined,
         deployedAt:
-          activeExperienceDeploymentState?.last_target === mcpDeploymentTarget
-            ? String(activeExperienceDeploymentState.last_deployed_at || "")
+          mcpExperienceDeploymentState?.last_target === mcpDeploymentTarget
+            ? String(mcpExperienceDeploymentState.last_deployed_at || "")
             : undefined,
       };
     }
-    if (activeExperienceDeploymentState?.last_target === mcpDeploymentTarget) {
+    if (mcpExperienceDeploymentState?.last_target === mcpDeploymentTarget) {
       return {
-        target: String(activeExperienceDeploymentState.last_target),
-        variant: typeof activeExperienceDeploymentState.last_variant === "string"
-          ? activeExperienceDeploymentState.last_variant
+        target: String(mcpExperienceDeploymentState.last_target),
+        variant: typeof mcpExperienceDeploymentState.last_variant === "string"
+          ? mcpExperienceDeploymentState.last_variant
           : undefined,
         destinationSurface:
-          typeof activeExperienceDeploymentState.last_destination_surface === "string"
-            ? activeExperienceDeploymentState.last_destination_surface
+          typeof mcpExperienceDeploymentState.last_destination_surface === "string"
+            ? mcpExperienceDeploymentState.last_destination_surface
             : getDeploymentDestinationSurfaceLabel(
-                typeof activeExperienceDeploymentState.last_target === "string"
-                  ? activeExperienceDeploymentState.last_target
+                typeof mcpExperienceDeploymentState.last_target === "string"
+                  ? mcpExperienceDeploymentState.last_target
                   : null,
-                typeof activeExperienceDeploymentState.last_variant === "string"
-                  ? activeExperienceDeploymentState.last_variant
+                typeof mcpExperienceDeploymentState.last_variant === "string"
+                  ? mcpExperienceDeploymentState.last_variant
                   : undefined,
               ),
-        status: String(activeExperienceDeploymentState.last_status || "unknown"),
+        status: String(mcpExperienceDeploymentState.last_status || "unknown"),
         capability:
-          typeof activeExperienceDeploymentState.last_capability_state === "string"
+          typeof mcpExperienceDeploymentState.last_capability_state === "string"
             ? ({
                 adapter:
-                  typeof activeExperienceDeploymentState.last_provider === "string" &&
-                  activeExperienceDeploymentState.last_provider === "runtime"
+                  typeof mcpExperienceDeploymentState.last_provider === "string" &&
+                  mcpExperienceDeploymentState.last_provider === "runtime"
                     ? "runtime"
-                    : typeof activeExperienceDeploymentState.last_provider === "string" &&
-                        activeExperienceDeploymentState.last_provider === "discord"
+                    : typeof mcpExperienceDeploymentState.last_provider === "string" &&
+                        mcpExperienceDeploymentState.last_provider === "discord"
                       ? "discord_mcp"
-                      : typeof activeExperienceDeploymentState.last_target === "string" &&
-                          activeExperienceDeploymentState.last_target === "studio_preview"
+                      : typeof mcpExperienceDeploymentState.last_target === "string" &&
+                          mcpExperienceDeploymentState.last_target === "studio_preview"
                         ? "studio"
-                        : typeof activeExperienceDeploymentState.last_target === "string" &&
-                            activeExperienceDeploymentState.last_target === "runtime_thin_client"
+                        : typeof mcpExperienceDeploymentState.last_target === "string" &&
+                            mcpExperienceDeploymentState.last_target === "runtime_thin_client"
                           ? "thin_client"
-                          : typeof activeExperienceDeploymentState.last_target === "string" &&
-                              activeExperienceDeploymentState.last_target === "mcp_app"
+                          : typeof mcpExperienceDeploymentState.last_target === "string" &&
+                              mcpExperienceDeploymentState.last_target === "mcp_app"
                             ? "mcp_app"
                             : "runtime",
-                state: activeExperienceDeploymentState.last_capability_state as ComposerDeploymentCapabilityState,
+                state: mcpExperienceDeploymentState.last_capability_state as ComposerDeploymentCapabilityState,
                 summary:
-                  typeof activeExperienceDeploymentState.last_capability_summary === "string"
-                    ? activeExperienceDeploymentState.last_capability_summary
+                  typeof mcpExperienceDeploymentState.last_capability_summary === "string"
+                    ? mcpExperienceDeploymentState.last_capability_summary
                     : "Capability summary unavailable.",
-                constraints: Array.isArray(activeExperienceDeploymentState.last_capability_constraints)
-                  ? activeExperienceDeploymentState.last_capability_constraints.filter(
+                constraints: Array.isArray(mcpExperienceDeploymentState.last_capability_constraints)
+                  ? mcpExperienceDeploymentState.last_capability_constraints.filter(
                       (item): item is string => typeof item === "string",
                     )
                   : undefined,
               } as ComposerDeploymentCapability)
             : undefined,
         adapterDeclaration:
-          activeExperienceDeploymentState.last_adapter_declaration &&
-          typeof activeExperienceDeploymentState.last_adapter_declaration === "object"
-            ? (activeExperienceDeploymentState.last_adapter_declaration as ComposerDeploymentAdapterDeclaration)
+          mcpExperienceDeploymentState.last_adapter_declaration &&
+          typeof mcpExperienceDeploymentState.last_adapter_declaration === "object"
+            ? (mcpExperienceDeploymentState.last_adapter_declaration as ComposerDeploymentAdapterDeclaration)
             : undefined,
         deliveryMode:
-          typeof activeExperienceDeploymentState.last_delivery_mode === "string"
-            ? (activeExperienceDeploymentState.last_delivery_mode as ComposerDeploymentDeliveryMode)
+          typeof mcpExperienceDeploymentState.last_delivery_mode === "string"
+            ? (mcpExperienceDeploymentState.last_delivery_mode as ComposerDeploymentDeliveryMode)
             : undefined,
         destinationAdapter:
-          typeof activeExperienceDeploymentState.last_destination_adapter === "string"
-            ? (activeExperienceDeploymentState.last_destination_adapter as ComposerDeploymentAdapter)
+          typeof mcpExperienceDeploymentState.last_destination_adapter === "string"
+            ? (mcpExperienceDeploymentState.last_destination_adapter as ComposerDeploymentAdapter)
             : undefined,
-        provider: typeof activeExperienceDeploymentState.last_provider === "string"
-          ? activeExperienceDeploymentState.last_provider
+        provider: typeof mcpExperienceDeploymentState.last_provider === "string"
+          ? mcpExperienceDeploymentState.last_provider
           : undefined,
-        mode: typeof activeExperienceDeploymentState.last_mode === "string"
-          ? activeExperienceDeploymentState.last_mode
+        mode: typeof mcpExperienceDeploymentState.last_mode === "string"
+          ? mcpExperienceDeploymentState.last_mode
           : undefined,
-        publishUrl: typeof activeExperienceDeploymentState.last_publish_url === "string"
-          ? activeExperienceDeploymentState.last_publish_url
+        publishUrl: typeof mcpExperienceDeploymentState.last_publish_url === "string"
+          ? mcpExperienceDeploymentState.last_publish_url
           : undefined,
-        launchUrl: typeof activeExperienceDeploymentState.last_launch_url === "string"
-          ? activeExperienceDeploymentState.last_launch_url
+        launchUrl: typeof mcpExperienceDeploymentState.last_launch_url === "string"
+          ? mcpExperienceDeploymentState.last_launch_url
           : undefined,
         warnings: undefined as string[] | undefined,
-        error: typeof activeExperienceDeploymentState.last_error === "string"
-          ? activeExperienceDeploymentState.last_error
+        error: typeof mcpExperienceDeploymentState.last_error === "string"
+          ? mcpExperienceDeploymentState.last_error
           : undefined,
         runtimeProfile:
-          activeExperienceDeploymentState.last_runtime_profile &&
-          typeof activeExperienceDeploymentState.last_runtime_profile === "object"
-            ? (activeExperienceDeploymentState.last_runtime_profile as Record<string, any>)
+          mcpExperienceDeploymentState.last_runtime_profile &&
+          typeof mcpExperienceDeploymentState.last_runtime_profile === "object"
+            ? (mcpExperienceDeploymentState.last_runtime_profile as Record<string, any>)
             : undefined,
-        deployedAt: typeof activeExperienceDeploymentState.last_deployed_at === "string"
-          ? activeExperienceDeploymentState.last_deployed_at
+        deployedAt: typeof mcpExperienceDeploymentState.last_deployed_at === "string"
+          ? mcpExperienceDeploymentState.last_deployed_at
           : undefined,
       };
     }
     return null;
-  }, [activeExperienceDeploymentState, deploymentResultsByTarget, mcpDeploymentTarget]);
+  }, [mcpExperienceDeploymentState, deploymentResultsByTarget, mcpDeploymentTarget]);
   const inspectorRemediationSteps = useMemo(() => {
     const steps: string[] = [];
     const fallbackGuidance = resolveDeploymentFallbackGuidance({
