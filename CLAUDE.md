@@ -108,25 +108,32 @@ docs/                  — Architecture, operator manuals, progress reports
 
 ## Deployment
 
-When asked to "deploy", always deploy to **dev** unless explicitly told otherwise.
+Always deploy to **dev** unless explicitly told otherwise.
 
-**How to deploy to dev:**
-1. Update `.amplify-deploy` with a new timestamp: `echo "Deploy trigger $(date)" > .amplify-deploy`
-2. Commit with: `git add .amplify-deploy && git commit -m "trigger deploy to dev"`
-3. Push with: `git push -u origin claude/<session-branch-name>`
-4. The `merge-claude-to-dev` GitHub Actions workflow auto-merges to `dev`
-5. Amplify picks up the `dev` branch change and triggers the build
+### Steps
 
-**Avoid doc-only deploys:** Pushing CLAUDE.md or other doc-only changes to the `claude/` branch triggers a full Amplify build. Batch documentation updates with the next code change rather than pushing them standalone.
+1. Trigger the deploy by updating `.amplify-deploy` with a new timestamp:
+   ```
+   echo "Deploy trigger $(date)" > .amplify-deploy
+   ```
+2. Commit the trigger file:
+   ```
+   git add .amplify-deploy && git commit -m "trigger deploy to dev"
+   ```
+3. Push to the session branch:
+   ```
+   git push -u origin claude/<session-id>
+   ```
+   The branch **must** start with `claude/` and end with the session ID suffix (e.g. `claude/find-latest-commit-qQYRq`). Pushing to any other branch name fails with a 403.
+4. **Auto-merge runs:** The `merge-claude-to-dev` GitHub Actions workflow detects the push to `claude/**` and automatically merges to `dev`.
+5. **Amplify picks up dev:** Amplify watches the `dev` branch and triggers a build automatically.
 
-**Branch naming is critical for push to succeed:**
-- The branch MUST start with `claude/` and end with the session ID suffix (e.g. `claude/find-latest-commit-qQYRq`)
-- Pushing to any other branch name will fail with a 403 error
-- To find the current branch: `git branch --show-current`
+### Prerequisites / Gotchas
 
-**Prerequisite:** The `merge-claude-to-dev.yml` workflow must be present on the `main` branch for GitHub Actions to recognise `claude/**` push triggers. If auto-deploy stops working, check `main` has this file. Branch `fix/add-merge-workflow` contains the fix — merge it to `main` to restore.
-
-**Other environments** (staging, main) — only deploy there if the user explicitly requests it.
+- The `merge-claude-to-dev.yml` workflow **must exist on the `main` branch** for GitHub Actions to recognise `claude/**` push triggers. If auto-deploy stops working, check `main` has this file. Branch `fix/add-merge-workflow` contains the fix — merge it to `main` to restore.
+- **Avoid doc-only deploys:** Pushing only `CLAUDE.md` or other documentation to a `claude/` branch triggers a full Amplify build. Batch doc updates with the next code change instead.
+- The session branch name is critical — find the current branch with `git branch --show-current` before pushing.
+- **Other environments** (staging, main) — only deploy there if the user explicitly requests it.
 
 ---
 
