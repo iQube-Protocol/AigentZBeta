@@ -7,7 +7,11 @@
  * - blakQube: supplementary profile data (from nakamoto_blak_qubes)
  * - interactions: full interaction history (from nakamoto_user_interactions)
  *
- * Joins are made by email (personas.fio_handle → nakamoto_knyt_personas."Email").
+ * Join chain: personas.id → crm_personas.identity_persona_id → crm_personas.email
+ *             → nakamoto_knyt_personas."Email"
+ *
+ * crm_personas.email holds the real email address; personas.fio_handle is a FIO
+ * name-service handle (@knyt, @qripto) and does NOT match nakamoto records.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -20,21 +24,28 @@ export async function GET(
   const personaId = params.id;
   const client = getCrmClient();
 
-  // 1. Resolve persona email from the personas table
-  const { data: persona, error: personaError } = await client
-    .from('personas')
-    .select('id, fio_handle, display_name')
-    .eq('id', personaId)
+  // 1. Resolve real email via crm_personas (joined by identity_persona_id)
+  //    Fall back to querying personas.fio_handle if no crm link exists.
+  let email: string | null = null;
+
+  const { data: crmPersona } = await client
+    .from('crm_personas')
+    .select('email')
+    .eq('identity_persona_id', personaId)
     .maybeSingle();
 
-  if (personaError) {
-    return NextResponse.json({ error: personaError.message }, { status: 500 });
-  }
-  if (!persona) {
-    return NextResponse.json({ error: 'Persona not found' }, { status: 404 });
+  if (crmPersona?.email) {
+    email = crmPersona.email;
+  } else {
+    // Fallback: try treating fio_handle as email (legacy / directly-imported records)
+    const { data: identityPersona } = await client
+      .from('personas')
+      .select('fio_handle')
+      .eq('id', personaId)
+      .maybeSingle();
+    email = identityPersona?.fio_handle ?? null;
   }
 
-  const email = persona.fio_handle;
   if (!email) {
     return NextResponse.json({ success: true, data: null, message: 'No email — cannot link Nakamoto records' });
   }
