@@ -3842,7 +3842,7 @@ export default function MetaMeRuntimeClient() {
     [isRuntimeFullscreen]
   );
 
-  const renderIndicatorDots = (value: number, type: "trust" | "reliability") => {
+  const renderIndicatorDots = (value: number, type: "trust" | "reliability", isProcessing?: boolean) => {
     const dotCount = Math.ceil(value / 2);
     return (
       <div className="flex items-center gap-1">
@@ -3860,7 +3860,15 @@ export default function MetaMeRuntimeClient() {
                 : value <= 6
                   ? "bg-yellow-500"
                   : "bg-green-500";
-          return <span key={`${type}-${index}`} className={`h-1.5 w-1.5 rounded-full ${active ? activeClass : "bg-slate-600"}`} />;
+          return (
+            <span
+              key={`${type}-${index}`}
+              className={`h-1.5 w-1.5 rounded-full ${active ? activeClass : "bg-slate-600"} ${
+                isProcessing ? "animate-pulse transition-all duration-700" : "transition-all duration-300"
+              }`}
+              style={isProcessing ? { animationDelay: `${index * 0.15}s` } : undefined}
+            />
+          );
         })}
       </div>
     );
@@ -4277,11 +4285,11 @@ export default function MetaMeRuntimeClient() {
         <div className="h-[44px] flex items-center justify-end gap-4 border-b border-white/10 bg-white/[0.03] px-4 pr-6">
           <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-white/70">
             <span className="text-[10px] text-white/60">R</span>
-            {renderIndicatorDots(reliabilityScore, "reliability")}
+            {renderIndicatorDots(reliabilityScore, "reliability", runtimeProcessing)}
           </div>
           <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-white/70">
             <span className="text-[10px] text-white/60">T</span>
-            {renderIndicatorDots(trustScore, "trust")}
+            {renderIndicatorDots(trustScore, "trust", runtimeProcessing)}
           </div>
         </div>
       ) : null}
