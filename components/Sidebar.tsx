@@ -1487,8 +1487,9 @@ export const Sidebar = () => {
                 </div>
               )}
               
-              {/* Collapsed view for non-Runtime sections - only show filtered submenu items */}
-              {effectiveCollapsed && !isMetaMe && (
+              {/* Collapsed icon view: only show items for sections that are open in openSections,
+                  mirroring the expanded view exactly — hover-expand just adds labels, no layout shift */}
+              {effectiveCollapsed && !isMetaMe && openSections.includes(section.label) && (
                 <div>
                   {/* Only show submenu items, filtered based on showOnlyActive state */}
                   {section.items
