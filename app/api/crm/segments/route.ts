@@ -25,33 +25,51 @@ export async function GET(request: NextRequest) {
 
     // If segmentId provided, get segment members with persona profiles
     if (segmentId) {
-      const personaIds = await crmService.getSegmentMembers(segmentId);
-      let members: unknown[] = personaIds.map((id) => ({ id }));
+      const client = getCrmClient();
 
-      if (personaIds.length > 0) {
-        const client = getCrmClient();
-        // Fetch profiles from identity personas table (source of truth for CRM persona IDs)
-        const { data: profileRows } = await client
+      // System segments (order-* / rep-*) are computed from personas table rules,
+      // not stored in crm_segment_members.
+      let profileRows: any[] | null = null;
+
+      if (segmentId.startsWith('order-')) {
+        const tier = segmentId.slice('order-'.length).toUpperCase();
+        const { data } = await client
           .from('personas')
           .select('id, display_name, fio_handle, status, reputation_bucket')
-          .in('id', personaIds);
-
-        if (profileRows && profileRows.length > 0) {
-          const profileMap = new Map(profileRows.map((p: any) => [p.id, p]));
-          members = personaIds.map((id) => {
-            const p = profileMap.get(id) as any;
-            return p
-              ? {
-                  id: p.id,
-                  displayName: p.display_name || p.fio_handle || id.slice(0, 8),
-                  email: p.fio_handle || null,
-                  status: p.status || 'unknown',
-                  reputationBucket: p.reputation_bucket || null,
-                }
-              : { id, displayName: id.slice(0, 8), email: null, status: 'unknown', reputationBucket: null };
-          });
+          .eq('tenant_id', tenantId)
+          .eq('order_tier', tier)
+          .limit(500);
+        profileRows = data;
+      } else if (segmentId.startsWith('rep-')) {
+        const tier = segmentId.slice('rep-'.length).toUpperCase();
+        const { data } = await client
+          .from('personas')
+          .select('id, display_name, fio_handle, status, reputation_bucket')
+          .eq('tenant_id', tenantId)
+          .eq('reputation_tier', tier)
+          .limit(500);
+        profileRows = data;
+      } else {
+        // Static / custom segment: look up from crm_segment_members
+        const personaIds = await crmService.getSegmentMembers(segmentId);
+        if (personaIds.length > 0) {
+          const { data } = await client
+            .from('personas')
+            .select('id, display_name, fio_handle, status, reputation_bucket')
+            .in('id', personaIds);
+          profileRows = data;
+        } else {
+          profileRows = [];
         }
       }
+
+      const members = (profileRows || []).map((p: any) => ({
+        id: p.id,
+        displayName: p.display_name || p.fio_handle || p.id.slice(0, 8),
+        email: p.fio_handle || null,
+        status: p.status || 'unknown',
+        reputationBucket: p.reputation_bucket || null,
+      }));
 
       return NextResponse.json({
         success: true,
