@@ -855,9 +855,10 @@ function buildSystemPrompt(
   Synopsis: ${e.synopsis?.substring(0, 200) || 'No synopsis'}...`;
   }).join('\n\n');
 
-  // Resolve persona intro from registered personas; fall back to kn0w1 if unknown
+  // Normalize short keys ('marketa', 'kn0w1') to full IDs ('aigent-marketa', 'aigent-kn0w1')
+  const resolvedPersonaId = normalizeAgentId(aigentId) ?? 'aigent-kn0w1';
   const personaConfig =
-    personas[aigentId as keyof typeof personas] ??
+    personas[resolvedPersonaId as keyof typeof personas] ??
     personas['aigent-kn0w1'];
   const personaIntro = personaConfig.systemPrompt;
 

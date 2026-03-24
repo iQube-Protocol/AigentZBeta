@@ -4149,7 +4149,7 @@ export default function MetaMeRuntimeClient() {
                   onChange={(e) => setLivePromptValue(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && livePromptValue.trim()) {
-                      handlePrompt(livePromptValue);
+                      handlePrompt(livePromptValue, { source: "text_input" });
                       setLivePromptValue("");
                     }
                   }}
@@ -4160,7 +4160,7 @@ export default function MetaMeRuntimeClient() {
                   type="button"
                   onClick={() => {
                     if (livePromptValue.trim()) {
-                      handlePrompt(livePromptValue);
+                      handlePrompt(livePromptValue, { source: "text_input" });
                       setLivePromptValue("");
                     }
                   }}
