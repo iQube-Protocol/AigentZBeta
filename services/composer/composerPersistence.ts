@@ -203,8 +203,6 @@ export async function createExperienceRecord(experience: ExperienceQubeData): Pr
 
   if (error || !data) {
     console.warn("Composer persistence fallback (create experience)", error?.message || error);
-    // Attach supabase_error to the experience metadata so the API can surface it
-    (experience as Record<string, unknown>)._supabase_write_error = error?.message || "unknown";
     createStoreExperienceQube(experience);
     await upsertExperienceLocal(experience);
     return experience;
@@ -282,24 +280,6 @@ export async function listExperienceRecords(params: {
   for (const item of items) {
     await syncExperienceFallbackCaches(item);
   }
-
-  // Merge in any items held in the in-memory store that Supabase doesn't have.
-  // This covers the case where a Supabase write failed silently and the record
-  // only exists in the Lambda's local store (e.g. RLS rejection, schema mismatch).
-  const storeItems = getAllExperienceQubes();
-  if (storeItems.length > 0) {
-    const seenIds = new Set(items.map((i) => i.id));
-    for (const storeItem of storeItems) {
-      if (!seenIds.has(storeItem.id)) {
-        const passesFilter =
-          (!params.tenant_id || storeItem.tenant_id === params.tenant_id) &&
-          (!params.creator_id || storeItem.creator_id === params.creator_id) &&
-          (!params.status || storeItem.status === params.status);
-        if (passesFilter) items = [...items, storeItem];
-      }
-    }
-  }
-
   if (params.category) items = items.filter((exp) => exp.metadata.category === params.category);
   items.sort((a, b) => new Date(b.metadata.updated_at).getTime() - new Date(a.metadata.updated_at).getTime());
   const total = items.length;
