@@ -121,7 +121,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     console.log(`Completed composer session: ${id} -> ExperienceQube: ${experienceQube.id}`);
 
-    const supabaseWriteError = (experienceQube as unknown as Record<string, unknown>)._supabase_write_error;
+    const supabaseWriteError = (experienceQube as Record<string, unknown>)._supabase_write_error;
     if (supabaseWriteError) {
       console.warn(`[ExperienceQube] Supabase write failed for ${experienceQube.id}:`, supabaseWriteError);
     }
