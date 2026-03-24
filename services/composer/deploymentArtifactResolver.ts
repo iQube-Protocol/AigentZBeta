@@ -32,8 +32,6 @@ export type ResolvedDeploymentArtifact = {
   artifact: ResolvedMediaCandidate | null;
   preview: ResolvedMediaCandidate | null;
   context: ResolvedMediaCandidate | null;
-  /** Best video candidate regardless of preferredAssetId. Null when no video exists. */
-  videoArtifact: ResolvedMediaCandidate | null;
 };
 
 function asRecord(value: unknown): RecordLike | null {
@@ -341,12 +339,10 @@ function selectPreviewCandidate(
   const isDiscord =
     variant === "discord_asset_inline" || variant === "discord_experience_inline";
 
-  // For Discord and runtime_thin_client the preview must be a static image —
-  // video proxy URLs return video/mp4 which Discord silently drops and the
-  // thin-client inspector can't inline them.  Fall through to find an image
-  // candidate instead of returning the video artifact.
-  const prefersStaticPreview = isDiscord || variant === "runtime_thin_client";
-  if (artifact?.mediaType === "video" && !prefersStaticPreview) return artifact;
+  // For Discord embeds the preview must be a static image — video proxy URLs
+  // return video/mp4 which Discord silently drops.  Fall through to find an
+  // image candidate instead of returning the video artifact.
+  if (artifact?.mediaType === "video" && !isDiscord) return artifact;
 
   const landscapeImages = candidates
     .filter((candidate) => candidate.mediaType === "image" && candidate.orientation === "landscape")
@@ -412,14 +408,11 @@ export function resolveExperienceDeploymentArtifact(options: {
     artifact,
     options.variant || "runtime_thin_client",
   );
-  const videoArtifact =
-    candidates.filter((c) => c.mediaType === "video").sort(rankByNewest)[0] ?? null;
 
   return {
     preferredAssetId,
     artifact,
     preview,
     context,
-    videoArtifact,
   };
 }

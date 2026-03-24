@@ -1785,21 +1785,12 @@ export const ComposerStudio = () => {
         typeof window !== "undefined"
           ? `${window.location.origin}/studio/composer/experience/${encodeURIComponent(latestExperience.id)}`
           : `/studio/composer/experience/${encodeURIComponent(latestExperience.id)}`;
-      // For asset_link, prefer the video URL as the primary dispatch target so
-      // Discord links to the video rather than the thumbnail/display image.
-      // The image (mediaPreviewUrl) remains the thumbnailUrl for the embed.
-      const assetLinkUrl =
-        mcpDeliveryVariant === "asset_link" && latestArtifact.videoArtifact?.url
-          ? latestArtifact.videoArtifact.url
-          : mediaAssetUrl;
       const publishUrl =
         mcpDeploymentTarget === "studio_preview"
           ? studioExperienceUrl
-          : mcpDeliveryVariant === "asset_link"
-            ? assetLinkUrl || runtimeLaunchUrl || studioExperienceUrl
-            : mcpDeliveryVariant === "discord_asset_inline"
-              ? mediaAssetUrl || runtimeLaunchUrl || studioExperienceUrl
-              : runtimeLaunchUrl || studioExperienceUrl;
+          : mcpDeliveryVariant === "asset_link" || mcpDeliveryVariant === "discord_asset_inline"
+            ? mediaAssetUrl || runtimeLaunchUrl || studioExperienceUrl
+            : runtimeLaunchUrl || studioExperienceUrl;
       const effectiveTool =
         mcpDeliveryVariant === "discord_asset_inline"
           ? "share.compose"
@@ -3277,31 +3268,7 @@ export const ComposerStudio = () => {
         const res = await fetch(`/api/composer/experiences?tenant_id=${encodeURIComponent(tenantId)}`);
         if (!res.ok) throw new Error("Failed to load experiences");
         const data = await res.json();
-        let next: ExperienceQube[] = data.experience_qubes || [];
-
-        // When the resolved tenant differs from the default, also fetch experiences
-        // stored under DEFAULT_TENANT to surface items created before identity
-        // resolution was established (backward compat for pre-wallet experiences).
-        if (tenantId !== DEFAULT_TENANT) {
-          try {
-            const legacyRes = await fetch(
-              `/api/composer/experiences?tenant_id=${encodeURIComponent(DEFAULT_TENANT)}`,
-            );
-            if (legacyRes.ok) {
-              const legacyData = await legacyRes.json();
-              const legacyItems: ExperienceQube[] = legacyData.experience_qubes || [];
-              if (legacyItems.length > 0) {
-                const seenIds = new Set(next.map((e) => e.id));
-                for (const item of legacyItems) {
-                  if (!seenIds.has(item.id)) next = [...next, item];
-                }
-              }
-            }
-          } catch {
-            // Legacy fetch is best-effort; ignore failures.
-          }
-        }
-
+        let next = data.experience_qubes || [];
         if (next.length === 0) {
           const fallbackRes = await fetch(`/api/composer/experiences?limit=50`);
           if (fallbackRes.ok) {
