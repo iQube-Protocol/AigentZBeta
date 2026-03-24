@@ -23,6 +23,7 @@ import {
   normalizeAgentId,
   type LlmProviderId,
 } from '@/services/metame/agentLlmOrchestra';
+import { personas } from '@/app/data/personas';
 import {
   buildComposerPromptParts,
   type ComposerSessionContext,
@@ -257,8 +258,10 @@ function getProviderAvailability(): ProviderAvailability {
   };
 }
 
-function defaultAgentIdForPersona(persona: 'kn0w1' | 'moneypenny') {
-  return persona === 'moneypenny' ? 'aigent-moneypenny' : 'aigent-kn0w1';
+function defaultAgentIdForPersona(persona: string): string {
+  if (persona === 'moneypenny') return 'aigent-moneypenny';
+  if (persona.startsWith('aigent-')) return persona;
+  return 'aigent-kn0w1';
 }
 
 function defaultModelForProvider(providerId: RuntimeProviderId): string {
@@ -835,8 +838,8 @@ This user is a story enthusiast interested in the metaKnyts universe.
 
 // Build system prompt with codex context, user role, and KB content
 function buildSystemPrompt(
-  metadata: CodexMetadata, 
-  persona: 'kn0w1' | 'moneypenny',
+  metadata: CodexMetadata,
+  aigentId: string,
   userContext?: UserContext,
   kbContext?: KBSearchResult[]
 ): string {
@@ -852,9 +855,11 @@ function buildSystemPrompt(
   Synopsis: ${e.synopsis?.substring(0, 200) || 'No synopsis'}...`;
   }).join('\n\n');
 
-  const personaIntro = persona === 'kn0w1' 
-    ? `You are Kn0w1 (pronounced "Know One"), the AI guide to the metaKnyts universe. You are knowledgeable, mysterious, and speak with authority about the KNYT world. You help users explore characters, episodes, and lore.`
-    : `You are MoneyPenny, the sophisticated AI assistant for the Qriptopian universe. You are elegant, witty, and well-versed in the Quantum-Ready Internet lore.`;
+  // Resolve persona intro from registered personas; fall back to kn0w1 if unknown
+  const personaConfig =
+    personas[aigentId as keyof typeof personas] ??
+    personas['aigent-kn0w1'];
+  const personaIntro = personaConfig.systemPrompt;
 
   // Get role-specific guidelines
   const roleGuidelines = userContext ? getRoleGuidelines(userContext.primaryRole) : getRoleGuidelines('fan');
@@ -937,7 +942,7 @@ export async function POST(request: NextRequest) {
     const { 
       message, 
       chatHistory = [], 
-      persona = 'kn0w1',
+      persona = 'aigent-kn0w1',
       mode = 'default',
       composerSessionContext,
       // New: User context fields
@@ -1125,12 +1130,14 @@ export async function POST(request: NextRequest) {
 
 // Intelligent fallback when OpenAI is not available
 function generateFallbackResponse(
-  message: string, 
-  metadata: CodexMetadata, 
-  persona: 'kn0w1' | 'moneypenny'
+  message: string,
+  metadata: CodexMetadata,
+  aigentId: string
 ): string {
   const lowerMessage = message.toLowerCase();
-  const intro = persona === 'kn0w1' ? "Greetings, seeker of knowledge." : "Hello, darling.";
+  const intro = (aigentId === 'aigent-moneypenny' || aigentId === 'moneypenny')
+    ? "Hello, darling."
+    : "Greetings, seeker of knowledge.";
 
   // Check for character queries
   for (const char of metadata.characters) {

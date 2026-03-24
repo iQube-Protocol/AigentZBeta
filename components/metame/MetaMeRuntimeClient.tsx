@@ -208,6 +208,14 @@ const RUNTIME_AGENTS: RuntimeAgent[] = [
   { id: "aigent-marketa", label: "Marketa", colorClass: "text-rose-300" },
 ];
 
+const AGENT_PERSONA_KEY: Record<string, string> = {
+  "aigent-z": "z",
+  "aigent-kn0w1": "kn0w1",
+  "aigent-moneypenny": "moneypenny",
+  "aigent-nakamoto": "nakamoto",
+  "aigent-marketa": "marketa",
+};
+
 const FAILSAFE_QRIPTO_IMAGE =
   "https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/thumbnails/1763852402194-hswrqa.png";
 
@@ -1332,7 +1340,7 @@ export default function MetaMeRuntimeClient() {
   const activeAgentProviders = agentProviderMap[selectedAgent.id] || [];
   const activeModel = selectedModelByAgent[selectedAgent.id] || defaultSelectionFromProviders(activeAgentProviders);
   const trustProvider = activeModel?.providerId;
-  const activePersonaKey = activePersonaId || (selectedAgent.id === "aigent-moneypenny" ? "moneypenny" : "kn0w1");
+  const activePersonaKey = activePersonaId || AGENT_PERSONA_KEY[selectedAgent.id] || "kn0w1";
   const selectedAdaptiveExperienceImage = useMemo(
     () =>
       chooseExperiencePreviewImage({
@@ -3268,7 +3276,7 @@ export default function MetaMeRuntimeClient() {
         return;
       }
 
-      const persona = selectedAgent.id === "aigent-moneypenny" ? "moneypenny" : "kn0w1";
+      const persona = selectedAgent.id;
       setRuntimeProcessing(true);
       postRuntimeEvent("INFERENCE_START", {
         state: "welcome",
