@@ -2706,6 +2706,17 @@ export const ComposerStudio = () => {
       ].filter((value): value is string => typeof value === "string" && value.trim().length > 0);
 
       const plans = buildSectionLookupPlans(selectedTag);
+
+      // Guard: without a content_tag or specific selectedIds, buildSectionLookupPlans
+      // returns generic sections (home-hero, latest-news, …). The first item in those
+      // sections belongs to whichever experience is currently featured there, not to
+      // mcpExperience — so the card thumbnail would show the wrong experience.
+      // Skip the fetch entirely; the card will render without a thumbnail instead.
+      if (!selectedTag && selectedIds.length === 0) {
+        if (!cancelled) setInspectorFetchedMedia(null);
+        return;
+      }
+
       for (const plan of plans) {
         try {
           const params = new URLSearchParams();
