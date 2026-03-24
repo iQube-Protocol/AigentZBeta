@@ -3302,25 +3302,15 @@ export const ComposerStudio = () => {
           }
         }
 
-        // Always fetch broadly (no tenant filter) to catch experiences stored under
-        // mismatched, null, or unknown tenant_ids (covers pre-wallet orphaned records).
-        // Merge in any items not already returned by the tenant-specific fetches above.
-        try {
-          const broadRes = await fetch(`/api/composer/experiences?limit=100`);
-          if (broadRes.ok) {
-            const broadData = await broadRes.json();
-            const broadItems: ExperienceQube[] = broadData.experience_qubes || [];
-            if (next.length === 0) {
-              next = broadItems;
-            } else if (broadItems.length > 0) {
-              const seenIds = new Set(next.map((e) => e.id));
-              for (const item of broadItems) {
-                if (!seenIds.has(item.id)) next = [...next, item];
-              }
+        if (next.length === 0) {
+          const fallbackRes = await fetch(`/api/composer/experiences?limit=50`);
+          if (fallbackRes.ok) {
+            const fallbackData = await fallbackRes.json();
+            const fallbackItems = fallbackData.experience_qubes || [];
+            if (fallbackItems.length > 0) {
+              next = fallbackItems;
             }
           }
-        } catch {
-          // broad fallback is best-effort; don't block on failures
         }
         cacheExperiencesForTenant(tenantId, next);
         if (active) setExperiences(next);
@@ -4382,10 +4372,7 @@ export const ComposerStudio = () => {
           aspectRatio,
           style,
           trustOverride,
-        }).catch((err) => {
-          console.warn("[AutoGen] video generation request failed:", err);
-          return null;
-        });
+        }).catch(() => null);
         const refreshedCompletedExperience =
           (await refreshExperienceFromServer(imageBundleTargetId).catch(() => null)) || null;
         if (refreshedCompletedExperience) {

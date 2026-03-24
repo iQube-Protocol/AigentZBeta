@@ -84,38 +84,6 @@ async function resolveDiscordChannelFromInvite(inviteCode: string): Promise<stri
   }
 }
 
-/**
- * Resolves our internal video proxy URLs (/api/skills/video/…) to their final
- * Supabase CDN destination.  Discord does not reliably follow HTTP 302s for
- * video embeds, so posting the proxy URL results in a plain link rather than
- * an inline video player.
- *
- * Uses redirect:'manual' with a 5 s timeout so we only resolve URLs that are
- * already cached in Supabase (immediate 302).  If the video hasn't been
- * uploaded yet the fetch aborts and the original proxy URL is returned.
- */
-async function resolveVideoProxyUrl(url: string): Promise<string> {
-  if (!url || !/\/api\/skills\/video\//i.test(url)) return url;
-  try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 5000);
-    const res = await fetch(url, {
-      method: 'HEAD',
-      redirect: 'manual',
-      cache: 'no-store',
-      signal: controller.signal,
-    });
-    clearTimeout(timer);
-    if (res.status >= 300 && res.status < 400) {
-      const location = res.headers.get('location');
-      if (location && /^https?:\/\//i.test(location)) return location;
-    }
-  } catch {
-    // resolution is best-effort; fall back to the original proxy URL
-  }
-  return url;
-}
-
 function chunkDiscordContent(content: string, maxLen = 1900): string[] {
   const trimmed = content.trim();
   if (!trimmed) return [];
@@ -289,13 +257,7 @@ export async function POST(request: NextRequest) {
 
     const publishUrlInput = normalizeString(body?.publishUrl);
     const requestOrigin = resolveRequestOrigin(request);
-    const rawPublishUrl = publishUrlInput ? toAbsoluteUrl(requestOrigin, publishUrlInput) : '';
-    // For asset_link deploys, resolve proxy video URLs to their Supabase CDN target
-    // so Discord sees a direct .mp4 URL it can embed rather than a redirect.
-    const explicitPublishUrl =
-      deliveryVariant === 'asset_link'
-        ? await resolveVideoProxyUrl(rawPublishUrl)
-        : rawPublishUrl;
+    const explicitPublishUrl = publishUrlInput ? toAbsoluteUrl(requestOrigin, publishUrlInput) : '';
     const isDirectMediaUrl = /\.(png|jpe?g|webp|gif|mp4|m4v|mov|webm|ogg)(\?|$)/i.test(explicitPublishUrl);
     const primaryCta = mcpResponse.cta.primary;
     const fallbackCtaUrl =
