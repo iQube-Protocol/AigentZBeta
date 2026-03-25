@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AlertTriangle, BarChart, Book, BookOpen, Bot, CheckCircle2, ChevronDown, ChevronUp, Circle, Code, Edit, Eye, FileText, Hexagon, LayoutGrid, List, Loader2, Monitor, MonitorIcon, Moon, Palette, Play, PlayCircle, RefreshCw, Share2, Shield, ShieldCheck, SlidersHorizontal, Smartphone, Sparkles, Sun, Target, Tablet, Trash2, Tv, Upload, Users, Volume2, Type } from "lucide-react";
+import { AlertTriangle, BarChart, Book, BookOpen, Bot, CheckCircle2, ChevronDown, ChevronUp, Circle, Code, Edit, Eye, FileText, Hexagon, LayoutGrid, List, Loader2, Mic, MicOff, Monitor, MonitorIcon, Moon, Palette, Play, PlayCircle, RefreshCw, Share2, Shield, ShieldCheck, SlidersHorizontal, Smartphone, Sparkles, Sun, Target, Tablet, Trash2, Tv, Upload, Users, Volume2, Type } from "lucide-react";
 import { useCopilotAction } from "@copilotkit/react-core";
 import { createShellMessage } from "@metame/iframe-bridge";
 import { Button } from "@/components/ui/button";
@@ -2398,6 +2398,73 @@ export const ComposerStudio = () => {
   const [mcpDiscordInvite, setMcpDiscordInvite] = useState("https://discord.gg/Gzg9wDMVSB");
   const [mcpMessage, setMcpMessage] = useState("Show me a visual-first Qriptopian reading sprint.");
   const [mcpResult, setMcpResult] = useState<any>(null);
+
+  // ── Marketa voice (VAPI + Cartesia) ────────────────────────────────────────
+  type VapiState = "idle" | "connecting" | "active" | "speaking";
+  const [vapiState, setVapiState] = useState<VapiState>("idle");
+  const vapiRef = useRef<{ start: (cfg: unknown) => Promise<unknown>; stop: () => void } | null>(null);
+
+  useEffect(() => {
+    let vapi: typeof vapiRef.current = null;
+    import("@vapi-ai/web").then(({ default: Vapi }) => {
+      const publicKey = process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY;
+      if (!publicKey) return;
+      const instance = new Vapi(publicKey) as unknown as {
+        start: (cfg: unknown) => Promise<unknown>;
+        stop: () => void;
+        on: (event: string, cb: (...args: unknown[]) => void) => void;
+      };
+      instance.on("call-start", () => setVapiState("active"));
+      instance.on("call-end", () => setVapiState("idle"));
+      instance.on("speech-start", () => setVapiState("speaking"));
+      instance.on("speech-end", () => setVapiState("active"));
+      instance.on("message", (msg: unknown) => {
+        const m = msg as Record<string, unknown>;
+        if (m.type === "transcript" && m.transcriptType === "final" && typeof m.transcript === "string") {
+          setMcpMessage((prev) => (prev ? `${prev} ${m.transcript as string}` : (m.transcript as string)));
+        }
+      });
+      vapi = instance;
+      vapiRef.current = instance;
+    }).catch(() => { /* SDK load failure — voice unavailable */ });
+    return () => { vapi?.stop(); };
+  }, []);
+
+  const toggleMarketa = useCallback(async () => {
+    if (!vapiRef.current) return;
+    if (vapiState !== "idle") {
+      vapiRef.current.stop();
+      setVapiState("idle");
+      return;
+    }
+    setVapiState("connecting");
+    try {
+      await vapiRef.current.start({
+        name: "Marketa",
+        firstMessage: "Hey! I'm Marketa, your voice co-pilot. What are we creating today?",
+        transcriber: { provider: "deepgram", model: "nova-2", language: "en-US" },
+        voice: {
+          provider: "cartesia",
+          voiceId: "694f9389-aac1-45b6-b726-9d9369183238",
+          model: "sonic-english",
+        },
+        model: {
+          provider: "openai",
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content:
+                "You are Marketa, a creative AI co-pilot in the iQube ComposerStudio. Help users articulate their vision for experiences, content, and campaigns. Be concise, inspiring, and creative. Keep responses to 2-3 sentences max.",
+            },
+          ],
+        },
+      });
+    } catch {
+      setVapiState("idle");
+    }
+  }, [vapiState]);
+  // ── end Marketa voice ───────────────────────────────────────────────────────
   const [deploymentResultsByTarget, setDeploymentResultsByTarget] = useState<
     Partial<Record<ComposerDeploymentTarget, ComposerDeploymentResult>>
   >({});
@@ -10218,7 +10285,33 @@ export const ComposerStudio = () => {
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-xs text-slate-400">Intent / Message</label>
+                  <div className="mb-1 flex items-center justify-between">
+                    <label className="text-xs text-slate-400">Intent / Message</label>
+                    <button
+                      type="button"
+                      onClick={() => void toggleMarketa()}
+                      title={vapiState === "idle" ? "Start voice with Marketa" : "Stop Marketa"}
+                      className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-all ${
+                        vapiState === "idle"
+                          ? "border-slate-700 bg-slate-800/60 text-slate-400 hover:border-fuchsia-500/60 hover:text-fuchsia-300"
+                          : vapiState === "connecting"
+                            ? "animate-pulse border-amber-500/60 bg-amber-500/10 text-amber-300"
+                            : vapiState === "speaking"
+                              ? "animate-pulse border-green-500/60 bg-green-500/15 text-green-300"
+                              : "border-fuchsia-500/60 bg-fuchsia-500/15 text-fuchsia-300"
+                      }`}
+                    >
+                      {vapiState === "idle" ? (
+                        <><Mic className="h-3 w-3" /><span>Marketa</span></>
+                      ) : vapiState === "connecting" ? (
+                        <><Loader2 className="h-3 w-3 animate-spin" /><span>Connecting…</span></>
+                      ) : vapiState === "speaking" ? (
+                        <><Volume2 className="h-3 w-3" /><span>Speaking…</span></>
+                      ) : (
+                        <><MicOff className="h-3 w-3" /><span>Listening</span></>
+                      )}
+                    </button>
+                  </div>
                   <textarea
                     value={mcpMessage}
                     onChange={(e) => setMcpMessage(e.target.value)}
