@@ -260,7 +260,11 @@ export async function listExperienceRecords(params: {
     return { items: items.slice(offset, offset + limit), total };
   }
 
-  let query = supabase.from(EXPERIENCE_TABLE).select("*");
+  // Exclude blak_qube from list queries — its components[] array makes the Lambda
+  // response exceed the 6 MB limit. Full blak_qube is still fetched in getExperienceRecord.
+  let query = supabase
+    .from(EXPERIENCE_TABLE)
+    .select("id, tenant_id, creator_id, template_id, status, created_at, updated_at, meta_qube, token_qube");
   if (params.tenant_id) query = query.eq("tenant_id", params.tenant_id);
   if (params.creator_id) query = query.eq("creator_id", params.creator_id);
   if (params.status) query = query.eq("status", params.status);
