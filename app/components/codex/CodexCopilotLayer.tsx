@@ -2,7 +2,7 @@
  * CodexCopilotLayer - Enhanced floating copilot drawer for the Codex
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useMetaAvatar } from "@/app/contexts/MetaAvatarContext";
 import { useIsMobile } from "@/app/hooks/use-mobile";
 import SmartWalletDrawer from "../content/SmartWalletDrawer";
@@ -25,6 +25,9 @@ import {
   PanelRightOpen,
   PanelBottomClose,
   Hexagon,
+  Mic,
+  MicOff,
+  Volume2,
 } from "lucide-react";
 
 interface CodexCopilotLayerProps {
@@ -191,6 +194,74 @@ export function CodexCopilotLayer({
     }
   }, [hideAvatarToggle, copilotMode]);
   const [inputPanelHover, setInputPanelHover] = useState(false);
+
+  // ── Marketa voice (Vapi) ────────────────────────────────────────────────────
+  type VapiState = "idle" | "connecting" | "active" | "speaking";
+  const [vapiState, setVapiState] = useState<VapiState>("idle");
+  const vapiRef = useRef<{ start: (cfg: unknown) => Promise<unknown>; stop: () => void } | null>(null);
+
+  useEffect(() => {
+    let vapi: typeof vapiRef.current = null;
+    import("@vapi-ai/web").then(({ default: Vapi }) => {
+      const publicKey = process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY;
+      if (!publicKey) return;
+      const instance = new Vapi(publicKey) as unknown as {
+        start: (cfg: unknown) => Promise<unknown>;
+        stop: () => void;
+        on: (event: string, cb: (...args: unknown[]) => void) => void;
+      };
+      instance.on("call-start", () => setVapiState("active"));
+      instance.on("call-end", () => setVapiState("idle"));
+      instance.on("speech-start", () => setVapiState("speaking"));
+      instance.on("speech-end", () => setVapiState("active"));
+      instance.on("message", (msg: unknown) => {
+        const m = msg as Record<string, unknown>;
+        if (m.type === "transcript" && m.transcriptType === "final" && typeof m.transcript === "string") {
+          setInputValue((prev) => (prev ? `${prev} ${m.transcript as string}` : (m.transcript as string)));
+        }
+      });
+      vapi = instance;
+      vapiRef.current = instance;
+    }).catch(() => { /* SDK load failure — voice unavailable */ });
+    return () => { vapi?.stop(); };
+  }, []);
+
+  const toggleMarketa = useCallback(async () => {
+    if (!vapiRef.current) return;
+    if (vapiState !== "idle") {
+      vapiRef.current.stop();
+      setVapiState("idle");
+      return;
+    }
+    setVapiState("connecting");
+    try {
+      await vapiRef.current.start({
+        name: "Marketa",
+        firstMessage: "Hey! I'm Marketa, your voice co-pilot. What would you like to do?",
+        transcriber: { provider: "deepgram", model: "nova-2", language: "en-US" },
+        voice: {
+          provider: "cartesia",
+          voiceId: "694f9389-aac1-45b6-b726-9d9369183238",
+          model: "sonic-english",
+        },
+        model: {
+          provider: "openai",
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content:
+                "You are Marketa, a creative AI co-pilot in the iQube platform. Help users with their questions and tasks. Be concise, helpful, and friendly. Keep responses to 2-3 sentences max.",
+            },
+          ],
+        },
+      });
+    } catch {
+      setVapiState("idle");
+    }
+  }, [vapiState]);
+  // ── end Marketa voice ───────────────────────────────────────────────────────
+
   const headerHeight = 44;
   const footerHeight = floatingInput ? 100 : 80;
   const resolvedHeaderHeight = showTrustIndicators ? headerHeight : 0;
@@ -1035,6 +1106,30 @@ export function CodexCopilotLayer({
                                   disabled={isLoading}
                                 />
                                 <button
+                                  type="button"
+                                  onClick={() => void toggleMarketa()}
+                                  title={vapiState === "idle" ? "Talk to Marketa" : "Stop Marketa"}
+                                  className={`p-1.5 rounded-lg transition-colors ${
+                                    vapiState === "idle"
+                                      ? "text-slate-400 hover:text-fuchsia-300 hover:bg-fuchsia-500/10"
+                                      : vapiState === "connecting"
+                                        ? "animate-pulse text-amber-300 bg-amber-500/10"
+                                        : vapiState === "speaking"
+                                          ? "animate-pulse text-green-300 bg-green-500/10"
+                                          : "text-fuchsia-300 bg-fuchsia-500/15"
+                                  }`}
+                                >
+                                  {vapiState === "idle" ? (
+                                    <Mic className="w-4 h-4" />
+                                  ) : vapiState === "connecting" ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                  ) : vapiState === "speaking" ? (
+                                    <Volume2 className="w-4 h-4" />
+                                  ) : (
+                                    <MicOff className="w-4 h-4" />
+                                  )}
+                                </button>
+                                <button
                                   onClick={() => sendMessage()}
                                   disabled={!inputValue.trim() || isLoading}
                                   className="p-1.5 bg-cyan-500 hover:bg-cyan-600 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg transition-colors"
@@ -1066,6 +1161,30 @@ export function CodexCopilotLayer({
                               className="flex-1 px-3 py-1.5 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500 text-sm"
                               disabled={isLoading}
                             />
+                            <button
+                              type="button"
+                              onClick={() => void toggleMarketa()}
+                              title={vapiState === "idle" ? "Talk to Marketa" : "Stop Marketa"}
+                              className={`p-1.5 rounded-lg transition-colors ${
+                                vapiState === "idle"
+                                  ? "text-slate-400 hover:text-fuchsia-300 hover:bg-fuchsia-500/10"
+                                  : vapiState === "connecting"
+                                    ? "animate-pulse text-amber-300 bg-amber-500/10"
+                                    : vapiState === "speaking"
+                                      ? "animate-pulse text-green-300 bg-green-500/10"
+                                      : "text-fuchsia-300 bg-fuchsia-500/15"
+                              }`}
+                            >
+                              {vapiState === "idle" ? (
+                                <Mic className="w-4 h-4" />
+                              ) : vapiState === "connecting" ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : vapiState === "speaking" ? (
+                                <Volume2 className="w-4 h-4" />
+                              ) : (
+                                <MicOff className="w-4 h-4" />
+                              )}
+                            </button>
                             <button
                               onClick={() => sendMessage()}
                               disabled={!inputValue.trim() || isLoading}

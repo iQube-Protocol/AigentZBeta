@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AlertTriangle, BarChart, Book, BookOpen, Bot, CheckCircle2, ChevronDown, ChevronUp, Circle, Code, Edit, Eye, FileText, Hexagon, LayoutGrid, List, Loader2, Monitor, MonitorIcon, Moon, Palette, Play, PlayCircle, RefreshCw, Share2, Shield, ShieldCheck, SlidersHorizontal, Smartphone, Sparkles, Sun, Target, Tablet, Trash2, Tv, Upload, Users, Volume2, Type } from "lucide-react";
+import { AlertTriangle, BarChart, Book, BookOpen, Bot, CheckCircle2, ChevronDown, ChevronUp, Circle, Code, Edit, Eye, FileText, Hexagon, LayoutGrid, List, Loader2, Mic, MicOff, Monitor, MonitorIcon, Moon, Palette, Play, PlayCircle, RefreshCw, Share2, Shield, ShieldCheck, SlidersHorizontal, Smartphone, Sparkles, Sun, Target, Tablet, Trash2, Tv, Upload, Users, Volume2, Type } from "lucide-react";
 import { useCopilotAction } from "@copilotkit/react-core";
 import { createShellMessage } from "@metame/iframe-bridge";
 import { Button } from "@/components/ui/button";
@@ -1785,12 +1785,21 @@ export const ComposerStudio = () => {
         typeof window !== "undefined"
           ? `${window.location.origin}/studio/composer/experience/${encodeURIComponent(latestExperience.id)}`
           : `/studio/composer/experience/${encodeURIComponent(latestExperience.id)}`;
+      // For asset_link, prefer the video URL as the primary dispatch target so
+      // Discord links to the video rather than the thumbnail/display image.
+      // The image (mediaPreviewUrl) remains the thumbnailUrl for the embed.
+      const assetLinkUrl =
+        mcpDeliveryVariant === "asset_link" && latestArtifact.videoArtifact?.url
+          ? latestArtifact.videoArtifact.url
+          : mediaAssetUrl;
       const publishUrl =
         mcpDeploymentTarget === "studio_preview"
           ? studioExperienceUrl
-          : mcpDeliveryVariant === "asset_link" || mcpDeliveryVariant === "discord_asset_inline"
-            ? mediaAssetUrl || runtimeLaunchUrl || studioExperienceUrl
-            : runtimeLaunchUrl || studioExperienceUrl;
+          : mcpDeliveryVariant === "asset_link"
+            ? assetLinkUrl || runtimeLaunchUrl || studioExperienceUrl
+            : mcpDeliveryVariant === "discord_asset_inline"
+              ? mediaAssetUrl || runtimeLaunchUrl || studioExperienceUrl
+              : runtimeLaunchUrl || studioExperienceUrl;
       const effectiveTool =
         mcpDeliveryVariant === "discord_asset_inline"
           ? "share.compose"
@@ -2389,6 +2398,73 @@ export const ComposerStudio = () => {
   const [mcpDiscordInvite, setMcpDiscordInvite] = useState("https://discord.gg/Gzg9wDMVSB");
   const [mcpMessage, setMcpMessage] = useState("Show me a visual-first Qriptopian reading sprint.");
   const [mcpResult, setMcpResult] = useState<any>(null);
+
+  // ── Marketa voice (VAPI + Cartesia) ────────────────────────────────────────
+  type VapiState = "idle" | "connecting" | "active" | "speaking";
+  const [vapiState, setVapiState] = useState<VapiState>("idle");
+  const vapiRef = useRef<{ start: (cfg: unknown) => Promise<unknown>; stop: () => void } | null>(null);
+
+  useEffect(() => {
+    let vapi: typeof vapiRef.current = null;
+    import("@vapi-ai/web").then(({ default: Vapi }) => {
+      const publicKey = process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY;
+      if (!publicKey) return;
+      const instance = new Vapi(publicKey) as unknown as {
+        start: (cfg: unknown) => Promise<unknown>;
+        stop: () => void;
+        on: (event: string, cb: (...args: unknown[]) => void) => void;
+      };
+      instance.on("call-start", () => setVapiState("active"));
+      instance.on("call-end", () => setVapiState("idle"));
+      instance.on("speech-start", () => setVapiState("speaking"));
+      instance.on("speech-end", () => setVapiState("active"));
+      instance.on("message", (msg: unknown) => {
+        const m = msg as Record<string, unknown>;
+        if (m.type === "transcript" && m.transcriptType === "final" && typeof m.transcript === "string") {
+          setMcpMessage((prev) => (prev ? `${prev} ${m.transcript as string}` : (m.transcript as string)));
+        }
+      });
+      vapi = instance;
+      vapiRef.current = instance;
+    }).catch(() => { /* SDK load failure — voice unavailable */ });
+    return () => { vapi?.stop(); };
+  }, []);
+
+  const toggleMarketa = useCallback(async () => {
+    if (!vapiRef.current) return;
+    if (vapiState !== "idle") {
+      vapiRef.current.stop();
+      setVapiState("idle");
+      return;
+    }
+    setVapiState("connecting");
+    try {
+      await vapiRef.current.start({
+        name: "Marketa",
+        firstMessage: "Hey! I'm Marketa, your voice co-pilot. What are we creating today?",
+        transcriber: { provider: "deepgram", model: "nova-2", language: "en-US" },
+        voice: {
+          provider: "cartesia",
+          voiceId: "694f9389-aac1-45b6-b726-9d9369183238",
+          model: "sonic-english",
+        },
+        model: {
+          provider: "openai",
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content:
+                "You are Marketa, a creative AI co-pilot in the iQube ComposerStudio. Help users articulate their vision for experiences, content, and campaigns. Be concise, inspiring, and creative. Keep responses to 2-3 sentences max.",
+            },
+          ],
+        },
+      });
+    } catch {
+      setVapiState("idle");
+    }
+  }, [vapiState]);
+  // ── end Marketa voice ───────────────────────────────────────────────────────
   const [deploymentResultsByTarget, setDeploymentResultsByTarget] = useState<
     Partial<Record<ComposerDeploymentTarget, ComposerDeploymentResult>>
   >({});
@@ -2706,6 +2782,17 @@ export const ComposerStudio = () => {
       ].filter((value): value is string => typeof value === "string" && value.trim().length > 0);
 
       const plans = buildSectionLookupPlans(selectedTag);
+
+      // Guard: without a content_tag or specific selectedIds, buildSectionLookupPlans
+      // returns generic sections (home-hero, latest-news, …). The first item in those
+      // sections belongs to whichever experience is currently featured there, not to
+      // mcpExperience — so the card thumbnail would show the wrong experience.
+      // Skip the fetch entirely; the card will render without a thumbnail instead.
+      if (!selectedTag && selectedIds.length === 0) {
+        if (!cancelled) setInspectorFetchedMedia(null);
+        return;
+      }
+
       for (const plan of plans) {
         try {
           const params = new URLSearchParams();
@@ -3257,16 +3344,49 @@ export const ComposerStudio = () => {
         const res = await fetch(`/api/composer/experiences?tenant_id=${encodeURIComponent(tenantId)}`);
         if (!res.ok) throw new Error("Failed to load experiences");
         const data = await res.json();
-        let next = data.experience_qubes || [];
-        if (next.length === 0) {
-          const fallbackRes = await fetch(`/api/composer/experiences?limit=50`);
-          if (fallbackRes.ok) {
-            const fallbackData = await fallbackRes.json();
-            const fallbackItems = fallbackData.experience_qubes || [];
-            if (fallbackItems.length > 0) {
-              next = fallbackItems;
+        let next: ExperienceQube[] = data.experience_qubes || [];
+
+        // When the resolved tenant differs from the default, also fetch experiences
+        // stored under DEFAULT_TENANT to surface items created before identity
+        // resolution was established (backward compat for pre-wallet experiences).
+        if (tenantId !== DEFAULT_TENANT) {
+          try {
+            const legacyRes = await fetch(
+              `/api/composer/experiences?tenant_id=${encodeURIComponent(DEFAULT_TENANT)}`,
+            );
+            if (legacyRes.ok) {
+              const legacyData = await legacyRes.json();
+              const legacyItems: ExperienceQube[] = legacyData.experience_qubes || [];
+              if (legacyItems.length > 0) {
+                const seenIds = new Set(next.map((e) => e.id));
+                for (const item of legacyItems) {
+                  if (!seenIds.has(item.id)) next = [...next, item];
+                }
+              }
+            }
+          } catch {
+            // Legacy fetch is best-effort; ignore failures.
+          }
+        }
+
+        // Always fetch broadly (no tenant filter) to catch experiences stored under
+        // mismatched, null, or unknown tenant_ids (covers pre-wallet orphaned records).
+        try {
+          const broadRes = await fetch(`/api/composer/experiences?limit=100`);
+          if (broadRes.ok) {
+            const broadData = await broadRes.json();
+            const broadItems: ExperienceQube[] = broadData.experience_qubes || [];
+            if (next.length === 0) {
+              next = broadItems;
+            } else if (broadItems.length > 0) {
+              const seenIds = new Set(next.map((e) => e.id));
+              for (const item of broadItems) {
+                if (!seenIds.has(item.id)) next = [...next, item];
+              }
             }
           }
+        } catch {
+          // broad fallback is best-effort; don't block on failures
         }
         if (active) {
           cacheExperiencesForTenant(tenantId, next);
@@ -6145,6 +6265,14 @@ export const ComposerStudio = () => {
     () => deploymentTargetCards.find((target) => target.id === mcpDeploymentTarget) || null,
     [deploymentTargetCards, mcpDeploymentTarget],
   );
+  // The inspector may be open for a different experience than the editor.
+  // Use mcpExperience's persisted deployment state as the fallback source,
+  // not activeExperienceForEditing (which tracks the studio editor's experience).
+  const mcpExperienceDeploymentState = useMemo(() => {
+    const raw = mcpExperience?.metadata?.deployment_state;
+    return raw && typeof raw === "object" ? (raw as Record<string, any>) : null;
+  }, [mcpExperience]);
+
   const latestSelectedDeploymentResult = useMemo(() => {
     const inSession = deploymentResultsByTarget[mcpDeploymentTarget];
     if (inSession) {
@@ -6171,102 +6299,102 @@ export const ComposerStudio = () => {
           ? (inSession.response.nextActions as string[])
           : undefined,
         deployedAt:
-          activeExperienceDeploymentState?.last_target === mcpDeploymentTarget
-            ? String(activeExperienceDeploymentState.last_deployed_at || "")
+          mcpExperienceDeploymentState?.last_target === mcpDeploymentTarget
+            ? String(mcpExperienceDeploymentState.last_deployed_at || "")
             : undefined,
       };
     }
-    if (activeExperienceDeploymentState?.last_target === mcpDeploymentTarget) {
+    if (mcpExperienceDeploymentState?.last_target === mcpDeploymentTarget) {
       return {
-        target: String(activeExperienceDeploymentState.last_target),
-        variant: typeof activeExperienceDeploymentState.last_variant === "string"
-          ? activeExperienceDeploymentState.last_variant
+        target: String(mcpExperienceDeploymentState.last_target),
+        variant: typeof mcpExperienceDeploymentState.last_variant === "string"
+          ? mcpExperienceDeploymentState.last_variant
           : undefined,
         destinationSurface:
-          typeof activeExperienceDeploymentState.last_destination_surface === "string"
-            ? activeExperienceDeploymentState.last_destination_surface
+          typeof mcpExperienceDeploymentState.last_destination_surface === "string"
+            ? mcpExperienceDeploymentState.last_destination_surface
             : getDeploymentDestinationSurfaceLabel(
-                typeof activeExperienceDeploymentState.last_target === "string"
-                  ? activeExperienceDeploymentState.last_target
+                typeof mcpExperienceDeploymentState.last_target === "string"
+                  ? mcpExperienceDeploymentState.last_target
                   : null,
-                typeof activeExperienceDeploymentState.last_variant === "string"
-                  ? activeExperienceDeploymentState.last_variant
+                typeof mcpExperienceDeploymentState.last_variant === "string"
+                  ? mcpExperienceDeploymentState.last_variant
                   : undefined,
               ),
-        status: String(activeExperienceDeploymentState.last_status || "unknown"),
+        status: String(mcpExperienceDeploymentState.last_status || "unknown"),
         capability:
-          typeof activeExperienceDeploymentState.last_capability_state === "string"
+          typeof mcpExperienceDeploymentState.last_capability_state === "string"
             ? ({
                 adapter:
-                  typeof activeExperienceDeploymentState.last_provider === "string" &&
-                  activeExperienceDeploymentState.last_provider === "runtime"
+                  typeof mcpExperienceDeploymentState.last_provider === "string" &&
+                  mcpExperienceDeploymentState.last_provider === "runtime"
                     ? "runtime"
-                    : typeof activeExperienceDeploymentState.last_provider === "string" &&
-                        activeExperienceDeploymentState.last_provider === "discord"
+                    : typeof mcpExperienceDeploymentState.last_provider === "string" &&
+                        mcpExperienceDeploymentState.last_provider === "discord"
                       ? "discord_mcp"
-                      : typeof activeExperienceDeploymentState.last_target === "string" &&
-                          activeExperienceDeploymentState.last_target === "studio_preview"
+                      : typeof mcpExperienceDeploymentState.last_target === "string" &&
+                          mcpExperienceDeploymentState.last_target === "studio_preview"
                         ? "studio"
-                        : typeof activeExperienceDeploymentState.last_target === "string" &&
-                            activeExperienceDeploymentState.last_target === "runtime_thin_client"
+                        : typeof mcpExperienceDeploymentState.last_target === "string" &&
+                            mcpExperienceDeploymentState.last_target === "runtime_thin_client"
                           ? "thin_client"
-                          : typeof activeExperienceDeploymentState.last_target === "string" &&
-                              activeExperienceDeploymentState.last_target === "mcp_app"
+                          : typeof mcpExperienceDeploymentState.last_target === "string" &&
+                              mcpExperienceDeploymentState.last_target === "mcp_app"
                             ? "mcp_app"
                             : "runtime",
-                state: activeExperienceDeploymentState.last_capability_state as ComposerDeploymentCapabilityState,
+                state: mcpExperienceDeploymentState.last_capability_state as ComposerDeploymentCapabilityState,
                 summary:
-                  typeof activeExperienceDeploymentState.last_capability_summary === "string"
-                    ? activeExperienceDeploymentState.last_capability_summary
+                  typeof mcpExperienceDeploymentState.last_capability_summary === "string"
+                    ? mcpExperienceDeploymentState.last_capability_summary
                     : "Capability summary unavailable.",
-                constraints: Array.isArray(activeExperienceDeploymentState.last_capability_constraints)
-                  ? activeExperienceDeploymentState.last_capability_constraints.filter(
+                constraints: Array.isArray(mcpExperienceDeploymentState.last_capability_constraints)
+                  ? mcpExperienceDeploymentState.last_capability_constraints.filter(
                       (item): item is string => typeof item === "string",
                     )
                   : undefined,
               } as ComposerDeploymentCapability)
             : undefined,
         adapterDeclaration:
-          activeExperienceDeploymentState.last_adapter_declaration &&
-          typeof activeExperienceDeploymentState.last_adapter_declaration === "object"
-            ? (activeExperienceDeploymentState.last_adapter_declaration as ComposerDeploymentAdapterDeclaration)
+          mcpExperienceDeploymentState.last_adapter_declaration &&
+          typeof mcpExperienceDeploymentState.last_adapter_declaration === "object"
+            ? (mcpExperienceDeploymentState.last_adapter_declaration as ComposerDeploymentAdapterDeclaration)
             : undefined,
         deliveryMode:
-          typeof activeExperienceDeploymentState.last_delivery_mode === "string"
-            ? (activeExperienceDeploymentState.last_delivery_mode as ComposerDeploymentDeliveryMode)
+          typeof mcpExperienceDeploymentState.last_delivery_mode === "string"
+            ? (mcpExperienceDeploymentState.last_delivery_mode as ComposerDeploymentDeliveryMode)
             : undefined,
         destinationAdapter:
-          typeof activeExperienceDeploymentState.last_destination_adapter === "string"
-            ? (activeExperienceDeploymentState.last_destination_adapter as ComposerDeploymentAdapter)
+          typeof mcpExperienceDeploymentState.last_destination_adapter === "string"
+            ? (mcpExperienceDeploymentState.last_destination_adapter as ComposerDeploymentAdapter)
             : undefined,
-        provider: typeof activeExperienceDeploymentState.last_provider === "string"
-          ? activeExperienceDeploymentState.last_provider
+        provider: typeof mcpExperienceDeploymentState.last_provider === "string"
+          ? mcpExperienceDeploymentState.last_provider
           : undefined,
-        mode: typeof activeExperienceDeploymentState.last_mode === "string"
-          ? activeExperienceDeploymentState.last_mode
+        mode: typeof mcpExperienceDeploymentState.last_mode === "string"
+          ? mcpExperienceDeploymentState.last_mode
           : undefined,
-        publishUrl: typeof activeExperienceDeploymentState.last_publish_url === "string"
-          ? activeExperienceDeploymentState.last_publish_url
+        publishUrl: typeof mcpExperienceDeploymentState.last_publish_url === "string"
+          ? mcpExperienceDeploymentState.last_publish_url
           : undefined,
-        launchUrl: typeof activeExperienceDeploymentState.last_launch_url === "string"
-          ? activeExperienceDeploymentState.last_launch_url
+        launchUrl: typeof mcpExperienceDeploymentState.last_launch_url === "string"
+          ? mcpExperienceDeploymentState.last_launch_url
           : undefined,
         warnings: undefined as string[] | undefined,
-        error: typeof activeExperienceDeploymentState.last_error === "string"
-          ? activeExperienceDeploymentState.last_error
+        error: typeof mcpExperienceDeploymentState.last_error === "string"
+          ? mcpExperienceDeploymentState.last_error
           : undefined,
         runtimeProfile:
-          activeExperienceDeploymentState.last_runtime_profile &&
-          typeof activeExperienceDeploymentState.last_runtime_profile === "object"
-            ? (activeExperienceDeploymentState.last_runtime_profile as Record<string, any>)
+          mcpExperienceDeploymentState.last_runtime_profile &&
+          typeof mcpExperienceDeploymentState.last_runtime_profile === "object"
+            ? (mcpExperienceDeploymentState.last_runtime_profile as Record<string, any>)
             : undefined,
-        deployedAt: typeof activeExperienceDeploymentState.last_deployed_at === "string"
-          ? activeExperienceDeploymentState.last_deployed_at
+        deployedAt: typeof mcpExperienceDeploymentState.last_deployed_at === "string"
+          ? mcpExperienceDeploymentState.last_deployed_at
           : undefined,
       };
     }
     return null;
-  }, [activeExperienceDeploymentState, deploymentResultsByTarget, mcpDeploymentTarget]);
+  }, [mcpExperienceDeploymentState, deploymentResultsByTarget, mcpDeploymentTarget]);
   const inspectorRemediationSteps = useMemo(() => {
     const steps: string[] = [];
     const fallbackGuidance = resolveDeploymentFallbackGuidance({
@@ -10163,7 +10291,33 @@ export const ComposerStudio = () => {
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-xs text-slate-400">Intent / Message</label>
+                  <div className="mb-1 flex items-center justify-between">
+                    <label className="text-xs text-slate-400">Intent / Message</label>
+                    <button
+                      type="button"
+                      onClick={() => void toggleMarketa()}
+                      title={vapiState === "idle" ? "Start voice with Marketa" : "Stop Marketa"}
+                      className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-all ${
+                        vapiState === "idle"
+                          ? "border-slate-700 bg-slate-800/60 text-slate-400 hover:border-fuchsia-500/60 hover:text-fuchsia-300"
+                          : vapiState === "connecting"
+                            ? "animate-pulse border-amber-500/60 bg-amber-500/10 text-amber-300"
+                            : vapiState === "speaking"
+                              ? "animate-pulse border-green-500/60 bg-green-500/15 text-green-300"
+                              : "border-fuchsia-500/60 bg-fuchsia-500/15 text-fuchsia-300"
+                      }`}
+                    >
+                      {vapiState === "idle" ? (
+                        <><Mic className="h-3 w-3" /><span>Marketa</span></>
+                      ) : vapiState === "connecting" ? (
+                        <><Loader2 className="h-3 w-3 animate-spin" /><span>Connecting…</span></>
+                      ) : vapiState === "speaking" ? (
+                        <><Volume2 className="h-3 w-3" /><span>Speaking…</span></>
+                      ) : (
+                        <><MicOff className="h-3 w-3" /><span>Listening</span></>
+                      )}
+                    </button>
+                  </div>
                   <textarea
                     value={mcpMessage}
                     onChange={(e) => setMcpMessage(e.target.value)}
