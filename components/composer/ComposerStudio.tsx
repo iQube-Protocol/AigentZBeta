@@ -4516,7 +4516,11 @@ export const ComposerStudio = () => {
         const next = exists
           ? prev.map((exp) => (exp.id === refreshedExperience.id ? refreshedExperience : exp))
           : [refreshedExperience, ...prev];
-        cacheExperiencesForTenant(tenantId, next);
+        // Only update the module-level cache when the list is already loaded.
+        // If prev is empty the initial fetchExperiences is still in-flight; caching a
+        // single-item list here would poison it and hide all previously-saved experiences
+        // when the component remounts (e.g. after navigating to the launcher and back).
+        if (prev.length > 0) cacheExperiencesForTenant(tenantId, next);
         return next;
       });
       if (selectedExperienceId === refreshedExperience.id) {
