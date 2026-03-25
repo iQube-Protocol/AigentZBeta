@@ -264,6 +264,7 @@ export async function listExperienceRecords(params: {
   if (params.tenant_id) query = query.eq("tenant_id", params.tenant_id);
   if (params.creator_id) query = query.eq("creator_id", params.creator_id);
   if (params.status) query = query.eq("status", params.status);
+  query = query.order("created_at", { ascending: false }).limit(limit);
 
   const { data, error } = await query;
   console.log(`[composerPersistence] listExperienceRecords — tenant_id=${params.tenant_id ?? '(none)'} rows=${data?.length ?? 'null'} error=${error?.message ?? 'none'}`);
