@@ -280,6 +280,18 @@ export async function listExperienceRecords(params: {
   for (const item of items) {
     await syncExperienceFallbackCaches(item);
   }
+  // Supabase query succeeded but returned 0 rows — the original write may have silently
+  // fallen back to the local JSON DB (e.g. anon key + RLS, or missing service role key).
+  // Check local fallbacks so experiences aren't invisible within the same deployment.
+  if (items.length === 0) {
+    const localItems = await listExperiencesLocal(params);
+    if (localItems.length > 0) {
+      items = localItems;
+    } else {
+      const storeItems = getAllExperienceQubes();
+      if (storeItems.length > 0) items = storeItems;
+    }
+  }
   if (params.category) items = items.filter((exp) => exp.metadata.category === params.category);
   items.sort((a, b) => new Date(b.metadata.updated_at).getTime() - new Date(a.metadata.updated_at).getTime());
   const total = items.length;

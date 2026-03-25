@@ -3268,8 +3268,10 @@ export const ComposerStudio = () => {
             }
           }
         }
-        cacheExperiencesForTenant(tenantId, next);
-        if (active) setExperiences(next);
+        if (active) {
+          cacheExperiencesForTenant(tenantId, next);
+          setExperiences(next);
+        }
       } catch {
         if (active) {
           if (tenantCache?.items) {
@@ -3284,7 +3286,7 @@ export const ComposerStudio = () => {
     return () => {
       active = false;
     };
-  }, [tenantId, experience?.id]);
+  }, [tenantId]);
 
   const filteredTemplates = useMemo(() => {
     const query = templateQuery.trim().toLowerCase();
