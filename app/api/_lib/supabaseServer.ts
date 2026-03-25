@@ -33,13 +33,16 @@ export function getSupabaseServer(): SupabaseClient | null {
       : process.env.NODE_ENV === 'development';
     const timeoutMs = parsePositiveInt(process.env.SUPABASE_FETCH_TIMEOUT_MS, fastFailEnabled ? 4000 : 15000);
 
+    const keyType = process.env.SUPABASE_SERVICE_ROLE_KEY
+      ? 'SERVICE_ROLE_KEY'
+      : process.env.SUPABASE_ANON_KEY
+      ? 'SUPABASE_ANON_KEY'
+      : 'NEXT_PUBLIC_SUPABASE_ANON_KEY';
+    console.log(`[Supabase] Initialising client — key type: ${keyType}, fast-fail: ${fastFailEnabled}${fastFailEnabled ? `, timeout: ${timeoutMs}ms` : ''}`);
+
     cachedClient = createClient(supabaseUrl, supabaseKey, {
       global: fastFailEnabled ? { fetch: getTimedFetch(timeoutMs) } : undefined,
     });
-
-    if (fastFailEnabled) {
-      console.log(`[Supabase] Fast-fail enabled (timeout=${timeoutMs}ms)`);
-    }
 
     return cachedClient;
   } catch (error) {

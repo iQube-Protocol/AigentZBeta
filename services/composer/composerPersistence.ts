@@ -266,6 +266,7 @@ export async function listExperienceRecords(params: {
   if (params.status) query = query.eq("status", params.status);
 
   const { data, error } = await query;
+  console.log(`[composerPersistence] listExperienceRecords — tenant_id=${params.tenant_id ?? '(none)'} rows=${data?.length ?? 'null'} error=${error?.message ?? 'none'}`);
   if (error || !data) {
     console.warn("Composer persistence fallback (list experiences)", error?.message || error);
     const items = await listExperiencesLocal(params);

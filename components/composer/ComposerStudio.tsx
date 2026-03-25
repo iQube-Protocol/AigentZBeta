@@ -3340,54 +3340,40 @@ export const ComposerStudio = () => {
     }
 
     const fetchExperiences = async () => {
-      try {
-        const res = await fetch(`/api/composer/experiences?tenant_id=${encodeURIComponent(tenantId)}`);
-        if (!res.ok) throw new Error("Failed to load experiences");
-        const data = await res.json();
-        let next: ExperienceQube[] = data.experience_qubes || [];
+      // Fire all queries in parallel: by-tenant, legacy-tenant (if different),
+      // broad (no filter), and by-creator — so any RLS configuration or tenant
+      // mismatch still surfaces available experiences.
+      const queries: Promise<ExperienceQube[]>[] = [];
 
-        // When the resolved tenant differs from the default, also fetch experiences
-        // stored under DEFAULT_TENANT to surface items created before identity
-        // resolution was established (backward compat for pre-wallet experiences).
-        if (tenantId !== DEFAULT_TENANT) {
-          try {
-            const legacyRes = await fetch(
-              `/api/composer/experiences?tenant_id=${encodeURIComponent(DEFAULT_TENANT)}`,
-            );
-            if (legacyRes.ok) {
-              const legacyData = await legacyRes.json();
-              const legacyItems: ExperienceQube[] = legacyData.experience_qubes || [];
-              if (legacyItems.length > 0) {
-                const seenIds = new Set(next.map((e) => e.id));
-                for (const item of legacyItems) {
-                  if (!seenIds.has(item.id)) next = [...next, item];
-                }
-              }
-            }
-          } catch {
-            // Legacy fetch is best-effort; ignore failures.
-          }
-        }
-
-        // Always fetch broadly (no tenant filter) to catch experiences stored under
-        // mismatched, null, or unknown tenant_ids (covers pre-wallet orphaned records).
+      const safeGet = async (url: string): Promise<ExperienceQube[]> => {
         try {
-          const broadRes = await fetch(`/api/composer/experiences?limit=100`);
-          if (broadRes.ok) {
-            const broadData = await broadRes.json();
-            const broadItems: ExperienceQube[] = broadData.experience_qubes || [];
-            if (next.length === 0) {
-              next = broadItems;
-            } else if (broadItems.length > 0) {
-              const seenIds = new Set(next.map((e) => e.id));
-              for (const item of broadItems) {
-                if (!seenIds.has(item.id)) next = [...next, item];
-              }
-            }
-          }
+          const res = await fetch(url);
+          if (!res.ok) return [];
+          const data = await res.json();
+          return (data.experience_qubes as ExperienceQube[]) || [];
         } catch {
-          // broad fallback is best-effort; don't block on failures
+          return [];
         }
+      };
+
+      queries.push(safeGet(`/api/composer/experiences?tenant_id=${encodeURIComponent(tenantId)}`));
+      if (tenantId !== DEFAULT_TENANT) {
+        queries.push(safeGet(`/api/composer/experiences?tenant_id=${encodeURIComponent(DEFAULT_TENANT)}`));
+      }
+      queries.push(safeGet(`/api/composer/experiences?limit=100`));
+      if (userId && userId !== DEFAULT_USER) {
+        queries.push(safeGet(`/api/composer/experiences?creator_id=${encodeURIComponent(userId)}`));
+      }
+
+      try {
+        const results = await Promise.all(queries);
+        const merged = new Map<string, ExperienceQube>();
+        for (const list of results) {
+          for (const item of list) {
+            if (!merged.has(item.id)) merged.set(item.id, item);
+          }
+        }
+        const next = Array.from(merged.values());
         if (active) {
           cacheExperiencesForTenant(tenantId, next);
           setExperiences(next);
