@@ -79,9 +79,23 @@ export async function GET(request: NextRequest) {
       offset,
     });
 
+    // Strip arbitrary large content from metadata before serialising.
+    // meta_qube stores { ...metadata } which can accumulate large AI-generated
+    // artifact fields; the list view only needs the four typed metadata fields.
+    const items = result.items.map(exp => ({
+      ...exp,
+      metadata: {
+        category: exp.metadata?.category,
+        tags: (exp.metadata as any)?.tags,
+        version: exp.metadata?.version,
+        created_at: exp.metadata?.created_at,
+        updated_at: exp.metadata?.updated_at,
+      },
+    }));
+
     return jsonNoStore({
       success: true,
-      experience_qubes: result.items,
+      experience_qubes: items,
       total: result.total,
       limit,
       offset,
