@@ -560,18 +560,255 @@ async function callChainGpt(
   };
 }
 
+// ============================================================================
+// Marketa Tool Calling
+// ============================================================================
+
+const MARKETA_TOOLS_ANTHROPIC = [
+  {
+    name: 'list_workflows',
+    description: 'List available workflow definitions for the current tenant so you can tell the user what automation scenarios are available.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        tenantId: { type: 'string', description: 'The tenant ID to list workflows for' },
+      },
+      required: ['tenantId'],
+    },
+  },
+  {
+    name: 'invoke_workflow',
+    description: 'Execute a workflow by its ID. Use this to actually run an automation scenario rather than just describing how to do it.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        workflowId: { type: 'string', description: 'The workflow definition UUID to invoke' },
+        tenantId: { type: 'string', description: 'The tenant ID' },
+        personaId: { type: 'string', description: 'The persona ID triggering the invocation' },
+        input: { type: 'object', description: 'Input data to pass to the workflow' },
+      },
+      required: ['workflowId', 'tenantId', 'personaId'],
+    },
+  },
+  {
+    name: 'deploy_campaign',
+    description: 'Deploy a Marketa campaign by its campaign ID. This triggers the full campaign deployment pipeline.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        campaignId: { type: 'string', description: 'The campaign ID to deploy' },
+        tenantId: { type: 'string', description: 'The tenant ID' },
+      },
+      required: ['campaignId', 'tenantId'],
+    },
+  },
+];
+
+const MARKETA_TOOLS_OPENAI = MARKETA_TOOLS_ANTHROPIC.map((t) => ({
+  type: 'function' as const,
+  function: {
+    name: t.name,
+    description: t.description,
+    parameters: t.input_schema,
+  },
+}));
+
+async function executeMarketaTool(name: string, input: Record<string, unknown>): Promise<string> {
+  const base = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+  try {
+    if (name === 'list_workflows') {
+      const res = await fetch(`${base}/api/workflows?tenant_id=${encodeURIComponent(String(input.tenantId ?? ''))}&limit=20`);
+      const json = await res.json();
+      const workflows = (json.workflows ?? []).map((w: any) => ({ id: w.id, name: w.name, adapter: w.adapter, status: w.status }));
+      return JSON.stringify({ workflows });
+    }
+    if (name === 'invoke_workflow') {
+      const res = await fetch(`${base}/api/workflows/${input.workflowId}/invoke`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          envelope: { tenantId: input.tenantId, personaId: input.personaId },
+          input: input.input ?? {},
+        }),
+      });
+      const json = await res.json();
+      return JSON.stringify(json);
+    }
+    if (name === 'deploy_campaign') {
+      const res = await fetch(`${base}/api/marketa/campaigns/deploy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ campaignId: input.campaignId, tenantId: input.tenantId }),
+      });
+      const json = await res.json();
+      return JSON.stringify(json);
+    }
+    return JSON.stringify({ error: `Unknown tool: ${name}` });
+  } catch (err: any) {
+    return JSON.stringify({ error: err?.message ?? 'Tool execution failed' });
+  }
+}
+
+async function callAnthropicWithTools(
+  systemPrompt: string,
+  history: ChatMessage[],
+  message: string,
+  modelId: string,
+): Promise<ProviderExecutionResult> {
+  const anthropicMessages: any[] = [
+    ...history.filter((e) => e.role !== 'system').map((e) => ({ role: e.role, content: e.content })),
+    { role: 'user', content: message },
+  ];
+
+  let response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-api-key': ANTHROPIC_API_KEY || '',
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: mapAnthropicModelId(modelId || ANTHROPIC_MODEL),
+      system: systemPrompt,
+      messages: anthropicMessages,
+      tools: MARKETA_TOOLS_ANTHROPIC,
+      max_tokens: 4096,
+      temperature: 0.7,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await parseErrorResponse(response);
+    throw new Error(`Anthropic request failed: ${JSON.stringify(errorData)}`);
+  }
+
+  let data = await response.json();
+
+  // Tool use loop — max 3 rounds
+  let rounds = 0;
+  while (data.stop_reason === 'tool_use' && rounds < 3) {
+    rounds++;
+    const toolUseBlocks = (data.content ?? []).filter((b: any) => b.type === 'tool_use');
+    const toolResults: any[] = [];
+    for (const block of toolUseBlocks) {
+      const result = await executeMarketaTool(block.name, block.input ?? {});
+      toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: result });
+    }
+    // Append assistant turn + tool results
+    anthropicMessages.push({ role: 'assistant', content: data.content });
+    anthropicMessages.push({ role: 'user', content: toolResults });
+
+    response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': ANTHROPIC_API_KEY || '',
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: mapAnthropicModelId(modelId || ANTHROPIC_MODEL),
+        system: systemPrompt,
+        messages: anthropicMessages,
+        tools: MARKETA_TOOLS_ANTHROPIC,
+        max_tokens: 4096,
+        temperature: 0.7,
+      }),
+    });
+    if (!response.ok) {
+      const errorData = await parseErrorResponse(response);
+      throw new Error(`Anthropic tool follow-up failed: ${JSON.stringify(errorData)}`);
+    }
+    data = await response.json();
+  }
+
+  const content = extractAnthropicText(data);
+  if (!content) throw new Error('Anthropic returned an empty completion');
+  return { providerId: 'anthropic', modelId: mapAnthropicModelId(modelId || ANTHROPIC_MODEL), content };
+}
+
+async function callOpenAiWithTools(messages: ChatMessage[], modelId: string): Promise<ProviderExecutionResult> {
+  let currentMessages: any[] = messages;
+
+  let response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${OPENAI_API_KEY}` },
+    body: JSON.stringify({
+      model: modelId || OPENAI_MODEL,
+      messages: currentMessages,
+      tools: MARKETA_TOOLS_OPENAI,
+      tool_choice: 'auto',
+      temperature: 0.7,
+      max_tokens: 16000,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await parseErrorResponse(response);
+    throw new Error(`OpenAI request failed: ${JSON.stringify(errorData)}`);
+  }
+
+  let data = await response.json();
+  let choice = data?.choices?.[0];
+
+  // Tool use loop — max 3 rounds
+  let rounds = 0;
+  while (choice?.finish_reason === 'tool_calls' && rounds < 3) {
+    rounds++;
+    const toolCalls = choice.message?.tool_calls ?? [];
+    currentMessages = [...currentMessages, choice.message];
+    for (const tc of toolCalls) {
+      let inputObj: Record<string, unknown> = {};
+      try { inputObj = JSON.parse(tc.function?.arguments ?? '{}'); } catch { /* ignore */ }
+      const result = await executeMarketaTool(tc.function?.name ?? '', inputObj);
+      currentMessages.push({ role: 'tool', tool_call_id: tc.id, content: result });
+    }
+    response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${OPENAI_API_KEY}` },
+      body: JSON.stringify({
+        model: modelId || OPENAI_MODEL,
+        messages: currentMessages,
+        tools: MARKETA_TOOLS_OPENAI,
+        tool_choice: 'auto',
+        temperature: 0.7,
+        max_tokens: 16000,
+      }),
+    });
+    if (!response.ok) {
+      const errorData = await parseErrorResponse(response);
+      throw new Error(`OpenAI tool follow-up failed: ${JSON.stringify(errorData)}`);
+    }
+    data = await response.json();
+    choice = data?.choices?.[0];
+  }
+
+  const content = choice?.message?.content?.trim();
+  if (!content) throw new Error('OpenAI returned an empty completion');
+  return { providerId: 'openai', modelId: modelId || OPENAI_MODEL, content };
+}
+
 async function executeProviderAttempt(
   attempt: ProviderAttempt,
   systemPrompt: string,
   history: ChatMessage[],
   message: string,
+  isMarketa: boolean,
 ): Promise<ProviderExecutionResult> {
   switch (attempt.providerId) {
     case 'openai':
+      if (isMarketa) {
+        return callOpenAiWithTools(
+          [{ role: 'system', content: systemPrompt }, ...history, { role: 'user', content: message }],
+          attempt.modelId,
+        );
+      }
       return callOpenAi([...history, { role: 'user', content: message }], attempt.modelId);
     case 'venice':
       return callVenice([...history, { role: 'user', content: message }], attempt.modelId);
     case 'anthropic':
+      if (isMarketa) {
+        return callAnthropicWithTools(systemPrompt, history, message, attempt.modelId);
+      }
       return callAnthropic(systemPrompt, history, message, attempt.modelId);
     case 'chaingpt':
       return callChainGpt(systemPrompt, history, message, attempt.modelId);
@@ -1026,6 +1263,7 @@ export async function POST(request: NextRequest) {
       { role: 'system', content: systemPrompt },
       ...chatHistory.slice(-10), // Keep last 10 messages for context
     ];
+    const isMarketa = resolvedAgentId === 'aigent-marketa';
     let executionResult: ProviderExecutionResult | null = null;
     const providerErrors: Array<{ providerId: RuntimeProviderId; modelId: string; error: string }> = [];
 
@@ -1036,6 +1274,7 @@ export async function POST(request: NextRequest) {
           systemPrompt,
           conversationHistory,
           message,
+          isMarketa,
         );
         console.log('[CodexChat] Provider success:', {
           providerId: executionResult.providerId,

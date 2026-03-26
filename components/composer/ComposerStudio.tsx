@@ -1545,6 +1545,11 @@ export const ComposerStudio = () => {
   const [workflowsList, setWorkflowsList] = useState<any[]>([]);
   const [workflowsLoading, setWorkflowsLoading] = useState(false);
   const [workflowInvokeState, setWorkflowInvokeState] = useState<Record<string, "idle" | "invoking" | "done" | "error">>({});
+  const [makeScenarios, setMakeScenarios] = useState<Array<{ id: number; name: string; isActive: boolean }> | null>(null);
+  const [makeScenarioLoading, setMakeScenarioLoading] = useState(false);
+  const [makeScenarioError, setMakeScenarioError] = useState<string | null>(null);
+  const [showMakePicker, setShowMakePicker] = useState(false);
+  const [connectingScenarioId, setConnectingScenarioId] = useState<number | null>(null);
   const [workflowRunPolling, setWorkflowRunPolling] = useState<Record<string, { runId: string; status: string } | null>>({});
   const [workflowRunHistory, setWorkflowRunHistory] = useState<Record<string, any[]>>({});
   const [expandedRunHistory, setExpandedRunHistory] = useState<Record<string, boolean>>({});
@@ -10007,23 +10012,139 @@ export const ComposerStudio = () => {
                     <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-sm">
                       <div className="flex items-center justify-between">
                         <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Workflow Definitions</span>
-                        <button
-                          type="button"
-                          className="rounded-lg border border-slate-700 bg-slate-800/50 px-2.5 py-1 text-[11px] text-slate-300 hover:bg-slate-700"
-                          onClick={() => {
-                            if (!tenantId) return;
-                            setWorkflowsLoading(true);
-                            setWorkflowsList([]);
-                            fetch(`/api/workflows?tenant_id=${encodeURIComponent(tenantId)}&limit=20`)
-                              .then((r) => r.json())
-                              .then((d) => { if (d.workflows) setWorkflowsList(d.workflows); })
-                              .catch(() => {})
-                              .finally(() => setWorkflowsLoading(false));
-                          }}
-                        >
-                          Refresh
-                        </button>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            className="rounded-lg border border-violet-600/50 bg-violet-500/10 px-2.5 py-1 text-[11px] text-violet-300 hover:bg-violet-500/20 transition"
+                            onClick={() => {
+                              setShowMakePicker((prev) => !prev);
+                              if (!makeScenarios && !makeScenarioLoading) {
+                                setMakeScenarioLoading(true);
+                                setMakeScenarioError(null);
+                                fetch("/api/make/scenarios")
+                                  .then((r) => r.json())
+                                  .then((d) => {
+                                    if (d.scenarios) setMakeScenarios(d.scenarios);
+                                    else setMakeScenarioError(d.error ?? "Failed to load scenarios");
+                                  })
+                                  .catch(() => setMakeScenarioError("Network error loading scenarios"))
+                                  .finally(() => setMakeScenarioLoading(false));
+                              }
+                            }}
+                          >
+                            + Connect from Make
+                          </button>
+                          <button
+                            type="button"
+                            className="rounded-lg border border-slate-700 bg-slate-800/50 px-2.5 py-1 text-[11px] text-slate-300 hover:bg-slate-700"
+                            onClick={() => {
+                              if (!tenantId) return;
+                              setWorkflowsLoading(true);
+                              setWorkflowsList([]);
+                              fetch(`/api/workflows?tenant_id=${encodeURIComponent(tenantId)}&limit=20`)
+                                .then((r) => r.json())
+                                .then((d) => { if (d.workflows) setWorkflowsList(d.workflows); })
+                                .catch(() => {})
+                                .finally(() => setWorkflowsLoading(false));
+                            }}
+                          >
+                            Refresh
+                          </button>
+                        </div>
                       </div>
+
+                      {/* Make scenario picker */}
+                      {showMakePicker && (
+                        <div className="rounded-lg border border-violet-500/30 bg-violet-950/30 p-3 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-semibold text-violet-300">Your Make Scenarios</span>
+                            <button
+                              type="button"
+                              className="text-[10px] text-slate-500 hover:text-slate-300"
+                              onClick={() => {
+                                setShowMakePicker(false);
+                                setMakeScenarios(null);
+                                setMakeScenarioError(null);
+                              }}
+                            >
+                              ✕
+                            </button>
+                          </div>
+                          {makeScenarioLoading && (
+                            <div className="flex items-center gap-2 text-slate-400 text-[11px]">
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                              Loading scenarios…
+                            </div>
+                          )}
+                          {makeScenarioError && (
+                            <p className="text-red-400 text-[11px]">{makeScenarioError}</p>
+                          )}
+                          {makeScenarios && makeScenarios.length === 0 && (
+                            <p className="text-slate-400 text-[11px]">No scenarios found in your Make team.</p>
+                          )}
+                          {makeScenarios && makeScenarios.map((sc) => (
+                            <div key={sc.id} className="flex items-center justify-between gap-2 rounded border border-slate-700/50 bg-slate-900/60 px-2.5 py-1.5">
+                              <div className="min-w-0">
+                                <p className="truncate text-[11px] text-slate-200">{sc.name}</p>
+                                <p className="text-[10px] text-slate-500">ID: {sc.id} · {sc.isActive ? <span className="text-emerald-400">active</span> : <span className="text-slate-500">inactive</span>}</p>
+                              </div>
+                              <button
+                                type="button"
+                                disabled={connectingScenarioId === sc.id}
+                                className="shrink-0 rounded border border-violet-500/50 bg-violet-500/10 px-2 py-0.5 text-[10px] text-violet-300 hover:bg-violet-500/20 disabled:opacity-50 transition"
+                                onClick={async () => {
+                                  if (!tenantId) return;
+                                  setConnectingScenarioId(sc.id);
+                                  try {
+                                    const personaId = (window as any).__COMPOSER_PERSONA_ID__ ?? "studio-user";
+                                    const wfRes = await fetch("/api/workflows", {
+                                      method: "POST",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({
+                                        envelope: { tenantId, personaId },
+                                        name: sc.name,
+                                        adapter: "make",
+                                        config: {},
+                                        status: "active",
+                                      }),
+                                    });
+                                    const wfData = await wfRes.json();
+                                    if (!wfData.workflow?.id) throw new Error(wfData.error ?? "Failed to create workflow");
+                                    const wfId = wfData.workflow.id;
+                                    const bindRes = await fetch(`/api/workflows/${wfId}/bindings`, {
+                                      method: "POST",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({
+                                        envelope: { tenantId, personaId },
+                                        engine: "make",
+                                        deploymentMode: "manual",
+                                        backendIds: { scenarioId: String(sc.id) },
+                                        credentialPolicy: {},
+                                      }),
+                                    });
+                                    if (!bindRes.ok) {
+                                      const bd = await bindRes.json();
+                                      throw new Error(bd.error ?? "Failed to create binding");
+                                    }
+                                    // Reload workflows list
+                                    const listRes = await fetch(`/api/workflows?tenant_id=${encodeURIComponent(tenantId)}&limit=20`);
+                                    const listData = await listRes.json();
+                                    if (listData.workflows) setWorkflowsList(listData.workflows);
+                                    setShowMakePicker(false);
+                                    setMakeScenarios(null);
+                                  } catch (err: any) {
+                                    setMakeScenarioError(err?.message ?? "Failed to connect scenario");
+                                  } finally {
+                                    setConnectingScenarioId(null);
+                                  }
+                                }}
+                              >
+                                {connectingScenarioId === sc.id ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : "Connect"}
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
 
                       {workflowsLoading && (
                         <div className="flex items-center gap-2 text-slate-400">

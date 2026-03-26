@@ -43,6 +43,47 @@ function makeHeaders(token: string): Record<string, string> {
   };
 }
 
+export interface MakeScenario {
+  id: number;
+  name: string;
+  isActive: boolean;
+}
+
+/**
+ * List Make.com scenarios for a team.
+ * Uses MAKE_API_TOKEN env var. Optionally auto-discovers teamId from
+ * GET /users/me if teamId is not provided.
+ */
+export async function listMakeScenarios(teamId?: string): Promise<MakeScenario[]> {
+  const token = process.env.MAKE_API_TOKEN;
+  if (!token) throw new Error("MAKE_API_TOKEN not configured");
+  const baseUrl = process.env.MAKE_API_BASE_URL || DEFAULT_BASE_URL;
+
+  let resolvedTeamId = teamId || process.env.MAKE_TEAM_ID;
+
+  if (!resolvedTeamId) {
+    // Auto-discover from /users/me
+    const meRes = await fetch(`${baseUrl}/users/me`, {
+      headers: { Authorization: `Token ${token}` },
+    });
+    if (!meRes.ok) throw new Error(`Make /users/me returned HTTP ${meRes.status}`);
+    const me = await meRes.json();
+    const orgs: any[] = me?.user?.organizations ?? me?.organizations ?? [];
+    if (orgs.length > 0) {
+      resolvedTeamId = String(orgs[0].id ?? orgs[0].organizationId ?? "");
+    }
+    if (!resolvedTeamId) throw new Error("Could not resolve Make team ID — set MAKE_TEAM_ID");
+  }
+
+  const res = await fetch(`${baseUrl}/scenarios?teamId=${resolvedTeamId}&pg%5BlimitMax%5D=100`, {
+    headers: { Authorization: `Token ${token}` },
+  });
+  if (!res.ok) throw new Error(`Make /scenarios returned HTTP ${res.status}`);
+  const json = await res.json();
+  const raw: any[] = json.scenarios ?? [];
+  return raw.map((s) => ({ id: s.id, name: s.name, isActive: !!s.isActive }));
+}
+
 export const makeAdapter: WorkflowEngineAdapter = {
   engine: "make",
 
