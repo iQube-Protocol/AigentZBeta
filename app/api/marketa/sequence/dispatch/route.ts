@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
+import { getPipelineOrchestrator } from '@/services/pipeline/orchestrator';
 
 // Initialize Supabase client
 const supabase = createClient(
@@ -241,15 +242,41 @@ async function processSequenceDispatch(): Promise<{
     errors: [] as string[]
   };
 
+  const orchestrator = getPipelineOrchestrator();
+  const systemAgentId = process.env.MARKETA_SYSTEM_AGENT_ID ?? 'aigent-z';
+
   for (const { sequence_item, tenant_config } of items) {
     results.processed++;
-    
+
     const correlationId = generateCorrelationId();
     const utmParams = buildUTMParameters(
       tenant_config.tenant_id,
       tenant_config.campaign_id,
       sequence_item.day_number
     );
+
+    // Initiate pipeline run for this dispatch
+    let pipelineRunId: string | undefined;
+    try {
+      const pipelineRun = await orchestrator.initiate({
+        tenantId: tenant_config.tenant_id,
+        personaId: systemAgentId,
+        agentId: systemAgentId,
+        initiatedVia: 'marketa',
+        templateRef: `${tenant_config.campaign_id}:day${sequence_item.day_number}`,
+        sourceOfTruth: 'explicit',
+        resolutionStatus: 'resolved',
+      });
+      pipelineRunId = pipelineRun.pipelineRunId;
+      await orchestrator.transition(pipelineRunId, 'deploy.distribution.started', {
+        campaign_id: tenant_config.campaign_id,
+        day_number: sequence_item.day_number,
+        publishing_mode: tenant_config.publishing_mode,
+        correlation_id: correlationId,
+      });
+    } catch (pipelineErr: any) {
+      console.warn('[marketa/dispatch] Pipeline initiation failed (non-blocking):', pipelineErr?.message ?? pipelineErr);
+    }
 
     // Build dispatch payload
     const dispatchPayload: DispatchPayload = {
@@ -337,6 +364,20 @@ async function processSequenceDispatch(): Promise<{
           throw new Error(`Unknown publishing mode: ${tenant_config.publishing_mode}`);
       }
 
+      // Pipeline: mark distribution complete
+      if (pipelineRunId) {
+        try {
+          await orchestrator.transition(pipelineRunId, 'deploy.distribution.completed', {
+            campaign_id: tenant_config.campaign_id,
+            day_number: sequence_item.day_number,
+            publishing_mode: tenant_config.publishing_mode,
+          });
+          await orchestrator.complete(pipelineRunId);
+        } catch (pipelineErr: any) {
+          console.warn('[marketa/dispatch] Pipeline completion failed (non-blocking):', pipelineErr?.message ?? pipelineErr);
+        }
+      }
+
     } catch (error: any) {
       results.failed++;
       results.errors.push(
@@ -352,6 +393,15 @@ async function processSequenceDispatch(): Promise<{
         dispatchPayload,
         { error: error.message }
       );
+
+      // Pipeline: mark failed
+      if (pipelineRunId) {
+        try {
+          await orchestrator.fail(pipelineRunId, error.message);
+        } catch (pipelineErr: any) {
+          console.warn('[marketa/dispatch] Pipeline fail record failed (non-blocking):', pipelineErr?.message ?? pipelineErr);
+        }
+      }
     }
   }
 

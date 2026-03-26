@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { getPipelineOrchestrator } from '@/services/pipeline/orchestrator';
 
 // Initialize Supabase client
 const supabase = createClient(
@@ -117,6 +118,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Initiate pipeline run for audit trail
+    const orchestrator = getPipelineOrchestrator();
+    const systemAgentId = process.env.MARKETA_SYSTEM_AGENT_ID ?? 'aigent-z';
+    let pipelineRunId: string | undefined;
+    try {
+      const pipelineRun = await orchestrator.initiate({
+        tenantId: persona.tenant_id,
+        personaId: personaId,
+        agentId: systemAgentId,
+        initiatedVia: 'marketa',
+        templateRef: campaign_id,
+        sourceOfTruth: 'explicit',
+        resolutionStatus: 'resolved',
+      });
+      pipelineRunId = pipelineRun.pipelineRunId;
+      await orchestrator.transition(pipelineRunId, 'deploy.runtime.started', {
+        campaign_id,
+        strategy: deployment_config.deployment_strategy,
+      });
+    } catch (pipelineErr: any) {
+      console.warn('[marketa/deploy] Pipeline initiation failed (non-blocking):', pipelineErr?.message ?? pipelineErr);
+    }
+
     // Create the campaign in AGQ as source of truth
     const { data: createdCampaign, error: campaignError } = await supabase
       .from('marketa_campaigns')
@@ -213,10 +237,24 @@ export async function POST(request: NextRequest) {
       .update({ deployment_status: 'deployed' })
       .eq('campaign_id', campaign_id);
 
+    // Pipeline: mark runtime deployment complete
+    if (pipelineRunId) {
+      try {
+        await orchestrator.transition(pipelineRunId, 'deploy.runtime.completed', {
+          campaign_id,
+          tenant_count: deployment_config.participating_tenants.length + 1,
+        });
+        await orchestrator.complete(pipelineRunId);
+      } catch (pipelineErr: any) {
+        console.warn('[marketa/deploy] Pipeline completion failed (non-blocking):', pipelineErr?.message ?? pipelineErr);
+      }
+    }
+
     return NextResponse.json({
       success: true,
       campaign: createdCampaign,
       deployment: deploymentResult[0],
+      pipeline_run_id: pipelineRunId,
       participating_tenants: tenantValidation.map(t => ({
         tenant_id: t.id,
         tenant_name: t.name,
