@@ -602,6 +602,83 @@ const MARKETA_TOOLS_ANTHROPIC = [
       required: ['campaignId', 'tenantId'],
     },
   },
+  {
+    name: 'generate_image',
+    description: 'Generate portrait and/or landscape images using AI. Use this when the user asks to create, generate, or produce images, artwork, or visual assets.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        portrait_prompt: { type: 'string', description: 'Prompt for portrait orientation image' },
+        landscape_prompt: { type: 'string', description: 'Prompt for landscape orientation image' },
+        provider_id: { type: 'string', enum: ['openai', 'venice'], description: 'Image provider — defaults to venice' },
+        experience_id: { type: 'string', description: 'Optional experience ID to associate the image with' },
+      },
+    },
+  },
+  {
+    name: 'generate_video',
+    description: 'Generate a video clip from a text prompt. Use when the user asks to create, generate, or produce video content.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        prompt: { type: 'string', description: 'Detailed description of the video to generate' },
+        skill_id: { type: 'string', enum: ['sora_video_gen_curated', 'venice_video_gen'], description: 'Video provider — use sora_video_gen_curated for high quality, venice_video_gen as alternative' },
+        duration: { type: 'number', description: 'Duration in seconds (4-12 for Sora, 5-10 for Venice)' },
+        aspect_ratio: { type: 'string', enum: ['16:9', '9:16', '1:1'], description: 'Video aspect ratio' },
+        style: { type: 'string', enum: ['cinematic', 'animation', 'comic', 'photorealistic'], description: 'Visual style' },
+        experience_id: { type: 'string', description: 'Optional experience ID' },
+      },
+      required: ['prompt', 'skill_id'],
+    },
+  },
+  {
+    name: 'draft_article',
+    description: 'Generate a structured article draft with title, sections, and optional takeaways. Use when the user asks to write, draft, or create written content.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        prompt: { type: 'string', description: 'Goal or topic for the article' },
+        title: { type: 'string', description: 'Optional article title' },
+        outputs: { type: 'array', items: { type: 'string', enum: ['takeaways', 'glossary', 'next_action'] }, description: 'Optional output sections to include' },
+        takeawaysCount: { type: 'number', description: 'Number of takeaways (1-5)' },
+        mediaMode: { type: 'string', enum: ['image', 'video'], description: 'Media context for the article' },
+      },
+      required: ['prompt'],
+    },
+  },
+  {
+    name: 'create_image_article_bundle',
+    description: 'Generate both an image (portrait + landscape) AND a supporting article draft together. Use this when the user wants a complete image-led content package.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        image_prompt: { type: 'string', description: 'Prompt used for both portrait and landscape images' },
+        article_prompt: { type: 'string', description: 'Topic or goal for the article' },
+        article_title: { type: 'string', description: 'Optional article title' },
+        provider_id: { type: 'string', enum: ['openai', 'venice'], description: 'Image provider — defaults to venice' },
+        experience_id: { type: 'string', description: 'Optional experience ID to associate assets with' },
+      },
+      required: ['image_prompt', 'article_prompt'],
+    },
+  },
+  {
+    name: 'create_video_article_bundle',
+    description: 'Generate a video clip AND a supporting article draft together. Use this when the user wants a complete video-led content package.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        video_prompt: { type: 'string', description: 'Detailed description of the video to generate' },
+        article_prompt: { type: 'string', description: 'Topic or goal for the article' },
+        article_title: { type: 'string', description: 'Optional article title' },
+        skill_id: { type: 'string', enum: ['sora_video_gen_curated', 'venice_video_gen'], description: 'Video provider' },
+        duration: { type: 'number', description: 'Duration in seconds' },
+        aspect_ratio: { type: 'string', enum: ['16:9', '9:16', '1:1'] },
+        style: { type: 'string', enum: ['cinematic', 'animation', 'comic', 'photorealistic'] },
+        experience_id: { type: 'string', description: 'Optional experience ID' },
+      },
+      required: ['video_prompt', 'article_prompt'],
+    },
+  },
 ];
 
 const MARKETA_TOOLS_OPENAI = MARKETA_TOOLS_ANTHROPIC.map((t) => ({
@@ -642,6 +719,85 @@ async function executeMarketaTool(name: string, input: Record<string, unknown>):
       });
       const json = await res.json();
       return JSON.stringify(json);
+    }
+    if (name === 'generate_image') {
+      const res = await fetch(`${base}/api/skills/image/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          provider_id: input.provider_id ?? 'venice',
+          portrait_prompt: input.portrait_prompt,
+          landscape_prompt: input.landscape_prompt,
+          experience_id: input.experience_id,
+        }),
+      });
+      const json = await res.json();
+      const images = (json.images ?? []).map((img: any) => ({ orientation: img.orientation, ok: img.ok, image_url: img.image_url, error: img.error }));
+      return JSON.stringify({ ok: json.ok, provider: json.provider, images });
+    }
+    if (name === 'generate_video') {
+      const res = await fetch(`${base}/api/skills/invoke`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          skill_id: input.skill_id ?? 'venice_video_gen',
+          prompt: input.prompt,
+          duration: input.duration,
+          aspect_ratio: input.aspect_ratio,
+          style: input.style,
+          experience_id: input.experience_id,
+          trust_override: true,
+        }),
+      });
+      const json = await res.json();
+      return JSON.stringify({ ok: json.ok, provider: json.provider, video_url: json.video_url, generation_id: json.generation_id, provider_status: json.provider_status });
+    }
+    if (name === 'draft_article') {
+      const res = await fetch(`${base}/api/composer/article-draft`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: input.prompt, title: input.title, outputs: input.outputs, takeawaysCount: input.takeawaysCount, mediaMode: input.mediaMode }),
+      });
+      const json = await res.json();
+      return JSON.stringify({ ok: json.ok, articleDraft: json.articleDraft });
+    }
+    if (name === 'create_image_article_bundle') {
+      const [imgRes, artRes] = await Promise.all([
+        fetch(`${base}/api/skills/image/generate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ provider_id: input.provider_id ?? 'venice', portrait_prompt: input.image_prompt, landscape_prompt: input.image_prompt, experience_id: input.experience_id }),
+        }),
+        fetch(`${base}/api/composer/article-draft`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt: input.article_prompt, title: input.article_title }),
+        }),
+      ]);
+      const [imgJson, artJson] = await Promise.all([imgRes.json(), artRes.json()]);
+      return JSON.stringify({
+        images: (imgJson.images ?? []).map((img: any) => ({ orientation: img.orientation, ok: img.ok, image_url: img.image_url })),
+        articleDraft: artJson.articleDraft,
+      });
+    }
+    if (name === 'create_video_article_bundle') {
+      const [vidRes, artRes] = await Promise.all([
+        fetch(`${base}/api/skills/invoke`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ skill_id: input.skill_id ?? 'venice_video_gen', prompt: input.video_prompt, duration: input.duration, aspect_ratio: input.aspect_ratio, style: input.style, experience_id: input.experience_id, trust_override: true }),
+        }),
+        fetch(`${base}/api/composer/article-draft`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt: input.article_prompt, title: input.article_title, mediaMode: 'video' }),
+        }),
+      ]);
+      const [vidJson, artJson] = await Promise.all([vidRes.json(), artRes.json()]);
+      return JSON.stringify({
+        video: { ok: vidJson.ok, provider: vidJson.provider, video_url: vidJson.video_url, generation_id: vidJson.generation_id, provider_status: vidJson.provider_status },
+        articleDraft: artJson.articleDraft,
+      });
     }
     return JSON.stringify({ error: `Unknown tool: ${name}` });
   } catch (err: any) {
