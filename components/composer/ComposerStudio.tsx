@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Activity, AlertTriangle, BarChart, Book, BookOpen, Bot, CheckCircle2, ChevronDown, ChevronUp, Circle, Code, Edit, Eye, FileText, Hexagon, LayoutGrid, List, Loader2, Mic, MicOff, Monitor, MonitorIcon, Moon, Palette, Play, PlayCircle, RefreshCw, Share2, Shield, ShieldCheck, SlidersHorizontal, Smartphone, Sparkles, Sun, Target, Tablet, Trash2, Tv, Upload, Users, Volume2, Type } from "lucide-react";
+import { Activity, AlertTriangle, BarChart, Book, BookOpen, Bot, CheckCircle2, ChevronDown, ChevronUp, Circle, Code, Edit, Eye, FileText, Hexagon, Layers, LayoutGrid, List, Loader2, Mic, MicOff, Monitor, MonitorIcon, Moon, Palette, Play, PlayCircle, RefreshCw, Share2, Shield, ShieldCheck, SlidersHorizontal, Smartphone, Sparkles, Sun, Target, Tablet, Trash2, Tv, Upload, Users, Volume2, Type } from "lucide-react";
 import { useCopilotAction } from "@copilotkit/react-core";
 import { createShellMessage } from "@metame/iframe-bridge";
 import { Button } from "@/components/ui/button";
@@ -1538,10 +1538,13 @@ export const ComposerStudio = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [editingExperienceId, setEditingExperienceId] = useState<string | null>(null);
-  const [studioAnalysisTab, setStudioAnalysisTab] = useState<"parity" | "surfaces" | "receipts" | "pipeline">("parity");
+  const [studioAnalysisTab, setStudioAnalysisTab] = useState<"parity" | "surfaces" | "receipts" | "pipeline" | "workflows">("parity");
   const [lastPipelineRunId, setLastPipelineRunId] = useState<string | null>(null);
   const [pipelineRunData, setPipelineRunData] = useState<any>(null);
   const [pipelineRunLoading, setPipelineRunLoading] = useState(false);
+  const [workflowsList, setWorkflowsList] = useState<any[]>([]);
+  const [workflowsLoading, setWorkflowsLoading] = useState(false);
+  const [workflowInvokeState, setWorkflowInvokeState] = useState<Record<string, "idle" | "invoking" | "done" | "error">>({});
   const [isParityExpanded, setIsParityExpanded] = useState(false);
   const isStudioExpanded = true;
   const [experiencePanelTab, setExperiencePanelTab] = useState("template");
@@ -6966,6 +6969,13 @@ export const ComposerStudio = () => {
         description: "Inspect pipeline run stages, identity envelope, and stage history for the last completed session.",
       };
     }
+    if (studioAnalysisTab === "workflows") {
+      return {
+        title: "Workflows",
+        icon: <Layers className="h-4 w-4 text-violet-300" />,
+        description: "Browse, inspect, and invoke WorkflowDefinitions bound to this cartridge.",
+      };
+    }
     return {
       title: "Parity Review",
       icon: <Shield className="h-4 w-4 text-fuchsia-300" />,
@@ -9810,7 +9820,7 @@ export const ComposerStudio = () => {
             <Tabs
               value={studioAnalysisTab}
               onValueChange={(value) => {
-                setStudioAnalysisTab(value as "parity" | "surfaces" | "receipts" | "pipeline");
+                setStudioAnalysisTab(value as "parity" | "surfaces" | "receipts" | "pipeline" | "workflows");
                 setIsParityExpanded(true);
                 if (value === "pipeline" && lastPipelineRunId && !pipelineRunData) {
                   setPipelineRunLoading(true);
@@ -9819,6 +9829,14 @@ export const ComposerStudio = () => {
                     .then((d) => { setPipelineRunData(d); })
                     .catch(() => {})
                     .finally(() => setPipelineRunLoading(false));
+                }
+                if (value === "workflows" && tenantId && workflowsList.length === 0) {
+                  setWorkflowsLoading(true);
+                  fetch(`/api/workflows?tenant_id=${encodeURIComponent(tenantId)}&limit=20`)
+                    .then((r) => r.json())
+                    .then((d) => { if (d.workflows) setWorkflowsList(d.workflows); })
+                    .catch(() => {})
+                    .finally(() => setWorkflowsLoading(false));
                 }
               }}
               className="w-full"
@@ -9841,7 +9859,7 @@ export const ComposerStudio = () => {
                     <ChevronDown className={`h-4 w-4 transition-transform ${isParityExpanded ? "rotate-180" : ""}`} />
                   </button>
                 </div>
-                <TabsList className="grid h-10 w-full grid-cols-4 items-center rounded-full border border-white/10 bg-slate-950/60 p-1">
+                <TabsList className="grid h-10 w-full grid-cols-5 items-center rounded-full border border-white/10 bg-slate-950/60 p-1">
                   <TabsTrigger value="parity" className={configuratorTabTriggerClass}>
                     Design Parity
                   </TabsTrigger>
@@ -9853,6 +9871,9 @@ export const ComposerStudio = () => {
                   </TabsTrigger>
                   <TabsTrigger value="pipeline" className={configuratorTabTriggerClass}>
                     Pipeline
+                  </TabsTrigger>
+                  <TabsTrigger value="workflows" className={configuratorTabTriggerClass}>
+                    Workflows
                   </TabsTrigger>
                 </TabsList>
               </div>
@@ -9967,6 +9988,101 @@ export const ComposerStudio = () => {
                       {pipelineRunData && !pipelineRunData.ok && (
                         <p className="text-red-400 text-xs">{pipelineRunData.error ?? "Failed to load pipeline run."}</p>
                       )}
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="workflows" className="mt-0">
+                    <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Workflow Definitions</span>
+                        <button
+                          type="button"
+                          className="rounded-lg border border-slate-700 bg-slate-800/50 px-2.5 py-1 text-[11px] text-slate-300 hover:bg-slate-700"
+                          onClick={() => {
+                            if (!tenantId) return;
+                            setWorkflowsLoading(true);
+                            setWorkflowsList([]);
+                            fetch(`/api/workflows?tenant_id=${encodeURIComponent(tenantId)}&limit=20`)
+                              .then((r) => r.json())
+                              .then((d) => { if (d.workflows) setWorkflowsList(d.workflows); })
+                              .catch(() => {})
+                              .finally(() => setWorkflowsLoading(false));
+                          }}
+                        >
+                          Refresh
+                        </button>
+                      </div>
+
+                      {workflowsLoading && (
+                        <div className="flex items-center gap-2 text-slate-400">
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          <span>Loading workflows…</span>
+                        </div>
+                      )}
+
+                      {!workflowsLoading && workflowsList.length === 0 && (
+                        <p className="text-slate-400">No workflow definitions found for this cartridge.</p>
+                      )}
+
+                      {workflowsList.map((wf: any) => (
+                        <div key={wf.id} className="rounded-lg border border-slate-800/80 bg-slate-900/60 p-3 space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="truncate font-medium text-slate-200">{wf.name}</p>
+                              <p className="text-[11px] text-slate-500 font-mono truncate">{wf.id}</p>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-1.5">
+                              <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                                wf.status === "active" ? "bg-emerald-500/20 text-emerald-300"
+                                : wf.status === "draft" ? "bg-amber-500/20 text-amber-300"
+                                : "bg-slate-500/20 text-slate-400"
+                              }`}>
+                                {wf.status}
+                              </span>
+                              <span className="rounded-full border border-violet-400/30 bg-violet-500/10 px-2 py-0.5 text-[10px] text-violet-300">
+                                {wf.adapter}
+                              </span>
+                            </div>
+                          </div>
+
+                          {wf.description && (
+                            <p className="text-[11px] text-slate-400 line-clamp-2">{wf.description}</p>
+                          )}
+
+                          <button
+                            type="button"
+                            disabled={workflowInvokeState[wf.id] === "invoking"}
+                            className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-1.5 text-[11px] font-medium text-violet-300 hover:bg-violet-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                            onClick={() => {
+                              if (!tenantId || !activePersonaId) return;
+                              setWorkflowInvokeState((prev) => ({ ...prev, [wf.id]: "invoking" }));
+                              fetch(`/api/workflows/${wf.id}/invoke`, {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                  envelope: { tenantId, personaId: activePersonaId ?? userId ?? "studio-user" },
+                                }),
+                              })
+                                .then((r) => r.json())
+                                .then((d) => {
+                                  setWorkflowInvokeState((prev) => ({ ...prev, [wf.id]: d.ok ? "done" : "error" }));
+                                })
+                                .catch(() => {
+                                  setWorkflowInvokeState((prev) => ({ ...prev, [wf.id]: "error" }));
+                                });
+                            }}
+                          >
+                            {workflowInvokeState[wf.id] === "invoking" && <Loader2 className="h-3 w-3 animate-spin" />}
+                            {workflowInvokeState[wf.id] === "done" && <CheckCircle2 className="h-3 w-3 text-emerald-400" />}
+                            {workflowInvokeState[wf.id] === "error" && <AlertTriangle className="h-3 w-3 text-red-400" />}
+                            {!workflowInvokeState[wf.id] && <Play className="h-3 w-3" />}
+                            {workflowInvokeState[wf.id] === "invoking" ? "Invoking…"
+                              : workflowInvokeState[wf.id] === "done" ? "Invoked"
+                              : workflowInvokeState[wf.id] === "error" ? "Failed — retry?"
+                              : "Invoke"}
+                          </button>
+                        </div>
+                      ))}
                     </div>
                   </TabsContent>
                 </>
