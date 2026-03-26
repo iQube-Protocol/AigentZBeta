@@ -14,21 +14,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { listBindings, updateBinding } from "@/services/workflows/bindingStore";
 import { getWorkflow } from "@/services/workflows/store";
 import { assertEnvelope } from "@/services/workflows/identityEnvelope";
-import { makeAdapter } from "@/services/workflows/adapters/makeAdapter";
-import type { WorkflowEngineAdapter } from "@/services/workflows/bindingTypes";
+import { getAdapter } from "@/services/workflows/adapters";
 import { getActiveInputManifest, getActiveOutputManifest } from "@/services/workflows/manifestStore";
 import { validateInput, normalizeAgainstManifest } from "@/services/workflows/manifestTypes";
 import { getChannelQube, postWorkflowInvocationEvent } from "@/services/workflows/channelQubeStore";
+import { createWorkflowRun, updateWorkflowRun, appendRunEvent } from "@/services/workflows/workflowRunStore";
 
 export const runtime = "nodejs";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
-}
-
-function getAdapter(engine: string): WorkflowEngineAdapter | null {
-  if (engine === "make") return makeAdapter;
-  return null;
 }
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
@@ -77,7 +72,28 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
     }
 
+    // Create WorkflowRun record before invoking
+    const run = await createWorkflowRun({
+      workflowId: id, tenantId: envelope.tenantId,
+      triggeredBy: envelope.personaId, input: body.input,
+    }).catch(() => null);
+
     const result = await adapter.invoke(binding, body.input);
+
+    // Update run record with result (non-blocking)
+    if (run) {
+      const now = new Date().toISOString();
+      updateWorkflowRun(run.id, {
+        status: result.ok ? "completed" : "failed",
+        output: result.output,
+        error: result.error,
+        completedAt: now,
+        executionId: result.executionId,
+      }).catch(() => {});
+      appendRunEvent(run.id, result.ok ? "step_end" : "error", "adapter_invoke", {
+        engine: binding.engine, executionId: result.executionId, ok: result.ok,
+      }).catch(() => {});
+    }
 
     // Normalize output against OutputManifest if one exists
     const outputManifest = await getActiveOutputManifest(id).catch(() => null);
@@ -95,16 +111,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     getChannelQube(id).then((channel) => {
       if (channel?.active) {
         return postWorkflowInvocationEvent(channel, {
-          workflowId: id,
-          executionId: result.executionId,
-          status: result.ok ? "started" : "failed",
-          input: body.input,
+          workflowId: id, executionId: result.executionId,
+          status: result.ok ? "started" : "failed", input: body.input,
         });
       }
     }).catch(() => {});
 
     return NextResponse.json({
       ok: result.ok,
+      runId: run?.id,
       executionId: result.executionId,
       output: normalizedOutput,
       error: result.error,
