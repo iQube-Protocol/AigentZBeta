@@ -1545,6 +1545,11 @@ export const ComposerStudio = () => {
   const [workflowsList, setWorkflowsList] = useState<any[]>([]);
   const [workflowsLoading, setWorkflowsLoading] = useState(false);
   const [workflowInvokeState, setWorkflowInvokeState] = useState<Record<string, "idle" | "invoking" | "done" | "error">>({});
+  const [workflowRunPolling, setWorkflowRunPolling] = useState<Record<string, { runId: string; status: string } | null>>({});
+  const [workflowRunHistory, setWorkflowRunHistory] = useState<Record<string, any[]>>({});
+  const [expandedRunHistory, setExpandedRunHistory] = useState<Record<string, boolean>>({});
+  const [workflowManifests, setWorkflowManifests] = useState<Record<string, { fields: any[] } | null | "loading">>({});
+  const [expandedInvoke, setExpandedInvoke] = useState<Record<string, boolean>>({});
   const [isParityExpanded, setIsParityExpanded] = useState(false);
   const isStudioExpanded = true;
   const [experiencePanelTab, setExperiencePanelTab] = useState("template");
@@ -2388,6 +2393,7 @@ export const ComposerStudio = () => {
   const [confirmedCompleteGenerationId, setConfirmedCompleteGenerationId] = useState<string | null>(null);
   // Ref-set of completed generationIds prevents re-polling after effect dep changes.
   const completedVideoGenerationIds = useRef(new Set<string>());
+  const workflowPollRefs = useRef<Record<string, ReturnType<typeof setInterval>>>({});
   const [runtimePreviewLoaded, setRuntimePreviewLoaded] = useState(false);
   const [runtimePreviewErrored, setRuntimePreviewErrored] = useState(false);
   const runtimePreviewIframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -4732,6 +4738,12 @@ export const ComposerStudio = () => {
     void poll();
     return () => { cancelled = true; clearInterval(intervalId); };
   }, [currentVideoGenerationId, selectedExperienceId, previewExperience?.id]);
+
+  // Cleanup workflow run poll intervals on unmount.
+  useEffect(() => {
+    const refs = workflowPollRefs.current;
+    return () => { Object.values(refs).forEach((id) => clearInterval(id)); };
+  }, []);
 
   const recordExperienceLifecycle = async (
     action: "experience_preview" | "experience_launch",
@@ -10024,7 +10036,10 @@ export const ComposerStudio = () => {
                         <p className="text-slate-400">No workflow definitions found for this cartridge.</p>
                       )}
 
-                      {workflowsList.map((wf: any) => (
+                      {workflowsList.map((wf: any) => {
+                        const pollState = workflowRunPolling[wf.id];
+                        const runStatus = pollState?.status;
+                        return (
                         <div key={wf.id} className="rounded-lg border border-slate-800/80 bg-slate-900/60 p-3 space-y-2">
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
@@ -10049,40 +10064,191 @@ export const ComposerStudio = () => {
                             <p className="text-[11px] text-slate-400 line-clamp-2">{wf.description}</p>
                           )}
 
-                          <button
-                            type="button"
-                            disabled={workflowInvokeState[wf.id] === "invoking"}
-                            className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-1.5 text-[11px] font-medium text-violet-300 hover:bg-violet-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                            onClick={() => {
-                              if (!tenantId || !activePersonaId) return;
-                              setWorkflowInvokeState((prev) => ({ ...prev, [wf.id]: "invoking" }));
-                              fetch(`/api/workflows/${wf.id}/invoke`, {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({
-                                  envelope: { tenantId, personaId: activePersonaId ?? userId ?? "studio-user" },
-                                }),
-                              })
-                                .then((r) => r.json())
-                                .then((d) => {
-                                  setWorkflowInvokeState((prev) => ({ ...prev, [wf.id]: d.ok ? "done" : "error" }));
-                                })
-                                .catch(() => {
-                                  setWorkflowInvokeState((prev) => ({ ...prev, [wf.id]: "error" }));
-                                });
-                            }}
-                          >
-                            {workflowInvokeState[wf.id] === "invoking" && <Loader2 className="h-3 w-3 animate-spin" />}
-                            {workflowInvokeState[wf.id] === "done" && <CheckCircle2 className="h-3 w-3 text-emerald-400" />}
-                            {workflowInvokeState[wf.id] === "error" && <AlertTriangle className="h-3 w-3 text-red-400" />}
-                            {!workflowInvokeState[wf.id] && <Play className="h-3 w-3" />}
-                            {workflowInvokeState[wf.id] === "invoking" ? "Invoking…"
-                              : workflowInvokeState[wf.id] === "done" ? "Invoked"
-                              : workflowInvokeState[wf.id] === "error" ? "Failed — retry?"
-                              : "Invoke"}
-                          </button>
+                          {/* Invoke section with manifest toggle */}
+                          <div className="space-y-1.5">
+                            <button
+                              type="button"
+                              className="flex w-full items-center justify-between gap-1.5 rounded-lg border border-slate-700/50 bg-slate-800/40 px-3 py-1.5 text-[11px] font-medium text-slate-400 hover:bg-slate-800/80 transition"
+                              onClick={() => {
+                                const next = !expandedInvoke[wf.id];
+                                setExpandedInvoke((prev) => ({ ...prev, [wf.id]: next }));
+                                if (next && workflowManifests[wf.id] === undefined) {
+                                  setWorkflowManifests((prev) => ({ ...prev, [wf.id]: "loading" }));
+                                  fetch(`/api/workflows/${wf.id}/manifest/input`)
+                                    .then((r) => r.ok ? r.json() : null)
+                                    .then((d) => {
+                                      setWorkflowManifests((prev) => ({
+                                        ...prev,
+                                        [wf.id]: d?.fields ? { fields: d.fields } : null,
+                                      }));
+                                    })
+                                    .catch(() => setWorkflowManifests((prev) => ({ ...prev, [wf.id]: null })));
+                                }
+                              }}
+                            >
+                              <span>Invoke</span>
+                              <ChevronDown className={`h-3 w-3 transition-transform ${expandedInvoke[wf.id] ? "rotate-180" : ""}`} />
+                            </button>
+
+                            {expandedInvoke[wf.id] && (
+                              <div className="space-y-2 pt-1">
+                                {/* Input manifest */}
+                                {workflowManifests[wf.id] === "loading" && (
+                                  <p className="text-[10px] text-slate-500 flex items-center gap-1"><Loader2 className="h-2.5 w-2.5 animate-spin" />Loading manifest…</p>
+                                )}
+                                {workflowManifests[wf.id] === null && (
+                                  <p className="text-[10px] text-slate-500">No input contract defined.</p>
+                                )}
+                                {workflowManifests[wf.id] && typeof workflowManifests[wf.id] === "object" && workflowManifests[wf.id] !== null && (workflowManifests[wf.id] as { fields: any[] }).fields.length > 0 && (
+                                  <div className="rounded border border-slate-700/50 overflow-hidden">
+                                    <table className="w-full text-[10px]">
+                                      <thead>
+                                        <tr className="border-b border-slate-700/50 bg-slate-800/60">
+                                          <th className="px-2 py-1 text-left text-slate-400 font-medium">Field</th>
+                                          <th className="px-2 py-1 text-left text-slate-400 font-medium">Type</th>
+                                          <th className="px-2 py-1 text-left text-slate-400 font-medium">Req</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {(workflowManifests[wf.id] as { fields: any[] }).fields.map((f: any) => (
+                                          <tr key={f.name} className="border-b border-slate-800/40 last:border-0">
+                                            <td className="px-2 py-1 font-mono text-slate-300">{f.name}</td>
+                                            <td className="px-2 py-1 text-slate-500">{f.type ?? "any"}</td>
+                                            <td className="px-2 py-1">{f.required ? <span className="text-amber-400">●</span> : <span className="text-slate-600">○</span>}</td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                )}
+
+                                {/* Run status chip */}
+                                {pollState && (
+                                  <div className={`flex items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-medium ${
+                                    runStatus === "completed" ? "bg-emerald-500/10 text-emerald-300 border border-emerald-500/20"
+                                    : runStatus === "failed" ? "bg-red-500/10 text-red-300 border border-red-500/20"
+                                    : runStatus === "cancelled" ? "bg-slate-500/10 text-slate-400 border border-slate-600/20"
+                                    : "bg-blue-500/10 text-blue-300 border border-blue-500/20"
+                                  }`}>
+                                    {(runStatus === "running" || runStatus === "pending") && <Loader2 className="h-2.5 w-2.5 animate-spin" />}
+                                    {runStatus === "completed" && <CheckCircle2 className="h-2.5 w-2.5" />}
+                                    {runStatus === "failed" && <AlertTriangle className="h-2.5 w-2.5" />}
+                                    <span className="capitalize">{runStatus}</span>
+                                    <span className="font-mono text-[9px] opacity-60 ml-1">{pollState.runId.slice(-8)}</span>
+                                  </div>
+                                )}
+
+                                <button
+                                  type="button"
+                                  disabled={workflowInvokeState[wf.id] === "invoking"}
+                                  className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-1.5 text-[11px] font-medium text-violet-300 hover:bg-violet-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                                  onClick={() => {
+                                    if (!tenantId || !activePersonaId) return;
+                                    setWorkflowInvokeState((prev) => ({ ...prev, [wf.id]: "invoking" }));
+                                    fetch(`/api/workflows/${wf.id}/invoke`, {
+                                      method: "POST",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({
+                                        envelope: { tenantId, personaId: activePersonaId ?? userId ?? "studio-user" },
+                                      }),
+                                    })
+                                      .then((r) => r.json())
+                                      .then((d) => {
+                                        setWorkflowInvokeState((prev) => ({ ...prev, [wf.id]: d.ok ? "done" : "error" }));
+                                        if (d.ok && d.runId) {
+                                          // Start polling run status
+                                          const wfId = wf.id;
+                                          const runId: string = d.runId;
+                                          const MAX_POLL = 24;
+                                          const MAX_ERRORS = 3;
+                                          let attempts = 0;
+                                          let errors = 0;
+                                          let cancelled = false;
+                                          setWorkflowRunPolling((prev) => ({ ...prev, [wfId]: { runId, status: "pending" } }));
+                                          if (workflowPollRefs.current[wfId]) clearInterval(workflowPollRefs.current[wfId]);
+                                          const interval = setInterval(async () => {
+                                            if (cancelled || attempts >= MAX_POLL) { clearInterval(interval); return; }
+                                            attempts++;
+                                            try {
+                                              const res = await fetch(`/api/workflows/${wfId}/runs/${runId}`, { cache: "no-store" });
+                                              if (!res.ok) { errors++; if (errors >= MAX_ERRORS) { cancelled = true; clearInterval(interval); } return; }
+                                              errors = 0;
+                                              const data = await res.json() as { run?: { status?: string } };
+                                              const status = data.run?.status ?? "unknown";
+                                              setWorkflowRunPolling((prev) => ({ ...prev, [wfId]: { runId, status } }));
+                                              if (status === "completed" || status === "failed" || status === "cancelled") {
+                                                cancelled = true;
+                                                clearInterval(interval);
+                                                // Refresh history if visible
+                                                setWorkflowRunHistory((prev) => {
+                                                  if (!prev[wfId]) return prev;
+                                                  return { ...prev, [wfId]: [] }; // trigger re-fetch on next expand
+                                                });
+                                              }
+                                            } catch { /* ignore */ }
+                                          }, 15_000);
+                                          workflowPollRefs.current[wfId] = interval;
+                                        }
+                                      })
+                                      .catch(() => {
+                                        setWorkflowInvokeState((prev) => ({ ...prev, [wf.id]: "error" }));
+                                      });
+                                  }}
+                                >
+                                  {workflowInvokeState[wf.id] === "invoking" && <Loader2 className="h-3 w-3 animate-spin" />}
+                                  {workflowInvokeState[wf.id] === "done" && <CheckCircle2 className="h-3 w-3 text-emerald-400" />}
+                                  {workflowInvokeState[wf.id] === "error" && <AlertTriangle className="h-3 w-3 text-red-400" />}
+                                  {!workflowInvokeState[wf.id] && <Play className="h-3 w-3" />}
+                                  {workflowInvokeState[wf.id] === "invoking" ? "Invoking…"
+                                    : workflowInvokeState[wf.id] === "done" ? "Invoked"
+                                    : workflowInvokeState[wf.id] === "error" ? "Failed — retry?"
+                                    : "Invoke"}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Run history toggle */}
+                          <div>
+                            <button
+                              type="button"
+                              className="flex w-full items-center justify-between gap-1.5 px-1 py-0.5 text-[10px] text-slate-500 hover:text-slate-300 transition"
+                              onClick={() => {
+                                const next = !expandedRunHistory[wf.id];
+                                setExpandedRunHistory((prev) => ({ ...prev, [wf.id]: next }));
+                                if (next) {
+                                  fetch(`/api/workflows/${wf.id}/runs?limit=5`)
+                                    .then((r) => r.ok ? r.json() : { runs: [] })
+                                    .then((d) => setWorkflowRunHistory((prev) => ({ ...prev, [wf.id]: d.runs ?? [] })))
+                                    .catch(() => setWorkflowRunHistory((prev) => ({ ...prev, [wf.id]: [] })));
+                                }
+                              }}
+                            >
+                              <span className="flex items-center gap-1"><List className="h-2.5 w-2.5" />Recent runs</span>
+                              <ChevronDown className={`h-2.5 w-2.5 transition-transform ${expandedRunHistory[wf.id] ? "rotate-180" : ""}`} />
+                            </button>
+                            {expandedRunHistory[wf.id] && (
+                              <div className="mt-1 space-y-0.5">
+                                {!workflowRunHistory[wf.id] && <p className="text-[10px] text-slate-500 px-1">Loading…</p>}
+                                {workflowRunHistory[wf.id]?.length === 0 && <p className="text-[10px] text-slate-500 px-1">No runs yet.</p>}
+                                {workflowRunHistory[wf.id]?.map((run: any) => (
+                                  <div key={run.id} className="flex items-center justify-between gap-2 rounded px-2 py-1 bg-slate-800/40 text-[10px]">
+                                    <span className="font-mono text-slate-400 truncate">{run.id?.slice(-12)}</span>
+                                    <span className={`shrink-0 rounded-full px-1.5 py-0.5 font-medium ${
+                                      run.status === "completed" ? "bg-emerald-500/15 text-emerald-300"
+                                      : run.status === "failed" ? "bg-red-500/15 text-red-300"
+                                      : run.status === "running" ? "bg-blue-500/15 text-blue-300"
+                                      : "bg-slate-500/15 text-slate-400"
+                                    }`}>{run.status}</span>
+                                    {run.completed_at && <span className="shrink-0 text-slate-500">{new Date(run.completed_at).toLocaleDateString()}</span>}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </TabsContent>
                 </>
