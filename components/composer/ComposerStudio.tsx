@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AlertTriangle, BarChart, Book, BookOpen, Bot, CheckCircle2, ChevronDown, ChevronUp, Circle, Code, Edit, Eye, FileText, Hexagon, LayoutGrid, List, Loader2, Mic, MicOff, Monitor, MonitorIcon, Moon, Palette, Play, PlayCircle, RefreshCw, Share2, Shield, ShieldCheck, SlidersHorizontal, Smartphone, Sparkles, Sun, Target, Tablet, Trash2, Tv, Upload, Users, Volume2, Type } from "lucide-react";
+import { Activity, AlertTriangle, BarChart, Book, BookOpen, Bot, CheckCircle2, ChevronDown, ChevronUp, Circle, Code, Edit, Eye, FileText, Hexagon, LayoutGrid, List, Loader2, Mic, MicOff, Monitor, MonitorIcon, Moon, Palette, Play, PlayCircle, RefreshCw, Share2, Shield, ShieldCheck, SlidersHorizontal, Smartphone, Sparkles, Sun, Target, Tablet, Trash2, Tv, Upload, Users, Volume2, Type } from "lucide-react";
 import { useCopilotAction } from "@copilotkit/react-core";
 import { createShellMessage } from "@metame/iframe-bridge";
 import { Button } from "@/components/ui/button";
@@ -1538,7 +1538,10 @@ export const ComposerStudio = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [editingExperienceId, setEditingExperienceId] = useState<string | null>(null);
-  const [studioAnalysisTab, setStudioAnalysisTab] = useState<"parity" | "surfaces" | "receipts">("parity");
+  const [studioAnalysisTab, setStudioAnalysisTab] = useState<"parity" | "surfaces" | "receipts" | "pipeline">("parity");
+  const [lastPipelineRunId, setLastPipelineRunId] = useState<string | null>(null);
+  const [pipelineRunData, setPipelineRunData] = useState<any>(null);
+  const [pipelineRunLoading, setPipelineRunLoading] = useState(false);
   const [isParityExpanded, setIsParityExpanded] = useState(false);
   const isStudioExpanded = true;
   const [experiencePanelTab, setExperiencePanelTab] = useState("template");
@@ -4184,6 +4187,10 @@ export const ComposerStudio = () => {
       if (!res.ok) throw new Error("Failed to complete session");
       const data = await res.json();
       const returnedExperience = data.experience_qube || null;
+      if (data.pipeline_run_id) {
+        setLastPipelineRunId(data.pipeline_run_id);
+        setPipelineRunData(null);
+      }
       const codexLabel =
         copilotContextOptions.find((opt) => opt.id === copilotContextId)?.label || "Qriptopian";
       const creatorPersonaName = userId || "Studio User";
@@ -6950,6 +6957,13 @@ export const ComposerStudio = () => {
         title: "DVN Receipts",
         icon: <ShieldCheck className="h-4 w-4 text-fuchsia-300" />,
         description: "Review proof-linked receipts, audit traces, and runtime-ready settlement records.",
+      };
+    }
+    if (studioAnalysisTab === "pipeline") {
+      return {
+        title: "Pipeline Diagnostics",
+        icon: <Activity className="h-4 w-4 text-emerald-300" />,
+        description: "Inspect pipeline run stages, identity envelope, and stage history for the last completed session.",
       };
     }
     return {
@@ -9796,8 +9810,16 @@ export const ComposerStudio = () => {
             <Tabs
               value={studioAnalysisTab}
               onValueChange={(value) => {
-                setStudioAnalysisTab(value as "parity" | "surfaces" | "receipts");
+                setStudioAnalysisTab(value as "parity" | "surfaces" | "receipts" | "pipeline");
                 setIsParityExpanded(true);
+                if (value === "pipeline" && lastPipelineRunId && !pipelineRunData) {
+                  setPipelineRunLoading(true);
+                  fetch(`/api/pipeline/runs/${lastPipelineRunId}`)
+                    .then((r) => r.json())
+                    .then((d) => { setPipelineRunData(d); })
+                    .catch(() => {})
+                    .finally(() => setPipelineRunLoading(false));
+                }
               }}
               className="w-full"
             >
@@ -9819,7 +9841,7 @@ export const ComposerStudio = () => {
                     <ChevronDown className={`h-4 w-4 transition-transform ${isParityExpanded ? "rotate-180" : ""}`} />
                   </button>
                 </div>
-                <TabsList className="grid h-10 w-full grid-cols-3 items-center rounded-full border border-white/10 bg-slate-950/60 p-1">
+                <TabsList className="grid h-10 w-full grid-cols-4 items-center rounded-full border border-white/10 bg-slate-950/60 p-1">
                   <TabsTrigger value="parity" className={configuratorTabTriggerClass}>
                     Design Parity
                   </TabsTrigger>
@@ -9828,6 +9850,9 @@ export const ComposerStudio = () => {
                   </TabsTrigger>
                   <TabsTrigger value="receipts" className={configuratorTabTriggerClass}>
                     DVN Receipts
+                  </TabsTrigger>
+                  <TabsTrigger value="pipeline" className={configuratorTabTriggerClass}>
+                    Pipeline
                   </TabsTrigger>
                 </TabsList>
               </div>
@@ -9872,6 +9897,77 @@ export const ComposerStudio = () => {
                       autoRefresh={true}
                       refreshInterval={5000}
                     />
+                  </TabsContent>
+
+                  <TabsContent value="pipeline" className="mt-0">
+                    <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-sm">
+                      {!lastPipelineRunId && (
+                        <p className="text-slate-400">No pipeline run recorded yet. Complete a session to see diagnostics.</p>
+                      )}
+                      {lastPipelineRunId && pipelineRunLoading && (
+                        <div className="flex items-center gap-2 text-slate-400">
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          <span>Loading pipeline run…</span>
+                        </div>
+                      )}
+                      {lastPipelineRunId && !pipelineRunLoading && !pipelineRunData && (
+                        <div className="space-y-2">
+                          <p className="font-mono text-xs text-slate-300">Run ID: {lastPipelineRunId}</p>
+                          <button
+                            type="button"
+                            className="rounded-lg border border-slate-700 bg-slate-800/50 px-3 py-1.5 text-xs text-slate-300 hover:bg-slate-700"
+                            onClick={() => {
+                              setPipelineRunLoading(true);
+                              fetch(`/api/pipeline/runs/${lastPipelineRunId}`)
+                                .then((r) => r.json())
+                                .then((d) => setPipelineRunData(d))
+                                .catch(() => {})
+                                .finally(() => setPipelineRunLoading(false));
+                            }}
+                          >
+                            Load run details
+                          </button>
+                        </div>
+                      )}
+                      {pipelineRunData?.ok && pipelineRunData?.run && (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="font-mono text-xs text-slate-400">{pipelineRunData.run.pipelineRunId}</span>
+                            <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                              pipelineRunData.run.status === "completed"
+                                ? "bg-emerald-500/20 text-emerald-300"
+                                : pipelineRunData.run.status === "failed"
+                                ? "bg-red-500/20 text-red-300"
+                                : pipelineRunData.run.status === "blocked"
+                                ? "bg-amber-500/20 text-amber-300"
+                                : "bg-cyan-500/20 text-cyan-300"
+                            }`}>
+                              {pipelineRunData.run.status}
+                            </span>
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Stage History</p>
+                            {(pipelineRunData.run.stageHistory ?? []).map((evt: any, i: number) => (
+                              <div key={i} className="flex items-center gap-2 rounded-lg border border-slate-800/80 bg-slate-900/60 px-3 py-1.5">
+                                <CheckCircle2 className={`h-3 w-3 shrink-0 ${evt.exitedAt ? "text-emerald-400" : "text-cyan-400"}`} />
+                                <span className="font-mono text-[11px] text-slate-300">{evt.stage}</span>
+                                {evt.error && <span className="ml-auto text-[10px] text-red-400 truncate max-w-[120px]">{evt.error}</span>}
+                              </div>
+                            ))}
+                          </div>
+                          <div className="space-y-1 text-[11px] text-slate-400">
+                            <p>Initiated via: <span className="text-slate-300">{pipelineRunData.run.initiatedVia}</span></p>
+                            <p>Persona: <span className="font-mono text-slate-300">{pipelineRunData.run.identityEnvelope?.personaId ?? "—"}</span></p>
+                            {pipelineRunData.run.identityEnvelope?.agentId && (
+                              <p>Agent: <span className="font-mono text-slate-300">{pipelineRunData.run.identityEnvelope.agentId}</span></p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      {pipelineRunData && !pipelineRunData.ok && (
+                        <p className="text-red-400 text-xs">{pipelineRunData.error ?? "Failed to load pipeline run."}</p>
+                      )}
+                    </div>
                   </TabsContent>
                 </>
               ) : null}
