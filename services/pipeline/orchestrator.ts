@@ -10,6 +10,7 @@ import {
   getPipelineRun,
   appendPipelineEvent,
 } from "./persistence";
+import { submitQubeTalkReceiptToDvn } from "@/services/dvn/qubetalkReceiptPipeline";
 
 // Stages that require Aigent Z / Agent Z authority.
 // Studio and Marketa may initiate and advance up to preview.ready.
@@ -136,6 +137,29 @@ class ExperiencePipelineOrchestrator {
     });
 
     await appendPipelineEvent(runId, "pipeline.completed", "pipeline.completed");
+
+    // Submit DVN receipt — non-blocking; log failure but do not rethrow
+    const dvnReceiptId = `receipt_${runId}`;
+    submitQubeTalkReceiptToDvn({
+      receiptId: dvnReceiptId,
+      delegationId: runId,
+      tenantId: updated.tenantId,
+      status: "completed",
+      taskCompleted: "pipeline.completed",
+      fromAgentId: updated.identityEnvelope.agentId ?? updated.identityEnvelope.personaId,
+      toAgentId: "aigent-z",
+      policyEvaluation: { stage: "pipeline.completed", initiatedVia: updated.initiatedVia },
+      resultData: { stageCount: updated.stageHistory.length, receiptRefs: updated.receiptRefs },
+    }).then((result) => {
+      if (!result.ok) {
+        console.warn(`[orchestrator] DVN receipt submission failed for run ${runId}:`, result.error);
+      } else {
+        console.log(`[orchestrator] DVN receipt submitted for run ${runId}: ${result.messageId}`);
+      }
+    }).catch((err: any) => {
+      console.warn(`[orchestrator] DVN receipt submission threw for run ${runId}:`, err?.message ?? err);
+    });
+
     return updated;
   }
 
