@@ -11,6 +11,7 @@ import {
   appendPipelineEvent,
 } from "./persistence";
 import { submitQubeTalkReceiptToDvn } from "@/services/dvn/qubetalkReceiptPipeline";
+import { createExecutionReceipt } from "@/services/workflows/executionReceiptStore";
 
 // Stages that require Aigent Z / Agent Z authority.
 // Studio and Marketa may initiate and advance up to preview.ready.
@@ -138,26 +139,48 @@ class ExperiencePipelineOrchestrator {
 
     await appendPipelineEvent(runId, "pipeline.completed", "pipeline.completed");
 
-    // Submit DVN receipt — non-blocking; log failure but do not rethrow
+    // Persist ExecutionReceiptQube + submit to DVN — both non-blocking
+    const fromAgentId = updated.identityEnvelope.agentId ?? updated.identityEnvelope.personaId;
     const dvnReceiptId = `receipt_${runId}`;
+
     submitQubeTalkReceiptToDvn({
       receiptId: dvnReceiptId,
       delegationId: runId,
       tenantId: updated.tenantId,
       status: "completed",
       taskCompleted: "pipeline.completed",
-      fromAgentId: updated.identityEnvelope.agentId ?? updated.identityEnvelope.personaId,
+      fromAgentId,
       toAgentId: "aigent-z",
       policyEvaluation: { stage: "pipeline.completed", initiatedVia: updated.initiatedVia },
       resultData: { stageCount: updated.stageHistory.length, receiptRefs: updated.receiptRefs },
-    }).then((result) => {
-      if (!result.ok) {
-        console.warn(`[orchestrator] DVN receipt submission failed for run ${runId}:`, result.error);
+    }).then(async (dvnResult) => {
+      if (!dvnResult.ok) {
+        console.warn(`[orchestrator] DVN receipt submission failed for run ${runId}:`, dvnResult.error);
       } else {
-        console.log(`[orchestrator] DVN receipt submitted for run ${runId}: ${result.messageId}`);
+        console.log(`[orchestrator] DVN receipt submitted for run ${runId}: ${dvnResult.messageId}`);
+      }
+      try {
+        const receipt = await createExecutionReceipt({
+          pipelineRunId: runId,
+          tenantId: updated.tenantId,
+          receiptType: "pipeline_completion",
+          status: dvnResult.ok ? "completed" : "failed",
+          dvnMessageId: dvnResult.messageId,
+          dvnSubmittedAt: dvnResult.ok ? new Date().toISOString() : undefined,
+          fromAgentId,
+          toAgentId: "aigent-z",
+          taskCompleted: "pipeline.completed",
+          policyEvaluation: { stage: "pipeline.completed", initiatedVia: updated.initiatedVia },
+          resultData: { stageCount: updated.stageHistory.length },
+        });
+        await updatePipelineRun(runId, {
+          receiptRefs: [...updated.receiptRefs, receipt.id],
+        });
+      } catch (receiptErr: any) {
+        console.warn(`[orchestrator] ExecutionReceipt persist failed for run ${runId}:`, receiptErr?.message ?? receiptErr);
       }
     }).catch((err: any) => {
-      console.warn(`[orchestrator] DVN receipt submission threw for run ${runId}:`, err?.message ?? err);
+      console.warn(`[orchestrator] DVN receipt threw for run ${runId}:`, err?.message ?? err);
     });
 
     return updated;
