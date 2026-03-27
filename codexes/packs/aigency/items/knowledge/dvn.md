@@ -32,9 +32,12 @@ The core DVN logic runs in the `cross_chain_service` ICP canister.
 | Property | Value |
 |----------|-------|
 | Canister ID (env) | `NEXT_PUBLIC_CROSS_CHAIN_SERVICE_CANISTER_ID` |
-| Canister ID (ops) | `u6s2n-gx777-77774-qaaba-cai` *(iQubeBeta-Program ref)* |
+| Canister ID (legacy ref) | `u6s2n-gx777-77774-qaaba-cai` |
+| Canister ID (updated mainnet) | `sp5ye-2qaaa-aaaao-qkqla-cai` *(deployed Oct 2025 to resolve connectivity)* |
 | Service file | `services/ops/dvnService.ts` |
 | API routes | `/api/ops/dvn/*`, `/api/a2a/dvn/*` |
+
+> The active canister ID is determined by `NEXT_PUBLIC_CROSS_CHAIN_SERVICE_CANISTER_ID` at runtime. Check `.env.local` for the current value.
 
 ### 2.1 Key Canister APIs
 
