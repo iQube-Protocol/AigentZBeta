@@ -112,7 +112,21 @@ Cross-chain capability grants require a valid DVN attestation before the on-chai
 
 ---
 
-## 5. DVN in the Studio (A2A API)
+## 5. Key API File Paths
+
+| Route | File |
+|-------|------|
+| Cross-chain status | `app/api/ops/crosschain/status/route.ts` |
+| DVN monitor | `app/api/ops/dvn/monitor/route.ts` |
+| LayerZero processing | `app/api/ops/layerzero/process/route.ts` |
+| Sync | `app/api/ops/sync/` |
+| ICP canister health | `app/api/ops/icp/health/route.ts` |
+
+The `cross_chain_service` canister also exposes `create_proof_of_state_receipt()` — creates a `proof_of_state` receipt directly from a DVN message, linking the two canister flows.
+
+---
+
+## 6. DVN in the Studio (A2A API)
 
 Source: API routes at `/api/a2a/dvn/`
 

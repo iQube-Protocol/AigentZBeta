@@ -21,6 +21,7 @@ The protocol deploys four specialised ICP canisters:
 
 | Canister | ID | Purpose |
 |----------|----|---------|
+| `solana_signer_ed25519` | (env-configured) | Solana transaction signing (Ops Console, in development) |
 | `RewardHub` | `lvo2w-jqaaa-aaaas-qc2wa-cai` | Task reward proposals and multi-sig distribution |
 | `RQH` (Reputation Quality Hub) | `zdjf3-2qaaa-aaaas-qck4q-cai` | Reputation bucket scoring (0–4) |
 
