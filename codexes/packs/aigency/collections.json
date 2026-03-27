@@ -39,7 +39,11 @@
         "items/knowledge/schemas-contracts.md",
         "items/knowledge/snippets.md",
         "items/knowledge/dvn.md",
-        "items/knowledge/icp-bitcoin.md"
+        "items/knowledge/icp-bitcoin.md",
+        "items/knowledge/identity-policy.md",
+        "items/knowledge/aigent-ops.md",
+        "items/knowledge/operators-manual.md",
+        "items/knowledge/agent-onboarding.md"
       ]
     },
     {
