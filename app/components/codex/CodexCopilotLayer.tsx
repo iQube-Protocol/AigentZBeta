@@ -44,6 +44,7 @@ interface CodexCopilotLayerProps {
   onContextChange?: (contextId: string) => void;
   inputPanelClassName?: string;
   inputPanelInputClassName?: string;
+  promptMaxHeight?: string;
   quickPrompts?: Array<
     | string
     | {
@@ -143,6 +144,7 @@ export function CodexCopilotLayer({
   onContextChange,
   inputPanelClassName,
   inputPanelInputClassName,
+  promptMaxHeight,
   onPrompt,
   onUserPrompt,
   getChatRequestContext,
@@ -1108,7 +1110,10 @@ export function CodexCopilotLayer({
                                   onChange={(e) => {
                                     setInputValue(e.target.value);
                                     e.target.style.height = "auto";
-                                    e.target.style.height = `${Math.min(e.target.scrollHeight, 160)}px`;
+                                    const maxH = parseInt(promptMaxHeight ?? "160", 10);
+                                    const newH = Math.min(e.target.scrollHeight, maxH);
+                                    e.target.style.height = `${newH}px`;
+                                    e.target.style.overflowY = e.target.scrollHeight > maxH ? "auto" : "hidden";
                                   }}
                                   onKeyDown={(e) => {
                                     if (e.key === "Enter" && !e.shiftKey) {
@@ -1119,7 +1124,7 @@ export function CodexCopilotLayer({
                                   onFocus={() => { showInputPanelWithTimeout(); }}
                                   placeholder={promptPlaceholder}
                                   rows={1}
-                                  style={{ resize: "none", overflow: "hidden", minHeight: "36px", maxHeight: "160px" }}
+                                  style={{ resize: "none", overflowY: "hidden", minHeight: "36px", maxHeight: promptMaxHeight ?? "160px" }}
                                   className={inputPanelInputClassName ?? "flex-1 px-3 py-1.5 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500 text-sm"}
                                   disabled={isLoading}
                                 />
@@ -1148,7 +1153,10 @@ export function CodexCopilotLayer({
                               onChange={(e) => {
                                 setInputValue(e.target.value);
                                 e.target.style.height = "auto";
-                                e.target.style.height = `${Math.min(e.target.scrollHeight, 160)}px`;
+                                const maxH = parseInt(promptMaxHeight ?? "160", 10);
+                                const newH = Math.min(e.target.scrollHeight, maxH);
+                                e.target.style.height = `${newH}px`;
+                                e.target.style.overflowY = e.target.scrollHeight > maxH ? "auto" : "hidden";
                               }}
                               onKeyDown={(e) => {
                                 if (e.key === "Enter" && !e.shiftKey) {
@@ -1161,7 +1169,7 @@ export function CodexCopilotLayer({
                               }}
                               placeholder={promptPlaceholder}
                               rows={1}
-                              style={{ resize: "none", overflow: "hidden", minHeight: "36px", maxHeight: "160px" }}
+                              style={{ resize: "none", overflowY: "hidden", minHeight: "36px", maxHeight: promptMaxHeight ?? "160px" }}
                               className="flex-1 px-3 py-1.5 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500 text-sm"
                               disabled={isLoading}
                             />
@@ -1183,11 +1191,41 @@ export function CodexCopilotLayer({
                           <div className={floatingInput ? "pt-3" : "mt-3"}>{footerContent}</div>
                         ) : showNavMenu ? (
                         <div className="mt-1 flex items-center justify-between border-t border-white/10 pt-1 pb-2">
+                          {/* LEFT: integrated badge+dropdown when hideAvatarToggle, else mode toggle */}
                           {hideAvatarToggle ? (
-                            <div className="flex items-center gap-2">
-                              <span className="rounded-sm border border-cyan-400/40 bg-cyan-500/20 px-3 py-1 text-[11px] font-semibold text-cyan-100 backdrop-blur-md shadow-sm">
-                                {contextOptions?.find((opt) => opt.id === contextId)?.label || "Qriptopian Codex"}
-                              </span>
+                            <div className="relative flex items-center gap-1">
+                              {contextOptions && contextOptions.length > 0 && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => setContextMenuOpen((prev) => !prev)}
+                                    className="flex items-center gap-1 rounded-sm border border-cyan-400/40 bg-cyan-500/20 px-2 py-1 text-[11px] font-semibold text-cyan-100 hover:bg-cyan-500/30 transition"
+                                  >
+                                    {contextOptions?.find((opt) => opt.id === contextId)?.label || "Qriptopian Codex"}
+                                    <ChevronDown className={`w-3 h-3 transition-transform ${contextMenuOpen ? "rotate-180" : ""}`} />
+                                  </button>
+                                  {contextMenuOpen && (
+                                    <div className="absolute left-0 bottom-10 min-w-[180px] rounded-xl border border-white/10 bg-slate-950/90 p-2 shadow-xl backdrop-blur z-50">
+                                      {contextOptions.map((opt) => (
+                                        <button
+                                          key={opt.id}
+                                          onClick={() => {
+                                            onContextChange?.(opt.id);
+                                            setContextMenuOpen(false);
+                                          }}
+                                          className={`w-full rounded-lg px-3 py-2 text-left text-xs transition ${
+                                            opt.id === contextId
+                                              ? "bg-cyan-500/15 text-cyan-200"
+                                              : "text-white/70 hover:bg-white/5"
+                                          }`}
+                                        >
+                                          {opt.label}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
+                                </>
+                              )}
                             </div>
                           ) : (
                             <div className="flex items-center gap-0.5 bg-white/5 rounded-lg p-0.5 ring-1 ring-white/10 flex-shrink-0">
@@ -1213,43 +1251,48 @@ export function CodexCopilotLayer({
                               </button>
                             </div>
                           )}
+                          {/* RIGHT: badge+dropdown (non-hideAvatarToggle only) + pause + mic */}
                           <div className="relative flex items-center gap-1">
-                            {contextOptions && contextOptions.length > 0 ? (
-                              <button
-                                type="button"
-                                onClick={() => setContextMenuOpen((prev) => !prev)}
-                                className="flex items-center gap-1 rounded-sm border border-cyan-400/40 bg-cyan-500/20 px-2 py-1 text-[11px] font-semibold text-cyan-100 hover:bg-cyan-500/30 transition"
-                              >
-                                {contextOptions?.find((opt) => opt.id === contextId)?.label || "Qriptopian Codex"}
-                                <ChevronDown className={`w-3 h-3 transition-transform ${contextMenuOpen ? "rotate-180" : ""}`} />
-                              </button>
-                            ) : (
-                              <button
-                                onClick={onClose}
-                                className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 ring-1 ring-white/10 transition-colors"
-                              >
-                                <ChevronDown className="w-4 h-4" />
-                              </button>
-                            )}
-                            {contextMenuOpen && contextOptions && contextOptions.length > 0 && (
-                              <div className="absolute right-0 bottom-10 min-w-[180px] rounded-xl border border-white/10 bg-slate-950/90 p-2 shadow-xl backdrop-blur">
-                                {contextOptions.map((opt) => (
+                            {!hideAvatarToggle && (
+                              <>
+                                {contextOptions && contextOptions.length > 0 ? (
                                   <button
-                                    key={opt.id}
-                                    onClick={() => {
-                                      onContextChange?.(opt.id);
-                                      setContextMenuOpen(false);
-                                    }}
-                                    className={`w-full rounded-lg px-3 py-2 text-left text-xs transition ${
-                                      opt.id === contextId
-                                        ? "bg-cyan-500/15 text-cyan-200"
-                                        : "text-white/70 hover:bg-white/5"
-                                    }`}
+                                    type="button"
+                                    onClick={() => setContextMenuOpen((prev) => !prev)}
+                                    className="flex items-center gap-1 rounded-sm border border-cyan-400/40 bg-cyan-500/20 px-2 py-1 text-[11px] font-semibold text-cyan-100 hover:bg-cyan-500/30 transition"
                                   >
-                                    {opt.label}
+                                    {contextOptions?.find((opt) => opt.id === contextId)?.label || "Qriptopian Codex"}
+                                    <ChevronDown className={`w-3 h-3 transition-transform ${contextMenuOpen ? "rotate-180" : ""}`} />
                                   </button>
-                                ))}
-                              </div>
+                                ) : (
+                                  <button
+                                    onClick={onClose}
+                                    className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 ring-1 ring-white/10 transition-colors"
+                                  >
+                                    <ChevronDown className="w-4 h-4" />
+                                  </button>
+                                )}
+                                {contextMenuOpen && contextOptions && contextOptions.length > 0 && (
+                                  <div className="absolute right-0 bottom-10 min-w-[180px] rounded-xl border border-white/10 bg-slate-950/90 p-2 shadow-xl backdrop-blur z-50">
+                                    {contextOptions.map((opt) => (
+                                      <button
+                                        key={opt.id}
+                                        onClick={() => {
+                                          onContextChange?.(opt.id);
+                                          setContextMenuOpen(false);
+                                        }}
+                                        className={`w-full rounded-lg px-3 py-2 text-left text-xs transition ${
+                                          opt.id === contextId
+                                            ? "bg-cyan-500/15 text-cyan-200"
+                                            : "text-white/70 hover:bg-white/5"
+                                        }`}
+                                      >
+                                        {opt.label}
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                              </>
                             )}
                             {vapiState !== "idle" && (
                               <button
@@ -1302,11 +1345,41 @@ export function CodexCopilotLayer({
                     />
                     {showNavMenu ? (
                       <div className="mt-2 flex items-center justify-between border-t border-white/10 pt-1 pb-2">
+                        {/* LEFT: integrated badge+dropdown when hideAvatarToggle, else mode toggle */}
                         {hideAvatarToggle ? (
-                          <div className="flex items-center gap-2">
-                            <span className="rounded-sm border border-cyan-400/40 bg-cyan-500/20 px-3 py-1 text-[11px] font-semibold text-cyan-100 backdrop-blur-md shadow-sm">
-                              {contextOptions?.find((opt) => opt.id === contextId)?.label || "Qriptopian Codex"}
-                            </span>
+                          <div className="relative flex items-center gap-1">
+                            {contextOptions && contextOptions.length > 0 && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => setContextMenuOpen((prev) => !prev)}
+                                  className="flex items-center gap-1 rounded-sm border border-cyan-400/40 bg-cyan-500/20 px-2 py-1 text-[11px] font-semibold text-cyan-100 hover:bg-cyan-500/30 transition"
+                                >
+                                  {contextOptions?.find((opt) => opt.id === contextId)?.label || "Qriptopian Codex"}
+                                  <ChevronDown className={`w-3 h-3 transition-transform ${contextMenuOpen ? "rotate-180" : ""}`} />
+                                </button>
+                                {contextMenuOpen && (
+                                  <div className="absolute left-0 bottom-10 min-w-[180px] rounded-xl border border-white/10 bg-slate-950/90 p-2 shadow-xl backdrop-blur z-50">
+                                    {contextOptions.map((opt) => (
+                                      <button
+                                        key={opt.id}
+                                        onClick={() => {
+                                          onContextChange?.(opt.id);
+                                          setContextMenuOpen(false);
+                                        }}
+                                        className={`w-full rounded-lg px-3 py-2 text-left text-xs transition ${
+                                          opt.id === contextId
+                                            ? "bg-cyan-500/15 text-cyan-200"
+                                            : "text-white/70 hover:bg-white/5"
+                                        }`}
+                                      >
+                                        {opt.label}
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                              </>
+                            )}
                           </div>
                         ) : (
                           <div className="flex items-center gap-0.5 bg-white/5 rounded-lg p-0.5 ring-1 ring-white/10 flex-shrink-0">
@@ -1332,43 +1405,48 @@ export function CodexCopilotLayer({
                             </button>
                           </div>
                         )}
+                        {/* RIGHT: badge+dropdown (non-hideAvatarToggle only) + pause + mic */}
                         <div className="relative flex items-center gap-1">
-                          {contextOptions && contextOptions.length > 0 ? (
-                            <button
-                              type="button"
-                              onClick={() => setContextMenuOpen((prev) => !prev)}
-                              className="flex items-center gap-1 rounded-sm border border-cyan-400/40 bg-cyan-500/20 px-2 py-1 text-[11px] font-semibold text-cyan-100 hover:bg-cyan-500/30 transition"
-                            >
-                              {contextOptions?.find((opt) => opt.id === contextId)?.label || "Qriptopian Codex"}
-                              <ChevronDown className={`w-3 h-3 transition-transform ${contextMenuOpen ? "rotate-180" : ""}`} />
-                            </button>
-                          ) : (
-                            <button
-                              onClick={onClose}
-                              className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 ring-1 ring-white/10 transition-colors"
-                            >
-                              <ChevronDown className="w-4 h-4" />
-                            </button>
-                          )}
-                          {contextMenuOpen && contextOptions && contextOptions.length > 0 && (
-                            <div className="absolute right-0 bottom-10 min-w-[180px] rounded-xl border border-white/10 bg-slate-950/90 p-2 shadow-xl backdrop-blur">
-                              {contextOptions.map((opt) => (
+                          {!hideAvatarToggle && (
+                            <>
+                              {contextOptions && contextOptions.length > 0 ? (
                                 <button
-                                  key={opt.id}
-                                  onClick={() => {
-                                    onContextChange?.(opt.id);
-                                    setContextMenuOpen(false);
-                                  }}
-                                  className={`w-full rounded-lg px-3 py-2 text-left text-xs transition ${
-                                    opt.id === contextId
-                                      ? "bg-cyan-500/15 text-cyan-200"
-                                      : "text-white/70 hover:bg-white/5"
-                                  }`}
+                                  type="button"
+                                  onClick={() => setContextMenuOpen((prev) => !prev)}
+                                  className="flex items-center gap-1 rounded-sm border border-cyan-400/40 bg-cyan-500/20 px-2 py-1 text-[11px] font-semibold text-cyan-100 hover:bg-cyan-500/30 transition"
                                 >
-                                  {opt.label}
+                                  {contextOptions?.find((opt) => opt.id === contextId)?.label || "Qriptopian Codex"}
+                                  <ChevronDown className={`w-3 h-3 transition-transform ${contextMenuOpen ? "rotate-180" : ""}`} />
                                 </button>
-                              ))}
-                            </div>
+                              ) : (
+                                <button
+                                  onClick={onClose}
+                                  className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 ring-1 ring-white/10 transition-colors"
+                                >
+                                  <ChevronDown className="w-4 h-4" />
+                                </button>
+                              )}
+                              {contextMenuOpen && contextOptions && contextOptions.length > 0 && (
+                                <div className="absolute right-0 bottom-10 min-w-[180px] rounded-xl border border-white/10 bg-slate-950/90 p-2 shadow-xl backdrop-blur z-50">
+                                  {contextOptions.map((opt) => (
+                                    <button
+                                      key={opt.id}
+                                      onClick={() => {
+                                        onContextChange?.(opt.id);
+                                        setContextMenuOpen(false);
+                                      }}
+                                      className={`w-full rounded-lg px-3 py-2 text-left text-xs transition ${
+                                        opt.id === contextId
+                                          ? "bg-cyan-500/15 text-cyan-200"
+                                          : "text-white/70 hover:bg-white/5"
+                                      }`}
+                                    >
+                                      {opt.label}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </>
                           )}
                           {vapiState !== "idle" && (
                             <button
