@@ -17,6 +17,11 @@ const nextConfig = {
     // Limit worker parallelism on Amplify to avoid ENOMEM when forking page-data workers.
     // The main build process consumes ~3 GB; each forked worker needs additional RAM.
     cpus: isAmplifyBuild ? 1 : undefined,
+    // Ensure codex pack files (markdown + JSON) are included in the standalone bundle
+    // so that /api/codex/packs/[packId]/file can read them at runtime on Lambda.
+    outputFileTracingIncludes: {
+      "/api/codex/packs/[packId]/file": ["./codexes/packs/**/*.md", "./codexes/packs/**/*.json"],
+    },
   },
   transpilePackages: [
     "@qriptoagentiq/core-client",
