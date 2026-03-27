@@ -1430,10 +1430,12 @@ function RuntimeCapsuleAdminEditor({
         editable_generation: {
           ...(asRecord(metadata.editable_generation) ?? {}),
           article_draft: {
+            ...(asRecord(asRecord(metadata.editable_generation)?.article_draft) ?? {}),
             title: formState.articleTitle,
             prompt: formState.articlePrompt,
             outputs: formState.articleOutputs,
             takeaways_count: formState.takeawaysCount,
+            ...(generatedDraft ? { generated: generatedDraft } : {}),
           },
         },
         composition_bundle_state: {
@@ -1669,10 +1671,26 @@ function RuntimeArticlePanel({
 }) {
   const [ttsState, setTtsState] = useState<"idle" | "loading" | "playing">("idle");
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const blobUrlRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      audioRef.current?.pause();
+      if (blobUrlRef.current) {
+        URL.revokeObjectURL(blobUrlRef.current);
+        blobUrlRef.current = null;
+      }
+    };
+  }, []);
 
   const handleListen = async () => {
-    if (ttsState === "playing") {
+    // Stop if already loading or playing
+    if (ttsState !== "idle") {
       audioRef.current?.pause();
+      if (blobUrlRef.current) {
+        URL.revokeObjectURL(blobUrlRef.current);
+        blobUrlRef.current = null;
+      }
       setTtsState("idle");
       return;
     }
@@ -1695,14 +1713,27 @@ function RuntimeArticlePanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: parts.join(" ") }),
       });
+      if (!res.ok) throw new Error(`TTS ${res.status}`);
       const blob = await res.blob();
+      if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
       const url = URL.createObjectURL(blob);
+      blobUrlRef.current = url;
       const audio = new Audio(url);
       audioRef.current = audio;
-      audio.onended = () => setTtsState("idle");
+      audio.onended = () => {
+        if (blobUrlRef.current === url) {
+          URL.revokeObjectURL(url);
+          blobUrlRef.current = null;
+        }
+        setTtsState("idle");
+      };
       await audio.play();
       setTtsState("playing");
     } catch {
+      if (blobUrlRef.current) {
+        URL.revokeObjectURL(blobUrlRef.current);
+        blobUrlRef.current = null;
+      }
       setTtsState("idle");
     }
   };
