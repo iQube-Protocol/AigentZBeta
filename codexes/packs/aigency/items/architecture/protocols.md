@@ -187,18 +187,54 @@ Backend:
 
 ## 6. MCP (Model Context Protocol)
 
-**Purpose**: Provide tools and resources to large language models.
+**Purpose**: Provide tools and resources to large language models. Two MCP surfaces exist: server-side tool dispatching (ExperienceQube tools) and external agent MCP app integration.
 
 **Service**: `/services/mcp/`
 
-**Integrated Tools**:
-- **Experience Qube Tools** — Create, edit, deploy experience iQubes
-- **QubeTalk Contracts** — Invoke QubeTalk messaging protocol
-
 **Routes**:
-- `POST /api/mcp/experience-qube` — Create/edit experience
-- `POST /api/mcp/primitives` — Access primitives (contract calls, etc.)
-- `POST /api/mcp/xmtp-bridge` — XMTP messaging bridge
+- `POST /api/mcp/experience-qube` — ExperienceQube tool dispatcher
+- `POST /api/mcp/primitives` — Access primitives (contract calls, SmartTriad, etc.)
+- `POST /api/mcp/xmtp-bridge` — XMTP inbound messaging bridge (see §11)
+
+### MCP ExperienceQube Tools
+
+Tool names (`ExperienceQubeTool`):
+
+| Tool | Purpose |
+|------|---------|
+| `pill.get` | Smallest content unit (L0 experience) |
+| `capsule.get` | Compact summary (L1 experience) |
+| `mini_runtime.get` | Interactive mini-experience (L2) |
+| `codex.entry` | Full codex article (L3) |
+| `invite.create` | Generate invite for experience |
+| `share.compose` | Compose shareable content |
+| `next.best` | Recommend next action/experience |
+
+**Experience Depth Ladder** (progressive disclosure):
+
+```
+L0 (pill) → L1 (capsule) → L2 (mini_runtime) → L3 (codex.entry)
+```
+
+**Response schema** (`metame.mcp.response.v0`):
+
+```typescript
+interface ExperienceMcpResponse {
+  schema: 'metame.mcp.response.v0';
+  experience_id: string;
+  depth: 'L0' | 'L1' | 'L2' | 'L3';
+  artifact: { title; body; share_text; tags };
+  cta: {
+    primary?: { type: 'deepen' | 'stay' | 'share'; label; target; value };
+    secondary: Array<{ type; label; target; value }>;
+  };
+  ladder: { allowed_next_depth: ExperienceDepth | null; reason: string };
+  telemetry: {
+    receipt_events: string[];
+    recommended_next_intent: 'share' | 'invite' | 'ask' | 'collect' | 'follow' | 'join';
+  };
+}
+```
 
 **Example: MCP Tool for Experience Creation**
 
@@ -213,17 +249,9 @@ CopilotKit calls MCP tool: createExperience({
 })
   ↓
 POST /api/mcp/experience-qube
-  {
-    "tool": "createExperience",
-    "params": { title, description, format }
-  }
+  { "tool": "capsule.get", "input": { "experience_id": "exp_blockchain" } }
   ↓
-Backend:
-  - Create DesignQube or SmartContentQube
-  - Store in Supabase
-  - Return qube ID + metadata
-  ↓
-CopilotKit: "Experience created: episode-456"
+Backend: returns metame.mcp.response.v0 artifact at requested depth
 ```
 
 ---
@@ -316,7 +344,130 @@ export interface QubeTalkDelegation {
 
 ---
 
-## 9. DVN (Decentralized Verifier Network)
+## 9. ERC-8004 — On-Chain Agent Identity
+
+**Purpose**: EVM-based identity standard used to register and verify agent identities on-chain. Used in A2A delegated validation flows.
+
+**Component**: `Identity / Registry (ERC-8004 Identity)` in the Services Layer
+
+**Usage in A2A**:
+
+The A2A protocol uses ERC-8004 to verify an external agent's identity before delegating capabilities:
+
+```
+External Agent → POST /a2a/delegate { capability, params, sig }
+  ↓
+Aigent Z API verifies agent identity via ERC-8004 registry on EVM
+  ↓
+Registry returns: agent identity metadata (verified on-chain)
+  ↓
+202 Accepted (task id returned to agent)
+```
+
+**IdentityRegistry abstraction** (swappable layer):
+- Current: ERC-8004 Identity (minimal implementation on EVM)
+- Future: extensible to other identity standards
+- Enables capability grants and audit trail creation for agent-to-agent operations
+
+**Contracts**: `contracts/` — ERC-8004 compliant identity registry
+
+---
+
+## 10. ICP (Internet Computer Protocol)
+
+**Purpose**: ICP provides the cross-chain verification, Bitcoin anchoring, and EVM RPC relay infrastructure for the platform.
+
+**Key Canisters**:
+
+| Canister | ID | Role |
+|----------|----|------|
+| `cross_chain_service` | `sp5ye-2qaaa-aaaao-qkqla-cai` | DVN quorum verification, LayerZero |
+| `proof_of_state` | `ulvla-h7777-77774-qaacq-cai` | Bitcoin state anchoring |
+| `btc_signer_psbt` | `uxrrr-q7777-77774-qaaaq-cai` | Bitcoin PSBT signing (tECDSA) |
+| `evm_rpc` | `uzt4z-lp777-77774-qaabq-cai` | EVM chain RPC relay |
+
+**Protocol integration points**:
+- DVN (cross-chain messaging verification) — see `items/knowledge/dvn.md`
+- Bitcoin anchoring (proof-of-state Merkle roots via OP_RETURN) — see `items/knowledge/icp-bitcoin.md`
+- EVM RPC via ICP HTTP outcalls (censorship-resistant chain access)
+- Chain-key Bitcoin (tECDSA) for Phase 3 dual-lock minting
+
+**Actor pattern** (`services/ops/icAgent.ts`):
+
+```typescript
+const actor = await getActor(canisterId, idlFactory);
+// Gateway: DFX_NETWORK=local → 127.0.0.1:4943 | ic → ic0.app | fallback → icp-api.io
+```
+
+**Environment**:
+- `NEXT_PUBLIC_CROSS_CHAIN_SERVICE_CANISTER_ID` — active DVN canister ID (overrides hardcoded)
+- `DFX_NETWORK` — `local` or `ic`
+- `DFX_IDENTITY_PEM` — Ed25519/Secp256k1 PEM for authenticated calls
+
+---
+
+## 11. XMTP — External Messaging Bridge
+
+**Purpose**: Ingest messages from XMTP group chats into QubeTalk, enabling external agents and users to interact with the platform via XMTP.
+
+**Route**: `POST /api/mcp/xmtp-bridge`
+
+**Payload**:
+
+```json
+{
+  "group_id": "string",
+  "message": {
+    "id": "string",
+    "sender": "string",
+    "content": "string",
+    "timestamp": "ISO-8601"
+  }
+}
+```
+
+**Bridge flow**:
+
+```
+XMTP group message
+  ↓
+POST /api/mcp/xmtp-bridge
+  ↓
+Normalised into: metame.bridge.inbound.v0 schema
+  - provider: { name: "xmtp", environment }
+  - thread: { provider_thread_id: group_id, qt_thread_id }
+  - routing: { target_agent: "openclaw_group_agent", intent_hint }
+  - security: { data_classification: "internal", receipt_required, redaction_required }
+  ↓
+Stored as QubeTalk message (from_agent: "bridge_adapter_xmtp")
+  ↓
+Routed to openclaw_group_agent for processing
+```
+
+**Intent detection** (automatic from message content):
+
+| Keyword | Intent hint |
+|---------|-------------|
+| "drop", "comic", "make" | `create_drop` |
+| "summarize", "summary" | `summarize` |
+| "help" | `help` |
+| (default) | `unknown` |
+
+**GET endpoint** — returns bridge status and config:
+
+```bash
+GET /api/mcp/xmtp-bridge?tenant_id=tnt_xyz
+# → { ready: true, config: { xmtp_env, bridge_inbound_channel_id, ... } }
+```
+
+**Environment variables**:
+- `XMTP_SIMULATION_MODE` — `"false"` to use live XMTP, default simulated
+- `XMTP_ENV` — `"dev"` (XMTP network environment)
+- `QT_CHANNEL_BRIDGE_INBOUND_ID` — pre-configured bridge inbound channel ID
+
+---
+
+## 12. DVN (Decentralized Verifier Network)
 
 **Service**: `/services/dvn/`
 
@@ -399,17 +550,20 @@ User Alice buys Episode via CopilotKit Chat
 | Protocol | Purpose | Routes | Status |
 |----------|---------|--------|--------|
 | **x402** | Payment | `/api/x402/*` | Live |
-| **FIO** | Addresses | `/api/identity/fio/*` | Live |
-| **DIDs** | Identity | `/api/identity/resolve` | Live |
-| **A2A** | Agent messaging | `/api/a2a/*` | Live |
+| **FIO** | Human-readable addresses | `/api/identity/fio/*` | Live |
+| **DIDs** | Decentralized identity | `/api/identity/resolve` | Live |
+| **A2A** | Agent-to-agent messaging | `/api/a2a/*` | Live |
 | **AA-API** | Account abstraction | `/api/aa/*` | Live |
-| **MCP** | LLM tools | `/api/mcp/*` | Live |
+| **MCP** | LLM tools / ExperienceQubes | `/api/mcp/*` | Live |
 | **CopilotKit** | Agentic UI | `/api/copilotkit/*` | Live |
-| **QubeTalk** | Agent P2P | `/api/qubetalk/*` | Live |
-| **DVN** | Off-chain attestation | `/api/dvn/*` | Live |
+| **QubeTalk** | Agent P2P messaging | `/api/qubetalk/*` | Live |
+| **ERC-8004** | On-chain agent identity | EVM contracts | Live |
+| **ICP** | Cross-chain / BTC anchoring | ICP canisters | Live |
+| **XMTP** | External messaging bridge | `/api/mcp/xmtp-bridge` | Live |
+| **DVN** | Cross-chain attestation | `/api/dvn/*`, ICP canister | Live |
 | **MetaMe** | Runtime management | `/api/metame/*` | Live |
+| **LayerZero** | Cross-chain OApp/OFT | EVM → LayerZero | Live |
 
 All protocols are **composable**, **interoperable**, and **recorded in Supabase** for auditability.
-```
 
 
