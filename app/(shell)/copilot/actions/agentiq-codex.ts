@@ -87,6 +87,11 @@ function keywordSearch(
   return results.sort((a, b) => b.score - a.score).slice(0, limit);
 }
 
+/** Return true if a commit brief file is a deploy-trigger (no meaningful content). */
+function isDeployCommit(content: string): boolean {
+  return /\|\s*Type\s*\|\s*`deploy`/.test(content);
+}
+
 /**
  * Search the AgentiQ Codex (engineering KB) by keyword.
  */
@@ -114,8 +119,15 @@ const agentiq_codex_search: Action<any> = {
       description: "Max results (default: 5)",
       required: false,
     },
+    {
+      name: "exclude_deploy_triggers",
+      type: "boolean",
+      description:
+        "Skip commit briefs that are deploy triggers (type: deploy) with no substantive code content. Default: true. Set to false only if you specifically want to see deploy history.",
+      required: false,
+    },
   ],
-  handler: async ({ query, section, limit = 5 }) => {
+  handler: async ({ query, section, limit = 5, exclude_deploy_triggers = true }) => {
     try {
       let searchRoot = ITEMS_ROOT;
       if (section) {
@@ -146,6 +158,14 @@ const agentiq_codex_search: Action<any> = {
         );
         const content = readCodexFile(fullRelPath);
         if (!content) continue;
+        // Skip deploy-trigger commit briefs unless caller explicitly wants them
+        if (
+          exclude_deploy_triggers &&
+          fullRelPath.includes("build_/COMMITS/") &&
+          isDeployCommit(content)
+        ) {
+          continue;
+        }
         const lower = content.toLowerCase();
         const score = terms.reduce(
           (acc, t) => acc + (lower.split(t).length - 1),
@@ -254,8 +274,79 @@ const agentiq_codex_list_prs: Action<any> = {
   },
 };
 
+/**
+ * List recent direct-push commits from the AgentiQ Codex index.
+ * By default excludes deploy triggers so results reflect substantive work.
+ */
+const agentiq_codex_list_commits: Action<any> = {
+  name: "agentiq_codex_list_commits",
+  description:
+    "List recent commits pushed directly to dev (non-PR work) from the AgentiQ Codex index. Use this to understand what was built outside the formal PR process. Excludes deploy triggers by default.",
+  parameters: [
+    {
+      name: "limit",
+      type: "number",
+      description: "Max number of commits to return (default: 20)",
+      required: false,
+    },
+    {
+      name: "type_filter",
+      type: "string",
+      description:
+        "Optional: filter by commit type. One of: feat, fix, refactor, chore, docs, revert, deploy, push. Omit for all types.",
+      required: false,
+    },
+    {
+      name: "exclude_deploy_triggers",
+      type: "boolean",
+      description:
+        "Exclude deploy-trigger commits (type: deploy) that contain no code changes. Default: true.",
+      required: false,
+    },
+  ],
+  handler: async ({ limit = 20, type_filter, exclude_deploy_triggers = true }) => {
+    try {
+      const indexContent = readCodexFile("index.json");
+      if (!indexContent) {
+        return {
+          success: true,
+          commits: [],
+          message: "No commit history yet — index.json not found.",
+        };
+      }
+      const index = JSON.parse(indexContent);
+      let history: Array<Record<string, string>> = index.commit_history || [];
+
+      if (exclude_deploy_triggers) {
+        history = history.filter((c) => c.type !== "deploy");
+      }
+      if (type_filter) {
+        history = history.filter(
+          (c) => c.type === type_filter.toLowerCase()
+        );
+      }
+
+      const page = history.slice(0, limit);
+      return {
+        success: true,
+        latest_commit: index.latest_commit_short,
+        latest_commit_title: index.latest_commit_title,
+        last_updated: index.last_updated,
+        commits: page,
+        count: page.length,
+        total_in_index: history.length,
+        hint: "Use agentiq_codex_get with a brief path to read the full details of any commit.",
+      };
+    } catch (error) {
+      console.error("[AgentiQ Codex] list commits error:", error);
+      return { success: false, error: String(error) };
+    }
+  },
+};
+
 export const agentiqCodexActions = [
   agentiq_codex_search,
   agentiq_codex_get,
   agentiq_codex_list_prs,
+  agentiq_codex_list_commits,
 ];
