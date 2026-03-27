@@ -28,6 +28,8 @@ import {
   Mic,
   MicOff,
   Volume2,
+  Pause,
+  Play,
 } from "lucide-react";
 
 interface CodexCopilotLayerProps {
@@ -198,6 +200,8 @@ export function CodexCopilotLayer({
   // ── Marketa voice (Vapi) ────────────────────────────────────────────────────
   type VapiState = "idle" | "connecting" | "active" | "speaking";
   const [vapiState, setVapiState] = useState<VapiState>("idle");
+  const [vapiPaused, setVapiPaused] = useState(false);
+  const vapiPausedRef = useRef(false);
   const vapiRef = useRef<{ start: (cfg: unknown) => Promise<unknown>; stop: () => void } | null>(null);
 
   useEffect(() => {
@@ -217,7 +221,9 @@ export function CodexCopilotLayer({
       instance.on("message", (msg: unknown) => {
         const m = msg as Record<string, unknown>;
         if (m.type === "transcript" && m.transcriptType === "final" && typeof m.transcript === "string") {
-          setInputValue((prev) => (prev ? `${prev} ${m.transcript as string}` : (m.transcript as string)));
+          if (!vapiPausedRef.current) {
+            setInputValue((prev) => (prev ? `${prev} ${m.transcript as string}` : (m.transcript as string)));
+          }
         }
       });
       vapi = instance;
@@ -231,8 +237,12 @@ export function CodexCopilotLayer({
     if (vapiState !== "idle") {
       vapiRef.current.stop();
       setVapiState("idle");
+      setVapiPaused(false);
+      vapiPausedRef.current = false;
       return;
     }
+    setVapiPaused(false);
+    vapiPausedRef.current = false;
     setVapiState("connecting");
     try {
       await vapiRef.current.start({
@@ -1092,47 +1102,31 @@ export function CodexCopilotLayer({
                             }}
                           >
                             <div className={inputPanelClassName ?? "rounded-2xl border border-white/10 bg-slate-950/85 backdrop-blur-xl px-3 py-1.5 shadow-lg"}>
-                              <div className="flex gap-2">
-                                <input
-                                  type="text"
+                              <div className="flex gap-2 items-end">
+                                <textarea
                                   value={inputValue}
-                                  onChange={(e) => setInputValue(e.target.value)}
-                                  onKeyPress={(e) => e.key === "Enter" && sendMessage()}
-                                  onFocus={() => {
-                                    showInputPanelWithTimeout();
+                                  onChange={(e) => {
+                                    setInputValue(e.target.value);
+                                    e.target.style.height = "auto";
+                                    e.target.style.height = `${Math.min(e.target.scrollHeight, 160)}px`;
                                   }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter" && !e.shiftKey) {
+                                      e.preventDefault();
+                                      sendMessage();
+                                    }
+                                  }}
+                                  onFocus={() => { showInputPanelWithTimeout(); }}
                                   placeholder={promptPlaceholder}
+                                  rows={1}
+                                  style={{ resize: "none", overflow: "hidden", minHeight: "36px", maxHeight: "160px" }}
                                   className={inputPanelInputClassName ?? "flex-1 px-3 py-1.5 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500 text-sm"}
                                   disabled={isLoading}
                                 />
                                 <button
-                                  type="button"
-                                  onClick={() => void toggleMarketa()}
-                                  title={vapiState === "idle" ? "Talk to Marketa" : "Stop Marketa"}
-                                  className={`p-1.5 rounded-lg transition-colors ${
-                                    vapiState === "idle"
-                                      ? "text-slate-400 hover:text-fuchsia-300 hover:bg-fuchsia-500/10"
-                                      : vapiState === "connecting"
-                                        ? "animate-pulse text-amber-300 bg-amber-500/10"
-                                        : vapiState === "speaking"
-                                          ? "animate-pulse text-green-300 bg-green-500/10"
-                                          : "text-fuchsia-300 bg-fuchsia-500/15"
-                                  }`}
-                                >
-                                  {vapiState === "idle" ? (
-                                    <Mic className="w-4 h-4" />
-                                  ) : vapiState === "connecting" ? (
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                  ) : vapiState === "speaking" ? (
-                                    <Volume2 className="w-4 h-4" />
-                                  ) : (
-                                    <MicOff className="w-4 h-4" />
-                                  )}
-                                </button>
-                                <button
                                   onClick={() => sendMessage()}
                                   disabled={!inputValue.trim() || isLoading}
-                                  className="p-1.5 bg-cyan-500 hover:bg-cyan-600 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg transition-colors"
+                                  className="p-1.5 bg-cyan-500 hover:bg-cyan-600 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg transition-colors flex-shrink-0"
                                 >
                                   {isLoading ? (
                                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -1148,47 +1142,33 @@ export function CodexCopilotLayer({
                       {!floatingInput && (
                         <div>
                           <div className="h-px bg-white/10 mb-2" />
-                          <div className="flex gap-2">
-                            <input
-                              type="text"
+                          <div className="flex gap-2 items-end">
+                            <textarea
                               value={inputValue}
-                              onChange={(e) => setInputValue(e.target.value)}
-                              onKeyPress={(e) => e.key === "Enter" && sendMessage()}
+                              onChange={(e) => {
+                                setInputValue(e.target.value);
+                                e.target.style.height = "auto";
+                                e.target.style.height = `${Math.min(e.target.scrollHeight, 160)}px`;
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" && !e.shiftKey) {
+                                  e.preventDefault();
+                                  sendMessage();
+                                }
+                              }}
                               onFocus={() => {
                                 showWalletMenuWithTimeout();
                               }}
                               placeholder={promptPlaceholder}
+                              rows={1}
+                              style={{ resize: "none", overflow: "hidden", minHeight: "36px", maxHeight: "160px" }}
                               className="flex-1 px-3 py-1.5 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500 text-sm"
                               disabled={isLoading}
                             />
                             <button
-                              type="button"
-                              onClick={() => void toggleMarketa()}
-                              title={vapiState === "idle" ? "Talk to Marketa" : "Stop Marketa"}
-                              className={`p-1.5 rounded-lg transition-colors ${
-                                vapiState === "idle"
-                                  ? "text-slate-400 hover:text-fuchsia-300 hover:bg-fuchsia-500/10"
-                                  : vapiState === "connecting"
-                                    ? "animate-pulse text-amber-300 bg-amber-500/10"
-                                    : vapiState === "speaking"
-                                      ? "animate-pulse text-green-300 bg-green-500/10"
-                                      : "text-fuchsia-300 bg-fuchsia-500/15"
-                              }`}
-                            >
-                              {vapiState === "idle" ? (
-                                <Mic className="w-4 h-4" />
-                              ) : vapiState === "connecting" ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                              ) : vapiState === "speaking" ? (
-                                <Volume2 className="w-4 h-4" />
-                              ) : (
-                                <MicOff className="w-4 h-4" />
-                              )}
-                            </button>
-                            <button
                               onClick={() => sendMessage()}
                               disabled={!inputValue.trim() || isLoading}
-                              className="p-1.5 bg-cyan-500 hover:bg-cyan-600 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg transition-colors"
+                              className="p-1.5 bg-cyan-500 hover:bg-cyan-600 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg transition-colors flex-shrink-0"
                             >
                               {isLoading ? (
                                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -1233,46 +1213,82 @@ export function CodexCopilotLayer({
                               </button>
                             </div>
                           )}
-                          {contextOptions && contextOptions.length > 0 ? (
-                            <div className="relative flex items-center gap-2">
+                          <div className="relative flex items-center gap-1">
+                            {contextOptions && contextOptions.length > 0 ? (
                               <button
                                 type="button"
                                 onClick={() => setContextMenuOpen((prev) => !prev)}
-                                className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 ring-1 ring-white/10 transition-colors"
+                                className="flex items-center gap-1 rounded-sm border border-cyan-400/40 bg-cyan-500/20 px-2 py-1 text-[11px] font-semibold text-cyan-100 hover:bg-cyan-500/30 transition"
                               >
-                                <ChevronDown className="w-4 h-4" />
+                                {contextOptions?.find((opt) => opt.id === contextId)?.label || "Qriptopian Codex"}
+                                <ChevronDown className={`w-3 h-3 transition-transform ${contextMenuOpen ? "rotate-180" : ""}`} />
                               </button>
-                              {contextMenuOpen && (
-                                <div className="absolute right-0 bottom-10 min-w-[180px] rounded-xl border border-white/10 bg-slate-950/90 p-2 shadow-xl backdrop-blur">
-                                  {contextOptions.map((opt) => (
-                                    <button
-                                      key={opt.id}
-                                      onClick={() => {
-                                        onContextChange?.(opt.id);
-                                        setContextMenuOpen(false);
-                                      }}
-                                      className={`w-full rounded-lg px-3 py-2 text-left text-xs transition ${
-                                        opt.id === contextId
-                                          ? "bg-cyan-500/15 text-cyan-200"
-                                          : "text-white/70 hover:bg-white/5"
-                                      }`}
-                                    >
-                                      {opt.label}
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-2">
+                            ) : (
                               <button
                                 onClick={onClose}
                                 className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 ring-1 ring-white/10 transition-colors"
                               >
                                 <ChevronDown className="w-4 h-4" />
                               </button>
-                            </div>
-                          )}
+                            )}
+                            {contextMenuOpen && contextOptions && contextOptions.length > 0 && (
+                              <div className="absolute right-0 bottom-10 min-w-[180px] rounded-xl border border-white/10 bg-slate-950/90 p-2 shadow-xl backdrop-blur">
+                                {contextOptions.map((opt) => (
+                                  <button
+                                    key={opt.id}
+                                    onClick={() => {
+                                      onContextChange?.(opt.id);
+                                      setContextMenuOpen(false);
+                                    }}
+                                    className={`w-full rounded-lg px-3 py-2 text-left text-xs transition ${
+                                      opt.id === contextId
+                                        ? "bg-cyan-500/15 text-cyan-200"
+                                        : "text-white/70 hover:bg-white/5"
+                                    }`}
+                                  >
+                                    {opt.label}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                            {vapiState !== "idle" && (
+                              <button
+                                onClick={() => {
+                                  const next = !vapiPaused;
+                                  setVapiPaused(next);
+                                  vapiPausedRef.current = next;
+                                }}
+                                title={vapiPaused ? "Resume audio input" : "Pause audio input"}
+                                className={`p-1.5 rounded-lg transition ${vapiPaused ? "text-amber-300 bg-amber-500/10" : "text-slate-400 hover:text-slate-200 hover:bg-white/10"}`}
+                              >
+                                {vapiPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => void toggleMarketa()}
+                              title={vapiState === "idle" ? "Talk to Marketa" : "Stop Marketa"}
+                              className={`p-1.5 rounded-lg transition-colors ${
+                                vapiState === "idle"
+                                  ? "text-slate-400 hover:text-fuchsia-300 hover:bg-fuchsia-500/10"
+                                  : vapiState === "connecting"
+                                    ? "animate-pulse text-amber-300 bg-amber-500/10"
+                                    : vapiState === "speaking"
+                                      ? "animate-pulse text-green-300 bg-green-500/10"
+                                      : "text-fuchsia-300 bg-fuchsia-500/15"
+                              }`}
+                            >
+                              {vapiState === "idle" ? (
+                                <Mic className="w-4 h-4" />
+                              ) : vapiState === "connecting" ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : vapiState === "speaking" ? (
+                                <Volume2 className="w-4 h-4" />
+                              ) : (
+                                <MicOff className="w-4 h-4" />
+                              )}
+                            </button>
+                          </div>
                         </div>
                       ) : null}
                       </div>
@@ -1316,46 +1332,82 @@ export function CodexCopilotLayer({
                             </button>
                           </div>
                         )}
-                        {contextOptions && contextOptions.length > 0 ? (
-                          <div className="relative flex items-center gap-2">
+                        <div className="relative flex items-center gap-1">
+                          {contextOptions && contextOptions.length > 0 ? (
                             <button
                               type="button"
                               onClick={() => setContextMenuOpen((prev) => !prev)}
-                              className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 ring-1 ring-white/10 transition-colors"
+                              className="flex items-center gap-1 rounded-sm border border-cyan-400/40 bg-cyan-500/20 px-2 py-1 text-[11px] font-semibold text-cyan-100 hover:bg-cyan-500/30 transition"
                             >
-                              <ChevronDown className="w-4 h-4" />
+                              {contextOptions?.find((opt) => opt.id === contextId)?.label || "Qriptopian Codex"}
+                              <ChevronDown className={`w-3 h-3 transition-transform ${contextMenuOpen ? "rotate-180" : ""}`} />
                             </button>
-                            {contextMenuOpen && (
-                              <div className="absolute right-0 bottom-10 min-w-[180px] rounded-xl border border-white/10 bg-slate-950/90 p-2 shadow-xl backdrop-blur">
-                                {contextOptions.map((opt) => (
-                                  <button
-                                    key={opt.id}
-                                    onClick={() => {
-                                      onContextChange?.(opt.id);
-                                      setContextMenuOpen(false);
-                                    }}
-                                    className={`w-full rounded-lg px-3 py-2 text-left text-xs transition ${
-                                      opt.id === contextId
-                                        ? "bg-cyan-500/15 text-cyan-200"
-                                        : "text-white/70 hover:bg-white/5"
-                                    }`}
-                                  >
-                                    {opt.label}
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2">
+                          ) : (
                             <button
                               onClick={onClose}
                               className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 ring-1 ring-white/10 transition-colors"
                             >
                               <ChevronDown className="w-4 h-4" />
                             </button>
-                          </div>
-                        )}
+                          )}
+                          {contextMenuOpen && contextOptions && contextOptions.length > 0 && (
+                            <div className="absolute right-0 bottom-10 min-w-[180px] rounded-xl border border-white/10 bg-slate-950/90 p-2 shadow-xl backdrop-blur">
+                              {contextOptions.map((opt) => (
+                                <button
+                                  key={opt.id}
+                                  onClick={() => {
+                                    onContextChange?.(opt.id);
+                                    setContextMenuOpen(false);
+                                  }}
+                                  className={`w-full rounded-lg px-3 py-2 text-left text-xs transition ${
+                                    opt.id === contextId
+                                      ? "bg-cyan-500/15 text-cyan-200"
+                                      : "text-white/70 hover:bg-white/5"
+                                  }`}
+                                >
+                                  {opt.label}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                          {vapiState !== "idle" && (
+                            <button
+                              onClick={() => {
+                                const next = !vapiPaused;
+                                setVapiPaused(next);
+                                vapiPausedRef.current = next;
+                              }}
+                              title={vapiPaused ? "Resume audio input" : "Pause audio input"}
+                              className={`p-1.5 rounded-lg transition ${vapiPaused ? "text-amber-300 bg-amber-500/10" : "text-slate-400 hover:text-slate-200 hover:bg-white/10"}`}
+                            >
+                              {vapiPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => void toggleMarketa()}
+                            title={vapiState === "idle" ? "Talk to Marketa" : "Stop Marketa"}
+                            className={`p-1.5 rounded-lg transition-colors ${
+                              vapiState === "idle"
+                                ? "text-slate-400 hover:text-fuchsia-300 hover:bg-fuchsia-500/10"
+                                : vapiState === "connecting"
+                                  ? "animate-pulse text-amber-300 bg-amber-500/10"
+                                  : vapiState === "speaking"
+                                    ? "animate-pulse text-green-300 bg-green-500/10"
+                                    : "text-fuchsia-300 bg-fuchsia-500/15"
+                            }`}
+                          >
+                            {vapiState === "idle" ? (
+                              <Mic className="w-4 h-4" />
+                            ) : vapiState === "connecting" ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : vapiState === "speaking" ? (
+                              <Volume2 className="w-4 h-4" />
+                            ) : (
+                              <MicOff className="w-4 h-4" />
+                            )}
+                          </button>
+                        </div>
                       </div>
                     ) : null}
                   </div>
