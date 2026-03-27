@@ -50,7 +50,28 @@ Registry visibility:
 
 ---
 
-## 2. Identity Architecture
+## 2. DNV — Decentralized Network of Validation
+
+The DNV is a foundational infrastructure component (distinct from DVN, which is the cross-chain messaging layer):
+
+- **Purpose**: Anchors all iQube state changes to Bitcoin, issues DiDQubes (attestations), enforces identifiability
+- **Bitcoin anchoring**: Merkle-batched roots published via OP_RETURN transactions; SPV-verifiable
+- **DiDQubes**: Attestation objects issued by the DNV for each validated state change
+
+**Four identifiability levels** (enforced by DNV):
+
+| Level | Description |
+|-------|-------------|
+| Anonymous | No identity linked |
+| Semi-anonymous | Pseudonymous, wallet-linked |
+| Semi-identifiable | Partial KYC |
+| Identifiable | Full verified identity |
+
+See also: `items/knowledge/dvn.md` for the cross-chain DVN (LayerZero) and `items/knowledge/icp-bitcoin.md` for Bitcoin anchoring details.
+
+---
+
+## 3. Identity Architecture
 
 Source: `items/architecture/data-identity.md`
 
