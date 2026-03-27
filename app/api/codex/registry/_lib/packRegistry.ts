@@ -34,7 +34,7 @@ function normalizePackId(packId: string): { canonicalPackId: string; codexId: st
   const lowered = packId.toLowerCase();
   if (lowered === "aigency" || lowered === "aigentiq" || lowered === "agentiq") {
     return {
-      canonicalPackId: "agentiq",
+      canonicalPackId: "aigency",
       codexId: "agentiq-codex",
       slug: "agentiq",
       nameOverride: "AgentiQ Codex",
@@ -48,6 +48,7 @@ function normalizePackId(packId: string): { canonicalPackId: string; codexId: st
 }
 
 const PACK_ICON_BY_ID: Record<string, string> = {
+  aigency: "Brain",
   agentiq: "Brain",
   knyt: "BookOpen",
   qripto: "Newspaper",
@@ -58,6 +59,7 @@ const PACK_ICON_BY_ID: Record<string, string> = {
 };
 
 const PACK_COLOR_BY_ID: Record<string, string> = {
+  aigency: "blue",
   agentiq: "blue",
   knyt: "purple",
   qripto: "indigo",
@@ -70,9 +72,14 @@ const PACK_COLOR_BY_ID: Record<string, string> = {
 const COLLECTION_ICON_BY_ID: Record<string, string> = {
   col_start_here: "Home",
   col_system_map: "BookOpen",
+  col_architecture: "Layers",
+  col_codebase: "Code",
+  col_knowledge: "BookMarked",
   col_decisions: "Code",
+  col_changelog: "GitCommit",
   col_work_allocation: "Shield",
   col_pr_briefs: "FileText",
+  col_recent_commits: "GitBranch",
   col_updates: "Sparkles",
   col_retrieval_index: "BookMarked",
 };
@@ -280,9 +287,9 @@ export async function loadPackCodexes(): Promise<CodexConfig[]> {
       if (!dirent.isDirectory()) continue;
       if (dirent.name.startsWith(".")) continue;
 
-      // Avoid duplicate AgentiQ entries. Canonical pack for runtime/tests is 'agentiq'.
+      // Avoid duplicate AgentiQ entries. Canonical pack is 'aigency' (rich engineering KB).
       const lowered = dirent.name.toLowerCase();
-      if (lowered === "aigency" || lowered === "aigentiq") continue;
+      if (lowered === "agentiq" || lowered === "aigentiq") continue;
 
       const codex = await buildCodexConfigFromPack(dirent.name);
       if (!codex) continue;

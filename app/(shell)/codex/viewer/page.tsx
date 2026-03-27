@@ -56,7 +56,7 @@ export default function CodexViewerPage() {
   const [previewDevice, setPreviewDevice] = useState<PreviewDevice>("desktop");
   const [copilotOpen, setCopilotOpen] = useState(false);
 
-  const isAigentiqCodex = codexId === "aigentiq-codex";
+  const isAigentiqCodex = codexId === "agentiq-codex";
 
   const handleAigentZPrompt = useCallback(async (prompt: string): Promise<string> => {
     try {
