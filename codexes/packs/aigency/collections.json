@@ -36,7 +36,9 @@
         "items/knowledge/api-reference.md",
         "items/knowledge/docs.md",
         "items/knowledge/schemas-contracts.md",
-        "items/knowledge/snippets.md"
+        "items/knowledge/snippets.md",
+        "items/knowledge/dvn.md",
+        "items/knowledge/icp-bitcoin.md"
       ]
     },
     {
