@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { liquidTemplateRegistry } from "@/app/triad/components/codex/liquidTemplates/registry";
 import { LiquidUIPlaceholderTemplate } from "@/app/triad/components/codex/liquidTemplates/LiquidUIPlaceholderTemplate";
 import { ExperienceBlockHeader } from "@/components/composer/ExperienceBlockChrome";
 import SkillVideoPlayer from "@/components/composer/SkillVideoPlayer";
 import SkillImagePlayer from "@/components/composer/SkillImagePlayer";
-import { BookOpen, ChevronDown, ChevronUp, PencilLine } from "lucide-react";
+import { BookOpen, ChevronDown, ChevronUp, Headphones, Loader2, PencilLine, Square } from "lucide-react";
 
 type ArticleDraftSection = {
   heading: string;
@@ -19,6 +19,26 @@ type ArticleDraftGlossaryEntry = {
   definition: string;
 };
 
+function buildTTSText(article: {
+  title?: string; deck?: string; opening?: string;
+  sections?: Array<{ heading?: string; body?: string }>;
+  takeaways?: string[];
+}): string {
+  const parts: string[] = [];
+  if (article.title) parts.push(article.title + ".");
+  if (article.deck) parts.push(article.deck);
+  if (article.opening) parts.push(article.opening);
+  article.sections?.forEach(s => {
+    if (s.heading) parts.push(s.heading + ".");
+    if (s.body) parts.push(s.body);
+  });
+  if (article.takeaways?.length) {
+    parts.push("Key takeaways.");
+    parts.push(...article.takeaways.map(t => t + "."));
+  }
+  return parts.join(" ");
+}
+
 function CompositionBundleBrief({
   packet,
   experienceId,
@@ -28,6 +48,8 @@ function CompositionBundleBrief({
 }) {
   const router = useRouter();
   const [articleExpanded, setArticleExpanded] = useState(false);
+  const [ttsState, setTtsState] = useState<"idle" | "loading" | "playing">("idle");
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const composition =
     packet?.composition && typeof packet.composition === "object" ? packet.composition : null;
   const sequencingState =
@@ -94,6 +116,33 @@ function CompositionBundleBrief({
       bundleBlock: "article_draft",
     });
     router.push(`/studio/composer?${params.toString()}`);
+  };
+
+  const handleListen = async () => {
+    if (ttsState === "playing") {
+      audioRef.current?.pause();
+      setTtsState("idle");
+      return;
+    }
+    if (!articleGenerated) return;
+    setTtsState("loading");
+    try {
+      const text = buildTTSText(articleGenerated);
+      const res = await fetch("/api/skills/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      audio.onended = () => setTtsState("idle");
+      await audio.play();
+      setTtsState("playing");
+    } catch {
+      setTtsState("idle");
+    }
   };
 
   return (
@@ -188,6 +237,28 @@ function CompositionBundleBrief({
             mobileTitle="Copy"
             rightActions={
               <>
+                {articleGenerated ? (
+                  <button
+                    type="button"
+                    onClick={() => void handleListen()}
+                    disabled={ttsState === "loading"}
+                    title={ttsState === "playing" ? "Stop reading" : "Listen with Marketa"}
+                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] transition ${
+                      ttsState === "playing"
+                        ? "border border-fuchsia-500/40 bg-fuchsia-500/10 text-fuchsia-300"
+                        : "border border-slate-700 text-slate-400 hover:border-slate-500 hover:text-white"
+                    }`}
+                  >
+                    {ttsState === "loading" ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : ttsState === "playing" ? (
+                      <Square className="h-3.5 w-3.5" />
+                    ) : (
+                      <Headphones className="h-3.5 w-3.5" />
+                    )}
+                    <span>{ttsState === "playing" ? "Stop" : ttsState === "loading" ? "…" : "Listen"}</span>
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   onClick={() => setArticleExpanded((current) => !current)}

@@ -275,12 +275,14 @@ export function CodexCopilotLayer({
   // ── end Marketa voice ───────────────────────────────────────────────────────
 
   const headerHeight = 44;
-  const footerHeight = floatingInput ? 100 : 80;
   const resolvedHeaderHeight = showTrustIndicators ? headerHeight : 0;
-  const resolvedFooterHeight = disablePromptInput ? 0 : footerHeight;
+  const footerRef = useRef<HTMLDivElement>(null);
+  const [footerMeasuredHeight, setFooterMeasuredHeight] = useState(floatingInput ? 100 : 80);
+  const resolvedFooterHeight = disablePromptInput ? 0 : footerMeasuredHeight;
   const seededRef = useRef(false);
 
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const activationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const initialActivationShownRef = useRef(false);
@@ -370,6 +372,24 @@ export function CodexCopilotLayer({
       window.removeEventListener("resize", readSidebarWidth);
     };
   }, []);
+
+  useEffect(() => {
+    const el = footerRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => setFooterMeasuredHeight(el.offsetHeight));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    const maxH = parseInt(promptMaxHeight ?? "160", 10);
+    const newH = Math.min(el.scrollHeight, maxH);
+    el.style.height = `${newH}px`;
+    el.style.overflowY = el.scrollHeight > maxH ? "auto" : "hidden";
+  }, [inputValue, promptMaxHeight]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -1078,6 +1098,7 @@ export function CodexCopilotLayer({
 
                     {!disablePromptInput ? (
                       <div
+                        ref={footerRef}
                         className={`absolute inset-x-0 bottom-0 px-3 pb-0 pt-0 z-30 ${
                           floatingInput ? "bg-transparent" : "bg-white/5"
                         }`}
@@ -1106,6 +1127,7 @@ export function CodexCopilotLayer({
                             <div className={inputPanelClassName ?? "rounded-2xl border border-white/10 bg-slate-950/85 backdrop-blur-xl px-3 py-1.5 shadow-lg"}>
                               <div className="flex gap-2 items-end">
                                 <textarea
+                                  ref={textareaRef}
                                   value={inputValue}
                                   onChange={(e) => {
                                     setInputValue(e.target.value);
@@ -1149,6 +1171,7 @@ export function CodexCopilotLayer({
                           <div className="h-px bg-white/10 mb-2" />
                           <div className="flex gap-2 items-end">
                             <textarea
+                              ref={textareaRef}
                               value={inputValue}
                               onChange={(e) => {
                                 setInputValue(e.target.value);
