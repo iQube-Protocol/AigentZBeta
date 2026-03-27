@@ -3518,9 +3518,14 @@ export const ComposerStudio = () => {
 
   const handleComposerUserPrompt = useCallback(
     async (prompt: string) => {
-      const lower = prompt.toLowerCase();
-      const wantsVideo = promptWantsVideo(prompt);
-      const wantsImage = promptWantsImage(prompt);
+      // Long transcripts from Vapi voice sessions contain the full conversation history.
+      // Use only the last 350 chars as the intent signal — the production intent is
+      // always stated at the end, and earlier words trip the early-return guards.
+      const isLongTranscript = prompt.trim().length > 400;
+      const effectivePrompt = isLongTranscript ? prompt.trim().slice(-350) : prompt;
+      const lower = effectivePrompt.toLowerCase();
+      const wantsVideo = promptWantsVideo(effectivePrompt);
+      const wantsImage = promptWantsImage(effectivePrompt);
       const templateName = sessionTemplate?.name || selectedTemplate?.name || "the current template";
       const imageGenerationStep = mergedData?.image_generation || {};
       const videoPromptStep = mergedData?.video_prompt || {};
@@ -3539,6 +3544,9 @@ export const ComposerStudio = () => {
           ? skillSelectionStep.skill_id
           : null;
 
+      // Skip pattern-matching early returns for long transcripts — incidental conversation
+      // words would fire these before the intent branches are reached.
+      if (!isLongTranscript) {
       if (/(show|view|browse).*(all|templates)|all templates/.test(lower)) {
         handleCopilotPrompt(prompt);
         setExperiencePanelTab("template");
@@ -3651,6 +3659,7 @@ export const ComposerStudio = () => {
           `This is also where I surface the current cost envelope stub, provider path, and DesignQube summary.`,
         ].join("\n");
       }
+      } // end !isLongTranscript early-return guard
 
       if (wantsVideo) {
         const contextLabel =
@@ -3665,20 +3674,20 @@ export const ComposerStudio = () => {
             : providerId === "venice"
               ? "venice_video_gen"
               : "sora_video_gen_curated";
-        const suggestedPrompt = buildVideoPrompt(prompt, contextLabel);
+        const suggestedPrompt = buildVideoPrompt(effectivePrompt, contextLabel);
         const experienceName = deriveExperienceNameFromPrompt(
-          prompt,
+          effectivePrompt,
           providerId === "venice" ? "Venice Video Experience" : "Sora Video Experience"
         );
 
         setTemplateIntent("task");
         setSelectedTemplateId("sora-video-generation");
-        setTemplateQuery(`${contextLabel}: ${prompt} video sora venice ai-generation skill toolqube`);
+        setTemplateQuery(`${contextLabel}: ${effectivePrompt} video sora venice ai-generation skill toolqube`);
 
         const seedData = {
           intent_timebox: {
             experience_name: experienceName,
-            goal: prompt,
+            goal: effectivePrompt,
           },
           skill_selection: {
             ...(skillId ? { skill_id: skillId } : {}),
@@ -3689,9 +3698,9 @@ export const ComposerStudio = () => {
             duration: /12/.test(lower) ? 12 : /4/.test(lower) ? 4 : 8,
             aspect_ratio: /portrait|vertical|9:16/.test(lower) ? "9:16" : "16:9",
             style:
-              inferVisualStyleFromPrompt(prompt) === "editorial"
+              inferVisualStyleFromPrompt(effectivePrompt) === "editorial"
                 ? "cinematic"
-                : inferVisualStyleFromPrompt(prompt),
+                : inferVisualStyleFromPrompt(effectivePrompt),
           },
           delegation_stub: {
             human_selection_required: true,
@@ -3732,23 +3741,23 @@ export const ComposerStudio = () => {
         const contextLabel =
           copilotContextOptions.find((opt) => opt.id === copilotContextId)?.label || "The Qriptopian";
         const providerId = /venice/.test(lower) && !/openai/.test(lower) ? "venice" : "openai";
-        const promptVariants = buildImagePromptVariants(prompt, contextLabel);
-        const experienceName = deriveExperienceNameFromPrompt(prompt, "Image Experience");
+        const promptVariants = buildImagePromptVariants(effectivePrompt, contextLabel);
+        const experienceName = deriveExperienceNameFromPrompt(effectivePrompt, "Image Experience");
 
         setTemplateIntent("task");
         setSelectedTemplateId("ai-image-generation");
-        setTemplateQuery(`${contextLabel}: ${prompt} image portrait landscape`);
+        setTemplateQuery(`${contextLabel}: ${effectivePrompt} image portrait landscape`);
 
         const seedData = {
           intent_timebox: {
             experience_name: experienceName,
-            goal: prompt,
+            goal: effectivePrompt,
           },
           image_generation: {
             provider_id: providerId,
             portrait_prompt: promptVariants.portrait,
             landscape_prompt: promptVariants.landscape,
-            visual_style: inferVisualStyleFromPrompt(prompt),
+            visual_style: inferVisualStyleFromPrompt(effectivePrompt),
           },
         };
 
@@ -3774,18 +3783,18 @@ export const ComposerStudio = () => {
       if (wantsArticle && !wantsImage && !wantsVideo) {
         const contextLabel =
           copilotContextOptions.find((opt) => opt.id === copilotContextId)?.label || "The Qriptopian";
-        const experienceName = deriveExperienceNameFromPrompt(prompt, "Article Experience");
+        const experienceName = deriveExperienceNameFromPrompt(effectivePrompt, "Article Experience");
         const articleTitle = experienceName;
-        const articlePrompt = prompt;
+        const articlePrompt = effectivePrompt;
 
         setTemplateIntent("article");
         setSelectedTemplateId("ai-article-draft");
-        setTemplateQuery(`${contextLabel}: ${prompt} article editorial draft`);
+        setTemplateQuery(`${contextLabel}: ${effectivePrompt} article editorial draft`);
 
         const seedData = {
           intent_timebox: {
             experience_name: experienceName,
-            goal: prompt,
+            goal: effectivePrompt,
           },
           article_draft: {
             title: articleTitle,
@@ -3818,17 +3827,17 @@ export const ComposerStudio = () => {
         const contextLabel =
           copilotContextOptions.find((opt) => opt.id === copilotContextId)?.label || "The Qriptopian";
         const providerId = /venice/.test(lower) && !/openai/.test(lower) ? "venice" : "openai";
-        const promptVariants = buildImagePromptVariants(prompt, contextLabel);
-        const experienceName = deriveExperienceNameFromPrompt(prompt, "Qriptopian Image Experience");
+        const promptVariants = buildImagePromptVariants(effectivePrompt, contextLabel);
+        const experienceName = deriveExperienceNameFromPrompt(effectivePrompt, "Qriptopian Image Experience");
 
         setTemplateIntent("article");
         setSelectedTemplateId("qripto-feature-article");
-        setTemplateQuery(`${contextLabel}: ${prompt} article hero image portrait landscape`);
+        setTemplateQuery(`${contextLabel}: ${effectivePrompt} article hero image portrait landscape`);
 
         const seedData = {
           intent_timebox: {
             experience_name: experienceName,
-            goal: prompt,
+            goal: effectivePrompt,
             time_available: "15",
             depth: /technical/.test(lower) ? "technical" : /practical/.test(lower) ? "practical" : "overview",
           },
@@ -3842,7 +3851,7 @@ export const ComposerStudio = () => {
             provider_id: providerId,
             portrait_prompt: promptVariants.portrait,
             landscape_prompt: promptVariants.landscape,
-            visual_style: inferVisualStyleFromPrompt(prompt),
+            visual_style: inferVisualStyleFromPrompt(effectivePrompt),
           },
         };
 
@@ -7159,14 +7168,15 @@ export const ComposerStudio = () => {
                     variant="embedded"
                     enableInferenceRendering
                     showNavMenu
-                    showWalletMenu
+                    showWalletMenu={false}
                     hideAvatarToggle
                     contextOptions={copilotContextOptions}
                     contextId={copilotContextId}
                     onContextChange={handleCopilotContextChange}
                     initialMessage="What would you like to compose?"
+                    promptMaxHeight="240px"
                     inputPanelClassName="rounded-2xl border border-white/10 bg-slate-950/95 backdrop-blur-xl px-3 py-3 shadow-lg"
-                    inputPanelInputClassName="flex-1 px-3 py-2 bg-slate-900/80 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500 text-sm"
+                    inputPanelInputClassName="flex-1 px-3 py-2 bg-slate-900/80 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500 text-sm max-h-[240px]"
                     panelBorder={false}
                     quickPrompts={[
                       "Show all templates",
