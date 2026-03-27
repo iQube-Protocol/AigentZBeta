@@ -57,5 +57,45 @@
 
 ## Receipts / Provenance
 - Receipt IDs (if applicable):
-- Aigency Codex updates made:
+- AgentiQ Codex updates made:
   - BACKLOG.md / DECISIONS.md / brief link:
+
+---
+
+## AIGENTZ_DECISIONS
+<!--
+List decisions made in this PR. Use the structure below for each decision.
+Write "N/A" if no architectural or design decisions were made.
+-->
+- Decision:
+  Context:
+  Options:
+  Tradeoff:
+  Result:
+
+## AIGENTZ_PROBLEMS
+<!--
+List problems encountered and how they were resolved.
+Write "None encountered" if the PR was straightforward.
+-->
+- Problem:
+  Symptom:
+  Root cause:
+  Fix:
+  Verification:
+  Follow-up:
+
+## AIGENTZ_IMPACT
+<!--
+Summarise the systemic impact of this change.
+-->
+- Breaking: yes/no
+- Migration: yes/no (+ steps if yes)
+- Security/Privacy:
+- Performance:
+
+## Codex Checklist
+- [ ] I filled **AIGENTZ_DECISIONS** (or wrote "N/A")
+- [ ] I filled **AIGENTZ_PROBLEMS** (or wrote "None encountered")
+- [ ] I filled **AIGENTZ_IMPACT**
+- [ ] I updated `codexes/packs/aigency/items/architecture/system-map.md` if core flows or contracts changed

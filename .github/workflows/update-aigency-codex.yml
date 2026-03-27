@@ -1,0 +1,93 @@
+name: AgentiQ Codex Update
+
+# Fires on every PR merged to main.
+# Generates structured artifacts (PR briefs, decision notes, problem logs)
+# into the AgentiQ Codex (codexes/packs/aigency/) and optionally syncs to Autodrive.
+#
+# Deterministic — no LLM calls required.
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+jobs:
+  update_codex:
+    name: Generate AgentiQ Codex artifacts
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name "aigent-z[bot]"
+          git config user.email "aigent-z[bot]@users.noreply.github.com"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Generate codex artifacts
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_MERGED_AT: ${{ github.event.pull_request.merged_at }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: node scripts/generate-codex-artifacts.js
+
+      - name: Commit codex artifacts
+        run: |
+          git add codexes/packs/aigency/
+          if git diff --cached --quiet; then
+            echo "No codex changes to commit — skipping."
+          else
+            git commit -m "update agentiq codex — PR #${{ github.event.pull_request.number }}: ${{ github.event.pull_request.title }}"
+            git push origin HEAD
+          fi
+
+      - name: Sync to Autodrive
+        env:
+          AUTODRIVE_ENDPOINT: ${{ secrets.AUTODRIVE_ENDPOINT }}
+          AUTODRIVE_TOKEN: ${{ secrets.AUTODRIVE_TOKEN }}
+        run: |
+          if [ -z "$AUTODRIVE_ENDPOINT" ]; then
+            echo "AUTODRIVE_ENDPOINT not configured — skipping Autodrive sync."
+            echo "Set AUTODRIVE_ENDPOINT and AUTODRIVE_TOKEN secrets to enable."
+            exit 0
+          fi
+
+          echo "Syncing AgentiQ Codex to: ${AUTODRIVE_ENDPOINT}/AigencyCodex/repos/AigentZBeta/"
+
+          # Uncomment the appropriate method for your Autodrive implementation:
+
+          # S3-compatible (AWS S3, Cloudflare R2, MinIO):
+          # aws s3 sync codexes/packs/aigency/ \
+          #   s3://your-bucket/AigencyCodex/repos/AigentZBeta/ \
+          #   --exclude ".env*" --exclude "*secret*" --exclude "*.key"
+
+          # WebDAV / rclone:
+          # rclone copy codexes/packs/aigency/ \
+          #   remote:Autodrive/AigencyCodex/repos/AigentZBeta/ \
+          #   --exclude ".env*" --filter "- *.key"
+
+          # Custom REST API:
+          # find codexes/packs/aigency -name "*.md" -o -name "*.json" | while read f; do
+          #   DEST="${f#codexes/packs/aigency/}"
+          #   curl -sf -X PUT \
+          #     -H "Authorization: Bearer $AUTODRIVE_TOKEN" \
+          #     -T "$f" \
+          #     "${AUTODRIVE_ENDPOINT}/AigencyCodex/repos/AigentZBeta/${DEST}"
+          # done
+
+          echo "Autodrive sync placeholder active — uncomment the appropriate method above."
