@@ -2,10 +2,353 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR.",
-  "last_updated": "2026-03-27T00:00:00.000Z",
-  "latest_pr": null,
-  "latest_pr_title": null,
-  "pr_history": [],
+  "last_updated": "2026-03-27T02:13:11.131Z",
+  "latest_pr": 78,
+  "latest_pr_title": "Staging",
+  "pr_history": [
+    {
+      "number": 78,
+      "title": "Staging",
+      "author": "noahbuller",
+      "merged_at": "2025-10-25T22:43:36Z",
+      "brief": "items/build_/PR/PR-78.md",
+      "has_decisions": false,
+      "has_problems": false
+    },
+    {
+      "number": 74,
+      "title": "DIDQube Phase 3: Complete Reputation System Integration",
+      "author": "Kn0w-1",
+      "merged_at": "2025-10-21T18:46:53Z",
+      "brief": "items/build_/PR/PR-74.md",
+      "has_decisions": false,
+      "has_problems": false
+    },
+    {
+      "number": 73,
+      "title": "chore: Sync dev to main - RQH Phase 2 Complete",
+      "author": "Kn0w-1",
+      "merged_at": "2025-10-17T13:08:46Z",
+      "brief": "items/build_/PR/PR-73.md",
+      "has_decisions": false,
+      "has_problems": false
+    },
+    {
+      "number": 61,
+      "title": "Dev",
+      "author": "Kn0w-1",
+      "merged_at": "2025-10-13T00:59:48Z",
+      "brief": "items/build_/PR/PR-61.md",
+      "has_decisions": false,
+      "has_problems": false
+    },
+    {
+      "number": 60,
+      "title": "Staging",
+      "author": "noahbuller",
+      "merged_at": "2025-10-12T22:20:37Z",
+      "brief": "items/build_/PR/PR-60.md",
+      "has_decisions": false,
+      "has_problems": false
+    },
+    {
+      "number": 57,
+      "title": "Full update via dev --&gt; staging (workaround) --&gt; main",
+      "author": "noahbuller",
+      "merged_at": "2025-10-12T21:12:57Z",
+      "brief": "items/build_/PR/PR-57.md",
+      "has_decisions": false,
+      "has_problems": false
+    },
+    {
+      "number": 41,
+      "title": "Fix/polygon pol to dev",
+      "author": "Kn0w-1",
+      "merged_at": "2025-10-08T00:39:50Z",
+      "brief": "items/build_/PR/PR-41.md",
+      "has_decisions": false,
+      "has_problems": false
+    },
+    {
+      "number": 40,
+      "title": "Fix/polygon pol symbol",
+      "author": "Kn0w-1",
+      "merged_at": "2025-10-08T00:03:46Z",
+      "brief": "items/build_/PR/PR-40.md",
+      "has_decisions": false,
+      "has_problems": false
+    },
+    {
+      "number": 39,
+      "title": "Feat/qct ux improvements",
+      "author": "Kn0w-1",
+      "merged_at": "2025-10-07T19:50:20Z",
+      "brief": "items/build_/PR/PR-39.md",
+      "has_decisions": false,
+      "has_problems": false
+    },
+    {
+      "number": 37,
+      "title": "Feat/qct wallet integration",
+      "author": "Kn0w-1",
+      "merged_at": "2025-10-07T18:51:11Z",
+      "brief": "items/build_/PR/PR-37.md",
+      "has_decisions": false,
+      "has_problems": false
+    },
+    {
+      "number": 36,
+      "title": "fix: Auto-repair now works for small drifts (&lt;=10) after batching",
+      "author": "Kn0w-1",
+      "merged_at": "2025-10-07T03:46:20Z",
+      "brief": "items/build_/PR/PR-36.md",
+      "has_decisions": false,
+      "has_problems": false
+    },
+    {
+      "number": 34,
+      "title": "feat: Solana Integration for QCT Cross-Chain Trading",
+      "author": "Kn0w-1",
+      "merged_at": "2025-10-07T03:13:06Z",
+      "brief": "items/build_/PR/PR-34.md",
+      "has_decisions": false,
+      "has_problems": false
+    },
+    {
+      "number": 32,
+      "title": "Fix/evm rpc canister integration",
+      "author": "Kn0w-1",
+      "merged_at": "2025-10-07T01:20:44Z",
+      "brief": "items/build_/PR/PR-32.md",
+      "has_decisions": false,
+      "has_problems": false
+    },
+    {
+      "number": 31,
+      "title": "Fix/hardcode evm count",
+      "author": "Kn0w-1",
+      "merged_at": "2025-10-07T00:27:47Z",
+      "brief": "items/build_/PR/PR-31.md",
+      "has_decisions": false,
+      "has_problems": false
+    },
+    {
+      "number": 30,
+      "title": "Debug/cross chain logging",
+      "author": "Kn0w-1",
+      "merged_at": "2025-10-06T23:06:48Z",
+      "brief": "items/build_/PR/PR-30.md",
+      "has_decisions": false,
+      "has_problems": false
+    },
+    {
+      "number": 29,
+      "title": "Debug/cross chain logging",
+      "author": "Kn0w-1",
+      "merged_at": "2025-10-06T22:46:35Z",
+      "brief": "items/build_/PR/PR-29.md",
+      "has_decisions": false,
+      "has_problems": false
+    },
+    {
+      "number": 28,
+      "title": "Fix/nodejs runtime chain endpoints",
+      "author": "Kn0w-1",
+      "merged_at": "2025-10-06T22:25:04Z",
+      "brief": "items/build_/PR/PR-28.md",
+      "has_decisions": false,
+      "has_problems": false
+    },
+    {
+      "number": 27,
+      "title": "Test/anonymous evm calls",
+      "author": "Kn0w-1",
+      "merged_at": "2025-10-06T21:23:00Z",
+      "brief": "items/build_/PR/PR-27.md",
+      "has_decisions": false,
+      "has_problems": false
+    },
+    {
+      "number": 26,
+      "title": "CRITICAL: Force ic0.app for mainnet by completely ignoring ICP_HOST e…",
+      "author": "Kn0w-1",
+      "merged_at": "2025-10-06T18:39:28Z",
+      "brief": "items/build_/PR/PR-26.md",
+      "has_decisions": false,
+      "has_problems": false
+    },
+    {
+      "number": 25,
+      "title": "Fix/cross chain gateway only",
+      "author": "Kn0w-1",
+      "merged_at": "2025-10-06T18:05:46Z",
+      "brief": "items/build_/PR/PR-25.md",
+      "has_decisions": false,
+      "has_problems": false
+    },
+    {
+      "number": 23,
+      "title": "PRODUCTION-SAFE: Force ic0.app gateway for mainnet to fix Cross-Chain…",
+      "author": "Kn0w-1",
+      "merged_at": "2025-10-06T17:28:37Z",
+      "brief": "items/build_/PR/PR-23.md",
+      "has_decisions": false,
+      "has_problems": false
+    },
+    {
+      "number": 22,
+      "title": "Fix/cross chain parity 2",
+      "author": "Kn0w-1",
+      "merged_at": "2025-10-06T12:25:40Z",
+      "brief": "items/build_/PR/PR-22.md",
+      "has_decisions": false,
+      "has_problems": false
+    },
+    {
+      "number": 21,
+      "title": "Fix/cross chain parity 2",
+      "author": "Kn0w-1",
+      "merged_at": "2025-10-06T05:59:09Z",
+      "brief": "items/build_/PR/PR-21.md",
+      "has_decisions": false,
+      "has_problems": false
+    },
+    {
+      "number": 20,
+      "title": "Fix/cross chain parity 2",
+      "author": "Kn0w-1",
+      "merged_at": "2025-10-06T03:30:53Z",
+      "brief": "items/build_/PR/PR-20.md",
+      "has_decisions": false,
+      "has_problems": false
+    },
+    {
+      "number": 19,
+      "title": "Fix/cross chain parity 2",
+      "author": "Kn0w-1",
+      "merged_at": "2025-10-06T02:24:39Z",
+      "brief": "items/build_/PR/PR-19.md",
+      "has_decisions": false,
+      "has_problems": false
+    },
+    {
+      "number": 18,
+      "title": "Fix/cross chain api and debug",
+      "author": "Kn0w-1",
+      "merged_at": "2025-10-06T00:53:09Z",
+      "brief": "items/build_/PR/PR-18.md",
+      "has_decisions": false,
+      "has_problems": false
+    },
+    {
+      "number": 17,
+      "title": "Fix/dvn production parity",
+      "author": "Kn0w-1",
+      "merged_at": "2025-10-05T23:34:12Z",
+      "brief": "items/build_/PR/PR-17.md",
+      "has_decisions": false,
+      "has_problems": false
+    },
+    {
+      "number": 16,
+      "title": "CRITICAL: Fix Cross Chain Status API and add identity debug endpoint",
+      "author": "Kn0w-1",
+      "merged_at": "2025-10-05T23:13:06Z",
+      "brief": "items/build_/PR/PR-16.md",
+      "has_decisions": false,
+      "has_problems": false
+    },
+    {
+      "number": 15,
+      "title": "Fix/dvn critical issues",
+      "author": "Kn0w-1",
+      "merged_at": "2025-10-05T22:35:02Z",
+      "brief": "items/build_/PR/PR-15.md",
+      "has_decisions": false,
+      "has_problems": false
+    },
+    {
+      "number": 14,
+      "title": "Fix/dvn production parity",
+      "author": "Kn0w-1",
+      "merged_at": "2025-10-05T22:16:04Z",
+      "brief": "items/build_/PR/PR-14.md",
+      "has_decisions": false,
+      "has_problems": false
+    },
+    {
+      "number": 13,
+      "title": "Fix/dvn critical issues",
+      "author": "Kn0w-1",
+      "merged_at": "2025-10-05T21:01:39Z",
+      "brief": "items/build_/PR/PR-13.md",
+      "has_decisions": false,
+      "has_problems": false
+    },
+    {
+      "number": 12,
+      "title": "Fix/dvn critical issues",
+      "author": "Kn0w-1",
+      "merged_at": "2025-10-05T19:16:53Z",
+      "brief": "items/build_/PR/PR-12.md",
+      "has_decisions": false,
+      "has_problems": false
+    },
+    {
+      "number": 11,
+      "title": "Fix/dvn canister id update",
+      "author": "Kn0w-1",
+      "merged_at": "2025-10-05T18:36:38Z",
+      "brief": "items/build_/PR/PR-11.md",
+      "has_decisions": false,
+      "has_problems": false
+    },
+    {
+      "number": 10,
+      "title": "feat: Firefox compatibility improvements for Ops Console",
+      "author": "Kn0w-1",
+      "merged_at": "2025-10-05T17:54:37Z",
+      "brief": "items/build_/PR/PR-10.md",
+      "has_decisions": false,
+      "has_problems": false
+    },
+    {
+      "number": 9,
+      "title": "Fix/supabase amplify deployment",
+      "author": "Kn0w-1",
+      "merged_at": "2025-10-05T17:10:42Z",
+      "brief": "items/build_/PR/PR-9.md",
+      "has_decisions": false,
+      "has_problems": false
+    },
+    {
+      "number": 4,
+      "title": "Update Main",
+      "author": "noahbuller",
+      "merged_at": "2025-09-28T18:44:43Z",
+      "brief": "items/build_/PR/PR-4.md",
+      "has_decisions": false,
+      "has_problems": false
+    },
+    {
+      "number": 2,
+      "title": "feat(registry): persist metaExtras; server-side sort; UI score placement; seed PA iQubes",
+      "author": "Kn0w-1",
+      "merged_at": "2025-09-11T19:25:05Z",
+      "brief": "items/build_/PR/PR-2.md",
+      "has_decisions": false,
+      "has_problems": false
+    },
+    {
+      "number": 1,
+      "title": "docs: add Aigent Z architecture and API docs skeleton",
+      "author": "Kn0w-1",
+      "merged_at": "2025-09-08T22:11:06Z",
+      "brief": "items/build_/PR/PR-1.md",
+      "has_decisions": false,
+      "has_problems": false
+    }
+  ],
   "entrypoint": "items/00_START_HERE.md",
   "system_map": "items/architecture/system-map.md",
   "retrieval_index": "items/memory/retrieval-index.md",
