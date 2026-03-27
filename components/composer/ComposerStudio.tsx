@@ -3047,6 +3047,7 @@ export const ComposerStudio = () => {
       experienceId,
       embed: "1",
     });
+    params.set("runtimeAdmin", "1");
     if (previewExperience?.name) params.set("experienceName", previewExperience.name);
     if (previewExperience?.description) params.set("experienceDescription", previewExperience.description);
     if (previewRuntimeDeliveryProfile.imageAssets.landscape) {
