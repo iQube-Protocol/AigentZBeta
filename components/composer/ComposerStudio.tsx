@@ -1556,6 +1556,12 @@ export const ComposerStudio = () => {
   const [workflowManifests, setWorkflowManifests] = useState<Record<string, { fields: any[] } | null | "loading">>({});
   const [expandedInvoke, setExpandedInvoke] = useState<Record<string, boolean>>({});
   const [isParityExpanded, setIsParityExpanded] = useState(false);
+  const [pendingProductionConfig, setPendingProductionConfig] = useState<{
+    templateKey: string;
+    seedData: Record<string, unknown>;
+    options?: Record<string, unknown>;
+    label: string;
+  } | null>(null);
   const isStudioExpanded = true;
   const [experiencePanelTab, setExperiencePanelTab] = useState("template");
   const [resourcesPanelTab, setResourcesPanelTab] = useState("experience");
@@ -1568,6 +1574,7 @@ export const ComposerStudio = () => {
   const [editableArticleOutputs, setEditableArticleOutputs] = useState<string[]>([]);
   const [editableArticleTakeawaysCount, setEditableArticleTakeawaysCount] = useState(3);
   const [isSavingEditableGeneration, setIsSavingEditableGeneration] = useState(false);
+  const [savedEditsFlash, setSavedEditsFlash] = useState(false);
   const [personaMediaLibrary, setPersonaMediaLibrary] = useState<PersonaGeneratedMediaRecord[]>([]);
   const [personaMediaLibraryLoading, setPersonaMediaLibraryLoading] = useState(false);
   const [applyingPersonaMediaId, setApplyingPersonaMediaId] = useState<string | null>(null);
@@ -3695,29 +3702,27 @@ export const ComposerStudio = () => {
           },
         };
 
-        const seeded = await startSeededSessionForTemplate("sora-video-generation", seedData, {
-          currentStep: 1,
+        setPendingProductionConfig({
+          templateKey: "sora-video-generation",
+          seedData,
+          options: { currentStep: 1 },
+          label: "video experience",
         });
         const providerKnowledge = providerId ? getComposerProviderKnowledge(providerId) : null;
 
-        return seeded.ok
-          ? [
-              `I set up a **video-led experience path** in **${seeded.templateName || "Sora Video Generation"}** and opened **Customizer** on **Skill Selection** first.`,
-              "",
-              `**Provider selection**: human-in-the-loop`,
-              providerKnowledge?.name
-                ? `- Seeded provider hint: ${providerKnowledge.name}`
-                : `- No provider has been preselected so you can choose between OpenAI, Venice, or community explicitly.`,
-              `- Future path stubbed: agentic delegation can select the provider/skill later.`,
-              "",
-              `**Selected skill**: ${skillId || "Choose in Skill Selection"}`,
-              "",
-              `**Suggested prompt**`,
-              suggestedPrompt,
-              "",
-              `Next, confirm the video skill in **Skill Selection**, then continue into **Video Prompt** to review duration, aspect ratio, and style before checking **Resources**.`,
-            ].join("\n")
-          : `I prepared a video-led path and a first-pass prompt, but I couldn't open the Customizer session automatically: ${seeded.error}`;
+        return [
+          `I've planned a **video-led experience**. Confirm below to open it in the Compositor.`,
+          "",
+          `**Provider selection**: human-in-the-loop`,
+          providerKnowledge?.name
+            ? `- Seeded provider hint: ${providerKnowledge.name}`
+            : `- No provider has been preselected — you can choose between OpenAI, Venice, or community in the Compositor.`,
+          "",
+          `**Selected skill**: ${skillId || "Choose in Skill Selection"}`,
+          "",
+          `**Suggested prompt**`,
+          suggestedPrompt,
+        ].join("\n");
       }
 
       const wantsArticle = /(article|write|writing|editorial|blog|essay|draft)\b/.test(lower);
@@ -3747,23 +3752,22 @@ export const ComposerStudio = () => {
           },
         };
 
-        const seeded = await startSeededSessionForTemplate("ai-image-generation", seedData, {
-          currentStep: 1,
+        setPendingProductionConfig({
+          templateKey: "ai-image-generation",
+          seedData,
+          options: { currentStep: 1 },
+          label: "image experience",
         });
         const providerKnowledge = getComposerProviderKnowledge(providerId);
 
-        return seeded.ok
-          ? [
-              `I set up a **standalone image path** in **${seeded.templateName || "AI Image Generation"}** and opened **Customizer** on the image step.`,
-              "",
-              `**Provider**: ${providerKnowledge?.name || providerId}`,
-              "",
-              `**Portrait prompt**: ${promptVariants.portrait}`,
-              `**Landscape prompt**: ${promptVariants.landscape}`,
-              "",
-              `Review the prompts in the Customizer, then hit **Run** to generate. To add an article alongside, switch to the Image + Article bundle preset.`,
-            ].join("\n")
-          : `I prepared a standalone image path, but couldn't open the Customizer automatically: ${seeded.error}`;
+        return [
+          `I've planned a **standalone image experience**. Confirm below to open it in the Compositor.`,
+          "",
+          `**Provider**: ${providerKnowledge?.name || providerId}`,
+          "",
+          `**Portrait prompt**: ${promptVariants.portrait}`,
+          `**Landscape prompt**: ${promptVariants.landscape}`,
+        ].join("\n");
       }
 
       // Article-only: user asks for article/writing without images or video
@@ -3791,20 +3795,19 @@ export const ComposerStudio = () => {
           },
         };
 
-        const seeded = await startSeededSessionForTemplate("ai-article-draft", seedData, {
-          currentStep: 1,
+        setPendingProductionConfig({
+          templateKey: "ai-article-draft",
+          seedData,
+          options: { currentStep: 1 },
+          label: "article experience",
         });
 
-        return seeded.ok
-          ? [
-              `I set up a **standalone article path** in **${seeded.templateName || "Article Draft"}** and opened **Customizer** on the article step.`,
-              "",
-              `**Article**: ${articleTitle}`,
-              `**Prompt**: ${articlePrompt}`,
-              "",
-              `Review in Customizer, then hit **Run** to generate. To add images alongside, switch to the Image + Article bundle preset. To add video, switch to the Video + Article bundle.`,
-            ].join("\n")
-          : `I prepared a standalone article path, but couldn't open the Customizer automatically: ${seeded.error}`;
+        return [
+          `I've planned a **standalone article**. Confirm below to open it in the Compositor.`,
+          "",
+          `**Article**: ${articleTitle}`,
+          `**Prompt**: ${articlePrompt}`,
+        ].join("\n");
       }
 
       // Image + article: user asks for images with article context, or editorial
@@ -3843,30 +3846,25 @@ export const ComposerStudio = () => {
           },
         };
 
-        const seeded = await startSeededSessionForTemplate("qriptopian_reading_sprint_v0", seedData, {
-          currentStep: 2,
+        setPendingProductionConfig({
+          templateKey: "qriptopian_reading_sprint_v0",
+          seedData,
+          options: { currentStep: 2 },
+          label: "image article experience",
         });
-        const templateKnowledge = getComposerTemplateKnowledge("feature-article-experience");
         const providerKnowledge = getComposerProviderKnowledge(providerId);
 
-        return seeded.ok
-          ? [
-              `I set up an **image-led article path** in **${seeded.templateName || "Qriptopian Reading Sprint"}** and opened **Customizer** on the hero image step.`,
-              "",
-              `**Recommended provider**: ${providerKnowledge?.name || providerId}`,
-              `- ${providerKnowledge?.strengths[0] || "Good fit for alpha image generation"}`,
-              "",
-              `**Portrait prompt**`,
-              promptVariants.portrait,
-              "",
-              `**Landscape prompt**`,
-              promptVariants.landscape,
-              "",
-              templateKnowledge?.summary
-                ? `Template note: ${templateKnowledge.summary}`
-                : `This follows the current alpha path for article and capsule imagery: template selection, provider choice, portrait + landscape planning, then Resources and Preview review.`,
-            ].join("\n")
-          : `I prepared an image-led article path, but I couldn't open the Customizer session automatically: ${seeded.error}`;
+        return [
+          `I've planned an **image-led article**. Confirm below to open it in the Compositor.`,
+          "",
+          `**Provider**: ${providerKnowledge?.name || providerId}`,
+          "",
+          `**Portrait prompt**`,
+          promptVariants.portrait,
+          "",
+          `**Landscape prompt**`,
+          promptVariants.landscape,
+        ].join("\n");
       }
 
       return undefined;
@@ -3883,6 +3881,7 @@ export const ComposerStudio = () => {
       sessionData,
       stepData,
       sessionTemplate,
+      setPendingProductionConfig,
     ]
   );
 
@@ -5117,6 +5116,8 @@ export const ComposerStudio = () => {
       setSessionError(err?.message || "Failed to save generation edits.");
     } finally {
       setIsSavingEditableGeneration(false);
+      setSavedEditsFlash(true);
+      setTimeout(() => setSavedEditsFlash(false), 2500);
     }
   };
 
@@ -7122,7 +7123,36 @@ export const ComposerStudio = () => {
             </div>
             <div className="mt-4 flex flex-1 items-start justify-start">
               <div className="relative z-[70] h-[632px] w-full max-w-[420px] overflow-hidden rounded-2xl border border-transparent bg-slate-950/60 backdrop-blur-xl flex flex-col md:max-w-full lg:max-w-[420px]">
-                <div className="h-full overflow-hidden">
+                {pendingProductionConfig && (
+                  <div className="mx-2 mt-2 rounded-lg border border-violet-500/40 bg-violet-950/40 p-3 space-y-2 flex-shrink-0">
+                    <p className="text-[12px] text-violet-200 font-medium">
+                      Ready to produce: <span className="text-white">{pendingProductionConfig.label}</span>
+                    </p>
+                    <p className="text-[11px] text-slate-400">Send this to the Compositor now?</p>
+                    <div className="flex gap-2">
+                      <button
+                        className="rounded-lg bg-violet-600 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-violet-500 transition"
+                        onClick={async () => {
+                          await startSeededSessionForTemplate(
+                            pendingProductionConfig.templateKey,
+                            pendingProductionConfig.seedData,
+                            pendingProductionConfig.options as any,
+                          );
+                          setPendingProductionConfig(null);
+                        }}
+                      >
+                        Yes, send to production
+                      </button>
+                      <button
+                        className="rounded-lg border border-slate-700 px-3 py-1.5 text-[11px] text-slate-300 hover:bg-slate-800 transition"
+                        onClick={() => setPendingProductionConfig(null)}
+                      >
+                        Keep editing
+                      </button>
+                    </div>
+                  </div>
+                )}
+                <div className="flex-1 min-h-0 overflow-hidden">
                   <CodexCopilotLayer
                     isOpen
                     onClose={() => {}}
@@ -7838,10 +7868,15 @@ export const ComposerStudio = () => {
                             type="button"
                             onClick={() => void handleSaveEditableGeneration()}
                             disabled={isSavingEditableGeneration}
-                            className="shrink-0"
+                            className={`shrink-0 transition-colors ${savedEditsFlash ? "bg-emerald-600 hover:bg-emerald-600 text-white" : ""}`}
                           >
-                            {isSavingEditableGeneration ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                            Save edits
+                            {isSavingEditableGeneration ? (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : savedEditsFlash ? (
+                              "✓ Saved"
+                            ) : (
+                              "Save edits"
+                            )}
                           </Button>
                         </div>
 
