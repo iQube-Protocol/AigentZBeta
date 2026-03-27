@@ -1,0 +1,125 @@
+name: AgentiQ Codex — Direct Push Capture
+
+# Fires on every direct push to dev.
+# Generates commit briefs for non-merge commits and writes them into the AgentiQ Codex.
+# Complements update-aigency-codex.yml (which handles PRs merged to main).
+#
+# Skips:
+#   - Merge commits (auto-merged from claude/** or feature branches)
+#   - Commits already captured (idempotent script)
+#   - Commits made by aigent-z[bot] itself (prevents feedback loops)
+
+on:
+  push:
+    branches: [dev]
+
+jobs:
+  capture_commits:
+    name: Capture direct commits into AgentiQ Codex
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name "aigent-z[bot]"
+          git config user.email "aigent-z[bot]@users.noreply.github.com"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Capture each new direct commit
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          BEFORE="${{ github.event.before }}"
+          AFTER="${{ github.event.after }}"
+
+          # Determine the commit range to process
+          if [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            # New branch — capture only the tip commit
+            SHAS="$AFTER"
+          else
+            # Normal push — commits added since BEFORE, excluding merge commits
+            SHAS=$(git log --format="%H" --no-merges "$BEFORE..$AFTER" 2>/dev/null || echo "")
+          fi
+
+          if [ -z "$SHAS" ]; then
+            echo "No non-merge commits to capture."
+            exit 0
+          fi
+
+          echo "Commits to capture:"
+          echo "$SHAS"
+
+          for sha in $SHAS; do
+            author=$(git log -1 --format="%an" "$sha")
+            timestamp=$(git log -1 --format="%aI" "$sha")
+            message=$(git log -1 --format="%B" "$sha")
+            short_sha="${sha:0:7}"
+
+            # Skip aigent-z[bot] commits to prevent feedback loops
+            bot_author=$(git log -1 --format="%ae" "$sha")
+            if echo "$bot_author" | grep -q "aigent-z\[bot\]"; then
+              echo "Skipping bot commit $short_sha"
+              continue
+            fi
+
+            files_changed=$(git diff-tree --no-commit-id -r --name-status "$sha" 2>/dev/null | head -50 || echo "")
+            stat_summary=$(git diff-tree --no-commit-id -r --shortstat "$sha" 2>/dev/null || echo "")
+
+            echo "Processing commit $short_sha: ${message%%$'\n'*}"
+
+            COMMIT_SHA="$sha" \
+            COMMIT_SHORT_SHA="$short_sha" \
+            COMMIT_MESSAGE="$message" \
+            COMMIT_AUTHOR="$author" \
+            COMMIT_TIMESTAMP="$timestamp" \
+            COMMIT_FILES_CHANGED="$files_changed" \
+            COMMIT_STAT_SUMMARY="$stat_summary" \
+            GITHUB_REPOSITORY="$GITHUB_REPOSITORY" \
+            node scripts/generate-commit-artifacts.js
+          done
+
+      - name: Commit codex artifacts
+        run: |
+          git add codexes/packs/aigency/
+          if git diff --cached --quiet; then
+            echo "No codex changes to commit — skipping."
+          else
+            git commit -m "update agentiq codex — direct push ${{ github.sha }}"
+            git push origin HEAD
+          fi
+
+      - name: Sync to Autonomys Auto-Drive
+        env:
+          AUTONOMYS_API_KEY: ${{ secrets.AUTONOMYS_API_KEY }}
+        run: |
+          if [ -z "$AUTONOMYS_API_KEY" ]; then
+            echo "AUTONOMYS_API_KEY not set — skipping Auto-Drive sync."
+            exit 0
+          fi
+          echo "Syncing AgentiQ Codex to Autonomys Auto-Drive (mainnet)…"
+          node scripts/sync-codex-to-autodrive.js
+
+      - name: Commit autodrive manifest CID (if updated)
+        run: |
+          git add codexes/packs/aigency/index.json
+          if git diff --cached --quiet; then
+            echo "No manifest CID changes to commit."
+          else
+            git commit -m "update agentiq codex autodrive manifest CID"
+            git push origin HEAD
+          fi
