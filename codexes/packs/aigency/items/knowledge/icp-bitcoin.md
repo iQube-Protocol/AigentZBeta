@@ -10,10 +10,12 @@ The protocol deploys four specialised ICP canisters:
 
 | Canister | ID | Purpose |
 |----------|----|---------|
-| `cross_chain_service` | `NEXT_PUBLIC_CROSS_CHAIN_SERVICE_CANISTER_ID` | LayerZero DVN quorum verification, cross-chain messaging |
+| `cross_chain_service` | `u6s2n-gx777-77774-qaaba-cai` | LayerZero DVN quorum verification, cross-chain messaging |
 | `proof_of_state` | `ulvla-h7777-77774-qaacq-cai` | Bitcoin state anchoring, batch receipts |
-| `btc_signer_psbt` | `uxrrr-q7777-77774-qaaaq-cai` | Bitcoin PSBT signing and broadcast |
-| `evm_rpc` | (env-configured) | EVM RPC relay via ICP HTTP outcalls |
+| `btc_signer_psbt` | `uxrrr-q7777-77774-qaaaq-cai` | Bitcoin PSBT signing and broadcast (tECDSA) |
+| `evm_rpc` | `uzt4z-lp777-77774-qaabq-cai` | EVM chain RPC relay via ICP HTTP outcalls |
+
+> Note: `NEXT_PUBLIC_CROSS_CHAIN_SERVICE_CANISTER_ID` env var overrides the `cross_chain_service` ID in AigentZBeta runtime.
 
 **Additional canisters**:
 
@@ -181,16 +183,38 @@ Bucket level gates certain platform operations (e.g., minting to public registry
 
 ## 6. EVM RPC via ICP
 
-The `evm_rpc` canister relays Ethereum/EVM RPC calls through ICP HTTP outcalls, providing censorship-resistant access to EVM chain state.
+The `evm_rpc` canister (`uzt4z-lp777-77774-qaabq-cai`) relays Ethereum/EVM RPC calls through ICP HTTP outcalls, providing censorship-resistant access to EVM chain state.
 
 Used by Ops Console for:
 - Ethereum Sepolia live RPC health checks
 - Polygon Amoy live RPC health checks
 - Transaction monitoring for DVN events
+- Block number and chain health queries
 
 ---
 
-## 7. Cross-Chain DVN (ICP ↔ EVM)
+## 7. Bitcoin Ordinals & Runes (Phase 3)
+
+The full ICP/BTC architecture targets Bitcoin-native token representation:
+
+- **Ordinals** — KNYT token on Bitcoin via Ordinals inscription
+- **BRC-721** — NFT class/instance minting on Bitcoin
+- **Runes** — alternative Bitcoin token protocol
+- **OP_RETURN anchoring** — proof-of-state Merkle roots embedded in Bitcoin transactions; SPV-verifiable
+
+Dual-lock minting workflow:
+```
+EVM class token ↔ BTC collection (parallel ERC-721 + Ordinal)
+  ├─ EVM: mint ERC-721 instance
+  └─ BTC: mint corresponding Ordinal
+      └─ proof_of_state anchors Merkle batch root via OP_RETURN txid
+```
+
+This is Phase 3 (currently disabled in `types/chains.ts`; Bitcoin chain config is non-EVM, `isEnabled: false`).
+
+---
+
+## 8. Cross-Chain DVN (ICP ↔ EVM)
 
 See `items/knowledge/dvn.md` for full DVN architecture.
 

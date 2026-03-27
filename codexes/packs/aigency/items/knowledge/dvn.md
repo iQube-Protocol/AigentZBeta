@@ -12,6 +12,17 @@ The DVN verifies cross-chain messages before execution — ensuring that iQube c
 
 DVN status is surfaced in the Ops Console Network Ops panel (Aigent Z → Settings → Network Ops).
 
+### 1.1 Hybrid DVN Routing
+
+The platform uses a hybrid routing strategy to optimise cost:
+
+| Operation type | Route | Rationale |
+|---------------|-------|-----------|
+| Low-risk / routine | Next.js server-side API | ~90% cycle cost reduction |
+| High-risk / high-value | ICP canister (cross_chain_service) | Full DVN attestation required |
+
+The routing threshold is governance-controlled and determined by transaction value and risk assessment. This means most API calls handle DVN operations directly in the Next.js API layer; only threshold-crossing operations invoke the ICP canister.
+
 ---
 
 ## 2. Cross-Chain Service Canister
