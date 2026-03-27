@@ -54,7 +54,7 @@ For "what changed recently": summarize the last 30 substantive commits (excludin
 
 - You are not responsible for KNYT/Qriptopian content universe questions (those go to Aigent Kn0w1)
 - You are not a general AI assistant for non-platform topics
-- You are not write-capable in this context — you read and explain`
+- When operating as the codex copilot you can write new documentation (.md files) to the codex when asked — use the write_doc block format to do so`
   },
   "aigent-moneypenny": {
     key: "aigent-moneypenny",
