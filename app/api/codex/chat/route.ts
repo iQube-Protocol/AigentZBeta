@@ -679,6 +679,56 @@ const MARKETA_TOOLS_ANTHROPIC = [
       required: ['video_prompt', 'article_prompt'],
     },
   },
+  {
+    name: 'deploy_experience',
+    description: 'Deploy a completed experience to a delivery target — metaMe runtime thin client, metaMe runtime (full), Discord (as asset link, inline embed, or experience), or Studio preview. Use this when the user wants to publish, launch, distribute, or send an experience to the runtime or Discord.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        experienceId: { type: 'string', description: 'The ExperienceQube ID to deploy' },
+        tenantId: { type: 'string', description: 'The tenant ID' },
+        personaId: { type: 'string', description: 'The persona ID' },
+        target: {
+          type: 'string',
+          enum: ['studio_preview', 'runtime_launch', 'runtime_thin_client', 'discord_mcp', 'mcp_app'],
+          description: 'Deployment target — runtime_thin_client for thin-client runtime, discord_mcp for Discord, runtime_launch for full runtime, studio_preview for internal preview',
+        },
+        variant: {
+          type: 'string',
+          enum: ['runtime_standard', 'runtime_thin_client', 'asset_link', 'discord_asset_inline', 'discord_experience_inline'],
+          description: 'Delivery variant — runtime_thin_client for thin client, asset_link for a Discord link, discord_asset_inline for inline Discord embed',
+        },
+        mode: {
+          type: 'string',
+          enum: ['simulate', 'live'],
+          description: 'simulate to preview without actually posting, live to publish for real',
+        },
+        message: { type: 'string', description: 'Message text to accompany the experience (required for Discord)' },
+        channelId: { type: 'string', description: 'Discord channel snowflake ID (required for live Discord dispatch)' },
+        inviteUrl: { type: 'string', description: 'Discord invite URL (alternative to channelId for channel resolution)' },
+        publishUrl: { type: 'string', description: 'URL to the published asset or experience' },
+        thumbnailUrl: { type: 'string', description: 'Thumbnail image URL for embed preview' },
+        titleOverride: { type: 'string', description: 'Override the experience title in the embed' },
+        tool: {
+          type: 'string',
+          enum: ['pill.get', 'capsule.get', 'mini_runtime.get', 'codex.entry', 'invite.create', 'share.compose', 'next.best'],
+          description: 'MCP delivery tool — use mini_runtime.get for runtime thin client, next.best to auto-select the best option',
+        },
+      },
+      required: ['experienceId', 'tenantId', 'personaId', 'target', 'mode'],
+    },
+  },
+  {
+    name: 'check_discord_status',
+    description: 'Check if the Discord bot is configured and has access to a specific channel. Call this before attempting a live Discord deployment to confirm the bot is ready.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        channelId: { type: 'string', description: 'Discord channel snowflake ID to check access for' },
+        inviteUrl: { type: 'string', description: 'Discord invite URL (alternative to channelId)' },
+      },
+    },
+  },
 ];
 
 const MARKETA_TOOLS_OPENAI = MARKETA_TOOLS_ANTHROPIC.map((t) => ({
@@ -798,6 +848,51 @@ async function executeMarketaTool(name: string, input: Record<string, unknown>):
         video: { ok: vidJson.ok, provider: vidJson.provider, video_url: vidJson.video_url, generation_id: vidJson.generation_id, provider_status: vidJson.provider_status },
         articleDraft: artJson.articleDraft,
       });
+    }
+    if (name === 'deploy_experience') {
+      const target = String(input.target ?? 'runtime_thin_client');
+      const defaultVariant = target === 'discord_mcp' ? 'asset_link' : 'runtime_thin_client';
+      const res = await fetch(`${base}/api/messenger/dispatch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          provider: target === 'discord_mcp' ? 'discord' : 'runtime',
+          tenantId: input.tenantId,
+          experienceId: input.experienceId,
+          personaId: input.personaId,
+          mode: input.mode ?? 'simulate',
+          target,
+          variant: input.variant ?? defaultVariant,
+          tool: input.tool ?? 'next.best',
+          message: input.message ?? '',
+          channelId: input.channelId,
+          inviteUrl: input.inviteUrl,
+          publishUrl: input.publishUrl,
+          thumbnailUrl: input.thumbnailUrl,
+          titleOverride: input.titleOverride,
+        }),
+      });
+      const json = await res.json();
+      return JSON.stringify({
+        ok: json.success,
+        target,
+        variant: json.deployment?.variant,
+        status: json.success ? 'dispatched' : 'failed',
+        publishUrl: json.deployment?.publishUrl,
+        ctaUrl: json.deployment?.ctaUrl,
+        capability: json.capability,
+        liveDispatch: json.liveDispatch,
+        warnings: json.warnings,
+        error: json.error,
+      });
+    }
+    if (name === 'check_discord_status') {
+      const params = new URLSearchParams();
+      if (input.channelId) params.set('channelId', String(input.channelId));
+      if (input.inviteUrl) params.set('inviteUrl', String(input.inviteUrl));
+      const res = await fetch(`${base}/api/messenger/discord/status?${params}`);
+      const json = await res.json();
+      return JSON.stringify({ ready: json.ready, checks: json.checks, details: json.details, errors: json.errors });
     }
     return JSON.stringify({ error: `Unknown tool: ${name}` });
   } catch (err: any) {
