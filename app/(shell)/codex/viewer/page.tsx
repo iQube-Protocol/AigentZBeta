@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import CodexPanelDynamic from "../../../triad/components/CodexPanelDynamic";
 import { useCodexConfig, useCodexList } from "@/app/hooks/useCodexConfig";
 import type { CodexListItem } from "@/types/codex";
-import CodexCopilotLayer from "@/app/components/codex/CodexCopilotLayer";
+import { CodexCopilotLayer } from "@/app/components/codex/CodexCopilotLayer";
 import {
   BookOpen,
   Bot,
