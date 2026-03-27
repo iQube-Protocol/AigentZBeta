@@ -56,6 +56,7 @@ import {
   RotateCcw,
   Send,
   Share2,
+  Square,
   SquareArrowOutUpRight,
   Sparkles,
   Tv,
@@ -109,7 +110,7 @@ type RuntimeEditorState = {
   articleOutputs: string[];
   takeawaysCount: number;
   budget: RuntimeCustomizationBudget;
-  fetchedExperience: Record<string, unknown> | null;
+  fetchedExperience: Record<string, unknown>;
 };
 
 type RuntimeCapsule = SmartContentQube & {
@@ -1424,6 +1425,17 @@ function RuntimeCapsuleAdminEditor({
       };
       const nextMeta = {
         ...metadata,
+        article_title: formState.articleTitle,
+        article_prompt: formState.articlePrompt,
+        editable_generation: {
+          ...(asRecord(metadata.editable_generation) ?? {}),
+          article_draft: {
+            title: formState.articleTitle,
+            prompt: formState.articlePrompt,
+            outputs: formState.articleOutputs,
+            takeaways_count: formState.takeawaysCount,
+          },
+        },
         composition_bundle_state: {
           ...bundleState,
           block_statuses: {
@@ -1646,6 +1658,127 @@ function RuntimeCapsuleAdminEditor({
   );
 }
 // ── end RuntimeCapsuleAdminEditor ─────────────────────────────────────────────
+
+// ── RuntimeArticlePanel ───────────────────────────────────────────────────────
+function RuntimeArticlePanel({
+  articleDraft,
+  anchorId,
+}: {
+  articleDraft: RuntimeArticleDraft;
+  anchorId: string;
+}) {
+  const [ttsState, setTtsState] = useState<"idle" | "loading" | "playing">("idle");
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const handleListen = async () => {
+    if (ttsState === "playing") {
+      audioRef.current?.pause();
+      setTtsState("idle");
+      return;
+    }
+    setTtsState("loading");
+    try {
+      const parts: string[] = [];
+      if (articleDraft.title) parts.push(`${articleDraft.title}.`);
+      if (articleDraft.deck) parts.push(articleDraft.deck);
+      if (articleDraft.opening) parts.push(articleDraft.opening);
+      articleDraft.sections.forEach((s) => {
+        if (s.heading) parts.push(`${s.heading}.`);
+        if (s.body) parts.push(s.body);
+      });
+      if (articleDraft.takeaways.length > 0) {
+        parts.push("Key takeaways.");
+        parts.push(...articleDraft.takeaways.map((t) => `${t}.`));
+      }
+      const res = await fetch("/api/skills/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: parts.join(" ") }),
+      });
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      audio.onended = () => setTtsState("idle");
+      await audio.play();
+      setTtsState("playing");
+    } catch {
+      setTtsState("idle");
+    }
+  };
+
+  return (
+    <div id={anchorId} className="rounded-2xl border border-white/10 bg-slate-900/60 p-4 space-y-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-[10px] uppercase tracking-[0.18em] text-cyan-300/80">Article</div>
+          <div className="mt-1 text-base font-semibold text-white">{articleDraft.title}</div>
+        </div>
+        <button
+          type="button"
+          onClick={() => void handleListen()}
+          disabled={ttsState === "loading"}
+          title={ttsState === "playing" ? "Stop reading" : "Listen with Marketa"}
+          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] transition ${
+            ttsState === "playing"
+              ? "border border-fuchsia-500/40 bg-fuchsia-500/10 text-fuchsia-300"
+              : "border border-slate-700 text-slate-400 hover:border-slate-500 hover:text-white"
+          }`}
+        >
+          {ttsState === "loading" ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : ttsState === "playing" ? (
+            <Square className="h-3.5 w-3.5" />
+          ) : (
+            <Headphones className="h-3.5 w-3.5" />
+          )}
+          <span>{ttsState === "playing" ? "Stop" : ttsState === "loading" ? "…" : "Listen"}</span>
+        </button>
+      </div>
+      {articleDraft.deck ? <div className="mt-2 text-sm text-slate-200">{articleDraft.deck}</div> : null}
+      {articleDraft.opening ? <div className="mt-2 text-xs text-slate-400">{articleDraft.opening}</div> : null}
+      {articleDraft.sections.length > 0 ? (
+        <div className="space-y-3">
+          {articleDraft.sections.map((section) => (
+            <div key={section.heading} className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+              <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">{section.heading}</div>
+              <div className="mt-1 text-sm text-slate-200">{section.body}</div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {articleDraft.takeaways.length > 0 ? (
+        <div>
+          <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Takeaways</div>
+          <div className="mt-2 space-y-1 text-xs text-slate-300">
+            {articleDraft.takeaways.map((item) => (
+              <div key={item}>{item}</div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {articleDraft.glossary.length > 0 ? (
+        <div>
+          <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Glossary</div>
+          <div className="mt-2 space-y-2 text-xs text-slate-300">
+            {articleDraft.glossary.map((item) => (
+              <div key={item.term}>
+                <span className="font-medium text-white">{item.term}</span>: {item.definition}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {articleDraft.nextAction ? (
+        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-xs text-emerald-100">
+          <div className="text-[11px] uppercase tracking-[0.16em] text-emerald-300">Next action</div>
+          <div className="mt-1">{articleDraft.nextAction}</div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+// ── end RuntimeArticlePanel ───────────────────────────────────────────────────
 
 export default function MetaMeRuntimeClient() {
   const searchParams = useSearchParams();
@@ -2419,7 +2552,10 @@ export default function MetaMeRuntimeClient() {
               <RuntimeCapsuleAdminEditor
                 content={content}
                 onComplete={(override) =>
-                  setRuntimeExperienceOverrides((prev) => ({ ...prev, [content.id]: override }))
+                  setRuntimeExperienceOverrides((prev) => ({
+                    ...prev,
+                    [resolveRuntimeExperienceId(content) ?? content.id]: override,
+                  }))
                 }
               />
             ) : null}
@@ -2618,52 +2754,7 @@ export default function MetaMeRuntimeClient() {
             ) : null}
 
             {(content.runtimeContentKind === "article" || articleDraft) && articleDraft ? (
-              <div id={articleAnchorId} className="rounded-2xl border border-white/10 bg-slate-900/60 p-4 space-y-3">
-                <div>
-                  <div className="text-[10px] uppercase tracking-[0.18em] text-cyan-300/80">Article</div>
-                  <div className="mt-1 text-base font-semibold text-white">{articleDraft.title}</div>
-                  {articleDraft.deck ? <div className="mt-2 text-sm text-slate-200">{articleDraft.deck}</div> : null}
-                  {articleDraft.opening ? <div className="mt-2 text-xs text-slate-400">{articleDraft.opening}</div> : null}
-                </div>
-                {articleDraft.sections.length > 0 ? (
-                  <div className="space-y-3">
-                    {articleDraft.sections.map((section) => (
-                      <div key={section.heading} className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
-                        <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">{section.heading}</div>
-                        <div className="mt-1 text-sm text-slate-200">{section.body}</div>
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
-                {articleDraft.takeaways.length > 0 ? (
-                  <div>
-                    <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Takeaways</div>
-                    <div className="mt-2 space-y-1 text-xs text-slate-300">
-                      {articleDraft.takeaways.map((item) => (
-                        <div key={item}>{item}</div>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-                {articleDraft.glossary.length > 0 ? (
-                  <div>
-                    <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Glossary</div>
-                    <div className="mt-2 space-y-2 text-xs text-slate-300">
-                      {articleDraft.glossary.map((item) => (
-                        <div key={item.term}>
-                          <span className="font-medium text-white">{item.term}</span>: {item.definition}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-                {articleDraft.nextAction ? (
-                  <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-xs text-emerald-100">
-                    <div className="text-[11px] uppercase tracking-[0.16em] text-emerald-300">Next action</div>
-                    <div className="mt-1">{articleDraft.nextAction}</div>
-                  </div>
-                ) : null}
-              </div>
+              <RuntimeArticlePanel articleDraft={articleDraft} anchorId={articleAnchorId} />
             ) : null}
 
             {embedMode && (() => {
