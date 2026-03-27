@@ -464,6 +464,7 @@ export default function CodexViewerPage() {
               density={density}
               agent={{ id: "aigent-z", name: "Aigent Z" }}
               personaId="aigent-z"
+              enableInferenceRendering
               initialMessage="I'm Aigent Z — the engineering intelligence of the AgentiQ platform. Ask me about the architecture, codebase, deployment history, API routes, or any decision made during development."
               quickPrompts={[
                 "What was built recently?",
