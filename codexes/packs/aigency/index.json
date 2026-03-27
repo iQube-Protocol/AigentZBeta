@@ -1,0 +1,14 @@
+{
+  "pack_id": "pack_aigency_v0",
+  "title": "AgentiQ Codex",
+  "description": "Aigent Z's canonical knowledge base. Updated on every merged PR.",
+  "last_updated": "2026-03-27T00:00:00.000Z",
+  "latest_pr": null,
+  "latest_pr_title": null,
+  "pr_history": [],
+  "entrypoint": "items/00_START_HERE.md",
+  "system_map": "items/architecture/system-map.md",
+  "retrieval_index": "items/memory/retrieval-index.md",
+  "collections": "collections.json",
+  "autodrive_path": "AigencyCodex/repos/AigentZBeta"
+}

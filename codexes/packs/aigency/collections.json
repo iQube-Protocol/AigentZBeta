@@ -24,7 +24,34 @@
         { "id": "build.backlog", "title": "Backlog", "items": ["items/build_/backlog.md"] },
         { "id": "build.decisions", "title": "Decisions", "items": ["items/build_/decisions.md"] },
         { "id": "build.work_allocation", "title": "Work Allocation", "items": ["items/build_/work-allocation.md"] },
-        { "id": "build.changelog", "title": "Changelog", "items": ["items/build_/changelog.md"] }
+        { "id": "build.changelog", "title": "Changelog", "items": ["items/build_/changelog.md"] },
+        {
+          "id": "build.pr",
+          "title": "PR Briefs",
+          "description": "Auto-generated per-PR briefs on merge to main",
+          "glob": "items/build_/PR/PR-*.md"
+        },
+        {
+          "id": "build.decision_notes",
+          "title": "Decision Notes",
+          "description": "Structured decision notes extracted from PR AIGENTZ_DECISIONS blocks",
+          "glob": "items/build_/DECISIONS/*.md"
+        },
+        {
+          "id": "build.problem_logs",
+          "title": "Problem Logs",
+          "description": "Structured problem logs extracted from PR AIGENTZ_PROBLEMS blocks",
+          "glob": "items/build_/PROBLEMS/*.md"
+        },
+        {
+          "id": "build.templates",
+          "title": "Templates",
+          "items": [
+            "items/build_/templates/PR_BRIEF_TEMPLATE.md",
+            "items/build_/templates/DECISION_NOTE_TEMPLATE.md",
+            "items/build_/templates/PROBLEM_LOG_TEMPLATE.md"
+          ]
+        }
       ]
     },
     {
