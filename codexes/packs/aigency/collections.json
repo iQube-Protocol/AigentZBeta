@@ -44,6 +44,12 @@
           "glob": "items/build_/PROBLEMS/*.md"
         },
         {
+          "id": "build.commit_briefs",
+          "title": "Commit Briefs",
+          "description": "Auto-generated per-commit briefs for direct pushes to dev (non-PR work)",
+          "glob": "items/build_/COMMITS/COMMIT-*.md"
+        },
+        {
           "id": "build.templates",
           "title": "Templates",
           "items": [
