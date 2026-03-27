@@ -124,10 +124,14 @@ function CompositionBundleBrief({
       setTtsState("idle");
       return;
     }
-    if (!articleGenerated) return;
+    if (!articleDraft) return;
     setTtsState("loading");
     try {
-      const text = buildTTSText(articleGenerated);
+      const text = buildTTSText(
+        articleGenerated ?? {
+          title: typeof articleDraft.title === "string" ? articleDraft.title : "",
+        },
+      );
       const res = await fetch("/api/skills/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -237,7 +241,7 @@ function CompositionBundleBrief({
             mobileTitle="Copy"
             rightActions={
               <>
-                {articleGenerated ? (
+                {articleDraft ? (
                   <button
                     type="button"
                     onClick={() => void handleListen()}

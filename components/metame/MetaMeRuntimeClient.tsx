@@ -46,6 +46,7 @@ import {
   Headphones,
   Hexagon,
   Image as ImageIcon,
+  Loader2,
   Maximize2,
   Minimize2,
   Pencil,
