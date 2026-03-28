@@ -998,11 +998,6 @@ function fromRuntimeCapsuleRecord(record: RuntimeCapsuleRecord): RuntimeCapsule 
     runtimeContentKind: record.metadata?.contentKind ?? null,
     runtimePreviewMediaUri: record.metadata?.previewMediaUri ?? null,
     runtimeExperienceContext: record.metadata?.activeExperienceContext ?? null,
-    runtimeArticleDraft: (() => {
-      const meta = asRecord(record.metadata);
-      const gen = asRecord(asRecord(asRecord(meta?.editable_generation)?.article_draft)?.generated);
-      return gen ? parseRuntimeArticleDraft(JSON.stringify(gen)) : null;
-    })(),
   } as unknown as RuntimeCapsule;
 }
 
@@ -1674,7 +1669,7 @@ function RuntimeArticlePanel({
   articleDraft: RuntimeArticleDraft;
   anchorId: string;
 }) {
-  const [ttsState, setTtsState] = useState<"idle" | "loading" | "playing">("idle");
+  const [ttsState, setTtsState] = useState<"idle" | "loading" | "playing" | "error">("idle");
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const blobUrlRef = useRef<string | null>(null);
 
@@ -1746,14 +1741,16 @@ function RuntimeArticlePanel({
           blobUrlRef.current = null;
         }
         audioRef.current = null;
-        setTtsState("idle");
+        setTtsState("error");
+        setTimeout(() => setTtsState((s) => (s === "error" ? "idle" : s)), 3000);
       });
     } catch {
       if (blobUrlRef.current) {
         URL.revokeObjectURL(blobUrlRef.current);
         blobUrlRef.current = null;
       }
-      setTtsState("idle");
+      setTtsState("error");
+      setTimeout(() => setTtsState((s) => (s === "error" ? "idle" : s)), 3000);
     }
   };
 
@@ -1768,10 +1765,12 @@ function RuntimeArticlePanel({
           type="button"
           onClick={() => void handleListen()}
           disabled={ttsState === "loading"}
-          title={ttsState === "playing" ? "Stop reading" : "Listen with Marketa"}
+          title={ttsState === "playing" ? "Stop reading" : ttsState === "error" ? "TTS failed — click to dismiss" : "Listen with Marketa"}
           className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] transition ${
             ttsState === "playing"
               ? "border border-fuchsia-500/40 bg-fuchsia-500/10 text-fuchsia-300"
+              : ttsState === "error"
+              ? "border border-red-500/40 bg-red-500/10 text-red-400"
               : "border border-slate-700 text-slate-400 hover:border-slate-500 hover:text-white"
           }`}
         >
@@ -1782,7 +1781,7 @@ function RuntimeArticlePanel({
           ) : (
             <Headphones className="h-3.5 w-3.5" />
           )}
-          <span>{ttsState === "playing" ? "Stop" : ttsState === "loading" ? "…" : "Listen"}</span>
+          <span>{ttsState === "playing" ? "Stop" : ttsState === "loading" ? "…" : ttsState === "error" ? "Error" : "Listen"}</span>
         </button>
       </div>
       {articleDraft.deck ? <div className="mt-2 text-sm text-slate-200">{articleDraft.deck}</div> : null}
