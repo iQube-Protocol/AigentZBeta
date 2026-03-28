@@ -202,6 +202,8 @@ function tabFromCollection(collection: PackCollection, packId: string, order: nu
     };
   }
 
+  const isKnowledgeTab = collection.id === "col_knowledge";
+
   return {
     id: `${packId}-tab-${slug}`,
     label: collection.title,
@@ -221,6 +223,7 @@ function tabFromCollection(collection: PackCollection, packId: string, order: nu
           props: {
             packId,
             collectionId: collection.id,
+            ...(isKnowledgeTab ? { editable: true } : {}),
           },
         },
     metadata: {

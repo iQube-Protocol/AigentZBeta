@@ -219,7 +219,7 @@ async function callOpenAi(messages: ChatMessage[]): Promise<string> {
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${OPENAI_API_KEY}` },
-    body: JSON.stringify({ model: OPENAI_MODEL, messages, temperature: 0.4, max_tokens: 2048 }),
+    body: JSON.stringify({ model: OPENAI_MODEL, messages, temperature: 0.2, max_tokens: 2048 }),
   });
   if (!res.ok) throw new Error(`OpenAI ${res.status}: ${await res.text()}`);
   const data = await res.json();
@@ -245,7 +245,7 @@ async function callAnthropic(systemPrompt: string, messages: ChatMessage[]): Pro
       system: systemPrompt,
       messages: anthropicMessages,
       max_tokens: 2048,
-      temperature: 0.4,
+      temperature: 0.2,
     }),
   });
   if (!res.ok) throw new Error(`Anthropic ${res.status}: ${await res.text()}`);
@@ -263,7 +263,7 @@ async function callVenice(messages: ChatMessage[]): Promise<string> {
   const res = await fetch('https://api.venice.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${VENICE_API_KEY}` },
-    body: JSON.stringify({ model: VENICE_MODEL, messages, temperature: 0.4, max_tokens: 2048 }),
+    body: JSON.stringify({ model: VENICE_MODEL, messages, temperature: 0.2, max_tokens: 2048 }),
   });
   if (!res.ok) throw new Error(`Venice ${res.status}: ${await res.text()}`);
   const data = await res.json();
