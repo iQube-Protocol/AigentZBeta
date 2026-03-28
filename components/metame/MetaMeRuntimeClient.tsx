@@ -998,6 +998,11 @@ function fromRuntimeCapsuleRecord(record: RuntimeCapsuleRecord): RuntimeCapsule 
     runtimeContentKind: record.metadata?.contentKind ?? null,
     runtimePreviewMediaUri: record.metadata?.previewMediaUri ?? null,
     runtimeExperienceContext: record.metadata?.activeExperienceContext ?? null,
+    runtimeArticleDraft: (() => {
+      const meta = asRecord(record.metadata);
+      const gen = asRecord(asRecord(asRecord(meta?.editable_generation)?.article_draft)?.generated);
+      return gen ? parseRuntimeArticleDraft(JSON.stringify(gen)) : null;
+    })(),
   } as unknown as RuntimeCapsule;
 }
 
@@ -1696,22 +1701,26 @@ function RuntimeArticlePanel({
     }
     setTtsState("loading");
     try {
+      const sections = Array.isArray(articleDraft.sections) ? articleDraft.sections : [];
+      const takeaways = Array.isArray(articleDraft.takeaways) ? articleDraft.takeaways : [];
       const parts: string[] = [];
       if (articleDraft.title) parts.push(`${articleDraft.title}.`);
       if (articleDraft.deck) parts.push(articleDraft.deck);
       if (articleDraft.opening) parts.push(articleDraft.opening);
-      articleDraft.sections.forEach((s) => {
+      sections.forEach((s) => {
         if (s.heading) parts.push(`${s.heading}.`);
         if (s.body) parts.push(s.body);
       });
-      if (articleDraft.takeaways.length > 0) {
+      if (takeaways.length > 0) {
         parts.push("Key takeaways.");
-        parts.push(...articleDraft.takeaways.map((t) => `${t}.`));
+        parts.push(...takeaways.map((t) => `${t}.`));
       }
+      const text = parts.join(" ").trim();
+      if (!text) { setTtsState("idle"); return; }
       const res = await fetch("/api/skills/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: parts.join(" ") }),
+        body: JSON.stringify({ text }),
       });
       if (!res.ok) throw new Error(`TTS ${res.status}`);
       const blob = await res.blob();
@@ -1727,8 +1736,18 @@ function RuntimeArticlePanel({
         }
         setTtsState("idle");
       };
-      await audio.play();
+      // Set playing state before audio.play() — calling play() after async work loses
+      // the browser's user-gesture activation context, causing NotAllowedError on
+      // strict autoplay policy. The .catch() rolls back if play is blocked.
       setTtsState("playing");
+      audio.play().catch(() => {
+        if (blobUrlRef.current === url) {
+          URL.revokeObjectURL(url);
+          blobUrlRef.current = null;
+        }
+        audioRef.current = null;
+        setTtsState("idle");
+      });
     } catch {
       if (blobUrlRef.current) {
         URL.revokeObjectURL(blobUrlRef.current);
