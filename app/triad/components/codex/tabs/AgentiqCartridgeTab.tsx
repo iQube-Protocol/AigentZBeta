@@ -9,6 +9,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { AlertCircle, CheckCircle2, FileText, Loader2, Pencil, X } from "lucide-react";
 import { getCachedOrFetch } from "../cache";
+import { CopilotInferenceBodyRenderer } from "@/app/components/codex/CopilotInferenceBodyRenderer";
 
 interface CollectionEntry {
   id: string;
@@ -44,6 +45,7 @@ export function AgentiqCartridgeTab({ packId, collectionId, defaultPath, editabl
   const [loading, setLoading] = useState(true);
   const [contentLoading, setContentLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [contentFormat, setContentFormat] = useState<"markdown" | "json">("markdown");
   const [editMode, setEditMode] = useState(false);
   const [editDraft, setEditDraft] = useState<string>("");
   const [saving, setSaving] = useState(false);
@@ -114,8 +116,10 @@ export function AgentiqCartridgeTab({ packId, collectionId, defaultPath, editabl
         if (!isMounted) return;
         if (payload.format === "json") {
           setContent(JSON.stringify(payload.data ?? {}, null, 2));
+          setContentFormat("json");
         } else {
           setContent(payload.content ?? "");
+          setContentFormat("markdown");
         }
       } catch (err) {
         if (isMounted) {
@@ -273,9 +277,13 @@ export function AgentiqCartridgeTab({ packId, collectionId, defaultPath, editabl
                 {saveResult.message}
               </div>
             )}
-            <pre className="whitespace-pre-wrap text-sm text-slate-200">
-              {content || "No content available."}
-            </pre>
+            {contentFormat === "markdown" ? (
+              <CopilotInferenceBodyRenderer content={content || ""} />
+            ) : (
+              <pre className="whitespace-pre-wrap text-sm text-slate-200">
+                {content || "No content available."}
+              </pre>
+            )}
           </div>
         )}
       </div>
