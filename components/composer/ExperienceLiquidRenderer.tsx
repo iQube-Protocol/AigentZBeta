@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
+import { useTTSPlayer } from "@/app/hooks/useTTSPlayer";
 import { useRouter } from "next/navigation";
 import { liquidTemplateRegistry } from "@/app/triad/components/codex/liquidTemplates/registry";
 import { LiquidUIPlaceholderTemplate } from "@/app/triad/components/codex/liquidTemplates/LiquidUIPlaceholderTemplate";
@@ -48,16 +49,13 @@ function CompositionBundleBrief({
 }) {
   const router = useRouter();
   const [articleExpanded, setArticleExpanded] = useState(false);
-  const [ttsState, setTtsState] = useState<"idle" | "loading" | "playing" | "error">("idle");
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const blobUrlRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    return () => {
-      audioRef.current?.pause();
-      if (blobUrlRef.current) { URL.revokeObjectURL(blobUrlRef.current); blobUrlRef.current = null; }
-    };
-  }, []);
+  const { ttsState, handleListen } = useTTSPlayer({
+    getText: () => buildTTSText(
+      articleGenerated ?? {
+        title: typeof articleDraft?.title === "string" ? articleDraft.title : "",
+      },
+    ),
+  });
   const composition =
     packet?.composition && typeof packet.composition === "object" ? packet.composition : null;
   const sequencingState =
@@ -124,51 +122,6 @@ function CompositionBundleBrief({
       bundleBlock: "article_draft",
     });
     router.push(`/studio/composer?${params.toString()}`);
-  };
-
-  const handleListen = async () => {
-    if (ttsState !== "idle") {
-      audioRef.current?.pause();
-      if (blobUrlRef.current) { URL.revokeObjectURL(blobUrlRef.current); blobUrlRef.current = null; }
-      setTtsState("idle");
-      return;
-    }
-    if (!articleDraft) return;
-    setTtsState("loading");
-    try {
-      const text = buildTTSText(
-        articleGenerated ?? {
-          title: typeof articleDraft.title === "string" ? articleDraft.title : "",
-        },
-      );
-      const res = await fetch("/api/skills/tts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
-      });
-      if (!res.ok) throw new Error(`TTS ${res.status}`);
-      const blob = await res.blob();
-      if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
-      const url = URL.createObjectURL(blob);
-      blobUrlRef.current = url;
-      const audio = new Audio(url);
-      audioRef.current = audio;
-      audio.onended = () => {
-        if (blobUrlRef.current === url) { URL.revokeObjectURL(url); blobUrlRef.current = null; }
-        setTtsState("idle");
-      };
-      setTtsState("playing");
-      audio.play().catch(() => {
-        if (blobUrlRef.current === url) { URL.revokeObjectURL(url); blobUrlRef.current = null; }
-        audioRef.current = null;
-        setTtsState("error");
-        setTimeout(() => setTtsState((s) => (s === "error" ? "idle" : s)), 3000);
-      });
-    } catch {
-      if (blobUrlRef.current) { URL.revokeObjectURL(blobUrlRef.current); blobUrlRef.current = null; }
-      setTtsState("error");
-      setTimeout(() => setTtsState((s) => (s === "error" ? "idle" : s)), 3000);
-    }
   };
 
   return (

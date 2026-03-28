@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTTSPlayer } from "@/app/hooks/useTTSPlayer";
 import { useSearchParams } from "next/navigation";
 import {
   createRuntimeMessage,
@@ -1669,33 +1670,8 @@ function RuntimeArticlePanel({
   articleDraft: RuntimeArticleDraft;
   anchorId: string;
 }) {
-  const [ttsState, setTtsState] = useState<"idle" | "loading" | "playing" | "error">("idle");
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const blobUrlRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    return () => {
-      audioRef.current?.pause();
-      if (blobUrlRef.current) {
-        URL.revokeObjectURL(blobUrlRef.current);
-        blobUrlRef.current = null;
-      }
-    };
-  }, []);
-
-  const handleListen = async () => {
-    // Stop if already loading or playing
-    if (ttsState !== "idle") {
-      audioRef.current?.pause();
-      if (blobUrlRef.current) {
-        URL.revokeObjectURL(blobUrlRef.current);
-        blobUrlRef.current = null;
-      }
-      setTtsState("idle");
-      return;
-    }
-    setTtsState("loading");
-    try {
+  const { ttsState, handleListen } = useTTSPlayer({
+    getText: () => {
       const sections = Array.isArray(articleDraft.sections) ? articleDraft.sections : [];
       const takeaways = Array.isArray(articleDraft.takeaways) ? articleDraft.takeaways : [];
       const parts: string[] = [];
@@ -1710,49 +1686,9 @@ function RuntimeArticlePanel({
         parts.push("Key takeaways.");
         parts.push(...takeaways.map((t) => `${t}.`));
       }
-      const text = parts.join(" ").trim();
-      if (!text) { setTtsState("idle"); return; }
-      const res = await fetch("/api/skills/tts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
-      });
-      if (!res.ok) throw new Error(`TTS ${res.status}`);
-      const blob = await res.blob();
-      if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
-      const url = URL.createObjectURL(blob);
-      blobUrlRef.current = url;
-      const audio = new Audio(url);
-      audioRef.current = audio;
-      audio.onended = () => {
-        if (blobUrlRef.current === url) {
-          URL.revokeObjectURL(url);
-          blobUrlRef.current = null;
-        }
-        setTtsState("idle");
-      };
-      // Set playing state before audio.play() — calling play() after async work loses
-      // the browser's user-gesture activation context, causing NotAllowedError on
-      // strict autoplay policy. The .catch() rolls back if play is blocked.
-      setTtsState("playing");
-      audio.play().catch(() => {
-        if (blobUrlRef.current === url) {
-          URL.revokeObjectURL(url);
-          blobUrlRef.current = null;
-        }
-        audioRef.current = null;
-        setTtsState("error");
-        setTimeout(() => setTtsState((s) => (s === "error" ? "idle" : s)), 3000);
-      });
-    } catch {
-      if (blobUrlRef.current) {
-        URL.revokeObjectURL(blobUrlRef.current);
-        blobUrlRef.current = null;
-      }
-      setTtsState("error");
-      setTimeout(() => setTtsState((s) => (s === "error" ? "idle" : s)), 3000);
-    }
-  };
+      return parts.join(" ").trim();
+    },
+  });
 
   return (
     <div id={anchorId} className="rounded-2xl border border-white/10 bg-slate-900/60 p-4 space-y-3">
