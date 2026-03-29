@@ -73,6 +73,20 @@ export interface SmartMenuItem {
   tooltip?: string;
   badge?: string | number;
   disabled?: boolean;
+  /**
+   * Action type — carried through MENU_ACTION bridge messages to the Runtime.
+   * Lovable thin client and platform rail both emit these; platform must handle
+   * the full set including Experience Laddering actions.
+   */
+  action?: 'openDrawer' | 'focusTab' | 'navigate' | 'openAgent' | 'openModal' | 'external'
+         | 'vote' | 'submitContribution' | 'correspond' | 'viewProgress';
+  /** Extra context for laddering actions (carried in MENU_ACTION payload) */
+  ladderingContext?: {
+    electionId?: string;
+    branchTarget?: 'canon' | 'community' | 'correspondent';
+    contributionSchema?: string;
+    worldId?: string;
+  };
 }
 
 /**

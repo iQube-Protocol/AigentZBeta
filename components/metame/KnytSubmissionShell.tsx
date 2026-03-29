@@ -198,8 +198,8 @@ export function KnytSubmissionShell({
     setSaving(true);
     setError(null);
     try {
-      // POST to contributions API
-      const res = await fetch("/api/crm/contributions", {
+      // POST to KNYT-specific contribution endpoint
+      const res = await fetch("/api/codex/knyt/living-canon/contribute", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -210,9 +210,7 @@ export function KnytSubmissionShell({
           status: submit ? "submitted" : "draft",
           field_values: values,
           metadata: {
-            branch_target: schema.schema_json.branch_target,
             reward_task_type: schema.schema_json.reward_task_type,
-            schema_slug: schemaSlug,
           },
         }),
       });
@@ -223,7 +221,7 @@ export function KnytSubmissionShell({
       }
 
       const result = await res.json();
-      const submissionId: string = result?.id ?? result?.contribution_id ?? "";
+      const submissionId: string = result?.id ?? "";
 
       toast(submit ? "Submission sent for review" : "Draft saved", "success");
       if (submit) {
