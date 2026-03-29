@@ -21,6 +21,39 @@ function getSupabaseBrowserClient() {
   return createClient(url, key);
 }
 
+const AUTH_PROFILE_STORAGE_KEYS = ["authProfileId", "agentiq_auth_profile_id"] as const;
+
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function getDeviceAuthProfileId(): string | null {
+  if (typeof window === "undefined") return null;
+  for (const key of AUTH_PROFILE_STORAGE_KEYS) {
+    const v = window.localStorage.getItem(key) || window.sessionStorage.getItem(key);
+    if (v && isUuid(v.trim())) return v.trim();
+  }
+  return null;
+}
+
+/** Fire-and-forget: link the device localStorage UUID to the signed-in canonical profile. */
+async function linkDeviceProfile(accessToken: string): Promise<void> {
+  const deviceProfileId = getDeviceAuthProfileId();
+  if (!deviceProfileId) return;
+  try {
+    await fetch("/api/wallet/identity/link-device", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ deviceProfileId }),
+    });
+  } catch {
+    // non-fatal
+  }
+}
+
 function isAgentPersona(fioHandle?: string | null, displayName?: string): boolean {
   const h = (fioHandle ?? "").toLowerCase();
   const n = (displayName ?? "").toLowerCase();
@@ -66,6 +99,10 @@ export function useSupabaseSessionPersonas(): SessionIdentity {
 
   const fetchPersonas = useCallback(async (accessToken: string) => {
     try {
+      // Link device localStorage profile to canonical email profile first,
+      // so personas created before sign-in are visible after sign-in.
+      await linkDeviceProfile(accessToken);
+
       const res = await fetch("/api/wallet/personas", {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
