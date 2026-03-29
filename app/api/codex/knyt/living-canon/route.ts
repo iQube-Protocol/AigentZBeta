@@ -28,7 +28,7 @@ const WORLD_ID = '21sats';
 async function getBranchItems(branch: string, limit = 20) {
   const { data, error } = await supabase
     .from('knyt_publication_states')
-    .select('id, subject_type, subject_id, state, reviewed_at, elevated_at, autodrive_cid, created_at')
+    .select('id, subject_type, subject_id, branch, state, reviewed_at, elevated_at, autodrive_cid, created_at')
     .eq('branch', branch)
     .in('state', branch === 'canon' ? ['canon'] : ['approved', 'canon_eligible', 'canon'])
     .order('created_at', { ascending: false })
