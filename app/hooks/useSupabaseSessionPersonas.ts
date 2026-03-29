@@ -54,6 +54,22 @@ async function linkDeviceProfile(accessToken: string): Promise<void> {
   }
 }
 
+/**
+ * Fire-and-forget: consolidate all UUIDs and personas associated with the
+ * signed-in email into a single canonical crm_auth_profiles entry.
+ * Runs on every sign-in; idempotent.
+ */
+async function consolidateIdentity(accessToken: string): Promise<void> {
+  try {
+    await fetch("/api/wallet/identity/consolidate", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+  } catch {
+    // non-fatal
+  }
+}
+
 function isAgentPersona(fioHandle?: string | null, displayName?: string): boolean {
   const h = (fioHandle ?? "").toLowerCase();
   const n = (displayName ?? "").toLowerCase();
@@ -99,8 +115,9 @@ export function useSupabaseSessionPersonas(): SessionIdentity {
 
   const fetchPersonas = useCallback(async (accessToken: string) => {
     try {
-      // Link device localStorage profile to canonical email profile first,
-      // so personas created before sign-in are visible after sign-in.
+      // Consolidate all identity UUIDs/personas for this email, then link
+      // the device localStorage profile — ensures complete persona discovery.
+      await consolidateIdentity(accessToken);
       await linkDeviceProfile(accessToken);
 
       const res = await fetch("/api/wallet/personas", {

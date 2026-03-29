@@ -3,6 +3,12 @@ import { createClient } from '@supabase/supabase-js';
 import { getCallerAuthProfileId } from '@/services/wallet/personaRepo';
 import { getMergedLinkedAuthProfileIds, getPersonaPrefs } from '@/services/wallet/multiEmailIdentity';
 
+// Anon client for validating user JWTs (service role client cannot use getUser with token)
+const supabaseAnon = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+);
+
 export const dynamic = 'force-dynamic';
 
 const supabase = createClient(
@@ -104,7 +110,20 @@ export async function GET(request: NextRequest) {
     }
 
     const linkedAuthProfileIds = await getMergedLinkedAuthProfileIds(callerAuthProfileId);
-    const visibleAuthProfileIds = Array.from(new Set([callerAuthProfileId, ...linkedAuthProfileIds]));
+
+    // Also include the raw Supabase auth.users.id — personas created before
+    // canonicalization may still carry this UUID as their auth_profile_id.
+    const authHeader = request.headers.get('authorization') || request.headers.get('Authorization');
+    const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    let supabaseUserId: string | null = null;
+    if (bearerToken) {
+      const { data: userData } = await supabaseAnon.auth.getUser(bearerToken);
+      if (userData?.user?.id) supabaseUserId = userData.user.id;
+    }
+
+    const visibleAuthProfileIds = Array.from(
+      new Set([callerAuthProfileId, ...linkedAuthProfileIds, ...(supabaseUserId ? [supabaseUserId] : [])])
+    );
 
     let ownerQuery = supabase.from('personas').select(personaSelect);
     if (visibleAuthProfileIds.length === 1) {
