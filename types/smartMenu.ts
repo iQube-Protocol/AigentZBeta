@@ -12,13 +12,20 @@ import type { AppId, AgentId } from '@/services/orchestration/flowContext';
 // =============================================================================
 
 /** Menu item action types */
-export type MenuItemAction = 
+export type MenuItemAction =
   | 'openDrawer'
   | 'focusTab'
   | 'navigate'
   | 'openAgent'
   | 'openModal'
-  | 'external';
+  | 'external'
+  // Experience Laddering actions — Living Canon / 21 Sats
+  // These map to MENU_ACTION bridge messages (ShellOutboundType) in iframe-bridge.
+  // The Lovable thin client smart menu exposes these; platform smart menu must match.
+  | 'vote'              // Open active election for eligible item
+  | 'submitContribution' // Open guided submission shell (RuntimeCapsuleAdminEditor, democratised)
+  | 'correspond'        // Open correspondent submission flow (requires knyt:correspondent entitlement)
+  | 'viewProgress';     // Open Order of Metaiye progression panel
 
 /** Menu item definition */
 export interface MenuItem {
@@ -36,6 +43,17 @@ export interface MenuItem {
   };
   children?: MenuItem[];
   visibilityRules?: MenuVisibilityRules;
+  /** Extra context for Experience Laddering actions */
+  ladderingContext?: {
+    /** Election ID for 'vote' actions */
+    electionId?: string;
+    /** Branch target for 'submitContribution' / 'correspond' actions */
+    branchTarget?: 'canon' | 'community' | 'correspondent';
+    /** Contribution schema slug for 'submitContribution' actions */
+    contributionSchema?: string;
+    /** World ID (defaults to '21sats') */
+    worldId?: string;
+  };
 }
 
 /** Menu visibility rules */

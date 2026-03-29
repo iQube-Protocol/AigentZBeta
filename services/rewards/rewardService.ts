@@ -20,19 +20,35 @@ import { createClient } from '@supabase/supabase-js';
 export enum RewardTaskType {
   // Referrals - Bring a Knight
   BringAKnightQualifiedReferral = 'BringAKnightQualifiedReferral',
-  
+
   // Engagement - Knight of Attention
   KnightOfAttentionEpisodeComplete = 'KnightOfAttentionEpisodeComplete',
   KnightOfAttentionWeeklyStreak = 'KnightOfAttentionWeeklyStreak',
   KnightOfAttentionStreakBonus = 'KnightOfAttentionStreakBonus',
-  
+
   // Social - Herald of the Order
   HeraldCuriosityClicks = 'HeraldCuriosityClicks',
   HeraldAudienceSignups = 'HeraldAudienceSignups',
   HeraldConversionPayingUser = 'HeraldConversionPayingUser',
-  
+
   // Special
   FoundingOrderAirdrop = 'FoundingOrderAirdrop',
+
+  // Living Canon — Experience Laddering (21 Sats)
+  // Turnout-positive: per-voter reward is fixed; pool grows with turnout.
+  LivingCanonVoteCast = 'LivingCanonVoteCast',
+
+  // Contribution rewards (PoKW-linked)
+  LivingCanonContributionAccepted = 'LivingCanonContributionAccepted',
+  LivingCanonContributionFeatured = 'LivingCanonContributionFeatured',
+  LivingCanonContributionCanonElevated = 'LivingCanonContributionCanonElevated',
+
+  // Correspondent rewards (elevated tier)
+  LivingCanonCorrespondentDispatch = 'LivingCanonCorrespondentDispatch',
+  LivingCanonCorrespondentElevation = 'LivingCanonCorrespondentElevation',
+
+  // Order of Metaiye — progression milestones
+  OrderAscensionMilestone = 'OrderAscensionMilestone',
 }
 
 /** Order tier (investor cohorts) */
@@ -97,6 +113,22 @@ export const BASE_REWARD_AMOUNTS: Record<RewardTaskType, number> = {
   
   // Special
   [RewardTaskType.FoundingOrderAirdrop]: 0, // Variable, set via customBaseAmount
+
+  // Living Canon — Experience Laddering (21 Sats)
+  // Turnout-positive: this is the fixed per-voter amount; pool = amount × ballots_cast
+  [RewardTaskType.LivingCanonVoteCast]: 0.1,
+
+  // Contribution (PoKW-linked)
+  [RewardTaskType.LivingCanonContributionAccepted]: 0.5,
+  [RewardTaskType.LivingCanonContributionFeatured]: 1.0,
+  [RewardTaskType.LivingCanonContributionCanonElevated]: 2.0,
+
+  // Correspondent
+  [RewardTaskType.LivingCanonCorrespondentDispatch]: 0.75,
+  [RewardTaskType.LivingCanonCorrespondentElevation]: 1.5,
+
+  // Order milestone
+  [RewardTaskType.OrderAscensionMilestone]: 0, // Variable, set via customBaseAmount
 };
 
 /** Reputation multipliers by tier */

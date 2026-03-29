@@ -1,17 +1,17 @@
 /**
  * Codex Configuration Definitions
- * 
+ *
  * This file contains the default codex configurations for the multi-codex system.
  * These definitions serve as fallbacks when the database is unavailable or during initial setup.
- * 
+ *
  * BACKWARD COMPATIBILITY:
- * 
+ *
  * KNYT Codex Integration:
  * - Scrolls Tab: Uses /api/admin/codex/status?series=metaKnyts (existing Qriptopian API)
  * - Characters Tab: Uses /api/codex/knyt-cards (existing Qriptopian API)
  * - Lore Tab: Uses /api/content/assets?kinds=background_lore_doc,twenty_one_sats_concept
  * - Compatible with Qriptopian hooks: useCodexEpisodes, useCodexCharacters, useCodexLore
- * 
+ *
  * Qripto Codex Integration:
  * - Features Tab: Integrates Qriptopian home page content
  *   - Hero Articles: /api/content/section/home-hero
@@ -21,9 +21,76 @@
  * - Scrolls Tab: Uses /api/content/section/scrolls
  * - Kn0wdZ Tab: Uses /api/content/section/21knowdz
  * - Compatible with existing Supabase content structure and Liquid UI system
+ *
+ * Living Canon (21 Sats) branch model:
+ *   canon        – canonical spine; Codex-authoritative; on-chain (Autodrive)
+ *   community    – broad participation layer; Supabase-hosted; Cartridge-surfaced
+ *   correspondent – elevated reporting layer; Supabase-hosted; editorially featured
+ *
+ * Interim cartridge/codex interpretation (per PRD Appendix A1):
+ *   KNYT_CODEX menu entry = cartridge-level entry surface
+ *   inner 'Codex' tab    = codex layer (secure canonical authority)
+ *   'Macro' / outer layer = cartridge framework
  */
 
 import { CodexConfig } from '@/types/codex';
+
+// =============================================================================
+// LIVING CANON BRANCH CONFIG
+// Cartridge-level branch definition for 21 Sats.
+// One active canonical community world at launch.
+// =============================================================================
+
+export interface LivingCanonBranchConfig {
+  /** Unique world identifier */
+  worldId: string;
+  /** Human-readable world name */
+  worldName: string;
+  /** Whether this world is publicly active */
+  active: boolean;
+  /** Canon branch — Codex-authoritative */
+  canon: {
+    label: string;
+    dataSource: string;
+  };
+  /** Community branch — broad participation, Supabase-hosted */
+  community: {
+    label: string;
+    dataSource: string;
+    submissionSchemaEndpoint: string;
+    electionConfigEndpoint: string;
+  };
+  /** Correspondent branch — elevated, editorially surfaced */
+  correspondent: {
+    label: string;
+    dataSource: string;
+    submissionSchemaEndpoint: string;
+    requiredEntitlement: string;
+  };
+}
+
+/** One active canonical community world for v1 launch */
+export const KNYT_LIVING_CANON: LivingCanonBranchConfig = {
+  worldId: '21sats',
+  worldName: '21 Sats',
+  active: true,
+  canon: {
+    label: 'Canon',
+    dataSource: '/api/codex/knyt/living-canon/canon',
+  },
+  community: {
+    label: 'Community',
+    dataSource: '/api/codex/knyt/living-canon/community',
+    submissionSchemaEndpoint: '/api/codex/knyt/living-canon/schemas',
+    electionConfigEndpoint: '/api/codex/knyt/living-canon/elections',
+  },
+  correspondent: {
+    label: 'Correspondent',
+    dataSource: '/api/codex/knyt/living-canon/correspondent',
+    submissionSchemaEndpoint: '/api/codex/knyt/living-canon/schemas?branch=correspondent',
+    requiredEntitlement: 'knyt:correspondent',
+  },
+};
 
 export const KNYT_CODEX: CodexConfig = {
   id: 'knyt-codex',
@@ -162,12 +229,32 @@ export const KNYT_CODEX: CodexConfig = {
       config: {
         liquidTemplate: 'knyt:quest_hud_hub_v1',
         dataSource: '/api/codex/knyt/order',
-        // Order system and governance
+        // Order of Metaiye: live progression, ascension, and reputation
       },
       metadata: {
         icon: 'Shield',
-        description: 'Order system and governance',
+        description: 'Order of Metaiye — progression, ascension, and reputation',
         color: 'purple'
+      }
+    },
+    {
+      id: 'living-canon',
+      label: '21 Sats',
+      slug: 'living-canon',
+      enabled: true,
+      order: 7,
+      type: 'liquid-ui',
+      config: {
+        liquidTemplate: 'knyt:drawer_grid_v1',
+        dataSource: '/api/codex/knyt/living-canon',
+        // Living Canon — Canon / Community / Correspondent branch navigation
+        // One active canonical community world (21 Sats) at launch
+      },
+      metadata: {
+        icon: 'Layers',
+        description: 'Living Canon — Canon, Community, and Correspondent branches',
+        color: 'amber',
+        badge: 'Active'
       }
     }
   ],
