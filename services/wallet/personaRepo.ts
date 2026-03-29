@@ -134,13 +134,17 @@ async function getOrCreateCanonicalAuthProfileId(email: string): Promise<string 
     return String(aliasRows[0].auth_profile_id);
   }
 
-  const { data: existing, error: existingError } = await admin
+  // Use limit(1) + array access instead of maybeSingle() to avoid errors
+  // when multiple crm_auth_profiles rows share the same email.
+  const { data: existingRows, error: existingError } = await admin
     .from('crm_auth_profiles')
     .select('id')
     .eq('email', normalizedEmail)
-    .maybeSingle();
+    .order('created_at', { ascending: true })
+    .limit(1);
 
   if (existingError) return null;
+  const existing = existingRows?.[0] ?? null;
   if (existing?.id) {
     const now = new Date().toISOString();
     await admin.from('crm_auth_profile_emails').upsert(
@@ -234,12 +238,16 @@ export async function getCallerIdentityContext(request: NextRequest): Promise<Ca
     if (!userId) return null;
 
     if (tokenEmail) {
-      const canonicalAuthProfileId = await getOrCreateCanonicalAuthProfileId(tokenEmail);
-      if (canonicalAuthProfileId) {
-        return {
-          authProfileId: canonicalAuthProfileId,
-          email: tokenEmail,
-        };
+      try {
+        const canonicalAuthProfileId = await getOrCreateCanonicalAuthProfileId(tokenEmail);
+        if (canonicalAuthProfileId) {
+          return {
+            authProfileId: canonicalAuthProfileId,
+            email: tokenEmail,
+          };
+        }
+      } catch {
+        // Admin client unavailable — fall through to raw JWT sub
       }
     }
 
