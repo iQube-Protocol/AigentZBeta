@@ -109,7 +109,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json([]);
     }
 
-    const linkedAuthProfileIds = await getMergedLinkedAuthProfileIds(callerAuthProfileId);
+    let linkedAuthProfileIds: string[] = [];
+    try {
+      linkedAuthProfileIds = await getMergedLinkedAuthProfileIds(callerAuthProfileId);
+    } catch {
+      // crm_auth_profile_links table unavailable — continue with just the caller's ID
+    }
 
     // Also include the raw Supabase auth.users.id — personas created before
     // canonicalization may still carry this UUID as their auth_profile_id.
@@ -158,7 +163,12 @@ export async function GET(request: NextRequest) {
       grantRows = (data || []) as PersonaRow[];
     }
 
-    const prefRows = await getPersonaPrefs(callerAuthProfileId);
+    let prefRows: { persona_id: string; access_mode: string }[] = [];
+    try {
+      prefRows = await getPersonaPrefs(callerAuthProfileId);
+    } catch {
+      // crm_persona_access_preferences table unavailable — allow all personas
+    }
     const deniedPersonaIds = new Set(
       prefRows.filter((row: any) => row?.access_mode === 'deny').map((row: any) => String(row.persona_id))
     );
