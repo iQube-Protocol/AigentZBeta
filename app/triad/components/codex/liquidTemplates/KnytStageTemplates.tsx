@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Compass, Film, ShieldCheck, Swords, Loader2, Map } from "lucide-react";
 import { SmartContentCard, useSmartTriad } from "@/app/components/content";
 import type { SmartContentQube } from "@/types/smartContent";
+import { KnytRewardView } from "@/components/metame/KnytRewardView";
 
 type ExperienceQube = {
   id: string;
@@ -274,16 +275,16 @@ export function KnytQuestHudHubTemplate({
               <SmartContentCard key={item.id} content={item} variant="standard" device="desktop" onSelect={open} onPurchase={purchase} isOwned={isOwned(item.id)} />
             ))}
           </div>
-          <aside className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4 text-sm text-slate-300">
-            <div className="mb-3 flex items-center gap-2 text-xs uppercase tracking-widest text-indigo-300">
+          <aside className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4 space-y-4">
+            <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-indigo-300">
               <Swords className="h-4 w-4 text-indigo-400" />
-              Active Objectives
+              Order of Metaiye
             </div>
-            <ul className="space-y-2 text-xs text-slate-400">
-              <li>• Complete a reading sprint</li>
-              <li>• Watch one motion chapter</li>
-              <li>• Claim balance reward</li>
-            </ul>
+            {personaId ? (
+              <KnytRewardView personaId={personaId} compact />
+            ) : (
+              <p className="text-xs text-slate-400">Connect your wallet to view your Order status and rewards.</p>
+            )}
           </aside>
         </div>
       </TemplateBody>

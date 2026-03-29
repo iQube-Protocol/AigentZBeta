@@ -245,7 +245,7 @@ export const KNYT_CODEX: CodexConfig = {
       order: 7,
       type: 'liquid-ui',
       config: {
-        liquidTemplate: 'knyt:drawer_grid_v1',
+        liquidTemplate: 'knyt:living_canon_v1',
         dataSource: '/api/codex/knyt/living-canon',
         // Living Canon — Canon / Community / Correspondent branch navigation
         // One active canonical community world (21 Sats) at launch

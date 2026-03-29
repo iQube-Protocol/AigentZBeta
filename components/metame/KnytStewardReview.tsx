@@ -19,6 +19,7 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { Loader2, Shield, ChevronDown, ChevronUp, CheckCircle, XCircle, Star, Eye } from "lucide-react";
 import { BranchLabel, PublicationStateBadge, type PublicationState } from "@/components/ui/BranchLabel";
+import { KnytCanonElevationConfirm } from "@/components/metame/KnytCanonElevationConfirm";
 import { useToast } from "@/hooks/use-toast";
 
 // =============================================================================
@@ -66,6 +67,7 @@ const STATE_ACTIONS: Record<string, ReviewAction[]> = {
   submitted:    ["request_review", "approve", "reject"],
   under_review: ["approve", "reject"],
   approved:     ["elevate_eligible"],
+  // canon_eligible: handled via KnytCanonElevationConfirm, not action buttons
 };
 
 // =============================================================================
@@ -95,7 +97,8 @@ export function KnytStewardReview({ actorPersonaId, branch }: KnytStewardReviewP
   const loadQueue = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ state: "submitted,under_review" });
+      // Include approved + canon_eligible so stewards see the full journey to canon
+      const params = new URLSearchParams({ state: "submitted,under_review,approved,canon_eligible" });
       if (branch) params.set("branch", branch);
       const res = await fetch(`/api/codex/knyt/living-canon/review?${params}`, { cache: "no-store" });
       if (!res.ok) throw new Error("Failed to load review queue.");
@@ -150,7 +153,7 @@ export function KnytStewardReview({ actorPersonaId, branch }: KnytStewardReviewP
           <div>
             <div className="text-[10px] uppercase tracking-[0.18em] text-violet-300/80">Steward</div>
             <div className="text-sm font-medium text-white">
-              Review queue
+              Canon pipeline
               {queue.length > 0 && (
                 <span className="ml-2 rounded-full bg-violet-500/20 border border-violet-400/30 px-2 py-0.5 text-[11px] text-violet-200">
                   {queue.length}
@@ -231,21 +234,31 @@ export function KnytStewardReview({ actorPersonaId, branch }: KnytStewardReviewP
 
                   {/* Actions */}
                   <div className="flex flex-wrap gap-2">
-                    {availableActions.map((action) => {
-                      const cfg = ACTION_CONFIG[action];
-                      return (
-                        <button
-                          key={action}
-                          type="button"
-                          onClick={() => void handleAction(item.id, action)}
-                          disabled={isActing}
-                          className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition disabled:opacity-50 ${cfg.className}`}
-                        >
-                          {isActing ? <Loader2 className="h-3 w-3 animate-spin" /> : cfg.icon}
-                          {cfg.label}
-                        </button>
-                      );
-                    })}
+                    {item.state === 'canon_eligible' ? (
+                      // Final step: canon elevation requires confirmation + Autodrive write
+                      <KnytCanonElevationConfirm
+                        publicationId={item.id}
+                        publicationLabel={`${item.subject_type} — ${item.branch}`}
+                        actorPersonaId={actorPersonaId}
+                        onElevated={() => void loadQueue()}
+                      />
+                    ) : (
+                      availableActions.map((action) => {
+                        const cfg = ACTION_CONFIG[action];
+                        return (
+                          <button
+                            key={action}
+                            type="button"
+                            onClick={() => void handleAction(item.id, action)}
+                            disabled={isActing}
+                            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition disabled:opacity-50 ${cfg.className}`}
+                          >
+                            {isActing ? <Loader2 className="h-3 w-3 animate-spin" /> : cfg.icon}
+                            {cfg.label}
+                          </button>
+                        );
+                      })
+                    )}
                   </div>
                 </div>
               );

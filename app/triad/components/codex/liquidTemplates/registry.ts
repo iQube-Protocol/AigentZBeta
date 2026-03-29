@@ -9,6 +9,7 @@ import {
   KnytRealmBridgeMapTemplate,
 } from './KnytStageTemplates';
 import { LiquidUIPlaceholderTemplate } from './LiquidUIPlaceholderTemplate';
+import { KnytLivingCanonTemplate } from './KnytLivingCanonTemplate';
 
 export type LiquidTemplateComponent = React.ComponentType<any>;
 
@@ -49,4 +50,5 @@ export const liquidTemplateRegistry: Record<string, LiquidTemplateComponent> = {
   'knyt:motion_stage_v1': KnytMotionStageTemplate,
   'knyt:quest_hud_hub_v1': KnytQuestHudHubTemplate,
   'knyt:realm_bridge_map_v1': KnytRealmBridgeMapTemplate,
+  'knyt:living_canon_v1': KnytLivingCanonTemplate,
 };
