@@ -227,7 +227,7 @@ export default function SmartWalletDrawer({
     },
     { refreshKey: balanceRefreshKey }
   );
-  const { sessionEmail, sessionPersonas, signOut: signOutSession, signIn: signInWithEmail } = useSupabaseSessionPersonas();
+  const { sessionEmail, sessionPersonas, signOut: signOutSession, signIn: signInWithEmail, refreshPersonas } = useSupabaseSessionPersonas();
 
   // Merge session-derived personas with any walletNode personas (session takes precedence, deduped by id)
   const allAvailablePersonas = useMemo((): PersonaState[] => {
@@ -610,6 +610,8 @@ export default function SmartWalletDrawer({
     setLocalPersonaId(newPersonaId);
     onPersonaChange?.(newPersonaId);
     setPersonaSetupOpen(false);
+    // Re-fetch session personas so the newly created persona appears in the dropdown
+    refreshPersonas();
   };
   
   // Persona state
@@ -2965,6 +2967,7 @@ export default function SmartWalletDrawer({
             setLocalPersonaId(newPersonaId);
             onPersonaChange?.(newPersonaId);
             setQuickAddOpen(false);
+            refreshPersonas();
           }}
           onAdvanced={() => {
             setQuickAddOpen(false);

@@ -11,7 +11,7 @@
  * handles all the identity resolution; the hook is a thin client bridge.
  */
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 import type { PersonaState } from "@/types/smartWallet";
 
@@ -106,6 +106,7 @@ export interface SessionIdentity {
   isLoading: boolean;
   signOut: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
+  refreshPersonas: () => Promise<void>;
 }
 
 export function useSupabaseSessionPersonas(): SessionIdentity {
@@ -146,12 +147,22 @@ export function useSupabaseSessionPersonas(): SessionIdentity {
     return { error: null };
   }, []);
 
+  // Stores the current access token so refreshPersonas can re-use it without
+  // requiring a new getSession() call on every persona creation.
+  const accessTokenRef = useRef<string | null>(null);
+
+  const refreshPersonas = useCallback(async () => {
+    if (!accessTokenRef.current) return;
+    await fetchPersonas(accessTokenRef.current);
+  }, [fetchPersonas]);
+
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
 
     // Bootstrap from current session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user?.email) {
+        accessTokenRef.current = session.access_token;
         setSessionEmail(session.user.email);
         fetchPersonas(session.access_token).finally(() => setIsLoading(false));
       } else {
@@ -162,9 +173,11 @@ export function useSupabaseSessionPersonas(): SessionIdentity {
     // React to auth state changes (sign-in, sign-out, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user?.email) {
+        accessTokenRef.current = session.access_token;
         setSessionEmail(session.user.email);
         fetchPersonas(session.access_token);
       } else {
+        accessTokenRef.current = null;
         setSessionEmail(null);
         setSessionPersonas([]);
       }
@@ -173,5 +186,5 @@ export function useSupabaseSessionPersonas(): SessionIdentity {
     return () => subscription.unsubscribe();
   }, [fetchPersonas]);
 
-  return { sessionEmail, sessionPersonas, isLoading, signOut, signIn };
+  return { sessionEmail, sessionPersonas, isLoading, signOut, signIn, refreshPersonas };
 }
