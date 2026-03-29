@@ -14,6 +14,7 @@ DECLARE
   v_canonical_id     UUID;
   v_supabase_uid     UUID;
   v_other_profile_id UUID;
+  v_count            INTEGER;
   rec                RECORD;
 BEGIN
 
@@ -92,8 +93,8 @@ BEGIN
     SET auth_profile_id = v_canonical_id
     WHERE auth_profile_id = v_supabase_uid;
 
-    GET DIAGNOSTICS rec = ROW_COUNT;
-    RAISE NOTICE 'Reassigned % persona(s) from supabase UUID to canonical', rec;
+    GET DIAGNOSTICS v_count = ROW_COUNT;
+    RAISE NOTICE 'Reassigned % persona(s) from supabase UUID to canonical', v_count;
   END IF;
 
   -- -------------------------------------------------------------------------
@@ -106,7 +107,7 @@ BEGIN
     WHERE lower(cap.email) = lower(v_email)
       AND cap.id <> v_canonical_id
     UNION
-    SELECT DISTINCT cae.auth_profile_id
+    SELECT DISTINCT cae.auth_profile_id AS id
     FROM public.crm_auth_profile_emails cae
     WHERE lower(cae.email_normalized) = lower(v_email)
       AND cae.auth_profile_id <> v_canonical_id
