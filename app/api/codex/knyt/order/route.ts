@@ -126,6 +126,94 @@ export async function GET(request: NextRequest) {
     // Next tier thresholds (for progression display)
     const nextTierMeta = ORDER_TIERS.find((t) => t.rank === tierMeta.rank + 1) ?? null;
 
+    // Ascension milestone detection — check for un-recorded tier crossings
+    // All tiers up to and including the current tier should have milestone rows.
+    // Exclude SEEKER (entry) and SATOSHI (governance-only).
+    const ascendableTiers = ORDER_TIERS.filter(
+      (t) => t.rank > 0 && t.rank <= tierMeta.rank && !t.governance_only
+    );
+
+    const newMilestones: string[] = [];
+
+    if (ascendableTiers.length > 0) {
+      // Load existing milestones for this persona in one query
+      const { data: existingMilestones } = await supabase
+        .from('knyt_order_milestones')
+        .select('tier')
+        .eq('persona_id', personaId)
+        .in('tier', ascendableTiers.map((t) => t.tier));
+
+      const recordedTiers = new Set((existingMilestones ?? []).map((m) => m.tier));
+
+      for (const tierDef of ascendableTiers) {
+        if (recordedTiers.has(tierDef.tier)) continue;
+
+        // New tier crossing detected — emit milestone reward
+        const nowIso = new Date().toISOString();
+
+        // Milestone reward amounts (scaled by tier rank)
+        const milestoneAmounts: Record<string, number> = {
+          INITIATE: 0.25,
+          SENTINEL: 0.5,
+          CHAMPION: 1.0,
+          KNIGHT: 2.0,
+        };
+        const amount = milestoneAmounts[tierDef.tier] ?? 0.25;
+
+        // For rights-bearing tiers (CHAMPION+), attempt Autodrive write
+        let milestoneCid: string | null = null;
+        if (tierMeta.rank >= 3) {
+          // CHAMPION = rank 3
+          try {
+            const { uploadCodexAsset } = await import('@/server/services/autonomysContentService');
+            const ascensionRecord = {
+              persona_id: personaId,
+              tier: tierDef.tier,
+              tier_label: tierDef.label,
+              achieved_at: nowIso,
+              metrics: { acceptedContributions, canonElevationCount, pokwTotal, votesCast },
+            };
+            const result = await uploadCodexAsset({
+              content: JSON.stringify(ascensionRecord),
+              fileName: `order-ascension-${personaId}-${tierDef.tier}.json`,
+              mimeType: 'application/json',
+              metadata: { type: 'order_ascension', persona_id: personaId, tier: tierDef.tier },
+            });
+            milestoneCid = result.cid ?? null;
+          } catch (e) {
+            console.warn(`[order] Autodrive ascension write failed for ${tierDef.tier} (non-fatal):`, e);
+          }
+        }
+
+        // Insert reward grant
+        const { data: grant } = await supabase
+          .from('knyt_reward_grants')
+          .insert({
+            persona_id: personaId,
+            task_type: 'OrderAscensionMilestone',
+            amount_knyt: amount,
+            base_amount_knyt: amount,
+            rep_multiplier: 1.0,
+            source_event_id: null,
+            metadata: { tier: tierDef.tier, tier_label: tierDef.label },
+          })
+          .select('id')
+          .single();
+
+        // Record milestone
+        await supabase.from('knyt_order_milestones').insert({
+          persona_id: personaId,
+          tier: tierDef.tier,
+          achieved_at: nowIso,
+          reward_granted: true,
+          reward_grant_id: grant?.id ?? null,
+          autodrive_cid: milestoneCid,
+        }).catch((e) => console.warn(`[order] milestone insert failed for ${tierDef.tier}:`, e));
+
+        newMilestones.push(tierDef.tier);
+      }
+    }
+
     return NextResponse.json({
       persona_id: personaId,
       order: {
@@ -153,6 +241,7 @@ export async function GET(request: NextRequest) {
         elevated_at: e.elevated_at,
         autodrive_cid: e.autodrive_cid,
       })),
+      new_milestones: newMilestones.length > 0 ? newMilestones : undefined,
     });
   } catch (err) {
     console.error('[knyt/order] Unexpected error:', err);

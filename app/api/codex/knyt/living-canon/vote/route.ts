@@ -16,9 +16,12 @@
  *   1. Validate election is open.
  *   2. Check persona has not already voted (unique constraint enforced at DB).
  *   3. Check persona meets eligibility rules (min_reputation_bucket, required_entitlements).
- *   4. Insert ballot.
- *   5. Emit reward entitlement (LivingCanonVoteCast) — processed asynchronously.
- *   6. Return ballot ID and reward preview.
+ *   4. Check proof-of-consumption: persona must have at least one PoKW record
+ *      (any crm_contributions row or prior knyt_reward_grant) to vote.
+ *      This prevents zero-activity accounts from influencing elections.
+ *   5. Insert ballot.
+ *   6. Emit reward entitlement (LivingCanonVoteCast) — processed asynchronously.
+ *   7. Return ballot ID and reward preview.
  *
  * Reward model: turnout-positive
  *   Per-voter reward = election.per_voter_reward_knyt (fixed, independent of turnout).
@@ -85,7 +88,34 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 3. Cast ballot (unique constraint on election_id + persona_id prevents double-voting)
+    // 3. Proof-of-consumption gate: persona must have at least one prior activity record.
+    //    This prevents fresh/bot accounts with zero engagement from influencing elections.
+    //    We check in parallel for any crm_contributions OR any knyt_reward_grants.
+    const [contribCheck, grantCheck] = await Promise.all([
+      supabase
+        .from('crm_contributions')
+        .select('id', { count: 'exact', head: true })
+        .eq('persona_id', persona_id)
+        .limit(1),
+      supabase
+        .from('knyt_reward_grants')
+        .select('id', { count: 'exact', head: true })
+        .eq('persona_id', persona_id)
+        .limit(1),
+    ]);
+
+    const hasActivity = (contribCheck.count ?? 0) > 0 || (grantCheck.count ?? 0) > 0;
+    if (!hasActivity) {
+      return NextResponse.json(
+        {
+          error: 'No activity on record — consume or contribute content before voting.',
+          hint: 'Read content, submit a contribution, or complete a task to establish proof of knowledge work.',
+        },
+        { status: 403 }
+      );
+    }
+
+    // 4. Cast ballot (unique constraint on election_id + persona_id prevents double-voting)
     const { data: ballot, error: ballotErr } = await supabase
       .from('knyt_ballots')
       .insert({
@@ -107,7 +137,7 @@ export async function POST(request: NextRequest) {
       throw ballotErr;
     }
 
-    // 4. Emit reward entitlement — async, non-blocking
+    // 5. Emit reward entitlement — async, non-blocking
     //    Creates a pending reward grant for LivingCanonVoteCast.
     //    Settled by the election settlement job at close.
     //    We record it now so the wallet can show a pending reward immediately.
