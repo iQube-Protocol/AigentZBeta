@@ -28,6 +28,7 @@ import type {
   DrawerGridLayoutVariant,
 } from '@/app/types/knytLiquidUI';
 import { getKnytLiquidUIService } from '@/app/services/knyt/knytLiquidUIService';
+import { KnytRewardView } from '@/components/metame/KnytRewardView';
 
 // ============================================================================
 // Template Renderer Props
@@ -1198,6 +1199,7 @@ function QuestHudHubTemplate({
   ascensionRank,
   device,
   userIntent,
+  personaId,
 }: {
   contentItems: KnytContentItem[];
   onContentSelect: (item: KnytContentItem) => void;
@@ -1208,35 +1210,37 @@ function QuestHudHubTemplate({
   ascensionRank?: { current: string; next: string; progress: number };
   device: DeviceType;
   userIntent: UserIntent;
+  personaId?: string;
 }) {
   return (
     <div className="h-full flex">
       {/* Left HUD - Order Status (desktop only) */}
       {device !== 'mobile' && (
-        <div className="w-56 p-4">
-          <div className="h-full flex flex-col gap-4 p-4 bg-black/40 backdrop-blur-sm rounded-xl ring-1 ring-white/10">
-            <div className="flex items-center gap-2 mb-2">
-              <Crown className="w-5 h-5 text-purple-400" />
+        <div className="w-64 p-4 overflow-y-auto">
+          <div className="flex flex-col gap-3 p-3 bg-black/40 backdrop-blur-sm rounded-xl ring-1 ring-white/10">
+            <div className="flex items-center gap-2">
+              <Crown className="w-4 h-4 text-purple-400" />
               <span className="text-sm font-medium text-white">Order Status</span>
             </div>
-            
-            {ascensionRank && (
+
+            {personaId ? (
+              <KnytRewardView personaId={personaId} compact />
+            ) : ascensionRank ? (
               <>
-                <div className="text-center py-4">
-                  <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-purple-500/30 to-pink-500/30 ring-2 ring-purple-500/50 flex items-center justify-center mb-3">
-                    <Crown className="w-10 h-10 text-purple-400" />
+                <div className="text-center py-3">
+                  <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-purple-500/30 to-pink-500/30 ring-2 ring-purple-500/50 flex items-center justify-center mb-2">
+                    <Crown className="w-8 h-8 text-purple-400" />
                   </div>
-                  <p className="text-lg font-bold text-white">{ascensionRank.current}</p>
+                  <p className="text-base font-bold text-white">{ascensionRank.current}</p>
                   <p className="text-xs text-white/60">Current Rank</p>
                 </div>
-                
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <div className="flex justify-between text-xs">
                     <span className="text-white/60">Progress</span>
                     <span className="text-purple-400">{ascensionRank.progress}%</span>
                   </div>
-                  <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
-                    <div 
+                  <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+                    <div
                       className="h-full bg-gradient-to-r from-purple-500 to-pink-400"
                       style={{ width: `${ascensionRank.progress}%` }}
                     />
@@ -1244,6 +1248,8 @@ function QuestHudHubTemplate({
                   <p className="text-xs text-white/50 text-center">Next: {ascensionRank.next}</p>
                 </div>
               </>
+            ) : (
+              <p className="text-xs text-white/40">Connect wallet to view your Order status.</p>
             )}
           </div>
         </div>
@@ -1514,6 +1520,7 @@ export function KnytTemplateRenderer({
             ascensionRank={ascensionRank}
             device={device}
             userIntent={userIntent}
+            personaId={personaId}
           />
         );
 
