@@ -29,6 +29,7 @@ import type {
 } from '@/app/types/knytLiquidUI';
 import { getKnytLiquidUIService } from '@/app/services/knyt/knytLiquidUIService';
 import { KnytRewardView } from '@/components/metame/KnytRewardView';
+import { KnytLivingCanonTemplate } from '@/app/triad/components/codex/liquidTemplates/KnytLivingCanonTemplate';
 
 // ============================================================================
 // Template Renderer Props
@@ -1429,6 +1430,15 @@ export function KnytTemplateRenderer({
   layoutVariant: copilotLayoutVariant,
   showLayoutPreviewControls = false,
 }: KnytTemplateRendererProps) {
+  // Living Canon is a self-fetching component — bypass the template pack service.
+  if (templateId === 'knyt:living_canon_v1') {
+    return (
+      <div className="h-full w-full overflow-x-hidden overflow-y-auto relative p-4">
+        <KnytLivingCanonTemplate personaId={personaId} theme="dark" />
+      </div>
+    );
+  }
+
   const service = getKnytLiquidUIService();
   const template = service.getTemplate(templateId);
   const geometry = service.getGeometryForDevice(templateId, device);

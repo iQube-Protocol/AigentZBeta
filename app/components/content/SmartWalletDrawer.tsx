@@ -2390,6 +2390,32 @@ export default function SmartWalletDrawer({
                 </div>
               </section>
 
+              {/* Living Canon — 21 Sats Participation */}
+              <section className="rounded-xl bg-gradient-to-br from-violet-500/10 to-amber-500/10 ring-1 ring-violet-500/20 p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <Sparkles className="w-4 h-4 text-amber-400" />
+                  <span className="text-xs font-medium text-amber-200">Living Canon — 21 Sats</span>
+                </div>
+                <p className="text-[10px] text-white/50 mb-2.5">
+                  Participate in the canon. Vote on elections, submit community contributions, and dispatch reports as a Correspondent.
+                </p>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between rounded-lg bg-white/5 px-2 py-1.5">
+                    <span className="text-[11px] text-white/70">Vote on open elections</span>
+                    <span className="text-[10px] text-amber-300 bg-amber-500/10 px-1.5 py-0.5 rounded">+21 KNYT</span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-lg bg-white/5 px-2 py-1.5">
+                    <span className="text-[11px] text-white/70">Submit community contribution</span>
+                    <span className="text-[10px] text-cyan-300 bg-cyan-500/10 px-1.5 py-0.5 rounded">PoKW</span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-lg bg-white/5 px-2 py-1.5">
+                    <span className="text-[11px] text-white/70">File Correspondent dispatch</span>
+                    <span className="text-[10px] text-violet-300 bg-violet-500/10 px-1.5 py-0.5 rounded">Featured</span>
+                  </div>
+                </div>
+                <p className="text-[10px] text-white/30 mt-2">Open the 21 Sats tab in the KNYT Codex to participate.</p>
+              </section>
+
               {/* Active Tasks */}
               <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-3">
                 <div className="text-[11px] uppercase tracking-wider text-white/60 mb-2">Active Tasks</div>
