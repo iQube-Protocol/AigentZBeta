@@ -141,3 +141,64 @@ VALUES
     'KNYT'
   )
 ON CONFLICT (slug) DO NOTHING;
+
+-- =============================================================================
+-- KNYT Reward Grants
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS knyt_reward_grants (
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  persona_id       UUID NOT NULL,
+  task_type        TEXT NOT NULL,
+  amount_knyt      NUMERIC(18,8) NOT NULL DEFAULT 0,
+  base_amount_knyt NUMERIC(18,8) NOT NULL DEFAULT 0,
+  rep_multiplier   NUMERIC(6,3) NOT NULL DEFAULT 1.0,
+  source_event_id  UUID,
+  metadata         JSONB,
+  settled          BOOLEAN NOT NULL DEFAULT FALSE,
+  settled_at       TIMESTAMPTZ,
+  tx_hash          TEXT,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_knyt_reward_grants_persona  ON knyt_reward_grants(persona_id);
+CREATE INDEX idx_knyt_reward_grants_type     ON knyt_reward_grants(task_type);
+CREATE INDEX idx_knyt_reward_grants_settled  ON knyt_reward_grants(settled, settled_at);
+CREATE INDEX idx_knyt_reward_grants_source   ON knyt_reward_grants(source_event_id);
+
+ALTER TABLE knyt_reward_grants ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "knyt_reward_grants_read_all" ON knyt_reward_grants
+  FOR SELECT USING (true);
+
+CREATE POLICY "knyt_reward_grants_write_service" ON knyt_reward_grants
+  FOR ALL USING (auth.role() = 'service_role');
+
+-- =============================================================================
+-- KNYT Persona Roles
+-- Stores persona-level roles (correspondent, steward, etc.)
+-- Separate from crm_entitlements which is content-access only.
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS knyt_persona_roles (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  persona_id   UUID NOT NULL,
+  role         TEXT NOT NULL,
+  world_id     TEXT NOT NULL DEFAULT '21sats',
+  granted_by   UUID,
+  granted_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  revoked_at   TIMESTAMPTZ,
+  metadata     JSONB,
+  UNIQUE(persona_id, role, world_id)
+);
+
+CREATE INDEX idx_knyt_persona_roles_persona ON knyt_persona_roles(persona_id);
+CREATE INDEX idx_knyt_persona_roles_role    ON knyt_persona_roles(role, world_id);
+
+ALTER TABLE knyt_persona_roles ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "knyt_persona_roles_read_all" ON knyt_persona_roles
+  FOR SELECT USING (true);
+
+CREATE POLICY "knyt_persona_roles_write_service" ON knyt_persona_roles
+  FOR ALL USING (auth.role() = 'service_role');

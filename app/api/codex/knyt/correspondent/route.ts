@@ -23,7 +23,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const CORRESPONDENT_ENTITLEMENT = 'knyt:correspondent';
+const CORRESPONDENT_ROLE = 'knyt:correspondent';
 
 export async function GET(request: NextRequest) {
   try {
@@ -35,10 +35,11 @@ export async function GET(request: NextRequest) {
     }
 
     const { data, error } = await supabase
-      .from('crm_entitlements')
+      .from('knyt_persona_roles')
       .select('id, granted_at, granted_by, metadata')
       .eq('persona_id', personaId)
-      .eq('entitlement_type', CORRESPONDENT_ENTITLEMENT)
+      .eq('role', CORRESPONDENT_ROLE)
+      .is('revoked_at', null)
       .maybeSingle();
 
     if (error) throw error;
@@ -46,7 +47,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       persona_id: personaId,
       is_correspondent: !!data,
-      entitlement: data ?? null,
+      role: data ?? null,
     });
   } catch (err) {
     console.error('[correspondent GET] Error:', err);
@@ -66,10 +67,11 @@ export async function POST(request: NextRequest) {
 
     // 1. Check not already a correspondent
     const { data: existing } = await supabase
-      .from('crm_entitlements')
+      .from('knyt_persona_roles')
       .select('id')
       .eq('persona_id', persona_id)
-      .eq('entitlement_type', CORRESPONDENT_ENTITLEMENT)
+      .eq('role', CORRESPONDENT_ROLE)
+      .is('revoked_at', null)
       .maybeSingle();
 
     if (existing) {
@@ -78,18 +80,17 @@ export async function POST(request: NextRequest) {
 
     const now = new Date().toISOString();
 
-    // 2. Grant entitlement
+    // 2. Grant role
     const { data: entitlement, error: entitlementErr } = await supabase
-      .from('crm_entitlements')
+      .from('knyt_persona_roles')
       .insert({
         persona_id,
-        entitlement_type: CORRESPONDENT_ENTITLEMENT,
+        role: CORRESPONDENT_ROLE,
+        world_id: '21sats',
         granted_by: elevated_by,
         granted_at: now,
         metadata: {
-          world_id: '21sats',
           elevation_notes: notes ?? null,
-          elevated_by,
         },
       })
       .select()
