@@ -21,6 +21,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
+export const dynamic = 'force-dynamic';
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -34,7 +36,7 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from('crm_task_templates')
-      .select('slug, title, description, difficulty, schema_json, metadata')
+      .select('slug, title, description, difficulty_level, schema_json, metadata')
       .like('slug', 'knyt:%');
 
     if (typeSlug) {

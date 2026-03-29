@@ -562,6 +562,16 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     setActiveTab(resolvedInitialTab);
   }, [resolvedInitialTab]);
 
+  // Listen for wallet drawer CTA navigation events
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const slug = (e as CustomEvent<{ tab: string }>).detail?.tab;
+      if (slug && isKnytTabSlug(slug)) setActiveTab(slug);
+    };
+    window.addEventListener('knyt:navigate-tab', handler);
+    return () => window.removeEventListener('knyt:navigate-tab', handler);
+  }, []);
+
   const handleLegacyTabChange = useCallback((value: string) => {
     if (isKnytTabSlug(value)) {
       setActiveTab(value);

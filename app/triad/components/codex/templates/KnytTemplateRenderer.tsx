@@ -1433,8 +1433,10 @@ export function KnytTemplateRenderer({
   // Living Canon is a self-fetching component — bypass the template pack service.
   if (templateId === 'knyt:living_canon_v1') {
     return (
-      <div className="h-full w-full overflow-x-hidden overflow-y-auto relative p-4">
-        <KnytLivingCanonTemplate personaId={personaId} theme="dark" />
+      <div className="h-full w-full overflow-x-hidden overflow-y-auto">
+        <div className="px-4 py-3">
+          <KnytLivingCanonTemplate personaId={personaId} theme="dark" />
+        </div>
       </div>
     );
   }

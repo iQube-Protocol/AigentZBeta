@@ -2397,23 +2397,28 @@ export default function SmartWalletDrawer({
                   <span className="text-xs font-medium text-amber-200">Living Canon — 21 Sats</span>
                 </div>
                 <p className="text-[10px] text-white/50 mb-2.5">
-                  Participate in the canon. Vote on elections, submit community contributions, and dispatch reports as a Correspondent.
+                  Participate in the canon. Vote on elections, submit contributions, or file dispatches as a Correspondent.
                 </p>
                 <div className="space-y-1.5">
-                  <div className="flex items-center justify-between rounded-lg bg-white/5 px-2 py-1.5">
-                    <span className="text-[11px] text-white/70">Vote on open elections</span>
-                    <span className="text-[10px] text-amber-300 bg-amber-500/10 px-1.5 py-0.5 rounded">+21 KNYT</span>
-                  </div>
-                  <div className="flex items-center justify-between rounded-lg bg-white/5 px-2 py-1.5">
-                    <span className="text-[11px] text-white/70">Submit community contribution</span>
-                    <span className="text-[10px] text-cyan-300 bg-cyan-500/10 px-1.5 py-0.5 rounded">PoKW</span>
-                  </div>
-                  <div className="flex items-center justify-between rounded-lg bg-white/5 px-2 py-1.5">
-                    <span className="text-[11px] text-white/70">File Correspondent dispatch</span>
-                    <span className="text-[10px] text-violet-300 bg-violet-500/10 px-1.5 py-0.5 rounded">Featured</span>
-                  </div>
+                  {[
+                    { label: "Vote on open elections", badge: "+21 KNYT", badgeClass: "text-amber-300 bg-amber-500/10" },
+                    { label: "Submit community contribution", badge: "PoKW", badgeClass: "text-cyan-300 bg-cyan-500/10" },
+                    { label: "File Correspondent dispatch", badge: "Featured", badgeClass: "text-violet-300 bg-violet-500/10" },
+                  ].map(({ label, badge, badgeClass }) => (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={() => {
+                        window.dispatchEvent(new CustomEvent('knyt:navigate-tab', { detail: { tab: 'living-canon' } }));
+                      }}
+                      className="w-full flex items-center justify-between rounded-lg bg-white/5 hover:bg-white/10 transition px-2 py-1.5 text-left"
+                    >
+                      <span className="text-[11px] text-white/70">{label}</span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded ${badgeClass}`}>{badge}</span>
+                    </button>
+                  ))}
                 </div>
-                <p className="text-[10px] text-white/30 mt-2">Open the 21 Sats tab in the KNYT Codex to participate.</p>
+                <p className="text-[10px] text-white/30 mt-2">Opens the 21 Sats tab in the KNYT Codex.</p>
               </section>
 
               {/* Active Tasks */}

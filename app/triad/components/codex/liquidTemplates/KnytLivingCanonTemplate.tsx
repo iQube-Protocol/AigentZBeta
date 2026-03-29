@@ -65,7 +65,7 @@ const BRANCH_CONFIG: Record<
     label: "Correspondent",
     icon: <Radio className="h-3.5 w-3.5" />,
     description: "Dispatches from KNYT Correspondents.",
-    schemaSlug: "knyt:dispatch",
+    schemaSlug: "knyt:correspondent_report",
   },
 };
 
@@ -95,7 +95,7 @@ function PublicationCard({
   onRemixCreated?: (pubId: string) => void;
 }) {
   return (
-    <div className="rounded-xl border border-white/8 bg-slate-900/60 p-3 space-y-2.5">
+    <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-3 space-y-2.5">
       <div className="flex items-center gap-2 flex-wrap">
         <BranchLabel branch={item.branch} />
         <PublicationStateBadge state={item.state as import("@/components/ui/BranchLabel").PublicationState} />
@@ -182,12 +182,11 @@ export function KnytLivingCanonTemplate({
   };
 
   const isDark = theme === "dark";
-  const panelClass = isDark ? "bg-slate-900/60 border-white/8" : "bg-white border-slate-200";
 
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className={`rounded-2xl border ${panelClass} p-4`}>
+      <div className="px-1 pb-1">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-amber-300/80">
@@ -249,7 +248,7 @@ export function KnytLivingCanonTemplate({
               Loading {BRANCH_CONFIG[activeBranch].label}…
             </div>
           ) : branchData.items.length === 0 ? (
-            <div className={`rounded-xl border ${panelClass} p-4 text-sm text-slate-400`}>
+            <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4 text-sm text-slate-400">
               No {BRANCH_CONFIG[activeBranch].label} items yet.
               {activeBranch === "community" && personaId && (
                 <button
@@ -322,8 +321,8 @@ export function KnytLivingCanonTemplate({
               )}
 
               {!personaId && (
-                <div className="rounded-xl border border-white/8 bg-slate-900/60 p-4 text-sm text-slate-400">
-                  Connect your wallet to vote, react, and contribute.
+                <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4 text-sm text-slate-500">
+                  Sign in to vote, react, and contribute.
                 </div>
               )}
             </>

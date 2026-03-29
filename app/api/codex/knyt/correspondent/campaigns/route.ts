@@ -71,14 +71,14 @@ export async function GET(request: NextRequest) {
       return meta.branch_target === 'correspondent' && meta.campaign_active === true;
     });
 
-    // Check if persona is eligible (has correspondent role)
+    // Check if persona is eligible — correspondent, steward, or admin all qualify
     let isCorrespondent = false;
     if (personaId) {
       const { data: role } = await supabase
         .from('knyt_persona_roles')
         .select('id')
         .eq('persona_id', personaId)
-        .eq('role', 'knyt:correspondent')
+        .in('role', ['knyt:correspondent', 'knyt:steward', 'knyt:admin'])
         .is('revoked_at', null)
         .maybeSingle();
       isCorrespondent = !!role;

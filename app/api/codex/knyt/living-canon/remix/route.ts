@@ -23,6 +23,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
+export const dynamic = 'force-dynamic';
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -102,9 +104,9 @@ export async function POST(request: NextRequest) {
         persona_id,
         tenant_id: 'knyt',
         contribution_type: task_slug,
-        status: 'draft',
+        status: 'submitted',
         task_template_id: template?.id ?? null,
-        pokw_score: null, // set on acceptance
+        pokw_score: 0,
         metadata: {
           remix_of: source_publication_id,
           remix_depth: sourceDepth + 1,
