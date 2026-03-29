@@ -37,6 +37,7 @@ export interface BranchLabelProps {
 
 export function BranchLabel({ branch, className = "" }: BranchLabelProps) {
   const cfg = BRANCH_CONFIG[branch];
+  if (!cfg) return null;
   return (
     <Badge variant="outline" className={`${cfg.className} ${className}`}>
       {cfg.label}
@@ -115,6 +116,7 @@ export function PublicationStateBadge({
   className = "",
 }: PublicationStateBadgeProps) {
   const cfg = STATE_CONFIG[state];
+  if (!cfg) return null;
   return (
     <Badge variant="outline" className={`${cfg.className} ${className}`}>
       {cfg.label}
