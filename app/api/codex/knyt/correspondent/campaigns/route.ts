@@ -21,8 +21,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 );
 
 const WORLD_ID = '21sats';
@@ -74,14 +74,14 @@ export async function GET(request: NextRequest) {
     // Check if persona is eligible — correspondent, steward, or admin all qualify
     let isCorrespondent = false;
     if (personaId) {
-      const { data: role } = await supabase
+      const { data: roleRows } = await supabase
         .from('knyt_persona_roles')
         .select('id')
         .eq('persona_id', personaId)
         .in('role', ['knyt:correspondent', 'knyt:steward', 'knyt:admin'])
         .is('revoked_at', null)
-        .maybeSingle();
-      isCorrespondent = !!role;
+        .limit(1);
+      isCorrespondent = Array.isArray(roleRows) && roleRows.length > 0;
     }
 
     return NextResponse.json({
