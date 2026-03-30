@@ -151,6 +151,20 @@ export function KnytLivingCanonTemplate({
   const [branchData, setBranchData] = useState<BranchData>({ items: [], total: 0 });
   const [loading, setLoading] = useState(true);
   const [submissionSlug, setSubmissionSlug] = useState<string | null>(null);
+  const [fetchedRoles, setFetchedRoles] = useState<string[]>([]);
+
+  // Self-fetch KNYT roles for the active persona so access gates work
+  // regardless of whether the parent passed entitlements/isSteward props.
+  useEffect(() => {
+    if (!personaId) { setFetchedRoles([]); return; }
+    fetch(`/api/codex/knyt/roles?personaId=${personaId}`)
+      .then((r) => r.ok ? r.json() : { roles: [] })
+      .then((d) => setFetchedRoles(Array.isArray(d.roles) ? d.roles : []))
+      .catch(() => setFetchedRoles([]));
+  }, [personaId]);
+
+  const effectiveEntitlements = fetchedRoles.length > 0 ? fetchedRoles : entitlements;
+  const effectiveIsSteward = fetchedRoles.includes('knyt:steward') || fetchedRoles.includes('knyt:admin') || isSteward;
 
   const loadBranch = useCallback(async (branch: CanonBranch) => {
     setLoading(true);
@@ -266,7 +280,7 @@ export function KnytLivingCanonTemplate({
                 key={item.id}
                 item={item}
                 personaId={personaId}
-                entitlements={entitlements}
+                entitlements={effectiveEntitlements}
                 onRemixCreated={() => void loadBranch("community")}
               />
             ))
@@ -289,7 +303,7 @@ export function KnytLivingCanonTemplate({
                     <KnytSubmissionShell
                       schemaSlug={submissionSlug}
                       personaId={personaId}
-                      entitlements={entitlements}
+                      entitlements={effectiveEntitlements}
                       onSubmitted={() => {
                         setSubmissionSlug(null);
                         void loadBranch(activeBranch);
@@ -313,7 +327,7 @@ export function KnytLivingCanonTemplate({
               )}
 
               {/* Steward review panel */}
-              {isSteward && personaId && (
+              {effectiveIsSteward && personaId && (
                 <KnytStewardReview
                   actorPersonaId={personaId}
                   branch={activeBranch === "canon" ? undefined : activeBranch}
