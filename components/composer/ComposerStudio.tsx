@@ -9951,6 +9951,7 @@ export const ComposerStudio = () => {
                       experiences={experiences}
                       previewExperience={previewExperience}
                       previewAction={previewAction}
+                      personaId={activePersonaId || userId}
                       routingSummary={routingEnvelope.summary}
                       recommendedTargetLabel={getDeploymentTargetLabel(routingEnvelope.recommendedTarget)}
                       deploymentGuidance={deploymentTargetCards}

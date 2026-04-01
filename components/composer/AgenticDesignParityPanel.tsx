@@ -8,6 +8,7 @@ import {
   BarChart3,
   CheckCircle2,
   FileText,
+  Layers,
   LayoutGrid,
   Play,
   RefreshCw,
@@ -42,6 +43,24 @@ type PipelineState = {
   appraisedExperienceId?: string;
 };
 
+type ExperienceModelData = {
+  journey?: {
+    stage: string;
+    depth: string;
+    active_at: string | null;
+  } | null;
+  nbe?: {
+    disposition: string;
+    next_experience_depth: string | null;
+    rationale: string | null;
+    expires_at: string | null;
+  } | null;
+  strategy?: { name: string; description: string; target_segments: string[] } | null;
+  model?: { name: string; description: string; stages: string[] } | null;
+  matrix?: { stage: string; depth_ladder: string[] }[] | null;
+  analysis?: { card_type: string; content: string; score: number | null }[] | null;
+};
+
 type AgenticDesignParityPanelProps = {
   designQube: DesignQube | null;
   activeDesignQubeId: string;
@@ -49,6 +68,7 @@ type AgenticDesignParityPanelProps = {
   experiences: ExperienceQubeLike[];
   previewExperience: ExperienceQubeLike | null;
   previewAction: string | null;
+  personaId?: string;
   routingSummary?: string;
   recommendedTargetLabel?: string;
   deploymentGuidance?: Array<{
@@ -470,6 +490,7 @@ export function AgenticDesignParityPanel({
   experiences,
   previewExperience,
   previewAction,
+  personaId,
   routingSummary,
   recommendedTargetLabel,
   deploymentGuidance,
@@ -479,8 +500,23 @@ export function AgenticDesignParityPanel({
   onLogAuditEvent,
 }: AgenticDesignParityPanelProps) {
   const [activeTab, setActiveTab] = useState("pipeline");
+  const [expTab, setExpTab] = useState("status");
   const [state, setState] = useState<PipelineState>({ status: "idle" });
   const [remedyState, setRemedyState] = useState<RemedyState>({ status: "idle" });
+  const [expData, setExpData] = useState<ExperienceModelData>({});
+  const [expLoading, setExpLoading] = useState(false);
+
+  useEffect(() => {
+    if (activeTab !== "experience" || !previewExperience) return;
+    setExpLoading(true);
+    const params = new URLSearchParams({ experienceId: previewExperience.id });
+    if (personaId) params.set("personaId", personaId);
+    fetch(`/api/runtime/experience?${params}`)
+      .then((r) => r.ok ? r.json() : {})
+      .then((data: ExperienceModelData) => setExpData(data))
+      .catch(() => setExpData({}))
+      .finally(() => setExpLoading(false));
+  }, [activeTab, previewExperience, personaId]);
   const onLogAuditEventRef = useRef(onLogAuditEvent);
 
   useEffect(() => {
@@ -878,10 +914,14 @@ export function AgenticDesignParityPanel({
       ) : null}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4 space-y-4">
-        <TabsList className="grid w-full grid-cols-4 border border-slate-800 bg-slate-950/70">
+        <TabsList className="grid w-full grid-cols-5 border border-slate-800 bg-slate-950/70">
           <TabsTrigger value="pipeline" className="flex items-center gap-2">
             <Zap className="h-4 w-4" />
             Pipeline
+          </TabsTrigger>
+          <TabsTrigger value="experience" className="flex items-center gap-2">
+            <Layers className="h-4 w-4" />
+            Experience
           </TabsTrigger>
           <TabsTrigger value="dis" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
@@ -923,6 +963,146 @@ export function AgenticDesignParityPanel({
               {state.error}
             </div>
           )}
+        </TabsContent>
+
+        <TabsContent value="experience">
+          <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-sm text-slate-200">
+            {!previewExperience ? (
+              <div className="text-slate-400">Select an experience to view its model data.</div>
+            ) : expLoading ? (
+              <div className="text-slate-400">Loading experience model…</div>
+            ) : (
+              <Tabs value={expTab} onValueChange={setExpTab} className="space-y-3">
+                <TabsList className="grid w-full grid-cols-6 border border-slate-800 bg-slate-900/60 text-xs">
+                  {(["status", "strategy", "model", "matrix", "nbe", "analysis"] as const).map((t) => (
+                    <TabsTrigger key={t} value={t} className="capitalize text-xs">{t}</TabsTrigger>
+                  ))}
+                </TabsList>
+
+                <TabsContent value="status">
+                  {expData.journey ? (
+                    <div className="grid gap-2 md:grid-cols-3">
+                      {[
+                        { label: "Stage", value: expData.journey.stage },
+                        { label: "Depth", value: expData.journey.depth },
+                        { label: "Active", value: expData.journey.active_at ? new Date(expData.journey.active_at).toLocaleDateString() : "—" },
+                      ].map(({ label, value }) => (
+                        <div key={label} className="rounded-lg border border-slate-800 bg-slate-900/50 p-3">
+                          <div className="text-[11px] text-slate-400">{label}</div>
+                          <div className="mt-1 font-semibold capitalize">{value}</div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-slate-400 text-xs">No journey state found for this experience. Run the DB migration and seed a journey state to see data here.</div>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="strategy">
+                  {expData.strategy ? (
+                    <div className="space-y-2">
+                      <div className="font-semibold">{expData.strategy.name}</div>
+                      <div className="text-xs text-slate-300">{expData.strategy.description}</div>
+                      {expData.strategy.target_segments?.length ? (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {expData.strategy.target_segments.map((s) => (
+                            <Badge key={s} variant="outline" className="border-slate-700 text-slate-300 text-[11px]">{s}</Badge>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div className="text-slate-400 text-xs">No strategy linked to this experience.</div>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="model">
+                  {expData.model ? (
+                    <div className="space-y-2">
+                      <div className="font-semibold">{expData.model.name}</div>
+                      <div className="text-xs text-slate-300">{expData.model.description}</div>
+                      {expData.model.stages?.length ? (
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {expData.model.stages.map((s, i) => (
+                            <div key={s} className="flex items-center gap-1 text-xs">
+                              <Badge variant="outline" className="border-violet-500/40 text-violet-300 text-[11px]">{s}</Badge>
+                              {i < expData.model!.stages.length - 1 && <span className="text-slate-600">→</span>}
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div className="text-slate-400 text-xs">No experience model found.</div>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="matrix">
+                  {expData.matrix?.length ? (
+                    <div className="space-y-2">
+                      {expData.matrix.map((row) => (
+                        <div key={row.stage} className="rounded-lg border border-slate-800 bg-slate-900/50 p-2">
+                          <div className="text-[11px] font-semibold capitalize text-slate-300 mb-1">{row.stage}</div>
+                          <div className="flex gap-1 flex-wrap">
+                            {row.depth_ladder.map((d) => (
+                              <Badge key={d} variant="outline" className="border-slate-700 text-slate-400 text-[11px]">{d}</Badge>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-slate-400 text-xs">No experience matrix configured.</div>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="nbe">
+                  {expData.nbe ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <div className="text-xs text-slate-400">Disposition</div>
+                        <Badge variant="outline" className="border-emerald-500/40 text-emerald-300 capitalize">{expData.nbe.disposition}</Badge>
+                      </div>
+                      {expData.nbe.next_experience_depth && (
+                        <div className="flex items-center gap-2">
+                          <div className="text-xs text-slate-400">Next depth</div>
+                          <Badge variant="outline" className="border-violet-500/40 text-violet-300">{expData.nbe.next_experience_depth}</Badge>
+                        </div>
+                      )}
+                      {expData.nbe.rationale && (
+                        <div className="text-xs text-slate-300 mt-1">{expData.nbe.rationale}</div>
+                      )}
+                      {expData.nbe.expires_at && (
+                        <div className="text-[11px] text-slate-500">Expires: {new Date(expData.nbe.expires_at).toLocaleDateString()}</div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-slate-400 text-xs">No NBE plan active for this experience.</div>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="analysis">
+                  {expData.analysis?.length ? (
+                    <div className="space-y-2">
+                      {expData.analysis.map((card, i) => (
+                        <div key={i} className="rounded-lg border border-slate-800 bg-slate-900/50 p-3">
+                          <div className="flex items-center justify-between mb-1">
+                            <Badge variant="outline" className="border-slate-700 text-slate-300 text-[11px] capitalize">{card.card_type}</Badge>
+                            {card.score != null && (
+                              <span className="text-xs font-semibold text-emerald-300">{card.score}</span>
+                            )}
+                          </div>
+                          <div className="text-xs text-slate-300">{card.content}</div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-slate-400 text-xs">No analysis cards for this experience.</div>
+                  )}
+                </TabsContent>
+              </Tabs>
+            )}
+          </div>
         </TabsContent>
 
         <TabsContent value="dis">
