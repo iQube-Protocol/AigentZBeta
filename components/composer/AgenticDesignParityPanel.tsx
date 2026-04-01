@@ -4,7 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
+  ArrowRight,
   BarChart3,
   CheckCircle2,
   FileText,
@@ -505,6 +507,7 @@ export function AgenticDesignParityPanel({
   const [remedyState, setRemedyState] = useState<RemedyState>({ status: "idle" });
   const [expData, setExpData] = useState<ExperienceModelData>({});
   const [expLoading, setExpLoading] = useState(false);
+  const [parityModalOpen, setParityModalOpen] = useState(false);
 
   useEffect(() => {
     if (activeTab !== "experience" || !previewExperience) return;
@@ -938,31 +941,72 @@ export function AgenticDesignParityPanel({
         </TabsList>
 
         <TabsContent value="pipeline">
-          <div className="grid gap-3 md:grid-cols-4">
-            {[
-              { label: "Design Ingestion", ready: !!designQube },
-              { label: "DIS Generation", ready: !!state.dis },
-              { label: "CM Generation", ready: !!state.cm },
-              { label: "DPR Appraisal", ready: !!state.parityReport },
-            ].map((step) => (
-              <div key={step.label} className="rounded-xl border border-slate-800 bg-slate-950/60 p-3 text-sm text-slate-200">
-                <div className="mb-2 font-semibold">{step.label}</div>
-                <div className="flex items-center gap-2 text-xs text-slate-400">
-                  {step.ready ? (
-                    <CheckCircle2 className="h-4 w-4 text-emerald-300" />
-                  ) : (
-                    <XCircle className="h-4 w-4 text-slate-500" />
-                  )}
-                  {step.ready ? "Ready" : "Pending"}
-                </div>
+          <div className="space-y-4">
+            {/* DIS pipeline */}
+            <div>
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Design Parity Pipeline</div>
+              <div className="grid gap-3 md:grid-cols-4">
+                {[
+                  { label: "Design Ingestion", ready: !!designQube },
+                  { label: "DIS Generation", ready: !!state.dis },
+                  { label: "CM Generation", ready: !!state.cm },
+                  { label: "DPR Appraisal", ready: !!state.parityReport },
+                ].map((step) => (
+                  <div key={step.label} className="rounded-xl border border-slate-800 bg-slate-950/60 p-3 text-sm text-slate-200">
+                    <div className="mb-2 font-semibold">{step.label}</div>
+                    <div className="flex items-center gap-2 text-xs text-slate-400">
+                      {step.ready ? (
+                        <CheckCircle2 className="h-4 w-4 text-emerald-300" />
+                      ) : (
+                        <XCircle className="h-4 w-4 text-slate-500" />
+                      )}
+                      {step.ready ? "Ready" : "Pending"}
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-          {state.status === "error" && (
-            <div className="mt-3 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-200">
-              {state.error}
+              {state.status === "error" && (
+                <div className="mt-3 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-200">
+                  {state.error}
+                </div>
+              )}
             </div>
-          )}
+
+            {/* Experience model pipeline — COD-209 */}
+            <div>
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Experience Model Pipeline</div>
+              <div className="flex flex-wrap items-center gap-1">
+                {[
+                  { label: "Strategy", ready: !!expData.strategy },
+                  { label: "Model", ready: !!expData.model },
+                  { label: "Matrix", ready: !!(expData.matrix?.length) },
+                  { label: "NBE", ready: !!expData.nbe },
+                  { label: "Artifact", ready: !!previewExperience },
+                  { label: "Codex Sync", ready: !!state.dis },
+                  { label: "Runtime", ready: !!state.parityReport },
+                  { label: "Analytics", ready: !!(expData.analysis?.length) },
+                ].map((step, i, arr) => (
+                  <div key={step.label} className="flex items-center gap-1">
+                    <div className={`rounded-lg border px-3 py-2 text-xs font-medium ${
+                      step.ready
+                        ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+                        : "border-slate-700 bg-slate-900/50 text-slate-400"
+                    }`}>
+                      <div className="flex items-center gap-1.5">
+                        {step.ready
+                          ? <CheckCircle2 className="h-3 w-3" />
+                          : <XCircle className="h-3 w-3 text-slate-600" />}
+                        {step.label}
+                      </div>
+                    </div>
+                    {i < arr.length - 1 && (
+                      <ArrowRight className="h-3 w-3 shrink-0 text-slate-600" />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </TabsContent>
 
         <TabsContent value="experience">
@@ -1324,6 +1368,9 @@ export function AgenticDesignParityPanel({
                   <div className={`text-lg font-semibold ${scoreColor(state.parityReport.parity.overall)}`}>
                     {state.parityReport.parity.overall}/100
                   </div>
+                  <Button variant="outline" size="sm" onClick={() => setParityModalOpen(true)} className="text-xs h-6 px-2">
+                    Full Report
+                  </Button>
                   <Badge variant="outline" className="border-slate-700 text-slate-300">
                     Checks: {state.parityReport.audit.totalChecks}
                   </Badge>
@@ -1415,6 +1462,77 @@ export function AgenticDesignParityPanel({
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* COD-208 — Parity Modal */}
+      <Dialog open={parityModalOpen} onOpenChange={setParityModalOpen}>
+        <DialogContent className="max-w-2xl border-slate-800 bg-slate-950 text-slate-200">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-slate-100">
+              <BarChart3 className="h-4 w-4 text-violet-400" />
+              Design Parity Report
+            </DialogTitle>
+          </DialogHeader>
+          {state.parityReport ? (
+            <div className="space-y-4 text-sm">
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="text-xs text-slate-400">Overall Score</div>
+                <div className={`text-2xl font-bold ${scoreColor(state.parityReport.parity.overall)}`}>
+                  {state.parityReport.parity.overall}/100
+                </div>
+                <Badge variant="outline" className="border-slate-700 text-slate-300">
+                  {state.parityReport.audit.totalChecks} checks
+                </Badge>
+                <Badge variant="outline" className="border-emerald-500/40 text-emerald-300">
+                  {state.parityReport.audit.passedChecks} passed
+                </Badge>
+                <Badge variant="outline" className="border-rose-500/40 text-rose-300">
+                  {state.parityReport.audit.failedChecks} failed
+                </Badge>
+              </div>
+              <div className="grid gap-2 md:grid-cols-5">
+                {Object.entries(state.parityReport.parity.structural).map(([key, score]) => (
+                  <div key={key} className="rounded-lg border border-slate-800 bg-slate-900/50 p-2 text-center">
+                    <div className="text-[11px] capitalize text-slate-400">{key}</div>
+                    <div className={`font-semibold ${scoreColor(score)}`}>{score}</div>
+                  </div>
+                ))}
+              </div>
+              {state.parityReport.violations.length > 0 && (
+                <div className="space-y-1">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Violations</div>
+                  <div className="max-h-48 overflow-y-auto space-y-1">
+                    {state.parityReport.violations.map((v, i) => (
+                      <div key={i} className="rounded border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-200">
+                        {v.message}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div className="flex gap-2 pt-2">
+                <Button variant="outline" size="sm" onClick={() => { void proposeRemedy(); setParityModalOpen(false); }}
+                  disabled={!state.parityReport.violations.length || remedyState.status === "applying"} className="text-xs">
+                  Remedy Infringements
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => { void runPipeline(); setParityModalOpen(false); }}
+                  disabled={state.status === "loading" || !previewExperience || !designQube} className="text-xs">
+                  Re-run DPR
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="py-8 text-center text-slate-400">
+              Run the pipeline to generate a Design Parity Report.
+              <div className="mt-3">
+                <Button variant="outline" size="sm" onClick={() => { void runPipeline(); setParityModalOpen(false); }}
+                  disabled={state.status === "loading" || !previewExperience || !designQube} className="text-xs">
+                  Run Pipeline
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
