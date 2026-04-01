@@ -437,6 +437,8 @@ function mapFallbackExportCapsules(): RuntimeCapsuleRecord[] {
 function scoreCapsule(capsule: RuntimeCapsuleRecord, prompt: string, intent: string): number {
   let score = 0;
   if (capsule.assetStatus === "resolved") score += 6;
+  // Deployed experiences always surface above catalogue content — they were explicitly published.
+  if (capsule.sourceType === "experience") score += 10;
   if (capsule.sourceType === "smart-content") score += 4;
   if (capsule.metadata.codexSlug && SHOWCASE_FOCUS.includes(capsule.metadata.codexSlug)) score += 3;
 
