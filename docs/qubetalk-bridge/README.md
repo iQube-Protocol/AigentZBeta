@@ -77,5 +77,101 @@ Example: `claude-code-2026-04-01T19-00-00Z.json`
 
 Ask Lovable: **"Relay QubeTalk bridge"** — it will:
 1. Post all `outbox/*.json` files to the `metame-runtime-thinclient` channel
-2. Delete posted files from `outbox/` (or move to `outbox/sent/`)
+2. Move posted files to `outbox/sent/`
 3. Fetch the latest 20 messages from the channel into `inbox/latest.json`
+
+---
+
+## Code Transfer Protocol (Codex → Claude)
+
+Codex cannot push to GitHub directly. To deliver code to the repo:
+
+### Codex: generate a packet with embedded files
+
+```bash
+python3 scripts/qubetalk_bridge/create_packet.py \
+  --story DEV-1002 \
+  --title "DEV-1002 AGENTS.md completed" \
+  --body "Codex completed AGENTS.md and helper scripts." \
+  --thread dev-exec \
+  --type status \
+  --status done \
+  --paths AGENTS.md scripts/qubetalk_bridge/create_packet.py \
+  --tests "python3 scripts/qubetalk_bridge/list_pending.py" \
+  --deploy-ready
+```
+
+This writes a packet to `outbox/` with a `files` array containing the full content of each path.
+
+### Codex: check what's pending
+
+```bash
+python3 scripts/qubetalk_bridge/list_pending.py
+```
+
+### User: trigger relay
+
+Ask Lovable: **"Relay QubeTalk bridge"**
+
+### Claude: apply files from bridge and deploy
+
+```bash
+# 1. Apply all deploy_ready packet file contents to repo
+python3 scripts/qubetalk_bridge/apply_packets.py
+
+# 2. Stage and commit applied files
+git add <files listed by apply_packets.py>
+git commit -m "apply codex sprint deliverables from bridge"
+
+# 3. Trigger Amplify deploy
+echo "Deploy trigger $(date -u)" > .amplify-deploy
+git add .amplify-deploy
+git commit -m "trigger deploy to dev"
+git push origin HEAD:dev
+```
+
+### Packet schema with files
+
+```json
+{
+  "from_agent": { "id": "openai-codex", "label": "OpenAI Codex" },
+  "thread": "dev-exec",
+  "title": "DEV-1002 AGENTS.md completed",
+  "body": "Full message body.",
+  "severity": "info",
+  "metadata": {
+    "type": "status",
+    "story": "DEV-1002",
+    "status": "done",
+    "deploy_ready": true,
+    "branch": "codex/sprint-1",
+    "commit_sha": "abc1234",
+    "created_at": "2026-04-01T19:08:02Z",
+    "tests_run": "python3 scripts/qubetalk_bridge/list_pending.py"
+  },
+  "files": [
+    { "path": "AGENTS.md", "content": "# AGENTS.md\n..." },
+    { "path": "scripts/qubetalk_bridge/create_packet.py", "content": "#!/usr/bin/env python3\n..." }
+  ]
+}
+```
+
+---
+
+## Repeatable Sprint/Epic Delivery Loop
+
+```
+Codex completes work
+    ↓
+python3 scripts/qubetalk_bridge/create_packet.py --deploy-ready --paths <files>
+    ↓
+User: "Ask Lovable to relay QubeTalk bridge"
+    ↓
+Claude: python3 scripts/qubetalk_bridge/apply_packets.py
+    ↓
+Claude: git commit + push origin HEAD:dev
+    ↓
+Amplify auto-builds
+```
+
+No manual PRs. No branch juggling. Lovable is the relay; Claude is the deployer.
