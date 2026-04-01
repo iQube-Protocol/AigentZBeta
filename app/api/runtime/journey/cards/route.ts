@@ -176,10 +176,23 @@ export async function GET(request: NextRequest) {
       }
     : { recognized: false, message: 'Start your KNYT journey today.' };
 
+  // COD-601 — trust summary from analysis cards
+  const scoreable = analysis.filter((c) => c.score != null);
+  const overallScore = scoreable.length > 0
+    ? Math.round(scoreable.reduce((sum, c) => sum + (c.score ?? 0), 0) / scoreable.length)
+    : null;
+  const goalAlignScore = analysis.find((c) => c.card_type === 'goal_alignment')?.score ?? null;
+  const trustSummary = {
+    overall_score: overallScore,
+    goal_alignment: goalAlignScore,
+    has_blockers: analysis.some((c) => c.card_type === 'blocker'),
+  };
+
   return NextResponse.json({
     persona_id: personaId,
     has_journey: journey != null,
     knyt_recognition: knytRecognition,
+    trust_summary: trustSummary,
     cards: {
       goals: goals,
       stage: stageCard,

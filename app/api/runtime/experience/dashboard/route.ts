@@ -86,19 +86,41 @@ export async function GET(request: NextRequest) {
 
     const { data: states } = await query;
 
-    // Fetch NBE plans for these personas
+    // Fetch NBE plans and analysis cards for these personas
     const personaIds = [...new Set((states ?? []).map((s) => s.persona_id))];
-    const { data: nbePlans } = personaIds.length
-      ? await supabase
-          .from('nbe_plans')
-          .select('persona_id, disposition, next_experience_depth, rationale')
-          .in('persona_id', personaIds)
-          .is('expires_at', null)
-      : { data: [] };
 
-    const nbeByPersona: Record<string, typeof nbePlans[0]> = {};
-    for (const plan of nbePlans ?? []) {
+    const [nbePlansRes, analysisCardsRes] = await Promise.all([
+      personaIds.length
+        ? supabase
+            .from('nbe_plans')
+            .select('persona_id, disposition, next_experience_depth, rationale')
+            .in('persona_id', personaIds)
+            .is('expires_at', null)
+        : { data: [] },
+      personaIds.length
+        ? supabase
+            .from('analysis_cards')
+            .select('persona_id, card_type, score')
+            .in('persona_id', personaIds)
+            .not('score', 'is', null)
+        : { data: [] },
+    ]);
+
+    const nbeByPersona: Record<string, (typeof nbePlansRes.data)[0]> = {};
+    for (const plan of nbePlansRes.data ?? []) {
       nbeByPersona[plan.persona_id] = plan;
+    }
+
+    // COD-601 — aggregate trust scores per persona from analysis cards
+    type TrustScores = { goal_alignment: number | null; stage_readiness: number | null; nbe_confidence: number | null };
+    const trustByPersona: Record<string, TrustScores> = {};
+    for (const card of analysisCardsRes.data ?? []) {
+      if (!trustByPersona[card.persona_id]) {
+        trustByPersona[card.persona_id] = { goal_alignment: null, stage_readiness: null, nbe_confidence: null };
+      }
+      if (card.card_type === 'goal_alignment') trustByPersona[card.persona_id].goal_alignment = card.score;
+      if (card.card_type === 'stage_readiness') trustByPersona[card.persona_id].stage_readiness = card.score;
+      if (card.card_type === 'nbe_confidence') trustByPersona[card.persona_id].nbe_confidence = card.score;
     }
 
     return NextResponse.json({
@@ -106,6 +128,7 @@ export async function GET(request: NextRequest) {
       individuals: (states ?? []).map((s) => ({
         ...s,
         nbe: nbeByPersona[s.persona_id] ?? null,
+        trust_scores: trustByPersona[s.persona_id] ?? null,
       })),
     });
   }

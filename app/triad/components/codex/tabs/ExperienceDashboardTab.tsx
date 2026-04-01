@@ -24,10 +24,12 @@ import {
   Globe,
   Layers,
   RefreshCw,
+  ShieldCheck,
   TrendingUp,
   Users,
   Zap,
 } from "lucide-react";
+import { Dots } from "@/components/registry/scoreUtils";
 
 type FranchiseData = {
   total_journeys: number;
@@ -41,6 +43,12 @@ type CohortData = {
   cohorts: Record<string, { count: number; depths: Record<string, number>; stalled: number }>;
 };
 
+type TrustScores = {
+  goal_alignment: number | null;
+  stage_readiness: number | null;
+  nbe_confidence: number | null;
+};
+
 type Individual = {
   persona_id: string;
   stage: string;
@@ -48,6 +56,7 @@ type Individual = {
   current_experience_id: string | null;
   active_at: string | null;
   nbe: { disposition: string; next_experience_depth: string | null; rationale: string | null } | null;
+  trust_scores: TrustScores | null;
 };
 
 type NBEPlan = {
@@ -96,19 +105,26 @@ export function ExperienceDashboardTab({ personaId, theme = "dark" }: Experience
   const [selectedIndividual, setSelectedIndividual] = useState<Individual | null>(null);
   const [nbeData, setNbeData] = useState<NBEData | null>(null);
   const [loading, setLoading] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   const fetchView = useCallback(async (view: string) => {
     setLoading(true);
+    setFetchError(null);
     try {
       const params = new URLSearchParams({ view });
       if (personaId && view === "individual") params.set("personaId", personaId);
       const res = await fetch(`/api/runtime/experience/dashboard?${params}`);
-      if (!res.ok) return;
+      if (!res.ok) {
+        setFetchError(`API error ${res.status} — ${res.statusText}`);
+        return;
+      }
       const data = await res.json();
       if (view === "franchise") setFranchise(data);
       if (view === "cohort") setCohort(data);
       if (view === "individual") setIndividuals(data.individuals ?? []);
       if (view === "nbe") setNbeData(data);
+    } catch {
+      setFetchError("Network error — unable to reach the dashboard API.");
     } finally {
       setLoading(false);
     }
@@ -142,6 +158,17 @@ export function ExperienceDashboardTab({ personaId, theme = "dark" }: Experience
           Refresh
         </Button>
       </div>
+
+      {/* COD-603 — Error banner */}
+      {fetchError && (
+        <div className="rounded-lg border border-rose-500/20 bg-rose-500/5 px-4 py-2.5 flex items-center justify-between gap-3">
+          <span className="text-xs text-rose-300">{fetchError}</span>
+          <Button variant="ghost" size="sm" onClick={() => void fetchView(activeView)}
+            className="h-6 text-xs text-rose-400 hover:text-rose-300 shrink-0">
+            Retry
+          </Button>
+        </div>
+      )}
 
       <Tabs value={activeView} onValueChange={setActiveView}>
         <TabsList className="grid w-full grid-cols-5 border border-slate-800 bg-slate-950/70">
@@ -272,7 +299,9 @@ export function ExperienceDashboardTab({ personaId, theme = "dark" }: Experience
               </div>
             ) : loading ? (
               <div className="text-slate-400">Loading cohort data…</div>
-            ) : null}
+            ) : (
+              <div className="text-slate-400 text-xs">No cohort data. Seed journey states to see cohort breakdowns.</div>
+            )}
           </div>
         </TabsContent>
 
@@ -317,6 +346,39 @@ export function ExperienceDashboardTab({ personaId, theme = "dark" }: Experience
                       )}
                     </div>
                   )}
+                  {/* COD-601 — Registry trust & compatibility indicators */}
+                  {selectedIndividual.trust_scores && (
+                    <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-3">
+                      <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <ShieldCheck className="h-3.5 w-3.5" />
+                        Trust &amp; Compatibility
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        {([
+                          { label: "Goal Align", key: "goal_alignment", kind: "trust" },
+                          { label: "Stage Ready", key: "stage_readiness", kind: "accuracy" },
+                          { label: "NBE Conf.", key: "nbe_confidence", kind: "reliability" },
+                        ] as const).map(({ label, key, kind }) => {
+                          const raw = selectedIndividual.trust_scores![key];
+                          // analysis_cards scores are 0–100; normalize to 0–10 for Dots
+                          const val = raw != null ? raw / 10 : 0;
+                          return (
+                            <div key={key} className="rounded border border-slate-800 bg-slate-950/50 px-2 py-1.5 text-center">
+                              <div className="text-[10px] text-slate-500 mb-1">{label}</div>
+                              {raw != null ? (
+                                <div className="flex justify-center">
+                                  <Dots value={val} kind={kind} title={label} size="xs" />
+                                </div>
+                              ) : (
+                                <div className="text-[10px] text-slate-600">—</div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="rounded-lg border border-slate-700 bg-slate-900/40 p-3 text-xs text-slate-400">
                     Persona ID: <span className="font-mono text-slate-300">{selectedIndividual.persona_id}</span>
                   </div>
@@ -422,7 +484,9 @@ export function ExperienceDashboardTab({ personaId, theme = "dark" }: Experience
               </div>
             ) : loading ? (
               <div className="text-slate-400">Loading NBE planner…</div>
-            ) : null}
+            ) : (
+              <div className="text-slate-400 text-xs">No NBE data. Run the DB migration and generate plans via the orchestration engine.</div>
+            )}
           </div>
         </TabsContent>
 

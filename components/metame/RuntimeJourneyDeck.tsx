@@ -53,10 +53,17 @@ type CardData = {
   };
 };
 
+type TrustSummary = {
+  overall_score: number | null;
+  goal_alignment: number | null;
+  has_blockers: boolean;
+};
+
 type DeckData = {
   persona_id: string;
   has_journey: boolean;
   knyt_recognition: { recognized: boolean; stage?: string; message: string };
+  trust_summary: TrustSummary | null;
   cards: CardData;
 };
 
@@ -115,8 +122,14 @@ export function RuntimeJourneyDeck({ personaId, onNBEAction, className = "" }: R
 
   if (loading) {
     return (
-      <div className={`flex items-center justify-center py-8 text-slate-400 text-sm ${className}`}>
-        Loading your journey…
+      <div className={`grid gap-3 md:grid-cols-2 ${className}`}>
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="rounded-xl border border-slate-800 bg-slate-950/70 p-4 space-y-2 animate-pulse">
+            <div className="h-3 w-24 rounded bg-slate-800" />
+            <div className="h-4 w-full rounded bg-slate-800/60" />
+            <div className="h-4 w-3/4 rounded bg-slate-800/40" />
+          </div>
+        ))}
       </div>
     );
   }
@@ -129,7 +142,7 @@ export function RuntimeJourneyDeck({ personaId, onNBEAction, className = "" }: R
     );
   }
 
-  const { knyt_recognition: rec, cards, has_journey } = data;
+  const { knyt_recognition: rec, cards, has_journey, trust_summary } = data;
 
   return (
     <div className={`space-y-3 ${className}`}>
@@ -274,12 +287,39 @@ export function RuntimeJourneyDeck({ personaId, onNBEAction, className = "" }: R
 
           {/* COD-408 — Handoff card */}
           <Card icon={<Users className="h-3.5 w-3.5" />} title="Your Guide">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <Badge variant="outline" className="border-slate-600 text-slate-300 text-[11px]">
                 {cards.handoff.active_agent}
               </Badge>
               <span className="text-xs text-slate-400">{cards.handoff.reason}</span>
             </div>
+            {/* COD-601 — trust/compatibility indicator */}
+            {trust_summary && (
+              <div className="mt-2 flex items-center gap-3">
+                {trust_summary.overall_score != null && (
+                  <div className="flex items-center gap-1.5">
+                    <Sparkles className="h-3 w-3 text-violet-400 shrink-0" />
+                    <span className="text-[11px] text-slate-400">Trust</span>
+                    <div className="flex items-center gap-0.5">
+                      {Array.from({ length: 5 }).map((_, i) => {
+                        const filled = Math.round((trust_summary.overall_score ?? 0) / 20);
+                        return (
+                          <span
+                            key={i}
+                            className={`text-[8px] ${i < filled ? "text-violet-400" : "text-slate-700"}`}
+                          >●</span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                {trust_summary.has_blockers && (
+                  <Badge variant="outline" className="border-rose-500/40 text-rose-400 text-[10px]">
+                    Blocker active
+                  </Badge>
+                )}
+              </div>
+            )}
           </Card>
         </div>
       )}
