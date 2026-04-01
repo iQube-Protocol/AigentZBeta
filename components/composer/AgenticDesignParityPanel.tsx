@@ -501,16 +501,18 @@ export function AgenticDesignParityPanel({
   onApplyRemedy,
   onLogAuditEvent,
 }: AgenticDesignParityPanelProps) {
-  const [activeTab, setActiveTab] = useState("pipeline");
-  const [expTab, setExpTab] = useState("status");
+  const [activeTab, setActiveTab] = useState("dis");
   const [state, setState] = useState<PipelineState>({ status: "idle" });
   const [remedyState, setRemedyState] = useState<RemedyState>({ status: "idle" });
-  const [expData, setExpData] = useState<ExperienceModelData>({});
-  const [expLoading, setExpLoading] = useState(false);
   const [parityModalOpen, setParityModalOpen] = useState(false);
 
+  // Experience data is now fetched at ComposerStudio level for the top-level Experience tab.
+  // Kept here for parity modal pipeline step status only.
+  const [expData, setExpData] = useState<ExperienceModelData>({});
+  const [expLoading, setExpLoading] = useState(false);
+
   useEffect(() => {
-    if (activeTab !== "experience" || !previewExperience) return;
+    if (!previewExperience) return;
     setExpLoading(true);
     const params = new URLSearchParams({ experienceId: previewExperience.id });
     if (personaId) params.set("personaId", personaId);
@@ -519,7 +521,7 @@ export function AgenticDesignParityPanel({
       .then((data: ExperienceModelData) => setExpData(data))
       .catch(() => setExpData({}))
       .finally(() => setExpLoading(false));
-  }, [activeTab, previewExperience, personaId]);
+  }, [previewExperience, personaId]);
   const onLogAuditEventRef = useRef(onLogAuditEvent);
 
   useEffect(() => {
@@ -917,11 +919,7 @@ export function AgenticDesignParityPanel({
       ) : null}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4 space-y-4">
-        <TabsList className="grid w-full grid-cols-5 border border-slate-800 bg-slate-950/70">
-          <TabsTrigger value="pipeline" className="flex items-center gap-2">
-            <Zap className="h-4 w-4" />
-            Pipeline
-          </TabsTrigger>
+        <TabsList className="grid w-full grid-cols-3 border border-slate-800 bg-slate-950/70">
           <TabsTrigger value="dis" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
             DIS
@@ -930,339 +928,11 @@ export function AgenticDesignParityPanel({
             <Settings className="h-4 w-4" />
             CM
           </TabsTrigger>
-          <TabsTrigger value="experience" className="flex items-center gap-2">
-            <Layers className="h-4 w-4" />
-            Experience
-          </TabsTrigger>
           <TabsTrigger value="report" className="flex items-center gap-2">
             <BarChart3 className="h-4 w-4" />
             DPR
           </TabsTrigger>
         </TabsList>
-
-        <TabsContent value="pipeline">
-          <div className="space-y-4">
-            {/* DIS pipeline */}
-            <div>
-              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Design Parity Pipeline</div>
-              <div className="grid gap-3 md:grid-cols-4">
-                {[
-                  { label: "Design Ingestion", ready: !!designQube },
-                  { label: "DIS Generation", ready: !!state.dis },
-                  { label: "CM Generation", ready: !!state.cm },
-                  { label: "DPR Appraisal", ready: !!state.parityReport },
-                ].map((step) => (
-                  <div key={step.label} className="rounded-xl border border-slate-800 bg-slate-950/60 p-3 text-sm text-slate-200">
-                    <div className="mb-2 font-semibold">{step.label}</div>
-                    <div className="flex items-center gap-2 text-xs text-slate-400">
-                      {step.ready ? (
-                        <CheckCircle2 className="h-4 w-4 text-emerald-300" />
-                      ) : (
-                        <XCircle className="h-4 w-4 text-slate-500" />
-                      )}
-                      {step.ready ? "Ready" : "Pending"}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              {state.status === "error" && (
-                <div className="mt-3 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-200">
-                  {state.error}
-                </div>
-              )}
-            </div>
-
-            {/* Experience model pipeline — COD-209 */}
-            <div>
-              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Experience Model Pipeline</div>
-              <div className="flex flex-wrap items-center gap-1">
-                {[
-                  { label: "Strategy", ready: !!expData.strategy },
-                  { label: "Model", ready: !!expData.model },
-                  { label: "Matrix", ready: !!(expData.matrix?.length) },
-                  { label: "NBE", ready: !!expData.nbe },
-                  { label: "Artifact", ready: !!previewExperience },
-                  { label: "Codex Sync", ready: !!state.dis },
-                  { label: "Runtime", ready: !!state.parityReport },
-                  { label: "Analytics", ready: !!(expData.analysis?.length) },
-                ].map((step, i, arr) => (
-                  <div key={step.label} className="flex items-center gap-1">
-                    <div className={`rounded-lg border px-3 py-2 text-xs font-medium ${
-                      step.ready
-                        ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
-                        : "border-slate-700 bg-slate-900/50 text-slate-400"
-                    }`}>
-                      <div className="flex items-center gap-1.5">
-                        {step.ready
-                          ? <CheckCircle2 className="h-3 w-3" />
-                          : <XCircle className="h-3 w-3 text-slate-600" />}
-                        {step.label}
-                      </div>
-                    </div>
-                    {i < arr.length - 1 && (
-                      <ArrowRight className="h-3 w-3 shrink-0 text-slate-600" />
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="experience">
-          <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-sm text-slate-200">
-            {!previewExperience ? (
-              <div className="text-slate-400">Select an experience to view its model data.</div>
-            ) : expLoading ? (
-              <div className="text-slate-400">Loading experience model…</div>
-            ) : (
-              <Tabs value={expTab} onValueChange={setExpTab} className="space-y-3">
-                <TabsList className="grid w-full grid-cols-6 border border-slate-800 bg-slate-900/60 text-xs">
-                  {(["status", "strategy", "model", "matrix", "nbe", "analysis"] as const).map((t) => (
-                    <TabsTrigger key={t} value={t} className="capitalize text-xs">{t}</TabsTrigger>
-                  ))}
-                </TabsList>
-
-                <TabsContent value="status">
-                  {expData.journey ? (
-                    <div className="grid gap-2 md:grid-cols-3">
-                      {[
-                        { label: "Stage", value: expData.journey.stage },
-                        { label: "Depth", value: expData.journey.depth },
-                        { label: "Active", value: expData.journey.active_at ? new Date(expData.journey.active_at).toLocaleDateString() : "—" },
-                      ].map(({ label, value }) => (
-                        <div key={label} className="rounded-lg border border-slate-800 bg-slate-900/50 p-3">
-                          <div className="text-[11px] text-slate-400">{label}</div>
-                          <div className="mt-1 font-semibold capitalize">{value}</div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-slate-400 text-xs">No journey state found for this experience. Run the DB migration and seed a journey state to see data here.</div>
-                  )}
-                </TabsContent>
-
-                <TabsContent value="strategy">
-                  {expData.strategy ? (
-                    <div className="space-y-2">
-                      <div className="font-semibold">{expData.strategy.name}</div>
-                      <div className="text-xs text-slate-300">{expData.strategy.description}</div>
-                      {expData.strategy.target_segments?.length ? (
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {expData.strategy.target_segments.map((s) => (
-                            <Badge key={s} variant="outline" className="border-slate-700 text-slate-300 text-[11px]">{s}</Badge>
-                          ))}
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : (
-                    <div className="text-slate-400 text-xs">No strategy linked to this experience.</div>
-                  )}
-                </TabsContent>
-
-                <TabsContent value="model">
-                  {expData.model ? (
-                    <div className="space-y-2">
-                      <div className="font-semibold">{expData.model.name}</div>
-                      <div className="text-xs text-slate-300">{expData.model.description}</div>
-                      {expData.model.stages?.length ? (
-                        <div className="mt-2 flex flex-wrap gap-1">
-                          {expData.model.stages.map((s, i) => (
-                            <div key={s} className="flex items-center gap-1 text-xs">
-                              <Badge variant="outline" className="border-violet-500/40 text-violet-300 text-[11px]">{s}</Badge>
-                              {i < expData.model!.stages.length - 1 && <span className="text-slate-600">→</span>}
-                            </div>
-                          ))}
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : (
-                    <div className="text-slate-400 text-xs">No experience model found.</div>
-                  )}
-                </TabsContent>
-
-                <TabsContent value="matrix">
-                  {expData.matrix?.length ? (() => {
-                    const DEPTHS = ["pill", "capsule", "mini_runtime", "codex"];
-                    const currentStage = expData.journey?.stage ?? null;
-                    const currentDepth = expData.journey?.depth ?? null;
-                    return (
-                      <div className="overflow-x-auto">
-                        <div className="min-w-[360px]">
-                          {/* Column headers */}
-                          <div className="grid gap-px mb-1" style={{ gridTemplateColumns: `120px repeat(${DEPTHS.length}, 1fr)` }}>
-                            <div />
-                            {DEPTHS.map((d) => (
-                              <div key={d} className="text-center text-[10px] font-semibold uppercase tracking-wide text-slate-500 pb-1 capitalize">{d}</div>
-                            ))}
-                          </div>
-                          {/* Grid rows */}
-                          <div className="space-y-px">
-                            {expData.matrix!.map((row) => {
-                              const isCurrentStage = row.stage === currentStage;
-                              return (
-                                <div key={row.stage} className="grid gap-px items-center"
-                                  style={{ gridTemplateColumns: `120px repeat(${DEPTHS.length}, 1fr)` }}>
-                                  {/* Row label */}
-                                  <div className={`text-xs font-semibold capitalize pr-2 ${isCurrentStage ? "text-violet-300" : "text-slate-400"}`}>
-                                    {isCurrentStage && <span className="mr-1 text-violet-400">▸</span>}
-                                    {row.stage}
-                                  </div>
-                                  {/* Depth cells */}
-                                  {DEPTHS.map((depth) => {
-                                    const available = row.depth_ladder.includes(depth);
-                                    const isCurrent = isCurrentStage && depth === currentDepth;
-                                    const cellClass = isCurrent
-                                      ? "border-violet-500/60 bg-violet-500/15 text-violet-300"
-                                      : available
-                                        ? "border-emerald-500/30 bg-emerald-500/8 text-emerald-400"
-                                        : "border-slate-800 bg-slate-900/30 text-slate-700";
-                                    return (
-                                      <div key={depth}
-                                        className={`rounded border px-1.5 py-2 text-center text-[10px] font-medium transition-colors ${cellClass}`}
-                                        title={isCurrent ? `Current: ${row.stage} / ${depth}` : available ? "Available" : "Locked"}>
-                                        {isCurrent ? "●" : available ? "○" : "·"}
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              );
-                            })}
-                          </div>
-                          {/* Legend */}
-                          <div className="flex items-center gap-4 mt-3 text-[10px] text-slate-500">
-                            <span><span className="text-violet-400">●</span> Current</span>
-                            <span><span className="text-emerald-400">○</span> Available</span>
-                            <span><span className="text-slate-700">·</span> Locked</span>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })() : (
-                    <div className="text-slate-400 text-xs">No experience matrix configured.</div>
-                  )}
-                </TabsContent>
-
-                <TabsContent value="nbe">
-                  {expData.nbe ? (
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <div className="text-xs text-slate-400">Disposition</div>
-                        <Badge variant="outline" className="border-emerald-500/40 text-emerald-300 capitalize">{expData.nbe.disposition}</Badge>
-                      </div>
-                      {expData.nbe.next_experience_depth && (
-                        <div className="flex items-center gap-2">
-                          <div className="text-xs text-slate-400">Next depth</div>
-                          <Badge variant="outline" className="border-violet-500/40 text-violet-300">{expData.nbe.next_experience_depth}</Badge>
-                        </div>
-                      )}
-                      {expData.nbe.rationale && (
-                        <div className="text-xs text-slate-300 mt-1">{expData.nbe.rationale}</div>
-                      )}
-                      {expData.nbe.expires_at && (
-                        <div className="text-[11px] text-slate-500">Expires: {new Date(expData.nbe.expires_at).toLocaleDateString()}</div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="text-slate-400 text-xs">No NBE plan active for this experience.</div>
-                  )}
-                </TabsContent>
-
-                <TabsContent value="analysis">
-                  {/* Goals → Matrix → NBE chain */}
-                  <div className="space-y-3">
-                    <div className="grid gap-2 md:grid-cols-3">
-                      {/* Goals node */}
-                      <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-3 space-y-1">
-                        <div className="text-[10px] font-semibold uppercase tracking-wide text-blue-400">Goals</div>
-                        {expData.analysis?.filter((c) => c.card_type === "goal_alignment").map((c, i) => (
-                          <div key={i} className="text-xs text-slate-300">{c.content}</div>
-                        ))}
-                        {expData.analysis?.filter((c) => c.card_type === "goal_alignment")[0]?.score != null && (
-                          <div className="text-[11px] font-semibold text-blue-300">
-                            Alignment: {expData.analysis!.find((c) => c.card_type === "goal_alignment")!.score}/100
-                          </div>
-                        )}
-                        {!expData.analysis?.some((c) => c.card_type === "goal_alignment") && (
-                          <div className="text-[11px] text-slate-600">No goal alignment data</div>
-                        )}
-                      </div>
-
-                      {/* Matrix readiness node */}
-                      <div className="rounded-lg border border-violet-500/30 bg-violet-500/5 p-3 space-y-1">
-                        <div className="text-[10px] font-semibold uppercase tracking-wide text-violet-400">Matrix Position</div>
-                        {expData.journey && (
-                          <div className="text-xs text-slate-300 capitalize">
-                            <span className="text-violet-300">{expData.journey.stage}</span>
-                            {" / "}
-                            <span className="text-slate-400">{expData.journey.depth}</span>
-                          </div>
-                        )}
-                        {expData.analysis?.filter((c) => c.card_type === "stage_readiness").map((c, i) => (
-                          <div key={i} className="text-xs text-slate-300">{c.content}</div>
-                        ))}
-                        {expData.analysis?.filter((c) => c.card_type === "stage_readiness")[0]?.score != null && (
-                          <div className="text-[11px] font-semibold text-violet-300">
-                            Readiness: {expData.analysis!.find((c) => c.card_type === "stage_readiness")!.score}/100
-                          </div>
-                        )}
-                        {!expData.journey && !expData.analysis?.some((c) => c.card_type === "stage_readiness") && (
-                          <div className="text-[11px] text-slate-600">No matrix position data</div>
-                        )}
-                      </div>
-
-                      {/* NBE recommendation node */}
-                      <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 space-y-1">
-                        <div className="text-[10px] font-semibold uppercase tracking-wide text-emerald-400">NBE Recommendation</div>
-                        {expData.nbe ? (
-                          <>
-                            <div className="flex items-center gap-1.5">
-                              <Badge variant="outline" className="border-emerald-500/40 text-emerald-300 capitalize text-[11px]">
-                                {expData.nbe.disposition}
-                              </Badge>
-                              {expData.nbe.next_experience_depth && (
-                                <span className="text-[11px] text-slate-400">→ {expData.nbe.next_experience_depth}</span>
-                              )}
-                            </div>
-                            {expData.nbe.rationale && (
-                              <div className="text-xs text-slate-300">{expData.nbe.rationale}</div>
-                            )}
-                            {expData.analysis?.filter((c) => c.card_type === "nbe_confidence")[0]?.score != null && (
-                              <div className="text-[11px] font-semibold text-emerald-300">
-                                Confidence: {expData.analysis!.find((c) => c.card_type === "nbe_confidence")!.score}/100
-                              </div>
-                            )}
-                          </>
-                        ) : (
-                          <div className="text-[11px] text-slate-600">No active NBE plan</div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Remaining analysis cards (blockers, recommendations) */}
-                    {expData.analysis?.filter((c) => !["goal_alignment", "stage_readiness", "nbe_confidence"].includes(c.card_type)).map((card, i) => (
-                      <div key={i} className="rounded-lg border border-slate-800 bg-slate-900/50 p-3">
-                        <div className="flex items-center justify-between mb-1">
-                          <Badge variant="outline"
-                            className={`text-[11px] capitalize ${card.card_type === "blocker" ? "border-rose-500/40 text-rose-300" : "border-slate-700 text-slate-300"}`}>
-                            {card.card_type.replace("_", " ")}
-                          </Badge>
-                          {card.score != null && (
-                            <span className="text-xs font-semibold text-emerald-300">{card.score}</span>
-                          )}
-                        </div>
-                        <div className="text-xs text-slate-300">{card.content}</div>
-                      </div>
-                    ))}
-                    {!expData.analysis?.length && (
-                      <div className="text-slate-400 text-xs">No analysis cards — seed analysis_cards in Supabase after running the DB migration.</div>
-                    )}
-                  </div>
-                </TabsContent>
-              </Tabs>
-            )}
-          </div>
-        </TabsContent>
 
         <TabsContent value="dis">
           <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-sm text-slate-200">

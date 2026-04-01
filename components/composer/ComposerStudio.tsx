@@ -1538,10 +1538,21 @@ export const ComposerStudio = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [editingExperienceId, setEditingExperienceId] = useState<string | null>(null);
-  const [studioAnalysisTab, setStudioAnalysisTab] = useState<"parity" | "surfaces" | "receipts" | "pipeline" | "workflows">("parity");
+  const [studioAnalysisTab, setStudioAnalysisTab] = useState<"experience" | "parity" | "surfaces" | "receipts" | "pipeline" | "workflows">("parity");
   const [lastPipelineRunId, setLastPipelineRunId] = useState<string | null>(null);
   const [pipelineRunData, setPipelineRunData] = useState<any>(null);
   const [pipelineRunLoading, setPipelineRunLoading] = useState(false);
+  // Experience Model state — feeds top-level Experience tab
+  const [expModelData, setExpModelData] = useState<{
+    journey?: { stage: string; depth: string; active_at: string | null } | null;
+    nbe?: { disposition: string; next_experience_depth: string | null; rationale: string | null; expires_at: string | null } | null;
+    strategy?: { name: string; description: string; target_segments: string[] } | null;
+    model?: { name: string; description: string; stages: string[] } | null;
+    matrix?: { stage: string; depth_ladder: string[] }[] | null;
+    analysis?: { card_type: string; content: string; score: number | null }[] | null;
+  }>({});
+  const [expModelTab, setExpModelTab] = useState("strategy");
+  const [expModelLoading, setExpModelLoading] = useState(false);
   const [workflowsList, setWorkflowsList] = useState<any[]>([]);
   const [workflowsLoading, setWorkflowsLoading] = useState(false);
   const [workflowInvokeState, setWorkflowInvokeState] = useState<Record<string, "idle" | "invoking" | "done" | "error">>({});
@@ -3590,7 +3601,7 @@ export const ComposerStudio = () => {
         else if (/(receipt|dvn)/.test(lower)) setStudioAnalysisTab("receipts");
         else setStudioAnalysisTab("parity");
 
-        return `I expanded **Parity Review** and moved to **${
+        return `I expanded **Planning & Parity Review** and moved to **${
           /(surface)/.test(lower)
             ? "Surface Planning"
             : /(receipt|dvn)/.test(lower)
@@ -3604,14 +3615,14 @@ export const ComposerStudio = () => {
           return `You are in **Customizer** on **${currentStep.title}** for **${templateName}**. The best next step is to complete the fields in this step, then move into **Resources** to confirm provider, skills, cost envelope, and any required user data.`;
         }
         if (experiencePanelTab === "resources") {
-          return `You are already in **Resources** for **${templateName}**. The next review loop is: confirm provider and skill path, confirm required user inputs, review the DesignQube summary, then move into **Preview** and **Parity Review**.`;
+          return `You are already in **Resources** for **${templateName}**. The next review loop is: confirm provider and skill path, confirm required user inputs, review the DesignQube summary, then move into **Preview** and **Planning & Parity Review**.`;
         }
         if (experiencePanelTab === "exqubes") {
-          return `You are in **Experiences**. The next step is to select or review the target ExperienceQube, then open **Runtime Preview** and **Parity Review** before deployment.`;
+          return `You are in **Experiences**. The next step is to select or review the target ExperienceQube, then open **Runtime Preview** and **Planning & Parity Review** before deployment.`;
         }
         if (sessionTemplate) {
           setExperiencePanelTab("customizer");
-          return `I moved you to **Customizer** for **${templateName}**. Start there, then review **Resources**, then check **Preview** and **Parity Review**.`;
+          return `I moved you to **Customizer** for **${templateName}**. Start there, then review **Resources**, then check **Preview** and **Planning & Parity Review**.`;
         }
       }
 
@@ -6696,9 +6707,9 @@ export const ComposerStudio = () => {
             : experiencePanelTab === "resources"
               ? "Resources"
               : studioAnalysisTab === "surfaces"
-                ? "Parity Review"
+                ? "Planning & Parity Review"
                 : studioAnalysisTab === "receipts"
-                  ? "Parity Review"
+                  ? "Planning & Parity Review"
                   : "Experiences";
       const inferredMediaMode =
         /(video|trailer|clip|motion|sora|venice)/.test(lower)
@@ -6900,7 +6911,7 @@ export const ComposerStudio = () => {
           recommendedDeploymentTarget: "Studio Preview",
           deploymentReady: Boolean(selectedExperienceId || previewExperience?.id),
           deploymentNotes: [
-            "Use Parity Review before deployment when resources or policy posture changed.",
+            "Use Planning & Parity Review before deployment when resources or policy posture changed.",
             "Discord and MCP deployment can follow after preview and parity review are satisfactory.",
           ],
         }),
@@ -7005,7 +7016,7 @@ export const ComposerStudio = () => {
       };
     }
     return {
-      title: "Parity Review",
+      title: "Planning & Planning & Parity Review",
       icon: <Shield className="h-4 w-4 text-fuchsia-300" />,
       description: "Review design parity, policy fit, and runtime readiness before launch.",
     };
@@ -9883,8 +9894,23 @@ export const ComposerStudio = () => {
             <Tabs
               value={studioAnalysisTab}
               onValueChange={(value) => {
-                setStudioAnalysisTab(value as "parity" | "surfaces" | "receipts" | "pipeline" | "workflows");
+                setStudioAnalysisTab(value as "experience" | "parity" | "surfaces" | "receipts" | "pipeline" | "workflows");
                 setIsParityExpanded(true);
+                if (value === "experience") {
+                  const expId = previewExperience?.id || selectedExperienceId;
+                  const pId = activePersonaId || userId;
+                  if (pId && !expModelLoading) {
+                    setExpModelLoading(true);
+                    const params = new URLSearchParams();
+                    if (expId) params.set("experienceId", expId);
+                    if (pId) params.set("personaId", pId);
+                    fetch(`/api/runtime/experience?${params}`)
+                      .then((r) => r.ok ? r.json() : null)
+                      .then((d) => { if (d) setExpModelData(d); })
+                      .catch(() => {})
+                      .finally(() => setExpModelLoading(false));
+                  }
+                }
                 if (value === "pipeline" && lastPipelineRunId && !pipelineRunData) {
                   setPipelineRunLoading(true);
                   fetch(`/api/pipeline/runs/${lastPipelineRunId}`)
@@ -9922,27 +9948,284 @@ export const ComposerStudio = () => {
                     <ChevronDown className={`h-4 w-4 transition-transform ${isParityExpanded ? "rotate-180" : ""}`} />
                   </button>
                 </div>
-                <TabsList className="grid h-10 w-full grid-cols-5 items-center rounded-full border border-white/10 bg-slate-950/60 p-1">
-                  <TabsTrigger value="parity" className={configuratorTabTriggerClass}>
-                    Design Parity
+                <TabsList className="grid h-11 w-full grid-cols-6 items-center rounded-full border border-white/10 bg-slate-950/60 p-1">
+                  <TabsTrigger value="experience" className={configuratorTabTriggerClass + " gap-1.5 text-[13px]"}>
+                    <Layers className="h-3.5 w-3.5 shrink-0" />
+                    Experience
                   </TabsTrigger>
-                  <TabsTrigger value="surfaces" className={configuratorTabTriggerClass}>
-                    Surface Planning
+                  <TabsTrigger value="parity" className={configuratorTabTriggerClass + " gap-1.5 text-[13px]"}>
+                    <Palette className="h-3.5 w-3.5 shrink-0" />
+                    Design
                   </TabsTrigger>
-                  <TabsTrigger value="receipts" className={configuratorTabTriggerClass}>
-                    DVN Receipts
+                  <TabsTrigger value="workflows" className={configuratorTabTriggerClass + " gap-1.5 text-[13px]"}>
+                    <Share2 className="h-3.5 w-3.5 shrink-0" />
+                    Workflows
                   </TabsTrigger>
-                  <TabsTrigger value="pipeline" className={configuratorTabTriggerClass}>
+                  <TabsTrigger value="surfaces" className={configuratorTabTriggerClass + " gap-1.5 text-[13px]"}>
+                    <Monitor className="h-3.5 w-3.5 shrink-0" />
+                    Surfaces
+                  </TabsTrigger>
+                  <TabsTrigger value="pipeline" className={configuratorTabTriggerClass + " gap-1.5 text-[13px]"}>
+                    <Activity className="h-3.5 w-3.5 shrink-0" />
                     Pipeline
                   </TabsTrigger>
-                  <TabsTrigger value="workflows" className={configuratorTabTriggerClass}>
-                    Workflows
+                  <TabsTrigger value="receipts" className={configuratorTabTriggerClass + " gap-1.5 text-[13px]"}>
+                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                    Receipts
                   </TabsTrigger>
                 </TabsList>
               </div>
 
               {isParityExpanded ? (
                 <>
+                  {/* ── Experience top-level tab ─────────────────────── */}
+                  <TabsContent value="experience" className="mt-0">
+                    <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 space-y-3 text-sm text-slate-200">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Layers className="h-4 w-4 text-violet-400" />
+                          <span className="font-semibold">Experience Model</span>
+                        </div>
+                        <button
+                          type="button"
+                          className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/50 px-2.5 py-1 text-[11px] text-slate-300 hover:bg-slate-700"
+                          onClick={() => {
+                            const expId = previewExperience?.id || selectedExperienceId;
+                            const pId = activePersonaId || userId;
+                            if (!pId) return;
+                            setExpModelLoading(true);
+                            const params = new URLSearchParams();
+                            if (expId) params.set("experienceId", expId);
+                            if (pId) params.set("personaId", pId);
+                            fetch(`/api/runtime/experience?${params}`)
+                              .then((r) => r.ok ? r.json() : null)
+                              .then((d) => { if (d) setExpModelData(d); })
+                              .catch(() => {})
+                              .finally(() => setExpModelLoading(false));
+                          }}
+                        >
+                          <RefreshCw className={`h-3 w-3 ${expModelLoading ? "animate-spin" : ""}`} />
+                          Refresh
+                        </button>
+                      </div>
+
+                      <Tabs value={expModelTab} onValueChange={setExpModelTab}>
+                        <TabsList className="grid w-full grid-cols-6 border border-slate-800 bg-slate-950/70">
+                          {(["strategy", "model", "matrix", "status", "nbe", "analysis"] as const).map((t) => (
+                            <TabsTrigger key={t} value={t} className="capitalize text-xs">{t}</TabsTrigger>
+                          ))}
+                        </TabsList>
+
+                        <TabsContent value="strategy" className="mt-3">
+                          {expModelData.strategy ? (
+                            <div className="space-y-2">
+                              <div className="font-semibold">{expModelData.strategy.name}</div>
+                              <div className="text-xs text-slate-300">{expModelData.strategy.description}</div>
+                              {expModelData.strategy.target_segments?.length > 0 && (
+                                <div className="flex gap-1 flex-wrap">
+                                  {expModelData.strategy.target_segments.map((s) => (
+                                    <span key={s} className="rounded-full border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[11px] text-violet-300">{s}</span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ) : expModelLoading ? (
+                            <div className="text-slate-400 text-xs">Loading…</div>
+                          ) : (
+                            <div className="text-slate-400 text-xs">No experience strategy configured. Seed experience_strategies in Supabase.</div>
+                          )}
+                        </TabsContent>
+
+                        <TabsContent value="model" className="mt-3">
+                          {expModelData.model ? (
+                            <div className="space-y-2">
+                              <div className="font-semibold">{expModelData.model.name}</div>
+                              <div className="text-xs text-slate-300">{expModelData.model.description}</div>
+                              {expModelData.model.stages?.length > 0 && (
+                                <div className="flex flex-wrap items-center gap-1">
+                                  {expModelData.model.stages.map((s, i) => (
+                                    <span key={s} className="flex items-center gap-1">
+                                      <span className="rounded border border-slate-700 bg-slate-900/50 px-2 py-0.5 text-[11px] capitalize text-slate-300">{s}</span>
+                                      {i < expModelData.model!.stages.length - 1 && <span className="text-slate-600">→</span>}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ) : expModelLoading ? (
+                            <div className="text-slate-400 text-xs">Loading…</div>
+                          ) : (
+                            <div className="text-slate-400 text-xs">No experience model found.</div>
+                          )}
+                        </TabsContent>
+
+                        <TabsContent value="matrix" className="mt-3">
+                          {expModelData.matrix?.length ? (() => {
+                            const DEPTHS = ["pill", "capsule", "mini_runtime", "codex"];
+                            const currentStage = expModelData.journey?.stage ?? null;
+                            const currentDepth = expModelData.journey?.depth ?? null;
+                            return (
+                              <div className="overflow-x-auto">
+                                <div className="min-w-[360px]">
+                                  <div className="grid gap-px mb-1" style={{ gridTemplateColumns: `120px repeat(${DEPTHS.length}, 1fr)` }}>
+                                    <div />
+                                    {DEPTHS.map((d) => (
+                                      <div key={d} className="text-center text-[10px] font-semibold uppercase tracking-wide text-slate-500 pb-1 capitalize">{d}</div>
+                                    ))}
+                                  </div>
+                                  <div className="space-y-px">
+                                    {expModelData.matrix!.map((row) => {
+                                      const isCurrentStage = row.stage === currentStage;
+                                      return (
+                                        <div key={row.stage} className="grid gap-px items-center"
+                                          style={{ gridTemplateColumns: `120px repeat(${DEPTHS.length}, 1fr)` }}>
+                                          <div className={`text-xs font-semibold capitalize pr-2 ${isCurrentStage ? "text-violet-300" : "text-slate-400"}`}>
+                                            {isCurrentStage && <span className="mr-1 text-violet-400">▸</span>}
+                                            {row.stage}
+                                          </div>
+                                          {DEPTHS.map((depth) => {
+                                            const available = row.depth_ladder.includes(depth);
+                                            const isCurrent = isCurrentStage && depth === currentDepth;
+                                            const cellClass = isCurrent
+                                              ? "border-violet-500/60 bg-violet-500/15 text-violet-300"
+                                              : available
+                                                ? "border-emerald-500/30 bg-emerald-500/8 text-emerald-400"
+                                                : "border-slate-800 bg-slate-900/30 text-slate-700";
+                                            return (
+                                              <div key={depth}
+                                                className={`rounded border px-1.5 py-2 text-center text-[10px] font-medium ${cellClass}`}
+                                                title={isCurrent ? "Current" : available ? "Available" : "Locked"}>
+                                                {isCurrent ? "●" : available ? "○" : "·"}
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                  <div className="flex items-center gap-4 mt-3 text-[10px] text-slate-500">
+                                    <span><span className="text-violet-400">●</span> Current</span>
+                                    <span><span className="text-emerald-400">○</span> Available</span>
+                                    <span><span className="text-slate-700">·</span> Locked</span>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })() : expModelLoading ? (
+                            <div className="text-slate-400 text-xs">Loading…</div>
+                          ) : (
+                            <div className="text-slate-400 text-xs">No experience matrix configured.</div>
+                          )}
+                        </TabsContent>
+
+                        <TabsContent value="status" className="mt-3">
+                          {expModelData.journey ? (
+                            <div className="grid gap-2 md:grid-cols-3">
+                              {[
+                                { label: "Stage", value: expModelData.journey.stage },
+                                { label: "Depth", value: expModelData.journey.depth },
+                                { label: "Active", value: expModelData.journey.active_at ? new Date(expModelData.journey.active_at).toLocaleDateString() : "—" },
+                              ].map(({ label, value }) => (
+                                <div key={label} className="rounded-lg border border-slate-800 bg-slate-900/50 p-3">
+                                  <div className="text-[11px] text-slate-400">{label}</div>
+                                  <div className="mt-1 font-semibold capitalize">{value}</div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : expModelLoading ? (
+                            <div className="text-slate-400 text-xs">Loading…</div>
+                          ) : (
+                            <div className="text-slate-400 text-xs">No journey state found for this persona. Run the DB migration and seed journey_states.</div>
+                          )}
+                        </TabsContent>
+
+                        <TabsContent value="nbe" className="mt-3">
+                          {expModelData.nbe ? (
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <span className="rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-300 capitalize">{expModelData.nbe.disposition}</span>
+                                {expModelData.nbe.next_experience_depth && (
+                                  <span className="text-xs text-slate-400">→ <span className="text-violet-300">{expModelData.nbe.next_experience_depth}</span></span>
+                                )}
+                              </div>
+                              {expModelData.nbe.rationale && <div className="text-xs text-slate-300">{expModelData.nbe.rationale}</div>}
+                              {expModelData.nbe.expires_at && (
+                                <div className="text-[11px] text-slate-500">Expires: {new Date(expModelData.nbe.expires_at).toLocaleDateString()}</div>
+                              )}
+                            </div>
+                          ) : expModelLoading ? (
+                            <div className="text-slate-400 text-xs">Loading…</div>
+                          ) : (
+                            <div className="text-slate-400 text-xs">No active NBE plan for this experience.</div>
+                          )}
+                        </TabsContent>
+
+                        <TabsContent value="analysis" className="mt-3">
+                          <div className="space-y-3">
+                            <div className="grid gap-2 md:grid-cols-3">
+                              {/* Goals node */}
+                              <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-3 space-y-1">
+                                <div className="text-[10px] font-semibold uppercase tracking-wide text-blue-400">Goals</div>
+                                {expModelData.analysis?.filter((c) => c.card_type === "goal_alignment").map((c, i) => (
+                                  <div key={i} className="text-xs text-slate-300">{c.content}</div>
+                                ))}
+                                {expModelData.analysis?.find((c) => c.card_type === "goal_alignment")?.score != null && (
+                                  <div className="text-[11px] font-semibold text-blue-300">Alignment: {expModelData.analysis!.find((c) => c.card_type === "goal_alignment")!.score}/100</div>
+                                )}
+                                {!expModelData.analysis?.some((c) => c.card_type === "goal_alignment") && (
+                                  <div className="text-[11px] text-slate-600">No goal data</div>
+                                )}
+                              </div>
+                              {/* Matrix node */}
+                              <div className="rounded-lg border border-violet-500/30 bg-violet-500/5 p-3 space-y-1">
+                                <div className="text-[10px] font-semibold uppercase tracking-wide text-violet-400">Matrix Position</div>
+                                {expModelData.journey && (
+                                  <div className="text-xs text-slate-300 capitalize">
+                                    <span className="text-violet-300">{expModelData.journey.stage}</span>{" / "}<span className="text-slate-400">{expModelData.journey.depth}</span>
+                                  </div>
+                                )}
+                                {expModelData.analysis?.find((c) => c.card_type === "stage_readiness")?.score != null && (
+                                  <div className="text-[11px] font-semibold text-violet-300">Readiness: {expModelData.analysis!.find((c) => c.card_type === "stage_readiness")!.score}/100</div>
+                                )}
+                                {!expModelData.journey && !expModelData.analysis?.some((c) => c.card_type === "stage_readiness") && (
+                                  <div className="text-[11px] text-slate-600">No position data</div>
+                                )}
+                              </div>
+                              {/* NBE node */}
+                              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 space-y-1">
+                                <div className="text-[10px] font-semibold uppercase tracking-wide text-emerald-400">NBE</div>
+                                {expModelData.nbe ? (
+                                  <>
+                                    <span className="rounded border border-emerald-500/40 bg-emerald-500/10 px-1.5 py-0.5 text-[11px] text-emerald-300 capitalize">{expModelData.nbe.disposition}</span>
+                                    {expModelData.nbe.next_experience_depth && (
+                                      <div className="text-[11px] text-slate-400">→ {expModelData.nbe.next_experience_depth}</div>
+                                    )}
+                                    {expModelData.analysis?.find((c) => c.card_type === "nbe_confidence")?.score != null && (
+                                      <div className="text-[11px] font-semibold text-emerald-300">Confidence: {expModelData.analysis!.find((c) => c.card_type === "nbe_confidence")!.score}/100</div>
+                                    )}
+                                  </>
+                                ) : <div className="text-[11px] text-slate-600">No active NBE</div>}
+                              </div>
+                            </div>
+                            {expModelData.analysis?.filter((c) => !["goal_alignment", "stage_readiness", "nbe_confidence"].includes(c.card_type)).map((card, i) => (
+                              <div key={i} className="rounded-lg border border-slate-800 bg-slate-900/50 p-3">
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className={`rounded border px-1.5 py-0.5 text-[11px] capitalize ${card.card_type === "blocker" ? "border-rose-500/40 text-rose-300" : "border-slate-700 text-slate-300"}`}>{card.card_type.replace("_", " ")}</span>
+                                  {card.score != null && <span className="text-xs font-semibold text-emerald-300">{card.score}</span>}
+                                </div>
+                                <div className="text-xs text-slate-300">{card.content}</div>
+                              </div>
+                            ))}
+                            {!expModelData.analysis?.length && !expModelLoading && (
+                              <div className="text-slate-400 text-xs">No analysis cards. Seed analysis_cards in Supabase after running the DB migration.</div>
+                            )}
+                          </div>
+                        </TabsContent>
+                      </Tabs>
+                    </div>
+                  </TabsContent>
+
+                  {/* ── Design (was Design Parity) ───────────────────── */}
                   <TabsContent value="parity" className="mt-0">
                     <AgenticDesignParityPanel
                       designQube={designQube}
@@ -9985,7 +10268,38 @@ export const ComposerStudio = () => {
                   </TabsContent>
 
                   <TabsContent value="pipeline" className="mt-0">
-                    <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-sm">
+                    <div className="space-y-4 rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-sm">
+                      {/* Experience Model Pipeline — integrated from inner tab */}
+                      <div>
+                        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Experience Model Pipeline</div>
+                        <div className="flex flex-wrap items-center gap-1">
+                          {[
+                            { label: "Strategy", ready: !!expModelData.strategy },
+                            { label: "Model", ready: !!expModelData.model },
+                            { label: "Matrix", ready: !!(expModelData.matrix?.length) },
+                            { label: "NBE", ready: !!expModelData.nbe },
+                            { label: "Artifact", ready: !!(previewExperience?.id) },
+                            { label: "Codex Sync", ready: false },
+                            { label: "Runtime", ready: false },
+                            { label: "Analytics", ready: !!(expModelData.analysis?.length) },
+                          ].map((step, i, arr) => (
+                            <div key={step.label} className="flex items-center gap-1">
+                              <div className={`flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-medium ${
+                                step.ready
+                                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+                                  : "border-slate-700 bg-slate-900/50 text-slate-500"
+                              }`}>
+                                {step.ready
+                                  ? <CheckCircle2 className="h-3 w-3" />
+                                  : <Activity className="h-3 w-3 text-slate-600" />}
+                                {step.label}
+                              </div>
+                              {i < arr.length - 1 && <span className="text-slate-700">→</span>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <hr className="border-slate-800" />
                       {!lastPipelineRunId && (
                         <p className="text-slate-400">No pipeline run recorded yet. Complete a session to see diagnostics.</p>
                       )}
