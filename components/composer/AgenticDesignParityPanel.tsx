@@ -922,10 +922,6 @@ export function AgenticDesignParityPanel({
             <Zap className="h-4 w-4" />
             Pipeline
           </TabsTrigger>
-          <TabsTrigger value="experience" className="flex items-center gap-2">
-            <Layers className="h-4 w-4" />
-            Experience
-          </TabsTrigger>
           <TabsTrigger value="dis" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
             DIS
@@ -933,6 +929,10 @@ export function AgenticDesignParityPanel({
           <TabsTrigger value="cm" className="flex items-center gap-2">
             <Settings className="h-4 w-4" />
             CM
+          </TabsTrigger>
+          <TabsTrigger value="experience" className="flex items-center gap-2">
+            <Layers className="h-4 w-4" />
+            Experience
           </TabsTrigger>
           <TabsTrigger value="report" className="flex items-center gap-2">
             <BarChart3 className="h-4 w-4" />
@@ -1082,20 +1082,63 @@ export function AgenticDesignParityPanel({
                 </TabsContent>
 
                 <TabsContent value="matrix">
-                  {expData.matrix?.length ? (
-                    <div className="space-y-2">
-                      {expData.matrix.map((row) => (
-                        <div key={row.stage} className="rounded-lg border border-slate-800 bg-slate-900/50 p-2">
-                          <div className="text-[11px] font-semibold capitalize text-slate-300 mb-1">{row.stage}</div>
-                          <div className="flex gap-1 flex-wrap">
-                            {row.depth_ladder.map((d) => (
-                              <Badge key={d} variant="outline" className="border-slate-700 text-slate-400 text-[11px]">{d}</Badge>
+                  {expData.matrix?.length ? (() => {
+                    const DEPTHS = ["pill", "capsule", "mini_runtime", "codex"];
+                    const currentStage = expData.journey?.stage ?? null;
+                    const currentDepth = expData.journey?.depth ?? null;
+                    return (
+                      <div className="overflow-x-auto">
+                        <div className="min-w-[360px]">
+                          {/* Column headers */}
+                          <div className="grid gap-px mb-1" style={{ gridTemplateColumns: `120px repeat(${DEPTHS.length}, 1fr)` }}>
+                            <div />
+                            {DEPTHS.map((d) => (
+                              <div key={d} className="text-center text-[10px] font-semibold uppercase tracking-wide text-slate-500 pb-1 capitalize">{d}</div>
                             ))}
                           </div>
+                          {/* Grid rows */}
+                          <div className="space-y-px">
+                            {expData.matrix!.map((row) => {
+                              const isCurrentStage = row.stage === currentStage;
+                              return (
+                                <div key={row.stage} className="grid gap-px items-center"
+                                  style={{ gridTemplateColumns: `120px repeat(${DEPTHS.length}, 1fr)` }}>
+                                  {/* Row label */}
+                                  <div className={`text-xs font-semibold capitalize pr-2 ${isCurrentStage ? "text-violet-300" : "text-slate-400"}`}>
+                                    {isCurrentStage && <span className="mr-1 text-violet-400">▸</span>}
+                                    {row.stage}
+                                  </div>
+                                  {/* Depth cells */}
+                                  {DEPTHS.map((depth) => {
+                                    const available = row.depth_ladder.includes(depth);
+                                    const isCurrent = isCurrentStage && depth === currentDepth;
+                                    const cellClass = isCurrent
+                                      ? "border-violet-500/60 bg-violet-500/15 text-violet-300"
+                                      : available
+                                        ? "border-emerald-500/30 bg-emerald-500/8 text-emerald-400"
+                                        : "border-slate-800 bg-slate-900/30 text-slate-700";
+                                    return (
+                                      <div key={depth}
+                                        className={`rounded border px-1.5 py-2 text-center text-[10px] font-medium transition-colors ${cellClass}`}
+                                        title={isCurrent ? `Current: ${row.stage} / ${depth}` : available ? "Available" : "Locked"}>
+                                        {isCurrent ? "●" : available ? "○" : "·"}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              );
+                            })}
+                          </div>
+                          {/* Legend */}
+                          <div className="flex items-center gap-4 mt-3 text-[10px] text-slate-500">
+                            <span><span className="text-violet-400">●</span> Current</span>
+                            <span><span className="text-emerald-400">○</span> Available</span>
+                            <span><span className="text-slate-700">·</span> Locked</span>
+                          </div>
                         </div>
-                      ))}
-                    </div>
-                  ) : (
+                      </div>
+                    );
+                  })() : (
                     <div className="text-slate-400 text-xs">No experience matrix configured.</div>
                   )}
                 </TabsContent>
@@ -1126,23 +1169,95 @@ export function AgenticDesignParityPanel({
                 </TabsContent>
 
                 <TabsContent value="analysis">
-                  {expData.analysis?.length ? (
-                    <div className="space-y-2">
-                      {expData.analysis.map((card, i) => (
-                        <div key={i} className="rounded-lg border border-slate-800 bg-slate-900/50 p-3">
-                          <div className="flex items-center justify-between mb-1">
-                            <Badge variant="outline" className="border-slate-700 text-slate-300 text-[11px] capitalize">{card.card_type}</Badge>
-                            {card.score != null && (
-                              <span className="text-xs font-semibold text-emerald-300">{card.score}</span>
-                            )}
+                  {/* Goals → Matrix → NBE chain */}
+                  <div className="space-y-3">
+                    <div className="grid gap-2 md:grid-cols-3">
+                      {/* Goals node */}
+                      <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-3 space-y-1">
+                        <div className="text-[10px] font-semibold uppercase tracking-wide text-blue-400">Goals</div>
+                        {expData.analysis?.filter((c) => c.card_type === "goal_alignment").map((c, i) => (
+                          <div key={i} className="text-xs text-slate-300">{c.content}</div>
+                        ))}
+                        {expData.analysis?.filter((c) => c.card_type === "goal_alignment")[0]?.score != null && (
+                          <div className="text-[11px] font-semibold text-blue-300">
+                            Alignment: {expData.analysis!.find((c) => c.card_type === "goal_alignment")!.score}/100
                           </div>
-                          <div className="text-xs text-slate-300">{card.content}</div>
-                        </div>
-                      ))}
+                        )}
+                        {!expData.analysis?.some((c) => c.card_type === "goal_alignment") && (
+                          <div className="text-[11px] text-slate-600">No goal alignment data</div>
+                        )}
+                      </div>
+
+                      {/* Matrix readiness node */}
+                      <div className="rounded-lg border border-violet-500/30 bg-violet-500/5 p-3 space-y-1">
+                        <div className="text-[10px] font-semibold uppercase tracking-wide text-violet-400">Matrix Position</div>
+                        {expData.journey && (
+                          <div className="text-xs text-slate-300 capitalize">
+                            <span className="text-violet-300">{expData.journey.stage}</span>
+                            {" / "}
+                            <span className="text-slate-400">{expData.journey.depth}</span>
+                          </div>
+                        )}
+                        {expData.analysis?.filter((c) => c.card_type === "stage_readiness").map((c, i) => (
+                          <div key={i} className="text-xs text-slate-300">{c.content}</div>
+                        ))}
+                        {expData.analysis?.filter((c) => c.card_type === "stage_readiness")[0]?.score != null && (
+                          <div className="text-[11px] font-semibold text-violet-300">
+                            Readiness: {expData.analysis!.find((c) => c.card_type === "stage_readiness")!.score}/100
+                          </div>
+                        )}
+                        {!expData.journey && !expData.analysis?.some((c) => c.card_type === "stage_readiness") && (
+                          <div className="text-[11px] text-slate-600">No matrix position data</div>
+                        )}
+                      </div>
+
+                      {/* NBE recommendation node */}
+                      <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 space-y-1">
+                        <div className="text-[10px] font-semibold uppercase tracking-wide text-emerald-400">NBE Recommendation</div>
+                        {expData.nbe ? (
+                          <>
+                            <div className="flex items-center gap-1.5">
+                              <Badge variant="outline" className="border-emerald-500/40 text-emerald-300 capitalize text-[11px]">
+                                {expData.nbe.disposition}
+                              </Badge>
+                              {expData.nbe.next_experience_depth && (
+                                <span className="text-[11px] text-slate-400">→ {expData.nbe.next_experience_depth}</span>
+                              )}
+                            </div>
+                            {expData.nbe.rationale && (
+                              <div className="text-xs text-slate-300">{expData.nbe.rationale}</div>
+                            )}
+                            {expData.analysis?.filter((c) => c.card_type === "nbe_confidence")[0]?.score != null && (
+                              <div className="text-[11px] font-semibold text-emerald-300">
+                                Confidence: {expData.analysis!.find((c) => c.card_type === "nbe_confidence")!.score}/100
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <div className="text-[11px] text-slate-600">No active NBE plan</div>
+                        )}
+                      </div>
                     </div>
-                  ) : (
-                    <div className="text-slate-400 text-xs">No analysis cards for this experience.</div>
-                  )}
+
+                    {/* Remaining analysis cards (blockers, recommendations) */}
+                    {expData.analysis?.filter((c) => !["goal_alignment", "stage_readiness", "nbe_confidence"].includes(c.card_type)).map((card, i) => (
+                      <div key={i} className="rounded-lg border border-slate-800 bg-slate-900/50 p-3">
+                        <div className="flex items-center justify-between mb-1">
+                          <Badge variant="outline"
+                            className={`text-[11px] capitalize ${card.card_type === "blocker" ? "border-rose-500/40 text-rose-300" : "border-slate-700 text-slate-300"}`}>
+                            {card.card_type.replace("_", " ")}
+                          </Badge>
+                          {card.score != null && (
+                            <span className="text-xs font-semibold text-emerald-300">{card.score}</span>
+                          )}
+                        </div>
+                        <div className="text-xs text-slate-300">{card.content}</div>
+                      </div>
+                    ))}
+                    {!expData.analysis?.length && (
+                      <div className="text-slate-400 text-xs">No analysis cards — seed analysis_cards in Supabase after running the DB migration.</div>
+                    )}
+                  </div>
                 </TabsContent>
               </Tabs>
             )}
@@ -1489,6 +1604,38 @@ export function AgenticDesignParityPanel({
                   {state.parityReport.audit.failedChecks} failed
                 </Badge>
               </div>
+
+              {/* Pipeline step status map */}
+              <div>
+                <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Pipeline Steps</div>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {[
+                    { label: "Strategy", ready: !!expData.strategy },
+                    { label: "Model", ready: !!expData.model },
+                    { label: "Matrix", ready: !!(expData.matrix?.length) },
+                    { label: "NBE", ready: !!expData.nbe },
+                    { label: "DIS", ready: !!state.dis },
+                    { label: "CM", ready: !!state.cm },
+                    { label: "DPR", ready: !!state.parityReport },
+                    { label: "Analytics", ready: !!(expData.analysis?.length) },
+                  ].map((step) => (
+                    <div key={step.label}
+                      className={`rounded border px-2 py-1.5 text-center text-[11px] font-medium ${
+                        step.ready
+                          ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+                          : "border-slate-800 bg-slate-900/50 text-slate-600"
+                      }`}>
+                      <div className="flex items-center justify-center gap-1">
+                        {step.ready
+                          ? <CheckCircle2 className="h-2.5 w-2.5" />
+                          : <XCircle className="h-2.5 w-2.5" />}
+                        {step.label}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               <div className="grid gap-2 md:grid-cols-5">
                 {Object.entries(state.parityReport.parity.structural).map(([key, score]) => (
                   <div key={key} className="rounded-lg border border-slate-800 bg-slate-900/50 p-2 text-center">

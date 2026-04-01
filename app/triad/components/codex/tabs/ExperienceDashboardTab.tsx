@@ -21,6 +21,7 @@ import {
   Activity,
   BarChart3,
   ChevronRight,
+  Eye,
   Globe,
   Layers,
   RefreshCw,
@@ -131,7 +132,7 @@ export function ExperienceDashboardTab({ personaId, theme = "dark" }: Experience
   }, [personaId]);
 
   useEffect(() => {
-    if (activeView === "reactivation") {
+    if (activeView === "reactivation" || activeView === "guardian") {
       void fetchView("franchise");
       void fetchView("individual");
     } else {
@@ -171,7 +172,7 @@ export function ExperienceDashboardTab({ personaId, theme = "dark" }: Experience
       )}
 
       <Tabs value={activeView} onValueChange={setActiveView}>
-        <TabsList className="grid w-full grid-cols-5 border border-slate-800 bg-slate-950/70">
+        <TabsList className="grid w-full grid-cols-6 border border-slate-800 bg-slate-950/70">
           <TabsTrigger value="franchise" className="flex items-center gap-1.5 text-xs">
             <Globe className="h-3.5 w-3.5" /> Franchise
           </TabsTrigger>
@@ -186,6 +187,9 @@ export function ExperienceDashboardTab({ personaId, theme = "dark" }: Experience
           </TabsTrigger>
           <TabsTrigger value="reactivation" className="flex items-center gap-1.5 text-xs">
             <TrendingUp className="h-3.5 w-3.5" /> Reactivation
+          </TabsTrigger>
+          <TabsTrigger value="guardian" className="flex items-center gap-1.5 text-xs">
+            <Eye className="h-3.5 w-3.5" /> Guardian
           </TabsTrigger>
         </TabsList>
 
@@ -593,6 +597,132 @@ export function ExperienceDashboardTab({ personaId, theme = "dark" }: Experience
                 <span className="font-mono text-amber-400">zero</span> stage without progressing.
               </div>
             )}
+          </div>
+        </TabsContent>
+
+        {/* Guardian view — grounded in visible experience state */}
+        <TabsContent value="guardian" className="mt-4">
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Eye className="h-4 w-4 text-emerald-400" />
+              <div>
+                <div className="text-sm font-semibold text-slate-200">Guardian State</div>
+                <div className="text-xs text-slate-400 mt-0.5">
+                  metaMe guardian recommendation inputs — grounded in live experience state.
+                </div>
+              </div>
+            </div>
+
+            {/* Franchise-level guardian inputs */}
+            {franchise ? (
+              <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 space-y-3">
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Franchise Health Signal
+                </div>
+                <div className="grid gap-3 md:grid-cols-3">
+                  <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-3 text-center">
+                    <div className="text-2xl font-bold text-slate-100">{franchise.total_journeys}</div>
+                    <div className="text-[11px] text-slate-400 mt-0.5">Total journeys</div>
+                  </div>
+                  <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-3 text-center">
+                    <div className="text-2xl font-bold text-amber-300">
+                      {(franchise.stage_distribution?.["first"] ?? 0) + (franchise.stage_distribution?.["zero"] ?? 0)}
+                    </div>
+                    <div className="text-[11px] text-slate-400 mt-0.5">Late-stage stalled</div>
+                  </div>
+                  <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-3 text-center">
+                    <div className="text-2xl font-bold text-violet-300">{franchise.nbe_opportunities.length}</div>
+                    <div className="text-[11px] text-slate-400 mt-0.5">Active NBE opportunities</div>
+                  </div>
+                </div>
+
+                {/* Stage funnel health — guardian policy view */}
+                <div>
+                  <div className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                    Stage Funnel (Guardian Policy Input)
+                  </div>
+                  <div className="flex gap-1 items-end flex-wrap">
+                    {["prospect", "acolyte", "keta", "keji", "first", "zero"].map((stage) => {
+                      const count = franchise.stage_distribution?.[stage] ?? 0;
+                      const total = franchise.total_journeys || 1;
+                      const pct = Math.round((count / total) * 100);
+                      return (
+                        <div key={stage} className="flex flex-col items-center gap-1">
+                          <div className="text-[10px] text-slate-400">{count}</div>
+                          <div
+                            className={`w-8 rounded-t-sm ${STAGE_COLORS[stage]?.includes("violet") ? "bg-violet-500/40" : STAGE_COLORS[stage]?.includes("emerald") ? "bg-emerald-500/40" : STAGE_COLORS[stage]?.includes("amber") ? "bg-amber-500/40" : "bg-slate-700"}`}
+                            style={{ height: `${Math.max(4, pct * 0.6)}px` }}
+                          />
+                          <div className="text-[9px] text-slate-500 capitalize">{stage}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {/* Per-persona guardian recommendation preview */}
+            {individuals.length > 0 && (
+              <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 space-y-3">
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Recommendation Inputs (per persona)
+                </div>
+                <div className="space-y-2">
+                  {individuals.slice(0, 5).map((ind) => {
+                    const trustNormalized = ind.trust_scores
+                      ? [ind.trust_scores.goal_alignment, ind.trust_scores.stage_readiness, ind.trust_scores.nbe_confidence]
+                          .filter((s) => s != null)
+                          .reduce((acc, s, _, arr) => acc + (s ?? 0) / arr.length, 0)
+                      : null;
+                    const guardianDisposition =
+                      ind.nbe?.disposition === "escalate" ? "🔴 ESCALATE"
+                      : ind.nbe?.disposition === "deny" ? "🔴 BLOCK"
+                      : trustNormalized != null && trustNormalized < 40 ? "⚠️ REVIEW"
+                      : ind.nbe?.disposition === "act" ? "✅ APPROVE"
+                      : "⏸ WAIT";
+                    return (
+                      <div key={ind.persona_id}
+                        className="grid gap-2 rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2"
+                        style={{ gridTemplateColumns: "1fr 80px 80px 100px" }}>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className={`capitalize text-[11px] ${STAGE_COLORS[ind.stage] ?? "border-slate-700 text-slate-400"}`}>
+                            {ind.stage}
+                          </Badge>
+                          <span className="font-mono text-[11px] text-slate-500">{ind.persona_id.slice(0, 8)}…</span>
+                        </div>
+                        <div className="text-center text-[11px] text-slate-400">
+                          {ind.depth}
+                        </div>
+                        <div className="text-center text-[11px]">
+                          {trustNormalized != null
+                            ? <span className={trustNormalized >= 70 ? "text-emerald-300" : trustNormalized >= 40 ? "text-amber-300" : "text-rose-300"}>
+                                {Math.round(trustNormalized)}%
+                              </span>
+                            : <span className="text-slate-600">—</span>}
+                        </div>
+                        <div className="text-right text-[11px] font-mono">{guardianDisposition}</div>
+                      </div>
+                    );
+                  })}
+                  {individuals.length > 5 && (
+                    <div className="text-[11px] text-slate-500 text-center">
+                      +{individuals.length - 5} more — switch to Individual tab to inspect
+                    </div>
+                  )}
+                </div>
+                <div className="text-[10px] text-slate-600">
+                  Guardian disposition: ESCALATE/DENY from active NBE plan · REVIEW from trust score &lt;40% · APPROVE from act disposition · WAIT otherwise
+                </div>
+              </div>
+            )}
+
+            {!franchise && !loading && (
+              <div className="text-slate-400 text-xs">
+                No experience state loaded. Run the DB migration and seed journey states.
+              </div>
+            )}
+            {loading && <div className="text-slate-400 text-xs">Loading guardian state…</div>}
           </div>
         </TabsContent>
       </Tabs>
