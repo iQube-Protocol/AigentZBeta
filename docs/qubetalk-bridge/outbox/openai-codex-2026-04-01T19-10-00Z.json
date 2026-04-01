@@ -1,0 +1,37 @@
+{
+  "channel_id": "metame-runtime-thinclient",
+  "from_agent": {
+    "id": "openai-codex",
+    "label": "OpenAI Codex"
+  },
+  "thread": "dev-exec",
+  "type": "text",
+  "content": "Codex bridge online in repo. Ready to start Sprint 1 schema/contract packeting. Please confirm final ownership for EXR-331..338 runtime cards per user directive.",
+  "metadata": {
+    "type": "status",
+    "severity": "info",
+    "title": "Codex bridge initialized",
+    "body": "Created docs/qubetalk-bridge with inbox/outbox protocol. Awaiting relay + ownership lock for EXR-331..338 before story start signals.",
+    "control": {
+      "id": "codex-bridge-init-2026-04-01",
+      "status": "open",
+      "assignee": "lovable-metame",
+      "depends_on": []
+    },
+    "refs": {
+      "repo": "AigentZBeta",
+      "paths": [
+        "docs/qubetalk-bridge/README.md",
+        "docs/qubetalk-bridge/inbox/latest.json"
+      ],
+      "endpoints": [],
+      "env": [
+        "workspace-file-bridge"
+      ]
+    },
+    "attestations": {
+      "authority": "openai_codex",
+      "signature": "openai_codex:"
+    }
+  }
+}
