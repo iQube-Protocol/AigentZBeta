@@ -10,6 +10,7 @@
  * COD-305: CRM-linked state (bound where available)
  * COD-306: Admin NBE planner (franchise/cohort/individual intervention)
  * COD-307: Analysis cards in admin views
+ * COD-504: Investor reactivation view
  */
 
 import { useCallback, useEffect, useState } from "react";
@@ -23,6 +24,7 @@ import {
   Globe,
   Layers,
   RefreshCw,
+  TrendingUp,
   Users,
   Zap,
 } from "lucide-react";
@@ -112,7 +114,14 @@ export function ExperienceDashboardTab({ personaId, theme = "dark" }: Experience
     }
   }, [personaId]);
 
-  useEffect(() => { void fetchView(activeView); }, [activeView, fetchView]);
+  useEffect(() => {
+    if (activeView === "reactivation") {
+      void fetchView("franchise");
+      void fetchView("individual");
+    } else {
+      void fetchView(activeView);
+    }
+  }, [activeView, fetchView]);
 
   const base = "rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-sm text-slate-200";
 
@@ -135,7 +144,7 @@ export function ExperienceDashboardTab({ personaId, theme = "dark" }: Experience
       </div>
 
       <Tabs value={activeView} onValueChange={setActiveView}>
-        <TabsList className="grid w-full grid-cols-4 border border-slate-800 bg-slate-950/70">
+        <TabsList className="grid w-full grid-cols-5 border border-slate-800 bg-slate-950/70">
           <TabsTrigger value="franchise" className="flex items-center gap-1.5 text-xs">
             <Globe className="h-3.5 w-3.5" /> Franchise
           </TabsTrigger>
@@ -147,6 +156,9 @@ export function ExperienceDashboardTab({ personaId, theme = "dark" }: Experience
           </TabsTrigger>
           <TabsTrigger value="nbe" className="flex items-center gap-1.5 text-xs">
             <Zap className="h-3.5 w-3.5" /> NBE Planner
+          </TabsTrigger>
+          <TabsTrigger value="reactivation" className="flex items-center gap-1.5 text-xs">
+            <TrendingUp className="h-3.5 w-3.5" /> Reactivation
           </TabsTrigger>
         </TabsList>
 
@@ -411,6 +423,112 @@ export function ExperienceDashboardTab({ personaId, theme = "dark" }: Experience
             ) : loading ? (
               <div className="text-slate-400">Loading NBE planner…</div>
             ) : null}
+          </div>
+        </TabsContent>
+
+        {/* COD-504 — Investor reactivation view */}
+        <TabsContent value="reactivation" className="mt-4">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-semibold text-slate-200">Investor Reactivation</div>
+                <div className="text-xs text-slate-400 mt-0.5">
+                  Journeys stalled at <span className="text-amber-400 font-mono">first</span> or{" "}
+                  <span className="text-amber-400 font-mono">zero</span> stage eligible for reactivation outreach.
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => { void fetchView("franchise"); void fetchView("individual"); }}
+              >
+                <RefreshCw className="h-3 w-3 mr-1" /> Refresh
+              </Button>
+            </div>
+
+            {/* Stalled investor summary from franchise data */}
+            {franchise?.stage_distribution && (
+              <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <TrendingUp className="h-4 w-4 text-amber-400" />
+                  <span className="text-xs font-semibold text-amber-300">Late-Stage Stalled</span>
+                </div>
+                <div className="flex gap-3">
+                  {["first", "zero"].map((stage) => {
+                    const count = (franchise.stage_distribution as Record<string, number>)[stage] ?? 0;
+                    return (
+                      <div key={stage} className="rounded border border-slate-800 bg-slate-900/60 px-4 py-2 text-center">
+                        <div className="text-lg font-bold text-slate-100">{count}</div>
+                        <div className="text-[11px] text-slate-400 capitalize">{stage} stage</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Individual stalled journeys */}
+            {individuals.filter((p) => p.stage === "first" || p.stage === "zero").length > 0 ? (
+              <div className="space-y-2">
+                {individuals
+                  .filter((p) => p.stage === "first" || p.stage === "zero")
+                  .map((p) => (
+                    <div
+                      key={p.persona_id}
+                      className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-900/50 px-4 py-3"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-mono text-slate-300">{p.persona_id.slice(0, 12)}…</span>
+                          <Badge
+                            variant="outline"
+                            className="border-amber-500/40 text-amber-300 capitalize text-[11px]"
+                          >
+                            {p.stage}
+                          </Badge>
+                          <Badge variant="outline" className="border-slate-700 text-slate-400 text-[11px]">
+                            {p.depth}
+                          </Badge>
+                        </div>
+                        {p.active_at && (
+                          <div className="text-[11px] text-slate-500">
+                            Last active:{" "}
+                            {new Date(p.active_at).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            })}
+                          </div>
+                        )}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs border-amber-500/30 text-amber-300 hover:bg-amber-500/10"
+                        onClick={() => {
+                          // COD-504 stub — emits investor_reactivation telemetry via NBE engine
+                          fetch("/api/orchestration/reactivate", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ persona_id: p.persona_id }),
+                          }).catch(() => {});
+                        }}
+                      >
+                        Flag for Reactivation
+                      </Button>
+                    </div>
+                  ))}
+              </div>
+            ) : loading ? (
+              <div className="text-slate-400 text-xs">Loading reactivation candidates…</div>
+            ) : (
+              <div className="text-slate-400 text-xs">
+                No stalled investor journeys found. Reactivation candidates appear when personas reach{" "}
+                <span className="font-mono text-amber-400">first</span> or{" "}
+                <span className="font-mono text-amber-400">zero</span> stage without progressing.
+              </div>
+            )}
           </div>
         </TabsContent>
       </Tabs>
