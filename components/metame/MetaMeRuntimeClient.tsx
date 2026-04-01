@@ -2533,7 +2533,7 @@ export default function MetaMeRuntimeClient() {
               </div>
             ) : null}
 
-            {runtimeAdminMode ? (
+            {(embedMode || runtimeAdminMode) ? (
               <RuntimeCapsuleAdminEditor
                 content={content}
                 onComplete={(override) =>
