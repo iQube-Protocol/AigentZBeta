@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useBalances } from "@/app/hooks/useBalances";
 import { useDVNEvents } from "@/app/hooks/useDVNEvents";
 import { useKnytBalance } from "@/app/hooks/useKnytBalance";
 import { useEthPrice } from "@/app/hooks/useEthPrice";
+import { useSupabaseSessionPersonas } from "@/app/hooks/useSupabaseSessionPersonas";
 import { useMetaAvatar } from "@/app/contexts/MetaAvatarContext";
 import AliasConsentToggle from "../identity/AliasConsentToggle";
 import SettlementRetryButton from "../x402/SettlementRetryButton";
@@ -78,6 +79,9 @@ import {
   Film,
   Maximize2,
   Minimize2,
+  LogOut,
+  LogIn,
+  Mail,
 } from "lucide-react";
 
 
@@ -223,11 +227,21 @@ export default function SmartWalletDrawer({
     },
     { refreshKey: balanceRefreshKey }
   );
+  const { sessionEmail, sessionPersonas, signOut: signOutSession, signIn: signInWithEmail, refreshPersonas } = useSupabaseSessionPersonas();
+
+  // Merge session-derived personas with any walletNode personas (session takes precedence, deduped by id)
+  const allAvailablePersonas = useMemo((): PersonaState[] => {
+    const fromWallet = walletNode?.personaContext?.availablePersonas ?? [];
+    const merged = [...sessionPersonas, ...fromWallet];
+    const seen = new Set<string>();
+    return merged.filter((p) => (seen.has(p.id) ? false : (seen.add(p.id), true)));
+  }, [sessionPersonas, walletNode?.personaContext?.availablePersonas]);
+
   const activePersona =
-    walletNode?.personaContext?.availablePersonas?.find(
-      (persona) => persona.id === walletNode?.personaContext?.activePersonaId
-    ) || walletNode?.personaContext?.activePersona || null;
-  const hasAnyPersona = (walletNode?.personaContext?.availablePersonas?.length ?? 0) > 0 || !!walletNode?.personaContext?.activePersonaId;
+    allAvailablePersonas.find(
+      (persona) => persona.id === (walletNode?.personaContext?.activePersonaId ?? localPersonaId)
+    ) || walletNode?.personaContext?.activePersona || allAvailablePersonas[0] || null;
+  const hasAnyPersona = allAvailablePersonas.length > 0 || !!walletNode?.personaContext?.activePersonaId;
   const effectivePersonaId =
     personaId || localPersonaId || walletNode?.personaContext?.activePersonaId || activePersona?.id;
   const { balance: knytBalance, loading: knytLoading, refreshBalance: refreshKnyt } =
@@ -256,6 +270,11 @@ export default function SmartWalletDrawer({
   const [sidebarOffset, setSidebarOffset] = useState(64);
   const [copilotQuickPromptsVisible, setCopilotQuickPromptsVisible] = useState(true);
   const [personaMenuOpen, setPersonaMenuOpen] = useState(false);
+  const [signingIn, setSigningIn] = useState(false);
+  const [signInEmailInput, setSignInEmailInput] = useState("");
+  const [signInPasswordInput, setSignInPasswordInput] = useState("");
+  const [signInError, setSignInError] = useState<string | null>(null);
+  const [signInPending, setSignInPending] = useState(false);
   const [showQcBreakdown, setShowQcBreakdown] = useState(false);
   const [logoLoadErrors, setLogoLoadErrors] = useState<Record<string, boolean>>({});
   const askCopilotCardRef = useRef<HTMLElement | null>(null);
@@ -270,6 +289,13 @@ export default function SmartWalletDrawer({
       process.env.NEXT_PUBLIC_LVB_BRIDGE_TENANT_ID ||
       "default"
   );
+
+  // Auto-select the first session persona when no active persona has been chosen yet
+  useEffect(() => {
+    if (!localPersonaId && !walletNode?.personaContext?.activePersonaId && sessionPersonas.length > 0) {
+      setLocalPersonaId(sessionPersonas[0].id);
+    }
+  }, [sessionPersonas, localPersonaId, walletNode?.personaContext?.activePersonaId]);
 
   useEffect(() => {
     onCopilotStateChange?.(copilotOpen);
@@ -584,6 +610,8 @@ export default function SmartWalletDrawer({
     setLocalPersonaId(newPersonaId);
     onPersonaChange?.(newPersonaId);
     setPersonaSetupOpen(false);
+    // Re-fetch session personas so the newly created persona appears in the dropdown
+    refreshPersonas();
   };
   
   // Persona state
@@ -1308,13 +1336,92 @@ export default function SmartWalletDrawer({
             </button>
 
             {personaMenuOpen && (
-              <div className="absolute top-full left-0 mt-1 min-w-[220px] bg-slate-950 rounded-lg border border-white/20 shadow-2xl z-[200] overflow-hidden">
-                {(walletNode?.personaContext?.availablePersonas || []).length > 0 && (
+              <div className="absolute top-full left-0 mt-1 min-w-[240px] bg-slate-950 rounded-lg border border-white/20 shadow-2xl z-[200] overflow-hidden">
+
+                {/* Signed-in account header */}
+                {sessionEmail && (
+                  <div className="px-3 py-2 border-b border-white/10 flex items-center gap-2">
+                    <Mail className="w-3.5 h-3.5 text-white/40 flex-shrink-0" />
+                    <p className="text-xs text-white/60 truncate">{sessionEmail}</p>
+                  </div>
+                )}
+
+                {/* Inline sign-in form — shown when not signed in */}
+                {!sessionEmail && signingIn && (
+                  <div className="px-3 py-3 border-b border-white/10">
+                    <p className="text-xs text-white/50 uppercase tracking-wider mb-2">Sign In</p>
+                    <input
+                      type="email"
+                      placeholder="Email"
+                      value={signInEmailInput}
+                      onChange={(e) => setSignInEmailInput(e.target.value)}
+                      className="w-full mb-2 px-2 py-1.5 text-sm bg-white/5 border border-white/10 rounded text-white placeholder-white/30 focus:outline-none focus:border-cyan-500/50"
+                      autoComplete="email"
+                    />
+                    <input
+                      type="password"
+                      placeholder="Password"
+                      value={signInPasswordInput}
+                      onChange={(e) => setSignInPasswordInput(e.target.value)}
+                      onKeyDown={async (e) => {
+                        if (e.key !== "Enter") return;
+                        setSignInPending(true);
+                        setSignInError(null);
+                        const { error } = await signInWithEmail(signInEmailInput, signInPasswordInput);
+                        setSignInPending(false);
+                        if (error) {
+                          setSignInError(error);
+                        } else {
+                          setSigningIn(false);
+                          setSignInEmailInput("");
+                          setSignInPasswordInput("");
+                          setPersonaMenuOpen(false);
+                        }
+                      }}
+                      className="w-full mb-2 px-2 py-1.5 text-sm bg-white/5 border border-white/10 rounded text-white placeholder-white/30 focus:outline-none focus:border-cyan-500/50"
+                      autoComplete="current-password"
+                    />
+                    {signInError && (
+                      <p className="text-xs text-red-400 mb-2">{signInError}</p>
+                    )}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={async () => {
+                          setSignInPending(true);
+                          setSignInError(null);
+                          const { error } = await signInWithEmail(signInEmailInput, signInPasswordInput);
+                          setSignInPending(false);
+                          if (error) {
+                            setSignInError(error);
+                          } else {
+                            setSigningIn(false);
+                            setSignInEmailInput("");
+                            setSignInPasswordInput("");
+                            setPersonaMenuOpen(false);
+                          }
+                        }}
+                        disabled={signInPending}
+                        className="flex-1 py-1.5 text-xs bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/30 text-cyan-300 rounded transition-colors disabled:opacity-50"
+                      >
+                        {signInPending ? "Signing in…" : "Sign In"}
+                      </button>
+                      <button
+                        onClick={() => { setSigningIn(false); setSignInError(null); }}
+                        className="px-3 py-1.5 text-xs text-white/40 hover:text-white/60 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Persona list */}
+                {allAvailablePersonas.length > 0 && (
                   <div className="max-h-48 overflow-y-auto">
                     <div className="px-3 py-2 border-b border-white/10">
                       <p className="text-xs text-white/50 uppercase tracking-wider">Switch Persona</p>
                     </div>
-                    {(walletNode?.personaContext?.availablePersonas || []).map((persona) => (
+                    {allAvailablePersonas.map((persona) => (
                       <button
                         key={persona.id}
                         onClick={() => {
@@ -1323,7 +1430,7 @@ export default function SmartWalletDrawer({
                           setPersonaMenuOpen(false);
                         }}
                         className={`w-full px-3 py-2 flex items-center gap-2 hover:bg-white/5 transition-colors ${
-                          walletNode?.personaContext?.activePersonaId === persona.id ? "bg-white/5" : ""
+                          effectivePersonaId === persona.id ? "bg-white/5" : ""
                         }`}
                       >
                         {persona.isAgent ? (
@@ -1333,13 +1440,30 @@ export default function SmartWalletDrawer({
                         )}
                         <div className="text-left min-w-0 flex-1">
                           <p className="text-sm text-white/90 truncate">{persona.displayName || "Persona"}</p>
-                          <p className="text-xs text-white/50 truncate">{persona.fioHandle || "No persona handle"}</p>
+                          <p className="text-xs text-white/50 truncate">{persona.fioHandle || "No handle"}</p>
                         </div>
-                        {walletNode?.personaContext?.activePersonaId === persona.id && (
+                        {effectivePersonaId === persona.id && (
                           <Check className="w-3 h-3 text-emerald-400" />
                         )}
                       </button>
                     ))}
+                  </div>
+                )}
+
+                {/* Signed in but no personas yet — prompt to create */}
+                {sessionEmail && allAvailablePersonas.length === 0 && (
+                  <div className="px-3 py-3 border-b border-white/10">
+                    <p className="text-xs text-white/40 mb-2">No personas yet. Create one to get started.</p>
+                    <button
+                      onClick={() => {
+                        setPersonaMenuOpen(false);
+                        onCreatePersona?.();
+                        setPersonaSetupOpen(true);
+                      }}
+                      className="w-full py-1.5 text-xs bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/30 text-purple-300 rounded transition-colors"
+                    >
+                      Create your first persona
+                    </button>
                   </div>
                 )}
 
@@ -1382,6 +1506,35 @@ export default function SmartWalletDrawer({
                     <Crown className="w-4 h-4" />
                     <span className="text-sm">Create with Wizard</span>
                   </button>
+                </div>
+
+                {/* Account actions — sign in or sign out */}
+                <div className="border-t border-white/10">
+                  {sessionEmail ? (
+                    <button
+                      onClick={() => {
+                        setPersonaMenuOpen(false);
+                        signOutSession();
+                      }}
+                      className="w-full px-3 py-2 flex items-center gap-2 text-red-400/80 hover:bg-red-500/10 transition-colors"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      <span className="text-sm">Sign Out</span>
+                    </button>
+                  ) : (
+                    !signingIn && (
+                      <button
+                        onClick={() => {
+                          setSigningIn(true);
+                          setSignInError(null);
+                        }}
+                        className="w-full px-3 py-2 flex items-center gap-2 text-white/50 hover:bg-white/5 hover:text-white/70 transition-colors"
+                      >
+                        <LogIn className="w-4 h-4" />
+                        <span className="text-sm">Sign In</span>
+                      </button>
+                    )
+                  )}
                 </div>
               </div>
             )}
@@ -2390,6 +2543,37 @@ export default function SmartWalletDrawer({
                 </div>
               </section>
 
+              {/* Living Canon — 21 Sats Participation */}
+              <section className="rounded-xl bg-gradient-to-br from-violet-500/10 to-amber-500/10 ring-1 ring-violet-500/20 p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <Sparkles className="w-4 h-4 text-amber-400" />
+                  <span className="text-xs font-medium text-amber-200">Living Canon — 21 Sats</span>
+                </div>
+                <p className="text-[10px] text-white/50 mb-2.5">
+                  Participate in the canon. Vote on elections, submit contributions, or file dispatches as a Correspondent.
+                </p>
+                <div className="space-y-1.5">
+                  {[
+                    { label: "Vote on open elections", badge: "+21 KNYT", badgeClass: "text-amber-300 bg-amber-500/10" },
+                    { label: "Submit community contribution", badge: "PoKW", badgeClass: "text-cyan-300 bg-cyan-500/10" },
+                    { label: "File Correspondent dispatch", badge: "Featured", badgeClass: "text-violet-300 bg-violet-500/10" },
+                  ].map(({ label, badge, badgeClass }) => (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={() => {
+                        window.dispatchEvent(new CustomEvent('knyt:navigate-tab', { detail: { tab: 'living-canon' } }));
+                      }}
+                      className="w-full flex items-center justify-between rounded-lg bg-white/5 hover:bg-white/10 transition px-2 py-1.5 text-left"
+                    >
+                      <span className="text-[11px] text-white/70">{label}</span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded ${badgeClass}`}>{badge}</span>
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-white/30 mt-2">Opens the 21 Sats tab in the KNYT Codex.</p>
+              </section>
+
               {/* Active Tasks */}
               <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-3">
                 <div className="text-[11px] uppercase tracking-wider text-white/60 mb-2">Active Tasks</div>
@@ -2783,6 +2967,7 @@ export default function SmartWalletDrawer({
             setLocalPersonaId(newPersonaId);
             onPersonaChange?.(newPersonaId);
             setQuickAddOpen(false);
+            refreshPersonas();
           }}
           onAdvanced={() => {
             setQuickAddOpen(false);

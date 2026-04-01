@@ -560,18 +560,506 @@ async function callChainGpt(
   };
 }
 
+// ============================================================================
+// Marketa Tool Calling
+// ============================================================================
+
+const MARKETA_TOOLS_ANTHROPIC = [
+  {
+    name: 'list_workflows',
+    description: 'List available workflow definitions for the current tenant so you can tell the user what automation scenarios are available.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        tenantId: { type: 'string', description: 'The tenant ID to list workflows for' },
+      },
+      required: ['tenantId'],
+    },
+  },
+  {
+    name: 'invoke_workflow',
+    description: 'Execute a workflow by its ID. Use this to actually run an automation scenario rather than just describing how to do it.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        workflowId: { type: 'string', description: 'The workflow definition UUID to invoke' },
+        tenantId: { type: 'string', description: 'The tenant ID' },
+        personaId: { type: 'string', description: 'The persona ID triggering the invocation' },
+        input: { type: 'object', description: 'Input data to pass to the workflow' },
+      },
+      required: ['workflowId', 'tenantId', 'personaId'],
+    },
+  },
+  {
+    name: 'deploy_campaign',
+    description: 'Deploy a Marketa campaign by its campaign ID. This triggers the full campaign deployment pipeline.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        campaignId: { type: 'string', description: 'The campaign ID to deploy' },
+        tenantId: { type: 'string', description: 'The tenant ID' },
+      },
+      required: ['campaignId', 'tenantId'],
+    },
+  },
+  {
+    name: 'generate_image',
+    description: 'Generate portrait and/or landscape images using AI. Use this when the user asks to create, generate, or produce images, artwork, or visual assets.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        portrait_prompt: { type: 'string', description: 'Prompt for portrait orientation image' },
+        landscape_prompt: { type: 'string', description: 'Prompt for landscape orientation image' },
+        provider_id: { type: 'string', enum: ['openai', 'venice'], description: 'Image provider — defaults to venice' },
+        experience_id: { type: 'string', description: 'Optional experience ID to associate the image with' },
+      },
+    },
+  },
+  {
+    name: 'generate_video',
+    description: 'Generate a video clip from a text prompt. Use when the user asks to create, generate, or produce video content.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        prompt: { type: 'string', description: 'Detailed description of the video to generate' },
+        skill_id: { type: 'string', enum: ['sora_video_gen_curated', 'venice_video_gen'], description: 'Video provider — use sora_video_gen_curated for high quality, venice_video_gen as alternative' },
+        duration: { type: 'number', description: 'Duration in seconds (4-12 for Sora, 5-10 for Venice)' },
+        aspect_ratio: { type: 'string', enum: ['16:9', '9:16', '1:1'], description: 'Video aspect ratio' },
+        style: { type: 'string', enum: ['cinematic', 'animation', 'comic', 'photorealistic'], description: 'Visual style' },
+        experience_id: { type: 'string', description: 'Optional experience ID' },
+      },
+      required: ['prompt', 'skill_id'],
+    },
+  },
+  {
+    name: 'draft_article',
+    description: 'Generate a structured article draft with title, sections, and optional takeaways. Use when the user asks to write, draft, or create written content.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        prompt: { type: 'string', description: 'Goal or topic for the article' },
+        title: { type: 'string', description: 'Optional article title' },
+        outputs: { type: 'array', items: { type: 'string', enum: ['takeaways', 'glossary', 'next_action'] }, description: 'Optional output sections to include' },
+        takeawaysCount: { type: 'number', description: 'Number of takeaways (1-5)' },
+        mediaMode: { type: 'string', enum: ['image', 'video'], description: 'Media context for the article' },
+      },
+      required: ['prompt'],
+    },
+  },
+  {
+    name: 'create_image_article_bundle',
+    description: 'Generate both an image (portrait + landscape) AND a supporting article draft together. Use this when the user wants a complete image-led content package.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        image_prompt: { type: 'string', description: 'Prompt used for both portrait and landscape images' },
+        article_prompt: { type: 'string', description: 'Topic or goal for the article' },
+        article_title: { type: 'string', description: 'Optional article title' },
+        provider_id: { type: 'string', enum: ['openai', 'venice'], description: 'Image provider — defaults to venice' },
+        experience_id: { type: 'string', description: 'Optional experience ID to associate assets with' },
+      },
+      required: ['image_prompt', 'article_prompt'],
+    },
+  },
+  {
+    name: 'create_video_article_bundle',
+    description: 'Generate a video clip AND a supporting article draft together. Use this when the user wants a complete video-led content package.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        video_prompt: { type: 'string', description: 'Detailed description of the video to generate' },
+        article_prompt: { type: 'string', description: 'Topic or goal for the article' },
+        article_title: { type: 'string', description: 'Optional article title' },
+        skill_id: { type: 'string', enum: ['sora_video_gen_curated', 'venice_video_gen'], description: 'Video provider' },
+        duration: { type: 'number', description: 'Duration in seconds' },
+        aspect_ratio: { type: 'string', enum: ['16:9', '9:16', '1:1'] },
+        style: { type: 'string', enum: ['cinematic', 'animation', 'comic', 'photorealistic'] },
+        experience_id: { type: 'string', description: 'Optional experience ID' },
+      },
+      required: ['video_prompt', 'article_prompt'],
+    },
+  },
+  {
+    name: 'deploy_experience',
+    description: 'Deploy a completed experience to a delivery target — metaMe runtime thin client, metaMe runtime (full), Discord (as asset link, inline embed, or experience), or Studio preview. Use this when the user wants to publish, launch, distribute, or send an experience to the runtime or Discord.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        experienceId: { type: 'string', description: 'The ExperienceQube ID to deploy' },
+        tenantId: { type: 'string', description: 'The tenant ID' },
+        personaId: { type: 'string', description: 'The persona ID' },
+        target: {
+          type: 'string',
+          enum: ['studio_preview', 'runtime_launch', 'runtime_thin_client', 'discord_mcp', 'mcp_app'],
+          description: 'Deployment target — runtime_thin_client for thin-client runtime, discord_mcp for Discord, runtime_launch for full runtime, studio_preview for internal preview',
+        },
+        variant: {
+          type: 'string',
+          enum: ['runtime_standard', 'runtime_thin_client', 'asset_link', 'discord_asset_inline', 'discord_experience_inline'],
+          description: 'Delivery variant — runtime_thin_client for thin client, asset_link for a Discord link, discord_asset_inline for inline Discord embed',
+        },
+        mode: {
+          type: 'string',
+          enum: ['simulate', 'live'],
+          description: 'simulate to preview without actually posting, live to publish for real',
+        },
+        message: { type: 'string', description: 'Message text to accompany the experience (required for Discord)' },
+        channelId: { type: 'string', description: 'Discord channel snowflake ID (required for live Discord dispatch)' },
+        inviteUrl: { type: 'string', description: 'Discord invite URL (alternative to channelId for channel resolution)' },
+        publishUrl: { type: 'string', description: 'URL to the published asset or experience' },
+        thumbnailUrl: { type: 'string', description: 'Thumbnail image URL for embed preview' },
+        titleOverride: { type: 'string', description: 'Override the experience title in the embed' },
+        tool: {
+          type: 'string',
+          enum: ['pill.get', 'capsule.get', 'mini_runtime.get', 'codex.entry', 'invite.create', 'share.compose', 'next.best'],
+          description: 'MCP delivery tool — use mini_runtime.get for runtime thin client, next.best to auto-select the best option',
+        },
+      },
+      required: ['experienceId', 'tenantId', 'personaId', 'target', 'mode'],
+    },
+  },
+  {
+    name: 'check_discord_status',
+    description: 'Check if the Discord bot is configured and has access to a specific channel. Call this before attempting a live Discord deployment to confirm the bot is ready.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        channelId: { type: 'string', description: 'Discord channel snowflake ID to check access for' },
+        inviteUrl: { type: 'string', description: 'Discord invite URL (alternative to channelId)' },
+      },
+    },
+  },
+];
+
+const MARKETA_TOOLS_OPENAI = MARKETA_TOOLS_ANTHROPIC.map((t) => ({
+  type: 'function' as const,
+  function: {
+    name: t.name,
+    description: t.description,
+    parameters: t.input_schema,
+  },
+}));
+
+async function executeMarketaTool(name: string, input: Record<string, unknown>): Promise<string> {
+  const base = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+  try {
+    if (name === 'list_workflows') {
+      const res = await fetch(`${base}/api/workflows?tenant_id=${encodeURIComponent(String(input.tenantId ?? ''))}&limit=20`);
+      const json = await res.json();
+      const workflows = (json.workflows ?? []).map((w: any) => ({ id: w.id, name: w.name, adapter: w.adapter, status: w.status }));
+      return JSON.stringify({ workflows });
+    }
+    if (name === 'invoke_workflow') {
+      const res = await fetch(`${base}/api/workflows/${input.workflowId}/invoke`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          envelope: { tenantId: input.tenantId, personaId: input.personaId },
+          input: input.input ?? {},
+        }),
+      });
+      const json = await res.json();
+      return JSON.stringify(json);
+    }
+    if (name === 'deploy_campaign') {
+      const res = await fetch(`${base}/api/marketa/campaigns/deploy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ campaignId: input.campaignId, tenantId: input.tenantId }),
+      });
+      const json = await res.json();
+      return JSON.stringify(json);
+    }
+    if (name === 'generate_image') {
+      const res = await fetch(`${base}/api/skills/image/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          provider_id: input.provider_id ?? 'venice',
+          portrait_prompt: input.portrait_prompt,
+          landscape_prompt: input.landscape_prompt,
+          experience_id: input.experience_id,
+        }),
+      });
+      const json = await res.json();
+      const images = (json.images ?? []).map((img: any) => ({ orientation: img.orientation, ok: img.ok, image_url: img.image_url, error: img.error }));
+      return JSON.stringify({ ok: json.ok, provider: json.provider, images });
+    }
+    if (name === 'generate_video') {
+      const res = await fetch(`${base}/api/skills/invoke`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          skill_id: input.skill_id ?? 'venice_video_gen',
+          prompt: input.prompt,
+          duration: input.duration,
+          aspect_ratio: input.aspect_ratio,
+          style: input.style,
+          experience_id: input.experience_id,
+          trust_override: true,
+        }),
+      });
+      const json = await res.json();
+      return JSON.stringify({ ok: json.ok, provider: json.provider, video_url: json.video_url, generation_id: json.generation_id, provider_status: json.provider_status });
+    }
+    if (name === 'draft_article') {
+      const res = await fetch(`${base}/api/composer/article-draft`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: input.prompt, title: input.title, outputs: input.outputs, takeawaysCount: input.takeawaysCount, mediaMode: input.mediaMode }),
+      });
+      const json = await res.json();
+      return JSON.stringify({ ok: json.ok, articleDraft: json.articleDraft });
+    }
+    if (name === 'create_image_article_bundle') {
+      const [imgRes, artRes] = await Promise.all([
+        fetch(`${base}/api/skills/image/generate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ provider_id: input.provider_id ?? 'venice', portrait_prompt: input.image_prompt, landscape_prompt: input.image_prompt, experience_id: input.experience_id }),
+        }),
+        fetch(`${base}/api/composer/article-draft`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt: input.article_prompt, title: input.article_title }),
+        }),
+      ]);
+      const [imgJson, artJson] = await Promise.all([imgRes.json(), artRes.json()]);
+      return JSON.stringify({
+        images: (imgJson.images ?? []).map((img: any) => ({ orientation: img.orientation, ok: img.ok, image_url: img.image_url })),
+        articleDraft: artJson.articleDraft,
+      });
+    }
+    if (name === 'create_video_article_bundle') {
+      const [vidRes, artRes] = await Promise.all([
+        fetch(`${base}/api/skills/invoke`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ skill_id: input.skill_id ?? 'venice_video_gen', prompt: input.video_prompt, duration: input.duration, aspect_ratio: input.aspect_ratio, style: input.style, experience_id: input.experience_id, trust_override: true }),
+        }),
+        fetch(`${base}/api/composer/article-draft`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt: input.article_prompt, title: input.article_title, mediaMode: 'video' }),
+        }),
+      ]);
+      const [vidJson, artJson] = await Promise.all([vidRes.json(), artRes.json()]);
+      return JSON.stringify({
+        video: { ok: vidJson.ok, provider: vidJson.provider, video_url: vidJson.video_url, generation_id: vidJson.generation_id, provider_status: vidJson.provider_status },
+        articleDraft: artJson.articleDraft,
+      });
+    }
+    if (name === 'deploy_experience') {
+      const target = String(input.target ?? 'runtime_thin_client');
+      const defaultVariant = target === 'discord_mcp' ? 'asset_link' : 'runtime_thin_client';
+      const res = await fetch(`${base}/api/messenger/dispatch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          provider: target === 'discord_mcp' ? 'discord' : 'runtime',
+          tenantId: input.tenantId,
+          experienceId: input.experienceId,
+          personaId: input.personaId,
+          mode: input.mode ?? 'simulate',
+          target,
+          variant: input.variant ?? defaultVariant,
+          tool: input.tool ?? 'next.best',
+          message: input.message ?? '',
+          channelId: input.channelId,
+          inviteUrl: input.inviteUrl,
+          publishUrl: input.publishUrl,
+          thumbnailUrl: input.thumbnailUrl,
+          titleOverride: input.titleOverride,
+        }),
+      });
+      const json = await res.json();
+      return JSON.stringify({
+        ok: json.success,
+        target,
+        variant: json.deployment?.variant,
+        status: json.success ? 'dispatched' : 'failed',
+        publishUrl: json.deployment?.publishUrl,
+        ctaUrl: json.deployment?.ctaUrl,
+        capability: json.capability,
+        liveDispatch: json.liveDispatch,
+        warnings: json.warnings,
+        error: json.error,
+      });
+    }
+    if (name === 'check_discord_status') {
+      const params = new URLSearchParams();
+      if (input.channelId) params.set('channelId', String(input.channelId));
+      if (input.inviteUrl) params.set('inviteUrl', String(input.inviteUrl));
+      const res = await fetch(`${base}/api/messenger/discord/status?${params}`);
+      const json = await res.json();
+      return JSON.stringify({ ready: json.ready, checks: json.checks, details: json.details, errors: json.errors });
+    }
+    return JSON.stringify({ error: `Unknown tool: ${name}` });
+  } catch (err: any) {
+    return JSON.stringify({ error: err?.message ?? 'Tool execution failed' });
+  }
+}
+
+async function callAnthropicWithTools(
+  systemPrompt: string,
+  history: ChatMessage[],
+  message: string,
+  modelId: string,
+): Promise<ProviderExecutionResult> {
+  const anthropicMessages: any[] = [
+    ...history.filter((e) => e.role !== 'system').map((e) => ({ role: e.role, content: e.content })),
+    { role: 'user', content: message },
+  ];
+
+  let response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-api-key': ANTHROPIC_API_KEY || '',
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: mapAnthropicModelId(modelId || ANTHROPIC_MODEL),
+      system: systemPrompt,
+      messages: anthropicMessages,
+      tools: MARKETA_TOOLS_ANTHROPIC,
+      max_tokens: 4096,
+      temperature: 0.7,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await parseErrorResponse(response);
+    throw new Error(`Anthropic request failed: ${JSON.stringify(errorData)}`);
+  }
+
+  let data = await response.json();
+
+  // Tool use loop — max 3 rounds
+  let rounds = 0;
+  while (data.stop_reason === 'tool_use' && rounds < 3) {
+    rounds++;
+    const toolUseBlocks = (data.content ?? []).filter((b: any) => b.type === 'tool_use');
+    const toolResults: any[] = [];
+    for (const block of toolUseBlocks) {
+      const result = await executeMarketaTool(block.name, block.input ?? {});
+      toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: result });
+    }
+    // Append assistant turn + tool results
+    anthropicMessages.push({ role: 'assistant', content: data.content });
+    anthropicMessages.push({ role: 'user', content: toolResults });
+
+    response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': ANTHROPIC_API_KEY || '',
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: mapAnthropicModelId(modelId || ANTHROPIC_MODEL),
+        system: systemPrompt,
+        messages: anthropicMessages,
+        tools: MARKETA_TOOLS_ANTHROPIC,
+        max_tokens: 4096,
+        temperature: 0.7,
+      }),
+    });
+    if (!response.ok) {
+      const errorData = await parseErrorResponse(response);
+      throw new Error(`Anthropic tool follow-up failed: ${JSON.stringify(errorData)}`);
+    }
+    data = await response.json();
+  }
+
+  const content = extractAnthropicText(data);
+  if (!content) throw new Error('Anthropic returned an empty completion');
+  return { providerId: 'anthropic', modelId: mapAnthropicModelId(modelId || ANTHROPIC_MODEL), content };
+}
+
+async function callOpenAiWithTools(messages: ChatMessage[], modelId: string): Promise<ProviderExecutionResult> {
+  let currentMessages: any[] = messages;
+
+  let response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${OPENAI_API_KEY}` },
+    body: JSON.stringify({
+      model: modelId || OPENAI_MODEL,
+      messages: currentMessages,
+      tools: MARKETA_TOOLS_OPENAI,
+      tool_choice: 'auto',
+      temperature: 0.7,
+      max_tokens: 16000,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await parseErrorResponse(response);
+    throw new Error(`OpenAI request failed: ${JSON.stringify(errorData)}`);
+  }
+
+  let data = await response.json();
+  let choice = data?.choices?.[0];
+
+  // Tool use loop — max 3 rounds
+  let rounds = 0;
+  while (choice?.finish_reason === 'tool_calls' && rounds < 3) {
+    rounds++;
+    const toolCalls = choice.message?.tool_calls ?? [];
+    currentMessages = [...currentMessages, choice.message];
+    for (const tc of toolCalls) {
+      let inputObj: Record<string, unknown> = {};
+      try { inputObj = JSON.parse(tc.function?.arguments ?? '{}'); } catch { /* ignore */ }
+      const result = await executeMarketaTool(tc.function?.name ?? '', inputObj);
+      currentMessages.push({ role: 'tool', tool_call_id: tc.id, content: result });
+    }
+    response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${OPENAI_API_KEY}` },
+      body: JSON.stringify({
+        model: modelId || OPENAI_MODEL,
+        messages: currentMessages,
+        tools: MARKETA_TOOLS_OPENAI,
+        tool_choice: 'auto',
+        temperature: 0.7,
+        max_tokens: 16000,
+      }),
+    });
+    if (!response.ok) {
+      const errorData = await parseErrorResponse(response);
+      throw new Error(`OpenAI tool follow-up failed: ${JSON.stringify(errorData)}`);
+    }
+    data = await response.json();
+    choice = data?.choices?.[0];
+  }
+
+  const content = choice?.message?.content?.trim();
+  if (!content) throw new Error('OpenAI returned an empty completion');
+  return { providerId: 'openai', modelId: modelId || OPENAI_MODEL, content };
+}
+
 async function executeProviderAttempt(
   attempt: ProviderAttempt,
   systemPrompt: string,
   history: ChatMessage[],
   message: string,
+  isMarketa: boolean,
 ): Promise<ProviderExecutionResult> {
   switch (attempt.providerId) {
     case 'openai':
+      if (isMarketa) {
+        return callOpenAiWithTools(
+          [{ role: 'system', content: systemPrompt }, ...history, { role: 'user', content: message }],
+          attempt.modelId,
+        );
+      }
       return callOpenAi([...history, { role: 'user', content: message }], attempt.modelId);
     case 'venice':
       return callVenice([...history, { role: 'user', content: message }], attempt.modelId);
     case 'anthropic':
+      if (isMarketa) {
+        return callAnthropicWithTools(systemPrompt, history, message, attempt.modelId);
+      }
       return callAnthropic(systemPrompt, history, message, attempt.modelId);
     case 'chaingpt':
       return callChainGpt(systemPrompt, history, message, attempt.modelId);
@@ -1026,6 +1514,7 @@ export async function POST(request: NextRequest) {
       { role: 'system', content: systemPrompt },
       ...chatHistory.slice(-10), // Keep last 10 messages for context
     ];
+    const isMarketa = resolvedAgentId === 'aigent-marketa';
     let executionResult: ProviderExecutionResult | null = null;
     const providerErrors: Array<{ providerId: RuntimeProviderId; modelId: string; error: string }> = [];
 
@@ -1036,6 +1525,7 @@ export async function POST(request: NextRequest) {
           systemPrompt,
           conversationHistory,
           message,
+          isMarketa,
         );
         console.log('[CodexChat] Provider success:', {
           providerId: executionResult.providerId,

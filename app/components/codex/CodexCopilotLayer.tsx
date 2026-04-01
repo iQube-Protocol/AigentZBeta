@@ -28,6 +28,8 @@ import {
   Mic,
   MicOff,
   Volume2,
+  Pause,
+  Play,
 } from "lucide-react";
 
 interface CodexCopilotLayerProps {
@@ -42,6 +44,7 @@ interface CodexCopilotLayerProps {
   onContextChange?: (contextId: string) => void;
   inputPanelClassName?: string;
   inputPanelInputClassName?: string;
+  promptMaxHeight?: string;
   quickPrompts?: Array<
     | string
     | {
@@ -141,6 +144,7 @@ export function CodexCopilotLayer({
   onContextChange,
   inputPanelClassName,
   inputPanelInputClassName,
+  promptMaxHeight,
   onPrompt,
   onUserPrompt,
   getChatRequestContext,
@@ -198,6 +202,8 @@ export function CodexCopilotLayer({
   // ── Marketa voice (Vapi) ────────────────────────────────────────────────────
   type VapiState = "idle" | "connecting" | "active" | "speaking";
   const [vapiState, setVapiState] = useState<VapiState>("idle");
+  const [vapiPaused, setVapiPaused] = useState(false);
+  const vapiPausedRef = useRef(false);
   const vapiRef = useRef<{ start: (cfg: unknown) => Promise<unknown>; stop: () => void } | null>(null);
 
   useEffect(() => {
@@ -217,7 +223,9 @@ export function CodexCopilotLayer({
       instance.on("message", (msg: unknown) => {
         const m = msg as Record<string, unknown>;
         if (m.type === "transcript" && m.transcriptType === "final" && typeof m.transcript === "string") {
-          setInputValue((prev) => (prev ? `${prev} ${m.transcript as string}` : (m.transcript as string)));
+          if (!vapiPausedRef.current) {
+            setInputValue((prev) => (prev ? `${prev} ${m.transcript as string}` : (m.transcript as string)));
+          }
         }
       });
       vapi = instance;
@@ -231,8 +239,12 @@ export function CodexCopilotLayer({
     if (vapiState !== "idle") {
       vapiRef.current.stop();
       setVapiState("idle");
+      setVapiPaused(false);
+      vapiPausedRef.current = false;
       return;
     }
+    setVapiPaused(false);
+    vapiPausedRef.current = false;
     setVapiState("connecting");
     try {
       await vapiRef.current.start({
@@ -263,12 +275,14 @@ export function CodexCopilotLayer({
   // ── end Marketa voice ───────────────────────────────────────────────────────
 
   const headerHeight = 44;
-  const footerHeight = floatingInput ? 100 : 80;
   const resolvedHeaderHeight = showTrustIndicators ? headerHeight : 0;
-  const resolvedFooterHeight = disablePromptInput ? 0 : footerHeight;
+  const footerRef = useRef<HTMLDivElement>(null);
+  const [footerMeasuredHeight, setFooterMeasuredHeight] = useState(floatingInput ? 100 : 80);
+  const resolvedFooterHeight = disablePromptInput ? 0 : footerMeasuredHeight;
   const seededRef = useRef(false);
 
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const activationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const initialActivationShownRef = useRef(false);
@@ -358,6 +372,24 @@ export function CodexCopilotLayer({
       window.removeEventListener("resize", readSidebarWidth);
     };
   }, []);
+
+  useEffect(() => {
+    const el = footerRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => setFooterMeasuredHeight(el.offsetHeight));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    const maxH = parseInt(promptMaxHeight ?? "160", 10);
+    const newH = Math.min(el.scrollHeight, maxH);
+    el.style.height = `${newH}px`;
+    el.style.overflowY = el.scrollHeight > maxH ? "auto" : "hidden";
+  }, [inputValue, promptMaxHeight]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -1066,6 +1098,7 @@ export function CodexCopilotLayer({
 
                     {!disablePromptInput ? (
                       <div
+                        ref={footerRef}
                         className={`absolute inset-x-0 bottom-0 px-3 pb-0 pt-0 z-30 ${
                           floatingInput ? "bg-transparent" : "bg-white/5"
                         }`}
@@ -1092,47 +1125,35 @@ export function CodexCopilotLayer({
                             }}
                           >
                             <div className={inputPanelClassName ?? "rounded-2xl border border-white/10 bg-slate-950/85 backdrop-blur-xl px-3 py-1.5 shadow-lg"}>
-                              <div className="flex gap-2">
-                                <input
-                                  type="text"
+                              <div className="flex gap-2 items-end">
+                                <textarea
+                                  ref={textareaRef}
                                   value={inputValue}
-                                  onChange={(e) => setInputValue(e.target.value)}
-                                  onKeyPress={(e) => e.key === "Enter" && sendMessage()}
-                                  onFocus={() => {
-                                    showInputPanelWithTimeout();
+                                  onChange={(e) => {
+                                    setInputValue(e.target.value);
+                                    e.target.style.height = "auto";
+                                    const maxH = parseInt(promptMaxHeight ?? "160", 10);
+                                    const newH = Math.min(e.target.scrollHeight, maxH);
+                                    e.target.style.height = `${newH}px`;
+                                    e.target.style.overflowY = e.target.scrollHeight > maxH ? "auto" : "hidden";
                                   }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter" && !e.shiftKey) {
+                                      e.preventDefault();
+                                      sendMessage();
+                                    }
+                                  }}
+                                  onFocus={() => { showInputPanelWithTimeout(); }}
                                   placeholder={promptPlaceholder}
+                                  rows={1}
+                                  style={{ resize: "none", overflowY: "hidden", minHeight: "36px", maxHeight: promptMaxHeight ?? "160px" }}
                                   className={inputPanelInputClassName ?? "flex-1 px-3 py-1.5 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500 text-sm"}
                                   disabled={isLoading}
                                 />
                                 <button
-                                  type="button"
-                                  onClick={() => void toggleMarketa()}
-                                  title={vapiState === "idle" ? "Talk to Marketa" : "Stop Marketa"}
-                                  className={`p-1.5 rounded-lg transition-colors ${
-                                    vapiState === "idle"
-                                      ? "text-slate-400 hover:text-fuchsia-300 hover:bg-fuchsia-500/10"
-                                      : vapiState === "connecting"
-                                        ? "animate-pulse text-amber-300 bg-amber-500/10"
-                                        : vapiState === "speaking"
-                                          ? "animate-pulse text-green-300 bg-green-500/10"
-                                          : "text-fuchsia-300 bg-fuchsia-500/15"
-                                  }`}
-                                >
-                                  {vapiState === "idle" ? (
-                                    <Mic className="w-4 h-4" />
-                                  ) : vapiState === "connecting" ? (
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                  ) : vapiState === "speaking" ? (
-                                    <Volume2 className="w-4 h-4" />
-                                  ) : (
-                                    <MicOff className="w-4 h-4" />
-                                  )}
-                                </button>
-                                <button
                                   onClick={() => sendMessage()}
                                   disabled={!inputValue.trim() || isLoading}
-                                  className="p-1.5 bg-cyan-500 hover:bg-cyan-600 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg transition-colors"
+                                  className="p-1.5 bg-cyan-500 hover:bg-cyan-600 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg transition-colors flex-shrink-0"
                                 >
                                   {isLoading ? (
                                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -1148,47 +1169,37 @@ export function CodexCopilotLayer({
                       {!floatingInput && (
                         <div>
                           <div className="h-px bg-white/10 mb-2" />
-                          <div className="flex gap-2">
-                            <input
-                              type="text"
+                          <div className="flex gap-2 items-end">
+                            <textarea
+                              ref={textareaRef}
                               value={inputValue}
-                              onChange={(e) => setInputValue(e.target.value)}
-                              onKeyPress={(e) => e.key === "Enter" && sendMessage()}
+                              onChange={(e) => {
+                                setInputValue(e.target.value);
+                                e.target.style.height = "auto";
+                                const maxH = parseInt(promptMaxHeight ?? "160", 10);
+                                const newH = Math.min(e.target.scrollHeight, maxH);
+                                e.target.style.height = `${newH}px`;
+                                e.target.style.overflowY = e.target.scrollHeight > maxH ? "auto" : "hidden";
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" && !e.shiftKey) {
+                                  e.preventDefault();
+                                  sendMessage();
+                                }
+                              }}
                               onFocus={() => {
                                 showWalletMenuWithTimeout();
                               }}
                               placeholder={promptPlaceholder}
+                              rows={1}
+                              style={{ resize: "none", overflowY: "hidden", minHeight: "36px", maxHeight: promptMaxHeight ?? "160px" }}
                               className="flex-1 px-3 py-1.5 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500 text-sm"
                               disabled={isLoading}
                             />
                             <button
-                              type="button"
-                              onClick={() => void toggleMarketa()}
-                              title={vapiState === "idle" ? "Talk to Marketa" : "Stop Marketa"}
-                              className={`p-1.5 rounded-lg transition-colors ${
-                                vapiState === "idle"
-                                  ? "text-slate-400 hover:text-fuchsia-300 hover:bg-fuchsia-500/10"
-                                  : vapiState === "connecting"
-                                    ? "animate-pulse text-amber-300 bg-amber-500/10"
-                                    : vapiState === "speaking"
-                                      ? "animate-pulse text-green-300 bg-green-500/10"
-                                      : "text-fuchsia-300 bg-fuchsia-500/15"
-                              }`}
-                            >
-                              {vapiState === "idle" ? (
-                                <Mic className="w-4 h-4" />
-                              ) : vapiState === "connecting" ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                              ) : vapiState === "speaking" ? (
-                                <Volume2 className="w-4 h-4" />
-                              ) : (
-                                <MicOff className="w-4 h-4" />
-                              )}
-                            </button>
-                            <button
                               onClick={() => sendMessage()}
                               disabled={!inputValue.trim() || isLoading}
-                              className="p-1.5 bg-cyan-500 hover:bg-cyan-600 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg transition-colors"
+                              className="p-1.5 bg-cyan-500 hover:bg-cyan-600 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg transition-colors flex-shrink-0"
                             >
                               {isLoading ? (
                                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -1203,11 +1214,41 @@ export function CodexCopilotLayer({
                           <div className={floatingInput ? "pt-3" : "mt-3"}>{footerContent}</div>
                         ) : showNavMenu ? (
                         <div className="mt-1 flex items-center justify-between border-t border-white/10 pt-1 pb-2">
+                          {/* LEFT: integrated badge+dropdown when hideAvatarToggle, else mode toggle */}
                           {hideAvatarToggle ? (
-                            <div className="flex items-center gap-2">
-                              <span className="rounded-sm border border-cyan-400/40 bg-cyan-500/20 px-3 py-1 text-[11px] font-semibold text-cyan-100 backdrop-blur-md shadow-sm">
-                                {contextOptions?.find((opt) => opt.id === contextId)?.label || "Qriptopian Codex"}
-                              </span>
+                            <div className="relative flex items-center gap-1">
+                              {contextOptions && contextOptions.length > 0 && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => setContextMenuOpen((prev) => !prev)}
+                                    className="flex items-center gap-1 rounded-sm border border-cyan-400/40 bg-cyan-500/20 px-2 py-1 text-[11px] font-semibold text-cyan-100 hover:bg-cyan-500/30 transition"
+                                  >
+                                    {contextOptions?.find((opt) => opt.id === contextId)?.label || "Qriptopian Codex"}
+                                    <ChevronDown className={`w-3 h-3 transition-transform ${contextMenuOpen ? "rotate-180" : ""}`} />
+                                  </button>
+                                  {contextMenuOpen && (
+                                    <div className="absolute left-0 bottom-10 min-w-[180px] rounded-xl border border-white/10 bg-slate-950/90 p-2 shadow-xl backdrop-blur z-50">
+                                      {contextOptions.map((opt) => (
+                                        <button
+                                          key={opt.id}
+                                          onClick={() => {
+                                            onContextChange?.(opt.id);
+                                            setContextMenuOpen(false);
+                                          }}
+                                          className={`w-full rounded-lg px-3 py-2 text-left text-xs transition ${
+                                            opt.id === contextId
+                                              ? "bg-cyan-500/15 text-cyan-200"
+                                              : "text-white/70 hover:bg-white/5"
+                                          }`}
+                                        >
+                                          {opt.label}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
+                                </>
+                              )}
                             </div>
                           ) : (
                             <div className="flex items-center gap-0.5 bg-white/5 rounded-lg p-0.5 ring-1 ring-white/10 flex-shrink-0">
@@ -1233,46 +1274,87 @@ export function CodexCopilotLayer({
                               </button>
                             </div>
                           )}
-                          {contextOptions && contextOptions.length > 0 ? (
-                            <div className="relative flex items-center gap-2">
+                          {/* RIGHT: badge+dropdown (non-hideAvatarToggle only) + pause + mic */}
+                          <div className="relative flex items-center gap-1">
+                            {!hideAvatarToggle && (
+                              <>
+                                {contextOptions && contextOptions.length > 0 ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => setContextMenuOpen((prev) => !prev)}
+                                    className="flex items-center gap-1 rounded-sm border border-cyan-400/40 bg-cyan-500/20 px-2 py-1 text-[11px] font-semibold text-cyan-100 hover:bg-cyan-500/30 transition"
+                                  >
+                                    {contextOptions?.find((opt) => opt.id === contextId)?.label || "Qriptopian Codex"}
+                                    <ChevronDown className={`w-3 h-3 transition-transform ${contextMenuOpen ? "rotate-180" : ""}`} />
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={onClose}
+                                    className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 ring-1 ring-white/10 transition-colors"
+                                  >
+                                    <ChevronDown className="w-4 h-4" />
+                                  </button>
+                                )}
+                                {contextMenuOpen && contextOptions && contextOptions.length > 0 && (
+                                  <div className="absolute right-0 bottom-10 min-w-[180px] rounded-xl border border-white/10 bg-slate-950/90 p-2 shadow-xl backdrop-blur z-50">
+                                    {contextOptions.map((opt) => (
+                                      <button
+                                        key={opt.id}
+                                        onClick={() => {
+                                          onContextChange?.(opt.id);
+                                          setContextMenuOpen(false);
+                                        }}
+                                        className={`w-full rounded-lg px-3 py-2 text-left text-xs transition ${
+                                          opt.id === contextId
+                                            ? "bg-cyan-500/15 text-cyan-200"
+                                            : "text-white/70 hover:bg-white/5"
+                                        }`}
+                                      >
+                                        {opt.label}
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                              </>
+                            )}
+                            {vapiState !== "idle" && (
                               <button
-                                type="button"
-                                onClick={() => setContextMenuOpen((prev) => !prev)}
-                                className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 ring-1 ring-white/10 transition-colors"
+                                onClick={() => {
+                                  const next = !vapiPaused;
+                                  setVapiPaused(next);
+                                  vapiPausedRef.current = next;
+                                }}
+                                title={vapiPaused ? "Resume audio input" : "Pause audio input"}
+                                className={`p-1.5 rounded-lg transition ${vapiPaused ? "text-amber-300 bg-amber-500/10" : "text-slate-400 hover:text-slate-200 hover:bg-white/10"}`}
                               >
-                                <ChevronDown className="w-4 h-4" />
+                                {vapiPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
                               </button>
-                              {contextMenuOpen && (
-                                <div className="absolute right-0 bottom-10 min-w-[180px] rounded-xl border border-white/10 bg-slate-950/90 p-2 shadow-xl backdrop-blur">
-                                  {contextOptions.map((opt) => (
-                                    <button
-                                      key={opt.id}
-                                      onClick={() => {
-                                        onContextChange?.(opt.id);
-                                        setContextMenuOpen(false);
-                                      }}
-                                      className={`w-full rounded-lg px-3 py-2 text-left text-xs transition ${
-                                        opt.id === contextId
-                                          ? "bg-cyan-500/15 text-cyan-200"
-                                          : "text-white/70 hover:bg-white/5"
-                                      }`}
-                                    >
-                                      {opt.label}
-                                    </button>
-                                  ))}
-                                </div>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => void toggleMarketa()}
+                              title={vapiState === "idle" ? "Talk to Marketa" : "Stop Marketa"}
+                              className={`p-1.5 rounded-lg transition-colors ${
+                                vapiState === "idle"
+                                  ? "text-slate-400 hover:text-fuchsia-300 hover:bg-fuchsia-500/10"
+                                  : vapiState === "connecting"
+                                    ? "animate-pulse text-amber-300 bg-amber-500/10"
+                                    : vapiState === "speaking"
+                                      ? "animate-pulse text-green-300 bg-green-500/10"
+                                      : "text-fuchsia-300 bg-fuchsia-500/15"
+                              }`}
+                            >
+                              {vapiState === "idle" ? (
+                                <Mic className="w-4 h-4" />
+                              ) : vapiState === "connecting" ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : vapiState === "speaking" ? (
+                                <Volume2 className="w-4 h-4" />
+                              ) : (
+                                <MicOff className="w-4 h-4" />
                               )}
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={onClose}
-                                className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 ring-1 ring-white/10 transition-colors"
-                              >
-                                <ChevronDown className="w-4 h-4" />
-                              </button>
-                            </div>
-                          )}
+                            </button>
+                          </div>
                         </div>
                       ) : null}
                       </div>
@@ -1286,11 +1368,41 @@ export function CodexCopilotLayer({
                     />
                     {showNavMenu ? (
                       <div className="mt-2 flex items-center justify-between border-t border-white/10 pt-1 pb-2">
+                        {/* LEFT: integrated badge+dropdown when hideAvatarToggle, else mode toggle */}
                         {hideAvatarToggle ? (
-                          <div className="flex items-center gap-2">
-                            <span className="rounded-sm border border-cyan-400/40 bg-cyan-500/20 px-3 py-1 text-[11px] font-semibold text-cyan-100 backdrop-blur-md shadow-sm">
-                              {contextOptions?.find((opt) => opt.id === contextId)?.label || "Qriptopian Codex"}
-                            </span>
+                          <div className="relative flex items-center gap-1">
+                            {contextOptions && contextOptions.length > 0 && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => setContextMenuOpen((prev) => !prev)}
+                                  className="flex items-center gap-1 rounded-sm border border-cyan-400/40 bg-cyan-500/20 px-2 py-1 text-[11px] font-semibold text-cyan-100 hover:bg-cyan-500/30 transition"
+                                >
+                                  {contextOptions?.find((opt) => opt.id === contextId)?.label || "Qriptopian Codex"}
+                                  <ChevronDown className={`w-3 h-3 transition-transform ${contextMenuOpen ? "rotate-180" : ""}`} />
+                                </button>
+                                {contextMenuOpen && (
+                                  <div className="absolute left-0 bottom-10 min-w-[180px] rounded-xl border border-white/10 bg-slate-950/90 p-2 shadow-xl backdrop-blur z-50">
+                                    {contextOptions.map((opt) => (
+                                      <button
+                                        key={opt.id}
+                                        onClick={() => {
+                                          onContextChange?.(opt.id);
+                                          setContextMenuOpen(false);
+                                        }}
+                                        className={`w-full rounded-lg px-3 py-2 text-left text-xs transition ${
+                                          opt.id === contextId
+                                            ? "bg-cyan-500/15 text-cyan-200"
+                                            : "text-white/70 hover:bg-white/5"
+                                        }`}
+                                      >
+                                        {opt.label}
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                              </>
+                            )}
                           </div>
                         ) : (
                           <div className="flex items-center gap-0.5 bg-white/5 rounded-lg p-0.5 ring-1 ring-white/10 flex-shrink-0">
@@ -1316,46 +1428,87 @@ export function CodexCopilotLayer({
                             </button>
                           </div>
                         )}
-                        {contextOptions && contextOptions.length > 0 ? (
-                          <div className="relative flex items-center gap-2">
+                        {/* RIGHT: badge+dropdown (non-hideAvatarToggle only) + pause + mic */}
+                        <div className="relative flex items-center gap-1">
+                          {!hideAvatarToggle && (
+                            <>
+                              {contextOptions && contextOptions.length > 0 ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setContextMenuOpen((prev) => !prev)}
+                                  className="flex items-center gap-1 rounded-sm border border-cyan-400/40 bg-cyan-500/20 px-2 py-1 text-[11px] font-semibold text-cyan-100 hover:bg-cyan-500/30 transition"
+                                >
+                                  {contextOptions?.find((opt) => opt.id === contextId)?.label || "Qriptopian Codex"}
+                                  <ChevronDown className={`w-3 h-3 transition-transform ${contextMenuOpen ? "rotate-180" : ""}`} />
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={onClose}
+                                  className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 ring-1 ring-white/10 transition-colors"
+                                >
+                                  <ChevronDown className="w-4 h-4" />
+                                </button>
+                              )}
+                              {contextMenuOpen && contextOptions && contextOptions.length > 0 && (
+                                <div className="absolute right-0 bottom-10 min-w-[180px] rounded-xl border border-white/10 bg-slate-950/90 p-2 shadow-xl backdrop-blur z-50">
+                                  {contextOptions.map((opt) => (
+                                    <button
+                                      key={opt.id}
+                                      onClick={() => {
+                                        onContextChange?.(opt.id);
+                                        setContextMenuOpen(false);
+                                      }}
+                                      className={`w-full rounded-lg px-3 py-2 text-left text-xs transition ${
+                                        opt.id === contextId
+                                          ? "bg-cyan-500/15 text-cyan-200"
+                                          : "text-white/70 hover:bg-white/5"
+                                      }`}
+                                    >
+                                      {opt.label}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </>
+                          )}
+                          {vapiState !== "idle" && (
                             <button
-                              type="button"
-                              onClick={() => setContextMenuOpen((prev) => !prev)}
-                              className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 ring-1 ring-white/10 transition-colors"
+                              onClick={() => {
+                                const next = !vapiPaused;
+                                setVapiPaused(next);
+                                vapiPausedRef.current = next;
+                              }}
+                              title={vapiPaused ? "Resume audio input" : "Pause audio input"}
+                              className={`p-1.5 rounded-lg transition ${vapiPaused ? "text-amber-300 bg-amber-500/10" : "text-slate-400 hover:text-slate-200 hover:bg-white/10"}`}
                             >
-                              <ChevronDown className="w-4 h-4" />
+                              {vapiPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
                             </button>
-                            {contextMenuOpen && (
-                              <div className="absolute right-0 bottom-10 min-w-[180px] rounded-xl border border-white/10 bg-slate-950/90 p-2 shadow-xl backdrop-blur">
-                                {contextOptions.map((opt) => (
-                                  <button
-                                    key={opt.id}
-                                    onClick={() => {
-                                      onContextChange?.(opt.id);
-                                      setContextMenuOpen(false);
-                                    }}
-                                    className={`w-full rounded-lg px-3 py-2 text-left text-xs transition ${
-                                      opt.id === contextId
-                                        ? "bg-cyan-500/15 text-cyan-200"
-                                        : "text-white/70 hover:bg-white/5"
-                                    }`}
-                                  >
-                                    {opt.label}
-                                  </button>
-                                ))}
-                              </div>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => void toggleMarketa()}
+                            title={vapiState === "idle" ? "Talk to Marketa" : "Stop Marketa"}
+                            className={`p-1.5 rounded-lg transition-colors ${
+                              vapiState === "idle"
+                                ? "text-slate-400 hover:text-fuchsia-300 hover:bg-fuchsia-500/10"
+                                : vapiState === "connecting"
+                                  ? "animate-pulse text-amber-300 bg-amber-500/10"
+                                  : vapiState === "speaking"
+                                    ? "animate-pulse text-green-300 bg-green-500/10"
+                                    : "text-fuchsia-300 bg-fuchsia-500/15"
+                            }`}
+                          >
+                            {vapiState === "idle" ? (
+                              <Mic className="w-4 h-4" />
+                            ) : vapiState === "connecting" ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : vapiState === "speaking" ? (
+                              <Volume2 className="w-4 h-4" />
+                            ) : (
+                              <MicOff className="w-4 h-4" />
                             )}
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={onClose}
-                              className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 ring-1 ring-white/10 transition-colors"
-                            >
-                              <ChevronDown className="w-4 h-4" />
-                            </button>
-                          </div>
-                        )}
+                          </button>
+                        </div>
                       </div>
                     ) : null}
                   </div>

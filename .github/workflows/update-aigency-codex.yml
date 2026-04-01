@@ -1,0 +1,81 @@
+name: AgentiQ Codex Update
+
+# Fires on every PR merged to main.
+# Generates structured artifacts (PR briefs, decision notes, problem logs)
+# into the AgentiQ Codex (codexes/packs/aigency/) and optionally syncs to Autodrive.
+#
+# Deterministic — no LLM calls required.
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+jobs:
+  update_codex:
+    name: Generate AgentiQ Codex artifacts
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name "aigent-z[bot]"
+          git config user.email "aigent-z[bot]@users.noreply.github.com"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate codex artifacts
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_MERGED_AT: ${{ github.event.pull_request.merged_at }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: node scripts/generate-codex-artifacts.js
+
+      - name: Commit codex artifacts
+        run: |
+          git add codexes/packs/aigency/
+          if git diff --cached --quiet; then
+            echo "No codex changes to commit — skipping."
+          else
+            git commit -m "update agentiq codex — PR #${{ github.event.pull_request.number }}: ${{ github.event.pull_request.title }}"
+            git push origin HEAD
+          fi
+
+      - name: Sync to Autonomys Auto-Drive
+        env:
+          AUTONOMYS_API_KEY: ${{ secrets.AUTONOMYS_API_KEY }}
+        run: |
+          if [ -z "$AUTONOMYS_API_KEY" ]; then
+            echo "AUTONOMYS_API_KEY not set — skipping Auto-Drive sync."
+            exit 0
+          fi
+          echo "Syncing AgentiQ Codex to Autonomys Auto-Drive (mainnet)…"
+          node scripts/sync-codex-to-autodrive.js
+
+      - name: Commit autodrive manifest CID (if updated)
+        run: |
+          git add codexes/packs/aigency/index.json
+          if git diff --cached --quiet; then
+            echo "No manifest CID changes to commit."
+          else
+            git commit -m "update agentiq codex autodrive manifest CID"
+            git push origin HEAD
+          fi

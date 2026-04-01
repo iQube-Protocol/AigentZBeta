@@ -260,12 +260,18 @@ export async function listExperienceRecords(params: {
     return { items: items.slice(offset, offset + limit), total };
   }
 
-  let query = supabase.from(EXPERIENCE_TABLE).select("*");
+  // Exclude blak_qube from list queries — its components[] array makes the Lambda
+  // response exceed the 6 MB limit. Full blak_qube is still fetched in getExperienceRecord.
+  let query = supabase
+    .from(EXPERIENCE_TABLE)
+    .select("id, tenant_id, creator_id, template_id, status, created_at, updated_at, meta_qube, token_qube");
   if (params.tenant_id) query = query.eq("tenant_id", params.tenant_id);
   if (params.creator_id) query = query.eq("creator_id", params.creator_id);
   if (params.status) query = query.eq("status", params.status);
+  query = query.order("created_at", { ascending: false }).limit(limit);
 
   const { data, error } = await query;
+  console.log(`[composerPersistence] listExperienceRecords — tenant_id=${params.tenant_id ?? '(none)'} rows=${data?.length ?? 'null'} error=${error?.message ?? 'none'}`);
   if (error || !data) {
     console.warn("Composer persistence fallback (list experiences)", error?.message || error);
     const items = await listExperiencesLocal(params);
@@ -279,6 +285,18 @@ export async function listExperienceRecords(params: {
   let items = (data as ExperienceRow[]).map(mapRowToExperience);
   for (const item of items) {
     await syncExperienceFallbackCaches(item);
+  }
+  // Supabase query succeeded but returned 0 rows — the original write may have silently
+  // fallen back to the local JSON DB (e.g. anon key + RLS, or missing service role key).
+  // Check local fallbacks so experiences aren't invisible within the same deployment.
+  if (items.length === 0) {
+    const localItems = await listExperiencesLocal(params);
+    if (localItems.length > 0) {
+      items = localItems;
+    } else {
+      const storeItems = getAllExperienceQubes();
+      if (storeItems.length > 0) items = storeItems;
+    }
   }
   if (params.category) items = items.filter((exp) => exp.metadata.category === params.category);
   items.sort((a, b) => new Date(b.metadata.updated_at).getTime() - new Date(a.metadata.updated_at).getTime());

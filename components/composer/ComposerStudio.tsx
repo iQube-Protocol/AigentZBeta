@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AlertTriangle, BarChart, Book, BookOpen, Bot, CheckCircle2, ChevronDown, ChevronUp, Circle, Code, Edit, Eye, FileText, Hexagon, LayoutGrid, List, Loader2, Mic, MicOff, Monitor, MonitorIcon, Moon, Palette, Play, PlayCircle, RefreshCw, Share2, Shield, ShieldCheck, SlidersHorizontal, Smartphone, Sparkles, Sun, Target, Tablet, Trash2, Tv, Upload, Users, Volume2, Type } from "lucide-react";
+import { Activity, AlertTriangle, BarChart, Book, BookOpen, Bot, CheckCircle2, ChevronDown, ChevronUp, Circle, Code, Edit, Eye, FileText, Hexagon, Layers, LayoutGrid, List, Loader2, Mic, MicOff, Monitor, MonitorIcon, Moon, Palette, Play, PlayCircle, RefreshCw, Share2, Shield, ShieldCheck, SlidersHorizontal, Smartphone, Sparkles, Sun, Target, Tablet, Trash2, Tv, Upload, Users, Volume2, Type } from "lucide-react";
 import { useCopilotAction } from "@copilotkit/react-core";
 import { createShellMessage } from "@metame/iframe-bridge";
 import { Button } from "@/components/ui/button";
@@ -1538,8 +1538,30 @@ export const ComposerStudio = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [editingExperienceId, setEditingExperienceId] = useState<string | null>(null);
-  const [studioAnalysisTab, setStudioAnalysisTab] = useState<"parity" | "surfaces" | "receipts">("parity");
+  const [studioAnalysisTab, setStudioAnalysisTab] = useState<"parity" | "surfaces" | "receipts" | "pipeline" | "workflows">("parity");
+  const [lastPipelineRunId, setLastPipelineRunId] = useState<string | null>(null);
+  const [pipelineRunData, setPipelineRunData] = useState<any>(null);
+  const [pipelineRunLoading, setPipelineRunLoading] = useState(false);
+  const [workflowsList, setWorkflowsList] = useState<any[]>([]);
+  const [workflowsLoading, setWorkflowsLoading] = useState(false);
+  const [workflowInvokeState, setWorkflowInvokeState] = useState<Record<string, "idle" | "invoking" | "done" | "error">>({});
+  const [makeScenarios, setMakeScenarios] = useState<Array<{ id: number; name: string; isActive: boolean }> | null>(null);
+  const [makeScenarioLoading, setMakeScenarioLoading] = useState(false);
+  const [makeScenarioError, setMakeScenarioError] = useState<string | null>(null);
+  const [showMakePicker, setShowMakePicker] = useState(false);
+  const [connectingScenarioId, setConnectingScenarioId] = useState<number | null>(null);
+  const [workflowRunPolling, setWorkflowRunPolling] = useState<Record<string, { runId: string; status: string } | null>>({});
+  const [workflowRunHistory, setWorkflowRunHistory] = useState<Record<string, any[]>>({});
+  const [expandedRunHistory, setExpandedRunHistory] = useState<Record<string, boolean>>({});
+  const [workflowManifests, setWorkflowManifests] = useState<Record<string, { fields: any[] } | null | "loading">>({});
+  const [expandedInvoke, setExpandedInvoke] = useState<Record<string, boolean>>({});
   const [isParityExpanded, setIsParityExpanded] = useState(false);
+  const [pendingProductionConfig, setPendingProductionConfig] = useState<{
+    templateKey: string;
+    seedData: Record<string, unknown>;
+    options?: Record<string, unknown>;
+    label: string;
+  } | null>(null);
   const isStudioExpanded = true;
   const [experiencePanelTab, setExperiencePanelTab] = useState("template");
   const [resourcesPanelTab, setResourcesPanelTab] = useState("experience");
@@ -1552,6 +1574,7 @@ export const ComposerStudio = () => {
   const [editableArticleOutputs, setEditableArticleOutputs] = useState<string[]>([]);
   const [editableArticleTakeawaysCount, setEditableArticleTakeawaysCount] = useState(3);
   const [isSavingEditableGeneration, setIsSavingEditableGeneration] = useState(false);
+  const [savedEditsFlash, setSavedEditsFlash] = useState(false);
   const [personaMediaLibrary, setPersonaMediaLibrary] = useState<PersonaGeneratedMediaRecord[]>([]);
   const [personaMediaLibraryLoading, setPersonaMediaLibraryLoading] = useState(false);
   const [applyingPersonaMediaId, setApplyingPersonaMediaId] = useState<string | null>(null);
@@ -2382,6 +2405,7 @@ export const ComposerStudio = () => {
   const [confirmedCompleteGenerationId, setConfirmedCompleteGenerationId] = useState<string | null>(null);
   // Ref-set of completed generationIds prevents re-polling after effect dep changes.
   const completedVideoGenerationIds = useRef(new Set<string>());
+  const workflowPollRefs = useRef<Record<string, ReturnType<typeof setInterval>>>({});
   const [runtimePreviewLoaded, setRuntimePreviewLoaded] = useState(false);
   const [runtimePreviewErrored, setRuntimePreviewErrored] = useState(false);
   const runtimePreviewIframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -3023,6 +3047,7 @@ export const ComposerStudio = () => {
       experienceId,
       embed: "1",
     });
+    params.set("runtimeAdmin", "1");
     if (previewExperience?.name) params.set("experienceName", previewExperience.name);
     if (previewExperience?.description) params.set("experienceDescription", previewExperience.description);
     if (previewRuntimeDeliveryProfile.imageAssets.landscape) {
@@ -3340,56 +3365,44 @@ export const ComposerStudio = () => {
     }
 
     const fetchExperiences = async () => {
-      try {
-        const res = await fetch(`/api/composer/experiences?tenant_id=${encodeURIComponent(tenantId)}`);
-        if (!res.ok) throw new Error("Failed to load experiences");
-        const data = await res.json();
-        let next: ExperienceQube[] = data.experience_qubes || [];
+      // Fire all queries in parallel: by-tenant, legacy-tenant (if different),
+      // broad (no filter), and by-creator — so any RLS configuration or tenant
+      // mismatch still surfaces available experiences.
+      const queries: Promise<ExperienceQube[]>[] = [];
 
-        // When the resolved tenant differs from the default, also fetch experiences
-        // stored under DEFAULT_TENANT to surface items created before identity
-        // resolution was established (backward compat for pre-wallet experiences).
-        if (tenantId !== DEFAULT_TENANT) {
-          try {
-            const legacyRes = await fetch(
-              `/api/composer/experiences?tenant_id=${encodeURIComponent(DEFAULT_TENANT)}`,
-            );
-            if (legacyRes.ok) {
-              const legacyData = await legacyRes.json();
-              const legacyItems: ExperienceQube[] = legacyData.experience_qubes || [];
-              if (legacyItems.length > 0) {
-                const seenIds = new Set(next.map((e) => e.id));
-                for (const item of legacyItems) {
-                  if (!seenIds.has(item.id)) next = [...next, item];
-                }
-              }
-            }
-          } catch {
-            // Legacy fetch is best-effort; ignore failures.
-          }
-        }
-
-        // Always fetch broadly (no tenant filter) to catch experiences stored under
-        // mismatched, null, or unknown tenant_ids (covers pre-wallet orphaned records).
+      const safeGet = async (url: string): Promise<ExperienceQube[]> => {
         try {
-          const broadRes = await fetch(`/api/composer/experiences?limit=100`);
-          if (broadRes.ok) {
-            const broadData = await broadRes.json();
-            const broadItems: ExperienceQube[] = broadData.experience_qubes || [];
-            if (next.length === 0) {
-              next = broadItems;
-            } else if (broadItems.length > 0) {
-              const seenIds = new Set(next.map((e) => e.id));
-              for (const item of broadItems) {
-                if (!seenIds.has(item.id)) next = [...next, item];
-              }
-            }
-          }
+          const res = await fetch(url);
+          if (!res.ok) return [];
+          const data = await res.json();
+          return (data.experience_qubes as ExperienceQube[]) || [];
         } catch {
-          // broad fallback is best-effort; don't block on failures
+          return [];
         }
-        cacheExperiencesForTenant(tenantId, next);
-        if (active) setExperiences(next);
+      };
+
+      queries.push(safeGet(`/api/composer/experiences?tenant_id=${encodeURIComponent(tenantId)}`));
+      if (tenantId !== DEFAULT_TENANT) {
+        queries.push(safeGet(`/api/composer/experiences?tenant_id=${encodeURIComponent(DEFAULT_TENANT)}`));
+      }
+      queries.push(safeGet(`/api/composer/experiences?limit=100`));
+      if (userId && userId !== DEFAULT_USER) {
+        queries.push(safeGet(`/api/composer/experiences?creator_id=${encodeURIComponent(userId)}`));
+      }
+
+      try {
+        const results = await Promise.all(queries);
+        const merged = new Map<string, ExperienceQube>();
+        for (const list of results) {
+          for (const item of list) {
+            if (!merged.has(item.id)) merged.set(item.id, item);
+          }
+        }
+        const next = Array.from(merged.values());
+        if (active) {
+          cacheExperiencesForTenant(tenantId, next);
+          setExperiences(next);
+        }
       } catch {
         if (active) {
           if (tenantCache?.items) {
@@ -3404,7 +3417,7 @@ export const ComposerStudio = () => {
     return () => {
       active = false;
     };
-  }, [tenantId, experience?.id]);
+  }, [tenantId]);
 
   const filteredTemplates = useMemo(() => {
     const query = templateQuery.trim().toLowerCase();
@@ -3506,9 +3519,14 @@ export const ComposerStudio = () => {
 
   const handleComposerUserPrompt = useCallback(
     async (prompt: string) => {
-      const lower = prompt.toLowerCase();
-      const wantsVideo = promptWantsVideo(prompt);
-      const wantsImage = promptWantsImage(prompt);
+      // Long transcripts from Vapi voice sessions contain the full conversation history.
+      // Use only the last 350 chars as the intent signal — the production intent is
+      // always stated at the end, and earlier words trip the early-return guards.
+      const isLongTranscript = prompt.trim().length > 400;
+      const effectivePrompt = isLongTranscript ? prompt.trim().slice(-350) : prompt;
+      const lower = effectivePrompt.toLowerCase();
+      const wantsVideo = promptWantsVideo(effectivePrompt);
+      const wantsImage = promptWantsImage(effectivePrompt);
       const templateName = sessionTemplate?.name || selectedTemplate?.name || "the current template";
       const imageGenerationStep = mergedData?.image_generation || {};
       const videoPromptStep = mergedData?.video_prompt || {};
@@ -3527,6 +3545,9 @@ export const ComposerStudio = () => {
           ? skillSelectionStep.skill_id
           : null;
 
+      // Skip pattern-matching early returns for long transcripts — incidental conversation
+      // words would fire these before the intent branches are reached.
+      if (!isLongTranscript) {
       if (/(show|view|browse).*(all|templates)|all templates/.test(lower)) {
         handleCopilotPrompt(prompt);
         setExperiencePanelTab("template");
@@ -3639,6 +3660,7 @@ export const ComposerStudio = () => {
           `This is also where I surface the current cost envelope stub, provider path, and DesignQube summary.`,
         ].join("\n");
       }
+      } // end !isLongTranscript early-return guard
 
       if (wantsVideo) {
         const contextLabel =
@@ -3653,20 +3675,20 @@ export const ComposerStudio = () => {
             : providerId === "venice"
               ? "venice_video_gen"
               : "sora_video_gen_curated";
-        const suggestedPrompt = buildVideoPrompt(prompt, contextLabel);
+        const suggestedPrompt = buildVideoPrompt(effectivePrompt, contextLabel);
         const experienceName = deriveExperienceNameFromPrompt(
-          prompt,
+          effectivePrompt,
           providerId === "venice" ? "Venice Video Experience" : "Sora Video Experience"
         );
 
         setTemplateIntent("task");
         setSelectedTemplateId("sora-video-generation");
-        setTemplateQuery(`${contextLabel}: ${prompt} video sora venice ai-generation skill toolqube`);
+        setTemplateQuery(`${contextLabel}: ${effectivePrompt} video sora venice ai-generation skill toolqube`);
 
         const seedData = {
           intent_timebox: {
             experience_name: experienceName,
-            goal: prompt,
+            goal: effectivePrompt,
           },
           skill_selection: {
             ...(skillId ? { skill_id: skillId } : {}),
@@ -3677,9 +3699,9 @@ export const ComposerStudio = () => {
             duration: /12/.test(lower) ? 12 : /4/.test(lower) ? 4 : 8,
             aspect_ratio: /portrait|vertical|9:16/.test(lower) ? "9:16" : "16:9",
             style:
-              inferVisualStyleFromPrompt(prompt) === "editorial"
+              inferVisualStyleFromPrompt(effectivePrompt) === "editorial"
                 ? "cinematic"
-                : inferVisualStyleFromPrompt(prompt),
+                : inferVisualStyleFromPrompt(effectivePrompt),
           },
           delegation_stub: {
             human_selection_required: true,
@@ -3690,29 +3712,27 @@ export const ComposerStudio = () => {
           },
         };
 
-        const seeded = await startSeededSessionForTemplate("sora-video-generation", seedData, {
-          currentStep: 1,
+        setPendingProductionConfig({
+          templateKey: "sora-video-generation",
+          seedData,
+          options: { currentStep: 1 },
+          label: "video experience",
         });
         const providerKnowledge = providerId ? getComposerProviderKnowledge(providerId) : null;
 
-        return seeded.ok
-          ? [
-              `I set up a **video-led experience path** in **${seeded.templateName || "Sora Video Generation"}** and opened **Customizer** on **Skill Selection** first.`,
-              "",
-              `**Provider selection**: human-in-the-loop`,
-              providerKnowledge?.name
-                ? `- Seeded provider hint: ${providerKnowledge.name}`
-                : `- No provider has been preselected so you can choose between OpenAI, Venice, or community explicitly.`,
-              `- Future path stubbed: agentic delegation can select the provider/skill later.`,
-              "",
-              `**Selected skill**: ${skillId || "Choose in Skill Selection"}`,
-              "",
-              `**Suggested prompt**`,
-              suggestedPrompt,
-              "",
-              `Next, confirm the video skill in **Skill Selection**, then continue into **Video Prompt** to review duration, aspect ratio, and style before checking **Resources**.`,
-            ].join("\n")
-          : `I prepared a video-led path and a first-pass prompt, but I couldn't open the Customizer session automatically: ${seeded.error}`;
+        return [
+          `I've planned a **video-led experience**. Confirm below to open it in the Compositor.`,
+          "",
+          `**Provider selection**: human-in-the-loop`,
+          providerKnowledge?.name
+            ? `- Seeded provider hint: ${providerKnowledge.name}`
+            : `- No provider has been preselected — you can choose between OpenAI, Venice, or community in the Compositor.`,
+          "",
+          `**Selected skill**: ${skillId || "Choose in Skill Selection"}`,
+          "",
+          `**Suggested prompt**`,
+          suggestedPrompt,
+        ].join("\n");
       }
 
       const wantsArticle = /(article|write|writing|editorial|blog|essay|draft)\b/.test(lower);
@@ -3722,61 +3742,60 @@ export const ComposerStudio = () => {
         const contextLabel =
           copilotContextOptions.find((opt) => opt.id === copilotContextId)?.label || "The Qriptopian";
         const providerId = /venice/.test(lower) && !/openai/.test(lower) ? "venice" : "openai";
-        const promptVariants = buildImagePromptVariants(prompt, contextLabel);
-        const experienceName = deriveExperienceNameFromPrompt(prompt, "Image Experience");
+        const promptVariants = buildImagePromptVariants(effectivePrompt, contextLabel);
+        const experienceName = deriveExperienceNameFromPrompt(effectivePrompt, "Image Experience");
 
         setTemplateIntent("task");
         setSelectedTemplateId("ai-image-generation");
-        setTemplateQuery(`${contextLabel}: ${prompt} image portrait landscape`);
+        setTemplateQuery(`${contextLabel}: ${effectivePrompt} image portrait landscape`);
 
         const seedData = {
           intent_timebox: {
             experience_name: experienceName,
-            goal: prompt,
+            goal: effectivePrompt,
           },
           image_generation: {
             provider_id: providerId,
             portrait_prompt: promptVariants.portrait,
             landscape_prompt: promptVariants.landscape,
-            visual_style: inferVisualStyleFromPrompt(prompt),
+            visual_style: inferVisualStyleFromPrompt(effectivePrompt),
           },
         };
 
-        const seeded = await startSeededSessionForTemplate("ai-image-generation", seedData, {
-          currentStep: 1,
+        setPendingProductionConfig({
+          templateKey: "ai-image-generation",
+          seedData,
+          options: { currentStep: 1 },
+          label: "image experience",
         });
         const providerKnowledge = getComposerProviderKnowledge(providerId);
 
-        return seeded.ok
-          ? [
-              `I set up a **standalone image path** in **${seeded.templateName || "AI Image Generation"}** and opened **Customizer** on the image step.`,
-              "",
-              `**Provider**: ${providerKnowledge?.name || providerId}`,
-              "",
-              `**Portrait prompt**: ${promptVariants.portrait}`,
-              `**Landscape prompt**: ${promptVariants.landscape}`,
-              "",
-              `Review the prompts in the Customizer, then hit **Run** to generate. To add an article alongside, switch to the Image + Article bundle preset.`,
-            ].join("\n")
-          : `I prepared a standalone image path, but couldn't open the Customizer automatically: ${seeded.error}`;
+        return [
+          `I've planned a **standalone image experience**. Confirm below to open it in the Compositor.`,
+          "",
+          `**Provider**: ${providerKnowledge?.name || providerId}`,
+          "",
+          `**Portrait prompt**: ${promptVariants.portrait}`,
+          `**Landscape prompt**: ${promptVariants.landscape}`,
+        ].join("\n");
       }
 
       // Article-only: user asks for article/writing without images or video
       if (wantsArticle && !wantsImage && !wantsVideo) {
         const contextLabel =
           copilotContextOptions.find((opt) => opt.id === copilotContextId)?.label || "The Qriptopian";
-        const experienceName = deriveExperienceNameFromPrompt(prompt, "Article Experience");
+        const experienceName = deriveExperienceNameFromPrompt(effectivePrompt, "Article Experience");
         const articleTitle = experienceName;
-        const articlePrompt = prompt;
+        const articlePrompt = effectivePrompt;
 
         setTemplateIntent("article");
         setSelectedTemplateId("ai-article-draft");
-        setTemplateQuery(`${contextLabel}: ${prompt} article editorial draft`);
+        setTemplateQuery(`${contextLabel}: ${effectivePrompt} article editorial draft`);
 
         const seedData = {
           intent_timebox: {
             experience_name: experienceName,
-            goal: prompt,
+            goal: effectivePrompt,
           },
           article_draft: {
             title: articleTitle,
@@ -3786,20 +3805,19 @@ export const ComposerStudio = () => {
           },
         };
 
-        const seeded = await startSeededSessionForTemplate("ai-article-draft", seedData, {
-          currentStep: 1,
+        setPendingProductionConfig({
+          templateKey: "ai-article-draft",
+          seedData,
+          options: { currentStep: 1 },
+          label: "article experience",
         });
 
-        return seeded.ok
-          ? [
-              `I set up a **standalone article path** in **${seeded.templateName || "Article Draft"}** and opened **Customizer** on the article step.`,
-              "",
-              `**Article**: ${articleTitle}`,
-              `**Prompt**: ${articlePrompt}`,
-              "",
-              `Review in Customizer, then hit **Run** to generate. To add images alongside, switch to the Image + Article bundle preset. To add video, switch to the Video + Article bundle.`,
-            ].join("\n")
-          : `I prepared a standalone article path, but couldn't open the Customizer automatically: ${seeded.error}`;
+        return [
+          `I've planned a **standalone article**. Confirm below to open it in the Compositor.`,
+          "",
+          `**Article**: ${articleTitle}`,
+          `**Prompt**: ${articlePrompt}`,
+        ].join("\n");
       }
 
       // Image + article: user asks for images with article context, or editorial
@@ -3810,17 +3828,17 @@ export const ComposerStudio = () => {
         const contextLabel =
           copilotContextOptions.find((opt) => opt.id === copilotContextId)?.label || "The Qriptopian";
         const providerId = /venice/.test(lower) && !/openai/.test(lower) ? "venice" : "openai";
-        const promptVariants = buildImagePromptVariants(prompt, contextLabel);
-        const experienceName = deriveExperienceNameFromPrompt(prompt, "Qriptopian Image Experience");
+        const promptVariants = buildImagePromptVariants(effectivePrompt, contextLabel);
+        const experienceName = deriveExperienceNameFromPrompt(effectivePrompt, "Qriptopian Image Experience");
 
         setTemplateIntent("article");
         setSelectedTemplateId("qripto-feature-article");
-        setTemplateQuery(`${contextLabel}: ${prompt} article hero image portrait landscape`);
+        setTemplateQuery(`${contextLabel}: ${effectivePrompt} article hero image portrait landscape`);
 
         const seedData = {
           intent_timebox: {
             experience_name: experienceName,
-            goal: prompt,
+            goal: effectivePrompt,
             time_available: "15",
             depth: /technical/.test(lower) ? "technical" : /practical/.test(lower) ? "practical" : "overview",
           },
@@ -3834,34 +3852,29 @@ export const ComposerStudio = () => {
             provider_id: providerId,
             portrait_prompt: promptVariants.portrait,
             landscape_prompt: promptVariants.landscape,
-            visual_style: inferVisualStyleFromPrompt(prompt),
+            visual_style: inferVisualStyleFromPrompt(effectivePrompt),
           },
         };
 
-        const seeded = await startSeededSessionForTemplate("qriptopian_reading_sprint_v0", seedData, {
-          currentStep: 2,
+        setPendingProductionConfig({
+          templateKey: "qriptopian_reading_sprint_v0",
+          seedData,
+          options: { currentStep: 2 },
+          label: "image article experience",
         });
-        const templateKnowledge = getComposerTemplateKnowledge("feature-article-experience");
         const providerKnowledge = getComposerProviderKnowledge(providerId);
 
-        return seeded.ok
-          ? [
-              `I set up an **image-led article path** in **${seeded.templateName || "Qriptopian Reading Sprint"}** and opened **Customizer** on the hero image step.`,
-              "",
-              `**Recommended provider**: ${providerKnowledge?.name || providerId}`,
-              `- ${providerKnowledge?.strengths[0] || "Good fit for alpha image generation"}`,
-              "",
-              `**Portrait prompt**`,
-              promptVariants.portrait,
-              "",
-              `**Landscape prompt**`,
-              promptVariants.landscape,
-              "",
-              templateKnowledge?.summary
-                ? `Template note: ${templateKnowledge.summary}`
-                : `This follows the current alpha path for article and capsule imagery: template selection, provider choice, portrait + landscape planning, then Resources and Preview review.`,
-            ].join("\n")
-          : `I prepared an image-led article path, but I couldn't open the Customizer session automatically: ${seeded.error}`;
+        return [
+          `I've planned an **image-led article**. Confirm below to open it in the Compositor.`,
+          "",
+          `**Provider**: ${providerKnowledge?.name || providerId}`,
+          "",
+          `**Portrait prompt**`,
+          promptVariants.portrait,
+          "",
+          `**Landscape prompt**`,
+          promptVariants.landscape,
+        ].join("\n");
       }
 
       return undefined;
@@ -3878,6 +3891,7 @@ export const ComposerStudio = () => {
       sessionData,
       stepData,
       sessionTemplate,
+      setPendingProductionConfig,
     ]
   );
 
@@ -4196,6 +4210,10 @@ export const ComposerStudio = () => {
       if (!res.ok) throw new Error("Failed to complete session");
       const data = await res.json();
       const returnedExperience = data.experience_qube || null;
+      if (data.pipeline_run_id) {
+        setLastPipelineRunId(data.pipeline_run_id);
+        setPipelineRunData(null);
+      }
       const codexLabel =
         copilotContextOptions.find((opt) => opt.id === copilotContextId)?.label || "Qriptopian";
       const creatorPersonaName = userId || "Studio User";
@@ -4634,7 +4652,11 @@ export const ComposerStudio = () => {
         const next = exists
           ? prev.map((exp) => (exp.id === refreshedExperience.id ? refreshedExperience : exp))
           : [refreshedExperience, ...prev];
-        cacheExperiencesForTenant(tenantId, next);
+        // Only update the module-level cache when the list is already loaded.
+        // If prev is empty the initial fetchExperiences is still in-flight; caching a
+        // single-item list here would poison it and hide all previously-saved experiences
+        // when the component remounts (e.g. after navigating to the launcher and back).
+        if (prev.length > 0) cacheExperiencesForTenant(tenantId, next);
         return next;
       });
       if (selectedExperienceId === refreshedExperience.id) {
@@ -4730,6 +4752,12 @@ export const ComposerStudio = () => {
     void poll();
     return () => { cancelled = true; clearInterval(intervalId); };
   }, [currentVideoGenerationId, selectedExperienceId, previewExperience?.id]);
+
+  // Cleanup workflow run poll intervals on unmount.
+  useEffect(() => {
+    const refs = workflowPollRefs.current;
+    return () => { Object.values(refs).forEach((id) => clearInterval(id)); };
+  }, []);
 
   const recordExperienceLifecycle = async (
     action: "experience_preview" | "experience_launch",
@@ -5098,6 +5126,8 @@ export const ComposerStudio = () => {
       setSessionError(err?.message || "Failed to save generation edits.");
     } finally {
       setIsSavingEditableGeneration(false);
+      setSavedEditsFlash(true);
+      setTimeout(() => setSavedEditsFlash(false), 2500);
     }
   };
 
@@ -6960,6 +6990,20 @@ export const ComposerStudio = () => {
         description: "Review proof-linked receipts, audit traces, and runtime-ready settlement records.",
       };
     }
+    if (studioAnalysisTab === "pipeline") {
+      return {
+        title: "Pipeline Diagnostics",
+        icon: <Activity className="h-4 w-4 text-emerald-300" />,
+        description: "Inspect pipeline run stages, identity envelope, and stage history for the last completed session.",
+      };
+    }
+    if (studioAnalysisTab === "workflows") {
+      return {
+        title: "Workflows",
+        icon: <Layers className="h-4 w-4 text-violet-300" />,
+        description: "Browse, inspect, and invoke WorkflowDefinitions bound to this cartridge.",
+      };
+    }
     return {
       title: "Parity Review",
       icon: <Shield className="h-4 w-4 text-fuchsia-300" />,
@@ -7089,21 +7133,51 @@ export const ComposerStudio = () => {
             </div>
             <div className="mt-4 flex flex-1 items-start justify-start">
               <div className="relative z-[70] h-[632px] w-full max-w-[420px] overflow-hidden rounded-2xl border border-transparent bg-slate-950/60 backdrop-blur-xl flex flex-col md:max-w-full lg:max-w-[420px]">
-                <div className="h-full overflow-hidden">
+                {pendingProductionConfig && (
+                  <div className="mx-2 mt-2 rounded-lg border border-violet-500/40 bg-violet-950/40 p-3 space-y-2 flex-shrink-0">
+                    <p className="text-[12px] text-violet-200 font-medium">
+                      Ready to produce: <span className="text-white">{pendingProductionConfig.label}</span>
+                    </p>
+                    <p className="text-[11px] text-slate-400">Send this to the Compositor now?</p>
+                    <div className="flex gap-2">
+                      <button
+                        className="rounded-lg bg-violet-600 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-violet-500 transition"
+                        onClick={async () => {
+                          await startSeededSessionForTemplate(
+                            pendingProductionConfig.templateKey,
+                            pendingProductionConfig.seedData,
+                            pendingProductionConfig.options as any,
+                          );
+                          setPendingProductionConfig(null);
+                        }}
+                      >
+                        Yes, send to production
+                      </button>
+                      <button
+                        className="rounded-lg border border-slate-700 px-3 py-1.5 text-[11px] text-slate-300 hover:bg-slate-800 transition"
+                        onClick={() => setPendingProductionConfig(null)}
+                      >
+                        Keep editing
+                      </button>
+                    </div>
+                  </div>
+                )}
+                <div className="flex-1 min-h-0 overflow-hidden">
                   <CodexCopilotLayer
                     isOpen
                     onClose={() => {}}
                     variant="embedded"
                     enableInferenceRendering
                     showNavMenu
-                    showWalletMenu
+                    showWalletMenu={false}
                     hideAvatarToggle
                     contextOptions={copilotContextOptions}
                     contextId={copilotContextId}
                     onContextChange={handleCopilotContextChange}
                     initialMessage="What would you like to compose?"
+                    promptMaxHeight="240px"
                     inputPanelClassName="rounded-2xl border border-white/10 bg-slate-950/95 backdrop-blur-xl px-3 py-3 shadow-lg"
-                    inputPanelInputClassName="flex-1 px-3 py-2 bg-slate-900/80 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500 text-sm"
+                    inputPanelInputClassName="flex-1 px-3 py-2 bg-slate-900/80 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500 text-sm max-h-[240px]"
                     panelBorder={false}
                     quickPrompts={[
                       "Show all templates",
@@ -7805,10 +7879,15 @@ export const ComposerStudio = () => {
                             type="button"
                             onClick={() => void handleSaveEditableGeneration()}
                             disabled={isSavingEditableGeneration}
-                            className="shrink-0"
+                            className={`shrink-0 transition-colors ${savedEditsFlash ? "bg-emerald-600 hover:bg-emerald-600 text-white" : ""}`}
                           >
-                            {isSavingEditableGeneration ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                            Save edits
+                            {isSavingEditableGeneration ? (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : savedEditsFlash ? (
+                              "✓ Saved"
+                            ) : (
+                              "Save edits"
+                            )}
                           </Button>
                         </div>
 
@@ -9804,8 +9883,24 @@ export const ComposerStudio = () => {
             <Tabs
               value={studioAnalysisTab}
               onValueChange={(value) => {
-                setStudioAnalysisTab(value as "parity" | "surfaces" | "receipts");
+                setStudioAnalysisTab(value as "parity" | "surfaces" | "receipts" | "pipeline" | "workflows");
                 setIsParityExpanded(true);
+                if (value === "pipeline" && lastPipelineRunId && !pipelineRunData) {
+                  setPipelineRunLoading(true);
+                  fetch(`/api/pipeline/runs/${lastPipelineRunId}`)
+                    .then((r) => r.json())
+                    .then((d) => { setPipelineRunData(d); })
+                    .catch(() => {})
+                    .finally(() => setPipelineRunLoading(false));
+                }
+                if (value === "workflows" && tenantId && workflowsList.length === 0) {
+                  setWorkflowsLoading(true);
+                  fetch(`/api/workflows?tenant_id=${encodeURIComponent(tenantId)}&limit=20`)
+                    .then((r) => r.json())
+                    .then((d) => { if (d.workflows) setWorkflowsList(d.workflows); })
+                    .catch(() => {})
+                    .finally(() => setWorkflowsLoading(false));
+                }
               }}
               className="w-full"
             >
@@ -9827,7 +9922,7 @@ export const ComposerStudio = () => {
                     <ChevronDown className={`h-4 w-4 transition-transform ${isParityExpanded ? "rotate-180" : ""}`} />
                   </button>
                 </div>
-                <TabsList className="grid h-10 w-full grid-cols-3 items-center rounded-full border border-white/10 bg-slate-950/60 p-1">
+                <TabsList className="grid h-10 w-full grid-cols-5 items-center rounded-full border border-white/10 bg-slate-950/60 p-1">
                   <TabsTrigger value="parity" className={configuratorTabTriggerClass}>
                     Design Parity
                   </TabsTrigger>
@@ -9836,6 +9931,12 @@ export const ComposerStudio = () => {
                   </TabsTrigger>
                   <TabsTrigger value="receipts" className={configuratorTabTriggerClass}>
                     DVN Receipts
+                  </TabsTrigger>
+                  <TabsTrigger value="pipeline" className={configuratorTabTriggerClass}>
+                    Pipeline
+                  </TabsTrigger>
+                  <TabsTrigger value="workflows" className={configuratorTabTriggerClass}>
+                    Workflows
                   </TabsTrigger>
                 </TabsList>
               </div>
@@ -9880,6 +9981,442 @@ export const ComposerStudio = () => {
                       autoRefresh={true}
                       refreshInterval={5000}
                     />
+                  </TabsContent>
+
+                  <TabsContent value="pipeline" className="mt-0">
+                    <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-sm">
+                      {!lastPipelineRunId && (
+                        <p className="text-slate-400">No pipeline run recorded yet. Complete a session to see diagnostics.</p>
+                      )}
+                      {lastPipelineRunId && pipelineRunLoading && (
+                        <div className="flex items-center gap-2 text-slate-400">
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          <span>Loading pipeline run…</span>
+                        </div>
+                      )}
+                      {lastPipelineRunId && !pipelineRunLoading && !pipelineRunData && (
+                        <div className="space-y-2">
+                          <p className="font-mono text-xs text-slate-300">Run ID: {lastPipelineRunId}</p>
+                          <button
+                            type="button"
+                            className="rounded-lg border border-slate-700 bg-slate-800/50 px-3 py-1.5 text-xs text-slate-300 hover:bg-slate-700"
+                            onClick={() => {
+                              setPipelineRunLoading(true);
+                              fetch(`/api/pipeline/runs/${lastPipelineRunId}`)
+                                .then((r) => r.json())
+                                .then((d) => setPipelineRunData(d))
+                                .catch(() => {})
+                                .finally(() => setPipelineRunLoading(false));
+                            }}
+                          >
+                            Load run details
+                          </button>
+                        </div>
+                      )}
+                      {pipelineRunData?.ok && pipelineRunData?.run && (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="font-mono text-xs text-slate-400">{pipelineRunData.run.pipelineRunId}</span>
+                            <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                              pipelineRunData.run.status === "completed"
+                                ? "bg-emerald-500/20 text-emerald-300"
+                                : pipelineRunData.run.status === "failed"
+                                ? "bg-red-500/20 text-red-300"
+                                : pipelineRunData.run.status === "blocked"
+                                ? "bg-amber-500/20 text-amber-300"
+                                : "bg-cyan-500/20 text-cyan-300"
+                            }`}>
+                              {pipelineRunData.run.status}
+                            </span>
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Stage History</p>
+                            {(pipelineRunData.run.stageHistory ?? []).map((evt: any, i: number) => (
+                              <div key={i} className="flex items-center gap-2 rounded-lg border border-slate-800/80 bg-slate-900/60 px-3 py-1.5">
+                                <CheckCircle2 className={`h-3 w-3 shrink-0 ${evt.exitedAt ? "text-emerald-400" : "text-cyan-400"}`} />
+                                <span className="font-mono text-[11px] text-slate-300">{evt.stage}</span>
+                                {evt.error && <span className="ml-auto text-[10px] text-red-400 truncate max-w-[120px]">{evt.error}</span>}
+                              </div>
+                            ))}
+                          </div>
+                          <div className="space-y-1 text-[11px] text-slate-400">
+                            <p>Initiated via: <span className="text-slate-300">{pipelineRunData.run.initiatedVia}</span></p>
+                            <p>Persona: <span className="font-mono text-slate-300">{pipelineRunData.run.identityEnvelope?.personaId ?? "—"}</span></p>
+                            {pipelineRunData.run.identityEnvelope?.agentId && (
+                              <p>Agent: <span className="font-mono text-slate-300">{pipelineRunData.run.identityEnvelope.agentId}</span></p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      {pipelineRunData && !pipelineRunData.ok && (
+                        <p className="text-red-400 text-xs">{pipelineRunData.error ?? "Failed to load pipeline run."}</p>
+                      )}
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="workflows" className="mt-0">
+                    <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Workflow Definitions</span>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            className="rounded-lg border border-violet-600/50 bg-violet-500/10 px-2.5 py-1 text-[11px] text-violet-300 hover:bg-violet-500/20 transition"
+                            onClick={() => {
+                              setShowMakePicker((prev) => !prev);
+                              if (!makeScenarios && !makeScenarioLoading) {
+                                setMakeScenarioLoading(true);
+                                setMakeScenarioError(null);
+                                fetch("/api/make/scenarios")
+                                  .then((r) => r.json())
+                                  .then((d) => {
+                                    if (d.scenarios) setMakeScenarios(d.scenarios);
+                                    else setMakeScenarioError(d.error ?? "Failed to load scenarios");
+                                  })
+                                  .catch(() => setMakeScenarioError("Network error loading scenarios"))
+                                  .finally(() => setMakeScenarioLoading(false));
+                              }
+                            }}
+                          >
+                            + Connect from Make
+                          </button>
+                          <button
+                            type="button"
+                            className="rounded-lg border border-slate-700 bg-slate-800/50 px-2.5 py-1 text-[11px] text-slate-300 hover:bg-slate-700"
+                            onClick={() => {
+                              if (!tenantId) return;
+                              setWorkflowsLoading(true);
+                              setWorkflowsList([]);
+                              fetch(`/api/workflows?tenant_id=${encodeURIComponent(tenantId)}&limit=20`)
+                                .then((r) => r.json())
+                                .then((d) => { if (d.workflows) setWorkflowsList(d.workflows); })
+                                .catch(() => {})
+                                .finally(() => setWorkflowsLoading(false));
+                            }}
+                          >
+                            Refresh
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Make scenario picker */}
+                      {showMakePicker && (
+                        <div className="rounded-lg border border-violet-500/30 bg-violet-950/30 p-3 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-semibold text-violet-300">Your Make Scenarios</span>
+                            <button
+                              type="button"
+                              className="text-[10px] text-slate-500 hover:text-slate-300"
+                              onClick={() => {
+                                setShowMakePicker(false);
+                                setMakeScenarios(null);
+                                setMakeScenarioError(null);
+                              }}
+                            >
+                              ✕
+                            </button>
+                          </div>
+                          {makeScenarioLoading && (
+                            <div className="flex items-center gap-2 text-slate-400 text-[11px]">
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                              Loading scenarios…
+                            </div>
+                          )}
+                          {makeScenarioError && (
+                            <p className="text-red-400 text-[11px]">{makeScenarioError}</p>
+                          )}
+                          {makeScenarios && makeScenarios.length === 0 && (
+                            <p className="text-slate-400 text-[11px]">No scenarios found in your Make team.</p>
+                          )}
+                          {makeScenarios && makeScenarios.map((sc) => (
+                            <div key={sc.id} className="flex items-center justify-between gap-2 rounded border border-slate-700/50 bg-slate-900/60 px-2.5 py-1.5">
+                              <div className="min-w-0">
+                                <p className="truncate text-[11px] text-slate-200">{sc.name}</p>
+                                <p className="text-[10px] text-slate-500">ID: {sc.id} · {sc.isActive ? <span className="text-emerald-400">active</span> : <span className="text-slate-500">inactive</span>}</p>
+                              </div>
+                              <button
+                                type="button"
+                                disabled={connectingScenarioId === sc.id}
+                                className="shrink-0 rounded border border-violet-500/50 bg-violet-500/10 px-2 py-0.5 text-[10px] text-violet-300 hover:bg-violet-500/20 disabled:opacity-50 transition"
+                                onClick={async () => {
+                                  if (!tenantId) return;
+                                  setConnectingScenarioId(sc.id);
+                                  try {
+                                    const personaId = (window as any).__COMPOSER_PERSONA_ID__ ?? "studio-user";
+                                    const wfRes = await fetch("/api/workflows", {
+                                      method: "POST",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({
+                                        envelope: { tenantId, personaId },
+                                        name: sc.name,
+                                        adapter: "make",
+                                        config: {},
+                                        status: "active",
+                                      }),
+                                    });
+                                    const wfData = await wfRes.json();
+                                    if (!wfData.workflow?.id) throw new Error(wfData.error ?? "Failed to create workflow");
+                                    const wfId = wfData.workflow.id;
+                                    const bindRes = await fetch(`/api/workflows/${wfId}/bindings`, {
+                                      method: "POST",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({
+                                        envelope: { tenantId, personaId },
+                                        engine: "make",
+                                        deploymentMode: "manual",
+                                        backendIds: { scenarioId: String(sc.id) },
+                                        credentialPolicy: {},
+                                      }),
+                                    });
+                                    if (!bindRes.ok) {
+                                      const bd = await bindRes.json();
+                                      throw new Error(bd.error ?? "Failed to create binding");
+                                    }
+                                    // Reload workflows list
+                                    const listRes = await fetch(`/api/workflows?tenant_id=${encodeURIComponent(tenantId)}&limit=20`);
+                                    const listData = await listRes.json();
+                                    if (listData.workflows) setWorkflowsList(listData.workflows);
+                                    setShowMakePicker(false);
+                                    setMakeScenarios(null);
+                                  } catch (err: any) {
+                                    setMakeScenarioError(err?.message ?? "Failed to connect scenario");
+                                  } finally {
+                                    setConnectingScenarioId(null);
+                                  }
+                                }}
+                              >
+                                {connectingScenarioId === sc.id ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : "Connect"}
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {workflowsLoading && (
+                        <div className="flex items-center gap-2 text-slate-400">
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          <span>Loading workflows…</span>
+                        </div>
+                      )}
+
+                      {!workflowsLoading && workflowsList.length === 0 && (
+                        <p className="text-slate-400">No workflow definitions found for this cartridge.</p>
+                      )}
+
+                      {workflowsList.map((wf: any) => {
+                        const pollState = workflowRunPolling[wf.id];
+                        const runStatus = pollState?.status;
+                        return (
+                        <div key={wf.id} className="rounded-lg border border-slate-800/80 bg-slate-900/60 p-3 space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="truncate font-medium text-slate-200">{wf.name}</p>
+                              <p className="text-[11px] text-slate-500 font-mono truncate">{wf.id}</p>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-1.5">
+                              <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                                wf.status === "active" ? "bg-emerald-500/20 text-emerald-300"
+                                : wf.status === "draft" ? "bg-amber-500/20 text-amber-300"
+                                : "bg-slate-500/20 text-slate-400"
+                              }`}>
+                                {wf.status}
+                              </span>
+                              <span className="rounded-full border border-violet-400/30 bg-violet-500/10 px-2 py-0.5 text-[10px] text-violet-300">
+                                {wf.adapter}
+                              </span>
+                            </div>
+                          </div>
+
+                          {wf.description && (
+                            <p className="text-[11px] text-slate-400 line-clamp-2">{wf.description}</p>
+                          )}
+
+                          {/* Invoke section with manifest toggle */}
+                          <div className="space-y-1.5">
+                            <button
+                              type="button"
+                              className="flex w-full items-center justify-between gap-1.5 rounded-lg border border-slate-700/50 bg-slate-800/40 px-3 py-1.5 text-[11px] font-medium text-slate-400 hover:bg-slate-800/80 transition"
+                              onClick={() => {
+                                const next = !expandedInvoke[wf.id];
+                                setExpandedInvoke((prev) => ({ ...prev, [wf.id]: next }));
+                                if (next && workflowManifests[wf.id] === undefined) {
+                                  setWorkflowManifests((prev) => ({ ...prev, [wf.id]: "loading" }));
+                                  fetch(`/api/workflows/${wf.id}/manifest/input`)
+                                    .then((r) => r.ok ? r.json() : null)
+                                    .then((d) => {
+                                      setWorkflowManifests((prev) => ({
+                                        ...prev,
+                                        [wf.id]: d?.fields ? { fields: d.fields } : null,
+                                      }));
+                                    })
+                                    .catch(() => setWorkflowManifests((prev) => ({ ...prev, [wf.id]: null })));
+                                }
+                              }}
+                            >
+                              <span>Invoke</span>
+                              <ChevronDown className={`h-3 w-3 transition-transform ${expandedInvoke[wf.id] ? "rotate-180" : ""}`} />
+                            </button>
+
+                            {expandedInvoke[wf.id] && (
+                              <div className="space-y-2 pt-1">
+                                {/* Input manifest */}
+                                {workflowManifests[wf.id] === "loading" && (
+                                  <p className="text-[10px] text-slate-500 flex items-center gap-1"><Loader2 className="h-2.5 w-2.5 animate-spin" />Loading manifest…</p>
+                                )}
+                                {workflowManifests[wf.id] === null && (
+                                  <p className="text-[10px] text-slate-500">No input contract defined.</p>
+                                )}
+                                {workflowManifests[wf.id] && typeof workflowManifests[wf.id] === "object" && workflowManifests[wf.id] !== null && (workflowManifests[wf.id] as { fields: any[] }).fields.length > 0 && (
+                                  <div className="rounded border border-slate-700/50 overflow-hidden">
+                                    <table className="w-full text-[10px]">
+                                      <thead>
+                                        <tr className="border-b border-slate-700/50 bg-slate-800/60">
+                                          <th className="px-2 py-1 text-left text-slate-400 font-medium">Field</th>
+                                          <th className="px-2 py-1 text-left text-slate-400 font-medium">Type</th>
+                                          <th className="px-2 py-1 text-left text-slate-400 font-medium">Req</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {(workflowManifests[wf.id] as { fields: any[] }).fields.map((f: any) => (
+                                          <tr key={f.name} className="border-b border-slate-800/40 last:border-0">
+                                            <td className="px-2 py-1 font-mono text-slate-300">{f.name}</td>
+                                            <td className="px-2 py-1 text-slate-500">{f.type ?? "any"}</td>
+                                            <td className="px-2 py-1">{f.required ? <span className="text-amber-400">●</span> : <span className="text-slate-600">○</span>}</td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                )}
+
+                                {/* Run status chip */}
+                                {pollState && (
+                                  <div className={`flex items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-medium ${
+                                    runStatus === "completed" ? "bg-emerald-500/10 text-emerald-300 border border-emerald-500/20"
+                                    : runStatus === "failed" ? "bg-red-500/10 text-red-300 border border-red-500/20"
+                                    : runStatus === "cancelled" ? "bg-slate-500/10 text-slate-400 border border-slate-600/20"
+                                    : "bg-blue-500/10 text-blue-300 border border-blue-500/20"
+                                  }`}>
+                                    {(runStatus === "running" || runStatus === "pending") && <Loader2 className="h-2.5 w-2.5 animate-spin" />}
+                                    {runStatus === "completed" && <CheckCircle2 className="h-2.5 w-2.5" />}
+                                    {runStatus === "failed" && <AlertTriangle className="h-2.5 w-2.5" />}
+                                    <span className="capitalize">{runStatus}</span>
+                                    <span className="font-mono text-[9px] opacity-60 ml-1">{pollState.runId.slice(-8)}</span>
+                                  </div>
+                                )}
+
+                                <button
+                                  type="button"
+                                  disabled={workflowInvokeState[wf.id] === "invoking"}
+                                  className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-1.5 text-[11px] font-medium text-violet-300 hover:bg-violet-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                                  onClick={() => {
+                                    if (!tenantId || !activePersonaId) return;
+                                    setWorkflowInvokeState((prev) => ({ ...prev, [wf.id]: "invoking" }));
+                                    fetch(`/api/workflows/${wf.id}/invoke`, {
+                                      method: "POST",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({
+                                        envelope: { tenantId, personaId: activePersonaId ?? userId ?? "studio-user" },
+                                      }),
+                                    })
+                                      .then((r) => r.json())
+                                      .then((d) => {
+                                        setWorkflowInvokeState((prev) => ({ ...prev, [wf.id]: d.ok ? "done" : "error" }));
+                                        if (d.ok && d.runId) {
+                                          // Start polling run status
+                                          const wfId = wf.id;
+                                          const runId: string = d.runId;
+                                          const MAX_POLL = 24;
+                                          const MAX_ERRORS = 3;
+                                          let attempts = 0;
+                                          let errors = 0;
+                                          let cancelled = false;
+                                          setWorkflowRunPolling((prev) => ({ ...prev, [wfId]: { runId, status: "pending" } }));
+                                          if (workflowPollRefs.current[wfId]) clearInterval(workflowPollRefs.current[wfId]);
+                                          const interval = setInterval(async () => {
+                                            if (cancelled || attempts >= MAX_POLL) { clearInterval(interval); return; }
+                                            attempts++;
+                                            try {
+                                              const res = await fetch(`/api/workflows/${wfId}/runs/${runId}`, { cache: "no-store" });
+                                              if (!res.ok) { errors++; if (errors >= MAX_ERRORS) { cancelled = true; clearInterval(interval); } return; }
+                                              errors = 0;
+                                              const data = await res.json() as { run?: { status?: string } };
+                                              const status = data.run?.status ?? "unknown";
+                                              setWorkflowRunPolling((prev) => ({ ...prev, [wfId]: { runId, status } }));
+                                              if (status === "completed" || status === "failed" || status === "cancelled") {
+                                                cancelled = true;
+                                                clearInterval(interval);
+                                                // Refresh history if visible
+                                                setWorkflowRunHistory((prev) => {
+                                                  if (!prev[wfId]) return prev;
+                                                  return { ...prev, [wfId]: [] }; // trigger re-fetch on next expand
+                                                });
+                                              }
+                                            } catch { /* ignore */ }
+                                          }, 15_000);
+                                          workflowPollRefs.current[wfId] = interval;
+                                        }
+                                      })
+                                      .catch(() => {
+                                        setWorkflowInvokeState((prev) => ({ ...prev, [wf.id]: "error" }));
+                                      });
+                                  }}
+                                >
+                                  {workflowInvokeState[wf.id] === "invoking" && <Loader2 className="h-3 w-3 animate-spin" />}
+                                  {workflowInvokeState[wf.id] === "done" && <CheckCircle2 className="h-3 w-3 text-emerald-400" />}
+                                  {workflowInvokeState[wf.id] === "error" && <AlertTriangle className="h-3 w-3 text-red-400" />}
+                                  {!workflowInvokeState[wf.id] && <Play className="h-3 w-3" />}
+                                  {workflowInvokeState[wf.id] === "invoking" ? "Invoking…"
+                                    : workflowInvokeState[wf.id] === "done" ? "Invoked"
+                                    : workflowInvokeState[wf.id] === "error" ? "Failed — retry?"
+                                    : "Invoke"}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Run history toggle */}
+                          <div>
+                            <button
+                              type="button"
+                              className="flex w-full items-center justify-between gap-1.5 px-1 py-0.5 text-[10px] text-slate-500 hover:text-slate-300 transition"
+                              onClick={() => {
+                                const next = !expandedRunHistory[wf.id];
+                                setExpandedRunHistory((prev) => ({ ...prev, [wf.id]: next }));
+                                if (next) {
+                                  fetch(`/api/workflows/${wf.id}/runs?limit=5`)
+                                    .then((r) => r.ok ? r.json() : { runs: [] })
+                                    .then((d) => setWorkflowRunHistory((prev) => ({ ...prev, [wf.id]: d.runs ?? [] })))
+                                    .catch(() => setWorkflowRunHistory((prev) => ({ ...prev, [wf.id]: [] })));
+                                }
+                              }}
+                            >
+                              <span className="flex items-center gap-1"><List className="h-2.5 w-2.5" />Recent runs</span>
+                              <ChevronDown className={`h-2.5 w-2.5 transition-transform ${expandedRunHistory[wf.id] ? "rotate-180" : ""}`} />
+                            </button>
+                            {expandedRunHistory[wf.id] && (
+                              <div className="mt-1 space-y-0.5">
+                                {!workflowRunHistory[wf.id] && <p className="text-[10px] text-slate-500 px-1">Loading…</p>}
+                                {workflowRunHistory[wf.id]?.length === 0 && <p className="text-[10px] text-slate-500 px-1">No runs yet.</p>}
+                                {workflowRunHistory[wf.id]?.map((run: any) => (
+                                  <div key={run.id} className="flex items-center justify-between gap-2 rounded px-2 py-1 bg-slate-800/40 text-[10px]">
+                                    <span className="font-mono text-slate-400 truncate">{run.id?.slice(-12)}</span>
+                                    <span className={`shrink-0 rounded-full px-1.5 py-0.5 font-medium ${
+                                      run.status === "completed" ? "bg-emerald-500/15 text-emerald-300"
+                                      : run.status === "failed" ? "bg-red-500/15 text-red-300"
+                                      : run.status === "running" ? "bg-blue-500/15 text-blue-300"
+                                      : "bg-slate-500/15 text-slate-400"
+                                    }`}>{run.status}</span>
+                                    {run.completed_at && <span className="shrink-0 text-slate-500">{new Date(run.completed_at).toLocaleDateString()}</span>}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        );
+                      })}
+                    </div>
                   </TabsContent>
                 </>
               ) : null}

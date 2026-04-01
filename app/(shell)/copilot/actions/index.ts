@@ -53,6 +53,9 @@ import { smartMenuContentActions } from "@/services/content/smartMenuIntegration
 // Codex: Knowledge Base, Auto-Drive content, task/rewards/ascension frameworks
 import { codexActions } from "./codex";
 
+// AgentiQ Codex: Engineering KB — architecture, decisions, PR history, problem logs
+import { agentiqCodexActions } from "./agentiq-codex";
+
 /**
  * All backend actions available to the Platform Copilot
  * These are registered with CopilotKit and available for tool calling
@@ -91,6 +94,8 @@ export const allActions = [
   ...smartMenuContentActions,
   // Codex: KB search, Auto-Drive content, task/rewards/ascension frameworks
   ...codexActions,
+  // AgentiQ Codex: Engineering KB (architecture, decisions, PR history, problem logs)
+  ...agentiqCodexActions,
 ];
 
 export * from "./registry";
@@ -119,3 +124,5 @@ export * from "./a2ui";
 export * from "./templateUI";
 // Codex actions
 export * from "./codex";
+// AgentiQ Codex actions
+export * from "./agentiq-codex";

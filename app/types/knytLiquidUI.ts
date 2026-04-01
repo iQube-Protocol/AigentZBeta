@@ -15,7 +15,8 @@ export type KnytTemplateId =
   | 'knyt:dual_poster_stage_v1'
   | 'knyt:motion_stage_v1'
   | 'knyt:quest_hud_hub_v1'
-  | 'knyt:realm_bridge_map_v1';
+  | 'knyt:realm_bridge_map_v1'
+  | 'knyt:living_canon_v1';
 
 export type DeviceType = 'mobile' | 'tablet' | 'desktop';
 

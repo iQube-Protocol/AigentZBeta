@@ -7,6 +7,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { composerService } from '@/services/composer/composerService';
+import { getPipelineOrchestrator } from '@/services/pipeline/orchestrator';
+import { resolveRuntimeIdentity } from '@/services/runtime/identityResolver';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -109,22 +111,57 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }, { status: 400 });
     }
 
-    // Complete session and create ExperienceQube
-    const experienceQube = await composerService.completeSession(id);
+    // Resolve caller identity for pipeline tracking
+    const identity = await resolveRuntimeIdentity({
+      userId: body.userId,
+      tenantId: body.tenantId,
+    });
 
-    if (!experienceQube) {
-      return NextResponse.json({
-        success: false,
-        error: 'Failed to complete session - session not found or invalid',
-      }, { status: 400 });
+    const orchestrator = getPipelineOrchestrator();
+
+    // Initiate pipeline run — throws if Supabase is unavailable (no silent fallback)
+    const pipelineRun = await orchestrator.initiate({
+      tenantId: identity.tenantId ?? body.tenantId ?? 'unknown',
+      userId: identity.userId,
+      personaId: identity.activePersonaId ?? body.personaId ?? 'unknown',
+      agentId: body.agentId,
+      initiatedVia: 'studio-composer',
+      templateRef: body.templateRef,
+      sourceOfTruth: identity.source,
+      resolutionStatus: identity.activePersonaId ? 'resolved' : 'partial',
+    });
+
+    let experienceQube;
+    try {
+      await orchestrator.transition(pipelineRun.pipelineRunId, 'session.created');
+
+      // Complete session and create ExperienceQube
+      experienceQube = await composerService.completeSession(id);
+
+      if (!experienceQube) {
+        await orchestrator.fail(pipelineRun.pipelineRunId, 'Session not found or invalid');
+        return NextResponse.json({
+          success: false,
+          error: 'Failed to complete session - session not found or invalid',
+          pipelineRunId: pipelineRun.pipelineRunId,
+        }, { status: 400 });
+      }
+
+      await orchestrator.transition(pipelineRun.pipelineRunId, 'bundle.generated', { experienceId: experienceQube.id });
+      await orchestrator.complete(pipelineRun.pipelineRunId);
+    } catch (completionError: any) {
+      // Attempt to mark pipeline as failed; ignore secondary errors
+      try { await orchestrator.fail(pipelineRun.pipelineRunId, completionError?.message ?? 'Unknown error'); } catch {}
+      throw completionError;
     }
 
-    console.log(`Completed composer session: ${id} -> ExperienceQube: ${experienceQube.id}`);
+    console.log(`Completed composer session: ${id} -> ExperienceQube: ${experienceQube.id} (pipeline: ${pipelineRun.pipelineRunId})`);
 
     return NextResponse.json({
       success: true,
       experience_qube: experienceQube,
       session_id: id,
+      pipeline_run_id: pipelineRun.pipelineRunId,
       completed_at: new Date().toISOString(),
     });
 

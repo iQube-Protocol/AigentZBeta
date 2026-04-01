@@ -310,7 +310,7 @@ interface KnytCardsApiCharacter {
   digiterraName?: string;
 }
 
-type KnytTabSlug = 'codex' | 'scrolls' | 'characters' | 'lore' | 'digiterra' | 'terra' | 'order';
+type KnytTabSlug = 'codex' | 'scrolls' | 'characters' | 'lore' | 'digiterra' | 'terra' | 'order' | 'living-canon';
 
 const KNYT_TAB_SLUGS = new Set<KnytTabSlug>([
   'codex',
@@ -320,6 +320,7 @@ const KNYT_TAB_SLUGS = new Set<KnytTabSlug>([
   'digiterra',
   'terra',
   'order',
+  'living-canon',
 ]);
 
 function isKnytTabSlug(value: string): value is KnytTabSlug {
@@ -409,6 +410,7 @@ const KNYT_TAB_CONTEXT_LABELS: Record<KnytTabSlug, string> = {
   digiterra: 'DigiTerra',
   terra: 'Terra',
   order: 'Order',
+  'living-canon': '21 Sats',
 };
 
 function createCodexCopilotWelcomeMessage(
@@ -527,6 +529,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       case 'digiterra':
       case 'terra':
       case 'order':
+      case 'living-canon':
       case 'codex':
         return normalized;
       default:
@@ -558,6 +561,16 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   useEffect(() => {
     setActiveTab(resolvedInitialTab);
   }, [resolvedInitialTab]);
+
+  // Listen for wallet drawer CTA navigation events
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const slug = (e as CustomEvent<{ tab: string }>).detail?.tab;
+      if (slug && isKnytTabSlug(slug)) setActiveTab(slug);
+    };
+    window.addEventListener('knyt:navigate-tab', handler);
+    return () => window.removeEventListener('knyt:navigate-tab', handler);
+  }, []);
 
   const handleLegacyTabChange = useCallback((value: string) => {
     if (isKnytTabSlug(value)) {
@@ -1642,6 +1655,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       digiterra: 'knyt:drawer_grid_v1',
       terra: 'knyt:realm_bridge_map_v1',
       order: 'knyt:quest_hud_hub_v1',
+      'living-canon': 'knyt:living_canon_v1',
     };
     const scopedTemplate = forcedTemplateByTab[activeTab];
     const finalResult =
