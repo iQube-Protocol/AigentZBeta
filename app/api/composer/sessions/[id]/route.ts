@@ -9,6 +9,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { composerService } from '@/services/composer/composerService';
 import { getPipelineOrchestrator } from '@/services/pipeline/orchestrator';
 import { resolveRuntimeIdentity } from '@/services/runtime/identityResolver';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+);
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -149,6 +155,48 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
       await orchestrator.transition(pipelineRun.pipelineRunId, 'bundle.generated', { experienceId: experienceQube.id });
       await orchestrator.complete(pipelineRun.pipelineRunId);
+
+      // Upsert journey state — marks this persona as active at this experience.
+      // Stage/depth default to 'prospect'/'pill' on first completion; existing
+      // values are preserved on subsequent completions (progression is separate).
+      const personaId = identity.activePersonaId ?? body.personaId;
+      if (personaId && personaId !== 'unknown') {
+        const { data: existing } = await supabase
+          .from('journey_states')
+          .select('id, stage, depth, completed_experience_ids')
+          .eq('persona_id', personaId)
+          .order('active_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        const completedIds: string[] = existing?.completed_experience_ids ?? [];
+        if (!completedIds.includes(experienceQube.id)) {
+          completedIds.push(experienceQube.id);
+        }
+
+        if (existing) {
+          await supabase
+            .from('journey_states')
+            .update({
+              current_experience_id: experienceQube.id,
+              completed_experience_ids: completedIds,
+              active_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', existing.id);
+        } else {
+          await supabase
+            .from('journey_states')
+            .insert({
+              persona_id: personaId,
+              stage: 'prospect',
+              depth: 'pill',
+              current_experience_id: experienceQube.id,
+              completed_experience_ids: completedIds,
+              active_at: new Date().toISOString(),
+            });
+        }
+      }
     } catch (completionError: any) {
       // Attempt to mark pipeline as failed; ignore secondary errors
       try { await orchestrator.fail(pipelineRun.pipelineRunId, completionError?.message ?? 'Unknown error'); } catch {}
