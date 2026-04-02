@@ -95,10 +95,11 @@ const DISPOSITION_COLORS: Record<string, string> = {
 
 interface ExperienceDashboardTabProps {
   personaId?: string;
+  tenantId?: string;
   theme?: "light" | "dark";
 }
 
-export function ExperienceDashboardTab({ personaId, theme = "dark" }: ExperienceDashboardTabProps) {
+export function ExperienceDashboardTab({ personaId, tenantId, theme = "dark" }: ExperienceDashboardTabProps) {
   const [activeView, setActiveView] = useState("franchise");
   const [franchise, setFranchise] = useState<FranchiseData | null>(null);
   const [cohort, setCohort] = useState<CohortData | null>(null);
@@ -107,6 +108,8 @@ export function ExperienceDashboardTab({ personaId, theme = "dark" }: Experience
   const [nbeData, setNbeData] = useState<NBEData | null>(null);
   const [loading, setLoading] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<string | null>(null);
 
   const fetchView = useCallback(async (view: string) => {
     setLoading(true);
@@ -114,6 +117,7 @@ export function ExperienceDashboardTab({ personaId, theme = "dark" }: Experience
     try {
       const params = new URLSearchParams({ view });
       if (personaId && view === "individual") params.set("personaId", personaId);
+      if (tenantId) params.set("tenantId", tenantId);
       const res = await fetch(`/api/runtime/experience/dashboard?${params}`);
       if (!res.ok) {
         setFetchError(`API error ${res.status} — ${res.statusText}`);
@@ -129,7 +133,24 @@ export function ExperienceDashboardTab({ personaId, theme = "dark" }: Experience
     } finally {
       setLoading(false);
     }
-  }, [personaId]);
+  }, [personaId, tenantId]);
+
+  const syncCRM = useCallback(async (currentView: string) => {
+    if (!tenantId) return;
+    setSyncing(true);
+    setSyncResult(null);
+    try {
+      const res = await fetch(`/api/runtime/experience/seed/${tenantId}`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Sync failed");
+      setSyncResult(`Synced ${data.seeded} personas (${data.skipped ?? 0} unchanged)`);
+      void fetchView(currentView);
+    } catch (e: any) {
+      setSyncResult(`Sync error: ${e.message}`);
+    } finally {
+      setSyncing(false);
+    }
+  }, [tenantId, fetchView]);
 
   useEffect(() => {
     if (activeView === "reactivation" || activeView === "guardian") {
@@ -153,12 +174,26 @@ export function ExperienceDashboardTab({ personaId, theme = "dark" }: Experience
             <div className="text-xs text-slate-400">KNYT Laddering Program — Operator View</div>
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={() => void fetchView(activeView)}
-          disabled={loading} className="h-7 gap-1.5 text-xs">
-          <RefreshCw className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} />
-          Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          {tenantId && (
+            <Button variant="outline" size="sm" onClick={() => void syncCRM(activeView)}
+              disabled={syncing || loading} className="h-7 gap-1.5 text-xs border-violet-500/40 text-violet-300 hover:text-violet-200">
+              <RefreshCw className={`h-3 w-3 ${syncing ? "animate-spin" : ""}`} />
+              {syncing ? "Syncing…" : "Sync CRM"}
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={() => void fetchView(activeView)}
+            disabled={loading} className="h-7 gap-1.5 text-xs">
+            <RefreshCw className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+        </div>
       </div>
+      {syncResult && (
+        <div className="rounded-lg border border-violet-500/20 bg-violet-500/5 px-3 py-1.5 text-xs text-violet-300">
+          {syncResult}
+        </div>
+      )}
 
       {/* COD-603 — Error banner */}
       {fetchError && (

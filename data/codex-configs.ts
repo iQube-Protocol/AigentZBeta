@@ -266,7 +266,7 @@ export const KNYT_CODEX: CodexConfig = {
       type: 'static',
       config: {
         component: 'ExperienceDashboardTab',
-        props: {}
+        props: { tenantId: 'nakamoto' }
       },
       metadata: {
         icon: 'Layers',

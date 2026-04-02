@@ -4,6 +4,8 @@
  * Aggregate data for the Codex Experience Dashboard (COD-301–307).
  * Returns stage distribution, cohort breakdown, recent NBE plans,
  * and individual journey states for admin/operator views.
+ *
+ * Scoped to tenant_id when provided — e.g. tenantId=nakamoto for KNYT Codex.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -19,14 +21,18 @@ export async function GET(request: NextRequest) {
   const view = searchParams.get('view') ?? 'franchise'; // franchise | cohort | individual | nbe
   const cohortKey = searchParams.get('cohort');
   const personaId = searchParams.get('personaId');
+  const tenantId = searchParams.get('tenantId') ?? null;
   const limit = Math.min(parseInt(searchParams.get('limit') ?? '50', 10), 200);
 
+  function applyTenant(q: ReturnType<typeof supabase.from>) {
+    return tenantId ? q.eq('tenant_id', tenantId) : q;
+  }
+
   if (view === 'franchise') {
-    // Stage distribution + funnel health
-    const { data: stages } = await supabase
-      .from('journey_states')
-      .select('stage, depth')
-      .order('active_at', { ascending: false });
+    const stagesQ = applyTenant(
+      supabase.from('journey_states').select('stage, depth').order('active_at', { ascending: false })
+    );
+    const { data: stages } = await stagesQ;
 
     const distribution: Record<string, number> = {};
     const depthMap: Record<string, number> = {};
@@ -43,6 +49,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       view: 'franchise',
+      tenant_id: tenantId,
       total_journeys: stages?.length ?? 0,
       stage_distribution: distribution,
       depth_distribution: depthMap,
@@ -51,14 +58,15 @@ export async function GET(request: NextRequest) {
   }
 
   if (view === 'cohort') {
-    // Group journey states by metadata cohort field if available, else by stage
-    const { data: states } = await supabase
-      .from('journey_states')
-      .select('persona_id, stage, depth, active_at')
-      .order('active_at', { ascending: false })
-      .limit(limit);
+    const statesQ = applyTenant(
+      supabase
+        .from('journey_states')
+        .select('persona_id, stage, depth, active_at')
+        .order('active_at', { ascending: false })
+        .limit(limit)
+    );
+    const { data: states } = await statesQ;
 
-    // Group by stage as proxy for cohort until CRM binding is live
     const cohorts: Record<string, { count: number; depths: Record<string, number>; stalled: number }> = {};
     const now = Date.now();
     for (const s of states ?? []) {
@@ -66,27 +74,26 @@ export async function GET(request: NextRequest) {
       if (!cohorts[key]) cohorts[key] = { count: 0, depths: {}, stalled: 0 };
       cohorts[key].count++;
       cohorts[key].depths[s.depth] = (cohorts[key].depths[s.depth] ?? 0) + 1;
-      // Stalled = no activity in 30 days
       if (s.active_at && now - new Date(s.active_at).getTime() > 30 * 24 * 3600 * 1000) {
         cohorts[key].stalled++;
       }
     }
 
-    return NextResponse.json({ view: 'cohort', cohorts, total: states?.length ?? 0 });
+    return NextResponse.json({ view: 'cohort', tenant_id: tenantId, cohorts, total: states?.length ?? 0 });
   }
 
   if (view === 'individual') {
-    const query = supabase
+    let q = supabase
       .from('journey_states')
       .select('persona_id, stage, depth, current_experience_id, active_at')
       .order('active_at', { ascending: false })
       .limit(limit);
 
-    if (personaId) query.eq('persona_id', personaId);
+    if (tenantId) q = q.eq('tenant_id', tenantId) as typeof q;
+    if (personaId) q = q.eq('persona_id', personaId) as typeof q;
 
-    const { data: states } = await query;
+    const { data: states } = await q;
 
-    // Fetch NBE plans and analysis cards for these personas
     const personaIds = [...new Set((states ?? []).map((s) => s.persona_id))];
 
     const [nbePlansRes, analysisCardsRes] = await Promise.all([
@@ -108,13 +115,13 @@ export async function GET(request: NextRequest) {
 
     const nbeByPersona: Record<string, (typeof nbePlansRes.data)[0]> = {};
     for (const plan of nbePlansRes.data ?? []) {
-      nbeByPersona[plan.persona_id] = plan;
+      if (plan) nbeByPersona[plan.persona_id] = plan;
     }
 
-    // COD-601 — aggregate trust scores per persona from analysis cards
     type TrustScores = { goal_alignment: number | null; stage_readiness: number | null; nbe_confidence: number | null };
     const trustByPersona: Record<string, TrustScores> = {};
     for (const card of analysisCardsRes.data ?? []) {
+      if (!card) continue;
       if (!trustByPersona[card.persona_id]) {
         trustByPersona[card.persona_id] = { goal_alignment: null, stage_readiness: null, nbe_confidence: null };
       }
@@ -125,6 +132,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       view: 'individual',
+      tenant_id: tenantId,
       individuals: (states ?? []).map((s) => ({
         ...s,
         nbe: nbeByPersona[s.persona_id] ?? null,
@@ -134,7 +142,6 @@ export async function GET(request: NextRequest) {
   }
 
   if (view === 'nbe') {
-    // Admin NBE planner — all active plans with rationale
     const { data: plans } = await supabase
       .from('nbe_plans')
       .select('persona_id, experience_id, disposition, next_experience_depth, rationale, expires_at, created_at')
@@ -148,6 +155,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       view: 'nbe',
+      tenant_id: tenantId,
       plans: plans ?? [],
       strategies: strategies ?? [],
     });
