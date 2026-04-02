@@ -5,7 +5,7 @@ import { Shield, User, TrendingUp } from "lucide-react";
 interface Persona {
   id: string;
   fio_handle: string | null;
-  default_identity_state: string;
+  default_identity_state: string | null;
 }
 
 interface IdentityFilterProps {
@@ -71,7 +71,7 @@ export function IdentityFilterSection({
               <option value="">No persona filter</option>
               {personas.map(p => (
                 <option key={p.id} value={p.id}>
-                  {p.fio_handle || p.id.slice(0, 8)} — {p.default_identity_state.replace(/_/g, ' ')}
+                  {p.fio_handle || p.id.slice(0, 8)} — {(p.default_identity_state || 'unknown').replace(/_/g, ' ')}
                 </option>
               ))}
             </select>

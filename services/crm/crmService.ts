@@ -540,7 +540,7 @@ export async function proposeRewards(
         pokwScoreUsed: contributor.totalPokw,
         tokenType: tokenType as TokenType,
         amount,
-        status: 'draft',
+        status: 'proposed',
         notes: `Auto-proposed: ${share.toFixed(4)} share of ${totalBudget} ${tokenType}`,
       });
 
@@ -580,6 +580,29 @@ export async function updateReward(
   });
 
   return reward;
+}
+
+/**
+ * Approve a proposed reward
+ */
+export async function approveReward(
+  tenantId: TenantId,
+  rewardId: string,
+  approvedBy: string
+): Promise<CrmReward> {
+  const approvedAt = new Date().toISOString();
+  const reward = await updateReward(tenantId, rewardId, { status: 'approved' });
+  return { ...reward, approvedBy, approvedAt };
+}
+
+/**
+ * Cancel a proposed reward
+ */
+export async function cancelReward(
+  tenantId: TenantId,
+  rewardId: string
+): Promise<CrmReward> {
+  return updateReward(tenantId, rewardId, { status: 'cancelled' });
 }
 
 /**
