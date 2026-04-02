@@ -1,0 +1,413 @@
+"use client";
+
+import { useState } from "react";
+import { Upload, GitBranch, Package2, Plug, FileText, Workflow, Loader2, ChevronRight } from "lucide-react";
+import { AssetDetailPanel } from "./AssetDetailPanel";
+import type {
+  IngestionSourceType,
+  RegistryAssetSummary,
+  TrustBand,
+  TRUST_BAND_LABELS,
+} from "@/types/registryIngestion";
+import { TRUST_BAND_LABELS as TBL } from "@/types/registryIngestion";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Source type config
+// ─────────────────────────────────────────────────────────────────────────────
+
+const SOURCE_TYPES: Array<{
+  id: IngestionSourceType;
+  label: string;
+  description: string;
+  icon: React.ReactNode;
+  placeholder: string;
+}> = [
+  {
+    id: "github_repo",
+    label: "GitHub Repo",
+    description: "Import from a public GitHub repository URL",
+    icon: <GitBranch className="h-5 w-5" />,
+    placeholder: "https://github.com/owner/repo",
+  },
+  {
+    id: "package_ref",
+    label: "Package Reference",
+    description: "Import from an npm package name",
+    icon: <Package2 className="h-5 w-5" />,
+    placeholder: "e.g. @anthropic-ai/sdk",
+  },
+  {
+    id: "mcp_endpoint",
+    label: "MCP Endpoint",
+    description: "Connect an MCP server endpoint",
+    icon: <Plug className="h-5 w-5" />,
+    placeholder: "https://mcp.example.com/sse",
+  },
+  {
+    id: "manual_bundle",
+    label: "Manual Bundle",
+    description: "Describe a skill or tool manually",
+    icon: <FileText className="h-5 w-5" />,
+    placeholder: "",
+  },
+  {
+    id: "workflow_def",
+    label: "Workflow Definition",
+    description: "Import a workflow definition",
+    icon: <Workflow className="h-5 w-5" />,
+    placeholder: "",
+  },
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Intake form
+// ─────────────────────────────────────────────────────────────────────────────
+
+function IntakeForm({ onSuccess }: { onSuccess: (assetId: string) => void }) {
+  const [sourceType, setSourceType] = useState<IngestionSourceType>("github_repo");
+  const [sourceUri, setSourceUri] = useState("");
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [step, setStep] = useState<"idle" | "intake" | "fetching" | "packaging" | "done" | "error">("idle");
+  const [statusMsg, setStatusMsg] = useState("");
+
+  const selectedType = SOURCE_TYPES.find((t) => t.id === sourceType)!;
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSubmitting(true);
+    setStep("intake");
+    setStatusMsg("Creating intake record…");
+
+    try {
+      // Step 1: create intake
+      const intakeRes = await fetch("/api/registry/intake", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tenantId: "default",
+          submittedBy: "user",
+          sourceType,
+          sourceUri: sourceUri || undefined,
+          sourcePayload: { name, description },
+        }),
+      }).then((r) => r.json());
+
+      if (!intakeRes.ok) throw new Error(intakeRes.error);
+      const intakeId = intakeRes.data.intakeId;
+
+      // Step 2: fetch + fingerprint
+      setStep("fetching");
+      setStatusMsg("Fetching and fingerprinting source…");
+      const fetchRes = await fetch(`/api/registry/intake/${intakeId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "fetch" }),
+      }).then((r) => r.json());
+      if (!fetchRes.ok) throw new Error(fetchRes.error);
+
+      // Step 3: classify + package
+      setStep("packaging");
+      setStatusMsg("Classifying and packaging asset…");
+      const packageRes = await fetch(`/api/registry/intake/${intakeId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "package" }),
+      }).then((r) => r.json());
+      if (!packageRes.ok) throw new Error(packageRes.error);
+
+      const assetId = packageRes.data.assetId;
+
+      // Step 4: run validation + trust score
+      setStatusMsg("Running validation and trust scoring…");
+      await fetch(`/api/registry/assets/${assetId}/validate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ triggeredBy: "user" }),
+      });
+
+      setStep("done");
+      setStatusMsg("Asset packaged and scored.");
+      onSuccess(assetId);
+    } catch (err) {
+      setStep("error");
+      setStatusMsg(err instanceof Error ? err.message : "Intake failed");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-5">
+      {/* Source type selector */}
+      <div>
+        <div className="text-[11px] uppercase tracking-widest text-slate-500 mb-2">Source Type</div>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {SOURCE_TYPES.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setSourceType(t.id)}
+              className={`flex flex-col items-start gap-1 p-3 rounded-xl border text-left transition-all ${
+                sourceType === t.id
+                  ? "border-indigo-500/50 bg-indigo-500/10 text-indigo-300"
+                  : "border-white/10 bg-white/5 text-slate-400 hover:border-white/20 hover:text-slate-300"
+              }`}
+            >
+              {t.icon}
+              <span className="text-xs font-medium">{t.label}</span>
+            </button>
+          ))}
+        </div>
+        <div className="mt-1.5 text-[11px] text-slate-500">{selectedType.description}</div>
+      </div>
+
+      {/* Source URI */}
+      {selectedType.placeholder && (
+        <div>
+          <label className="text-[11px] uppercase tracking-widest text-slate-500 mb-1.5 block">
+            Source URL / Reference
+          </label>
+          <input
+            value={sourceUri}
+            onChange={(e) => setSourceUri(e.target.value)}
+            placeholder={selectedType.placeholder}
+            className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+          />
+        </div>
+      )}
+
+      {/* Name + Description */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div>
+          <label className="text-[11px] uppercase tracking-widest text-slate-500 mb-1.5 block">
+            Name (optional)
+          </label>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Display name"
+            className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+          />
+        </div>
+        <div>
+          <label className="text-[11px] uppercase tracking-widest text-slate-500 mb-1.5 block">
+            Description (optional)
+          </label>
+          <input
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Brief description"
+            className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+          />
+        </div>
+      </div>
+
+      {/* Submit + status */}
+      <div className="flex items-center gap-4">
+        <button
+          type="submit"
+          disabled={submitting}
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-indigo-500/20 text-indigo-300 ring-1 ring-indigo-500/30 hover:bg-indigo-500/30 disabled:opacity-50 transition-colors"
+        >
+          {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+          {submitting ? "Processing…" : "Ingest Asset"}
+        </button>
+        {statusMsg && (
+          <div className={`text-xs ${step === "error" ? "text-red-400" : step === "done" ? "text-emerald-400" : "text-slate-400"}`}>
+            {step !== "idle" && step !== "done" && step !== "error" && (
+              <Loader2 className="inline h-3 w-3 animate-spin mr-1" />
+            )}
+            {statusMsg}
+          </div>
+        )}
+      </div>
+
+      {/* Pipeline progress */}
+      {submitting && (
+        <div className="flex items-center gap-2 text-[11px] text-slate-500">
+          {(["intake", "fetching", "packaging"] as const).map((s, i) => (
+            <span key={s} className="flex items-center gap-1">
+              {i > 0 && <ChevronRight className="h-3 w-3" />}
+              <span className={step === s ? "text-indigo-300 font-medium" : step === "done" || (["fetching","packaging"].includes(step) && i < ["intake","fetching","packaging"].indexOf(step)) ? "text-emerald-400" : ""}>
+                {s === "intake" ? "Intake" : s === "fetching" ? "Fetch" : "Package"}
+              </span>
+            </span>
+          ))}
+        </div>
+      )}
+    </form>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Asset list
+// ─────────────────────────────────────────────────────────────────────────────
+
+const BAND_COLORS: Record<TrustBand, string> = {
+  L1_EXPERIMENTAL:         "text-red-300",
+  L2_VERIFIED_COMMUNITY:   "text-orange-300",
+  L3_PRODUCTION_CANDIDATE: "text-yellow-300",
+  L4_PRODUCTION_APPROVED:  "text-emerald-300",
+  L5_CORE_SOVEREIGN:       "text-cyan-300",
+};
+
+function AssetRow({
+  asset,
+  onClick,
+}: {
+  asset: RegistryAssetSummary;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full flex items-center gap-4 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-left hover:bg-white/10 transition-colors"
+    >
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-sm font-medium text-slate-200 truncate">{asset.name}</span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-700/60 text-slate-400">
+            {asset.assetClass}
+          </span>
+          <span className={`text-[10px] ${BAND_COLORS[asset.trustBand]}`}>
+            {TBL[asset.trustBand]}
+          </span>
+        </div>
+        {asset.description && (
+          <div className="mt-0.5 text-xs text-slate-500 truncate">{asset.description}</div>
+        )}
+      </div>
+      <span className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded ring-1 ${
+        asset.publicationStatus === "published"
+          ? "bg-emerald-500/20 text-emerald-300 ring-emerald-500/30"
+          : "bg-slate-700/30 text-slate-400 ring-slate-500/20"
+      }`}>
+        {asset.publicationStatus}
+      </span>
+      <ChevronRight className="h-4 w-4 text-slate-500 shrink-0" />
+    </button>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Main panel
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function IngestionFactoryPanel() {
+  const [assets, setAssets] = useState<RegistryAssetSummary[]>([]);
+  const [loadingAssets, setLoadingAssets] = useState(false);
+  const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [activeSection, setActiveSection] = useState<"ingest" | "assets">("ingest");
+
+  async function loadAssets() {
+    setLoadingAssets(true);
+    try {
+      const params = new URLSearchParams({ tenantId: "default", limit: "50" });
+      if (search) params.set("search", search);
+      const res = await fetch(`/api/registry/assets?${params}`).then((r) => r.json());
+      if (res.ok) setAssets(res.data ?? []);
+    } finally {
+      setLoadingAssets(false);
+    }
+  }
+
+  function handleIngestionSuccess(assetId: string) {
+    setActiveSection("assets");
+    loadAssets().then(() => setSelectedAssetId(assetId));
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Section tabs */}
+      <div className="flex items-center gap-1 border-b border-white/10 pb-0">
+        {(["ingest", "assets"] as const).map((s) => (
+          <button
+            key={s}
+            type="button"
+            onClick={() => {
+              setActiveSection(s);
+              if (s === "assets") loadAssets();
+            }}
+            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+              activeSection === s
+                ? "text-white border-b-2 border-indigo-400"
+                : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            {s === "ingest" ? "Ingest New Asset" : "Ingested Assets"}
+          </button>
+        ))}
+      </div>
+
+      {activeSection === "ingest" && (
+        <div>
+          <div className="mb-4 text-sm text-slate-400">
+            Submit an external tool, skill, MCP endpoint, or workflow definition for ingestion.
+            The factory will fetch, classify, package, validate, and score it automatically.
+          </div>
+          <IntakeForm onSuccess={handleIngestionSuccess} />
+        </div>
+      )}
+
+      {activeSection === "assets" && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && loadAssets()}
+              placeholder="Search assets…"
+              className="flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+            />
+            <button
+              type="button"
+              onClick={loadAssets}
+              className="px-4 py-2 rounded-xl text-sm text-slate-300 border border-white/10 bg-white/5 hover:bg-white/10 transition-colors"
+            >
+              Search
+            </button>
+          </div>
+
+          {loadingAssets ? (
+            <div className="space-y-2 animate-pulse">
+              {[1, 2, 3].map((i) => <div key={i} className="h-14 rounded-xl bg-white/5" />)}
+            </div>
+          ) : assets.length === 0 ? (
+            <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-8 text-center text-sm text-slate-400">
+              No assets yet.{" "}
+              <button
+                type="button"
+                onClick={() => setActiveSection("ingest")}
+                className="text-indigo-400 hover:text-indigo-300 underline"
+              >
+                Ingest your first asset
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              {assets.map((a) => (
+                <AssetRow
+                  key={a.assetId}
+                  asset={a}
+                  onClick={() => setSelectedAssetId(a.assetId)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Asset detail slide-out */}
+      {selectedAssetId && (
+        <AssetDetailPanel
+          assetId={selectedAssetId}
+          onClose={() => setSelectedAssetId(null)}
+        />
+      )}
+    </div>
+  );
+}
