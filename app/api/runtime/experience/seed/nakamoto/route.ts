@@ -189,16 +189,30 @@ export async function POST(request: NextRequest) {
     // ── 4. Delete stale records (old crm_personas-sourced rows) ───────────────
     // Any journey_state for nakamoto whose persona_id is NOT in the current
     // personas table is stale (from the old seed that used crm_personas.id).
+    // Paginate because PostgREST hard-caps single requests at 1000 rows.
     let deleted = 0;
     {
       // Fetch all persona_ids currently in journey_states for this tenant
-      const { data: existing } = await supabase
-        .from('journey_states')
-        .select('persona_id')
-        .eq('tenant_id', 'nakamoto');
+      const existingPersonaIds: string[] = [];
+      {
+        let offset = 0;
+        const PAGE = 1000;
+        while (true) {
+          const { data: batch } = await supabase
+            .from('journey_states')
+            .select('persona_id')
+            .eq('tenant_id', 'nakamoto')
+            .range(offset, offset + PAGE - 1);
+          if (!batch || batch.length === 0) break;
+          for (const r of batch) existingPersonaIds.push(r.persona_id as string);
+          if (batch.length < PAGE) break;
+          offset += PAGE;
+        }
+      }
+      const existing = existingPersonaIds.map((pid) => ({ persona_id: pid }));
 
-      const staleIds = (existing ?? [])
-        .map((r: any) => r.persona_id as string)
+      const staleIds = existing
+        .map((r) => r.persona_id)
         .filter((pid) => !personaIdSet.has(pid));
 
       if (staleIds.length > 0) {

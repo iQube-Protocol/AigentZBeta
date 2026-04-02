@@ -38,15 +38,26 @@ export async function GET(request: NextRequest) {
 
   // ── Franchise view ──────────────────────────────────────────────────────────
   if (view === 'franchise') {
-    // Fetch all journey states (no limit) — only stage + depth needed
-    const stagesQ = applyTenant(
-      supabase.from('journey_states').select('stage, depth').limit(10000)
-    );
-    const { data: stages } = await stagesQ;
+    // Paginate through ALL journey states — PostgREST hard-caps at 1000 rows
+    // per request, so .limit(10000) alone is not sufficient.
+    const allStages: { stage: string; depth: string }[] = [];
+    {
+      let offset = 0;
+      const PAGE = 1000;
+      while (true) {
+        const { data: batch } = await applyTenant(
+          supabase.from('journey_states').select('stage, depth').range(offset, offset + PAGE - 1)
+        );
+        if (!batch || batch.length === 0) break;
+        allStages.push(...batch);
+        if (batch.length < PAGE) break;
+        offset += PAGE;
+      }
+    }
 
     const distribution: Record<string, number> = {};
     const depthMap: Record<string, number> = {};
-    for (const row of stages ?? []) {
+    for (const row of allStages) {
       distribution[row.stage] = (distribution[row.stage] ?? 0) + 1;
       depthMap[row.depth] = (depthMap[row.depth] ?? 0) + 1;
     }
@@ -60,7 +71,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       view: 'franchise',
       tenant_id: tenantId,
-      total_journeys: stages?.length ?? 0,
+      total_journeys: allStages.length,
       stage_distribution: distribution,
       depth_distribution: depthMap,
       nbe_opportunities: nbeOpportunities ?? [],
@@ -69,12 +80,24 @@ export async function GET(request: NextRequest) {
 
   // ── Cohort view ─────────────────────────────────────────────────────────────
   if (view === 'cohort') {
-    // Fetch all journey states for accurate aggregation (no limit)
-    let statesQ = applyTenant(
-      supabase.from('journey_states').select('stage, depth, active_at').limit(10000)
-    );
-    if (stageFilter) statesQ = (statesQ as any).eq('stage', stageFilter);
-    const { data: states } = await statesQ;
+    // Paginate through all journey states — PostgREST hard-caps at 1000 rows
+    const allCohortStates: { stage: string; depth: string; active_at: string | null }[] = [];
+    {
+      let offset = 0;
+      const PAGE = 1000;
+      while (true) {
+        let batchQ = applyTenant(
+          supabase.from('journey_states').select('stage, depth, active_at').range(offset, offset + PAGE - 1)
+        );
+        if (stageFilter) batchQ = (batchQ as any).eq('stage', stageFilter);
+        const { data: batch } = await batchQ;
+        if (!batch || batch.length === 0) break;
+        allCohortStates.push(...batch);
+        if (batch.length < PAGE) break;
+        offset += PAGE;
+      }
+    }
+    const states = allCohortStates;
 
     const cohorts: Record<string, { count: number; depths: Record<string, number>; stalled: number }> = {};
     const now = Date.now();
