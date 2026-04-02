@@ -133,8 +133,7 @@ async function dispatchWrapper(
     case "workflow":
       return dispatchWorkflowWrapper(asset.metadata, input);
     case "mcp":
-      // MCP dispatch deferred — requires MCP client integration
-      return { output: { status: "deferred", reason: "MCP dispatch requires runtime client" }, deferred: true };
+      return dispatchMcpWrapper(asset.metadata, input);
     case "cli_container":
       // CLI/container dispatch deferred — requires sandbox worker
       return { output: { status: "deferred", reason: "CLI/container dispatch requires sandbox worker" }, deferred: true };
@@ -198,6 +197,67 @@ async function dispatchWorkflowWrapper(
     },
     deferred: true,
   };
+}
+
+/**
+ * MCP wrapper — calls a remote MCP endpoint using the JSON-RPC tools/call format.
+ *
+ * Expected metadata fields:
+ *   endpointUrl  — the MCP server base URL (e.g. https://brave-search.mcp.run)
+ *   toolName     — the MCP tool name to invoke (e.g. "search")
+ *   mcpHeaders   — optional Record<string, string> of extra HTTP headers (e.g. auth)
+ *
+ * Protocol: POST to endpointUrl with body:
+ *   { "jsonrpc": "2.0", "method": "tools/call", "params": { "name": toolName, "arguments": input } }
+ */
+async function dispatchMcpWrapper(
+  metadata: Record<string, unknown>,
+  input: Record<string, unknown>
+): Promise<{ output: Record<string, unknown>; deferred: boolean }> {
+  const endpointUrl = metadata.endpointUrl as string | undefined;
+  if (!endpointUrl) {
+    return { output: { status: "deferred", reason: "No endpointUrl configured for MCP asset" }, deferred: true };
+  }
+
+  const toolName = (metadata.toolName as string | undefined) ?? "default";
+  const mcpHeaders = (metadata.mcpHeaders as Record<string, string> | undefined) ?? {};
+
+  const body = {
+    jsonrpc: "2.0",
+    id: crypto.randomUUID(),
+    method: "tools/call",
+    params: {
+      name: toolName,
+      arguments: input,
+    },
+  };
+
+  const res = await fetch(endpointUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Accept": "application/json",
+      ...mcpHeaders,
+    },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(25000),
+  });
+
+  const text = await res.text();
+  let parsed: Record<string, unknown> = {};
+  try { parsed = JSON.parse(text); } catch { parsed = { raw: text }; }
+
+  // MCP JSON-RPC: unwrap result.content or return error
+  if (parsed.error) {
+    const err = parsed.error as Record<string, unknown>;
+    return {
+      output: { status: "error", code: err.code, message: err.message, raw: parsed },
+      deferred: false,
+    };
+  }
+
+  const result = (parsed.result as Record<string, unknown>) ?? parsed;
+  return { output: result, deferred: false };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
