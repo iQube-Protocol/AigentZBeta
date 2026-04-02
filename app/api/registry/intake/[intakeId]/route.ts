@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getIntake, updateIntake } from "@/services/registry/persistence";
+import { getIntake, updateIntake, getSourceByIntake } from "@/services/registry/persistence";
 import { fetchAndFingerprint } from "@/services/registry/fetcherService";
 import { classifySource } from "@/services/registry/classifierService";
 import { packageAsset } from "@/services/registry/packagerService";
@@ -42,7 +42,6 @@ export async function POST(req: NextRequest, { params }: Params) {
     }
 
     if (action === "classify") {
-      const { getSourceByIntake } = await import("@/services/registry/persistence");
       const intake = await getIntake(intakeId);
       if (!intake) return NextResponse.json({ ok: false, error: "Intake not found" }, { status: 404 });
       const source = await getSourceByIntake(intakeId);
@@ -61,7 +60,6 @@ export async function POST(req: NextRequest, { params }: Params) {
     }
 
     if (action === "package") {
-      const { getSourceByIntake } = await import("@/services/registry/persistence");
       const intake = await getIntake(intakeId);
       if (!intake) return NextResponse.json({ ok: false, error: "Intake not found" }, { status: 404 });
       const source = await getSourceByIntake(intakeId);

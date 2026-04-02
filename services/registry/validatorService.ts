@@ -19,6 +19,7 @@ import {
   createValidationArtifact,
   updateAsset,
   getAsset,
+  listArtifactsForValidation,
 } from "./persistence";
 import { emitReceipt } from "./receiptEmitter";
 import {
@@ -308,7 +309,7 @@ async function runInterfaceConformance(
   validationId: string,
   metadata: Record<string, unknown>
 ): Promise<ValidationStageResult> {
-  const asset = await import("./persistence").then((m) => m.getAsset(assetId));
+  const asset = await getAsset(assetId);
   const hasSchema = asset && Object.keys(asset.interfaceSchema ?? {}).length > 0;
 
   const content = {
