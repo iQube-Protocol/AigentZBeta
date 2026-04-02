@@ -56,6 +56,15 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}));
     const dryRun = body.dry_run === true;
 
+    // ── 0. Resolve nakamoto slug → tenant UUID ───────────────────────────────
+    // personas.tenant_id is a UUID, not the slug 'nakamoto'
+    const { data: tenantRow } = await supabase
+      .from('tenants')
+      .select('id')
+      .or('id.eq.nakamoto,slug.eq.nakamoto')
+      .maybeSingle();
+    const nakamotoTenantUUID: string = tenantRow?.id ?? 'nakamoto';
+
     // ── 1. Fetch ALL personas for nakamoto from the `personas` table ─────────
     // personas.order_tier is the authoritative source for KNYT tier data
     const allPersonas: { id: string; order_tier: string | null }[] = [];
@@ -66,7 +75,7 @@ export async function POST(request: NextRequest) {
         const { data: batch, error: pErr } = await supabase
           .from('personas')
           .select('id, order_tier')
-          .eq('tenant_id', 'nakamoto')
+          .eq('tenant_id', nakamotoTenantUUID)
           .range(offset, offset + PAGE - 1);
 
         if (pErr) {
@@ -173,6 +182,7 @@ export async function POST(request: NextRequest) {
       total_personas: allPersonas.length,
       seeded,
       skipped: skipped.length,
+      tenant_uuid: nakamotoTenantUUID,
       stage_distribution: stageSummary,
       source_tier_counts: tierCounts,
       tenant_id: 'nakamoto',
