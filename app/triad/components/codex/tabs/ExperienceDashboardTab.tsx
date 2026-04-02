@@ -25,6 +25,7 @@ import {
   Globe,
   Layers,
   RefreshCw,
+  Search,
   ShieldCheck,
   TrendingUp,
   Users,
@@ -50,6 +51,25 @@ type TrustScores = {
   nbe_confidence: number | null;
 };
 
+type PersonaCRM = {
+  display_name: string | null;
+  fio_handle: string | null;
+  order_tier: string | null;
+  reputation_tier: string | null;
+  reputation_score: number | null;
+  reputation_bucket: number | null;
+  status: string | null;
+  created_at: string | null;
+  badges: string[] | null;
+};
+
+type NakamotoData = {
+  knytPersona: Record<string, any> | null;
+  blakQube: Record<string, any> | null;
+  interactions: any[];
+  rewardRecord: Record<string, any> | null;
+};
+
 type Individual = {
   persona_id: string;
   stage: string;
@@ -58,6 +78,7 @@ type Individual = {
   active_at: string | null;
   nbe: { disposition: string; next_experience_depth: string | null; rationale: string | null } | null;
   trust_scores: TrustScores | null;
+  crm: PersonaCRM | null;
 };
 
 type NBEPlan = {
@@ -103,21 +124,29 @@ export function ExperienceDashboardTab({ personaId, tenantId, theme = "dark" }: 
   const [activeView, setActiveView] = useState("franchise");
   const [franchise, setFranchise] = useState<FranchiseData | null>(null);
   const [cohort, setCohort] = useState<CohortData | null>(null);
+  const [cohortStage, setCohortStage] = useState<string>("all");
   const [individuals, setIndividuals] = useState<Individual[]>([]);
   const [selectedIndividual, setSelectedIndividual] = useState<Individual | null>(null);
+  const [nakamotoData, setNakamotoData] = useState<NakamotoData | null>(null);
+  const [nakamotoLoading, setNakamotoLoading] = useState(false);
+  const [indStageFilter, setIndStageFilter] = useState<string>("all");
+  const [indSearch, setIndSearch] = useState<string>("");
   const [nbeData, setNbeData] = useState<NBEData | null>(null);
   const [loading, setLoading] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
 
-  const fetchView = useCallback(async (view: string) => {
+  const fetchView = useCallback(async (view: string, opts?: { stage?: string; search?: string }) => {
     setLoading(true);
     setFetchError(null);
     try {
       const params = new URLSearchParams({ view });
       if (personaId && view === "individual") params.set("personaId", personaId);
       if (tenantId) params.set("tenantId", tenantId);
+      if (opts?.stage && opts.stage !== "all") params.set("stage", opts.stage);
+      if (opts?.search) params.set("search", opts.search);
+      if (view === "individual") params.set("limit", "200");
       const res = await fetch(`/api/runtime/experience/dashboard?${params}`);
       if (!res.ok) {
         setFetchError(`API error ${res.status} — ${res.statusText}`);
@@ -152,13 +181,29 @@ export function ExperienceDashboardTab({ personaId, tenantId, theme = "dark" }: 
     }
   }, [tenantId, fetchView]);
 
+  // Fetch nakamoto CRM data when an individual is selected
+  useEffect(() => {
+    if (!selectedIndividual) { setNakamotoData(null); return; }
+    setNakamotoLoading(true);
+    fetch(`/api/crm/personas/${selectedIndividual.persona_id}/nakamoto`)
+      .then((r) => r.json())
+      .then((d) => setNakamotoData(d.data ?? null))
+      .catch(() => setNakamotoData(null))
+      .finally(() => setNakamotoLoading(false));
+  }, [selectedIndividual]);
+
   useEffect(() => {
     if (activeView === "reactivation" || activeView === "guardian") {
       void fetchView("franchise");
-      void fetchView("individual");
+      void fetchView("individual", { stage: indStageFilter });
+    } else if (activeView === "cohort") {
+      void fetchView("cohort", { stage: cohortStage !== "all" ? cohortStage : undefined });
+    } else if (activeView === "individual") {
+      void fetchView("individual", { stage: indStageFilter !== "all" ? indStageFilter : undefined });
     } else {
       void fetchView(activeView);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeView, fetchView]);
 
   const base = "rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-sm text-slate-200";
@@ -305,22 +350,53 @@ export function ExperienceDashboardTab({ personaId, tenantId, theme = "dark" }: 
         {/* COD-303 — Cohort view */}
         <TabsContent value="cohort">
           <div className={base}>
+            {/* Cohort stage selector */}
+            <div className="mb-3 flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-slate-400 shrink-0">Cohort:</span>
+              {["all", ...STAGES].map((s) => (
+                <button
+                  key={s}
+                  onClick={() => {
+                    setCohortStage(s);
+                    void fetchView("cohort", { stage: s !== "all" ? s : undefined });
+                  }}
+                  className={`rounded px-2.5 py-0.5 text-[11px] border transition-colors capitalize ${
+                    cohortStage === s
+                      ? "border-violet-500/60 bg-violet-500/15 text-violet-200"
+                      : "border-slate-700 text-slate-400 hover:border-slate-600"
+                  }`}
+                >
+                  {s === "all" ? "All" : s}
+                </button>
+              ))}
+            </div>
+
             {cohort ? (
               <div className="space-y-3">
-                <div className="text-xs text-slate-400">{cohort.total} journeys across {Object.keys(cohort.cohorts).length} cohort(s)</div>
+                <div className="text-xs text-slate-400">{cohort.total} journeys{cohortStage !== "all" ? ` · stage: ${cohortStage}` : ` across ${Object.keys(cohort.cohorts).length} cohort(s)`}</div>
                 {Object.entries(cohort.cohorts).map(([key, data]) => (
-                  <div key={key} className="rounded-lg border border-slate-800 bg-slate-900/40 p-3">
+                  <div key={key} className={`rounded-lg border p-3 ${cohortStage === key ? "border-violet-500/30 bg-violet-500/5" : "border-slate-800 bg-slate-900/40"}`}>
                     <div className="flex items-center justify-between mb-2">
-                      <div className="font-semibold capitalize">{key}</div>
+                      <div className={`font-semibold capitalize ${STAGE_COLORS[key]?.replace("border-", "text-").split(" ")[1] ?? "text-slate-200"}`}>{key}</div>
                       <div className="flex gap-2 items-center">
                         <Badge variant="outline" className="border-slate-700 text-slate-300 text-[11px]">
-                          {data.count} journeys
+                          {data.count.toLocaleString()} journeys
                         </Badge>
                         {data.stalled > 0 && (
                           <Badge variant="outline" className="border-amber-500/40 text-amber-300 text-[11px]">
                             {data.stalled} stalled
                           </Badge>
                         )}
+                        <button
+                          onClick={() => {
+                            setIndStageFilter(key);
+                            setActiveView("individual");
+                            void fetchView("individual", { stage: key });
+                          }}
+                          className="text-[10px] text-violet-400 hover:text-violet-300 underline underline-offset-2"
+                        >
+                          View individuals →
+                        </button>
                       </div>
                     </div>
                     <div className="flex gap-1 flex-wrap">
@@ -354,6 +430,31 @@ export function ExperienceDashboardTab({ personaId, tenantId, theme = "dark" }: 
                   ← Back to list
                 </Button>
                 <div className="space-y-3">
+                  {/* Identity header */}
+                  <div className="flex items-start gap-3 rounded-lg border border-slate-800 bg-slate-900/60 p-3">
+                    <div className="flex-1 space-y-1 min-w-0">
+                      <div className="font-semibold text-slate-100 truncate">
+                        {selectedIndividual.crm?.display_name ?? selectedIndividual.persona_id.slice(0, 12) + "…"}
+                      </div>
+                      {selectedIndividual.crm?.fio_handle && (
+                        <div className="text-xs text-violet-300 font-mono">{selectedIndividual.crm.fio_handle}</div>
+                      )}
+                      <div className="text-[11px] text-slate-500 font-mono">{selectedIndividual.persona_id}</div>
+                    </div>
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <Badge variant="outline"
+                        className={`capitalize text-[11px] ${STAGE_COLORS[selectedIndividual.stage] ?? "border-slate-700 text-slate-400"}`}>
+                        {selectedIndividual.stage}
+                      </Badge>
+                      {selectedIndividual.crm?.status && (
+                        <Badge variant="outline" className={`text-[11px] ${selectedIndividual.crm.status === "active" ? "border-emerald-500/40 text-emerald-300" : "border-slate-600 text-slate-400"}`}>
+                          {selectedIndividual.crm.status}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Journey state */}
                   <div className="grid gap-2 md:grid-cols-3">
                     {[
                       { label: "Stage", value: selectedIndividual.stage },
@@ -366,6 +467,115 @@ export function ExperienceDashboardTab({ personaId, tenantId, theme = "dark" }: 
                       </div>
                     ))}
                   </div>
+
+                  {/* CRM reputation data */}
+                  {selectedIndividual.crm && (
+                    <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-3 space-y-2">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">CRM Profile</div>
+                      <div className="grid gap-2 grid-cols-2 md:grid-cols-4 text-[11px]">
+                        {selectedIndividual.crm.order_tier && (
+                          <div className="rounded border border-slate-700 px-2 py-1.5">
+                            <div className="text-slate-500">Order Tier</div>
+                            <div className="font-semibold text-violet-300">{selectedIndividual.crm.order_tier}</div>
+                          </div>
+                        )}
+                        {selectedIndividual.crm.reputation_tier && (
+                          <div className="rounded border border-slate-700 px-2 py-1.5">
+                            <div className="text-slate-500">Rep Tier</div>
+                            <div className="font-semibold text-amber-300">{selectedIndividual.crm.reputation_tier}</div>
+                          </div>
+                        )}
+                        {selectedIndividual.crm.reputation_score != null && (
+                          <div className="rounded border border-slate-700 px-2 py-1.5">
+                            <div className="text-slate-500">Rep Score</div>
+                            <div className="font-semibold text-slate-200">{selectedIndividual.crm.reputation_score}</div>
+                          </div>
+                        )}
+                        {selectedIndividual.crm.created_at && (
+                          <div className="rounded border border-slate-700 px-2 py-1.5">
+                            <div className="text-slate-500">Joined</div>
+                            <div className="font-semibold text-slate-200">{new Date(selectedIndividual.crm.created_at).toLocaleDateString("en-US", { month: "short", year: "numeric" })}</div>
+                          </div>
+                        )}
+                      </div>
+                      {selectedIndividual.crm.badges && selectedIndividual.crm.badges.length > 0 && (
+                        <div className="flex gap-1 flex-wrap">
+                          {selectedIndividual.crm.badges.map((b) => (
+                            <Badge key={b} variant="outline" className="text-[10px] border-blue-500/30 text-blue-300">{b}</Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Nakamoto CRM data (lazy-loaded) */}
+                  <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-3 space-y-2">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Nakamoto CRM</div>
+                    {nakamotoLoading ? (
+                      <div className="text-xs text-slate-400">Loading…</div>
+                    ) : nakamotoData ? (
+                      <div className="space-y-2">
+                        {nakamotoData.knytPersona && (
+                          <div className="space-y-1.5">
+                            <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">KNYT Persona</div>
+                            <div className="grid gap-1.5 grid-cols-2 text-[11px]">
+                              {[
+                                ["KNYT-ID", nakamotoData.knytPersona["KNYT-ID"]],
+                                ["Email", nakamotoData.knytPersona["Email"]],
+                                ["First Name", nakamotoData.knytPersona["First Name"]],
+                                ["Last Name", nakamotoData.knytPersona["Last Name"]],
+                                ["Order Tier", nakamotoData.knytPersona["Order of Metaiye"]],
+                                ["Twitter", nakamotoData.knytPersona["Twitter Handle"]],
+                                ["LinkedIn", nakamotoData.knytPersona["LinkedIn URL"]],
+                                ["EVM Address", nakamotoData.knytPersona["EVM Address"]],
+                              ].filter(([, v]) => v).map(([k, v]) => (
+                                <div key={String(k)} className="rounded border border-slate-700/50 px-2 py-1">
+                                  <div className="text-slate-500">{k}</div>
+                                  <div className="text-slate-200 font-mono truncate" title={String(v)}>{String(v)}</div>
+                                </div>
+                              ))}
+                            </div>
+                            {nakamotoData.rewardRecord && (
+                              <div className="rounded border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-[11px]">
+                                <span className="text-emerald-300 font-semibold">Rewards: </span>
+                                <span className="text-slate-300">
+                                  {nakamotoData.rewardRecord.reward_claimed ? `${nakamotoData.rewardRecord.reward_amount} claimed` : "unclaimed"}
+                                  {nakamotoData.rewardRecord.linkedin_connected ? " · LinkedIn ✓" : ""}
+                                  {nakamotoData.rewardRecord.metamask_connected ? " · MetaMask ✓" : ""}
+                                </span>
+                              </div>
+                            )}
+                            {nakamotoData.interactions.length > 0 && (
+                              <div className="text-[11px] text-slate-500">{nakamotoData.interactions.length} interaction(s) on record</div>
+                            )}
+                          </div>
+                        )}
+                        {nakamotoData.blakQube && !nakamotoData.knytPersona && (
+                          <div className="space-y-1.5">
+                            <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">blakQube</div>
+                            <div className="grid gap-1.5 grid-cols-2 text-[11px]">
+                              {[
+                                ["Email", nakamotoData.blakQube["Email"]],
+                                ["KNYT-ID", nakamotoData.blakQube["KNYT-ID"]],
+                                ["Qrypto-ID", nakamotoData.blakQube["Qrypto-ID"]],
+                              ].filter(([, v]) => v).map(([k, v]) => (
+                                <div key={String(k)} className="rounded border border-slate-700/50 px-2 py-1">
+                                  <div className="text-slate-500">{k}</div>
+                                  <div className="text-slate-200 truncate">{String(v)}</div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {!nakamotoData.knytPersona && !nakamotoData.blakQube && (
+                          <div className="text-xs text-slate-500">No Nakamoto CRM record matched. Persona may not have a linked email or KNYT-ID.</div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-xs text-slate-500">No Nakamoto CRM data available for this persona.</div>
+                    )}
+                  </div>
+
                   {selectedIndividual.nbe && (
                     <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-3">
                       <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Active NBE Plan</div>
@@ -399,7 +609,6 @@ export function ExperienceDashboardTab({ personaId, tenantId, theme = "dark" }: 
                           { label: "NBE Conf.", key: "nbe_confidence", kind: "reliability" },
                         ] as const).map(({ label, key, kind }) => {
                           const raw = selectedIndividual.trust_scores![key];
-                          // analysis_cards scores are 0–100; normalize to 0–10 for Dots
                           const val = raw != null ? raw / 10 : 0;
                           return (
                             <div key={key} className="rounded border border-slate-800 bg-slate-950/50 px-2 py-1.5 text-center">
@@ -417,31 +626,76 @@ export function ExperienceDashboardTab({ personaId, tenantId, theme = "dark" }: 
                       </div>
                     </div>
                   )}
-
-                  <div className="rounded-lg border border-slate-700 bg-slate-900/40 p-3 text-xs text-slate-400">
-                    Persona ID: <span className="font-mono text-slate-300">{selectedIndividual.persona_id}</span>
-                  </div>
                 </div>
               </div>
             ) : (
               <div className={base}>
+                {/* Filters row */}
+                <div className="mb-3 flex items-center gap-2 flex-wrap">
+                  <div className="relative flex-1 min-w-[160px]">
+                    <Search className="absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-slate-500 pointer-events-none" />
+                    <input
+                      type="text"
+                      placeholder="Search name or FIO handle…"
+                      value={indSearch}
+                      onChange={(e) => setIndSearch(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          void fetchView("individual", {
+                            stage: indStageFilter !== "all" ? indStageFilter : undefined,
+                            search: indSearch || undefined,
+                          });
+                        }
+                      }}
+                      className="w-full rounded border border-slate-700 bg-slate-900/60 py-1 pl-7 pr-3 text-xs text-slate-200 placeholder-slate-500 focus:border-violet-500/50 focus:outline-none"
+                    />
+                  </div>
+                  {["all", ...STAGES].map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => {
+                        setIndStageFilter(s);
+                        void fetchView("individual", {
+                          stage: s !== "all" ? s : undefined,
+                          search: indSearch || undefined,
+                        });
+                      }}
+                      className={`rounded px-2.5 py-0.5 text-[11px] border transition-colors capitalize ${
+                        indStageFilter === s
+                          ? "border-violet-500/60 bg-violet-500/15 text-violet-200"
+                          : "border-slate-700 text-slate-400 hover:border-slate-600"
+                      }`}
+                    >
+                      {s === "all" ? "All" : s}
+                    </button>
+                  ))}
+                </div>
+
                 {individuals.length > 0 ? (
                   <div className="space-y-1">
+                    <div className="mb-2 text-[11px] text-slate-500">{individuals.length} record(s){indStageFilter !== "all" ? ` · ${indStageFilter}` : ""}</div>
                     {individuals.map((ind) => (
                       <button
                         key={ind.persona_id}
                         onClick={() => setSelectedIndividual(ind)}
                         className="flex w-full items-center justify-between rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2 text-left hover:border-slate-700 hover:bg-slate-900/60"
                       >
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
                           <Badge variant="outline"
-                            className={`capitalize text-[11px] ${STAGE_COLORS[ind.stage] ?? "border-slate-700 text-slate-400"}`}>
+                            className={`capitalize text-[11px] shrink-0 ${STAGE_COLORS[ind.stage] ?? "border-slate-700 text-slate-400"}`}>
                             {ind.stage}
                           </Badge>
-                          <span className="font-mono text-xs text-slate-400">{ind.persona_id.slice(0, 8)}…</span>
-                          <span className="text-xs text-slate-500">{ind.depth}</span>
+                          <div className="min-w-0">
+                            {ind.crm?.display_name ? (
+                              <div className="text-xs text-slate-200 truncate">{ind.crm.display_name}</div>
+                            ) : null}
+                            <div className="text-[11px] text-slate-500 font-mono truncate">
+                              {ind.crm?.fio_handle ?? ind.persona_id.slice(0, 12) + "…"}
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-[11px] text-slate-500">{ind.depth}</span>
                           {ind.nbe && (
                             <Badge variant="outline"
                               className={`capitalize text-[11px] ${DISPOSITION_COLORS[ind.nbe.disposition] ?? "border-slate-700"}`}>

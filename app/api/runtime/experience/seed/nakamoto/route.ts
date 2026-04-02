@@ -1,24 +1,17 @@
 /**
  * POST /api/runtime/experience/seed/nakamoto
  *
- * Seeds journey_states from the Nakamoto CRM segment membership data.
- * Reads all 3,748 crm_personas for the nakamoto tenant, resolves each
- * persona's highest Order of Metaiye tier from crm_segment_members, and
- * upserts journey_states with tenant_id='nakamoto'.
+ * Seeds journey_states from personas.order_tier for the nakamoto tenant.
+ * Reads all personas with tenant_id='nakamoto' from the `personas` table,
+ * maps the order_tier column → KNYT stage, and upserts journey_states.
  *
- * Source of truth: crm_segments + crm_segment_members (not nakamoto_knyt_personas
- * which only covers the 196 personas who have activated their account).
- *
- * Stage mapping (Order of Metaiye segments):
- *   "Order of Metaiye: SAT"   → zero   (highest tier)
- *   "Order of Metaiye: ZERO"  → zero
- *   "Order of Metaiye: FIRST" → first
- *   "Order of Metaiye: KEJI"  → keji
- *   "Order of Metaiye: KETA"  → keta
- *   Not in any tier segment   → prospect
- *
- * Fallback: Reputation Tier segments (R0_KETA … R4_SAT) used when
- * Order of Metaiye segments are absent.
+ * Stage mapping (personas.order_tier ENUM):
+ *   SAT   → zero   (highest tier)
+ *   ZERO  → zero
+ *   FIRST → first
+ *   KEJI  → keji
+ *   KETA  → keta
+ *   NONE  → prospect
  *
  * Never regresses: if a persona already has a higher stage in journey_states
  * it is skipped.
@@ -43,26 +36,15 @@ const STAGE_DEPTH: Record<string, string> = {
   zero:     'codex',
 };
 
-/** Maps CRM segment name → KNYT stage */
-function segmentNameToStage(name: string): string | null {
-  const n = name.toLowerCase();
-  // Order of Metaiye segments
-  if (n.includes('order of metaiye')) {
-    if (n.includes('sat'))   return 'zero';
-    if (n.includes('zero'))  return 'zero';
-    if (n.includes('first')) return 'first';
-    if (n.includes('keji'))  return 'keji';
-    if (n.includes('keta'))  return 'keta';
+function orderTierToStage(tier: string | null): string {
+  switch ((tier ?? '').toUpperCase()) {
+    case 'SAT':   return 'zero';
+    case 'ZERO':  return 'zero';
+    case 'FIRST': return 'first';
+    case 'KEJI':  return 'keji';
+    case 'KETA':  return 'keta';
+    default:      return 'prospect';
   }
-  // Reputation Tier segments (fallback)
-  if (n.includes('reputation tier') || n.includes('r0_keta')) {
-    if (n.includes('r4_sat')  || n.includes('sat'))   return 'zero';
-    if (n.includes('r3_zero') || n.includes('zero'))  return 'zero';
-    if (n.includes('r2_first')|| n.includes('first')) return 'first';
-    if (n.includes('r1_keji') || n.includes('keji'))  return 'keji';
-    if (n.includes('r0_keta') || n.includes('keta'))  return 'keta';
-  }
-  return null; // segment not relevant to KNYT ladder
 }
 
 function stageRank(s: string): number {
@@ -74,84 +56,35 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}));
     const dryRun = body.dry_run === true;
 
-    // ── 1. Fetch all nakamoto CRM segments ──────────────────────────────────
-    const { data: segments, error: segErr } = await supabase
-      .from('crm_segments')
-      .select('id, name')
-      .eq('tenant_id', 'nakamoto');
-
-    if (segErr) {
-      return NextResponse.json({ error: `Segment fetch failed: ${segErr.message}` }, { status: 500 });
-    }
-
-    // Only keep segments that map to a KNYT stage
-    const relevantSegments = (segments ?? [])
-      .map((s) => ({ id: s.id as string, stage: segmentNameToStage(s.name) }))
-      .filter((s): s is { id: string; stage: string } => s.stage !== null);
-
-    // ── 2. Fetch segment members for all relevant segments ───────────────────
-    const segmentIds = relevantSegments.map((s) => s.id);
-
-    // Build stage lookup: segment_id → stage
-    const segmentStageMap: Record<string, string> = {};
-    for (const s of relevantSegments) segmentStageMap[s.id] = s.stage;
-
-    // Highest stage per persona_id (UUID string)
-    const personaStageMap: Record<string, string> = {};
-
-    if (segmentIds.length > 0) {
-      // Paginate through members in batches of 1000
-      let offset = 0;
-      const PAGE = 1000;
-      while (true) {
-        const { data: members, error: memErr } = await supabase
-          .from('crm_segment_members')
-          .select('segment_id, persona_id')
-          .in('segment_id', segmentIds)
-          .range(offset, offset + PAGE - 1);
-
-        if (memErr) {
-          return NextResponse.json({ error: `Member fetch failed: ${memErr.message}` }, { status: 500 });
-        }
-        if (!members || members.length === 0) break;
-
-        for (const m of members) {
-          const stage = segmentStageMap[m.segment_id as string];
-          if (!stage) continue;
-          const pid = m.persona_id as string;
-          if (!personaStageMap[pid] || stageRank(stage) > stageRank(personaStageMap[pid])) {
-            personaStageMap[pid] = stage;
-          }
-        }
-
-        if (members.length < PAGE) break;
-        offset += PAGE;
-      }
-    }
-
-    // ── 3. Fetch ALL crm_personas for nakamoto ───────────────────────────────
-    const allPersonaIds: string[] = [];
+    // ── 1. Fetch ALL personas for nakamoto from the `personas` table ─────────
+    // personas.order_tier is the authoritative source for KNYT tier data
+    const allPersonas: { id: string; order_tier: string | null }[] = [];
     {
       let offset = 0;
       const PAGE = 1000;
       while (true) {
-        const { data: personas, error: pErr } = await supabase
-          .from('crm_personas')
-          .select('id')
+        const { data: batch, error: pErr } = await supabase
+          .from('personas')
+          .select('id, order_tier')
           .eq('tenant_id', 'nakamoto')
           .range(offset, offset + PAGE - 1);
 
         if (pErr) {
-          return NextResponse.json({ error: `Persona fetch failed: ${pErr.message}` }, { status: 500 });
+          return NextResponse.json(
+            { error: `Persona fetch failed: ${pErr.message}` },
+            { status: 500 }
+          );
         }
-        if (!personas || personas.length === 0) break;
-        for (const p of personas) allPersonaIds.push(p.id as string);
-        if (personas.length < PAGE) break;
+        if (!batch || batch.length === 0) break;
+        for (const p of batch) {
+          allPersonas.push({ id: p.id as string, order_tier: p.order_tier as string | null });
+        }
+        if (batch.length < PAGE) break;
         offset += PAGE;
       }
     }
 
-    // ── 4. Fetch existing journey_states for nakamoto to avoid regressions ───
+    // ── 2. Fetch existing journey_states to avoid regressions ────────────────
     const existingMap: Record<string, { id: string; stage: string; depth: string }> = {};
     {
       let offset = 0;
@@ -164,29 +97,36 @@ export async function POST(request: NextRequest) {
           .range(offset, offset + PAGE - 1);
 
         if (!existing || existing.length === 0) break;
-        for (const e of existing) existingMap[e.persona_id as string] = e as { id: string; stage: string; depth: string };
+        for (const e of existing) {
+          existingMap[e.persona_id as string] = e as { id: string; stage: string; depth: string };
+        }
         if (existing.length < PAGE) break;
         offset += PAGE;
       }
     }
 
-    // ── 5. Build upsert list ─────────────────────────────────────────────────
+    // ── 3. Build upsert list ─────────────────────────────────────────────────
     const now = new Date().toISOString();
     const upserts: object[] = [];
     const skipped: string[] = [];
 
-    for (const personaId of allPersonaIds) {
-      const derivedStage = personaStageMap[personaId] ?? 'prospect';
-      const existing = existingMap[personaId];
+    // Track stage distribution for the seed result
+    const tierCounts: Record<string, number> = {};
+
+    for (const persona of allPersonas) {
+      const derivedStage = orderTierToStage(persona.order_tier);
+      tierCounts[derivedStage] = (tierCounts[derivedStage] ?? 0) + 1;
+
+      const existing = existingMap[persona.id];
 
       // Never regress
       if (existing && stageRank(existing.stage) > stageRank(derivedStage)) {
-        skipped.push(personaId);
+        skipped.push(persona.id);
         continue;
       }
 
       upserts.push({
-        persona_id:  personaId,
+        persona_id:  persona.id,
         tenant_id:   'nakamoto',
         stage:       derivedStage,
         depth:       existing ? existing.depth : STAGE_DEPTH[derivedStage],
@@ -204,14 +144,15 @@ export async function POST(request: NextRequest) {
     if (dryRun) {
       return NextResponse.json({
         dry_run: true,
-        total_personas: allPersonaIds.length,
+        total_personas: allPersonas.length,
         would_upsert: upserts.length,
         would_skip: skipped.length,
         stage_distribution: stageSummary,
+        source_tier_counts: tierCounts,
       });
     }
 
-    // ── 6. Batch upsert ──────────────────────────────────────────────────────
+    // ── 4. Batch upsert ──────────────────────────────────────────────────────
     let seeded = 0;
     const CHUNK = 200;
     for (let i = 0; i < upserts.length; i += CHUNK) {
@@ -229,10 +170,11 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      total_personas: allPersonaIds.length,
+      total_personas: allPersonas.length,
       seeded,
       skipped: skipped.length,
       stage_distribution: stageSummary,
+      source_tier_counts: tierCounts,
       tenant_id: 'nakamoto',
     });
   } catch (error: any) {
