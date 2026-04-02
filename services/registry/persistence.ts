@@ -671,6 +671,31 @@ export async function createReceipt(receipt: Omit<ReceiptQube, "createdAt">): Pr
   };
 }
 
+export async function listReceiptsByIntake(intakeId: string, limit = 50): Promise<ReceiptQube[]> {
+  const supabase = requireSupabase();
+  const { data, error } = await supabase
+    .from("registry_receipts")
+    .select("*")
+    .eq("intake_id", intakeId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((r) => ({
+    receiptId: r.receipt_id,
+    assetId: r.asset_id ?? undefined,
+    intakeId: r.intake_id ?? undefined,
+    invocationId: r.invocation_id ?? undefined,
+    eventType: r.event_type as ReceiptEventType,
+    actorId: r.actor_id,
+    tenantId: r.tenant_id,
+    payload: r.payload ?? {},
+    contentHash: r.content_hash ?? undefined,
+    dvnMessageId: r.dvn_message_id ?? undefined,
+    dvnSubmittedAt: r.dvn_submitted_at ?? undefined,
+    createdAt: r.created_at,
+  }));
+}
+
 export async function listReceiptsForAsset(assetId: string, limit = 50): Promise<ReceiptQube[]> {
   const supabase = requireSupabase();
   const { data, error } = await supabase
