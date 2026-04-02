@@ -220,9 +220,15 @@ export function ExperienceDashboardTab({ personaId, tenantId, theme = "dark" }: 
     try {
       const res = await fetch(`/api/runtime/experience/seed/${tenantId}`, { method: "POST" });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Sync failed");
+      if (!res.ok || res.status === 207) {
+        const errMsg = data.error ?? (data.errors ? data.errors.join("; ") : "Sync failed");
+        const hint = data.hint ? ` — ${data.hint}` : "";
+        throw new Error(`${errMsg}${hint}`);
+      }
       setSyncResult(`Synced ${data.seeded} personas (${data.skipped ?? 0} unchanged)`);
-      void fetchView(currentView);
+      // Refresh franchise + current view so totals update regardless of active tab
+      void fetchView("franchise");
+      if (currentView !== "franchise") void fetchView(currentView);
     } catch (e: any) {
       setSyncResult(`Sync error: ${e.message}`);
     } finally {

@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
     const { data: tenantRow, error: tenantErr } = await supabase
       .from('tenants')
       .select('id')
-      .or('id.eq.nakamoto,slug.eq.nakamoto')
+      .eq('slug', 'nakamoto')
       .maybeSingle();
 
     if (tenantErr) {
