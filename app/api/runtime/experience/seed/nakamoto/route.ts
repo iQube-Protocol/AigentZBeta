@@ -2,19 +2,23 @@
  * POST /api/runtime/experience/seed/nakamoto
  *
  * Seeds journey_states from personas.order_tier for the nakamoto tenant.
- * Reads all personas with tenant_id='nakamoto' from the `personas` table,
- * maps the order_tier column → KNYT stage, and upserts journey_states.
+ *
+ * Strategy:
+ *   1. Resolve 'nakamoto' slug → tenant UUID (personas.tenant_id is a UUID)
+ *   2. Page through all personas for that UUID tenant
+ *   3. Fetch existing journey_states (keyed by persona_id) to apply never-regress rule
+ *   4. Delete all stale nakamoto journey_states whose persona_id is no longer
+ *      in the personas table (cleanup of old crm_personas-sourced records)
+ *   5. Bulk INSERT new records in chunks of 200
+ *      Uses INSERT not upsert — avoids depending on a UNIQUE constraint existing.
  *
  * Stage mapping (personas.order_tier ENUM):
- *   SAT   → zero   (highest tier)
+ *   SAT   → zero   (highest tier, fully committed investor)
  *   ZERO  → zero
  *   FIRST → first
  *   KEJI  → keji
  *   KETA  → keta
  *   NONE  → prospect
- *
- * Never regresses: if a persona already has a higher stage in journey_states
- * it is skipped.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -48,7 +52,8 @@ function orderTierToStage(tier: string | null): string {
 }
 
 function stageRank(s: string): number {
-  return STAGE_ORDER.indexOf(s);
+  const i = STAGE_ORDER.indexOf(s);
+  return i === -1 ? 0 : i;
 }
 
 export async function POST(request: NextRequest) {
@@ -56,17 +61,23 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}));
     const dryRun = body.dry_run === true;
 
-    // ── 0. Resolve nakamoto slug → tenant UUID ───────────────────────────────
-    // personas.tenant_id is a UUID, not the slug 'nakamoto'
-    const { data: tenantRow } = await supabase
+    // ── 0. Resolve nakamoto slug → tenant UUID ────────────────────────────────
+    const { data: tenantRow, error: tenantErr } = await supabase
       .from('tenants')
       .select('id')
       .or('id.eq.nakamoto,slug.eq.nakamoto')
       .maybeSingle();
+
+    if (tenantErr) {
+      return NextResponse.json(
+        { error: `Tenant lookup failed: ${tenantErr.message}` },
+        { status: 500 }
+      );
+    }
+
     const nakamotoTenantUUID: string = tenantRow?.id ?? 'nakamoto';
 
-    // ── 1. Fetch ALL personas for nakamoto from the `personas` table ─────────
-    // personas.order_tier is the authoritative source for KNYT tier data
+    // ── 1. Fetch ALL personas for nakamoto (by UUID) ──────────────────────────
     const allPersonas: { id: string; order_tier: string | null }[] = [];
     {
       let offset = 0;
@@ -80,7 +91,7 @@ export async function POST(request: NextRequest) {
 
         if (pErr) {
           return NextResponse.json(
-            { error: `Persona fetch failed: ${pErr.message}` },
+            { error: `Persona fetch failed at offset ${offset}: ${pErr.message}` },
             { status: 500 }
           );
         }
@@ -93,34 +104,46 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ── 2. Fetch existing journey_states to avoid regressions ────────────────
-    const existingMap: Record<string, { id: string; stage: string; depth: string }> = {};
+    if (allPersonas.length === 0) {
+      return NextResponse.json({
+        error: `No personas found for tenant UUID '${nakamotoTenantUUID}' (resolved from slug 'nakamoto'). Check that personas.tenant_id matches this UUID.`,
+        tenant_uuid: nakamotoTenantUUID,
+      }, { status: 404 });
+    }
+
+    // ── 2. Fetch existing journey_states for this tenant ─────────────────────
+    const existingMap: Record<string, { stage: string; depth: string }> = {};
     {
       let offset = 0;
       const PAGE = 1000;
+      // Try filtering by tenant_id; if column doesn't exist we fall through
       while (true) {
-        const { data: existing } = await supabase
+        const { data: existing, error: eErr } = await supabase
           .from('journey_states')
-          .select('id, persona_id, stage, depth')
+          .select('persona_id, stage, depth')
           .eq('tenant_id', 'nakamoto')
           .range(offset, offset + PAGE - 1);
 
+        if (eErr) {
+          // tenant_id column may not exist yet — skip existing check
+          break;
+        }
         if (!existing || existing.length === 0) break;
         for (const e of existing) {
-          existingMap[e.persona_id as string] = e as { id: string; stage: string; depth: string };
+          existingMap[e.persona_id as string] = { stage: e.stage as string, depth: e.depth as string };
         }
         if (existing.length < PAGE) break;
         offset += PAGE;
       }
     }
 
-    // ── 3. Build upsert list ─────────────────────────────────────────────────
+    // ── 3. Build insert list (never regress) ──────────────────────────────────
     const now = new Date().toISOString();
-    const upserts: object[] = [];
+    const toInsert: Record<string, unknown>[] = [];
     const skipped: string[] = [];
-
-    // Track stage distribution for the seed result
     const tierCounts: Record<string, number> = {};
+
+    const personaIdSet = new Set(allPersonas.map((p) => p.id));
 
     for (const persona of allPersonas) {
       const derivedStage = orderTierToStage(persona.order_tier);
@@ -128,65 +151,122 @@ export async function POST(request: NextRequest) {
 
       const existing = existingMap[persona.id];
 
-      // Never regress
+      // Never regress: if existing stage is higher, preserve it
       if (existing && stageRank(existing.stage) > stageRank(derivedStage)) {
         skipped.push(persona.id);
         continue;
       }
 
-      upserts.push({
+      toInsert.push({
         persona_id:  persona.id,
         tenant_id:   'nakamoto',
         stage:       derivedStage,
         depth:       existing ? existing.depth : STAGE_DEPTH[derivedStage],
         active_at:   now,
         updated_at:  now,
-        ...(existing ? {} : { created_at: now }),
+        created_at:  now,
       });
     }
 
-    const stageSummary = upserts.reduce((acc: Record<string, number>, u: any) => {
-      acc[u.stage] = (acc[u.stage] ?? 0) + 1;
+    const stageSummary = toInsert.reduce((acc: Record<string, number>, u) => {
+      const stage = u.stage as string;
+      acc[stage] = (acc[stage] ?? 0) + 1;
       return acc;
     }, {});
 
     if (dryRun) {
       return NextResponse.json({
         dry_run: true,
+        tenant_uuid: nakamotoTenantUUID,
         total_personas: allPersonas.length,
-        would_upsert: upserts.length,
+        would_insert: toInsert.length,
         would_skip: skipped.length,
         stage_distribution: stageSummary,
         source_tier_counts: tierCounts,
       });
     }
 
-    // ── 4. Batch upsert ──────────────────────────────────────────────────────
-    let seeded = 0;
-    const CHUNK = 200;
-    for (let i = 0; i < upserts.length; i += CHUNK) {
-      const chunk = upserts.slice(i, i + CHUNK);
-      const { error: upsertErr } = await supabase
+    // ── 4. Delete stale records (old crm_personas-sourced rows) ───────────────
+    // Any journey_state for nakamoto whose persona_id is NOT in the current
+    // personas table is stale (from the old seed that used crm_personas.id).
+    let deleted = 0;
+    {
+      // Fetch all persona_ids currently in journey_states for this tenant
+      const { data: existing } = await supabase
         .from('journey_states')
-        .upsert(chunk as any, { onConflict: 'persona_id,tenant_id' });
+        .select('persona_id')
+        .eq('tenant_id', 'nakamoto');
 
-      if (upsertErr) {
-        console.error('[seed/nakamoto] upsert error at chunk', i, upsertErr.message);
+      const staleIds = (existing ?? [])
+        .map((r: any) => r.persona_id as string)
+        .filter((pid) => !personaIdSet.has(pid));
+
+      if (staleIds.length > 0) {
+        const CHUNK = 200;
+        for (let i = 0; i < staleIds.length; i += CHUNK) {
+          await supabase
+            .from('journey_states')
+            .delete()
+            .in('persona_id', staleIds.slice(i, i + CHUNK))
+            .eq('tenant_id', 'nakamoto');
+          deleted += Math.min(CHUNK, staleIds.length - i);
+        }
+      }
+    }
+
+    // ── 5. Delete existing valid records so we can re-INSERT cleanly ──────────
+    // (avoids needing an onConflict unique constraint)
+    const toInsertIds = toInsert.map((u) => u.persona_id as string);
+    {
+      const CHUNK = 200;
+      for (let i = 0; i < toInsertIds.length; i += CHUNK) {
+        await supabase
+          .from('journey_states')
+          .delete()
+          .in('persona_id', toInsertIds.slice(i, i + CHUNK))
+          .eq('tenant_id', 'nakamoto');
+      }
+    }
+
+    // ── 6. Bulk INSERT in chunks ───────────────────────────────────────────────
+    let seeded = 0;
+    const insertErrors: string[] = [];
+    const CHUNK = 200;
+
+    for (let i = 0; i < toInsert.length; i += CHUNK) {
+      const chunk = toInsert.slice(i, i + CHUNK);
+      const { error: insertErr } = await supabase
+        .from('journey_states')
+        .insert(chunk as any);
+
+      if (insertErr) {
+        console.error('[seed/nakamoto] insert error at chunk', i, insertErr.message);
+        insertErrors.push(insertErr.message);
       } else {
         seeded += chunk.length;
       }
     }
 
-    return NextResponse.json({
-      success: true,
+    const response: Record<string, unknown> = {
+      success: insertErrors.length === 0,
+      tenant_uuid: nakamotoTenantUUID,
       total_personas: allPersonas.length,
       seeded,
       skipped: skipped.length,
-      tenant_uuid: nakamotoTenantUUID,
+      deleted_stale: deleted,
       stage_distribution: stageSummary,
       source_tier_counts: tierCounts,
-      tenant_id: 'nakamoto',
+    };
+
+    if (insertErrors.length > 0) {
+      response.errors = insertErrors;
+      response.hint = 'Run migration 20260402020000_journey_states_tenant_id.sql in Supabase to add the tenant_id column and unique constraint.';
+    }
+
+    return NextResponse.json(response, {
+      status: insertErrors.length > 0 ? 207 : 200,
     });
+
   } catch (error: any) {
     console.error('[seed/nakamoto] error:', error);
     return NextResponse.json({ error: error.message ?? 'Internal server error' }, { status: 500 });
