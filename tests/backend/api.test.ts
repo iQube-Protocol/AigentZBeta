@@ -3,7 +3,7 @@
  * Comprehensive testing of all AgentiQ backend APIs
  */
 
-import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
 const BASE_URL = 'http://localhost:3001';
 

@@ -4,7 +4,7 @@
  * Including custom campaigns, sequence campaigns, Make integration, and rewards
  */
 
-import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 // Test configuration
 const TEST_CONFIG = {
