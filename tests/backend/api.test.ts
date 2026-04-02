@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
-const BASE_URL = 'http://localhost:3001';
+const BASE_URL = process.env.TEST_BASE_URL || 'http://localhost:3001';
 
 // Test utilities
 async function apiRequest(endpoint: string, options: RequestInit = {}) {

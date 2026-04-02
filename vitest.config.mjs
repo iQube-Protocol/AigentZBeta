@@ -1,25 +1,29 @@
 import { defineConfig } from "vitest/config";
 import path from "path";
 import { fileURLToPath } from "url";
+import dotenv from "dotenv";
+import { existsSync } from "fs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Load credentials from .env.local.temp if present (not committed to repo)
+const envFile = path.join(__dirname, ".env.local.temp");
+if (existsSync(envFile)) {
+  dotenv.config({ path: envFile });
+}
 
 export default defineConfig({
   test: {
     environment: "node",
     globals: true,
     include: ["tests/**/*.test.ts"],
-    exclude: [
-      "**/node_modules/**",
-      // Integration tests — require a running dev server or Supabase env vars
-      "tests/backend/api.test.ts",
-      "tests/lvb-agq-integration.test.ts",
-      "tests/partner-platform.test.ts",
-      "tests/fio-integration.test.ts",
-      "tests/crm-integration.test.ts",
-    ],
+    exclude: ["**/node_modules/**"],
     testTimeout: 30000,
     hookTimeout: 30000,
+    env: {
+      // Live dev server for HTTP integration tests
+      TEST_BASE_URL: process.env.TEST_BASE_URL || "https://dev-beta.aigentz.me",
+    },
   },
   resolve: {
     alias: {
