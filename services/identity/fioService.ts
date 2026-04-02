@@ -36,8 +36,11 @@ export class FIOService {
    * Initialize FIO SDK with configuration
    */
   async initialize(config: FIOConfig): Promise<void> {
+    if (!config.endpoint || !config.chainId) {
+      throw new Error('FIO configuration requires a valid endpoint and chainId');
+    }
     this.config = config;
-    
+
     try {
       // Initialize SDK with or without keys (for read-only operations)
       if (config.privateKey && config.publicKey) {

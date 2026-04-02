@@ -6,10 +6,13 @@ import { existsSync } from "fs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Load credentials from .env.local.temp if present (not committed to repo)
-const envFile = path.join(__dirname, ".env.local.temp");
-if (existsSync(envFile)) {
-  dotenv.config({ path: envFile });
+// Load credentials — try .env.local first (standard), then .env.local.temp (sandbox fallback)
+const envLocal = path.join(__dirname, ".env.local");
+const envLocalTemp = path.join(__dirname, ".env.local.temp");
+if (existsSync(envLocal)) {
+  dotenv.config({ path: envLocal });
+} else if (existsSync(envLocalTemp)) {
+  dotenv.config({ path: envLocalTemp });
 }
 
 export default defineConfig({
