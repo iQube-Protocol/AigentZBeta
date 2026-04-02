@@ -256,6 +256,23 @@ export const KNYT_CODEX: CodexConfig = {
         color: 'amber',
         badge: 'Active'
       }
+    },
+    {
+      id: 'experience-dashboard',
+      label: 'Experience',
+      slug: 'experience-dashboard',
+      enabled: true,
+      order: 8,
+      type: 'static',
+      config: {
+        component: 'ExperienceDashboardTab',
+        props: {}
+      },
+      metadata: {
+        icon: 'Layers',
+        description: 'Experience journey dashboard — franchise health, cohorts, NBE, guardian',
+        color: 'violet'
+      }
     }
   ],
   permissions: {

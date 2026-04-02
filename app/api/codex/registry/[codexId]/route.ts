@@ -34,17 +34,21 @@ interface RouteContext {
 function withKnytStaticTabs(codex: CodexConfig): CodexConfig {
   return {
     ...codex,
-    tabs: codex.tabs.map((tab) => ({
-      ...tab,
-      type: 'static',
-      config: {
-        component: 'KnytTab',
-        props: {
-          ...(tab.config?.props || {}),
-          tabSlug: tab.slug,
+    tabs: codex.tabs.map((tab) => {
+      // Preserve tabs that are already typed as 'static' — they have their own component.
+      if (tab.type === 'static') return tab;
+      return {
+        ...tab,
+        type: 'static',
+        config: {
+          component: 'KnytTab',
+          props: {
+            ...(tab.config?.props || {}),
+            tabSlug: tab.slug,
+          },
         },
-      },
-    })),
+      };
+    }),
   };
 }
 
