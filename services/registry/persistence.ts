@@ -223,6 +223,7 @@ export async function getSourceByIntake(intakeId: string): Promise<SourceQube | 
 function rowToAsset(row: Record<string, unknown>): RegistryAsset {
   return {
     assetId: row.asset_id as string,
+    tenantId: row.tenant_id as string,
     assetClass: row.asset_class as RegistryAssetClass,
     name: row.name as string,
     slug: row.slug as string,
@@ -433,6 +434,20 @@ export async function listValidationsForAsset(assetId: string): Promise<Validati
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
   return (data ?? []).map((r) => rowToValidation(r as Record<string, unknown>));
+}
+
+export async function getLatestValidation(assetId: string): Promise<ValidationQube | null> {
+  const supabase = requireSupabase();
+  const { data, error } = await supabase
+    .from("registry_validations")
+    .select("*")
+    .eq("asset_id", assetId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) return null;
+  return rowToValidation(data as Record<string, unknown>);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

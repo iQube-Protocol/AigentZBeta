@@ -246,6 +246,7 @@ export interface CapabilityDescriptor {
 
 export interface ToolQube {
   assetId: string;
+  tenantId: string;
   assetClass: "ToolQube";
   name: string;
   slug: string;
@@ -273,6 +274,7 @@ export interface ToolQube {
 
 export interface SkillQube {
   assetId: string;
+  tenantId: string;
   assetClass: "SkillQube";
   name: string;
   slug: string;
@@ -301,6 +303,7 @@ export interface SkillQube {
 
 export interface WorkflowQube {
   assetId: string;
+  tenantId: string;
   assetClass: "WorkflowQube";
   name: string;
   slug: string;
@@ -330,6 +333,7 @@ export interface WorkflowQube {
 
 export interface ConnectorQube {
   assetId: string;
+  tenantId: string;
   assetClass: "ConnectorQube";
   name: string;
   slug: string;
