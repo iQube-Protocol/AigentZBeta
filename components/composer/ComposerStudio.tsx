@@ -1508,6 +1508,8 @@ export const ComposerStudio = () => {
   const [stepData, setStepData] = useState<Record<string, Record<string, any>>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [publishedReceiptId, setPublishedReceiptId] = useState<string | null>(null);
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [experience, setExperience] = useState<ExperienceQube | null>(null);
   const [experiences, setExperiences] = useState<ExperienceQube[]>([]);
@@ -4588,6 +4590,26 @@ export const ComposerStudio = () => {
       setSessionError(err.message || "Failed to complete session");
     } finally {
       setIsCompleting(false);
+    }
+  };
+
+  const handlePublishToRegistry = async () => {
+    const expId = previewExperience?.id || selectedExperienceId;
+    if (!expId) return;
+    try {
+      setIsPublishing(true);
+      const res = await fetch('/api/registry/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ experienceId: expId, userId: userId ?? undefined, tenantId: tenantId ?? undefined }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Publish failed');
+      setPublishedReceiptId(data.dvn_receipt_id ?? data.job_id ?? 'published');
+    } catch (err: any) {
+      console.error('[publishToRegistry]', err);
+    } finally {
+      setIsPublishing(false);
     }
   };
 
@@ -9911,11 +9933,24 @@ export const ComposerStudio = () => {
                       .finally(() => setExpModelLoading(false));
                   }
                 }
-                if (value === "pipeline" && lastPipelineRunId && !pipelineRunData) {
+                if (value === "pipeline" && !pipelineRunData) {
                   setPipelineRunLoading(true);
-                  fetch(`/api/pipeline/runs/${lastPipelineRunId}`)
-                    .then((r) => r.json())
-                    .then((d) => { setPipelineRunData(d); })
+                  const pipelineFetch = lastPipelineRunId
+                    ? fetch(`/api/pipeline/runs/${lastPipelineRunId}`).then((r) => r.json())
+                    : tenantId
+                    ? fetch(`/api/pipeline/runs?tenant_id=${encodeURIComponent(tenantId)}&limit=1`)
+                        .then((r) => r.json())
+                        .then((d) => {
+                          const run = d.runs?.[0];
+                          if (run?.pipelineRunId) {
+                            setLastPipelineRunId(run.pipelineRunId);
+                            return fetch(`/api/pipeline/runs/${run.pipelineRunId}`).then((r) => r.json());
+                          }
+                          return null;
+                        })
+                    : Promise.resolve(null);
+                  pipelineFetch
+                    .then((d) => { if (d) setPipelineRunData(d); })
                     .catch(() => {})
                     .finally(() => setPipelineRunLoading(false));
                 }
@@ -10250,9 +10285,28 @@ export const ComposerStudio = () => {
                   </TabsContent>
 
                   <TabsContent value="surfaces" className="mt-0">
+                    {/* Publish to Registry toolbar */}
+                    {(previewExperience?.id || selectedExperienceId) && (
+                      <div className="mb-3 flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2">
+                        <span className="text-[11px] text-slate-400">
+                          {publishedReceiptId
+                            ? <span className="text-emerald-400">Published · Receipt: <span className="font-mono">{publishedReceiptId}</span></span>
+                            : "Publish this experience as an iQube in the registry"}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={handlePublishToRegistry}
+                          disabled={isPublishing || !!publishedReceiptId}
+                          className="rounded-lg border border-emerald-600/50 bg-emerald-500/10 px-3 py-1 text-[11px] font-medium text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-50 transition"
+                        >
+                          {isPublishing ? "Publishing…" : publishedReceiptId ? "Published" : "Publish to Registry"}
+                        </button>
+                      </div>
+                    )}
                     <SurfacePlanningPanel
                       experienceId={previewExperience?.id || selectedExperienceId || undefined}
                       cartridge={tenantId}
+                      components={previewExperience?.components ?? undefined}
                       onSurfacePlanGenerated={() => {
                         // Stub hook for future runtime preview integration.
                       }}
@@ -10300,16 +10354,16 @@ export const ComposerStudio = () => {
                         </div>
                       </div>
                       <hr className="border-slate-800" />
-                      {!lastPipelineRunId && (
-                        <p className="text-slate-400">No pipeline run recorded yet. Complete a session to see diagnostics.</p>
+                      {!lastPipelineRunId && !pipelineRunLoading && !pipelineRunData && (
+                        <p className="text-slate-400">No pipeline runs found for this cartridge yet.</p>
                       )}
-                      {lastPipelineRunId && pipelineRunLoading && (
+                      {pipelineRunLoading && (
                         <div className="flex items-center gap-2 text-slate-400">
                           <Loader2 className="h-3 w-3 animate-spin" />
                           <span>Loading pipeline run…</span>
                         </div>
                       )}
-                      {lastPipelineRunId && !pipelineRunLoading && !pipelineRunData && (
+                      {!pipelineRunLoading && lastPipelineRunId && !pipelineRunData && (
                         <div className="space-y-2">
                           <p className="font-mono text-xs text-slate-300">Run ID: {lastPipelineRunId}</p>
                           <button
@@ -10371,6 +10425,17 @@ export const ComposerStudio = () => {
 
                   <TabsContent value="workflows" className="mt-0">
                     <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-sm">
+                      {/* Experience context — shows which experience these workflows are for */}
+                      {previewExperience && (
+                        <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/5 px-3 py-2">
+                          <p className="text-[11px] text-cyan-400 font-medium">
+                            Active experience: <span className="text-cyan-200">{previewExperience.name || previewExperience.id}</span>
+                          </p>
+                          {previewExperience.template_id && (
+                            <p className="text-[10px] text-slate-500 mt-0.5">Template: {previewExperience.template_id}</p>
+                          )}
+                        </div>
+                      )}
                       <div className="flex items-center justify-between">
                         <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Workflow Definitions</span>
                         <div className="flex items-center gap-1.5">

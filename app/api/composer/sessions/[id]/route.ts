@@ -196,6 +196,23 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
               active_at: new Date().toISOString(),
             });
         }
+
+        // Write NBE plan — recommends continuing at same depth after completion.
+        // Expire any previous open plan for this persona+experience before inserting.
+        await supabase
+          .from('nbe_plans')
+          .update({ expires_at: new Date().toISOString() })
+          .eq('persona_id', personaId)
+          .eq('experience_id', experienceQube.id)
+          .is('expires_at', null);
+
+        await supabase.from('nbe_plans').insert({
+          persona_id: personaId,
+          experience_id: experienceQube.id,
+          disposition: 'act',
+          next_experience_depth: existing?.depth ?? 'pill',
+          rationale: 'Experience completed — ready for next best experience at current depth',
+        });
       }
     } catch (completionError: any) {
       // Attempt to mark pipeline as failed; ignore secondary errors
