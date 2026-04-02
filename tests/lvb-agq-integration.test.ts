@@ -8,7 +8,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 // Test configuration
 const TEST_CONFIG = {
-  baseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://localhost:3000',
+  baseUrl: process.env.TEST_BASE_URL || 'http://localhost:3000',
   testPersonaId: 'test-persona-lvb',
   testTenantId: 'test-tenant-lvb',
   testCampaignId: 'test-campaign-multi-001',

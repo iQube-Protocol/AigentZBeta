@@ -8,8 +8,8 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 // Test configuration
 const TEST_CONFIG = {
-  baseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://localhost:3000',
-  apiBase: `${process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://localhost:3000'}/api/marketa`,
+  baseUrl: process.env.TEST_BASE_URL || 'http://localhost:3000',
+  apiBase: `${process.env.TEST_BASE_URL || 'http://localhost:3000'}/api/marketa`,
   testPersonaId: 'test-persona-partner',
   testTenantId: 'demo-tenant',
   testAdminPersonaId: 'test-persona-admin',
