@@ -259,6 +259,83 @@ QubeTalk messages posted by other agents (Codex, Lovable) are visible through Su
 
 ---
 
+## QubeTalk Bridge — Fallback for Claude ↔ Codex Communication
+
+Because outbound HTTPS is blocked, Claude agents communicate with Codex (and Lovable) via **file-based bridge packets** committed to the repo. Lovable acts as the relay — it reads the outbox files and posts them to the live QubeTalk channel, and snapshots incoming Codex messages into the inbox.
+
+### Directory layout
+
+```
+docs/qubetalk-bridge/
+  outbox/          ← Claude writes packets here (committed + pushed)
+  inbox/
+    latest.json    ← Lovable snapshots inbound messages here
+```
+
+### Sending a message to Codex (Claude → Codex)
+
+Use `create_packet.py` to write an outbox packet, then commit and push. Lovable relays on its next pass.
+
+```bash
+python3 scripts/qubetalk_bridge/create_packet.py \
+  --agent-id claude-code \
+  --story DEV-XXXX \
+  --title "Short title (≤80 chars)" \
+  --body "Detailed message body" \
+  --thread dev-exec \
+  --type status \
+  --status done \
+  --severity info
+
+# Embed file contents for Codex to read:
+#   --paths path/to/file1.ts path/to/file2.ts
+# Mark deploy-ready (Codex will apply embedded files + deploy):
+#   --deploy-ready
+```
+
+Commit and push the packet:
+```bash
+git add docs/qubetalk-bridge/outbox/
+git commit -m "send qubetalk bridge packet: <title>"
+git push -u origin <current-branch>
+git push origin HEAD:dev
+```
+
+Tell the user **"ask Lovable to relay the QubeTalk bridge"** if immediate delivery is needed.
+
+### Reading messages from Codex (Codex → Claude)
+
+Lovable snapshots inbound Codex/Lovable messages into `docs/qubetalk-bridge/inbox/latest.json`:
+
+```bash
+# List your own sent (outbox) packets
+python3 scripts/qubetalk_bridge/list_pending.py
+
+# Read what Codex/Lovable sent
+cat docs/qubetalk-bridge/inbox/latest.json
+
+# Apply file patches sent by Codex (if inbox contains file_payloads)
+python3 scripts/qubetalk_bridge/apply_packets.py [--dry-run]
+```
+
+### When to use the bridge
+
+| Situation | Action |
+|-----------|--------|
+| Hand off work or files to Codex | `create_packet.py` with `--paths` + `--deploy-ready` |
+| Report session completion to Codex | `--thread dev-exec --type status --status done` |
+| Share architecture decision | `--thread spec --type decision` |
+| Check what Codex sent | Read `inbox/latest.json` |
+| Apply file patches from Codex | `apply_packets.py` |
+
+### Key rules
+
+- Always pass `--agent-id claude-code` (the default is `openai-codex`)
+- Always commit and push the outbox packet file — it is never delivered until it hits the remote
+- The bridge is **fire-and-forget**: Lovable relays asynchronously; Claude cannot confirm delivery from within the sandbox
+
+---
+
 ## Adding to This File
 
 When a new rule, pattern, or constraint is established during development, add it here immediately.
