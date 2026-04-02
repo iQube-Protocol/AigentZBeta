@@ -21,6 +21,8 @@ import { TenantId, TokenType, ContributionType, RewardStatus, ReputationBucket }
 // Test tenant ID for isolation
 const TEST_TENANT_ID = 'test-tenant-crm' as TenantId;
 const TEST_FRANCHISE_ID = 'test-franchise-crm';
+// Admin roles table uses UUID type for tenant_id — use a valid UUID for those tests
+const TEST_ADMIN_TENANT_UUID = '00000000-0000-0000-0000-000000000099' as unknown as TenantId;
 
 // ============================================================================
 // PERSONA TESTS
@@ -35,7 +37,7 @@ describe('CRM Persona Operations', () => {
         tenantId: TEST_TENANT_ID,
         displayName: 'Test User',
         email: `test-${Date.now()}@example.com`,
-        personaState: 'active' as const,
+        personaState: 'pseudonymous' as const,
       };
 
       const persona = await crmService.createPersona(personaData);
@@ -46,7 +48,7 @@ describe('CRM Persona Operations', () => {
       expect(persona.displayName).toBe(personaData.displayName);
       expect(persona.email).toBe(personaData.email);
       expect(persona.tenantId).toBe(TEST_TENANT_ID);
-      expect(persona.personaState).toBe('active');
+      expect(persona.personaState).toBe('pseudonymous');
     });
 
     it('should create persona with Kybe DID', async () => {
@@ -54,7 +56,7 @@ describe('CRM Persona Operations', () => {
         tenantId: TEST_TENANT_ID,
         kybeDid: `did:kybe:test-${Date.now()}`,
         displayName: 'DID User',
-        personaState: 'active' as const,
+        personaState: 'pseudonymous' as const,
       };
 
       const persona = await crmService.createPersona(personaData);
@@ -69,7 +71,7 @@ describe('CRM Persona Operations', () => {
         tenantId: TEST_TENANT_ID,
         email,
         displayName: 'First User',
-        personaState: 'active',
+        personaState: 'pseudonymous',
       });
 
       await expect(
@@ -77,7 +79,7 @@ describe('CRM Persona Operations', () => {
           tenantId: TEST_TENANT_ID,
           email,
           displayName: 'Second User',
-          personaState: 'active',
+          personaState: 'pseudonymous',
         })
       ).rejects.toThrow();
     });
@@ -146,7 +148,7 @@ describe('CRM Contribution Operations', () => {
       tenantId: TEST_TENANT_ID,
       displayName: 'Contributor Test User',
       email: `contributor-${Date.now()}@example.com`,
-      personaState: 'active',
+      personaState: 'pseudonymous',
     });
     testPersonaId = persona.id;
   });
@@ -214,7 +216,7 @@ describe('CRM Contribution Operations', () => {
   describe('List Contributions', () => {
     it('should list contributions for a tenant', async () => {
       const contributions = await crmService.listContributions(TEST_TENANT_ID, {
-        limit: 10,
+        topN: 10,
       });
 
       expect(Array.isArray(contributions)).toBe(true);
@@ -223,7 +225,7 @@ describe('CRM Contribution Operations', () => {
     it('should filter contributions by persona', async () => {
       const contributions = await crmService.listContributions(TEST_TENANT_ID, {
         personaId: testPersonaId,
-        limit: 10,
+        topN: 10,
       });
 
       contributions.forEach(c => {
@@ -238,7 +240,7 @@ describe('CRM Contribution Operations', () => {
       const contributions = await crmService.listContributions(TEST_TENANT_ID, {
         periodStart: yesterday.toISOString(),
         periodEnd: now.toISOString(),
-        limit: 10,
+        topN: 10,
       });
 
       contributions.forEach(c => {
@@ -252,7 +254,7 @@ describe('CRM Contribution Operations', () => {
   describe('Top Contributors', () => {
     it('should return top contributors by PoKW', async () => {
       const topContributors = await crmService.getTopContributors(TEST_TENANT_ID, {
-        limit: 5,
+        topN: 5,
       });
 
       expect(Array.isArray(topContributors)).toBe(true);
@@ -265,7 +267,7 @@ describe('CRM Contribution Operations', () => {
 
     it('should include persona details in top contributors', async () => {
       const topContributors = await crmService.getTopContributors(TEST_TENANT_ID, {
-        limit: 5,
+        topN: 5,
       });
 
       topContributors.forEach(tc => {
@@ -284,11 +286,12 @@ describe('CRM Contribution Operations', () => {
 describe('CRM Reward Operations', () => {
   describe('Propose Rewards', () => {
     it('should propose rewards based on PoKW', async () => {
-      const result = await crmService.proposeRewards(TEST_TENANT_ID, {
+      const result = await crmService.proposeRewards({
+        tenantId: TEST_TENANT_ID,
         budget: { QCT: 100 },
         periodStart: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
         periodEnd: new Date().toISOString(),
-        limit: 10,
+        topN: 10,
       });
 
       expect(result).toBeDefined();
@@ -298,11 +301,12 @@ describe('CRM Reward Operations', () => {
     });
 
     it('should allocate rewards proportionally to PoKW', async () => {
-      const result = await crmService.proposeRewards(TEST_TENANT_ID, {
+      const result = await crmService.proposeRewards({
+        tenantId: TEST_TENANT_ID,
         budget: { QCT: 1000 },
         periodStart: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
         periodEnd: new Date().toISOString(),
-        limit: 10,
+        topN: 10,
       });
 
       if (result.rewards.length > 1) {
@@ -315,11 +319,12 @@ describe('CRM Reward Operations', () => {
     });
 
     it('should create rewards with proposed status', async () => {
-      const result = await crmService.proposeRewards(TEST_TENANT_ID, {
+      const result = await crmService.proposeRewards({
+        tenantId: TEST_TENANT_ID,
         budget: { QCT: 50 },
         periodStart: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
         periodEnd: new Date().toISOString(),
-        limit: 5,
+        topN: 5,
       });
 
       result.rewards.forEach(r => {
@@ -338,7 +343,7 @@ describe('CRM Reward Operations', () => {
     it('should filter rewards by status', async () => {
       const proposedRewards = await crmService.listRewards(TEST_TENANT_ID, {
         status: 'proposed' as RewardStatus,
-        limit: 10,
+        topN: 10,
       });
 
       proposedRewards.forEach(r => {
@@ -349,7 +354,7 @@ describe('CRM Reward Operations', () => {
     it('should filter rewards by token type', async () => {
       const qctRewards = await crmService.listRewards(TEST_TENANT_ID, {
         tokenType: 'QCT' as TokenType,
-        limit: 10,
+        topN: 10,
       });
 
       qctRewards.forEach(r => {
@@ -363,11 +368,12 @@ describe('CRM Reward Operations', () => {
 
     beforeAll(async () => {
       // Create a test reward
-      const result = await crmService.proposeRewards(TEST_TENANT_ID, {
+      const result = await crmService.proposeRewards({
+        tenantId: TEST_TENANT_ID,
         budget: { QCT: 10 },
         periodStart: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
         periodEnd: new Date().toISOString(),
-        limit: 1,
+        topN: 1,
       });
       if (result.rewards.length > 0) {
         testRewardId = result.rewards[0].id;
@@ -389,11 +395,12 @@ describe('CRM Reward Operations', () => {
 
     it('should reject a proposed reward', async () => {
       // Create another reward to reject
-      const result = await crmService.proposeRewards(TEST_TENANT_ID, {
+      const result = await crmService.proposeRewards({
+        tenantId: TEST_TENANT_ID,
         budget: { QCT: 5 },
         periodStart: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
         periodEnd: new Date().toISOString(),
-        limit: 1,
+        topN: 1,
       });
 
       if (result.rewards.length > 0) {
@@ -461,7 +468,7 @@ describe('CRM Segment Operations', () => {
         tenantId: TEST_TENANT_ID,
         displayName: 'Segment Test User',
         email: `segment-${Date.now()}@example.com`,
-        personaState: 'active',
+        personaState: 'pseudonymous',
       });
       testPersonaId = persona.id;
     });
@@ -553,7 +560,7 @@ describe('CRM Unified Profile', () => {
       tenantId: TEST_TENANT_ID,
       displayName: 'Profile Test User',
       email: `profile-${Date.now()}@example.com`,
-      personaState: 'active',
+      personaState: 'pseudonymous',
     });
 
     // Record some contributions
@@ -596,7 +603,7 @@ describe('CRM Admin Role Access Control', () => {
       const role = await db.createAdminRole({
         kybeDid: `did:kybe:admin-test-${Date.now()}`,
         roleType: 'tenant_super_admin',
-        tenantId: TEST_TENANT_ID,
+        tenantId: TEST_ADMIN_TENANT_UUID,
         permissions: {
           read: true,
           write: true,
@@ -613,7 +620,7 @@ describe('CRM Admin Role Access Control', () => {
 
     it('should list admin roles by scope', async () => {
       const roles = await db.getAdminRolesForScope({
-        tenantId: TEST_TENANT_ID,
+        tenantId: TEST_ADMIN_TENANT_UUID,
       });
 
       expect(Array.isArray(roles)).toBe(true);
@@ -626,7 +633,7 @@ describe('CRM Admin Role Access Control', () => {
       await db.createAdminRole({
         kybeDid,
         roleType: 'tenant_super_admin',
-        tenantId: TEST_TENANT_ID,
+        tenantId: TEST_ADMIN_TENANT_UUID,
         permissions: { read: true, write: true },
       });
 
@@ -634,7 +641,7 @@ describe('CRM Admin Role Access Control', () => {
       const hasAccess = await db.checkAdminAccess({
         kybeDid,
         action: 'read',
-        tenantId: TEST_TENANT_ID,
+        tenantId: TEST_ADMIN_TENANT_UUID,
       });
 
       expect(hasAccess).toBe(true);
@@ -644,7 +651,7 @@ describe('CRM Admin Role Access Control', () => {
       const hasAccess = await db.checkAdminAccess({
         kybeDid: 'did:kybe:non-existent',
         action: 'write',
-        tenantId: TEST_TENANT_ID,
+        tenantId: TEST_ADMIN_TENANT_UUID,
       });
 
       expect(hasAccess).toBe(false);
@@ -667,7 +674,7 @@ describe('CRM Admin Role Access Control', () => {
         kybeDid,
         roleType: 'category_admin',
         categoryId: undefined, // Will need a real category ID in practice
-        tenantId: TEST_TENANT_ID,
+        tenantId: TEST_ADMIN_TENANT_UUID,
         permissions: { read: true },
       });
 
