@@ -63,7 +63,7 @@ function assertUniqueStrings(values: string[] | undefined, label: string) {
 
 describe("pack registry", () => {
   it("maps Agentiq collections into tabs", async () => {
-    const packRoot = path.join(process.cwd(), "codexes", "packs", "agentiq");
+    const packRoot = path.join(process.cwd(), "codexes", "packs", "aigency");
     const collections = await readJson<CollectionsFile>(path.join(packRoot, "collections.json"));
 
     const codexes = await loadPackCodexes();

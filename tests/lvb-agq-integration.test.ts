@@ -4,7 +4,7 @@
  * Ensures AGQ remains source of truth while LVB maintains simplicity
  */
 
-import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 // Test configuration
 const TEST_CONFIG = {
