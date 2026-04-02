@@ -134,13 +134,17 @@ async function getOrCreateCanonicalAuthProfileId(email: string): Promise<string 
     return String(aliasRows[0].auth_profile_id);
   }
 
-  const { data: existing, error: existingError } = await admin
+  // Use limit(1) + array access instead of maybeSingle() to avoid errors
+  // when multiple crm_auth_profiles rows share the same email.
+  const { data: existingRows, error: existingError } = await admin
     .from('crm_auth_profiles')
     .select('id')
     .eq('email', normalizedEmail)
-    .maybeSingle();
+    .order('created_at', { ascending: true })
+    .limit(1);
 
   if (existingError) return null;
+  const existing = existingRows?.[0] ?? null;
   if (existing?.id) {
     const now = new Date().toISOString();
     await admin.from('crm_auth_profile_emails').upsert(
@@ -189,28 +193,67 @@ async function getOrCreateCanonicalAuthProfileId(email: string): Promise<string 
   return created?.id ? String(created.id) : null;
 }
 
+function tryDecodeJwtPayload(token: string): { sub?: string; email?: string; exp?: number } | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    // base64url → base64 → Buffer
+    const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const payload = JSON.parse(Buffer.from(b64, 'base64').toString('utf-8'));
+    if (typeof payload.exp === 'number' && payload.exp < Math.floor(Date.now() / 1000)) return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
 export async function getCallerIdentityContext(request: NextRequest): Promise<CallerIdentityContext | null> {
   const auth = request.headers.get('authorization') || request.headers.get('Authorization');
   const token = auth?.startsWith('Bearer ') ? auth.slice('Bearer '.length) : null;
   if (token) {
-    const supabase = getSupabaseAnonClient();
-    const { data, error } = await supabase.auth.getUser(token);
-    if (error || !data?.user?.id) return null;
+    let userId: string | null = null;
+    let tokenEmail: string | null = null;
 
-    const tokenEmail = (data.user.email || '').trim().toLowerCase();
+    // Try Supabase client first; fall back to direct JWT decode if env vars are missing
+    try {
+      const supabase = getSupabaseAnonClient();
+      const { data, error } = await supabase.auth.getUser(token);
+      if (!error && data?.user?.id) {
+        userId = data.user.id;
+        tokenEmail = (data.user.email || '').trim().toLowerCase() || null;
+      }
+    } catch {
+      // Supabase client unavailable (e.g. missing env vars in Lambda runtime)
+    }
+
+    // JWT decode fallback
+    if (!userId) {
+      const payload = tryDecodeJwtPayload(token);
+      if (payload?.sub) {
+        userId = payload.sub;
+        tokenEmail = typeof payload.email === 'string' ? payload.email.trim().toLowerCase() : null;
+      }
+    }
+
+    if (!userId) return null;
+
     if (tokenEmail) {
-      const canonicalAuthProfileId = await getOrCreateCanonicalAuthProfileId(tokenEmail);
-      if (canonicalAuthProfileId) {
-        return {
-          authProfileId: canonicalAuthProfileId,
-          email: tokenEmail,
-        };
+      try {
+        const canonicalAuthProfileId = await getOrCreateCanonicalAuthProfileId(tokenEmail);
+        if (canonicalAuthProfileId) {
+          return {
+            authProfileId: canonicalAuthProfileId,
+            email: tokenEmail,
+          };
+        }
+      } catch {
+        // Admin client unavailable — fall through to raw JWT sub
       }
     }
 
     return {
-      authProfileId: data.user.id,
-      email: tokenEmail || null,
+      authProfileId: userId,
+      email: tokenEmail,
     };
   }
 

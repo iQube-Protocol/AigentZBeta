@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import CodexPanelDynamic from "../../../triad/components/CodexPanelDynamic";
 import { useCodexConfig, useCodexList } from "@/app/hooks/useCodexConfig";
 import type { CodexListItem } from "@/types/codex";
+import { CodexCopilotLayer } from "@/app/components/codex/CodexCopilotLayer";
 import {
   BookOpen,
+  Bot,
   Code,
   LayoutGrid,
   Link,
@@ -52,6 +54,25 @@ export default function CodexViewerPage() {
   const [activeSection, setActiveSection] = useState<ConfigSection>("codex");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [previewDevice, setPreviewDevice] = useState<PreviewDevice>("desktop");
+  const [copilotOpen, setCopilotOpen] = useState(false);
+
+  const isAigentiqCodex = codexId === "agentiq-codex";
+
+  const handleAigentZPrompt = useCallback(async (prompt: string): Promise<string> => {
+    try {
+      const res = await fetch("/api/codex/chat/aigentiq", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: prompt }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      return data.response || "I could not generate a response.";
+    } catch (err) {
+      console.error("[CodexViewer] Aigent Z chat error:", err);
+      return "I encountered an error querying the codex. Please try again.";
+    }
+  }, []);
 
   const { data: codexList } = useCodexList({ useDefaults: true });
   const { data: codexConfig } = useCodexConfig({ codexId, useDefaults: true });
@@ -293,6 +314,21 @@ export default function CodexViewerPage() {
             <span className="text-sm text-slate-400">Test and configure Codex embed components</span>
           </div>
           <div className="flex items-center gap-2">
+            {isAigentiqCodex && (
+              <button
+                type="button"
+                onClick={() => setCopilotOpen((prev) => !prev)}
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1 text-xs font-semibold transition-colors ${
+                  copilotOpen
+                    ? "border-blue-500/60 bg-blue-500/20 text-blue-200"
+                    : "border-slate-600/60 bg-slate-800/70 text-slate-300 hover:border-blue-500/40 hover:text-blue-300"
+                }`}
+                title="Toggle Aigent Z copilot"
+              >
+                <Bot className="h-3.5 w-3.5" />
+                Aigent Z
+              </button>
+            )}
             <Settings className="w-5 h-5 text-slate-400" />
             <div className="inline-flex items-center rounded-lg border border-slate-700/60 bg-slate-900/70 p-1">
               {(
@@ -398,7 +434,7 @@ export default function CodexViewerPage() {
         </div>
 
         {/* Component Preview */}
-        <div className="flex-1 overflow-auto bg-slate-900/40 p-4">
+        <div className="flex-1 overflow-auto bg-slate-900/40 p-4 relative">
           <div className={`mx-auto h-full max-w-full ${previewViewportClass}`}>
             <div
               className={`h-full overflow-hidden ${
@@ -416,6 +452,31 @@ export default function CodexViewerPage() {
               />
             </div>
           </div>
+
+          {/* Aigent Z copilot — only for AgentiQ Codex */}
+          {isAigentiqCodex && (
+            <CodexCopilotLayer
+              isOpen={copilotOpen}
+              onClose={() => setCopilotOpen(false)}
+              onOpen={() => setCopilotOpen(true)}
+              variant="floating"
+              onUserPrompt={handleAigentZPrompt}
+              density={density}
+              agent={{ id: "aigent-z", name: "Aigent Z" }}
+              personaId="aigent-z"
+              enableInferenceRendering
+              initialMessage="I'm Aigent Z — the engineering intelligence of the AgentiQ platform. Ask me about the architecture, codebase, deployment history, API routes, or any decision made during development."
+              quickPrompts={[
+                "What was built recently?",
+                "Explain the 4-layer architecture",
+                "What is x402?",
+                "Show me the API routes",
+                "What are the core architectural decisions?",
+                "How does the iQube identity hierarchy work?",
+              ]}
+              promptPlaceholder="Ask about the platform, commits, architecture..."
+            />
+          )}
         </div>
       </div>
     </div>

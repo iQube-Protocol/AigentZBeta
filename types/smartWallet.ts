@@ -270,7 +270,7 @@ export interface WalletTask {
   description?: string;
   
   /** Task type */
-  type: 'content' | 'quest' | 'reward' | 'verification' | 'social' | 'custom';
+  type: 'content' | 'quest' | 'reward' | 'verification' | 'social' | 'custom' | 'vote' | 'contribution' | 'correspondent';
   
   /** Current status */
   status: TaskStatus;
@@ -295,9 +295,39 @@ export interface WalletTask {
   
   /** Created date */
   createdAt: string;
-  
+
   /** Completed date */
   completedAt?: string;
+
+  // --- Vote-task fields (type === 'vote') ---
+
+  /** Election ID this vote task is tied to */
+  electionId?: string;
+
+  /** Candidates available to vote for */
+  voteCandidates?: Array<{ id: string; label: string }>;
+
+  /** Selected candidate(s) — populated by user before completion */
+  voteSelection?: string[];
+
+  // --- Contribution-task fields (type === 'contribution' | 'correspondent') ---
+
+  /** Contribution schema type (dispatch | theory | observation | etc.) */
+  contributionType?: string;
+
+  /** Branch target */
+  branchTarget?: 'canon' | 'community' | 'correspondent';
+
+  /** PoKW receipt ID after accepted */
+  pokwReceiptId?: string;
+}
+
+/** Payload for completing any wallet task (vote, contribution, etc.) */
+export interface CompleteTaskPayload {
+  taskId: string;
+  /** Signed proof string — for votes: JSON-serialised ballot; for contributions: submission ID */
+  proof?: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface QuestProgress {

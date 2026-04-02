@@ -155,6 +155,22 @@ export async function listPipelineRunEvents(runId: string): Promise<PipelineRunE
   }));
 }
 
+export async function listPipelineRuns(
+  tenantId: string,
+  limit = 10
+): Promise<PipelineRun[]> {
+  const supabase = requireSupabase();
+  const { data, error } = await supabase
+    .from(RUNS_TABLE)
+    .select("*")
+    .eq("tenant_id", tenantId)
+    .order("started_at", { ascending: false })
+    .limit(limit);
+
+  if (error) throw new Error(`Pipeline run list failed: ${error.message}`);
+  return (data ?? []).map((row) => rowToModel(row as RunRow));
+}
+
 export async function countPipelineRows(): Promise<{ runs: number; events: number }> {
   const supabase = getSupabaseServer();
   if (!supabase) return { runs: 0, events: 0 };

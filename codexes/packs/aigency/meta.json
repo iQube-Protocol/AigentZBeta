@@ -1,7 +1,7 @@
 {
   "pack_id": "pack_aigency_v0",
-  "title": "Aigency Codex",
-  "subtitle": "AgentiQ build brain: contracts, architecture, decisions, memory",
+  "title": "AgentiQ Codex",
+  "subtitle": "Aigent Z's knowledge base: architecture, decisions, memory, PR history, direct-push commits",
   "version": "0.1.0",
   "default_collection_id": "codex.home",
   "tags": ["agentiq", "aigent-z", "aigent-c", "aigency", "contracts", "architecture"],

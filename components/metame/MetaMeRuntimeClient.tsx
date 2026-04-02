@@ -806,7 +806,7 @@ function applyRuntimeCopilotFilter(
     .map((row) => row.content);
 }
 
-function selectCapsulesForDisplay(ranked: RuntimeCapsule[], limit = 6): RuntimeCapsule[] {
+function selectCapsulesForDisplay(ranked: RuntimeCapsule[], limit = 12): RuntimeCapsule[] {
   const unique = ranked.filter((content, index, array) => array.findIndex((item) => item.id === content.id) === index);
   const withAssets = unique.filter((content) => resolveCapsuleCoverImage(content).length > 0);
   const pool = withAssets.length > 0 ? withAssets : unique;
@@ -2211,7 +2211,7 @@ export default function MetaMeRuntimeClient() {
       const activeSet = await fetchRuntimeCapsules({ allowFallback: false });
       if (activeSet.length > 0) {
         setAllContents(activeSet);
-        setCapsuleContents(selectCapsulesForDisplay(activeSet, 6));
+        setCapsuleContents(selectCapsulesForDisplay(activeSet, 12));
       } else {
         setAllContents([]);
         setCapsuleContents([]);
@@ -2244,7 +2244,7 @@ export default function MetaMeRuntimeClient() {
     });
     setCapsuleContents((prev) => {
       const withoutQueryCapsule = prev.filter((item) => item.id !== queryPreviewDisplayCapsule.id);
-      return selectCapsulesForDisplay([queryPreviewDisplayCapsule, ...withoutQueryCapsule], 6);
+      return selectCapsulesForDisplay([queryPreviewDisplayCapsule, ...withoutQueryCapsule], 12);
     });
   }, [queryPreviewDisplayCapsule]);
 
@@ -2533,7 +2533,7 @@ export default function MetaMeRuntimeClient() {
               </div>
             ) : null}
 
-            {runtimeAdminMode ? (
+            {(embedMode || runtimeAdminMode) ? (
               <RuntimeCapsuleAdminEditor
                 content={content}
                 onComplete={(override) =>
@@ -3421,7 +3421,7 @@ export default function MetaMeRuntimeClient() {
       if (intent === "play") {
         runtimeFiltered = diversifyPlayCapsules(runtimeFiltered, selectedCapsuleLocal || null);
       }
-      let ranked = selectCapsulesForDisplay(runtimeFiltered, 6);
+      let ranked = selectCapsulesForDisplay(runtimeFiltered, 12);
       if (intent === "play") {
         ranked = diversifyPlayCapsules(ranked, selectedCapsuleLocal || null);
       }

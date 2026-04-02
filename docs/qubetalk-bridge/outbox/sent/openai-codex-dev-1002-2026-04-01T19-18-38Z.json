@@ -1,0 +1,55 @@
+{
+  "channel_id": "metame-runtime-thinclient",
+  "from_agent": {
+    "id": "openai-codex",
+    "label": "OpenAI Codex"
+  },
+  "thread": "dev-exec",
+  "type": "text",
+  "content": "[DEV-1002] DEV-1002 delivery packet",
+  "metadata": {
+    "type": "handoff",
+    "severity": "info",
+    "title": "DEV-1002 delivery packet",
+    "body": "Embedded AGENTS.md handoff for Claude apply.",
+    "control": {
+      "id": "codex-dev-1002-58d696a2",
+      "status": "done",
+      "assignee": "claude-code",
+      "depends_on": [
+        "relay-qubetalk-bridge"
+      ]
+    },
+    "refs": {
+      "repo": "AigentZBeta",
+      "paths": [
+        "AGENTS.md"
+      ],
+      "endpoints": [],
+      "env": [
+        "workspace-file-bridge"
+      ],
+      "branch": "work",
+      "commit": "58d696a262a5a8af5fff242906ff57e9341b0a2f",
+      "timestamp": "2026-04-01T19:18:38Z",
+      "deploy_ready": true,
+      "tests": [
+        "python3 scripts/qubetalk_bridge/list_pending.py"
+      ],
+      "embedded_file_count": 1,
+      "file_payloads": [
+        {
+          "path": "AGENTS.md",
+          "encoding": "utf-8",
+          "sha256": "957781b32cdf623d0ee588d05d4f34c5d9ba5586d8aeabbe4dc1666e4cc69148",
+          "size_bytes": 1219,
+          "content": "# AigentZBeta Agent Contract (Codex-focused)\n\n## Identity and hierarchy\n- Use naming: **Aigent Z**, not \"Agency\".\n- Runtime authority order: **metaMe guardian > Aigent Z orchestration > cartridge agents**.\n- Treat missing policy gates, missing receipts, missing CRM ladder instrumentation, and UI drift as defects.\n\n## Delivery rules\n- Reuse before rebuild.\n- No destructive actions without checkpoints/tests.\n- Never use production credentials, wallets, or live DBs.\n\n## QubeTalk bridge delivery pattern (required)\nWhen Codex completes a sprint/epic slice:\n\n1. Commit implementation artifacts.\n2. Create outbox packet with:\n   - `python3 scripts/qubetalk_bridge/create_packet.py --deploy-ready --paths <files> ...`\n3. Ask Lovable to run: **\"Relay QubeTalk bridge\"**.\n4. Claude runs: `python3 scripts/qubetalk_bridge/apply_packets.py`.\n5. Claude validates go/no-go and deploys from `origin/ev`.\n\n## Packet minimum contract\n- Include story key, status, assignee, tests, changed paths.\n- Include embedded file payloads for no-PR handoff.\n- Mark `deploy_ready=true` only when acceptance criteria are complete.\n\n## Output contract\nAlways leave:\n1. Files changed\n2. Validation run\n3. Remaining risks\n4. Suggested next tasks\n"
+        }
+      ]
+    },
+    "attestations": {
+      "authority": "openai_codex",
+      "signature": "openai_codex:"
+    }
+  }
+}

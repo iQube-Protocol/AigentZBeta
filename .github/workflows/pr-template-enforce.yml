@@ -26,3 +26,16 @@ jobs:
             echo "::error::Missing 'Existing Work Audit (REQUIRED)' section in PR body."
             exit 1
           fi
+          if ! echo "$PR_BODY" | grep -q "## AIGENTZ_DECISIONS"; then
+            echo "::error::Missing '## AIGENTZ_DECISIONS' section in PR body. Add it (or write 'N/A')."
+            exit 1
+          fi
+          if ! echo "$PR_BODY" | grep -q "## AIGENTZ_PROBLEMS"; then
+            echo "::error::Missing '## AIGENTZ_PROBLEMS' section in PR body. Add it (or write 'None encountered')."
+            exit 1
+          fi
+          if ! echo "$PR_BODY" | grep -q "## AIGENTZ_IMPACT"; then
+            echo "::error::Missing '## AIGENTZ_IMPACT' section in PR body."
+            exit 1
+          fi
+          echo "PR template checks passed."

@@ -34,6 +34,8 @@ import { MarketaTab } from "./tabs/MarketaTab";
 import { KnytTab } from "./tabs/KnytTab";
 import { MoneyPennyTab } from "./tabs/MoneyPennyTab";
 import { NakamotoTab } from "./tabs/NakamotoTab";
+import { ExperienceDashboardTab } from "./tabs/ExperienceDashboardTab";
+import { ArtifactTraceabilityTab } from "./tabs/ArtifactTraceabilityTab";
 
 interface TabRendererProps {
   tab: CodexTab;
@@ -64,6 +66,8 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   NakamotoTab,
   PlaceholderTab,
   MoneyPennyTab,
+  ExperienceDashboardTab,
+  ArtifactTraceabilityTab,
   RewardsTab: PlaceholderTab,
   DocsTab: PlaceholderTab,
   APITab: PlaceholderTab,

@@ -181,6 +181,84 @@ Post at session start and end at minimum. Post blockers and key decisions in rea
 
 ---
 
+## System Model — Aigent Z / Aigent C / metaMe
+
+The platform runs a dual-agent model with a sovereign guardian above:
+
+| Role | Agent | Responsibility |
+|------|-------|---------------|
+| System orchestrator | **Aigent Z** | Routes interactions, enforces policy, selects NBE |
+| Customer guide | **Aigent C** | Faces the user; executes NBE dispositions |
+| Sovereign guardian | **metaMe** | Final override authority; identity + data sovereignty |
+| Cartridge lead | per-cartridge | Domain logic within a cartridge boundary |
+
+### Routing priority chain
+1. metaMe guardian (policy veto)
+2. Active cartridge lead agent
+3. Aigent Z (system orchestrator)
+4. Aigent C (default handler)
+
+### Key contracts
+- **NBEPlan** — `disposition: ask | act | wait | escalate | deny` + `nextExperience` depth step
+- **StudioArtifact** — canonical handoff format for Studio → Codex → Runtime closed loop
+- **OrchestrationEvent** — every routing decision is persisted and receipt-eligible
+- **HandoffPayload** — typed interface for agent-to-agent handoffs (see `types/orchestration.ts`)
+
+### Journey stages
+`prospect → acolyte → keta → keji → first → zero` (+ investor / collector / creator variants)
+
+### Experience depth ladder (one step at a time)
+`L0 pill → L1 capsule → L2 mini_runtime → L3 codex`
+
+Full type definitions: `types/orchestration.ts`, `types/studioArtifact.ts`
+
+---
+
+## metaProof Agent Harness
+
+Canonical specs live in `docs/agent-harness/`. These are the single source of truth for all agents (Claude Code, Codex, Lovable):
+
+| File | Contents |
+|------|----------|
+| `docs/agent-harness/metaproof-core.md` | Role hierarchy, NBE contract, DVN receipt taxonomy, QubeTalk conventions |
+| `docs/agent-harness/aigent-z-aigent-c-contract.md` | Full role definitions, routing sequence, handoff rules |
+| `docs/agent-harness/journey-state-schema.md` | JourneyState, ExperienceModel/Matrix, NBEPlan interfaces + SQL |
+| `docs/agent-harness/studio-artifact-schema.md` | StudioArtifact schema, Codex↔Studio sync contract, rollback protocol |
+
+When asked to work on orchestration, KNYT laddering, or experience progression, read these files first.
+
+### DB migration for harness tables
+`supabase/migrations/20260402000000_experience_model_journey_state.sql` — creates:
+`experience_strategies`, `experience_models`, `experience_matrices`, `experience_goals`,
+`journey_states`, `nbe_plans`, `analysis_cards`, `orchestration_events`, `studio_artifacts`
+
+**This migration must be run in Supabase before the orchestration API is live.**
+
+---
+
+## Claude Code Sub-Agents
+
+Specialist agents are defined in `.claude/agents/`:
+
+| Agent file | When to invoke |
+|-----------|---------------|
+| `aigent-z-orchestrator.md` | Routing logic, NBE decisions, orchestration events |
+| `metame-guardian.md` | Policy checks — APPROVED / FLAG / BLOCK output |
+| `ui-parity-reviewer.md` | UI parity rules (4px grid, design tokens, radii) |
+| `security-reviewer.md` | Secrets, auth, injection, prod misuse |
+
+---
+
+## QubeTalk — Sandbox Limitation
+
+**Outbound HTTPS is blocked in the Claude Code sandbox.** The `qubetalk-claude.sh` script and all `curl` calls to external hosts fail with a 403 CONNECT tunnel error. This includes both sending and reading QubeTalk messages.
+
+The session Stop hook (`session-summary.sh`) attempts posting silently and suppresses errors — this is intentional and non-fatal.
+
+QubeTalk messages posted by other agents (Codex, Lovable) are visible through Supabase Studio or the deployed app UI, not from within this sandbox.
+
+---
+
 ## Adding to This File
 
 When a new rule, pattern, or constraint is established during development, add it here immediately.

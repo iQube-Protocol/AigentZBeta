@@ -47,14 +47,20 @@ export async function getAuthProfileIdByEmail(email: string): Promise<string | n
 }
 
 export async function getMergedLinkedAuthProfileIds(authProfileId: string): Promise<string[]> {
+  // Check both directions: profiles this one owns links TO, and profiles that link TO this one
   const { data, error } = await db
     .from('crm_auth_profile_links')
-    .select('linked_auth_profile_id')
-    .eq('owner_auth_profile_id', authProfileId)
+    .select('owner_auth_profile_id,linked_auth_profile_id')
+    .or(`owner_auth_profile_id.eq.${authProfileId},linked_auth_profile_id.eq.${authProfileId}`)
     .eq('active', true)
     .eq('relationship_mode', 'merged');
   if (error) throw error;
-  return Array.from(new Set((data || []).map((r: any) => String(r.linked_auth_profile_id))));
+  const ids = new Set<string>();
+  for (const r of data || []) {
+    if (r.owner_auth_profile_id !== authProfileId) ids.add(String(r.owner_auth_profile_id));
+    if (r.linked_auth_profile_id !== authProfileId) ids.add(String(r.linked_auth_profile_id));
+  }
+  return Array.from(ids);
 }
 
 export async function getPersonaPrefs(authProfileId: string) {
