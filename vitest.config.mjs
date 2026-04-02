@@ -9,7 +9,15 @@ export default defineConfig({
     environment: "node",
     globals: true,
     include: ["tests/**/*.test.ts"],
-    exclude: ["**/node_modules/**"],
+    exclude: [
+      "**/node_modules/**",
+      // Integration tests — require a running dev server or Supabase env vars
+      "tests/backend/api.test.ts",
+      "tests/lvb-agq-integration.test.ts",
+      "tests/partner-platform.test.ts",
+      "tests/fio-integration.test.ts",
+      "tests/crm-integration.test.ts",
+    ],
     testTimeout: 30000,
     hookTimeout: 30000,
   },
