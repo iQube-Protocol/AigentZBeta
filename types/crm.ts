@@ -558,9 +558,13 @@ export interface CrmReward {
   txHash?: string | null;
   chainId?: string | null;
   
+  // Approval
+  approvedBy?: string | null;
+  approvedAt?: string | null;
+
   // Notes
   notes?: string | null;
-  
+
   // Timestamps
   createdAt: string;
   updatedAt: string;
@@ -585,6 +589,8 @@ export interface UpdateRewardInput {
   txHash?: string;
   chainId?: string;
   notes?: string;
+  approvedBy?: string;
+  approvedAt?: string;
 }
 
 // ============================================================================

@@ -354,7 +354,7 @@ describe('CRM Reward Operations', () => {
     it('should filter rewards by token type', async () => {
       const qctRewards = await crmService.listRewards(TEST_TENANT_ID, {
         tokenType: 'QCT' as TokenType,
-        topN: 10,
+        limit: 10,
       });
 
       qctRewards.forEach(r => {
