@@ -305,6 +305,10 @@ export async function listPersonas(
   });
 }
 
+export async function getPersona(tenantId: TenantId, personaId: string): Promise<CrmPersona | null> {
+  return db.getPersona(tenantId, personaId);
+}
+
 /**
  * Create a new persona
  */
