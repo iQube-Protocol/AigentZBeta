@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, ExternalLink, ShieldCheck, ClipboardList, Receipt, Star, Plus } from "lucide-react";
+import { X, ExternalLink, ShieldCheck, ClipboardList, Receipt, Star, Plus, Play, Terminal, Loader2 } from "lucide-react";
 import { TrustPanel } from "./TrustPanel";
 import { ValidationPanel } from "./ValidationPanel";
 import type {
@@ -23,7 +23,7 @@ interface AssetDetailPanelProps {
   onClose: () => void;
 }
 
-type DetailTab = "overview" | "validation" | "trust" | "receipts" | "reviews";
+type DetailTab = "overview" | "validation" | "trust" | "receipts" | "reviews" | "invoke";
 
 export function AssetDetailPanel({ assetId, onClose }: AssetDetailPanelProps) {
   const [asset, setAsset] = useState<RegistryAsset | null>(null);
@@ -36,6 +36,11 @@ export function AssetDetailPanel({ assetId, onClose }: AssetDetailPanelProps) {
   const [validating, setValidating] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
+  // Invocation test
+  const [invokeInput, setInvokeInput] = useState("{}");
+  const [invokeResult, setInvokeResult] = useState<string | null>(null);
+  const [invoking, setInvoking] = useState(false);
+  const [invokeError, setInvokeError] = useState<string | null>(null);
   // Review creation
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [reviewNotes, setReviewNotes] = useState("");
@@ -161,7 +166,30 @@ export function AssetDetailPanel({ assetId, onClose }: AssetDetailPanelProps) {
     { id: "trust",      label: "Trust",      icon: <ShieldCheck className="h-3.5 w-3.5" /> },
     { id: "receipts",   label: "Receipts",   icon: <Receipt className="h-3.5 w-3.5" /> },
     { id: "reviews",    label: "Reviews",    icon: <Star className="h-3.5 w-3.5" /> },
+    { id: "invoke",     label: "Test Invoke", icon: <Terminal className="h-3.5 w-3.5" /> },
   ];
+
+  async function handleInvoke() {
+    setInvoking(true);
+    setInvokeError(null);
+    setInvokeResult(null);
+    try {
+      let input: Record<string, unknown> = {};
+      try { input = JSON.parse(invokeInput); } catch { /* use empty */ }
+      const res = await fetch(`/api/registry/assets/${assetId}/invoke`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ invokedBy: "studio-test", tenantId: asset?.tenantId ?? "default", input }),
+      });
+      const data = await res.json();
+      setInvokeResult(JSON.stringify(data, null, 2));
+      if (!data.ok) setInvokeError(data.error ?? "Invocation failed");
+    } catch (err) {
+      setInvokeError(String(err));
+    } finally {
+      setInvoking(false);
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-end bg-black/60 backdrop-blur-sm" onClick={onClose}>
@@ -464,6 +492,63 @@ export function AssetDetailPanel({ assetId, onClose }: AssetDetailPanelProps) {
                       )}
                     </div>
                   ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Invoke ─────────────────────────────────────────────────── */}
+          {activeTab === "invoke" && (
+            <div className="space-y-4">
+              <div className="text-xs text-slate-400">
+                Run a governed test invocation against this asset. Input is passed as JSON to the
+                invocation gateway — policy checks and trust caps apply.
+              </div>
+
+              {asset?.publicationStatus !== "published" && (
+                <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-xs text-amber-300">
+                  Asset is not published. Invocation will be gated — publish the asset first for
+                  full pipeline routing.
+                </div>
+              )}
+
+              <div>
+                <label className="text-[10px] uppercase tracking-widest text-slate-500 mb-1.5 block">
+                  Input JSON
+                </label>
+                <textarea
+                  value={invokeInput}
+                  onChange={(e) => setInvokeInput(e.target.value)}
+                  rows={6}
+                  spellCheck={false}
+                  className="w-full rounded-xl border border-white/10 bg-slate-900 px-3 py-2 text-xs text-slate-200 font-mono placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 resize-none"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={handleInvoke}
+                disabled={invoking}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-indigo-500/20 text-indigo-300 ring-1 ring-indigo-500/30 hover:bg-indigo-500/30 disabled:opacity-50 transition-colors"
+              >
+                {invoking ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
+                {invoking ? "Invoking…" : "Run Invocation"}
+              </button>
+
+              {invokeError && (
+                <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3 text-xs text-red-300 font-mono">
+                  {invokeError}
+                </div>
+              )}
+
+              {invokeResult && (
+                <div>
+                  <label className="text-[10px] uppercase tracking-widest text-slate-500 mb-1.5 block">
+                    Result
+                  </label>
+                  <pre className="w-full overflow-x-auto rounded-xl border border-white/10 bg-slate-900 px-3 py-3 text-[11px] text-slate-300 font-mono whitespace-pre-wrap">
+                    {invokeResult}
+                  </pre>
                 </div>
               )}
             </div>

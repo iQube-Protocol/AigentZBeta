@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Activity, AlertTriangle, BarChart, Book, BookOpen, Bot, CheckCircle2, ChevronDown, ChevronUp, Circle, Code, Edit, Eye, FileText, Hexagon, Layers, LayoutGrid, List, Loader2, Mic, MicOff, Monitor, MonitorIcon, Moon, Palette, Play, PlayCircle, RefreshCw, Share2, Shield, ShieldCheck, SlidersHorizontal, Smartphone, Sparkles, Sun, Target, Tablet, Trash2, Tv, Upload, Users, Volume2, Type } from "lucide-react";
+import { Activity, AlertTriangle, BarChart, Book, BookOpen, Bot, CheckCircle2, ChevronDown, ChevronUp, Circle, Code, Edit, Eye, FileText, Hexagon, Layers, LayoutGrid, List, Loader2, Mic, MicOff, Monitor, MonitorIcon, Moon, Palette, Play, PlayCircle, RefreshCw, Share2, Shield, ShieldCheck, SlidersHorizontal, Smartphone, Sparkles, Sun, Target, Tablet, Trash2, Tv, Upload, Users, Volume2, Type, X } from "lucide-react";
 import { useCopilotAction } from "@copilotkit/react-core";
 import { createShellMessage } from "@metame/iframe-bridge";
 import { Button } from "@/components/ui/button";
@@ -76,6 +76,7 @@ import {
   setPersonaGeneratedMediaPinned,
   updatePersonaGeneratedMediaRecord,
 } from "@/services/composer/generatedAssetClient";
+import { RegistryBrowserDrawer, type RegistryAssetSelection } from "@/components/registry/RegistryBrowserDrawer";
 
 type ComposerField = {
   id: string;
@@ -2422,6 +2423,8 @@ export const ComposerStudio = () => {
   const [runtimePreviewLoaded, setRuntimePreviewLoaded] = useState(false);
   const [runtimePreviewErrored, setRuntimePreviewErrored] = useState(false);
   const runtimePreviewIframeRef = useRef<HTMLIFrameElement | null>(null);
+  const [showRegistryBrowser, setShowRegistryBrowser] = useState(false);
+  const [registrySelections, setRegistrySelections] = useState<RegistryAssetSelection[]>([]);
   const [showMcpInspectorModal, setShowMcpInspectorModal] = useState(false);
   const [mcpExperience, setMcpExperience] = useState<ExperienceQube | null>(null);
   const [mcpTool, setMcpTool] = useState<
@@ -8151,11 +8154,40 @@ export const ComposerStudio = () => {
                       </div>
 
                       <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-                        <div className="text-sm font-semibold text-white">Experience resources</div>
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="text-sm font-semibold text-white">Experience resources</div>
+                          <button
+                            type="button"
+                            onClick={() => setShowRegistryBrowser(true)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-indigo-500/15 text-indigo-300 ring-1 ring-indigo-500/25 hover:bg-indigo-500/25 transition-colors"
+                          >
+                            <Layers className="h-3 w-3" />
+                            Browse Registry
+                          </button>
+                        </div>
                         <div className="mt-2 text-sm text-slate-400">
                           Registry-backed resources and template-configured dependencies will be collected here.
                         </div>
                         <div className="mt-3 space-y-2">
+                          {registrySelections.length > 0 && (
+                            <div className="space-y-1.5 mb-3">
+                              {registrySelections.map((sel) => (
+                                <div key={sel.assetId} className="flex items-center justify-between gap-2 rounded-lg border border-indigo-500/20 bg-indigo-500/5 px-3 py-2">
+                                  <div className="min-w-0">
+                                    <div className="text-xs font-medium text-slate-200 truncate">{sel.name}</div>
+                                    <div className="text-[10px] text-slate-500">{sel.assetClass} · {sel.trustBand.replace("_", " ")}</div>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => setRegistrySelections((prev) => prev.filter((s) => s.assetId !== sel.assetId))}
+                                    className="shrink-0 text-slate-500 hover:text-red-400 transition-colors"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                           {activeExperienceResourceSummary.resources.length > 0 ? (
                             activeExperienceResourceSummary.resources.map((item) => (
                               <div key={`${item.label}-${item.value}`} className="flex items-center justify-between gap-3 text-sm text-slate-200">
@@ -8163,7 +8195,7 @@ export const ComposerStudio = () => {
                                 <span className="text-right">{item.value}</span>
                               </div>
                             ))
-                          ) : (
+                          ) : registrySelections.length === 0 ? (
                             <div className="flex flex-wrap gap-2 text-[11px] text-slate-300">
                               <span className="rounded-full border border-slate-700 px-2 py-1">DataQubes</span>
                               <span className="rounded-full border border-slate-700 px-2 py-1">ToolQubes</span>
@@ -8171,7 +8203,7 @@ export const ComposerStudio = () => {
                               <span className="rounded-full border border-slate-700 px-2 py-1">BrowserQube</span>
                               <span className="rounded-full border border-slate-700 px-2 py-1">Voice stub</span>
                             </div>
-                          )}
+                          ) : null}
                         </div>
                       </div>
 
@@ -11720,6 +11752,20 @@ export const ComposerStudio = () => {
         </div>
       )}
       </div>
+
+      {/* Registry Browser Drawer */}
+      <RegistryBrowserDrawer
+        open={showRegistryBrowser}
+        onClose={() => setShowRegistryBrowser(false)}
+        selectedIds={registrySelections.map((s) => s.assetId)}
+        onSelect={(asset) => {
+          setRegistrySelections((prev) =>
+            prev.some((s) => s.assetId === asset.assetId)
+              ? prev.filter((s) => s.assetId !== asset.assetId)
+              : [...prev, asset]
+          );
+        }}
+      />
     </div>
   );
 };

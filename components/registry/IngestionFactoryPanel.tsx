@@ -1,15 +1,25 @@
 "use client";
 
-import { useState } from "react";
-import { Upload, GitBranch, Package2, Plug, FileText, Workflow, Loader2, ChevronRight } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { Upload, GitBranch, Package2, Plug, FileText, Workflow, Loader2, ChevronRight, SlidersHorizontal, X } from "lucide-react";
 import { AssetDetailPanel } from "./AssetDetailPanel";
 import type {
   IngestionSourceType,
   RegistryAssetSummary,
   TrustBand,
-  TRUST_BAND_LABELS,
+  RegistryAssetClass,
 } from "@/types/registryIngestion";
-import { TRUST_BAND_LABELS as TBL } from "@/types/registryIngestion";
+import { TRUST_BAND_LABELS as TBL, TRUST_BAND_ORDER } from "@/types/registryIngestion";
+
+const ASSET_CLASS_LABELS: Record<RegistryAssetClass, string> = {
+  ToolQube: "ToolQube",
+  SkillQube: "SkillQube",
+  WorkflowQube: "WorkflowQube",
+  ConnectorQube: "ConnectorQube",
+};
+
+const ASSET_STATUSES = ["pending", "fetched", "packaged", "validated", "published", "rejected"] as const;
+type AssetStatus = typeof ASSET_STATUSES[number];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Source type config
@@ -301,23 +311,44 @@ export function IngestionFactoryPanel() {
   const [loadingAssets, setLoadingAssets] = useState(false);
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [classFilter, setClassFilter] = useState<RegistryAssetClass | "">("");
+  const [bandFilter, setBandFilter] = useState<TrustBand | "">("");
+  const [statusFilter, setStatusFilter] = useState<AssetStatus | "">("");
+  const [showFilters, setShowFilters] = useState(false);
   const [activeSection, setActiveSection] = useState<"ingest" | "assets">("ingest");
 
-  async function loadAssets() {
+  const activeFilterCount = [classFilter, bandFilter, statusFilter].filter(Boolean).length;
+
+  const loadAssets = useCallback(async () => {
     setLoadingAssets(true);
     try {
-      const params = new URLSearchParams({ tenantId: "default", limit: "50" });
+      const params = new URLSearchParams({ limit: "100" });
       if (search) params.set("search", search);
+      if (classFilter) params.set("assetClass", classFilter);
+      if (bandFilter) params.set("trustBand", bandFilter);
+      if (statusFilter) params.set("status", statusFilter);
       const res = await fetch(`/api/registry/assets?${params}`).then((r) => r.json());
       if (res.ok) setAssets(res.data ?? []);
     } finally {
       setLoadingAssets(false);
     }
-  }
+  }, [search, classFilter, bandFilter, statusFilter]);
+
+  // Auto-reload when filters change
+  useEffect(() => {
+    if (activeSection === "assets") loadAssets();
+  }, [classFilter, bandFilter, statusFilter, activeSection, loadAssets]);
 
   function handleIngestionSuccess(assetId: string) {
     setActiveSection("assets");
     loadAssets().then(() => setSelectedAssetId(assetId));
+  }
+
+  function clearFilters() {
+    setClassFilter("");
+    setBandFilter("");
+    setStatusFilter("");
+    setSearch("");
   }
 
   return (
@@ -355,7 +386,8 @@ export function IngestionFactoryPanel() {
 
       {activeSection === "assets" && (
         <div className="space-y-3">
-          <div className="flex items-center gap-3">
+          {/* Search + filter bar */}
+          <div className="flex items-center gap-2">
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -370,7 +402,114 @@ export function IngestionFactoryPanel() {
             >
               Search
             </button>
+            <button
+              type="button"
+              onClick={() => setShowFilters((v) => !v)}
+              className={`relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm border transition-colors ${
+                showFilters || activeFilterCount > 0
+                  ? "border-indigo-500/40 bg-indigo-500/10 text-indigo-300"
+                  : "border-white/10 bg-white/5 text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+              {activeFilterCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-indigo-500 text-[9px] font-bold text-white">
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
           </div>
+
+          {/* Filter dropdowns */}
+          {showFilters && (
+            <div className="rounded-xl border border-white/10 bg-white/5 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] uppercase tracking-widest text-slate-500">Filters</span>
+                {activeFilterCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={clearFilters}
+                    className="flex items-center gap-1 text-[10px] text-slate-500 hover:text-slate-300 transition-colors"
+                  >
+                    <X className="h-3 w-3" /> Clear all
+                  </button>
+                )}
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="text-[10px] text-slate-500 mb-1 block">Asset Class</label>
+                  <select
+                    value={classFilter}
+                    onChange={(e) => setClassFilter(e.target.value as RegistryAssetClass | "")}
+                    className="w-full rounded-lg border border-white/10 bg-slate-900 px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+                  >
+                    <option value="">All classes</option>
+                    {(Object.keys(ASSET_CLASS_LABELS) as RegistryAssetClass[]).map((c) => (
+                      <option key={c} value={c}>{ASSET_CLASS_LABELS[c]}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] text-slate-500 mb-1 block">Trust Band</label>
+                  <select
+                    value={bandFilter}
+                    onChange={(e) => setBandFilter(e.target.value as TrustBand | "")}
+                    className="w-full rounded-lg border border-white/10 bg-slate-900 px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+                  >
+                    <option value="">All bands</option>
+                    {TRUST_BAND_ORDER.map((b) => (
+                      <option key={b} value={b}>{TBL[b]}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] text-slate-500 mb-1 block">Status</label>
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value as AssetStatus | "")}
+                    className="w-full rounded-lg border border-white/10 bg-slate-900 px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+                  >
+                    <option value="">All statuses</option>
+                    {ASSET_STATUSES.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Active filter chips */}
+          {activeFilterCount > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {classFilter && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-2 py-0.5 text-[10px] text-indigo-300">
+                  {ASSET_CLASS_LABELS[classFilter]}
+                  <button type="button" onClick={() => setClassFilter("")}><X className="h-2.5 w-2.5" /></button>
+                </span>
+              )}
+              {bandFilter && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-300">
+                  {TBL[bandFilter]}
+                  <button type="button" onClick={() => setBandFilter("")}><X className="h-2.5 w-2.5" /></button>
+                </span>
+              )}
+              {statusFilter && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-slate-500/30 bg-slate-500/10 px-2 py-0.5 text-[10px] text-slate-300">
+                  {statusFilter}
+                  <button type="button" onClick={() => setStatusFilter("")}><X className="h-2.5 w-2.5" /></button>
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Results count */}
+          {!loadingAssets && assets.length > 0 && (
+            <div className="text-[10px] text-slate-500">
+              {assets.length} asset{assets.length !== 1 ? "s" : ""}
+              {activeFilterCount > 0 ? " matching filters" : ""}
+            </div>
+          )}
 
           {loadingAssets ? (
             <div className="space-y-2 animate-pulse">
@@ -378,14 +517,11 @@ export function IngestionFactoryPanel() {
             </div>
           ) : assets.length === 0 ? (
             <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-8 text-center text-sm text-slate-400">
-              No assets yet.{" "}
-              <button
-                type="button"
-                onClick={() => setActiveSection("ingest")}
-                className="text-indigo-400 hover:text-indigo-300 underline"
-              >
-                Ingest your first asset
-              </button>
+              {activeFilterCount > 0 ? (
+                <>No assets match the current filters. <button type="button" onClick={clearFilters} className="text-indigo-400 hover:text-indigo-300 underline">Clear filters</button></>
+              ) : (
+                <>No assets yet. <button type="button" onClick={() => setActiveSection("ingest")} className="text-indigo-400 hover:text-indigo-300 underline">Ingest your first asset</button></>
+              )}
             </div>
           ) : (
             <div className="space-y-1.5">
