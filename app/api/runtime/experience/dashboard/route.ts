@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
   const tenantId = searchParams.get('tenantId') ?? null;
   const stageFilter = searchParams.get('stage') ?? null;
   const searchQuery = searchParams.get('search') ?? null;
-  const limit = Math.min(parseInt(searchParams.get('limit') ?? '100', 10), 500);
+  const limit = Math.min(parseInt(searchParams.get('limit') ?? '100', 10), 1000);
 
   function applyTenant<T extends ReturnType<typeof supabase.from>>(q: T): T {
     return (tenantId ? (q as any).eq('tenant_id', tenantId) : q) as T;
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
   if (view === 'franchise') {
     // Fetch all journey states (no limit) — only stage + depth needed
     const stagesQ = applyTenant(
-      supabase.from('journey_states').select('stage, depth')
+      supabase.from('journey_states').select('stage, depth').limit(10000)
     );
     const { data: stages } = await stagesQ;
 
@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
   if (view === 'cohort') {
     // Fetch all journey states for accurate aggregation (no limit)
     let statesQ = applyTenant(
-      supabase.from('journey_states').select('stage, depth, active_at')
+      supabase.from('journey_states').select('stage, depth, active_at').limit(10000)
     );
     if (stageFilter) statesQ = (statesQ as any).eq('stage', stageFilter);
     const { data: states } = await statesQ;

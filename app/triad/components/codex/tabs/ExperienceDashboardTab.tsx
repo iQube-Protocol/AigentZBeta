@@ -141,6 +141,11 @@ function arr(val: unknown): string[] { return Array.isArray(val) ? val.filter((v
 
 const STAGES = ["prospect", "acolyte", "keta", "keji", "first", "zero"];
 
+const TENANT_NAMES: Record<string, string> = {
+  nakamoto: "Nakamoto | KNYT",
+  "jmo-knyt": "JMO KNYT",
+};
+
 const STAGE_COLORS: Record<string, string> = {
   prospect: "border-slate-600 text-slate-400",
   acolyte: "border-blue-500/50 text-blue-300",
@@ -613,8 +618,8 @@ export function ExperienceDashboardTab({ personaId, tenantId, theme = "dark" }: 
                         <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3 flex items-center gap-1.5"><Users className="h-3.5 w-3.5" />Details</div>
                         <dl className="space-y-2 text-xs">
                           {[
-                            ["Persona ID", selectedIndividual.persona_id.slice(0, 8) + "…"],
-                            ["Tenant", persona?.tenantId ?? "nakamoto"],
+                            ["Persona ID", selectedIndividual.crm?.fio_handle || selectedIndividual.persona_id.slice(0, 8) + "…"],
+                            ["Tenant", TENANT_NAMES[persona?.tenantId ?? tenantId ?? ""] ?? persona?.tenantId ?? tenantId ?? "—"],
                             ["Created", persona?.createdAt ? new Date(persona.createdAt).toLocaleDateString() : selectedIndividual.crm?.created_at ? new Date(selectedIndividual.crm.created_at).toLocaleDateString() : "—"],
                             ["Last Updated", persona?.updatedAt ? new Date(persona.updatedAt).toLocaleDateString() : "—"],
                             ["Stage", selectedIndividual.stage],
