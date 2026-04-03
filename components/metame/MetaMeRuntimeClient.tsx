@@ -2950,13 +2950,17 @@ export default function MetaMeRuntimeClient() {
   // After an experience auto-launches in embed mode, CopilotKit scrolls to the bottom
   // (showing the thumbnail carousel). Override by scrolling the capsule panel back into
   // view at the top after a short delay so the hero/context area is shown first.
+  // Also re-run when capsuleContents changes: fetchRuntimeData updates the carousel which
+  // triggers scrollChatToBottom, pushing the article/media panel off-screen. Re-scrolling
+  // to [data-embed-panel] ensures the article remains visible in embed/Studio preview mode.
   useEffect(() => {
     if (!embedMode || !queryPreviewDisplayCapsule) return;
     const t = setTimeout(() => {
       document.querySelector("[data-embed-panel]")?.scrollIntoView({ block: "start", behavior: "instant" });
     }, 150);
     return () => clearTimeout(t);
-  }, [embedMode, queryPreviewDisplayCapsule?.id]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [embedMode, queryPreviewDisplayCapsule?.id, capsuleContents]);
 
   // When queryPreviewDisplayCapsule changes due to runtimeExperienceOverrides (same id, updated
   // article draft), refresh the already-launched message panel in the shell in-place.
