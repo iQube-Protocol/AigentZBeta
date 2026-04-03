@@ -2411,6 +2411,10 @@ export const ComposerStudio = () => {
   const [templateIntent, setTemplateIntent] = useState<"micro-episode" | "article" | "tutorial" | "task" | null>(null);
   const [templateQuery, setTemplateQuery] = useState("");
   const [selectedExperienceId, setSelectedExperienceId] = useState<string | null>(null);
+  // Full experience fetched from the single-experience endpoint when selectedExperienceId changes.
+  // The experience list API strips large metadata fields (eb87e0e6) so bundle assets, generated_assets,
+  // etc. are not available in `experiences`. This state holds the complete record for the preview.
+  const [fullPreviewExperience, setFullPreviewExperience] = useState<ExperienceQube | null>(null);
   const [previewDevice, setPreviewDevice] = useState<DeviceType>("mobile");
   const [previewAction, setPreviewAction] = useState<string | null>(null);
   const [previewNonce, setPreviewNonce] = useState(0);
@@ -2975,8 +2979,10 @@ export const ComposerStudio = () => {
 
   const previewExperience = useMemo(() => {
     if (!selectedExperienceId) return experience;
+    // Prefer the full experience (fetched with complete metadata) over the stripped list entry.
+    if (fullPreviewExperience?.id === selectedExperienceId) return fullPreviewExperience;
     return experiences.find((exp) => exp.id === selectedExperienceId) || experience;
-  }, [selectedExperienceId, experiences, experience]);
+  }, [selectedExperienceId, fullPreviewExperience, experiences, experience]);
   const activeExperienceForEditing = useMemo(
     () => previewExperience || selectedExperience || experience || null,
     [experience, previewExperience, selectedExperience]
@@ -3444,6 +3450,39 @@ export const ComposerStudio = () => {
       active = false;
     };
   }, [tenantId]);
+
+  // Fetch the full experience record (with complete metadata) whenever selectedExperienceId changes.
+  // The list response strips bundle assets and generated_assets to avoid 413 errors, so we need
+  // a single-record fetch to populate the delivery profile and preview correctly.
+  useEffect(() => {
+    if (!selectedExperienceId) {
+      setFullPreviewExperience(null);
+      return;
+    }
+    // If the in-memory experience state already has full metadata for this id, use it directly.
+    if (experience?.id === selectedExperienceId && experience.metadata && Object.keys(experience.metadata).length > 5) {
+      setFullPreviewExperience(experience);
+      return;
+    }
+    let active = true;
+    const fetchFull = async () => {
+      try {
+        const res = await fetch(`/api/composer/experiences/${encodeURIComponent(selectedExperienceId)}`, {
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        const full = data.experience_qube as ExperienceQube | undefined;
+        if (active && full?.id === selectedExperienceId) {
+          setFullPreviewExperience(full);
+        }
+      } catch {
+        // Non-fatal: fall back to stripped list entry
+      }
+    };
+    void fetchFull();
+    return () => { active = false; };
+  }, [selectedExperienceId, experience]);
 
   const filteredTemplates = useMemo(() => {
     const query = templateQuery.trim().toLowerCase();
