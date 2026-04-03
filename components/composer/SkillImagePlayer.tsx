@@ -11,6 +11,7 @@ import {
   getExperienceProviderLabel,
 } from "@/components/composer/ExperienceBlockChrome";
 import { persistGeneratedAssetsForExperience } from "@/services/composer/generatedAssetClient";
+import { ExperienceContextSidebar } from "@/components/composer/ExperienceContextSidebar";
 
 interface SkillImagePlayerProps {
   provider_id?: "openai" | "venice";
@@ -22,6 +23,8 @@ interface SkillImagePlayerProps {
   autoInvoke?: boolean;
   initial_images?: GeneratedImage[];
   initial_receipt?: Record<string, unknown>;
+  packet?: Record<string, any>;
+  experience?: { configuration?: Record<string, any>; metadata?: Record<string, any> };
 }
 
 interface GeneratedImage {
@@ -138,6 +141,8 @@ export default function SkillImagePlayer({
   autoInvoke = false,
   initial_images,
   initial_receipt,
+  packet,
+  experience,
 }: SkillImagePlayerProps) {
   const searchParams = useSearchParams();
   const hasInitialImages = Array.isArray(initial_images) && initial_images.some((image) => Boolean(image?.image_url));
@@ -319,7 +324,10 @@ export default function SkillImagePlayer({
       .catch(() => undefined);
   }, [experience_id, persona_id, persistedGenerationKey, result, state]);
 
+  const hasSidebar = Boolean(experience || packet);
+
   return (
+    <div className={hasSidebar ? "grid gap-6 lg:grid-cols-[2fr_1fr]" : undefined}>
     <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60">
       <ExperienceBlockHeader
         kind="image"
@@ -488,6 +496,10 @@ export default function SkillImagePlayer({
           </div>
         )}
       </div>
+    </div>
+    {hasSidebar && (
+      <ExperienceContextSidebar experience={experience} packet={packet} theme="dark" />
+    )}
     </div>
   );
 }

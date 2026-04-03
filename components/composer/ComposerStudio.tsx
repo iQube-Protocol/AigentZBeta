@@ -7041,7 +7041,7 @@ export const ComposerStudio = () => {
       };
     }
     return {
-      title: "Planning & Planning & Parity Review",
+      title: "Planning & Parity Review",
       icon: <Shield className="h-4 w-4 text-fuchsia-300" />,
       description: "Review design parity, policy fit, and runtime readiness before launch.",
     };
@@ -10468,8 +10468,125 @@ export const ComposerStudio = () => {
                           )}
                         </div>
                       )}
+                      {/* ── Studio Skills ─────────────────────────────────── */}
+                      <div className="space-y-1.5">
+                        <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Studio Skills</span>
+                        {[
+                          {
+                            id: "skill:image_openai",
+                            name: "Image Generation — OpenAI",
+                            description: "Generate portrait and landscape hero imagery via OpenAI DALL·E / gpt-image-1.",
+                            badge: "A",
+                            trustBand: "L3",
+                            assetClass: "SkillQube",
+                            tags: ["image", "openai", "editorial"],
+                          },
+                          {
+                            id: "skill:image_venice",
+                            name: "Image Generation — Venice",
+                            description: "Generate portrait and landscape imagery via Venice AI (venice-sd35, flux-2-pro).",
+                            badge: "A",
+                            trustBand: "L3",
+                            assetClass: "SkillQube",
+                            tags: ["image", "venice", "editorial"],
+                          },
+                          {
+                            id: "skill:video_sora_curated",
+                            name: "Video Generation — Sora (Curated)",
+                            description: "First-party curated OpenAI Sora video generation. Badge A, trust composite 79.",
+                            badge: "A",
+                            trustBand: "L4",
+                            assetClass: "SkillQube",
+                            tags: ["video", "sora", "openai", "curated"],
+                          },
+                          {
+                            id: "skill:video_venice",
+                            name: "Video Generation — Venice",
+                            description: "Venice AI video generation skill. Badge A, trust composite 82.",
+                            badge: "A",
+                            trustBand: "L4",
+                            assetClass: "SkillQube",
+                            tags: ["video", "venice"],
+                          },
+                          {
+                            id: "skill:video_sora_community",
+                            name: "Video Generation — Sora (Community)",
+                            description: "Community-sourced Sora video generation. Badge C, trust composite 52.",
+                            badge: "C",
+                            trustBand: "L2",
+                            assetClass: "SkillQube",
+                            tags: ["video", "sora", "community"],
+                          },
+                          {
+                            id: "skill:article_generation",
+                            name: "Article / Story Generation",
+                            description: "AI-authored editorial article and story drafts with takeaways, glossary, and sections.",
+                            badge: "A",
+                            trustBand: "L3",
+                            assetClass: "SkillQube",
+                            tags: ["article", "editorial", "copy"],
+                          },
+                        ].map((skill) => (
+                          <div key={skill.id} className="flex items-start justify-between gap-2 rounded-lg border border-slate-700/50 bg-slate-900/60 px-3 py-2">
+                            <div className="min-w-0">
+                              <p className="truncate text-[11px] font-medium text-slate-200">{skill.name}</p>
+                              <p className="mt-0.5 text-[10px] text-slate-500 line-clamp-2">{skill.description}</p>
+                              <div className="mt-1 flex flex-wrap gap-1">
+                                {skill.tags.map((t) => (
+                                  <span key={t} className="rounded-full bg-slate-800 px-1.5 py-0.5 text-[9px] text-slate-400">{t}</span>
+                                ))}
+                              </div>
+                            </div>
+                            <div className="flex shrink-0 flex-col items-end gap-1">
+                              <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${skill.badge === "A" ? "bg-emerald-500/20 text-emerald-300" : "bg-amber-500/20 text-amber-300"}`}>{skill.badge}</span>
+                              <span className="rounded-full border border-indigo-400/30 bg-indigo-500/10 px-1.5 py-0.5 text-[9px] text-indigo-300">{skill.trustBand}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* ── Studio Bundles ────────────────────────────────── */}
+                      <div className="space-y-1.5">
+                        <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Studio Bundles</span>
+                        {[
+                          {
+                            id: "workflow:image_article_bundle",
+                            name: "Image + Article Bundle",
+                            description: "Lock hero imagery first, then layer editorial copy. Deploys as an article experience with visual context.",
+                            assetClass: "WorkflowQube",
+                            engine: "inline",
+                            blocks: ["image_generation", "article_draft", "deployment"],
+                          },
+                          {
+                            id: "workflow:video_article_bundle",
+                            name: "Video + Article Bundle",
+                            description: "Motion-led generation with editorial support for Make-oriented watch experiences.",
+                            assetClass: "WorkflowQube",
+                            engine: "inline",
+                            blocks: ["video_generation", "article_draft", "deployment"],
+                          },
+                        ].map((bundle) => (
+                          <div key={bundle.id} className="flex items-start justify-between gap-2 rounded-lg border border-violet-500/20 bg-violet-950/20 px-3 py-2">
+                            <div className="min-w-0">
+                              <p className="truncate text-[11px] font-medium text-slate-200">{bundle.name}</p>
+                              <p className="mt-0.5 text-[10px] text-slate-500 line-clamp-2">{bundle.description}</p>
+                              <div className="mt-1 flex flex-wrap gap-1">
+                                {bundle.blocks.map((b) => (
+                                  <span key={b} className="rounded-full bg-violet-900/40 px-1.5 py-0.5 text-[9px] text-violet-300">{b.replace("_", " ")}</span>
+                                ))}
+                              </div>
+                            </div>
+                            <div className="flex shrink-0 flex-col items-end gap-1">
+                              <span className="rounded-full border border-violet-400/30 bg-violet-500/10 px-2 py-0.5 text-[10px] text-violet-300">workflow</span>
+                              <span className="text-[9px] text-slate-500">{bundle.engine}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* ── Make Workflows ────────────────────────────────── */}
                       <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Workflow Definitions</span>
+                        <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Make Workflow Definitions</span>
                         <div className="flex items-center gap-1.5">
                           <button
                             type="button"
