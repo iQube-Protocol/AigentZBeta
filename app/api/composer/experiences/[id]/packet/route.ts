@@ -107,11 +107,26 @@ function isSkillBacked(experience: any): boolean {
 
 function hasImageGeneration(experience: any): boolean {
   const config = experience.configuration || {};
+  const metadata = experience.metadata || {};
   const imageGeneration = config.image_generation || {};
-  return Boolean(
+
+  // Explicit prompts configured
+  if (
     (typeof imageGeneration.portrait_prompt === "string" && imageGeneration.portrait_prompt.trim()) ||
-      (typeof imageGeneration.landscape_prompt === "string" && imageGeneration.landscape_prompt.trim())
-  );
+    (typeof imageGeneration.landscape_prompt === "string" && imageGeneration.landscape_prompt.trim())
+  ) {
+    return true;
+  }
+
+  // Images already generated and saved (prompts may have been cleared after generation)
+  const generatedAssets = Array.isArray(metadata.generated_assets) ? metadata.generated_assets : [];
+  if (generatedAssets.some((asset: any) => isImageAsset(asset) && Boolean(getAssetUrl(asset)))) {
+    return true;
+  }
+
+  // Accepted bundle image output (from video_article_bundle or image bundle presets)
+  const bundleImageAssets = getBundleImageAssets(experience);
+  return bundleImageAssets.length > 0;
 }
 
 function getVideoSkillSubhead(skillId: string) {
