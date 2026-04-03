@@ -262,6 +262,7 @@ export const KNYT_CODEX: CodexConfig = {
       label: 'Experience',
       slug: 'experience-dashboard',
       enabled: true,
+      adminOnly: true,   // Sensitive admin data — hidden from all non-admin users
       order: 8,
       type: 'static',
       config: {

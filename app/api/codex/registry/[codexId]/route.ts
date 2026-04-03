@@ -69,6 +69,33 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       if (isKnytCodex && !allowOverrides) {
         const knytDefaults = getCodexById(codexId);
         if (knytDefaults) {
+          // Merge DB tab enabled states so Codex Manager visibility toggles are respected.
+          // Falls back to the static default if the DB is unavailable or has no tab rows.
+          try {
+            const supabase = createServerClient();
+            const { data: dbTabs } = await supabase
+              .from('codex_tabs')
+              .select('slug, enabled')
+              .eq('codex_id', codexId);
+
+            if (dbTabs && dbTabs.length > 0) {
+              const enabledBySlug = Object.fromEntries(dbTabs.map((t) => [t.slug, t.enabled]));
+              const mergedCodex: CodexConfig = {
+                ...knytDefaults,
+                tabs: knytDefaults.tabs.map((tab) => ({
+                  ...tab,
+                  enabled: tab.slug in enabledBySlug ? enabledBySlug[tab.slug] : tab.enabled,
+                })),
+              };
+              return NextResponse.json<CodexRegistryResponse<CodexConfig>>({
+                success: true,
+                data: withKnytStaticTabs(mergedCodex),
+              });
+            }
+          } catch {
+            // DB unavailable — fall through to static defaults below
+          }
+
           return NextResponse.json<CodexRegistryResponse<CodexConfig>>({
             success: true,
             data: withKnytStaticTabs(knytDefaults),
