@@ -535,7 +535,7 @@ export interface UpdateEntitlementInput {
 // ============================================================================
 
 export type TokenType = 'QCT' | 'QOYN' | 'KNYT';
-export type RewardStatus = 'draft' | 'approved' | 'paid' | 'cancelled';
+export type RewardStatus = 'draft' | 'proposed' | 'approved' | 'paid' | 'cancelled';
 
 export interface CrmReward {
   id: string;

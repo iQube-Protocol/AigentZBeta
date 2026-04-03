@@ -3024,7 +3024,13 @@ export const ComposerStudio = () => {
         ? asRecord((metadata as Record<string, unknown>).editable_generation)
         : null;
     const editableArticleDraft = editableGeneration ? asRecord(editableGeneration.article_draft) : null;
-    const generated = articleDraft?.generated ?? editableArticleDraft?.generated;
+    // Also check bundle block outputs — for bundle-based experiences the article
+    // lives in composition_bundle_state.block_outputs.article_draft, not config.
+    const bundleArticle = asRecord(resolveExperienceBundleBlockOutputs(previewExperience).article_draft);
+    const generated =
+      articleDraft?.generated ??
+      editableArticleDraft?.generated ??
+      bundleArticle?.generated;
     return generated && typeof generated === "object" && !Array.isArray(generated)
       ? JSON.stringify(generated)
       : null;
@@ -3041,7 +3047,11 @@ export const ComposerStudio = () => {
         ? asRecord((metadata as Record<string, unknown>).editable_generation)
         : null;
     const editableArticleDraft = editableGeneration ? asRecord(editableGeneration.article_draft) : null;
-    const generated = articleDraft?.generated ?? editableArticleDraft?.generated;
+    const bundleArticle = asRecord(resolveExperienceBundleBlockOutputs(exp).article_draft);
+    const generated =
+      articleDraft?.generated ??
+      editableArticleDraft?.generated ??
+      bundleArticle?.generated;
     return generated && typeof generated === "object" && !Array.isArray(generated)
       ? JSON.stringify(generated)
       : null;
@@ -6732,9 +6742,9 @@ export const ComposerStudio = () => {
             : experiencePanelTab === "resources"
               ? "Resources"
               : studioAnalysisTab === "surfaces"
-                ? "Planning & Parity Review"
+                ? "Parity Review"
                 : studioAnalysisTab === "receipts"
-                  ? "Planning & Parity Review"
+                  ? "Parity Review"
                   : "Experiences";
       const inferredMediaMode =
         /(video|trailer|clip|motion|sora|venice)/.test(lower)
