@@ -20,15 +20,31 @@ import { Button } from "@/components/ui/button";
 import {
   Activity,
   BarChart3,
+  Briefcase,
+  ChevronDown,
   ChevronRight,
+  ChevronUp,
+  Coins,
   Eye,
+  FileText,
+  Gift,
   Globe,
+  Hash,
   Layers,
+  Linkedin,
+  Mail,
+  MapPin,
+  MessageCircle,
+  Phone,
   RefreshCw,
   Search,
   ShieldCheck,
+  Star,
   TrendingUp,
+  Twitter,
   Users,
+  Wallet,
+  Youtube,
   Zap,
 } from "lucide-react";
 import { Dots } from "@/components/registry/scoreUtils";
@@ -66,9 +82,34 @@ type PersonaCRM = {
 type NakamotoData = {
   knytPersona: Record<string, any> | null;
   blakQube: Record<string, any> | null;
-  interactions: any[];
-  rewardRecord: Record<string, any> | null;
+  interactions: { id: string; query: string; response: string; interaction_type: string; created_at: string }[];
+  rewardRecord: {
+    linkedin_connected: boolean;
+    metamask_connected: boolean;
+    data_completed: boolean;
+    reward_claimed: boolean;
+    reward_amount: number;
+    created_at: string;
+  } | null;
 };
+
+type CrmPersonaDetail = {
+  id: string;
+  tenantId: string;
+  displayName: string;
+  email?: string;
+  personaState: string;
+  reputationBucket?: string;
+  primaryWalletAddress?: string;
+  totalPokw: number;
+  contributionCount: number;
+  rewardCount: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type Contribution = { id: string; contributionType: string; units: number; pokwScore: number; source: string; createdAt: string };
+type Reward = { id: string; tokenType: string; amount: number; status: string; createdAt: string };
 
 type Individual = {
   persona_id: string;
@@ -95,7 +136,15 @@ type NBEData = {
   strategies: { id: string; name: string; target_segments: string[] }[];
 };
 
+function str(val: unknown): string { return typeof val === "string" ? val : ""; }
+function arr(val: unknown): string[] { return Array.isArray(val) ? val.filter((v): v is string => typeof v === "string") : []; }
+
 const STAGES = ["prospect", "acolyte", "keta", "keji", "first", "zero"];
+
+const TENANT_NAMES: Record<string, string> = {
+  nakamoto: "Nakamoto | KNYT",
+  "jmo-knyt": "JMO KNYT",
+};
 
 const STAGE_COLORS: Record<string, string> = {
   prospect: "border-slate-600 text-slate-400",
@@ -128,7 +177,12 @@ export function ExperienceDashboardTab({ personaId, tenantId, theme = "dark" }: 
   const [individuals, setIndividuals] = useState<Individual[]>([]);
   const [selectedIndividual, setSelectedIndividual] = useState<Individual | null>(null);
   const [nakamotoData, setNakamotoData] = useState<NakamotoData | null>(null);
+  const [crmPersonaDetail, setCrmPersonaDetail] = useState<CrmPersonaDetail | null>(null);
+  const [contributions, setContributions] = useState<Contribution[]>([]);
+  const [rewards, setRewards] = useState<Reward[]>([]);
   const [nakamotoLoading, setNakamotoLoading] = useState(false);
+  const [indCrmTab, setIndCrmTab] = useState<"overview" | "investment" | "contributions" | "rewards" | "activity">("overview");
+  const [expandedInteraction, setExpandedInteraction] = useState<string | null>(null);
   const [indStageFilter, setIndStageFilter] = useState<string>("all");
   const [indSearch, setIndSearch] = useState<string>("");
   const [nbeData, setNbeData] = useState<NBEData | null>(null);
@@ -171,9 +225,15 @@ export function ExperienceDashboardTab({ personaId, tenantId, theme = "dark" }: 
     try {
       const res = await fetch(`/api/runtime/experience/seed/${tenantId}`, { method: "POST" });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Sync failed");
+      if (!res.ok || res.status === 207) {
+        const errMsg = data.error ?? (data.errors ? data.errors.join("; ") : "Sync failed");
+        const hint = data.hint ? ` — ${data.hint}` : "";
+        throw new Error(`${errMsg}${hint}`);
+      }
       setSyncResult(`Synced ${data.seeded} personas (${data.skipped ?? 0} unchanged)`);
-      void fetchView(currentView);
+      // Refresh franchise + current view so totals update regardless of active tab
+      void fetchView("franchise");
+      if (currentView !== "franchise") void fetchView(currentView);
     } catch (e: any) {
       setSyncResult(`Sync error: ${e.message}`);
     } finally {
@@ -181,16 +241,33 @@ export function ExperienceDashboardTab({ personaId, tenantId, theme = "dark" }: 
     }
   }, [tenantId, fetchView]);
 
-  // Fetch nakamoto CRM data when an individual is selected
+  // Fetch full CRM data when an individual is selected
   useEffect(() => {
-    if (!selectedIndividual) { setNakamotoData(null); return; }
+    if (!selectedIndividual) {
+      setNakamotoData(null);
+      setCrmPersonaDetail(null);
+      setContributions([]);
+      setRewards([]);
+      setIndCrmTab("overview");
+      return;
+    }
     setNakamotoLoading(true);
-    fetch(`/api/crm/personas/${selectedIndividual.persona_id}/nakamoto`)
-      .then((r) => r.json())
-      .then((d) => setNakamotoData(d.data ?? null))
-      .catch(() => setNakamotoData(null))
+    const tid = tenantId ?? "nakamoto";
+    Promise.all([
+      fetch(`/api/crm/personas/${selectedIndividual.persona_id}/nakamoto`).then((r) => r.json()),
+      fetch(`/api/crm/personas?tenantId=${tid}&personaId=${selectedIndividual.persona_id}&source=live`).then((r) => r.json()),
+      fetch(`/api/crm/contributions?tenantId=${tid}&personaId=${selectedIndividual.persona_id}&limit=10`).then((r) => r.json()),
+      fetch(`/api/crm/rewards?tenantId=${tid}&personaId=${selectedIndividual.persona_id}&limit=10`).then((r) => r.json()),
+    ])
+      .then(([nakRes, personaRes, contribRes, rewardsRes]) => {
+        setNakamotoData(nakRes?.data ?? null);
+        setCrmPersonaDetail(personaRes?.data ?? personaRes ?? null);
+        setContributions(contribRes?.data ?? contribRes?.contributions ?? []);
+        setRewards(rewardsRes?.data ?? rewardsRes?.rewards ?? []);
+      })
+      .catch(() => {})
       .finally(() => setNakamotoLoading(false));
-  }, [selectedIndividual]);
+  }, [selectedIndividual, tenantId]);
 
   useEffect(() => {
     if (activeView === "reactivation" || activeView === "guardian") {
@@ -423,184 +500,327 @@ export function ExperienceDashboardTab({ personaId, tenantId, theme = "dark" }: 
         {/* COD-304 — Individual view */}
         <TabsContent value="individual">
           <div className="space-y-3">
-            {selectedIndividual ? (
-              <div className={base}>
+            {selectedIndividual ? (() => {
+              const kp = nakamotoData?.knytPersona;
+              const bq = nakamotoData?.blakQube;
+              const displayName = str(crmPersonaDetail?.displayName) || str(kp?.['First-Name'] ?? '') + (str(kp?.['Last-Name']) ? ' ' + str(kp?.['Last-Name']) : '') || selectedIndividual.crm?.display_name || selectedIndividual.persona_id.slice(0, 8) + '…';
+              const phone = str(kp?.['Phone-Number']) || str(bq?.['Phone-Number']);
+              const evmKey = str(kp?.['EVM-Public-Key']) || str(bq?.['EVM-Public-Key']);
+              const btcKey = str(kp?.['BTC-Public-Key']) || str(bq?.['BTC-Public-Key']);
+              const tokensOfInterest = arr(kp?.['Tokens-of-Interest']).length ? arr(kp?.['Tokens-of-Interest']) : arr(bq?.['Tokens-of-Interest']);
+              const web3Interests = arr(kp?.['Web3-Interests']).length ? arr(kp?.['Web3-Interests']) : arr(bq?.['Web3-Interests']);
+              const twitter = str(kp?.['Twitter-Handle']) || str(bq?.['Twitter-Handle']);
+              const linkedin = str(kp?.['LinkedIn-ID']) || str(bq?.['LinkedIn-ID']);
+              const linkedinUrl = str(kp?.['LinkedIn-Profile-URL']) || str(bq?.['LinkedIn-Profile-URL']);
+              const telegram = str(kp?.['Telegram-Handle']) || str(bq?.['Telegram-Handle']);
+              const discord = str(kp?.['Discord-Handle']) || str(bq?.['Discord-Handle']);
+              const omSince = str(kp?.['OM-Member-Since']);
+              const omTier = str(kp?.['OM-Tier-Status']);
+              const totalInvested = str(kp?.['Total-Invested']);
+              const metaiyeShares = str(kp?.['Metaiye-Shares-Owned']);
+              const knytCoyn = str(kp?.['KNYT-COYN-Owned']);
+              const motionComics = str(kp?.['Motion-Comics-Owned']);
+              const paperComics = str(kp?.['Paper-Comics-Owned']);
+              const digitalComics = str(kp?.['Digital-Comics-Owned']);
+              const knytPosters = str(kp?.['KNYT-Posters-Owned']);
+              const knytCards = str(kp?.['KNYT-Cards-Owned']);
+              const characters = str(kp?.['Characters-Owned']);
+              const knytId = str(kp?.['KNYT-ID']) || str(bq?.['KNYT-ID']);
+              const profession = str(kp?.['Profession']) || str(bq?.['Profession']);
+              const city = str(kp?.['Local-City']) || str(bq?.['Local-City']);
+              const email = str(kp?.['Email']) || str(crmPersonaDetail?.email);
+              const hasInvestment = !!(totalInvested || omTier || metaiyeShares || knytCoyn || motionComics || paperComics || digitalComics || knytPosters || knytCards || characters);
+              const hasSocial = !!(twitter || linkedin || telegram || discord);
+              const hasWeb3 = !!(evmKey || btcKey || tokensOfInterest.length || web3Interests.length);
+              const crmTabs: { id: typeof indCrmTab; label: string }[] = [
+                { id: 'overview', label: 'Overview' },
+                ...(hasInvestment ? [{ id: 'investment' as const, label: 'Investment & Assets' }] : []),
+                { id: 'contributions', label: 'Contributions' },
+                { id: 'rewards', label: 'Rewards' },
+                { id: 'activity', label: 'Activity' },
+              ];
+              const persona = crmPersonaDetail;
+              const initials = displayName.charAt(0).toUpperCase();
+
+              return (
+              <div className="space-y-3">
                 <Button variant="ghost" size="sm" onClick={() => setSelectedIndividual(null)}
-                  className="mb-3 h-6 gap-1 text-xs text-slate-400">
+                  className="h-6 gap-1 text-xs text-slate-400">
                   ← Back to list
                 </Button>
+
+                {nakamotoLoading ? (
+                  <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-6 text-slate-400 text-xs">Loading CRM data…</div>
+                ) : (
                 <div className="space-y-3">
-                  {/* Identity header */}
-                  <div className="flex items-start gap-3 rounded-lg border border-slate-800 bg-slate-900/60 p-3">
-                    <div className="flex-1 space-y-1 min-w-0">
-                      <div className="font-semibold text-slate-100 truncate">
-                        {selectedIndividual.crm?.display_name ?? selectedIndividual.persona_id.slice(0, 12) + "…"}
+                  {/* Header card */}
+                  <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-blue-600 flex items-center justify-center text-base font-semibold text-white shrink-0">
+                          {initials}
+                        </div>
+                        <div>
+                          <div className="font-semibold text-slate-100">{displayName}</div>
+                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                            {email && <span className="text-[11px] text-slate-400 flex items-center gap-1"><Mail className="h-3 w-3" />{email}</span>}
+                            {selectedIndividual.crm?.fio_handle && <span className="text-[11px] text-violet-400 font-mono">{selectedIndividual.crm.fio_handle}</span>}
+                            {knytId && <span className="text-[10px] font-mono text-cyan-400/70 bg-cyan-400/10 px-1.5 py-0.5 rounded">KNYT-ID: {knytId}</span>}
+                            {profession && <span className="text-[11px] text-slate-400 flex items-center gap-1"><Briefcase className="h-3 w-3" />{profession}</span>}
+                            {city && <span className="text-[11px] text-slate-400 flex items-center gap-1"><MapPin className="h-3 w-3" />{city}</span>}
+                          </div>
+                        </div>
                       </div>
-                      {selectedIndividual.crm?.fio_handle && (
-                        <div className="text-xs text-violet-300 font-mono">{selectedIndividual.crm.fio_handle}</div>
-                      )}
-                      <div className="text-[11px] text-slate-500 font-mono">{selectedIndividual.persona_id}</div>
-                    </div>
-                    <div className="flex flex-col items-end gap-1 shrink-0">
-                      <Badge variant="outline"
-                        className={`capitalize text-[11px] ${STAGE_COLORS[selectedIndividual.stage] ?? "border-slate-700 text-slate-400"}`}>
-                        {selectedIndividual.stage}
-                      </Badge>
-                      {selectedIndividual.crm?.status && (
-                        <Badge variant="outline" className={`text-[11px] ${selectedIndividual.crm.status === "active" ? "border-emerald-500/40 text-emerald-300" : "border-slate-600 text-slate-400"}`}>
-                          {selectedIndividual.crm.status}
+                      <div className="flex items-center gap-2 shrink-0">
+                        {omTier && <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-400/10 text-amber-400 ring-1 ring-amber-400/30">{omTier}</span>}
+                        <Badge variant="outline" className={`capitalize text-[11px] ${STAGE_COLORS[selectedIndividual.stage] ?? "border-slate-700 text-slate-400"}`}>
+                          {selectedIndividual.stage}
                         </Badge>
-                      )}
+                        {(crmPersonaDetail?.personaState || selectedIndividual.crm?.status) && (
+                          <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ring-1 ${(crmPersonaDetail?.personaState || selectedIndividual.crm?.status) === 'active' ? 'bg-emerald-400/10 text-emerald-400 ring-emerald-400/30' : 'bg-slate-400/10 text-slate-400 ring-slate-400/20'}`}>
+                            {crmPersonaDetail?.personaState ?? selectedIndividual.crm?.status}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Stats row */}
+                    <div className="grid grid-cols-4 gap-2 mt-4">
+                      {[
+                        { icon: <TrendingUp className="h-3.5 w-3.5" />, label: "Total PoKW", value: (persona?.totalPokw ?? 0).toLocaleString(), color: "text-emerald-400" },
+                        { icon: <FileText className="h-3.5 w-3.5" />, label: "Contributions", value: String(persona?.contributionCount ?? contributions.length), color: "text-slate-200" },
+                        { icon: <Coins className="h-3.5 w-3.5" />, label: "Total Invested", value: totalInvested || "—", color: "text-amber-400" },
+                        { icon: <Star className="h-3.5 w-3.5" />, label: "Reputation", value: persona?.reputationBucket ?? selectedIndividual.crm?.reputation_tier ?? "—", color: "text-slate-200" },
+                      ].map(({ icon, label, value, color }) => (
+                        <div key={label} className="rounded-lg border border-slate-800 bg-slate-900/60 p-2.5">
+                          <div className="flex items-center gap-1.5 text-slate-400 text-[11px] mb-1">{icon}{label}</div>
+                          <div className={`text-base font-semibold capitalize ${color}`}>{value}</div>
+                        </div>
+                      ))}
                     </div>
                   </div>
 
-                  {/* Journey state */}
-                  <div className="grid gap-2 md:grid-cols-3">
-                    {[
-                      { label: "Stage", value: selectedIndividual.stage },
-                      { label: "Depth", value: selectedIndividual.depth },
-                      { label: "Last Active", value: selectedIndividual.active_at ? new Date(selectedIndividual.active_at).toLocaleDateString() : "—" },
-                    ].map(({ label, value }) => (
-                      <div key={label} className="rounded-lg border border-slate-800 bg-slate-900/50 p-3">
-                        <div className="text-[11px] text-slate-400">{label}</div>
-                        <div className="mt-1 font-semibold capitalize">{value}</div>
-                      </div>
+                  {/* CRM Tabs */}
+                  <div className="flex items-center gap-1 flex-wrap">
+                    {crmTabs.map((tab) => (
+                      <button key={tab.id} onClick={() => setIndCrmTab(tab.id)}
+                        className={`px-3 py-1.5 rounded text-xs font-medium transition ${indCrmTab === tab.id ? "bg-violet-500/20 text-violet-200 border border-violet-500/40" : "text-slate-400 hover:text-slate-200 border border-transparent hover:border-slate-700"}`}>
+                        {tab.label}
+                      </button>
                     ))}
                   </div>
 
-                  {/* CRM reputation data */}
-                  {selectedIndividual.crm && (
-                    <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-3 space-y-2">
-                      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">CRM Profile</div>
-                      <div className="grid gap-2 grid-cols-2 md:grid-cols-4 text-[11px]">
-                        {selectedIndividual.crm.order_tier && (
-                          <div className="rounded border border-slate-700 px-2 py-1.5">
-                            <div className="text-slate-500">Order Tier</div>
-                            <div className="font-semibold text-violet-300">{selectedIndividual.crm.order_tier}</div>
+                  {/* Overview tab */}
+                  {indCrmTab === "overview" && (
+                    <div className="grid gap-3 md:grid-cols-2">
+                      {/* Details */}
+                      <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3 flex items-center gap-1.5"><Users className="h-3.5 w-3.5" />Details</div>
+                        <dl className="space-y-2 text-xs">
+                          {[
+                            ["Persona ID", selectedIndividual.crm?.fio_handle || selectedIndividual.persona_id.slice(0, 8) + "…"],
+                            ["Tenant", TENANT_NAMES[persona?.tenantId ?? tenantId ?? ""] ?? persona?.tenantId ?? tenantId ?? "—"],
+                            ["Created", persona?.createdAt ? new Date(persona.createdAt).toLocaleDateString() : selectedIndividual.crm?.created_at ? new Date(selectedIndividual.crm.created_at).toLocaleDateString() : "—"],
+                            ["Last Updated", persona?.updatedAt ? new Date(persona.updatedAt).toLocaleDateString() : "—"],
+                            ["Stage", selectedIndividual.stage],
+                            ["Depth", selectedIndividual.depth],
+                            ["Last Active", selectedIndividual.active_at ? new Date(selectedIndividual.active_at).toLocaleDateString() : "—"],
+                            ...(phone ? [["Phone", phone]] : []),
+                            ...(omSince ? [["OM Member Since", omSince]] : []),
+                            ...(persona?.primaryWalletAddress ? [["Wallet", persona.primaryWalletAddress.slice(0, 10) + "…"]] : []),
+                            ...(nakamotoData?.rewardRecord ? [["Onboarding Reward", nakamotoData.rewardRecord.reward_claimed ? `${nakamotoData.rewardRecord.reward_amount} KNYT claimed` : `${nakamotoData.rewardRecord.reward_amount} KNYT pending`]] : []),
+                          ].map(([k, v]) => (
+                            <div key={k} className="flex justify-between gap-2">
+                              <dt className="text-slate-500 shrink-0 flex items-center gap-1">
+                                {k === "Phone" && <Phone className="h-3 w-3" />}
+                                {k}
+                              </dt>
+                              <dd className="text-slate-200 font-mono text-right truncate">{v}</dd>
+                            </div>
+                          ))}
+                        </dl>
+                      </div>
+
+                      {/* Social + NBE */}
+                      <div className="space-y-3">
+                        {hasSocial && (
+                          <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3 flex items-center gap-1.5"><Globe className="h-3.5 w-3.5" />Social</div>
+                            <div className="space-y-2 text-xs">
+                              {twitter && <div className="flex items-center gap-2"><Twitter className="h-3.5 w-3.5 text-sky-400" /><span className="text-slate-300">@{twitter}</span></div>}
+                              {linkedin && <div className="flex items-center gap-2"><Linkedin className="h-3.5 w-3.5 text-blue-400" />
+                                {linkedinUrl ? <a href={linkedinUrl} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">{linkedin}</a> : <span className="text-slate-300">{linkedin}</span>}
+                              </div>}
+                              {telegram && <div className="flex items-center gap-2"><MessageCircle className="h-3.5 w-3.5 text-sky-400" /><span className="text-slate-300">@{telegram}</span></div>}
+                              {discord && <div className="flex items-center gap-2"><Hash className="h-3.5 w-3.5 text-indigo-400" /><span className="text-slate-300">{discord}</span></div>}
+                            </div>
                           </div>
                         )}
-                        {selectedIndividual.crm.reputation_tier && (
-                          <div className="rounded border border-slate-700 px-2 py-1.5">
-                            <div className="text-slate-500">Rep Tier</div>
-                            <div className="font-semibold text-amber-300">{selectedIndividual.crm.reputation_tier}</div>
+                        {hasWeb3 && (
+                          <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3 flex items-center gap-1.5"><Wallet className="h-3.5 w-3.5" />Web3</div>
+                            <div className="space-y-2 text-xs">
+                              {evmKey && <div><div className="text-slate-500 text-[10px]">EVM</div><div className="font-mono text-slate-300 break-all text-[11px]">{evmKey}</div></div>}
+                              {btcKey && <div><div className="text-slate-500 text-[10px]">BTC</div><div className="font-mono text-slate-300 break-all text-[11px]">{btcKey}</div></div>}
+                              {tokensOfInterest.length > 0 && <div className="flex gap-1 flex-wrap">{tokensOfInterest.map((t) => <span key={t} className="rounded bg-violet-500/10 px-1.5 py-0.5 text-[10px] text-violet-300">{t}</span>)}</div>}
+                            </div>
                           </div>
                         )}
-                        {selectedIndividual.crm.reputation_score != null && (
-                          <div className="rounded border border-slate-700 px-2 py-1.5">
-                            <div className="text-slate-500">Rep Score</div>
-                            <div className="font-semibold text-slate-200">{selectedIndividual.crm.reputation_score}</div>
-                          </div>
-                        )}
-                        {selectedIndividual.crm.created_at && (
-                          <div className="rounded border border-slate-700 px-2 py-1.5">
-                            <div className="text-slate-500">Joined</div>
-                            <div className="font-semibold text-slate-200">{new Date(selectedIndividual.crm.created_at).toLocaleDateString("en-US", { month: "short", year: "numeric" })}</div>
+                        {selectedIndividual.nbe && (
+                          <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3 flex items-center gap-1.5"><Zap className="h-3.5 w-3.5 text-violet-400" />NBE Plan</div>
+                            <div className="flex items-center gap-2 mb-2">
+                              <Badge variant="outline" className={`capitalize text-[11px] ${DISPOSITION_COLORS[selectedIndividual.nbe.disposition] ?? "border-slate-700"}`}>{selectedIndividual.nbe.disposition}</Badge>
+                              {selectedIndividual.nbe.next_experience_depth && <Badge variant="outline" className="border-violet-500/40 text-violet-300 text-[11px]">→ {selectedIndividual.nbe.next_experience_depth}</Badge>}
+                            </div>
+                            {selectedIndividual.nbe.rationale && <div className="text-xs text-slate-300">{selectedIndividual.nbe.rationale}</div>}
                           </div>
                         )}
                       </div>
-                      {selectedIndividual.crm.badges && selectedIndividual.crm.badges.length > 0 && (
-                        <div className="flex gap-1 flex-wrap">
-                          {selectedIndividual.crm.badges.map((b) => (
-                            <Badge key={b} variant="outline" className="text-[10px] border-blue-500/30 text-blue-300">{b}</Badge>
-                          ))}
+                    </div>
+                  )}
+
+                  {/* Investment & Assets tab */}
+                  {indCrmTab === "investment" && hasInvestment && (
+                    <div className="space-y-3">
+                      <div className="grid gap-2 grid-cols-2 md:grid-cols-4">
+                        {[
+                          { label: "Total Invested", value: totalInvested || "—", color: "text-amber-400" },
+                          { label: "OM Tier", value: omTier || "—", sub: omSince ? `Since ${omSince}` : undefined, color: "text-amber-300" },
+                          { label: "Metaiye Shares", value: metaiyeShares || "0", color: "text-violet-300" },
+                          { label: "KNYT COYN", value: knytCoyn ? `${knytCoyn} KNYT` : "0 KNYT", color: "text-cyan-300" },
+                        ].map(({ label, value, sub, color }) => (
+                          <div key={label} className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+                            <div className="text-[11px] text-slate-500 mb-1">{label}</div>
+                            <div className={`text-lg font-bold ${color}`}>{value}</div>
+                            {sub && <div className="text-[10px] text-slate-500 mt-0.5">{sub}</div>}
+                          </div>
+                        ))}
+                      </div>
+                      {(motionComics || paperComics || digitalComics || knytPosters || knytCards || characters) && (
+                        <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">Asset Inventory</div>
+                          <div className="grid gap-2 grid-cols-2 md:grid-cols-3 text-xs">
+                            {[["Motion Comics", motionComics], ["Paper Comics", paperComics], ["Digital Comics", digitalComics], ["KNYT Posters", knytPosters], ["KNYT Cards", knytCards], ["Characters", characters]].filter(([, v]) => v).map(([k, v]) => (
+                              <div key={k} className="rounded border border-slate-700 px-3 py-2 flex justify-between">
+                                <span className="text-slate-400">{k}</span>
+                                <span className="font-semibold text-slate-200">{v}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {nakamotoData?.rewardRecord && (
+                        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+                          <div className="text-xs font-semibold uppercase tracking-wide text-emerald-400 mb-3 flex items-center gap-1.5"><Gift className="h-3.5 w-3.5" />Onboarding Reward</div>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                            {[
+                              ["LinkedIn", nakamotoData.rewardRecord.linkedin_connected ? "✓ Connected" : "—"],
+                              ["MetaMask", nakamotoData.rewardRecord.metamask_connected ? "✓ Connected" : "—"],
+                              ["Data", nakamotoData.rewardRecord.data_completed ? "✓ Complete" : "—"],
+                              ["Reward", nakamotoData.rewardRecord.reward_claimed ? `${nakamotoData.rewardRecord.reward_amount} KNYT claimed` : "Unclaimed"],
+                            ].map(([k, v]) => (
+                              <div key={k} className="rounded border border-emerald-500/20 px-2 py-1.5">
+                                <div className="text-slate-500">{k}</div>
+                                <div className={`font-semibold ${String(v).startsWith("✓") ? "text-emerald-400" : "text-slate-400"}`}>{v}</div>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>
                   )}
 
-                  {/* Nakamoto CRM data (lazy-loaded) */}
-                  <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-3 space-y-2">
-                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Nakamoto CRM</div>
-                    {nakamotoLoading ? (
-                      <div className="text-xs text-slate-400">Loading…</div>
-                    ) : nakamotoData ? (
-                      <div className="space-y-2">
-                        {nakamotoData.knytPersona && (
-                          <div className="space-y-1.5">
-                            <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">KNYT Persona</div>
-                            <div className="grid gap-1.5 grid-cols-2 text-[11px]">
-                              {[
-                                ["KNYT-ID", nakamotoData.knytPersona["KNYT-ID"]],
-                                ["Email", nakamotoData.knytPersona["Email"]],
-                                ["First Name", nakamotoData.knytPersona["First Name"]],
-                                ["Last Name", nakamotoData.knytPersona["Last Name"]],
-                                ["Order Tier", nakamotoData.knytPersona["Order of Metaiye"]],
-                                ["Twitter", nakamotoData.knytPersona["Twitter Handle"]],
-                                ["LinkedIn", nakamotoData.knytPersona["LinkedIn URL"]],
-                                ["EVM Address", nakamotoData.knytPersona["EVM Address"]],
-                              ].filter(([, v]) => v).map(([k, v]) => (
-                                <div key={String(k)} className="rounded border border-slate-700/50 px-2 py-1">
-                                  <div className="text-slate-500">{k}</div>
-                                  <div className="text-slate-200 font-mono truncate" title={String(v)}>{String(v)}</div>
-                                </div>
-                              ))}
-                            </div>
-                            {nakamotoData.rewardRecord && (
-                              <div className="rounded border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-[11px]">
-                                <span className="text-emerald-300 font-semibold">Rewards: </span>
-                                <span className="text-slate-300">
-                                  {nakamotoData.rewardRecord.reward_claimed ? `${nakamotoData.rewardRecord.reward_amount} claimed` : "unclaimed"}
-                                  {nakamotoData.rewardRecord.linkedin_connected ? " · LinkedIn ✓" : ""}
-                                  {nakamotoData.rewardRecord.metamask_connected ? " · MetaMask ✓" : ""}
-                                </span>
+                  {/* Contributions tab */}
+                  {indCrmTab === "contributions" && (
+                    <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">Contributions</div>
+                      {contributions.length > 0 ? (
+                        <div className="space-y-1.5">
+                          {contributions.map((c) => (
+                            <div key={c.id} className="flex items-center justify-between rounded border border-slate-800 bg-slate-900/40 px-3 py-2 text-xs">
+                              <div className="flex items-center gap-2">
+                                <span className="capitalize text-slate-300">{c.contributionType}</span>
+                                <span className="text-slate-500">{c.source}</span>
                               </div>
-                            )}
-                            {nakamotoData.interactions.length > 0 && (
-                              <div className="text-[11px] text-slate-500">{nakamotoData.interactions.length} interaction(s) on record</div>
-                            )}
-                          </div>
-                        )}
-                        {nakamotoData.blakQube && !nakamotoData.knytPersona && (
-                          <div className="space-y-1.5">
-                            <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">blakQube</div>
-                            <div className="grid gap-1.5 grid-cols-2 text-[11px]">
-                              {[
-                                ["Email", nakamotoData.blakQube["Email"]],
-                                ["KNYT-ID", nakamotoData.blakQube["KNYT-ID"]],
-                                ["Qrypto-ID", nakamotoData.blakQube["Qrypto-ID"]],
-                              ].filter(([, v]) => v).map(([k, v]) => (
-                                <div key={String(k)} className="rounded border border-slate-700/50 px-2 py-1">
-                                  <div className="text-slate-500">{k}</div>
-                                  <div className="text-slate-200 truncate">{String(v)}</div>
-                                </div>
-                              ))}
+                              <div className="flex items-center gap-3 shrink-0">
+                                <span className="text-slate-400">{c.units} units</span>
+                                <span className="text-emerald-400 font-semibold">{c.pokwScore} PoKW</span>
+                                <span className="text-slate-500">{new Date(c.createdAt).toLocaleDateString()}</span>
+                              </div>
                             </div>
-                          </div>
-                        )}
-                        {!nakamotoData.knytPersona && !nakamotoData.blakQube && (
-                          <div className="text-xs text-slate-500">No Nakamoto CRM record matched. Persona may not have a linked email or KNYT-ID.</div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="text-xs text-slate-500">No Nakamoto CRM data available for this persona.</div>
-                    )}
-                  </div>
-
-                  {selectedIndividual.nbe && (
-                    <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-3">
-                      <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Active NBE Plan</div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline"
-                          className={`capitalize ${DISPOSITION_COLORS[selectedIndividual.nbe.disposition] ?? "border-slate-700"}`}>
-                          {selectedIndividual.nbe.disposition}
-                        </Badge>
-                        {selectedIndividual.nbe.next_experience_depth && (
-                          <Badge variant="outline" className="border-violet-500/40 text-violet-300">
-                            → {selectedIndividual.nbe.next_experience_depth}
-                          </Badge>
-                        )}
-                      </div>
-                      {selectedIndividual.nbe.rationale && (
-                        <div className="mt-2 text-xs text-slate-300">{selectedIndividual.nbe.rationale}</div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-xs text-slate-500">No contributions found.</div>
                       )}
                     </div>
                   )}
-                  {/* COD-601 — Registry trust & compatibility indicators */}
+
+                  {/* Rewards tab */}
+                  {indCrmTab === "rewards" && (
+                    <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">Rewards</div>
+                      {rewards.length > 0 ? (
+                        <div className="space-y-1.5">
+                          {rewards.map((r) => (
+                            <div key={r.id} className="flex items-center justify-between rounded border border-slate-800 bg-slate-900/40 px-3 py-2 text-xs">
+                              <span className="capitalize text-slate-300">{r.tokenType}</span>
+                              <div className="flex items-center gap-3 shrink-0">
+                                <span className="font-semibold text-amber-400">{r.amount}</span>
+                                <span className={`capitalize px-1.5 py-0.5 rounded text-[10px] ${r.status === "approved" ? "bg-emerald-500/10 text-emerald-400" : r.status === "pending" ? "bg-amber-500/10 text-amber-400" : "bg-slate-500/10 text-slate-400"}`}>{r.status}</span>
+                                <span className="text-slate-500">{new Date(r.createdAt).toLocaleDateString()}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-xs text-slate-500">No rewards found.</div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Activity tab */}
+                  {indCrmTab === "activity" && (
+                    <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">Activity ({nakamotoData?.interactions.length ?? 0} interactions)</div>
+                      {nakamotoData?.interactions && nakamotoData.interactions.length > 0 ? (
+                        <div className="space-y-1.5">
+                          {nakamotoData.interactions.map((ix) => (
+                            <div key={ix.id} className="rounded border border-slate-800 bg-slate-900/40 text-xs">
+                              <button className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-slate-900/60"
+                                onClick={() => setExpandedInteraction(expandedInteraction === ix.id ? null : ix.id)}>
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span className="rounded bg-violet-500/10 text-violet-300 px-1.5 py-0.5 text-[10px] shrink-0">{ix.interaction_type ?? "chat"}</span>
+                                  <span className="text-slate-400 text-[11px]">{new Date(ix.created_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                                  <span className="text-slate-300 truncate">{ix.query}</span>
+                                </div>
+                                {expandedInteraction === ix.id ? <ChevronUp className="h-3.5 w-3.5 text-slate-500 shrink-0" /> : <ChevronDown className="h-3.5 w-3.5 text-slate-500 shrink-0" />}
+                              </button>
+                              {expandedInteraction === ix.id && (
+                                <div className="border-t border-slate-800 px-3 py-2 space-y-1.5">
+                                  <div className="text-slate-400 text-[11px] font-semibold">Query</div>
+                                  <div className="text-slate-300 text-[11px]">{ix.query}</div>
+                                  {ix.response && <>
+                                    <div className="text-slate-400 text-[11px] font-semibold mt-2">Response</div>
+                                    <div className="text-slate-400 text-[11px] whitespace-pre-wrap">{ix.response}</div>
+                                  </>}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-xs text-slate-500">No activity found. Interactions are recorded when this member uses Mondai AI.</div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Trust scores (always shown at bottom) */}
                   {selectedIndividual.trust_scores && (
-                    <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-3">
+                    <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
                       <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        <ShieldCheck className="h-3.5 w-3.5" />
-                        Trust &amp; Compatibility
+                        <ShieldCheck className="h-3.5 w-3.5" />Trust &amp; Compatibility
                       </div>
                       <div className="grid grid-cols-3 gap-2">
                         {([
@@ -613,13 +833,8 @@ export function ExperienceDashboardTab({ personaId, tenantId, theme = "dark" }: 
                           return (
                             <div key={key} className="rounded border border-slate-800 bg-slate-950/50 px-2 py-1.5 text-center">
                               <div className="text-[10px] text-slate-500 mb-1">{label}</div>
-                              {raw != null ? (
-                                <div className="flex justify-center">
-                                  <Dots value={val} kind={kind} title={label} size="xs" />
-                                </div>
-                              ) : (
-                                <div className="text-[10px] text-slate-600">—</div>
-                              )}
+                              {raw != null ? <div className="flex justify-center"><Dots value={val} kind={kind} title={label} size="xs" /></div>
+                                : <div className="text-[10px] text-slate-600">—</div>}
                             </div>
                           );
                         })}
@@ -627,8 +842,10 @@ export function ExperienceDashboardTab({ personaId, tenantId, theme = "dark" }: 
                     </div>
                   )}
                 </div>
+                )}
               </div>
-            ) : (
+              );
+            })() : (
               <div className={base}>
                 {/* Filters row */}
                 <div className="mb-3 flex items-center gap-2 flex-wrap">
