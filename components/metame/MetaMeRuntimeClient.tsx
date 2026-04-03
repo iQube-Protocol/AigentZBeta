@@ -2211,7 +2211,15 @@ export default function MetaMeRuntimeClient() {
       const activeSet = await fetchRuntimeCapsules({ allowFallback: false });
       if (activeSet.length > 0) {
         setAllContents(activeSet);
-        setCapsuleContents(selectCapsulesForDisplay(activeSet, 12));
+        // Preserve any preview capsule already in capsuleContents (items not returned by the
+        // API). Without this, the Studio runtime thumbnail flips to a default capsule for the
+        // few seconds between the carousel loading and the queryPreviewDisplayCapsule effect
+        // re-inserting the preview item.
+        setCapsuleContents((prev) => {
+          const previewItems = prev.filter((item) => !activeSet.some((a) => a.id === item.id));
+          if (previewItems.length === 0) return selectCapsulesForDisplay(activeSet, 12);
+          return selectCapsulesForDisplay([...previewItems, ...activeSet], 12 + previewItems.length).slice(0, 12);
+        });
       } else {
         setAllContents([]);
         setCapsuleContents([]);
@@ -2246,7 +2254,10 @@ export default function MetaMeRuntimeClient() {
       const withoutQueryCapsule = prev.filter((item) => item.id !== queryPreviewDisplayCapsule.id);
       return selectCapsulesForDisplay([queryPreviewDisplayCapsule, ...withoutQueryCapsule], 12);
     });
-  }, [queryPreviewDisplayCapsule]);
+  // Also re-run when allContents changes (e.g. after fetchRuntimeData completes) so the
+  // preview capsule is always re-inserted at the front of capsuleContents even if the
+  // setCapsuleContents functional form above didn't preserve it in a given edge case.
+  }, [queryPreviewDisplayCapsule, allContents]);
 
   useEffect(() => {
     let mounted = true;
