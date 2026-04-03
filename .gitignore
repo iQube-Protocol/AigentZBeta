@@ -107,3 +107,4 @@ apps/aigent-z/services/
 apps/theqriptopian-web/src/pages/ArticleTest.tsx
 
 *.xd
+scripts/data/
