@@ -255,7 +255,7 @@ SELECT
     AND c.csv_discord IS NOT NULL)                              AS discord_can_fill,
   COUNT(*) FILTER (
     WHERE c.csv_total_invested IS NOT NULL
-      AND c.csv_total_invested > COALESCE(crm."Total-Invested", 0)
+      AND c.csv_total_invested > COALESCE(crm."Total-Invested"::numeric, 0)
   )                                                             AS total_invested_higher_in_csv,
   COUNT(*) FILTER (WHERE (crm."First-Name" IS NULL OR trim(crm."First-Name") = '')
     AND c.csv_name IS NOT NULL)                                 AS first_name_can_fill,
@@ -319,7 +319,7 @@ WHERE
   OR
   (c.csv_total_invested IS NOT NULL
     AND crm."Total-Invested" IS NOT NULL
-    AND abs(c.csv_total_invested - crm."Total-Invested") > 1)
+    AND abs(c.csv_total_invested - crm."Total-Invested"::numeric) > 1)
 ORDER BY c.email
 LIMIT 200
 ;
