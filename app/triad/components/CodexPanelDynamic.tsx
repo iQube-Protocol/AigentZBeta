@@ -9,7 +9,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCodexConfig, getEnabledTabs } from "@/app/hooks/useCodexConfig";
+import { useCodexConfig, getEnabledTabs, hasCodexPermission } from "@/app/hooks/useCodexConfig";
 import { CodexTab } from "@/types/codex";
 import type { DeviceType } from "@/app/types/knytLiquidUI";
 import { Loader2, AlertCircle, X } from "lucide-react";
@@ -92,9 +92,14 @@ export default function CodexPanelDynamic({
     return next;
   }, [hiddenTabs, queryHiddenTabs]);
   
+  const isAdmin = useMemo(
+    () => hasCodexPermission(codex, personaId, 'admin'),
+    [codex, personaId]
+  );
+
   const enabledTabs = useMemo(
-    () => getEnabledTabs(codex).filter((tab) => !hiddenTabSet.has(tab.slug.toLowerCase())),
-    [codex, hiddenTabSet]
+    () => getEnabledTabs(codex, isAdmin).filter((tab) => !hiddenTabSet.has(tab.slug.toLowerCase())),
+    [codex, isAdmin, hiddenTabSet]
   );
   
   const [activeTabSlug, setActiveTabSlug] = useState<string>(
