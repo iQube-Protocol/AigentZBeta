@@ -21,7 +21,6 @@ import {
   Crown,
 } from 'lucide-react';
 import { useSmartTriad } from '@/app/components/content/SmartTriadProvider';
-import { SocialSharingModal } from '@/app/components/content/SocialSharingModal';
 import { CodexActionRow } from '../CodexActionRow';
 import { isLockedContent, isPremiumContent } from '@/app/triad/components/codex/utils/contentFlags';
 import { CodexBadge } from '../CodexBadge';
@@ -143,14 +142,6 @@ function badgeToTab(badge?: string): TabId {
 export function Kn0wdZTab({ theme = 'dark', personaId, issueSlug }: Kn0wdZTabProps) {
   const { actions } = useSmartTriad();
   const isOwnedItem = (item: { id: string }) => actions.checkOwnership(item.id);
-  const [shareArticle, setShareArticle] = useState<{
-    id: string;
-    title: string;
-    description?: string;
-    section?: string;
-    type?: 'text' | 'video';
-    url?: string;
-  } | null>(null);
   const [items, setItems] = useState<Kn0wdZItem[]>([]);
   const [activeTab, setActiveTab] = useState<TabId>('dev');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -252,7 +243,7 @@ export function Kn0wdZTab({ theme = 'dark', personaId, issueSlug }: Kn0wdZTabPro
   const getImage = (item: Kn0wdZItem) => item.image || item.cover_image_url;
 
   const openShareModal = (item: Kn0wdZItem) => {
-    setShareArticle({
+    actions.openShare({
       id: item.id,
       title: item.title,
       description: item.excerpt,
@@ -500,14 +491,6 @@ export function Kn0wdZTab({ theme = 'dark', personaId, issueSlug }: Kn0wdZTabPro
         <div className={`text-sm ${mutedClass}`}>No Kn0wdZ content found for this issue.</div>
       )}
 
-      {shareArticle && (
-        <SocialSharingModal
-          isOpen={Boolean(shareArticle)}
-          onClose={() => setShareArticle(null)}
-          article={shareArticle}
-          personaId={personaId}
-        />
-      )}
     </div>
   );
 }

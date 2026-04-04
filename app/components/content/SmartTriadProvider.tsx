@@ -79,6 +79,15 @@ export interface SmartMenuManifest {
   configSource: string;
 }
 
+export interface ShareItem {
+  id: string;
+  title: string;
+  description?: string;
+  section?: string;
+  type?: 'text' | 'video';
+  url?: string;
+}
+
 export interface TriadState {
   // Content state
   currentContent: SmartContentQube | null;
@@ -109,6 +118,9 @@ export interface TriadState {
   ownedContentIds: Set<string>;
   libraryLoading: boolean;
 
+  // SmartActions — share
+  shareItem: ShareItem | null;
+
   // Developer overrides
   devGatingOverride: boolean;
 }
@@ -135,6 +147,10 @@ export interface TriadActions {
   // Library actions
   refreshLibrary: () => Promise<void>;
   checkOwnership: (contentId: string) => boolean;
+
+  // SmartActions — share
+  openShare: (item: ShareItem) => void;
+  closeShare: () => void;
 
   // Developer overrides
   setDevGatingOverride: (enabled: boolean) => void;
@@ -191,6 +207,7 @@ export function SmartTriadProvider({
     lastPurchase: null,
     ownedContentIds: new Set(),
     libraryLoading: false,
+    shareItem: null,
     devGatingOverride: false,
   });
 
@@ -497,6 +514,18 @@ export function SmartTriadProvider({
     return state.ownedContentIds.has(contentId);
   }, [state.ownedContentIds, state.devGatingOverride]);
 
+  // ==========================================================================
+  // SMARTACTIONS — SHARE
+  // ==========================================================================
+
+  const openShare = useCallback((item: ShareItem) => {
+    setState(prev => ({ ...prev, shareItem: item }));
+  }, []);
+
+  const closeShare = useCallback(() => {
+    setState(prev => ({ ...prev, shareItem: null }));
+  }, []);
+
   const setDevGatingOverride = useCallback((enabled: boolean) => {
     setState(prev => ({ ...prev, devGatingOverride: enabled }));
     if (typeof window !== "undefined") {
@@ -636,6 +665,8 @@ export function SmartTriadProvider({
       purchaseContent,
       refreshLibrary,
       checkOwnership,
+      openShare,
+      closeShare,
       setDevGatingOverride,
       executeTriadAction,
     },
@@ -705,6 +736,16 @@ export function useTriadPurchase() {
     lastPurchase: state.lastPurchase,
     purchase: actions.purchaseContent,
     checkOwnership: actions.checkOwnership,
+  };
+}
+
+export function useTriadShare() {
+  const { state, actions, personaId } = useSmartTriad();
+  return {
+    shareItem: state.shareItem,
+    personaId,
+    openShare: actions.openShare,
+    closeShare: actions.closeShare,
   };
 }
 

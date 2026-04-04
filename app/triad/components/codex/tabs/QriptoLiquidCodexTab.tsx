@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { BookOpen, Brain, Coins, Crown, Loader2, Lock, Sparkles } from 'lucide-react';
 import { useSmartTriad } from '@/app/components/content/SmartTriadProvider';
-import { SocialSharingModal } from '@/app/components/content/SocialSharingModal';
 import { CodexActionRow } from '../CodexActionRow';
 import { QriptopianFeatureSections } from '../QriptopianFeatureSections';
 import { isLockedContent, isPremiumContent } from '@/app/triad/components/codex/utils/contentFlags';
@@ -81,14 +80,6 @@ export function QriptoLiquidCodexTab({ theme = 'dark', personaId, issueSlug, dat
   const isOwnedItem = (item: { id: string }) => actions.checkOwnership(item.id);
 
   const [payload, setPayload] = useState<QriptoHomePayload | null>(null);
-  const [shareArticle, setShareArticle] = useState<{
-    id: string;
-    title: string;
-    description?: string;
-    section?: string;
-    type?: 'text' | 'video';
-    url?: string;
-  } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -203,7 +194,7 @@ export function QriptoLiquidCodexTab({ theme = 'dark', personaId, issueSlug, dat
   };
 
   const openShareModal = (item: SectionItem) => {
-    setShareArticle({
+    actions.openShare({
       id: item.id,
       title: item.title,
       description: item.excerpt,
@@ -419,14 +410,6 @@ export function QriptoLiquidCodexTab({ theme = 'dark', personaId, issueSlug, dat
         </div>
       </div>
 
-      {shareArticle && (
-        <SocialSharingModal
-          isOpen={Boolean(shareArticle)}
-          onClose={() => setShareArticle(null)}
-          article={shareArticle}
-          personaId={personaId}
-        />
-      )}
     </div>
   );
 }
