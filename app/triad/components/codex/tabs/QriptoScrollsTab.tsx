@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { BookOpen, ChevronLeft, ChevronRight, Crown, Loader2, Lock } from 'lucide-react';
 import { useSmartTriad } from '@/app/components/content/SmartTriadProvider';
-import { SocialSharingModal } from '@/app/components/content/SocialSharingModal';
 import { CodexActionRow } from '../CodexActionRow';
 import { WheelGesturesPlugin } from 'embla-carousel-wheel-gestures';
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from '@/components/ui/carousel';
@@ -39,14 +38,6 @@ function getApiOrigin() {
 export function QriptoScrollsTab({ theme = 'dark', personaId, issueSlug }: QriptoScrollsTabProps) {
   const { actions } = useSmartTriad();
   const isOwnedItem = (item: { id: string }) => actions.checkOwnership(item.id);
-  const [shareArticle, setShareArticle] = useState<{
-    id: string;
-    title: string;
-    description?: string;
-    section?: string;
-    type?: 'text' | 'video';
-    url?: string;
-  } | null>(null);
   const [items, setItems] = useState<ScrollItem[]>([]);
   const [activeTab, setActiveTab] = useState<'metaknyts' | 'synthsims'>('metaknyts');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -176,7 +167,7 @@ export function QriptoScrollsTab({ theme = 'dark', personaId, issueSlug }: Qript
   };
 
   const openShareModal = (item: ScrollItem) => {
-    setShareArticle({
+    actions.openShare({
       id: item.id,
       title: item.title,
       description: item.excerpt,
@@ -403,14 +394,6 @@ export function QriptoScrollsTab({ theme = 'dark', personaId, issueSlug }: Qript
         <div className={`text-sm ${mutedClass}`}>No Scrolls found for this issue.</div>
       )}
 
-      {shareArticle && (
-        <SocialSharingModal
-          isOpen={Boolean(shareArticle)}
-          onClose={() => setShareArticle(null)}
-          article={shareArticle}
-          personaId={personaId}
-        />
-      )}
     </div>
   );
 }

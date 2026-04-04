@@ -220,7 +220,6 @@ import { ContentPurchaseModal, type ContentType } from "@/app/triad/components/c
 import { KnytCardsGrid } from "@/app/triad/components/content/KnytCardsGrid";
 import { CoverImage } from "@/app/triad/components/content/CoverImage";
 import SmartWalletDrawer from "@/app/components/content/SmartWalletDrawer";
-import { SocialSharingModal } from "@/app/components/content/SocialSharingModal";
 import { CodexCopilotLayer, type CopilotMessage } from "@/app/components/codex/CodexCopilotLayer";
 import { getImageLoaderStats } from "@/app/utils/image-loader";
 import type { SmartContentQube } from "@/types/smartContent";
@@ -640,15 +639,6 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   const episodeSegmentsCacheRef = useRef<Map<string, VideoSegment[]>>(new Map());
   const [textReaderOpen, setTextReaderOpen] = useState(false);
   const [currentText, setCurrentText] = useState<{ title: string; content: string } | null>(null);
-  const [shareArticle, setShareArticle] = useState<{
-    id: string;
-    title: string;
-    description?: string;
-    section?: string;
-    type?: "text" | "video";
-    url?: string;
-  } | null>(null);
-  
   // Wallet drawer state
   const [drawerOpen, setDrawerOpen] = useState(false);
   const handleOpenWallet = useCallback((_mode: 'signin' | 'signup') => {
@@ -1893,7 +1883,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   }, [activeTab, resolveAccessPrice]);
 
   const openShareForItem = useCallback((item: KnytContentItem) => {
-    setShareArticle({
+    triadActions.openShare({
       id: item.id,
       title: item.title,
       description: item.subtitle || item.description || item.media?.text?.slice(0, 180),
@@ -1901,7 +1891,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       type: item.modalities?.watch?.available || item.media?.video_cid || item.media?.video_url ? "video" : "text",
       url: item.metadata?.modalities?.link?.url,
     });
-  }, [activeTab]);
+  }, [activeTab, triadActions]);
 
   const handleSmartAction = useCallback((item: KnytContentItem, action: string) => {
     console.log('handleSmartAction called:', { item: item.id, action, itemType: item.type });
@@ -1992,10 +1982,6 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       setVideoPlayerOpen(true);
     } else if (action === 'share') {
       openShareForItem(item);
-      toast({
-        title: "Share ready",
-        description: `Choose a channel to share ${item.title}.`,
-      });
     } else if (action === 'copilot') {
       if (templateResult?.drawerMode === 'wide') {
         setDrawerOpen(true);
@@ -2890,14 +2876,6 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
             />
           )}
 
-          {shareArticle && (
-            <SocialSharingModal
-              isOpen={Boolean(shareArticle)}
-              onClose={() => setShareArticle(null)}
-              article={shareArticle}
-              personaId={effectivePersonaId}
-            />
-          )}
         </>
       )}
 

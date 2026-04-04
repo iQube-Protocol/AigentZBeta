@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, Coins, Crown, Loader2, Lock } from 'lucide-react';
 import { useSmartTriad } from '@/app/components/content/SmartTriadProvider';
-import { SocialSharingModal } from '@/app/components/content/SocialSharingModal';
 import { CodexActionRow } from '../CodexActionRow';
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from '@/components/ui/carousel';
 import { WheelGesturesPlugin } from 'embla-carousel-wheel-gestures';
@@ -40,14 +39,6 @@ function getApiOrigin() {
 export function PennyDropsTab({ theme = 'dark', personaId, issueSlug, dataSource }: PennyDropsTabProps) {
   const { actions } = useSmartTriad();
   const isOwnedItem = (item: { id: string }) => actions.checkOwnership(item.id);
-  const [shareArticle, setShareArticle] = useState<{
-    id: string;
-    title: string;
-    description?: string;
-    section?: string;
-    type?: 'text' | 'video';
-    url?: string;
-  } | null>(null);
   const [items, setItems] = useState<PennyDropItem[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [carouselApi, setCarouselApi] = useState<CarouselApi>();
@@ -185,7 +176,7 @@ export function PennyDropsTab({ theme = 'dark', personaId, issueSlug, dataSource
   };
 
   const openShareModal = (item: PennyDropItem) => {
-    setShareArticle({
+    actions.openShare({
       id: item.id,
       title: item.title,
       description: item.excerpt,
@@ -388,14 +379,6 @@ export function PennyDropsTab({ theme = 'dark', personaId, issueSlug, dataSource
         <div className={`text-sm ${mutedClass}`}>No PennyDrops found for this issue.</div>
       )}
 
-      {shareArticle && (
-        <SocialSharingModal
-          isOpen={Boolean(shareArticle)}
-          onClose={() => setShareArticle(null)}
-          article={shareArticle}
-          personaId={personaId}
-        />
-      )}
     </div>
   );
 }

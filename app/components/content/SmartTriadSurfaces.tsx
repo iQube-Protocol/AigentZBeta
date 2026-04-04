@@ -5,6 +5,7 @@ import ContentViewer from "./ContentViewer";
 import SmartWalletDrawer from "./SmartWalletDrawer";
 import { CopilotWalletDrawer } from "@/app/triad/components/codex/wallet/CopilotWalletDrawer";
 import { useSmartTriad } from "./SmartTriadProvider";
+import { SocialSharingModal } from "@/packages/smarttriad/src/SocialSharingModal";
 import { agentConfigs } from "@/app/data/agentConfig";
 import { MoneyPennyChat } from "@/app/(shell)/moneypenny/components/MoneyPennyChat";
 import { PortfolioAnalytics } from "@/app/(shell)/moneypenny/components/PortfolioAnalytics";
@@ -143,6 +144,16 @@ export function SmartTriadSurfaces({ personaId }: SmartTriadSurfacesProps) {
 
       {renderCodexDrawer()}
       {renderKnytDrawer()}
+
+      {/* SmartActions — Share modal (first-class SmartTriad surface) */}
+      {state.shareItem && (
+        <SocialSharingModal
+          isOpen
+          onClose={() => actions.closeShare()}
+          article={state.shareItem}
+          personaId={personaId ?? undefined}
+        />
+      )}
 
       {/* Liquid UI SmartWallet - for card-based flows */}
       <CopilotWalletDrawer
