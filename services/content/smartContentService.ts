@@ -680,7 +680,17 @@ export class SmartContentService {
       rewardOutcomes: row.reward_outcomes || {},
       modalities: row.modalities || {},
       structure: row.structure_data,
-      pricingModel: row.pricing_model || {},
+      pricingModel: (() => {
+        const direct = row.pricing_model;
+        const fromMarketData = row.market_data?.pricing_model;
+        // Prefer direct pricing_model; fall back to market_data.pricing_model (Lovable admin path)
+        const base = (direct && Object.keys(direct).length > 0) ? direct : (fromMarketData || {});
+        // If market_data has a tiers array and base doesn't, merge it in
+        if (fromMarketData?.tiers?.length && !base.tiers?.length) {
+          return { ...base, tiers: fromMarketData.tiers };
+        }
+        return base;
+      })(),
       accessPolicy: row.access_policy || {},
       layoutHints: row.layout_hints || {},
       menuIntegration: row.menu_integration || {},
