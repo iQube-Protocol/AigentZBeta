@@ -5,6 +5,7 @@ import CodexPanelDynamic from "../../../triad/components/CodexPanelDynamic";
 import { useCodexConfig, useCodexList } from "@/app/hooks/useCodexConfig";
 import type { CodexListItem } from "@/types/codex";
 import { CodexCopilotLayer } from "@/app/components/codex/CodexCopilotLayer";
+import { useSupabaseSessionPersonas } from "@/app/hooks/useSupabaseSessionPersonas";
 import {
   BookOpen,
   Bot,
@@ -55,6 +56,13 @@ export default function CodexViewerPage() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [previewDevice, setPreviewDevice] = useState<PreviewDevice>("desktop");
   const [copilotOpen, setCopilotOpen] = useState(false);
+
+  // Resolve active session persona so SmartTriadProvider queries the right ownership data
+  const { sessionPersonas } = useSupabaseSessionPersonas();
+  const activePersonaId = useMemo(() => {
+    const human = sessionPersonas.find(p => !p.isAgent);
+    return human?.id || sessionPersonas[0]?.id;
+  }, [sessionPersonas]);
 
   const isAigentiqCodex = codexId === "agentiq-codex";
 
@@ -450,6 +458,7 @@ export default function CodexViewerPage() {
                 isAdmin={true}
                 useDefaults={true}
                 previewDevice={previewDevice}
+                personaId={activePersonaId}
               />
             </div>
           </div>
