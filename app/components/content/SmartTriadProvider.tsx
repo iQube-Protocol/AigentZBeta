@@ -98,6 +98,7 @@ export interface TriadState {
   // Wallet state
   walletOpen: boolean;
   walletMode: "compact" | "full";
+  walletInitialTab: "wallet" | "payments";
   walletUI: Array<import("@/app/types/knytLiquidUI").WalletUIComponent>;
   walletDrawerMode: import("@/app/types/knytLiquidUI").DrawerMode;
   
@@ -132,7 +133,7 @@ export interface TriadActions {
   setViewerModality: (modality: string | null) => void;
   
   // Wallet actions
-  openWallet: (mode?: "compact" | "full") => void;
+  openWallet: (mode?: "compact" | "full", tab?: "wallet" | "payments") => void;
   closeWallet: () => void;
   setWalletUI: (components: Array<import("@/app/types/knytLiquidUI").WalletUIComponent>) => void;
   setWalletDrawerMode: (mode: import("@/app/types/knytLiquidUI").DrawerMode) => void;
@@ -198,6 +199,7 @@ export function SmartTriadProvider({
     viewerModality: null,
     walletOpen: false,
     walletMode: "compact",
+    walletInitialTab: "wallet",
     walletUI: [],
     walletDrawerMode: "narrow",
     menuManifest: null,
@@ -283,11 +285,12 @@ export function SmartTriadProvider({
   // WALLET ACTIONS
   // ==========================================================================
 
-  const openWallet = useCallback((mode: "compact" | "full" = "compact") => {
+  const openWallet = useCallback((mode: "compact" | "full" = "compact", tab: "wallet" | "payments" = "wallet") => {
     setState(prev => ({
       ...prev,
       walletOpen: true,
       walletMode: mode,
+      walletInitialTab: tab,
     }));
   }, []);
 
