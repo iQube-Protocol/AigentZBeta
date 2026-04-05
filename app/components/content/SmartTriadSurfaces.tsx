@@ -205,7 +205,10 @@ export function SmartTriadSurfaces({ personaId }: SmartTriadSurfacesProps) {
         recipientAddress={recipient.walletAddresses.evmAddress}
         currentContent={state.currentContent || undefined}
         initialTab={state.walletInitialTab}
-        onPurchaseComplete={() => actions.refreshLibrary()}
+        onPurchaseComplete={async () => {
+          await actions.refreshLibrary();
+          actions.setContentAccessGranted(true);
+        }}
         personaId={personaId}
       />
     </>

@@ -1223,19 +1223,22 @@ export default function SmartWalletDrawer({
         // Grant entitlement after DVN debit
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         if (uuidRegex.test(currentContent.id)) {
-          await fetch("/api/content/entitlement", {
+          await fetch(`/api/content/pricing/${currentContent.id}/entitlement`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              contentId: currentContent.id,
               personaId: effectivePersonaId,
-              paymentMethod: "dvn-qc",
+              scope: "full",
+              acquiredVia: "purchase",
               txHash: null,
+              chainId: null,
             }),
           }).catch(() => {});
         }
         setPurchaseStep("success");
+        onPurchaseComplete?.(currentContent);
         refreshWalletBalances?.();
+        setTimeout(() => { setPurchaseStep("idle"); }, 2000);
         return;
       }
 
