@@ -678,11 +678,13 @@ function InteractViewer({
   );
 }
 
-const MODALITY_TABS: Record<ContentModality, { icon: string; label: string }> = {
+const MODALITY_TABS: Record<string, { icon: string; label: string }> = {
   read: { icon: "📖", label: "Read" },
   watch: { icon: "🎬", label: "Watch" },
   listen: { icon: "🎧", label: "Listen" },
   interact: { icon: "💬", label: "Chat" },
+  view: { icon: "🖼️", label: "View" },
+  link: { icon: "🔗", label: "Link" },
 };
 
 export default function ContentViewer({
@@ -714,6 +716,7 @@ export default function ContentViewer({
     // Detect by URL presence (DB format without explicit available flag)
     if (typeof mod.video_url === "string" && mod.video_url.trim().length > 0) return true;
     if (typeof mod.audio_url === "string" && mod.audio_url.trim().length > 0) return true;
+    if (typeof mod.image_url === "string" && (mod as any).image_url.trim().length > 0) return true;
     if (typeof mod.url === "string" && mod.url.trim().length > 0) return true;
     return false;
   };
@@ -837,7 +840,7 @@ export default function ContentViewer({
                   : "bg-white/5 text-slate-400 hover:text-slate-200 hover:bg-white/10"
               }`}
             >
-              {MODALITY_TABS[mod].icon} {MODALITY_TABS[mod].label}
+              {MODALITY_TABS[mod]?.icon ?? "▶"} {MODALITY_TABS[mod]?.label ?? mod}
             </button>
           ))}
         </div>
@@ -890,11 +893,27 @@ export default function ContentViewer({
           <InteractViewer interact={content.modalities.interact} contentId={content.id} />
         )}
 
+        {activeModality === "view" && (content.modalities as any)?.view && (
+          <div className="w-full h-full flex items-center justify-center bg-black/30 rounded-xl overflow-hidden">
+            {(content.modalities as any).view.image_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={(content.modalities as any).view.image_url}
+                alt={content.title}
+                className="max-w-full max-h-full object-contain"
+              />
+            ) : (
+              <div className="text-slate-400 text-sm">No image available</div>
+            )}
+          </div>
+        )}
+
         {/* Fallback for content without modalities */}
         {!isModalityEnabled(content.modalities?.read) &&
          !isModalityEnabled(content.modalities?.watch) &&
          !isModalityEnabled(content.modalities?.listen) &&
-         !isModalityEnabled(content.modalities?.interact) && (
+         !isModalityEnabled(content.modalities?.interact) &&
+         !isModalityEnabled((content.modalities as any)?.view) && (
           <div className="flex flex-col items-center justify-center h-full text-center">
             <div className="text-4xl mb-4">📄</div>
             <h3 className="text-lg font-medium text-white mb-2">{content.title}</h3>
