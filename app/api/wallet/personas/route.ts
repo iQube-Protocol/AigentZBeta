@@ -51,7 +51,7 @@ type UserIQubeRow = {
 };
 
 const personaSelect =
-  'id,tenant_id,auth_profile_id,display_name,avatar_uri,fio_handle,fio_domain,discoverable_within_tenant,reputation_score,reputation_bucket,badges,default_identity_state,world_id_status,app_origin,status,created_at,updated_at';
+  'id,tenant_id,auth_profile_id,display_name,avatar_uri,fio_handle,fio_domain,discoverable_within_tenant,reputation_score,reputation_bucket,badges,default_identity_state,world_id_status,app_origin,status,created_at,updated_at,evm_address,evm_key';
 
 function dedupeById(rows: PersonaRow[]): PersonaRow[] {
   const byId = new Map<string, PersonaRow>();
@@ -78,6 +78,8 @@ function toOwnerSafePersona(record: any) {
     status: record.status,
     createdAt: record.created_at,
     updatedAt: record.updated_at,
+    // Canonical EVM address for FIO handle → chain resolution
+    evmAddress: record.evm_address || record.evm_key?.address || record.evm_key?.evmAddress || null,
   };
 }
 

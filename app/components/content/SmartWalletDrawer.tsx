@@ -212,8 +212,12 @@ export default function SmartWalletDrawer({
   const isValidEvmAddress = (value?: string): value is `0x${string}` =>
     typeof value === "string" && /^0x[a-fA-F0-9]{40}$/.test(value);
 
-  const sanitizedEvmSepolia = isValidEvmAddress(agent.evmSepolia) ? agent.evmSepolia : undefined;
-  const sanitizedEvmArb = isValidEvmAddress(agent.evmArb) ? agent.evmArb : undefined;
+  // Persona EVM address override — starts with walletNode prop address if present,
+  // then upgrades to the session-resolved persona's registered address via useEffect below.
+  const walletNodePersonaEvmAddress = walletNode?.personaContext?.activePersona?.evmAddress as `0x${string}` | undefined;
+  const [personaEvmOverride, setPersonaEvmOverride] = useState<`0x${string}` | undefined>(walletNodePersonaEvmAddress);
+  const sanitizedEvmSepolia = personaEvmOverride || (isValidEvmAddress(agent.evmSepolia) ? agent.evmSepolia : undefined);
+  const sanitizedEvmArb = personaEvmOverride || (isValidEvmAddress(agent.evmArb) ? agent.evmArb : undefined);
 
   const [activeTab, setActiveTab] = useState<DrawerTab>(initialTab);
   const [dismissed, setDismissed] = useState(false);
@@ -298,6 +302,16 @@ export default function SmartWalletDrawer({
       setLocalPersonaId(sessionPersonas[0].id);
     }
   }, [sessionPersonas, localPersonaId, walletNode?.personaContext?.activePersonaId]);
+
+  // When the session-resolved active persona has a registered EVM address, upgrade the
+  // balance query address so on-chain Q¢ resolves to the persona's FIO-canonical wallet.
+  useEffect(() => {
+    const personaEvm = activePersona?.evmAddress;
+    if (personaEvm && personaEvm !== personaEvmOverride) {
+      setPersonaEvmOverride(personaEvm);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePersona?.evmAddress]);
 
   useEffect(() => {
     onCopilotStateChange?.(copilotOpen);
