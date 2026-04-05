@@ -6,7 +6,7 @@ import { useSmartTriad } from '@/app/components/content/SmartTriadProvider';
 import { CodexActionRow } from '../CodexActionRow';
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from '@/components/ui/carousel';
 import { WheelGesturesPlugin } from 'embla-carousel-wheel-gestures';
-import { isLockedContent, isPremiumContent } from '@/app/triad/components/codex/utils/contentFlags';
+import { isLockedContent, isPremiumContent, getContentPrice } from '@/app/triad/components/codex/utils/contentFlags';
 import { CodexBadge } from '../CodexBadge';
 import { CacheManager } from '@/app/utils/cache';
 
@@ -245,13 +245,13 @@ export function PennyDropsTab({ theme = 'dark', personaId, issueSlug, dataSource
                   </div>
                 )}
                 <div className="absolute left-4 top-4 flex items-center gap-2">
-                  <CodexBadge tone="amber">{selectedItem.badge || 'Q¢'}</CodexBadge>
-                  {isSelectedPremium ? (
+                  {isSelectedPremium && (
                     <CodexBadge tone="amber">
                       <Crown className="h-3 w-3" />
                       Premium
                     </CodexBadge>
-                  ) : null}
+                  )}
+                  {(() => { const p = getContentPrice(selectedItem as any); return p !== null ? <CodexBadge tone="amber">Q¢ {p}</CodexBadge> : null; })()}
                 </div>
                 <div className="absolute bottom-4 left-4 right-4 space-y-2 text-left">
                   <h4 className="text-xl font-semibold text-white">{selectedItem.title}</h4>

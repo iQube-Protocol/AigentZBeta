@@ -5,7 +5,7 @@ import { BookOpen, Brain, Coins, Crown, Loader2, Lock, Sparkles } from 'lucide-r
 import { useSmartTriad } from '@/app/components/content/SmartTriadProvider';
 import { CodexActionRow } from '../CodexActionRow';
 import { QriptopianFeatureSections } from '../QriptopianFeatureSections';
-import { isLockedContent, isPremiumContent } from '@/app/triad/components/codex/utils/contentFlags';
+import { isLockedContent, isPremiumContent, getContentPrice } from '@/app/triad/components/codex/utils/contentFlags';
 import { CodexBadge } from '../CodexBadge';
 import { CacheManager } from '@/app/utils/cache';
 
@@ -273,7 +273,13 @@ export function QriptoLiquidCodexTab({ theme = 'dark', personaId, issueSlug, dat
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <CodexBadge tone="amber">{item.badge || 'Q¢'}</CodexBadge>
+                    {isPremiumContent(item) && (
+                      <CodexBadge tone="amber">
+                        <Crown className="h-3 w-3" />
+                        Premium
+                      </CodexBadge>
+                    )}
+                    {(() => { const p = getContentPrice(item as any); return p !== null ? <CodexBadge tone="amber">Q¢ {p}</CodexBadge> : null; })()}
                   </div>
                   <div className={`font-medium ${textClass} mt-1 line-clamp-2`}>{item.title}</div>
                 </div>
