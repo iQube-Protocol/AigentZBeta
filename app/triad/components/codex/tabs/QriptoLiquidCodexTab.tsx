@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { BookOpen, Brain, Coins, Crown, Loader2, Lock, Sparkles } from 'lucide-react';
+import { BookOpen, Brain, Check, Coins, Crown, Loader2, Lock, Sparkles } from 'lucide-react';
 import { useSmartTriad } from '@/app/components/content/SmartTriadProvider';
 import { CodexActionRow } from '../CodexActionRow';
 import { QriptopianFeatureSections } from '../QriptopianFeatureSections';
@@ -273,13 +273,22 @@ export function QriptoLiquidCodexTab({ theme = 'dark', personaId, issueSlug, dat
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    {isPremiumContent(item) && (
-                      <CodexBadge tone="amber">
-                        <Crown className="h-3 w-3" />
-                        Premium
+                    {isOwnedItem(item) ? (
+                      <CodexBadge tone="cyan">
+                        <Check className="h-3 w-3" />
+                        Owned
                       </CodexBadge>
+                    ) : (
+                      <>
+                        {isPremiumContent(item) && (
+                          <CodexBadge tone="amber">
+                            <Crown className="h-3 w-3" />
+                            Premium
+                          </CodexBadge>
+                        )}
+                        {(() => { const p = getContentPrice(item as any); return p !== null ? <CodexBadge tone="amber">Q¢ {p}</CodexBadge> : null; })()}
+                      </>
                     )}
-                    {(() => { const p = getContentPrice(item as any); return p !== null ? <CodexBadge tone="amber">Q¢ {p}</CodexBadge> : null; })()}
                   </div>
                   <div className={`font-medium ${textClass} mt-1 line-clamp-2`}>{item.title}</div>
                 </div>
@@ -287,6 +296,7 @@ export function QriptoLiquidCodexTab({ theme = 'dark', personaId, issueSlug, dat
               <div className="mt-3">
                 <CodexActionRow
                   item={item}
+                  isOwned={isOwnedItem(item)}
                   variant="amber"
                   showRead={!!item.modalities?.read}
                   showWatch={!!item.modalities?.watch}

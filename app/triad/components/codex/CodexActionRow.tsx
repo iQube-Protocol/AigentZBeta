@@ -24,6 +24,8 @@ interface CodexActionRowProps {
     market_data?: { pricing_model?: { tiers?: Array<{ amount?: number | string | null; kind?: string }> } | null } | null;
     metadata?: { pricing?: { amount?: number | string | null } } | null;
   };
+  /** When true, suppress the price badge (item is already owned). */
+  isOwned?: boolean;
 }
 
 const VARIANTS: Record<Variant, { primary: string; secondary: string }> = {
@@ -53,6 +55,7 @@ export function CodexActionRow({
   variant = 'indigo',
   className,
   item,
+  isOwned = false,
 }: CodexActionRowProps) {
   const styles = VARIANTS[variant];
   const base =
@@ -69,7 +72,7 @@ export function CodexActionRow({
 
   return (
     <div className={`flex items-center gap-2 flex-wrap ${className || ''}`}>
-      {price !== null && (
+      {price !== null && !isOwned && (
         <CodexBadge tone="amber">Q¢ {price}</CodexBadge>
       )}
       {showRead && (

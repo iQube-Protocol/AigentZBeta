@@ -580,12 +580,13 @@ export function SmartTriadProvider({
       // Fallback: execute action handler directly
       // This simulates what Copilot would do
       if (actionName === "triad_browse_library") {
-        // Query the library endpoint which joins content_library + content_entitlements
-        const res = await fetch(`/api/content/library/${params.personaId}?limit=200`);
+        // Query entitlements directly — authoritative source of owned content
+        const res = await fetch(`/api/content/entitlements?personaId=${params.personaId}`);
         const data = await res.json().catch(() => ({ data: [] }));
+        // Each entitlement has content_id; wrap as { content: { id } } for the refreshLibrary mapper
         return {
           success: true,
-          owned: (data.data || []).map((item: any) => ({ content: item.content || item })),
+          owned: (data.data || []).map((ent: any) => ({ content: { id: ent.contentId || ent.content_id } })),
         };
       }
 
