@@ -91,6 +91,16 @@ export function FeaturesTab({ theme = 'dark', issueSlug }: FeaturesTabProps) {
     await emitDvnReceipt(eventType, item.id);
   };
 
+  const openShareModal = (item: ContentItem) => {
+    actions.openShare({
+      id: item.id,
+      title: item.title,
+      description: item.excerpt,
+      section: item.badge || item.section || 'Features',
+      type: item.modalities?.watch ? 'video' : 'text',
+    });
+  };
+
   const issueParam = useMemo(() => {
     const params = new URLSearchParams();
     if (issueSlug) params.set('issue', issueSlug);
@@ -181,6 +191,7 @@ export function FeaturesTab({ theme = 'dark', issueSlug }: FeaturesTabProps) {
         latestNews={latestNews}
         secondHeroArticles={secondHeroArticles}
         onOpen={openViaTriad}
+        onShare={openShareModal}
         isOwned={(id) => actions.checkOwnership(id)}
         onRefresh={() => {
           CacheManager.invalidate(cacheTag);

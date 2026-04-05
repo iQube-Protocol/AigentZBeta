@@ -698,6 +698,9 @@ export default function ContentViewer({
     panels?: unknown[];
     textAssets?: unknown[];
     text?: string;
+    video_url?: string;
+    audio_url?: string;
+    url?: string;
   }) => {
     if (!mod) return false;
     if (typeof mod.enabled === "boolean") return mod.enabled;
@@ -705,6 +708,10 @@ export default function ContentViewer({
     if (Array.isArray(mod.panels) && mod.panels.length > 0) return true;
     if (Array.isArray(mod.textAssets) && mod.textAssets.length > 0) return true;
     if (typeof mod.text === "string" && mod.text.trim().length > 0) return true;
+    // Detect by URL presence (DB format without explicit available flag)
+    if (typeof mod.video_url === "string" && mod.video_url.trim().length > 0) return true;
+    if (typeof mod.audio_url === "string" && mod.audio_url.trim().length > 0) return true;
+    if (typeof mod.url === "string" && mod.url.trim().length > 0) return true;
     return false;
   };
 
@@ -717,6 +724,8 @@ export default function ContentViewer({
 
   const resolveModality = (preferred?: ContentModality) => {
     if (preferred && availableModalities.includes(preferred)) return preferred;
+    // Default: prefer read (text) over video for View/unspecified
+    if (availableModalities.includes("read")) return "read";
     return availableModalities[0] || "read";
   };
 
