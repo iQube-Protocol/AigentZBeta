@@ -510,9 +510,11 @@ function PanelViewer({
 
 function VideoViewer({ watch }: { watch: WatchModality }) {
   const primaryAsset = watch.videoAssets?.[0];
-  // Also handle legacy content format where video URL is stored directly
+  // Handle legacy content format where video URL is stored directly
   const videoUrl = primaryAsset?.storageUri || (watch as any).video_url || null;
   const posterUrl = primaryAsset?.thumbnailUri || null;
+  // Respect loop flag set in admin (stored as watch.loop or watch.loop_video)
+  const shouldLoop = (watch as any).loop === true || (watch as any).loop_video === true;
 
   if (!videoUrl) {
     return (
@@ -527,6 +529,7 @@ function VideoViewer({ watch }: { watch: WatchModality }) {
       <video
         src={videoUrl}
         controls
+        loop={shouldLoop}
         className="max-w-full max-h-full"
         poster={posterUrl ?? undefined}
       >

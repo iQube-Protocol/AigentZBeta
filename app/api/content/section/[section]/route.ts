@@ -189,6 +189,7 @@ function mapSectionItem(item: any, section: string) {
             video_url: modalities.watch.video_url,
             duration: modalities.watch.duration,
             type: 'hosted',
+            loop: modalities.watch.loop ?? modalities.watch.loop_video ?? false,
           }
         : undefined,
       listen: modalities.listen
