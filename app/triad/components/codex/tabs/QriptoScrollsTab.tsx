@@ -27,6 +27,7 @@ type ScrollItem = {
   position?: number;
   tags?: string[];
   isPremium?: boolean;
+  price?: { amount: number; currency?: string };
   modalities?: any;
 };
 
@@ -255,7 +256,7 @@ export function QriptoScrollsTab({ theme = 'dark', personaId, issueSlug }: Qript
                     </div>
                   )}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                  <div className="absolute top-3 left-3 flex items-center gap-2">
+                  <div className="absolute top-3 left-3 flex items-center gap-2 flex-wrap">
                     <CodexBadge tone="indigo">{item.badge || activeTab.toUpperCase()}</CodexBadge>
                     {isPremiumContent(item) && (
                       <CodexBadge tone="amber">
@@ -263,6 +264,9 @@ export function QriptoScrollsTab({ theme = 'dark', personaId, issueSlug }: Qript
                         Premium
                       </CodexBadge>
                     )}
+                    {item.price?.amount && item.price.amount > 0 ? (
+                      <CodexBadge tone="amber">Q¢ {item.price.amount}</CodexBadge>
+                    ) : null}
                   </div>
                   {isLockedContent(item, isOwnedItem) && (
                     <div className="absolute inset-0 flex items-center justify-center">

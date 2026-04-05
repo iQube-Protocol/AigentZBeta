@@ -42,6 +42,7 @@ type Kn0wdZItem = {
   position?: number;
   tags?: string[];
   isPremium?: boolean;
+  price?: { amount: number; currency?: string };
   modalities?: any;
 };
 
@@ -332,12 +333,14 @@ export function Kn0wdZTab({ theme = 'dark', personaId, issueSlug }: Kn0wdZTabPro
                 )}
                 <div className="absolute right-3 top-3 flex items-center gap-2">
                   <CodexBadge tone="indigo">{selectedItem.badge || activeTab.toUpperCase()}</CodexBadge>
-                  {isSelectedPremium && (
+                  {selectedItem.price?.amount && selectedItem.price.amount > 0 ? (
+                    <CodexBadge tone="amber">Q¢ {selectedItem.price.amount}</CodexBadge>
+                  ) : isSelectedPremium ? (
                     <CodexBadge tone="amber">
                       <Crown className="h-3 w-3" />
                       Premium
                     </CodexBadge>
-                  )}
+                  ) : null}
                 </div>
                 <div className="absolute bottom-3 left-3 right-3 text-left">
                   <p className="text-sm font-semibold text-white line-clamp-2">{selectedItem.title}</p>

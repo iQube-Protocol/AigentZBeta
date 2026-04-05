@@ -28,6 +28,7 @@ type PennyDropItem = {
   badge?: string;
   tags?: string[];
   isPremium?: boolean;
+  price?: { amount: number; currency?: string };
   modalities?: any;
 };
 
@@ -245,12 +246,14 @@ export function PennyDropsTab({ theme = 'dark', personaId, issueSlug, dataSource
                 )}
                 <div className="absolute left-4 top-4 flex items-center gap-2">
                   <CodexBadge tone="amber">{selectedItem.badge || 'Q¢'}</CodexBadge>
-                  {isSelectedPremium && (
+                  {selectedItem.price?.amount && selectedItem.price.amount > 0 ? (
+                    <CodexBadge tone="amber">Q¢ {selectedItem.price.amount}</CodexBadge>
+                  ) : isSelectedPremium ? (
                     <CodexBadge tone="amber">
                       <Crown className="h-3 w-3" />
                       Premium
                     </CodexBadge>
-                  )}
+                  ) : null}
                 </div>
                 <div className="absolute bottom-4 left-4 right-4 space-y-2 text-left">
                   <h4 className="text-xl font-semibold text-white">{selectedItem.title}</h4>

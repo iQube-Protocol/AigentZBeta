@@ -22,6 +22,7 @@ export type QriptopianFeatureItem = {
   badge?: string;
   tags?: string[];
   isPremium?: boolean;
+  price?: { amount: number; currency?: string };
   modalities?: {
     read?: { available?: boolean };
     watch?: { available?: boolean };
@@ -188,6 +189,9 @@ export function QriptopianFeatureSections({
                 Premium
               </CodexBadge>
             )}
+            {activeHero.price?.amount && activeHero.price.amount > 0 ? (
+              <CodexBadge tone="amber">Q¢ {activeHero.price.amount}</CodexBadge>
+            ) : null}
           </div>
 
           <div className="absolute top-4 right-4 flex gap-2">{renderActionRow(activeHero)}</div>
@@ -327,7 +331,12 @@ export function QriptopianFeatureSections({
                       </div>
                       <div className="p-4 space-y-3">
                         <div className="flex items-center justify-between">
-                          <CodexBadge tone="cyan">{article.badge || 'NEWS'}</CodexBadge>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <CodexBadge tone="cyan">{article.badge || 'NEWS'}</CodexBadge>
+                            {article.price?.amount && article.price.amount > 0 ? (
+                              <CodexBadge tone="amber">Q¢ {article.price.amount}</CodexBadge>
+                            ) : null}
+                          </div>
                           {renderActionRow(article)}
                         </div>
                         <h5 className="text-[#d0f6ff] text-base font-semibold line-clamp-2">
@@ -418,6 +427,9 @@ export function QriptopianFeatureSections({
                 Premium
               </CodexBadge>
             )}
+            {activeSecondHero.price?.amount && activeSecondHero.price.amount > 0 ? (
+              <CodexBadge tone="amber">Q¢ {activeSecondHero.price.amount}</CodexBadge>
+            ) : null}
           </div>
 
           <div className="absolute top-4 right-4 flex gap-2">{renderActionRow(activeSecondHero)}</div>

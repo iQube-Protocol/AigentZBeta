@@ -7,6 +7,11 @@ type PremiumItem = {
   pricingModel?: {
     tiers?: PricingTier[];
   } | null;
+  market_data?: {
+    pricing_model?: {
+      tiers?: PricingTier[];
+    } | null;
+  } | null;
   price?: {
     amount?: number | string | null;
   } | null;
@@ -48,6 +53,7 @@ function hasPriceGate(item: PremiumItem): boolean {
   if (toPositiveNumber(item.price?.amount) !== null) return true;
   if (toPositiveNumber(item.paymentMetadata?.priceAmount) !== null) return true;
   if (hasPaidTier(item.pricingModel?.tiers)) return true;
+  if (hasPaidTier(item.market_data?.pricing_model?.tiers)) return true;
   if (hasPaidTier(item.metadata?.pricing?.tiers)) return true;
   if (toPositiveNumber(item.metadata?.pricing?.amount) !== null) return true;
   if (toPositiveNumber(item.metadata?.pricing?.priceAmount) !== null) return true;

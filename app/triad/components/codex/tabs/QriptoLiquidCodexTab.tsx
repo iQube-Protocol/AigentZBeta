@@ -17,6 +17,7 @@ type SectionItem = {
   image?: string;
   tags?: string[];
   isPremium?: boolean;
+  price?: { amount: number; currency?: string };
   modalities?: any;
 };
 
@@ -271,7 +272,12 @@ export function QriptoLiquidCodexTab({ theme = 'dark', personaId, issueSlug, dat
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <CodexBadge tone="amber">{item.badge || 'Q¢'}</CodexBadge>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <CodexBadge tone="amber">{item.badge || 'Q¢'}</CodexBadge>
+                    {item.price?.amount && item.price.amount > 0 ? (
+                      <CodexBadge tone="amber">Q¢ {item.price.amount}</CodexBadge>
+                    ) : null}
+                  </div>
                   <div className={`font-medium ${textClass} mt-1 line-clamp-2`}>{item.title}</div>
                 </div>
               </div>
@@ -322,7 +328,12 @@ export function QriptoLiquidCodexTab({ theme = 'dark', personaId, issueSlug, dat
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <CodexBadge tone="indigo">{item.badge || 'SCROLL'}</CodexBadge>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <CodexBadge tone="indigo">{item.badge || 'SCROLL'}</CodexBadge>
+                    {item.price?.amount && item.price.amount > 0 ? (
+                      <CodexBadge tone="amber">Q¢ {item.price.amount}</CodexBadge>
+                    ) : null}
+                  </div>
                   <div className={`font-medium ${textClass} mt-1 line-clamp-2`}>{item.title}</div>
                 </div>
               </div>
@@ -390,7 +401,12 @@ export function QriptoLiquidCodexTab({ theme = 'dark', personaId, issueSlug, dat
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <CodexBadge tone="indigo">{item.badge || 'KB'}</CodexBadge>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <CodexBadge tone="indigo">{item.badge || 'KB'}</CodexBadge>
+                    {item.price?.amount && item.price.amount > 0 ? (
+                      <CodexBadge tone="amber">Q¢ {item.price.amount}</CodexBadge>
+                    ) : null}
+                  </div>
                   <div className={`font-medium ${textClass} mt-1 line-clamp-2`}>{item.title}</div>
                 </div>
               </div>
