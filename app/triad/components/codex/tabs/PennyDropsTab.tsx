@@ -246,9 +246,7 @@ export function PennyDropsTab({ theme = 'dark', personaId, issueSlug, dataSource
                 )}
                 <div className="absolute left-4 top-4 flex items-center gap-2">
                   <CodexBadge tone="amber">{selectedItem.badge || 'Q¢'}</CodexBadge>
-                  {selectedItem.price?.amount && selectedItem.price.amount > 0 ? (
-                    <CodexBadge tone="amber">Q¢ {selectedItem.price.amount}</CodexBadge>
-                  ) : isSelectedPremium ? (
+                  {isSelectedPremium ? (
                     <CodexBadge tone="amber">
                       <Crown className="h-3 w-3" />
                       Premium
@@ -262,6 +260,7 @@ export function PennyDropsTab({ theme = 'dark', personaId, issueSlug, dataSource
                   )}
                   <div className="flex flex-wrap gap-2 pt-1">
                     <CodexActionRow
+                      item={selectedItem}
                       variant="amber"
                       showRead={!!selectedItem.modalities?.read}
                       showWatch={!!selectedItem.modalities?.watch}

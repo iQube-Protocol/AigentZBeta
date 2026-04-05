@@ -1,6 +1,8 @@
 'use client';
 
 import { BookOpen, Eye, Play, Share2 } from 'lucide-react';
+import { CodexBadge } from './CodexBadge';
+import { getContentPrice } from './utils/contentFlags';
 
 type Variant = 'indigo' | 'amber' | 'slate';
 
@@ -15,26 +17,27 @@ interface CodexActionRowProps {
   onShare?: () => void;
   variant?: Variant;
   className?: string;
+  /** Pass the content item to auto-render a Q¢ price badge when price > 0. */
+  item?: {
+    price?: { amount?: number | string | null } | null;
+    pricingModel?: { tiers?: Array<{ amount?: number | string | null; kind?: string }> } | null;
+    market_data?: { pricing_model?: { tiers?: Array<{ amount?: number | string | null; kind?: string }> } | null } | null;
+    metadata?: { pricing?: { amount?: number | string | null } } | null;
+  };
 }
 
 const VARIANTS: Record<Variant, { primary: string; secondary: string }> = {
   indigo: {
-    primary:
-      'border-indigo-500/40 bg-indigo-500/10 text-indigo-200 hover:bg-indigo-500/20',
-    secondary:
-      'border-slate-600 bg-slate-700/30 text-slate-200 hover:bg-slate-700/60',
+    primary: 'border-indigo-500/40 bg-indigo-500/10 text-indigo-200 hover:bg-indigo-500/20',
+    secondary: 'border-slate-600 bg-slate-700/30 text-slate-200 hover:bg-slate-700/60',
   },
   amber: {
-    primary:
-      'border-amber-500/40 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20',
-    secondary:
-      'border-slate-600 bg-slate-700/30 text-slate-200 hover:bg-slate-700/60',
+    primary: 'border-amber-500/40 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20',
+    secondary: 'border-slate-600 bg-slate-700/30 text-slate-200 hover:bg-slate-700/60',
   },
   slate: {
-    primary:
-      'border-slate-500/40 bg-slate-500/10 text-slate-200 hover:bg-slate-500/20',
-    secondary:
-      'border-slate-600 bg-slate-700/30 text-slate-200 hover:bg-slate-700/60',
+    primary: 'border-slate-500/40 bg-slate-500/10 text-slate-200 hover:bg-slate-500/20',
+    secondary: 'border-slate-600 bg-slate-700/30 text-slate-200 hover:bg-slate-700/60',
   },
 };
 
@@ -49,6 +52,7 @@ export function CodexActionRow({
   onShare,
   variant = 'indigo',
   className,
+  item,
 }: CodexActionRowProps) {
   const styles = VARIANTS[variant];
   const base =
@@ -59,10 +63,15 @@ export function CodexActionRow({
     handler?.();
   };
 
-  if (!showRead && !showWatch && !showView && !showShare) return null;
+  const price = item ? getContentPrice(item as any) : null;
+
+  if (!showRead && !showWatch && !showView && !showShare && price === null) return null;
 
   return (
-    <div className={`flex items-center gap-2 ${className || ''}`}>
+    <div className={`flex items-center gap-2 flex-wrap ${className || ''}`}>
+      {price !== null && (
+        <CodexBadge tone="amber">Q¢ {price}</CodexBadge>
+      )}
       {showRead && (
         <button
           type="button"

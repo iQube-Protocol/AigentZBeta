@@ -117,6 +117,7 @@ export function QriptopianFeatureSections({
 
   const renderActionRow = (item: QriptopianFeatureItem) => (
     <CodexActionRow
+      item={item}
       variant="indigo"
       showRead={!!item.modalities?.read}
       showWatch={!!item.modalities?.watch}
@@ -189,9 +190,6 @@ export function QriptopianFeatureSections({
                 Premium
               </CodexBadge>
             )}
-            {activeHero.price?.amount && activeHero.price.amount > 0 ? (
-              <CodexBadge tone="amber">Q¢ {activeHero.price.amount}</CodexBadge>
-            ) : null}
           </div>
 
           <div className="absolute top-4 right-4 flex gap-2">{renderActionRow(activeHero)}</div>
@@ -333,9 +331,6 @@ export function QriptopianFeatureSections({
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <CodexBadge tone="cyan">{article.badge || 'NEWS'}</CodexBadge>
-                            {article.price?.amount && article.price.amount > 0 ? (
-                              <CodexBadge tone="amber">Q¢ {article.price.amount}</CodexBadge>
-                            ) : null}
                           </div>
                           {renderActionRow(article)}
                         </div>
@@ -427,9 +422,6 @@ export function QriptopianFeatureSections({
                 Premium
               </CodexBadge>
             )}
-            {activeSecondHero.price?.amount && activeSecondHero.price.amount > 0 ? (
-              <CodexBadge tone="amber">Q¢ {activeSecondHero.price.amount}</CodexBadge>
-            ) : null}
           </div>
 
           <div className="absolute top-4 right-4 flex gap-2">{renderActionRow(activeSecondHero)}</div>

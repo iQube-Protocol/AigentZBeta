@@ -333,9 +333,7 @@ export function Kn0wdZTab({ theme = 'dark', personaId, issueSlug }: Kn0wdZTabPro
                 )}
                 <div className="absolute right-3 top-3 flex items-center gap-2">
                   <CodexBadge tone="indigo">{selectedItem.badge || activeTab.toUpperCase()}</CodexBadge>
-                  {selectedItem.price?.amount && selectedItem.price.amount > 0 ? (
-                    <CodexBadge tone="amber">Q¢ {selectedItem.price.amount}</CodexBadge>
-                  ) : isSelectedPremium ? (
+                  {isSelectedPremium ? (
                     <CodexBadge tone="amber">
                       <Crown className="h-3 w-3" />
                       Premium
@@ -349,6 +347,7 @@ export function Kn0wdZTab({ theme = 'dark', personaId, issueSlug }: Kn0wdZTabPro
                   )}
                   <div className="mt-2 flex flex-wrap gap-2">
                     <CodexActionRow
+                      item={selectedItem}
                       variant="indigo"
                       showRead={!!selectedItem.modalities?.read}
                       showWatch={!!selectedItem.modalities?.watch}

@@ -274,15 +274,13 @@ export function QriptoLiquidCodexTab({ theme = 'dark', personaId, issueSlug, dat
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <CodexBadge tone="amber">{item.badge || 'Q¢'}</CodexBadge>
-                    {item.price?.amount && item.price.amount > 0 ? (
-                      <CodexBadge tone="amber">Q¢ {item.price.amount}</CodexBadge>
-                    ) : null}
                   </div>
                   <div className={`font-medium ${textClass} mt-1 line-clamp-2`}>{item.title}</div>
                 </div>
               </div>
               <div className="mt-3">
                 <CodexActionRow
+                  item={item}
                   variant="amber"
                   showRead={!!item.modalities?.read}
                   showWatch={!!item.modalities?.watch}
@@ -330,15 +328,13 @@ export function QriptoLiquidCodexTab({ theme = 'dark', personaId, issueSlug, dat
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <CodexBadge tone="indigo">{item.badge || 'SCROLL'}</CodexBadge>
-                    {item.price?.amount && item.price.amount > 0 ? (
-                      <CodexBadge tone="amber">Q¢ {item.price.amount}</CodexBadge>
-                    ) : null}
                   </div>
                   <div className={`font-medium ${textClass} mt-1 line-clamp-2`}>{item.title}</div>
                 </div>
               </div>
               <div className="mt-3 flex items-center gap-2">
                 <CodexActionRow
+                  item={item}
                   variant="indigo"
                   showRead={!!item.modalities?.read}
                   showWatch={!!item.modalities?.watch}
@@ -403,15 +399,13 @@ export function QriptoLiquidCodexTab({ theme = 'dark', personaId, issueSlug, dat
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <CodexBadge tone="indigo">{item.badge || 'KB'}</CodexBadge>
-                    {item.price?.amount && item.price.amount > 0 ? (
-                      <CodexBadge tone="amber">Q¢ {item.price.amount}</CodexBadge>
-                    ) : null}
                   </div>
                   <div className={`font-medium ${textClass} mt-1 line-clamp-2`}>{item.title}</div>
                 </div>
               </div>
               <div className="mt-3">
                 <CodexActionRow
+                  item={item}
                   variant="indigo"
                   showRead={!!item.modalities?.read}
                   showWatch={!!item.modalities?.watch}

@@ -264,9 +264,6 @@ export function QriptoScrollsTab({ theme = 'dark', personaId, issueSlug }: Qript
                         Premium
                       </CodexBadge>
                     )}
-                    {item.price?.amount && item.price.amount > 0 ? (
-                      <CodexBadge tone="amber">Q¢ {item.price.amount}</CodexBadge>
-                    ) : null}
                   </div>
                   {isLockedContent(item, isOwnedItem) && (
                     <div className="absolute inset-0 flex items-center justify-center">
@@ -283,6 +280,7 @@ export function QriptoScrollsTab({ theme = 'dark', personaId, issueSlug }: Qript
                   </div>
                   <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                     <CodexActionRow
+                      item={item}
                       variant="indigo"
                       showRead={!!item.modalities?.read}
                       showWatch={!!item.modalities?.watch}
