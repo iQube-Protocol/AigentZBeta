@@ -580,12 +580,12 @@ export function SmartTriadProvider({
       // Fallback: execute action handler directly
       // This simulates what Copilot would do
       if (actionName === "triad_browse_library") {
-        // Direct service call for library
-        const res = await fetch(`/api/content/smart?personaId=${params.personaId}`);
+        // Query the library endpoint which joins content_library + content_entitlements
+        const res = await fetch(`/api/content/library/${params.personaId}?limit=200`);
         const data = await res.json().catch(() => ({ data: [] }));
         return {
           success: true,
-          owned: data.data?.map((c: any) => ({ content: c })) || [],
+          owned: (data.data || []).map((item: any) => ({ content: item.content || item })),
         };
       }
 

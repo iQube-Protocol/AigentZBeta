@@ -208,6 +208,8 @@ export function SmartTriadSurfaces({ personaId }: SmartTriadSurfacesProps) {
         onPurchaseComplete={async () => {
           await actions.refreshLibrary();
           actions.setContentAccessGranted(true);
+          // Close wallet after the success screen has shown (matches 2s success timer)
+          setTimeout(() => actions.closeWallet(), 2500);
         }}
         personaId={personaId}
       />

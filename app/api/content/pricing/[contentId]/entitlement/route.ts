@@ -71,7 +71,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       expiresAt,
       maxUsage,
     });
-    
+
+    // Auto-add to library so the item appears in the user's library as owned
+    await service.addToLibrary({ personaId, contentId }).catch(() => {
+      // Non-fatal: entitlement is the source of truth; library add is best-effort
+    });
+
     return NextResponse.json({
       success: true,
       data: entitlement,
