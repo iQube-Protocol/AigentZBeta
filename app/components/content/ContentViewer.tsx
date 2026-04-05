@@ -510,8 +510,11 @@ function PanelViewer({
 
 function VideoViewer({ watch }: { watch: WatchModality }) {
   const primaryAsset = watch.videoAssets?.[0];
+  // Also handle legacy content format where video URL is stored directly
+  const videoUrl = primaryAsset?.storageUri || (watch as any).video_url || null;
+  const posterUrl = primaryAsset?.thumbnailUri || null;
 
-  if (!primaryAsset) {
+  if (!videoUrl) {
     return (
       <div className="flex items-center justify-center h-full text-slate-400">
         No video content available
@@ -522,10 +525,10 @@ function VideoViewer({ watch }: { watch: WatchModality }) {
   return (
     <div className="w-full h-full flex items-center justify-center bg-black rounded-xl overflow-hidden">
       <video
-        src={primaryAsset.storageUri}
+        src={videoUrl}
         controls
         className="max-w-full max-h-full"
-        poster={primaryAsset.thumbnailUri}
+        poster={posterUrl ?? undefined}
       >
         Your browser does not support video playback.
       </video>
