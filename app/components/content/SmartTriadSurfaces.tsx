@@ -29,7 +29,17 @@ export function SmartTriadSurfaces({ personaId }: SmartTriadSurfacesProps) {
   const recipient = agentConfigs["aigent-kn0w1"];
 
   const viewerOpen = state.activeDrawer === "contentViewer" && !!state.currentContent;
-  const hasAccess = state.currentContent ? actions.checkOwnership(state.currentContent.id) : false;
+
+  // Content is free when it has no pricing tiers or all tiers have amount = 0.
+  // Free content is accessible without purchase — skip the gate entirely.
+  const isCurrentContentFree = (() => {
+    const tiers = state.currentContent?.pricingModel?.tiers ?? [];
+    if (tiers.length === 0) return true;
+    return tiers.every(t => !t.amount || Number(t.amount) === 0 || (t as any).kind === 'free');
+  })();
+  const hasAccess = state.currentContent
+    ? (actions.checkOwnership(state.currentContent.id) || isCurrentContentFree)
+    : false;
 
   // Handle codex-specific drawers
   const renderCodexDrawer = () => {
@@ -135,7 +145,7 @@ export function SmartTriadSurfaces({ personaId }: SmartTriadSurfacesProps) {
                 hasAccess={hasAccess}
                 accessScope={hasAccess ? "full" : "preview"}
                 onClose={() => actions.setActiveDrawer(null)}
-                onPanelPayment={() => actions.openWallet("full")}
+                onPanelPayment={() => actions.openWallet("full", "payments")}
               />
             </div>
           </div>
@@ -194,6 +204,7 @@ export function SmartTriadSurfaces({ personaId }: SmartTriadSurfacesProps) {
         }}
         recipientAddress={recipient.walletAddresses.evmAddress}
         currentContent={state.currentContent || undefined}
+        initialTab={state.walletInitialTab}
         onPurchaseComplete={() => actions.refreshLibrary()}
         personaId={personaId}
       />
