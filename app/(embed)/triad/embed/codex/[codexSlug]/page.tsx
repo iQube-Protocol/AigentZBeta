@@ -60,9 +60,11 @@ function DynamicCodexContent() {
     "profileId",
     "aaAuthProfileId",
   ]);
-  const { personaId } = useCodexEmbedAuthBridge({
+  const queryIsAdmin = searchParams?.get("isAdmin") === "true" || searchParams?.get("admin") === "1";
+  const { personaId, isAdmin } = useCodexEmbedAuthBridge({
     initialPersonaId: queryPersonaId,
     initialAuthProfileId: queryAuthProfileId,
+    initialIsAdmin: queryIsAdmin || undefined,
   });
 
   return (
@@ -72,6 +74,7 @@ function DynamicCodexContent() {
       density={density}
       initialTab={tab}
       personaId={personaId}
+      isAdmin={isAdmin}
       useDefaults={true}
     />
   );

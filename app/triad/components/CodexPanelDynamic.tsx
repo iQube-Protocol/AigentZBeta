@@ -9,7 +9,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCodexConfig, getEnabledTabs, hasCodexPermission } from "@/app/hooks/useCodexConfig";
+import { useCodexConfig, getEnabledTabs } from "@/app/hooks/useCodexConfig";
 import { CodexTab } from "@/types/codex";
 import type { DeviceType } from "@/app/types/knytLiquidUI";
 import { Loader2, AlertCircle, X } from "lucide-react";
@@ -26,6 +26,7 @@ interface CodexPanelDynamicProps {
   initialTab?: string;
   hiddenTabs?: string[];
   personaId?: string;
+  isAdmin?: boolean;            // Explicit admin override — hides adminOnly tabs from non-admins
   useDefaults?: boolean;        // Use hardcoded configs vs database
   previewDevice?: DeviceType;
   onClose?: () => void;         // Direct close callback (inline rendering)
@@ -62,6 +63,7 @@ export default function CodexPanelDynamic({
   initialTab,
   hiddenTabs = [],
   personaId,
+  isAdmin: isAdminProp,
   useDefaults = true,
   previewDevice,
   onClose,
@@ -92,10 +94,10 @@ export default function CodexPanelDynamic({
     return next;
   }, [hiddenTabs, queryHiddenTabs]);
   
-  const isAdmin = useMemo(
-    () => hasCodexPermission(codex, personaId, 'admin'),
-    [codex, personaId]
-  );
+  // isAdminProp is the authoritative source when provided by the caller (e.g. platform shell
+  // already resolved admin status from Supabase/AA-API). Falls back to false so adminOnly
+  // tabs stay hidden when no explicit admin signal is received.
+  const isAdmin = isAdminProp === true;
 
   const enabledTabs = useMemo(
     () => getEnabledTabs(codex, isAdmin).filter((tab) => !hiddenTabSet.has(tab.slug.toLowerCase())),

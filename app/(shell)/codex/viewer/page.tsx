@@ -447,6 +447,7 @@ export default function CodexViewerPage() {
                 density={density}
                 initialTab={activeTab}
                 hiddenTabs={hiddenTabs}
+                isAdmin={true}
                 useDefaults={true}
                 previewDevice={previewDevice}
               />
