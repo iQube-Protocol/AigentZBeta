@@ -44,6 +44,8 @@ export const ComposerExperienceViewer = ({ experienceId }: { experienceId: strin
   const [packet, setPacket] = useState<Record<string, any> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [packetError, setPacketError] = useState<string | null>(null);
+  const [packetRetryKey, setPacketRetryKey] = useState(0);
   const isEmbeddedPreview = searchParams?.get("embed") === "1";
   const [showPacket, setShowPacket] = useState(false);
 
@@ -52,6 +54,7 @@ export const ComposerExperienceViewer = ({ experienceId }: { experienceId: strin
     const load = async () => {
       try {
         setLoading(true);
+        setPacketError(null);
         const res = await fetch(`/api/composer/experiences/${experienceId}`, {
           cache: "no-store",
         });
@@ -68,7 +71,18 @@ export const ComposerExperienceViewer = ({ experienceId }: { experienceId: strin
         if (packetRes.ok) {
           const packetText = await packetRes.text();
           const packetData = packetText ? JSON.parse(packetText) : {};
-          if (active) setPacket(packetData.packet || null);
+          if (active) {
+            setPacket(packetData.packet || null);
+            setPacketError(null);
+          }
+        } else {
+          const errText = await packetRes.text().catch(() => "");
+          let errMsg = `Packet build failed (${packetRes.status})`;
+          try {
+            const errData = errText ? JSON.parse(errText) : {};
+            if (typeof errData.error === "string") errMsg = errData.error;
+          } catch { /* ignore parse failures */ }
+          if (active) setPacketError(errMsg);
         }
       } catch (err: any) {
         console.error("[ExperienceViewer] load error:", err);
@@ -81,7 +95,7 @@ export const ComposerExperienceViewer = ({ experienceId }: { experienceId: strin
     return () => {
       active = false;
     };
-  }, [experienceId]);
+  }, [experienceId, packetRetryKey]);
 
   if (loading) {
     return (
@@ -133,6 +147,18 @@ export const ComposerExperienceViewer = ({ experienceId }: { experienceId: strin
                 className="text-xs text-slate-400 hover:text-slate-200"
               >
                 {showPacket ? "Hide Packet" : "Show Packet"}
+              </button>
+            </div>
+          )}
+
+          {packetError && (
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+              <span>{packetError}</span>
+              <button
+                className="shrink-0 rounded-full border border-amber-400/40 px-3 py-1 text-xs hover:border-amber-300/60 hover:text-amber-100"
+                onClick={() => setPacketRetryKey((k) => k + 1)}
+              >
+                Retry
               </button>
             </div>
           )}

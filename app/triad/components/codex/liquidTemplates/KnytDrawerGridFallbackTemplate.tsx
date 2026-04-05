@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { LayoutGrid, Loader2 } from "lucide-react";
 import type { SmartContentQube } from "@/types/smartContent";
 import { SmartContentCard, useSmartTriad } from "@/app/components/content";
+import { ExperienceContextSidebar } from "@/components/composer/ExperienceContextSidebar";
 
 type ExperienceQube = {
   id: string;
@@ -45,20 +46,6 @@ export function KnytDrawerGridFallbackTemplate({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const config = experience?.configuration || {};
-  const intentConfig = config.intent_timebox || {};
-  const walletConfig = config.wallet_rewards || {};
-  const copilotConfig = config.copilot_output || {};
-  const dprLatest = experience?.metadata?.dprLatest || null;
-  const dprReceipts = Array.isArray(experience?.metadata?.dprReceipts)
-    ? experience?.metadata?.dprReceipts
-    : [];
-  const dprDvnEvents = Array.isArray(experience?.metadata?.dprDvnEvents)
-    ? experience?.metadata?.dprDvnEvents
-    : [];
-  const latestDprReceipt = dprReceipts[dprReceipts.length - 1] || null;
-  const latestDvnEvent = dprDvnEvents[dprDvnEvents.length - 1] || null;
-
   const workingSet = packet?.context?.working_set || {};
   const contentConfig = experience?.configuration?.content_selection || {};
   const featureId = workingSet.feature_item_id || contentConfig.feature_item_id;
@@ -74,14 +61,6 @@ export function KnytDrawerGridFallbackTemplate({
 
   const templateId = packet?.ui?.primary_template || "knyt:drawer_grid_v1";
   const selectionReason = packet?.ui?.template_selection?.reason || "TemplateRegistry selection";
-  const packetIntent = packet?.intent?.constraints || {};
-  const issueSlug = packetIntent.issue_slug || contentConfig.issue_slug || "issue-1";
-  const goal = packetIntent.goal || intentConfig.goal || "reading sprint";
-  const timeAvailable = packetIntent.time_available || intentConfig.time_available || "15";
-  const depth = packetIntent.depth || intentConfig.depth || "overview";
-  const unlockPrice = Number(walletConfig.unlock_price || 0);
-  const rewardAmount = Number(walletConfig.reward_amount || 0);
-  const requiresConnect = walletConfig.require_wallet_connect !== false;
   const isDashboard = templateId.includes("drawer_grid_2a");
   const getRatioOverride = (variant?: string) =>
     variant && mediaVariantOverridesEnabled ? mediaRatioOverrides?.[variant] : undefined;
@@ -138,12 +117,6 @@ export function KnytDrawerGridFallbackTemplate({
   const panelClass = isDark ? "bg-slate-900/60 border-slate-800" : "bg-white border-slate-200";
   const textClass = isDark ? "text-white" : "text-slate-900";
   const mutedClass = isDark ? "text-slate-400" : "text-slate-600";
-  const gates = useMemo(() => {
-    const list: string[] = [];
-    if (requiresConnect) list.push("connect");
-    if (unlockPrice > 0) list.push("pay");
-    return list;
-  }, [requiresConnect, unlockPrice]);
 
   return (
     <div className="space-y-5">
@@ -227,86 +200,33 @@ export function KnytDrawerGridFallbackTemplate({
                 )}
               </div>
 
-              <aside className={`rounded-2xl border ${panelClass} p-5 space-y-4`}>
-                <div>
-                  <div className="text-xs uppercase tracking-widest text-slate-400">Experience Context</div>
-                  <div className={`mt-2 text-sm ${textClass}`}>Issue {issueSlug}</div>
-                  <div className={`mt-2 text-xs ${mutedClass}`}>Goal: {goal}</div>
-                  <div className={`text-xs ${mutedClass}`}>Time: {timeAvailable} mins</div>
-                  <div className={`text-xs ${mutedClass}`}>Depth: {depth}</div>
-                </div>
-                <div>
-                  <div className="text-xs uppercase tracking-widest text-slate-400">Wallet Gates</div>
-                  <div className={`mt-1 text-sm ${textClass}`}>
-                    {gates.length ? gates.join(" + ") : "None"}
-                  </div>
-                  <div className={`mt-2 text-xs ${mutedClass}`}>
-                    Unlock: {unlockPrice > 0 ? `${unlockPrice} Qc` : "Free"} / Reward:{" "}
-                    {rewardAmount > 0 ? `${rewardAmount} Qc` : "None"}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xs uppercase tracking-widest text-slate-400">Copilot Outputs</div>
-                  <ul className={`mt-2 space-y-2 text-sm ${textClass}`}>
-                    {Array.isArray(copilotConfig.outputs) && copilotConfig.outputs.length > 0 ? (
-                      copilotConfig.outputs.map((output: string) => <li key={output}>{output}</li>)
-                    ) : (
-                      <li className={mutedClass}>No outputs configured</li>
-                    )}
-                  </ul>
-                </div>
-                <div className={`rounded-xl border ${isDark ? "border-slate-700 bg-slate-900/60" : "border-slate-200"} p-4`}>
-                  <div className={`text-xs ${mutedClass}`}>Sprint checklist</div>
-                  <ul className={`mt-2 space-y-2 text-sm ${textClass}`}>
-                    <li>1. Open the feature article</li>
-                    <li>2. Read with preview + unlock</li>
-                    <li>3. Capture copilot takeaways</li>
-                    <li>4. Save the takeaways card</li>
-                  </ul>
-                </div>
-                <div className={`rounded-xl border ${isDark ? "border-indigo-500/30 bg-indigo-500/10" : "border-indigo-200 bg-indigo-50"} p-4`}>
-                  <div className={`text-xs uppercase tracking-wide ${mutedClass}`}>DPR Summary</div>
-                  {dprLatest ? (
-                    <div className={`mt-2 space-y-1 text-xs ${textClass}`}>
-                      <div>Score: {dprLatest.score ?? "n/a"}/100</div>
-                      <div>Violations: {dprLatest.violations ?? "n/a"}</div>
-                      <div>Checks: {dprLatest.checks?.totalChecks ?? "n/a"}</div>
-                      <div className={mutedClass}>{dprLatest.summary || "Latest parity run recorded."}</div>
-                    </div>
-                  ) : (
-                    <div className={`mt-2 text-xs ${mutedClass}`}>No DPR run recorded yet.</div>
-                  )}
-                  <div className={`mt-3 text-[11px] ${mutedClass}`}>
-                    DVN Event: {latestDvnEvent?.id || "pending"}
-                  </div>
-                  <div className={`text-[11px] ${mutedClass}`}>
-                    Receipt: {latestDprReceipt?.receiptId || "pending"}
-                  </div>
-                </div>
-              </aside>
+              <ExperienceContextSidebar experience={experience} packet={packet} theme={theme} />
             </div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {items.length > 0 ? (
-                items.map((item, index) => (
-                  <SmartContentCard
-                    key={item.id}
-                    content={item}
-                    templateVariant={isDashboard ? "standard" : "grid"}
-                    device="desktop"
-                    variant={index === 0 ? "featured" : "standard"}
-                    useTemplateRatioOverrides={mediaVariantOverridesEnabled}
-                    mediaRatioOverride={getRatioOverride(isDashboard ? "standard" : "grid")}
-                    onSelect={handleOpen}
-                    onPurchase={handlePurchase}
-                    isOwned={actions.checkOwnership(item.id)}
-                  />
-                ))
-              ) : (
-                <div className={`rounded-xl border ${panelClass} p-4 text-sm ${mutedClass}`}>
-                  No content available for this template yet.
-                </div>
-              )}
+            <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+              <div className="grid gap-4 md:grid-cols-2">
+                {items.length > 0 ? (
+                  items.map((item, index) => (
+                    <SmartContentCard
+                      key={item.id}
+                      content={item}
+                      templateVariant="grid"
+                      device="desktop"
+                      variant={index === 0 ? "featured" : "standard"}
+                      useTemplateRatioOverrides={mediaVariantOverridesEnabled}
+                      mediaRatioOverride={getRatioOverride("grid")}
+                      onSelect={handleOpen}
+                      onPurchase={handlePurchase}
+                      isOwned={actions.checkOwnership(item.id)}
+                    />
+                  ))
+                ) : (
+                  <div className={`rounded-xl border ${panelClass} p-4 text-sm ${mutedClass}`}>
+                    No content available for this template yet.
+                  </div>
+                )}
+              </div>
+              <ExperienceContextSidebar experience={experience} packet={packet} theme={theme} />
             </div>
           )}
         </>

@@ -175,6 +175,7 @@ export async function getPersona(tenantId: TenantId, personaId: string): Promise
 
   if (error) {
     if (error.code === 'PGRST116') return null; // Not found
+    if (error.code === '22P02') return null; // Invalid UUID format — treat as not found
     throw error;
   }
 

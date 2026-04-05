@@ -27,6 +27,7 @@ import {
   Info,
 } from "lucide-react";
 import { persistGeneratedAssetsForExperience } from "@/services/composer/generatedAssetClient";
+import { ExperienceContextSidebar } from "@/components/composer/ExperienceContextSidebar";
 
 interface SkillVideoPlayerProps {
   skill_id: string;
@@ -46,6 +47,8 @@ interface SkillVideoPlayerProps {
   initial_generation_id?: string;
   /** Venice model required for the status URL when resuming a Venice job. */
   initial_venice_model?: string;
+  packet?: Record<string, any>;
+  experience?: { configuration?: Record<string, any>; metadata?: Record<string, any> };
 }
 
 interface InvocationResult {
@@ -113,6 +116,8 @@ export default function SkillVideoPlayer({
   persona_id,
   initial_generation_id,
   initial_venice_model,
+  packet,
+  experience,
 }: SkillVideoPlayerProps) {
   const searchParams = useSearchParams();
   // Sora jobs typically complete in 3–5 min. First poll fires immediately,
@@ -436,7 +441,10 @@ export default function SkillVideoPlayer({
       .catch(() => undefined);
   }, [experience_id, isLive, persistedVideoKey, persona_id, prompt, result, state]);
 
+  const hasSidebar = Boolean(experience || packet);
+
   return (
+    <div className={hasSidebar ? "grid gap-6 lg:grid-cols-[2fr_1fr]" : undefined}>
     <div className="rounded-2xl border border-slate-800 bg-slate-900/60 overflow-hidden">
       {/* Header */}
       <ExperienceBlockHeader
@@ -788,6 +796,10 @@ export default function SkillVideoPlayer({
           </pre>
         </div>
       )}
+    </div>
+    {hasSidebar && (
+      <ExperienceContextSidebar experience={experience} packet={packet} theme="dark" />
+    )}
     </div>
   );
 }

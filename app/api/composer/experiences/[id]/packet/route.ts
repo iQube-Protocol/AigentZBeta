@@ -107,11 +107,26 @@ function isSkillBacked(experience: any): boolean {
 
 function hasImageGeneration(experience: any): boolean {
   const config = experience.configuration || {};
+  const metadata = experience.metadata || {};
   const imageGeneration = config.image_generation || {};
-  return Boolean(
+
+  // Explicit prompts configured
+  if (
     (typeof imageGeneration.portrait_prompt === "string" && imageGeneration.portrait_prompt.trim()) ||
-      (typeof imageGeneration.landscape_prompt === "string" && imageGeneration.landscape_prompt.trim())
-  );
+    (typeof imageGeneration.landscape_prompt === "string" && imageGeneration.landscape_prompt.trim())
+  ) {
+    return true;
+  }
+
+  // Images already generated and saved (prompts may have been cleared after generation)
+  const generatedAssets = Array.isArray(metadata.generated_assets) ? metadata.generated_assets : [];
+  if (generatedAssets.some((asset: any) => isImageAsset(asset) && Boolean(getAssetUrl(asset)))) {
+    return true;
+  }
+
+  // Accepted bundle image output (from video_article_bundle or image bundle presets)
+  const bundleImageAssets = getBundleImageAssets(experience);
+  return bundleImageAssets.length > 0;
 }
 
 function getVideoSkillSubhead(skillId: string) {
@@ -626,23 +641,55 @@ function buildImagePacket(experience: any, personaLibraryAssets: any[] = []) {
       Boolean(getAssetUrl(asset))
   );
   const receiptBackfilledImages = buildImageAssetsFromReceipts(metadata, imageGeneration, providerId);
-  const savedImagesFromAssets = generatedAssets
-    .filter((asset: any) => imageAssets.includes(asset))
-    .map((asset: any) => ({
-      orientation: asset.orientation,
+
+  // Map all image sources (receipt, generatedAssets, acceptedBundleAssets) into
+  // a normalised shape that SkillImagePlayer expects.
+  function toInitialImage(asset: any, orientationHint?: "portrait" | "landscape") {
+    const orientation: "portrait" | "landscape" =
+      asset.orientation === "portrait" || asset.orientation === "landscape"
+        ? asset.orientation
+        : orientationHint ?? "landscape";
+    return {
+      orientation,
       prompt:
-        asset.orientation === "portrait"
-          ? imageGeneration.portrait_prompt || ""
-          : imageGeneration.landscape_prompt || "",
+        orientation === "portrait"
+          ? imageGeneration.portrait_prompt || asset.prompt || ""
+          : imageGeneration.landscape_prompt || asset.prompt || "",
       ok: true,
       mode: "live" as const,
       image_url: getAssetUrl(asset) as string,
       model: asset.provider || providerId,
       receipt_id: getAssetReceiptRef(asset) || undefined,
-    }));
+    };
+  }
+
+  // Assets from metadata.generated_assets that passed the orientation+url filter
+  const savedImagesFromAssets = generatedAssets
+    .filter((asset: any) => imageAssets.includes(asset))
+    .map((asset: any) => toInitialImage(asset));
+
+  // Assets from bundle block outputs (acceptedImageAssets) that aren't already
+  // represented via generatedAssets (they are different object references).
+  const acceptedBundleImages = acceptedImageAssets
+    .filter((asset: any) => isImageAsset(asset) && Boolean(getAssetUrl(asset)) &&
+      (asset?.orientation === "portrait" || asset?.orientation === "landscape"))
+    .map((asset: any) => toInitialImage(asset));
+
   const initialImagesByOrientation = new Map<string, (typeof receiptBackfilledImages)[number]>();
+  // Priority order (lowest to highest, later overwrites earlier):
+  // 1. receipt-backfilled
+  // 2. accepted bundle assets
+  // 3. saved generatedAssets (most recent, user-generated)
   for (const image of receiptBackfilledImages) {
     initialImagesByOrientation.set(image.orientation, image);
+  }
+  for (const image of acceptedBundleImages) {
+    const existing = initialImagesByOrientation.get(image.orientation);
+    const existingTs = existing ? getAssetTimestamp(existing) : 0;
+    const currentTs = getAssetTimestamp(image);
+    if (!existing || currentTs >= existingTs) {
+      initialImagesByOrientation.set(image.orientation, image);
+    }
   }
   for (const image of savedImagesFromAssets) {
     const existing = initialImagesByOrientation.get(image.orientation);
