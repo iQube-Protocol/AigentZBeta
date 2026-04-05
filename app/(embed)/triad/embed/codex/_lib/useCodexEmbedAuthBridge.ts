@@ -207,6 +207,28 @@ export function useCodexEmbedAuthBridge(
     };
   }, [personaId, authProfileId]);
 
+  // Auto-detect admin status via the platform admin-check API when no explicit
+  // isAdmin signal was received from the parent (postMessage or query param).
+  // personaId may be an email (e.g. dele@metame.com) — the API accepts either.
+  useEffect(() => {
+    if (isAdmin !== undefined) return; // already resolved
+    if (!personaId) return;
+    // Only query if personaId looks like an email (the admin-check API uses email)
+    if (!personaId.includes('@')) return;
+
+    let cancelled = false;
+    fetch(`/api/codex/admin-check?email=${encodeURIComponent(personaId)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled && typeof data?.isAdmin === 'boolean') {
+          setIsAdmin(data.isAdmin);
+        }
+      })
+      .catch(() => { /* non-fatal — isAdmin stays undefined (treated as false) */ });
+
+    return () => { cancelled = true; };
+  }, [personaId, isAdmin]);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
 
