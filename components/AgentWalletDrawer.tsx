@@ -346,6 +346,11 @@ export default function AgentWalletDrawer({ open, onClose, agent }: AgentWalletD
           <div>
             <h3 className="text-slate-100 text-sm font-medium tracking-wide">{agentConfig.name} — Wallet</h3>
             <p className="text-xs text-slate-300">{agentConfig.fioId}</p>
+            {agentConfig.personaId && (
+              <p className="text-[10px] text-slate-500 font-mono mt-0.5 select-all" title="Persona UUID">
+                {agentConfig.personaId}
+              </p>
+            )}
           </div>
           <button
             onClick={onClose}

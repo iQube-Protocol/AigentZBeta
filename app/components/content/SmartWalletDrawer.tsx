@@ -1323,7 +1323,7 @@ export default function SmartWalletDrawer({
           <div className="relative z-[100]">
             <button
               onClick={() => setPersonaMenuOpen((prev) => !prev)}
-              className="flex items-center gap-1 hover:bg-white/5 rounded-lg p-1.5 transition-colors"
+              className="flex items-center gap-1.5 hover:bg-white/5 rounded-lg p-1.5 transition-colors"
             >
               <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${activePersona?.isAgent ? "bg-amber-500/20" : "bg-cyan-500/20"}`}>
                 {activePersona?.isAgent ? (
@@ -1332,6 +1332,11 @@ export default function SmartWalletDrawer({
                   <User className="w-4 h-4 text-cyan-400" />
                 )}
               </div>
+              {(activePersona?.fioHandle || agent.fioHandle) && (
+                <span className={`text-xs font-medium truncate max-w-[110px] ${activePersona?.isAgent ? "text-amber-300" : "text-cyan-300"}`}>
+                  {activePersona?.fioHandle || agent.fioHandle}
+                </span>
+              )}
               <ChevronDown className={`w-3 h-3 text-white/50 transition-transform ${personaMenuOpen ? "rotate-180" : ""}`} />
             </button>
 
