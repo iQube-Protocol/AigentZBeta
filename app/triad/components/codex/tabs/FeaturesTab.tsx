@@ -79,10 +79,11 @@ export function FeaturesTab({ theme = 'dark', issueSlug }: FeaturesTabProps) {
     const isLocked = isLockedContent(item, ({ id }) => actions.checkOwnership(id));
     await actions.loadContent(item.id);
     if (isLocked) {
-      actions.openWallet('full');
+      actions.openWallet('full', 'payments');
       await emitDvnReceipt(eventType, item.id);
       return;
     }
+    actions.setContentAccessGranted(true);
     actions.setViewerModality(
       eventType === 'content.watch' ? 'watch' : eventType === 'content.read' ? 'read' : null
     );

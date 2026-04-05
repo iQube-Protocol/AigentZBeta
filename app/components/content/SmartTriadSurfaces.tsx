@@ -38,7 +38,7 @@ export function SmartTriadSurfaces({ personaId }: SmartTriadSurfacesProps) {
     return tiers.every(t => !t.amount || Number(t.amount) === 0 || (t as any).kind === 'free');
   })();
   const hasAccess = state.currentContent
-    ? (actions.checkOwnership(state.currentContent.id) || isCurrentContentFree)
+    ? (actions.checkOwnership(state.currentContent.id) || state.contentAccessGranted || isCurrentContentFree)
     : false;
 
   // Handle codex-specific drawers

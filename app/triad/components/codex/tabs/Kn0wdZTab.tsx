@@ -231,10 +231,11 @@ export function Kn0wdZTab({ theme = 'dark', personaId, issueSlug }: Kn0wdZTabPro
     const isLocked = isLockedContent(item, isOwnedItem);
     await actions.loadContent(item.id);
     if (isLocked) {
-      actions.openWallet('full');
+      actions.openWallet('full', 'payments');
       await emitDvnReceipt(eventType, item.id);
       return;
     }
+    actions.setContentAccessGranted(true);
     actions.setViewerModality(modality);
     actions.setActiveDrawer('contentViewer');
     await emitDvnReceipt(eventType, item.id);

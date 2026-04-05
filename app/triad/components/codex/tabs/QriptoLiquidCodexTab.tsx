@@ -180,10 +180,11 @@ export function QriptoLiquidCodexTab({ theme = 'dark', personaId, issueSlug, dat
       await actions.loadContent(item.id);
 
       if (isLocked) {
-        actions.openWallet('full');
+        actions.openWallet('full', 'payments');
         return;
       }
 
+      actions.setContentAccessGranted(true);
       actions.setViewerModality(
         eventType === 'content.read' ? 'read' : eventType === 'content.watch' ? 'watch' : null
       );
@@ -343,7 +344,7 @@ export function QriptoLiquidCodexTab({ theme = 'dark', personaId, issueSlug, dat
                     const isLocked = isLockedContent(item, isOwnedItem);
                     if (isLocked) {
                       await actions.loadContent(item.id);
-                      actions.openWallet('compact');
+                      actions.openWallet('full', 'payments');
                       await emitDvnReceipt('content.view', item);
                       return;
                     }

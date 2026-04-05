@@ -122,6 +122,9 @@ export interface TriadState {
   // SmartActions — share
   shareItem: ShareItem | null;
 
+  // Access granted by tab-level gate evaluation (authoritative for free content)
+  contentAccessGranted: boolean;
+
   // Developer overrides
   devGatingOverride: boolean;
 }
@@ -152,6 +155,9 @@ export interface TriadActions {
   // SmartActions — share
   openShare: (item: ShareItem) => void;
   closeShare: () => void;
+
+  // Access granted by tab-level gate evaluation
+  setContentAccessGranted: (granted: boolean) => void;
 
   // Developer overrides
   setDevGatingOverride: (enabled: boolean) => void;
@@ -210,6 +216,7 @@ export function SmartTriadProvider({
     ownedContentIds: new Set(),
     libraryLoading: false,
     shareItem: null,
+    contentAccessGranted: false,
     devGatingOverride: false,
   });
 
@@ -323,6 +330,8 @@ export function SmartTriadProvider({
     setState(prev => ({
       ...prev,
       activeDrawer: drawer,
+      // Reset access grant when viewer is closed
+      contentAccessGranted: drawer === null ? false : prev.contentAccessGranted,
     }));
   }, []);
 
@@ -521,6 +530,10 @@ export function SmartTriadProvider({
   // SMARTACTIONS — SHARE
   // ==========================================================================
 
+  const setContentAccessGranted = useCallback((granted: boolean) => {
+    setState(prev => ({ ...prev, contentAccessGranted: granted }));
+  }, []);
+
   const openShare = useCallback((item: ShareItem) => {
     setState(prev => ({ ...prev, shareItem: item }));
   }, []);
@@ -670,6 +683,7 @@ export function SmartTriadProvider({
       checkOwnership,
       openShare,
       closeShare,
+      setContentAccessGranted,
       setDevGatingOverride,
       executeTriadAction,
     },
