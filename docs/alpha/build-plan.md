@@ -93,7 +93,7 @@ Genuine gaps requiring new but small builds:
 | **4** | Production coherence | ⚠️ Partial | Studio + Registry connected in code, not UX | C2+C3 |
 | **5** | Sovereignty coherence | ✅ Done | PCS ladder seeded + visible in ExperienceDashboardTab individual view | D1+D2 |
 | **6** | KNYT coherence | ✅ Done | Like/spark/curate routes live; $KNYT wallet section distinct; NBE→KNYT CTA wired | D3+D4+D5 |
-| **7** | Economic coherence | ❌ Missing | No surface distinguishing Q¢ from $KNYT | E1 |
+| **7** | Economic coherence | ✅ Done | EconomicSplitBanner in KNYT + AgentiQ codex headers | E1 |
 | **8** | Flywheel coherence | ❌ Missing | No golden-path demo artifact | C3+E2 |
 
 ---
@@ -269,8 +269,8 @@ Acceptance test:
 **Gate:** 7
 
 Deliverables:
-- [ ] `EconomicSplitBanner` component — two-column: Q¢ (platform base rail) vs $KNYT (KNYT cartridge economy), one-line descriptions each
-- [ ] Render `EconomicSplitBanner` in KNYT codex header and AgentiQ codex header
+- [x] `EconomicSplitBanner` component — two-column: Q¢ (platform base rail) vs $KNYT (KNYT cartridge economy), one-line descriptions each *(done)*
+- [x] Render `EconomicSplitBanner` in KNYT codex header and AgentiQ codex header *(done)*
 
 Acceptance test: any user who opens the KNYT or AgentiQ codex immediately sees which economy they are in and what it means.
 
