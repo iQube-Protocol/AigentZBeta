@@ -49,6 +49,16 @@
       "items": [
         "items/RETRIEVAL_INDEX.md"
       ]
+    },
+    {
+      "id": "col_alpha_program",
+      "title": "Alpha Program",
+      "items": [
+        "items/ALPHA_PROGRAM_OVERVIEW.md",
+        "items/ALPHA_ARCHITECTURE_MEMO.md",
+        "items/ALPHA_BUILD_PLAN.md",
+        "items/ALPHA_ASSET_MAP.md"
+      ]
     }
   ]
 }

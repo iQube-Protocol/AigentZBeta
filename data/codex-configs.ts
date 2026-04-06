@@ -582,6 +582,27 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
         icon: 'BookMarked',
         description: 'Index schema and lookup'
       }
+    },
+    {
+      id: 'alpha-program',
+      label: 'Alpha Program',
+      slug: 'alpha-program',
+      enabled: true,
+      order: 7,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'agentiq',
+          collectionId: 'col_alpha_program',
+          defaultPath: 'items/ALPHA_PROGRAM_OVERVIEW.md'
+        }
+      },
+      metadata: {
+        icon: 'Rocket',
+        description: 'Alpha launch program — architecture, build plan, asset map',
+        color: 'amber'
+      }
     }
   ],
   permissions: {

@@ -1,0 +1,331 @@
+# AgentiQ Alpha — Build Plan
+
+**Status:** canonical  
+**Authority:** product owner  
+**Last updated:** 2026-04-06  
+**Version:** alpha-1.0
+
+This is the implementation plan for the AgentiQ Alpha Closed-Loop Launch Program. It maps the Master Operator Brief and PRD against the existing codebase, identifies exactly what is built/aligned/stitched/needs light build, and sequences the work across acceptance gates.
+
+**Core constraint:** Use what already exists. Inventory before building. Align before inventing. Stitch before re-architecting.
+
+---
+
+## Program-level assessment
+
+### Already built
+
+The codebase is substantially complete. These assets are production-grade and usable now:
+
+| Asset | Location | Status |
+|-------|----------|--------|
+| Registry Ingestion Factory | `types/registryIngestion.ts` + `services/registry/*` | Full pipeline: intake → classify → validate → trust score → publish → receipt |
+| Cartridge/Codex structural model | `types/codex.ts` + `app/api/codex/registry/*` + `codexes/packs/` | Dynamic codex with tabs, permissions, liquid UI, RBAC |
+| Experience Model | migration `20260402000000` + `app/api/runtime/experience/*` | Full schema + API: strategies, models, matrices, journey_states, nbe_plans, goals |
+| $KNYT Contained Economy | `app/types/knyt.ts` + `app/api/codex/knyt/*` | Balance, pricing, voting+reward, remix lineage, elections, treasury, milestones |
+| Studio Composition | `components/composer/` + `services/composer/*` | Full workflow: registry mapping, session persistence, liquid templates |
+| SmartTriad Runtime | `app/components/content/SmartTriad*.tsx` | Ownership, wallet, DVN Q¢, content viewer, persona-scoped library |
+| AgentiQ SDK | `packages/agentiq-sdk/` | `AgentIQClient`, `A2AClient`, typed messages, default personas |
+| Aigent Z + metaMe Guardian | `.claude/agents/aigent-z-orchestrator.md` + `metame-guardian.md` | Full charters, authority, routing, escalation |
+| Golden path traceability | `types/studioArtifact.ts` + `services/registry/invocationGateway.ts` | Traceable: intake → validation → trust → publication → invocation → receipt |
+| KNYT signal (voting + remix) | `app/api/codex/knyt/living-canon/vote/` + `remix/` | Voting with reward emission, bounded remix with lineage |
+| ExperienceDashboardTab | `app/triad/components/codex/tabs/ExperienceDashboardTab.tsx` | Stage distribution and depth progression UI |
+| ArtifactTraceabilityTab | `app/triad/components/codex/tabs/ArtifactTraceabilityTab.tsx` | Studio artifact trace surface |
+
+### Needs alignment
+
+These exist but need repositioning, updating, or boundary-clarification:
+
+| Item | Current state | Required alignment |
+|------|--------------|-------------------|
+| Aigent C | Defined in `docs/agent-harness/aigent-z-aigent-c-contract.md` | Needs dedicated charter scoped to AgentiQ OS builder onboarding *(done this session)* |
+| Kn0w1 | Named in briefs, no charter | Needs `.claude/agents/kn0w1.md` *(done this session)* |
+| Marketa | Pack structure exists, no agent charter | Needs `.claude/agents/marketa.md` *(done this session)* |
+| metaMe experience model | Tables exist, PCS stage names are generic | Seed `experience_matrices.depth_ladder` with PCS stage labels |
+| Q¢ vs $KNYT framing | Both work technically; no surface distinguishes them | Add economic split framing component and narrative |
+| AgentiQ OS positioning | SDK + Factory exist as internal services | Frame and document as public contributor-facing layer |
+| Factory visibility | Full backend pipeline, no admin/contributor UI | Add Factory intake trace tab (Gate 3) |
+
+### Needs stitching
+
+These exist separately and need connecting:
+
+| Item | Exists separately | Connection needed |
+|------|------------------|------------------|
+| Factory → Registry → Studio | Each service works independently | Visible trace from intake through to composition in one surface |
+| Registry → Codex tab | Accepted supply not browsable in codex | Registry supply browser tab in AgentiQ codex |
+| metaMe NBE → KNYT handoff | NBE plans exist; KNYT participation exists | Route from NBE "participate in KNYT" disposition into KNYT codex tab |
+| Studio artifact → Runtime delivery | Artifact model and Runtime both exist | Surface artifact state (draft/canonical) in Runtime/experience dashboard |
+| PCS depth ladder → user-visible UI | Depth ladder in `experience_matrices`; ExperienceDashboard for operators | User-facing progression ladder showing current stage and next step |
+| $KNYT reward → SmartWalletDrawer | Vote reward emits; wallet shows only Q¢ | Add $KNYT balance section to SmartWalletDrawer |
+| Share link → KNYT loop | Article share page renders preview | Connect back to KNYT participation/PCS signal |
+
+### Needs light build
+
+Genuine gaps requiring new but small builds:
+
+| Item | Effort | Gate |
+|------|--------|------|
+| Aigent C, Kn0w1, Marketa charters | 3 text files *(done this session)* | Gate 1 |
+| Architecture memo | 1 doc *(done this session)* | Gate 1 |
+| Asset placement map | 1 doc *(done this session)* | Gate 1 |
+| `docs/agentiq-os/` documentation package | 5 markdown files | Gate 2 |
+| Factory intake trace tab (`FactoryIntakeTab.tsx`) | ~150 lines + 1 API route | Gate 3 |
+| Registry supply browser tab (`RegistrySupplyTab.tsx`) | ~120 lines + 1 API route | Gate 4 |
+| PCS progression ladder UI | ~80 lines in ExperienceDashboardTab | Gate 5 |
+| PCS stage seed data | SQL seed migration | Gate 5 |
+| Like signal route | ~60 lines | Gate 6 |
+| Spark signal route | ~60 lines | Gate 6 |
+| $KNYT balance in SmartWalletDrawer | ~40 lines | Gate 6 |
+| Economic split framing component | ~40 lines | Gate 7 |
+| Golden-path demo doc | 1 doc | Gate 8 |
+| Launch package copy | 3–4 docs | Gate 8 |
+
+---
+
+## Gate-by-gate status
+
+| Gate | Name | Current status | Blocking gap | Fix |
+|------|------|---------------|-------------|-----|
+| **1** | Structural coherence | ⚠️ Partial | Aigent charters incomplete; asset map informal | A1+A2+A3 *(done this session)* |
+| **2** | Builder coherence | ❌ Missing | No public AgentiQ OS package | B1+B2+B3 |
+| **3** | Governance coherence | ⚠️ Partial | Factory pipeline exists, no visible intake trace | C1 |
+| **4** | Production coherence | ⚠️ Partial | Studio + Registry connected in code, not UX | C2+C3 |
+| **5** | Sovereignty coherence | ⚠️ Partial | Experience model exists, PCS ladder not user-visible | D1+D2 |
+| **6** | KNYT coherence | ⚠️ Partial | Voting + remix live; like/spark missing; $KNYT not in wallet | D3+D5 |
+| **7** | Economic coherence | ❌ Missing | No surface distinguishing Q¢ from $KNYT | E1 |
+| **8** | Flywheel coherence | ❌ Missing | No golden-path demo artifact | C3+E2 |
+
+---
+
+## Workstream plan
+
+### WS1 — Alpha architecture and boundary freeze
+
+**Owner:** Claude  
+**Gate:** 1
+
+Deliverables:
+- [x] Architecture memo (`docs/alpha/architecture-memo.md`) *(done)*
+- [x] Asset placement map (`docs/alpha/asset-placement-map.md`) *(done)*
+- [x] Aigent C charter (`.claude/agents/aigent-c.md`) *(done)*
+- [x] Kn0w1 charter (`.claude/agents/kn0w1.md`) *(done)*
+- [x] Marketa charter (`.claude/agents/marketa.md`) *(done)*
+- [x] Build plan (`docs/alpha/build-plan.md`) *(this document)*
+
+Acceptance test: an external stakeholder can read the architecture memo and understand the four-cartridge topology, the Aigent roles, and the economic split without needing to ask.
+
+---
+
+### WS2 — Cartridge/codex topology alignment
+
+**Owner:** Claude + Codex  
+**Gate:** 1
+
+Deliverables:
+- [x] Asset placement map confirms no code moves needed (existing file placement matches cartridge model)
+- [ ] `codexes/packs/agentiq/` extended with Alpha Program collection and content *(this session)*
+- [ ] Alpha Program tab added to `data/codex-configs.ts` AGENTIQ_CARTRIDGE *(this session)*
+
+Acceptance test: all four cartridges are represented as real homes with documented assets.
+
+---
+
+### WS3 — AgentiQ OS alpha packaging
+
+**Owner:** Claude  
+**Gate:** 2
+
+Deliverables:
+- [ ] `docs/agentiq-os/README.md` — what AgentiQ OS is, the closed-loop model, where it fits
+- [ ] `docs/agentiq-os/quickstart.md` — how to start as a builder
+- [ ] `docs/agentiq-os/contribution-categories.md` — harness, service, connector, workflow, device
+- [ ] `docs/agentiq-os/packaging-standards.md` — references `types/registryIngestion.ts` `IntakeQube`
+- [ ] `docs/agentiq-os/submission-guide.md` — how to submit using `intakeService`
+- [ ] Audit `packages/agentiq-sdk/src/index.ts` exports — ensure clean public API, no internal leakage
+- [ ] Aigent C persona registered in `agentiq-sdk` default personas (builder-guide role)
+- [ ] `docs/agentiq-os/` added to AgentiQ codex pack as a browsable collection
+
+Acceptance test: a developer with no prior knowledge can read `docs/agentiq-os/` and know exactly what to build, how to package it, and how to submit it.
+
+---
+
+### WS4 — Factory/Registry/Studio/Runtime stitching
+
+**Owner:** Codex (primary) + Claude (support)  
+**Gates:** 3 + 4
+
+Deliverables:
+- [ ] `GET /api/registry/intake/trace` route — query submissions and their validation stage
+- [ ] `app/triad/components/codex/tabs/FactoryIntakeTab.tsx` — shows intake status, validation stage, trust band
+- [ ] `GET /api/registry/supply` route — query published, Registry-ready assets
+- [ ] `app/triad/components/codex/tabs/RegistrySupplyTab.tsx` — browse accepted supply, click to open in Studio
+- [ ] Studio `StudioArtifact` receipt emission on composition save (uses existing `receiptEmitter`)
+- [ ] Artifact state (draft/working/canonical) visible in ExperienceDashboardTab
+- [ ] Factory tab + Registry supply tab added to AgentiQ codex in `data/codex-configs.ts`
+
+Acceptance test:
+- A stakeholder can click into the Factory tab and see a submission moving through validation stages
+- A stakeholder can click Registry supply and see accepted assets
+- Clicking an asset opens it in Studio
+
+---
+
+### WS5 — metaMe sovereignty alignment
+
+**Owner:** Claude  
+**Gate:** 5
+
+Deliverables:
+- [ ] SQL seed migration: populate `experience_matrices.depth_ladder` with PCS stage labels (`participant → community → correspondent → operator → creator → upstream contributor`)
+- [ ] `PCSLadderSection` added to `ExperienceDashboardTab.tsx` — shows user's current PCS stage + next step (uses `journey_states.depth` + `experience_matrices.depth_ladder`)
+- [ ] `SmartTriadProvider.tsx`: when NBE plan `nextExperience` resolves to KNYT participation, trigger navigation to KNYT codex tab
+
+Acceptance test: a logged-in user can see their current PCS stage and the next step they need to take.
+
+---
+
+### WS6 — KNYT live world activation
+
+**Owner:** Claude  
+**Gate:** 6
+
+Deliverables:
+- [ ] `app/api/codex/knyt/living-canon/like/route.ts` — like signal + optional micro-reward (follows `vote/route.ts` pattern)
+- [ ] `app/api/codex/knyt/living-canon/spark/route.ts` — spark signal + optional micro-reward
+- [ ] $KNYT balance section in `SmartWalletDrawer.tsx` (reads from existing `/api/codex/knyt-balance`)
+- [ ] Kn0w1 persona registered in `agentiq-sdk` default personas (in-world guide role)
+
+Acceptance test:
+- A user can like and spark content in KNYT (routes exist and respond)
+- The SmartWalletDrawer shows $KNYT balance alongside Q¢
+
+---
+
+### WS7 — Economic framing
+
+**Owner:** Claude  
+**Gate:** 7
+
+Deliverables:
+- [ ] `EconomicSplitBanner` component — two-column: Q¢ (platform base rail) vs $KNYT (KNYT cartridge economy), one-line descriptions each
+- [ ] Render `EconomicSplitBanner` in KNYT codex header and AgentiQ codex header
+
+Acceptance test: any user who opens the KNYT or AgentiQ codex immediately sees which economy they are in and what it means.
+
+---
+
+### WS8 — Golden-path demo
+
+**Owner:** Claude + product owner  
+**Gate:** 8
+
+Deliverables:
+- [ ] `docs/alpha/golden-path-demo.md` — narrated step-by-step walkthrough of the complete loop
+- [ ] Fallback: screenshots or flow description for each step if live demo not available
+
+Acceptance test: a stakeholder can be walked through the full loop (contribution → Factory → Registry → Studio → Runtime → KNYT → PCS → reward → signal) in one continuous narrative.
+
+---
+
+### WS9 — Launch packaging
+
+**Owner:** ChatGPT (primary) + Claude (support)  
+**Gate:** 8
+
+Deliverables:
+- [ ] `docs/alpha/launch/one-pager.md`
+- [ ] `docs/alpha/launch/faq.md`
+- [ ] `docs/alpha/launch/developer-value-prop.md`
+- [ ] `docs/alpha/launch/ecosystem-stack-chart.md`
+
+---
+
+### WS10 — Internal Aigent operating model
+
+**Owner:** Claude  
+**Gate:** 1
+
+Deliverables:
+- [x] Aigent Z charter (`.claude/agents/aigent-z-orchestrator.md`) — pre-existing
+- [x] metaMe guardian charter (`.claude/agents/metame-guardian.md`) — pre-existing
+- [x] Aigent C charter (`.claude/agents/aigent-c.md`) — *(done this session)*
+- [x] Kn0w1 charter (`.claude/agents/kn0w1.md`) — *(done this session)*
+- [x] Marketa charter (`.claude/agents/marketa.md`) — *(done this session)*
+- [ ] Update process: all charter changes require product owner approval before merge
+- [ ] Role handoff chain documented in architecture memo *(done)*
+
+Acceptance test: every Aigent has a charter. Every charter defines authority, home cartridge, escalation chain, and update ownership.
+
+---
+
+## Recommended sequencing
+
+```
+Week 1 — Phase A: Freeze truth (WS1, WS10)
+  A1. Aigent charters: aigent-c, kn0w1, marketa       [done]
+  A2. Architecture memo                                [done]
+  A3. Asset placement map                              [done]
+  A4. Build plan                                       [done]
+  A5. AgentiQ codex Alpha Program tab                  [this session]
+
+Week 2 — Phase B: Package the upstream layer (WS3)
+  B1. docs/agentiq-os/ package (5 markdown files)
+  B2. SDK export audit
+  B3. Aigent C persona in SDK
+  B4. AgentiQ OS docs added to codex pack
+
+Week 3 — Phase C: Stitch the system loop (WS4)
+  C1. Factory intake trace route + tab
+  C2. Registry supply route + tab
+  C3. Studio artifact receipt emission + state in dashboard
+  (Run in parallel with Codex on integration work)
+
+Week 4 — Phase D: Activate sovereignty and world (WS5, WS6)
+  D1. PCS seed migration
+  D2. PCS ladder UI in ExperienceDashboardTab
+  D3. Like + Spark signal routes
+  D4. NBE → KNYT routing in SmartTriadProvider
+  D5. $KNYT balance in SmartWalletDrawer
+
+Week 5 — Phase E: Demo and launch (WS7, WS8, WS9)
+  E1. EconomicSplitBanner component
+  E2. Golden-path demo doc
+  E3. Launch package copy (with ChatGPT)
+```
+
+---
+
+## What is out of scope
+
+- Full trust score system
+- Full risk/value research layer
+- Enterprise governance suite
+- Generalized marketplace maturity
+- Finalized ecosystem-wide fair-launch tokenomics
+- Full-scale public developer program beyond alpha entry path
+
+---
+
+## Delivery team prompts (from program brief)
+
+**Claude:** Focus on OS package coherence, SDK/CLI/template unification, metaMe experience-model alignment, KNYT signal service packaging.
+
+**Codex:** Focus on cartridge/codex asset mapping, Factory traceability, Registry exposure, Studio integration, Runtime integration, golden-path stitching.
+
+**Lovable:** Thin-client/shell support only — metaMe Runtime shell support, Qriptopian shell support, demo-friendly shell coherence.
+
+**ChatGPT:** Architecture memo, workbacks, specs, prompts, messaging, launch framing, review/QA criteria.
+
+**Product owner:** Scope discipline, approvals, sequencing, prioritization, final truth.
+
+---
+
+## Related documents
+
+- `docs/alpha/architecture-memo.md` — topology, flywheel, Aigent map, economic model
+- `docs/alpha/asset-placement-map.md` — file-to-cartridge mapping
+- `docs/agent-harness/metaproof-core.md` — role hierarchy and NBE contract
+- `docs/agent-harness/aigent-z-aigent-c-contract.md` — routing and handoff rules
+- `docs/agent-harness/journey-state-schema.md` — JourneyState and ExperienceModel interfaces
+- `docs/agent-harness/studio-artifact-schema.md` — StudioArtifact and Codex↔Studio sync
