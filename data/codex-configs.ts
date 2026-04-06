@@ -258,12 +258,29 @@ export const KNYT_CODEX: CodexConfig = {
       }
     },
     {
+      id: 'runtime',
+      label: 'Runtime',
+      slug: 'runtime',
+      enabled: true,
+      order: 8,
+      type: 'static',
+      config: {
+        component: 'KnytRuntimeSurface',
+        props: {}
+      },
+      metadata: {
+        icon: 'Zap',
+        description: 'KNYT Live Runtime Surface — patronage axis, PCS axis, signals, next-best-step',
+        color: 'amber'
+      }
+    },
+    {
       id: 'experience-dashboard',
       label: 'Experience',
       slug: 'experience-dashboard',
       enabled: true,
       adminOnly: true,   // Sensitive admin data — hidden from all non-admin users
-      order: 8,
+      order: 9,
       type: 'static',
       config: {
         component: 'ExperienceDashboardTab',
@@ -281,7 +298,7 @@ export const KNYT_CODEX: CodexConfig = {
       slug: 'experience-pack',
       enabled: true,
       adminOnly: true,   // Internal stakeholder doc — hidden from end users
-      order: 9,
+      order: 10,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
