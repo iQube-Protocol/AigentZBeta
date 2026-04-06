@@ -274,6 +274,28 @@ export const KNYT_CODEX: CodexConfig = {
         description: 'Experience journey dashboard — franchise health, cohorts, NBE, guardian',
         color: 'violet'
       }
+    },
+    {
+      id: 'experience-pack',
+      label: 'Experience Pack',
+      slug: 'experience-pack',
+      enabled: true,
+      adminOnly: true,   // Internal stakeholder doc — hidden from end users
+      order: 9,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'knyt',
+          collectionId: 'col_experience_pack',
+          defaultPath: 'items/KNYT_EXPERIENCE_PACK_PRD.md'
+        }
+      },
+      metadata: {
+        icon: 'BookOpen',
+        description: 'KNYT Experience Pack — PRD, matrices, runtime surface spec and wireframe',
+        color: 'amber'
+      }
     }
   ],
   permissions: {
@@ -618,10 +640,78 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
   updatedAt: new Date().toISOString()
 };
 
+export const METAME_CODEX: CodexConfig = {
+  id: 'metame-codex',
+  name: 'metaMe Codex',
+  slug: 'metame',
+  enabled: true,
+  version: '1.0.0',
+  owner: 'metame-guardian',
+  metadata: {
+    description: 'metaMe sovereignty layer: experience framework, progression model, PCS ladder, and next-best-pathway logic',
+    icon: 'User',
+    color: 'violet',
+    category: 'sovereignty',
+    tags: ['metame', 'experience', 'pcs', 'sovereignty', 'progression', 'nbe']
+  },
+  tabs: [
+    {
+      id: 'experience-framework',
+      label: 'Experience Framework',
+      slug: 'experience-framework',
+      enabled: true,
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'metame',
+          collectionId: 'col_experience_framework',
+          defaultPath: 'items/METAME_EXPERIENCE_FRAMEWORK.md'
+        }
+      },
+      metadata: {
+        icon: 'Layers',
+        description: 'Canonical experience framework — strategy, model, matrix, ladder, governance',
+        color: 'violet'
+      }
+    },
+    {
+      id: 'experience-dashboard',
+      label: 'Journey Dashboard',
+      slug: 'experience-dashboard',
+      enabled: true,
+      adminOnly: true,
+      order: 1,
+      type: 'static',
+      config: {
+        component: 'ExperienceDashboardTab',
+        props: {}
+      },
+      metadata: {
+        icon: 'BarChart',
+        description: 'User journey states, progression, NBE opportunities',
+        color: 'violet'
+      }
+    }
+  ],
+  permissions: {
+    view: ['*'],
+    edit: ['metame-guardian', 'aigent-z'],
+    admin: ['metame-guardian']
+  },
+  liquidUI: {
+    enabled: false
+  },
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString()
+};
+
 export const CODEX_DEFINITIONS: CodexConfig[] = [
   KNYT_CODEX,
   QRIPTO_CODEX,
-  AGENTIQ_CARTRIDGE
+  AGENTIQ_CARTRIDGE,
+  METAME_CODEX
 ];
 
 export function getCodexById(id: string): CodexConfig | undefined {

@@ -174,31 +174,87 @@ Acceptance test:
 ### WS5 — metaMe sovereignty alignment
 
 **Owner:** Claude  
-**Gate:** 5
+**Gate:** 5  
+**Framework spec:** `codexes/packs/metame/items/METAME_EXPERIENCE_FRAMEWORK.md`
+
+The metaMe Experience Framework v1 is now fully specced. The canonical architecture is:
+
+```
+Experience Strategy   → macro intent, who, when, success, macro_intent
+Experience Model      → structural, emotional, transactional tiers
+Governance Overlay    → role_permissions, access_rules, trust_requirements
+Experience Matrix     → state transitions: entry_state → target_state + moment + levers + signals + NBE
+Experience Ladder     → Recipient → Selector → Modifier → Producer → Builder → Steward
+Semantic Rendering    → lens × sector × cartridge × persona adapts language, not architecture
+```
+
+PCS rendered form for AgentiQ alpha:
+```
+Participant → Community → Correspondent → Operator → Creator → Upstream contributor
+```
+
+KNYT rendered form: `Observer → Collector → Curator → Remixer → Creator → Correspondent → Steward → Franchise-aligned`
 
 Deliverables:
-- [ ] SQL seed migration: populate `experience_matrices.depth_ladder` with PCS stage labels (`participant → community → correspondent → operator → creator → upstream contributor`)
-- [ ] `PCSLadderSection` added to `ExperienceDashboardTab.tsx` — shows user's current PCS stage + next step (uses `journey_states.depth` + `experience_matrices.depth_ladder`)
+
+**Phase D — stack implementation:**
+- [ ] SQL seed migration: populate `experience_matrices.depth_ladder` with PCS stage labels for the AgentiQ strategy
+  - Level 0: Participant (unlock: first_participation_signal)
+  - Level 1: Community (unlock: repeat_participation + 3 signals)
+  - Level 2: Correspondent (unlock: curation_or_remix + community_action)
+  - Level 3: Operator (unlock: contribution_submission_accepted)
+  - Level 4: Creator (unlock: repeated_accepted_contributions)
+  - Level 5: Upstream contributor (unlock: contributor_pathway_flag + Aigent C handoff)
+- [ ] `PCSLadderSection` added to `ExperienceDashboardTab.tsx` — shows user's current PCS stage, next stage, why it matters, what unlocks it (uses `journey_states.depth` + `experience_matrices.depth_ladder`)
 - [ ] `SmartTriadProvider.tsx`: when NBE plan `nextExperience` resolves to KNYT participation, trigger navigation to KNYT codex tab
 
-Acceptance test: a logged-in user can see their current PCS stage and the next step they need to take.
+**Already complete (this session):**
+- [x] metaMe Experience Framework v1 spec (`codexes/packs/metame/items/METAME_EXPERIENCE_FRAMEWORK.md`)
+- [x] Canonical schemas v1 (`codexes/packs/metame/items/METAME_EXPERIENCE_SCHEMAS.md`)
+- [x] Experience Ladder detail (`codexes/packs/metame/items/METAME_EXPERIENCE_LADDER.md`)
+- [x] METAME_CODEX added to `data/codex-configs.ts` (Experience Framework tab + Journey Dashboard tab)
+- [x] metaMe codex pack created (`codexes/packs/metame/`)
+
+Acceptance test: a logged-in user can see their current PCS stage, the next step, and what unlocks it.
 
 ---
 
 ### WS6 — KNYT live world activation
 
 **Owner:** Claude  
-**Gate:** 6
+**Gate:** 6  
+**Experience spec:** `codexes/packs/knyt/items/KNYT_EXPERIENCE_PACK_PRD.md`  
+**Matrix spec:** `codexes/packs/knyt/items/KNYT_MATRIX_SHEET.md`  
+**Runtime spec:** `codexes/packs/knyt/items/KNYT_RUNTIME_SURFACE_SPEC.md`  
+**Wireframe:** `codexes/packs/knyt/items/KNYT_RUNTIME_SURFACE_MAP.md`
 
-Deliverables:
+KNYT uses a dual-axis model: **Patronage Axis** (Outside Order → Acolyte → Keta → Keji → First → Zero → Satoshi) × **PCS Axis** (Observer → Collector → Curator → Remixer → Creator → Correspondent → Steward → Franchise-aligned).
+
+5 alpha-active matrices are fully specced. Runtime surface map defines ownership split between Codex (feature UI) and Lovable (shell/thin-client only).
+
+**Already complete (this session):**
+- [x] KNYT Experience Pack PRD (`codexes/packs/knyt/items/KNYT_EXPERIENCE_PACK_PRD.md`)
+- [x] KNYT Matrix Sheet v1 — 5 matrices (`codexes/packs/knyt/items/KNYT_MATRIX_SHEET.md`)
+- [x] KNYT Runtime Surface Spec v1 (`codexes/packs/knyt/items/KNYT_RUNTIME_SURFACE_SPEC.md`)
+- [x] KNYT Runtime Surface Map v1 — wireframe for Codex + Lovable (`codexes/packs/knyt/items/KNYT_RUNTIME_SURFACE_MAP.md`)
+- [x] Experience Pack tab added to KNYT_CODEX (adminOnly, order 9)
+
+**Phase D — stack implementation:**
 - [ ] `app/api/codex/knyt/living-canon/like/route.ts` — like signal + optional micro-reward (follows `vote/route.ts` pattern)
 - [ ] `app/api/codex/knyt/living-canon/spark/route.ts` — spark signal + optional micro-reward
+- [ ] `app/api/codex/knyt/living-canon/curate/route.ts` — curate signal (Phase D)
 - [ ] $KNYT balance section in `SmartWalletDrawer.tsx` (reads from existing `/api/codex/knyt-balance`)
 - [ ] Kn0w1 persona registered in `agentiq-sdk` default personas (in-world guide role)
+- [ ] KNYT Runtime surface cards: World Header, Dual Status Rail, Featured Moment, Signal Action Tray, Next-Best-Pathway Card (P0 — per surface map)
+- [ ] Reward + Progress Card, Kn0w1 + metaMe handoff cards (P1)
+- [ ] Aigent C builder path handoff card (P2 — conditional on `contributor_pathway_flag`)
+- [ ] User state model wired: `knyt_runtime_state` populated from `journey_states` + KNYT-specific fields
 
 Acceptance test:
-- A user can like and spark content in KNYT (routes exist and respond)
-- The SmartWalletDrawer shows $KNYT balance alongside Q¢
+- A user can like, spark, and vote in KNYT (all routes respond)
+- The Runtime surface shows patronage and PCS status
+- SmartWalletDrawer shows $KNYT balance alongside Q¢
+- Next-best-step card updates after a signal action
 
 ---
 

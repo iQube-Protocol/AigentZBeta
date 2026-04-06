@@ -60,5 +60,17 @@
         "enablePurchase": false
       }
     }
+  ],
+  "doc_collections": [
+    {
+      "id": "col_experience_pack",
+      "title": "Experience Pack",
+      "items": [
+        "items/KNYT_EXPERIENCE_PACK_PRD.md",
+        "items/KNYT_MATRIX_SHEET.md",
+        "items/KNYT_RUNTIME_SURFACE_SPEC.md",
+        "items/KNYT_RUNTIME_SURFACE_MAP.md"
+      ]
+    }
   ]
 }
