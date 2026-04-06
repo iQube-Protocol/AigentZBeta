@@ -113,8 +113,9 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
           .single();
 
         if (config) {
-          const packCodex = await getPackCodexById(codexId);
-          const fallbackCodex = packCodex ?? getCodexById(codexId);
+          // CODEX_DEFINITIONS takes priority over auto-generated pack configs — hand-written
+          // configs are canonical and include static component tabs that packs can't express.
+          const fallbackCodex = getCodexById(codexId) ?? await getPackCodexById(codexId);
           const { data: tabs, error: tabsError } = await supabase
             .from('codex_tabs')
             .select('*')
@@ -166,8 +167,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
         // Ignore DB errors in defaults mode and continue to static fallback
       }
 
-      const packCodex = await getPackCodexById(codexId);
-      const codex = packCodex ?? getCodexById(codexId);
+      const codex = getCodexById(codexId) ?? await getPackCodexById(codexId);
       if (!codex) {
         return NextResponse.json<CodexRegistryResponse>({
           success: false,
@@ -190,8 +190,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       .single();
 
     if (configError || !config) {
-      const packCodex = await getPackCodexById(codexId);
-      const fallbackCodex = packCodex ?? getCodexById(codexId);
+      const fallbackCodex = getCodexById(codexId) ?? await getPackCodexById(codexId);
       if (fallbackCodex) {
         return NextResponse.json<CodexRegistryResponse<CodexConfig>>({
           success: true,
@@ -304,8 +303,7 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
       data = updateResult.data;
       error = updateResult.error;
     } else {
-      const packCodex = await getPackCodexById(codexId);
-      const fallbackCodex = packCodex ?? getCodexById(codexId);
+      const fallbackCodex = getCodexById(codexId) ?? await getPackCodexById(codexId);
 
       if (!fallbackCodex) {
         return NextResponse.json<CodexRegistryResponse>({

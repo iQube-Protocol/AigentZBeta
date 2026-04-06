@@ -315,6 +315,8 @@ export async function loadPackCodexes(): Promise<CodexConfig[]> {
 export async function getPackCodexById(codexId: string): Promise<CodexConfig | null> {
   const packId = codexId.endsWith("-codex") ? codexId.slice(0, -6) : codexId;
   const normalized = normalizePackId(packId);
+  // aigency is kept as a file-store only; AGENTIQ_CARTRIDGE in CODEX_DEFINITIONS is canonical.
+  if (normalized.canonicalPackId === "aigency") return null;
   const codex = await buildCodexConfigFromPack(normalized.canonicalPackId);
   if (!codex || codex.id !== codexId) return null;
   return codex;

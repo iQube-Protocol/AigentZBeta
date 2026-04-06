@@ -971,8 +971,9 @@ const cacheExperiencesForTenant = (tenantId: string, items: ExperienceQube[]) =>
 };
 
 const QRIPTO_FALLBACK_CODEXES = [
-  { id: "knyt-codex", label: "KNYT Codex" },
-  { id: "qripto-codex", label: "Qriptopian Codex" },
+  { id: "knyt-codex",    label: "KNYT Codex" },
+  { id: "metame-codex",  label: "metaMe Cartridge" },   // Experience Framework — default for non-KNYT
+  { id: "qripto-codex",  label: "Qriptopian Codex" },
   { id: "agentiq-codex", label: "AgentiQ Codex" },
   { id: "marketa-codex", label: "Aigent Marketa" },
   { id: "moneypenny-codex", label: "Aigent MoneyPenny" },
