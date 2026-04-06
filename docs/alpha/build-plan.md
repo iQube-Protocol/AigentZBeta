@@ -94,7 +94,7 @@ Genuine gaps requiring new but small builds:
 | **5** | Sovereignty coherence | ✅ Done | PCS ladder seeded + visible in ExperienceDashboardTab individual view | D1+D2 |
 | **6** | KNYT coherence | ✅ Done | Like/spark/curate routes live; $KNYT wallet section distinct; NBE→KNYT CTA wired | D3+D4+D5 |
 | **7** | Economic coherence | ✅ Done | EconomicSplitBanner in KNYT + AgentiQ codex headers | E1 |
-| **8** | Flywheel coherence | ❌ Missing | No golden-path demo artifact | C3+E2 |
+| **8** | Flywheel coherence | ✅ Done | Golden-path demo narrates full closed loop | C3+E2 |
 
 ---
 
@@ -282,8 +282,9 @@ Acceptance test: any user who opens the KNYT or AgentiQ codex immediately sees w
 **Gate:** 8
 
 Deliverables:
-- [ ] `docs/alpha/golden-path-demo.md` — narrated step-by-step walkthrough of the complete loop
-- [ ] Fallback: screenshots or flow description for each step if live demo not available
+- [x] `docs/alpha/golden-path-demo.md` — narrated step-by-step walkthrough of the complete loop *(done)*
+- [x] Live surface map linking every step to a real URL/tab *(done)*
+- [x] Gate 8 acceptance checklist *(done)*
 
 Acceptance test: a stakeholder can be walked through the full loop (contribution → Factory → Registry → Studio → Runtime → KNYT → PCS → reward → signal) in one continuous narrative.
 
