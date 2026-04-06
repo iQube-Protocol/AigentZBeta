@@ -88,7 +88,7 @@ Genuine gaps requiring new but small builds:
 | Gate | Name | Current status | Blocking gap | Fix |
 |------|------|---------------|-------------|-----|
 | **1** | Structural coherence | ⚠️ Partial | Aigent charters incomplete; asset map informal | A1+A2+A3 *(done this session)* |
-| **2** | Builder coherence | ❌ Missing | No public AgentiQ OS package | B1+B2+B3 |
+| **2** | Builder coherence | ✅ Done | AgentiQ OS docs + SDK personas + codex tab complete | B1+B2+B3 |
 | **3** | Governance coherence | ⚠️ Partial | Factory pipeline exists, no visible intake trace | C1 |
 | **4** | Production coherence | ⚠️ Partial | Studio + Registry connected in code, not UX | C2+C3 |
 | **5** | Sovereignty coherence | ⚠️ Partial | Experience model exists, PCS ladder not user-visible | D1+D2 |
@@ -134,19 +134,23 @@ Acceptance test: all four cartridges are represented as real homes with document
 ### WS3 — AgentiQ OS alpha packaging
 
 **Owner:** Claude  
-**Gate:** 2
+**Gate:** 2  
+**Status:** ✅ Complete
 
 Deliverables:
-- [ ] `docs/agentiq-os/README.md` — what AgentiQ OS is, the closed-loop model, where it fits
-- [ ] `docs/agentiq-os/quickstart.md` — how to start as a builder
-- [ ] `docs/agentiq-os/contribution-categories.md` — harness, service, connector, workflow, device
-- [ ] `docs/agentiq-os/packaging-standards.md` — references `types/registryIngestion.ts` `IntakeQube`
-- [ ] `docs/agentiq-os/submission-guide.md` — how to submit using `intakeService`
-- [ ] Audit `packages/agentiq-sdk/src/index.ts` exports — ensure clean public API, no internal leakage
-- [ ] Aigent C persona registered in `agentiq-sdk` default personas (builder-guide role)
-- [ ] `docs/agentiq-os/` added to AgentiQ codex pack as a browsable collection
+- [x] `docs/agentiq-os/README.md` — what AgentiQ OS is, the closed-loop model, where it fits
+- [x] `docs/agentiq-os/quickstart.md` — 5-step get started guide
+- [x] `docs/agentiq-os/contribution-categories.md` — ToolQube, SkillQube, WorkflowQube, ConnectorQube
+- [x] `docs/agentiq-os/packaging-standards.md` — manifest schema, policy classes, validation stages, trust band ceilings
+- [x] `docs/agentiq-os/submission-guide.md` — full submission flow with error handling and tracking
+- [x] SDK audit: `packages/agentiq-sdk/src/index.ts` exports are clean — no internal leakage
+- [x] Aigent C persona registered in `packages/agentiq-sdk/src/utils.ts` `defaultPersonas`
+- [x] Kn0w1 persona registered in `packages/agentiq-sdk/src/utils.ts` `defaultPersonas`
+- [x] `col_agentiq_os` collection added to `codexes/packs/agentiq/collections.json`
+- [x] AgentiQ OS tab (order 7, Code icon, green) added to AGENTIQ_CARTRIDGE in `data/codex-configs.ts`
+- [x] Codex-facing summary items created in `codexes/packs/agentiq/items/OS_*.md`
 
-Acceptance test: a developer with no prior knowledge can read `docs/agentiq-os/` and know exactly what to build, how to package it, and how to submit it.
+Acceptance test: a developer with no prior knowledge can read `docs/agentiq-os/` and know exactly what to build, how to package it, and how to submit it. ✓
 
 ---
 

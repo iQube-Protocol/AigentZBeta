@@ -606,11 +606,32 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       }
     },
     {
+      id: 'agentiq-os',
+      label: 'AgentiQ OS',
+      slug: 'agentiq-os',
+      enabled: true,
+      order: 7,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'agentiq',
+          collectionId: 'col_agentiq_os',
+          defaultPath: 'items/OS_README.md'
+        }
+      },
+      metadata: {
+        icon: 'Code',
+        description: 'AgentiQ OS — builder onboarding, contribution categories, packaging, submission',
+        color: 'green'
+      }
+    },
+    {
       id: 'alpha-program',
       label: 'Alpha Program',
       slug: 'alpha-program',
       enabled: true,
-      order: 7,
+      order: 9,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',

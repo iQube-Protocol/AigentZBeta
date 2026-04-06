@@ -59,6 +59,17 @@
         "items/ALPHA_BUILD_PLAN.md",
         "items/ALPHA_ASSET_MAP.md"
       ]
+    },
+    {
+      "id": "col_agentiq_os",
+      "title": "AgentiQ OS",
+      "items": [
+        "items/OS_README.md",
+        "items/OS_QUICKSTART.md",
+        "items/OS_CONTRIBUTION_CATEGORIES.md",
+        "items/OS_PACKAGING_STANDARDS.md",
+        "items/OS_SUBMISSION_GUIDE.md"
+      ]
     }
   ]
 }
