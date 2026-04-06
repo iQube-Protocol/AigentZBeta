@@ -455,20 +455,28 @@ export const QRIPTO_CODEX: CodexConfig = {
 };
 
 export const AGENTIQ_CARTRIDGE: CodexConfig = {
-  id: 'aigentiq-codex',
+  // Canonical single definition for the AgentiQ Codex.
+  // id matches the aigency pack slug so the registry dedup keeps this config and
+  // skips the auto-generated version (packRegistry skips 'aigency' directory).
+  // Content sources:
+  //   packId 'aigency' → codexes/packs/aigency/  (rich engineering KB: arch, knowledge, PRs, commits)
+  //   packId 'agentiq' → codexes/packs/agentiq/  (build-layer docs: AgentiQ OS, Alpha Program)
+  //   static components → FactoryIntakeTab, RegistrySupplyTab
+  id: 'agentiq-codex',
   name: 'AgentiQ Codex',
-  slug: 'aigentiq',
+  slug: 'agentiq',
   enabled: true,
   version: '1.0.0',
   owner: 'aigent-z',
   metadata: {
-    description: 'AgentiQ engineering truth: docs, decisions, PR briefs, and system maps',
+    description: 'AgentiQ engineering KB: architecture, knowledge, decisions, PR history, OS builder docs, and registry tooling',
     icon: 'Brain',
     color: 'blue',
     category: 'cartridge',
-    tags: ['agentiq', 'cartridge', 'platform', 'decisions', 'pr-briefs']
+    tags: ['agentiq', 'cartridge', 'platform', 'decisions', 'pr-briefs', 'architecture', 'knowledge']
   },
   tabs: [
+    // ─── aigency pack — canonical engineering KB ──────────────────────────
     {
       id: 'start',
       label: 'Start Here',
@@ -479,35 +487,72 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       config: {
         component: 'AgentiqCartridgeTab',
         props: {
-          packId: 'agentiq',
+          packId: 'aigency',
           collectionId: 'col_start_here',
-          defaultPath: 'items/AGENTIQ_CARTRIDGE.md'
+          defaultPath: 'items/00_START_HERE.md'
         }
       },
       metadata: {
         icon: 'Home',
-        description: 'Cartridge overview and navigation',
+        description: 'Codex orientation and navigation guide',
         color: 'blue'
       }
     },
     {
-      id: 'system-map',
-      label: 'System Map',
-      slug: 'system-map',
+      id: 'architecture',
+      label: 'Architecture',
+      slug: 'architecture',
       enabled: true,
       order: 1,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
         props: {
-          packId: 'agentiq',
-          collectionId: 'col_start_here',
-          defaultPath: 'items/SYSTEM_MAP.md'
+          packId: 'aigency',
+          collectionId: 'col_architecture'
         }
       },
       metadata: {
-        icon: 'BookOpen',
-        description: 'Architecture and core flows'
+        icon: 'Layers',
+        description: 'System architecture: topology, data/identity, payments, protocols'
+      }
+    },
+    {
+      id: 'codebase',
+      label: 'Codebase',
+      slug: 'codebase',
+      enabled: true,
+      order: 2,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'aigency',
+          collectionId: 'col_codebase'
+        }
+      },
+      metadata: {
+        icon: 'Code',
+        description: 'Repo map, modules, conventions, release tracks'
+      }
+    },
+    {
+      id: 'knowledge',
+      label: 'Knowledge',
+      slug: 'knowledge',
+      enabled: true,
+      order: 3,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'aigency',
+          collectionId: 'col_knowledge'
+        }
+      },
+      metadata: {
+        icon: 'BookMarked',
+        description: 'API reference, schemas, docs, snippets, DVN, ICP, identity, operators manual'
       }
     },
     {
@@ -515,37 +560,37 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       label: 'Decisions',
       slug: 'decisions',
       enabled: true,
-      order: 2,
+      order: 4,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
         props: {
-          packId: 'agentiq',
+          packId: 'aigency',
           collectionId: 'col_decisions'
         }
       },
       metadata: {
-        icon: 'Code',
-        description: 'Decision briefs and rationale'
+        icon: 'GitBranch',
+        description: 'Decision briefs, backlog, work allocation'
       }
     },
     {
-      id: 'work-allocation',
-      label: 'Work Allocation',
-      slug: 'work-allocation',
+      id: 'changelog',
+      label: 'Changelog',
+      slug: 'changelog',
       enabled: true,
-      order: 3,
+      order: 5,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
         props: {
-          packId: 'agentiq',
-          collectionId: 'col_work_allocation'
+          packId: 'aigency',
+          collectionId: 'col_changelog'
         }
       },
       metadata: {
-        icon: 'Shield',
-        description: 'Ownership boundaries'
+        icon: 'GitCommit',
+        description: 'Release history and changelog'
       }
     },
     {
@@ -553,64 +598,46 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       label: 'PR Briefs',
       slug: 'pr-briefs',
       enabled: true,
-      order: 4,
-      type: 'static',
-      config: {
-        component: 'AgentiqCartridgeTab',
-        props: {
-          packId: 'agentiq',
-          collectionId: 'col_pr_briefs'
-        }
-      },
-      metadata: {
-        icon: 'FileText',
-        description: 'PR summaries and impact'
-      }
-    },
-    {
-      id: 'updates',
-      label: 'Updates',
-      slug: 'updates',
-      enabled: true,
-      order: 5,
-      type: 'static',
-      config: {
-        component: 'AgentiqCartridgeTab',
-        props: {
-          packId: 'agentiq',
-          collectionId: 'col_updates'
-        }
-      },
-      metadata: {
-        icon: 'Sparkles',
-        description: 'Latest cartridge updates'
-      }
-    },
-    {
-      id: 'retrieval-index',
-      label: 'Retrieval Index',
-      slug: 'retrieval-index',
-      enabled: true,
       order: 6,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
         props: {
-          packId: 'agentiq',
-          collectionId: 'col_retrieval_index'
+          packId: 'aigency',
+          collectionId: 'col_pr_briefs'
         }
       },
       metadata: {
-        icon: 'BookMarked',
-        description: 'Index schema and lookup'
+        icon: 'FileText',
+        description: 'PR summaries and impact (PR-78 through PR-1)'
       }
     },
+    {
+      id: 'recent-commits',
+      label: 'Recent Commits',
+      slug: 'recent-commits',
+      enabled: true,
+      order: 7,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'aigency',
+          collectionId: 'col_recent_commits'
+        }
+      },
+      metadata: {
+        icon: 'GitBranch',
+        description: 'Latest direct-push commits with context'
+      }
+    },
+    // ─── agentiq pack — build-layer docs ─────────────────────────────────
     {
       id: 'agentiq-os',
       label: 'AgentiQ OS',
       slug: 'agentiq-os',
       enabled: true,
-      order: 7,
+      order: 8,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
@@ -647,6 +674,45 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
         color: 'amber'
       }
     },
+    {
+      id: 'updates',
+      label: 'Updates',
+      slug: 'updates',
+      enabled: true,
+      order: 10,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'agentiq',
+          collectionId: 'col_updates'
+        }
+      },
+      metadata: {
+        icon: 'Sparkles',
+        description: 'Latest cartridge updates'
+      }
+    },
+    {
+      id: 'retrieval-index',
+      label: 'Retrieval Index',
+      slug: 'retrieval-index',
+      enabled: true,
+      order: 11,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'agentiq',
+          collectionId: 'col_retrieval_index'
+        }
+      },
+      metadata: {
+        icon: 'BookMarked',
+        description: 'Index schema and lookup'
+      }
+    },
+    // ─── static component tabs — Phase C ─────────────────────────────────
     {
       id: 'factory-intake',
       label: 'Factory',

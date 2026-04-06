@@ -290,9 +290,10 @@ export async function loadPackCodexes(): Promise<CodexConfig[]> {
       if (!dirent.isDirectory()) continue;
       if (dirent.name.startsWith(".")) continue;
 
-      // Avoid duplicate AgentiQ entries. Canonical pack is 'aigency' (rich engineering KB).
+      // Skip AgentiQ pack directories — AGENTIQ_CARTRIDGE in data/codex-configs.ts is the
+      // single canonical definition and merges content from both aigency + agentiq pack files.
       const lowered = dirent.name.toLowerCase();
-      if (lowered === "agentiq" || lowered === "aigentiq") continue;
+      if (lowered === "agentiq" || lowered === "aigentiq" || lowered === "aigency") continue;
 
       const codex = await buildCodexConfigFromPack(dirent.name);
       if (!codex) continue;

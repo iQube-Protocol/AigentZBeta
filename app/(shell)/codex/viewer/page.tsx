@@ -112,7 +112,7 @@ export default function CodexViewerPage() {
   const fallbackCodexes = useMemo<CodexOption[]>(() => ([
     { id: "knyt-codex", label: "KNYT Codex", color: "purple" },
     { id: "qripto-codex", label: "Qriptopian Codex", color: "indigo" },
-    { id: "aigentiq-codex", label: "AgentiQ Codex", color: "blue" },
+    { id: "agentiq-codex", label: "AgentiQ Codex", color: "blue" },
     { id: "marketa-codex", label: "Aigent Marketa", color: "rose" },
     { id: "moneypenny-codex", label: "Aigent MoneyPenny", color: "green" },
     { id: "nakamoto-codex", label: "Aigent Nakamoto", color: "orange" },
