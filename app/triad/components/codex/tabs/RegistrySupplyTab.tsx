@@ -5,98 +5,46 @@
  *
  * Browse all published registry assets filterable by trust band and
  * asset class. Reads from GET /api/registry/assets (existing route).
- * Clicking an asset opens it in detail. Operators can deep-link to Studio.
+ * Clicking a row expands an inline detail panel.
  */
 
 import { useCallback, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  ChevronDown,
   ChevronRight,
   Database,
   RefreshCw,
-  X,
   ShieldCheck,
   Tag,
   ExternalLink,
+  Star,
 } from "lucide-react";
-
-// ─── Types ───────────────────────────────────────────────────────────────────
-
-type TrustBand =
-  | "L1_EXPERIMENTAL"
-  | "L2_COMMUNITY"
-  | "L3_VERIFIED"
-  | "L4_CERTIFIED"
-  | "L5_CORE_SOVEREIGN";
-
-type RegistryAssetClass =
-  | "tool_qube"
-  | "skill_qube"
-  | "workflow_qube"
-  | "connector_qube";
-
-type PolicyClass =
-  | "read_only"
-  | "network_limited"
-  | "sandbox_exec"
-  | "browser_operator"
-  | "secret_bound"
-  | "human_approval_required";
-
-interface Asset {
-  assetId: string;
-  assetClass: RegistryAssetClass;
-  name: string;
-  description?: string;
-  trustBand: TrustBand;
-  publicationStatus: string;
-  policyClass: PolicyClass;
-  tags: string[];
-  tenantId: string;
-  publishedBy?: string;
-  createdAt: string;
-}
+import {
+  type TrustBand,
+  type RegistryAssetClass,
+  type PolicyClass,
+  TRUST_BAND_LABELS,
+  TRUST_BAND_ORDER,
+  POLICY_CLASS_LABELS,
+} from "@/types/registryIngestion";
 
 // ─── Style maps ──────────────────────────────────────────────────────────────
 
 const TRUST_STYLES: Record<TrustBand, string> = {
-  L1_EXPERIMENTAL:  "border-slate-600 text-slate-400",
-  L2_COMMUNITY:     "border-blue-500/40 text-blue-300",
-  L3_VERIFIED:      "border-emerald-500/40 text-emerald-300",
-  L4_CERTIFIED:     "border-violet-500/40 text-violet-300",
-  L5_CORE_SOVEREIGN:"border-amber-500/40 text-amber-300",
-};
-
-const TRUST_LABELS: Record<TrustBand, string> = {
-  L1_EXPERIMENTAL:  "L1 Experimental",
-  L2_COMMUNITY:     "L2 Community",
-  L3_VERIFIED:      "L3 Verified",
-  L4_CERTIFIED:     "L4 Certified",
-  L5_CORE_SOVEREIGN:"L5 Sovereign",
+  L1_EXPERIMENTAL:         "border-slate-600 text-slate-400",
+  L2_VERIFIED_COMMUNITY:   "border-blue-500/40 text-blue-300",
+  L3_PRODUCTION_CANDIDATE: "border-emerald-500/40 text-emerald-300",
+  L4_PRODUCTION_APPROVED:  "border-violet-500/40 text-violet-300",
+  L5_CORE_SOVEREIGN:       "border-amber-500/40 text-amber-300",
 };
 
 const CLASS_STYLES: Record<RegistryAssetClass, string> = {
-  tool_qube:     "border-sky-500/40 text-sky-300",
-  skill_qube:    "border-indigo-500/40 text-indigo-300",
-  workflow_qube: "border-violet-500/40 text-violet-300",
-  connector_qube:"border-teal-500/40 text-teal-300",
-};
-
-const CLASS_LABELS: Record<RegistryAssetClass, string> = {
-  tool_qube:     "ToolQube",
-  skill_qube:    "SkillQube",
-  workflow_qube: "WorkflowQube",
-  connector_qube:"ConnectorQube",
-};
-
-const POLICY_LABELS: Record<PolicyClass, string> = {
-  read_only:              "Read Only",
-  network_limited:        "Network Limited",
-  sandbox_exec:           "Sandbox Exec",
-  browser_operator:       "Browser Operator",
-  secret_bound:           "Secret Bound",
-  human_approval_required:"Human Approval",
+  ToolQube:      "border-sky-500/40 text-sky-300",
+  SkillQube:     "border-indigo-500/40 text-indigo-300",
+  WorkflowQube:  "border-violet-500/40 text-violet-300",
+  ConnectorQube: "border-teal-500/40 text-teal-300",
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -107,14 +55,48 @@ function fmtDate(iso: string) {
   });
 }
 
+function trustLabel(band: string): string {
+  return TRUST_BAND_LABELS[band as TrustBand] ?? band;
+}
+
+function trustStyle(band: string): string {
+  return TRUST_STYLES[band as TrustBand] ?? "border-slate-700 text-slate-400";
+}
+
+function classLabel(cls: string): string {
+  return cls; // PascalCase already: SkillQube, WorkflowQube, etc.
+}
+
+function classStyle(cls: string): string {
+  return CLASS_STYLES[cls as RegistryAssetClass] ?? "border-slate-700 text-slate-400";
+}
+
+function policyLabel(p: string): string {
+  return POLICY_CLASS_LABELS[p as PolicyClass] ?? p;
+}
+
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+interface Asset {
+  assetId: string;
+  assetClass: string;
+  name: string;
+  description?: string;
+  trustBand: string;
+  publicationStatus: string;
+  policyClass: string;
+  tags: string[];
+  tenantId: string;
+  currentVersion?: string;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
-const TRUST_BANDS: Array<TrustBand | ""> = [
-  "", "L1_EXPERIMENTAL", "L2_COMMUNITY", "L3_VERIFIED", "L4_CERTIFIED", "L5_CORE_SOVEREIGN",
-];
-
+const TRUST_BANDS: Array<TrustBand | ""> = ["", ...TRUST_BAND_ORDER];
 const ASSET_CLASSES: Array<RegistryAssetClass | ""> = [
-  "", "tool_qube", "skill_qube", "workflow_qube", "connector_qube",
+  "", "ToolQube", "SkillQube", "WorkflowQube", "ConnectorQube",
 ];
 
 interface RegistrySupplyTabProps {
@@ -124,7 +106,7 @@ interface RegistrySupplyTabProps {
 
 export function RegistrySupplyTab({ theme = "dark" }: RegistrySupplyTabProps) {
   const [assets, setAssets] = useState<Asset[]>([]);
-  const [selected, setSelected] = useState<Asset | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [trustFilter, setTrustFilter] = useState<TrustBand | "">("");
@@ -135,7 +117,7 @@ export function RegistrySupplyTab({ theme = "dark" }: RegistrySupplyTabProps) {
     setLoading(true);
     setFetchError(null);
     try {
-      const params = new URLSearchParams({ publicationStatus: "published", limit: "100" });
+      const params = new URLSearchParams({ publicationStatus: "published", limit: "100", tenantId: "platform" });
       if (trustFilter) params.set("trustBand", trustFilter);
       if (classFilter) params.set("assetClass", classFilter);
       if (search.trim()) params.set("search", search.trim());
@@ -199,6 +181,7 @@ export function RegistrySupplyTab({ theme = "dark" }: RegistrySupplyTabProps) {
           {TRUST_BANDS.map((t) => (
             <button
               key={t}
+              type="button"
               onClick={() => setTrustFilter(t)}
               className={`rounded-md border px-2.5 py-1 text-[11px] transition-colors ${
                 trustFilter === t
@@ -206,7 +189,7 @@ export function RegistrySupplyTab({ theme = "dark" }: RegistrySupplyTabProps) {
                   : "border-slate-800 text-slate-500 hover:border-slate-600 hover:text-slate-300"
               }`}
             >
-              {t === "" ? "All bands" : TRUST_LABELS[t]}
+              {t === "" ? "All bands" : TRUST_BAND_LABELS[t]}
             </button>
           ))}
         </div>
@@ -219,6 +202,7 @@ export function RegistrySupplyTab({ theme = "dark" }: RegistrySupplyTabProps) {
           {ASSET_CLASSES.map((c) => (
             <button
               key={c}
+              type="button"
               onClick={() => setClassFilter(c)}
               className={`rounded-md border px-2.5 py-1 text-[11px] transition-colors ${
                 classFilter === c
@@ -226,7 +210,7 @@ export function RegistrySupplyTab({ theme = "dark" }: RegistrySupplyTabProps) {
                   : "border-slate-800 text-slate-500 hover:border-slate-600 hover:text-slate-300"
               }`}
             >
-              {c === "" ? "All classes" : CLASS_LABELS[c]}
+              {c === "" ? "All classes" : c}
             </button>
           ))}
         </div>
@@ -243,90 +227,6 @@ export function RegistrySupplyTab({ theme = "dark" }: RegistrySupplyTabProps) {
         </div>
       )}
 
-      {/* Detail panel */}
-      {selected && (
-        <div className={`${base} space-y-4`}>
-          <div className="flex items-start justify-between gap-2">
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-2 flex-wrap">
-                <Badge
-                  variant="outline"
-                  className={`text-[11px] ${TRUST_STYLES[selected.trustBand] ?? "border-slate-700 text-slate-400"}`}
-                >
-                  <ShieldCheck className="h-3 w-3 mr-1" />
-                  {TRUST_LABELS[selected.trustBand]}
-                </Badge>
-                <Badge
-                  variant="outline"
-                  className={`text-[11px] ${CLASS_STYLES[selected.assetClass] ?? "border-slate-700 text-slate-400"}`}
-                >
-                  {CLASS_LABELS[selected.assetClass]}
-                </Badge>
-              </div>
-              <div className="font-semibold text-slate-100">{selected.name}</div>
-              <div className="font-mono text-[11px] text-slate-400">{selected.assetId}</div>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSelected(null)}
-              className="h-6 w-6 p-0 text-slate-500 hover:text-slate-300"
-            >
-              <X className="h-3.5 w-3.5" />
-            </Button>
-          </div>
-
-          {selected.description && (
-            <div className="text-xs text-slate-400">{selected.description}</div>
-          )}
-
-          <div className="grid gap-2 md:grid-cols-2">
-            <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-3">
-              <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">Policy</div>
-              <Badge variant="outline" className="border-slate-700 text-slate-300 text-[11px]">
-                {POLICY_LABELS[selected.policyClass] ?? selected.policyClass}
-              </Badge>
-            </div>
-            <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-3">
-              <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">Published</div>
-              <div className="text-xs text-slate-300">{fmtDate(selected.createdAt)}</div>
-              {selected.publishedBy && (
-                <div className="text-[11px] text-slate-500 mt-0.5">by {selected.publishedBy}</div>
-              )}
-            </div>
-          </div>
-
-          {selected.tags.length > 0 && (
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                <Tag className="h-3 w-3" /> Tags
-              </div>
-              <div className="flex gap-1.5 flex-wrap">
-                {selected.tags.map((tag) => (
-                  <Badge key={tag} variant="outline" className="border-slate-700 text-slate-400 text-[11px]">
-                    {tag}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-1.5 text-xs h-7"
-              onClick={() => {
-                window.open(`/studio?assetId=${selected.assetId}`, "_blank");
-              }}
-            >
-              <ExternalLink className="h-3 w-3" />
-              Open in Studio
-            </Button>
-          </div>
-        </div>
-      )}
-
       {/* Asset count */}
       {!loading && !fetchError && assets.length > 0 && (
         <div className="text-[11px] text-slate-600">
@@ -339,40 +239,101 @@ export function RegistrySupplyTab({ theme = "dark" }: RegistrySupplyTabProps) {
       <div className={base}>
         {assets.length > 0 ? (
           <div className="space-y-1">
-            {assets.map((asset) => (
-              <button
-                key={asset.assetId}
-                onClick={() => setSelected(asset)}
-                className={`w-full flex items-center justify-between rounded-lg border px-3 py-2.5 text-left transition-colors ${
-                  selected?.assetId === asset.assetId
-                    ? "border-emerald-500/40 bg-emerald-500/5"
-                    : "border-slate-800 hover:border-slate-700 hover:bg-slate-900/40"
-                }`}
-              >
-                <div className="space-y-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Badge
-                      variant="outline"
-                      className={`text-[11px] ${TRUST_STYLES[asset.trustBand] ?? "border-slate-700 text-slate-400"}`}
-                    >
-                      {TRUST_LABELS[asset.trustBand]}
-                    </Badge>
-                    <Badge
-                      variant="outline"
-                      className={`text-[11px] ${CLASS_STYLES[asset.assetClass] ?? "border-slate-700 text-slate-400"}`}
-                    >
-                      {CLASS_LABELS[asset.assetClass]}
-                    </Badge>
-                    <span className="text-[11px] text-slate-300 font-medium truncate">{asset.name}</span>
-                  </div>
-                  <div className="text-[11px] text-slate-500">
-                    {fmtDate(asset.createdAt)}
-                    {asset.tags.length > 0 && ` · ${asset.tags.slice(0, 3).join(", ")}${asset.tags.length > 3 ? "…" : ""}`}
-                  </div>
+            {assets.map((asset) => {
+              const isExpanded = expandedId === asset.assetId;
+              const isNative = asset.metadata?.agentiq_native === true;
+              return (
+                <div key={asset.assetId}>
+                  <button
+                    type="button"
+                    onClick={() => setExpandedId(isExpanded ? null : asset.assetId)}
+                    className={`w-full flex items-center justify-between rounded-lg border px-3 py-2.5 text-left transition-colors ${
+                      isExpanded
+                        ? "rounded-b-none border-emerald-500/40 bg-emerald-500/5"
+                        : "border-slate-800 hover:border-slate-700 hover:bg-slate-900/40"
+                    }`}
+                  >
+                    <div className="space-y-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge
+                          variant="outline"
+                          className={`text-[11px] ${trustStyle(asset.trustBand)}`}
+                        >
+                          <ShieldCheck className="h-2.5 w-2.5 mr-1" />
+                          {trustLabel(asset.trustBand)}
+                        </Badge>
+                        <Badge
+                          variant="outline"
+                          className={`text-[11px] ${classStyle(asset.assetClass)}`}
+                        >
+                          {classLabel(asset.assetClass)}
+                        </Badge>
+                        {isNative && (
+                          <Badge variant="outline" className="text-[11px] border-indigo-500/40 text-indigo-300">
+                            <Star className="h-2.5 w-2.5 mr-1" />
+                            AgentiQ native
+                          </Badge>
+                        )}
+                        <span className="text-[11px] text-slate-300 font-medium truncate">{asset.name}</span>
+                      </div>
+                      <div className="text-[11px] text-slate-500">
+                        {fmtDate(asset.createdAt)}
+                        {asset.tags.length > 0 && ` · ${asset.tags.slice(0, 3).join(", ")}${asset.tags.length > 3 ? "…" : ""}`}
+                      </div>
+                    </div>
+                    {isExpanded
+                      ? <ChevronDown className="h-3.5 w-3.5 text-emerald-400 shrink-0 ml-2" />
+                      : <ChevronRight className="h-3.5 w-3.5 text-slate-600 shrink-0 ml-2" />
+                    }
+                  </button>
+
+                  {/* Inline detail panel */}
+                  {isExpanded && (
+                    <div className="rounded-b-lg border border-t-0 border-emerald-500/40 bg-slate-900/60 px-4 py-3 space-y-3">
+                      {asset.description && (
+                        <p className="text-xs text-slate-400">{asset.description}</p>
+                      )}
+
+                      <div className="grid gap-2 grid-cols-2">
+                        <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-2.5">
+                          <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Policy</div>
+                          <span className="text-[11px] text-slate-300">{policyLabel(asset.policyClass)}</span>
+                        </div>
+                        <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-2.5">
+                          <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Version</div>
+                          <span className="font-mono text-[11px] text-slate-300">{asset.currentVersion ?? "—"}</span>
+                        </div>
+                      </div>
+
+                      {asset.tags.length > 0 && (
+                        <div>
+                          <div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
+                            <Tag className="h-3 w-3" /> Tags
+                          </div>
+                          <div className="flex gap-1.5 flex-wrap">
+                            {asset.tags.map((tag) => (
+                              <span key={tag} className="rounded-full border border-slate-700 bg-slate-800/60 px-2 py-0.5 text-[10px] text-slate-400">{tag}</span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="font-mono text-[10px] text-slate-600">{asset.assetId}</div>
+
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-1.5 text-xs h-7"
+                        onClick={() => window.open(`/studio?assetId=${asset.assetId}`, "_blank")}
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        Open in Studio
+                      </Button>
+                    </div>
+                  )}
                 </div>
-                <ChevronRight className="h-3.5 w-3.5 text-slate-600 shrink-0 ml-2" />
-              </button>
-            ))}
+              );
+            })}
           </div>
         ) : loading ? (
           <div className="py-8 text-center text-slate-400 text-sm">Loading assets…</div>
