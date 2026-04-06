@@ -45,6 +45,11 @@ export async function GET(req: NextRequest) {
     const intakes = await listIntakes(tenantId);
     return NextResponse.json({ ok: true, data: intakes });
   } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    // Table not yet created (migration pending) — return empty rather than 500
+    if (msg.includes("42P01") || msg.includes("does not exist") || msg.includes("relation")) {
+      return NextResponse.json({ ok: true, data: [], _note: "table_pending" });
+    }
     console.error("[registry/intake] GET error:", err);
     return NextResponse.json({ ok: false, error: "Internal server error" }, { status: 500 });
   }

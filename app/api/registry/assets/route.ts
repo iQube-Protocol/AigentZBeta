@@ -21,6 +21,10 @@ export async function GET(req: NextRequest) {
     const assets = await listAssets(filter);
     return NextResponse.json({ ok: true, data: assets, count: assets.length });
   } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes("42P01") || msg.includes("does not exist") || msg.includes("relation")) {
+      return NextResponse.json({ ok: true, data: [], count: 0, _note: "table_pending" });
+    }
     console.error("[registry/assets] GET error:", err);
     return NextResponse.json({ ok: false, error: "Internal server error" }, { status: 500 });
   }
