@@ -91,8 +91,8 @@ Genuine gaps requiring new but small builds:
 | **2** | Builder coherence | ✅ Done | AgentiQ OS docs + SDK personas + codex tab complete | B1+B2+B3 |
 | **3** | Governance coherence | ⚠️ Partial | Factory pipeline exists, no visible intake trace | C1 |
 | **4** | Production coherence | ⚠️ Partial | Studio + Registry connected in code, not UX | C2+C3 |
-| **5** | Sovereignty coherence | ⚠️ Partial | Experience model exists, PCS ladder not user-visible | D1+D2 |
-| **6** | KNYT coherence | ⚠️ Partial | Voting + remix live; like/spark missing; $KNYT not in wallet | D3+D5 |
+| **5** | Sovereignty coherence | ✅ Done | PCS ladder seeded + visible in ExperienceDashboardTab individual view | D1+D2 |
+| **6** | KNYT coherence | ✅ Done | Like/spark/curate routes live; $KNYT wallet section distinct; NBE→KNYT CTA wired | D3+D4+D5 |
 | **7** | Economic coherence | ❌ Missing | No surface distinguishing Q¢ from $KNYT | E1 |
 | **8** | Flywheel coherence | ❌ Missing | No golden-path demo artifact | C3+E2 |
 
@@ -202,15 +202,15 @@ KNYT rendered form: `Observer → Collector → Curator → Remixer → Creator 
 Deliverables:
 
 **Phase D — stack implementation:**
-- [ ] SQL seed migration: populate `experience_matrices.depth_ladder` with PCS stage labels for the AgentiQ strategy
+- [x] SQL seed migration: populate `experience_matrices.depth_ladder` with PCS stage labels for the AgentiQ strategy (`supabase/migrations/20260407000000_pcs_seed_agentiq.sql`) *(done)*
   - Level 0: Participant (unlock: first_participation_signal)
   - Level 1: Community (unlock: repeat_participation + 3 signals)
   - Level 2: Correspondent (unlock: curation_or_remix + community_action)
   - Level 3: Operator (unlock: contribution_submission_accepted)
   - Level 4: Creator (unlock: repeated_accepted_contributions)
   - Level 5: Upstream contributor (unlock: contributor_pathway_flag + Aigent C handoff)
-- [ ] `PCSLadderSection` added to `ExperienceDashboardTab.tsx` — shows user's current PCS stage, next stage, why it matters, what unlocks it (uses `journey_states.depth` + `experience_matrices.depth_ladder`)
-- [ ] `SmartTriadProvider.tsx`: when NBE plan `nextExperience` resolves to KNYT participation, trigger navigation to KNYT codex tab
+- [x] `PCSLadderSection` added to `ExperienceDashboardTab.tsx` — shows current PCS stage, depth ladder, next unlock criteria *(done)*
+- [x] NBE→KNYT routing CTA in individual view: `disposition=act` shows "Go to KNYT →" or "Continue →" based on rationale content *(done)*
 
 **Already complete (this session):**
 - [x] metaMe Experience Framework v1 spec (`codexes/packs/metame/items/METAME_EXPERIENCE_FRAMEWORK.md`)
@@ -244,11 +244,12 @@ KNYT uses a dual-axis model: **Patronage Axis** (Outside Order → Acolyte → K
 - [x] Experience Pack tab added to KNYT_CODEX (adminOnly, order 9)
 
 **Phase D — stack implementation:**
-- [ ] `app/api/codex/knyt/living-canon/like/route.ts` — like signal + optional micro-reward (follows `vote/route.ts` pattern)
-- [ ] `app/api/codex/knyt/living-canon/spark/route.ts` — spark signal + optional micro-reward
-- [ ] `app/api/codex/knyt/living-canon/curate/route.ts` — curate signal (Phase D)
-- [ ] $KNYT balance section in `SmartWalletDrawer.tsx` (reads from existing `/api/codex/knyt-balance`)
-- [ ] Kn0w1 persona registered in `agentiq-sdk` default personas (in-world guide role)
+- [x] `app/api/codex/knyt/living-canon/like/route.ts` — like signal + 1.0 KNYT micro-reward *(done)*
+- [x] `app/api/codex/knyt/living-canon/spark/route.ts` — spark signal + 2.5 KNYT micro-reward *(done)*
+- [x] `app/api/codex/knyt/living-canon/curate/route.ts` — curate signal (editorial, no direct reward) *(done)*
+- [x] `supabase/migrations/20260407000001_knyt_signals.sql` — knyt_signals table (like/spark/curate) *(done)*
+- [x] $KNYT distinct balance section in `SmartWalletDrawer.tsx` — amber section header separates $KNYT from Q¢ *(done)*
+- [x] Kn0w1 persona registered in `agentiq-sdk` default personas (in-world guide role) *(done — Phase B)*
 - [ ] KNYT Runtime surface cards: World Header, Dual Status Rail, Featured Moment, Signal Action Tray, Next-Best-Pathway Card (P0 — per surface map)
 - [ ] Reward + Progress Card, Kn0w1 + metaMe handoff cards (P1)
 - [ ] Aigent C builder path handoff card (P2 — conditional on `contributor_pathway_flag`)

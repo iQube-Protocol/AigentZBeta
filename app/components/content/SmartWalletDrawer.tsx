@@ -2204,8 +2204,20 @@ export default function SmartWalletDrawer({
                     </div>
                   </li>
 
+                  {nonQcentBalanceRows.length > 0 && (
+                    <li className="pt-2 pb-0.5">
+                      <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-amber-400/80 mb-1">
+                        <span className="h-px flex-1 bg-amber-500/20" />
+                        $KNYT · Cartridge Economy
+                        <span className="h-px flex-1 bg-amber-500/20" />
+                      </div>
+                      <div className="text-[9px] text-amber-300/50 text-center">
+                        KNYT cartridge-local · distinct from Q¢
+                      </div>
+                    </li>
+                  )}
                   {nonQcentBalanceRows.map((row) => (
-                    <li key={row.key} className="flex items-center justify-between p-2 rounded-lg bg-white/5 border border-white/5">
+                    <li key={row.key} className="flex items-center justify-between p-2 rounded-lg bg-amber-500/5 border border-amber-500/10">
                       <span className="flex items-center gap-2">
                         {row.logo && !logoLoadErrors[row.key] ? (
                           <img
@@ -2219,9 +2231,9 @@ export default function SmartWalletDrawer({
                         ) : (
                           row.fallbackIcon
                         )}
-                        <span>{row.label}</span>
+                        <span className="text-amber-200/80">{row.label}</span>
                       </span>
-                      <span className="font-mono text-white">
+                      <span className="font-mono text-amber-300">
                         {row.value} {row.unit}
                       </span>
                     </li>

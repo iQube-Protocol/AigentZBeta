@@ -155,6 +155,120 @@ const STAGE_COLORS: Record<string, string> = {
   zero: "border-rose-500/50 text-rose-300",
 };
 
+// ─── PCS Ladder configuration (seeded in 20260407000000_pcs_seed_agentiq.sql) ──
+
+const PCS_STAGES: Array<{
+  slug: string;
+  label: string;
+  unlock: string;
+  depths: string[];
+}> = [
+  { slug: 'participant',          label: 'Participant',           unlock: 'First participation signal',                    depths: ['pill'] },
+  { slug: 'community',            label: 'Community',             unlock: 'Repeat participation + 3 signals',              depths: ['pill', 'capsule'] },
+  { slug: 'correspondent',        label: 'Correspondent',         unlock: 'Curation or remix + community action',          depths: ['pill', 'capsule', 'mini_runtime'] },
+  { slug: 'operator',             label: 'Operator',              unlock: 'Contribution submission accepted',              depths: ['pill', 'capsule', 'mini_runtime', 'codex'] },
+  { slug: 'creator',              label: 'Creator',               unlock: 'Repeated accepted contributions',               depths: ['pill', 'capsule', 'mini_runtime', 'codex'] },
+  { slug: 'upstream_contributor', label: 'Upstream Contributor',  unlock: 'Contributor pathway flag + Aigent C handoff',   depths: ['pill', 'capsule', 'mini_runtime', 'codex'] },
+];
+
+// journey_state.stage → PCS stage slug mapping
+const JOURNEY_TO_PCS: Record<string, string> = {
+  prospect: 'participant',
+  acolyte:  'community',
+  keta:     'correspondent',
+  keji:     'operator',
+  first:    'creator',
+  zero:     'upstream_contributor',
+};
+
+const DEPTH_LABELS: Record<string, string> = {
+  pill:         'L0 Pill',
+  capsule:      'L1 Capsule',
+  mini_runtime: 'L2 Mini-Runtime',
+  codex:        'L3 Codex',
+};
+
+function PCSLadderSection({ stage, depth }: { stage: string; depth: string }) {
+  const pcsSlug = JOURNEY_TO_PCS[stage] ?? 'participant';
+  const currentIdx = PCS_STAGES.findIndex((s) => s.slug === pcsSlug);
+  const current = PCS_STAGES[currentIdx];
+  const next = PCS_STAGES[currentIdx + 1] ?? null;
+
+  return (
+    <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 space-y-3">
+      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 flex items-center gap-1.5">
+        <span className="h-1 w-1 rounded-full bg-violet-400 inline-block" />
+        PCS Progression Ladder
+      </div>
+
+      {/* Stage strip */}
+      <div className="flex items-center gap-0.5 overflow-x-auto pb-1">
+        {PCS_STAGES.map((s, i) => {
+          const done = i < currentIdx;
+          const active = i === currentIdx;
+          return (
+            <div key={s.slug} className="flex items-center gap-0.5 flex-1 min-w-0">
+              <div
+                title={s.label}
+                className={`h-1.5 flex-1 rounded-full transition-colors ${
+                  done    ? 'bg-violet-500' :
+                  active  ? 'bg-violet-400 ring-1 ring-violet-300/40' :
+                            'bg-slate-800'
+                }`}
+              />
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex justify-between text-[9px] text-slate-600">
+        <span>{PCS_STAGES[0].label}</span>
+        <span className="text-violet-400/70">{current?.label}</span>
+        <span>{PCS_STAGES[PCS_STAGES.length - 1].label}</span>
+      </div>
+
+      {/* Current stage card */}
+      {current && (
+        <div className="rounded-lg border border-violet-500/20 bg-violet-500/5 px-3 py-2 space-y-1">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-violet-300">{current.label}</span>
+            <span className="text-[10px] text-violet-400/60">Stage {currentIdx + 1} of {PCS_STAGES.length}</span>
+          </div>
+          <div className="flex gap-1 flex-wrap">
+            {current.depths.map((d) => (
+              <span
+                key={d}
+                className={`rounded px-1.5 py-0.5 text-[10px] font-mono ${
+                  d === depth
+                    ? 'bg-violet-500/30 text-violet-200 ring-1 ring-violet-400/40'
+                    : 'bg-slate-800 text-slate-500'
+                }`}
+              >
+                {DEPTH_LABELS[d] ?? d}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Next stage unlock */}
+      {next && (
+        <div className="rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2">
+          <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-0.5">Next: {next.label}</div>
+          <div className="text-[11px] text-slate-400">{next.unlock}</div>
+        </div>
+      )}
+
+      {!next && (
+        <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-1.5">
+          <div className="text-[11px] text-amber-300">Maximum PCS stage reached — Upstream Contributor</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 const DISPOSITION_COLORS: Record<string, string> = {
   act: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300",
   ask: "border-blue-500/40 bg-blue-500/10 text-blue-300",
@@ -667,15 +781,43 @@ export function ExperienceDashboardTab({ personaId, tenantId, theme = "dark" }: 
                           </div>
                         )}
                         {selectedIndividual.nbe && (
-                          <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-                            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3 flex items-center gap-1.5"><Zap className="h-3.5 w-3.5 text-violet-400" />NBE Plan</div>
-                            <div className="flex items-center gap-2 mb-2">
+                          <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 space-y-2">
+                            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 flex items-center gap-1.5"><Zap className="h-3.5 w-3.5 text-violet-400" />NBE Plan</div>
+                            <div className="flex items-center gap-2 flex-wrap">
                               <Badge variant="outline" className={`capitalize text-[11px] ${DISPOSITION_COLORS[selectedIndividual.nbe.disposition] ?? "border-slate-700"}`}>{selectedIndividual.nbe.disposition}</Badge>
                               {selectedIndividual.nbe.next_experience_depth && <Badge variant="outline" className="border-violet-500/40 text-violet-300 text-[11px]">→ {selectedIndividual.nbe.next_experience_depth}</Badge>}
                             </div>
                             {selectedIndividual.nbe.rationale && <div className="text-xs text-slate-300">{selectedIndividual.nbe.rationale}</div>}
+                            {/* D4 — NBE→KNYT routing: surface a direct path when disposition is act */}
+                            {selectedIndividual.nbe.disposition === 'act' && (
+                              <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 flex items-center justify-between gap-2">
+                                <span className="text-[11px] text-emerald-300">Ready to act — next step available</span>
+                                <button
+                                  onClick={() => {
+                                    const nextDepth = selectedIndividual.nbe?.next_experience_depth ?? '';
+                                    const isKnyt = nextDepth.includes('knyt') ||
+                                      (selectedIndividual.nbe?.rationale ?? '').toLowerCase().includes('knyt');
+                                    const path = isKnyt ? '/codex?id=knyt-codex' : '/codex?id=agentiq-codex&tab=experience-dashboard';
+                                    window.location.href = path;
+                                  }}
+                                  className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 text-[11px] text-emerald-300 hover:bg-emerald-500/20 transition-colors shrink-0"
+                                >
+                                  {(() => {
+                                    const nextDepth = selectedIndividual.nbe?.next_experience_depth ?? '';
+                                    const isKnyt = nextDepth.includes('knyt') ||
+                                      (selectedIndividual.nbe?.rationale ?? '').toLowerCase().includes('knyt');
+                                    return isKnyt ? 'Go to KNYT →' : 'Continue →';
+                                  })()}
+                                </button>
+                              </div>
+                            )}
                           </div>
                         )}
+                        {/* D2 — PCS Ladder: show persona's current stage + depth progression */}
+                        <PCSLadderSection
+                          stage={selectedIndividual.stage}
+                          depth={selectedIndividual.depth}
+                        />
                       </div>
                     </div>
                   )}
