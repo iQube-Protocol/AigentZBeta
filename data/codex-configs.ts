@@ -646,6 +646,41 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
         description: 'Alpha launch program — architecture, build plan, asset map',
         color: 'amber'
       }
+    },
+    {
+      id: 'factory-intake',
+      label: 'Factory',
+      slug: 'factory-intake',
+      enabled: true,
+      adminOnly: true,
+      order: 10,
+      type: 'static',
+      config: {
+        component: 'FactoryIntakeTab',
+        props: {}
+      },
+      metadata: {
+        icon: 'Factory',
+        description: 'Registry Ingestion Factory — track intake submissions through the full pipeline',
+        color: 'amber'
+      }
+    },
+    {
+      id: 'registry-supply',
+      label: 'Registry',
+      slug: 'registry-supply',
+      enabled: true,
+      order: 11,
+      type: 'static',
+      config: {
+        component: 'RegistrySupplyTab',
+        props: {}
+      },
+      metadata: {
+        icon: 'Database',
+        description: 'Registry supply — browse all published assets by trust band and class',
+        color: 'emerald'
+      }
     }
   ],
   permissions: {
