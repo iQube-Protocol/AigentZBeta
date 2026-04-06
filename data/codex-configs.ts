@@ -764,6 +764,27 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
         description: 'Registry supply — browse all published assets by trust band and class',
         color: 'emerald'
       }
+    },
+    {
+      id: 'operators-manual',
+      label: 'Operators',
+      slug: 'operators-manual',
+      enabled: true,
+      adminOnly: true,
+      order: 12,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'agentiq',
+          collectionId: 'col_operators'
+        }
+      },
+      metadata: {
+        icon: 'BookOpen',
+        description: 'Operators manual — trust scoring, pipeline reference, Aigent roster',
+        color: 'slate'
+      }
     }
   ],
   permissions: {

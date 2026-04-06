@@ -70,6 +70,13 @@
         "items/OS_PACKAGING_STANDARDS.md",
         "items/OS_SUBMISSION_GUIDE.md"
       ]
+    },
+    {
+      "id": "col_operators",
+      "title": "Operators Manual",
+      "items": [
+        "items/REGISTRY_TRUST_SCORING.md"
+      ]
     }
   ]
 }
