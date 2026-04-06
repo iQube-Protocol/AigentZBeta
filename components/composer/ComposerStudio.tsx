@@ -1565,6 +1565,7 @@ export const ComposerStudio = () => {
   const [makeScenarioError, setMakeScenarioError] = useState<string | null>(null);
   const [showMakePicker, setShowMakePicker] = useState(false);
   const [connectingScenarioId, setConnectingScenarioId] = useState<number | null>(null);
+  const [skillFilterMode, setSkillFilterMode] = useState<"all" | "active">("all");
   const [workflowRunPolling, setWorkflowRunPolling] = useState<Record<string, { runId: string; status: string } | null>>({});
   const [workflowRunHistory, setWorkflowRunHistory] = useState<Record<string, any[]>>({});
   const [expandedRunHistory, setExpandedRunHistory] = useState<Record<string, boolean>>({});
@@ -2984,6 +2985,29 @@ export const ComposerStudio = () => {
     if (fullPreviewExperience?.id === selectedExperienceId) return fullPreviewExperience;
     return experiences.find((exp) => exp.id === selectedExperienceId) || experience;
   }, [selectedExperienceId, fullPreviewExperience, experiences, experience]);
+
+  // Derives the set of studio skill/bundle IDs used by the currently previewed experience,
+  // so the Workflows tab can filter to "Active" skills only.
+  const activeExperienceSkillIds = useMemo(() => {
+    const bundle = getAppliedExperienceBundle(previewExperience);
+    const skillCfg = asRecord(
+      (previewExperience?.configuration as Record<string, unknown>)?.skill_selection,
+    );
+    const selectedId = typeof skillCfg?.skill_id === "string" ? skillCfg.skill_id : null;
+    const ids = new Set<string>();
+    if (selectedId) ids.add(selectedId);
+    if (bundle?.presetId === "image_article_bundle") {
+      if (!selectedId) ids.add("skill:image_openai");
+      ids.add("skill:article_generation");
+      ids.add("workflow:image_article_bundle");
+    } else if (bundle?.presetId === "video_article_bundle") {
+      if (!selectedId) ids.add("skill:video_sora_curated");
+      ids.add("skill:article_generation");
+      ids.add("workflow:video_article_bundle");
+    }
+    return ids;
+  }, [previewExperience]);
+
   const activeExperienceForEditing = useMemo(
     () => previewExperience || selectedExperience || experience || null,
     [experience, previewExperience, selectedExperience]
@@ -10518,10 +10542,38 @@ export const ComposerStudio = () => {
                           )}
                         </div>
                       )}
+                      {/* ── Skill filter toggle ───────────────────────────── */}
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setSkillFilterMode("all")}
+                          className={`rounded-md border px-2.5 py-1 text-[11px] transition-colors ${
+                            skillFilterMode === "all"
+                              ? "border-indigo-500/60 bg-indigo-500/10 text-indigo-300"
+                              : "border-slate-800 text-slate-500 hover:border-slate-600 hover:text-slate-300"
+                          }`}
+                        >
+                          All
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSkillFilterMode("active")}
+                          className={`rounded-md border px-2.5 py-1 text-[11px] transition-colors ${
+                            skillFilterMode === "active"
+                              ? "border-cyan-500/60 bg-cyan-500/10 text-cyan-300"
+                              : "border-slate-800 text-slate-500 hover:border-slate-600 hover:text-slate-300"
+                          }`}
+                        >
+                          Active Experience
+                        </button>
+                        {skillFilterMode === "active" && activeExperienceSkillIds.size === 0 && (
+                          <span className="text-[10px] text-slate-600">— no active experience selected</span>
+                        )}
+                      </div>
+
                       {/* ── Studio Skills ─────────────────────────────────── */}
-                      <div className="space-y-1.5">
-                        <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Studio Skills</span>
-                        {[
+                      {(() => {
+                        const allSkills = [
                           {
                             id: "skill:image_openai",
                             name: "Image Generation — OpenAI",
@@ -10576,29 +10628,42 @@ export const ComposerStudio = () => {
                             assetClass: "SkillQube",
                             tags: ["article", "editorial", "copy"],
                           },
-                        ].map((skill) => (
-                          <div key={skill.id} className="flex items-start justify-between gap-2 rounded-lg border border-slate-700/50 bg-slate-900/60 px-3 py-2">
-                            <div className="min-w-0">
-                              <p className="truncate text-[11px] font-medium text-slate-200">{skill.name}</p>
-                              <p className="mt-0.5 text-[10px] text-slate-500 line-clamp-2">{skill.description}</p>
-                              <div className="mt-1 flex flex-wrap gap-1">
-                                {skill.tags.map((t) => (
-                                  <span key={t} className="rounded-full bg-slate-800 px-1.5 py-0.5 text-[9px] text-slate-400">{t}</span>
-                                ))}
+                        ];
+                        const visibleSkills = skillFilterMode === "active" && activeExperienceSkillIds.size > 0
+                          ? allSkills.filter((s) => activeExperienceSkillIds.has(s.id))
+                          : allSkills;
+                        return (
+                          <div className="space-y-1.5">
+                            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                              Studio Skills{visibleSkills.length !== allSkills.length ? ` (${visibleSkills.length}/${allSkills.length})` : ""}
+                            </span>
+                            {visibleSkills.map((skill) => (
+                              <div key={skill.id} className="flex items-start justify-between gap-2 rounded-lg border border-slate-700/50 bg-slate-900/60 px-3 py-2">
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <p className="truncate text-[11px] font-medium text-slate-200">{skill.name}</p>
+                                    <span className="rounded-full border border-indigo-500/40 bg-indigo-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-indigo-300">AgentiQ native</span>
+                                  </div>
+                                  <p className="mt-0.5 text-[10px] text-slate-500 line-clamp-2">{skill.description}</p>
+                                  <div className="mt-1 flex flex-wrap gap-1">
+                                    {skill.tags.map((t) => (
+                                      <span key={t} className="rounded-full bg-slate-800 px-1.5 py-0.5 text-[9px] text-slate-400">{t}</span>
+                                    ))}
+                                  </div>
+                                </div>
+                                <div className="flex shrink-0 flex-col items-end gap-1">
+                                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${skill.badge === "A" ? "bg-emerald-500/20 text-emerald-300" : "bg-amber-500/20 text-amber-300"}`}>{skill.badge}</span>
+                                  <span className="rounded-full border border-indigo-400/30 bg-indigo-500/10 px-1.5 py-0.5 text-[9px] text-indigo-300">{skill.trustBand}</span>
+                                </div>
                               </div>
-                            </div>
-                            <div className="flex shrink-0 flex-col items-end gap-1">
-                              <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${skill.badge === "A" ? "bg-emerald-500/20 text-emerald-300" : "bg-amber-500/20 text-amber-300"}`}>{skill.badge}</span>
-                              <span className="rounded-full border border-indigo-400/30 bg-indigo-500/10 px-1.5 py-0.5 text-[9px] text-indigo-300">{skill.trustBand}</span>
-                            </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
+                        );
+                      })()}
 
                       {/* ── Studio Bundles ────────────────────────────────── */}
-                      <div className="space-y-1.5">
-                        <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Studio Bundles</span>
-                        {[
+                      {(() => {
+                        const allBundles = [
                           {
                             id: "workflow:image_article_bundle",
                             name: "Image + Article Bundle",
@@ -10615,24 +10680,38 @@ export const ComposerStudio = () => {
                             engine: "inline",
                             blocks: ["video_generation", "article_draft", "deployment"],
                           },
-                        ].map((bundle) => (
-                          <div key={bundle.id} className="flex items-start justify-between gap-2 rounded-lg border border-violet-500/20 bg-violet-950/20 px-3 py-2">
-                            <div className="min-w-0">
-                              <p className="truncate text-[11px] font-medium text-slate-200">{bundle.name}</p>
-                              <p className="mt-0.5 text-[10px] text-slate-500 line-clamp-2">{bundle.description}</p>
-                              <div className="mt-1 flex flex-wrap gap-1">
-                                {bundle.blocks.map((b) => (
-                                  <span key={b} className="rounded-full bg-violet-900/40 px-1.5 py-0.5 text-[9px] text-violet-300">{b.replace("_", " ")}</span>
-                                ))}
+                        ];
+                        const visibleBundles = skillFilterMode === "active" && activeExperienceSkillIds.size > 0
+                          ? allBundles.filter((b) => activeExperienceSkillIds.has(b.id))
+                          : allBundles;
+                        return (
+                          <div className="space-y-1.5">
+                            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                              Studio Bundles{visibleBundles.length !== allBundles.length ? ` (${visibleBundles.length}/${allBundles.length})` : ""}
+                            </span>
+                            {visibleBundles.map((bundle) => (
+                              <div key={bundle.id} className="flex items-start justify-between gap-2 rounded-lg border border-violet-500/20 bg-violet-950/20 px-3 py-2">
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <p className="truncate text-[11px] font-medium text-slate-200">{bundle.name}</p>
+                                    <span className="rounded-full border border-indigo-500/40 bg-indigo-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-indigo-300">AgentiQ native</span>
+                                  </div>
+                                  <p className="mt-0.5 text-[10px] text-slate-500 line-clamp-2">{bundle.description}</p>
+                                  <div className="mt-1 flex flex-wrap gap-1">
+                                    {bundle.blocks.map((b) => (
+                                      <span key={b} className="rounded-full bg-violet-900/40 px-1.5 py-0.5 text-[9px] text-violet-300">{b.replace("_", " ")}</span>
+                                    ))}
+                                  </div>
+                                </div>
+                                <div className="flex shrink-0 flex-col items-end gap-1">
+                                  <span className="rounded-full border border-violet-400/30 bg-violet-500/10 px-2 py-0.5 text-[10px] text-violet-300">workflow</span>
+                                  <span className="text-[9px] text-slate-500">{bundle.engine}</span>
+                                </div>
                               </div>
-                            </div>
-                            <div className="flex shrink-0 flex-col items-end gap-1">
-                              <span className="rounded-full border border-violet-400/30 bg-violet-500/10 px-2 py-0.5 text-[10px] text-violet-300">workflow</span>
-                              <span className="text-[9px] text-slate-500">{bundle.engine}</span>
-                            </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
+                        );
+                      })()}
 
                       {/* ── Make Workflows ────────────────────────────────── */}
                       <div className="flex items-center justify-between">
