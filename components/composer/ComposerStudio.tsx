@@ -1008,6 +1008,58 @@ const DESIGN_QUBE_IMAGE_FALLBACKS = [
   "/images/designqube/thumb-agentiq.jpg",
 ];
 
+// ── Static experience framework data per cartridge ───────────────────────────
+// Used as fallback in the Experience tab when Supabase tables are not yet seeded.
+// Source of truth: codexes/packs/metame/items/ and codexes/packs/knyt/items/
+const CARTRIDGE_FRAMEWORK: Record<string, {
+  strategy: { name: string; description: string; target_segments: string[] };
+  model: { name: string; description: string; stages: string[] };
+  matrix: { stage: string; depth_ladder: string[] }[];
+}> = {
+  "metame-codex": {
+    strategy: {
+      name: "Progressive Creative Sovereignty (PCS) — AgentiQ Alpha",
+      description: "Canonical AgentiQ ecosystem progression model. Users advance from passive participation to platform stewardship through six stages, earning trust, permissions, and contribution rights at each threshold.",
+      target_segments: ["alpha participants", "community members", "correspondents", "operators", "creators", "upstream contributors"],
+    },
+    model: {
+      name: "metaMe Experience Model — PCS Ladder",
+      description: "Six-stage ladder mapping individual progression from first engagement to ecosystem stewardship. Each stage unlocks deeper experience depths and contribution pathways.",
+      stages: ["Participant", "Community", "Correspondent", "Operator", "Creator", "Upstream contributor"],
+    },
+    matrix: [
+      { stage: "Participant",           depth_ladder: ["pill"] },
+      { stage: "Community",             depth_ladder: ["pill", "capsule"] },
+      { stage: "Correspondent",         depth_ladder: ["pill", "capsule", "mini_runtime"] },
+      { stage: "Operator",              depth_ladder: ["pill", "capsule", "mini_runtime"] },
+      { stage: "Creator",               depth_ladder: ["pill", "capsule", "mini_runtime", "codex"] },
+      { stage: "Upstream contributor",  depth_ladder: ["pill", "capsule", "mini_runtime", "codex"] },
+    ],
+  },
+  "knyt-codex": {
+    strategy: {
+      name: "KNYT Live World — Patronage × PCS Strategy",
+      description: "KNYT experience strategy covering the Patronage Axis (Outside the Order → Satoshi) intersected with the PCS Axis. Drives collection, curation, remix, creation, and franchise-aligned stewardship for the 21 Sats world.",
+      target_segments: ["observers", "collectors", "curators", "remixers", "creators", "correspondents", "stewards", "franchise-aligned sovereigns"],
+    },
+    model: {
+      name: "KNYT Experience Model — Patronage × PCS Ladder",
+      description: "Eight-stage PCS ladder for the KNYT live world. Patronage movement: Outside the Order → Acolyte → Keta → Keji → First → Zero → Satoshi. PCS movement tracks alongside.",
+      stages: ["Observer", "Collector", "Curator", "Remixer", "Creator", "Correspondent", "Steward", "Franchise-aligned Sovereign"],
+    },
+    matrix: [
+      { stage: "Observer",                    depth_ladder: ["pill"] },
+      { stage: "Collector",                   depth_ladder: ["pill", "capsule"] },
+      { stage: "Curator",                     depth_ladder: ["pill", "capsule", "mini_runtime"] },
+      { stage: "Remixer",                     depth_ladder: ["pill", "capsule", "mini_runtime"] },
+      { stage: "Creator",                     depth_ladder: ["pill", "capsule", "mini_runtime", "codex"] },
+      { stage: "Correspondent",               depth_ladder: ["pill", "capsule", "mini_runtime", "codex"] },
+      { stage: "Steward",                     depth_ladder: ["pill", "capsule", "mini_runtime", "codex"] },
+      { stage: "Franchise-aligned Sovereign", depth_ladder: ["pill", "capsule", "mini_runtime", "codex"] },
+    ],
+  },
+};
+
 const QRIPTO_CONTENT_TAGS = [
   { value: "hero", label: "Hero Feature" },
   { value: "second-hero", label: "Second Hero" },
@@ -2988,13 +3040,17 @@ export const ComposerStudio = () => {
 
   // Derives the set of studio skill/bundle IDs used by the currently previewed experience,
   // so the Workflows tab can filter to "Active" skills only.
+  // Detection chain: bundle preset metadata → skill_selection config → template_id → content type
   const activeExperienceSkillIds = useMemo(() => {
+    if (!previewExperience) return new Set<string>();
+    const ids = new Set<string>();
+
+    // Path 1: bundle preset stored in metadata.composition_bundle
     const bundle = getAppliedExperienceBundle(previewExperience);
     const skillCfg = asRecord(
-      (previewExperience?.configuration as Record<string, unknown>)?.skill_selection,
+      (previewExperience.configuration as Record<string, unknown>)?.skill_selection,
     );
     const selectedId = typeof skillCfg?.skill_id === "string" ? skillCfg.skill_id : null;
-    const ids = new Set<string>();
     if (selectedId) ids.add(selectedId);
     if (bundle?.presetId === "image_article_bundle") {
       if (!selectedId) ids.add("skill:image_openai");
@@ -3005,6 +3061,44 @@ export const ComposerStudio = () => {
       ids.add("skill:article_generation");
       ids.add("workflow:video_article_bundle");
     }
+
+    // Path 2: template_id inference (experiences created via Studio bundle flow)
+    if (ids.size === 0) {
+      const tid = previewExperience.template_id ?? "";
+      const isVideo = tid.includes("video") || tid.includes("sora") || tid.includes("motion");
+      const isImage = tid.includes("image") || tid.includes("reading") || tid.includes("article") || tid.includes("qripto");
+      if (isVideo) {
+        if (!selectedId) ids.add("skill:video_sora_curated");
+        ids.add("skill:article_generation");
+        ids.add("workflow:video_article_bundle");
+      } else if (isImage) {
+        if (!selectedId) ids.add("skill:image_openai");
+        ids.add("skill:article_generation");
+        ids.add("workflow:image_article_bundle");
+      }
+    }
+
+    // Path 3: infer from generated content metadata
+    if (ids.size === 0) {
+      const meta = asRecord(previewExperience.metadata as unknown) ?? {};
+      const hasVideo = !!(meta.video_asset_url || meta.sora_generation_id || meta.video_url);
+      const hasImage = !!(meta.image_url || meta.hero_image_url || meta.generated_image_url);
+      const hasArticle = !!(meta.article_draft_id || meta.article_title);
+      if (hasVideo) {
+        ids.add("skill:video_sora_curated");
+        ids.add("skill:video_venice");
+        if (hasArticle) ids.add("skill:article_generation");
+        ids.add("workflow:video_article_bundle");
+      } else if (hasImage) {
+        ids.add("skill:image_openai");
+        ids.add("skill:image_venice");
+        if (hasArticle) ids.add("skill:article_generation");
+        ids.add("workflow:image_article_bundle");
+      } else if (hasArticle) {
+        ids.add("skill:article_generation");
+      }
+    }
+
     return ids;
   }, [previewExperience]);
 
@@ -10125,7 +10219,15 @@ export const ComposerStudio = () => {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Layers className="h-4 w-4 text-violet-400" />
-                          <span className="font-semibold">Experience Model</span>
+                          <span className="font-semibold">
+                            {expModelTab === "strategy" ? "Experience Strategy"
+                              : expModelTab === "model" ? "Experience Model"
+                              : expModelTab === "matrix" ? "Experience Matrices"
+                              : expModelTab === "status" ? "Journey Status"
+                              : expModelTab === "nbe" ? "NBE — Next Best Experience"
+                              : expModelTab === "analysis" ? "Analysis Cards"
+                              : "Experience Model"}
+                          </span>
                         </div>
                         <button
                           type="button"
@@ -10153,74 +10255,87 @@ export const ComposerStudio = () => {
                       <Tabs value={expModelTab} onValueChange={setExpModelTab}>
                         <TabsList className="grid w-full grid-cols-6 border border-slate-800 bg-slate-950/70">
                           {(["strategy", "model", "matrix", "status", "nbe", "analysis"] as const).map((t) => (
-                            <TabsTrigger key={t} value={t} className="capitalize text-xs">{t}</TabsTrigger>
+                            <TabsTrigger key={t} value={t} className="capitalize text-xs">
+                              {t === "nbe" ? "NBE" : t === "strategy" ? "Strategy" : t === "matrix" ? "Matrices" : t.charAt(0).toUpperCase() + t.slice(1)}
+                            </TabsTrigger>
                           ))}
                         </TabsList>
 
                         <TabsContent value="strategy" className="mt-3">
-                          {expModelData.strategy ? (
-                            <div className="space-y-2">
-                              <div className="font-semibold">{expModelData.strategy.name}</div>
-                              <div className="text-xs text-slate-300">{expModelData.strategy.description}</div>
-                              {expModelData.strategy.target_segments?.length > 0 && (
-                                <div className="flex gap-1 flex-wrap">
-                                  {expModelData.strategy.target_segments.map((s) => (
-                                    <span key={s} className="rounded-full border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[11px] text-violet-300">{s}</span>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          ) : expModelLoading ? (
-                            <div className="text-slate-400 text-xs">Loading…</div>
-                          ) : (
-                            <div className="text-slate-400 text-xs">No experience strategy configured. Seed experience_strategies in Supabase.</div>
-                          )}
+                          {(() => {
+                            const s = expModelData.strategy ?? CARTRIDGE_FRAMEWORK[copilotContextId]?.strategy ?? null;
+                            const isStatic = !expModelData.strategy && !!s;
+                            if (expModelLoading) return <div className="text-slate-400 text-xs">Loading…</div>;
+                            if (!s) return <div className="text-slate-400 text-xs">No experience strategy configured. Seed experience_strategies in Supabase.</div>;
+                            return (
+                              <div className="space-y-2">
+                                {isStatic && <div className="text-[10px] text-slate-500 uppercase tracking-wide">Cartridge canonical reference</div>}
+                                <div className="font-semibold">{s.name}</div>
+                                <div className="text-xs text-slate-300">{s.description}</div>
+                                {s.target_segments?.length > 0 && (
+                                  <div className="flex gap-1 flex-wrap">
+                                    {s.target_segments.map((seg) => (
+                                      <span key={seg} className="rounded-full border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[11px] text-violet-300">{seg}</span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </TabsContent>
 
                         <TabsContent value="model" className="mt-3">
-                          {expModelData.model ? (
-                            <div className="space-y-2">
-                              <div className="font-semibold">{expModelData.model.name}</div>
-                              <div className="text-xs text-slate-300">{expModelData.model.description}</div>
-                              {expModelData.model.stages?.length > 0 && (
-                                <div className="flex flex-wrap items-center gap-1">
-                                  {expModelData.model.stages.map((s, i) => (
-                                    <span key={s} className="flex items-center gap-1">
-                                      <span className="rounded border border-slate-700 bg-slate-900/50 px-2 py-0.5 text-[11px] capitalize text-slate-300">{s}</span>
-                                      {i < expModelData.model!.stages.length - 1 && <span className="text-slate-600">→</span>}
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          ) : expModelLoading ? (
-                            <div className="text-slate-400 text-xs">Loading…</div>
-                          ) : (
-                            <div className="text-slate-400 text-xs">No experience model found.</div>
-                          )}
+                          {(() => {
+                            const m = expModelData.model ?? CARTRIDGE_FRAMEWORK[copilotContextId]?.model ?? null;
+                            const isStatic = !expModelData.model && !!m;
+                            if (expModelLoading) return <div className="text-slate-400 text-xs">Loading…</div>;
+                            if (!m) return <div className="text-slate-400 text-xs">No experience model found.</div>;
+                            return (
+                              <div className="space-y-2">
+                                {isStatic && <div className="text-[10px] text-slate-500 uppercase tracking-wide">Cartridge canonical reference</div>}
+                                <div className="font-semibold">{m.name}</div>
+                                <div className="text-xs text-slate-300">{m.description}</div>
+                                {m.stages?.length > 0 && (
+                                  <div className="flex flex-wrap items-center gap-1">
+                                    {m.stages.map((st, i) => (
+                                      <span key={st} className="flex items-center gap-1">
+                                        <span className="rounded border border-slate-700 bg-slate-900/50 px-2 py-0.5 text-[11px] text-slate-300">{st}</span>
+                                        {i < m.stages.length - 1 && <span className="text-slate-600">→</span>}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </TabsContent>
 
                         <TabsContent value="matrix" className="mt-3">
-                          {expModelData.matrix?.length ? (() => {
-                            const DEPTHS = ["pill", "capsule", "mini_runtime", "codex"];
+                          {(() => {
+                            const rows = expModelData.matrix?.length ? expModelData.matrix : (CARTRIDGE_FRAMEWORK[copilotContextId]?.matrix ?? null);
+                            const isStatic = !expModelData.matrix?.length && !!rows;
                             const currentStage = expModelData.journey?.stage ?? null;
                             const currentDepth = expModelData.journey?.depth ?? null;
+                            const DEPTHS = ["pill", "capsule", "mini_runtime", "codex"];
+                            if (expModelLoading) return <div className="text-slate-400 text-xs">Loading…</div>;
+                            if (!rows) return <div className="text-slate-400 text-xs">No experience matrix configured.</div>;
                             return (
                               <div className="overflow-x-auto">
+                                {isStatic && <div className="text-[10px] text-slate-500 uppercase tracking-wide mb-2">Cartridge canonical reference</div>}
                                 <div className="min-w-[360px]">
-                                  <div className="grid gap-px mb-1" style={{ gridTemplateColumns: `120px repeat(${DEPTHS.length}, 1fr)` }}>
+                                  <div className="grid gap-px mb-1" style={{ gridTemplateColumns: `140px repeat(${DEPTHS.length}, 1fr)` }}>
                                     <div />
                                     {DEPTHS.map((d) => (
                                       <div key={d} className="text-center text-[10px] font-semibold uppercase tracking-wide text-slate-500 pb-1 capitalize">{d}</div>
                                     ))}
                                   </div>
                                   <div className="space-y-px">
-                                    {expModelData.matrix!.map((row) => {
+                                    {rows.map((row) => {
                                       const isCurrentStage = row.stage === currentStage;
                                       return (
                                         <div key={row.stage} className="grid gap-px items-center"
-                                          style={{ gridTemplateColumns: `120px repeat(${DEPTHS.length}, 1fr)` }}>
-                                          <div className={`text-xs font-semibold capitalize pr-2 ${isCurrentStage ? "text-violet-300" : "text-slate-400"}`}>
+                                          style={{ gridTemplateColumns: `140px repeat(${DEPTHS.length}, 1fr)` }}>
+                                          <div className={`text-xs font-semibold pr-2 ${isCurrentStage ? "text-violet-300" : "text-slate-400"}`}>
                                             {isCurrentStage && <span className="mr-1 text-violet-400">▸</span>}
                                             {row.stage}
                                           </div>
@@ -10252,11 +10367,7 @@ export const ComposerStudio = () => {
                                 </div>
                               </div>
                             );
-                          })() : expModelLoading ? (
-                            <div className="text-slate-400 text-xs">Loading…</div>
-                          ) : (
-                            <div className="text-slate-400 text-xs">No experience matrix configured.</div>
-                          )}
+                          })()}
                         </TabsContent>
 
                         <TabsContent value="status" className="mt-3">
