@@ -1011,16 +1011,23 @@ const DESIGN_QUBE_IMAGE_FALLBACKS = [
 // ── Static experience framework data per cartridge ───────────────────────────
 // Used as fallback in the Experience tab when Supabase tables are not yet seeded.
 // Source of truth: codexes/packs/metame/items/ and codexes/packs/knyt/items/
-// ── Cartridge framework data ── updated after user review ────────────────────
+// ── Cartridge framework data ── corrected 2D matrix architecture ─────────────
 // strategy = what we're trying to do and why
 // model    = what tools / assets / levers are available to deliver it (NOT the ladder)
-// matrix   = stage × depth grid (inverted: highest stage at top); cells = NBE prescription
-// ladder   = progression stages with unlock conditions
+// matrix   = 2D grid: Y = PCS engagement level, X = sovereignty journey; cells = NBE prescription
+// ladder   = sovereignty journey (X-axis) with unlock conditions + cartridge skin mapping
 type CartridgeFramework = {
   strategy: { name: string; macro_intent: string; description: string; target_segments: string[]; principles: { title: string; body: string }[] };
   model: { name: string; description: string; structural: string[]; emotional: string[]; transactional: string[]; governance: string[] };
-  matrix: { stage: string; depth_ladder: string[]; cells: Record<string, string> }[];
-  ladder: { canonical: string; stages: { label: string; unlock: string; depth: string }[] };
+  matrix: {
+    y_stages: string[];  // PCS engagement (bottom → top, rendered inverted)
+    x_stages: string[];  // Sovereignty journey (left → right)
+    cells: Record<string, string>;  // key = "y:x" → NBE prescription
+  };
+  ladder: {
+    canonical: string;
+    stages: { id: string; label: string; knyt_label?: string; unlock: string }[];
+  };
 };
 const CARTRIDGE_FRAMEWORK: Record<string, CartridgeFramework> = {
   "metame-codex": {
@@ -1058,35 +1065,61 @@ const CARTRIDGE_FRAMEWORK: Record<string, CartridgeFramework> = {
         "$KNYT token rewards on verified contribution",
         "Reputation score and trust band elevation",
         "Registry listing — public asset visibility",
-        "Contribution pathway unlock at Creator stage",
-        "Upstream contributor governance rights at apex",
+        "Contribution pathway unlock at Composer stage",
+        "Architect governance rights at apex",
       ],
       governance: [
         "PCS stage gates — signal threshold must be met",
         "Trust score minimum per registry action",
         "Persona verification for high-privilege operations",
         "metaMe guardian policy veto on sensitive actions",
-        "Role-based permission overlay per stage",
+        "Role-based permission overlay per tier",
       ],
     },
-    // Inverted: highest stage at top → drives users toward top-right of matrix
-    matrix: [
-      { stage: "Upstream contributor", depth_ladder: ["pill","capsule","mini_runtime","codex"], cells: { pill:"Broadcast signal", capsule:"Co-publish asset", mini_runtime:"Live co-creation session", codex:"Codex authoring / PR" } },
-      { stage: "Creator",              depth_ladder: ["pill","capsule","mini_runtime","codex"], cells: { pill:"Contribution prompt", capsule:"Asset submission", mini_runtime:"Creator runtime", codex:"Full authoring codex" } },
-      { stage: "Operator",             depth_ladder: ["pill","capsule","mini_runtime"],         cells: { pill:"System status signal", capsule:"Configuration brief", mini_runtime:"Ops dashboard session", codex:"System governance codex" } },
-      { stage: "Correspondent",        depth_ladder: ["pill","capsule","mini_runtime"],         cells: { pill:"Recognition moment", capsule:"Editorial surface", mini_runtime:"Correspondent runtime", codex:"Featured codex entry" } },
-      { stage: "Community",            depth_ladder: ["pill","capsule"],                        cells: { pill:"Group moment", capsule:"Shared curation set", mini_runtime:"Community runtime", codex:"Community codex" } },
-      { stage: "Participant",          depth_ladder: ["pill"],                                  cells: { pill:"Welcome hook", capsule:"Discovery tour", mini_runtime:"First runtime", codex:"Onboarding codex" } },
-    ],
+    // Y = abstract canonical PCS engagement (Recipient → Steward)
+    // X = canonical sovereignty journey (Visitor → Architect)
+    matrix: {
+      y_stages: ["Recipient", "Selector", "Modifier", "Producer", "Builder", "Steward"],
+      x_stages: ["Visitor", "Initiate", "Participant", "Curator", "Composer", "Operator", "Architect"],
+      cells: {
+        // Entry diagonal — pills and capsules
+        "Recipient:Visitor":      "pill: Welcome hook",
+        "Recipient:Initiate":     "pill: Onboarding prompt",
+        "Recipient:Participant":  "capsule: Discovery tour",
+        "Selector:Visitor":       "pill: Preview signal",
+        "Selector:Initiate":      "pill: Preference prompt",
+        "Selector:Participant":   "capsule: Curation set",
+        "Selector:Curator":       "capsule: Signal shaping",
+        // Mid diagonal — capsules and mini_runtimes
+        "Modifier:Participant":   "capsule: Remix intro",
+        "Modifier:Curator":       "mini_rt: Remix session",
+        "Modifier:Composer":      "mini_rt: Guided composition",
+        "Producer:Curator":       "capsule: First contribution",
+        "Producer:Composer":      "mini_rt: Asset creation",
+        "Producer:Operator":      "mini_rt: Structured output",
+        // Upper diagonal — mini_runtimes and codex
+        "Builder:Composer":       "mini_rt: Studio session",
+        "Builder:Operator":       "codex: System building",
+        "Builder:Architect":      "codex: Pattern authoring",
+        "Steward:Operator":       "codex: Governance session",
+        "Steward:Architect":      "codex: Upstream PR",
+        // Off-diagonal opportunities
+        "Modifier:Initiate":      "pill: First remix prompt",
+        "Producer:Participant":   "capsule: Contribution hook",
+        "Builder:Curator":        "capsule: Tool preview",
+        "Steward:Composer":       "mini_rt: Mentorship session",
+      },
+    },
     ladder: {
-      canonical: "Participant → Community → Correspondent → Operator → Creator → Upstream contributor",
+      canonical: "Visitor → Initiate → Participant → Curator → Composer → Operator → Architect",
       stages: [
-        { label: "Participant",          unlock: "First participation signal",                           depth: "pill" },
-        { label: "Community",            unlock: "Repeat participation + 3 signals",                    depth: "capsule" },
-        { label: "Correspondent",        unlock: "Curation or remix + community action",                depth: "mini_runtime" },
-        { label: "Operator",             unlock: "Contribution submission accepted",                    depth: "mini_runtime" },
-        { label: "Creator",              unlock: "Repeated accepted contributions",                     depth: "codex" },
-        { label: "Upstream contributor", unlock: "Contributor pathway flag + Aigent C handoff",         depth: "codex" },
+        { id: "visitor",     label: "Visitor",     knyt_label: "Prospect",     unlock: "Present at the edge — not yet activated" },
+        { id: "initiate",    label: "Initiate",    knyt_label: "Acolyte",      unlock: "Persona/wallet/onboarding complete" },
+        { id: "participant", label: "Participant",  knyt_label: "Keta",         unlock: "3+ meaningful engagement signals" },
+        { id: "curator",     label: "Curator",      knyt_label: "Keji",         unlock: "Sustained participation + curation/remix action" },
+        { id: "composer",    label: "Composer",     knyt_label: "First",        unlock: "Original creative submission accepted" },
+        { id: "operator",    label: "Operator",     knyt_label: "Zero KNYT",    unlock: "Repeated contributions + operator entitlement" },
+        { id: "architect",   label: "Architect",    knyt_label: "Sat KNYT",     unlock: "Sustained upstream contribution + architect designation" },
       ],
     },
   },
@@ -1094,7 +1127,7 @@ const CARTRIDGE_FRAMEWORK: Record<string, CartridgeFramework> = {
     strategy: {
       name: "KNYT Live World — Patronage × PCS Strategy",
       macro_intent: "Build a living world of collectors, curators, creators, and sovereigns around the 21 Sats universe — converting passive observers into franchise-aligned world-shapers.",
-      description: "Operating on two axes: Patronage (Outside the Order → Satoshi) and PCS (Observer → Franchise-aligned Sovereign). Each matrix intersection defines the NBE for moving users toward the top-right of the matrix.",
+      description: "Operating on two axes: Patronage (Prospect → Sat KNYT) and PCS (Observer → Franchise-aligned Sovereign). Each matrix intersection defines the NBE for moving users toward the top-right of the matrix.",
       target_segments: ["observers", "collectors", "curators", "remixers", "creators", "correspondents", "stewards", "franchise-aligned sovereigns"],
       principles: [
         { title: "Patronage × PCS intersection", body: "Every user sits at a Patronage stage AND a PCS stage. The NBE is defined by their position on both axes — not just one." },
@@ -1125,7 +1158,7 @@ const CARTRIDGE_FRAMEWORK: Record<string, CartridgeFramework> = {
       transactional: [
         "$KNYT coin rewards on verified world activity",
         "Card acquisition and portfolio growth",
-        "Patronage tier progression (Acolyte → Satoshi)",
+        "Patronage tier progression (Acolyte → Sat KNYT)",
         "Contributor recognition and editorial surfacing",
         "Franchise-aligned governance rights at Steward/Sovereign stage",
       ],
@@ -1137,28 +1170,54 @@ const CARTRIDGE_FRAMEWORK: Record<string, CartridgeFramework> = {
         "metaMe guardian policy veto",
       ],
     },
-    // Inverted: highest stage at top → drives users toward top-right
-    matrix: [
-      { stage: "Franchise-aligned Sovereign", depth_ladder: ["pill","capsule","mini_runtime","codex"], cells: { pill:"World broadcast", capsule:"Franchise brief", mini_runtime:"Sovereign RT session", codex:"Canon authoring" } },
-      { stage: "Steward",                     depth_ladder: ["pill","capsule","mini_runtime","codex"], cells: { pill:"Governance signal", capsule:"Stewardship brief", mini_runtime:"Steward RT session", codex:"Governance codex" } },
-      { stage: "Correspondent",               depth_ladder: ["pill","capsule","mini_runtime","codex"], cells: { pill:"Recognition feature", capsule:"Editorial surface", mini_runtime:"Reporter RT session", codex:"Correspondent codex" } },
-      { stage: "Creator",                     depth_ladder: ["pill","capsule","mini_runtime","codex"], cells: { pill:"Contribution prompt", capsule:"Asset submission", mini_runtime:"Creator RT session", codex:"Creator codex" } },
-      { stage: "Remixer",                     depth_ladder: ["pill","capsule","mini_runtime"],         cells: { pill:"Remix prompt", capsule:"Remix template", mini_runtime:"Remix RT session", codex:"Remix codex" } },
-      { stage: "Curator",                     depth_ladder: ["pill","capsule","mini_runtime"],         cells: { pill:"Curation pick", capsule:"Curation set", mini_runtime:"Curator RT session", codex:"Curator codex" } },
-      { stage: "Collector",                   depth_ladder: ["pill","capsule"],                        cells: { pill:"Acquisition hook", capsule:"Card discovery", mini_runtime:"Collector RT session", codex:"Collection codex" } },
-      { stage: "Observer",                    depth_ladder: ["pill"],                                  cells: { pill:"Discovery hook", capsule:"World introduction", mini_runtime:"Observer RT session", codex:"World codex" } },
-    ],
+    // Y = KNYT PCS engagement (Observer → Franchise-aligned Sovereign)
+    // X = KNYT Patronage journey (Prospect → Sat KNYT)
+    matrix: {
+      y_stages: ["Observer", "Collector", "Curator", "Remixer", "Creator", "Correspondent", "Steward", "Franchise-aligned Sovereign"],
+      x_stages: ["Prospect", "Acolyte", "Keta", "Keji", "First", "Zero", "Sat KNYT"],
+      cells: {
+        // Entry zone — pills
+        "Observer:Prospect":        "pill: World discovery",
+        "Observer:Acolyte":         "pill: First lore hook",
+        "Collector:Prospect":       "pill: Card preview",
+        "Collector:Acolyte":        "capsule: First card acquisition",
+        "Collector:Keta":           "capsule: Card set curation",
+        // Early-mid diagonal — capsules
+        "Curator:Acolyte":          "pill: Curation intro",
+        "Curator:Keta":             "capsule: Curation challenge",
+        "Curator:Keji":             "capsule: Signal shaping",
+        "Remixer:Keta":             "capsule: Remix template",
+        "Remixer:Keji":             "mini_rt: Remix session",
+        "Remixer:First":            "mini_rt: Guided creation",
+        // Mid-upper diagonal — mini_runtimes
+        "Creator:Keji":             "capsule: First contribution",
+        "Creator:First":            "mini_rt: Creation session",
+        "Creator:Zero":             "mini_rt: Asset submission",
+        "Correspondent:First":      "mini_rt: Editorial surface",
+        "Correspondent:Zero":       "codex: Correspondent codex",
+        // Upper zone — codex
+        "Steward:Zero":             "codex: Governance session",
+        "Steward:Sat KNYT":         "codex: Stewardship codex",
+        "Franchise-aligned Sovereign:Zero": "codex: World shaping",
+        "Franchise-aligned Sovereign:Sat KNYT": "codex: Canon authoring",
+        // Off-diagonal opportunities
+        "Observer:Keta":            "capsule: World intro tour",
+        "Collector:Keji":           "capsule: Collection narrative",
+        "Creator:Acolyte":          "pill: Early contribution hook",
+        "Correspondent:Keji":       "capsule: Recognition moment",
+        "Steward:First":            "mini_rt: Mentorship session",
+      },
+    },
     ladder: {
-      canonical: "Observer → Collector → Curator → Remixer → Creator → Correspondent → Steward → Franchise-aligned Sovereign",
+      canonical: "Prospect → Acolyte → Keta → Keji → First → Zero KNYT → Sat KNYT",
       stages: [
-        { label: "Observer",                    unlock: "First world visit / discovery",                         depth: "pill" },
-        { label: "Collector",                   unlock: "First card acquisition",                                depth: "pill" },
-        { label: "Curator",                     unlock: "3+ cards + first curation action",                     depth: "capsule" },
-        { label: "Remixer",                     unlock: "First remix or adaptation submitted",                   depth: "mini_runtime" },
-        { label: "Creator",                     unlock: "Original contribution accepted",                        depth: "mini_runtime" },
-        { label: "Correspondent",               unlock: "Repeated contributions + correspondent entitlement",    depth: "codex" },
-        { label: "Steward",                     unlock: "Zero/Satoshi patronage + governance action",            depth: "codex" },
-        { label: "Franchise-aligned Sovereign", unlock: "Satoshi + world-shaping contributions",                depth: "codex" },
+        { id: "visitor",     label: "Prospect",     unlock: "First world visit / discovery" },
+        { id: "initiate",    label: "Acolyte",       unlock: "First card acquisition + onboarding" },
+        { id: "participant", label: "Keta",           unlock: "3+ cards + participation signal" },
+        { id: "curator",     label: "Keji",           unlock: "First curation/remix action" },
+        { id: "composer",    label: "First",          unlock: "Original contribution accepted" },
+        { id: "operator",    label: "Zero KNYT",      unlock: "Repeated contributions + governance action" },
+        { id: "architect",   label: "Sat KNYT",       unlock: "Satoshi patronage + world-shaping contributions (20 positions)" },
       ],
     },
   },
@@ -1712,6 +1771,7 @@ export const ComposerStudio = () => {
     analysis?: { card_type: string; content: string; score: number | null }[] | null;
   }>({});
   const [expModelTab, setExpModelTab] = useState("strategy");
+  const [matrixLens, setMatrixLens] = useState<"org" | "cohort" | "individual">("org");
   const [expModelLoading, setExpModelLoading] = useState(false);
   const [workflowsList, setWorkflowsList] = useState<any[]>([]);
   const [workflowsLoading, setWorkflowsLoading] = useState(false);
@@ -10459,68 +10519,85 @@ export const ComposerStudio = () => {
                           })()}
                         </TabsContent>
 
-                        {/* ── Matrix ── inverted (highest stage top), cells = NBE prescription */}
+                        {/* ── Matrix ── 2D: Y = PCS engagement, X = sovereignty journey */}
                         <TabsContent value="matrix" className="mt-3">
                           {(() => {
                             const fw = CARTRIDGE_FRAMEWORK[copilotContextId];
-                            const rows = fw?.matrix ?? null;
-                            const currentStage = expModelData.journey?.stage ?? null;
-                            const currentDepth = expModelData.journey?.depth ?? null;
-                            const DEPTHS = ["pill", "capsule", "mini_runtime", "codex"];
-                            const DEPTH_LABELS: Record<string, string> = { pill: "L0 Pill", capsule: "L1 Capsule", mini_runtime: "L2 Mini-RT", codex: "L3 Codex" };
+                            const m = fw?.matrix ?? null;
                             if (expModelLoading) return <div className="text-slate-400 text-xs">Loading…</div>;
-                            if (!rows) return <div className="text-slate-400 text-xs">No experience matrix configured.</div>;
+                            if (!m) return <div className="text-slate-400 text-xs">No experience matrix configured for this cartridge.</div>;
+                            const yReversed = [...m.y_stages].reverse(); // highest engagement at top
+                            const xLen = m.x_stages.length;
+                            const yLen = yReversed.length;
                             return (
                               <div className="space-y-2">
+                                {/* Lens toggle */}
+                                <div className="flex items-center gap-1">
+                                  {([
+                                    { id: "org" as const, label: "Org", icon: <Globe className="h-3 w-3" /> },
+                                    { id: "cohort" as const, label: "Cohort", icon: <Users className="h-3 w-3" /> },
+                                    { id: "individual" as const, label: "Individual", icon: <Target className="h-3 w-3" /> },
+                                  ]).map((lens) => (
+                                    <button key={lens.id} type="button"
+                                      onClick={() => setMatrixLens(lens.id)}
+                                      className={`flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-medium transition ${
+                                        matrixLens === lens.id
+                                          ? "border-violet-500/40 bg-violet-500/10 text-violet-300"
+                                          : "border-slate-800 text-slate-500 hover:text-slate-300"
+                                      }`}>
+                                      {lens.icon} {lens.label}
+                                    </button>
+                                  ))}
+                                  <span className="ml-auto text-[9px] text-slate-600">
+                                    {matrixLens === "org" ? "Full population distribution" : matrixLens === "cohort" ? "Cohort density heatmap" : "Individual NBE pathway"}
+                                  </span>
+                                </div>
                                 <div className="flex items-center justify-between text-[10px] text-slate-500">
-                                  <span className="uppercase tracking-wide">Stage ↑ higher = more engaged</span>
-                                  <span className="text-emerald-400/60">goal: top-right →</span>
+                                  <span className="uppercase tracking-wide">Engagement ↑</span>
+                                  <span className="text-emerald-400/60">Sovereignty journey → &nbsp; goal: top-right ★</span>
                                 </div>
                                 <div className="overflow-x-auto">
-                                  <div className="min-w-[400px]">
-                                    {/* Column headers */}
-                                    <div className="grid gap-0.5 mb-1" style={{ gridTemplateColumns: `120px repeat(${DEPTHS.length}, 1fr)` }}>
-                                      <div />
-                                      {DEPTHS.map((d) => (
-                                        <div key={d} className="text-center text-[9px] font-semibold uppercase tracking-wide text-slate-500 pb-1">{DEPTH_LABELS[d]}</div>
+                                  <div style={{ minWidth: `${100 + xLen * 68}px` }}>
+                                    {/* X-axis header */}
+                                    <div className="grid gap-0.5 mb-1" style={{ gridTemplateColumns: `88px repeat(${xLen}, 1fr)` }}>
+                                      <div className="text-[8px] text-slate-600 self-end pb-0.5">Y ╲ X</div>
+                                      {m.x_stages.map((x) => (
+                                        <div key={x} className="text-center text-[8px] font-semibold text-slate-500 pb-0.5 truncate" title={x}>{x}</div>
                                       ))}
                                     </div>
-                                    {/* Rows — already inverted in CARTRIDGE_FRAMEWORK */}
+                                    {/* Grid rows (Y inverted) */}
                                     <div className="space-y-0.5">
-                                      {rows.map((row) => {
-                                        const isCurrentStage = row.stage === currentStage;
-                                        return (
-                                          <div key={row.stage} className="grid gap-0.5 items-stretch"
-                                            style={{ gridTemplateColumns: `120px repeat(${DEPTHS.length}, 1fr)` }}>
-                                            <div className={`text-[10px] font-semibold pr-2 flex items-center ${isCurrentStage ? "text-violet-300" : "text-slate-400"}`}>
-                                              {isCurrentStage && <span className="mr-1 text-violet-400">▸</span>}
-                                              {row.stage}
-                                            </div>
-                                            {DEPTHS.map((depth) => {
-                                              const available = row.depth_ladder.includes(depth);
-                                              const isCurrent = isCurrentStage && depth === currentDepth;
-                                              const prescription = (row as { cells?: Record<string, string> }).cells?.[depth] ?? "";
-                                              const cellClass = isCurrent
-                                                ? "border-violet-500/60 bg-violet-500/15 text-violet-200"
-                                                : available
-                                                  ? "border-emerald-500/25 bg-emerald-500/5 text-emerald-300"
-                                                  : "border-slate-800/50 bg-slate-900/20 text-slate-700";
-                                              return (
-                                                <div key={depth}
-                                                  className={`rounded border px-1 py-1.5 text-center text-[9px] leading-snug font-medium ${cellClass}`}
-                                                  title={prescription || (available ? "Available" : "Locked")}>
-                                                  {available ? (prescription || "○") : "·"}
-                                                </div>
-                                              );
-                                            })}
+                                      {yReversed.map((y, yi) => (
+                                        <div key={y} className="grid gap-0.5 items-stretch" style={{ gridTemplateColumns: `88px repeat(${xLen}, 1fr)` }}>
+                                          <div className="text-[9px] font-semibold text-slate-400 pr-1 flex items-center truncate" title={y}>
+                                            {y}
                                           </div>
-                                        );
-                                      })}
+                                          {m.x_stages.map((x, xi) => {
+                                            const key = `${y}:${x}`;
+                                            const prescription = m.cells[key] ?? "";
+                                            const isTopRight = yi <= 1 && xi >= xLen - 2;
+                                            const hasPrescription = !!prescription;
+                                            const cellClass = isTopRight && hasPrescription
+                                              ? "border-amber-500/40 bg-amber-500/8 text-amber-200"
+                                              : hasPrescription
+                                                ? "border-emerald-500/25 bg-emerald-500/5 text-emerald-300"
+                                                : "border-slate-800/30 bg-slate-950/30 text-slate-700";
+                                            return (
+                                              <div key={key}
+                                                className={`rounded border px-0.5 py-1 text-center text-[8px] leading-tight font-medium ${cellClass} cursor-default`}
+                                                title={prescription || `${y} × ${x}`}>
+                                                {prescription ? prescription.split(": ").pop() : "·"}
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      ))}
                                     </div>
-                                    <div className="flex items-center gap-4 mt-2 text-[9px] text-slate-600">
-                                      <span><span className="text-violet-400">▸</span> Current position</span>
-                                      <span><span className="text-emerald-400">green</span> = NBE action available</span>
-                                      <span><span className="text-slate-700">·</span> locked</span>
+                                    <div className="flex items-center gap-3 mt-2 text-[8px] text-slate-600">
+                                      <span><span className="text-emerald-400">■</span> NBE action</span>
+                                      <span><span className="text-amber-400">■</span> apex zone</span>
+                                      <span><span className="text-slate-700">·</span> no prescription</span>
+                                      <span className="ml-auto text-slate-500">Cell = format: intent (hover for full)</span>
                                     </div>
                                   </div>
                                 </div>
@@ -10529,16 +10606,16 @@ export const ComposerStudio = () => {
                           })()}
                         </TabsContent>
 
-                        {/* ── Ladder ── PCS progression spine */}
+                        {/* ── Ladder ── Sovereignty journey (X-axis) with cartridge skin mapping */}
                         <TabsContent value="ladder" className="mt-3">
                           {(() => {
                             const fw = CARTRIDGE_FRAMEWORK[copilotContextId];
                             const ladder = fw?.ladder ?? null;
                             if (expModelLoading) return <div className="text-slate-400 text-xs">Loading…</div>;
-                            if (!ladder) return <div className="text-slate-400 text-xs">No experience ladder configured for this cartridge.</div>;
+                            if (!ladder) return <div className="text-slate-400 text-xs">No sovereignty ladder configured for this cartridge.</div>;
                             return (
                               <div className="space-y-3">
-                                <div className="text-[10px] text-slate-500 uppercase tracking-wide">Cartridge canonical reference</div>
+                                <div className="text-[10px] text-slate-500 uppercase tracking-wide">Sovereignty journey — X-axis of the experience matrix</div>
                                 <div className="rounded-lg border border-violet-500/20 bg-violet-500/5 px-3 py-2 text-xs text-violet-200 font-mono">
                                   {ladder.canonical}
                                 </div>
@@ -10547,17 +10624,21 @@ export const ComposerStudio = () => {
                                     const totalStages = ladder.stages.length;
                                     const stageIdx = totalStages - 1 - i;
                                     const isApex = stageIdx === totalStages - 1;
-                                    const depthColor = stage.depth === "codex" ? "text-violet-300" : stage.depth === "mini_runtime" ? "text-blue-300" : stage.depth === "capsule" ? "text-teal-300" : "text-slate-400";
                                     return (
-                                      <div key={stage.label} className={`flex items-start gap-3 rounded-lg border px-3 py-2 ${isApex ? "border-amber-500/30 bg-amber-500/5" : "border-slate-800 bg-slate-900/30"}`}>
+                                      <div key={stage.id} className={`flex items-start gap-3 rounded-lg border px-3 py-2 ${isApex ? "border-amber-500/30 bg-amber-500/5" : "border-slate-800 bg-slate-900/30"}`}>
                                         <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[9px] font-bold ${isApex ? "border-amber-500/50 text-amber-300" : "border-slate-700 text-slate-500"}`}>
                                           {stageIdx + 1}
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                          <div className={`text-xs font-semibold ${isApex ? "text-amber-200" : "text-slate-200"}`}>{stage.label}</div>
+                                          <div className="flex items-center gap-2">
+                                            <span className={`text-xs font-semibold ${isApex ? "text-amber-200" : "text-slate-200"}`}>{stage.label}</span>
+                                            {stage.knyt_label && (
+                                              <span className="text-[10px] text-slate-500">KNYT: {stage.knyt_label}</span>
+                                            )}
+                                          </div>
                                           <div className="text-[11px] text-slate-500 mt-0.5">{stage.unlock}</div>
                                         </div>
-                                        <div className={`text-[10px] font-semibold shrink-0 ${depthColor}`}>{stage.depth}</div>
+                                        <div className="text-[10px] font-mono text-slate-600 shrink-0">{stage.id}</div>
                                       </div>
                                     );
                                   })}
