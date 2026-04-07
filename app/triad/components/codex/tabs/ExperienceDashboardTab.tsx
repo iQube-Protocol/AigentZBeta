@@ -495,7 +495,9 @@ export function ExperienceDashboardTab({ personaId, tenantId, theme = "dark" }: 
     setFetchError(null);
     try {
       const params = new URLSearchParams({ view });
-      if (personaId && view === "individual") params.set("personaId", personaId);
+      // Never filter the admin list by the current user's personaId —
+      // personaId prop is the viewer's identity, not a list scope filter.
+      // Individual detail fetches use selectedIndividual.persona_id directly.
       if (tenantId) params.set("tenantId", tenantId);
       if (opts?.stage && opts.stage !== "all") params.set("stage", opts.stage);
       if (opts?.search) params.set("search", opts.search);
