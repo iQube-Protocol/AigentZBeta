@@ -44,20 +44,7 @@ Upstream contributor — shapes the platform itself via AgentiQ OS
 
 This is the primary progression model used across the AgentiQ alpha ecosystem.
 
----
-
-## metaMe default rendered form
-
-For media/creative/community environments:
-
-```
-Consumer / Citizen   — receives and consumes
-Curator              — selects, organizes, shapes preference
-Remixer              — adapts existing work, takes agency
-Creator              — produces original work
-Developer            — builds systems and tools
-Correspondent        — elevated contributor with cross-platform visibility
-```
+The PCS rendered form above **is the canonical metaMe default**. It applies directly to the AgentiQ ecosystem and is the primary ladder referenced in Studio, the Journey Dashboard, and the experience matrices.
 
 ---
 

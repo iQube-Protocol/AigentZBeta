@@ -407,7 +407,9 @@ export function ExperienceDashboardTab({ personaId, tenantId, theme = "dark" }: 
           <Layers className="h-5 w-5 text-violet-400" />
           <div>
             <div className="font-semibold text-slate-100">Experience Dashboard</div>
-            <div className="text-xs text-slate-400">KNYT Laddering Program — Operator View</div>
+            <div className="text-xs text-slate-400">
+              {tenantId === "metame" ? "metaMe PCS Journey — Operator View" : "KNYT Laddering Program — Operator View"}
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -418,7 +420,14 @@ export function ExperienceDashboardTab({ personaId, tenantId, theme = "dark" }: 
               {syncing ? "Syncing…" : "Sync CRM"}
             </Button>
           )}
-          <Button variant="outline" size="sm" onClick={() => void fetchView(activeView)}
+          <Button variant="outline" size="sm" onClick={() => {
+              if (activeView === "guardian" || activeView === "reactivation") {
+                void fetchView("franchise");
+                void fetchView("individual", { stage: indStageFilter });
+              } else {
+                void fetchView(activeView);
+              }
+            }}
             disabled={loading} className="h-7 gap-1.5 text-xs">
             <RefreshCw className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} />
             Refresh
@@ -435,7 +444,14 @@ export function ExperienceDashboardTab({ personaId, tenantId, theme = "dark" }: 
       {fetchError && (
         <div className="rounded-lg border border-rose-500/20 bg-rose-500/5 px-4 py-2.5 flex items-center justify-between gap-3">
           <span className="text-xs text-rose-300">{fetchError}</span>
-          <Button variant="ghost" size="sm" onClick={() => void fetchView(activeView)}
+          <Button variant="ghost" size="sm" onClick={() => {
+              if (activeView === "guardian" || activeView === "reactivation") {
+                void fetchView("franchise");
+                void fetchView("individual", { stage: indStageFilter });
+              } else {
+                void fetchView(activeView);
+              }
+            }}
             className="h-6 text-xs text-rose-400 hover:text-rose-300 shrink-0">
             Retry
           </Button>
