@@ -387,12 +387,12 @@ function MatrixMiniPanel({
           <ChevronUp className="h-3.5 w-3.5" />
         </button>
       </div>
-      <div className="text-[10px] text-slate-500">Y = PCS engagement · X = Sovereignty journey · Cell heat = population density</div>
+      <div className="text-[11px] text-slate-500">Y = PCS engagement · X = Sovereignty journey · Cell heat = population density</div>
       <div className="overflow-x-auto">
-        <div style={{ minWidth: `${60 + xLen * 52}px` }}>
+        <div style={{ minWidth: `${72 + xLen * 60}px` }}>
           {/* X header */}
-          <div className="grid gap-0.5 mb-0.5" style={{ gridTemplateColumns: `56px repeat(${xLen}, 1fr)` }}>
-            <div className="text-[8px] text-slate-700">Y╲X</div>
+          <div className="grid gap-0.5 mb-0.5" style={{ gridTemplateColumns: `68px repeat(${xLen}, 1fr)` }}>
+            <div className="text-[10px] text-slate-700">Y╲X</div>
             {cfg.x_stages.map((x, xi) => {
               const stage = x.toLowerCase().replace(" knyt", "").replace("-aligned sovereign", "");
               const count = stageDistribution[stage] ?? 0;
@@ -401,20 +401,20 @@ function MatrixMiniPanel({
                 <button
                   key={x}
                   onClick={() => onStageClick?.(stage)}
-                  className="text-center text-[8px] font-semibold text-slate-500 pb-0.5 hover:text-violet-300 truncate transition-colors"
+                  className="text-center text-[10px] font-semibold text-slate-500 pb-0.5 hover:text-violet-300 truncate transition-colors"
                   title={`${x}: ${count} (${pct}%)`}
                 >
-                  {x.length > 6 ? x.slice(0, 6) + "…" : x}
-                  {count > 0 && <span className="block text-[7px] text-violet-400/70">{count}</span>}
+                  {x.length > 7 ? x.slice(0, 7) + "…" : x}
+                  {count > 0 && <span className="block text-[9px] text-violet-400/70">{count}</span>}
                 </button>
               );
             })}
           </div>
           {/* Grid rows */}
           {yReversed.map((y, yi) => (
-            <div key={y} className="grid gap-0.5 mb-0.5" style={{ gridTemplateColumns: `56px repeat(${xLen}, 1fr)` }}>
-              <div className="text-[8px] text-slate-500 flex items-center truncate pr-1" title={y}>
-                {y.length > 8 ? y.slice(0, 8) + "…" : y}
+            <div key={y} className="grid gap-0.5 mb-0.5" style={{ gridTemplateColumns: `68px repeat(${xLen}, 1fr)` }}>
+              <div className="text-[10px] text-slate-500 flex items-center truncate pr-1" title={y}>
+                {y.length > 9 ? y.slice(0, 9) + "…" : y}
               </div>
               {cfg.x_stages.map((x, xi) => {
                 const cellHeat = heat[`${yi}:${xi}`] ?? 0;
@@ -430,7 +430,7 @@ function MatrixMiniPanel({
                 return (
                   <div
                     key={`${y}:${x}`}
-                    className={`rounded-sm h-4 border ${isApex ? 'border-amber-500/20' : intensity > 0 ? 'border-violet-500/20' : 'border-slate-800/20'} ${bg}`}
+                    className={`rounded-sm h-5 border ${isApex ? 'border-amber-500/20' : intensity > 0 ? 'border-violet-500/20' : 'border-slate-800/20'} ${bg}`}
                     title={`${y} × ${x}${cellHeat > 0 ? ` — ~${Math.round(cellHeat)} users` : ''}`}
                   />
                 );
@@ -438,7 +438,7 @@ function MatrixMiniPanel({
             </div>
           ))}
           {/* Legend */}
-          <div className="flex items-center gap-3 mt-1 text-[8px] text-slate-600">
+          <div className="flex items-center gap-3 mt-1 text-[10px] text-slate-600">
             <span><span className="text-violet-400">■</span> user density</span>
             <span><span className="text-amber-400">■</span> apex zone</span>
             <span className="ml-auto text-slate-700">goal: top-right ★</span>

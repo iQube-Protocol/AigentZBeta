@@ -138,7 +138,7 @@ export async function GET(request: NextRequest) {
     const personaIds = [...new Set((states ?? []).map((s) => s.persona_id))];
 
     // Fetch NBE plans, analysis cards, and CRM persona data in parallel
-    const [nbePlansRes, analysisCardsRes, personasRes] = await Promise.all([
+    const [nbePlansRes, analysisCardsRes, personasRes, crmPersonasRes] = await Promise.all([
       personaIds.length
         ? supabase
             .from('nbe_plans')
@@ -153,12 +153,19 @@ export async function GET(request: NextRequest) {
             .in('persona_id', personaIds)
             .not('score', 'is', null)
         : { data: [] },
-      // CRM data from the personas table
+      // Primary CRM data from the personas table
       personaIds.length
         ? supabase
             .from('personas')
             .select('id, display_name, fio_handle, order_tier, reputation_tier, reputation_score, reputation_bucket, status, created_at, badges')
             .in('id', personaIds)
+        : { data: [] },
+      // Fallback enrichment from crm_personas via identity_persona_id link
+      personaIds.length
+        ? supabase
+            .from('crm_personas')
+            .select('identity_persona_id, id, email, first_name, last_name, fio_handle, display_name, knyt_id, order_tier')
+            .in('identity_persona_id', personaIds)
         : { data: [] },
     ]);
 
@@ -179,9 +186,40 @@ export async function GET(request: NextRequest) {
       if (card.card_type === 'nbe_confidence') trustByPersona[card.persona_id].nbe_confidence = card.score;
     }
 
+    // Build crm_personas fallback map (keyed by identity_persona_id)
+    const crmFallbackByPersona: Record<string, any> = {};
+    for (const cp of crmPersonasRes.data ?? []) {
+      if (cp?.identity_persona_id) {
+        const name = cp.display_name ||
+          ((cp.first_name || cp.last_name) ? `${cp.first_name ?? ''} ${cp.last_name ?? ''}`.trim() : null);
+        crmFallbackByPersona[cp.identity_persona_id] = {
+          display_name: name,
+          fio_handle: cp.fio_handle,
+          order_tier: cp.order_tier,
+          knyt_id: cp.knyt_id,
+          email: cp.email,
+        };
+      }
+    }
+
     const crmByPersona: Record<string, any> = {};
     for (const p of personasRes.data ?? []) {
-      if (p) crmByPersona[p.id] = p;
+      if (!p) continue;
+      const fallback = crmFallbackByPersona[p.id] ?? {};
+      crmByPersona[p.id] = {
+        ...p,
+        // Enrich with crm_personas fields when personas table fields are null
+        display_name: p.display_name || fallback.display_name || null,
+        fio_handle: p.fio_handle || fallback.fio_handle || null,
+        order_tier: p.order_tier || fallback.order_tier || null,
+        knyt_id: fallback.knyt_id || null,
+        email: fallback.email || null,
+      };
+    }
+    // Also seed crmByPersona for personas that had no row in personas table
+    // but do have a crm_personas entry linked by identity_persona_id
+    for (const [pid, fallback] of Object.entries(crmFallbackByPersona)) {
+      if (!crmByPersona[pid]) crmByPersona[pid] = fallback;
     }
 
     // Apply client-side search filter (display_name or fio_handle match)

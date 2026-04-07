@@ -10602,26 +10602,25 @@ export const ComposerStudio = () => {
                                 <div className="overflow-x-auto">
                                   <div style={{ minWidth: `${100 + xLen * 68}px` }}>
                                     {/* X-axis header */}
-                                    <div className="grid gap-0.5 mb-1" style={{ gridTemplateColumns: `88px repeat(${xLen}, 1fr)` }}>
-                                      <div className="text-[9px] text-slate-600 self-end pb-0.5">Y ╲ X</div>
+                                    <div className="grid gap-0.5 mb-1" style={{ gridTemplateColumns: `96px repeat(${xLen}, 1fr)` }}>
+                                      <div className="text-[11px] text-slate-600 self-end pb-0.5">Y ╲ X</div>
                                       {m.x_stages.map((x) => (
-                                        <div key={x} className="text-center text-[9px] font-semibold text-slate-500 pb-0.5 truncate" title={x}>{x}</div>
+                                        <div key={x} className="text-center text-[11px] font-semibold text-slate-500 pb-0.5 truncate" title={x}>{x}</div>
                                       ))}
                                     </div>
                                     {/* Grid rows (Y inverted) */}
                                     <div className="space-y-0.5">
                                       {yReversed.map((y, yi) => (
-                                        <div key={y} className="grid gap-0.5 items-stretch" style={{ gridTemplateColumns: `88px repeat(${xLen}, 1fr)` }}>
-                                          <div className="text-[9px] font-semibold text-slate-400 pr-1 flex items-center truncate" title={y}>
+                                        <div key={y} className="grid gap-0.5 items-stretch" style={{ gridTemplateColumns: `96px repeat(${xLen}, 1fr)` }}>
+                                          <div className="text-[11px] font-semibold text-slate-400 pr-1 flex items-center truncate" title={y}>
                                             {y}
                                           </div>
                                           {m.x_stages.map((x, xi) => {
                                             const key = `${y}:${x}`;
                                             const prescription = m.cells[key] ?? "";
-                                            const yOrig = yLen - 1 - yi; // 0 = bottom (least engaged), yLen-1 = top (most engaged)
+                                            const yOrig = yLen - 1 - yi;
                                             const isApex = yi <= 1 && xi >= xLen - 2;
                                             const hasPrescription = !!prescription;
-                                            // Diagonal: yOrig and xi are proportionally aligned within ±0.3 normalized
                                             const yNorm = yOrig / Math.max(yLen - 1, 1);
                                             const xNorm = xi / Math.max(xLen - 1, 1);
                                             const isOnDiagonal = Math.abs(yNorm - xNorm) <= 0.28;
@@ -10634,7 +10633,7 @@ export const ComposerStudio = () => {
                                                   : "border-slate-800/30 bg-slate-950/30 text-slate-700";
                                             return (
                                               <div key={key}
-                                                className={`rounded border px-0.5 py-1 text-center text-[10px] leading-tight font-medium ${cellClass} cursor-default`}
+                                                className={`rounded border px-0.5 py-1 text-center text-[12px] leading-tight font-medium ${cellClass} cursor-default`}
                                                 title={prescription || `${y} × ${x}`}>
                                                 {prescription ? prescription.split(": ").pop() : "·"}
                                               </div>
@@ -10643,7 +10642,7 @@ export const ComposerStudio = () => {
                                         </div>
                                       ))}
                                     </div>
-                                    <div className="flex items-center gap-3 mt-2 text-[9px] text-slate-600">
+                                    <div className="flex items-center gap-3 mt-2 text-[11px] text-slate-600">
                                       <span><span className="text-emerald-400">■</span> optimal path</span>
                                       <span><span className="text-blue-400">■</span> off-diagonal NBE</span>
                                       <span><span className="text-amber-400">■</span> apex zone</span>
