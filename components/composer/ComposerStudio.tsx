@@ -924,7 +924,7 @@ function resolveInspectorSourceBadge(params: {
   return "Experience";
 }
 
-const DEFAULT_TENANT = "qripto-codex";
+const DEFAULT_TENANT = "metame-codex";
 const DEFAULT_USER = "aigentz@aigent:u_demo_001";
 const COMPOSER_CACHE_TTL_MS = 5 * 60 * 1000;
 const EXPERIENCE_CACHE_TTL_MS = 2 * 60 * 1000;
@@ -1103,11 +1103,30 @@ const CARTRIDGE_FRAMEWORK: Record<string, CartridgeFramework> = {
         "Builder:Architect":      "codex: Pattern authoring",
         "Steward:Operator":       "codex: Governance session",
         "Steward:Architect":      "codex: Upstream PR",
-        // Off-diagonal opportunities
+        // Off-diagonal — high engagement, early sovereignty (left of diagonal)
+        "Selector:Visitor":       "pill: Preview signal",
+        "Modifier:Visitor":       "pill: Remix tease",
         "Modifier:Initiate":      "pill: First remix prompt",
+        "Producer:Visitor":       "pill: Creator intro",
+        "Producer:Initiate":      "pill: Early contribution hook",
         "Producer:Participant":   "capsule: Contribution hook",
+        "Builder:Visitor":        "pill: Builder welcome",
+        "Builder:Initiate":       "capsule: Studio intro",
+        "Builder:Participant":    "capsule: Creation preview",
         "Builder:Curator":        "capsule: Tool preview",
+        "Steward:Initiate":       "pill: Mentor tease",
+        "Steward:Participant":    "capsule: Governance intro",
+        "Steward:Curator":        "capsule: Stewardship path",
         "Steward:Composer":       "mini_rt: Mentorship session",
+        // Off-diagonal — low engagement, advanced sovereignty (right of diagonal)
+        "Recipient:Curator":      "capsule: Curation nudge",
+        "Recipient:Composer":     "capsule: Creation invitation",
+        "Recipient:Operator":     "mini_rt: Operator unlock",
+        "Selector:Composer":      "mini_rt: Compose your first",
+        "Selector:Operator":      "mini_rt: Operate your signal",
+        "Modifier:Operator":      "mini_rt: Advanced remix",
+        "Modifier:Architect":     "codex: Upstream remix",
+        "Producer:Architect":     "codex: Upstream contribution",
       },
     },
     ladder: {
@@ -1200,12 +1219,36 @@ const CARTRIDGE_FRAMEWORK: Record<string, CartridgeFramework> = {
         "Steward:Sat KNYT":         "codex: Stewardship codex",
         "Franchise-aligned Sovereign:Zero": "codex: World shaping",
         "Franchise-aligned Sovereign:Sat KNYT": "codex: Canon authoring",
-        // Off-diagonal opportunities
-        "Observer:Keta":            "capsule: World intro tour",
-        "Collector:Keji":           "capsule: Collection narrative",
-        "Creator:Acolyte":          "pill: Early contribution hook",
-        "Correspondent:Keji":       "capsule: Recognition moment",
-        "Steward:First":            "mini_rt: Mentorship session",
+        // Off-diagonal — high engagement, early patronage (left of diagonal)
+        "Curator:Prospect":           "pill: Curation tease",
+        "Curator:Acolyte":            "pill: Curation intro",
+        "Remixer:Prospect":           "pill: Remix welcome",
+        "Remixer:Acolyte":            "capsule: First remix attempt",
+        "Creator:Prospect":           "pill: Creator welcome",
+        "Creator:Acolyte":            "pill: Early contribution hook",
+        "Creator:Keta":               "capsule: Creation pathway",
+        "Correspondent:Prospect":     "pill: Correspondent tease",
+        "Correspondent:Acolyte":      "capsule: Recognition path",
+        "Correspondent:Keta":         "capsule: Correspondent intro",
+        "Correspondent:Keji":         "capsule: Recognition moment",
+        "Steward:Prospect":           "pill: Stewardship preview",
+        "Steward:Acolyte":            "capsule: Governance intro",
+        "Steward:Keta":               "capsule: Stewardship path",
+        "Steward:First":              "mini_rt: Mentorship session",
+        "Franchise-aligned Sovereign:Prospect": "pill: Franchise tease",
+        "Franchise-aligned Sovereign:Acolyte":  "capsule: Franchise path",
+        "Franchise-aligned Sovereign:Keta":     "capsule: Sovereign intro",
+        "Franchise-aligned Sovereign:Keji":     "mini_rt: Franchise unlock",
+        "Franchise-aligned Sovereign:First":    "mini_rt: Sovereign ascent",
+        // Off-diagonal — low engagement, advanced patronage (right of diagonal)
+        "Observer:Keta":              "capsule: World intro tour",
+        "Observer:Keji":              "capsule: Re-engagement",
+        "Collector:Keji":             "capsule: Collection narrative",
+        "Collector:First":            "mini_rt: Collection expansion",
+        "Remixer:Zero":               "mini_rt: Advanced remix",
+        "Creator:Sat KNYT":           "codex: Apex creation",
+        "Observer:Zero":              "mini_rt: Deep world discovery",
+        "Collector:Zero":             "mini_rt: Portfolio stewardship",
       },
     },
     ladder: {
@@ -1819,7 +1862,7 @@ export const ComposerStudio = () => {
   const [personaMediaScopeFilter, setPersonaMediaScopeFilter] = useState<"all" | "active">("all");
   const [personaMediaTypeFilter, setPersonaMediaTypeFilter] = useState<"all" | "image" | "video">("all");
   const { data: codexList } = useCodexList({ useDefaults: true });
-  const [copilotContextId, setCopilotContextId] = useState("qripto-codex");
+  const [copilotContextId, setCopilotContextId] = useState("metame-codex");
   const [codexContentItems, setCodexContentItems] = useState<ComposerMediaItem[]>([]);
   const [codexContentLoading, setCodexContentLoading] = useState(false);
   const studioViewportStylesRef = useRef<{ bodyOverflow: string; htmlOverflow: string } | null>(null);
@@ -10560,9 +10603,9 @@ export const ComposerStudio = () => {
                                   <div style={{ minWidth: `${100 + xLen * 68}px` }}>
                                     {/* X-axis header */}
                                     <div className="grid gap-0.5 mb-1" style={{ gridTemplateColumns: `88px repeat(${xLen}, 1fr)` }}>
-                                      <div className="text-[8px] text-slate-600 self-end pb-0.5">Y ╲ X</div>
+                                      <div className="text-[9px] text-slate-600 self-end pb-0.5">Y ╲ X</div>
                                       {m.x_stages.map((x) => (
-                                        <div key={x} className="text-center text-[8px] font-semibold text-slate-500 pb-0.5 truncate" title={x}>{x}</div>
+                                        <div key={x} className="text-center text-[9px] font-semibold text-slate-500 pb-0.5 truncate" title={x}>{x}</div>
                                       ))}
                                     </div>
                                     {/* Grid rows (Y inverted) */}
@@ -10575,16 +10618,23 @@ export const ComposerStudio = () => {
                                           {m.x_stages.map((x, xi) => {
                                             const key = `${y}:${x}`;
                                             const prescription = m.cells[key] ?? "";
-                                            const isTopRight = yi <= 1 && xi >= xLen - 2;
+                                            const yOrig = yLen - 1 - yi; // 0 = bottom (least engaged), yLen-1 = top (most engaged)
+                                            const isApex = yi <= 1 && xi >= xLen - 2;
                                             const hasPrescription = !!prescription;
-                                            const cellClass = isTopRight && hasPrescription
+                                            // Diagonal: yOrig and xi are proportionally aligned within ±0.3 normalized
+                                            const yNorm = yOrig / Math.max(yLen - 1, 1);
+                                            const xNorm = xi / Math.max(xLen - 1, 1);
+                                            const isOnDiagonal = Math.abs(yNorm - xNorm) <= 0.28;
+                                            const cellClass = isApex && hasPrescription
                                               ? "border-amber-500/40 bg-amber-500/8 text-amber-200"
-                                              : hasPrescription
+                                              : hasPrescription && isOnDiagonal
                                                 ? "border-emerald-500/25 bg-emerald-500/5 text-emerald-300"
-                                                : "border-slate-800/30 bg-slate-950/30 text-slate-700";
+                                                : hasPrescription
+                                                  ? "border-blue-500/25 bg-blue-500/5 text-blue-300"
+                                                  : "border-slate-800/30 bg-slate-950/30 text-slate-700";
                                             return (
                                               <div key={key}
-                                                className={`rounded border px-0.5 py-1 text-center text-[8px] leading-tight font-medium ${cellClass} cursor-default`}
+                                                className={`rounded border px-0.5 py-1 text-center text-[10px] leading-tight font-medium ${cellClass} cursor-default`}
                                                 title={prescription || `${y} × ${x}`}>
                                                 {prescription ? prescription.split(": ").pop() : "·"}
                                               </div>
@@ -10593,11 +10643,12 @@ export const ComposerStudio = () => {
                                         </div>
                                       ))}
                                     </div>
-                                    <div className="flex items-center gap-3 mt-2 text-[8px] text-slate-600">
-                                      <span><span className="text-emerald-400">■</span> NBE action</span>
+                                    <div className="flex items-center gap-3 mt-2 text-[9px] text-slate-600">
+                                      <span><span className="text-emerald-400">■</span> optimal path</span>
+                                      <span><span className="text-blue-400">■</span> off-diagonal NBE</span>
                                       <span><span className="text-amber-400">■</span> apex zone</span>
                                       <span><span className="text-slate-700">·</span> no prescription</span>
-                                      <span className="ml-auto text-slate-500">Cell = format: intent (hover for full)</span>
+                                      <span className="ml-auto text-slate-500">hover for full prescription</span>
                                     </div>
                                   </div>
                                 </div>

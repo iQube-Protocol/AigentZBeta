@@ -820,6 +820,7 @@ export const METAME_CODEX: CodexConfig = {
       label: 'Experience Framework',
       slug: 'experience-framework',
       enabled: true,
+      adminOnly: true,
       order: 0,
       type: 'static',
       config: {

@@ -139,14 +139,9 @@ type NBEData = {
 function str(val: unknown): string { return typeof val === "string" ? val : ""; }
 function arr(val: unknown): string[] { return Array.isArray(val) ? val.filter((v): v is string => typeof v === "string") : []; }
 
-const STAGES = ["prospect", "acolyte", "keta", "keji", "first", "zero"];
-
-const TENANT_NAMES: Record<string, string> = {
-  nakamoto: "Nakamoto | KNYT",
-  "jmo-knyt": "JMO KNYT",
-};
-
-const STAGE_COLORS: Record<string, string> = {
+// KNYT (nakamoto) stage config
+const KNYT_STAGES = ["prospect", "acolyte", "keta", "keji", "first", "zero"];
+const KNYT_STAGE_COLORS: Record<string, string> = {
   prospect: "border-slate-600 text-slate-400",
   acolyte: "border-blue-500/50 text-blue-300",
   keta: "border-violet-500/50 text-violet-300",
@@ -154,6 +149,46 @@ const STAGE_COLORS: Record<string, string> = {
   first: "border-emerald-500/50 text-emerald-300",
   zero: "border-rose-500/50 text-rose-300",
 };
+const KNYT_JOURNEY_TO_PCS: Record<string, string> = {
+  prospect: 'participant',
+  acolyte:  'community',
+  keta:     'correspondent',
+  keji:     'operator',
+  first:    'creator',
+  zero:     'upstream_contributor',
+};
+
+// metaMe canonical stage config
+const METAME_STAGES = ["visitor", "initiate", "participant", "curator", "composer", "operator", "architect"];
+const METAME_STAGE_COLORS: Record<string, string> = {
+  visitor:    "border-slate-600 text-slate-400",
+  initiate:   "border-blue-500/50 text-blue-300",
+  participant: "border-violet-500/50 text-violet-300",
+  curator:    "border-amber-500/50 text-amber-300",
+  composer:   "border-emerald-500/50 text-emerald-300",
+  operator:   "border-rose-500/50 text-rose-300",
+  architect:  "border-orange-500/50 text-orange-300",
+};
+const METAME_JOURNEY_TO_PCS: Record<string, string> = {
+  visitor:    'participant',
+  initiate:   'community',
+  participant: 'correspondent',
+  curator:    'operator',
+  composer:   'creator',
+  operator:   'upstream_contributor',
+  architect:  'upstream_contributor',
+};
+
+// Legacy fallbacks (default to KNYT)
+const STAGES = KNYT_STAGES;
+
+const TENANT_NAMES: Record<string, string> = {
+  nakamoto: "Nakamoto | KNYT",
+  "jmo-knyt": "JMO KNYT",
+  metame: "metaMe",
+};
+
+const STAGE_COLORS: Record<string, string> = { ...KNYT_STAGE_COLORS, ...METAME_STAGE_COLORS };
 
 // ─── PCS Ladder configuration (seeded in 20260407000000_pcs_seed_agentiq.sql) ──
 
@@ -171,15 +206,8 @@ const PCS_STAGES: Array<{
   { slug: 'upstream_contributor', label: 'Upstream Contributor',  unlock: 'Contributor pathway flag + Aigent C handoff',   depths: ['pill', 'capsule', 'mini_runtime', 'codex'] },
 ];
 
-// journey_state.stage → PCS stage slug mapping
-const JOURNEY_TO_PCS: Record<string, string> = {
-  prospect: 'participant',
-  acolyte:  'community',
-  keta:     'correspondent',
-  keji:     'operator',
-  first:    'creator',
-  zero:     'upstream_contributor',
-};
+// journey_state.stage → PCS stage slug mapping (combined KNYT + metaMe)
+const JOURNEY_TO_PCS: Record<string, string> = { ...KNYT_JOURNEY_TO_PCS, ...METAME_JOURNEY_TO_PCS };
 
 const DEPTH_LABELS: Record<string, string> = {
   pill:         'L0 Pill',
@@ -269,6 +297,158 @@ function PCSLadderSection({ stage, depth }: { stage: string; depth: string }) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ── Experience Matrix config (mirrored from CARTRIDGE_FRAMEWORK in ComposerStudio) ─────
+// Y = PCS engagement level (bottom → top), X = Sovereignty journey (left → right)
+// Depth → approximate Y-row index for distribution overlay
+const DEPTH_TO_Y_INDEX: Record<string, number> = {
+  pill: 0, capsule: 1, mini_runtime: 2, codex: 3,
+};
+
+const MATRIX_CONFIG: Record<string, { y_stages: string[]; x_stages: string[] }> = {
+  nakamoto: {
+    y_stages: ["Observer", "Collector", "Curator", "Remixer", "Creator", "Correspondent", "Steward", "Franchise-aligned Sovereign"],
+    x_stages: ["Prospect", "Acolyte", "Keta", "Keji", "First", "Zero", "Sat KNYT"],
+  },
+  metame: {
+    y_stages: ["Recipient", "Selector", "Modifier", "Producer", "Builder", "Steward"],
+    x_stages: ["Visitor", "Initiate", "Participant", "Curator", "Composer", "Operator", "Architect"],
+  },
+};
+
+// Stage slug → X-axis index
+const KNYT_STAGE_TO_X: Record<string, number> = {
+  prospect: 0, acolyte: 1, keta: 2, keji: 3, first: 4, zero: 5, "sat knyt": 6,
+};
+const METAME_STAGE_TO_X: Record<string, number> = {
+  visitor: 0, initiate: 1, participant: 2, curator: 3, composer: 4, operator: 5, architect: 6,
+};
+
+function MatrixMiniPanel({
+  tenantId,
+  stageDistribution,
+  depthDistribution,
+  totalJourneys,
+  onStageClick,
+}: {
+  tenantId?: string;
+  stageDistribution: Record<string, number>;
+  depthDistribution: Record<string, number>;
+  totalJourneys: number;
+  onStageClick?: (stage: string) => void;
+}) {
+  const [collapsed, setCollapsed] = useState(true);
+  const cfg = MATRIX_CONFIG[tenantId ?? "nakamoto"] ?? MATRIX_CONFIG.nakamoto;
+  const stageToX = tenantId === "metame" ? METAME_STAGE_TO_X : KNYT_STAGE_TO_X;
+  const xLen = cfg.x_stages.length;
+  const yLen = cfg.y_stages.length;
+  const yReversed = [...cfg.y_stages].reverse();
+
+  // Build cell heat map: for each (y, x) estimate density from stage + depth distributions
+  // y index approximated from depth, x index from stage
+  const heat: Record<string, number> = {};
+  let maxHeat = 1;
+  Object.entries(stageDistribution).forEach(([stage, sCount]) => {
+    const xi = stageToX[stage.toLowerCase()];
+    if (xi == null) return;
+    // Distribute this stage's users across y based on depth distribution
+    Object.entries(depthDistribution).forEach(([depth, dCount]) => {
+      const yi = DEPTH_TO_Y_INDEX[depth] ?? 0;
+      // Y index in reversed array (0=top) = yLen-1-yi
+      const yRevIdx = yLen - 1 - Math.min(yi, Math.floor(yLen * 0.6)); // scale depth to y range
+      const key = `${yRevIdx}:${xi}`;
+      const contrib = totalJourneys > 0 ? (sCount / totalJourneys) * (dCount / totalJourneys) * totalJourneys : 0;
+      heat[key] = (heat[key] ?? 0) + contrib;
+      if ((heat[key] ?? 0) > maxHeat) maxHeat = heat[key]!;
+    });
+  });
+
+  if (collapsed) {
+    return (
+      <button
+        onClick={() => setCollapsed(false)}
+        className="flex items-center gap-1.5 text-[11px] text-violet-400/70 hover:text-violet-300 border border-violet-500/20 rounded px-2 py-1 bg-violet-500/5"
+      >
+        <span className="grid grid-cols-3 gap-0.5">
+          {[0,1,2,3,4,5,6,7,8].map(i => (
+            <span key={i} className={`h-1 w-1 rounded-sm ${i === 4 ? 'bg-emerald-500/60' : i % 3 === 2 && i < 6 ? 'bg-violet-500/30' : 'bg-slate-700'}`} />
+          ))}
+        </span>
+        Experience Matrix
+        <ChevronDown className="h-3 w-3" />
+      </button>
+    );
+  }
+
+  return (
+    <div className="rounded-xl border border-violet-500/20 bg-slate-950/80 p-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="text-[11px] font-semibold text-violet-300 uppercase tracking-wide">Experience Matrix — Population View</div>
+        <button onClick={() => setCollapsed(true)} className="text-[10px] text-slate-500 hover:text-slate-300">
+          <ChevronUp className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      <div className="text-[10px] text-slate-500">Y = PCS engagement · X = Sovereignty journey · Cell heat = population density</div>
+      <div className="overflow-x-auto">
+        <div style={{ minWidth: `${60 + xLen * 52}px` }}>
+          {/* X header */}
+          <div className="grid gap-0.5 mb-0.5" style={{ gridTemplateColumns: `56px repeat(${xLen}, 1fr)` }}>
+            <div className="text-[8px] text-slate-700">Y╲X</div>
+            {cfg.x_stages.map((x, xi) => {
+              const stage = x.toLowerCase().replace(" knyt", "").replace("-aligned sovereign", "");
+              const count = stageDistribution[stage] ?? 0;
+              const pct = totalJourneys > 0 ? Math.round((count / totalJourneys) * 100) : 0;
+              return (
+                <button
+                  key={x}
+                  onClick={() => onStageClick?.(stage)}
+                  className="text-center text-[8px] font-semibold text-slate-500 pb-0.5 hover:text-violet-300 truncate transition-colors"
+                  title={`${x}: ${count} (${pct}%)`}
+                >
+                  {x.length > 6 ? x.slice(0, 6) + "…" : x}
+                  {count > 0 && <span className="block text-[7px] text-violet-400/70">{count}</span>}
+                </button>
+              );
+            })}
+          </div>
+          {/* Grid rows */}
+          {yReversed.map((y, yi) => (
+            <div key={y} className="grid gap-0.5 mb-0.5" style={{ gridTemplateColumns: `56px repeat(${xLen}, 1fr)` }}>
+              <div className="text-[8px] text-slate-500 flex items-center truncate pr-1" title={y}>
+                {y.length > 8 ? y.slice(0, 8) + "…" : y}
+              </div>
+              {cfg.x_stages.map((x, xi) => {
+                const cellHeat = heat[`${yi}:${xi}`] ?? 0;
+                const intensity = maxHeat > 0 ? cellHeat / maxHeat : 0;
+                const isApex = yi <= 1 && xi >= xLen - 2;
+                const bg = isApex && intensity > 0
+                  ? `bg-amber-500/${Math.round(intensity * 30 + 5)}`
+                  : intensity > 0.4
+                    ? `bg-violet-500/${Math.round(intensity * 40 + 5)}`
+                    : intensity > 0
+                      ? "bg-violet-500/5"
+                      : "bg-slate-950/30";
+                return (
+                  <div
+                    key={`${y}:${x}`}
+                    className={`rounded-sm h-4 border ${isApex ? 'border-amber-500/20' : intensity > 0 ? 'border-violet-500/20' : 'border-slate-800/20'} ${bg}`}
+                    title={`${y} × ${x}${cellHeat > 0 ? ` — ~${Math.round(cellHeat)} users` : ''}`}
+                  />
+                );
+              })}
+            </div>
+          ))}
+          {/* Legend */}
+          <div className="flex items-center gap-3 mt-1 text-[8px] text-slate-600">
+            <span><span className="text-violet-400">■</span> user density</span>
+            <span><span className="text-amber-400">■</span> apex zone</span>
+            <span className="ml-auto text-slate-700">goal: top-right ★</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const DISPOSITION_COLORS: Record<string, string> = {
   act: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300",
   ask: "border-blue-500/40 bg-blue-500/10 text-blue-300",
@@ -284,6 +464,11 @@ interface ExperienceDashboardTabProps {
 }
 
 export function ExperienceDashboardTab({ personaId, tenantId, theme = "dark" }: ExperienceDashboardTabProps) {
+  // Tenant-aware stage config
+  const isMetaMe = tenantId === "metame";
+  const activeStages = isMetaMe ? METAME_STAGES : KNYT_STAGES;
+  const activeStageColors = isMetaMe ? METAME_STAGE_COLORS : KNYT_STAGE_COLORS;
+
   const [activeView, setActiveView] = useState("franchise");
   const [franchise, setFranchise] = useState<FranchiseData | null>(null);
   const [cohort, setCohort] = useState<CohortData | null>(null);
@@ -496,14 +681,14 @@ export function ExperienceDashboardTab({ personaId, tenantId, theme = "dark" }: 
                 {/* Stage distribution — funnel health */}
                 <div>
                   <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Stage Distribution</div>
-                  <div className="grid gap-2 md:grid-cols-6">
-                    {STAGES.map((stage) => {
+                  <div className={`grid gap-2 ${activeStages.length > 6 ? "md:grid-cols-7" : "md:grid-cols-6"}`}>
+                    {activeStages.map((stage) => {
                       const count = franchise.stage_distribution[stage] ?? 0;
                       const pct = franchise.total_journeys > 0
                         ? Math.round((count / franchise.total_journeys) * 100)
                         : 0;
                       return (
-                        <div key={stage} className={`rounded-lg border p-2 text-center ${STAGE_COLORS[stage] ?? "border-slate-700 text-slate-400"}`}>
+                        <div key={stage} className={`rounded-lg border p-2 text-center ${activeStageColors[stage] ?? "border-slate-700 text-slate-400"}`}>
                           <div className="text-[11px] capitalize">{stage}</div>
                           <div className="text-lg font-bold">{count}</div>
                           <div className="text-[10px] opacity-70">{pct}%</div>
@@ -545,6 +730,19 @@ export function ExperienceDashboardTab({ personaId, tenantId, theme = "dark" }: 
                     </div>
                   </div>
                 )}
+
+                {/* Experience Matrix — population density overlay */}
+                <MatrixMiniPanel
+                  tenantId={tenantId}
+                  stageDistribution={franchise.stage_distribution}
+                  depthDistribution={franchise.depth_distribution}
+                  totalJourneys={franchise.total_journeys}
+                  onStageClick={(stage) => {
+                    setActiveView("individual");
+                    setIndStageFilter(stage);
+                    void fetchView("individual", { stage });
+                  }}
+                />
               </div>
             ) : loading ? (
               <div className="text-slate-400">Loading franchise data…</div>
@@ -560,7 +758,7 @@ export function ExperienceDashboardTab({ personaId, tenantId, theme = "dark" }: 
             {/* Cohort stage selector */}
             <div className="mb-3 flex items-center gap-2 flex-wrap">
               <span className="text-xs text-slate-400 shrink-0">Cohort:</span>
-              {["all", ...STAGES].map((s) => (
+              {["all", ...activeStages].map((s) => (
                 <button
                   key={s}
                   onClick={() => {
@@ -617,6 +815,20 @@ export function ExperienceDashboardTab({ personaId, tenantId, theme = "dark" }: 
                 ))}
                 {Object.keys(cohort.cohorts).length === 0 && (
                   <div className="text-slate-400 text-xs">No cohort data. Seed journey states to see cohort breakdowns.</div>
+                )}
+                {/* Experience Matrix — cohort density */}
+                {franchise && (
+                  <MatrixMiniPanel
+                    tenantId={tenantId}
+                    stageDistribution={franchise.stage_distribution}
+                    depthDistribution={franchise.depth_distribution}
+                    totalJourneys={franchise.total_journeys}
+                    onStageClick={(stage) => {
+                      setIndStageFilter(stage);
+                      setActiveView("individual");
+                      void fetchView("individual", { stage });
+                    }}
+                  />
                 )}
               </div>
             ) : loading ? (
@@ -1025,7 +1237,7 @@ export function ExperienceDashboardTab({ personaId, tenantId, theme = "dark" }: 
                       className="w-full rounded border border-slate-700 bg-slate-900/60 py-1 pl-7 pr-3 text-xs text-slate-200 placeholder-slate-500 focus:border-violet-500/50 focus:outline-none"
                     />
                   </div>
-                  {["all", ...STAGES].map((s) => (
+                  {["all", ...activeStages].map((s) => (
                     <button
                       key={s}
                       onClick={() => {
@@ -1085,7 +1297,32 @@ export function ExperienceDashboardTab({ personaId, tenantId, theme = "dark" }: 
                 ) : loading ? (
                   <div className="text-slate-400">Loading individuals…</div>
                 ) : (
-                  <div className="text-slate-400 text-xs">No journey states found. Seed data after running the DB migration.</div>
+                  <div className="space-y-3 py-2">
+                    <div className="text-slate-400 text-xs">No journey states found for {tenantId ?? "this tenant"}.</div>
+                    {tenantId && (
+                      <Button variant="outline" size="sm" onClick={() => void syncCRM("individual")}
+                        disabled={syncing} className="h-7 gap-1.5 text-xs border-violet-500/40 text-violet-300 hover:text-violet-200">
+                        <RefreshCw className={`h-3 w-3 ${syncing ? "animate-spin" : ""}`} />
+                        {syncing ? "Syncing…" : "Sync CRM to seed journey states"}
+                      </Button>
+                    )}
+                    <div className="text-[11px] text-slate-600">Run DB migration first, then use Sync CRM to seed journey states from CRM personas.</div>
+                  </div>
+                )}
+                {/* Experience Matrix — individual positioning reference */}
+                {franchise && (
+                  <div className="mt-3">
+                    <MatrixMiniPanel
+                      tenantId={tenantId}
+                      stageDistribution={franchise.stage_distribution}
+                      depthDistribution={franchise.depth_distribution}
+                      totalJourneys={franchise.total_journeys}
+                      onStageClick={(stage) => {
+                        setIndStageFilter(stage);
+                        void fetchView("individual", { stage });
+                      }}
+                    />
+                  </div>
                 )}
               </div>
             )}
@@ -1154,6 +1391,22 @@ export function ExperienceDashboardTab({ personaId, tenantId, theme = "dark" }: 
               <div className="text-slate-400">Loading NBE planner…</div>
             ) : (
               <div className="text-slate-400 text-xs">No NBE data. Run the DB migration and generate plans via the orchestration engine.</div>
+            )}
+            {/* Experience Matrix — NBE context */}
+            {franchise && (
+              <div className="mt-3">
+                <MatrixMiniPanel
+                  tenantId={tenantId}
+                  stageDistribution={franchise.stage_distribution}
+                  depthDistribution={franchise.depth_distribution}
+                  totalJourneys={franchise.total_journeys}
+                  onStageClick={(stage) => {
+                    setIndStageFilter(stage);
+                    setActiveView("individual");
+                    void fetchView("individual", { stage });
+                  }}
+                />
+              </div>
             )}
           </div>
         </TabsContent>
