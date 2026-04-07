@@ -140,22 +140,24 @@ function str(val: unknown): string { return typeof val === "string" ? val : ""; 
 function arr(val: unknown): string[] { return Array.isArray(val) ? val.filter((v): v is string => typeof v === "string") : []; }
 
 // KNYT (nakamoto) stage config
-const KNYT_STAGES = ["prospect", "acolyte", "keta", "keji", "first", "zero"];
+const KNYT_STAGES = ["prospect", "acolyte", "keta", "keji", "first", "zero", "sat knyt"];
 const KNYT_STAGE_COLORS: Record<string, string> = {
-  prospect: "border-slate-600 text-slate-400",
-  acolyte: "border-blue-500/50 text-blue-300",
-  keta: "border-violet-500/50 text-violet-300",
-  keji: "border-amber-500/50 text-amber-300",
-  first: "border-emerald-500/50 text-emerald-300",
-  zero: "border-rose-500/50 text-rose-300",
+  prospect:   "border-slate-600 text-slate-400",
+  acolyte:    "border-blue-500/50 text-blue-300",
+  keta:       "border-violet-500/50 text-violet-300",
+  keji:       "border-amber-500/50 text-amber-300",
+  first:      "border-emerald-500/50 text-emerald-300",
+  zero:       "border-rose-500/50 text-rose-300",
+  "sat knyt": "border-orange-400/60 text-orange-300",
 };
 const KNYT_JOURNEY_TO_PCS: Record<string, string> = {
-  prospect: 'participant',
-  acolyte:  'community',
-  keta:     'correspondent',
-  keji:     'operator',
-  first:    'creator',
-  zero:     'upstream_contributor',
+  prospect:   'participant',
+  acolyte:    'community',
+  keta:       'correspondent',
+  keji:       'operator',
+  first:      'creator',
+  zero:       'upstream_contributor',
+  "sat knyt": 'upstream_contributor',
 };
 
 // metaMe canonical stage config
@@ -209,12 +211,145 @@ const PCS_STAGES: Array<{
 // journey_state.stage → PCS stage slug mapping (combined KNYT + metaMe)
 const JOURNEY_TO_PCS: Record<string, string> = { ...KNYT_JOURNEY_TO_PCS, ...METAME_JOURNEY_TO_PCS };
 
+// ── Y-axis stages (PCS engagement) per tenant ────────────────────────────────
+const KNYT_Y_STAGES = [
+  "Observer", "Collector", "Curator", "Remixer",
+  "Creator", "Correspondent", "Steward", "Franchise-aligned Sovereign",
+];
+const METAME_Y_STAGES = [
+  "Recipient", "Selector", "Modifier", "Producer", "Builder", "Steward",
+];
+
+// X-axis slug → 0-based index
+const KNYT_STAGE_TO_IDX: Record<string, number> = {
+  prospect: 0, acolyte: 1, keta: 2, keji: 3, first: 4, zero: 5, "sat knyt": 6,
+};
+const METAME_STAGE_TO_IDX: Record<string, number> = {
+  visitor: 0, initiate: 1, participant: 2, curator: 3, composer: 4, operator: 5, architect: 6,
+};
+
+// Estimate Y index from depth alone (used in list view where wallet data isn't loaded)
+const DEPTH_TO_Y_ESTIMATE: Record<string, number> = {
+  pill: 0, capsule: 1, mini_runtime: 3, codex: 5,
+};
+
+// Infer KNYT Y index from rich CRM + wallet + contribution signals
+function inferKnytYIndex(signals: {
+  knytCards?: string; motionComics?: string; paperComics?: string;
+  digitalComics?: string; knytPosters?: string; characters?: string;
+  contributions?: { contributionType?: string }[];
+  rewards?: unknown[];
+  knytCoyn?: string;
+}): number {
+  let y = 0;
+  const hasCards = !!(signals.knytCards || signals.motionComics || signals.paperComics ||
+    signals.digitalComics || signals.knytPosters || signals.characters);
+  if (hasCards || (signals.knytCoyn && signals.knytCoyn !== "0")) y = Math.max(y, 1); // Collector
+  const contribs = signals.contributions ?? [];
+  if (contribs.some(c => c.contributionType === 'curation')) y = Math.max(y, 2);     // Curator
+  if (contribs.some(c => c.contributionType === 'remix'))     y = Math.max(y, 3);     // Remixer
+  if (contribs.some(c => ['creation','creative','content'].includes(c.contributionType ?? ''))) y = Math.max(y, 4); // Creator
+  if (contribs.length >= 5)  y = Math.max(y, 5); // Correspondent
+  if (contribs.length >= 15) y = Math.max(y, 6); // Steward
+  return y;
+}
+
+// Chess-grid reference: X column (A-G) + Y row (1-8)
+function gridRef(xIndex: number, yIndex: number): string {
+  return `${String.fromCharCode(65 + xIndex)}${yIndex + 1}`;
+}
+
 const DEPTH_LABELS: Record<string, string> = {
   pill:         'L0 Pill',
   capsule:      'L1 Capsule',
   mini_runtime: 'L2 Mini-Runtime',
   codex:        'L3 Codex',
 };
+
+function MatrixPositionBars({
+  xStages,
+  xIndex,
+  xLabel,
+  yStages,
+  yIndex,
+  yLabel,
+  yIsEstimated,
+}: {
+  xStages: string[]; xIndex: number; xLabel: string;
+  yStages: string[]; yIndex: number; yLabel: string;
+  yIsEstimated?: boolean;
+}) {
+  const ref = gridRef(xIndex, yIndex);
+  const xNext = xStages[xIndex + 1];
+  const yNext = yStages[yIndex + 1];
+  return (
+    <div className="rounded-xl border border-violet-500/20 bg-slate-950/60 p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Matrix Position</div>
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-2xl font-bold text-amber-300 leading-none">{ref}</span>
+          {yIsEstimated && <span className="text-[10px] text-slate-600 italic">Y estimated</span>}
+        </div>
+      </div>
+
+      {/* X-axis — Sovereignty / Patronage */}
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between text-[11px]">
+          <span className="text-slate-500">Sovereignty — X axis</span>
+          <span className="font-semibold text-slate-200">{xLabel} · {xIndex + 1}/{xStages.length}</span>
+        </div>
+        <div className="flex gap-0.5 h-2.5">
+          {xStages.map((s, i) => (
+            <div
+              key={s}
+              title={s}
+              className={`flex-1 rounded-sm transition-all ${
+                i < xIndex  ? "bg-violet-600" :
+                i === xIndex ? "bg-violet-400 ring-1 ring-violet-300/60" :
+                               "bg-slate-800"
+              }`}
+            />
+          ))}
+        </div>
+        <div className="flex justify-between text-[10px] text-slate-600">
+          <span>{xStages[0]}</span>
+          {xNext && <span className="text-violet-400/60">next: {xNext}</span>}
+          <span>{xStages[xStages.length - 1]} ★</span>
+        </div>
+      </div>
+
+      {/* Y-axis — PCS Engagement */}
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between text-[11px]">
+          <span className="text-slate-500">PCS Engagement — Y axis</span>
+          <span className="font-semibold text-slate-200">{yLabel} · {yIndex + 1}/{yStages.length}</span>
+        </div>
+        <div className="flex gap-0.5 h-2.5">
+          {yStages.map((s, i) => (
+            <div
+              key={s}
+              title={s}
+              className={`flex-1 rounded-sm transition-all ${
+                i < yIndex  ? "bg-emerald-600" :
+                i === yIndex ? "bg-emerald-400 ring-1 ring-emerald-300/60" :
+                               "bg-slate-800"
+              }`}
+            />
+          ))}
+        </div>
+        <div className="flex justify-between text-[10px] text-slate-600">
+          <span>{yStages[0]}</span>
+          {yNext && <span className="text-emerald-400/60">next: {yNext}</span>}
+          <span>{yStages[yStages.length - 1]} ★</span>
+        </div>
+      </div>
+
+      <div className="text-[10px] text-slate-600 border-t border-slate-800/60 pt-2">
+        Goal: top-right of matrix — {String.fromCharCode(65 + xStages.length - 1)}{yStages.length} apex
+      </div>
+    </div>
+  );
+}
 
 function PCSLadderSection({ stage, depth }: { stage: string; depth: string }) {
   const pcsSlug = JOURNEY_TO_PCS[stage] ?? 'participant';
@@ -1043,11 +1178,34 @@ export function ExperienceDashboardTab({ personaId, tenantId, theme = "dark" }: 
                             )}
                           </div>
                         )}
-                        {/* D2 — PCS Ladder: show persona's current stage + depth progression */}
-                        <PCSLadderSection
-                          stage={selectedIndividual.stage}
-                          depth={selectedIndividual.depth}
-                        />
+                        {/* Matrix Position — dual X + Y bars with chess-grid reference */}
+                        {(() => {
+                          const isKnyt = (tenantId === "nakamoto" || !tenantId);
+                          const xStages = isKnyt ? KNYT_STAGES.map(s => s === "sat knyt" ? "Sat KNYT" : s.charAt(0).toUpperCase() + s.slice(1)) : METAME_STAGES.map(s => s.charAt(0).toUpperCase() + s.slice(1));
+                          const yStages = isKnyt ? KNYT_Y_STAGES : METAME_Y_STAGES;
+                          const stageToIdx = isKnyt ? KNYT_STAGE_TO_IDX : METAME_STAGE_TO_IDX;
+                          const xIdx = stageToIdx[selectedIndividual.stage] ?? 0;
+                          const xLabel = xStages[xIdx] ?? selectedIndividual.stage;
+                          // Rich Y inference if wallet data is loaded, else estimate from depth
+                          const richY = nakamotoData ? inferKnytYIndex({
+                            knytCards, motionComics, paperComics, digitalComics, knytPosters, characters,
+                            contributions, rewards,
+                            knytCoyn,
+                          }) : null;
+                          const yIdx = richY ?? (DEPTH_TO_Y_ESTIMATE[selectedIndividual.depth] ?? 0);
+                          const yLabel = yStages[yIdx] ?? yStages[0];
+                          return (
+                            <MatrixPositionBars
+                              xStages={xStages}
+                              xIndex={xIdx}
+                              xLabel={xLabel}
+                              yStages={yStages}
+                              yIndex={yIdx}
+                              yLabel={yLabel}
+                              yIsEstimated={richY === null}
+                            />
+                          );
+                        })()}
                       </div>
                     </div>
                   )}
@@ -1284,6 +1442,17 @@ export function ExperienceDashboardTab({ personaId, tenantId, theme = "dark" }: 
                           </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
+                          {(() => {
+                            const isKnyt = (tenantId === "nakamoto" || !tenantId);
+                            const stageToIdx = isKnyt ? KNYT_STAGE_TO_IDX : METAME_STAGE_TO_IDX;
+                            const xi = stageToIdx[ind.stage] ?? 0;
+                            const yi = DEPTH_TO_Y_ESTIMATE[ind.depth] ?? 0;
+                            return (
+                              <span className="font-mono text-[11px] font-bold text-amber-300/80" title="Matrix position (X=sovereignty, Y=PCS ~est)">
+                                {gridRef(xi, yi)}
+                              </span>
+                            );
+                          })()}
                           <span className="text-[11px] text-slate-500">{ind.depth}</span>
                           {ind.nbe && (
                             <Badge variant="outline"

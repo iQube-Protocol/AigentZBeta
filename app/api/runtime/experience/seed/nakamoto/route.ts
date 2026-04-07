@@ -29,20 +29,21 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 );
 
-const STAGE_ORDER = ['prospect', 'acolyte', 'keta', 'keji', 'first', 'zero'];
+const STAGE_ORDER = ['prospect', 'acolyte', 'keta', 'keji', 'first', 'zero', 'sat knyt'];
 
 const STAGE_DEPTH: Record<string, string> = {
-  prospect: 'pill',
-  acolyte:  'pill',
-  keta:     'capsule',
-  keji:     'capsule',
-  first:    'mini_runtime',
-  zero:     'codex',
+  prospect:   'pill',
+  acolyte:    'pill',
+  keta:       'capsule',
+  keji:       'capsule',
+  first:      'mini_runtime',
+  zero:       'codex',
+  'sat knyt': 'codex',
 };
 
 function orderTierToStage(tier: string | null): string {
   switch ((tier ?? '').toUpperCase()) {
-    case 'SAT':   return 'zero';
+    case 'SAT':   return 'sat knyt'; // Apex Satoshi franchisees — distinct from Zero KNYT
     case 'ZERO':  return 'zero';
     case 'FIRST': return 'first';
     case 'KEJI':  return 'keji';
