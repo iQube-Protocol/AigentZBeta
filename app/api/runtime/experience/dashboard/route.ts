@@ -122,20 +122,28 @@ export async function GET(request: NextRequest) {
 
   // ── Individual view ─────────────────────────────────────────────────────────
   if (view === 'individual') {
-    // Build journey_states query with optional filters
-    let q = supabase
+    // Build all WHERE filters FIRST, then apply order + limit
+    // (chaining .eq() after .limit() can silently drop filters in some client versions)
+    let baseQ = supabase
       .from('journey_states')
-      .select('persona_id, stage, depth, current_experience_id, active_at')
+      .select('persona_id, stage, depth, current_experience_id, active_at');
+
+    if (tenantId) baseQ = (baseQ as any).eq('tenant_id', tenantId);
+    if (personaId) baseQ = (baseQ as any).eq('persona_id', personaId);
+    if (stageFilter) baseQ = (baseQ as any).eq('stage', stageFilter);
+
+    const { data: states, error: statesError } = await (baseQ as any)
       .order('active_at', { ascending: false })
       .limit(limit);
 
-    if (tenantId) q = q.eq('tenant_id', tenantId) as typeof q;
-    if (personaId) q = q.eq('persona_id', personaId) as typeof q;
-    if (stageFilter) q = q.eq('stage', stageFilter) as typeof q;
+    if (statesError) {
+      return NextResponse.json(
+        { error: `journey_states query failed: ${statesError.message}`, hint: statesError.hint ?? null },
+        { status: 500 }
+      );
+    }
 
-    const { data: states } = await q;
-
-    const personaIds = [...new Set((states ?? []).map((s) => s.persona_id))];
+    const personaIds = [...new Set((states ?? []).map((s: any) => s.persona_id))];
 
     // Fetch NBE plans, analysis cards, and CRM persona data in parallel
     const [nbePlansRes, analysisCardsRes, personasRes, crmPersonasRes] = await Promise.all([
@@ -223,7 +231,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Apply client-side search filter (display_name or fio_handle match)
-    let individuals = (states ?? []).map((s) => ({
+    let individuals = (states ?? []).map((s: any) => ({
       ...s,
       nbe: nbeByPersona[s.persona_id] ?? null,
       trust_scores: trustByPersona[s.persona_id] ?? null,
@@ -247,6 +255,7 @@ export async function GET(request: NextRequest) {
       tenant_id: tenantId,
       stage_filter: stageFilter,
       search: searchQuery,
+      total: individuals.length,
       individuals,
     });
   }
