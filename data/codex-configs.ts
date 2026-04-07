@@ -846,7 +846,7 @@ export const METAME_CODEX: CodexConfig = {
       type: 'static',
       config: {
         component: 'ExperienceDashboardTab',
-        props: {}
+        props: { tenantId: 'metame' }
       },
       metadata: {
         icon: 'BarChart',
