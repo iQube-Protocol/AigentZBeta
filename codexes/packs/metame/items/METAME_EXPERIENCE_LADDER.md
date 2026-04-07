@@ -2,17 +2,22 @@
 
 **Status:** canonical  
 **Authority:** product owner  
-**Last updated:** 2026-04-06
+**Last updated:** 2026-04-07
 
 ---
 
 ## Purpose
 
-The Experience Ladder defines progression through increasing agency, participation, sovereignty, and contribution. It is the longitudinal spine connecting moments, journeys, permissions, and contributor pathways.
+The Experience Ladder defines two dimensions of progression in the metaMe experience matrix:
+
+1. **Y-axis — PCS engagement level** (this document): what type of creative agency a person exercises — from passive recipient to active steward
+2. **X-axis — Sovereignty journey** (see `METAME_SOVEREIGNTY_LADDER.md`): how embedded and invested they are in the ecosystem — from Visitor to Architect
+
+This document covers the **Y-axis**: the abstract canonical engagement form and its renderings.
 
 ---
 
-## Abstract canonical form
+## Abstract canonical form (Y-axis)
 
 The architecture that all renderings derive from:
 
@@ -25,7 +30,7 @@ Builder        — constructs systems, architectures, workflows
 Steward        — governs, maintains, guides, protects
 ```
 
-This is universal. It does not depend on sector, world, or domain.
+This is universal. It does not depend on sector, world, or domain. It is the **Y-axis** of every experience matrix.
 
 ---
 
@@ -42,9 +47,21 @@ Creator             — produces original assets, experiences, workflows
 Upstream contributor — shapes the platform itself via AgentiQ OS
 ```
 
-This is the primary progression model used across the AgentiQ alpha ecosystem.
+This is the primary progression model used across the AgentiQ alpha ecosystem. It is the **canonical metaMe default Y-axis** referenced in Studio, the Journey Dashboard, and the experience matrices.
 
-The PCS rendered form above **is the canonical metaMe default**. It applies directly to the AgentiQ ecosystem and is the primary ladder referenced in Studio, the Journey Dashboard, and the experience matrices.
+---
+
+## Sovereignty journey — the X-axis
+
+The canonical metaMe sovereignty ladder defines the X-axis of the experience matrix:
+
+```
+Visitor → Initiate → Participant → Curator → Composer → Operator → Architect
+```
+
+Full spec: `METAME_SOVEREIGNTY_LADDER.md`
+
+Cartridges render their own branded equivalents. KNYT maps: Prospect → Acolyte → Keta → Keji → First → Zero KNYT → Sat KNYT.
 
 ---
 
