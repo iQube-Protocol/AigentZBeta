@@ -87,14 +87,14 @@ Genuine gaps requiring new but small builds:
 
 | Gate | Name | Current status | Blocking gap | Fix |
 |------|------|---------------|-------------|-----|
-| **1** | Structural coherence | ⚠️ Partial | Aigent charters incomplete; asset map informal | A1+A2+A3 *(done this session)* |
+| **1** | Structural coherence | ✅ Done | All Aigent charters + asset map + build plan complete | A1+A2+A3 |
 | **2** | Builder coherence | ✅ Done | AgentiQ OS docs + SDK personas + codex tab complete | B1+B2+B3 |
-| **3** | Governance coherence | ⚠️ Partial | Factory pipeline exists, no visible intake trace | C1 |
-| **4** | Production coherence | ⚠️ Partial | Studio + Registry connected in code, not UX | C2+C3 |
+| **3** | Governance coherence | ⚠️ Partial | Codex delivered WS4 (intake/assets routes + receipt emission) on local branch — **awaiting push to dev** | C1 |
+| **4** | Production coherence | ⚠️ Partial | Codex delivered WS4 (studio artifact state surface) on local branch — **awaiting push to dev** | C2+C3 |
 | **5** | Sovereignty coherence | ✅ Done | PCS ladder seeded + visible in ExperienceDashboardTab individual view | D1+D2 |
-| **6** | KNYT coherence | ✅ Done | Like/spark/curate routes live; $KNYT wallet section distinct; NBE→KNYT CTA wired | D3+D4+D5 |
+| **6** | KNYT coherence | ✅ Done | Like/spark/curate/remix routes live; $KNYT wallet section distinct; NBE→KNYT CTA wired; KnytRuntimeSurface wired to journey_states | D3+D4+D5 |
 | **7** | Economic coherence | ✅ Done | EconomicSplitBanner in KNYT + AgentiQ codex headers | E1 |
-| **8** | Flywheel coherence | ✅ Done | Golden-path demo narrates full closed loop | C3+E2 |
+| **8** | Flywheel coherence | ✅ Done | Golden-path demo + full launch package (WS9) complete | C3+E2 |
 
 ---
 
@@ -157,16 +157,19 @@ Acceptance test: a developer with no prior knowledge can read `docs/agentiq-os/`
 ### WS4 — Factory/Registry/Studio/Runtime stitching
 
 **Owner:** Codex (primary) + Claude (support)  
-**Gates:** 3 + 4
+**Gates:** 3 + 4  
+**Status:** ⚠️ Delivered by Codex on local branch — **awaiting push to dev/origin**
 
 Deliverables:
-- [ ] `GET /api/registry/intake/trace` route — query submissions and their validation stage
-- [ ] `app/triad/components/codex/tabs/FactoryIntakeTab.tsx` — shows intake status, validation stage, trust band
-- [ ] `GET /api/registry/supply` route — query published, Registry-ready assets
-- [ ] `app/triad/components/codex/tabs/RegistrySupplyTab.tsx` — browse accepted supply, click to open in Studio
-- [ ] Studio `StudioArtifact` receipt emission on composition save (uses existing `receiptEmitter`)
-- [ ] Artifact state (draft/working/canonical) visible in ExperienceDashboardTab
-- [ ] Factory tab + Registry supply tab added to AgentiQ codex in `data/codex-configs.ts`
+- [x] `GET /api/registry/intake` route — list intakes with graceful 42P01 empty-state fallback *(Codex, commit 8f2a0bc)*
+- [x] `app/triad/components/codex/tabs/FactoryIntakeTab.tsx` — shows intake status, validation stage, trust band *(pre-built)*
+- [x] `GET /api/registry/assets` route — list published assets with graceful 42P01 empty-state fallback *(Codex, commit 8f2a0bc)*
+- [x] `app/triad/components/codex/tabs/RegistrySupplyTab.tsx` — browse accepted supply, click to open in Studio *(pre-built)*
+- [x] Studio `StudioArtifact` receipt emission on composition save via `POST /api/registry/receipts` *(Codex, commit 5899dbd)*
+- [x] Artifact state (draft/working/canonical) badge in ExperienceDashboardTab via `GET /api/registry/studio-artifacts` *(Codex, commit b64fa35)*
+- [x] Factory tab + Registry supply tab wired in `data/codex-configs.ts` *(pre-built)*
+
+**Blocker:** Codex pushed to local branch `work` — commits 8f2a0bc, 5899dbd, b64fa35 not yet in `origin/dev`. Gates 3+4 open until Codex pushes.
 
 Acceptance test:
 - A stakeholder can click into the Factory tab and see a submission moving through validation stages
@@ -293,13 +296,14 @@ Acceptance test: a stakeholder can be walked through the full loop (contribution
 ### WS9 — Launch packaging
 
 **Owner:** ChatGPT (primary) + Claude (support)  
-**Gate:** 8
+**Gate:** 8  
+**Status:** ✅ Complete
 
 Deliverables:
-- [ ] `docs/alpha/launch/one-pager.md`
-- [ ] `docs/alpha/launch/faq.md`
-- [ ] `docs/alpha/launch/developer-value-prop.md`
-- [ ] `docs/alpha/launch/ecosystem-stack-chart.md`
+- [x] `docs/alpha/launch/one-pager.md` *(ChatGPT, commit d2c33248)*
+- [x] `docs/alpha/launch/faq.md` *(ChatGPT, commit ac36638d)*
+- [x] `docs/alpha/launch/developer-value-prop.md` *(ChatGPT, commit 16215247)*
+- [x] `docs/alpha/launch/ecosystem-stack-chart.md` *(ChatGPT, commit b20fa193)*
 
 ---
 
