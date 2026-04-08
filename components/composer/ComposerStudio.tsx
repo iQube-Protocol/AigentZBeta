@@ -4536,6 +4536,23 @@ export const ComposerStudio = () => {
     const data = await res.json();
     setSession(data.session);
     setSessionData(nextData);
+    // Emit a Studio artifact receipt — fire-and-forget, never blocks save
+    fetch("/api/registry/receipts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        eventType: "asset.published",
+        actorId: activePersonaId ?? "studio-user",
+        tenantId: tenantId ?? "platform",
+        payload: {
+          sessionId: session.id,
+          step: nextStep,
+          cartridge: copilotContextId,
+          source: "composer_studio",
+          savedAt: new Date().toISOString(),
+        },
+      }),
+    }).catch(() => {/* silently ignore — receipt emission is non-blocking */});
   };
 
   const handleJumpToBundleStep = async () => {
