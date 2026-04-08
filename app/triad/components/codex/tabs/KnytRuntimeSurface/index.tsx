@@ -19,6 +19,32 @@ type ActiveMatrix = "outsider_to_acolyte" | "acolyte_to_keta" | "keta_to_keji" |
 const PATRONAGE_AXIS: PatronageStage[] = ["OutsideOrder", "Acolyte", "Keta", "Keji", "First", "Zero", "Satoshi"];
 const PCS_AXIS: PcsStage[] = ["Observer", "Collector", "Curator", "Remixer", "Creator", "Correspondent", "Steward", "FranchiseAligned"];
 
+// Map journey_states.stage (lowercase) → PatronageStage
+function stageToPatronage(stage: string | undefined): PatronageStage {
+  const map: Record<string, PatronageStage> = {
+    prospect: "OutsideOrder",
+    acolyte: "Acolyte",
+    keta: "Keta",
+    keji: "Keji",
+    first: "First",
+    zero: "Zero",
+    "sat knyt": "Satoshi",
+  };
+  return (stage && map[stage]) ? map[stage] : "OutsideOrder";
+}
+
+// Map journey_states.depth → PcsStage index → PcsStage
+function depthToPcs(depth: string | undefined): PcsStage {
+  const depthToIdx: Record<string, number> = {
+    pill: 0,       // Observer
+    capsule: 1,    // Collector
+    mini_runtime: 3, // Remixer
+    codex: 5,      // Correspondent
+  };
+  const idx = depth ? (depthToIdx[depth] ?? 0) : 0;
+  return PCS_AXIS[idx] ?? "Observer";
+}
+
 interface FeaturedMoment {
   id: string;
   branch?: string;
@@ -274,8 +300,8 @@ function getRuntimeState({
 
 export default function KnytRuntimeSurface({
   personaId,
-  patronageStage = "OutsideOrder",
-  pcsStage = "Observer",
+  patronageStage: patronageStageProp = "OutsideOrder",
+  pcsStage: pcsStageProp = "Observer",
   featuredContentId,
 }: KnytRuntimeSurfaceProps) {
   const { toast } = useToast();
@@ -286,6 +312,39 @@ export default function KnytRuntimeSurface({
   const [latestReward, setLatestReward] = useState<string | undefined>();
   const [rewardReason, setRewardReason] = useState<string | undefined>();
   const [balancePreview, setBalancePreview] = useState<string | undefined>();
+  // Resolved stages — loaded from journey_states when personaId is present
+  const [patronageStage, setPatronageStage] = useState<PatronageStage>(patronageStageProp);
+  const [pcsStage, setPcsStage] = useState<PcsStage>(pcsStageProp);
+
+  // Load the persona's journey state to resolve their actual axes
+  useEffect(() => {
+    if (!personaId) return;
+    let cancelled = false;
+
+    async function loadJourneyState() {
+      try {
+        const params = new URLSearchParams({
+          view: "individual",
+          tenantId: "nakamoto",
+          personaId,
+          limit: "1",
+        });
+        const res = await fetch(`/api/runtime/experience/dashboard?${params}`, { cache: "no-store" });
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        const state = data?.data?.[0];
+        if (!state || cancelled) return;
+        setPatronageStage(stageToPatronage(state.stage));
+        // Use inferred PCS from depth as best available signal
+        setPcsStage(depthToPcs(state.depth));
+      } catch {
+        // Fall back silently to prop defaults
+      }
+    }
+
+    loadJourneyState();
+    return () => { cancelled = true; };
+  }, [personaId]);
 
   const patronageProgress = useMemo(() => getAxisProgress(PATRONAGE_AXIS, patronageStage), [patronageStage]);
   const pcsProgress = useMemo(() => getAxisProgress(PCS_AXIS, pcsStage), [pcsStage]);
