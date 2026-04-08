@@ -33,18 +33,18 @@ import {
 // ─── Style maps ──────────────────────────────────────────────────────────────
 
 const TRUST_STYLES: Record<TrustBand, string> = {
-  L1_EXPERIMENTAL:         "border-slate-600 text-slate-400",
-  L2_VERIFIED_COMMUNITY:   "border-blue-500/40 text-blue-300",
-  L3_PRODUCTION_CANDIDATE: "border-emerald-500/40 text-emerald-300",
-  L4_PRODUCTION_APPROVED:  "border-violet-500/40 text-violet-300",
-  L5_CORE_SOVEREIGN:       "border-amber-500/40 text-amber-300",
+  L1_EXPERIMENTAL:         "border-slate-500 text-slate-300",
+  L2_VERIFIED_COMMUNITY:   "border-blue-400/70 text-blue-200",
+  L3_PRODUCTION_CANDIDATE: "border-emerald-400/70 text-emerald-200",
+  L4_PRODUCTION_APPROVED:  "border-cyan-400/70 text-cyan-200",
+  L5_CORE_SOVEREIGN:       "border-amber-400/80 text-amber-200",
 };
 
 const CLASS_STYLES: Record<RegistryAssetClass, string> = {
-  ToolQube:      "border-sky-500/40 text-sky-300",
-  SkillQube:     "border-indigo-500/40 text-indigo-300",
-  WorkflowQube:  "border-violet-500/40 text-violet-300",
-  ConnectorQube: "border-teal-500/40 text-teal-300",
+  ToolQube:      "border-sky-400/70 text-sky-200",
+  SkillQube:     "border-indigo-400/70 text-indigo-200",
+  WorkflowQube:  "border-orange-400/70 text-orange-200",
+  ConnectorQube: "border-teal-400/70 text-teal-200",
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

@@ -10987,6 +10987,27 @@ export const ComposerStudio = () => {
 
                   <TabsContent value="workflows" className="mt-0">
                     <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-sm">
+                      {/* Registry Ingestion Factory link */}
+                      <div className="rounded-lg border border-amber-500/25 bg-amber-500/5 px-3 py-2.5 flex items-center justify-between gap-3">
+                        <div className="space-y-0.5">
+                          <div className="text-[11px] font-semibold text-amber-300 flex items-center gap-1.5">
+                            <span>Registry Ingestion Factory</span>
+                          </div>
+                          <div className="text-[10px] text-slate-400">
+                            Submit ToolQubes, SkillQubes, WorkflowQubes, or ConnectorQubes to the governed intake pipeline.
+                            Accepted assets become composable Registry supply for Studio.
+                          </div>
+                        </div>
+                        <a
+                          href="/codex/agentiq?tab=factory-intake"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="shrink-0 rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-[11px] text-amber-300 hover:bg-amber-500/20 transition-colors"
+                        >
+                          Open Factory →
+                        </a>
+                      </div>
+
                       {/* Experience context — shows which experience these workflows are for */}
                       {previewExperience && (
                         <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/5 px-3 py-2">

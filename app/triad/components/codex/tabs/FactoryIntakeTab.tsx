@@ -74,16 +74,16 @@ interface Intake {
 // ─── Style maps ──────────────────────────────────────────────────────────────
 
 const STATUS_STYLES: Record<IngestionStatus, string> = {
-  received:       "border-slate-600 text-slate-400",
-  fetching:       "border-blue-500/40 text-blue-300",
-  classifying:    "border-sky-500/40 text-sky-300",
-  packaging:      "border-indigo-500/40 text-indigo-300",
-  validating:     "border-violet-500/40 text-violet-300",
-  scored:         "border-amber-500/40 text-amber-300",
-  review_pending: "border-yellow-500/40 text-yellow-300",
-  published:      "border-emerald-500/40 text-emerald-300",
-  rejected:       "border-rose-500/40 text-rose-300",
-  failed:         "border-red-500/40 text-red-300",
+  received:       "border-slate-600 text-slate-300",
+  fetching:       "border-blue-500/60 text-blue-200",
+  classifying:    "border-sky-500/60 text-sky-200",
+  packaging:      "border-indigo-500/60 text-indigo-200",
+  validating:     "border-amber-500/60 text-amber-200",
+  scored:         "border-amber-400/80 text-amber-100",
+  review_pending: "border-yellow-400/80 text-yellow-200",
+  published:      "border-emerald-500/70 text-emerald-200",
+  rejected:       "border-rose-500/70 text-rose-200",
+  failed:         "border-red-500/70 text-red-200",
 };
 
 const STATUS_ICON: Record<IngestionStatus, React.ReactNode> = {
@@ -208,6 +208,27 @@ export function FactoryIntakeTab({ theme = "dark", tenantId = "platform" }: Fact
           <RefreshCw className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} />
           Refresh
         </Button>
+      </div>
+
+      {/* Pipeline model — always visible so stakeholders understand the stages */}
+      <div className="rounded-lg border border-slate-800 bg-slate-900/40 px-4 py-3 space-y-2">
+        <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Pipeline stages</div>
+        <div className="flex items-center gap-0 w-full">
+          {(["Received","Fetched","Classified","Packaged","Validating","Scored","Review","Published"] as const).map((label, idx, arr) => (
+            <div key={label} className="flex items-center flex-1 min-w-0">
+              <div className="h-1.5 w-1.5 rounded-full shrink-0 bg-slate-600" />
+              {idx < arr.length - 1 && <div className="h-px flex-1 bg-slate-800" />}
+            </div>
+          ))}
+        </div>
+        <div className="flex justify-between text-[10px] text-slate-600">
+          <span>Received</span>
+          <span>Validating</span>
+          <span>Published</span>
+        </div>
+        <p className="text-[11px] text-slate-500">
+          Submissions advance through each stage when Factory pipeline services run. Intakes stuck at an in-progress stage are awaiting service processing or manual review.
+        </p>
       </div>
 
       {/* Status filter pills */}
@@ -401,10 +422,14 @@ export function FactoryIntakeTab({ theme = "dark", tenantId = "platform" }: Fact
         ) : loading ? (
           <div className="py-8 text-center text-slate-400 text-sm">Loading intakes…</div>
         ) : (
-          <div className="py-8 text-center space-y-1">
-            <div className="text-slate-400 text-sm">No intakes found.</div>
-            <div className="text-slate-600 text-xs">
-              Intakes appear when contributors submit assets via the Registry Ingestion Factory API or SDK.
+          <div className="py-8 text-center space-y-2">
+            <div className="text-slate-300 text-sm font-medium">No intakes yet</div>
+            <div className="text-slate-500 text-xs max-w-sm mx-auto">
+              Intakes are created when contributors submit a ToolQube, SkillQube, WorkflowQube, or ConnectorQube
+              via the Registry Ingestion Factory API or AgentiQ SDK.
+            </div>
+            <div className="text-slate-600 text-xs mt-1">
+              Use <code className="bg-slate-800 px-1 rounded text-slate-400">POST /api/registry/intake</code> to submit your first asset.
             </div>
           </div>
         )}
