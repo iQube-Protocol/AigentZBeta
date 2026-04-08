@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { theQriptopianStyleGuide } from "@agentiq/article-reader";
 import type {
   SmartContentQube,
@@ -190,6 +191,7 @@ function TextReader({
             <p className="text-sm text-slate-400">No article content available.</p>
           ) : (
             <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
               components={{
                 h1: ({ children }) => (
                   <h1

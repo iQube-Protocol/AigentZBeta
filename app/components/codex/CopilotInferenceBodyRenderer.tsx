@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import styles from "./CopilotInferenceBodyRenderer.module.css";
 import {
   clearMermaidProcessedAttributes,
@@ -345,6 +346,7 @@ export function CopilotInferenceBodyRenderer({ content, onPromptSuggestion }: Co
   return (
     <div className={styles.rendererRoot}>
       <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
         components={{
           p: ({ children }) =>
             isCallout(children) ? (
@@ -372,6 +374,16 @@ export function CopilotInferenceBodyRenderer({ content, onPromptSuggestion }: Co
           ),
           strong: ({ children }) => <strong className={styles.strong}>{children}</strong>,
           em: ({ children }) => <em className={styles.em}>{children}</em>,
+          table: ({ children }) => (
+            <div className="overflow-x-auto my-3">
+              <table className="w-full border-collapse text-[13px]">{children}</table>
+            </div>
+          ),
+          thead: ({ children }) => <thead className="bg-slate-800/60 border-b border-slate-700">{children}</thead>,
+          tbody: ({ children }) => <tbody>{children}</tbody>,
+          tr: ({ children }) => <tr className="border-b border-slate-800 last:border-0">{children}</tr>,
+          th: ({ children }) => <th className="px-3 py-2 text-left font-semibold text-slate-200 whitespace-nowrap">{children}</th>,
+          td: ({ children }) => <td className="px-3 py-2 text-slate-300 align-top">{children}</td>,
           code: ({ className, children, ...props }) => {
             const inline = (props as { inline?: boolean }).inline === true;
             const code = String(children).replace(/\n$/, "");
