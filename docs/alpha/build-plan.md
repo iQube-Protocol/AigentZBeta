@@ -89,8 +89,8 @@ Genuine gaps requiring new but small builds:
 |------|------|---------------|-------------|-----|
 | **1** | Structural coherence | ✅ Done | All Aigent charters + asset map + build plan complete | A1+A2+A3 |
 | **2** | Builder coherence | ✅ Done | AgentiQ OS docs + SDK personas + codex tab complete | B1+B2+B3 |
-| **3** | Governance coherence | ⚠️ Partial | Codex delivered WS4 (intake/assets routes + receipt emission) on local branch — **awaiting push to dev** | C1 |
-| **4** | Production coherence | ⚠️ Partial | Codex delivered WS4 (studio artifact state surface) on local branch — **awaiting push to dev** | C2+C3 |
+| **3** | Governance coherence | ✅ Done | GET /api/registry/intake + FactoryIntakeTab wired; POST /api/registry/receipts live | C1 |
+| **4** | Production coherence | ✅ Done | GET /api/registry/assets + RegistrySupplyTab wired; studio artifact state badge in ExperienceDashboardTab | C2+C3 |
 | **5** | Sovereignty coherence | ✅ Done | PCS ladder seeded + visible in ExperienceDashboardTab individual view | D1+D2 |
 | **6** | KNYT coherence | ✅ Done | Like/spark/curate/remix routes live; $KNYT wallet section distinct; NBE→KNYT CTA wired; KnytRuntimeSurface wired to journey_states | D3+D4+D5 |
 | **7** | Economic coherence | ✅ Done | EconomicSplitBanner in KNYT + AgentiQ codex headers | E1 |
@@ -169,7 +169,7 @@ Deliverables:
 - [x] Artifact state (draft/working/canonical) badge in ExperienceDashboardTab via `GET /api/registry/studio-artifacts` *(Codex, commit b64fa35)*
 - [x] Factory tab + Registry supply tab wired in `data/codex-configs.ts` *(pre-built)*
 
-**Blocker:** Codex pushed to local branch `work` — commits 8f2a0bc, 5899dbd, b64fa35 not yet in `origin/dev`. Gates 3+4 open until Codex pushes.
+**Status:** ✅ Complete — Claude implemented all deliverables and pushed to dev (2026-04-08).
 
 Acceptance test:
 - A stakeholder can click into the Factory tab and see a submission moving through validation stages
