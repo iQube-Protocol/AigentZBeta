@@ -136,6 +136,15 @@ export async function listIntakes(tenantId: string, limit = 50): Promise<IntakeQ
   return (data ?? []).map((r) => rowToIntake(r as Record<string, unknown>));
 }
 
+export async function deleteIntake(intakeId: string): Promise<void> {
+  const supabase = requireSupabase();
+  const { error } = await supabase
+    .from("registry_intakes")
+    .delete()
+    .eq("intake_id", intakeId);
+  if (error) throw new Error(`deleteIntake failed: ${error.message}`);
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // SourceQube
 // ─────────────────────────────────────────────────────────────────────────────
@@ -331,7 +340,8 @@ export async function listAssets(filter: AssetListFilter): Promise<RegistryAsset
 
   const { data, error } = await q;
   if (error) throw new Error(error.message);
-  return (data ?? []).map((r) => ({
+
+  const assets: RegistryAssetSummary[] = (data ?? []).map((r) => ({
     assetId: r.asset_id,
     assetClass: r.asset_class as RegistryAssetClass,
     name: r.name,
@@ -346,6 +356,54 @@ export async function listAssets(filter: AssetListFilter): Promise<RegistryAsset
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   }));
+
+  // Also surface intake items that reached asset.published but haven't been
+  // promoted to a registry_assets row yet (pipeline services not running).
+  if (!filter.publicationStatus || filter.publicationStatus === "published") {
+    try {
+      let iq = supabase
+        .from("registry_intakes")
+        .select("intake_id,tenant_id,source_type,source_payload,current_stage,created_at,updated_at")
+        .eq("current_stage", "asset.published")
+        .is("asset_id", null);
+      if (filter.tenantId) iq = iq.eq("tenant_id", filter.tenantId);
+
+      const { data: intakeRows } = await iq;
+      if (intakeRows && intakeRows.length > 0) {
+        const existingIntakeIds = new Set(
+          assets.map((a) => a.assetId.replace(/^intake:/, ""))
+        );
+        const synthetic: RegistryAssetSummary[] = intakeRows
+          .filter((row) => !existingIntakeIds.has(row.intake_id))
+          .map((row) => {
+            const p = (row.source_payload as Record<string, unknown>) ?? {};
+            const name = (p.name as string) || (p.assetName as string) || row.intake_id;
+            const assetClass = (p.assetClass as RegistryAssetClass) ||
+              (p.asset_class as RegistryAssetClass) || "SkillQube";
+            const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+            return {
+              assetId: `intake:${row.intake_id}`,
+              assetClass,
+              name,
+              slug,
+              description: (p.description as string) ?? undefined,
+              currentVersion: "0.1.0",
+              trustBand: "L1_EXPERIMENTAL" as TrustBand,
+              publicationStatus: "published",
+              policyClass: "read_only" as PolicyClass,
+              tags: Array.isArray(p.tags) ? (p.tags as string[]) : [],
+              createdAt: row.created_at,
+              updatedAt: row.updated_at,
+            } as RegistryAssetSummary;
+          });
+        assets.push(...synthetic);
+      }
+    } catch {
+      // intake table may not exist yet — non-fatal
+    }
+  }
+
+  return assets;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

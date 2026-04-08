@@ -114,6 +114,7 @@ export function TabRenderer({ tab, codexId, theme, density, personaId, issueSlug
         issueSlug={issueSlug}
         forcedDevice={previewDevice}
         tabSlug={tab.slug}
+        codexId={codexId}
         {...tab.config.props}
       />
     );

@@ -254,7 +254,7 @@ export function RegistryHome() {
                 onClick={() => setActiveRegistryTab("templates")}
                 className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${activeRegistryTab === "templates" ? "bg-indigo-500/20 text-indigo-300 ring-1 ring-indigo-500/30" : "text-slate-400 hover:text-slate-200"}`}
               >
-                Templates
+                iQube Catalog
               </button>
               <button
                 type="button"

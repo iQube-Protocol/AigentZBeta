@@ -102,9 +102,24 @@ const ASSET_CLASSES: Array<RegistryAssetClass | ""> = [
 interface RegistrySupplyTabProps {
   theme?: "light" | "dark";
   personaId?: string;
+  codexId?: string;
 }
 
-export function RegistrySupplyTab({ theme = "dark" }: RegistrySupplyTabProps) {
+/** Map codex slug → display label for the cartridge context indicator */
+function cartridgeLabel(codexId: string | undefined): string | null {
+  if (!codexId) return null;
+  const slug = codexId.replace(/-codex$/i, "").toLowerCase();
+  const labels: Record<string, string> = {
+    agentiq: "AgentiQ",
+    knyt: "KNYT",
+    qriptopian: "Qriptopian",
+    metame: "metaMe",
+    nakamoto: "Nakamoto",
+  };
+  return labels[slug] ?? slug;
+}
+
+export function RegistrySupplyTab({ theme = "dark", codexId }: RegistrySupplyTabProps) {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -112,6 +127,10 @@ export function RegistrySupplyTab({ theme = "dark" }: RegistrySupplyTabProps) {
   const [trustFilter, setTrustFilter] = useState<TrustBand | "">("");
   const [classFilter, setClassFilter] = useState<RegistryAssetClass | "">("");
   const [search, setSearch] = useState("");
+  const [cartridgeFilter, setCartridgeFilter] = useState(true); // scoped to active codex by default
+
+  const activeCartridge = cartridgeLabel(codexId);
+  const cartridgeSlug = codexId ? codexId.replace(/-codex$/i, "").toLowerCase() : null;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -120,7 +139,9 @@ export function RegistrySupplyTab({ theme = "dark" }: RegistrySupplyTabProps) {
       const params = new URLSearchParams({ publicationStatus: "published", limit: "100", tenantId: "platform" });
       if (trustFilter) params.set("trustBand", trustFilter);
       if (classFilter) params.set("assetClass", classFilter);
-      if (search.trim()) params.set("search", search.trim());
+      // Cartridge-scoped search: add the codex slug as a search hint when active
+      const searchVal = search.trim() || (cartridgeFilter && cartridgeSlug ? cartridgeSlug : "");
+      if (searchVal) params.set("search", searchVal);
       const res = await fetch(`/api/registry/assets?${params}`);
       if (!res.ok) {
         setFetchError(`API error ${res.status} — ${res.statusText}`);
@@ -135,7 +156,7 @@ export function RegistrySupplyTab({ theme = "dark" }: RegistrySupplyTabProps) {
     }
   }, [trustFilter, classFilter, search]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void load(); }, [load, cartridgeFilter]);
 
   const base = "rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-sm text-slate-200";
 
@@ -146,9 +167,27 @@ export function RegistrySupplyTab({ theme = "dark" }: RegistrySupplyTabProps) {
         <div className="flex items-center gap-3">
           <Database className="h-5 w-5 text-emerald-400" />
           <div>
-            <div className="font-semibold text-slate-100">Registry Supply</div>
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-slate-100">Registry Supply</span>
+              {activeCartridge && (
+                <button
+                  type="button"
+                  onClick={() => setCartridgeFilter((v) => !v)}
+                  className={`rounded-full border px-2 py-0.5 text-[10px] font-medium transition-colors ${
+                    cartridgeFilter
+                      ? "border-amber-500/60 bg-amber-500/10 text-amber-300"
+                      : "border-slate-700 text-slate-500 hover:border-slate-600"
+                  }`}
+                  title={cartridgeFilter ? "Showing assets scoped to this cartridge — click to see all" : "Click to scope to this cartridge"}
+                >
+                  {activeCartridge}
+                </button>
+              )}
+            </div>
             <div className="text-xs text-slate-400">
-              All published registry assets — browse, filter, and inspect
+              {cartridgeFilter && activeCartridge
+                ? `Showing assets tagged "${cartridgeSlug}" — click badge to show all`
+                : "All published registry assets — browse, filter, and inspect"}
             </div>
           </div>
         </div>

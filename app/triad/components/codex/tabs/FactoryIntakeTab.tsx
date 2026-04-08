@@ -20,6 +20,7 @@ import {
   CheckCircle2,
   Clock,
   XCircle,
+  Trash2,
 } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -149,14 +150,25 @@ interface FactoryIntakeTabProps {
   personaId?: string;
   /** Override tenant — defaults to "platform" for operator view */
   tenantId?: string;
+  codexId?: string;
 }
 
-export function FactoryIntakeTab({ theme = "dark", tenantId = "platform" }: FactoryIntakeTabProps) {
+function cartridgeLabel(codexId: string | undefined): string | null {
+  if (!codexId) return null;
+  const slug = codexId.replace(/-codex$/i, "").toLowerCase();
+  const labels: Record<string, string> = {
+    agentiq: "AgentiQ", knyt: "KNYT", qriptopian: "Qriptopian", metame: "metaMe", nakamoto: "Nakamoto",
+  };
+  return labels[slug] ?? slug;
+}
+
+export function FactoryIntakeTab({ theme = "dark", tenantId = "platform", codexId }: FactoryIntakeTabProps) {
   const [intakes, setIntakes] = useState<Intake[]>([]);
   const [selected, setSelected] = useState<Intake | null>(null);
   const [loading, setLoading] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("");
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -179,6 +191,25 @@ export function FactoryIntakeTab({ theme = "dark", tenantId = "platform" }: Fact
 
   useEffect(() => { void load(); }, [load]);
 
+  const handleDelete = async (intakeId: string) => {
+    if (!window.confirm("Delete this intake? This cannot be undone.")) return;
+    setDeleting(intakeId);
+    try {
+      const res = await fetch(`/api/registry/intake/${intakeId}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) {
+        setFetchError(data.error ?? `Delete failed (${res.status})`);
+        return;
+      }
+      setIntakes((prev) => prev.filter((i) => i.intakeId !== intakeId));
+      if (selected?.intakeId === intakeId) setSelected(null);
+    } catch {
+      setFetchError("Network error during delete.");
+    } finally {
+      setDeleting(null);
+    }
+  };
+
   const filtered = statusFilter
     ? intakes.filter((i) => i.status === statusFilter)
     : intakes;
@@ -192,7 +223,14 @@ export function FactoryIntakeTab({ theme = "dark", tenantId = "platform" }: Fact
         <div className="flex items-center gap-3">
           <Factory className="h-5 w-5 text-amber-400" />
           <div>
-            <div className="font-semibold text-slate-100">Registry Ingestion Factory</div>
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-slate-100">Registry Ingestion Factory</span>
+              {cartridgeLabel(codexId) && (
+                <span className="rounded-full border border-amber-500/40 bg-amber-500/8 px-2 py-0.5 text-[10px] font-medium text-amber-300">
+                  {cartridgeLabel(codexId)}
+                </span>
+              )}
+            </div>
             <div className="text-xs text-slate-400">
               Track asset intake submissions through the full pipeline
             </div>
@@ -282,14 +320,28 @@ export function FactoryIntakeTab({ theme = "dark", tenantId = "platform" }: Fact
                 {" · "}{fmtDate(selected.createdAt)}
               </div>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSelected(null)}
-              className="h-6 w-6 p-0 text-slate-500 hover:text-slate-300"
-            >
-              <X className="h-3.5 w-3.5" />
-            </Button>
+            <div className="flex items-center gap-1">
+              {selected.currentStage !== "asset.published" && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => void handleDelete(selected.intakeId)}
+                  disabled={deleting === selected.intakeId}
+                  className="h-6 w-6 p-0 text-rose-500/60 hover:text-rose-400"
+                  title="Delete intake"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelected(null)}
+                className="h-6 w-6 p-0 text-slate-500 hover:text-slate-300"
+              >
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            </div>
           </div>
 
           {/* Pipeline progress bar */}
@@ -415,7 +467,20 @@ export function FactoryIntakeTab({ theme = "dark", tenantId = "platform" }: Fact
                     {STAGE_LABELS[intake.currentStage]}
                   </div>
                 </div>
-                <ChevronRight className="h-3.5 w-3.5 text-slate-600 shrink-0 ml-2" />
+                <div className="flex items-center gap-1 shrink-0 ml-2">
+                  {intake.currentStage !== "asset.published" && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); void handleDelete(intake.intakeId); }}
+                      disabled={deleting === intake.intakeId}
+                      className="rounded p-1 text-slate-700 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                      title="Delete"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  )}
+                  <ChevronRight className="h-3.5 w-3.5 text-slate-600" />
+                </div>
               </button>
             ))}
           </div>
