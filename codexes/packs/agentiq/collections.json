@@ -57,7 +57,19 @@
         "items/ALPHA_PROGRAM_OVERVIEW.md",
         "items/ALPHA_ARCHITECTURE_MEMO.md",
         "items/ALPHA_BUILD_PLAN.md",
-        "items/ALPHA_ASSET_MAP.md"
+        "items/ALPHA_ASSET_MAP.md",
+        "items/GATE8_WALKTHROUGH_PACK.md",
+        "items/GOLDEN_PATH_DEMO.md"
+      ]
+    },
+    {
+      "id": "col_alpha_launch",
+      "title": "Alpha Launch",
+      "items": [
+        "items/LAUNCH_ONE_PAGER.md",
+        "items/LAUNCH_FAQ.md",
+        "items/LAUNCH_DEV_VALUE_PROP.md",
+        "items/LAUNCH_ECOSYSTEM_STACK.md"
       ]
     },
     {
