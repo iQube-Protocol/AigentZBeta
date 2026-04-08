@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import styles from "./CopilotInferenceBodyRenderer.module.css";
+import { splitMarkdownTables, parseTableRow } from "@/utils/splitMarkdownTables";
 import {
   clearMermaidProcessedAttributes,
   enqueueMermaidRender,
@@ -142,6 +142,35 @@ function stripExploreFurtherSection(content: string): string {
   }
 
   return output.join("\n");
+}
+
+function InlineGfmTable({ content }: { content: string }) {
+  const lines = content.split("\n").filter((l) => l.trim().startsWith("|"));
+  if (lines.length < 2) return null;
+  const headers = parseTableRow(lines[0]);
+  const bodyLines = lines.slice(2); // skip header + separator
+  return (
+    <div className="overflow-x-auto my-3">
+      <table className="w-full border-collapse text-[13px]">
+        <thead className="bg-slate-800/60 border-b border-slate-700">
+          <tr>
+            {headers.map((h, i) => (
+              <th key={i} className="px-3 py-2 text-left font-semibold text-slate-200 whitespace-nowrap">{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {bodyLines.map((row, ri) => (
+            <tr key={ri} className="border-b border-slate-800 last:border-0">
+              {parseTableRow(row).map((cell, ci) => (
+                <td key={ci} className="px-3 py-2 text-slate-300 align-top">{cell}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
 function MermaidBlock({ code }: MermaidBlockProps) {
@@ -343,74 +372,43 @@ export function CopilotInferenceBodyRenderer({ content, onPromptSuggestion }: Co
   const exploreFurtherPrompts = extractExploreFurtherPrompts(content);
   const renderedContent = stripExploreFurtherSection(content);
 
+  const mdComponents = {
+    p: ({ children }: { children?: React.ReactNode }) =>
+      isCallout(children) ? (
+        <p className={styles.callout}>{children}</p>
+      ) : (
+        <p className={styles.paragraph}>{children}</p>
+      ),
+    ul: ({ children }: { children?: React.ReactNode }) => <ul className={styles.unorderedList}>{children}</ul>,
+    ol: ({ children }: { children?: React.ReactNode }) => <ol className={styles.orderedList}>{children}</ol>,
+    li: ({ children }: { children?: React.ReactNode }) => <li className={styles.listItem}>{children}</li>,
+    a: ({ href, children }: { href?: string; children?: React.ReactNode }) => (
+      <a href={href} target="_blank" rel="noopener noreferrer" className={styles.link}>{children}</a>
+    ),
+    blockquote: ({ children }: { children?: React.ReactNode }) => (
+      <blockquote className={styles.blockquote}>{children}</blockquote>
+    ),
+    strong: ({ children }: { children?: React.ReactNode }) => <strong className={styles.strong}>{children}</strong>,
+    em: ({ children }: { children?: React.ReactNode }) => <em className={styles.em}>{children}</em>,
+    code: ({ className, children, ...props }: { className?: string; children?: React.ReactNode }) => {
+      const inline = (props as { inline?: boolean }).inline === true;
+      const code = String(children).replace(/\n$/, "");
+      const language = className?.replace("language-", "").trim().toLowerCase();
+      if (!inline && language === "mermaid") return <MermaidBlock code={code} />;
+      if (inline) return <code className={styles.inlineCode}>{children}</code>;
+      return <pre className={styles.codeBlock}><code className={styles.codeBlockCode}>{children}</code></pre>;
+    },
+  };
+
   return (
     <div className={styles.rendererRoot}>
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        components={{
-          p: ({ children }) =>
-            isCallout(children) ? (
-              <p className={styles.callout}>{children}</p>
-            ) : (
-              <p className={styles.paragraph}>{children}</p>
-            ),
-          ul: ({ children }) => <ul className={styles.unorderedList}>{children}</ul>,
-          ol: ({ children }) => <ol className={styles.orderedList}>{children}</ol>,
-          li: ({ children }) => <li className={styles.listItem}>{children}</li>,
-          a: ({ href, children }) => (
-            <a
-              href={href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={styles.link}
-            >
-              {children}
-            </a>
-          ),
-          blockquote: ({ children }) => (
-            <blockquote className={styles.blockquote}>
-              {children}
-            </blockquote>
-          ),
-          strong: ({ children }) => <strong className={styles.strong}>{children}</strong>,
-          em: ({ children }) => <em className={styles.em}>{children}</em>,
-          table: ({ children }) => (
-            <div className="overflow-x-auto my-3">
-              <table className="w-full border-collapse text-[13px]">{children}</table>
-            </div>
-          ),
-          thead: ({ children }) => <thead className="bg-slate-800/60 border-b border-slate-700">{children}</thead>,
-          tbody: ({ children }) => <tbody>{children}</tbody>,
-          tr: ({ children }) => <tr className="border-b border-slate-800 last:border-0">{children}</tr>,
-          th: ({ children }) => <th className="px-3 py-2 text-left font-semibold text-slate-200 whitespace-nowrap">{children}</th>,
-          td: ({ children }) => <td className="px-3 py-2 text-slate-300 align-top">{children}</td>,
-          code: ({ className, children, ...props }) => {
-            const inline = (props as { inline?: boolean }).inline === true;
-            const code = String(children).replace(/\n$/, "");
-            const language = className?.replace("language-", "").trim().toLowerCase();
-
-            if (!inline && language === "mermaid") {
-              return <MermaidBlock code={code} />;
-            }
-
-            if (inline) {
-              return (
-                <code className={styles.inlineCode}>
-                  {children}
-                </code>
-              );
-            }
-
-            return (
-              <pre className={styles.codeBlock}>
-                <code className={styles.codeBlockCode}>{children}</code>
-              </pre>
-            );
-          },
-        }}
-      >
-        {renderedContent}
-      </ReactMarkdown>
+      {splitMarkdownTables(renderedContent).map((seg, idx) =>
+        seg.type === "table" ? (
+          <InlineGfmTable key={idx} content={seg.content} />
+        ) : seg.content.trim() ? (
+          <ReactMarkdown key={idx} components={mdComponents}>{seg.content}</ReactMarkdown>
+        ) : null
+      )}
       {exploreFurtherPrompts.length > 0 && onPromptSuggestion ? (
         <div className={styles.suggestionSection}>
           <div className={styles.suggestionTitle}>Explore Further</div>

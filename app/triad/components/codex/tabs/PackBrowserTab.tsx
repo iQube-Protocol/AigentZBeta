@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { splitMarkdownTables, parseTableRow } from "@/utils/splitMarkdownTables";
 import { AlertCircle, ChevronDown, ChevronRight, FileText, Folder, Loader2 } from "lucide-react";
 
 interface PackCollectionNode {
@@ -234,40 +234,55 @@ export function PackBrowserTab({ packId, collectionId, defaultPath, theme = "dar
           </div>
         ) : (
           <div className="pack-browser-markdown text-sm text-slate-200 space-y-3 min-w-0">
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              components={{
-                h1: ({ children }) => <h1 className="text-xl font-bold text-slate-100 mt-4 mb-2">{children}</h1>,
-                h2: ({ children }) => <h2 className="text-lg font-semibold text-slate-100 mt-3 mb-1.5">{children}</h2>,
-                h3: ({ children }) => <h3 className="text-base font-semibold text-slate-200 mt-2 mb-1">{children}</h3>,
-                p: ({ children }) => <p className="text-slate-300 leading-relaxed">{children}</p>,
-                ul: ({ children }) => <ul className="list-disc list-inside text-slate-300 space-y-1">{children}</ul>,
-                ol: ({ children }) => <ol className="list-decimal list-inside text-slate-300 space-y-1">{children}</ol>,
-                li: ({ children }) => <li className="text-slate-300">{children}</li>,
-                a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" className="text-violet-400 underline underline-offset-2 hover:text-violet-300">{children}</a>,
-                strong: ({ children }) => <strong className="font-semibold text-slate-100">{children}</strong>,
-                em: ({ children }) => <em className="italic text-slate-300">{children}</em>,
-                blockquote: ({ children }) => <blockquote className="border-l-2 border-slate-600 pl-4 text-slate-400 italic">{children}</blockquote>,
-                hr: () => <hr className="border-slate-700 my-4" />,
-                code: ({ className, children, ...props }) => {
-                  const inline = (props as { inline?: boolean }).inline === true;
-                  if (inline) return <code className="rounded bg-slate-800 px-1 py-0.5 text-[12px] font-mono text-violet-300">{children}</code>;
-                  return <pre className="rounded-lg bg-slate-900 border border-slate-800 p-3 overflow-x-auto text-[12px] font-mono text-slate-300 my-2"><code>{children}</code></pre>;
-                },
-                table: ({ children }) => (
-                  <div className="overflow-x-auto my-3">
-                    <table className="w-full border-collapse text-[13px]">{children}</table>
-                  </div>
-                ),
-                thead: ({ children }) => <thead className="bg-slate-800/60">{children}</thead>,
-                tbody: ({ children }) => <tbody>{children}</tbody>,
-                tr: ({ children }) => <tr className="border-b border-slate-800">{children}</tr>,
-                th: ({ children }) => <th className="px-3 py-2 text-left font-semibold text-slate-200 whitespace-nowrap">{children}</th>,
-                td: ({ children }) => <td className="px-3 py-2 text-slate-300 align-top">{children}</td>,
-              }}
-            >
-              {content || "No content available."}
-            </ReactMarkdown>
+            {splitMarkdownTables(content || "No content available.").map((seg, idx) =>
+              seg.type === "table" ? (
+                <div key={idx} className="overflow-x-auto my-3">
+                  <table className="w-full border-collapse text-[13px]">
+                    <thead className="bg-slate-800/60">
+                      <tr>
+                        {parseTableRow(seg.content.split("\n")[0]).map((h, i) => (
+                          <th key={i} className="px-3 py-2 text-left font-semibold text-slate-200 whitespace-nowrap">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {seg.content.split("\n").filter((l) => l.trim().startsWith("|")).slice(2).map((row, ri) => (
+                        <tr key={ri} className="border-b border-slate-800">
+                          {parseTableRow(row).map((cell, ci) => (
+                            <td key={ci} className="px-3 py-2 text-slate-300 align-top">{cell}</td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : seg.content.trim() ? (
+                <ReactMarkdown
+                  key={idx}
+                  components={{
+                    h1: ({ children }) => <h1 className="text-xl font-bold text-slate-100 mt-4 mb-2">{children}</h1>,
+                    h2: ({ children }) => <h2 className="text-lg font-semibold text-slate-100 mt-3 mb-1.5">{children}</h2>,
+                    h3: ({ children }) => <h3 className="text-base font-semibold text-slate-200 mt-2 mb-1">{children}</h3>,
+                    p: ({ children }) => <p className="text-slate-300 leading-relaxed">{children}</p>,
+                    ul: ({ children }) => <ul className="list-disc list-inside text-slate-300 space-y-1">{children}</ul>,
+                    ol: ({ children }) => <ol className="list-decimal list-inside text-slate-300 space-y-1">{children}</ol>,
+                    li: ({ children }) => <li className="text-slate-300">{children}</li>,
+                    a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" className="text-violet-400 underline underline-offset-2 hover:text-violet-300">{children}</a>,
+                    strong: ({ children }) => <strong className="font-semibold text-slate-100">{children}</strong>,
+                    em: ({ children }) => <em className="italic text-slate-300">{children}</em>,
+                    blockquote: ({ children }) => <blockquote className="border-l-2 border-slate-600 pl-4 text-slate-400 italic">{children}</blockquote>,
+                    hr: () => <hr className="border-slate-700 my-4" />,
+                    code: ({ className, children, ...props }) => {
+                      const inline = (props as { inline?: boolean }).inline === true;
+                      if (inline) return <code className="rounded bg-slate-800 px-1 py-0.5 text-[12px] font-mono text-violet-300">{children}</code>;
+                      return <pre className="rounded-lg bg-slate-900 border border-slate-800 p-3 overflow-x-auto text-[12px] font-mono text-slate-300 my-2"><code>{children}</code></pre>;
+                    },
+                  }}
+                >
+                  {seg.content}
+                </ReactMarkdown>
+              ) : null
+            )}
           </div>
         )}
       </div>

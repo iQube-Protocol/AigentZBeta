@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { splitMarkdownTables, parseTableRow } from "@/utils/splitMarkdownTables";
 import { theQriptopianStyleGuide } from "@agentiq/article-reader";
 import type {
   SmartContentQube,
@@ -190,191 +190,66 @@ function TextReader({
           {markdownSource.trim().length === 0 ? (
             <p className="text-sm text-slate-400">No article content available.</p>
           ) : (
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              components={{
-                h1: ({ children }) => (
-                  <h1
-                    style={{
-                      fontFamily: typography?.fontFamily?.heading || themeClasses.fontFamily,
-                      fontSize: typography?.fontSize?.h1 || "2.5rem",
-                      lineHeight: typography?.lineHeight?.heading || 1.2,
-                      color: themeClasses.primary,
-                      marginBottom: "1.5rem",
-                      marginTop: "2rem",
-                    }}
-                  >
-                    {children}
-                  </h1>
-                ),
-                h2: ({ children }) => (
-                  <h2
-                    style={{
-                      fontFamily: typography?.fontFamily?.heading || themeClasses.fontFamily,
-                      fontSize: typography?.fontSize?.h2 || "2rem",
-                      lineHeight: typography?.lineHeight?.heading || 1.2,
-                      color: themeClasses.primary,
-                      marginBottom: "1rem",
-                      marginTop: "1.5rem",
-                    }}
-                  >
-                    {children}
-                  </h2>
-                ),
-                h3: ({ children }) => (
-                  <h3
-                    style={{
-                      fontFamily: typography?.fontFamily?.heading || themeClasses.fontFamily,
-                      fontSize: typography?.fontSize?.h3 || "1.5rem",
-                      lineHeight: typography?.lineHeight?.heading || 1.2,
-                      color: themeClasses.secondary,
-                      marginBottom: "0.75rem",
-                      marginTop: "1.25rem",
-                    }}
-                  >
-                    {children}
-                  </h3>
-                ),
-                p: ({ children }) => (
-                  <p
-                    style={{
-                      fontFamily: typography?.fontFamily?.body || themeClasses.fontFamily,
-                      fontSize: `${fontSize}px`,
-                      lineHeight: typography?.lineHeight?.body || 1.7,
-                      color: themeClasses.text,
-                      marginBottom: "1rem",
-                    }}
-                  >
-                    {children}
-                  </p>
-                ),
-                a: ({ href, children }) => (
-                  <a
-                    href={href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      color: readerStyles?.linkColor || themeClasses.primary,
-                      textDecoration: "underline",
-                      textDecorationColor: `${readerStyles?.linkColor || themeClasses.primary}40`,
-                    }}
-                  >
-                    {children}
-                  </a>
-                ),
-                code: ({ inline, children }) =>
-                  inline ? (
-                    <code
-                      style={{
-                        fontFamily: typography?.fontFamily?.code || "JetBrains Mono, monospace",
-                        fontSize: `${Math.max(12, fontSize - 2)}px`,
-                        backgroundColor: readerStyles?.codeBlockBackground || "#1e293b",
-                        color: themeClasses.secondary,
-                        padding: "0.2em 0.4em",
-                        borderRadius: "0.25rem",
-                      }}
-                    >
-                      {children}
-                    </code>
-                  ) : (
-                    <code
-                      style={{
-                        fontFamily: typography?.fontFamily?.code || "JetBrains Mono, monospace",
-                        fontSize: `${Math.max(12, fontSize - 2)}px`,
-                        lineHeight: typography?.lineHeight?.code || 1.5,
-                        backgroundColor: readerStyles?.codeBlockBackground || "#1e293b",
-                        color: themeClasses.text,
-                        display: "block",
-                        padding: "1rem",
-                        borderRadius: "0.5rem",
-                        border: `1px solid ${readerStyles?.codeBlockBorder || "#334155"}`,
-                        marginBottom: "1rem",
-                        overflowX: "auto",
-                      }}
-                    >
-                      {children}
-                    </code>
-                  ),
-                blockquote: ({ children }) => (
-                  <blockquote
-                    style={{
-                      borderLeft: `4px solid ${readerStyles?.blockquoteBorder || themeClasses.primary}`,
-                      backgroundColor:
-                        readerStyles?.blockquoteBackground || "rgba(94, 234, 212, 0.05)",
-                      padding: "1rem 1.5rem",
-                      marginBottom: "1rem",
-                      fontStyle: "italic",
-                      color: themeClasses.text,
-                    }}
-                  >
-                    {children}
-                  </blockquote>
-                ),
-                ul: ({ children }) => (
-                  <ul style={{ paddingLeft: "1.5rem", marginBottom: "1rem", color: themeClasses.text }}>
-                    {children}
-                  </ul>
-                ),
-                ol: ({ children }) => (
-                  <ol style={{ paddingLeft: "1.5rem", marginBottom: "1rem", color: themeClasses.text }}>
-                    {children}
-                  </ol>
-                ),
-                li: ({ children }) => (
-                  <li style={{ marginBottom: "0.5rem", fontSize: `${fontSize}px` }}>{children}</li>
-                ),
-                table: ({ children }) => (
-                  <table
-                    style={{
-                      width: "100%",
-                      borderCollapse: "collapse",
-                      marginBottom: "1.5rem",
-                      fontSize: `${Math.max(12, fontSize - 2)}px`,
-                      backgroundColor: "rgba(0, 0, 0, 0.3)",
-                      borderRadius: "0.5rem",
-                      overflow: "hidden",
-                    }}
-                  >
-                    {children}
+            splitMarkdownTables(markdownSource).map((seg, idx) =>
+              seg.type === "table" ? (
+                <div key={idx} style={{ overflowX: "auto", marginBottom: "1.5rem" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: `${Math.max(12, fontSize - 2)}px`, backgroundColor: "rgba(0,0,0,0.3)", borderRadius: "0.5rem", overflow: "hidden" }}>
+                    <thead style={{ backgroundColor: "rgba(255,255,255,0.1)" }}>
+                      <tr>
+                        {parseTableRow(seg.content.split("\n")[0]).map((h, i) => (
+                          <th key={i} style={{ padding: "0.75rem 1rem", textAlign: "left", fontWeight: "bold", color: themeClasses.primary, fontFamily: typography?.fontFamily?.heading || themeClasses.fontFamily }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {seg.content.split("\n").filter((l) => l.trim().startsWith("|")).slice(2).map((row, ri) => (
+                        <tr key={ri} style={{ borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
+                          {parseTableRow(row).map((cell, ci) => (
+                            <td key={ci} style={{ padding: "0.75rem 1rem", color: themeClasses.text, verticalAlign: "top" }}>{cell}</td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
                   </table>
-                ),
-                thead: ({ children }) => (
-                  <thead style={{ backgroundColor: "rgba(255, 255, 255, 0.1)" }}>{children}</thead>
-                ),
-                tr: ({ children }) => (
-                  <tr style={{ borderBottom: "1px solid rgba(255, 255, 255, 0.1)" }}>{children}</tr>
-                ),
-                th: ({ children }) => (
-                  <th
-                    style={{
-                      padding: "0.75rem 1rem",
-                      textAlign: "left",
-                      fontWeight: "bold",
-                      color: themeClasses.primary,
-                      fontFamily: typography?.fontFamily?.heading || themeClasses.fontFamily,
-                    }}
-                  >
-                    {children}
-                  </th>
-                ),
-                td: ({ children }) => (
-                  <td style={{ padding: "0.75rem 1rem", color: themeClasses.text, verticalAlign: "top" }}>
-                    {children}
-                  </td>
-                ),
-                hr: () => (
-                  <hr
-                    style={{
-                      border: "none",
-                      borderTop: `1px solid ${themeClasses.muted}40`,
-                      margin: "2rem 0",
-                    }}
-                  />
-                ),
-              }}
-            >
-              {markdownSource}
-            </ReactMarkdown>
+                </div>
+              ) : seg.content.trim() ? (
+                <ReactMarkdown
+                  key={idx}
+                  components={{
+                    h1: ({ children }) => (
+                      <h1 style={{ fontFamily: typography?.fontFamily?.heading || themeClasses.fontFamily, fontSize: typography?.fontSize?.h1 || "2.5rem", lineHeight: typography?.lineHeight?.heading || 1.2, color: themeClasses.primary, marginBottom: "1.5rem", marginTop: "2rem" }}>{children}</h1>
+                    ),
+                    h2: ({ children }) => (
+                      <h2 style={{ fontFamily: typography?.fontFamily?.heading || themeClasses.fontFamily, fontSize: typography?.fontSize?.h2 || "2rem", lineHeight: typography?.lineHeight?.heading || 1.2, color: themeClasses.primary, marginBottom: "1rem", marginTop: "1.5rem" }}>{children}</h2>
+                    ),
+                    h3: ({ children }) => (
+                      <h3 style={{ fontFamily: typography?.fontFamily?.heading || themeClasses.fontFamily, fontSize: typography?.fontSize?.h3 || "1.5rem", lineHeight: typography?.lineHeight?.heading || 1.2, color: themeClasses.secondary, marginBottom: "0.75rem", marginTop: "1.25rem" }}>{children}</h3>
+                    ),
+                    p: ({ children }) => (
+                      <p style={{ fontFamily: typography?.fontFamily?.body || themeClasses.fontFamily, fontSize: `${fontSize}px`, lineHeight: typography?.lineHeight?.body || 1.7, color: themeClasses.text, marginBottom: "1rem" }}>{children}</p>
+                    ),
+                    a: ({ href, children }) => (
+                      <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: readerStyles?.linkColor || themeClasses.primary, textDecoration: "underline", textDecorationColor: `${readerStyles?.linkColor || themeClasses.primary}40` }}>{children}</a>
+                    ),
+                    code: ({ inline, children }) =>
+                      inline ? (
+                        <code style={{ fontFamily: typography?.fontFamily?.code || "JetBrains Mono, monospace", fontSize: `${Math.max(12, fontSize - 2)}px`, backgroundColor: readerStyles?.codeBlockBackground || "#1e293b", color: themeClasses.secondary, padding: "0.2em 0.4em", borderRadius: "0.25rem" }}>{children}</code>
+                      ) : (
+                        <code style={{ fontFamily: typography?.fontFamily?.code || "JetBrains Mono, monospace", fontSize: `${Math.max(12, fontSize - 2)}px`, lineHeight: typography?.lineHeight?.code || 1.5, backgroundColor: readerStyles?.codeBlockBackground || "#1e293b", color: themeClasses.text, display: "block", padding: "1rem", borderRadius: "0.5rem", border: `1px solid ${readerStyles?.codeBlockBorder || "#334155"}`, marginBottom: "1rem", overflowX: "auto" }}>{children}</code>
+                      ),
+                    blockquote: ({ children }) => (
+                      <blockquote style={{ borderLeft: `4px solid ${readerStyles?.blockquoteBorder || themeClasses.primary}`, backgroundColor: readerStyles?.blockquoteBackground || "rgba(94,234,212,0.05)", padding: "1rem 1.5rem", marginBottom: "1rem", fontStyle: "italic", color: themeClasses.text }}>{children}</blockquote>
+                    ),
+                    ul: ({ children }) => <ul style={{ paddingLeft: "1.5rem", marginBottom: "1rem", color: themeClasses.text }}>{children}</ul>,
+                    ol: ({ children }) => <ol style={{ paddingLeft: "1.5rem", marginBottom: "1rem", color: themeClasses.text }}>{children}</ol>,
+                    li: ({ children }) => <li style={{ marginBottom: "0.5rem", fontSize: `${fontSize}px` }}>{children}</li>,
+                    hr: () => <hr style={{ border: "none", borderTop: `1px solid ${themeClasses.muted}40`, margin: "2rem 0" }} />,
+                  }}
+                >
+                  {seg.content}
+                </ReactMarkdown>
+              ) : null
+            )
           )}
         </div>
         </div>
