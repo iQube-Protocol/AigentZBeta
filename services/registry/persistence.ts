@@ -130,6 +130,7 @@ export async function listIntakes(tenantId: string, limit = 50): Promise<IntakeQ
     .from("registry_intakes")
     .select("*")
     .eq("tenant_id", tenantId)
+    .or("failure_reason.is.null,failure_reason.neq._user_removed")
     .order("created_at", { ascending: false })
     .limit(limit);
   if (error) throw new Error(error.message);
@@ -137,12 +138,14 @@ export async function listIntakes(tenantId: string, limit = 50): Promise<IntakeQ
 }
 
 export async function deleteIntake(intakeId: string): Promise<void> {
-  const supabase = requireSupabase();
-  const { error } = await supabase
-    .from("registry_intakes")
-    .delete()
-    .eq("intake_id", intakeId);
-  if (error) throw new Error(`deleteIntake failed: ${error.message}`);
+  // Soft-delete: UPDATE status/stage rather than DELETE to avoid RLS policy
+  // that may block DELETE while allowing UPDATE on registry_intakes.
+  // Items with failure_reason "_user_removed" are excluded from listIntakes.
+  await updateIntake(intakeId, {
+    status: "rejected",
+    currentStage: "ingestion.failed",
+    failureReason: "_user_removed",
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -365,7 +368,8 @@ export async function listAssets(filter: AssetListFilter): Promise<RegistryAsset
         .from("registry_intakes")
         .select("intake_id,tenant_id,source_type,source_payload,current_stage,created_at,updated_at")
         .eq("current_stage", "asset.published")
-        .is("asset_id", null);
+        .is("asset_id", null)
+        .or("failure_reason.is.null,failure_reason.neq._user_removed");
       if (filter.tenantId) iq = iq.eq("tenant_id", filter.tenantId);
 
       const { data: intakeRows } = await iq;

@@ -161,7 +161,7 @@ function IntakeForm({ onSuccess }: { onSuccess: (assetId: string) => void }) {
               onClick={() => setSourceType(t.id)}
               className={`flex flex-col items-start gap-1 p-3 rounded-xl border text-left transition-all ${
                 sourceType === t.id
-                  ? "border-indigo-500/50 bg-indigo-500/10 text-indigo-300"
+                  ? "border-amber-500/50 bg-amber-500/10 text-amber-300"
                   : "border-white/10 bg-white/5 text-slate-400 hover:border-white/20 hover:text-slate-300"
               }`}
             >
@@ -183,7 +183,7 @@ function IntakeForm({ onSuccess }: { onSuccess: (assetId: string) => void }) {
             value={sourceUri}
             onChange={(e) => setSourceUri(e.target.value)}
             placeholder={selectedType.placeholder}
-            className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+            className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-amber-500/40"
           />
         </div>
       )}
@@ -198,7 +198,7 @@ function IntakeForm({ onSuccess }: { onSuccess: (assetId: string) => void }) {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Display name"
-            className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+            className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-amber-500/40"
           />
         </div>
         <div>
@@ -209,7 +209,7 @@ function IntakeForm({ onSuccess }: { onSuccess: (assetId: string) => void }) {
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Brief description"
-            className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+            className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-amber-500/40"
           />
         </div>
       </div>
@@ -219,7 +219,7 @@ function IntakeForm({ onSuccess }: { onSuccess: (assetId: string) => void }) {
         <button
           type="submit"
           disabled={submitting}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-indigo-500/20 text-indigo-300 ring-1 ring-indigo-500/30 hover:bg-indigo-500/30 disabled:opacity-50 transition-colors"
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/40 hover:bg-amber-500/25 disabled:opacity-50 transition-colors"
         >
           {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
           {submitting ? "Processing…" : "Ingest Asset"}
@@ -240,7 +240,7 @@ function IntakeForm({ onSuccess }: { onSuccess: (assetId: string) => void }) {
           {(["intake", "fetching", "packaging"] as const).map((s, i) => (
             <span key={s} className="flex items-center gap-1">
               {i > 0 && <ChevronRight className="h-3 w-3" />}
-              <span className={step === s ? "text-indigo-300 font-medium" : step === "done" || (["fetching","packaging"].includes(step) && i < ["intake","fetching","packaging"].indexOf(step)) ? "text-emerald-400" : ""}>
+              <span className={step === s ? "text-amber-300 font-medium" : step === "done" || (["fetching","packaging"].includes(step) && i < ["intake","fetching","packaging"].indexOf(step)) ? "text-emerald-400" : ""}>
                 {s === "intake" ? "Intake" : s === "fetching" ? "Fetch" : "Package"}
               </span>
             </span>
@@ -308,10 +308,10 @@ function AssetRow({
 
 function PlatformRailBanner() {
   return (
-    <div className="flex items-center gap-2 rounded-xl border border-indigo-500/20 bg-indigo-500/5 px-4 py-2">
-      <Zap className="h-3.5 w-3.5 shrink-0 text-indigo-400" />
+    <div className="flex items-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-2">
+      <Zap className="h-3.5 w-3.5 shrink-0 text-amber-400" />
       <div>
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-indigo-400">Q¢ — Platform Rail</span>
+        <span className="text-[10px] font-semibold uppercase tracking-wide text-amber-400">Q¢ — Platform Rail</span>
         <p className="text-[11px] text-slate-400">Base currency for content, access, and platform rewards across all cartridges.</p>
       </div>
     </div>
@@ -338,8 +338,8 @@ const INTAKE_STATUS_ICON: Record<IntakeStatus, React.ReactNode> = {
   received:       <Clock className="h-3 w-3 text-slate-400" />,
   fetching:       <Loader2 className="h-3 w-3 animate-spin text-blue-300" />,
   classifying:    <Loader2 className="h-3 w-3 animate-spin text-sky-300" />,
-  packaging:      <Loader2 className="h-3 w-3 animate-spin text-indigo-300" />,
-  validating:     <Loader2 className="h-3 w-3 animate-spin text-violet-300" />,
+  packaging:      <Loader2 className="h-3 w-3 animate-spin text-amber-300" />,
+  validating:     <Loader2 className="h-3 w-3 animate-spin text-amber-300" />,
   scored:         <Clock className="h-3 w-3 text-amber-300" />,
   review_pending: <Clock className="h-3 w-3 text-yellow-300" />,
   published:      <CheckCircle2 className="h-3 w-3 text-emerald-300" />,
@@ -397,7 +397,7 @@ function IntakePipelineView() {
       ) : intakes.length === 0 ? (
         <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-8 text-center text-sm text-slate-400">
           No active intakes. Submit an asset on the{" "}
-          <span className="text-indigo-400">Ingest New Asset</span> tab to start the pipeline.
+          <span className="text-amber-400">Ingest New Asset</span> tab to start the pipeline.
         </div>
       ) : (
         <div className="space-y-1.5">
@@ -511,7 +511,7 @@ export function IngestionFactoryPanel() {
             }}
             className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
               activeSection === s
-                ? "text-white border-b-2 border-indigo-400"
+                ? "text-white border-b-2 border-amber-400"
                 : "text-slate-400 hover:text-slate-200"
             }`}
           >
@@ -543,7 +543,7 @@ export function IngestionFactoryPanel() {
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && loadAssets()}
               placeholder="Search assets…"
-              className="flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+              className="flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-amber-500/40"
             />
             <button
               type="button"
@@ -591,7 +591,7 @@ export function IngestionFactoryPanel() {
                   <select
                     value={classFilter}
                     onChange={(e) => setClassFilter(e.target.value as RegistryAssetClass | "")}
-                    className="w-full rounded-lg border border-white/10 bg-slate-900 px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+                    className="w-full rounded-lg border border-white/10 bg-slate-900 px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-amber-500/40"
                   >
                     <option value="">All classes</option>
                     {(Object.keys(ASSET_CLASS_LABELS) as RegistryAssetClass[]).map((c) => (
@@ -604,7 +604,7 @@ export function IngestionFactoryPanel() {
                   <select
                     value={bandFilter}
                     onChange={(e) => setBandFilter(e.target.value as TrustBand | "")}
-                    className="w-full rounded-lg border border-white/10 bg-slate-900 px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+                    className="w-full rounded-lg border border-white/10 bg-slate-900 px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-amber-500/40"
                   >
                     <option value="">All bands</option>
                     {TRUST_BAND_ORDER.map((b) => (
@@ -617,7 +617,7 @@ export function IngestionFactoryPanel() {
                   <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value as AssetStatus | "")}
-                    className="w-full rounded-lg border border-white/10 bg-slate-900 px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+                    className="w-full rounded-lg border border-white/10 bg-slate-900 px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-amber-500/40"
                   >
                     <option value="">All statuses</option>
                     {ASSET_STATUSES.map((s) => (
