@@ -79,7 +79,7 @@ Genuine gaps requiring new but small builds:
 | $KNYT balance in SmartWalletDrawer | ~40 lines | Gate 6 |
 | Economic split framing component | ~40 lines | Gate 7 |
 | Golden-path demo doc | 1 doc | Gate 8 |
-| Launch package copy | 3–4 docs | Gate 8 |
+| Launch package copy | 4 docs *(done this session)* | Gate 8 |
 
 ---
 
@@ -305,6 +305,8 @@ Deliverables:
 - [x] `docs/alpha/launch/developer-value-prop.md` *(ChatGPT, commit 16215247)*
 - [x] `docs/alpha/launch/ecosystem-stack-chart.md` *(ChatGPT, commit b20fa193)*
 
+Acceptance test: a developer, contributor, or ecosystem partner can read the launch package and understand what AgentiQ is, how the closed loop works, what alpha includes, and how to enter the current intake window.
+
 ---
 
 ### WS10 — Internal Aigent operating model
@@ -357,7 +359,7 @@ Week 4 — Phase D: Activate sovereignty and world (WS5, WS6)
 Week 5 — Phase E: Demo and launch (WS7, WS8, WS9)
   E1. EconomicSplitBanner component
   E2. Golden-path demo doc
-  E3. Launch package copy (with ChatGPT)
+  E3. Launch package copy (with ChatGPT)       [done]
 ```
 
 ---
