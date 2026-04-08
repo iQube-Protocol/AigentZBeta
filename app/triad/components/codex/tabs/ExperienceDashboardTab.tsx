@@ -622,6 +622,7 @@ export function ExperienceDashboardTab({ personaId, tenantId, theme = "dark" }: 
   const [nbeData, setNbeData] = useState<NBEData | null>(null);
   const [loading, setLoading] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [artifactState, setArtifactState] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
 
@@ -685,6 +686,7 @@ export function ExperienceDashboardTab({ personaId, tenantId, theme = "dark" }: 
       setContributions([]);
       setRewards([]);
       setIndCrmTab("overview");
+      setArtifactState(null);
       return;
     }
     setNakamotoLoading(true);
@@ -694,12 +696,14 @@ export function ExperienceDashboardTab({ personaId, tenantId, theme = "dark" }: 
       fetch(`/api/crm/personas?tenantId=${tid}&personaId=${selectedIndividual.persona_id}&source=live`).then((r) => r.json()),
       fetch(`/api/crm/contributions?tenantId=${tid}&personaId=${selectedIndividual.persona_id}&limit=10`).then((r) => r.json()),
       fetch(`/api/crm/rewards?tenantId=${tid}&personaId=${selectedIndividual.persona_id}&limit=10`).then((r) => r.json()),
+      fetch(`/api/registry/studio-artifacts?personaId=${selectedIndividual.persona_id}`).then((r) => r.json()).catch(() => null),
     ])
-      .then(([nakRes, personaRes, contribRes, rewardsRes]) => {
+      .then(([nakRes, personaRes, contribRes, rewardsRes, artifactRes]) => {
         setNakamotoData(nakRes?.data ?? null);
         setCrmPersonaDetail(personaRes?.data ?? personaRes ?? null);
         setContributions(contribRes?.data ?? contribRes?.contributions ?? []);
         setRewards(rewardsRes?.data ?? rewardsRes?.rewards ?? []);
+        setArtifactState(artifactRes?.data?.status ?? null);
       })
       .catch(() => {})
       .finally(() => setNakamotoLoading(false));
@@ -1206,6 +1210,21 @@ export function ExperienceDashboardTab({ personaId, tenantId, theme = "dark" }: 
                             />
                           );
                         })()}
+                        {/* Studio artifact state badge */}
+                        {artifactState && (
+                          <div className="flex items-center gap-2 mt-2">
+                            <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Studio artifact</span>
+                            <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${
+                              artifactState === "canonical"
+                                ? "border-emerald-500/40 text-emerald-300"
+                                : artifactState === "working"
+                                ? "border-amber-500/40 text-amber-300"
+                                : "border-slate-600 text-slate-400"
+                            }`}>
+                              {artifactState}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
