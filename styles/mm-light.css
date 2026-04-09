@@ -1,0 +1,280 @@
+/**
+ * metaMe Runtime — Parchment Intelligence Light Mode
+ *
+ * Activated by adding the `.mm-light` class to the runtime root container.
+ * All overrides are scoped to `.mm-light` descendants so dark mode is untouched.
+ *
+ * Design basis: Star Trek: Discovery title-sequence visual grammar, translated
+ * into premium product UI. Warm ivory parchment canvas, layered vellum surfaces,
+ * medium-small ergonomic radii, technical linework, restrained annotation-ink
+ * accents, and motion that reveals structure (see animation backlog).
+ *
+ * DO NOT modify animations here — see docs/design/light-mode-animation-backlog.md
+ */
+
+/* ═══════════════════════════════════════════════════════════════════
+   PARCHMENT INTELLIGENCE TOKEN LAYER
+   ═══════════════════════════════════════════════════════════════════ */
+.mm-light {
+  /* Canvas */
+  --mm-canvas-base:    #F1EBDD;
+  --mm-canvas-variant: #ECE4D6;
+  --mm-canvas-deep:    #E4DAC9;
+
+  /* Surfaces (folio / vellum tiers) */
+  --mm-surface-1: #F7F2E8;
+  --mm-surface-2: #FBF7EF;
+  --mm-surface-3: rgba(249, 244, 235, 0.82);
+  --mm-surface-4: rgba(255, 251, 243, 0.88);
+
+  /* Ink (typography) */
+  --mm-ink-primary:   #2E2923;
+  --mm-ink-secondary: #595247;
+  --mm-ink-muted:     #7B7266;
+  --mm-ink-faint:     #9A9085;
+  --mm-ink-inverse:   #FFFDF8;
+
+  /* Linework */
+  --mm-line-subtle: rgba(68, 57, 41, 0.08);
+  --mm-line-soft:   rgba(68, 57, 41, 0.12);
+  --mm-line-medium: rgba(68, 57, 41, 0.18);
+  --mm-line-strong: rgba(68, 57, 41, 0.26);
+
+  /* Annotation-ink accents (use sparingly — marking, not painting) */
+  --mm-accent-runtime: #4F8C98;   /* muted cyan-teal — exploration / system */
+  --mm-accent-codex:   #A27A3D;   /* amber-brass — archival / provenance */
+  --mm-accent-make:    #935872;   /* restrained plum — generative / creation */
+  --mm-accent-earn:    #64856D;   /* muted green — validation / trust */
+  --mm-accent-share:   #5C718B;   /* ink-blue — sharing / social */
+  --mm-accent-alert:   #A25A4E;   /* iron red — alert / intervention */
+
+  /* Accent washes (low-opacity fills only) */
+  --mm-accent-runtime-wash: rgba(79,  140, 152, 0.10);
+  --mm-accent-codex-wash:   rgba(162, 122,  61, 0.10);
+  --mm-accent-make-wash:    rgba(147,  88, 114, 0.10);
+  --mm-accent-earn-wash:    rgba(100, 133, 109, 0.10);
+  --mm-accent-share-wash:   rgba( 92, 113, 139, 0.10);
+
+  /* Radius — medium-small, premium, ergonomic */
+  --mm-radius-xs: 10px;   /* chips, segmented controls, compact buttons */
+  --mm-radius-sm: 14px;   /* standard cards, inputs, capsules */
+  --mm-radius-md: 18px;   /* prompt bars, drawers, important panels */
+  --mm-radius-lg: 22px;   /* hero containers only */
+
+  /* Borders */
+  --mm-border-hairline: 1px solid rgba(68, 57, 41, 0.10);
+  --mm-border-default:  1px solid rgba(68, 57, 41, 0.14);
+  --mm-border-emphasis: 1px solid rgba(68, 57, 41, 0.20);
+  --mm-border-active:   1px solid rgba(79, 140, 152, 0.28);
+
+  /* Warm shadows only — never cool gray */
+  --mm-shadow-low:   0  4px 14px rgba(57, 42, 24, 0.05);
+  --mm-shadow-mid:   0 10px 28px rgba(57, 42, 24, 0.07);
+  --mm-shadow-panel: 0 14px 36px rgba(57, 42, 24, 0.09);
+
+  /* ── Base canvas — parchment field ──────────────────────────── */
+  background-color: var(--mm-canvas-base) !important;
+  /*
+    Texture stack:
+    1. Ultra-fine SVG noise grain at ~3% opacity  → material feel
+    2. Soft radial tonal cloud                    → slight depth variation
+    Both should be perceptible subconsciously, not visually dominant.
+  */
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E"),
+    radial-gradient(ellipse at 30% 18%, rgba(200, 188, 165, 0.06) 0%, transparent 55%),
+    radial-gradient(ellipse at 75% 80%, rgba(185, 175, 155, 0.04) 0%, transparent 50%);
+  color: var(--mm-ink-primary) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   DARK BACKGROUND OVERRIDES
+   Maps common dark Tailwind utilities → parchment equivalents
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Canvas tier — slate-950 family */
+.mm-light .bg-slate-950,
+.mm-light .bg-slate-950\/80,
+.mm-light .bg-slate-950\/85,
+.mm-light .bg-slate-950\/90,
+.mm-light .bg-slate-950\/95 {
+  background-color: var(--mm-canvas-base) !important;
+}
+
+/* Surface tier 1 — slate-900 family */
+.mm-light .bg-slate-900,
+.mm-light .bg-slate-900\/50,
+.mm-light .bg-slate-900\/60,
+.mm-light .bg-slate-900\/70,
+.mm-light .bg-slate-900\/80 {
+  background-color: var(--mm-surface-1) !important;
+}
+
+/* Surface tier 2 — slate-800 family */
+.mm-light .bg-slate-800,
+.mm-light .bg-slate-800\/50,
+.mm-light .bg-slate-800\/60,
+.mm-light .bg-slate-800\/70 {
+  background-color: var(--mm-surface-2) !important;
+}
+
+/* Transparent-white surfaces (glass/vellum-overlay pattern) */
+.mm-light .bg-white\/\[0\.03\],
+.mm-light .bg-white\/5,
+.mm-light .bg-white\/\[0\.05\] {
+  background-color: var(--mm-surface-3) !important;
+}
+.mm-light .bg-white\/10,
+.mm-light .bg-white\/\[0\.07\] {
+  background-color: var(--mm-surface-4) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   TEXT OVERRIDES
+   ═══════════════════════════════════════════════════════════════════ */
+.mm-light .text-white {
+  color: var(--mm-ink-primary) !important;
+}
+.mm-light .text-slate-100,
+.mm-light .text-slate-200 {
+  color: var(--mm-ink-secondary) !important;
+}
+.mm-light .text-slate-300,
+.mm-light .text-slate-400 {
+  color: var(--mm-ink-muted) !important;
+}
+.mm-light .text-slate-500 {
+  color: var(--mm-ink-faint) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   BORDER OVERRIDES
+   ═══════════════════════════════════════════════════════════════════ */
+.mm-light .border-white\/5,
+.mm-light .border-white\/8,
+.mm-light .border-white\/10,
+.mm-light .border-white\/\[0\.08\],
+.mm-light .border-white\/\[0\.10\] {
+  border-color: rgba(68, 57, 41, 0.10) !important;
+}
+.mm-light .border-white\/15,
+.mm-light .border-white\/20,
+.mm-light .border-slate-800,
+.mm-light .border-slate-700 {
+  border-color: rgba(68, 57, 41, 0.14) !important;
+}
+.mm-light .border-slate-600,
+.mm-light .border-slate-500 {
+  border-color: rgba(68, 57, 41, 0.20) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   MODE ACCENT OVERRIDES
+   Cyan → runtime, Emerald → earn, Violet → make, Fuchsia → make alt
+   Accents become annotation inks, not bright product paint.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Border accents */
+.mm-light .border-cyan-400,
+.mm-light .border-cyan-400\/25,
+.mm-light .border-cyan-400\/30,
+.mm-light .border-cyan-400\/20 {
+  border-color: rgba(79, 140, 152, 0.28) !important;
+}
+.mm-light .border-emerald-400,
+.mm-light .border-emerald-400\/25,
+.mm-light .border-emerald-400\/30 {
+  border-color: rgba(100, 133, 109, 0.28) !important;
+}
+.mm-light .border-violet-400,
+.mm-light .border-violet-400\/25,
+.mm-light .border-violet-400\/30 {
+  border-color: rgba(147, 88, 114, 0.28) !important;
+}
+.mm-light .border-fuchsia-400,
+.mm-light .border-fuchsia-400\/25 {
+  border-color: rgba(147, 88, 114, 0.28) !important;
+}
+.mm-light .border-purple-400,
+.mm-light .border-purple-400\/25 {
+  border-color: rgba(147, 88, 114, 0.22) !important;
+}
+
+/* Background accent washes */
+.mm-light .bg-cyan-500\/5,
+.mm-light .bg-cyan-500\/10,
+.mm-light .bg-cyan-400\/10 {
+  background-color: var(--mm-accent-runtime-wash) !important;
+}
+.mm-light .bg-emerald-500\/5,
+.mm-light .bg-emerald-500\/10 {
+  background-color: var(--mm-accent-earn-wash) !important;
+}
+.mm-light .bg-violet-500\/5,
+.mm-light .bg-violet-500\/10,
+.mm-light .bg-fuchsia-500\/5,
+.mm-light .bg-fuchsia-500\/10 {
+  background-color: var(--mm-accent-make-wash) !important;
+}
+
+/* Text accents */
+.mm-light .text-cyan-400,
+.mm-light .text-cyan-300 {
+  color: var(--mm-accent-runtime) !important;
+}
+.mm-light .text-emerald-400,
+.mm-light .text-emerald-300 {
+  color: var(--mm-accent-earn) !important;
+}
+.mm-light .text-violet-400,
+.mm-light .text-fuchsia-400 {
+  color: var(--mm-accent-make) !important;
+}
+.mm-light .text-amber-300,
+.mm-light .text-amber-400 {
+  color: var(--mm-accent-codex) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   GLASSMORPHISM DISABLE
+   No backdrop blur in parchment — glass is a dark-mode material only.
+   ═══════════════════════════════════════════════════════════════════ */
+.mm-light .backdrop-blur,
+.mm-light .backdrop-blur-sm,
+.mm-light .backdrop-blur-md,
+.mm-light .backdrop-blur-lg,
+.mm-light .backdrop-blur-xl,
+.mm-light [class*="backdrop-blur"] {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   SCROLLBAR — warm parchment tones
+   ═══════════════════════════════════════════════════════════════════ */
+.mm-light ::-webkit-scrollbar-track {
+  background: rgba(68, 57, 41, 0.05);
+}
+.mm-light ::-webkit-scrollbar-thumb {
+  background: rgba(68, 57, 41, 0.15);
+}
+.mm-light ::-webkit-scrollbar-thumb:hover {
+  background: rgba(68, 57, 41, 0.22);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   ROUNDED CORNER NORMALISATION
+   The runtime uses rounded-[5px] and rounded-2xl / rounded-xl.
+   In light mode we nudge these toward the premium ergonomic system
+   without breaking layout (only visual radius, not box model).
+   ═══════════════════════════════════════════════════════════════════ */
+.mm-light .rounded-2xl {
+  border-radius: var(--mm-radius-md) !important;  /* 18px */
+}
+.mm-light .rounded-xl {
+  border-radius: var(--mm-radius-sm) !important;  /* 14px */
+}
+.mm-light .rounded-lg {
+  border-radius: var(--mm-radius-xs) !important;  /* 10px */
+}
+/* The outer container uses rounded-[5px] — preserve as-is, shell owns the frame */

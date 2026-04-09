@@ -1,37 +1,66 @@
 {
   "meta": {
-    "schemaVersion": "1.0",
+    "schemaVersion": "1.1",
     "authority_level": "guidance"
   },
   "themes": {
     "light": {
-      "name": "metaMe Beige",
+      "name": "metaMe Parchment Intelligence",
+      "description": "Warm ivory parchment canvas, layered vellum surfaces, medium-small ergonomic radii, precise hairline contouring, restrained annotation-ink accents. Inspired by Star Trek: Discovery title-sequence visual grammar (Prologue studio). See style-brief.md for full system.",
       "color": {
-        "bg": "#F4EFE7",
-        "surface": "#FBF7F1",
-        "surface2": "#FFFFFF",
-        "text": "#1D1D1F",
-        "muted": "#6B7280",
-        "border": "#E5DDD2",
-        "accent": "#FF5A5F",
-        "accentText": "#FFFFFF"
+        "bg":          "#F1EBDD",
+        "bgVariant":   "#ECE4D6",
+        "bgDeep":      "#E4DAC9",
+        "surface":     "#F7F2E8",
+        "surface2":    "#FBF7EF",
+        "surfaceVellum": "rgba(249,244,235,0.82)",
+        "surfaceOverlay": "rgba(255,251,243,0.88)",
+        "text":        "#2E2923",
+        "textSecondary": "#595247",
+        "muted":       "#7B7266",
+        "faint":       "#9A9085",
+        "inverse":     "#FFFDF8",
+        "border":      "rgba(68,57,41,0.14)",
+        "borderHairline": "rgba(68,57,41,0.10)",
+        "borderEmphasis": "rgba(68,57,41,0.20)",
+        "accent":      "#4F8C98",
+        "accentText":  "#FFFDF8"
+      },
+      "accents": {
+        "runtime": "#4F8C98",
+        "codex":   "#A27A3D",
+        "make":    "#935872",
+        "earn":    "#64856D",
+        "share":   "#5C718B",
+        "alert":   "#A25A4E"
       },
       "material": {
         "glass": {
           "enabled": false
+        },
+        "texture": {
+          "grain":  0.03,
+          "cloud":  0.04,
+          "diagram": 0.035,
+          "note": "Grain and cloud are opacity multipliers for the parchment texture stack. Diagram underlays appear only in hero/empty/transition states."
         }
+      },
+      "shadow": {
+        "low":   "0 4px 14px rgba(57,42,24,0.05)",
+        "mid":   "0 10px 28px rgba(57,42,24,0.07)",
+        "panel": "0 14px 36px rgba(57,42,24,0.09)"
       }
     },
     "dark": {
       "name": "KNYT Glass",
       "color": {
-        "bg": "#0B0D10",
+        "bg":      "#0B0D10",
         "surface": "#12151C",
         "surface2": "#171B24",
-        "text": "#F5F7FA",
-        "muted": "#9AA3AF",
-        "border": "rgba(255,255,255,0.12)",
-        "accent": "#FF5A5F",
+        "text":    "#F5F7FA",
+        "muted":   "#9AA3AF",
+        "border":  "rgba(255,255,255,0.12)",
+        "accent":  "#FF5A5F",
         "accentText": "#FFFFFF"
       },
       "material": {
@@ -41,41 +70,55 @@
           "alpha": 0.55,
           "borderAlpha": 0.16
         }
+      },
+      "shadow": {
+        "soft": "0 10px 40px rgba(0,0,0,0.25)",
+        "card": "0 14px 50px rgba(0,0,0,0.28)"
       }
     }
   },
   "typography": {
     "fontFamily": {
-      "sans": "system-ui"
+      "sans": "system-ui",
+      "note": "Light mode uses a humanist/neo-grotesk primary face. A secondary mono/technical face should be used for labels, timestamps, trust metrics, and registry-like notation."
     },
     "scale": {
-      "xs": 12,
-      "sm": 14,
-      "md": 16,
-      "lg": 18,
-      "xl": 22,
-      "2xl": 28
+      "xs":  12,
+      "sm":  13,
+      "md":  15,
+      "lg":  17,
+      "xl":  20,
+      "2xl": 24
     },
     "weight": {
-      "regular": 400,
-      "medium": 500,
+      "regular":  400,
+      "medium":   500,
       "semibold": 600,
-      "bold": 700
+      "bold":     700
+    },
+    "leading": {
+      "tight":  1.2,
+      "normal": 1.45,
+      "loose":  1.6
     }
   },
   "radius": {
-    "sm": 10,
-    "md": 14,
-    "lg": 18,
-    "xl": 24
+    "xs": 10,
+    "sm": 14,
+    "md": 18,
+    "lg": 22,
+    "note": "Default bias: 14px (sm) for most surfaces. 10px for chips/controls. 18px for prompt bars and drawers. 22px for hero containers only. Never square, never >22px in standard use."
   },
   "spacing": {
-    "xs": 6,
-    "sm": 10,
-    "md": 14,
-    "lg": 18,
-    "xl": 24,
-    "2xl": 32
+    "1": 4,
+    "2": 8,
+    "3": 12,
+    "4": 16,
+    "5": 20,
+    "6": 24,
+    "7": 32,
+    "8": 40,
+    "9": 48
   },
   "shadow": {
     "soft": "0 10px 40px rgba(0,0,0,0.25)",

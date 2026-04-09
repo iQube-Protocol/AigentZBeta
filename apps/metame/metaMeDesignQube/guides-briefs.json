@@ -1,101 +1,119 @@
 {
-  "id": "guides-briefs-metame-v1",
-  "name": "metaMe Guides & Briefs",
+  "id": "guides-briefs-metame-v2",
+  "name": "metaMe Guides & Briefs — Parchment Intelligence",
   "source": "metame-system",
   "styleGuide": {
     "css": [
-      "metaMe primary: #14b8a6",
-      "metaMe secondary: #0d9488",
-      "metaMe accent: #06b6d4",
-      "Glass surface: rgba(15, 23, 42, 0.8)",
-      "Typography: Inter primary, Geist secondary"
+      "Canvas: --mm-canvas-base: #F1EBDD (warm ivory parchment, never flat white)",
+      "Surface tier 1: --mm-surface-1: #F7F2E8 (folio/vellum surfaces)",
+      "Surface tier 2: --mm-surface-2: #FBF7EF",
+      "Ink primary: --mm-ink-primary: #2E2923 (warm charcoal, never pure black)",
+      "Ink muted: --mm-ink-muted: #7B7266",
+      "Border default: rgba(68, 57, 41, 0.14) — hairline only",
+      "Accent runtime: --mm-accent-runtime: #4F8C98 (muted cyan-teal)",
+      "Accent codex: --mm-accent-codex: #A27A3D (amber-brass)",
+      "Accent make: --mm-accent-make: #935872 (restrained plum)",
+      "Accent earn: --mm-accent-earn: #64856D (muted green)",
+      "Radius default: 14px (--mm-radius-sm) — medium-small, ergonomic",
+      "Radius prompt/drawer: 18px (--mm-radius-md)",
+      "Shadow: warm only — rgba(57,42,24,0.05–0.09), never cool gray",
+      "Dark mode: #0B0D10 canvas, glassmorphism enabled (blur 18px), coral accent #FF5A5F"
     ],
     "brandGuidelines": [
-      "Professional experience creation platform",
-      "Glass morphism with teal/cyan accents",
-      "Clean, modern aesthetic",
-      "Excellent readability for long sessions",
-      "Subtle animations for user feedback"
+      "Light mode: parchment intelligence — warm archival canvas, technical linework, vellum surfaces, quietly cinematic",
+      "Dark mode: KNYT Glass — near-black cinematic, glassmorphism, coral accent, single strong CTA principle",
+      "Inspired by Star Trek: Discovery title sequence (Prologue studio): sepia-soaked parchment, Leonardo da Vinci drafting notebook, blueprint logic",
+      "Surfaces feel like folios and vellum overlays placed on a drafting table — not boxed dashboard cards",
+      "Accents behave like annotation inks (marking, not painting); active states are marked not flood-filled",
+      "Corner radii: medium-small (10–18px), premium, ergonomic — never square, never overly soft",
+      "Linework is a first-class design tool: hairlines, contour rings, technical dividers, annotation marks",
+      "Glassmorphism is a dark-mode-only material — disabled in light mode",
+      "Motion deferred: see docs/design/light-mode-animation-backlog.md"
     ],
     "lookBooks": [
-      "Experience cards with rich previews",
-      "Composer layouts with intuitive controls",
-      "Runtime previews with device switching",
-      "Design panels with comprehensive controls",
-      "Component libraries with visual organization"
+      "Runtime canvas: textured ivory parchment field with subtle grain and tonal variation",
+      "Standard cards: warm vellum folio — tonal lift, hairline border, metadata as annotations",
+      "Active guide cards: contour emphasis + edge trace + notation mark (not loud fills)",
+      "Drawers: vellum overlay — translucent warm surface, stronger edge, layered reveal",
+      "Modals: elevated folio — generous whitespace, quiet definition, warm scrim",
+      "Trust indicators: calibrated ring geometry, notched marks, technical secondary type",
+      "Smart menu active: composed drafting/input surface with one restrained accent cue",
+      "Analysis/matrix views: disciplined diagrammatic surfaces — more visible grid logic, still elegant",
+      "Empty states: faint diagram fragments + coordinate marks + editorial prompting",
+      "Loading states: structure-first reveal — contour → surface → content (see animation backlog)"
     ]
   },
   "experienceGuide": {
     "who": {
-      "audience": "Experience creators and metaMe platform users",
-      "demographics": ["Experience designers", "Content creators", "Developers", "Creative professionals"],
-      "needs": ["Intuitive creation tools", "Real-time preview", "Component libraries", "Design guidance"]
+      "audience": "Experience creators, cartridge operators, and metaMe platform users",
+      "demographics": ["Experience designers", "Content creators", "Developers", "KNYT operators", "Creative professionals"],
+      "needs": ["Intuitive creation tools", "Real-time preview", "Component libraries", "Design guidance", "Trust-legible system state"]
     },
     "what": {
       "delivery": [
-        "Web-based experience composer",
-        "Real-time runtime preview",
-        "Component-based architecture",
-        "Design system integration"
+        "Web-based experience composer (Studio)",
+        "Real-time runtime preview in parchment intelligence environment",
+        "Component-based architecture with material-consistent surfaces",
+        "DesignQube system integration"
       ],
       "mechanics": [
-        "Drag-and-drop composer interface",
-        "Live preview synchronization",
-        "Component library system",
-        "Design panel controls"
+        "Composer interface with Design & Style Guides in Planning & Parity modal",
+        "Live runtime preview with light/dark theme switching via ?theme= param",
+        "Component surfaces defined by folio/vellum material hierarchy",
+        "Trust indicators with calibrated ring geometry"
       ],
       "touchpoints": [
         "Experience creation workflow",
-        "Design system integration",
-        "Component selection and configuration",
-        "Runtime testing and preview",
+        "Studio Design & Style Guides viewer",
+        "Runtime preview (embed via ?theme=light)",
+        "Trust indicator system",
         "Experience deployment and sharing"
       ]
     },
     "wow": {
       "differentiators": [
-        "Real-time preview synchronization",
-        "Comprehensive design system",
-        "Intuitive composer interface",
-        "Component-based architecture"
+        "Parchment intelligence light mode — archival, warm, quietly cinematic",
+        "Star Trek: Discovery title-sequence visual grammar translated into product UI",
+        "Material consistency across shell and runtime iframe",
+        "Linework as a primary intelligence-communication device"
       ],
       "innovations": [
-        "Live preview across devices",
-        "Drag-and-drop experience creation",
-        "Integrated design guidance",
-        "Component library with visual organization"
+        "CSS-layer light mode activation via .mm-light class — zero functional code change",
+        "Three-layer material system: parchment canvas → vellum surfaces → ink notation",
+        "Annotation-ink accent philosophy — marking not painting",
+        "Deferred animation system with backlog for structure-first reveal"
       ],
       "emotionalImpact": [
-        "Empowerment through creation",
-        "Confidence in design decisions",
-        "Satisfaction from real-time feedback",
-        "Creative flow state support"
+        "Archival intelligence — the system knows what it is doing",
+        "Composed calm — intelligence being drafted and revealed",
+        "Premium restraint — refined, not loud",
+        "Quiet cinematic — awe through subtlety, not spectacle"
       ]
     },
     "metrics": {
       "success": [
-        "Experience creation completion rates",
-        "Design system adoption metrics",
-        "Component library usage statistics",
-        "User satisfaction scores"
+        "Shell-to-runtime visual continuity (no visible material drift across iframe boundary)",
+        "Light mode adoption in runtime embeds",
+        "Design system parity pass rate",
+        "Creator satisfaction with Studio visual environment"
       ],
       "kpis": [
-        "Daily active creators",
-        "Experiences created per session",
-        "Component reuse rates",
-        "Preview interaction frequency"
+        "?theme=light usage in runtime embeds",
+        "Planning & Parity Design tab engagement",
+        "DesignQube viewer session depth",
+        "UI parity review score (per ui-parity-reviewer agent)"
       ],
       "measurement": [
-        "Creation workflow analytics",
-        "Design interaction tracking",
-        "Component usage monitoring",
-        "User feedback collection"
+        "Runtime theme param analytics",
+        "Studio tab interaction tracking",
+        "Parity review checklist completion",
+        "Visual regression testing against parchment acceptance criteria"
       ]
     }
   },
   "smartTriadFormatting": {
-    "cssSystem": "SmartTriad CSS System v1.0 - Professional creation interface with glass morphism",
-    "systemPrompt": "metaMe creation guide with confident, precise tone and intuitive design guidance"
+    "cssSystem": "metaMe Parchment Intelligence v2.0 — warm ivory canvas (#F1EBDD), vellum surfaces (#F7F2E8), warm charcoal ink (#2E2923), annotation-ink accents (runtime #4F8C98, codex #A27A3D, make #935872), medium-small ergonomic radii (14px default), hairline borders rgba(68,57,41,0.14), warm shadows rgba(57,42,24,0.05-0.09), glassmorphism disabled in light mode",
+    "systemPrompt": "metaMe creation guide: archival intelligence, precision draftsmanship, warm restraint, quietly cinematic. Speak with the calm confidence of a system that maps, annotates, and discovers — not a dashboard that displays."
   },
-  "version": "1.0.0"
+  "version": "2.0.0"
 }
