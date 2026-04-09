@@ -10999,7 +10999,7 @@ export const ComposerStudio = () => {
                           </div>
                         </div>
                         <a
-                          href="/codex?id=agentiq-codex&tab=factory-intake"
+                          href="/registry?tab=factory"
                           target="_blank"
                           rel="noopener noreferrer"
                           className="shrink-0 rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-[11px] text-amber-300 hover:bg-amber-500/20 transition-colors"

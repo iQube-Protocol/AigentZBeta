@@ -557,13 +557,13 @@ export function IngestionFactoryPanel() {
               onClick={() => setShowFilters((v) => !v)}
               className={`relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm border transition-colors ${
                 showFilters || activeFilterCount > 0
-                  ? "border-indigo-500/40 bg-indigo-500/10 text-indigo-300"
+                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
                   : "border-white/10 bg-white/5 text-slate-400 hover:text-slate-200"
               }`}
             >
               <SlidersHorizontal className="h-3.5 w-3.5" />
               {activeFilterCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-indigo-500 text-[9px] font-bold text-white">
+                <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-[9px] font-bold text-white">
                   {activeFilterCount}
                 </span>
               )}
@@ -633,7 +633,7 @@ export function IngestionFactoryPanel() {
           {activeFilterCount > 0 && (
             <div className="flex flex-wrap gap-1.5">
               {classFilter && (
-                <span className="inline-flex items-center gap-1 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-2 py-0.5 text-[10px] text-indigo-300">
+                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-300">
                   {ASSET_CLASS_LABELS[classFilter]}
                   <button type="button" onClick={() => setClassFilter("")}><X className="h-2.5 w-2.5" /></button>
                 </span>
@@ -668,9 +668,9 @@ export function IngestionFactoryPanel() {
           ) : assets.length === 0 ? (
             <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-8 text-center text-sm text-slate-400">
               {activeFilterCount > 0 ? (
-                <>No assets match the current filters. <button type="button" onClick={clearFilters} className="text-indigo-400 hover:text-indigo-300 underline">Clear filters</button></>
+                <>No assets match the current filters. <button type="button" onClick={clearFilters} className="text-emerald-400 hover:text-emerald-300 underline">Clear filters</button></>
               ) : (
-                <>No assets yet. <button type="button" onClick={() => setActiveSection("ingest")} className="text-indigo-400 hover:text-indigo-300 underline">Ingest your first asset</button></>
+                <>No assets yet. <button type="button" onClick={() => setActiveSection("ingest")} className="text-amber-400 hover:text-amber-300 underline">Ingest your first asset</button></>
               )}
             </div>
           ) : (

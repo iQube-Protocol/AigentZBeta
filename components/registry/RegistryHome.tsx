@@ -70,6 +70,12 @@ export function RegistryHome() {
     prevPage: null,
   });
 
+  // Honour ?tab=factory deep-link
+  useEffect(() => {
+    if (!searchParams) return;
+    if (searchParams.get('tab') === 'factory') setActiveRegistryTab('factory');
+  }, [searchParams]);
+
   // Clean legacy query param like ?template=template-003
   useEffect(() => {
     if (!searchParams) return;
@@ -259,7 +265,7 @@ export function RegistryHome() {
               <button
                 type="button"
                 onClick={() => setActiveRegistryTab("factory")}
-                className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${activeRegistryTab === "factory" ? "bg-indigo-500/20 text-indigo-300 ring-1 ring-indigo-500/30" : "text-slate-400 hover:text-slate-200"}`}
+                className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${activeRegistryTab === "factory" ? "bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/30" : "text-slate-400 hover:text-slate-200"}`}
               >
                 Ingestion Factory
               </button>
