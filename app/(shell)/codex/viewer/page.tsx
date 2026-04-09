@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import CodexPanelDynamic from "../../../triad/components/CodexPanelDynamic";
 import { useCodexConfig, useCodexList } from "@/app/hooks/useCodexConfig";
 import type { CodexListItem } from "@/types/codex";
@@ -46,10 +47,11 @@ function labelize(value: string) {
 }
 
 export default function CodexViewerPage() {
-  const [codexId, setCodexId] = useState("knyt-codex");
+  const searchParams = useSearchParams();
+  const [codexId, setCodexId] = useState(searchParams.get("id") ?? "knyt-codex");
   const [theme, setTheme] = useState<"light" | "dark">("dark");
   const [density, setDensity] = useState<"narrow" | "wide">("wide");
-  const [activeTab, setActiveTab] = useState("scrolls");
+  const [activeTab, setActiveTab] = useState(searchParams.get("tab") ?? "scrolls");
   const [hiddenTabs, setHiddenTabs] = useState<string[]>([]);
   const [configCollapsed, setConfigCollapsed] = useState(false);
   const [activeSection, setActiveSection] = useState<ConfigSection>("codex");
