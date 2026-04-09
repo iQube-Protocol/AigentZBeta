@@ -38,16 +38,16 @@ export function IdentityFilterSection({
   }, []);
 
   const label = "text-[12px] text-slate-400 mb-2";
-  const select = "w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-600/50";
+  const select = "w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-600/50";
 
   return (
-    <div className={`rounded-lg border border-indigo-500/30 bg-indigo-950/20 p-4 ${className || ''}`}>
+    <div className={`rounded-lg border border-emerald-500/30 bg-emerald-950/10 p-4 ${className || ''}`}>
       <button
         onClick={() => setExpanded(!expanded)}
         className="flex items-center justify-between w-full text-left mb-3"
       >
         <div className="flex items-center gap-2">
-          <Shield size={16} className="text-indigo-400" />
+          <Shield size={16} className="text-emerald-400" />
           <span className="text-sm font-medium text-slate-200">DiDQube Identity Filters</span>
           <span className="text-xs text-slate-500">(Optional)</span>
         </div>
