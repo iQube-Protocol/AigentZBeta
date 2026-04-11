@@ -22,6 +22,7 @@ interface Investor {
   email: string;
   knytId: string;
   omTier: string;
+  omSince: string;
   totalInvested: string;
   metaiyeShares: string;
   knytCoyn: string;
@@ -32,6 +33,11 @@ interface Investor {
   knytCards: string;
   characters: string;
   profileImageUrl: string;
+  profession: string;
+  city: string;
+  csvInvestmentStatus: string;
+  csvTransactionCount: number;
+  csvFirstCommittedDate: string;
   isLinked: boolean;
   isActivated: boolean;
   personaId: string | null;
@@ -63,7 +69,7 @@ export default function InvestorsPage() {
   const [apiError, setApiError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [activatedFilter, setActivatedFilter] = useState<'all' | 'activated' | 'inactive'>('all');
-  const [sort, setSort] = useState<'name' | 'invested' | 'activated'>('name');
+  const [sort, setSort] = useState<'name' | 'invested' | 'activated' | 'tier'>('tier');
 
   const fetchInvestors = useCallback(async () => {
     setLoading(true);
@@ -73,9 +79,7 @@ export default function InvestorsPage() {
         limit: '500',
         sort,
         ...(search ? { search } : {}),
-        ...(activatedFilter !== 'all'
-          ? { activated: String(activatedFilter === 'activated') }
-          : {}),
+        // No activated filter param when 'all' — server returns all and we display counts
       });
       const res = await fetch(`/api/crm/investors?${params}`);
       const json = await res.json();
@@ -87,11 +91,18 @@ export default function InvestorsPage() {
     } finally {
       setLoading(false);
     }
-  }, [search, activatedFilter, sort]);
+  }, [search, sort]);
 
   useEffect(() => {
     fetchInvestors();
   }, [fetchInvestors]);
+
+  // Apply activation filter client-side so tab counts always reflect the full set
+  const displayedInvestors = activatedFilter === 'activated'
+    ? investors.filter((i) => i.isActivated)
+    : activatedFilter === 'inactive'
+    ? investors.filter((i) => !i.isActivated)
+    : investors;
 
   const activatedCount = investors.filter((i) => i.isActivated).length;
   const inactiveCount = investors.filter((i) => !i.isActivated).length;
@@ -189,11 +200,12 @@ export default function InvestorsPage() {
           <Filter size={16} className="text-slate-400" />
           <select
             value={sort}
-            onChange={(e) => setSort(e.target.value as 'name' | 'invested' | 'activated')}
+            onChange={(e) => setSort(e.target.value as 'name' | 'invested' | 'activated' | 'tier')}
             className="bg-white/5 border border-white/10 rounded-lg text-sm text-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500"
           >
-            <option value="name">Sort: Name</option>
+            <option value="tier">Sort: OM Tier</option>
             <option value="invested">Sort: Invested (high)</option>
+            <option value="name">Sort: Name</option>
             <option value="activated">Sort: Activated first</option>
           </select>
         </div>
@@ -219,14 +231,14 @@ export default function InvestorsPage() {
                   Loading investors…
                 </td>
               </tr>
-            ) : investors.length === 0 ? (
+            ) : displayedInvestors.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
                   No investors found
                 </td>
               </tr>
             ) : (
-              investors.map((investor) => (
+              displayedInvestors.map((investor) => (
                 <tr
                   key={investor.id}
                   className={`border-b border-white/5 transition ${
@@ -268,9 +280,19 @@ export default function InvestorsPage() {
                   {/* Total Invested */}
                   <td className="px-6 py-4 text-right">
                     {investor.totalInvested ? (
-                      <span className="text-sm font-medium text-emerald-300">
-                        {investor.totalInvested}
-                      </span>
+                      <div>
+                        <span className="text-sm font-medium text-emerald-300">${investor.totalInvested}</span>
+                        {investor.csvInvestmentStatus && (
+                          <div className="text-xs text-slate-500 mt-0.5">{investor.csvInvestmentStatus}</div>
+                        )}
+                      </div>
+                    ) : investor.metaiyeShares ? (
+                      <div>
+                        <span className="text-xs text-purple-300">{investor.metaiyeShares} shares</span>
+                        {investor.csvInvestmentStatus && (
+                          <div className="text-xs text-slate-500 mt-0.5">{investor.csvInvestmentStatus}</div>
+                        )}
+                      </div>
                     ) : (
                       <span className="text-slate-600 text-xs">—</span>
                     )}
@@ -341,7 +363,7 @@ export default function InvestorsPage() {
 
       {!loading && (
         <p className="text-xs text-slate-600 text-right">
-          {investors.length} investors shown · {activatedCount} activated · {inactiveCount} inactive
+          {displayedInvestors.length} of {totalCount} investors · {activatedCount} activated · {inactiveCount} inactive
         </p>
       )}
     </div>

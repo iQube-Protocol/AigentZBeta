@@ -998,10 +998,12 @@ export function ExperienceDashboardTab({ personaId, tenantId, theme = "dark" }: 
               const telegram = str(kp?.['Telegram-Handle']) || str(bq?.['Telegram-Handle']);
               const discord = str(kp?.['Discord-Handle']) || str(bq?.['Discord-Handle']);
               const omSince = str(kp?.['OM-Member-Since']);
-              const omTier = str(kp?.['OM-Tier-Status']);
+              // OM-Tier-Status is often empty in nakamoto; fall back to the persona's order_tier
+              const omTier = str(kp?.['OM-Tier-Status']) || str(bq?.['OM-Tier-Status']) || str(selectedIndividual.crm?.order_tier);
               const totalInvested = str(kp?.['Total-Invested']);
               const metaiyeShares = str(kp?.['Metaiye-Shares-Owned']);
-              const knytCoyn = str(kp?.['KNYT-COYN-Owned']);
+              // Strip any embedded " KNYT" unit suffix stored in the DB before appending unit in display
+              const knytCoyn = str(kp?.['KNYT-COYN-Owned']).replace(/\s*KNYT\s*$/i, '').trim();
               const motionComics = str(kp?.['Motion-Comics-Owned']);
               const paperComics = str(kp?.['Paper-Comics-Owned']);
               const digitalComics = str(kp?.['Digital-Comics-Owned']);
@@ -1237,7 +1239,7 @@ export function ExperienceDashboardTab({ personaId, tenantId, theme = "dark" }: 
                           { label: "Total Invested", value: totalInvested || "—", color: "text-amber-400" },
                           { label: "OM Tier", value: omTier || "—", sub: omSince ? `Since ${omSince}` : undefined, color: "text-amber-300" },
                           { label: "Metaiye Shares", value: metaiyeShares || "0", color: "text-violet-300" },
-                          { label: "KNYT COYN", value: knytCoyn ? `${knytCoyn} KNYT` : "0 KNYT", color: "text-cyan-300" },
+                          { label: "KNYT COYN", value: `${knytCoyn || "0"} KNYT`, color: "text-cyan-300" },
                         ].map(({ label, value, sub, color }) => (
                           <div key={label} className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
                             <div className="text-[11px] text-slate-500 mb-1">{label}</div>

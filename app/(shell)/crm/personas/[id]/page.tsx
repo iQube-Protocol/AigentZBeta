@@ -43,6 +43,7 @@ interface PersonaDetail {
   email?: string;
   personaState: string;
   reputationBucket?: string;
+  orderTier?: string | null;
   primaryWalletAddress?: string;
   totalPokw: number;
   contributionCount: number;
@@ -247,10 +248,13 @@ export default function PersonaDetailPage() {
   const youtube = str(kp?.['YouTube-ID']) || str(bq?.['YouTube-ID']);
   const tiktok = str(kp?.['TikTok-Handle']) || str(bq?.['TikTok-Handle']);
   const omSince = str(kp?.['OM-Member-Since']);
-  const omTier = str(kp?.['OM-Tier-Status']);
+  // OM-Tier-Status is often empty in nakamoto; fall back to the persona's order_tier
+  const omTier = str(kp?.['OM-Tier-Status']) || str(bq?.['OM-Tier-Status']) || str(persona?.orderTier);
   const totalInvested = str(kp?.['Total-Invested']);
   const metaiyeShares = str(kp?.['Metaiye-Shares-Owned']);
-  const knytCoyn = str(kp?.['KNYT-COYN-Owned']);
+  // Strip any embedded " KNYT" unit suffix stored in the DB before displaying
+  const knytCoynRaw = str(kp?.['KNYT-COYN-Owned']);
+  const knytCoyn = knytCoynRaw.replace(/\s*KNYT\s*$/i, '').trim();
   const motionComics = str(kp?.['Motion-Comics-Owned']);
   const paperComics = str(kp?.['Paper-Comics-Owned']);
   const digitalComics = str(kp?.['Digital-Comics-Owned']);
@@ -666,7 +670,7 @@ export default function PersonaDetailPage() {
                 {knytCoyn && (
                   <div className="rounded-xl bg-white/5 p-4">
                     <p className="text-xs text-slate-400 mb-1">KNYT COYN</p>
-                    <p className="text-2xl font-semibold text-cyan-400">{knytCoyn}</p>
+                    <p className="text-2xl font-semibold text-cyan-400">{knytCoyn} <span className="text-base font-normal text-slate-400">KNYT</span></p>
                   </div>
                 )}
               </div>
