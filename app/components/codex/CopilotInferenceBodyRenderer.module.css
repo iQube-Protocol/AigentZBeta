@@ -315,3 +315,101 @@
     align-items: flex-start;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   PARCHMENT INTELLIGENCE — light mode
+   Applied when the runtime root has the .mm-light class.
+   Using :global(.mm-light) preserves the scoped class names and
+   guarantees overrides work regardless of Next.js class-name hashing.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Override all CSS custom properties on the renderer root */
+:global(.mm-light) .rendererRoot {
+  --inference-body:           #2E2923;                    /* warm charcoal */
+  --inference-body-muted:     #595247;                    /* warm ink secondary */
+  --inference-accent:         #234785;                    /* archival navy */
+  --inference-accent-soft:    rgba(35, 71, 133, 0.10);
+  --inference-border:         rgba(68, 57, 41, 0.18);
+  --inference-muted:          rgba(68, 57, 41, 0.06);
+  --inference-code-bg:        rgba(68, 57, 41, 0.07);
+  --inference-callout-bg:     rgba(162, 122, 61, 0.08);
+  --inference-callout-border: rgba(162, 122, 61, 0.38);
+
+  color: #2E2923;
+}
+
+/* Paragraph and list items */
+:global(.mm-light) .paragraph {
+  color: #2E2923;
+}
+
+:global(.mm-light) .listItem {
+  color: #2E2923;
+}
+
+/* Callout (Important / Note / Warning) — warm amber annotation */
+:global(.mm-light) .callout {
+  background: rgba(162, 122, 61, 0.08);
+  border-left-color: rgba(162, 122, 61, 0.40);
+  color: #7A5A1E;
+}
+
+/* Links — archival navy ink, 7:1 on canvas */
+:global(.mm-light) .link {
+  color: #234785;
+  text-decoration-color: rgba(35, 71, 133, 0.38);
+}
+
+/* Bold text — ink primary (not bright cyan) */
+:global(.mm-light) .strong {
+  color: #2E2923;
+}
+
+/* Italic text — ink secondary */
+:global(.mm-light) .em {
+  color: #595247;
+}
+
+/* Blockquote — warm teal-border vellum surface */
+:global(.mm-light) .blockquote {
+  border-left-color: rgba(42, 102, 112, 0.38);
+  background: rgba(42, 102, 112, 0.04);
+  color: #595247;
+}
+
+/* Inline code */
+:global(.mm-light) .inlineCode {
+  background: rgba(68, 57, 41, 0.07);
+  border-color: rgba(68, 57, 41, 0.16);
+  color: #234785;
+}
+
+/* Code blocks */
+:global(.mm-light) .codeBlock {
+  background: rgba(68, 57, 41, 0.05);
+  border-color: rgba(68, 57, 41, 0.14);
+}
+
+:global(.mm-light) .codeBlockCode {
+  color: #2E2923;
+}
+
+/* Explore Further section */
+:global(.mm-light) .suggestionSection {
+  border-top-color: rgba(68, 57, 41, 0.14);
+}
+
+:global(.mm-light) .suggestionTitle {
+  color: #7B7266;   /* ink muted — uppercase label, not an interactive element */
+}
+
+/* Explore Further prompt buttons — archival navy, underlined */
+:global(.mm-light) .suggestionLink {
+  color: #234785;
+  text-decoration-color: rgba(35, 71, 133, 0.38);
+}
+
+:global(.mm-light) .suggestionLink:hover {
+  border-color: rgba(35, 71, 133, 0.28);
+  background: rgba(35, 71, 133, 0.06);
+}

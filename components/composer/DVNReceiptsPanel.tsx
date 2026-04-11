@@ -186,6 +186,7 @@ export default function DVNReceiptsPanel({
       const params = new URLSearchParams({
         tenant_id: tenantId,
         limit: "200",
+        order: "desc",
       });
       const messageResponse = await fetch(
         `/api/qubetalk/channels/${encodeURIComponent(resolvedChannelId)}/messages?${params.toString()}`,
@@ -201,19 +202,19 @@ export default function DVNReceiptsPanel({
         .map((message) => parseReceiptFromMessage(message))
         .filter((item): item is DVNReceipt => Boolean(item));
 
-      const mergedReceipts = dedupeReceipts([...localReceipts, ...parsed]);
-      const filteredByRequest: DVNReceipt[] = requestId
-        ? mergedReceipts.filter((receipt) => receipt.payload.request_id === requestId)
-        : experienceId
-          ? mergedReceipts.filter((receipt) => receipt.payload?.experience_id === experienceId)
-          : mergedReceipts;
-
-      filteredByRequest.sort(
-        (a, b) =>
-          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-      );
-
-      setReceipts(filteredByRequest);
+      // Merge with existing receipts so auto-refresh accumulates new ones rather than overwriting
+      setReceipts((prev) => {
+        const mergedReceipts = dedupeReceipts([...localReceipts, ...parsed, ...prev]);
+        const filteredByRequest: DVNReceipt[] = requestId
+          ? mergedReceipts.filter((receipt) => receipt.payload.request_id === requestId)
+          : experienceId
+            ? mergedReceipts.filter((receipt) => receipt.payload?.experience_id === experienceId)
+            : mergedReceipts;
+        filteredByRequest.sort(
+          (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        );
+        return filteredByRequest;
+      });
       setLastRefresh(new Date());
     } catch (error) {
       console.error("Failed to load DVN receipts:", error);

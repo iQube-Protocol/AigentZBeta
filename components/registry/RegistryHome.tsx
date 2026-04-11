@@ -11,6 +11,7 @@ import { DotsInline } from "./scoreUtils";
 import { ConfirmDialog } from "../ui/confirm-dialog";
 import { useToast } from "../ui/toaster";
 import { ComponentRegistryPanel } from "./ComponentRegistryPanel";
+import { IngestionFactoryPanel } from "./IngestionFactoryPanel";
 
 interface IQubeTemplate {
   id: string;
@@ -41,6 +42,7 @@ interface PaginationMeta {
 }
 
 export function RegistryHome() {
+  const [activeRegistryTab, setActiveRegistryTab] = useState<"templates" | "factory">("templates");
   const [templates, setTemplates] = useState<IQubeTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -67,6 +69,12 @@ export function RegistryHome() {
     nextPage: null,
     prevPage: null,
   });
+
+  // Honour ?tab=factory deep-link
+  useEffect(() => {
+    if (!searchParams) return;
+    if (searchParams.get('tab') === 'factory') setActiveRegistryTab('factory');
+  }, [searchParams]);
 
   // Clean legacy query param like ?template=template-003
   useEffect(() => {
@@ -242,11 +250,26 @@ export function RegistryHome() {
   return (
     <div className="flex flex-col h-full">
       {/* Sticky Header Section */}
-      <div className="sticky top-0 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 z-10 pb-6 space-y-6">
+      <div className="sticky top-0 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 z-10 pb-6 space-y-6">
         <div className="flex justify-between items-center">
           <div className="space-y-1">
-            <h2 className="text-xl font-medium text-white">iQube Templates</h2>
-            <p className="text-sm text-slate-400">Browse and manage iQube templates</p>
+            <h2 className="text-xl font-medium text-white">iQube Registry</h2>
+            <div className="flex items-center gap-1 mt-2">
+              <button
+                type="button"
+                onClick={() => setActiveRegistryTab("templates")}
+                className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${activeRegistryTab === "templates" ? "bg-slate-500/20 text-slate-200 ring-1 ring-slate-500/30" : "text-slate-400 hover:text-slate-200"}`}
+              >
+                iQube Catalog
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveRegistryTab("factory")}
+                className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${activeRegistryTab === "factory" ? "bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/30" : "text-slate-400 hover:text-slate-200"}`}
+              >
+                Ingestion Factory
+              </button>
+            </div>
           </div>
           <div className="flex items-center gap-3">
             {devUser && devUser.masked && (
@@ -268,7 +291,7 @@ export function RegistryHome() {
             )}
             <Link 
               href="/registry/add" 
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-indigo-400 bg-indigo-500/10 ring-1 ring-indigo-500/20 hover:bg-indigo-500/20 hover:text-indigo-300 transition-all"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-emerald-400 bg-emerald-500/10 ring-1 ring-emerald-500/20 hover:bg-emerald-500/20 hover:text-emerald-300 transition-all"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 5v14M5 12h14"/>
@@ -309,14 +332,17 @@ export function RegistryHome() {
 
       {/* Scrollable Content Section */}
       <div className="flex-1 overflow-y-auto space-y-6">
+        {activeRegistryTab === "factory" && <IngestionFactoryPanel />}
+        {activeRegistryTab === "templates" && (
         <ComponentRegistryPanel />
-        {warning && (
+        )}
+        {activeRegistryTab === "templates" && warning && (
           <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
             Registry data is unavailable right now: {warning}
           </div>
         )}
 
-      {viewMode === 'grid' && (
+      {activeRegistryTab === "templates" && viewMode === 'grid' && (
         <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
           {filteredTemplates.map((template) => (
             <IQubeCard
@@ -386,7 +412,7 @@ export function RegistryHome() {
         </div>
       )}
 
-      {viewMode === 'table' && (
+      {activeRegistryTab === "templates" && viewMode === 'table' && (
         <div className="overflow-x-auto rounded-2xl ring-1 ring-white/10">
           <table className="min-w-full text-sm">
             <thead className="bg-white/5 text-slate-400">
@@ -430,7 +456,7 @@ export function RegistryHome() {
       )}
       
       {/* Pagination */}
-      {pagination.totalPages > 1 && (
+      {activeRegistryTab === "templates" && pagination.totalPages > 1 && (
         <Pagination
           currentPage={pagination.currentPage}
           totalPages={pagination.totalPages}

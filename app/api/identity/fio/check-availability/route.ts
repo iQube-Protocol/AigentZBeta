@@ -21,6 +21,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Validate handle format: must be username@domain
+    const FIO_HANDLE_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9\-]{0,62}@[a-zA-Z0-9][a-zA-Z0-9\-]{0,62}$/;
+    if (!FIO_HANDLE_REGEX.test(handle)) {
+      return NextResponse.json(
+        { ok: false, error: 'Invalid FIO handle format. Must be username@domain (e.g. alice@aigent)' },
+        { status: 400 }
+      );
+    }
+
     // FIRST: Check our database to prevent duplicates
     const supabase = createClient(supabaseUrl, supabaseKey);
     const { data: existingPersona, error: dbError } = await supabase

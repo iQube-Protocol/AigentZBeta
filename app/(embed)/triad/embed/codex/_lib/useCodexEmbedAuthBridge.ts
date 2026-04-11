@@ -17,9 +17,11 @@ type AuthBridgeMessage = {
   type?: string;
   personaId?: string;
   authProfileId?: string;
+  isAdmin?: boolean;
   payload?: {
     personaId?: string;
     authProfileId?: string;
+    isAdmin?: boolean;
   };
 };
 
@@ -135,11 +137,13 @@ async function resolvePersonaFromAuthProfile(authProfileId: string): Promise<str
 type UseCodexEmbedAuthBridgeResult = {
   personaId?: string;
   authProfileId?: string;
+  isAdmin?: boolean;
 };
 
 type UseCodexEmbedAuthBridgeOptions = {
   initialPersonaId?: string;
   initialAuthProfileId?: string;
+  initialIsAdmin?: boolean;
 };
 
 type UseCodexEmbedAuthBridgeInput = string | UseCodexEmbedAuthBridgeOptions | undefined;
@@ -151,12 +155,19 @@ function normalizeInput(input: UseCodexEmbedAuthBridgeInput): UseCodexEmbedAuthB
   return input || {};
 }
 
+function sanitizeBool(value: unknown): boolean | undefined {
+  if (value === true || value === "true" || value === "1") return true;
+  if (value === false || value === "false" || value === "0") return false;
+  return undefined;
+}
+
 export function useCodexEmbedAuthBridge(
   input?: UseCodexEmbedAuthBridgeInput
 ): UseCodexEmbedAuthBridgeResult {
-  const { initialPersonaId, initialAuthProfileId } = normalizeInput(input);
+  const { initialPersonaId, initialAuthProfileId, initialIsAdmin } = normalizeInput(input);
   const [personaId, setPersonaId] = useState<string | undefined>(sanitizeValue(initialPersonaId));
   const [authProfileId, setAuthProfileId] = useState<string | undefined>();
+  const [isAdmin, setIsAdmin] = useState<boolean | undefined>(initialIsAdmin);
   const allowedOrigins = useMemo(() => parseAllowedOrigins(), []);
 
   useEffect(() => {
@@ -195,6 +206,28 @@ export function useCodexEmbedAuthBridge(
       cancelled = true;
     };
   }, [personaId, authProfileId]);
+
+  // Auto-detect admin status via the platform admin-check API when no explicit
+  // isAdmin signal was received from the parent (postMessage or query param).
+  // personaId may be an email (e.g. dele@metame.com) — the API accepts either.
+  useEffect(() => {
+    if (isAdmin !== undefined) return; // already resolved
+    if (!personaId) return;
+    // Only query if personaId looks like an email (the admin-check API uses email)
+    if (!personaId.includes('@')) return;
+
+    let cancelled = false;
+    fetch(`/api/codex/admin-check?email=${encodeURIComponent(personaId)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled && typeof data?.isAdmin === 'boolean') {
+          setIsAdmin(data.isAdmin);
+        }
+      })
+      .catch(() => { /* non-fatal — isAdmin stays undefined (treated as false) */ });
+
+    return () => { cancelled = true; };
+  }, [personaId, isAdmin]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -241,6 +274,7 @@ export function useCodexEmbedAuthBridge(
       const payload = typeof message.payload === "object" && message.payload ? message.payload : message;
       const incomingAuthProfileId = sanitizeValue(payload.authProfileId);
       let incomingPersonaId = sanitizeValue(payload.personaId);
+      const incomingIsAdmin = sanitizeBool(payload.isAdmin);
 
       if (incomingAuthProfileId) {
         persistValue(AUTH_PROFILE_STORAGE_KEYS, incomingAuthProfileId);
@@ -254,6 +288,10 @@ export function useCodexEmbedAuthBridge(
       if (incomingPersonaId) {
         persistValue(PERSONA_STORAGE_KEYS, incomingPersonaId);
         setPersonaId(incomingPersonaId);
+      }
+
+      if (incomingIsAdmin !== undefined) {
+        setIsAdmin(incomingIsAdmin);
       }
 
       window.parent.postMessage(
@@ -279,5 +317,5 @@ export function useCodexEmbedAuthBridge(
     };
   }, [allowedOrigins, authProfileId, personaId]);
 
-  return { personaId, authProfileId };
+  return { personaId, authProfileId, isAdmin };
 }

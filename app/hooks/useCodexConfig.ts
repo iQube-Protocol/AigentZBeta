@@ -105,9 +105,12 @@ export function hasCodexPermission(
 }
 
 /**
- * Helper to get enabled tabs from codex config
+ * Helper to get enabled tabs from codex config.
+ * Tabs marked adminOnly are excluded unless isAdmin is true.
  */
-export function getEnabledTabs(codex: CodexConfig | undefined) {
+export function getEnabledTabs(codex: CodexConfig | undefined, isAdmin = false) {
   if (!codex) return [];
-  return codex.tabs.filter(tab => tab.enabled).sort((a, b) => a.order - b.order);
+  return codex.tabs
+    .filter(tab => tab.enabled && (!tab.adminOnly || isAdmin))
+    .sort((a, b) => a.order - b.order);
 }

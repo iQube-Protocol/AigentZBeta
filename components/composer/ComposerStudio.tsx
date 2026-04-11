@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Activity, AlertTriangle, BarChart, Book, BookOpen, Bot, CheckCircle2, ChevronDown, ChevronUp, Circle, Code, Edit, Eye, FileText, Hexagon, Layers, LayoutGrid, List, Loader2, Mic, MicOff, Monitor, MonitorIcon, Moon, Palette, Play, PlayCircle, RefreshCw, Share2, Shield, ShieldCheck, SlidersHorizontal, Smartphone, Sparkles, Sun, Target, Tablet, Trash2, Tv, Upload, Users, Volume2, Type } from "lucide-react";
+import { Activity, AlertTriangle, BarChart, Book, BookOpen, Bot, CheckCircle2, ChevronDown, ChevronUp, Circle, Code, Edit, Eye, FileText, Globe, Hexagon, Layers, LayoutGrid, List, Loader2, Mic, MicOff, Monitor, MonitorIcon, Moon, Palette, Play, PlayCircle, RefreshCw, Share2, Shield, ShieldCheck, SlidersHorizontal, Smartphone, Sparkles, Sun, Target, Tablet, Trash2, Tv, Upload, Users, Volume2, Type, X } from "lucide-react";
 import { useCopilotAction } from "@copilotkit/react-core";
 import { createShellMessage } from "@metame/iframe-bridge";
 import { Button } from "@/components/ui/button";
@@ -76,6 +76,7 @@ import {
   setPersonaGeneratedMediaPinned,
   updatePersonaGeneratedMediaRecord,
 } from "@/services/composer/generatedAssetClient";
+import { RegistryBrowserDrawer, type RegistryAssetSelection } from "@/components/registry/RegistryBrowserDrawer";
 
 type ComposerField = {
   id: string;
@@ -923,7 +924,7 @@ function resolveInspectorSourceBadge(params: {
   return "Experience";
 }
 
-const DEFAULT_TENANT = "qripto-codex";
+const DEFAULT_TENANT = "metame-codex";
 const DEFAULT_USER = "aigentz@aigent:u_demo_001";
 const COMPOSER_CACHE_TTL_MS = 5 * 60 * 1000;
 const EXPERIENCE_CACHE_TTL_MS = 2 * 60 * 1000;
@@ -970,9 +971,10 @@ const cacheExperiencesForTenant = (tenantId: string, items: ExperienceQube[]) =>
 };
 
 const QRIPTO_FALLBACK_CODEXES = [
-  { id: "knyt-codex", label: "KNYT Codex" },
-  { id: "qripto-codex", label: "Qriptopian Codex" },
-  { id: "aigentiq-codex", label: "AgentiQ Codex" },
+  { id: "knyt-codex",    label: "KNYT Codex" },
+  { id: "metame-codex",  label: "metaMe Cartridge" },   // Experience Framework — default for non-KNYT
+  { id: "qripto-codex",  label: "Qriptopian Codex" },
+  { id: "agentiq-codex", label: "AgentiQ Codex" },
   { id: "marketa-codex", label: "Aigent Marketa" },
   { id: "moneypenny-codex", label: "Aigent MoneyPenny" },
   { id: "nakamoto-codex", label: "Aigent Nakamoto" },
@@ -1005,6 +1007,264 @@ const DESIGN_QUBE_IMAGE_FALLBACKS = [
   "/images/designqube/thumb-penny.jpg",
   "/images/designqube/thumb-agentiq.jpg",
 ];
+
+// ── Static experience framework data per cartridge ───────────────────────────
+// Used as fallback in the Experience tab when Supabase tables are not yet seeded.
+// Source of truth: codexes/packs/metame/items/ and codexes/packs/knyt/items/
+// ── Cartridge framework data ── corrected 2D matrix architecture ─────────────
+// strategy = what we're trying to do and why
+// model    = what tools / assets / levers are available to deliver it (NOT the ladder)
+// matrix   = 2D grid: Y = PCS engagement level, X = sovereignty journey; cells = NBE prescription
+// ladder   = sovereignty journey (X-axis) with unlock conditions + cartridge skin mapping
+type CartridgeFramework = {
+  strategy: { name: string; macro_intent: string; description: string; target_segments: string[]; principles: { title: string; body: string }[] };
+  model: { name: string; description: string; structural: string[]; emotional: string[]; transactional: string[]; governance: string[] };
+  matrix: {
+    y_stages: string[];  // PCS engagement (bottom → top, rendered inverted)
+    x_stages: string[];  // Sovereignty journey (left → right)
+    cells: Record<string, string>;  // key = "y:x" → NBE prescription
+  };
+  ladder: {
+    canonical: string;
+    stages: { id: string; label: string; knyt_label?: string; unlock: string }[];
+  };
+};
+const CARTRIDGE_FRAMEWORK: Record<string, CartridgeFramework> = {
+  "metame-codex": {
+    strategy: {
+      name: "Progressive Creative Sovereignty (PCS) — AgentiQ Alpha",
+      macro_intent: "Move every user from passive recipient to active ecosystem steward — unlocking capabilities, rewards, and contribution rights at each threshold.",
+      description: "Each PCS stage is a qualitatively different relationship with the ecosystem: new actions, new trust, new responsibilities. The strategy is designed for state transitions, not just journeys.",
+      target_segments: ["alpha participants", "community members", "correspondents", "operators", "creators", "upstream contributors"],
+      principles: [
+        { title: "State transition is the unit", body: "Design for movement between states — curiosity → creation, consumption → curation, participation → contribution." },
+        { title: "Policy and signal are first-class", body: "Progression is triggered by measurable signals. Rewards, permissions, and NBE plans respond to behavior — not time or clicks." },
+        { title: "Semantic rendering adapts", body: "The canonical PCS structure renders differently per cartridge (KNYT, healthcare, education) while the movement pattern stays constant." },
+      ],
+    },
+    model: {
+      name: "metaMe Experience Model — AgentiQ Levers",
+      description: "The assets, channels, and levers available to deliver the PCS strategy. Marketa uses this palette for campaign planning across the experience matrix.",
+      structural: [
+        "Experiences: image, video, article, codex",
+        "Skills: Image OpenAI, Venice, Sora, Article generation",
+        "Workflows: image_article_bundle, video_article_bundle",
+        "Runtime sessions: mini_runtime, full codex",
+        "Factory: asset generation pipeline",
+        "Registry: public asset discovery + trust scoring",
+        "blakQube: encrypted personal data layer",
+        "Codex packs: KNYT, metaMe, AgentiQ, Qripto",
+      ],
+      emotional: [
+        "Progressive sovereignty narrative — autonomy increases with contribution",
+        "Identity arc: passive recipient → creator → steward",
+        "Trust signals: PCS badge, contribution recognition, registry listing",
+        "Community belonging via shared activities and correspondent elevation",
+      ],
+      transactional: [
+        "$KNYT token rewards on verified contribution",
+        "Reputation score and trust band elevation",
+        "Registry listing — public asset visibility",
+        "Contribution pathway unlock at Composer stage",
+        "Architect governance rights at apex",
+      ],
+      governance: [
+        "PCS stage gates — signal threshold must be met",
+        "Trust score minimum per registry action",
+        "Persona verification for high-privilege operations",
+        "metaMe guardian policy veto on sensitive actions",
+        "Role-based permission overlay per tier",
+      ],
+    },
+    // Y = abstract canonical PCS engagement (Recipient → Steward)
+    // X = canonical sovereignty journey (Visitor → Architect)
+    matrix: {
+      y_stages: ["Recipient", "Selector", "Modifier", "Producer", "Builder", "Steward"],
+      x_stages: ["Visitor", "Initiate", "Participant", "Curator", "Composer", "Operator", "Architect"],
+      cells: {
+        // Entry diagonal — pills and capsules
+        "Recipient:Visitor":      "pill: Welcome hook",
+        "Recipient:Initiate":     "pill: Onboarding prompt",
+        "Recipient:Participant":  "capsule: Discovery tour",
+        "Selector:Visitor":       "pill: Preview signal",
+        "Selector:Initiate":      "pill: Preference prompt",
+        "Selector:Participant":   "capsule: Curation set",
+        "Selector:Curator":       "capsule: Signal shaping",
+        // Mid diagonal — capsules and mini_runtimes
+        "Modifier:Participant":   "capsule: Remix intro",
+        "Modifier:Curator":       "mini_rt: Remix session",
+        "Modifier:Composer":      "mini_rt: Guided composition",
+        "Producer:Curator":       "capsule: First contribution",
+        "Producer:Composer":      "mini_rt: Asset creation",
+        "Producer:Operator":      "mini_rt: Structured output",
+        // Upper diagonal — mini_runtimes and codex
+        "Builder:Composer":       "mini_rt: Studio session",
+        "Builder:Operator":       "codex: System building",
+        "Builder:Architect":      "codex: Pattern authoring",
+        "Steward:Operator":       "codex: Governance session",
+        "Steward:Architect":      "codex: Upstream PR",
+        // Off-diagonal — high engagement, early sovereignty (left of diagonal)
+        "Selector:Visitor":       "pill: Preview signal",
+        "Modifier:Visitor":       "pill: Remix tease",
+        "Modifier:Initiate":      "pill: First remix prompt",
+        "Producer:Visitor":       "pill: Creator intro",
+        "Producer:Initiate":      "pill: Early contribution hook",
+        "Producer:Participant":   "capsule: Contribution hook",
+        "Builder:Visitor":        "pill: Builder welcome",
+        "Builder:Initiate":       "capsule: Studio intro",
+        "Builder:Participant":    "capsule: Creation preview",
+        "Builder:Curator":        "capsule: Tool preview",
+        "Steward:Initiate":       "pill: Mentor tease",
+        "Steward:Participant":    "capsule: Governance intro",
+        "Steward:Curator":        "capsule: Stewardship path",
+        "Steward:Composer":       "mini_rt: Mentorship session",
+        // Off-diagonal — low engagement, advanced sovereignty (right of diagonal)
+        "Recipient:Curator":      "capsule: Curation nudge",
+        "Recipient:Composer":     "capsule: Creation invitation",
+        "Recipient:Operator":     "mini_rt: Operator unlock",
+        "Selector:Composer":      "mini_rt: Compose your first",
+        "Selector:Operator":      "mini_rt: Operate your signal",
+        "Modifier:Operator":      "mini_rt: Advanced remix",
+        "Modifier:Architect":     "codex: Upstream remix",
+        "Producer:Architect":     "codex: Upstream contribution",
+      },
+    },
+    ladder: {
+      canonical: "Visitor → Initiate → Participant → Curator → Composer → Operator → Architect",
+      stages: [
+        { id: "visitor",     label: "Visitor",     knyt_label: "Prospect",     unlock: "Present at the edge — not yet activated" },
+        { id: "initiate",    label: "Initiate",    knyt_label: "Acolyte",      unlock: "Persona/wallet/onboarding complete" },
+        { id: "participant", label: "Participant",  knyt_label: "Keta",         unlock: "3+ meaningful engagement signals" },
+        { id: "curator",     label: "Curator",      knyt_label: "Keji",         unlock: "Sustained participation + curation/remix action" },
+        { id: "composer",    label: "Composer",     knyt_label: "First",        unlock: "Original creative submission accepted" },
+        { id: "operator",    label: "Operator",     knyt_label: "Zero KNYT",    unlock: "Repeated contributions + operator entitlement" },
+        { id: "architect",   label: "Architect",    knyt_label: "Sat KNYT",     unlock: "Sustained upstream contribution + architect designation" },
+      ],
+    },
+  },
+  "knyt-codex": {
+    strategy: {
+      name: "KNYT Live World — Patronage × PCS Strategy",
+      macro_intent: "Build a living world of collectors, curators, creators, and sovereigns around the 21 Sats universe — converting passive observers into franchise-aligned world-shapers.",
+      description: "Operating on two axes: Patronage (Prospect → Sat KNYT) and PCS (Observer → Franchise-aligned Sovereign). Each matrix intersection defines the NBE for moving users toward the top-right of the matrix.",
+      target_segments: ["observers", "collectors", "curators", "remixers", "creators", "correspondents", "stewards", "franchise-aligned sovereigns"],
+      principles: [
+        { title: "Patronage × PCS intersection", body: "Every user sits at a Patronage stage AND a PCS stage. The NBE is defined by their position on both axes — not just one." },
+        { title: "World belonging is the hook", body: "Entry is through belonging — first affiliation, first card, first patron act. Identity is created before contribution is asked." },
+        { title: "Franchise alignment at apex", body: "The highest stage is Franchise-aligned Sovereign — actively shaping the KNYT world and the AgentiQ ecosystem simultaneously." },
+      ],
+    },
+    model: {
+      name: "KNYT Experience Model — World Levers",
+      description: "The assets, channels, and levers available within the KNYT live world. Used by Marketa for campaign planning across the Patronage × PCS matrix.",
+      structural: [
+        "KNYT Character Cards (NFT-backed, collectible)",
+        "Scrolls: 21 Sats lore and narrative content",
+        "Codex entries: world canon + community branch",
+        "Living Canon: three branches (canon, community, correspondent)",
+        "Shop: card acquisition interface",
+        "Balance: KNYT-COYN tracker + patronage history",
+        "AgentiQ Runtime: full experience layer",
+        "Factory: card + content generation pipeline",
+      ],
+      emotional: [
+        "World-belonging and tribal identity (Order membership)",
+        "Collector status — card identity and patronage pride",
+        "Co-authorship arc: consumer → curator → world-builder",
+        "Recognition: correspondent elevation, stewardship identity",
+        "Prestige: Zero/Satoshi tier visibility + franchise alignment",
+      ],
+      transactional: [
+        "$KNYT coin rewards on verified world activity",
+        "Card acquisition and portfolio growth",
+        "Patronage tier progression (Acolyte → Sat KNYT)",
+        "Contributor recognition and editorial surfacing",
+        "Franchise-aligned governance rights at Steward/Sovereign stage",
+      ],
+      governance: [
+        "FIO identity: KNYT-ID + order_tier gating",
+        "Reputation tier + bucket scoring thresholds",
+        "Correspondent entitlement gate for elevated surfaces",
+        "Steward governance permissions (world-level decisions)",
+        "metaMe guardian policy veto",
+      ],
+    },
+    // Y = KNYT PCS engagement (Observer → Franchise-aligned Sovereign)
+    // X = KNYT Patronage journey (Prospect → Sat KNYT)
+    matrix: {
+      y_stages: ["Observer", "Collector", "Curator", "Remixer", "Creator", "Correspondent", "Steward", "Franchise-aligned Sovereign"],
+      x_stages: ["Prospect", "Acolyte", "Keta", "Keji", "First", "Zero", "Sat KNYT"],
+      cells: {
+        // Entry zone — pills
+        "Observer:Prospect":        "pill: World discovery",
+        "Observer:Acolyte":         "pill: First lore hook",
+        "Collector:Prospect":       "pill: Card preview",
+        "Collector:Acolyte":        "capsule: First card acquisition",
+        "Collector:Keta":           "capsule: Card set curation",
+        // Early-mid diagonal — capsules
+        "Curator:Acolyte":          "pill: Curation intro",
+        "Curator:Keta":             "capsule: Curation challenge",
+        "Curator:Keji":             "capsule: Signal shaping",
+        "Remixer:Keta":             "capsule: Remix template",
+        "Remixer:Keji":             "mini_rt: Remix session",
+        "Remixer:First":            "mini_rt: Guided creation",
+        // Mid-upper diagonal — mini_runtimes
+        "Creator:Keji":             "capsule: First contribution",
+        "Creator:First":            "mini_rt: Creation session",
+        "Creator:Zero":             "mini_rt: Asset submission",
+        "Correspondent:First":      "mini_rt: Editorial surface",
+        "Correspondent:Zero":       "codex: Correspondent codex",
+        // Upper zone — codex
+        "Steward:Zero":             "codex: Governance session",
+        "Steward:Sat KNYT":         "codex: Stewardship codex",
+        "Franchise-aligned Sovereign:Zero": "codex: World shaping",
+        "Franchise-aligned Sovereign:Sat KNYT": "codex: Canon authoring",
+        // Off-diagonal — high engagement, early patronage (left of diagonal)
+        "Curator:Prospect":           "pill: Curation tease",
+        "Curator:Acolyte":            "pill: Curation intro",
+        "Remixer:Prospect":           "pill: Remix welcome",
+        "Remixer:Acolyte":            "capsule: First remix attempt",
+        "Creator:Prospect":           "pill: Creator welcome",
+        "Creator:Acolyte":            "pill: Early contribution hook",
+        "Creator:Keta":               "capsule: Creation pathway",
+        "Correspondent:Prospect":     "pill: Correspondent tease",
+        "Correspondent:Acolyte":      "capsule: Recognition path",
+        "Correspondent:Keta":         "capsule: Correspondent intro",
+        "Correspondent:Keji":         "capsule: Recognition moment",
+        "Steward:Prospect":           "pill: Stewardship preview",
+        "Steward:Acolyte":            "capsule: Governance intro",
+        "Steward:Keta":               "capsule: Stewardship path",
+        "Steward:First":              "mini_rt: Mentorship session",
+        "Franchise-aligned Sovereign:Prospect": "pill: Franchise tease",
+        "Franchise-aligned Sovereign:Acolyte":  "capsule: Franchise path",
+        "Franchise-aligned Sovereign:Keta":     "capsule: Sovereign intro",
+        "Franchise-aligned Sovereign:Keji":     "mini_rt: Franchise unlock",
+        "Franchise-aligned Sovereign:First":    "mini_rt: Sovereign ascent",
+        // Off-diagonal — low engagement, advanced patronage (right of diagonal)
+        "Observer:Keta":              "capsule: World intro tour",
+        "Observer:Keji":              "capsule: Re-engagement",
+        "Collector:Keji":             "capsule: Collection narrative",
+        "Collector:First":            "mini_rt: Collection expansion",
+        "Remixer:Zero":               "mini_rt: Advanced remix",
+        "Creator:Sat KNYT":           "codex: Apex creation",
+        "Observer:Zero":              "mini_rt: Deep world discovery",
+        "Collector:Zero":             "mini_rt: Portfolio stewardship",
+      },
+    },
+    ladder: {
+      canonical: "Prospect → Acolyte → Keta → Keji → First → Zero KNYT → Sat KNYT",
+      stages: [
+        { id: "visitor",     label: "Prospect",     unlock: "First world visit / discovery" },
+        { id: "initiate",    label: "Acolyte",       unlock: "First card acquisition + onboarding" },
+        { id: "participant", label: "Keta",           unlock: "3+ cards + participation signal" },
+        { id: "curator",     label: "Keji",           unlock: "First curation/remix action" },
+        { id: "composer",    label: "First",          unlock: "Original contribution accepted" },
+        { id: "operator",    label: "Zero KNYT",      unlock: "Repeated contributions + governance action" },
+        { id: "architect",   label: "Sat KNYT",       unlock: "Satoshi patronage + world-shaping contributions (20 positions)" },
+      ],
+    },
+  },
+};
 
 const QRIPTO_CONTENT_TAGS = [
   { value: "hero", label: "Hero Feature" },
@@ -1508,6 +1768,8 @@ export const ComposerStudio = () => {
   const [stepData, setStepData] = useState<Record<string, Record<string, any>>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [publishedReceiptId, setPublishedReceiptId] = useState<string | null>(null);
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [experience, setExperience] = useState<ExperienceQube | null>(null);
   const [experiences, setExperiences] = useState<ExperienceQube[]>([]);
@@ -1538,10 +1800,22 @@ export const ComposerStudio = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [editingExperienceId, setEditingExperienceId] = useState<string | null>(null);
-  const [studioAnalysisTab, setStudioAnalysisTab] = useState<"parity" | "surfaces" | "receipts" | "pipeline" | "workflows">("parity");
+  const [studioAnalysisTab, setStudioAnalysisTab] = useState<"experience" | "parity" | "surfaces" | "receipts" | "pipeline" | "workflows">("parity");
   const [lastPipelineRunId, setLastPipelineRunId] = useState<string | null>(null);
   const [pipelineRunData, setPipelineRunData] = useState<any>(null);
   const [pipelineRunLoading, setPipelineRunLoading] = useState(false);
+  // Experience Model state — feeds top-level Experience tab
+  const [expModelData, setExpModelData] = useState<{
+    journey?: { stage: string; depth: string; active_at: string | null } | null;
+    nbe?: { disposition: string; next_experience_depth: string | null; rationale: string | null; expires_at: string | null } | null;
+    strategy?: { name: string; description: string; target_segments: string[] } | null;
+    model?: { name: string; description: string; stages: string[] } | null;
+    matrix?: { stage: string; depth_ladder: string[] }[] | null;
+    analysis?: { card_type: string; content: string; score: number | null }[] | null;
+  }>({});
+  const [expModelTab, setExpModelTab] = useState("strategy");
+  const [matrixLens, setMatrixLens] = useState<"org" | "cohort" | "individual">("org");
+  const [expModelLoading, setExpModelLoading] = useState(false);
   const [workflowsList, setWorkflowsList] = useState<any[]>([]);
   const [workflowsLoading, setWorkflowsLoading] = useState(false);
   const [workflowInvokeState, setWorkflowInvokeState] = useState<Record<string, "idle" | "invoking" | "done" | "error">>({});
@@ -1550,6 +1824,7 @@ export const ComposerStudio = () => {
   const [makeScenarioError, setMakeScenarioError] = useState<string | null>(null);
   const [showMakePicker, setShowMakePicker] = useState(false);
   const [connectingScenarioId, setConnectingScenarioId] = useState<number | null>(null);
+  const [skillFilterMode, setSkillFilterMode] = useState<"all" | "active">("all");
   const [workflowRunPolling, setWorkflowRunPolling] = useState<Record<string, { runId: string; status: string } | null>>({});
   const [workflowRunHistory, setWorkflowRunHistory] = useState<Record<string, any[]>>({});
   const [expandedRunHistory, setExpandedRunHistory] = useState<Record<string, boolean>>({});
@@ -1565,6 +1840,7 @@ export const ComposerStudio = () => {
   const isStudioExpanded = true;
   const [experiencePanelTab, setExperiencePanelTab] = useState("template");
   const [resourcesPanelTab, setResourcesPanelTab] = useState("experience");
+  const [designPanelSubTab, setDesignPanelSubTab] = useState("style-guides");
   const [editableExperienceName, setEditableExperienceName] = useState("");
   const [editableImagePortraitPrompt, setEditableImagePortraitPrompt] = useState("");
   const [editableImageLandscapePrompt, setEditableImageLandscapePrompt] = useState("");
@@ -1587,7 +1863,7 @@ export const ComposerStudio = () => {
   const [personaMediaScopeFilter, setPersonaMediaScopeFilter] = useState<"all" | "active">("all");
   const [personaMediaTypeFilter, setPersonaMediaTypeFilter] = useState<"all" | "image" | "video">("all");
   const { data: codexList } = useCodexList({ useDefaults: true });
-  const [copilotContextId, setCopilotContextId] = useState("qripto-codex");
+  const [copilotContextId, setCopilotContextId] = useState("metame-codex");
   const [codexContentItems, setCodexContentItems] = useState<ComposerMediaItem[]>([]);
   const [codexContentLoading, setCodexContentLoading] = useState(false);
   const studioViewportStylesRef = useRef<{ bodyOverflow: string; htmlOverflow: string } | null>(null);
@@ -2322,6 +2598,9 @@ export const ComposerStudio = () => {
       if (mappedDesignQubeId && mappedDesignQubeId !== activeStyleQubeId) {
         setActiveStyleQubeId(mappedDesignQubeId);
       }
+      // Reset experience model data so the new cartridge's framework is shown
+      setExpModelData({});
+      setExpModelTab("strategy");
     },
     [activeStyleQubeId]
   );
@@ -2397,6 +2676,10 @@ export const ComposerStudio = () => {
   const [templateIntent, setTemplateIntent] = useState<"micro-episode" | "article" | "tutorial" | "task" | null>(null);
   const [templateQuery, setTemplateQuery] = useState("");
   const [selectedExperienceId, setSelectedExperienceId] = useState<string | null>(null);
+  // Full experience fetched from the single-experience endpoint when selectedExperienceId changes.
+  // The experience list API strips large metadata fields (eb87e0e6) so bundle assets, generated_assets,
+  // etc. are not available in `experiences`. This state holds the complete record for the preview.
+  const [fullPreviewExperience, setFullPreviewExperience] = useState<ExperienceQube | null>(null);
   const [previewDevice, setPreviewDevice] = useState<DeviceType>("mobile");
   const [previewAction, setPreviewAction] = useState<string | null>(null);
   const [previewNonce, setPreviewNonce] = useState(0);
@@ -2409,6 +2692,8 @@ export const ComposerStudio = () => {
   const [runtimePreviewLoaded, setRuntimePreviewLoaded] = useState(false);
   const [runtimePreviewErrored, setRuntimePreviewErrored] = useState(false);
   const runtimePreviewIframeRef = useRef<HTMLIFrameElement | null>(null);
+  const [showRegistryBrowser, setShowRegistryBrowser] = useState(false);
+  const [registrySelections, setRegistrySelections] = useState<RegistryAssetSelection[]>([]);
   const [showMcpInspectorModal, setShowMcpInspectorModal] = useState(false);
   const [mcpExperience, setMcpExperience] = useState<ExperienceQube | null>(null);
   const [mcpTool, setMcpTool] = useState<
@@ -2959,8 +3244,75 @@ export const ComposerStudio = () => {
 
   const previewExperience = useMemo(() => {
     if (!selectedExperienceId) return experience;
+    // Prefer the full experience (fetched with complete metadata) over the stripped list entry.
+    if (fullPreviewExperience?.id === selectedExperienceId) return fullPreviewExperience;
     return experiences.find((exp) => exp.id === selectedExperienceId) || experience;
-  }, [selectedExperienceId, experiences, experience]);
+  }, [selectedExperienceId, fullPreviewExperience, experiences, experience]);
+
+  // Derives the set of studio skill/bundle IDs used by the currently previewed experience,
+  // so the Workflows tab can filter to "Active" skills only.
+  // Detection chain: bundle preset metadata → skill_selection config → template_id → content type
+  const activeExperienceSkillIds = useMemo(() => {
+    if (!previewExperience) return new Set<string>();
+    const ids = new Set<string>();
+
+    // Path 1: bundle preset stored in metadata.composition_bundle
+    const bundle = getAppliedExperienceBundle(previewExperience);
+    const skillCfg = asRecord(
+      (previewExperience.configuration as Record<string, unknown>)?.skill_selection,
+    );
+    const selectedId = typeof skillCfg?.skill_id === "string" ? skillCfg.skill_id : null;
+    if (selectedId) ids.add(selectedId);
+    if (bundle?.presetId === "image_article_bundle") {
+      if (!selectedId) ids.add("skill:image_openai");
+      ids.add("skill:article_generation");
+      ids.add("workflow:image_article_bundle");
+    } else if (bundle?.presetId === "video_article_bundle") {
+      if (!selectedId) ids.add("skill:video_sora_curated");
+      ids.add("skill:article_generation");
+      ids.add("workflow:video_article_bundle");
+    }
+
+    // Path 2: template_id inference (experiences created via Studio bundle flow)
+    if (ids.size === 0) {
+      const tid = previewExperience.template_id ?? "";
+      const isVideo = tid.includes("video") || tid.includes("sora") || tid.includes("motion");
+      const isImage = tid.includes("image") || tid.includes("reading") || tid.includes("article") || tid.includes("qripto");
+      if (isVideo) {
+        if (!selectedId) ids.add("skill:video_sora_curated");
+        ids.add("skill:article_generation");
+        ids.add("workflow:video_article_bundle");
+      } else if (isImage) {
+        if (!selectedId) ids.add("skill:image_openai");
+        ids.add("skill:article_generation");
+        ids.add("workflow:image_article_bundle");
+      }
+    }
+
+    // Path 3: infer from generated content metadata
+    if (ids.size === 0) {
+      const meta = asRecord(previewExperience.metadata as unknown) ?? {};
+      const hasVideo = !!(meta.video_asset_url || meta.sora_generation_id || meta.video_url);
+      const hasImage = !!(meta.image_url || meta.hero_image_url || meta.generated_image_url);
+      const hasArticle = !!(meta.article_draft_id || meta.article_title);
+      if (hasVideo) {
+        ids.add("skill:video_sora_curated");
+        ids.add("skill:video_venice");
+        if (hasArticle) ids.add("skill:article_generation");
+        ids.add("workflow:video_article_bundle");
+      } else if (hasImage) {
+        ids.add("skill:image_openai");
+        ids.add("skill:image_venice");
+        if (hasArticle) ids.add("skill:article_generation");
+        ids.add("workflow:image_article_bundle");
+      } else if (hasArticle) {
+        ids.add("skill:article_generation");
+      }
+    }
+
+    return ids;
+  }, [previewExperience]);
+
   const activeExperienceForEditing = useMemo(
     () => previewExperience || selectedExperience || experience || null,
     [experience, previewExperience, selectedExperience]
@@ -3008,7 +3360,13 @@ export const ComposerStudio = () => {
         ? asRecord((metadata as Record<string, unknown>).editable_generation)
         : null;
     const editableArticleDraft = editableGeneration ? asRecord(editableGeneration.article_draft) : null;
-    const generated = articleDraft?.generated ?? editableArticleDraft?.generated;
+    // Also check bundle block outputs — for bundle-based experiences the article
+    // lives in composition_bundle_state.block_outputs.article_draft, not config.
+    const bundleArticle = asRecord(resolveExperienceBundleBlockOutputs(previewExperience).article_draft);
+    const generated =
+      articleDraft?.generated ??
+      editableArticleDraft?.generated ??
+      bundleArticle?.generated;
     return generated && typeof generated === "object" && !Array.isArray(generated)
       ? JSON.stringify(generated)
       : null;
@@ -3025,7 +3383,11 @@ export const ComposerStudio = () => {
         ? asRecord((metadata as Record<string, unknown>).editable_generation)
         : null;
     const editableArticleDraft = editableGeneration ? asRecord(editableGeneration.article_draft) : null;
-    const generated = articleDraft?.generated ?? editableArticleDraft?.generated;
+    const bundleArticle = asRecord(resolveExperienceBundleBlockOutputs(exp).article_draft);
+    const generated =
+      articleDraft?.generated ??
+      editableArticleDraft?.generated ??
+      bundleArticle?.generated;
     return generated && typeof generated === "object" && !Array.isArray(generated)
       ? JSON.stringify(generated)
       : null;
@@ -3419,6 +3781,39 @@ export const ComposerStudio = () => {
     };
   }, [tenantId]);
 
+  // Fetch the full experience record (with complete metadata) whenever selectedExperienceId changes.
+  // The list response strips bundle assets and generated_assets to avoid 413 errors, so we need
+  // a single-record fetch to populate the delivery profile and preview correctly.
+  useEffect(() => {
+    if (!selectedExperienceId) {
+      setFullPreviewExperience(null);
+      return;
+    }
+    // If the in-memory experience state already has full metadata for this id, use it directly.
+    if (experience?.id === selectedExperienceId && experience.metadata && Object.keys(experience.metadata).length > 5) {
+      setFullPreviewExperience(experience);
+      return;
+    }
+    let active = true;
+    const fetchFull = async () => {
+      try {
+        const res = await fetch(`/api/composer/experiences/${encodeURIComponent(selectedExperienceId)}`, {
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        const full = data.experience_qube as ExperienceQube | undefined;
+        if (active && full?.id === selectedExperienceId) {
+          setFullPreviewExperience(full);
+        }
+      } catch {
+        // Non-fatal: fall back to stripped list entry
+      }
+    };
+    void fetchFull();
+    return () => { active = false; };
+  }, [selectedExperienceId, experience]);
+
   const filteredTemplates = useMemo(() => {
     const query = templateQuery.trim().toLowerCase();
     const intentKeywords: Record<string, string[]> = {
@@ -3590,7 +3985,7 @@ export const ComposerStudio = () => {
         else if (/(receipt|dvn)/.test(lower)) setStudioAnalysisTab("receipts");
         else setStudioAnalysisTab("parity");
 
-        return `I expanded **Parity Review** and moved to **${
+        return `I expanded **Planning & Parity Review** and moved to **${
           /(surface)/.test(lower)
             ? "Surface Planning"
             : /(receipt|dvn)/.test(lower)
@@ -3604,14 +3999,14 @@ export const ComposerStudio = () => {
           return `You are in **Customizer** on **${currentStep.title}** for **${templateName}**. The best next step is to complete the fields in this step, then move into **Resources** to confirm provider, skills, cost envelope, and any required user data.`;
         }
         if (experiencePanelTab === "resources") {
-          return `You are already in **Resources** for **${templateName}**. The next review loop is: confirm provider and skill path, confirm required user inputs, review the DesignQube summary, then move into **Preview** and **Parity Review**.`;
+          return `You are already in **Resources** for **${templateName}**. The next review loop is: confirm provider and skill path, confirm required user inputs, review the DesignQube summary, then move into **Preview** and **Planning & Parity Review**.`;
         }
         if (experiencePanelTab === "exqubes") {
-          return `You are in **Experiences**. The next step is to select or review the target ExperienceQube, then open **Runtime Preview** and **Parity Review** before deployment.`;
+          return `You are in **Experiences**. The next step is to select or review the target ExperienceQube, then open **Runtime Preview** and **Planning & Parity Review** before deployment.`;
         }
         if (sessionTemplate) {
           setExperiencePanelTab("customizer");
-          return `I moved you to **Customizer** for **${templateName}**. Start there, then review **Resources**, then check **Preview** and **Parity Review**.`;
+          return `I moved you to **Customizer** for **${templateName}**. Start there, then review **Resources**, then check **Preview** and **Planning & Parity Review**.`;
         }
       }
 
@@ -4142,6 +4537,23 @@ export const ComposerStudio = () => {
     const data = await res.json();
     setSession(data.session);
     setSessionData(nextData);
+    // Emit a Studio artifact receipt — fire-and-forget, never blocks save
+    fetch("/api/registry/receipts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        eventType: "asset.published",
+        actorId: activePersonaId ?? "studio-user",
+        tenantId: tenantId ?? "platform",
+        payload: {
+          sessionId: session.id,
+          step: nextStep,
+          cartridge: copilotContextId,
+          source: "composer_studio",
+          savedAt: new Date().toISOString(),
+        },
+      }),
+    }).catch(() => {/* silently ignore — receipt emission is non-blocking */});
   };
 
   const handleJumpToBundleStep = async () => {
@@ -4577,6 +4989,26 @@ export const ComposerStudio = () => {
       setSessionError(err.message || "Failed to complete session");
     } finally {
       setIsCompleting(false);
+    }
+  };
+
+  const handlePublishToRegistry = async () => {
+    const expId = previewExperience?.id || selectedExperienceId;
+    if (!expId) return;
+    try {
+      setIsPublishing(true);
+      const res = await fetch('/api/registry/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ experienceId: expId, userId: userId ?? undefined, tenantId: tenantId ?? undefined }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Publish failed');
+      setPublishedReceiptId(data.dvn_receipt_id ?? data.job_id ?? 'published');
+    } catch (err: any) {
+      console.error('[publishToRegistry]', err);
+    } finally {
+      setIsPublishing(false);
     }
   };
 
@@ -6900,7 +7332,7 @@ export const ComposerStudio = () => {
           recommendedDeploymentTarget: "Studio Preview",
           deploymentReady: Boolean(selectedExperienceId || previewExperience?.id),
           deploymentNotes: [
-            "Use Parity Review before deployment when resources or policy posture changed.",
+            "Use Planning & Parity Review before deployment when resources or policy posture changed.",
             "Discord and MCP deployment can follow after preview and parity review are satisfactory.",
           ],
         }),
@@ -7005,7 +7437,7 @@ export const ComposerStudio = () => {
       };
     }
     return {
-      title: "Parity Review",
+      title: "Planning & Parity Review",
       icon: <Shield className="h-4 w-4 text-fuchsia-300" />,
       description: "Review design parity, policy fit, and runtime readiness before launch.",
     };
@@ -7855,18 +8287,7 @@ export const ComposerStudio = () => {
               </TabsContent>
 
               <TabsContent value="resources" className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1">
-                <Tabs value={resourcesPanelTab} onValueChange={setResourcesPanelTab} className="flex min-h-0 h-full flex-col">
-                  <TabsList className={`${configuratorTabsListClass} grid-cols-2`}>
-                    <TabsTrigger value="experience" className={configuratorTabTriggerClass}>
-                      Experience
-                    </TabsTrigger>
-                    <TabsTrigger value="design" className={configuratorTabTriggerClass}>
-                      Design
-                    </TabsTrigger>
-                  </TabsList>
-
-                  <TabsContent value="experience" className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1">
-                    <div className="space-y-4">
+                <div className="space-y-4">
                       <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
                         <div className="flex items-center justify-between gap-3">
                           <div>
@@ -8118,11 +8539,40 @@ export const ComposerStudio = () => {
                       </div>
 
                       <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-                        <div className="text-sm font-semibold text-white">Experience resources</div>
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="text-sm font-semibold text-white">Experience resources</div>
+                          <button
+                            type="button"
+                            onClick={() => setShowRegistryBrowser(true)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-indigo-500/15 text-indigo-300 ring-1 ring-indigo-500/25 hover:bg-indigo-500/25 transition-colors"
+                          >
+                            <Layers className="h-3 w-3" />
+                            Browse Registry
+                          </button>
+                        </div>
                         <div className="mt-2 text-sm text-slate-400">
                           Registry-backed resources and template-configured dependencies will be collected here.
                         </div>
                         <div className="mt-3 space-y-2">
+                          {registrySelections.length > 0 && (
+                            <div className="space-y-1.5 mb-3">
+                              {registrySelections.map((sel) => (
+                                <div key={sel.assetId} className="flex items-center justify-between gap-2 rounded-lg border border-indigo-500/20 bg-indigo-500/5 px-3 py-2">
+                                  <div className="min-w-0">
+                                    <div className="text-xs font-medium text-slate-200 truncate">{sel.name}</div>
+                                    <div className="text-[10px] text-slate-500">{sel.assetClass} · {sel.trustBand.replace("_", " ")}</div>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => setRegistrySelections((prev) => prev.filter((s) => s.assetId !== sel.assetId))}
+                                    className="shrink-0 text-slate-500 hover:text-red-400 transition-colors"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                           {activeExperienceResourceSummary.resources.length > 0 ? (
                             activeExperienceResourceSummary.resources.map((item) => (
                               <div key={`${item.label}-${item.value}`} className="flex items-center justify-between gap-3 text-sm text-slate-200">
@@ -8130,7 +8580,7 @@ export const ComposerStudio = () => {
                                 <span className="text-right">{item.value}</span>
                               </div>
                             ))
-                          ) : (
+                          ) : registrySelections.length === 0 ? (
                             <div className="flex flex-wrap gap-2 text-[11px] text-slate-300">
                               <span className="rounded-full border border-slate-700 px-2 py-1">DataQubes</span>
                               <span className="rounded-full border border-slate-700 px-2 py-1">ToolQubes</span>
@@ -8138,7 +8588,7 @@ export const ComposerStudio = () => {
                               <span className="rounded-full border border-slate-700 px-2 py-1">BrowserQube</span>
                               <span className="rounded-full border border-slate-700 px-2 py-1">Voice stub</span>
                             </div>
-                          )}
+                          ) : null}
                         </div>
                       </div>
 
@@ -8961,775 +9411,8 @@ export const ComposerStudio = () => {
                         </div>
                       </div>
                     </div>
-                  </TabsContent>
-
-                  <TabsContent value="design" className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1">
-                    <div
-                      className="rounded-xl border p-4"
-                      style={
-                        designQube
-                          ? {
-                              backgroundColor: styleQubeThemeBg,
-                              borderColor: styleQubeThemeBorder,
-                              color: styleQubeThemeText,
-                            }
-                          : undefined
-                      }
-                    >
-                      {designQube ? (
-                        <>
-                          <div
-                            className="flex flex-wrap items-center justify-between gap-3 rounded-xl border px-3 py-2"
-                            style={{ backgroundColor: styleQubeThemeBg, borderColor: styleQubeThemeBorder }}
-                          >
-                            <div className="flex flex-wrap items-center gap-2 text-xs" style={{ color: styleQubeThemeText }}>
-                              <select
-                                value={activeStyleQubeId}
-                                onChange={(e) => handleDesignQubeSelection(e.target.value)}
-                                className="rounded-md border border-white/10 bg-slate-950/40 px-2 py-1 text-xs text-white/90"
-                                style={{ borderColor: styleQubeThemeBorder, backgroundColor: styleQubeThemeBg }}
-                              >
-                                {designQubeOptions.map((option) => (
-                                  <option key={option.id} value={option.id}>
-                                    {option.label}
-                                  </option>
-                                ))}
-                              </select>
-                              <button
-                                className="inline-flex items-center rounded-full border px-2 py-0.5"
-                                title={designQube.manifest?.authorityLevel || "guidance"}
-                                style={{ borderColor: styleQubeThemeBorder }}
-                              >
-                                <ShieldCheck className="h-3.5 w-3.5 text-emerald-300" />
-                              </button>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={() => setDesignTheme("light")}
-                                className={`inline-flex items-center rounded-full border px-2 py-0.5 ${designTheme === "light" ? "border-amber-300/60 bg-amber-500/10" : ""}`}
-                                title="Light theme"
-                                style={designTheme === "light" ? undefined : { borderColor: styleQubeThemeBorder }}
-                              >
-                                <Sun className="h-3.5 w-3.5 text-amber-300" />
-                              </button>
-                              <button
-                                onClick={() => setDesignTheme("dark")}
-                                className={`inline-flex items-center rounded-full border px-2 py-0.5 ${designTheme === "dark" ? "border-slate-300/60 bg-slate-500/10" : ""}`}
-                                title="Dark theme"
-                                style={designTheme === "dark" ? undefined : { borderColor: styleQubeThemeBorder }}
-                              >
-                                <Moon className="h-3.5 w-3.5 text-slate-300" />
-                              </button>
-                              <button
-                                onClick={() => setDesignQubeSummaryLayout("compact")}
-                                className={`inline-flex items-center rounded-full border px-2 py-0.5 ${designQubeSummaryLayout === "compact" ? "border-cyan-300/60 bg-cyan-500/10" : ""}`}
-                                title="Row view"
-                                style={designQubeSummaryLayout === "compact" ? undefined : { borderColor: styleQubeThemeBorder }}
-                              >
-                                <List size={14} className="text-cyan-300" />
-                              </button>
-                              <button
-                                onClick={() => setDesignQubeSummaryLayout("grid")}
-                                className={`inline-flex items-center rounded-full border px-2 py-0.5 ${designQubeSummaryLayout === "grid" ? "border-cyan-300/60 bg-cyan-500/10" : ""}`}
-                                title="Grid view"
-                                style={designQubeSummaryLayout === "grid" ? undefined : { borderColor: styleQubeThemeBorder }}
-                              >
-                                <LayoutGrid size={14} className="text-cyan-300" />
-                              </button>
-                              <button
-                                onClick={() => setDesignQubeCollapsed((prev) => !prev)}
-                                className="inline-flex items-center rounded-full border px-2 py-0.5"
-                                title={designQubeCollapsed ? "Expand details" : "Collapse details"}
-                                style={{ borderColor: styleQubeThemeBorder }}
-                              >
-                                {designQubeCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
-                              </button>
-                            </div>
-                          </div>
-
-                          {(() => {
-                            const themeTokens = designQube.tokens?.themes?.[designTheme];
-                            const colors = themeTokens?.color || {};
-                            const palette = [
-                              colors.bg,
-                              colors.surface,
-                              colors.accent,
-                              colors.text,
-                              colors.muted,
-                              colors.border,
-                            ].filter(Boolean) as string[];
-                            const resolvedPalette =
-                              palette.length > 0
-                                ? palette
-                                : ["#020617", "#0f172a", "#1d4ed8", "#f8fafc", "#94a3b8", "rgba(148,163,184,0.2)"];
-                            const radiusValues = designQube.tokens?.radius
-                              ? Object.values(designQube.tokens.radius).slice(0, 3)
-                              : [];
-                            const fontFamily = designQube.tokens?.typography?.fontFamily?.sans || "system-ui";
-                            const scale = designQube.tokens?.typography?.scale || {};
-                            const glassEnabled = designQube.constraints?.material?.glass?.enabled;
-                            const summaryBadges = designQube.manifest?.themes || [];
-
-                            return designQubeCollapsed ? (
-                              <div className="mt-4 space-y-3">
-                                <div className="flex flex-wrap items-center gap-2 text-[11px]" style={{ color: styleQubeThemeText }}>
-                                  <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5" style={{ borderColor: styleQubeThemeBorder }}>
-                                    <ShieldCheck className="h-3.5 w-3.5 text-emerald-300" />
-                                  </span>
-                                  {summaryBadges.map((theme) => (
-                                    <span key={theme} className="inline-flex items-center rounded-full border px-2 py-0.5" style={{ borderColor: styleQubeThemeBorder }}>
-                                      {theme.toLowerCase().includes("light") ? (
-                                        <Sun className="h-3.5 w-3.5 text-amber-300" />
-                                      ) : (
-                                        <Moon className="h-3.5 w-3.5 text-slate-300" />
-                                      )}
-                                    </span>
-                                  ))}
-                                  {glassEnabled && (
-                                    <span className="inline-flex items-center rounded-full border px-2 py-0.5" style={{ borderColor: styleQubeThemeBorder }} title="Glass material">
-                                      <Moon className="h-3.5 w-3.5 text-slate-400" />
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="flex flex-wrap items-center gap-2">
-                                  {resolvedPalette.slice(0, 6).map((color, idx) => (
-                                    <span
-                                      key={`${color}-${idx}`}
-                                      className="h-5 w-5 rounded-md border"
-                                      style={{ backgroundColor: color, borderColor: styleQubeThemeBorder }}
-                                      title={color}
-                                    />
-                                  ))}
-                                </div>
-                                <div className="flex items-center gap-3">
-                                  <span style={{ fontFamily, fontSize: scale.xl || 22 }} className="text-white">Aa</span>
-                                  <span style={{ fontFamily, fontSize: scale.sm || 14 }} className="text-slate-400">Aa</span>
-                                  <div className="ml-auto flex items-center gap-2">
-                                    {radiusValues.map((radius, idx) => (
-                                      <div
-                                        key={`radius-grid-${idx}`}
-                                        className="h-6 w-12 border"
-                                        style={{ borderRadius: `${radius}px`, backgroundColor: styleQubeThemeBg, borderColor: styleQubeThemeBorder }}
-                                        title={`radius ${radius}`}
-                                      />
-                                    ))}
-                                  </div>
-                                </div>
-                                <div className="flex items-center justify-end gap-2" title="Experience Modalities">
-                                  <div className="rounded-lg border border-blue-400/60 bg-blue-400/10 p-2">
-                                    <Eye className="h-4 w-4 text-blue-300" />
-                                  </div>
-                                  <div className="rounded-lg border border-green-400/60 bg-green-400/10 p-2">
-                                    <Volume2 className="h-4 w-4 text-green-300" />
-                                  </div>
-                                  <div className="rounded-lg border border-purple-400/60 bg-purple-400/10 p-2">
-                                    <LayoutGrid className="h-4 w-4 text-purple-300" />
-                                  </div>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="mt-4 space-y-4">
-                                <div className="rounded-xl border p-3" style={{ backgroundColor: styleQubeThemeBg, borderColor: styleQubeThemeBorder }}>
-                                  <h4 className="mb-2 flex items-center gap-2 text-sm font-medium text-white">
-                                    <BookOpen className="h-4 w-4 text-indigo-300" />
-                                    Enhanced Data Loading
-                                  </h4>
-                                  <div className="grid grid-cols-2 gap-4 text-xs">
-                                    <div className="space-y-1" style={{ color: styleQubeThemeText }}>
-                                      <div>✅ StyleQube: {designQube.styleQube ? "Loaded" : "Missing"}</div>
-                                      <div>✅ StructureQube: {designQube.structureQube ? "Loaded" : "Missing"}</div>
-                                      <div>✅ GuidesBriefs: {designQube.guidesBriefs ? "Loaded" : "Missing"}</div>
-                                      <div>✅ Sources: {designQube.sources?.length || 0} files</div>
-                                      <div>✅ References: {designQube.references?.length || 0} assets</div>
-                                      <div>✅ Visual Sub-Groups: {designQube.styleQube?.visual ? "Available" : "Missing"}</div>
-                                    </div>
-                                    <div className="space-y-1" style={{ color: styleQubeThemeText }}>
-                                      <div>✅ Audio Sub-Groups: {designQube.styleQube?.audio ? "Available" : "Missing"}</div>
-                                      <div>✅ Text Sub-Groups: {designQube.styleQube?.text ? "Available" : "Missing"}</div>
-                                      <div>✅ Spatial Sub-Groups: {designQube.styleQube?.spatial ? "Available" : "Missing"}</div>
-                                      <div>✅ Content Modules: {designQube.structureQube?.contentModules?.length || 0} available</div>
-                                      <div>✅ Big-Screen Support: {designQube.structureQube?.breakpoints?.bigScreen ? "Enabled" : "Missing"}</div>
-                                    </div>
-                                  </div>
-                                </div>
-
-                                <Tabs value={designQubeActivePanel} onValueChange={setDesignQubeActivePanel} className="w-full">
-                                  <TabsList className="grid h-10 w-full grid-cols-5 items-center rounded-full border border-white/10 bg-slate-950/60 p-1">
-                                    <TabsTrigger value="guides" className={configuratorTabTriggerClass}>
-                                      Guides
-                                    </TabsTrigger>
-                                    <TabsTrigger value="style" className={configuratorTabTriggerClass}>
-                                      StyleQube
-                                    </TabsTrigger>
-                                    <TabsTrigger value="structure" className={configuratorTabTriggerClass}>
-                                      StructureQube
-                                    </TabsTrigger>
-                                    <TabsTrigger value="screens" className={configuratorTabTriggerClass}>
-                                      Screens
-                                    </TabsTrigger>
-                                    <TabsTrigger value="guidance" className={configuratorTabTriggerClass}>
-                                      Guidance
-                                    </TabsTrigger>
-                                  </TabsList>
-
-                                  <TabsContent value="guides" className="mt-4">
-                                    <div className="rounded-xl border p-4" style={{ backgroundColor: styleQubeThemeBg, borderColor: styleQubeThemeBorder }}>
-                                      <div className="mb-3 flex items-center justify-between">
-                                        <h4 className="flex items-center gap-2 text-sm font-medium text-white">
-                                          <BookOpen className="h-4 w-4 text-indigo-300" />
-                                          Guides & Briefs
-                                        </h4>
-                                        <button className="flex items-center gap-1 rounded-md border border-indigo-500/30 bg-indigo-500/20 px-2 py-1 text-xs text-indigo-300 hover:bg-indigo-500/30">
-                                          <Upload className="h-3 w-3" />
-                                          Upload
-                                        </button>
-                                      </div>
-                                      {designQube.styleBrief && (
-                                        <div className="mb-4 max-h-[120px] overflow-y-auto pr-1 text-sm" style={{ color: styleQubeThemeText }}>
-                                          {designQube.styleBrief}
-                                        </div>
-                                      )}
-                                      <Tabs value={guidesActiveTab} onValueChange={setGuidesActiveTab} className="w-full">
-                                        <TabsList className="grid h-10 w-full grid-cols-2 items-center rounded-xl border border-white/10 bg-slate-900/40 p-1">
-                                          <TabsTrigger value="style-guide" className={configuratorTabTriggerClass}>
-                                            Style Guide
-                                          </TabsTrigger>
-                                          <TabsTrigger value="experience-guide" className={configuratorTabTriggerClass}>
-                                            Experience Guide
-                                          </TabsTrigger>
-                                        </TabsList>
-
-                                        <TabsContent value="style-guide" className="mt-4">
-                                          <Tabs value={styleGuideActiveTab} onValueChange={setStyleGuideActiveTab} className="w-full">
-                                            <TabsList className="grid h-10 w-full grid-cols-3 items-center rounded-xl border border-white/10 bg-slate-900/30 p-1">
-                                              <TabsTrigger value="css" className={configuratorTabTriggerClass}>
-                                                CSS
-                                              </TabsTrigger>
-                                              <TabsTrigger value="brand-guide" className={configuratorTabTriggerClass}>
-                                                Brand Guide
-                                              </TabsTrigger>
-                                              <TabsTrigger value="look-book" className={configuratorTabTriggerClass}>
-                                                Look Book
-                                              </TabsTrigger>
-                                            </TabsList>
-
-                                            <TabsContent value="css" className="mt-4">
-                                              <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
-                                                <div className="text-xs uppercase tracking-widest text-slate-400">CSS Styles</div>
-                                                <pre className="mt-3 overflow-x-auto whitespace-pre-wrap text-xs" style={{ color: styleQubeThemeText }}>
-                                                  {(designQube.guidesBriefs?.styleGuide?.css || []).join("\n") ||
-                                                    `/* Primary Colors */\n--primary: ${styleQubeThemeText};\n--background: ${styleQubeThemeBg};\n--border: ${styleQubeThemeBorder};`}
-                                                </pre>
-                                              </div>
-                                            </TabsContent>
-
-                                            <TabsContent value="brand-guide" className="mt-4">
-                                              <div className="space-y-2">
-                                                {(designQube.guidesBriefs?.styleGuide?.brandGuidelines || []).length > 0 ? (
-                                                  designQube.guidesBriefs?.styleGuide?.brandGuidelines.map((item, idx) => (
-                                                    <div key={`${item}-${idx}`} className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm" style={{ color: styleQubeThemeText }}>
-                                                      {item}
-                                                    </div>
-                                                  ))
-                                                ) : (
-                                                  <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm text-slate-300">
-                                                    Brand guide not configured.
-                                                  </div>
-                                                )}
-                                              </div>
-                                            </TabsContent>
-
-                                            <TabsContent value="look-book" className="mt-4">
-                                              <div className="space-y-2">
-                                                {(designQube.guidesBriefs?.styleGuide?.lookBooks || []).length > 0 ? (
-                                                  designQube.guidesBriefs?.styleGuide?.lookBooks.map((item, idx) => (
-                                                    <div key={`${item}-${idx}`} className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm" style={{ color: styleQubeThemeText }}>
-                                                      {item}
-                                                    </div>
-                                                  ))
-                                                ) : (
-                                                  <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm text-slate-300">
-                                                    Look book not configured.
-                                                  </div>
-                                                )}
-                                              </div>
-                                            </TabsContent>
-                                          </Tabs>
-                                        </TabsContent>
-
-                                        <TabsContent value="experience-guide" className="mt-4">
-                                          <Tabs value={experienceGuideActiveTab} onValueChange={setExperienceGuideActiveTab} className="w-full">
-                                            <TabsList className="grid h-10 w-full grid-cols-4 items-center rounded-xl border border-white/10 bg-slate-900/30 p-1">
-                                              <TabsTrigger value="who" className={configuratorTabTriggerClass}>Who</TabsTrigger>
-                                              <TabsTrigger value="what" className={configuratorTabTriggerClass}>What</TabsTrigger>
-                                              <TabsTrigger value="wow" className={configuratorTabTriggerClass}>Wow</TabsTrigger>
-                                              <TabsTrigger value="metrics" className={configuratorTabTriggerClass}>Metrics</TabsTrigger>
-                                            </TabsList>
-
-                                            <TabsContent value="who" className="mt-4 space-y-3">
-                                              <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
-                                                <div className="text-xs uppercase tracking-widest text-slate-400">Audience</div>
-                                                <div className="mt-2 text-sm" style={{ color: styleQubeThemeText }}>
-                                                  {designQube.guidesBriefs?.experienceGuide?.who?.audience || "Audience guide not configured."}
-                                                </div>
-                                              </div>
-                                              <div className="space-y-2">
-                                                {(designQube.guidesBriefs?.experienceGuide?.who?.demographics || []).slice(0, 6).map((item, idx) => (
-                                                  <div key={`${item}-${idx}`} className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm" style={{ color: styleQubeThemeText }}>
-                                                    {item}
-                                                  </div>
-                                                ))}
-                                              </div>
-                                            </TabsContent>
-
-                                            <TabsContent value="what" className="mt-4 space-y-3">
-                                              <div className="space-y-2">
-                                                <div className="text-xs uppercase tracking-widest text-slate-400">Delivery Methods</div>
-                                                {(designQube.guidesBriefs?.experienceGuide?.what?.delivery || []).slice(0, 6).map((item, idx) => (
-                                                  <div key={`${item}-${idx}`} className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm" style={{ color: styleQubeThemeText }}>
-                                                    {item}
-                                                  </div>
-                                                ))}
-                                              </div>
-                                              <div className="space-y-2">
-                                                <div className="text-xs uppercase tracking-widest text-slate-400">Mechanics</div>
-                                                {(designQube.guidesBriefs?.experienceGuide?.what?.mechanics || []).slice(0, 6).map((item, idx) => (
-                                                  <div key={`${item}-${idx}`} className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm" style={{ color: styleQubeThemeText }}>
-                                                    {item}
-                                                  </div>
-                                                ))}
-                                              </div>
-                                            </TabsContent>
-
-                                            <TabsContent value="wow" className="mt-4 space-y-3">
-                                              <div className="space-y-2">
-                                                <div className="text-xs uppercase tracking-widest text-slate-400">Differentiators</div>
-                                                {(designQube.guidesBriefs?.experienceGuide?.wow?.differentiators || []).slice(0, 6).map((item, idx) => (
-                                                  <div key={`${item}-${idx}`} className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm" style={{ color: styleQubeThemeText }}>
-                                                    {item}
-                                                  </div>
-                                                ))}
-                                              </div>
-                                              <div className="space-y-2">
-                                                <div className="text-xs uppercase tracking-widest text-slate-400">Innovations</div>
-                                                {(designQube.guidesBriefs?.experienceGuide?.wow?.innovations || []).slice(0, 6).map((item, idx) => (
-                                                  <div key={`${item}-${idx}`} className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm" style={{ color: styleQubeThemeText }}>
-                                                    {item}
-                                                  </div>
-                                                ))}
-                                              </div>
-                                            </TabsContent>
-
-                                            <TabsContent value="metrics" className="mt-4 space-y-3">
-                                              <div className="space-y-2">
-                                                <div className="text-xs uppercase tracking-widest text-slate-400">Success Metrics</div>
-                                                {(designQube.guidesBriefs?.experienceGuide?.metrics?.success || []).slice(0, 6).map((item, idx) => (
-                                                  <div key={`${item}-${idx}`} className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm" style={{ color: styleQubeThemeText }}>
-                                                    {item}
-                                                  </div>
-                                                ))}
-                                              </div>
-                                              <div className="space-y-2">
-                                                <div className="text-xs uppercase tracking-widest text-slate-400">KPIs</div>
-                                                {(designQube.guidesBriefs?.experienceGuide?.metrics?.kpis || []).slice(0, 6).map((item, idx) => (
-                                                  <div key={`${item}-${idx}`} className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm" style={{ color: styleQubeThemeText }}>
-                                                    {item}
-                                                  </div>
-                                                ))}
-                                              </div>
-                                            </TabsContent>
-                                          </Tabs>
-                                        </TabsContent>
-                                      </Tabs>
-                                    </div>
-                                  </TabsContent>
-
-                                  <TabsContent value="style" className="mt-4">
-                                    <div className="rounded-xl border p-4" style={{ backgroundColor: styleQubeThemeBg, borderColor: styleQubeThemeBorder }}>
-                                      <h4 className="mb-3 flex items-center gap-2 text-sm font-medium text-white">
-                                        <Palette className="h-4 w-4 text-rose-300" />
-                                        StyleQube
-                                      </h4>
-                                      <Tabs value={styleQubeActiveTab} onValueChange={setStyleQubeActiveTab} className="w-full">
-                                        <TabsList className="grid h-10 w-full grid-cols-4 items-center rounded-xl border border-white/10 bg-slate-900/40 p-1">
-                                          <TabsTrigger value="visual" className={configuratorTabTriggerClass}>Visual</TabsTrigger>
-                                          <TabsTrigger value="audio" className={configuratorTabTriggerClass}>Audio</TabsTrigger>
-                                          <TabsTrigger value="text" className={configuratorTabTriggerClass}>Text</TabsTrigger>
-                                          <TabsTrigger value="spatial" className={configuratorTabTriggerClass}>Spatial</TabsTrigger>
-                                        </TabsList>
-
-                                        <TabsContent value="visual" className="mt-4 space-y-4">
-                                          <div className="grid grid-cols-3 gap-3 text-xs">
-                                            <div>
-                                              <span className="text-slate-400">Primary Color</span>
-                                              <div className="mt-1 flex items-center gap-2">
-                                                <div className="h-3 w-3 rounded border border-slate-600" style={{ backgroundColor: designQube.styleQube?.visual?.colors?.primary }} />
-                                                <span style={{ color: styleQubeThemeText }}>{designQube.styleQube?.visual?.colors?.primary}</span>
-                                              </div>
-                                            </div>
-                                            <div>
-                                              <span className="text-slate-400">Secondary Color</span>
-                                              <div className="mt-1 flex items-center gap-2">
-                                                <div className="h-3 w-3 rounded border border-slate-600" style={{ backgroundColor: designQube.styleQube?.visual?.colors?.secondary }} />
-                                                <span style={{ color: styleQubeThemeText }}>{designQube.styleQube?.visual?.colors?.secondary}</span>
-                                              </div>
-                                            </div>
-                                            <div>
-                                              <span className="text-slate-400">Accent Color</span>
-                                              <div className="mt-1 flex items-center gap-2">
-                                                <div className="h-3 w-3 rounded border border-slate-600" style={{ backgroundColor: designQube.styleQube?.visual?.colors?.accent }} />
-                                                <span style={{ color: styleQubeThemeText }}>{designQube.styleQube?.visual?.colors?.accent}</span>
-                                              </div>
-                                            </div>
-                                            <div>
-                                              <span className="text-slate-400">Font Family</span>
-                                              <div className="mt-1" style={{ color: styleQubeThemeText }}>
-                                                {designQube.styleQube?.visual?.typography?.fontFamily?.primary}
-                                              </div>
-                                            </div>
-                                            <div>
-                                              <span className="text-slate-400">Border Radius</span>
-                                              <div className="mt-1" style={{ color: styleQubeThemeText }}>
-                                                {designQube.styleQube?.visual?.radius?.md}
-                                              </div>
-                                            </div>
-                                            <div>
-                                              <span className="text-slate-400">Shadow</span>
-                                              <div className="mt-1" style={{ color: styleQubeThemeText }}>
-                                                {designQube.styleQube?.visual?.shadows?.md}
-                                              </div>
-                                            </div>
-                                          </div>
-                                          <div className="space-y-2">
-                                            <div className="text-xs uppercase tracking-widest text-slate-400">Animation Duration</div>
-                                            <div className="grid grid-cols-3 gap-2 text-xs">
-                                              <div style={{ color: styleQubeThemeText }}>Fast: {designQube.styleQube?.visual?.animations?.duration?.fast}</div>
-                                              <div style={{ color: styleQubeThemeText }}>Normal: {designQube.styleQube?.visual?.animations?.duration?.normal}</div>
-                                              <div style={{ color: styleQubeThemeText }}>Slow: {designQube.styleQube?.visual?.animations?.duration?.slow}</div>
-                                            </div>
-                                          </div>
-                                        </TabsContent>
-
-                                        <TabsContent value="audio" className="mt-4 space-y-4">
-                                          <div className="grid grid-cols-3 gap-3 text-xs">
-                                            <div><span className="text-slate-400">Voice Persona</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.audio?.voice?.persona}</div></div>
-                                            <div><span className="text-slate-400">Accent</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.audio?.voice?.accent}</div></div>
-                                            <div><span className="text-slate-400">Pace</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.audio?.voice?.pace}</div></div>
-                                            <div><span className="text-slate-400">Sound Effects</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.audio?.soundEffects?.enabled ? "Enabled" : "Disabled"}</div></div>
-                                            <div><span className="text-slate-400">TTS Provider</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.audio?.voice?.ttsHints?.provider as string || "Not configured"}</div></div>
-                                            <div><span className="text-slate-400">Voice ID</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.audio?.voice?.ttsHints?.voiceId as string || "Not configured"}</div></div>
-                                          </div>
-                                          <div className="grid grid-cols-3 gap-2 text-xs">
-                                            <div style={{ color: styleQubeThemeText }}>Volume: {(designQube.styleQube?.audio as any)?.volume || "80%"}</div>
-                                            <div style={{ color: styleQubeThemeText }}>Pitch: {(designQube.styleQube?.audio as any)?.pitch || "Normal"}</div>
-                                            <div style={{ color: styleQubeThemeText }}>Quality: {(designQube.styleQube?.audio as any)?.quality || "High"}</div>
-                                          </div>
-                                        </TabsContent>
-
-                                        <TabsContent value="text" className="mt-4 space-y-4">
-                                          <div className="grid grid-cols-3 gap-3 text-xs">
-                                            <div><span className="text-slate-400">Font Family</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.text?.formatting?.fontFamily}</div></div>
-                                            <div><span className="text-slate-400">Font Size</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.text?.formatting?.fontSize}</div></div>
-                                            <div><span className="text-slate-400">Line Height</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.text?.formatting?.lineHeight}</div></div>
-                                            <div><span className="text-slate-400">Max Width</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.text?.formatting?.maxWidth}</div></div>
-                                            <div><span className="text-slate-400">Personality</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.text?.tone?.personality}</div></div>
-                                            <div><span className="text-slate-400">Formality</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.text?.tone?.formality}</div></div>
-                                          </div>
-                                          <div className="grid grid-cols-3 gap-2 text-xs">
-                                            <div style={{ color: styleQubeThemeText }}>Weight: {(designQube.styleQube?.text?.formatting as any)?.fontWeight || "Medium"}</div>
-                                            <div style={{ color: styleQubeThemeText }}>Spacing: {(designQube.styleQube?.text?.formatting as any)?.letterSpacing || "Normal"}</div>
-                                            <div style={{ color: styleQubeThemeText }}>Transform: {(designQube.styleQube?.text?.formatting as any)?.textTransform || "None"}</div>
-                                          </div>
-                                        </TabsContent>
-
-                                        <TabsContent value="spatial" className="mt-4 space-y-4">
-                                          <div className="grid grid-cols-2 gap-3 text-xs">
-                                            <div><span className="text-slate-400">3D Transforms</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.spatial?.threeD?.enabled ? "Enabled" : "Disabled"}</div></div>
-                                            <div><span className="text-slate-400">Z-Axis Stacking</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.spatial?.zAxis?.enabled ? "Enabled" : "Disabled"}</div></div>
-                                            <div><span className="text-slate-400">AR Support</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.spatial?.ar?.enabled ? "Enabled" : "Disabled"}</div></div>
-                                            <div><span className="text-slate-400">VR Support</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.spatial?.vr?.enabled ? "Enabled" : "Disabled"}</div></div>
-                                          </div>
-                                          {designQube.styleQube?.spatial?.threeD?.enabled && (
-                                            <div className="grid grid-cols-2 gap-2 text-xs">
-                                              <div style={{ color: styleQubeThemeText }}>Perspective: {designQube.styleQube.spatial.threeD.perspective}px</div>
-                                              <div style={{ color: styleQubeThemeText }}>Depth: {designQube.styleQube.spatial.threeD.depth}px</div>
-                                            </div>
-                                          )}
-                                        </TabsContent>
-                                      </Tabs>
-                                    </div>
-                                  </TabsContent>
-
-                                  <TabsContent value="structure" className="mt-4">
-                                    <div className="rounded-xl border p-4" style={{ backgroundColor: styleQubeThemeBg, borderColor: styleQubeThemeBorder }}>
-                                      <h4 className="mb-3 flex items-center gap-2 text-sm font-medium text-white">
-                                        <LayoutGrid className="h-4 w-4 text-cyan-300" />
-                                        StructureQube
-                                      </h4>
-                                      <Tabs value={structureQubeActiveTab} onValueChange={setStructureQubeActiveTab} className="w-full">
-                                        <TabsList className="grid h-10 w-full grid-cols-4 items-center rounded-xl border border-white/10 bg-slate-900/40 p-1">
-                                          <TabsTrigger value="templates" className={configuratorTabTriggerClass}>Templates</TabsTrigger>
-                                          <TabsTrigger value="modules" className={configuratorTabTriggerClass}>Modules</TabsTrigger>
-                                          <TabsTrigger value="breakpoints" className={configuratorTabTriggerClass}>Breakpoints</TabsTrigger>
-                                          <TabsTrigger value="priorities" className={configuratorTabTriggerClass}>Priority</TabsTrigger>
-                                        </TabsList>
-
-                                        <TabsContent value="templates" className="mt-4 space-y-4">
-                                          <div className="space-y-2">
-                                            <div className="text-xs uppercase tracking-widest text-slate-400">Priority Templates</div>
-                                            <div className="grid grid-cols-3 gap-2">
-                                              {(designQube.structureQube?.templateSelection?.priority || []).slice(0, 9).map((template, idx) => (
-                                                <div key={`${template}-${idx}`} className="flex items-center gap-2 rounded-lg bg-slate-950/40 p-2 text-xs" style={{ color: styleQubeThemeText }}>
-                                                  <div className="h-2 w-2 rounded-full bg-cyan-400" />
-                                                  {template}
-                                                </div>
-                                              ))}
-                                            </div>
-                                          </div>
-                                          <div className="grid grid-cols-3 gap-3 text-xs">
-                                            <div><span className="text-slate-400">Total Templates</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.structureQube?.templates?.length || 0} available</div></div>
-                                            <div><span className="text-slate-400">By Modality</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{Object.keys(designQube.structureQube?.templateSelection?.byModality || {}).length} categories</div></div>
-                                            <div><span className="text-slate-400">By Density</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{Object.keys(designQube.structureQube?.templateSelection?.byDensity || {}).length} types</div></div>
-                                          </div>
-                                        </TabsContent>
-
-                                        <TabsContent value="modules" className="mt-4">
-                                          <div className="space-y-2">
-                                            <div className="text-xs uppercase tracking-widest text-slate-400">Content Modules</div>
-                                            <div className="space-y-2">
-                                              {(designQube.structureQube?.contentModules || []).map((module, idx) => (
-                                                <div key={`${module.id}-${idx}`} className="flex items-center justify-between rounded-lg bg-slate-950/40 p-2 text-xs">
-                                                  <div className="flex items-center gap-2" style={{ color: styleQubeThemeText }}>
-                                                    <div className="h-2 w-2 rounded-full bg-purple-400" />
-                                                    {module.name}
-                                                  </div>
-                                                  <div className="text-slate-400">Priority {module.priority}</div>
-                                                </div>
-                                              ))}
-                                            </div>
-                                          </div>
-                                        </TabsContent>
-
-                                        <TabsContent value="breakpoints" className="mt-4">
-                                          <div className="grid grid-cols-2 gap-2">
-                                            {Object.entries(designQube.structureQube?.breakpoints || {}).map(([breakpoint, config]) => (
-                                              <div key={breakpoint} className="flex items-center gap-2 rounded-lg bg-slate-950/40 p-2 text-xs">
-                                                {breakpoint === "mobile" && <Smartphone className="h-3 w-3 text-blue-400" />}
-                                                {breakpoint === "tablet" && <Tablet className="h-3 w-3 text-green-400" />}
-                                                {breakpoint === "desktop" && <MonitorIcon className="h-3 w-3 text-purple-400" />}
-                                                {breakpoint === "bigScreen" && <Tv className="h-3 w-3 text-orange-400" />}
-                                                <div style={{ color: styleQubeThemeText }}>
-                                                  <div className="font-medium capitalize">{breakpoint.replace("bigScreen", "Big Screen")}</div>
-                                                  <div className="text-slate-400">
-                                                    {(config as any).minWidth && `≥${(config as any).minWidth}px`}
-                                                    {(config as any).maxWidth && ` ≤${(config as any).maxWidth}px`}
-                                                    {!(config as any).minWidth && !(config as any).maxWidth && "Any"}
-                                                  </div>
-                                                </div>
-                                              </div>
-                                            ))}
-                                          </div>
-                                        </TabsContent>
-
-                                        <TabsContent value="priorities" className="mt-4 space-y-4">
-                                          <div className="space-y-2">
-                                            <div className="text-xs uppercase tracking-widest text-slate-400">Component Priority Order</div>
-                                            <div className="space-y-2">
-                                              {Object.entries(designQube.structureQube?.componentPriorities || {}).map(([component, priority]) => (
-                                                <div key={component} className="flex items-center justify-between rounded-lg bg-slate-950/40 p-2 text-xs">
-                                                  <div className="flex items-center gap-2" style={{ color: styleQubeThemeText }}>
-                                                    <div className="h-2 w-2 rounded-full bg-emerald-400" />
-                                                    {component}
-                                                  </div>
-                                                  <div style={{ color: styleQubeThemeText }}>Priority {priority}</div>
-                                                </div>
-                                              ))}
-                                            </div>
-                                          </div>
-                                          <div className="space-y-2">
-                                            <div className="text-xs uppercase tracking-widest text-slate-400">Layout Rules</div>
-                                            <div className="space-y-2">
-                                              {(designQube.structureQube?.layoutRules || []).slice(0, 6).map((rule, idx) => (
-                                                <div key={`${rule}-${idx}`} className="rounded-lg bg-slate-950/40 p-2 text-xs" style={{ color: styleQubeThemeText }}>
-                                                  {rule}
-                                                </div>
-                                              ))}
-                                            </div>
-                                          </div>
-                                        </TabsContent>
-                                      </Tabs>
-                                    </div>
-                                  </TabsContent>
-
-                                  <TabsContent value="screens" className="mt-4">
-                                    <div className="space-y-4 rounded-xl border p-4" style={{ backgroundColor: styleQubeThemeBg, borderColor: styleQubeThemeBorder }}>
-                                      <div className="flex items-center justify-between">
-                                        <h4 className="flex items-center gap-2 text-sm font-medium text-white">
-                                          <MonitorIcon className="h-4 w-4 text-orange-300" />
-                                          Screens
-                                        </h4>
-                                        <button className="flex items-center gap-1 rounded-md border border-orange-500/30 bg-orange-500/20 px-2 py-1 text-xs text-orange-300 hover:bg-orange-500/30">
-                                          <Upload className="h-3 w-3" />
-                                          Upload
-                                        </button>
-                                      </div>
-                                      <div className="text-xs" style={{ color: styleQubeThemeText }}>
-                                        Upload and manage design screens from screenshots, Adobe XD, Figma, or other design tools.
-                                      </div>
-                                      <div className="grid grid-cols-2 gap-3">
-                                        <div className="text-center p-4 rounded-lg border border-dashed border-slate-600">
-                                          <MonitorIcon className="mx-auto mb-2 h-6 w-6 text-slate-400" />
-                                          <div className="text-xs text-slate-400">Screenshots</div>
-                                        </div>
-                                        <div className="text-center p-4 rounded-lg border border-dashed border-slate-600">
-                                          <Hexagon className="mx-auto mb-2 h-6 w-6 text-slate-400" />
-                                          <div className="text-xs text-slate-400">Adobe XD</div>
-                                        </div>
-                                        <div className="text-center p-4 rounded-lg border border-dashed border-slate-600">
-                                          <LayoutGrid className="mx-auto mb-2 h-6 w-6 text-slate-400" />
-                                          <div className="text-xs text-slate-400">Figma</div>
-                                        </div>
-                                        <div className="text-center p-4 rounded-lg border border-dashed border-slate-600">
-                                          <FileText className="mx-auto mb-2 h-6 w-6 text-slate-400" />
-                                          <div className="text-xs text-slate-400">Other Tools</div>
-                                        </div>
-                                      </div>
-                                      <div className="grid gap-3 sm:grid-cols-2">
-                                        {(designQube.references || []).length > 0 ? (
-                                          (designQube.references || []).map((ref, idx) => (
-                                            <div
-                                              key={ref.id}
-                                              className="rounded-xl border p-2"
-                                              style={{ backgroundColor: styleQubeThemeBg, borderColor: styleQubeThemeBorder }}
-                                            >
-                                              {ref.dataUrl || ref.thumbnailUrl ? (
-                                                <img
-                                                  src={ref.dataUrl || ref.thumbnailUrl || DESIGN_QUBE_IMAGE_FALLBACKS[idx % DESIGN_QUBE_IMAGE_FALLBACKS.length]}
-                                                  alt={ref.title || ref.file}
-                                                  className="h-32 w-full rounded-lg object-cover"
-                                                  onError={(event) => {
-                                                    event.currentTarget.onerror = null;
-                                                    event.currentTarget.src =
-                                                      DESIGN_QUBE_IMAGE_FALLBACKS[idx % DESIGN_QUBE_IMAGE_FALLBACKS.length];
-                                                  }}
-                                                />
-                                              ) : (
-                                                <div className="flex h-32 items-center justify-center rounded-lg border border-dashed text-xs text-slate-500">
-                                                  {ref.file}
-                                                </div>
-                                              )}
-                                              <div className="mt-2 text-xs text-slate-400">{ref.title || ref.file}</div>
-                                            </div>
-                                          ))
-                                        ) : (
-                                          (designQube.sources || []).slice(0, 6).map((source, idx) => (
-                                            <div
-                                              key={source.id}
-                                              className="rounded-xl border p-2"
-                                              style={{ backgroundColor: styleQubeThemeBg, borderColor: styleQubeThemeBorder }}
-                                            >
-                                              <img
-                                                src={DESIGN_QUBE_IMAGE_FALLBACKS[idx % DESIGN_QUBE_IMAGE_FALLBACKS.length]}
-                                                alt={source.label}
-                                                className="h-32 w-full rounded-lg object-cover"
-                                              />
-                                              <div className="mt-2 text-xs text-slate-400">{source.label}</div>
-                                            </div>
-                                          ))
-                                        )}
-                                      </div>
-                                    </div>
-                                  </TabsContent>
-
-                                  <TabsContent value="guidance" className="mt-4">
-                                    <div className="rounded-xl border p-4" style={{ backgroundColor: styleQubeThemeBg, borderColor: styleQubeThemeBorder }}>
-                                      <h4 className="mb-3 flex items-center gap-2 text-sm font-medium text-white">
-                                        <Bot className="h-4 w-4 text-emerald-300" />
-                                        Customization Guidance
-                                      </h4>
-                                      <div className="space-y-4">
-                                        <div className="text-xs" style={{ color: styleQubeThemeText }}>
-                                          Get real-time guidance as you customize templates. These copilots provide explanations, options, and automatically capture decisions in your DesignQube and ExperienceQube.
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-4">
-                                          {[
-                                            {
-                                              title: "Visual Customization",
-                                              icon: <Eye className="h-4 w-4 text-blue-300" />,
-                                              buttonClass: "bg-blue-500/20 text-blue-300 hover:bg-blue-500/30",
-                                              placeholder:
-                                                "Ask about colors, typography, spacing, animations...\nExample: 'What colors work best for a professional tech theme?'",
-                                              helper: "Provides color suggestions, typography recommendations, animation timing",
-                                            },
-                                            {
-                                              title: "Audio Customization",
-                                              icon: <Volume2 className="h-4 w-4 text-green-300" />,
-                                              buttonClass: "bg-green-500/20 text-green-300 hover:bg-green-500/30",
-                                              placeholder:
-                                                "Ask about voice personas, sound effects, audio feedback...\nExample: 'What voice persona works for educational content?'",
-                                              helper: "Voice persona selection, sound effect timing, TTS configuration",
-                                            },
-                                            {
-                                              title: "Text & Content",
-                                              icon: <Type className="h-4 w-4 text-purple-300" />,
-                                              buttonClass: "bg-purple-500/20 text-purple-300 hover:bg-purple-500/30",
-                                              placeholder:
-                                                "Ask about tone, readability, content structure...\nExample: 'How should I write for a technical audience?'",
-                                              helper: "Tone adjustment, readability optimization, content structure",
-                                            },
-                                            {
-                                              title: "Layout & Structure",
-                                              icon: <LayoutGrid className="h-4 w-4 text-cyan-300" />,
-                                              buttonClass: "bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30",
-                                              placeholder:
-                                                "Ask about templates, breakpoints, component arrangement...\nExample: 'What template works best for a dashboard layout?'",
-                                              helper: "Template selection, responsive design, component priorities",
-                                            },
-                                          ].map((assistant) => (
-                                            <div key={assistant.title} className="space-y-2">
-                                              <div className="flex items-center gap-2">
-                                                {assistant.icon}
-                                                <span className="text-xs font-medium text-white">{assistant.title}</span>
-                                              </div>
-                                              <div className="relative">
-                                                <textarea
-                                                  placeholder={assistant.placeholder}
-                                                  className="h-16 w-full resize-none rounded-md border border-slate-700/50 bg-slate-800/50 px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none"
-                                                />
-                                                <div className="absolute right-1 top-1">
-                                                  <button className={`rounded p-1 ${assistant.buttonClass}`}>
-                                                    <Bot className="h-3 w-3" />
-                                                  </button>
-                                                </div>
-                                              </div>
-                                              <div className="text-xs text-slate-400">{assistant.helper}</div>
-                                            </div>
-                                          ))}
-                                        </div>
-                                        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3">
-                                          <div className="flex items-center gap-2 text-xs text-emerald-200">
-                                            <ShieldCheck className="h-3 w-3" />
-                                            <span className="font-medium">Auto-Capture Enabled</span>
-                                          </div>
-                                          <div className="mt-1 text-xs text-emerald-300">
-                                            All customization decisions are automatically captured and stored in your DesignQube and ExperienceQube for consistency and future reference.
-                                          </div>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </TabsContent>
-                                </Tabs>
-                              </div>
-                            );
-                          })()}
-                        </>
-                      ) : (
-                        <div className="text-sm text-slate-400">No DesignQube loaded.</div>
-                      )}
-                    </div>
-                  </TabsContent>
-                </Tabs>
               </TabsContent>
+
 
               <TabsContent value="exqubes" className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1">
                 <div className="max-h-[560px] space-y-3 overflow-y-auto pr-1">
@@ -9883,13 +9566,41 @@ export const ComposerStudio = () => {
             <Tabs
               value={studioAnalysisTab}
               onValueChange={(value) => {
-                setStudioAnalysisTab(value as "parity" | "surfaces" | "receipts" | "pipeline" | "workflows");
+                setStudioAnalysisTab(value as "experience" | "parity" | "surfaces" | "receipts" | "pipeline" | "workflows");
                 setIsParityExpanded(true);
-                if (value === "pipeline" && lastPipelineRunId && !pipelineRunData) {
+                if (value === "experience") {
+                  const expId = previewExperience?.id || selectedExperienceId;
+                  const pId = activePersonaId || userId;
+                  if (pId && !expModelLoading) {
+                    setExpModelLoading(true);
+                    const params = new URLSearchParams();
+                    if (expId) params.set("experienceId", expId);
+                    if (pId) params.set("personaId", pId);
+                    fetch(`/api/runtime/experience?${params}`)
+                      .then((r) => r.ok ? r.json() : null)
+                      .then((d) => { if (d) setExpModelData(d); })
+                      .catch(() => {})
+                      .finally(() => setExpModelLoading(false));
+                  }
+                }
+                if (value === "pipeline" && !pipelineRunData) {
                   setPipelineRunLoading(true);
-                  fetch(`/api/pipeline/runs/${lastPipelineRunId}`)
-                    .then((r) => r.json())
-                    .then((d) => { setPipelineRunData(d); })
+                  const pipelineFetch = lastPipelineRunId
+                    ? fetch(`/api/pipeline/runs/${lastPipelineRunId}`).then((r) => r.json())
+                    : tenantId
+                    ? fetch(`/api/pipeline/runs?tenant_id=${encodeURIComponent(tenantId)}&limit=1`)
+                        .then((r) => r.json())
+                        .then((d) => {
+                          const run = d.runs?.[0];
+                          if (run?.pipelineRunId) {
+                            setLastPipelineRunId(run.pipelineRunId);
+                            return fetch(`/api/pipeline/runs/${run.pipelineRunId}`).then((r) => r.json());
+                          }
+                          return null;
+                        })
+                    : Promise.resolve(null);
+                  pipelineFetch
+                    .then((d) => { if (d) setPipelineRunData(d); })
                     .catch(() => {})
                     .finally(() => setPipelineRunLoading(false));
                 }
@@ -9922,53 +9633,1244 @@ export const ComposerStudio = () => {
                     <ChevronDown className={`h-4 w-4 transition-transform ${isParityExpanded ? "rotate-180" : ""}`} />
                   </button>
                 </div>
-                <TabsList className="grid h-10 w-full grid-cols-5 items-center rounded-full border border-white/10 bg-slate-950/60 p-1">
-                  <TabsTrigger value="parity" className={configuratorTabTriggerClass}>
-                    Design Parity
+                <TabsList className="grid h-11 w-full grid-cols-6 items-center rounded-full border border-white/10 bg-slate-950/60 p-1">
+                  <TabsTrigger value="experience" className={configuratorTabTriggerClass + " gap-1.5 text-[13px]"}>
+                    <Layers className="h-3.5 w-3.5 shrink-0" />
+                    Experience
                   </TabsTrigger>
-                  <TabsTrigger value="surfaces" className={configuratorTabTriggerClass}>
-                    Surface Planning
+                  <TabsTrigger value="parity" className={configuratorTabTriggerClass + " gap-1.5 text-[13px]"}>
+                    <Palette className="h-3.5 w-3.5 shrink-0" />
+                    Design
                   </TabsTrigger>
-                  <TabsTrigger value="receipts" className={configuratorTabTriggerClass}>
-                    DVN Receipts
+                  <TabsTrigger value="workflows" className={configuratorTabTriggerClass + " gap-1.5 text-[13px]"}>
+                    <Share2 className="h-3.5 w-3.5 shrink-0" />
+                    Workflows
                   </TabsTrigger>
-                  <TabsTrigger value="pipeline" className={configuratorTabTriggerClass}>
+                  <TabsTrigger value="surfaces" className={configuratorTabTriggerClass + " gap-1.5 text-[13px]"}>
+                    <Monitor className="h-3.5 w-3.5 shrink-0" />
+                    Surfaces
+                  </TabsTrigger>
+                  <TabsTrigger value="pipeline" className={configuratorTabTriggerClass + " gap-1.5 text-[13px]"}>
+                    <Activity className="h-3.5 w-3.5 shrink-0" />
                     Pipeline
                   </TabsTrigger>
-                  <TabsTrigger value="workflows" className={configuratorTabTriggerClass}>
-                    Workflows
+                  <TabsTrigger value="receipts" className={configuratorTabTriggerClass + " gap-1.5 text-[13px]"}>
+                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                    Receipts
                   </TabsTrigger>
                 </TabsList>
               </div>
 
               {isParityExpanded ? (
                 <>
+                  {/* ── Experience top-level tab ─────────────────────── */}
+                  <TabsContent value="experience" className="mt-0">
+                    <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 space-y-3 text-sm text-slate-200">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Layers className="h-4 w-4 text-violet-400" />
+                          <span className="font-semibold">
+                            {expModelTab === "strategy" ? "Experience Strategy"
+                              : expModelTab === "model" ? "Experience Model"
+                              : expModelTab === "matrix" ? "Experience Matrix"
+                              : expModelTab === "ladder" ? "Experience Ladder"
+                              : expModelTab === "status" ? "Journey Status"
+                              : expModelTab === "nbe" ? "NBE — Next Best Experience"
+                              : expModelTab === "analysis" ? "Analysis Cards"
+                              : "Experience Framework"}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/50 px-2.5 py-1 text-[11px] text-slate-300 hover:bg-slate-700"
+                          onClick={() => {
+                            const expId = previewExperience?.id || selectedExperienceId;
+                            const pId = activePersonaId || userId;
+                            if (!pId) return;
+                            setExpModelLoading(true);
+                            const params = new URLSearchParams();
+                            if (expId) params.set("experienceId", expId);
+                            if (pId) params.set("personaId", pId);
+                            fetch(`/api/runtime/experience?${params}`)
+                              .then((r) => r.ok ? r.json() : null)
+                              .then((d) => { if (d) setExpModelData(d); })
+                              .catch(() => {})
+                              .finally(() => setExpModelLoading(false));
+                          }}
+                        >
+                          <RefreshCw className={`h-3 w-3 ${expModelLoading ? "animate-spin" : ""}`} />
+                          Refresh
+                        </button>
+                      </div>
+
+                      <Tabs value={expModelTab} onValueChange={setExpModelTab}>
+                        <TabsList className="grid w-full grid-cols-7 border border-slate-800 bg-slate-950/70">
+                          {(["strategy", "model", "matrix", "ladder", "status", "nbe", "analysis"] as const).map((t) => (
+                            <TabsTrigger key={t} value={t} className="text-[10px] px-1">
+                              {t === "nbe" ? "NBE" : t === "strategy" ? "Strategy" : t === "matrix" ? "Matrix" : t === "ladder" ? "Ladder" : t === "analysis" ? "Analysis" : t.charAt(0).toUpperCase() + t.slice(1)}
+                            </TabsTrigger>
+                          ))}
+                        </TabsList>
+
+                        {/* ── Strategy ── */}
+                        <TabsContent value="strategy" className="mt-3">
+                          {(() => {
+                            const fw = CARTRIDGE_FRAMEWORK[copilotContextId];
+                            const s = expModelData.strategy ? {
+                              name: expModelData.strategy.name,
+                              macro_intent: expModelData.strategy.description,
+                              description: expModelData.strategy.description,
+                              target_segments: expModelData.strategy.target_segments,
+                              principles: [] as { title: string; body: string }[],
+                            } : fw?.strategy ?? null;
+                            if (expModelLoading) return <div className="text-slate-400 text-xs">Loading…</div>;
+                            if (!s) return <div className="text-slate-400 text-xs">No experience strategy configured. Seed experience_strategies in Supabase.</div>;
+                            return (
+                              <div className="space-y-3">
+                                {!expModelData.strategy && <div className="text-[10px] text-slate-500 uppercase tracking-wide">Cartridge canonical reference</div>}
+                                <div>
+                                  <div className="font-semibold text-white">{s.name}</div>
+                                  <div className="mt-1 rounded-lg border border-violet-500/20 bg-violet-500/5 px-3 py-2">
+                                    <div className="text-[10px] font-semibold uppercase tracking-wide text-violet-400 mb-1">Macro intent</div>
+                                    <div className="text-xs text-slate-200">{s.macro_intent}</div>
+                                  </div>
+                                </div>
+                                <div className="text-xs text-slate-400">{s.description}</div>
+                                {s.principles?.length > 0 && (
+                                  <div className="space-y-1.5">
+                                    <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Design principles</div>
+                                    {s.principles.map((p) => (
+                                      <div key={p.title} className="rounded-lg border border-slate-800 bg-slate-900/50 px-3 py-2">
+                                        <div className="text-xs font-semibold text-slate-200">{p.title}</div>
+                                        <div className="text-[11px] text-slate-400 mt-0.5">{p.body}</div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                                {s.target_segments?.length > 0 && (
+                                  <div>
+                                    <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Target segments</div>
+                                    <div className="flex gap-1 flex-wrap">
+                                      {s.target_segments.map((seg) => (
+                                        <span key={seg} className="rounded-full border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[11px] text-violet-300">{seg}</span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </TabsContent>
+
+                        {/* ── Model ── tools / assets / levers (not the ladder) */}
+                        <TabsContent value="model" className="mt-3">
+                          {(() => {
+                            const fw = CARTRIDGE_FRAMEWORK[copilotContextId];
+                            // DB model only has name/description/stages — enrich with static structural data
+                            const m = fw?.model ?? null;
+                            const dbM = expModelData.model;
+                            if (expModelLoading) return <div className="text-slate-400 text-xs">Loading…</div>;
+                            if (!m && !dbM) return <div className="text-slate-400 text-xs">No experience model configured.</div>;
+                            const name = dbM?.name ?? m?.name ?? "";
+                            const description = dbM?.description ?? m?.description ?? "";
+                            return (
+                              <div className="space-y-3">
+                                {!dbM && <div className="text-[10px] text-slate-500 uppercase tracking-wide">Cartridge canonical reference</div>}
+                                <div>
+                                  <div className="font-semibold text-white">{name}</div>
+                                  <div className="text-xs text-slate-400 mt-0.5">{description}</div>
+                                </div>
+                                {m && (
+                                  <div className="grid gap-2 grid-cols-2">
+                                    {[
+                                      { label: "Structural", items: m.structural, color: "border-blue-500/30 bg-blue-500/5 text-blue-400" },
+                                      { label: "Emotional", items: m.emotional, color: "border-violet-500/30 bg-violet-500/5 text-violet-400" },
+                                      { label: "Transactional", items: m.transactional, color: "border-amber-500/30 bg-amber-500/5 text-amber-400" },
+                                      { label: "Governance", items: m.governance, color: "border-slate-600/50 bg-slate-900/50 text-slate-400" },
+                                    ].map(({ label, items, color }) => (
+                                      <div key={label} className={`rounded-lg border p-3 space-y-1 ${color.split(" ")[0]} ${color.split(" ")[1]}`}>
+                                        <div className={`text-[10px] font-semibold uppercase tracking-wide ${color.split(" ")[2]}`}>{label}</div>
+                                        {items.map((item) => (
+                                          <div key={item} className="text-[11px] text-slate-300 leading-snug">{item}</div>
+                                        ))}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </TabsContent>
+
+                        {/* ── Matrix ── 2D: Y = PCS engagement, X = sovereignty journey */}
+                        <TabsContent value="matrix" className="mt-3">
+                          {(() => {
+                            const fw = CARTRIDGE_FRAMEWORK[copilotContextId];
+                            const m = fw?.matrix ?? null;
+                            if (expModelLoading) return <div className="text-slate-400 text-xs">Loading…</div>;
+                            if (!m) return <div className="text-slate-400 text-xs">No experience matrix configured for this cartridge.</div>;
+                            const yReversed = [...m.y_stages].reverse(); // highest engagement at top
+                            const xLen = m.x_stages.length;
+                            const yLen = yReversed.length;
+                            return (
+                              <div className="space-y-2">
+                                {/* Lens toggle */}
+                                <div className="flex items-center gap-1">
+                                  {([
+                                    { id: "org" as const, label: "Org", icon: <Globe className="h-3 w-3" /> },
+                                    { id: "cohort" as const, label: "Cohort", icon: <Users className="h-3 w-3" /> },
+                                    { id: "individual" as const, label: "Individual", icon: <Target className="h-3 w-3" /> },
+                                  ]).map((lens) => (
+                                    <button key={lens.id} type="button"
+                                      onClick={() => setMatrixLens(lens.id)}
+                                      className={`flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-medium transition ${
+                                        matrixLens === lens.id
+                                          ? "border-violet-500/40 bg-violet-500/10 text-violet-300"
+                                          : "border-slate-800 text-slate-500 hover:text-slate-300"
+                                      }`}>
+                                      {lens.icon} {lens.label}
+                                    </button>
+                                  ))}
+                                  <span className="ml-auto text-[9px] text-slate-600">
+                                    {matrixLens === "org" ? "Full population distribution" : matrixLens === "cohort" ? "Cohort density heatmap" : "Individual NBE pathway"}
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between text-[10px] text-slate-500">
+                                  <span className="uppercase tracking-wide">Engagement ↑</span>
+                                  <span className="text-emerald-400/60">Sovereignty journey → &nbsp; goal: top-right ★</span>
+                                </div>
+                                <div className="overflow-x-auto">
+                                  <div style={{ minWidth: `${100 + xLen * 68}px` }}>
+                                    {/* X-axis header */}
+                                    <div className="grid gap-0.5 mb-1" style={{ gridTemplateColumns: `96px repeat(${xLen}, 1fr)` }}>
+                                      <div className="text-[11px] text-slate-600 self-end pb-0.5">Y ╲ X</div>
+                                      {m.x_stages.map((x) => (
+                                        <div key={x} className="text-center text-[11px] font-semibold text-slate-500 pb-0.5 truncate" title={x}>{x}</div>
+                                      ))}
+                                    </div>
+                                    {/* Grid rows (Y inverted) */}
+                                    <div className="space-y-0.5">
+                                      {yReversed.map((y, yi) => (
+                                        <div key={y} className="grid gap-0.5 items-stretch" style={{ gridTemplateColumns: `96px repeat(${xLen}, 1fr)` }}>
+                                          <div className="text-[11px] font-semibold text-slate-400 pr-1 flex items-center truncate" title={y}>
+                                            {y}
+                                          </div>
+                                          {m.x_stages.map((x, xi) => {
+                                            const key = `${y}:${x}`;
+                                            const prescription = m.cells[key] ?? "";
+                                            const yOrig = yLen - 1 - yi;
+                                            const isApex = yi <= 1 && xi >= xLen - 2;
+                                            const hasPrescription = !!prescription;
+                                            const yNorm = yOrig / Math.max(yLen - 1, 1);
+                                            const xNorm = xi / Math.max(xLen - 1, 1);
+                                            const isOnDiagonal = Math.abs(yNorm - xNorm) <= 0.28;
+                                            const cellClass = isApex && hasPrescription
+                                              ? "border-amber-500/40 bg-amber-500/8 text-amber-200"
+                                              : hasPrescription && isOnDiagonal
+                                                ? "border-emerald-500/25 bg-emerald-500/5 text-emerald-300"
+                                                : hasPrescription
+                                                  ? "border-blue-500/25 bg-blue-500/5 text-blue-300"
+                                                  : "border-slate-800/30 bg-slate-950/30 text-slate-700";
+                                            return (
+                                              <div key={key}
+                                                className={`rounded border px-0.5 py-1 text-center text-[12px] leading-tight font-medium ${cellClass} cursor-default`}
+                                                title={prescription || `${y} × ${x}`}>
+                                                {prescription ? prescription.split(": ").pop() : "·"}
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      ))}
+                                    </div>
+                                    <div className="flex items-center gap-3 mt-2 text-[11px] text-slate-600">
+                                      <span><span className="text-emerald-400">■</span> optimal path</span>
+                                      <span><span className="text-blue-400">■</span> off-diagonal NBE</span>
+                                      <span><span className="text-amber-400">■</span> apex zone</span>
+                                      <span><span className="text-slate-700">·</span> no prescription</span>
+                                      <span className="ml-auto text-slate-500">hover for full prescription</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </TabsContent>
+
+                        {/* ── Ladder ── Sovereignty journey (X-axis) with cartridge skin mapping */}
+                        <TabsContent value="ladder" className="mt-3">
+                          {(() => {
+                            const fw = CARTRIDGE_FRAMEWORK[copilotContextId];
+                            const ladder = fw?.ladder ?? null;
+                            if (expModelLoading) return <div className="text-slate-400 text-xs">Loading…</div>;
+                            if (!ladder) return <div className="text-slate-400 text-xs">No sovereignty ladder configured for this cartridge.</div>;
+                            return (
+                              <div className="space-y-3">
+                                <div className="text-[10px] text-slate-500 uppercase tracking-wide">Sovereignty journey — X-axis of the experience matrix</div>
+                                <div className="rounded-lg border border-violet-500/20 bg-violet-500/5 px-3 py-2 text-xs text-violet-200 font-mono">
+                                  {ladder.canonical}
+                                </div>
+                                <div className="space-y-1.5">
+                                  {[...ladder.stages].reverse().map((stage, i) => {
+                                    const totalStages = ladder.stages.length;
+                                    const stageIdx = totalStages - 1 - i;
+                                    const isApex = stageIdx === totalStages - 1;
+                                    return (
+                                      <div key={stage.id} className={`flex items-start gap-3 rounded-lg border px-3 py-2 ${isApex ? "border-amber-500/30 bg-amber-500/5" : "border-slate-800 bg-slate-900/30"}`}>
+                                        <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[9px] font-bold ${isApex ? "border-amber-500/50 text-amber-300" : "border-slate-700 text-slate-500"}`}>
+                                          {stageIdx + 1}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                          <div className="flex items-center gap-2">
+                                            <span className={`text-xs font-semibold ${isApex ? "text-amber-200" : "text-slate-200"}`}>{stage.label}</span>
+                                            {stage.knyt_label && (
+                                              <span className="text-[10px] text-slate-500">KNYT: {stage.knyt_label}</span>
+                                            )}
+                                          </div>
+                                          <div className="text-[11px] text-slate-500 mt-0.5">{stage.unlock}</div>
+                                        </div>
+                                        <div className="text-[10px] font-mono text-slate-600 shrink-0">{stage.id}</div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </TabsContent>
+
+                        <TabsContent value="status" className="mt-3">
+                          {expModelData.journey ? (
+                            <div className="grid gap-2 md:grid-cols-3">
+                              {[
+                                { label: "Stage", value: expModelData.journey.stage },
+                                { label: "Depth", value: expModelData.journey.depth },
+                                { label: "Active", value: expModelData.journey.active_at ? new Date(expModelData.journey.active_at).toLocaleDateString() : "—" },
+                              ].map(({ label, value }) => (
+                                <div key={label} className="rounded-lg border border-slate-800 bg-slate-900/50 p-3">
+                                  <div className="text-[11px] text-slate-400">{label}</div>
+                                  <div className="mt-1 font-semibold capitalize">{value}</div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : expModelLoading ? (
+                            <div className="text-slate-400 text-xs">Loading…</div>
+                          ) : (
+                            <div className="text-slate-400 text-xs">No journey state found for this persona. Run the DB migration and seed journey_states.</div>
+                          )}
+                        </TabsContent>
+
+                        <TabsContent value="nbe" className="mt-3">
+                          {expModelData.nbe ? (
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <span className="rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-300 capitalize">{expModelData.nbe.disposition}</span>
+                                {expModelData.nbe.next_experience_depth && (
+                                  <span className="text-xs text-slate-400">→ <span className="text-violet-300">{expModelData.nbe.next_experience_depth}</span></span>
+                                )}
+                              </div>
+                              {expModelData.nbe.rationale && <div className="text-xs text-slate-300">{expModelData.nbe.rationale}</div>}
+                              {expModelData.nbe.expires_at && (
+                                <div className="text-[11px] text-slate-500">Expires: {new Date(expModelData.nbe.expires_at).toLocaleDateString()}</div>
+                              )}
+                            </div>
+                          ) : expModelLoading ? (
+                            <div className="text-slate-400 text-xs">Loading…</div>
+                          ) : (
+                            <div className="text-slate-400 text-xs">No active NBE plan for this experience.</div>
+                          )}
+                        </TabsContent>
+
+                        <TabsContent value="analysis" className="mt-3">
+                          <div className="space-y-3">
+                            <div className="grid gap-2 md:grid-cols-3">
+                              {/* Goals node */}
+                              <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-3 space-y-1">
+                                <div className="text-[10px] font-semibold uppercase tracking-wide text-blue-400">Goals</div>
+                                {expModelData.analysis?.filter((c) => c.card_type === "goal_alignment").map((c, i) => (
+                                  <div key={i} className="text-xs text-slate-300">{c.content}</div>
+                                ))}
+                                {expModelData.analysis?.find((c) => c.card_type === "goal_alignment")?.score != null && (
+                                  <div className="text-[11px] font-semibold text-blue-300">Alignment: {expModelData.analysis!.find((c) => c.card_type === "goal_alignment")!.score}/100</div>
+                                )}
+                                {!expModelData.analysis?.some((c) => c.card_type === "goal_alignment") && (
+                                  <div className="text-[11px] text-slate-600">No goal data</div>
+                                )}
+                              </div>
+                              {/* Matrix node */}
+                              <div className="rounded-lg border border-violet-500/30 bg-violet-500/5 p-3 space-y-1">
+                                <div className="text-[10px] font-semibold uppercase tracking-wide text-violet-400">Matrix Position</div>
+                                {expModelData.journey && (
+                                  <div className="text-xs text-slate-300 capitalize">
+                                    <span className="text-violet-300">{expModelData.journey.stage}</span>{" / "}<span className="text-slate-400">{expModelData.journey.depth}</span>
+                                  </div>
+                                )}
+                                {expModelData.analysis?.find((c) => c.card_type === "stage_readiness")?.score != null && (
+                                  <div className="text-[11px] font-semibold text-violet-300">Readiness: {expModelData.analysis!.find((c) => c.card_type === "stage_readiness")!.score}/100</div>
+                                )}
+                                {!expModelData.journey && !expModelData.analysis?.some((c) => c.card_type === "stage_readiness") && (
+                                  <div className="text-[11px] text-slate-600">No position data</div>
+                                )}
+                              </div>
+                              {/* NBE node */}
+                              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 space-y-1">
+                                <div className="text-[10px] font-semibold uppercase tracking-wide text-emerald-400">NBE</div>
+                                {expModelData.nbe ? (
+                                  <>
+                                    <span className="rounded border border-emerald-500/40 bg-emerald-500/10 px-1.5 py-0.5 text-[11px] text-emerald-300 capitalize">{expModelData.nbe.disposition}</span>
+                                    {expModelData.nbe.next_experience_depth && (
+                                      <div className="text-[11px] text-slate-400">→ {expModelData.nbe.next_experience_depth}</div>
+                                    )}
+                                    {expModelData.analysis?.find((c) => c.card_type === "nbe_confidence")?.score != null && (
+                                      <div className="text-[11px] font-semibold text-emerald-300">Confidence: {expModelData.analysis!.find((c) => c.card_type === "nbe_confidence")!.score}/100</div>
+                                    )}
+                                  </>
+                                ) : <div className="text-[11px] text-slate-600">No active NBE</div>}
+                              </div>
+                            </div>
+                            {expModelData.analysis?.filter((c) => !["goal_alignment", "stage_readiness", "nbe_confidence"].includes(c.card_type)).map((card, i) => (
+                              <div key={i} className="rounded-lg border border-slate-800 bg-slate-900/50 p-3">
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className={`rounded border px-1.5 py-0.5 text-[11px] capitalize ${card.card_type === "blocker" ? "border-rose-500/40 text-rose-300" : "border-slate-700 text-slate-300"}`}>{card.card_type.replace("_", " ")}</span>
+                                  {card.score != null && <span className="text-xs font-semibold text-emerald-300">{card.score}</span>}
+                                </div>
+                                <div className="text-xs text-slate-300">{card.content}</div>
+                              </div>
+                            ))}
+                            {!expModelData.analysis?.length && !expModelLoading && (
+                              <div className="text-slate-400 text-xs">No analysis cards. Seed analysis_cards in Supabase after running the DB migration.</div>
+                            )}
+                          </div>
+                        </TabsContent>
+                      </Tabs>
+                    </div>
+                  </TabsContent>
+
+                  {/* ── Design ───────────────────── */}
                   <TabsContent value="parity" className="mt-0">
-                    <AgenticDesignParityPanel
-                      designQube={designQube}
-                      activeDesignQubeId={activeStyleQubeId}
-                      designTheme={designTheme}
-                      experiences={experiences}
-                      previewExperience={previewExperience}
-                      previewAction={previewAction}
-                      routingSummary={routingEnvelope.summary}
-                      recommendedTargetLabel={getDeploymentTargetLabel(routingEnvelope.recommendedTarget)}
-                      deploymentGuidance={deploymentTargetCards}
-                      onOpenExperience={(experienceId) => {
-                        router.push(`/studio/composer/experience/${encodeURIComponent(experienceId)}`);
-                      }}
-                      onOpenRuntimePreview={() => {
-                        openRuntimePreviewForExperience(previewExperience, "Preview");
-                      }}
-                      onApplyRemedy={handleApplyRemedy}
-                      onLogAuditEvent={handleLogAuditEvent}
-                    />
+                    <Tabs value={designPanelSubTab} onValueChange={setDesignPanelSubTab} className="w-full">
+                      <TabsList className={`${configuratorTabsListClass} grid-cols-2`}>
+                        <TabsTrigger value="style-guides" className={configuratorTabTriggerClass}>
+                          Design &amp; Style Guides
+                        </TabsTrigger>
+                        <TabsTrigger value="design-parity" className={configuratorTabTriggerClass}>
+                          Design Parity
+                        </TabsTrigger>
+                      </TabsList>
+
+                      <TabsContent value="style-guides" className="mt-4 min-h-0 overflow-y-auto">
+                        <div
+                          className="rounded-xl border p-4"
+                          style={
+                            designQube
+                              ? {
+                                  backgroundColor: styleQubeThemeBg,
+                                  borderColor: styleQubeThemeBorder,
+                                  color: styleQubeThemeText,
+                                }
+                              : undefined
+                          }
+                        >
+                          {designQube ? (
+                            <>
+                              <div
+                                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border px-3 py-2"
+                                style={{ backgroundColor: styleQubeThemeBg, borderColor: styleQubeThemeBorder }}
+                              >
+                                <div className="flex flex-wrap items-center gap-2 text-xs" style={{ color: styleQubeThemeText }}>
+                                  <select
+                                    value={activeStyleQubeId}
+                                    onChange={(e) => handleDesignQubeSelection(e.target.value)}
+                                    className="rounded-md border border-white/10 bg-slate-950/40 px-2 py-1 text-xs text-white/90"
+                                    style={{ borderColor: styleQubeThemeBorder, backgroundColor: styleQubeThemeBg }}
+                                  >
+                                    {designQubeOptions.map((option) => (
+                                      <option key={option.id} value={option.id}>
+                                        {option.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <button
+                                    className="inline-flex items-center rounded-full border px-2 py-0.5"
+                                    title={designQube.manifest?.authorityLevel || "guidance"}
+                                    style={{ borderColor: styleQubeThemeBorder }}
+                                  >
+                                    <ShieldCheck className="h-3.5 w-3.5 text-emerald-300" />
+                                  </button>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => setDesignTheme("light")}
+                                    className={`inline-flex items-center rounded-full border px-2 py-0.5 ${designTheme === "light" ? "border-amber-300/60 bg-amber-500/10" : ""}`}
+                                    title="Light theme"
+                                    style={designTheme === "light" ? undefined : { borderColor: styleQubeThemeBorder }}
+                                  >
+                                    <Sun className="h-3.5 w-3.5 text-amber-300" />
+                                  </button>
+                                  <button
+                                    onClick={() => setDesignTheme("dark")}
+                                    className={`inline-flex items-center rounded-full border px-2 py-0.5 ${designTheme === "dark" ? "border-slate-300/60 bg-slate-500/10" : ""}`}
+                                    title="Dark theme"
+                                    style={designTheme === "dark" ? undefined : { borderColor: styleQubeThemeBorder }}
+                                  >
+                                    <Moon className="h-3.5 w-3.5 text-slate-300" />
+                                  </button>
+                                  <button
+                                    onClick={() => setDesignQubeSummaryLayout("compact")}
+                                    className={`inline-flex items-center rounded-full border px-2 py-0.5 ${designQubeSummaryLayout === "compact" ? "border-cyan-300/60 bg-cyan-500/10" : ""}`}
+                                    title="Row view"
+                                    style={designQubeSummaryLayout === "compact" ? undefined : { borderColor: styleQubeThemeBorder }}
+                                  >
+                                    <List size={14} className="text-cyan-300" />
+                                  </button>
+                                  <button
+                                    onClick={() => setDesignQubeSummaryLayout("grid")}
+                                    className={`inline-flex items-center rounded-full border px-2 py-0.5 ${designQubeSummaryLayout === "grid" ? "border-cyan-300/60 bg-cyan-500/10" : ""}`}
+                                    title="Grid view"
+                                    style={designQubeSummaryLayout === "grid" ? undefined : { borderColor: styleQubeThemeBorder }}
+                                  >
+                                    <LayoutGrid size={14} className="text-cyan-300" />
+                                  </button>
+                                  <button
+                                    onClick={() => setDesignQubeCollapsed((prev) => !prev)}
+                                    className="inline-flex items-center rounded-full border px-2 py-0.5"
+                                    title={designQubeCollapsed ? "Expand details" : "Collapse details"}
+                                    style={{ borderColor: styleQubeThemeBorder }}
+                                  >
+                                    {designQubeCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                                  </button>
+                                </div>
+                              </div>
+    
+                              {(() => {
+                                const themeTokens = designQube.tokens?.themes?.[designTheme];
+                                const colors = themeTokens?.color || {};
+                                const palette = [
+                                  colors.bg,
+                                  colors.surface,
+                                  colors.accent,
+                                  colors.text,
+                                  colors.muted,
+                                  colors.border,
+                                ].filter(Boolean) as string[];
+                                const resolvedPalette =
+                                  palette.length > 0
+                                    ? palette
+                                    : ["#020617", "#0f172a", "#1d4ed8", "#f8fafc", "#94a3b8", "rgba(148,163,184,0.2)"];
+                                const radiusValues = designQube.tokens?.radius
+                                  ? Object.values(designQube.tokens.radius).slice(0, 3)
+                                  : [];
+                                const fontFamily = designQube.tokens?.typography?.fontFamily?.sans || "system-ui";
+                                const scale = designQube.tokens?.typography?.scale || {};
+                                const glassEnabled = designQube.constraints?.material?.glass?.enabled;
+                                const summaryBadges = designQube.manifest?.themes || [];
+    
+                                return designQubeCollapsed ? (
+                                  <div className="mt-4 space-y-3">
+                                    <div className="flex flex-wrap items-center gap-2 text-[11px]" style={{ color: styleQubeThemeText }}>
+                                      <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5" style={{ borderColor: styleQubeThemeBorder }}>
+                                        <ShieldCheck className="h-3.5 w-3.5 text-emerald-300" />
+                                      </span>
+                                      {summaryBadges.map((theme) => (
+                                        <span key={theme} className="inline-flex items-center rounded-full border px-2 py-0.5" style={{ borderColor: styleQubeThemeBorder }}>
+                                          {theme.toLowerCase().includes("light") ? (
+                                            <Sun className="h-3.5 w-3.5 text-amber-300" />
+                                          ) : (
+                                            <Moon className="h-3.5 w-3.5 text-slate-300" />
+                                          )}
+                                        </span>
+                                      ))}
+                                      {glassEnabled && (
+                                        <span className="inline-flex items-center rounded-full border px-2 py-0.5" style={{ borderColor: styleQubeThemeBorder }} title="Glass material">
+                                          <Moon className="h-3.5 w-3.5 text-slate-400" />
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      {resolvedPalette.slice(0, 6).map((color, idx) => (
+                                        <span
+                                          key={`${color}-${idx}`}
+                                          className="h-5 w-5 rounded-md border"
+                                          style={{ backgroundColor: color, borderColor: styleQubeThemeBorder }}
+                                          title={color}
+                                        />
+                                      ))}
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                      <span style={{ fontFamily, fontSize: scale.xl || 22 }} className="text-white">Aa</span>
+                                      <span style={{ fontFamily, fontSize: scale.sm || 14 }} className="text-slate-400">Aa</span>
+                                      <div className="ml-auto flex items-center gap-2">
+                                        {radiusValues.map((radius, idx) => (
+                                          <div
+                                            key={`radius-grid-${idx}`}
+                                            className="h-6 w-12 border"
+                                            style={{ borderRadius: `${radius}px`, backgroundColor: styleQubeThemeBg, borderColor: styleQubeThemeBorder }}
+                                            title={`radius ${radius}`}
+                                          />
+                                        ))}
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center justify-end gap-2" title="Experience Modalities">
+                                      <div className="rounded-lg border border-blue-400/60 bg-blue-400/10 p-2">
+                                        <Eye className="h-4 w-4 text-blue-300" />
+                                      </div>
+                                      <div className="rounded-lg border border-green-400/60 bg-green-400/10 p-2">
+                                        <Volume2 className="h-4 w-4 text-green-300" />
+                                      </div>
+                                      <div className="rounded-lg border border-purple-400/60 bg-purple-400/10 p-2">
+                                        <LayoutGrid className="h-4 w-4 text-purple-300" />
+                                      </div>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="mt-4 space-y-4">
+                                    <div className="rounded-xl border p-3" style={{ backgroundColor: styleQubeThemeBg, borderColor: styleQubeThemeBorder }}>
+                                      <h4 className="mb-2 flex items-center gap-2 text-sm font-medium text-white">
+                                        <BookOpen className="h-4 w-4 text-indigo-300" />
+                                        Enhanced Data Loading
+                                      </h4>
+                                      <div className="grid grid-cols-2 gap-4 text-xs">
+                                        <div className="space-y-1" style={{ color: styleQubeThemeText }}>
+                                          <div>✅ StyleQube: {designQube.styleQube ? "Loaded" : "Missing"}</div>
+                                          <div>✅ StructureQube: {designQube.structureQube ? "Loaded" : "Missing"}</div>
+                                          <div>✅ GuidesBriefs: {designQube.guidesBriefs ? "Loaded" : "Missing"}</div>
+                                          <div>✅ Sources: {designQube.sources?.length || 0} files</div>
+                                          <div>✅ References: {designQube.references?.length || 0} assets</div>
+                                          <div>✅ Visual Sub-Groups: {designQube.styleQube?.visual ? "Available" : "Missing"}</div>
+                                        </div>
+                                        <div className="space-y-1" style={{ color: styleQubeThemeText }}>
+                                          <div>✅ Audio Sub-Groups: {designQube.styleQube?.audio ? "Available" : "Missing"}</div>
+                                          <div>✅ Text Sub-Groups: {designQube.styleQube?.text ? "Available" : "Missing"}</div>
+                                          <div>✅ Spatial Sub-Groups: {designQube.styleQube?.spatial ? "Available" : "Missing"}</div>
+                                          <div>✅ Content Modules: {designQube.structureQube?.contentModules?.length || 0} available</div>
+                                          <div>✅ Big-Screen Support: {designQube.structureQube?.breakpoints?.bigScreen ? "Enabled" : "Missing"}</div>
+                                        </div>
+                                      </div>
+                                    </div>
+    
+                                    <Tabs value={designQubeActivePanel} onValueChange={setDesignQubeActivePanel} className="w-full">
+                                      <TabsList className="grid h-10 w-full grid-cols-5 items-center rounded-full border border-white/10 bg-slate-950/60 p-1">
+                                        <TabsTrigger value="guides" className={configuratorTabTriggerClass}>
+                                          Guides
+                                        </TabsTrigger>
+                                        <TabsTrigger value="style" className={configuratorTabTriggerClass}>
+                                          StyleQube
+                                        </TabsTrigger>
+                                        <TabsTrigger value="structure" className={configuratorTabTriggerClass}>
+                                          StructureQube
+                                        </TabsTrigger>
+                                        <TabsTrigger value="screens" className={configuratorTabTriggerClass}>
+                                          Screens
+                                        </TabsTrigger>
+                                        <TabsTrigger value="guidance" className={configuratorTabTriggerClass}>
+                                          Guidance
+                                        </TabsTrigger>
+                                      </TabsList>
+    
+                                      <TabsContent value="guides" className="mt-4">
+                                        <div className="rounded-xl border p-4" style={{ backgroundColor: styleQubeThemeBg, borderColor: styleQubeThemeBorder }}>
+                                          <div className="mb-3 flex items-center justify-between">
+                                            <h4 className="flex items-center gap-2 text-sm font-medium text-white">
+                                              <BookOpen className="h-4 w-4 text-indigo-300" />
+                                              Guides & Briefs
+                                            </h4>
+                                            <button className="flex items-center gap-1 rounded-md border border-indigo-500/30 bg-indigo-500/20 px-2 py-1 text-xs text-indigo-300 hover:bg-indigo-500/30">
+                                              <Upload className="h-3 w-3" />
+                                              Upload
+                                            </button>
+                                          </div>
+                                          {designQube.styleBrief && (
+                                            <div className="mb-4 max-h-[120px] overflow-y-auto pr-1 text-sm" style={{ color: styleQubeThemeText }}>
+                                              {designQube.styleBrief}
+                                            </div>
+                                          )}
+                                          <Tabs value={guidesActiveTab} onValueChange={setGuidesActiveTab} className="w-full">
+                                            <TabsList className="grid h-10 w-full grid-cols-2 items-center rounded-xl border border-white/10 bg-slate-900/40 p-1">
+                                              <TabsTrigger value="style-guide" className={configuratorTabTriggerClass}>
+                                                Style Guide
+                                              </TabsTrigger>
+                                              <TabsTrigger value="experience-guide" className={configuratorTabTriggerClass}>
+                                                Experience Guide
+                                              </TabsTrigger>
+                                            </TabsList>
+    
+                                            <TabsContent value="style-guide" className="mt-4">
+                                              <Tabs value={styleGuideActiveTab} onValueChange={setStyleGuideActiveTab} className="w-full">
+                                                <TabsList className="grid h-10 w-full grid-cols-3 items-center rounded-xl border border-white/10 bg-slate-900/30 p-1">
+                                                  <TabsTrigger value="css" className={configuratorTabTriggerClass}>
+                                                    CSS
+                                                  </TabsTrigger>
+                                                  <TabsTrigger value="brand-guide" className={configuratorTabTriggerClass}>
+                                                    Brand Guide
+                                                  </TabsTrigger>
+                                                  <TabsTrigger value="look-book" className={configuratorTabTriggerClass}>
+                                                    Look Book
+                                                  </TabsTrigger>
+                                                </TabsList>
+    
+                                                <TabsContent value="css" className="mt-4">
+                                                  <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+                                                    <div className="text-xs uppercase tracking-widest text-slate-400">CSS Styles</div>
+                                                    <pre className="mt-3 overflow-x-auto whitespace-pre-wrap text-xs" style={{ color: styleQubeThemeText }}>
+                                                      {(designQube.guidesBriefs?.styleGuide?.css || []).join("\n") ||
+                                                        `/* Primary Colors */\n--primary: ${styleQubeThemeText};\n--background: ${styleQubeThemeBg};\n--border: ${styleQubeThemeBorder};`}
+                                                    </pre>
+                                                  </div>
+                                                </TabsContent>
+    
+                                                <TabsContent value="brand-guide" className="mt-4">
+                                                  <div className="space-y-2">
+                                                    {(designQube.guidesBriefs?.styleGuide?.brandGuidelines || []).length > 0 ? (
+                                                      designQube.guidesBriefs?.styleGuide?.brandGuidelines.map((item, idx) => (
+                                                        <div key={`${item}-${idx}`} className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm" style={{ color: styleQubeThemeText }}>
+                                                          {item}
+                                                        </div>
+                                                      ))
+                                                    ) : (
+                                                      <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm text-slate-300">
+                                                        Brand guide not configured.
+                                                      </div>
+                                                    )}
+                                                  </div>
+                                                </TabsContent>
+    
+                                                <TabsContent value="look-book" className="mt-4">
+                                                  <div className="space-y-2">
+                                                    {(designQube.guidesBriefs?.styleGuide?.lookBooks || []).length > 0 ? (
+                                                      designQube.guidesBriefs?.styleGuide?.lookBooks.map((item, idx) => (
+                                                        <div key={`${item}-${idx}`} className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm" style={{ color: styleQubeThemeText }}>
+                                                          {item}
+                                                        </div>
+                                                      ))
+                                                    ) : (
+                                                      <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm text-slate-300">
+                                                        Look book not configured.
+                                                      </div>
+                                                    )}
+                                                  </div>
+                                                </TabsContent>
+                                              </Tabs>
+                                            </TabsContent>
+    
+                                            <TabsContent value="experience-guide" className="mt-4">
+                                              <Tabs value={experienceGuideActiveTab} onValueChange={setExperienceGuideActiveTab} className="w-full">
+                                                <TabsList className="grid h-10 w-full grid-cols-4 items-center rounded-xl border border-white/10 bg-slate-900/30 p-1">
+                                                  <TabsTrigger value="who" className={configuratorTabTriggerClass}>Who</TabsTrigger>
+                                                  <TabsTrigger value="what" className={configuratorTabTriggerClass}>What</TabsTrigger>
+                                                  <TabsTrigger value="wow" className={configuratorTabTriggerClass}>Wow</TabsTrigger>
+                                                  <TabsTrigger value="metrics" className={configuratorTabTriggerClass}>Metrics</TabsTrigger>
+                                                </TabsList>
+    
+                                                <TabsContent value="who" className="mt-4 space-y-3">
+                                                  <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+                                                    <div className="text-xs uppercase tracking-widest text-slate-400">Audience</div>
+                                                    <div className="mt-2 text-sm" style={{ color: styleQubeThemeText }}>
+                                                      {designQube.guidesBriefs?.experienceGuide?.who?.audience || "Audience guide not configured."}
+                                                    </div>
+                                                  </div>
+                                                  <div className="space-y-2">
+                                                    {(designQube.guidesBriefs?.experienceGuide?.who?.demographics || []).slice(0, 6).map((item, idx) => (
+                                                      <div key={`${item}-${idx}`} className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm" style={{ color: styleQubeThemeText }}>
+                                                        {item}
+                                                      </div>
+                                                    ))}
+                                                  </div>
+                                                </TabsContent>
+    
+                                                <TabsContent value="what" className="mt-4 space-y-3">
+                                                  <div className="space-y-2">
+                                                    <div className="text-xs uppercase tracking-widest text-slate-400">Delivery Methods</div>
+                                                    {(designQube.guidesBriefs?.experienceGuide?.what?.delivery || []).slice(0, 6).map((item, idx) => (
+                                                      <div key={`${item}-${idx}`} className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm" style={{ color: styleQubeThemeText }}>
+                                                        {item}
+                                                      </div>
+                                                    ))}
+                                                  </div>
+                                                  <div className="space-y-2">
+                                                    <div className="text-xs uppercase tracking-widest text-slate-400">Mechanics</div>
+                                                    {(designQube.guidesBriefs?.experienceGuide?.what?.mechanics || []).slice(0, 6).map((item, idx) => (
+                                                      <div key={`${item}-${idx}`} className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm" style={{ color: styleQubeThemeText }}>
+                                                        {item}
+                                                      </div>
+                                                    ))}
+                                                  </div>
+                                                </TabsContent>
+    
+                                                <TabsContent value="wow" className="mt-4 space-y-3">
+                                                  <div className="space-y-2">
+                                                    <div className="text-xs uppercase tracking-widest text-slate-400">Differentiators</div>
+                                                    {(designQube.guidesBriefs?.experienceGuide?.wow?.differentiators || []).slice(0, 6).map((item, idx) => (
+                                                      <div key={`${item}-${idx}`} className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm" style={{ color: styleQubeThemeText }}>
+                                                        {item}
+                                                      </div>
+                                                    ))}
+                                                  </div>
+                                                  <div className="space-y-2">
+                                                    <div className="text-xs uppercase tracking-widest text-slate-400">Innovations</div>
+                                                    {(designQube.guidesBriefs?.experienceGuide?.wow?.innovations || []).slice(0, 6).map((item, idx) => (
+                                                      <div key={`${item}-${idx}`} className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm" style={{ color: styleQubeThemeText }}>
+                                                        {item}
+                                                      </div>
+                                                    ))}
+                                                  </div>
+                                                </TabsContent>
+    
+                                                <TabsContent value="metrics" className="mt-4 space-y-3">
+                                                  <div className="space-y-2">
+                                                    <div className="text-xs uppercase tracking-widest text-slate-400">Success Metrics</div>
+                                                    {(designQube.guidesBriefs?.experienceGuide?.metrics?.success || []).slice(0, 6).map((item, idx) => (
+                                                      <div key={`${item}-${idx}`} className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm" style={{ color: styleQubeThemeText }}>
+                                                        {item}
+                                                      </div>
+                                                    ))}
+                                                  </div>
+                                                  <div className="space-y-2">
+                                                    <div className="text-xs uppercase tracking-widest text-slate-400">KPIs</div>
+                                                    {(designQube.guidesBriefs?.experienceGuide?.metrics?.kpis || []).slice(0, 6).map((item, idx) => (
+                                                      <div key={`${item}-${idx}`} className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm" style={{ color: styleQubeThemeText }}>
+                                                        {item}
+                                                      </div>
+                                                    ))}
+                                                  </div>
+                                                </TabsContent>
+                                              </Tabs>
+                                            </TabsContent>
+                                          </Tabs>
+                                        </div>
+                                      </TabsContent>
+    
+                                      <TabsContent value="style" className="mt-4">
+                                        <div className="rounded-xl border p-4" style={{ backgroundColor: styleQubeThemeBg, borderColor: styleQubeThemeBorder }}>
+                                          <h4 className="mb-3 flex items-center gap-2 text-sm font-medium text-white">
+                                            <Palette className="h-4 w-4 text-rose-300" />
+                                            StyleQube
+                                          </h4>
+                                          <Tabs value={styleQubeActiveTab} onValueChange={setStyleQubeActiveTab} className="w-full">
+                                            <TabsList className="grid h-10 w-full grid-cols-4 items-center rounded-xl border border-white/10 bg-slate-900/40 p-1">
+                                              <TabsTrigger value="visual" className={configuratorTabTriggerClass}>Visual</TabsTrigger>
+                                              <TabsTrigger value="audio" className={configuratorTabTriggerClass}>Audio</TabsTrigger>
+                                              <TabsTrigger value="text" className={configuratorTabTriggerClass}>Text</TabsTrigger>
+                                              <TabsTrigger value="spatial" className={configuratorTabTriggerClass}>Spatial</TabsTrigger>
+                                            </TabsList>
+    
+                                            <TabsContent value="visual" className="mt-4 space-y-4">
+                                              <div className="grid grid-cols-3 gap-3 text-xs">
+                                                <div>
+                                                  <span className="text-slate-400">Primary Color</span>
+                                                  <div className="mt-1 flex items-center gap-2">
+                                                    <div className="h-3 w-3 rounded border border-slate-600" style={{ backgroundColor: designQube.styleQube?.visual?.colors?.primary }} />
+                                                    <span style={{ color: styleQubeThemeText }}>{designQube.styleQube?.visual?.colors?.primary}</span>
+                                                  </div>
+                                                </div>
+                                                <div>
+                                                  <span className="text-slate-400">Secondary Color</span>
+                                                  <div className="mt-1 flex items-center gap-2">
+                                                    <div className="h-3 w-3 rounded border border-slate-600" style={{ backgroundColor: designQube.styleQube?.visual?.colors?.secondary }} />
+                                                    <span style={{ color: styleQubeThemeText }}>{designQube.styleQube?.visual?.colors?.secondary}</span>
+                                                  </div>
+                                                </div>
+                                                <div>
+                                                  <span className="text-slate-400">Accent Color</span>
+                                                  <div className="mt-1 flex items-center gap-2">
+                                                    <div className="h-3 w-3 rounded border border-slate-600" style={{ backgroundColor: designQube.styleQube?.visual?.colors?.accent }} />
+                                                    <span style={{ color: styleQubeThemeText }}>{designQube.styleQube?.visual?.colors?.accent}</span>
+                                                  </div>
+                                                </div>
+                                                <div>
+                                                  <span className="text-slate-400">Font Family</span>
+                                                  <div className="mt-1" style={{ color: styleQubeThemeText }}>
+                                                    {designQube.styleQube?.visual?.typography?.fontFamily?.primary}
+                                                  </div>
+                                                </div>
+                                                <div>
+                                                  <span className="text-slate-400">Border Radius</span>
+                                                  <div className="mt-1" style={{ color: styleQubeThemeText }}>
+                                                    {designQube.styleQube?.visual?.radius?.md}
+                                                  </div>
+                                                </div>
+                                                <div>
+                                                  <span className="text-slate-400">Shadow</span>
+                                                  <div className="mt-1" style={{ color: styleQubeThemeText }}>
+                                                    {designQube.styleQube?.visual?.shadows?.md}
+                                                  </div>
+                                                </div>
+                                              </div>
+                                              <div className="space-y-2">
+                                                <div className="text-xs uppercase tracking-widest text-slate-400">Animation Duration</div>
+                                                <div className="grid grid-cols-3 gap-2 text-xs">
+                                                  <div style={{ color: styleQubeThemeText }}>Fast: {designQube.styleQube?.visual?.animations?.duration?.fast}</div>
+                                                  <div style={{ color: styleQubeThemeText }}>Normal: {designQube.styleQube?.visual?.animations?.duration?.normal}</div>
+                                                  <div style={{ color: styleQubeThemeText }}>Slow: {designQube.styleQube?.visual?.animations?.duration?.slow}</div>
+                                                </div>
+                                              </div>
+                                            </TabsContent>
+    
+                                            <TabsContent value="audio" className="mt-4 space-y-4">
+                                              <div className="grid grid-cols-3 gap-3 text-xs">
+                                                <div><span className="text-slate-400">Voice Persona</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.audio?.voice?.persona}</div></div>
+                                                <div><span className="text-slate-400">Accent</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.audio?.voice?.accent}</div></div>
+                                                <div><span className="text-slate-400">Pace</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.audio?.voice?.pace}</div></div>
+                                                <div><span className="text-slate-400">Sound Effects</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.audio?.soundEffects?.enabled ? "Enabled" : "Disabled"}</div></div>
+                                                <div><span className="text-slate-400">TTS Provider</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.audio?.voice?.ttsHints?.provider as string || "Not configured"}</div></div>
+                                                <div><span className="text-slate-400">Voice ID</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.audio?.voice?.ttsHints?.voiceId as string || "Not configured"}</div></div>
+                                              </div>
+                                              <div className="grid grid-cols-3 gap-2 text-xs">
+                                                <div style={{ color: styleQubeThemeText }}>Volume: {(designQube.styleQube?.audio as any)?.volume || "80%"}</div>
+                                                <div style={{ color: styleQubeThemeText }}>Pitch: {(designQube.styleQube?.audio as any)?.pitch || "Normal"}</div>
+                                                <div style={{ color: styleQubeThemeText }}>Quality: {(designQube.styleQube?.audio as any)?.quality || "High"}</div>
+                                              </div>
+                                            </TabsContent>
+    
+                                            <TabsContent value="text" className="mt-4 space-y-4">
+                                              <div className="grid grid-cols-3 gap-3 text-xs">
+                                                <div><span className="text-slate-400">Font Family</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.text?.formatting?.fontFamily}</div></div>
+                                                <div><span className="text-slate-400">Font Size</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.text?.formatting?.fontSize}</div></div>
+                                                <div><span className="text-slate-400">Line Height</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.text?.formatting?.lineHeight}</div></div>
+                                                <div><span className="text-slate-400">Max Width</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.text?.formatting?.maxWidth}</div></div>
+                                                <div><span className="text-slate-400">Personality</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.text?.tone?.personality}</div></div>
+                                                <div><span className="text-slate-400">Formality</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.text?.tone?.formality}</div></div>
+                                              </div>
+                                              <div className="grid grid-cols-3 gap-2 text-xs">
+                                                <div style={{ color: styleQubeThemeText }}>Weight: {(designQube.styleQube?.text?.formatting as any)?.fontWeight || "Medium"}</div>
+                                                <div style={{ color: styleQubeThemeText }}>Spacing: {(designQube.styleQube?.text?.formatting as any)?.letterSpacing || "Normal"}</div>
+                                                <div style={{ color: styleQubeThemeText }}>Transform: {(designQube.styleQube?.text?.formatting as any)?.textTransform || "None"}</div>
+                                              </div>
+                                            </TabsContent>
+    
+                                            <TabsContent value="spatial" className="mt-4 space-y-4">
+                                              <div className="grid grid-cols-2 gap-3 text-xs">
+                                                <div><span className="text-slate-400">3D Transforms</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.spatial?.threeD?.enabled ? "Enabled" : "Disabled"}</div></div>
+                                                <div><span className="text-slate-400">Z-Axis Stacking</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.spatial?.zAxis?.enabled ? "Enabled" : "Disabled"}</div></div>
+                                                <div><span className="text-slate-400">AR Support</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.spatial?.ar?.enabled ? "Enabled" : "Disabled"}</div></div>
+                                                <div><span className="text-slate-400">VR Support</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.spatial?.vr?.enabled ? "Enabled" : "Disabled"}</div></div>
+                                              </div>
+                                              {designQube.styleQube?.spatial?.threeD?.enabled && (
+                                                <div className="grid grid-cols-2 gap-2 text-xs">
+                                                  <div style={{ color: styleQubeThemeText }}>Perspective: {designQube.styleQube.spatial.threeD.perspective}px</div>
+                                                  <div style={{ color: styleQubeThemeText }}>Depth: {designQube.styleQube.spatial.threeD.depth}px</div>
+                                                </div>
+                                              )}
+                                            </TabsContent>
+                                          </Tabs>
+                                        </div>
+                                      </TabsContent>
+    
+                                      <TabsContent value="structure" className="mt-4">
+                                        <div className="rounded-xl border p-4" style={{ backgroundColor: styleQubeThemeBg, borderColor: styleQubeThemeBorder }}>
+                                          <h4 className="mb-3 flex items-center gap-2 text-sm font-medium text-white">
+                                            <LayoutGrid className="h-4 w-4 text-cyan-300" />
+                                            StructureQube
+                                          </h4>
+                                          <Tabs value={structureQubeActiveTab} onValueChange={setStructureQubeActiveTab} className="w-full">
+                                            <TabsList className="grid h-10 w-full grid-cols-4 items-center rounded-xl border border-white/10 bg-slate-900/40 p-1">
+                                              <TabsTrigger value="templates" className={configuratorTabTriggerClass}>Templates</TabsTrigger>
+                                              <TabsTrigger value="modules" className={configuratorTabTriggerClass}>Modules</TabsTrigger>
+                                              <TabsTrigger value="breakpoints" className={configuratorTabTriggerClass}>Breakpoints</TabsTrigger>
+                                              <TabsTrigger value="priorities" className={configuratorTabTriggerClass}>Priority</TabsTrigger>
+                                            </TabsList>
+    
+                                            <TabsContent value="templates" className="mt-4 space-y-4">
+                                              <div className="space-y-2">
+                                                <div className="text-xs uppercase tracking-widest text-slate-400">Priority Templates</div>
+                                                <div className="grid grid-cols-3 gap-2">
+                                                  {(designQube.structureQube?.templateSelection?.priority || []).slice(0, 9).map((template, idx) => (
+                                                    <div key={`${template}-${idx}`} className="flex items-center gap-2 rounded-lg bg-slate-950/40 p-2 text-xs" style={{ color: styleQubeThemeText }}>
+                                                      <div className="h-2 w-2 rounded-full bg-cyan-400" />
+                                                      {template}
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                              <div className="grid grid-cols-3 gap-3 text-xs">
+                                                <div><span className="text-slate-400">Total Templates</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.structureQube?.templates?.length || 0} available</div></div>
+                                                <div><span className="text-slate-400">By Modality</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{Object.keys(designQube.structureQube?.templateSelection?.byModality || {}).length} categories</div></div>
+                                                <div><span className="text-slate-400">By Density</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{Object.keys(designQube.structureQube?.templateSelection?.byDensity || {}).length} types</div></div>
+                                              </div>
+                                            </TabsContent>
+    
+                                            <TabsContent value="modules" className="mt-4">
+                                              <div className="space-y-2">
+                                                <div className="text-xs uppercase tracking-widest text-slate-400">Content Modules</div>
+                                                <div className="space-y-2">
+                                                  {(designQube.structureQube?.contentModules || []).map((module, idx) => (
+                                                    <div key={`${module.id}-${idx}`} className="flex items-center justify-between rounded-lg bg-slate-950/40 p-2 text-xs">
+                                                      <div className="flex items-center gap-2" style={{ color: styleQubeThemeText }}>
+                                                        <div className="h-2 w-2 rounded-full bg-purple-400" />
+                                                        {module.name}
+                                                      </div>
+                                                      <div className="text-slate-400">Priority {module.priority}</div>
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            </TabsContent>
+    
+                                            <TabsContent value="breakpoints" className="mt-4">
+                                              <div className="grid grid-cols-2 gap-2">
+                                                {Object.entries(designQube.structureQube?.breakpoints || {}).map(([breakpoint, config]) => (
+                                                  <div key={breakpoint} className="flex items-center gap-2 rounded-lg bg-slate-950/40 p-2 text-xs">
+                                                    {breakpoint === "mobile" && <Smartphone className="h-3 w-3 text-blue-400" />}
+                                                    {breakpoint === "tablet" && <Tablet className="h-3 w-3 text-green-400" />}
+                                                    {breakpoint === "desktop" && <MonitorIcon className="h-3 w-3 text-purple-400" />}
+                                                    {breakpoint === "bigScreen" && <Tv className="h-3 w-3 text-orange-400" />}
+                                                    <div style={{ color: styleQubeThemeText }}>
+                                                      <div className="font-medium capitalize">{breakpoint.replace("bigScreen", "Big Screen")}</div>
+                                                      <div className="text-slate-400">
+                                                        {(config as any).minWidth && `≥${(config as any).minWidth}px`}
+                                                        {(config as any).maxWidth && ` ≤${(config as any).maxWidth}px`}
+                                                        {!(config as any).minWidth && !(config as any).maxWidth && "Any"}
+                                                      </div>
+                                                    </div>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            </TabsContent>
+    
+                                            <TabsContent value="priorities" className="mt-4 space-y-4">
+                                              <div className="space-y-2">
+                                                <div className="text-xs uppercase tracking-widest text-slate-400">Component Priority Order</div>
+                                                <div className="space-y-2">
+                                                  {Object.entries(designQube.structureQube?.componentPriorities || {}).map(([component, priority]) => (
+                                                    <div key={component} className="flex items-center justify-between rounded-lg bg-slate-950/40 p-2 text-xs">
+                                                      <div className="flex items-center gap-2" style={{ color: styleQubeThemeText }}>
+                                                        <div className="h-2 w-2 rounded-full bg-emerald-400" />
+                                                        {component}
+                                                      </div>
+                                                      <div style={{ color: styleQubeThemeText }}>Priority {priority}</div>
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                              <div className="space-y-2">
+                                                <div className="text-xs uppercase tracking-widest text-slate-400">Layout Rules</div>
+                                                <div className="space-y-2">
+                                                  {(designQube.structureQube?.layoutRules || []).slice(0, 6).map((rule, idx) => (
+                                                    <div key={`${rule}-${idx}`} className="rounded-lg bg-slate-950/40 p-2 text-xs" style={{ color: styleQubeThemeText }}>
+                                                      {rule}
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            </TabsContent>
+                                          </Tabs>
+                                        </div>
+                                      </TabsContent>
+    
+                                      <TabsContent value="screens" className="mt-4">
+                                        <div className="space-y-4 rounded-xl border p-4" style={{ backgroundColor: styleQubeThemeBg, borderColor: styleQubeThemeBorder }}>
+                                          <div className="flex items-center justify-between">
+                                            <h4 className="flex items-center gap-2 text-sm font-medium text-white">
+                                              <MonitorIcon className="h-4 w-4 text-orange-300" />
+                                              Screens
+                                            </h4>
+                                            <button className="flex items-center gap-1 rounded-md border border-orange-500/30 bg-orange-500/20 px-2 py-1 text-xs text-orange-300 hover:bg-orange-500/30">
+                                              <Upload className="h-3 w-3" />
+                                              Upload
+                                            </button>
+                                          </div>
+                                          <div className="text-xs" style={{ color: styleQubeThemeText }}>
+                                            Upload and manage design screens from screenshots, Adobe XD, Figma, or other design tools.
+                                          </div>
+                                          <div className="grid grid-cols-2 gap-3">
+                                            <div className="text-center p-4 rounded-lg border border-dashed border-slate-600">
+                                              <MonitorIcon className="mx-auto mb-2 h-6 w-6 text-slate-400" />
+                                              <div className="text-xs text-slate-400">Screenshots</div>
+                                            </div>
+                                            <div className="text-center p-4 rounded-lg border border-dashed border-slate-600">
+                                              <Hexagon className="mx-auto mb-2 h-6 w-6 text-slate-400" />
+                                              <div className="text-xs text-slate-400">Adobe XD</div>
+                                            </div>
+                                            <div className="text-center p-4 rounded-lg border border-dashed border-slate-600">
+                                              <LayoutGrid className="mx-auto mb-2 h-6 w-6 text-slate-400" />
+                                              <div className="text-xs text-slate-400">Figma</div>
+                                            </div>
+                                            <div className="text-center p-4 rounded-lg border border-dashed border-slate-600">
+                                              <FileText className="mx-auto mb-2 h-6 w-6 text-slate-400" />
+                                              <div className="text-xs text-slate-400">Other Tools</div>
+                                            </div>
+                                          </div>
+                                          <div className="grid gap-3 sm:grid-cols-2">
+                                            {(designQube.references || []).length > 0 ? (
+                                              (designQube.references || []).map((ref, idx) => (
+                                                <div
+                                                  key={ref.id}
+                                                  className="rounded-xl border p-2"
+                                                  style={{ backgroundColor: styleQubeThemeBg, borderColor: styleQubeThemeBorder }}
+                                                >
+                                                  {ref.dataUrl || ref.thumbnailUrl ? (
+                                                    <img
+                                                      src={ref.dataUrl || ref.thumbnailUrl || DESIGN_QUBE_IMAGE_FALLBACKS[idx % DESIGN_QUBE_IMAGE_FALLBACKS.length]}
+                                                      alt={ref.title || ref.file}
+                                                      className="h-32 w-full rounded-lg object-cover"
+                                                      onError={(event) => {
+                                                        event.currentTarget.onerror = null;
+                                                        event.currentTarget.src =
+                                                          DESIGN_QUBE_IMAGE_FALLBACKS[idx % DESIGN_QUBE_IMAGE_FALLBACKS.length];
+                                                      }}
+                                                    />
+                                                  ) : (
+                                                    <div className="flex h-32 items-center justify-center rounded-lg border border-dashed text-xs text-slate-500">
+                                                      {ref.file}
+                                                    </div>
+                                                  )}
+                                                  <div className="mt-2 text-xs text-slate-400">{ref.title || ref.file}</div>
+                                                </div>
+                                              ))
+                                            ) : (
+                                              (designQube.sources || []).slice(0, 6).map((source, idx) => (
+                                                <div
+                                                  key={source.id}
+                                                  className="rounded-xl border p-2"
+                                                  style={{ backgroundColor: styleQubeThemeBg, borderColor: styleQubeThemeBorder }}
+                                                >
+                                                  <img
+                                                    src={DESIGN_QUBE_IMAGE_FALLBACKS[idx % DESIGN_QUBE_IMAGE_FALLBACKS.length]}
+                                                    alt={source.label}
+                                                    className="h-32 w-full rounded-lg object-cover"
+                                                  />
+                                                  <div className="mt-2 text-xs text-slate-400">{source.label}</div>
+                                                </div>
+                                              ))
+                                            )}
+                                          </div>
+                                        </div>
+                                      </TabsContent>
+    
+                                      <TabsContent value="guidance" className="mt-4">
+                                        <div className="rounded-xl border p-4" style={{ backgroundColor: styleQubeThemeBg, borderColor: styleQubeThemeBorder }}>
+                                          <h4 className="mb-3 flex items-center gap-2 text-sm font-medium text-white">
+                                            <Bot className="h-4 w-4 text-emerald-300" />
+                                            Customization Guidance
+                                          </h4>
+                                          <div className="space-y-4">
+                                            <div className="text-xs" style={{ color: styleQubeThemeText }}>
+                                              Get real-time guidance as you customize templates. These copilots provide explanations, options, and automatically capture decisions in your DesignQube and ExperienceQube.
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-4">
+                                              {[
+                                                {
+                                                  title: "Visual Customization",
+                                                  icon: <Eye className="h-4 w-4 text-blue-300" />,
+                                                  buttonClass: "bg-blue-500/20 text-blue-300 hover:bg-blue-500/30",
+                                                  placeholder:
+                                                    "Ask about colors, typography, spacing, animations...\nExample: 'What colors work best for a professional tech theme?'",
+                                                  helper: "Provides color suggestions, typography recommendations, animation timing",
+                                                },
+                                                {
+                                                  title: "Audio Customization",
+                                                  icon: <Volume2 className="h-4 w-4 text-green-300" />,
+                                                  buttonClass: "bg-green-500/20 text-green-300 hover:bg-green-500/30",
+                                                  placeholder:
+                                                    "Ask about voice personas, sound effects, audio feedback...\nExample: 'What voice persona works for educational content?'",
+                                                  helper: "Voice persona selection, sound effect timing, TTS configuration",
+                                                },
+                                                {
+                                                  title: "Text & Content",
+                                                  icon: <Type className="h-4 w-4 text-purple-300" />,
+                                                  buttonClass: "bg-purple-500/20 text-purple-300 hover:bg-purple-500/30",
+                                                  placeholder:
+                                                    "Ask about tone, readability, content structure...\nExample: 'How should I write for a technical audience?'",
+                                                  helper: "Tone adjustment, readability optimization, content structure",
+                                                },
+                                                {
+                                                  title: "Layout & Structure",
+                                                  icon: <LayoutGrid className="h-4 w-4 text-cyan-300" />,
+                                                  buttonClass: "bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30",
+                                                  placeholder:
+                                                    "Ask about templates, breakpoints, component arrangement...\nExample: 'What template works best for a dashboard layout?'",
+                                                  helper: "Template selection, responsive design, component priorities",
+                                                },
+                                              ].map((assistant) => (
+                                                <div key={assistant.title} className="space-y-2">
+                                                  <div className="flex items-center gap-2">
+                                                    {assistant.icon}
+                                                    <span className="text-xs font-medium text-white">{assistant.title}</span>
+                                                  </div>
+                                                  <div className="relative">
+                                                    <textarea
+                                                      placeholder={assistant.placeholder}
+                                                      className="h-16 w-full resize-none rounded-md border border-slate-700/50 bg-slate-800/50 px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none"
+                                                    />
+                                                    <div className="absolute right-1 top-1">
+                                                      <button className={`rounded p-1 ${assistant.buttonClass}`}>
+                                                        <Bot className="h-3 w-3" />
+                                                      </button>
+                                                    </div>
+                                                  </div>
+                                                  <div className="text-xs text-slate-400">{assistant.helper}</div>
+                                                </div>
+                                              ))}
+                                            </div>
+                                            <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3">
+                                              <div className="flex items-center gap-2 text-xs text-emerald-200">
+                                                <ShieldCheck className="h-3 w-3" />
+                                                <span className="font-medium">Auto-Capture Enabled</span>
+                                              </div>
+                                              <div className="mt-1 text-xs text-emerald-300">
+                                                All customization decisions are automatically captured and stored in your DesignQube and ExperienceQube for consistency and future reference.
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </TabsContent>
+                                    </Tabs>
+                                  </div>
+                                );
+                              })()}
+                            </>
+                          ) : (
+                            <div className="text-sm text-slate-400">No DesignQube loaded.</div>
+                          )}
+                        </div>
+                      </TabsContent>
+
+                      <TabsContent value="design-parity" className="mt-4">
+                        <AgenticDesignParityPanel
+                          designQube={designQube}
+                          activeDesignQubeId={activeStyleQubeId}
+                          designTheme={designTheme}
+                          experiences={experiences}
+                          previewExperience={previewExperience}
+                          previewAction={previewAction}
+                          personaId={activePersonaId || userId}
+                          routingSummary={routingEnvelope.summary}
+                          recommendedTargetLabel={getDeploymentTargetLabel(routingEnvelope.recommendedTarget)}
+                          deploymentGuidance={deploymentTargetCards}
+                          onOpenExperience={(experienceId) => {
+                            router.push(`/studio/composer/experience/${encodeURIComponent(experienceId)}`);
+                          }}
+                          onOpenRuntimePreview={() => {
+                            openRuntimePreviewForExperience(previewExperience, "Preview");
+                          }}
+                          onApplyRemedy={handleApplyRemedy}
+                          onLogAuditEvent={handleLogAuditEvent}
+                        />
+                      </TabsContent>
+                    </Tabs>
                   </TabsContent>
 
                   <TabsContent value="surfaces" className="mt-0">
+                    {/* Publish to Registry toolbar */}
+                    {(previewExperience?.id || selectedExperienceId) && (
+                      <div className="mb-3 flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2">
+                        <span className="text-[11px] text-slate-400">
+                          {publishedReceiptId
+                            ? <span className="text-emerald-400">Published · Receipt: <span className="font-mono">{publishedReceiptId}</span></span>
+                            : "Publish this experience as an iQube in the registry"}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={handlePublishToRegistry}
+                          disabled={isPublishing || !!publishedReceiptId}
+                          className="rounded-lg border border-emerald-600/50 bg-emerald-500/10 px-3 py-1 text-[11px] font-medium text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-50 transition"
+                        >
+                          {isPublishing ? "Publishing…" : publishedReceiptId ? "Published" : "Publish to Registry"}
+                        </button>
+                      </div>
+                    )}
                     <SurfacePlanningPanel
                       experienceId={previewExperience?.id || selectedExperienceId || undefined}
                       cartridge={tenantId}
+                      components={previewExperience?.components ?? undefined}
                       onSurfacePlanGenerated={() => {
                         // Stub hook for future runtime preview integration.
                       }}
@@ -9984,17 +10886,48 @@ export const ComposerStudio = () => {
                   </TabsContent>
 
                   <TabsContent value="pipeline" className="mt-0">
-                    <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-sm">
-                      {!lastPipelineRunId && (
-                        <p className="text-slate-400">No pipeline run recorded yet. Complete a session to see diagnostics.</p>
+                    <div className="space-y-4 rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-sm">
+                      {/* Experience Model Pipeline — integrated from inner tab */}
+                      <div>
+                        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Experience Model Pipeline</div>
+                        <div className="flex flex-wrap items-center gap-1">
+                          {[
+                            { label: "Strategy", ready: !!expModelData.strategy },
+                            { label: "Model", ready: !!expModelData.model },
+                            { label: "Matrix", ready: !!(expModelData.matrix?.length) },
+                            { label: "NBE", ready: !!expModelData.nbe },
+                            { label: "Artifact", ready: !!(previewExperience?.id) },
+                            { label: "Codex Sync", ready: false },
+                            { label: "Runtime", ready: false },
+                            { label: "Analytics", ready: !!(expModelData.analysis?.length) },
+                          ].map((step, i, arr) => (
+                            <div key={step.label} className="flex items-center gap-1">
+                              <div className={`flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-medium ${
+                                step.ready
+                                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+                                  : "border-slate-700 bg-slate-900/50 text-slate-500"
+                              }`}>
+                                {step.ready
+                                  ? <CheckCircle2 className="h-3 w-3" />
+                                  : <Activity className="h-3 w-3 text-slate-600" />}
+                                {step.label}
+                              </div>
+                              {i < arr.length - 1 && <span className="text-slate-700">→</span>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <hr className="border-slate-800" />
+                      {!lastPipelineRunId && !pipelineRunLoading && !pipelineRunData && (
+                        <p className="text-slate-400">No pipeline runs found for this cartridge yet.</p>
                       )}
-                      {lastPipelineRunId && pipelineRunLoading && (
+                      {pipelineRunLoading && (
                         <div className="flex items-center gap-2 text-slate-400">
                           <Loader2 className="h-3 w-3 animate-spin" />
                           <span>Loading pipeline run…</span>
                         </div>
                       )}
-                      {lastPipelineRunId && !pipelineRunLoading && !pipelineRunData && (
+                      {!pipelineRunLoading && lastPipelineRunId && !pipelineRunData && (
                         <div className="space-y-2">
                           <p className="font-mono text-xs text-slate-300">Run ID: {lastPipelineRunId}</p>
                           <button
@@ -10056,8 +10989,212 @@ export const ComposerStudio = () => {
 
                   <TabsContent value="workflows" className="mt-0">
                     <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-sm">
+                      {/* Registry Ingestion Factory link */}
+                      <div className="rounded-lg border border-amber-500/25 bg-amber-500/5 px-3 py-2.5 flex items-center justify-between gap-3">
+                        <div className="space-y-0.5">
+                          <div className="text-[11px] font-semibold text-amber-300 flex items-center gap-1.5">
+                            <span>Registry Ingestion Factory</span>
+                          </div>
+                          <div className="text-[10px] text-slate-400">
+                            Submit ToolQubes, SkillQubes, WorkflowQubes, or ConnectorQubes to the governed intake pipeline.
+                            Accepted assets become composable Registry supply for Studio.
+                          </div>
+                        </div>
+                        <a
+                          href="/registry?tab=factory"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="shrink-0 rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-[11px] text-amber-300 hover:bg-amber-500/20 transition-colors"
+                        >
+                          Open Factory →
+                        </a>
+                      </div>
+
+                      {/* Experience context — shows which experience these workflows are for */}
+                      {previewExperience && (
+                        <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/5 px-3 py-2">
+                          <p className="text-[11px] text-cyan-400 font-medium">
+                            Active experience: <span className="text-cyan-200">{previewExperience.name || previewExperience.id}</span>
+                          </p>
+                          {previewExperience.template_id && (
+                            <p className="text-[10px] text-slate-500 mt-0.5">Template: {previewExperience.template_id}</p>
+                          )}
+                        </div>
+                      )}
+                      {/* ── Skill filter toggle ───────────────────────────── */}
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setSkillFilterMode("all")}
+                          className={`rounded-md border px-2.5 py-1 text-[11px] transition-colors ${
+                            skillFilterMode === "all"
+                              ? "border-indigo-500/60 bg-indigo-500/10 text-indigo-300"
+                              : "border-slate-800 text-slate-500 hover:border-slate-600 hover:text-slate-300"
+                          }`}
+                        >
+                          All
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSkillFilterMode("active")}
+                          className={`rounded-md border px-2.5 py-1 text-[11px] transition-colors ${
+                            skillFilterMode === "active"
+                              ? "border-cyan-500/60 bg-cyan-500/10 text-cyan-300"
+                              : "border-slate-800 text-slate-500 hover:border-slate-600 hover:text-slate-300"
+                          }`}
+                        >
+                          Active Experience
+                        </button>
+                        {skillFilterMode === "active" && activeExperienceSkillIds.size === 0 && (
+                          <span className="text-[10px] text-slate-600">— no active experience selected</span>
+                        )}
+                      </div>
+
+                      {/* ── Studio Skills ─────────────────────────────────── */}
+                      {(() => {
+                        const allSkills = [
+                          {
+                            id: "skill:image_openai",
+                            name: "Image Generation — OpenAI",
+                            description: "Generate portrait and landscape hero imagery via OpenAI DALL·E / gpt-image-1.",
+                            badge: "A",
+                            trustBand: "L3",
+                            assetClass: "SkillQube",
+                            tags: ["image", "openai", "editorial"],
+                          },
+                          {
+                            id: "skill:image_venice",
+                            name: "Image Generation — Venice",
+                            description: "Generate portrait and landscape imagery via Venice AI (venice-sd35, flux-2-pro).",
+                            badge: "A",
+                            trustBand: "L3",
+                            assetClass: "SkillQube",
+                            tags: ["image", "venice", "editorial"],
+                          },
+                          {
+                            id: "skill:video_sora_curated",
+                            name: "Video Generation — Sora (Curated)",
+                            description: "First-party curated OpenAI Sora video generation. Badge A, trust composite 79.",
+                            badge: "A",
+                            trustBand: "L4",
+                            assetClass: "SkillQube",
+                            tags: ["video", "sora", "openai", "curated"],
+                          },
+                          {
+                            id: "skill:video_venice",
+                            name: "Video Generation — Venice",
+                            description: "Venice AI video generation skill. Badge A, trust composite 82.",
+                            badge: "A",
+                            trustBand: "L4",
+                            assetClass: "SkillQube",
+                            tags: ["video", "venice"],
+                          },
+                          {
+                            id: "skill:video_sora_community",
+                            name: "Video Generation — Sora (Community)",
+                            description: "Community-sourced Sora video generation. Badge C, trust composite 52.",
+                            badge: "C",
+                            trustBand: "L2",
+                            assetClass: "SkillQube",
+                            tags: ["video", "sora", "community"],
+                          },
+                          {
+                            id: "skill:article_generation",
+                            name: "Article / Story Generation",
+                            description: "AI-authored editorial article and story drafts with takeaways, glossary, and sections.",
+                            badge: "A",
+                            trustBand: "L3",
+                            assetClass: "SkillQube",
+                            tags: ["article", "editorial", "copy"],
+                          },
+                        ];
+                        const visibleSkills = skillFilterMode === "active" && activeExperienceSkillIds.size > 0
+                          ? allSkills.filter((s) => activeExperienceSkillIds.has(s.id))
+                          : allSkills;
+                        return (
+                          <div className="space-y-1.5">
+                            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                              Studio Skills{visibleSkills.length !== allSkills.length ? ` (${visibleSkills.length}/${allSkills.length})` : ""}
+                            </span>
+                            {visibleSkills.map((skill) => (
+                              <div key={skill.id} className="flex items-start justify-between gap-2 rounded-lg border border-slate-700/50 bg-slate-900/60 px-3 py-2">
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <p className="truncate text-[11px] font-medium text-slate-200">{skill.name}</p>
+                                    <span className="rounded-full border border-indigo-500/40 bg-indigo-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-indigo-300">AgentiQ native</span>
+                                  </div>
+                                  <p className="mt-0.5 text-[10px] text-slate-500 line-clamp-2">{skill.description}</p>
+                                  <div className="mt-1 flex flex-wrap gap-1">
+                                    {skill.tags.map((t) => (
+                                      <span key={t} className="rounded-full bg-slate-800 px-1.5 py-0.5 text-[9px] text-slate-400">{t}</span>
+                                    ))}
+                                  </div>
+                                </div>
+                                <div className="flex shrink-0 flex-col items-end gap-1">
+                                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${skill.badge === "A" ? "bg-emerald-500/20 text-emerald-300" : "bg-amber-500/20 text-amber-300"}`}>{skill.badge}</span>
+                                  <span className="rounded-full border border-indigo-400/30 bg-indigo-500/10 px-1.5 py-0.5 text-[9px] text-indigo-300">{skill.trustBand}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
+
+                      {/* ── Studio Bundles ────────────────────────────────── */}
+                      {(() => {
+                        const allBundles = [
+                          {
+                            id: "workflow:image_article_bundle",
+                            name: "Image + Article Bundle",
+                            description: "Lock hero imagery first, then layer editorial copy. Deploys as an article experience with visual context.",
+                            assetClass: "WorkflowQube",
+                            engine: "inline",
+                            blocks: ["image_generation", "article_draft", "deployment"],
+                          },
+                          {
+                            id: "workflow:video_article_bundle",
+                            name: "Video + Article Bundle",
+                            description: "Motion-led generation with editorial support for Make-oriented watch experiences.",
+                            assetClass: "WorkflowQube",
+                            engine: "inline",
+                            blocks: ["video_generation", "article_draft", "deployment"],
+                          },
+                        ];
+                        const visibleBundles = skillFilterMode === "active" && activeExperienceSkillIds.size > 0
+                          ? allBundles.filter((b) => activeExperienceSkillIds.has(b.id))
+                          : allBundles;
+                        return (
+                          <div className="space-y-1.5">
+                            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                              Studio Bundles{visibleBundles.length !== allBundles.length ? ` (${visibleBundles.length}/${allBundles.length})` : ""}
+                            </span>
+                            {visibleBundles.map((bundle) => (
+                              <div key={bundle.id} className="flex items-start justify-between gap-2 rounded-lg border border-violet-500/20 bg-violet-950/20 px-3 py-2">
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <p className="truncate text-[11px] font-medium text-slate-200">{bundle.name}</p>
+                                    <span className="rounded-full border border-indigo-500/40 bg-indigo-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-indigo-300">AgentiQ native</span>
+                                  </div>
+                                  <p className="mt-0.5 text-[10px] text-slate-500 line-clamp-2">{bundle.description}</p>
+                                  <div className="mt-1 flex flex-wrap gap-1">
+                                    {bundle.blocks.map((b) => (
+                                      <span key={b} className="rounded-full bg-violet-900/40 px-1.5 py-0.5 text-[9px] text-violet-300">{b.replace("_", " ")}</span>
+                                    ))}
+                                  </div>
+                                </div>
+                                <div className="flex shrink-0 flex-col items-end gap-1">
+                                  <span className="rounded-full border border-violet-400/30 bg-violet-500/10 px-2 py-0.5 text-[10px] text-violet-300">workflow</span>
+                                  <span className="text-[9px] text-slate-500">{bundle.engine}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
+
+                      {/* ── Make Workflows ────────────────────────────────── */}
                       <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Workflow Definitions</span>
+                        <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Make Workflow Definitions</span>
                         <div className="flex items-center gap-1.5">
                           <button
                             type="button"
@@ -11340,6 +12477,20 @@ export const ComposerStudio = () => {
         </div>
       )}
       </div>
+
+      {/* Registry Browser Drawer */}
+      <RegistryBrowserDrawer
+        open={showRegistryBrowser}
+        onClose={() => setShowRegistryBrowser(false)}
+        selectedIds={registrySelections.map((s) => s.assetId)}
+        onSelect={(asset) => {
+          setRegistrySelections((prev) =>
+            prev.some((s) => s.assetId === asset.assetId)
+              ? prev.filter((s) => s.assetId !== asset.assetId)
+              : [...prev, asset]
+          );
+        }}
+      />
     </div>
   );
 };

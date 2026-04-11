@@ -47,6 +47,10 @@ This is a mature, actively evolving codebase. Before writing any new code:
 - Commit messages are imperative, lowercase, no period: e.g. `Generate image article bundles on completion`
 - Never bundle unrelated changes. A bug fix and a refactor are separate commits.
 - Never skip hooks (`--no-verify`) or bypass signing.
+- **Merge commits must be descriptive.** Never use `--no-edit` or the default `Merge remote-tracking branch 'origin/dev' into …` message. Always pass `-m` with a summary of what the session changed, e.g.:
+  ```
+  git merge origin/dev -m "merge dev: sync before pushing seed fix + CRM individual card"
+  ```
 
 ---
 
@@ -131,7 +135,13 @@ Always deploy to **dev** unless explicitly told otherwise.
 ### Prerequisites / Gotchas
 
 - The `merge-claude-to-dev.yml` workflow **must exist on the `main` branch** for GitHub Actions to recognise `claude/**` push triggers. If auto-deploy stops working, check `main` has this file. Branch `fix/add-merge-workflow` contains the fix — merge it to `main` to restore.
-- **If auto-merge is broken**: push directly to `dev` as a fallback. First merge `origin/dev` into your session branch to avoid non-fast-forward rejection: `git merge origin/dev --no-edit`, resolve any conflicts, then `git push origin HEAD:dev`.
+- **If auto-merge is broken**: push directly to `dev` as a fallback. First merge `origin/dev` into your session branch to avoid non-fast-forward rejection, then push:
+  ```
+  git fetch origin dev
+  git merge origin/dev -m "merge dev into <branch>: sync before pushing <what-this-session-changed>"
+  git push origin HEAD:dev
+  ```
+  **Never use `--no-edit`** for merge commits — always write a descriptive `-m` message that summarises what the session changed (e.g. `"merge dev: sync before pushing seed fix + CRM individual card"`). This lets the commit history be human-readable.
 - **Avoid doc-only deploys:** Pushing only `CLAUDE.md` or other documentation to a `claude/` branch triggers a full Amplify build. Batch doc updates with the next code change instead.
 - The session branch name is critical — find the current branch with `git branch --show-current` before pushing.
 - **Other environments** (staging, main) — only deploy there if the user explicitly requests it.
@@ -178,6 +188,161 @@ The script loads keys automatically from `.env.local` / `.env.local.temp` — no
 - **Severity:** `info | warn | blocker`
 
 Post at session start and end at minimum. Post blockers and key decisions in real time.
+
+---
+
+## System Model — Aigent Z / Aigent C / metaMe
+
+The platform runs a dual-agent model with a sovereign guardian above:
+
+| Role | Agent | Responsibility |
+|------|-------|---------------|
+| System orchestrator | **Aigent Z** | Routes interactions, enforces policy, selects NBE |
+| Customer guide | **Aigent C** | Faces the user; executes NBE dispositions |
+| Sovereign guardian | **metaMe** | Final override authority; identity + data sovereignty |
+| Cartridge lead | per-cartridge | Domain logic within a cartridge boundary |
+
+### Routing priority chain
+1. metaMe guardian (policy veto)
+2. Active cartridge lead agent
+3. Aigent Z (system orchestrator)
+4. Aigent C (default handler)
+
+### Key contracts
+- **NBEPlan** — `disposition: ask | act | wait | escalate | deny` + `nextExperience` depth step
+- **StudioArtifact** — canonical handoff format for Studio → Codex → Runtime closed loop
+- **OrchestrationEvent** — every routing decision is persisted and receipt-eligible
+- **HandoffPayload** — typed interface for agent-to-agent handoffs (see `types/orchestration.ts`)
+
+### Journey stages
+`prospect → acolyte → keta → keji → first → zero` (+ investor / collector / creator variants)
+
+### Experience depth ladder (one step at a time)
+`L0 pill → L1 capsule → L2 mini_runtime → L3 codex`
+
+Full type definitions: `types/orchestration.ts`, `types/studioArtifact.ts`
+
+---
+
+## metaProof Agent Harness
+
+Canonical specs live in `docs/agent-harness/`. These are the single source of truth for all agents (Claude Code, Codex, Lovable):
+
+| File | Contents |
+|------|----------|
+| `docs/agent-harness/metaproof-core.md` | Role hierarchy, NBE contract, DVN receipt taxonomy, QubeTalk conventions |
+| `docs/agent-harness/aigent-z-aigent-c-contract.md` | Full role definitions, routing sequence, handoff rules |
+| `docs/agent-harness/journey-state-schema.md` | JourneyState, ExperienceModel/Matrix, NBEPlan interfaces + SQL |
+| `docs/agent-harness/studio-artifact-schema.md` | StudioArtifact schema, Codex↔Studio sync contract, rollback protocol |
+
+When asked to work on orchestration, KNYT laddering, or experience progression, read these files first.
+
+### DB migration for harness tables
+`supabase/migrations/20260402000000_experience_model_journey_state.sql` — creates:
+`experience_strategies`, `experience_models`, `experience_matrices`, `experience_goals`,
+`journey_states`, `nbe_plans`, `analysis_cards`, `orchestration_events`, `studio_artifacts`
+
+**This migration must be run in Supabase before the orchestration API is live.**
+
+---
+
+## Claude Code Sub-Agents
+
+Specialist agents are defined in `.claude/agents/`:
+
+| Agent file | When to invoke |
+|-----------|---------------|
+| `aigent-z-orchestrator.md` | Routing logic, NBE decisions, orchestration events |
+| `metame-guardian.md` | Policy checks — APPROVED / FLAG / BLOCK output |
+| `ui-parity-reviewer.md` | UI parity rules (4px grid, design tokens, radii) |
+| `security-reviewer.md` | Secrets, auth, injection, prod misuse |
+
+---
+
+## QubeTalk — Sandbox Limitation
+
+**Outbound HTTPS is blocked in the Claude Code sandbox.** The `qubetalk-claude.sh` script and all `curl` calls to external hosts fail with a 403 CONNECT tunnel error. This includes both sending and reading QubeTalk messages.
+
+The session Stop hook (`session-summary.sh`) attempts posting silently and suppresses errors — this is intentional and non-fatal.
+
+QubeTalk messages posted by other agents (Codex, Lovable) are visible through Supabase Studio or the deployed app UI, not from within this sandbox.
+
+---
+
+## QubeTalk Bridge — Fallback for Claude ↔ Codex Communication
+
+Because outbound HTTPS is blocked, Claude agents communicate with Codex (and Lovable) via **file-based bridge packets** committed to the repo. Lovable acts as the relay — it reads the outbox files and posts them to the live QubeTalk channel, and snapshots incoming Codex messages into the inbox.
+
+### Directory layout
+
+```
+docs/qubetalk-bridge/
+  outbox/          ← Claude writes packets here (committed + pushed)
+  inbox/
+    latest.json    ← Lovable snapshots inbound messages here
+```
+
+### Sending a message to Codex (Claude → Codex)
+
+Use `create_packet.py` to write an outbox packet, then commit and push. Lovable relays on its next pass.
+
+```bash
+python3 scripts/qubetalk_bridge/create_packet.py \
+  --agent-id claude-code \
+  --story DEV-XXXX \
+  --title "Short title (≤80 chars)" \
+  --body "Detailed message body" \
+  --thread dev-exec \
+  --type status \
+  --status done \
+  --severity info
+
+# Embed file contents for Codex to read:
+#   --paths path/to/file1.ts path/to/file2.ts
+# Mark deploy-ready (Codex will apply embedded files + deploy):
+#   --deploy-ready
+```
+
+Commit and push the packet:
+```bash
+git add docs/qubetalk-bridge/outbox/
+git commit -m "send qubetalk bridge packet: <title>"
+git push -u origin <current-branch>
+git push origin HEAD:dev
+```
+
+Tell the user **"ask Lovable to relay the QubeTalk bridge"** if immediate delivery is needed.
+
+### Reading messages from Codex (Codex → Claude)
+
+Lovable snapshots inbound Codex/Lovable messages into `docs/qubetalk-bridge/inbox/latest.json`:
+
+```bash
+# List your own sent (outbox) packets
+python3 scripts/qubetalk_bridge/list_pending.py
+
+# Read what Codex/Lovable sent
+cat docs/qubetalk-bridge/inbox/latest.json
+
+# Apply file patches sent by Codex (if inbox contains file_payloads)
+python3 scripts/qubetalk_bridge/apply_packets.py [--dry-run]
+```
+
+### When to use the bridge
+
+| Situation | Action |
+|-----------|--------|
+| Hand off work or files to Codex | `create_packet.py` with `--paths` + `--deploy-ready` |
+| Report session completion to Codex | `--thread dev-exec --type status --status done` |
+| Share architecture decision | `--thread spec --type decision` |
+| Check what Codex sent | Read `inbox/latest.json` |
+| Apply file patches from Codex | `apply_packets.py` |
+
+### Key rules
+
+- Always pass `--agent-id claude-code` (the default is `openai-codex`)
+- Always commit and push the outbox packet file — it is never delivered until it hits the remote
+- The bridge is **fire-and-forget**: Lovable relays asynchronously; Claude cannot confirm delivery from within the sandbox
 
 ---
 

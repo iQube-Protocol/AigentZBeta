@@ -1,13 +1,12 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Coins, Crown, Loader2, Lock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Check, Coins, Crown, Loader2, Lock } from 'lucide-react';
 import { useSmartTriad } from '@/app/components/content/SmartTriadProvider';
-import { SocialSharingModal } from '@/app/components/content/SocialSharingModal';
 import { CodexActionRow } from '../CodexActionRow';
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from '@/components/ui/carousel';
 import { WheelGesturesPlugin } from 'embla-carousel-wheel-gestures';
-import { isLockedContent, isPremiumContent } from '@/app/triad/components/codex/utils/contentFlags';
+import { isLockedContent, isPremiumContent, getContentPrice } from '@/app/triad/components/codex/utils/contentFlags';
 import { CodexBadge } from '../CodexBadge';
 import { CacheManager } from '@/app/utils/cache';
 
@@ -29,6 +28,7 @@ type PennyDropItem = {
   badge?: string;
   tags?: string[];
   isPremium?: boolean;
+  price?: { amount: number; currency?: string };
   modalities?: any;
 };
 
@@ -40,14 +40,6 @@ function getApiOrigin() {
 export function PennyDropsTab({ theme = 'dark', personaId, issueSlug, dataSource }: PennyDropsTabProps) {
   const { actions } = useSmartTriad();
   const isOwnedItem = (item: { id: string }) => actions.checkOwnership(item.id);
-  const [shareArticle, setShareArticle] = useState<{
-    id: string;
-    title: string;
-    description?: string;
-    section?: string;
-    type?: 'text' | 'video';
-    url?: string;
-  } | null>(null);
   const [items, setItems] = useState<PennyDropItem[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [carouselApi, setCarouselApi] = useState<CarouselApi>();
@@ -143,6 +135,7 @@ export function PennyDropsTab({ theme = 'dark', personaId, issueSlug, dataSource
 
   const selectedItem = items[selectedIndex] || items[0];
   const isSelectedPremium = selectedItem ? isPremiumContent(selectedItem) : false;
+  const isSelectedOwned = selectedItem ? isOwnedItem(selectedItem) : false;
   const isSelectedLocked = selectedItem ? isLockedContent(selectedItem, isOwnedItem) : false;
 
   const emitDvnReceipt = async (eventType: string, contentId: string) => {
@@ -168,10 +161,11 @@ export function PennyDropsTab({ theme = 'dark', personaId, issueSlug, dataSource
     const isLocked = isLockedContent(item, isOwnedItem);
     await actions.loadContent(item.id);
     if (isLocked) {
-      actions.openWallet('full');
+      actions.openWallet('full', 'payments');
       await emitDvnReceipt(eventType, item.id);
       return;
     }
+    actions.setContentAccessGranted(true);
     actions.setViewerModality(modality);
     actions.setActiveDrawer('contentViewer');
     await emitDvnReceipt(eventType, item.id);
@@ -185,7 +179,7 @@ export function PennyDropsTab({ theme = 'dark', personaId, issueSlug, dataSource
   };
 
   const openShareModal = (item: PennyDropItem) => {
-    setShareArticle({
+    actions.openShare({
       id: item.id,
       title: item.title,
       description: item.excerpt,
@@ -252,12 +246,21 @@ export function PennyDropsTab({ theme = 'dark', personaId, issueSlug, dataSource
                   </div>
                 )}
                 <div className="absolute left-4 top-4 flex items-center gap-2">
-                  <CodexBadge tone="amber">{selectedItem.badge || 'Q¢'}</CodexBadge>
-                  {isSelectedPremium && (
-                    <CodexBadge tone="amber">
-                      <Crown className="h-3 w-3" />
-                      Premium
+                  {isSelectedOwned ? (
+                    <CodexBadge tone="cyan">
+                      <Check className="h-3 w-3" />
+                      Owned
                     </CodexBadge>
+                  ) : (
+                    <>
+                      {isSelectedPremium && (
+                        <CodexBadge tone="amber">
+                          <Crown className="h-3 w-3" />
+                          Premium
+                        </CodexBadge>
+                      )}
+                      {(() => { const p = getContentPrice(selectedItem as any); return p !== null ? <CodexBadge tone="amber">Q¢ {p}</CodexBadge> : null; })()}
+                    </>
                   )}
                 </div>
                 <div className="absolute bottom-4 left-4 right-4 space-y-2 text-left">
@@ -267,6 +270,8 @@ export function PennyDropsTab({ theme = 'dark', personaId, issueSlug, dataSource
                   )}
                   <div className="flex flex-wrap gap-2 pt-1">
                     <CodexActionRow
+                      item={selectedItem}
+                      isOwned={isSelectedOwned}
                       variant="amber"
                       showRead={!!selectedItem.modalities?.read}
                       showWatch={!!selectedItem.modalities?.watch}
@@ -331,13 +336,17 @@ export function PennyDropsTab({ theme = 'dark', personaId, issueSlug, dataSource
                       : 'border-slate-800 hover:border-amber-400/60'
                   }`}
                 >
-                  {isPremiumContent(item) && (
-                    <div className="absolute top-2 right-2 z-10">
+                  <div className="absolute top-2 right-2 z-10">
+                    {isOwnedItem(item) ? (
+                      <CodexBadge tone="cyan" className="px-1.5 py-0.5">
+                        <Check className="h-3 w-3" />
+                      </CodexBadge>
+                    ) : isPremiumContent(item) ? (
                       <CodexBadge tone="amber" className="px-1.5 py-0.5">
                         <Crown className="h-3 w-3" />
                       </CodexBadge>
-                    </div>
-                  )}
+                    ) : null}
+                  </div>
                   {getImage(item) ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -388,14 +397,6 @@ export function PennyDropsTab({ theme = 'dark', personaId, issueSlug, dataSource
         <div className={`text-sm ${mutedClass}`}>No PennyDrops found for this issue.</div>
       )}
 
-      {shareArticle && (
-        <SocialSharingModal
-          isOpen={Boolean(shareArticle)}
-          onClose={() => setShareArticle(null)}
-          article={shareArticle}
-          personaId={personaId}
-        />
-      )}
     </div>
   );
 }

@@ -21,7 +21,6 @@ import {
   Crown,
 } from 'lucide-react';
 import { useSmartTriad } from '@/app/components/content/SmartTriadProvider';
-import { SocialSharingModal } from '@/app/components/content/SocialSharingModal';
 import { CodexActionRow } from '../CodexActionRow';
 import { isLockedContent, isPremiumContent } from '@/app/triad/components/codex/utils/contentFlags';
 import { CodexBadge } from '../CodexBadge';
@@ -43,6 +42,7 @@ type Kn0wdZItem = {
   position?: number;
   tags?: string[];
   isPremium?: boolean;
+  price?: { amount: number; currency?: string };
   modalities?: any;
 };
 
@@ -143,14 +143,6 @@ function badgeToTab(badge?: string): TabId {
 export function Kn0wdZTab({ theme = 'dark', personaId, issueSlug }: Kn0wdZTabProps) {
   const { actions } = useSmartTriad();
   const isOwnedItem = (item: { id: string }) => actions.checkOwnership(item.id);
-  const [shareArticle, setShareArticle] = useState<{
-    id: string;
-    title: string;
-    description?: string;
-    section?: string;
-    type?: 'text' | 'video';
-    url?: string;
-  } | null>(null);
   const [items, setItems] = useState<Kn0wdZItem[]>([]);
   const [activeTab, setActiveTab] = useState<TabId>('dev');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -240,10 +232,11 @@ export function Kn0wdZTab({ theme = 'dark', personaId, issueSlug }: Kn0wdZTabPro
     const isLocked = isLockedContent(item, isOwnedItem);
     await actions.loadContent(item.id);
     if (isLocked) {
-      actions.openWallet('full');
+      actions.openWallet('full', 'payments');
       await emitDvnReceipt(eventType, item.id);
       return;
     }
+    actions.setContentAccessGranted(true);
     actions.setViewerModality(modality);
     actions.setActiveDrawer('contentViewer');
     await emitDvnReceipt(eventType, item.id);
@@ -252,7 +245,7 @@ export function Kn0wdZTab({ theme = 'dark', personaId, issueSlug }: Kn0wdZTabPro
   const getImage = (item: Kn0wdZItem) => item.image || item.cover_image_url;
 
   const openShareModal = (item: Kn0wdZItem) => {
-    setShareArticle({
+    actions.openShare({
       id: item.id,
       title: item.title,
       description: item.excerpt,
@@ -340,12 +333,12 @@ export function Kn0wdZTab({ theme = 'dark', personaId, issueSlug }: Kn0wdZTabPro
                 )}
                 <div className="absolute right-3 top-3 flex items-center gap-2">
                   <CodexBadge tone="indigo">{selectedItem.badge || activeTab.toUpperCase()}</CodexBadge>
-                  {isSelectedPremium && (
+                  {isSelectedPremium ? (
                     <CodexBadge tone="amber">
                       <Crown className="h-3 w-3" />
                       Premium
                     </CodexBadge>
-                  )}
+                  ) : null}
                 </div>
                 <div className="absolute bottom-3 left-3 right-3 text-left">
                   <p className="text-sm font-semibold text-white line-clamp-2">{selectedItem.title}</p>
@@ -354,6 +347,7 @@ export function Kn0wdZTab({ theme = 'dark', personaId, issueSlug }: Kn0wdZTabPro
                   )}
                   <div className="mt-2 flex flex-wrap gap-2">
                     <CodexActionRow
+                      item={selectedItem}
                       variant="indigo"
                       showRead={!!selectedItem.modalities?.read}
                       showWatch={!!selectedItem.modalities?.watch}
@@ -500,14 +494,6 @@ export function Kn0wdZTab({ theme = 'dark', personaId, issueSlug }: Kn0wdZTabPro
         <div className={`text-sm ${mutedClass}`}>No Kn0wdZ content found for this issue.</div>
       )}
 
-      {shareArticle && (
-        <SocialSharingModal
-          isOpen={Boolean(shareArticle)}
-          onClose={() => setShareArticle(null)}
-          article={shareArticle}
-          personaId={personaId}
-        />
-      )}
     </div>
   );
 }

@@ -47,6 +47,9 @@ export interface PersonaState {
   
   /** Whether this is an AI agent persona */
   isAgent: boolean;
+
+  /** Canonical EVM address registered to this persona/FIO handle */
+  evmAddress?: `0x${string}`;
   
   /** App origin */
   appOrigin: string;

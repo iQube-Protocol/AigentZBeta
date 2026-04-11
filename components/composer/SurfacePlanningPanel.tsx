@@ -21,6 +21,7 @@ import type { SurfacePlanV0 } from "@metame/contracts";
 type SurfacePlanningPanelProps = {
   experienceId?: string;
   cartridge?: string;
+  components?: Array<{ id: string; name?: string; component_type?: string }>;
   onSurfacePlanGenerated?: (plan: SurfacePlanV0) => void;
 };
 
@@ -46,10 +47,11 @@ const DENSITY_COLORS = {
   full: "border-fuchsia-400/30 bg-fuchsia-500/10 text-fuchsia-200",
 };
 
-export default function SurfacePlanningPanel({ 
-  experienceId, 
+export default function SurfacePlanningPanel({
+  experienceId,
   cartridge = "Qriptopian",
-  onSurfacePlanGenerated 
+  components,
+  onSurfacePlanGenerated
 }: SurfacePlanningPanelProps) {
   const { toast } = useToast();
   const [activeDevice, setActiveDevice] = useState<DeviceType>("mobile");
@@ -78,36 +80,17 @@ export default function SurfacePlanningPanel({
   const generateSurfacePlan = async () => {
     setLoading(true);
     try {
-      // For demo purposes, create some mock capsules
-      const mockCapsules = [
-        {
-          id: "capsule_1",
-          app: "KNYT",
-          title: "Badge Portal",
-          type: "SmartContentQube" as const,
-          runtimeSource: "experience" as const,
-          modalities: { mixed: { enabled: true } },
-        },
-        {
-          id: "capsule_2", 
-          app: "Qriptopian",
-          title: "Story Card",
-          type: "SmartContentQube" as const,
-          runtimeSource: "experience" as const,
-          modalities: { mixed: { enabled: true } },
-        },
-        {
-          id: "capsule_3",
-          app: "KNYT", 
-          title: "Canon Thread",
-          type: "SmartContentQube" as const,
-          runtimeSource: "experience" as const,
-          modalities: { text: { enabled: true } },
-        },
-      ];
+      // Use actual experience components when available; fall back to a single
+      // stub entry so the planner always has something to work with.
+      const capsules =
+        components && components.length > 0
+          ? components.map((c) => ({ id: c.id, title: c.name, app: c.component_type }))
+          : experienceId
+          ? [{ id: experienceId, title: "Experience", app: cartridge }]
+          : [{ id: "stub", title: "Experience", app: cartridge }];
 
       const plan = await generateRuntimeSurfacePlan({
-        capsules: mockCapsules,
+        capsules,
         deviceType: activeDevice,
         runtimeIntent: selectedIntent,
         sessionId: `studio_${Date.now()}`,

@@ -1,0 +1,451 @@
+/**
+ * metaMe Runtime — Parchment Intelligence Light Mode
+ *
+ * Activated by adding the `.mm-light` class to the runtime root container.
+ * All overrides are scoped to `.mm-light` descendants so dark mode is untouched.
+ *
+ * Design basis: Star Trek: Discovery title-sequence visual grammar, translated
+ * into premium product UI. Warm ivory parchment canvas, layered vellum surfaces,
+ * medium-small ergonomic radii, technical linework, restrained annotation-ink
+ * accents, and motion that reveals structure (see animation backlog).
+ *
+ * DO NOT modify animations here — see docs/design/light-mode-animation-backlog.md
+ *
+ * Accent ink philosophy (light mode):
+ *   Links / interactive text  → #234785  archival navy ink   (~7:1 on canvas)
+ *   Runtime / teal            → #2A6670  deep teal ink       (~5:1)
+ *   Earn / green              → #3D6147  deep green ink      (~5.7:1)
+ *   Make / plum               → #6B3A54  deep plum ink       (~5.2:1)
+ *   Codex / amber             → #7A5A1E  dark amber ink      (~4.5:1)
+ *   Share / blue              → #3A4F6B  ink-blue            (~5:1)
+ *   All contrast-checked on #F1EBDD canvas.
+ */
+
+/* ═══════════════════════════════════════════════════════════════════
+   PARCHMENT INTELLIGENCE TOKEN LAYER
+   ═══════════════════════════════════════════════════════════════════ */
+.mm-light {
+  /* Canvas */
+  --mm-canvas-base:    #F1EBDD;
+  --mm-canvas-variant: #ECE4D6;
+  --mm-canvas-deep:    #E4DAC9;
+
+  /* Surfaces (folio / vellum tiers) */
+  --mm-surface-1: #F7F2E8;
+  --mm-surface-2: #FBF7EF;
+  --mm-surface-3: rgba(249, 244, 235, 0.82);
+  --mm-surface-4: rgba(255, 251, 243, 0.88);
+
+  /* Ink (typography) */
+  --mm-ink-primary:   #2E2923;
+  --mm-ink-secondary: #595247;
+  --mm-ink-muted:     #7B7266;
+  --mm-ink-faint:     #9A9085;
+  --mm-ink-inverse:   #FFFDF8;
+
+  /* Linework */
+  --mm-line-subtle: rgba(68, 57, 41, 0.08);
+  --mm-line-soft:   rgba(68, 57, 41, 0.12);
+  --mm-line-medium: rgba(68, 57, 41, 0.18);
+  --mm-line-strong: rgba(68, 57, 41, 0.26);
+
+  /* Annotation-ink accents — darkened for legibility on parchment */
+  --mm-accent-runtime: #2A6670;   /* deep teal — exploration / system */
+  --mm-accent-codex:   #7A5A1E;   /* dark amber — archival / provenance */
+  --mm-accent-make:    #6B3A54;   /* deep plum — generative / creation */
+  --mm-accent-earn:    #3D6147;   /* deep green — validation / trust */
+  --mm-accent-share:   #3A4F6B;   /* ink-blue — sharing / social */
+  --mm-accent-link:    #234785;   /* archival navy — interactive / links */
+  --mm-accent-alert:   #A25A4E;   /* iron red — alert / intervention */
+
+  /* Accent washes (low-opacity fills only) */
+  --mm-accent-runtime-wash: rgba(42,  102, 112, 0.08);
+  --mm-accent-codex-wash:   rgba(122,  90,  30, 0.08);
+  --mm-accent-make-wash:    rgba(107,  58,  84, 0.08);
+  --mm-accent-earn-wash:    rgba( 61,  97,  71, 0.08);
+  --mm-accent-share-wash:   rgba( 58,  79, 107, 0.08);
+
+  /* Radius — medium-small, premium, ergonomic */
+  --mm-radius-xs: 10px;   /* chips, segmented controls, compact buttons */
+  --mm-radius-sm: 14px;   /* standard cards, inputs, capsules */
+  --mm-radius-md: 18px;   /* prompt bars, drawers, important panels */
+  --mm-radius-lg: 22px;   /* hero containers only */
+
+  /* Borders */
+  --mm-border-hairline: 1px solid rgba(68, 57, 41, 0.10);
+  --mm-border-default:  1px solid rgba(68, 57, 41, 0.14);
+  --mm-border-emphasis: 1px solid rgba(68, 57, 41, 0.20);
+  --mm-border-active:   1px solid rgba(42, 102, 112, 0.35);
+
+  /* Warm shadows only — never cool gray */
+  --mm-shadow-low:   0  4px 14px rgba(57, 42, 24, 0.05);
+  --mm-shadow-mid:   0 10px 28px rgba(57, 42, 24, 0.07);
+  --mm-shadow-panel: 0 14px 36px rgba(57, 42, 24, 0.09);
+
+  /* ── Base canvas — parchment field ──────────────────────────── */
+  background-color: var(--mm-canvas-base) !important;
+  /*
+    Texture stack:
+    1. Ultra-fine SVG noise grain at ~3% opacity  → material feel
+    2. Soft radial tonal cloud                    → slight depth variation
+    Both should be perceptible subconsciously, not visually dominant.
+  */
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E"),
+    radial-gradient(ellipse at 30% 18%, rgba(200, 188, 165, 0.06) 0%, transparent 55%),
+    radial-gradient(ellipse at 75% 80%, rgba(185, 175, 155, 0.04) 0%, transparent 50%);
+  color: var(--mm-ink-primary) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   DARK BACKGROUND OVERRIDES
+   Maps common dark Tailwind utilities → parchment equivalents.
+   Note: bg-slate-950/60 and /70 map to surface-1 (not canvas) so that
+   article section cards read as lifted folios rather than flat canvas.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Canvas tier — full-opacity and high-opacity slate-950 */
+.mm-light .bg-slate-950,
+.mm-light .bg-slate-950\/80,
+.mm-light .bg-slate-950\/85,
+.mm-light .bg-slate-950\/90,
+.mm-light .bg-slate-950\/95 {
+  background-color: var(--mm-canvas-base) !important;
+}
+
+/* Surface tier 1 — article section cards use bg-slate-950/60 */
+.mm-light .bg-slate-950\/60,
+.mm-light .bg-slate-950\/70 {
+  background-color: var(--mm-surface-1) !important;
+}
+
+/* Surface tier 1 — slate-900 family */
+.mm-light .bg-slate-900,
+.mm-light .bg-slate-900\/50,
+.mm-light .bg-slate-900\/60,
+.mm-light .bg-slate-900\/70,
+.mm-light .bg-slate-900\/80 {
+  background-color: var(--mm-surface-1) !important;
+}
+
+/* Surface tier 2 — slate-800 family */
+.mm-light .bg-slate-800,
+.mm-light .bg-slate-800\/50,
+.mm-light .bg-slate-800\/60,
+.mm-light .bg-slate-800\/70 {
+  background-color: var(--mm-surface-2) !important;
+}
+
+/* Transparent-white surfaces (glass/vellum-overlay pattern) */
+.mm-light .bg-white\/\[0\.03\],
+.mm-light .bg-white\/5,
+.mm-light .bg-white\/\[0\.05\] {
+  background-color: var(--mm-surface-3) !important;
+}
+.mm-light .bg-white\/10,
+.mm-light .bg-white\/\[0\.07\] {
+  background-color: var(--mm-surface-4) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   TEXT OVERRIDES
+   ═══════════════════════════════════════════════════════════════════ */
+.mm-light .text-white {
+  color: var(--mm-ink-primary) !important;
+}
+.mm-light .text-slate-100,
+.mm-light .text-slate-200 {
+  color: var(--mm-ink-secondary) !important;
+}
+.mm-light .text-slate-300,
+.mm-light .text-slate-400 {
+  color: var(--mm-ink-muted) !important;
+}
+/* Raised to --mm-ink-secondary (#595247 / 6.1:1) so small uppercase tracking
+   labels (section headings, metadata chips) are legible on parchment.
+   --mm-ink-faint (#9A9085 / 2.5:1) and --mm-ink-muted (#7B7266 / 4.1:1)
+   are both borderline for 11px text; secondary gives clear headroom. */
+.mm-light .text-slate-500,
+.mm-light .text-slate-600 {
+  color: var(--mm-ink-secondary) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   BORDER OVERRIDES
+   ═══════════════════════════════════════════════════════════════════ */
+.mm-light .border-white\/5,
+.mm-light .border-white\/8,
+.mm-light .border-white\/10,
+.mm-light .border-white\/\[0\.08\],
+.mm-light .border-white\/\[0\.10\] {
+  border-color: rgba(68, 57, 41, 0.10) !important;
+}
+.mm-light .border-white\/15,
+.mm-light .border-white\/20,
+.mm-light .border-slate-800,
+.mm-light .border-slate-700 {
+  border-color: rgba(68, 57, 41, 0.14) !important;
+}
+.mm-light .border-slate-600,
+.mm-light .border-slate-500 {
+  border-color: rgba(68, 57, 41, 0.20) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   MODE ACCENT OVERRIDES
+   All accent shades (100–400) are mapped to legible annotation inks.
+   Light shades (100/200) were near-white in dark mode — invisible on parchment.
+   Mid shades (300/400) are deepened well past 4.5:1 contrast on #F1EBDD.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Cyan / Runtime ─────────────────────────────────────────── */
+.mm-light .text-cyan-100,
+.mm-light .text-cyan-200 {
+  color: var(--mm-accent-runtime) !important;   /* #2A6670 — 5:1 on canvas */
+}
+.mm-light .text-cyan-300,
+.mm-light .text-cyan-400 {
+  color: var(--mm-accent-runtime) !important;
+}
+
+/* ── Emerald / Earn ─────────────────────────────────────────── */
+.mm-light .text-emerald-100,
+.mm-light .text-emerald-200 {
+  color: var(--mm-accent-earn) !important;      /* #3D6147 — 5.7:1 */
+}
+.mm-light .text-emerald-300,
+.mm-light .text-emerald-400 {
+  color: var(--mm-accent-earn) !important;
+}
+
+/* ── Violet / Fuchsia / Purple / Make ──────────────────────── */
+.mm-light .text-violet-100,
+.mm-light .text-violet-200,
+.mm-light .text-fuchsia-100,
+.mm-light .text-fuchsia-200,
+.mm-light .text-purple-100,
+.mm-light .text-purple-200 {
+  color: var(--mm-accent-make) !important;      /* #6B3A54 — 5.2:1 */
+}
+.mm-light .text-violet-400,
+.mm-light .text-fuchsia-400,
+.mm-light .text-violet-300,
+.mm-light .text-fuchsia-300,
+.mm-light .text-purple-300,
+.mm-light .text-purple-400 {
+  color: var(--mm-accent-make) !important;
+}
+
+/* ── Amber / Codex ──────────────────────────────────────────── */
+.mm-light .text-amber-100,
+.mm-light .text-amber-200 {
+  color: var(--mm-accent-codex) !important;     /* #7A5A1E — 4.5:1 */
+}
+.mm-light .text-amber-300,
+.mm-light .text-amber-400 {
+  color: var(--mm-accent-codex) !important;
+}
+
+/* ── Background accent washes ───────────────────────────────── */
+.mm-light .bg-cyan-400\/10,
+.mm-light .bg-cyan-500\/5,
+.mm-light .bg-cyan-500\/10,
+.mm-light .bg-cyan-500\/15,
+.mm-light .bg-cyan-500\/20,
+.mm-light .bg-cyan-500\/25 {
+  background-color: var(--mm-accent-runtime-wash) !important;
+}
+.mm-light .bg-emerald-500\/5,
+.mm-light .bg-emerald-500\/10,
+.mm-light .bg-emerald-500\/20 {
+  background-color: var(--mm-accent-earn-wash) !important;
+}
+.mm-light .bg-violet-500\/5,
+.mm-light .bg-violet-500\/10,
+.mm-light .bg-fuchsia-500\/5,
+.mm-light .bg-fuchsia-500\/10 {
+  background-color: var(--mm-accent-make-wash) !important;
+}
+
+/* ── Border accents ─────────────────────────────────────────── */
+.mm-light .border-cyan-300\/30,
+.mm-light .border-cyan-300\/35,
+.mm-light .border-cyan-400,
+.mm-light .border-cyan-400\/20,
+.mm-light .border-cyan-400\/25,
+.mm-light .border-cyan-400\/30 {
+  border-color: rgba(42, 102, 112, 0.35) !important;
+}
+.mm-light .border-emerald-400,
+.mm-light .border-emerald-400\/25,
+.mm-light .border-emerald-400\/30,
+.mm-light .border-emerald-500\/20 {
+  border-color: rgba(61, 97, 71, 0.35) !important;
+}
+.mm-light .border-violet-400,
+.mm-light .border-violet-400\/25,
+.mm-light .border-violet-400\/30 {
+  border-color: rgba(107, 58, 84, 0.35) !important;
+}
+.mm-light .border-fuchsia-400,
+.mm-light .border-fuchsia-400\/25 {
+  border-color: rgba(107, 58, 84, 0.35) !important;
+}
+.mm-light .border-purple-400,
+.mm-light .border-purple-400\/25 {
+  border-color: rgba(107, 58, 84, 0.28) !important;
+}
+
+/* ── Ring accents ───────────────────────────────────────────── */
+.mm-light .ring-cyan-300\/35 {
+  --tw-ring-color: rgba(42, 102, 112, 0.35);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   LINK FALLBACK
+   Catches any anchor tags not handled by component-specific rules below.
+   Archival navy ink (#234785) — ~7:1 on #F1EBDD, reads as deliberate
+   annotation rather than digital chrome.
+   ═══════════════════════════════════════════════════════════════════ */
+.mm-light a {
+  color: var(--mm-accent-link) !important;   /* #234785 */
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   GLASSMORPHISM — warm vellum glass
+   Backdrop blur is preserved in light mode. Combined with the warm
+   parchment surface colours it reads as vellum-glass, not dark chrome.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ═══════════════════════════════════════════════════════════════════
+   SCROLLBAR — warm parchment tones
+   ═══════════════════════════════════════════════════════════════════ */
+.mm-light ::-webkit-scrollbar-track {
+  background: rgba(68, 57, 41, 0.05);
+}
+.mm-light ::-webkit-scrollbar-thumb {
+  background: rgba(68, 57, 41, 0.15);
+}
+.mm-light ::-webkit-scrollbar-thumb:hover {
+  background: rgba(68, 57, 41, 0.22);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   THUMBNAIL CARD EXCLUSION
+   Carousel thumbnail cards (.snap-start wrappers) keep their dark
+   media-chrome styling. Higher specificity (0,3,0) beats general (0,2,0).
+   bg-slate-950/60 must be explicitly reverted here since we added it
+   to the surface-1 rule above.
+   ═══════════════════════════════════════════════════════════════════ */
+.mm-light .snap-start .bg-slate-950,
+.mm-light .snap-start .bg-slate-950\/60,
+.mm-light .snap-start .bg-slate-950\/70,
+.mm-light .snap-start .bg-slate-950\/80,
+.mm-light .snap-start .bg-slate-950\/85,
+.mm-light .snap-start .bg-slate-950\/90,
+.mm-light .snap-start .bg-slate-950\/95 {
+  background-color: rgb(2, 6, 23) !important;        /* slate-950 */
+}
+.mm-light .snap-start .bg-slate-900,
+.mm-light .snap-start .bg-slate-900\/50,
+.mm-light .snap-start .bg-slate-900\/60,
+.mm-light .snap-start .bg-slate-900\/70,
+.mm-light .snap-start .bg-slate-900\/80 {
+  background-color: rgba(15, 23, 42, 0.6) !important;   /* slate-900/60 */
+}
+.mm-light .snap-start .bg-slate-800,
+.mm-light .snap-start .bg-slate-800\/50,
+.mm-light .snap-start .bg-slate-800\/60 {
+  background-color: rgba(30, 41, 59, 0.6) !important;   /* slate-800/60 */
+}
+.mm-light .snap-start .bg-white\/10,
+.mm-light .snap-start .bg-white\/\[0\.07\] {
+  background-color: rgba(255, 255, 255, 0.10) !important;
+}
+.mm-light .snap-start .text-white {
+  color: rgb(255, 255, 255) !important;
+}
+.mm-light .snap-start .text-slate-100,
+.mm-light .snap-start .text-slate-200 {
+  color: rgba(226, 232, 240, 0.85) !important;
+}
+.mm-light .snap-start .text-slate-300,
+.mm-light .snap-start .text-slate-400 {
+  color: rgba(148, 163, 184, 1) !important;
+}
+.mm-light .snap-start .border-white\/15,
+.mm-light .snap-start .border-white\/20 {
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+.mm-light .snap-start .border-white\/10,
+.mm-light .snap-start .border-white\/5 {
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}
+/* Restore link colour inside thumbnail cards (they have dark bg) */
+.mm-light .snap-start a {
+  color: inherit !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   INFERENCE RENDERER — readable parchment type
+   Overrides CSS custom properties defined in
+   app/components/codex/CopilotInferenceBodyRenderer.module.css.
+   Specificity (0,2,0) beats the CSS-module rule (0,1,0).
+   ═══════════════════════════════════════════════════════════════════ */
+.mm-light [class*="rendererRoot"] {
+  --inference-body:           #2E2923;
+  --inference-body-muted:     #595247;
+  --inference-accent:         #234785;   /* archival navy — legible, not neon */
+  --inference-code-bg:        rgba(68, 57, 41, 0.08);
+  --inference-border:         rgba(68, 57, 41, 0.22);
+  --inference-muted:          rgba(68, 57, 41, 0.06);
+  --inference-callout-bg:     rgba(42, 102, 112, 0.08);
+  --inference-callout-border: rgba(42, 102, 112, 0.40);
+  color: #2E2923;
+}
+
+/* Hardcoded colour overrides (not CSS-var-driven in the module) */
+.mm-light [class*="rendererRoot"] a,
+.mm-light [class*="rendererRoot"] [class*="link"] {
+  color: #234785 !important;
+}
+.mm-light [class*="rendererRoot"] code,
+.mm-light [class*="rendererRoot"] [class*="inlineCode"] {
+  color: #234785 !important;
+  background-color: rgba(68, 57, 41, 0.08) !important;
+}
+.mm-light [class*="rendererRoot"] blockquote,
+.mm-light [class*="rendererRoot"] [class*="blockquote"] {
+  border-color: rgba(42, 102, 112, 0.45) !important;
+  color: #595247 !important;
+}
+.mm-light [class*="rendererRoot"] [class*="callout"] {
+  background-color: rgba(42, 102, 112, 0.08) !important;
+  border-color: rgba(42, 102, 112, 0.40) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   SMARTTRIAD COPILOT — light mode stub
+   Full universal SmartTriad light treatment is deferred.
+   See docs/design/light-mode-animation-backlog.md (SmartTriad section).
+   These stubs ensure readable baseline type.
+   ═══════════════════════════════════════════════════════════════════ */
+.mm-light .smarttriad-conversational-content,
+.mm-light .smarttriad-paragraph {
+  color: #2E2923 !important;
+}
+.mm-light .smarttriad-bullet-point {
+  color: #2E2923 !important;
+}
+.mm-light .smarttriad-key-term {
+  color: #234785 !important;
+}
+.mm-light .smarttriad-inline-code {
+  color: #234785 !important;
+  background: rgba(68, 57, 41, 0.08) !important;
+}
+.mm-light .smarttriad-blockquote {
+  border-color: rgba(42, 102, 112, 0.45) !important;
+  color: #595247 !important;
+}
+/* The outer container uses rounded-[5px] — preserve as-is, shell owns the frame */

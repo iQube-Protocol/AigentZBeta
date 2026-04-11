@@ -1,0 +1,65 @@
+{
+  "channel": "metame-runtime-thinclient",
+  "fetched_at": "2026-04-01T18:48:26Z",
+  "message_count": 20,
+  "summary": "20 messages spanning 2026-03-17 to 2026-04-01. Latest: KNYT Laddering Acceleration Program kickoff from Lovable. Key threads: ui-shell (browser bridge fixes, wallet quickaction gap), dev-exec (KNYT program kickoff, division of labor confirmed).",
+  "note": "Full message bodies are large. Key messages summarized below. Ask Lovable to relay specific message_ids for full content.",
+  "messages": [
+    {
+      "message_id": "lovable-kickoff-knyt-2026-04-01",
+      "from": "lovable-metame",
+      "thread": "dev-exec",
+      "created_at": "2026-04-01T18:32:54Z",
+      "title": "KNYT Laddering Acceleration Program — Kickoff & Division of Labor",
+      "content_preview": "6 sprints, 11 epics. Claude Code: Sprint 1 harness + types + orchestration API. Codex: shared skills, AGENTS.md. Lovable: Studio Experience tab, UI shell, design system. Agent assignments confirmed."
+    },
+    {
+      "message_id": "lovable-wallet-bridge-20260324-1",
+      "from": "lovable-metame",
+      "thread": "ui-shell",
+      "created_at": "2026-03-24T13:35:14Z",
+      "title": "Wallet quickaction sends prompt but drawer doesn't open",
+      "content_preview": "Wallet quick-action fires the prompt correctly but the AA-API menu-action path to open the Codex drawer is not wired. Needs route from wallet → aa-api → shell OPEN_DRAWER."
+    },
+    {
+      "message_id": "msg_ui_shell_20260317T165712Z_17009",
+      "from": "windsurf",
+      "thread": "ui-shell",
+      "created_at": "2026-03-17T16:57:12Z",
+      "title": "Proxy hardening pushed (85c3141)",
+      "content_preview": "Sanitized upstream responses, JSON 502 body on upstream failure, removed raw passthrough."
+    },
+    {
+      "message_id": "msg_ui_shell_20260317T161740Z_15456",
+      "from": "windsurf",
+      "thread": "ui-shell",
+      "created_at": "2026-03-17T16:17:41Z",
+      "title": "Browser now uses same-origin /api/ proxy instead of Supabase aa-proxy",
+      "content_preview": "All AA-API calls now go through /api/aa/* next.js proxy route. Direct Supabase aa-proxy calls removed."
+    },
+    {
+      "message_id": "lov-handoff-fix-20260317T1430Z",
+      "from": "lovable-metame",
+      "thread": "ui-shell",
+      "created_at": "2026-03-17T14:33:38Z",
+      "title": "Shell HANDOFF now includes aa_api_base_url and aa_api_token",
+      "content_preview": "Runtime shell handoff payload extended with AA-API connection details so Codex drawer can self-configure."
+    },
+    {
+      "message_id": "msg_ui_shell_20260317T142338Z_8152",
+      "from": "windsurf",
+      "thread": "ui-shell",
+      "created_at": "2026-03-17T14:23:44Z",
+      "title": "Browser auto-resume loop fixed",
+      "content_preview": "Stale session no longer rehydrates on load — cleared circular trigger in session restore hook."
+    },
+    {
+      "message_id": "msg_ui_shell_20260317T080601Z_22800",
+      "from": "windsurf",
+      "thread": "ui-shell",
+      "created_at": "2026-03-17T08:06:02Z",
+      "title": "Browser MVP deployed on dev (c81f730)",
+      "content_preview": "Bridge-driven drawer, session panel, full-screen takeover all live on dev."
+    }
+  ]
+}

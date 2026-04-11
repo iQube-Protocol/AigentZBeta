@@ -3,6 +3,8 @@ export interface AgentConfig {
   name: string;
   fioId: string;
   color: string;
+  /** Supabase persona UUID — set once confirmed via sync-agent-personas */
+  personaId?: string;
   // Wallet keys removed - use AgentKeyService to retrieve from Supabase
   // Public addresses only (safe to expose)
   walletAddresses: {
@@ -28,6 +30,7 @@ export const agentConfigs: Record<string, AgentConfig> = {
     id: "aigent-z",
     name: "Aigent Z",
     fioId: "aigentz@aigent",
+    personaId: "dbaf6fac-62f8-4603-9888-bd4f3395c2ca",
     color: "blue",
     walletAddresses: {
       evmAddress: "0x0e3a4FDbE83F7e206380E6C61CA016F2127FF844",

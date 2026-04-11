@@ -414,6 +414,8 @@ export function ExperienceLiquidRenderer({
           persona_id={personaId}
           initial_generation_id={packet.skill.generation_id}
           initial_venice_model={packet.skill.venice_model_for_status}
+          packet={packet}
+          experience={experience}
         />
       </>
     );
@@ -433,6 +435,8 @@ export function ExperienceLiquidRenderer({
           initial_images={packet.image_generation.initial_images}
           initial_receipt={packet.image_generation.initial_receipt}
           persona_id={personaId}
+          packet={packet}
+          experience={experience}
         />
       </>
     );

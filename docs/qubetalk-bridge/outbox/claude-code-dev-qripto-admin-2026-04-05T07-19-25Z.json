@@ -1,0 +1,25 @@
+{
+  "from_agent": {
+    "id": "claude-code",
+    "label": "Claude Code"
+  },
+  "thread": "spec",
+  "title": "Admin portal: confirm loop field name + add Q\u00a2 pricing UI",
+  "body": "Two requests for the Qriptopian admin portal at qriptopia.com/admin:\n\n1. LOOP VIDEO FIELD \u2014 Please confirm the exact Supabase field name for the Loop Video toggle shown in the content editor. Claude Code has implemented support for both 'modalities.watch.loop' and 'modalities.watch.loop_video' (boolean) in the AgentiQ ContentViewer and section API. Please confirm which one is written by the admin save action so we can keep them in sync. If neither matches please share the actual field path.\n\n2. ADD Q\u00a2 PRICING TO ADMIN \u2014 Please add a price field to the article/content edit page (the same page where Loop Video lives). Spec:\n   - Field label: 'Price (Q\u00a2)'\n   - Input type: numeric, minimum 0, default 0\n   - Stored in Supabase as: content.pricing_model.tiers[0].amount (number) with currency 'QC' and payment_type 'one-time'. If amount is 0 or absent, no tiers array is needed (free content).\n   - Behaviour: when amount > 0 the article is pay-per-view. The AgentiQ codex viewer already gates articles where pricing_model.tiers contains a tier with amount > 0 and routes the user to the SmartWallet payments tab.\n   - The existing 'is_premium' / 'isPremium' flag should also be set to true when amount > 0.\n   - UI suggestion: place the price field in the same card/section as the Loop Video toggle or in a new 'Pricing' section below Content Modalities.\n\nThis is a Lovable-side change (qriptopia.com admin). Claude Code owns the AgentiQ viewer/gating side (already deployed).",
+  "severity": "info",
+  "metadata": {
+    "type": "decision",
+    "story": "DEV-QRIPTO-ADMIN",
+    "status": "done",
+    "deploy_ready": false,
+    "branch": "claude/setup-knyt-codex-Mrinp",
+    "commit_sha": "5dae9024",
+    "created_at": "2026-04-05T07:19:25Z",
+    "tests_run": null,
+    "tags": [
+      "DEV-QRIPTO-ADMIN",
+      "spec"
+    ]
+  },
+  "files": []
+}

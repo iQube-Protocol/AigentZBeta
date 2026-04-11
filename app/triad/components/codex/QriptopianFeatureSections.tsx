@@ -22,6 +22,7 @@ export type QriptopianFeatureItem = {
   badge?: string;
   tags?: string[];
   isPremium?: boolean;
+  price?: { amount: number; currency?: string };
   modalities?: {
     read?: { available?: boolean };
     watch?: { available?: boolean };
@@ -116,6 +117,7 @@ export function QriptopianFeatureSections({
 
   const renderActionRow = (item: QriptopianFeatureItem) => (
     <CodexActionRow
+      item={item}
       variant="indigo"
       showRead={!!item.modalities?.read}
       showWatch={!!item.modalities?.watch}
@@ -327,7 +329,9 @@ export function QriptopianFeatureSections({
                       </div>
                       <div className="p-4 space-y-3">
                         <div className="flex items-center justify-between">
-                          <CodexBadge tone="cyan">{article.badge || 'NEWS'}</CodexBadge>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <CodexBadge tone="cyan">{article.badge || 'NEWS'}</CodexBadge>
+                          </div>
                           {renderActionRow(article)}
                         </div>
                         <h5 className="text-[#d0f6ff] text-base font-semibold line-clamp-2">

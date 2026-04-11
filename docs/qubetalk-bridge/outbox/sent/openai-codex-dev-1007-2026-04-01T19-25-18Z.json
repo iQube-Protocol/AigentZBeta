@@ -1,0 +1,55 @@
+{
+  "channel_id": "metame-runtime-thinclient",
+  "from_agent": {
+    "id": "openai-codex",
+    "label": "OpenAI Codex"
+  },
+  "thread": "api-wiring",
+  "type": "text",
+  "content": "[DEV-1007] Bridge bootstrap: apply_packets.py",
+  "metadata": {
+    "type": "handoff",
+    "severity": "info",
+    "title": "Bridge bootstrap: apply_packets.py",
+    "body": "Bootstrap packet carrying apply_packets.py so Claude can materialize packet-apply tooling.",
+    "control": {
+      "id": "codex-dev-1007-4bee17b1",
+      "status": "done",
+      "assignee": "claude-code",
+      "depends_on": [
+        "relay-qubetalk-bridge"
+      ]
+    },
+    "refs": {
+      "repo": "AigentZBeta",
+      "paths": [
+        "scripts/qubetalk_bridge/apply_packets.py"
+      ],
+      "endpoints": [],
+      "env": [
+        "workspace-file-bridge"
+      ],
+      "branch": "work",
+      "commit": "4bee17b1b602a633701050d9be1312883867bbb8",
+      "timestamp": "2026-04-01T19:25:18Z",
+      "deploy_ready": true,
+      "tests": [
+        "python3 scripts/qubetalk_bridge/apply_packets.py --dry-run --source docs/qubetalk-bridge/outbox/openai-codex-dev-1002-2026-04-01T19-18-38Z.json"
+      ],
+      "embedded_file_count": 1,
+      "file_payloads": [
+        {
+          "path": "scripts/qubetalk_bridge/apply_packets.py",
+          "encoding": "utf-8",
+          "sha256": "a20b666b066f85cacbaba965344815871bc847888afe06d87031fbad6c9d8f99",
+          "size_bytes": 2946,
+          "content": "#!/usr/bin/env python3\n\"\"\"Apply relayed Codex packet payloads into the repository workspace.\n\nExpected flow: Lovable relays QubeTalk -> inbox snapshot contains packet payloads ->\nClaude runs this script to materialize files before deploy.\n\"\"\"\n\nfrom __future__ import annotations\n\nimport argparse\nimport hashlib\nimport json\nfrom pathlib import Path\n\nROOT = Path(__file__).resolve().parents[2]\nINBOX = ROOT / \"docs\" / \"qubetalk-bridge\" / \"inbox\" / \"latest.json\"\n\n\ndef collect_payloads(inbox_data: dict) -> list[dict]:\n    payloads: list[dict] = []\n\n    # case 1: direct single packet (outbox json)\n    direct_refs = inbox_data.get(\"metadata\", {}).get(\"refs\", {})\n    if direct_refs.get(\"file_payloads\"):\n        payloads.append({\"source\": \"direct-packet\", \"file_payloads\": direct_refs.get(\"file_payloads\", [])})\n\n    # case 2: inbox snapshot with top-level packets list\n    direct = inbox_data.get(\"packets\", [])\n    if isinstance(direct, list):\n        payloads.extend(direct)\n\n    # case 3: inbox snapshot with message list\n    for msg in inbox_data.get(\"messages\", []):\n        refs = msg.get(\"metadata\", {}).get(\"refs\", {})\n        file_payloads = refs.get(\"file_payloads\", [])\n        if file_payloads:\n            payloads.append({\"source\": msg.get(\"message_id\", \"unknown\"), \"file_payloads\": file_payloads})\n\n    return payloads\n\n\ndef verify_sha(content: str, expected_sha: str) -> bool:\n    digest = hashlib.sha256(content.encode(\"utf-8\")).hexdigest()\n    return digest == expected_sha\n\n\ndef main() -> int:\n    parser = argparse.ArgumentParser(description=\"Apply file payloads from relayed bridge packets\")\n    parser.add_argument(\"--dry-run\", action=\"store_true\", help=\"Show changes without writing files\")\n    parser.add_argument(\"--source\", default=str(INBOX), help=\"Inbox JSON source file\")\n    args = parser.parse_args()\n\n    source = Path(args.source)\n    if not source.exists():\n        raise SystemExit(f\"Inbox source not found: {source}\")\n\n    data = json.loads(source.read_text())\n    payload_sets = collect_payloads(data)\n    if not payload_sets:\n        print(\"No payloads found in inbox source.\")\n        return 0\n\n    writes = 0\n    for packet in payload_sets:\n        for item in packet.get(\"file_payloads\", []):\n            rel_path = item[\"path\"]\n            content = item[\"content\"]\n            expected_sha = item.get(\"sha256\")\n            target = ROOT / rel_path\n            target.parent.mkdir(parents=True, exist_ok=True)\n\n            if expected_sha and not verify_sha(content, expected_sha):\n                raise SystemExit(f\"SHA mismatch for payload: {rel_path}\")\n\n            if args.dry_run:\n                print(f\"DRY-RUN write: {rel_path}\")\n                writes += 1\n                continue\n\n            target.write_text(content)\n            print(f\"Wrote: {rel_path}\")\n            writes += 1\n\n    print(f\"Applied files: {writes}\")\n    return 0\n\n\nif __name__ == \"__main__\":\n    raise SystemExit(main())\n"
+        }
+      ]
+    },
+    "attestations": {
+      "authority": "openai_codex",
+      "signature": "openai_codex:"
+    }
+  }
+}

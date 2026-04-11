@@ -4,10 +4,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
+  ArrowRight,
   BarChart3,
   CheckCircle2,
   FileText,
+  Layers,
   LayoutGrid,
   Play,
   RefreshCw,
@@ -42,6 +45,24 @@ type PipelineState = {
   appraisedExperienceId?: string;
 };
 
+type ExperienceModelData = {
+  journey?: {
+    stage: string;
+    depth: string;
+    active_at: string | null;
+  } | null;
+  nbe?: {
+    disposition: string;
+    next_experience_depth: string | null;
+    rationale: string | null;
+    expires_at: string | null;
+  } | null;
+  strategy?: { name: string; description: string; target_segments: string[] } | null;
+  model?: { name: string; description: string; stages: string[] } | null;
+  matrix?: { stage: string; depth_ladder: string[] }[] | null;
+  analysis?: { card_type: string; content: string; score: number | null }[] | null;
+};
+
 type AgenticDesignParityPanelProps = {
   designQube: DesignQube | null;
   activeDesignQubeId: string;
@@ -49,6 +70,7 @@ type AgenticDesignParityPanelProps = {
   experiences: ExperienceQubeLike[];
   previewExperience: ExperienceQubeLike | null;
   previewAction: string | null;
+  personaId?: string;
   routingSummary?: string;
   recommendedTargetLabel?: string;
   deploymentGuidance?: Array<{
@@ -470,6 +492,7 @@ export function AgenticDesignParityPanel({
   experiences,
   previewExperience,
   previewAction,
+  personaId,
   routingSummary,
   recommendedTargetLabel,
   deploymentGuidance,
@@ -478,9 +501,27 @@ export function AgenticDesignParityPanel({
   onApplyRemedy,
   onLogAuditEvent,
 }: AgenticDesignParityPanelProps) {
-  const [activeTab, setActiveTab] = useState("pipeline");
+  const [activeTab, setActiveTab] = useState("dis");
   const [state, setState] = useState<PipelineState>({ status: "idle" });
   const [remedyState, setRemedyState] = useState<RemedyState>({ status: "idle" });
+  const [parityModalOpen, setParityModalOpen] = useState(false);
+
+  // Experience data is now fetched at ComposerStudio level for the top-level Experience tab.
+  // Kept here for parity modal pipeline step status only.
+  const [expData, setExpData] = useState<ExperienceModelData>({});
+  const [expLoading, setExpLoading] = useState(false);
+
+  useEffect(() => {
+    if (!previewExperience) return;
+    setExpLoading(true);
+    const params = new URLSearchParams({ experienceId: previewExperience.id });
+    if (personaId) params.set("personaId", personaId);
+    fetch(`/api/runtime/experience?${params}`)
+      .then((r) => r.ok ? r.json() : {})
+      .then((data: ExperienceModelData) => setExpData(data))
+      .catch(() => setExpData({}))
+      .finally(() => setExpLoading(false));
+  }, [previewExperience, personaId]);
   const onLogAuditEventRef = useRef(onLogAuditEvent);
 
   useEffect(() => {
@@ -878,11 +919,7 @@ export function AgenticDesignParityPanel({
       ) : null}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4 space-y-4">
-        <TabsList className="grid w-full grid-cols-4 border border-slate-800 bg-slate-950/70">
-          <TabsTrigger value="pipeline" className="flex items-center gap-2">
-            <Zap className="h-4 w-4" />
-            Pipeline
-          </TabsTrigger>
+        <TabsList className="grid w-full grid-cols-3 border border-slate-800 bg-slate-950/70">
           <TabsTrigger value="dis" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
             DIS
@@ -896,34 +933,6 @@ export function AgenticDesignParityPanel({
             DPR
           </TabsTrigger>
         </TabsList>
-
-        <TabsContent value="pipeline">
-          <div className="grid gap-3 md:grid-cols-4">
-            {[
-              { label: "Design Ingestion", ready: !!designQube },
-              { label: "DIS Generation", ready: !!state.dis },
-              { label: "CM Generation", ready: !!state.cm },
-              { label: "DPR Appraisal", ready: !!state.parityReport },
-            ].map((step) => (
-              <div key={step.label} className="rounded-xl border border-slate-800 bg-slate-950/60 p-3 text-sm text-slate-200">
-                <div className="mb-2 font-semibold">{step.label}</div>
-                <div className="flex items-center gap-2 text-xs text-slate-400">
-                  {step.ready ? (
-                    <CheckCircle2 className="h-4 w-4 text-emerald-300" />
-                  ) : (
-                    <XCircle className="h-4 w-4 text-slate-500" />
-                  )}
-                  {step.ready ? "Ready" : "Pending"}
-                </div>
-              </div>
-            ))}
-          </div>
-          {state.status === "error" && (
-            <div className="mt-3 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-200">
-              {state.error}
-            </div>
-          )}
-        </TabsContent>
 
         <TabsContent value="dis">
           <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-sm text-slate-200">
@@ -1144,6 +1153,9 @@ export function AgenticDesignParityPanel({
                   <div className={`text-lg font-semibold ${scoreColor(state.parityReport.parity.overall)}`}>
                     {state.parityReport.parity.overall}/100
                   </div>
+                  <Button variant="outline" size="sm" onClick={() => setParityModalOpen(true)} className="text-xs h-6 px-2">
+                    Full Report
+                  </Button>
                   <Badge variant="outline" className="border-slate-700 text-slate-300">
                     Checks: {state.parityReport.audit.totalChecks}
                   </Badge>
@@ -1235,6 +1247,109 @@ export function AgenticDesignParityPanel({
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* COD-208 — Parity Modal */}
+      <Dialog open={parityModalOpen} onOpenChange={setParityModalOpen}>
+        <DialogContent className="max-w-2xl border-slate-800 bg-slate-950 text-slate-200">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-slate-100">
+              <BarChart3 className="h-4 w-4 text-violet-400" />
+              Design Parity Report
+            </DialogTitle>
+          </DialogHeader>
+          {state.parityReport ? (
+            <div className="space-y-4 text-sm">
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="text-xs text-slate-400">Overall Score</div>
+                <div className={`text-2xl font-bold ${scoreColor(state.parityReport.parity.overall)}`}>
+                  {state.parityReport.parity.overall}/100
+                </div>
+                <Badge variant="outline" className="border-slate-700 text-slate-300">
+                  {state.parityReport.audit.totalChecks} checks
+                </Badge>
+                <Badge variant="outline" className="border-emerald-500/40 text-emerald-300">
+                  {state.parityReport.audit.passedChecks} passed
+                </Badge>
+                <Badge variant="outline" className="border-rose-500/40 text-rose-300">
+                  {state.parityReport.audit.failedChecks} failed
+                </Badge>
+              </div>
+
+              {/* Pipeline step status map */}
+              <div>
+                <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Pipeline Steps</div>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {[
+                    { label: "Strategy", ready: !!expData.strategy },
+                    { label: "Model", ready: !!expData.model },
+                    { label: "Matrix", ready: !!(expData.matrix?.length) },
+                    { label: "NBE", ready: !!expData.nbe },
+                    { label: "DIS", ready: !!state.dis },
+                    { label: "CM", ready: !!state.cm },
+                    { label: "DPR", ready: !!state.parityReport },
+                    { label: "Analytics", ready: !!(expData.analysis?.length) },
+                  ].map((step) => (
+                    <div key={step.label}
+                      className={`rounded border px-2 py-1.5 text-center text-[11px] font-medium ${
+                        step.ready
+                          ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+                          : "border-slate-800 bg-slate-900/50 text-slate-600"
+                      }`}>
+                      <div className="flex items-center justify-center gap-1">
+                        {step.ready
+                          ? <CheckCircle2 className="h-2.5 w-2.5" />
+                          : <XCircle className="h-2.5 w-2.5" />}
+                        {step.label}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid gap-2 md:grid-cols-5">
+                {Object.entries(state.parityReport.parity.structural).map(([key, score]) => (
+                  <div key={key} className="rounded-lg border border-slate-800 bg-slate-900/50 p-2 text-center">
+                    <div className="text-[11px] capitalize text-slate-400">{key}</div>
+                    <div className={`font-semibold ${scoreColor(score)}`}>{score}</div>
+                  </div>
+                ))}
+              </div>
+              {state.parityReport.violations.length > 0 && (
+                <div className="space-y-1">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Violations</div>
+                  <div className="max-h-48 overflow-y-auto space-y-1">
+                    {state.parityReport.violations.map((v, i) => (
+                      <div key={i} className="rounded border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-200">
+                        {v.message}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div className="flex gap-2 pt-2">
+                <Button variant="outline" size="sm" onClick={() => { void proposeRemedy(); setParityModalOpen(false); }}
+                  disabled={!state.parityReport.violations.length || remedyState.status === "applying"} className="text-xs">
+                  Remedy Infringements
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => { void runPipeline(); setParityModalOpen(false); }}
+                  disabled={state.status === "loading" || !previewExperience || !designQube} className="text-xs">
+                  Re-run DPR
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="py-8 text-center text-slate-400">
+              Run the pipeline to generate a Design Parity Report.
+              <div className="mt-3">
+                <Button variant="outline" size="sm" onClick={() => { void runPipeline(); setParityModalOpen(false); }}
+                  disabled={state.status === "loading" || !previewExperience || !designQube} className="text-xs">
+                  Run Pipeline
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

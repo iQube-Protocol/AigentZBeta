@@ -343,9 +343,26 @@ export default function AgentWalletDrawer({ open, onClose, agent }: AgentWalletD
         
         {/* Header */}
         <header className="flex items-center justify-between px-4 py-3 bg-white/5 ring-1 ring-white/10">
-          <div>
+          <div className="min-w-0 flex-1">
             <h3 className="text-slate-100 text-sm font-medium tracking-wide">{agentConfig.name} — Wallet</h3>
             <p className="text-xs text-slate-300">{agentConfig.fioId}</p>
+            {agentConfig.personaId && (
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <p className="text-[10px] text-slate-500 font-mono select-all truncate" title="Persona UUID">
+                  {agentConfig.personaId}
+                </p>
+                <button
+                  type="button"
+                  title="Copy UUID"
+                  onClick={() => {
+                    navigator.clipboard.writeText(agentConfig.personaId!);
+                  }}
+                  className="flex-shrink-0 p-0.5 rounded hover:bg-white/10 text-slate-600 hover:text-slate-300 transition-colors"
+                >
+                  <Copy className="w-3 h-3" />
+                </button>
+              </div>
+            )}
           </div>
           <button
             onClick={onClose}

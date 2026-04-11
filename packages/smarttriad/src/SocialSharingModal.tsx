@@ -39,32 +39,21 @@ export function SocialSharingModal({
 
   if (!isOpen) return null;
 
-  // Generate deep link with persona tracking
-  const baseUrl = article.url
-    ? new URL(article.url, window.location.origin)
-    : new URL(`${window.location.origin}/article`);
-  const isArticleLink = baseUrl.pathname.includes('/article');
+  // Build the canonical content landing URL
+  const contentUrl = new URL(`${window.location.origin}/article`);
+  contentUrl.searchParams.set('id', article.id);
+  contentUrl.searchParams.set('title', article.title);
+  if (article.section) contentUrl.searchParams.set('section', article.section);
+  if (article.type) contentUrl.searchParams.set('type', article.type);
+  if (personaId) contentUrl.searchParams.set('persona', personaId);
+  if (shareId) contentUrl.searchParams.set('shareId', shareId);
 
-  if (isArticleLink) {
-    if (!baseUrl.searchParams.get('id')) baseUrl.searchParams.set('id', article.id);
-    if (!baseUrl.searchParams.get('title')) baseUrl.searchParams.set('title', article.title);
-    if (article.section && !baseUrl.searchParams.get('section')) {
-      baseUrl.searchParams.set('section', article.section);
-    }
-    if (article.type && !baseUrl.searchParams.get('type')) {
-      baseUrl.searchParams.set('type', article.type);
-    }
-  }
+  // Route through the social track redirect so clicks are recorded server-side
+  const trackUrl = new URL(`${window.location.origin}/api/social/track`);
+  trackUrl.searchParams.set('s', shareId);
+  trackUrl.searchParams.set('r', contentUrl.toString());
 
-  if (personaId && !baseUrl.searchParams.get('persona')) {
-    baseUrl.searchParams.set('persona', personaId);
-  }
-
-  if (shareId && !baseUrl.searchParams.get('shareId')) {
-    baseUrl.searchParams.set('shareId', shareId);
-  }
-
-  const deepLink = baseUrl.toString();
+  const deepLink = trackUrl.toString();
   
   const shareText = `Check out this article: ${article.title}${article.description ? ` - ${article.description}` : ''}`;
 

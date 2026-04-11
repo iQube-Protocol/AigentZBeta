@@ -12,7 +12,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCodexConfig, getEnabledTabs } from "@/app/hooks/useCodexConfig";
 import { CodexTab } from "@/types/codex";
 import type { DeviceType } from "@/app/types/knytLiquidUI";
-import { Loader2, AlertCircle, X } from "lucide-react";
+import { Loader2, AlertCircle, X, Coins, Zap } from "lucide-react";
 import { SmartTriadProvider, SmartTriadSurfaces } from "@/app/components/content";
 import { TabRenderer } from "./codex/TabRenderer";
 import { getIconComponent } from "./codex/iconMap";
@@ -26,6 +26,7 @@ interface CodexPanelDynamicProps {
   initialTab?: string;
   hiddenTabs?: string[];
   personaId?: string;
+  isAdmin?: boolean;            // Explicit admin override — hides adminOnly tabs from non-admins
   useDefaults?: boolean;        // Use hardcoded configs vs database
   previewDevice?: DeviceType;
   onClose?: () => void;         // Direct close callback (inline rendering)
@@ -36,6 +37,28 @@ type IssueOption = {
   label: string;
   count?: number;
 };
+
+/** Two-column economic framing strip shown in KNYT and AgentiQ codex headers. */
+function EconomicSplitBanner() {
+  return (
+    <div className="flex gap-2 border-b border-slate-800/80 bg-slate-900/60 px-4 py-2">
+      <div className="flex flex-1 items-center gap-2 rounded-lg border border-indigo-500/20 bg-indigo-500/5 px-3 py-1.5">
+        <Zap className="h-3.5 w-3.5 flex-shrink-0 text-indigo-400" />
+        <div className="min-w-0">
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-indigo-400">Q¢ &mdash; Platform Rail</span>
+          <p className="truncate text-[11px] text-slate-400">Base currency for content, access, and platform rewards across all cartridges.</p>
+        </div>
+      </div>
+      <div className="flex flex-1 items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-1.5">
+        <Coins className="h-3.5 w-3.5 flex-shrink-0 text-amber-400" />
+        <div className="min-w-0">
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-amber-400">$KNYT &mdash; Cartridge Economy</span>
+          <p className="truncate text-[11px] text-slate-400">KNYT-native token earned by curating, remixing, and participating in the living canon.</p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const TAB_DESCRIPTION_OVERRIDES: Record<string, Record<string, string>> = {
   'knyt-codex': {
@@ -62,6 +85,7 @@ export default function CodexPanelDynamic({
   initialTab,
   hiddenTabs = [],
   personaId,
+  isAdmin: isAdminProp,
   useDefaults = true,
   previewDevice,
   onClose,
@@ -92,9 +116,14 @@ export default function CodexPanelDynamic({
     return next;
   }, [hiddenTabs, queryHiddenTabs]);
   
+  // isAdminProp is the authoritative source when provided by the caller (e.g. platform shell
+  // already resolved admin status from Supabase/AA-API). Falls back to false so adminOnly
+  // tabs stay hidden when no explicit admin signal is received.
+  const isAdmin = isAdminProp === true;
+
   const enabledTabs = useMemo(
-    () => getEnabledTabs(codex).filter((tab) => !hiddenTabSet.has(tab.slug.toLowerCase())),
-    [codex, hiddenTabSet]
+    () => getEnabledTabs(codex, isAdmin).filter((tab) => !hiddenTabSet.has(tab.slug.toLowerCase())),
+    [codex, isAdmin, hiddenTabSet]
   );
   
   const [activeTabSlug, setActiveTabSlug] = useState<string>(
@@ -414,6 +443,10 @@ export default function CodexPanelDynamic({
             </div>
           </div>
         </div>
+
+        {(codexId === 'knyt-codex' || codexId === 'agentiq-codex') && (
+          <EconomicSplitBanner />
+        )}
 
         {activeTab && (
           <div className="flex-shrink-0 border-b border-slate-800/80 px-4 py-2">

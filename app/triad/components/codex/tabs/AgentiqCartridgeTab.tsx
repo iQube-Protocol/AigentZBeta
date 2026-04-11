@@ -7,7 +7,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { AlertCircle, CheckCircle2, FileText, Loader2, Pencil, X } from "lucide-react";
+import { AlertCircle, ArrowDownUp, CheckCircle2, FileText, Loader2, Pencil, X } from "lucide-react";
 import { getCachedOrFetch } from "../cache";
 import { CopilotInferenceBodyRenderer } from "@/app/components/codex/CopilotInferenceBodyRenderer";
 
@@ -50,8 +50,12 @@ export function AgentiqCartridgeTab({ packId, collectionId, defaultPath, editabl
   const [editDraft, setEditDraft] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [saveResult, setSaveResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [sortDesc, setSortDesc] = useState(true); // true = newest first (default)
 
-  const items = useMemo(() => collection?.items ?? [], [collection]);
+  const items = useMemo(() => {
+    const raw = collection?.items ?? [];
+    return sortDesc ? [...raw] : [...raw].reverse();
+  }, [collection, sortDesc]);
 
   useEffect(() => {
     let isMounted = true;
@@ -194,10 +198,22 @@ export function AgentiqCartridgeTab({ packId, collectionId, defaultPath, editabl
   return (
     <div className="flex h-full">
       <div className="w-64 flex-shrink-0 border-r border-slate-800 bg-slate-900/40 p-4">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-          {collection.title}
-        </h3>
-        <div className="mt-4 space-y-2">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+            {collection.title}
+          </h3>
+          {items.length > 1 && (
+            <button
+              onClick={() => setSortDesc((d) => !d)}
+              title={sortDesc ? "Showing newest first — click for oldest first" : "Showing oldest first — click for newest first"}
+              className="flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800/60 px-2 py-0.5 text-[10px] text-slate-400 hover:border-slate-500 hover:text-slate-200 transition-colors"
+            >
+              <ArrowDownUp className="h-3 w-3" />
+              {sortDesc ? "Newest" : "Oldest"}
+            </button>
+          )}
+        </div>
+        <div className="space-y-2">
           {items.map((item) => (
             <button
               key={item}

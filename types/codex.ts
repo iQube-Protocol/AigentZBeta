@@ -47,6 +47,7 @@ export interface CodexTab {
   label: string;
   slug: string;
   enabled: boolean;
+  adminOnly?: boolean;   // When true, tab is invisible to non-admin users
   order: number;
   type: CodexTabType;
   config: CodexTabConfig;

@@ -5,6 +5,7 @@ import ContentViewer from "./ContentViewer";
 import SmartWalletDrawer from "./SmartWalletDrawer";
 import { CopilotWalletDrawer } from "@/app/triad/components/codex/wallet/CopilotWalletDrawer";
 import { useSmartTriad } from "./SmartTriadProvider";
+import { SocialSharingModal } from "@/packages/smarttriad/src/SocialSharingModal";
 import { agentConfigs } from "@/app/data/agentConfig";
 import { MoneyPennyChat } from "@/app/(shell)/moneypenny/components/MoneyPennyChat";
 import { PortfolioAnalytics } from "@/app/(shell)/moneypenny/components/PortfolioAnalytics";
@@ -28,7 +29,17 @@ export function SmartTriadSurfaces({ personaId }: SmartTriadSurfacesProps) {
   const recipient = agentConfigs["aigent-kn0w1"];
 
   const viewerOpen = state.activeDrawer === "contentViewer" && !!state.currentContent;
-  const hasAccess = state.currentContent ? actions.checkOwnership(state.currentContent.id) : false;
+
+  // Content is free when it has no pricing tiers or all tiers have amount = 0.
+  // Free content is accessible without purchase — skip the gate entirely.
+  const isCurrentContentFree = (() => {
+    const tiers = state.currentContent?.pricingModel?.tiers ?? [];
+    if (tiers.length === 0) return true;
+    return tiers.every(t => !t.amount || Number(t.amount) === 0 || (t as any).kind === 'free');
+  })();
+  const hasAccess = state.currentContent
+    ? (actions.checkOwnership(state.currentContent.id) || state.contentAccessGranted || isCurrentContentFree)
+    : false;
 
   // Handle codex-specific drawers
   const renderCodexDrawer = () => {
@@ -134,7 +145,7 @@ export function SmartTriadSurfaces({ personaId }: SmartTriadSurfacesProps) {
                 hasAccess={hasAccess}
                 accessScope={hasAccess ? "full" : "preview"}
                 onClose={() => actions.setActiveDrawer(null)}
-                onPanelPayment={() => actions.openWallet("full")}
+                onPanelPayment={() => actions.openWallet("full", "payments")}
               />
             </div>
           </div>
@@ -143,6 +154,16 @@ export function SmartTriadSurfaces({ personaId }: SmartTriadSurfacesProps) {
 
       {renderCodexDrawer()}
       {renderKnytDrawer()}
+
+      {/* SmartActions — Share modal (first-class SmartTriad surface) */}
+      {state.shareItem && (
+        <SocialSharingModal
+          isOpen
+          onClose={() => actions.closeShare()}
+          article={state.shareItem}
+          personaId={personaId ?? undefined}
+        />
+      )}
 
       {/* Liquid UI SmartWallet - for card-based flows */}
       <CopilotWalletDrawer
@@ -183,7 +204,13 @@ export function SmartTriadSurfaces({ personaId }: SmartTriadSurfacesProps) {
         }}
         recipientAddress={recipient.walletAddresses.evmAddress}
         currentContent={state.currentContent || undefined}
-        onPurchaseComplete={() => actions.refreshLibrary()}
+        initialTab={state.walletInitialTab}
+        onPurchaseComplete={async () => {
+          await actions.refreshLibrary();
+          actions.setContentAccessGranted(true);
+          // Close wallet after the success screen has shown (matches 2s success timer)
+          setTimeout(() => actions.closeWallet(), 2500);
+        }}
         personaId={personaId}
       />
     </>

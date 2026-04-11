@@ -16,7 +16,7 @@ export { default as ContentViewer } from './ContentViewer';
 export { default as LibraryShelf } from './LibraryShelf';
 export { default as SmartWalletDrawer } from './SmartWalletDrawer';
 export { SmartTriadSurfaces } from './SmartTriadSurfaces';
-export { 
+export {
   SmartTriadProvider,
   useSmartTriad,
   useOptionalSmartTriad,
@@ -25,7 +25,9 @@ export {
   useTriadMenu,
   useTriadPurchase,
   useTriadLibrary,
+  useTriadShare,
 } from './SmartTriadProvider';
+export type { ShareItem } from './SmartTriadProvider';
 export { default as ContentCopilotPanel } from './ContentCopilotPanel';
 export { ContentActionIcons } from './ContentActionIcons';
 export type { ContentActionIconsProps, ContentModalityState, IconStyle } from './ContentActionIcons';
