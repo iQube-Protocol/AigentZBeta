@@ -32,13 +32,7 @@ export async function GET(request: NextRequest) {
   // ── Fetch all nakamoto_knyt_personas ────────────────────────────────────────
   let query = client
     .from('nakamoto_knyt_personas')
-    .select(
-      '"id", "First-Name", "Last-Name", "Email", "KNYT-ID", ' +
-      '"OM-Tier-Status", "Total-Invested", "Metaiye-Shares-Owned", ' +
-      '"KNYT-COYN-Owned", "Motion-Comics-Owned", "Paper-Comics-Owned", ' +
-      '"Digital-Comics-Owned", "KNYT-Posters-Owned", "KNYT-Cards-Owned", ' +
-      '"Characters-Owned", "profile_image_url", "created_at"'
-    );
+    .select('*');
 
   // Apply search filter at DB level where possible
   if (search) {
