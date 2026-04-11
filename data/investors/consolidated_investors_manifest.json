@@ -1,0 +1,39 @@
+{
+  "description": "Verified manifest for consolidated_investors.json prepared from uploaded CRM import file.",
+  "intended_repo_path": "data/investors/consolidated_investors.json",
+  "source_file": "metaKnyts_Nov_investment_report_-_Sheet9.csv",
+  "source_row_count": 3970,
+  "consolidated_investor_count": 3501,
+  "single_investment_investors": 3142,
+  "multi_investment_investors": 359,
+  "investors_with_total_committed_ge_1000": 195,
+  "total_capital_committed": 993570.0,
+  "total_equity_shares_issued": 206006,
+  "verified_in_chat": true,
+  "verification_notes": [
+    "Uploaded JSON contains meta + investors top-level keys.",
+    "meta.consolidated_investor_count matches actual investors array length: 3501.",
+    "Summed total_amount_committed matches meta.total_capital_committed: 993570.0.",
+    "Summed total_equity_shares matches meta.total_equity_shares_issued: 206006.",
+    "All 3501 investor records have an email value present."
+  ],
+  "fields": {
+    "first_name": "Investor first name",
+    "last_name": "Investor last name",
+    "email": "Primary email",
+    "phone": "Phone number",
+    "address": "Mailing address",
+    "discord_handle": "Discord username if provided",
+    "knyt_handle": "metaKnyts handle if provided",
+    "public_key": "Blockchain public key if provided",
+    "total_amount_committed": "Sum of all investment amounts in USD",
+    "total_equity_shares": "Sum of all equity share counts",
+    "investment_count": "Number of separate investment transactions",
+    "investments": "Chronological list of individual investment transactions"
+  },
+  "claude_handoff": {
+    "status": "raw_json_not_committed_by_chatgpt_interface",
+    "reason": "The full uploaded JSON is multi-megabyte and cannot be written directly through the simple GitHub contents path available in this interface.",
+    "next_step": "Commit the verified uploaded file itself to data/investors/consolidated_investors.json on dev so repo tooling can consume it directly."
+  }
+}
