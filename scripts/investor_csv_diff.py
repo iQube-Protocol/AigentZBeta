@@ -495,12 +495,196 @@ def build_diff(csv_investors: dict, crm_records: list[dict]) -> dict:
     }
 
 
+# ── Apply mode ────────────────────────────────────────────────────────────────
+
+# Mapping from diff change keys → nakamoto_knyt_personas column names
+# (hyphenated column names need quoting in PostgREST but the Python client
+#  uses them as dict keys as-is)
+_DIRECT_FIELD_MAP = {
+    "Phone-Number":        "Phone-Number",
+    "Address":             "Address",
+    "EVM-Public-Key":      "EVM-Public-Key",
+    "KNYT-ID":             "KNYT-ID",
+    "Discord-Handle":      "Discord-Handle",
+    "Total-Invested":      "Total-Invested",
+    "Metaiye-Shares-Owned": "Metaiye-Shares-Owned",
+    "First-Name":          "First-Name",
+    "Last-Name":           "Last-Name",
+}
+
+BATCH_SIZE = 50  # rows per Supabase upsert call
+
+
+def apply_enrichment(report: dict, csv_investors: dict) -> dict:
+    """
+    Write enrichment data back to nakamoto_knyt_personas.
+
+    Two passes:
+      1. Field enrichment — update matched CRM rows with CSV values for
+         Phone-Number, Address, EVM-Public-Key, KNYT-ID, Discord-Handle,
+         Total-Invested, Metaiye-Shares-Owned, First-Name, Last-Name.
+      2. CSV-only columns — write csv_investment_status, csv_transaction_count,
+         csv_first_committed_date, csv_last_disbursed_date, csv_transfer_methods,
+         csv_metaknyt_nfts, csv_other_nfts for every matched CRM row.
+
+    Returns a result summary dict.
+    """
+    enrichment_details = report.get("enrichment_details", [])
+    print(f"\n→ Apply mode: {len(enrichment_details)} enrichment records to write", file=sys.stderr)
+
+    # Build a fast email → csv_investor lookup
+    csv_by_email: dict[str, dict] = {e: r for e, r in csv_investors.items()}
+
+    # Build full update set: crm_id → update payload
+    # Pass 1: field enrichment
+    updates: dict[str, dict] = {}
+    for detail in enrichment_details:
+        crm_id = detail.get("crm_id")
+        email = detail.get("email")
+        if not crm_id:
+            continue
+        payload: dict = {}
+        for field, delta in detail.get("changes", {}).items():
+            col = _DIRECT_FIELD_MAP.get(field)
+            if col:
+                payload[col] = delta["csv"]
+        if payload:
+            updates[crm_id] = payload
+
+    # Pass 2: csv_* columns for all matched CRM rows
+    # Re-index CRM by id from report
+    crm_id_to_email: dict[str, str] = {
+        d["crm_id"]: d["email"]
+        for d in enrichment_details
+        if d.get("crm_id") and d.get("email")
+    }
+    # Also include matched rows that had no field changes but still need csv_* cols
+    # Build from summary matched_emails — we already have the enrichment_details indexed
+    # by email in report. We'll extend updates for all matched rows.
+    for crm_id, email in crm_id_to_email.items():
+        csv_rec = csv_by_email.get(email)
+        if not csv_rec:
+            continue
+        csv_cols: dict = {
+            "csv_investment_status":    csv_rec.get("investment_status", ""),
+            "csv_transaction_count":    csv_rec.get("transaction_count", 0),
+            "csv_first_committed_date": csv_rec.get("first_committed_date", ""),
+            "csv_last_disbursed_date":  csv_rec.get("last_disbursed_date", ""),
+            "csv_transfer_methods":     ",".join(csv_rec.get("transfer_methods") or []),
+            "csv_metaknyt_nfts":        csv_rec.get("nft_meta", ""),
+            "csv_other_nfts":           csv_rec.get("nft_other", ""),
+        }
+        if crm_id in updates:
+            updates[crm_id].update(csv_cols)
+        else:
+            updates[crm_id] = csv_cols
+
+    total = len(updates)
+    applied = 0
+    errors: list[str] = []
+
+    ids = list(updates.keys())
+    for batch_start in range(0, len(ids), BATCH_SIZE):
+        batch_ids = ids[batch_start:batch_start + BATCH_SIZE]
+        for crm_id in batch_ids:
+            payload = updates[crm_id]
+            try:
+                resp = (
+                    supabase.table("nakamoto_knyt_personas")
+                    .update(payload)
+                    .eq("id", crm_id)
+                    .execute()
+                )
+                if hasattr(resp, "error") and resp.error:
+                    errors.append(f"{crm_id}: {resp.error}")
+                else:
+                    applied += 1
+            except Exception as exc:
+                errors.append(f"{crm_id}: {exc}")
+
+        print(
+            f"  Applied {min(batch_start + BATCH_SIZE, total)}/{total}…",
+            file=sys.stderr,
+            end="\r",
+        )
+
+    print(f"\n✓ Apply complete: {applied}/{total} rows updated, {len(errors)} errors", file=sys.stderr)
+    if errors:
+        for e in errors[:10]:
+            print(f"  ✗ {e}", file=sys.stderr)
+        if len(errors) > 10:
+            print(f"  ... and {len(errors) - 10} more errors", file=sys.stderr)
+
+    return {"applied": applied, "total": total, "errors": errors}
+
+
+# ── Investment-amount band helper ─────────────────────────────────────────────
+
+def investment_band(amount: float) -> str:
+    if amount >= 5000:
+        return "5000+"
+    if amount >= 2000:
+        return "2000-4999"
+    if amount >= 500:
+        return "500-1999"
+    return "<500"
+
+
+def apply_investment_bands(csv_investors: dict, crm_records: list[dict]) -> dict:
+    """
+    Auto-populate investment_amount_band on nakamoto_knyt_personas rows
+    where band is not yet set. Uses CSV total_amount_committed as source.
+    """
+    crm_by_email = {
+        (rec.get("Email") or "").strip().lower(): rec
+        for rec in crm_records
+        if (rec.get("Email") or "").strip()
+    }
+
+    updates: dict[str, str] = {}  # crm_id → band
+    for email, csv_rec in csv_investors.items():
+        crm_rec = crm_by_email.get(email)
+        if not crm_rec:
+            continue
+        amount = csv_rec.get("total_amount_committed", 0.0)
+        if amount > 0:
+            updates[crm_rec["id"]] = investment_band(amount)
+
+    applied = 0
+    for crm_id, band in updates.items():
+        try:
+            supabase.table("nakamoto_knyt_personas") \
+                .update({"investment_amount_band": band}) \
+                .eq("id", crm_id) \
+                .execute()
+            applied += 1
+        except Exception as exc:
+            print(f"  ✗ band update {crm_id}: {exc}", file=sys.stderr)
+
+    print(f"✓ Investment bands set: {applied}/{len(updates)}", file=sys.stderr)
+    return {"applied": applied, "total": len(updates)}
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
     parser = argparse.ArgumentParser(description="Diff investor CSV against nakamoto_knyt_personas CRM")
     parser.add_argument("--csv", required=True, help="Path to investor CSV file")
     parser.add_argument("--output", default="", help="Write JSON report to this file (default: stdout)")
+    parser.add_argument(
+        "--apply",
+        action="store_true",
+        help=(
+            "Write enrichment data to Supabase. Without this flag the script is "
+            "dry-run only. With --apply, enrichment fields and csv_* columns are "
+            "written to matched nakamoto_knyt_personas rows."
+        ),
+    )
+    parser.add_argument(
+        "--apply-bands",
+        action="store_true",
+        help="Also auto-populate investment_amount_band from CSV totals (requires --apply).",
+    )
     args = parser.parse_args()
 
     csv_path = args.csv
@@ -535,6 +719,17 @@ def main():
         "total_equity_shares": csv_total_shares,
     }
     report["data_quality_issues"] = issues
+
+    # ── Apply mode ────────────────────────────────────────────────────────────
+    if args.apply:
+        apply_result = apply_enrichment(report, csv_investors)
+        report["apply_result"] = apply_result
+
+        if args.apply_bands:
+            band_result = apply_investment_bands(csv_investors, crm_records)
+            report["apply_bands_result"] = band_result
+    elif args.apply_bands:
+        print("WARNING: --apply-bands requires --apply. Skipping band updates.", file=sys.stderr)
 
     output_json = json.dumps(report, indent=2, default=str)
 

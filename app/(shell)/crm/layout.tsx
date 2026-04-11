@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { href: '/crm/tasks', label: 'Tasks', icon: '✅' },
   { href: '/crm/personas', label: 'Personas', icon: '👤' },
   { href: '/crm/investors', label: 'Investors', icon: '💰' },
+  { href: '/crm/partners', label: 'Partners', icon: '🤝' },
   { href: '/crm/rewards', label: 'Rewards', icon: '🎁' },
   { href: '/crm/segments', label: 'Segments', icon: '🎯' },
 ];
