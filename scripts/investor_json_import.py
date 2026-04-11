@@ -79,15 +79,20 @@ def pg_get(table: str, params: dict) -> list[dict]:
     return resp.json()
 
 
+_patch_error_printed = 0
+
 def pg_patch(table: str, row_id: str, payload: dict) -> bool:
+    global _patch_error_printed
     resp = requests.patch(
         f"{REST_URL}/{table}",
         headers=HEADERS,
         params={"id": f"eq.{row_id}"},
         data=json.dumps(payload),
     )
-    if not resp.ok:
-        print(f"  PATCH error {resp.status_code}: {resp.text[:200]}", file=sys.stderr)
+    if not resp.ok and _patch_error_printed < 3:
+        print(f"\n  PATCH {resp.status_code} — body: {resp.text[:500]}", file=sys.stderr)
+        print(f"  payload keys sent: {list(payload.keys())}", file=sys.stderr)
+        _patch_error_printed += 1
     return resp.ok
 
 
