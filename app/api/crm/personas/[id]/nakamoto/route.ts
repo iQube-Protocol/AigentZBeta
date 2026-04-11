@@ -4,12 +4,14 @@
  * Enriches a persona with Nakamoto investor data (investment history, asset
  * ownership, OM membership, social handles, wallet keys, web3 interests).
  *
- * Identity resolution — five strategies tried in order:
+ * Identity resolution — seven strategies tried in order:
  *  1. crm_personas.email via identity_persona_id  (personas.id case)
  *  2. crm_personas.email via direct id match       (crm_personas.id case)
  *  3. FIO-handle prefix as email username          (e.g. "kdjazz8@gmail.com")
  *  4. KNYT-ID match for @knyt FIO handles
  *  5. Qrypto-ID match for @qripto FIO handles
+ *  6. personas.auth_profile_id → Supabase auth email (most reliable for signed-in users)
+ *  7. personas.display_name first+last name match → nakamoto tables
  *
  * The blakQube payload is the canonical multi-identifier CRM record: it can
  * carry email, phone, KNYT-ID, Qrypto-ID, and all social/wallet identifiers.
@@ -57,7 +59,7 @@ export async function GET(
   if (!email) {
     const { data: identityPersona } = await client
       .from('personas')
-      .select('fio_handle, display_name')
+      .select('fio_handle, display_name, auth_profile_id')
       .eq('id', personaId)
       .maybeSingle();
 
@@ -113,6 +115,43 @@ export async function GET(
         .ilike('Qrypto-ID', fioPrefix)
         .maybeSingle();
       if (byQryptoId?.Email) email = byQryptoId.Email;
+    }
+
+    // Strategy 6: personas.auth_profile_id → Supabase auth email (most reliable for signed-in users)
+    if (!email && identityPersona?.auth_profile_id) {
+      try {
+        const { data: authData } = await client.auth.admin.getUserById(
+          String(identityPersona.auth_profile_id)
+        );
+        if (authData?.user?.email) email = authData.user.email;
+      } catch { /* auth admin unavailable */ }
+    }
+
+    // Strategy 7: display_name first+last name match → nakamoto tables
+    if (!email && identityPersona?.display_name) {
+      const nameParts = String(identityPersona.display_name).trim().split(/\s+/);
+      if (nameParts.length >= 2) {
+        const firstName = nameParts[0];
+        const lastName = nameParts.slice(1).join(' ');
+        const { data: byName } = await client
+          .from('nakamoto_knyt_personas')
+          .select('Email')
+          .ilike('First-Name', firstName)
+          .ilike('Last-Name', lastName)
+          .not('Email', 'eq', '')
+          .maybeSingle();
+        if (byName?.Email) email = byName.Email;
+        if (!email) {
+          const { data: byNameBq } = await client
+            .from('nakamoto_blak_qubes')
+            .select('Email')
+            .ilike('First-Name', firstName)
+            .ilike('Last-Name', lastName)
+            .not('Email', 'eq', '')
+            .maybeSingle();
+          if (byNameBq?.Email) email = byNameBq.Email;
+        }
+      }
     }
   }
 
