@@ -161,10 +161,13 @@
 .mm-light .text-slate-400 {
   color: var(--mm-ink-muted) !important;
 }
-/* Raised from --mm-ink-faint (#9A9085 / 2.5:1) to --mm-ink-muted (#7B7266 / 4.1:1)
-   so uppercase tracking section labels pass minimum contrast on parchment. */
-.mm-light .text-slate-500 {
-  color: var(--mm-ink-muted) !important;
+/* Raised to --mm-ink-secondary (#595247 / 6.1:1) so small uppercase tracking
+   labels (section headings, metadata chips) are legible on parchment.
+   --mm-ink-faint (#9A9085 / 2.5:1) and --mm-ink-muted (#7B7266 / 4.1:1)
+   are both borderline for 11px text; secondary gives clear headroom. */
+.mm-light .text-slate-500,
+.mm-light .text-slate-600 {
+  color: var(--mm-ink-secondary) !important;
 }
 
 /* ═══════════════════════════════════════════════════════════════════
