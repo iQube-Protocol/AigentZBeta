@@ -69,6 +69,26 @@
         "items/KNYT_RUNTIME_SURFACE_SPEC.md",
         "items/KNYT_RUNTIME_SURFACE_MAP.md"
       ]
+    },
+    {
+      "id": "col_knyt_campaign",
+      "title": "KNYT Campaign",
+      "description": "KNYT Activation Campaign genesis bundle — operator brief, activation blueprint, copy packs, 30-day calendar, CRM schema, dashboard spec, launch runbook, and partner/investor addenda",
+      "items": [
+        "items/KNYT_CAMPAIGN_OPERATOR_BRIEF.md",
+        "items/KNYT_CAMPAIGN_ACTIVATION_BLUEPRINT.md",
+        "items/KNYT_MARKETA_ACTIVATION_PLAN.md",
+        "items/KNYT_MARKETA_CAMPAIGN_OPERATING_BRIEF.md",
+        "items/KNYT_30_DAY_ACTIVATION_CALENDAR_AND_SEGMENTATION.md",
+        "items/KNYT_CRM_FIELD_SCHEMA_AND_TAGGING_MODEL.md",
+        "items/KNYT_CAMPAIGN_OPERATIONS.md",
+        "items/KNYT_CAMPAIGN_COPY_PACK.md",
+        "items/KNYT_PARTNER_AND_IN_PRODUCT_COPY_PACK.md",
+        "items/KNYT_PARTNER_AND_INVESTOR_ACTIVATION_ADDENDUM.md",
+        "items/KNYT_CAMPAIGN_DASHBOARD_SPEC.md",
+        "items/KNYT_LAUNCH_DAY_RUNBOOK_AND_PARTNER_ACTIVATION.md",
+        "items/KNYT_CAMPAIGN_AUTODRIVE_CANONICALIZATION.md"
+      ]
     }
   ]
 }

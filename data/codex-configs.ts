@@ -313,6 +313,28 @@ export const KNYT_CODEX: CodexConfig = {
         description: 'KNYT Experience Pack — PRD, matrices, runtime surface spec and wireframe',
         color: 'amber'
       }
+    },
+    {
+      id: 'campaign',
+      label: 'KNYT Campaign',
+      slug: 'campaign',
+      enabled: true,
+      adminOnly: true,   // Live operator bundle — admin-gated working access
+      order: 11,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'knyt',
+          collectionId: 'col_knyt_campaign',
+          defaultPath: 'items/KNYT_CAMPAIGN_OPERATOR_BRIEF.md'
+        }
+      },
+      metadata: {
+        icon: 'Megaphone',
+        description: 'KNYT Activation Campaign — operator brief, activation blueprint, copy packs, 30-day calendar, CRM schema, dashboard spec, and launch runbook (13-doc genesis bundle)',
+        color: 'rose'
+      }
     }
   ],
   permissions: {
