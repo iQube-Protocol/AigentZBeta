@@ -66,22 +66,31 @@ export async function GET(request: NextRequest) {
   const search = searchParams.get('search')?.trim().toLowerCase() ?? '';
   const limit = Math.min(parseInt(searchParams.get('limit') ?? '200', 10), 500);
   const offset = parseInt(searchParams.get('offset') ?? '0', 10);
-  const sort = searchParams.get('sort') ?? 'name';
+  const sort = searchParams.get('sort') ?? 'tier';
 
   const client = getCrmClient();
 
-  // ── Fetch all records — filter in-memory to avoid PostgREST OR syntax
-  //    issues with hyphenated column names
-  const { data: rawData, error } = await client
-    .from('nakamoto_knyt_personas')
-    .select('*')
-    .order('First-Name', { ascending: true });
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  // ── Fetch ALL records, paginating past Supabase's 1000-row default cap ──────
+  // Always page through everything and filter in-memory. This guarantees
+  // correct results regardless of PostgREST column-name quoting behaviour
+  // for hyphenated column names (First-Name, Last-Name, KNYT-ID, etc.).
+  const PAGE_SIZE = 1000;
+  let rawInvestors: Record<string, unknown>[] = [];
+  let page = 0;
+  while (true) {
+    const { data, error } = await client
+      .from('nakamoto_knyt_personas')
+      .select('*')
+      .order('First-Name', { ascending: true })
+      .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    if (!data || data.length === 0) break;
+    rawInvestors = rawInvestors.concat(data as Record<string, unknown>[]);
+    if (data.length < PAGE_SIZE) break;
+    page++;
   }
-
-  const rawInvestors = (rawData ?? []) as Record<string, unknown>[];
 
   // ── Step 1: filter to real investors only ──────────────────────────────────
   const investorRows = rawInvestors.filter(isRealInvestor);
@@ -94,18 +103,21 @@ export async function GET(request: NextRequest) {
   const crmByEmail: Record<string, { identity_persona_id: string | null }> = {};
 
   if (emails.length > 0) {
-    const { data: crmRows } = await client
-      .from('crm_personas')
-      .select('email, identity_persona_id')
-      .in('email', emails);
-
-    (crmRows ?? []).forEach((row) => {
-      if (row.email) {
-        crmByEmail[row.email.toLowerCase()] = {
-          identity_persona_id: row.identity_persona_id ?? null,
-        };
-      }
-    });
+    // Batch in chunks of 500 to avoid .in() limit issues
+    const CHUNK = 500;
+    for (let i = 0; i < emails.length; i += CHUNK) {
+      const { data: crmRows } = await client
+        .from('crm_personas')
+        .select('email, identity_persona_id')
+        .in('email', emails.slice(i, i + CHUNK));
+      (crmRows ?? []).forEach((row) => {
+        if (row.email) {
+          crmByEmail[row.email.toLowerCase()] = {
+            identity_persona_id: row.identity_persona_id ?? null,
+          };
+        }
+      });
+    }
   }
 
   // ── Step 3: build response objects ─────────────────────────────────────────
