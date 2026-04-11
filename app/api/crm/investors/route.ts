@@ -71,61 +71,25 @@ export async function GET(request: NextRequest) {
   const client = getCrmClient();
 
   // ── Fetch ALL records, paginating past Supabase's 1000-row default cap ──────
-  // For search queries: use per-column ilike (avoids PostgREST OR + hyphenated
-  // column name parsing issues) and merge unique results.
-  // For full list: paginate in 1000-row pages until exhausted.
+  // Always page through everything and filter in-memory. This guarantees
+  // correct results regardless of PostgREST column-name quoting behaviour
+  // for hyphenated column names (First-Name, Last-Name, KNYT-ID, etc.).
   const PAGE_SIZE = 1000;
   let rawInvestors: Record<string, unknown>[] = [];
-
-  if (search) {
-    // Run one ilike query per searchable column and deduplicate by id
-    const seen = new Set<string>();
-    const [byFirst, byLast, byEmail, byKnytId] = await Promise.all([
-      client.from('nakamoto_knyt_personas').select('*').ilike('First-Name', `%${search}%`),
-      client.from('nakamoto_knyt_personas').select('*').ilike('Last-Name', `%${search}%`),
-      client.from('nakamoto_knyt_personas').select('*').ilike('Email', `%${search}%`),
-      client.from('nakamoto_knyt_personas').select('*').ilike('KNYT-ID', `%${search}%`),
-    ]);
-    for (const result of [byFirst, byLast, byEmail, byKnytId]) {
-      for (const row of (result.data ?? []) as Record<string, unknown>[]) {
-        const id = row['id'] as string;
-        if (id && !seen.has(id)) {
-          seen.add(id);
-          rawInvestors.push(row);
-        }
-      }
+  let page = 0;
+  while (true) {
+    const { data, error } = await client
+      .from('nakamoto_knyt_personas')
+      .select('*')
+      .order('First-Name', { ascending: true })
+      .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
-    // Also search profession and city (these are simple columns)
-    const [byProf, byCity] = await Promise.all([
-      client.from('nakamoto_knyt_personas').select('*').ilike('Profession', `%${search}%`),
-      client.from('nakamoto_knyt_personas').select('*').ilike('Local-City', `%${search}%`),
-    ]);
-    for (const result of [byProf, byCity]) {
-      for (const row of (result.data ?? []) as Record<string, unknown>[]) {
-        const id = row['id'] as string;
-        if (id && !seen.has(id)) {
-          seen.add(id);
-          rawInvestors.push(row);
-        }
-      }
-    }
-  } else {
-    // Full list — paginate until all records are loaded
-    let page = 0;
-    while (true) {
-      const { data, error } = await client
-        .from('nakamoto_knyt_personas')
-        .select('*')
-        .order('First-Name', { ascending: true })
-        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
-      if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
-      }
-      if (!data || data.length === 0) break;
-      rawInvestors = rawInvestors.concat(data as Record<string, unknown>[]);
-      if (data.length < PAGE_SIZE) break;
-      page++;
-    }
+    if (!data || data.length === 0) break;
+    rawInvestors = rawInvestors.concat(data as Record<string, unknown>[]);
+    if (data.length < PAGE_SIZE) break;
+    page++;
   }
 
   // ── Step 1: filter to real investors only ──────────────────────────────────
