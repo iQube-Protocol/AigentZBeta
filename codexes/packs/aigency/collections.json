@@ -17,7 +17,8 @@
         "items/architecture/diagrams.md",
         "items/architecture/data-identity.md",
         "items/architecture/payments-value.md",
-        "items/architecture/protocols.md"
+        "items/architecture/protocols.md",
+        "items/architecture/policy-perimeter-architecture.md"
       ]
     },
     {
@@ -41,6 +42,7 @@
         "items/knowledge/dvn.md",
         "items/knowledge/icp-bitcoin.md",
         "items/knowledge/identity-policy.md",
+        "items/knowledge/policy-perimeter-position-paper.md",
         "items/knowledge/aigent-ops.md",
         "items/knowledge/operators-manual.md",
         "items/knowledge/agent-onboarding.md"

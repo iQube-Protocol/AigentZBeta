@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Activity, AlertTriangle, BarChart, Book, BookOpen, Bot, CheckCircle2, ChevronDown, ChevronUp, Circle, Code, Edit, Eye, FileText, Hexagon, Layers, LayoutGrid, List, Loader2, Mic, MicOff, Monitor, MonitorIcon, Moon, Palette, Play, PlayCircle, RefreshCw, Share2, Shield, ShieldCheck, SlidersHorizontal, Smartphone, Sparkles, Sun, Target, Tablet, Trash2, Tv, Upload, Users, Volume2, Type, X } from "lucide-react";
+import { Activity, AlertTriangle, BarChart, Book, BookOpen, Bot, CheckCircle2, ChevronDown, ChevronUp, Circle, Code, Edit, Eye, FileText, Globe, Hexagon, Layers, LayoutGrid, List, Loader2, Mic, MicOff, Monitor, MonitorIcon, Moon, Palette, Play, PlayCircle, RefreshCw, Share2, Shield, ShieldCheck, SlidersHorizontal, Smartphone, Sparkles, Sun, Target, Tablet, Trash2, Tv, Upload, Users, Volume2, Type, X } from "lucide-react";
 import { useCopilotAction } from "@copilotkit/react-core";
 import { createShellMessage } from "@metame/iframe-bridge";
 import { Button } from "@/components/ui/button";
@@ -924,7 +924,7 @@ function resolveInspectorSourceBadge(params: {
   return "Experience";
 }
 
-const DEFAULT_TENANT = "qripto-codex";
+const DEFAULT_TENANT = "metame-codex";
 const DEFAULT_USER = "aigentz@aigent:u_demo_001";
 const COMPOSER_CACHE_TTL_MS = 5 * 60 * 1000;
 const EXPERIENCE_CACHE_TTL_MS = 2 * 60 * 1000;
@@ -971,9 +971,10 @@ const cacheExperiencesForTenant = (tenantId: string, items: ExperienceQube[]) =>
 };
 
 const QRIPTO_FALLBACK_CODEXES = [
-  { id: "knyt-codex", label: "KNYT Codex" },
-  { id: "qripto-codex", label: "Qriptopian Codex" },
-  { id: "aigentiq-codex", label: "AgentiQ Codex" },
+  { id: "knyt-codex",    label: "KNYT Codex" },
+  { id: "metame-codex",  label: "metaMe Cartridge" },   // Experience Framework — default for non-KNYT
+  { id: "qripto-codex",  label: "Qriptopian Codex" },
+  { id: "agentiq-codex", label: "AgentiQ Codex" },
   { id: "marketa-codex", label: "Aigent Marketa" },
   { id: "moneypenny-codex", label: "Aigent MoneyPenny" },
   { id: "nakamoto-codex", label: "Aigent Nakamoto" },
@@ -1006,6 +1007,264 @@ const DESIGN_QUBE_IMAGE_FALLBACKS = [
   "/images/designqube/thumb-penny.jpg",
   "/images/designqube/thumb-agentiq.jpg",
 ];
+
+// ── Static experience framework data per cartridge ───────────────────────────
+// Used as fallback in the Experience tab when Supabase tables are not yet seeded.
+// Source of truth: codexes/packs/metame/items/ and codexes/packs/knyt/items/
+// ── Cartridge framework data ── corrected 2D matrix architecture ─────────────
+// strategy = what we're trying to do and why
+// model    = what tools / assets / levers are available to deliver it (NOT the ladder)
+// matrix   = 2D grid: Y = PCS engagement level, X = sovereignty journey; cells = NBE prescription
+// ladder   = sovereignty journey (X-axis) with unlock conditions + cartridge skin mapping
+type CartridgeFramework = {
+  strategy: { name: string; macro_intent: string; description: string; target_segments: string[]; principles: { title: string; body: string }[] };
+  model: { name: string; description: string; structural: string[]; emotional: string[]; transactional: string[]; governance: string[] };
+  matrix: {
+    y_stages: string[];  // PCS engagement (bottom → top, rendered inverted)
+    x_stages: string[];  // Sovereignty journey (left → right)
+    cells: Record<string, string>;  // key = "y:x" → NBE prescription
+  };
+  ladder: {
+    canonical: string;
+    stages: { id: string; label: string; knyt_label?: string; unlock: string }[];
+  };
+};
+const CARTRIDGE_FRAMEWORK: Record<string, CartridgeFramework> = {
+  "metame-codex": {
+    strategy: {
+      name: "Progressive Creative Sovereignty (PCS) — AgentiQ Alpha",
+      macro_intent: "Move every user from passive recipient to active ecosystem steward — unlocking capabilities, rewards, and contribution rights at each threshold.",
+      description: "Each PCS stage is a qualitatively different relationship with the ecosystem: new actions, new trust, new responsibilities. The strategy is designed for state transitions, not just journeys.",
+      target_segments: ["alpha participants", "community members", "correspondents", "operators", "creators", "upstream contributors"],
+      principles: [
+        { title: "State transition is the unit", body: "Design for movement between states — curiosity → creation, consumption → curation, participation → contribution." },
+        { title: "Policy and signal are first-class", body: "Progression is triggered by measurable signals. Rewards, permissions, and NBE plans respond to behavior — not time or clicks." },
+        { title: "Semantic rendering adapts", body: "The canonical PCS structure renders differently per cartridge (KNYT, healthcare, education) while the movement pattern stays constant." },
+      ],
+    },
+    model: {
+      name: "metaMe Experience Model — AgentiQ Levers",
+      description: "The assets, channels, and levers available to deliver the PCS strategy. Marketa uses this palette for campaign planning across the experience matrix.",
+      structural: [
+        "Experiences: image, video, article, codex",
+        "Skills: Image OpenAI, Venice, Sora, Article generation",
+        "Workflows: image_article_bundle, video_article_bundle",
+        "Runtime sessions: mini_runtime, full codex",
+        "Factory: asset generation pipeline",
+        "Registry: public asset discovery + trust scoring",
+        "blakQube: encrypted personal data layer",
+        "Codex packs: KNYT, metaMe, AgentiQ, Qripto",
+      ],
+      emotional: [
+        "Progressive sovereignty narrative — autonomy increases with contribution",
+        "Identity arc: passive recipient → creator → steward",
+        "Trust signals: PCS badge, contribution recognition, registry listing",
+        "Community belonging via shared activities and correspondent elevation",
+      ],
+      transactional: [
+        "$KNYT token rewards on verified contribution",
+        "Reputation score and trust band elevation",
+        "Registry listing — public asset visibility",
+        "Contribution pathway unlock at Composer stage",
+        "Architect governance rights at apex",
+      ],
+      governance: [
+        "PCS stage gates — signal threshold must be met",
+        "Trust score minimum per registry action",
+        "Persona verification for high-privilege operations",
+        "metaMe guardian policy veto on sensitive actions",
+        "Role-based permission overlay per tier",
+      ],
+    },
+    // Y = abstract canonical PCS engagement (Recipient → Steward)
+    // X = canonical sovereignty journey (Visitor → Architect)
+    matrix: {
+      y_stages: ["Recipient", "Selector", "Modifier", "Producer", "Builder", "Steward"],
+      x_stages: ["Visitor", "Initiate", "Participant", "Curator", "Composer", "Operator", "Architect"],
+      cells: {
+        // Entry diagonal — pills and capsules
+        "Recipient:Visitor":      "pill: Welcome hook",
+        "Recipient:Initiate":     "pill: Onboarding prompt",
+        "Recipient:Participant":  "capsule: Discovery tour",
+        "Selector:Visitor":       "pill: Preview signal",
+        "Selector:Initiate":      "pill: Preference prompt",
+        "Selector:Participant":   "capsule: Curation set",
+        "Selector:Curator":       "capsule: Signal shaping",
+        // Mid diagonal — capsules and mini_runtimes
+        "Modifier:Participant":   "capsule: Remix intro",
+        "Modifier:Curator":       "mini_rt: Remix session",
+        "Modifier:Composer":      "mini_rt: Guided composition",
+        "Producer:Curator":       "capsule: First contribution",
+        "Producer:Composer":      "mini_rt: Asset creation",
+        "Producer:Operator":      "mini_rt: Structured output",
+        // Upper diagonal — mini_runtimes and codex
+        "Builder:Composer":       "mini_rt: Studio session",
+        "Builder:Operator":       "codex: System building",
+        "Builder:Architect":      "codex: Pattern authoring",
+        "Steward:Operator":       "codex: Governance session",
+        "Steward:Architect":      "codex: Upstream PR",
+        // Off-diagonal — high engagement, early sovereignty (left of diagonal)
+        "Selector:Visitor":       "pill: Preview signal",
+        "Modifier:Visitor":       "pill: Remix tease",
+        "Modifier:Initiate":      "pill: First remix prompt",
+        "Producer:Visitor":       "pill: Creator intro",
+        "Producer:Initiate":      "pill: Early contribution hook",
+        "Producer:Participant":   "capsule: Contribution hook",
+        "Builder:Visitor":        "pill: Builder welcome",
+        "Builder:Initiate":       "capsule: Studio intro",
+        "Builder:Participant":    "capsule: Creation preview",
+        "Builder:Curator":        "capsule: Tool preview",
+        "Steward:Initiate":       "pill: Mentor tease",
+        "Steward:Participant":    "capsule: Governance intro",
+        "Steward:Curator":        "capsule: Stewardship path",
+        "Steward:Composer":       "mini_rt: Mentorship session",
+        // Off-diagonal — low engagement, advanced sovereignty (right of diagonal)
+        "Recipient:Curator":      "capsule: Curation nudge",
+        "Recipient:Composer":     "capsule: Creation invitation",
+        "Recipient:Operator":     "mini_rt: Operator unlock",
+        "Selector:Composer":      "mini_rt: Compose your first",
+        "Selector:Operator":      "mini_rt: Operate your signal",
+        "Modifier:Operator":      "mini_rt: Advanced remix",
+        "Modifier:Architect":     "codex: Upstream remix",
+        "Producer:Architect":     "codex: Upstream contribution",
+      },
+    },
+    ladder: {
+      canonical: "Visitor → Initiate → Participant → Curator → Composer → Operator → Architect",
+      stages: [
+        { id: "visitor",     label: "Visitor",     knyt_label: "Prospect",     unlock: "Present at the edge — not yet activated" },
+        { id: "initiate",    label: "Initiate",    knyt_label: "Acolyte",      unlock: "Persona/wallet/onboarding complete" },
+        { id: "participant", label: "Participant",  knyt_label: "Keta",         unlock: "3+ meaningful engagement signals" },
+        { id: "curator",     label: "Curator",      knyt_label: "Keji",         unlock: "Sustained participation + curation/remix action" },
+        { id: "composer",    label: "Composer",     knyt_label: "First",        unlock: "Original creative submission accepted" },
+        { id: "operator",    label: "Operator",     knyt_label: "Zero KNYT",    unlock: "Repeated contributions + operator entitlement" },
+        { id: "architect",   label: "Architect",    knyt_label: "Sat KNYT",     unlock: "Sustained upstream contribution + architect designation" },
+      ],
+    },
+  },
+  "knyt-codex": {
+    strategy: {
+      name: "KNYT Live World — Patronage × PCS Strategy",
+      macro_intent: "Build a living world of collectors, curators, creators, and sovereigns around the 21 Sats universe — converting passive observers into franchise-aligned world-shapers.",
+      description: "Operating on two axes: Patronage (Prospect → Sat KNYT) and PCS (Observer → Franchise-aligned Sovereign). Each matrix intersection defines the NBE for moving users toward the top-right of the matrix.",
+      target_segments: ["observers", "collectors", "curators", "remixers", "creators", "correspondents", "stewards", "franchise-aligned sovereigns"],
+      principles: [
+        { title: "Patronage × PCS intersection", body: "Every user sits at a Patronage stage AND a PCS stage. The NBE is defined by their position on both axes — not just one." },
+        { title: "World belonging is the hook", body: "Entry is through belonging — first affiliation, first card, first patron act. Identity is created before contribution is asked." },
+        { title: "Franchise alignment at apex", body: "The highest stage is Franchise-aligned Sovereign — actively shaping the KNYT world and the AgentiQ ecosystem simultaneously." },
+      ],
+    },
+    model: {
+      name: "KNYT Experience Model — World Levers",
+      description: "The assets, channels, and levers available within the KNYT live world. Used by Marketa for campaign planning across the Patronage × PCS matrix.",
+      structural: [
+        "KNYT Character Cards (NFT-backed, collectible)",
+        "Scrolls: 21 Sats lore and narrative content",
+        "Codex entries: world canon + community branch",
+        "Living Canon: three branches (canon, community, correspondent)",
+        "Shop: card acquisition interface",
+        "Balance: KNYT-COYN tracker + patronage history",
+        "AgentiQ Runtime: full experience layer",
+        "Factory: card + content generation pipeline",
+      ],
+      emotional: [
+        "World-belonging and tribal identity (Order membership)",
+        "Collector status — card identity and patronage pride",
+        "Co-authorship arc: consumer → curator → world-builder",
+        "Recognition: correspondent elevation, stewardship identity",
+        "Prestige: Zero/Satoshi tier visibility + franchise alignment",
+      ],
+      transactional: [
+        "$KNYT coin rewards on verified world activity",
+        "Card acquisition and portfolio growth",
+        "Patronage tier progression (Acolyte → Sat KNYT)",
+        "Contributor recognition and editorial surfacing",
+        "Franchise-aligned governance rights at Steward/Sovereign stage",
+      ],
+      governance: [
+        "FIO identity: KNYT-ID + order_tier gating",
+        "Reputation tier + bucket scoring thresholds",
+        "Correspondent entitlement gate for elevated surfaces",
+        "Steward governance permissions (world-level decisions)",
+        "metaMe guardian policy veto",
+      ],
+    },
+    // Y = KNYT PCS engagement (Observer → Franchise-aligned Sovereign)
+    // X = KNYT Patronage journey (Prospect → Sat KNYT)
+    matrix: {
+      y_stages: ["Observer", "Collector", "Curator", "Remixer", "Creator", "Correspondent", "Steward", "Franchise-aligned Sovereign"],
+      x_stages: ["Prospect", "Acolyte", "Keta", "Keji", "First", "Zero", "Sat KNYT"],
+      cells: {
+        // Entry zone — pills
+        "Observer:Prospect":        "pill: World discovery",
+        "Observer:Acolyte":         "pill: First lore hook",
+        "Collector:Prospect":       "pill: Card preview",
+        "Collector:Acolyte":        "capsule: First card acquisition",
+        "Collector:Keta":           "capsule: Card set curation",
+        // Early-mid diagonal — capsules
+        "Curator:Acolyte":          "pill: Curation intro",
+        "Curator:Keta":             "capsule: Curation challenge",
+        "Curator:Keji":             "capsule: Signal shaping",
+        "Remixer:Keta":             "capsule: Remix template",
+        "Remixer:Keji":             "mini_rt: Remix session",
+        "Remixer:First":            "mini_rt: Guided creation",
+        // Mid-upper diagonal — mini_runtimes
+        "Creator:Keji":             "capsule: First contribution",
+        "Creator:First":            "mini_rt: Creation session",
+        "Creator:Zero":             "mini_rt: Asset submission",
+        "Correspondent:First":      "mini_rt: Editorial surface",
+        "Correspondent:Zero":       "codex: Correspondent codex",
+        // Upper zone — codex
+        "Steward:Zero":             "codex: Governance session",
+        "Steward:Sat KNYT":         "codex: Stewardship codex",
+        "Franchise-aligned Sovereign:Zero": "codex: World shaping",
+        "Franchise-aligned Sovereign:Sat KNYT": "codex: Canon authoring",
+        // Off-diagonal — high engagement, early patronage (left of diagonal)
+        "Curator:Prospect":           "pill: Curation tease",
+        "Curator:Acolyte":            "pill: Curation intro",
+        "Remixer:Prospect":           "pill: Remix welcome",
+        "Remixer:Acolyte":            "capsule: First remix attempt",
+        "Creator:Prospect":           "pill: Creator welcome",
+        "Creator:Acolyte":            "pill: Early contribution hook",
+        "Creator:Keta":               "capsule: Creation pathway",
+        "Correspondent:Prospect":     "pill: Correspondent tease",
+        "Correspondent:Acolyte":      "capsule: Recognition path",
+        "Correspondent:Keta":         "capsule: Correspondent intro",
+        "Correspondent:Keji":         "capsule: Recognition moment",
+        "Steward:Prospect":           "pill: Stewardship preview",
+        "Steward:Acolyte":            "capsule: Governance intro",
+        "Steward:Keta":               "capsule: Stewardship path",
+        "Steward:First":              "mini_rt: Mentorship session",
+        "Franchise-aligned Sovereign:Prospect": "pill: Franchise tease",
+        "Franchise-aligned Sovereign:Acolyte":  "capsule: Franchise path",
+        "Franchise-aligned Sovereign:Keta":     "capsule: Sovereign intro",
+        "Franchise-aligned Sovereign:Keji":     "mini_rt: Franchise unlock",
+        "Franchise-aligned Sovereign:First":    "mini_rt: Sovereign ascent",
+        // Off-diagonal — low engagement, advanced patronage (right of diagonal)
+        "Observer:Keta":              "capsule: World intro tour",
+        "Observer:Keji":              "capsule: Re-engagement",
+        "Collector:Keji":             "capsule: Collection narrative",
+        "Collector:First":            "mini_rt: Collection expansion",
+        "Remixer:Zero":               "mini_rt: Advanced remix",
+        "Creator:Sat KNYT":           "codex: Apex creation",
+        "Observer:Zero":              "mini_rt: Deep world discovery",
+        "Collector:Zero":             "mini_rt: Portfolio stewardship",
+      },
+    },
+    ladder: {
+      canonical: "Prospect → Acolyte → Keta → Keji → First → Zero KNYT → Sat KNYT",
+      stages: [
+        { id: "visitor",     label: "Prospect",     unlock: "First world visit / discovery" },
+        { id: "initiate",    label: "Acolyte",       unlock: "First card acquisition + onboarding" },
+        { id: "participant", label: "Keta",           unlock: "3+ cards + participation signal" },
+        { id: "curator",     label: "Keji",           unlock: "First curation/remix action" },
+        { id: "composer",    label: "First",          unlock: "Original contribution accepted" },
+        { id: "operator",    label: "Zero KNYT",      unlock: "Repeated contributions + governance action" },
+        { id: "architect",   label: "Sat KNYT",       unlock: "Satoshi patronage + world-shaping contributions (20 positions)" },
+      ],
+    },
+  },
+};
 
 const QRIPTO_CONTENT_TAGS = [
   { value: "hero", label: "Hero Feature" },
@@ -1555,6 +1814,7 @@ export const ComposerStudio = () => {
     analysis?: { card_type: string; content: string; score: number | null }[] | null;
   }>({});
   const [expModelTab, setExpModelTab] = useState("strategy");
+  const [matrixLens, setMatrixLens] = useState<"org" | "cohort" | "individual">("org");
   const [expModelLoading, setExpModelLoading] = useState(false);
   const [workflowsList, setWorkflowsList] = useState<any[]>([]);
   const [workflowsLoading, setWorkflowsLoading] = useState(false);
@@ -1564,6 +1824,7 @@ export const ComposerStudio = () => {
   const [makeScenarioError, setMakeScenarioError] = useState<string | null>(null);
   const [showMakePicker, setShowMakePicker] = useState(false);
   const [connectingScenarioId, setConnectingScenarioId] = useState<number | null>(null);
+  const [skillFilterMode, setSkillFilterMode] = useState<"all" | "active">("all");
   const [workflowRunPolling, setWorkflowRunPolling] = useState<Record<string, { runId: string; status: string } | null>>({});
   const [workflowRunHistory, setWorkflowRunHistory] = useState<Record<string, any[]>>({});
   const [expandedRunHistory, setExpandedRunHistory] = useState<Record<string, boolean>>({});
@@ -1602,7 +1863,7 @@ export const ComposerStudio = () => {
   const [personaMediaScopeFilter, setPersonaMediaScopeFilter] = useState<"all" | "active">("all");
   const [personaMediaTypeFilter, setPersonaMediaTypeFilter] = useState<"all" | "image" | "video">("all");
   const { data: codexList } = useCodexList({ useDefaults: true });
-  const [copilotContextId, setCopilotContextId] = useState("qripto-codex");
+  const [copilotContextId, setCopilotContextId] = useState("metame-codex");
   const [codexContentItems, setCodexContentItems] = useState<ComposerMediaItem[]>([]);
   const [codexContentLoading, setCodexContentLoading] = useState(false);
   const studioViewportStylesRef = useRef<{ bodyOverflow: string; htmlOverflow: string } | null>(null);
@@ -2337,6 +2598,9 @@ export const ComposerStudio = () => {
       if (mappedDesignQubeId && mappedDesignQubeId !== activeStyleQubeId) {
         setActiveStyleQubeId(mappedDesignQubeId);
       }
+      // Reset experience model data so the new cartridge's framework is shown
+      setExpModelData({});
+      setExpModelTab("strategy");
     },
     [activeStyleQubeId]
   );
@@ -2984,6 +3248,71 @@ export const ComposerStudio = () => {
     if (fullPreviewExperience?.id === selectedExperienceId) return fullPreviewExperience;
     return experiences.find((exp) => exp.id === selectedExperienceId) || experience;
   }, [selectedExperienceId, fullPreviewExperience, experiences, experience]);
+
+  // Derives the set of studio skill/bundle IDs used by the currently previewed experience,
+  // so the Workflows tab can filter to "Active" skills only.
+  // Detection chain: bundle preset metadata → skill_selection config → template_id → content type
+  const activeExperienceSkillIds = useMemo(() => {
+    if (!previewExperience) return new Set<string>();
+    const ids = new Set<string>();
+
+    // Path 1: bundle preset stored in metadata.composition_bundle
+    const bundle = getAppliedExperienceBundle(previewExperience);
+    const skillCfg = asRecord(
+      (previewExperience.configuration as Record<string, unknown>)?.skill_selection,
+    );
+    const selectedId = typeof skillCfg?.skill_id === "string" ? skillCfg.skill_id : null;
+    if (selectedId) ids.add(selectedId);
+    if (bundle?.presetId === "image_article_bundle") {
+      if (!selectedId) ids.add("skill:image_openai");
+      ids.add("skill:article_generation");
+      ids.add("workflow:image_article_bundle");
+    } else if (bundle?.presetId === "video_article_bundle") {
+      if (!selectedId) ids.add("skill:video_sora_curated");
+      ids.add("skill:article_generation");
+      ids.add("workflow:video_article_bundle");
+    }
+
+    // Path 2: template_id inference (experiences created via Studio bundle flow)
+    if (ids.size === 0) {
+      const tid = previewExperience.template_id ?? "";
+      const isVideo = tid.includes("video") || tid.includes("sora") || tid.includes("motion");
+      const isImage = tid.includes("image") || tid.includes("reading") || tid.includes("article") || tid.includes("qripto");
+      if (isVideo) {
+        if (!selectedId) ids.add("skill:video_sora_curated");
+        ids.add("skill:article_generation");
+        ids.add("workflow:video_article_bundle");
+      } else if (isImage) {
+        if (!selectedId) ids.add("skill:image_openai");
+        ids.add("skill:article_generation");
+        ids.add("workflow:image_article_bundle");
+      }
+    }
+
+    // Path 3: infer from generated content metadata
+    if (ids.size === 0) {
+      const meta = asRecord(previewExperience.metadata as unknown) ?? {};
+      const hasVideo = !!(meta.video_asset_url || meta.sora_generation_id || meta.video_url);
+      const hasImage = !!(meta.image_url || meta.hero_image_url || meta.generated_image_url);
+      const hasArticle = !!(meta.article_draft_id || meta.article_title);
+      if (hasVideo) {
+        ids.add("skill:video_sora_curated");
+        ids.add("skill:video_venice");
+        if (hasArticle) ids.add("skill:article_generation");
+        ids.add("workflow:video_article_bundle");
+      } else if (hasImage) {
+        ids.add("skill:image_openai");
+        ids.add("skill:image_venice");
+        if (hasArticle) ids.add("skill:article_generation");
+        ids.add("workflow:image_article_bundle");
+      } else if (hasArticle) {
+        ids.add("skill:article_generation");
+      }
+    }
+
+    return ids;
+  }, [previewExperience]);
+
   const activeExperienceForEditing = useMemo(
     () => previewExperience || selectedExperience || experience || null,
     [experience, previewExperience, selectedExperience]
@@ -4208,6 +4537,23 @@ export const ComposerStudio = () => {
     const data = await res.json();
     setSession(data.session);
     setSessionData(nextData);
+    // Emit a Studio artifact receipt — fire-and-forget, never blocks save
+    fetch("/api/registry/receipts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        eventType: "asset.published",
+        actorId: activePersonaId ?? "studio-user",
+        tenantId: tenantId ?? "platform",
+        payload: {
+          sessionId: session.id,
+          step: nextStep,
+          cartridge: copilotContextId,
+          source: "composer_studio",
+          savedAt: new Date().toISOString(),
+        },
+      }),
+    }).catch(() => {/* silently ignore — receipt emission is non-blocking */});
   };
 
   const handleJumpToBundleStep = async () => {
@@ -9323,7 +9669,16 @@ export const ComposerStudio = () => {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Layers className="h-4 w-4 text-violet-400" />
-                          <span className="font-semibold">Experience Model</span>
+                          <span className="font-semibold">
+                            {expModelTab === "strategy" ? "Experience Strategy"
+                              : expModelTab === "model" ? "Experience Model"
+                              : expModelTab === "matrix" ? "Experience Matrix"
+                              : expModelTab === "ladder" ? "Experience Ladder"
+                              : expModelTab === "status" ? "Journey Status"
+                              : expModelTab === "nbe" ? "NBE — Next Best Experience"
+                              : expModelTab === "analysis" ? "Analysis Cards"
+                              : "Experience Framework"}
+                          </span>
                         </div>
                         <button
                           type="button"
@@ -9349,112 +9704,238 @@ export const ComposerStudio = () => {
                       </div>
 
                       <Tabs value={expModelTab} onValueChange={setExpModelTab}>
-                        <TabsList className="grid w-full grid-cols-6 border border-slate-800 bg-slate-950/70">
-                          {(["strategy", "model", "matrix", "status", "nbe", "analysis"] as const).map((t) => (
-                            <TabsTrigger key={t} value={t} className="capitalize text-xs">{t}</TabsTrigger>
+                        <TabsList className="grid w-full grid-cols-7 border border-slate-800 bg-slate-950/70">
+                          {(["strategy", "model", "matrix", "ladder", "status", "nbe", "analysis"] as const).map((t) => (
+                            <TabsTrigger key={t} value={t} className="text-[10px] px-1">
+                              {t === "nbe" ? "NBE" : t === "strategy" ? "Strategy" : t === "matrix" ? "Matrix" : t === "ladder" ? "Ladder" : t === "analysis" ? "Analysis" : t.charAt(0).toUpperCase() + t.slice(1)}
+                            </TabsTrigger>
                           ))}
                         </TabsList>
 
+                        {/* ── Strategy ── */}
                         <TabsContent value="strategy" className="mt-3">
-                          {expModelData.strategy ? (
-                            <div className="space-y-2">
-                              <div className="font-semibold">{expModelData.strategy.name}</div>
-                              <div className="text-xs text-slate-300">{expModelData.strategy.description}</div>
-                              {expModelData.strategy.target_segments?.length > 0 && (
-                                <div className="flex gap-1 flex-wrap">
-                                  {expModelData.strategy.target_segments.map((s) => (
-                                    <span key={s} className="rounded-full border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[11px] text-violet-300">{s}</span>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          ) : expModelLoading ? (
-                            <div className="text-slate-400 text-xs">Loading…</div>
-                          ) : (
-                            <div className="text-slate-400 text-xs">No experience strategy configured. Seed experience_strategies in Supabase.</div>
-                          )}
-                        </TabsContent>
-
-                        <TabsContent value="model" className="mt-3">
-                          {expModelData.model ? (
-                            <div className="space-y-2">
-                              <div className="font-semibold">{expModelData.model.name}</div>
-                              <div className="text-xs text-slate-300">{expModelData.model.description}</div>
-                              {expModelData.model.stages?.length > 0 && (
-                                <div className="flex flex-wrap items-center gap-1">
-                                  {expModelData.model.stages.map((s, i) => (
-                                    <span key={s} className="flex items-center gap-1">
-                                      <span className="rounded border border-slate-700 bg-slate-900/50 px-2 py-0.5 text-[11px] capitalize text-slate-300">{s}</span>
-                                      {i < expModelData.model!.stages.length - 1 && <span className="text-slate-600">→</span>}
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          ) : expModelLoading ? (
-                            <div className="text-slate-400 text-xs">Loading…</div>
-                          ) : (
-                            <div className="text-slate-400 text-xs">No experience model found.</div>
-                          )}
-                        </TabsContent>
-
-                        <TabsContent value="matrix" className="mt-3">
-                          {expModelData.matrix?.length ? (() => {
-                            const DEPTHS = ["pill", "capsule", "mini_runtime", "codex"];
-                            const currentStage = expModelData.journey?.stage ?? null;
-                            const currentDepth = expModelData.journey?.depth ?? null;
+                          {(() => {
+                            const fw = CARTRIDGE_FRAMEWORK[copilotContextId];
+                            const s = expModelData.strategy ? {
+                              name: expModelData.strategy.name,
+                              macro_intent: expModelData.strategy.description,
+                              description: expModelData.strategy.description,
+                              target_segments: expModelData.strategy.target_segments,
+                              principles: [] as { title: string; body: string }[],
+                            } : fw?.strategy ?? null;
+                            if (expModelLoading) return <div className="text-slate-400 text-xs">Loading…</div>;
+                            if (!s) return <div className="text-slate-400 text-xs">No experience strategy configured. Seed experience_strategies in Supabase.</div>;
                             return (
-                              <div className="overflow-x-auto">
-                                <div className="min-w-[360px]">
-                                  <div className="grid gap-px mb-1" style={{ gridTemplateColumns: `120px repeat(${DEPTHS.length}, 1fr)` }}>
-                                    <div />
-                                    {DEPTHS.map((d) => (
-                                      <div key={d} className="text-center text-[10px] font-semibold uppercase tracking-wide text-slate-500 pb-1 capitalize">{d}</div>
+                              <div className="space-y-3">
+                                {!expModelData.strategy && <div className="text-[10px] text-slate-500 uppercase tracking-wide">Cartridge canonical reference</div>}
+                                <div>
+                                  <div className="font-semibold text-white">{s.name}</div>
+                                  <div className="mt-1 rounded-lg border border-violet-500/20 bg-violet-500/5 px-3 py-2">
+                                    <div className="text-[10px] font-semibold uppercase tracking-wide text-violet-400 mb-1">Macro intent</div>
+                                    <div className="text-xs text-slate-200">{s.macro_intent}</div>
+                                  </div>
+                                </div>
+                                <div className="text-xs text-slate-400">{s.description}</div>
+                                {s.principles?.length > 0 && (
+                                  <div className="space-y-1.5">
+                                    <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Design principles</div>
+                                    {s.principles.map((p) => (
+                                      <div key={p.title} className="rounded-lg border border-slate-800 bg-slate-900/50 px-3 py-2">
+                                        <div className="text-xs font-semibold text-slate-200">{p.title}</div>
+                                        <div className="text-[11px] text-slate-400 mt-0.5">{p.body}</div>
+                                      </div>
                                     ))}
                                   </div>
-                                  <div className="space-y-px">
-                                    {expModelData.matrix!.map((row) => {
-                                      const isCurrentStage = row.stage === currentStage;
-                                      return (
-                                        <div key={row.stage} className="grid gap-px items-center"
-                                          style={{ gridTemplateColumns: `120px repeat(${DEPTHS.length}, 1fr)` }}>
-                                          <div className={`text-xs font-semibold capitalize pr-2 ${isCurrentStage ? "text-violet-300" : "text-slate-400"}`}>
-                                            {isCurrentStage && <span className="mr-1 text-violet-400">▸</span>}
-                                            {row.stage}
+                                )}
+                                {s.target_segments?.length > 0 && (
+                                  <div>
+                                    <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Target segments</div>
+                                    <div className="flex gap-1 flex-wrap">
+                                      {s.target_segments.map((seg) => (
+                                        <span key={seg} className="rounded-full border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[11px] text-violet-300">{seg}</span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </TabsContent>
+
+                        {/* ── Model ── tools / assets / levers (not the ladder) */}
+                        <TabsContent value="model" className="mt-3">
+                          {(() => {
+                            const fw = CARTRIDGE_FRAMEWORK[copilotContextId];
+                            // DB model only has name/description/stages — enrich with static structural data
+                            const m = fw?.model ?? null;
+                            const dbM = expModelData.model;
+                            if (expModelLoading) return <div className="text-slate-400 text-xs">Loading…</div>;
+                            if (!m && !dbM) return <div className="text-slate-400 text-xs">No experience model configured.</div>;
+                            const name = dbM?.name ?? m?.name ?? "";
+                            const description = dbM?.description ?? m?.description ?? "";
+                            return (
+                              <div className="space-y-3">
+                                {!dbM && <div className="text-[10px] text-slate-500 uppercase tracking-wide">Cartridge canonical reference</div>}
+                                <div>
+                                  <div className="font-semibold text-white">{name}</div>
+                                  <div className="text-xs text-slate-400 mt-0.5">{description}</div>
+                                </div>
+                                {m && (
+                                  <div className="grid gap-2 grid-cols-2">
+                                    {[
+                                      { label: "Structural", items: m.structural, color: "border-blue-500/30 bg-blue-500/5 text-blue-400" },
+                                      { label: "Emotional", items: m.emotional, color: "border-violet-500/30 bg-violet-500/5 text-violet-400" },
+                                      { label: "Transactional", items: m.transactional, color: "border-amber-500/30 bg-amber-500/5 text-amber-400" },
+                                      { label: "Governance", items: m.governance, color: "border-slate-600/50 bg-slate-900/50 text-slate-400" },
+                                    ].map(({ label, items, color }) => (
+                                      <div key={label} className={`rounded-lg border p-3 space-y-1 ${color.split(" ")[0]} ${color.split(" ")[1]}`}>
+                                        <div className={`text-[10px] font-semibold uppercase tracking-wide ${color.split(" ")[2]}`}>{label}</div>
+                                        {items.map((item) => (
+                                          <div key={item} className="text-[11px] text-slate-300 leading-snug">{item}</div>
+                                        ))}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </TabsContent>
+
+                        {/* ── Matrix ── 2D: Y = PCS engagement, X = sovereignty journey */}
+                        <TabsContent value="matrix" className="mt-3">
+                          {(() => {
+                            const fw = CARTRIDGE_FRAMEWORK[copilotContextId];
+                            const m = fw?.matrix ?? null;
+                            if (expModelLoading) return <div className="text-slate-400 text-xs">Loading…</div>;
+                            if (!m) return <div className="text-slate-400 text-xs">No experience matrix configured for this cartridge.</div>;
+                            const yReversed = [...m.y_stages].reverse(); // highest engagement at top
+                            const xLen = m.x_stages.length;
+                            const yLen = yReversed.length;
+                            return (
+                              <div className="space-y-2">
+                                {/* Lens toggle */}
+                                <div className="flex items-center gap-1">
+                                  {([
+                                    { id: "org" as const, label: "Org", icon: <Globe className="h-3 w-3" /> },
+                                    { id: "cohort" as const, label: "Cohort", icon: <Users className="h-3 w-3" /> },
+                                    { id: "individual" as const, label: "Individual", icon: <Target className="h-3 w-3" /> },
+                                  ]).map((lens) => (
+                                    <button key={lens.id} type="button"
+                                      onClick={() => setMatrixLens(lens.id)}
+                                      className={`flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-medium transition ${
+                                        matrixLens === lens.id
+                                          ? "border-violet-500/40 bg-violet-500/10 text-violet-300"
+                                          : "border-slate-800 text-slate-500 hover:text-slate-300"
+                                      }`}>
+                                      {lens.icon} {lens.label}
+                                    </button>
+                                  ))}
+                                  <span className="ml-auto text-[9px] text-slate-600">
+                                    {matrixLens === "org" ? "Full population distribution" : matrixLens === "cohort" ? "Cohort density heatmap" : "Individual NBE pathway"}
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between text-[10px] text-slate-500">
+                                  <span className="uppercase tracking-wide">Engagement ↑</span>
+                                  <span className="text-emerald-400/60">Sovereignty journey → &nbsp; goal: top-right ★</span>
+                                </div>
+                                <div className="overflow-x-auto">
+                                  <div style={{ minWidth: `${100 + xLen * 68}px` }}>
+                                    {/* X-axis header */}
+                                    <div className="grid gap-0.5 mb-1" style={{ gridTemplateColumns: `96px repeat(${xLen}, 1fr)` }}>
+                                      <div className="text-[11px] text-slate-600 self-end pb-0.5">Y ╲ X</div>
+                                      {m.x_stages.map((x) => (
+                                        <div key={x} className="text-center text-[11px] font-semibold text-slate-500 pb-0.5 truncate" title={x}>{x}</div>
+                                      ))}
+                                    </div>
+                                    {/* Grid rows (Y inverted) */}
+                                    <div className="space-y-0.5">
+                                      {yReversed.map((y, yi) => (
+                                        <div key={y} className="grid gap-0.5 items-stretch" style={{ gridTemplateColumns: `96px repeat(${xLen}, 1fr)` }}>
+                                          <div className="text-[11px] font-semibold text-slate-400 pr-1 flex items-center truncate" title={y}>
+                                            {y}
                                           </div>
-                                          {DEPTHS.map((depth) => {
-                                            const available = row.depth_ladder.includes(depth);
-                                            const isCurrent = isCurrentStage && depth === currentDepth;
-                                            const cellClass = isCurrent
-                                              ? "border-violet-500/60 bg-violet-500/15 text-violet-300"
-                                              : available
-                                                ? "border-emerald-500/30 bg-emerald-500/8 text-emerald-400"
-                                                : "border-slate-800 bg-slate-900/30 text-slate-700";
+                                          {m.x_stages.map((x, xi) => {
+                                            const key = `${y}:${x}`;
+                                            const prescription = m.cells[key] ?? "";
+                                            const yOrig = yLen - 1 - yi;
+                                            const isApex = yi <= 1 && xi >= xLen - 2;
+                                            const hasPrescription = !!prescription;
+                                            const yNorm = yOrig / Math.max(yLen - 1, 1);
+                                            const xNorm = xi / Math.max(xLen - 1, 1);
+                                            const isOnDiagonal = Math.abs(yNorm - xNorm) <= 0.28;
+                                            const cellClass = isApex && hasPrescription
+                                              ? "border-amber-500/40 bg-amber-500/8 text-amber-200"
+                                              : hasPrescription && isOnDiagonal
+                                                ? "border-emerald-500/25 bg-emerald-500/5 text-emerald-300"
+                                                : hasPrescription
+                                                  ? "border-blue-500/25 bg-blue-500/5 text-blue-300"
+                                                  : "border-slate-800/30 bg-slate-950/30 text-slate-700";
                                             return (
-                                              <div key={depth}
-                                                className={`rounded border px-1.5 py-2 text-center text-[10px] font-medium ${cellClass}`}
-                                                title={isCurrent ? "Current" : available ? "Available" : "Locked"}>
-                                                {isCurrent ? "●" : available ? "○" : "·"}
+                                              <div key={key}
+                                                className={`rounded border px-0.5 py-1 text-center text-[12px] leading-tight font-medium ${cellClass} cursor-default`}
+                                                title={prescription || `${y} × ${x}`}>
+                                                {prescription ? prescription.split(": ").pop() : "·"}
                                               </div>
                                             );
                                           })}
                                         </div>
-                                      );
-                                    })}
-                                  </div>
-                                  <div className="flex items-center gap-4 mt-3 text-[10px] text-slate-500">
-                                    <span><span className="text-violet-400">●</span> Current</span>
-                                    <span><span className="text-emerald-400">○</span> Available</span>
-                                    <span><span className="text-slate-700">·</span> Locked</span>
+                                      ))}
+                                    </div>
+                                    <div className="flex items-center gap-3 mt-2 text-[11px] text-slate-600">
+                                      <span><span className="text-emerald-400">■</span> optimal path</span>
+                                      <span><span className="text-blue-400">■</span> off-diagonal NBE</span>
+                                      <span><span className="text-amber-400">■</span> apex zone</span>
+                                      <span><span className="text-slate-700">·</span> no prescription</span>
+                                      <span className="ml-auto text-slate-500">hover for full prescription</span>
+                                    </div>
                                   </div>
                                 </div>
                               </div>
                             );
-                          })() : expModelLoading ? (
-                            <div className="text-slate-400 text-xs">Loading…</div>
-                          ) : (
-                            <div className="text-slate-400 text-xs">No experience matrix configured.</div>
-                          )}
+                          })()}
+                        </TabsContent>
+
+                        {/* ── Ladder ── Sovereignty journey (X-axis) with cartridge skin mapping */}
+                        <TabsContent value="ladder" className="mt-3">
+                          {(() => {
+                            const fw = CARTRIDGE_FRAMEWORK[copilotContextId];
+                            const ladder = fw?.ladder ?? null;
+                            if (expModelLoading) return <div className="text-slate-400 text-xs">Loading…</div>;
+                            if (!ladder) return <div className="text-slate-400 text-xs">No sovereignty ladder configured for this cartridge.</div>;
+                            return (
+                              <div className="space-y-3">
+                                <div className="text-[10px] text-slate-500 uppercase tracking-wide">Sovereignty journey — X-axis of the experience matrix</div>
+                                <div className="rounded-lg border border-violet-500/20 bg-violet-500/5 px-3 py-2 text-xs text-violet-200 font-mono">
+                                  {ladder.canonical}
+                                </div>
+                                <div className="space-y-1.5">
+                                  {[...ladder.stages].reverse().map((stage, i) => {
+                                    const totalStages = ladder.stages.length;
+                                    const stageIdx = totalStages - 1 - i;
+                                    const isApex = stageIdx === totalStages - 1;
+                                    return (
+                                      <div key={stage.id} className={`flex items-start gap-3 rounded-lg border px-3 py-2 ${isApex ? "border-amber-500/30 bg-amber-500/5" : "border-slate-800 bg-slate-900/30"}`}>
+                                        <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[9px] font-bold ${isApex ? "border-amber-500/50 text-amber-300" : "border-slate-700 text-slate-500"}`}>
+                                          {stageIdx + 1}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                          <div className="flex items-center gap-2">
+                                            <span className={`text-xs font-semibold ${isApex ? "text-amber-200" : "text-slate-200"}`}>{stage.label}</span>
+                                            {stage.knyt_label && (
+                                              <span className="text-[10px] text-slate-500">KNYT: {stage.knyt_label}</span>
+                                            )}
+                                          </div>
+                                          <div className="text-[11px] text-slate-500 mt-0.5">{stage.unlock}</div>
+                                        </div>
+                                        <div className="text-[10px] font-mono text-slate-600 shrink-0">{stage.id}</div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </TabsContent>
 
                         <TabsContent value="status" className="mt-3">
@@ -10508,6 +10989,27 @@ export const ComposerStudio = () => {
 
                   <TabsContent value="workflows" className="mt-0">
                     <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-sm">
+                      {/* Registry Ingestion Factory link */}
+                      <div className="rounded-lg border border-amber-500/25 bg-amber-500/5 px-3 py-2.5 flex items-center justify-between gap-3">
+                        <div className="space-y-0.5">
+                          <div className="text-[11px] font-semibold text-amber-300 flex items-center gap-1.5">
+                            <span>Registry Ingestion Factory</span>
+                          </div>
+                          <div className="text-[10px] text-slate-400">
+                            Submit ToolQubes, SkillQubes, WorkflowQubes, or ConnectorQubes to the governed intake pipeline.
+                            Accepted assets become composable Registry supply for Studio.
+                          </div>
+                        </div>
+                        <a
+                          href="/registry?tab=factory"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="shrink-0 rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-[11px] text-amber-300 hover:bg-amber-500/20 transition-colors"
+                        >
+                          Open Factory →
+                        </a>
+                      </div>
+
                       {/* Experience context — shows which experience these workflows are for */}
                       {previewExperience && (
                         <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/5 px-3 py-2">
@@ -10519,10 +11021,38 @@ export const ComposerStudio = () => {
                           )}
                         </div>
                       )}
+                      {/* ── Skill filter toggle ───────────────────────────── */}
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setSkillFilterMode("all")}
+                          className={`rounded-md border px-2.5 py-1 text-[11px] transition-colors ${
+                            skillFilterMode === "all"
+                              ? "border-indigo-500/60 bg-indigo-500/10 text-indigo-300"
+                              : "border-slate-800 text-slate-500 hover:border-slate-600 hover:text-slate-300"
+                          }`}
+                        >
+                          All
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSkillFilterMode("active")}
+                          className={`rounded-md border px-2.5 py-1 text-[11px] transition-colors ${
+                            skillFilterMode === "active"
+                              ? "border-cyan-500/60 bg-cyan-500/10 text-cyan-300"
+                              : "border-slate-800 text-slate-500 hover:border-slate-600 hover:text-slate-300"
+                          }`}
+                        >
+                          Active Experience
+                        </button>
+                        {skillFilterMode === "active" && activeExperienceSkillIds.size === 0 && (
+                          <span className="text-[10px] text-slate-600">— no active experience selected</span>
+                        )}
+                      </div>
+
                       {/* ── Studio Skills ─────────────────────────────────── */}
-                      <div className="space-y-1.5">
-                        <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Studio Skills</span>
-                        {[
+                      {(() => {
+                        const allSkills = [
                           {
                             id: "skill:image_openai",
                             name: "Image Generation — OpenAI",
@@ -10577,29 +11107,42 @@ export const ComposerStudio = () => {
                             assetClass: "SkillQube",
                             tags: ["article", "editorial", "copy"],
                           },
-                        ].map((skill) => (
-                          <div key={skill.id} className="flex items-start justify-between gap-2 rounded-lg border border-slate-700/50 bg-slate-900/60 px-3 py-2">
-                            <div className="min-w-0">
-                              <p className="truncate text-[11px] font-medium text-slate-200">{skill.name}</p>
-                              <p className="mt-0.5 text-[10px] text-slate-500 line-clamp-2">{skill.description}</p>
-                              <div className="mt-1 flex flex-wrap gap-1">
-                                {skill.tags.map((t) => (
-                                  <span key={t} className="rounded-full bg-slate-800 px-1.5 py-0.5 text-[9px] text-slate-400">{t}</span>
-                                ))}
+                        ];
+                        const visibleSkills = skillFilterMode === "active" && activeExperienceSkillIds.size > 0
+                          ? allSkills.filter((s) => activeExperienceSkillIds.has(s.id))
+                          : allSkills;
+                        return (
+                          <div className="space-y-1.5">
+                            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                              Studio Skills{visibleSkills.length !== allSkills.length ? ` (${visibleSkills.length}/${allSkills.length})` : ""}
+                            </span>
+                            {visibleSkills.map((skill) => (
+                              <div key={skill.id} className="flex items-start justify-between gap-2 rounded-lg border border-slate-700/50 bg-slate-900/60 px-3 py-2">
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <p className="truncate text-[11px] font-medium text-slate-200">{skill.name}</p>
+                                    <span className="rounded-full border border-indigo-500/40 bg-indigo-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-indigo-300">AgentiQ native</span>
+                                  </div>
+                                  <p className="mt-0.5 text-[10px] text-slate-500 line-clamp-2">{skill.description}</p>
+                                  <div className="mt-1 flex flex-wrap gap-1">
+                                    {skill.tags.map((t) => (
+                                      <span key={t} className="rounded-full bg-slate-800 px-1.5 py-0.5 text-[9px] text-slate-400">{t}</span>
+                                    ))}
+                                  </div>
+                                </div>
+                                <div className="flex shrink-0 flex-col items-end gap-1">
+                                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${skill.badge === "A" ? "bg-emerald-500/20 text-emerald-300" : "bg-amber-500/20 text-amber-300"}`}>{skill.badge}</span>
+                                  <span className="rounded-full border border-indigo-400/30 bg-indigo-500/10 px-1.5 py-0.5 text-[9px] text-indigo-300">{skill.trustBand}</span>
+                                </div>
                               </div>
-                            </div>
-                            <div className="flex shrink-0 flex-col items-end gap-1">
-                              <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${skill.badge === "A" ? "bg-emerald-500/20 text-emerald-300" : "bg-amber-500/20 text-amber-300"}`}>{skill.badge}</span>
-                              <span className="rounded-full border border-indigo-400/30 bg-indigo-500/10 px-1.5 py-0.5 text-[9px] text-indigo-300">{skill.trustBand}</span>
-                            </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
+                        );
+                      })()}
 
                       {/* ── Studio Bundles ────────────────────────────────── */}
-                      <div className="space-y-1.5">
-                        <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Studio Bundles</span>
-                        {[
+                      {(() => {
+                        const allBundles = [
                           {
                             id: "workflow:image_article_bundle",
                             name: "Image + Article Bundle",
@@ -10616,24 +11159,38 @@ export const ComposerStudio = () => {
                             engine: "inline",
                             blocks: ["video_generation", "article_draft", "deployment"],
                           },
-                        ].map((bundle) => (
-                          <div key={bundle.id} className="flex items-start justify-between gap-2 rounded-lg border border-violet-500/20 bg-violet-950/20 px-3 py-2">
-                            <div className="min-w-0">
-                              <p className="truncate text-[11px] font-medium text-slate-200">{bundle.name}</p>
-                              <p className="mt-0.5 text-[10px] text-slate-500 line-clamp-2">{bundle.description}</p>
-                              <div className="mt-1 flex flex-wrap gap-1">
-                                {bundle.blocks.map((b) => (
-                                  <span key={b} className="rounded-full bg-violet-900/40 px-1.5 py-0.5 text-[9px] text-violet-300">{b.replace("_", " ")}</span>
-                                ))}
+                        ];
+                        const visibleBundles = skillFilterMode === "active" && activeExperienceSkillIds.size > 0
+                          ? allBundles.filter((b) => activeExperienceSkillIds.has(b.id))
+                          : allBundles;
+                        return (
+                          <div className="space-y-1.5">
+                            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                              Studio Bundles{visibleBundles.length !== allBundles.length ? ` (${visibleBundles.length}/${allBundles.length})` : ""}
+                            </span>
+                            {visibleBundles.map((bundle) => (
+                              <div key={bundle.id} className="flex items-start justify-between gap-2 rounded-lg border border-violet-500/20 bg-violet-950/20 px-3 py-2">
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <p className="truncate text-[11px] font-medium text-slate-200">{bundle.name}</p>
+                                    <span className="rounded-full border border-indigo-500/40 bg-indigo-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-indigo-300">AgentiQ native</span>
+                                  </div>
+                                  <p className="mt-0.5 text-[10px] text-slate-500 line-clamp-2">{bundle.description}</p>
+                                  <div className="mt-1 flex flex-wrap gap-1">
+                                    {bundle.blocks.map((b) => (
+                                      <span key={b} className="rounded-full bg-violet-900/40 px-1.5 py-0.5 text-[9px] text-violet-300">{b.replace("_", " ")}</span>
+                                    ))}
+                                  </div>
+                                </div>
+                                <div className="flex shrink-0 flex-col items-end gap-1">
+                                  <span className="rounded-full border border-violet-400/30 bg-violet-500/10 px-2 py-0.5 text-[10px] text-violet-300">workflow</span>
+                                  <span className="text-[9px] text-slate-500">{bundle.engine}</span>
+                                </div>
                               </div>
-                            </div>
-                            <div className="flex shrink-0 flex-col items-end gap-1">
-                              <span className="rounded-full border border-violet-400/30 bg-violet-500/10 px-2 py-0.5 text-[10px] text-violet-300">workflow</span>
-                              <span className="text-[9px] text-slate-500">{bundle.engine}</span>
-                            </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
+                        );
+                      })()}
 
                       {/* ── Make Workflows ────────────────────────────────── */}
                       <div className="flex items-center justify-between">

@@ -405,6 +405,74 @@ When moving an item from backlog to active sprint:
 
 ---
 
+## 🏭 AgentiQ OS — Skills Ingestion Agent (Gate 3.5)
+
+**Priority:** Medium  
+**Status:** Not started — blocked on Gate 3 + 4 completion (Factory visible, Studio receipt emission live)  
+**Owner:** Claude (primary)  
+**Prerequisite gates:** Gate 3 (Factory intake trace visible) + Gate 4 (Registry supply browsable + Studio receipt emission)  
+**Estimated size:** ~200 lines + 1 API route  
+
+### Context
+
+The Registry Ingestion Factory pipeline (`types/registryIngestion.ts`) has a fully-defined `SkillQube` asset class with `interfaceSchema`, `capabilities[]`, and `steps[]`. The `WrapperStrategy = "skill"` is already typed. Currently, all `SkillQube` submissions require manual packaging and human review. This agent automates the packaging and interface-validation stages for SkillQube submissions specifically, reducing the trust-band bottleneck for L1–L2 community submissions.
+
+### Where it fits in the pipeline
+
+```
+source.classified (assetClass = "SkillQube")
+  ↓
+  ┌─── SKILLS INGESTION AGENT ─────────────────────────────┐
+  │  1. Extract interface schema from SourceQube manifest   │
+  │     (auto-generate CapabilityDescriptor[] from         │
+  │      sourceManifest.exports + detectedCapabilities)    │
+  │  2. Sandbox smoke test — invoke entry point with       │
+  │     stub inputs, verify structured output              │
+  │  3. Interface conformance check — validate schema       │
+  │     against SkillQube.interfaceSchema contract         │
+  │  4. Iterate — patch schema gaps, retry (max 3 rounds)  │
+  └────────────────────────────────────────────────────────┘
+  ↓
+asset.packaged (SkillQube with populated interfaceSchema +
+  capabilities[] + ValidationStageResult records for
+  sandbox_smoke + interface_conformance)
+  ↓
+trust.scoring → review.pending → asset.published
+```
+
+### What it does NOT own
+
+- Trust scoring (`trustBandFromScore` in `types/registryIngestion.ts:532`)
+- Human review / `review.approved` decisions
+- License scan, secret scan, dependency inventory (these are upstream validation stages)
+- Non-SkillQube asset classes — ToolQube, WorkflowQube, ConnectorQube each need their own packaging agents
+
+### Key design notes
+
+- **Adaptation from skill-creator:** The skill-creator Skill.md (draft→test→eval→iterate loop) is the design basis. The "draft" phase is inverted: instead of generating a skill from requirements, it *extracts and normalises* the existing skill's interface from the inbound `SourceQube`. Everything else (test → eval → iterate) maps directly.
+- **Retry gate:** Max 3 iteration rounds. On third failure, set `ValidationStageStatus = "failed"` with a structured report and hand off to human review with full diagnostic context.
+- **Trust band ceiling:** A SkillQube that passes automated validation with no warnings is eligible for up to `L3_PRODUCTION_CANDIDATE`. `L4+` always requires human review regardless.
+- **Agent ID:** `agentiq-skills-packager` — distinct from `claude-code` so its actions are attributable in `ValidationQube.triggeredBy`.
+
+### Implementation when ready
+
+| File | Action |
+|------|--------|
+| `app/api/registry/intake/package-skill/route.ts` | New POST route — receives `intakeId`, runs packaging agent loop, returns `SkillQube` + `ValidationStageResult[]` |
+| `services/registry/skillPackager.ts` | Agent loop: extract → smoke → conformance → iterate |
+| `types/registryIngestion.ts` | No changes needed — all types are already defined |
+| `app/triad/components/codex/tabs/FactoryIntakeTab.tsx` | Minor: surface "auto-packaged" badge on SkillQube rows |
+
+### Acceptance test (when built)
+
+1. Submit a GitHub repo (`sourceType: "github_repo"`) that exports a well-typed skill function
+2. Factory classifies it as `SkillQube`
+3. Skills ingestion agent runs, populates `interfaceSchema` and `capabilities[]`, passes `interface_conformance`
+4. Asset reaches `trust.scored` at `L2_VERIFIED_COMMUNITY` without any human intervention
+5. `FactoryIntakeTab` shows the full stage history including the agent's packaging pass
+
+---
+
 **Maintained by**: Development Team  
 **Review Schedule**: Monthly  
-**Last Review**: October 17, 2025
+**Last Review**: April 8, 2026

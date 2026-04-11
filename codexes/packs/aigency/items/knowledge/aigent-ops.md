@@ -6,11 +6,25 @@ Complete reference for agent operations, funding, troubleshooting, and emergency
 
 ---
 
-## Critical Agent Information
+## Aigent Roster — Two Layers
 
-### Primary Agents
+### Layer 1: AI Orchestration Aigents (canonical alpha set)
 
-**Aigent Z (Operations Lead)**
+These Aigents hold charters in `.claude/agents/` and govern the platform's intelligence, routing, and experience layer.
+
+| Aigent | Agent ID | Home cartridge | Role | Charter |
+|--------|----------|---------------|------|---------|
+| Aigent Z | `aigent-z` | AgentiQ | Platform governance, orchestration, routing | `.claude/agents/aigent-z-orchestrator.md` |
+| Aigent C | `aigent-c` | AgentiQ OS | Builder onboarding, contribution guidance | `.claude/agents/aigent-c.md` |
+| Kn0w1 | `kn0w1` | KNYT | In-world guide, participation, $KNYT economy | `.claude/agents/kn0w1.md` |
+| Marketa | `marketa` | Cross-cutting | Activation, launch, growth, commercial narrative | `.claude/agents/marketa.md` |
+| metaMe Guardian | `metame-guardian` | metaMe | Sovereignty guidance, policy veto, experience progression | `.claude/agents/metame-guardian.md` |
+
+### Layer 2: Infrastructure Wallet Agents (EVM ops)
+
+These are operational EVM wallet agents that execute cross-chain transactions. They are separate from the AI orchestration Aigents above.
+
+**Aigent Z (EVM Operations)**
 ```
 Agent ID: aigent-z
 Wallet:   0x0e3a4FDbE83F7e206380E6C61CA016F2127FF844
@@ -26,12 +40,9 @@ Role:     Treasury and financial operations
 Status:   Active
 ```
 
-**Aigent Kuroda (Trading)**
-```
-Agent ID: aigent-kuroda
-Role:     Trading and market operations
-Status:   Active
-```
+> **Note:** Aigent Kuroda (formerly listed as "Trading") has no active implementation,
+> no wallet record, and no confirmed operational role in the current platform.
+> It was a placeholder in legacy ops documentation. Do not reference or route to it.
 
 ### Chain Configurations
 

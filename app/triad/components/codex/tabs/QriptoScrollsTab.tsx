@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { BookOpen, ChevronLeft, ChevronRight, Crown, Loader2, Lock } from 'lucide-react';
 import { useSmartTriad } from '@/app/components/content/SmartTriadProvider';
-import { SocialSharingModal } from '@/app/components/content/SocialSharingModal';
 import { CodexActionRow } from '../CodexActionRow';
 import { WheelGesturesPlugin } from 'embla-carousel-wheel-gestures';
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from '@/components/ui/carousel';
@@ -28,6 +27,7 @@ type ScrollItem = {
   position?: number;
   tags?: string[];
   isPremium?: boolean;
+  price?: { amount: number; currency?: string };
   modalities?: any;
 };
 
@@ -39,14 +39,6 @@ function getApiOrigin() {
 export function QriptoScrollsTab({ theme = 'dark', personaId, issueSlug }: QriptoScrollsTabProps) {
   const { actions } = useSmartTriad();
   const isOwnedItem = (item: { id: string }) => actions.checkOwnership(item.id);
-  const [shareArticle, setShareArticle] = useState<{
-    id: string;
-    title: string;
-    description?: string;
-    section?: string;
-    type?: 'text' | 'video';
-    url?: string;
-  } | null>(null);
   const [items, setItems] = useState<ScrollItem[]>([]);
   const [activeTab, setActiveTab] = useState<'metaknyts' | 'synthsims'>('metaknyts');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -80,10 +72,11 @@ export function QriptoScrollsTab({ theme = 'dark', personaId, issueSlug }: Qript
     const isLocked = isLockedContent(item, isOwnedItem);
     await actions.loadContent(item.id);
     if (isLocked) {
-      actions.openWallet('full');
+      actions.openWallet('full', 'payments');
       await emitDvnReceipt(eventType, item.id);
       return;
     }
+    actions.setContentAccessGranted(true);
     actions.setViewerModality(modality);
     actions.setActiveDrawer('contentViewer');
     await emitDvnReceipt(eventType, item.id);
@@ -176,7 +169,7 @@ export function QriptoScrollsTab({ theme = 'dark', personaId, issueSlug }: Qript
   };
 
   const openShareModal = (item: ScrollItem) => {
-    setShareArticle({
+    actions.openShare({
       id: item.id,
       title: item.title,
       description: item.excerpt,
@@ -263,7 +256,7 @@ export function QriptoScrollsTab({ theme = 'dark', personaId, issueSlug }: Qript
                     </div>
                   )}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                  <div className="absolute top-3 left-3 flex items-center gap-2">
+                  <div className="absolute top-3 left-3 flex items-center gap-2 flex-wrap">
                     <CodexBadge tone="indigo">{item.badge || activeTab.toUpperCase()}</CodexBadge>
                     {isPremiumContent(item) && (
                       <CodexBadge tone="amber">
@@ -287,6 +280,7 @@ export function QriptoScrollsTab({ theme = 'dark', personaId, issueSlug }: Qript
                   </div>
                   <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                     <CodexActionRow
+                      item={item}
                       variant="indigo"
                       showRead={!!item.modalities?.read}
                       showWatch={!!item.modalities?.watch}
@@ -403,14 +397,6 @@ export function QriptoScrollsTab({ theme = 'dark', personaId, issueSlug }: Qript
         <div className={`text-sm ${mutedClass}`}>No Scrolls found for this issue.</div>
       )}
 
-      {shareArticle && (
-        <SocialSharingModal
-          isOpen={Boolean(shareArticle)}
-          onClose={() => setShareArticle(null)}
-          article={shareArticle}
-          personaId={personaId}
-        />
-      )}
     </div>
   );
 }

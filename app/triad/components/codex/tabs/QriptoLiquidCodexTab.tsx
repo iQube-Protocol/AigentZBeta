@@ -1,12 +1,11 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { BookOpen, Brain, Coins, Crown, Loader2, Lock, Sparkles } from 'lucide-react';
+import { BookOpen, Brain, Check, Coins, Crown, Loader2, Lock, Sparkles } from 'lucide-react';
 import { useSmartTriad } from '@/app/components/content/SmartTriadProvider';
-import { SocialSharingModal } from '@/app/components/content/SocialSharingModal';
 import { CodexActionRow } from '../CodexActionRow';
 import { QriptopianFeatureSections } from '../QriptopianFeatureSections';
-import { isLockedContent, isPremiumContent } from '@/app/triad/components/codex/utils/contentFlags';
+import { isLockedContent, isPremiumContent, getContentPrice } from '@/app/triad/components/codex/utils/contentFlags';
 import { CodexBadge } from '../CodexBadge';
 import { CacheManager } from '@/app/utils/cache';
 
@@ -18,6 +17,7 @@ type SectionItem = {
   image?: string;
   tags?: string[];
   isPremium?: boolean;
+  price?: { amount: number; currency?: string };
   modalities?: any;
 };
 
@@ -81,14 +81,6 @@ export function QriptoLiquidCodexTab({ theme = 'dark', personaId, issueSlug, dat
   const isOwnedItem = (item: { id: string }) => actions.checkOwnership(item.id);
 
   const [payload, setPayload] = useState<QriptoHomePayload | null>(null);
-  const [shareArticle, setShareArticle] = useState<{
-    id: string;
-    title: string;
-    description?: string;
-    section?: string;
-    type?: 'text' | 'video';
-    url?: string;
-  } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -189,10 +181,11 @@ export function QriptoLiquidCodexTab({ theme = 'dark', personaId, issueSlug, dat
       await actions.loadContent(item.id);
 
       if (isLocked) {
-        actions.openWallet('full');
+        actions.openWallet('full', 'payments');
         return;
       }
 
+      actions.setContentAccessGranted(true);
       actions.setViewerModality(
         eventType === 'content.read' ? 'read' : eventType === 'content.watch' ? 'watch' : null
       );
@@ -203,7 +196,7 @@ export function QriptoLiquidCodexTab({ theme = 'dark', personaId, issueSlug, dat
   };
 
   const openShareModal = (item: SectionItem) => {
-    setShareArticle({
+    actions.openShare({
       id: item.id,
       title: item.title,
       description: item.excerpt,
@@ -279,12 +272,31 @@ export function QriptoLiquidCodexTab({ theme = 'dark', personaId, issueSlug, dat
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <CodexBadge tone="amber">{item.badge || 'Q¢'}</CodexBadge>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {isOwnedItem(item) ? (
+                      <CodexBadge tone="cyan">
+                        <Check className="h-3 w-3" />
+                        Owned
+                      </CodexBadge>
+                    ) : (
+                      <>
+                        {isPremiumContent(item) && (
+                          <CodexBadge tone="amber">
+                            <Crown className="h-3 w-3" />
+                            Premium
+                          </CodexBadge>
+                        )}
+                        {(() => { const p = getContentPrice(item as any); return p !== null ? <CodexBadge tone="amber">Q¢ {p}</CodexBadge> : null; })()}
+                      </>
+                    )}
+                  </div>
                   <div className={`font-medium ${textClass} mt-1 line-clamp-2`}>{item.title}</div>
                 </div>
               </div>
               <div className="mt-3">
                 <CodexActionRow
+                  item={item}
+                  isOwned={isOwnedItem(item)}
                   variant="amber"
                   showRead={!!item.modalities?.read}
                   showWatch={!!item.modalities?.watch}
@@ -330,12 +342,15 @@ export function QriptoLiquidCodexTab({ theme = 'dark', personaId, issueSlug, dat
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <CodexBadge tone="indigo">{item.badge || 'SCROLL'}</CodexBadge>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <CodexBadge tone="indigo">{item.badge || 'SCROLL'}</CodexBadge>
+                  </div>
                   <div className={`font-medium ${textClass} mt-1 line-clamp-2`}>{item.title}</div>
                 </div>
               </div>
               <div className="mt-3 flex items-center gap-2">
                 <CodexActionRow
+                  item={item}
                   variant="indigo"
                   showRead={!!item.modalities?.read}
                   showWatch={!!item.modalities?.watch}
@@ -352,7 +367,7 @@ export function QriptoLiquidCodexTab({ theme = 'dark', personaId, issueSlug, dat
                     const isLocked = isLockedContent(item, isOwnedItem);
                     if (isLocked) {
                       await actions.loadContent(item.id);
-                      actions.openWallet('compact');
+                      actions.openWallet('full', 'payments');
                       await emitDvnReceipt('content.view', item);
                       return;
                     }
@@ -398,12 +413,15 @@ export function QriptoLiquidCodexTab({ theme = 'dark', personaId, issueSlug, dat
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <CodexBadge tone="indigo">{item.badge || 'KB'}</CodexBadge>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <CodexBadge tone="indigo">{item.badge || 'KB'}</CodexBadge>
+                  </div>
                   <div className={`font-medium ${textClass} mt-1 line-clamp-2`}>{item.title}</div>
                 </div>
               </div>
               <div className="mt-3">
                 <CodexActionRow
+                  item={item}
                   variant="indigo"
                   showRead={!!item.modalities?.read}
                   showWatch={!!item.modalities?.watch}
@@ -419,14 +437,6 @@ export function QriptoLiquidCodexTab({ theme = 'dark', personaId, issueSlug, dat
         </div>
       </div>
 
-      {shareArticle && (
-        <SocialSharingModal
-          isOpen={Boolean(shareArticle)}
-          onClose={() => setShareArticle(null)}
-          article={shareArticle}
-          personaId={personaId}
-        />
-      )}
     </div>
   );
 }

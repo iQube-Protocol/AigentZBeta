@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import { useBalances } from "@/app/hooks/useBalances";
 import { useDVNEvents } from "@/app/hooks/useDVNEvents";
 import { useKnytBalance } from "@/app/hooks/useKnytBalance";
+import { useBaseQcBalance } from "@/app/hooks/useBaseQcBalance";
 import { useEthPrice } from "@/app/hooks/useEthPrice";
 import { useSupabaseSessionPersonas } from "@/app/hooks/useSupabaseSessionPersonas";
 import { useMetaAvatar } from "@/app/contexts/MetaAvatarContext";
@@ -211,8 +212,12 @@ export default function SmartWalletDrawer({
   const isValidEvmAddress = (value?: string): value is `0x${string}` =>
     typeof value === "string" && /^0x[a-fA-F0-9]{40}$/.test(value);
 
-  const sanitizedEvmSepolia = isValidEvmAddress(agent.evmSepolia) ? agent.evmSepolia : undefined;
-  const sanitizedEvmArb = isValidEvmAddress(agent.evmArb) ? agent.evmArb : undefined;
+  // Persona EVM address override — starts with walletNode prop address if present,
+  // then upgrades to the session-resolved persona's registered address via useEffect below.
+  const walletNodePersonaEvmAddress = walletNode?.personaContext?.activePersona?.evmAddress as `0x${string}` | undefined;
+  const [personaEvmOverride, setPersonaEvmOverride] = useState<`0x${string}` | undefined>(walletNodePersonaEvmAddress);
+  const sanitizedEvmSepolia = personaEvmOverride || (isValidEvmAddress(agent.evmSepolia) ? agent.evmSepolia : undefined);
+  const sanitizedEvmArb = personaEvmOverride || (isValidEvmAddress(agent.evmArb) ? agent.evmArb : undefined);
 
   const [activeTab, setActiveTab] = useState<DrawerTab>(initialTab);
   const [dismissed, setDismissed] = useState(false);
@@ -246,6 +251,7 @@ export default function SmartWalletDrawer({
     personaId || localPersonaId || walletNode?.personaContext?.activePersonaId || activePersona?.id;
   const { balance: knytBalance, loading: knytLoading, refreshBalance: refreshKnyt } =
     useKnytBalance(effectivePersonaId);
+  const { balance: baseQcBalance } = useBaseQcBalance(effectivePersonaId);
   const { knytPriceUsd } = useEthPrice();
   const evs = useDVNEvents(agent.id);
   const [transactionModalOpen, setTransactionModalOpen] = useState(false);
@@ -296,6 +302,16 @@ export default function SmartWalletDrawer({
       setLocalPersonaId(sessionPersonas[0].id);
     }
   }, [sessionPersonas, localPersonaId, walletNode?.personaContext?.activePersonaId]);
+
+  // When the session-resolved active persona has a registered EVM address, upgrade the
+  // balance query address so on-chain Q¢ resolves to the persona's FIO-canonical wallet.
+  useEffect(() => {
+    const personaEvm = activePersona?.evmAddress;
+    if (personaEvm && personaEvm !== personaEvmOverride) {
+      setPersonaEvmOverride(personaEvm);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePersona?.evmAddress]);
 
   useEffect(() => {
     onCopilotStateChange?.(copilotOpen);
@@ -748,6 +764,7 @@ export default function SmartWalletDrawer({
     unit: string;
     logo?: string;
     fallbackIcon: React.ReactNode;
+    dvn?: boolean;
   }> = [
     {
       key: "eth-qc",
@@ -772,6 +789,14 @@ export default function SmartWalletDrawer({
       unit: "Q¢",
       logo: TOKEN_LOGOS.base,
       fallbackIcon: <TrendingUp className="w-4 h-4 text-blue-300" />,
+    },
+    {
+      key: "dvn-qc",
+      label: "Q¢ (DVN)",
+      value: (baseQcBalance?.dvnQc ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      unit: "Q¢",
+      fallbackIcon: <Coins className="w-4 h-4 text-cyan-300" />,
+      dvn: true,
     },
     {
       key: "opt-qc",
@@ -1109,18 +1134,20 @@ export default function SmartWalletDrawer({
     };
   };
 
-  const qctTotalStr = (() => {
+  const qctEvmTotal = (() => {
     try {
       const ethQ = Number(BigInt(bals.qctSep || "0")) / 10 ** (bals.qctSepDecimals ?? 0);
       const arbQ = Number(BigInt(bals.qctArb || "0")) / 10 ** (bals.qctArbDecimals ?? 0);
       const baseQ = Number(BigInt(bals.qctBase || "0")) / 10 ** (bals.qctBaseDecimals ?? 0);
       const btcQ = Number(BigInt(bals.btcQcent || "0"));
-      const total = ethQ + arbQ + baseQ + btcQ;
-      return total.toLocaleString(undefined, { maximumFractionDigits: 0 });
+      return ethQ + arbQ + baseQ + btcQ;
     } catch {
-      return "0";
+      return 0;
     }
   })();
+  const qctDvnTotal = baseQcBalance?.dvnQc ?? 0;
+  const qctCombinedTotal = qctEvmTotal + qctDvnTotal;
+  const qctTotalStr = qctCombinedTotal.toLocaleString(undefined, { maximumFractionDigits: 0 });
 
   const knytTotal = knytBalance?.totalKnyt ?? 0;
   const knytUsd = knytPriceUsd ? (knytTotal * knytPriceUsd).toFixed(2) : "0.00";
@@ -1155,7 +1182,7 @@ export default function SmartWalletDrawer({
     // Phase 1: USDC is Base-only.
     const QCT_TOKEN_ADDRESS = "0x4C4f1aD931589449962bB675bcb8e95672349d09";
     const USDC_BASE_SEPOLIA = "0x036CbD53842c5426634e7929541eC2318f3dCF7e";
-    const CHAIN_CONFIG: Record<PaymentMethod, { chainId: number; asset: string; name: string; tokenAddress?: string; decimals: number }> = {
+    const CHAIN_CONFIG: Record<Exclude<PaymentMethod, "dvn-qc">, { chainId: number; asset: string; name: string; tokenAddress?: string; decimals: number }> = {
       arb: { chainId: 421614, asset: "QCT", name: "Arbitrum Sepolia", tokenAddress: QCT_TOKEN_ADDRESS, decimals: 18 },
       base: { chainId: 84532, asset: "QCT", name: "Base Sepolia", tokenAddress: QCT_TOKEN_ADDRESS, decimals: 18 },
       polygon: { chainId: 80002, asset: "QCT", name: "Polygon Amoy", tokenAddress: QCT_TOKEN_ADDRESS, decimals: 18 },
@@ -1163,19 +1190,60 @@ export default function SmartWalletDrawer({
       usdc: { chainId: 84532, asset: "USDC", name: "Base Sepolia (USDC)", tokenAddress: USDC_BASE_SEPOLIA, decimals: 6 },
       knyt: { chainId: 1, asset: "KNYT", name: "Ethereum Mainnet", decimals: 18 },
     };
-    const chainConfig = CHAIN_CONFIG[selectedPaymentMethod];
-    
+
     try {
-      // Step 1: Execute payment via x402 rails using agent's wallet
       const paymentAmount = contentPrice?.amount || 0;
-      const payTo = recipientAddress || currentContent.creatorRootDid; // Pay to content creator
+      const payTo = recipientAddress || currentContent.creatorRootDid;
 
       // Guard: don't let the UI send USDC for non-USDC priced tiers.
       const tierCurrency = (contentPrice?.currency || "").toUpperCase();
       if (selectedPaymentMethod === "usdc" && tierCurrency !== "USDC") {
         throw new Error(`This content is priced in ${contentPrice?.currency || "unknown"}. Select a Q¢ or KNYT rail, or choose a USDC-priced tier.`);
       }
-      
+
+      // DVN Q¢ path: debit off-chain qc_balances (no on-chain tx needed)
+      if (selectedPaymentMethod === "dvn-qc") {
+        if (!effectivePersonaId) throw new Error("No active persona for DVN Q¢ payment.");
+        if (paymentAmount > 0) {
+          const debitRes = await fetch("/api/wallet/base-qc/debit", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              personaId: effectivePersonaId,
+              amount: paymentAmount,
+              contentId: currentContent.id,
+              reason: "content_purchase",
+            }),
+          });
+          if (!debitRes.ok) {
+            const err = await debitRes.json().catch(() => ({}));
+            throw new Error((err as any).error || "DVN Q¢ debit failed");
+          }
+        }
+        // Grant entitlement after DVN debit
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (uuidRegex.test(currentContent.id)) {
+          await fetch(`/api/content/pricing/${currentContent.id}/entitlement`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              personaId: effectivePersonaId,
+              scope: "full",
+              acquiredVia: "purchase",
+              txHash: null,
+              chainId: null,
+            }),
+          }).catch(() => {});
+        }
+        setPurchaseStep("success");
+        onPurchaseComplete?.(currentContent);
+        refreshWalletBalances?.();
+        setTimeout(() => { setPurchaseStep("idle"); }, 2000);
+        return;
+      }
+
+      const chainConfig = CHAIN_CONFIG[selectedPaymentMethod as Exclude<PaymentMethod, "dvn-qc">];
+
       if (paymentAmount > 0 && payTo) {
         // Use the a2a signer to transfer tokens
         const transferRes = await fetch("/api/a2a/signer/transfer", {
@@ -1323,7 +1391,7 @@ export default function SmartWalletDrawer({
           <div className="relative z-[100]">
             <button
               onClick={() => setPersonaMenuOpen((prev) => !prev)}
-              className="flex items-center gap-1 hover:bg-white/5 rounded-lg p-1.5 transition-colors"
+              className="flex items-center gap-1.5 hover:bg-white/5 rounded-lg p-1.5 transition-colors"
             >
               <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${activePersona?.isAgent ? "bg-amber-500/20" : "bg-cyan-500/20"}`}>
                 {activePersona?.isAgent ? (
@@ -1332,6 +1400,11 @@ export default function SmartWalletDrawer({
                   <User className="w-4 h-4 text-cyan-400" />
                 )}
               </div>
+              {(activePersona?.fioHandle || agent.fioHandle) && (
+                <span className={`text-xs font-medium truncate max-w-[110px] ${activePersona?.isAgent ? "text-amber-300" : "text-cyan-300"}`}>
+                  {activePersona?.fioHandle || agent.fioHandle}
+                </span>
+              )}
               <ChevronDown className={`w-3 h-3 text-white/50 transition-transform ${personaMenuOpen ? "rotate-180" : ""}`} />
             </button>
 
@@ -2050,28 +2123,41 @@ export default function SmartWalletDrawer({
                 
                 <ul className="space-y-1.5 text-sm text-white/90">
                   {showQcBreakdown &&
-                    qcentBalanceRows.map((row) => (
-                      <li key={row.key} className="flex items-center justify-between p-2 rounded-lg bg-white/5 border border-white/5">
-                        <span className="flex items-center gap-2">
-                          {row.logo && !logoLoadErrors[row.key] ? (
-                            <img
-                              src={row.logo}
-                              alt={`${row.label} logo`}
-                              className="w-4 h-4 rounded-full object-cover"
-                              onError={() => {
-                                setLogoLoadErrors((prev) => ({ ...prev, [row.key]: true }));
-                              }}
-                            />
-                          ) : (
-                            row.fallbackIcon
-                          )}
-                          <span>{row.label}</span>
-                        </span>
-                        <span className="font-mono text-white">
-                          {row.value} {row.unit}
-                        </span>
-                      </li>
-                    ))}
+                    qcentBalanceRows.map((row) =>
+                      row.dvn ? (
+                        <li key={row.key} className="flex items-center justify-between p-2 rounded-lg bg-cyan-500/10 border border-cyan-500/20">
+                          <span className="flex items-center gap-2 text-xs">
+                            {row.fallbackIcon}
+                            <span className="text-cyan-300">{row.label}</span>
+                            <span className="text-[9px] text-cyan-400 bg-cyan-500/20 px-1 rounded">Deferred</span>
+                          </span>
+                          <span className="font-mono text-xs text-cyan-300">
+                            {row.value}
+                          </span>
+                        </li>
+                      ) : (
+                        <li key={row.key} className="flex items-center justify-between p-2 rounded-lg bg-white/5 border border-white/5">
+                          <span className="flex items-center gap-2">
+                            {row.logo && !logoLoadErrors[row.key] ? (
+                              <img
+                                src={row.logo}
+                                alt={`${row.label} logo`}
+                                className="w-4 h-4 rounded-full object-cover"
+                                onError={() => {
+                                  setLogoLoadErrors((prev) => ({ ...prev, [row.key]: true }));
+                                }}
+                              />
+                            ) : (
+                              row.fallbackIcon
+                            )}
+                            <span>{row.label}</span>
+                          </span>
+                          <span className="font-mono text-white">
+                            {row.value} {row.unit}
+                          </span>
+                        </li>
+                      )
+                    )}
 
                   {/* Total Q¢ (always visible, controls collapse/expand) */}
                   <li className="pt-2 mt-1 border-t border-white/10">
@@ -2095,10 +2181,43 @@ export default function SmartWalletDrawer({
                         )}
                       </span>
                     </button>
+                    {/* EVM vs DVN breakdown (always shown under total) */}
+                    <div className="mt-1 grid grid-cols-2 gap-1.5 px-1">
+                      <div className="flex items-center justify-between p-1.5 rounded bg-white/5 border border-white/5">
+                        <span className="text-[10px] text-white/50 flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-blue-400 inline-block" />
+                          EVM
+                        </span>
+                        <span className="text-[10px] font-mono text-white/70">
+                          {qctEvmTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between p-1.5 rounded bg-cyan-500/10 border border-cyan-500/20">
+                        <span className="text-[10px] text-cyan-300 flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 inline-block" />
+                          DVN
+                        </span>
+                        <span className="text-[10px] font-mono text-cyan-300">
+                          {qctDvnTotal.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    </div>
                   </li>
 
+                  {nonQcentBalanceRows.length > 0 && (
+                    <li className="pt-2 pb-0.5">
+                      <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-amber-400/80 mb-1">
+                        <span className="h-px flex-1 bg-amber-500/20" />
+                        $KNYT · Cartridge Economy
+                        <span className="h-px flex-1 bg-amber-500/20" />
+                      </div>
+                      <div className="text-[9px] text-amber-300/50 text-center">
+                        KNYT cartridge-local · distinct from Q¢
+                      </div>
+                    </li>
+                  )}
                   {nonQcentBalanceRows.map((row) => (
-                    <li key={row.key} className="flex items-center justify-between p-2 rounded-lg bg-white/5 border border-white/5">
+                    <li key={row.key} className="flex items-center justify-between p-2 rounded-lg bg-amber-500/5 border border-amber-500/10">
                       <span className="flex items-center gap-2">
                         {row.logo && !logoLoadErrors[row.key] ? (
                           <img
@@ -2112,9 +2231,9 @@ export default function SmartWalletDrawer({
                         ) : (
                           row.fallbackIcon
                         )}
-                        <span>{row.label}</span>
+                        <span className="text-amber-200/80">{row.label}</span>
                       </span>
-                      <span className="font-mono text-white">
+                      <span className="font-mono text-amber-300">
                         {row.value} {row.unit}
                       </span>
                     </li>

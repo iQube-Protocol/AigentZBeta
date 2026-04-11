@@ -36,6 +36,9 @@ import { MoneyPennyTab } from "./tabs/MoneyPennyTab";
 import { NakamotoTab } from "./tabs/NakamotoTab";
 import { ExperienceDashboardTab } from "./tabs/ExperienceDashboardTab";
 import { ArtifactTraceabilityTab } from "./tabs/ArtifactTraceabilityTab";
+import { FactoryIntakeTab } from "./tabs/FactoryIntakeTab";
+import { RegistrySupplyTab } from "./tabs/RegistrySupplyTab";
+import KnytRuntimeSurface from "./tabs/KnytRuntimeSurface";
 
 interface TabRendererProps {
   tab: CodexTab;
@@ -68,6 +71,9 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   MoneyPennyTab,
   ExperienceDashboardTab,
   ArtifactTraceabilityTab,
+  FactoryIntakeTab,
+  RegistrySupplyTab,
+  KnytRuntimeSurface,
   RewardsTab: PlaceholderTab,
   DocsTab: PlaceholderTab,
   APITab: PlaceholderTab,
@@ -108,6 +114,7 @@ export function TabRenderer({ tab, codexId, theme, density, personaId, issueSlug
         issueSlug={issueSlug}
         forcedDevice={previewDevice}
         tabSlug={tab.slug}
+        codexId={codexId}
         {...tab.config.props}
       />
     );

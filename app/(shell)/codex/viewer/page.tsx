@@ -1,10 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import CodexPanelDynamic from "../../../triad/components/CodexPanelDynamic";
 import { useCodexConfig, useCodexList } from "@/app/hooks/useCodexConfig";
 import type { CodexListItem } from "@/types/codex";
 import { CodexCopilotLayer } from "@/app/components/codex/CodexCopilotLayer";
+import { useSupabaseSessionPersonas } from "@/app/hooks/useSupabaseSessionPersonas";
 import {
   BookOpen,
   Bot,
@@ -45,16 +47,24 @@ function labelize(value: string) {
 }
 
 export default function CodexViewerPage() {
-  const [codexId, setCodexId] = useState("knyt-codex");
+  const searchParams = useSearchParams();
+  const [codexId, setCodexId] = useState(searchParams.get("id") ?? "knyt-codex");
   const [theme, setTheme] = useState<"light" | "dark">("dark");
   const [density, setDensity] = useState<"narrow" | "wide">("wide");
-  const [activeTab, setActiveTab] = useState("scrolls");
+  const [activeTab, setActiveTab] = useState(searchParams.get("tab") ?? "scrolls");
   const [hiddenTabs, setHiddenTabs] = useState<string[]>([]);
   const [configCollapsed, setConfigCollapsed] = useState(false);
   const [activeSection, setActiveSection] = useState<ConfigSection>("codex");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [previewDevice, setPreviewDevice] = useState<PreviewDevice>("desktop");
   const [copilotOpen, setCopilotOpen] = useState(false);
+
+  // Resolve active session persona so SmartTriadProvider queries the right ownership data
+  const { sessionPersonas } = useSupabaseSessionPersonas();
+  const activePersonaId = useMemo(() => {
+    const human = sessionPersonas.find(p => !p.isAgent);
+    return human?.id || sessionPersonas[0]?.id;
+  }, [sessionPersonas]);
 
   const isAigentiqCodex = codexId === "agentiq-codex";
 
@@ -104,7 +114,7 @@ export default function CodexViewerPage() {
   const fallbackCodexes = useMemo<CodexOption[]>(() => ([
     { id: "knyt-codex", label: "KNYT Codex", color: "purple" },
     { id: "qripto-codex", label: "Qriptopian Codex", color: "indigo" },
-    { id: "aigentiq-codex", label: "AgentiQ Codex", color: "blue" },
+    { id: "agentiq-codex", label: "AgentiQ Codex", color: "blue" },
     { id: "marketa-codex", label: "Aigent Marketa", color: "rose" },
     { id: "moneypenny-codex", label: "Aigent MoneyPenny", color: "green" },
     { id: "nakamoto-codex", label: "Aigent Nakamoto", color: "orange" },
@@ -447,8 +457,10 @@ export default function CodexViewerPage() {
                 density={density}
                 initialTab={activeTab}
                 hiddenTabs={hiddenTabs}
+                isAdmin={true}
                 useDefaults={true}
                 previewDevice={previewDevice}
+                personaId={activePersonaId}
               />
             </div>
           </div>

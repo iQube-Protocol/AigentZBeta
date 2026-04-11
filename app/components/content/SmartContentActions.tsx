@@ -89,8 +89,9 @@ function getAvailableActions(
   // if (modalities?.view?.image_url) actions.push('view');
   // if (showExpand && context === 'thumbnail') actions.push('expand');
   
-  if (showShare) actions.push('share');
-  
+  // Share is always available — SmartTriad renders the modal at root level.
+  actions.push('share');
+
   // Add buy action if item has a price
   if (item?.price?.amount && item.price.amount > 0) {
     actions.push('buy');

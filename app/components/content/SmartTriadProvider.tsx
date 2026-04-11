@@ -79,6 +79,15 @@ export interface SmartMenuManifest {
   configSource: string;
 }
 
+export interface ShareItem {
+  id: string;
+  title: string;
+  description?: string;
+  section?: string;
+  type?: 'text' | 'video';
+  url?: string;
+}
+
 export interface TriadState {
   // Content state
   currentContent: SmartContentQube | null;
@@ -89,6 +98,7 @@ export interface TriadState {
   // Wallet state
   walletOpen: boolean;
   walletMode: "compact" | "full";
+  walletInitialTab: "wallet" | "payments";
   walletUI: Array<import("@/app/types/knytLiquidUI").WalletUIComponent>;
   walletDrawerMode: import("@/app/types/knytLiquidUI").DrawerMode;
   
@@ -109,6 +119,12 @@ export interface TriadState {
   ownedContentIds: Set<string>;
   libraryLoading: boolean;
 
+  // SmartActions — share
+  shareItem: ShareItem | null;
+
+  // Access granted by tab-level gate evaluation (authoritative for free content)
+  contentAccessGranted: boolean;
+
   // Developer overrides
   devGatingOverride: boolean;
 }
@@ -120,7 +136,7 @@ export interface TriadActions {
   setViewerModality: (modality: string | null) => void;
   
   // Wallet actions
-  openWallet: (mode?: "compact" | "full") => void;
+  openWallet: (mode?: "compact" | "full", tab?: "wallet" | "payments") => void;
   closeWallet: () => void;
   setWalletUI: (components: Array<import("@/app/types/knytLiquidUI").WalletUIComponent>) => void;
   setWalletDrawerMode: (mode: import("@/app/types/knytLiquidUI").DrawerMode) => void;
@@ -135,6 +151,13 @@ export interface TriadActions {
   // Library actions
   refreshLibrary: () => Promise<void>;
   checkOwnership: (contentId: string) => boolean;
+
+  // SmartActions — share
+  openShare: (item: ShareItem) => void;
+  closeShare: () => void;
+
+  // Access granted by tab-level gate evaluation
+  setContentAccessGranted: (granted: boolean) => void;
 
   // Developer overrides
   setDevGatingOverride: (enabled: boolean) => void;
@@ -182,6 +205,7 @@ export function SmartTriadProvider({
     viewerModality: null,
     walletOpen: false,
     walletMode: "compact",
+    walletInitialTab: "wallet",
     walletUI: [],
     walletDrawerMode: "narrow",
     menuManifest: null,
@@ -191,6 +215,8 @@ export function SmartTriadProvider({
     lastPurchase: null,
     ownedContentIds: new Set(),
     libraryLoading: false,
+    shareItem: null,
+    contentAccessGranted: false,
     devGatingOverride: false,
   });
 
@@ -266,11 +292,12 @@ export function SmartTriadProvider({
   // WALLET ACTIONS
   // ==========================================================================
 
-  const openWallet = useCallback((mode: "compact" | "full" = "compact") => {
+  const openWallet = useCallback((mode: "compact" | "full" = "compact", tab: "wallet" | "payments" = "wallet") => {
     setState(prev => ({
       ...prev,
       walletOpen: true,
       walletMode: mode,
+      walletInitialTab: tab,
     }));
   }, []);
 
@@ -303,6 +330,8 @@ export function SmartTriadProvider({
     setState(prev => ({
       ...prev,
       activeDrawer: drawer,
+      // Reset access grant when viewer is closed
+      contentAccessGranted: drawer === null ? false : prev.contentAccessGranted,
     }));
   }, []);
 
@@ -497,6 +526,22 @@ export function SmartTriadProvider({
     return state.ownedContentIds.has(contentId);
   }, [state.ownedContentIds, state.devGatingOverride]);
 
+  // ==========================================================================
+  // SMARTACTIONS — SHARE
+  // ==========================================================================
+
+  const setContentAccessGranted = useCallback((granted: boolean) => {
+    setState(prev => ({ ...prev, contentAccessGranted: granted }));
+  }, []);
+
+  const openShare = useCallback((item: ShareItem) => {
+    setState(prev => ({ ...prev, shareItem: item }));
+  }, []);
+
+  const closeShare = useCallback(() => {
+    setState(prev => ({ ...prev, shareItem: null }));
+  }, []);
+
   const setDevGatingOverride = useCallback((enabled: boolean) => {
     setState(prev => ({ ...prev, devGatingOverride: enabled }));
     if (typeof window !== "undefined") {
@@ -535,12 +580,13 @@ export function SmartTriadProvider({
       // Fallback: execute action handler directly
       // This simulates what Copilot would do
       if (actionName === "triad_browse_library") {
-        // Direct service call for library
-        const res = await fetch(`/api/content/smart?personaId=${params.personaId}`);
+        // Query entitlements directly — authoritative source of owned content
+        const res = await fetch(`/api/content/entitlements?personaId=${params.personaId}`);
         const data = await res.json().catch(() => ({ data: [] }));
+        // Each entitlement has content_id; wrap as { content: { id } } for the refreshLibrary mapper
         return {
           success: true,
-          owned: data.data?.map((c: any) => ({ content: c })) || [],
+          owned: (data.data || []).map((ent: any) => ({ content: { id: ent.contentId || ent.content_id } })),
         };
       }
 
@@ -636,6 +682,9 @@ export function SmartTriadProvider({
       purchaseContent,
       refreshLibrary,
       checkOwnership,
+      openShare,
+      closeShare,
+      setContentAccessGranted,
       setDevGatingOverride,
       executeTriadAction,
     },
@@ -705,6 +754,16 @@ export function useTriadPurchase() {
     lastPurchase: state.lastPurchase,
     purchase: actions.purchaseContent,
     checkOwnership: actions.checkOwnership,
+  };
+}
+
+export function useTriadShare() {
+  const { state, actions, personaId } = useSmartTriad();
+  return {
+    shareItem: state.shareItem,
+    personaId,
+    openShare: actions.openShare,
+    closeShare: actions.closeShare,
   };
 }
 

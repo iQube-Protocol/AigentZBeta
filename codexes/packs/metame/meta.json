@@ -1,0 +1,33 @@
+{
+  "pack_id": "pack_metame_v0",
+  "name": "metaMe Cartridge",
+  "version": "0.1.0",
+  "orientation": "sovereign",
+  "description": "metaMe canonical experience framework, sovereignty model, progression logic, and next-best-pathway architecture.",
+  "tags": [
+    "metaMe",
+    "experience",
+    "progression",
+    "PCS",
+    "sovereignty",
+    "next-best-experience",
+    "journey",
+    "ladder",
+    "matrix"
+  ],
+  "default_nav": [
+    "Experience Framework",
+    "Experience Model",
+    "Experience Ladder",
+    "Experience Matrices",
+    "Semantic Rendering"
+  ],
+  "supported_views": [
+    "Collection",
+    "Reader"
+  ],
+  "owner": {
+    "system": "metaMe",
+    "guardian": "metaMe Guardian"
+  }
+}

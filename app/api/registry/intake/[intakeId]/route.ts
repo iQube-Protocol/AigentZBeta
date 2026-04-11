@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getIntake, updateIntake, getSourceByIntake } from "@/services/registry/persistence";
+import { getIntake, updateIntake, getSourceByIntake, deleteIntake } from "@/services/registry/persistence";
 import { fetchAndFingerprint } from "@/services/registry/fetcherService";
 import { classifySource } from "@/services/registry/classifierService";
 import { packageAsset } from "@/services/registry/packagerService";
@@ -96,6 +96,32 @@ export async function POST(req: NextRequest, { params }: Params) {
     return NextResponse.json({ ok: false, error: `Unknown action: ${action}` }, { status: 400 });
   } catch (err) {
     console.error("[registry/intake/id] POST error:", err);
+    return NextResponse.json({ ok: false, error: "Internal server error" }, { status: 500 });
+  }
+}
+
+/**
+ * DELETE /api/registry/intake/[intakeId]
+ * Removes an intake that has NOT been published to the registry.
+ * Published items (currentStage = "asset.published") are rejected to prevent
+ * orphaning live registry entries.
+ */
+export async function DELETE(_req: NextRequest, { params }: Params) {
+  try {
+    const intake = await getIntake(params.intakeId);
+    if (!intake) {
+      return NextResponse.json({ ok: false, error: "Intake not found" }, { status: 404 });
+    }
+    if (intake.currentStage === "asset.published") {
+      return NextResponse.json(
+        { ok: false, error: "Cannot delete a published intake. Revoke the registry asset first." },
+        { status: 409 }
+      );
+    }
+    await deleteIntake(params.intakeId);
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error("[registry/intake/id] DELETE error:", err);
     return NextResponse.json({ ok: false, error: "Internal server error" }, { status: 500 });
   }
 }

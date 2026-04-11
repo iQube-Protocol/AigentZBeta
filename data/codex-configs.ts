@@ -258,11 +258,29 @@ export const KNYT_CODEX: CodexConfig = {
       }
     },
     {
+      id: 'runtime',
+      label: 'Runtime',
+      slug: 'runtime',
+      enabled: true,
+      order: 8,
+      type: 'static',
+      config: {
+        component: 'KnytRuntimeSurface',
+        props: {}
+      },
+      metadata: {
+        icon: 'Zap',
+        description: 'KNYT Live Runtime Surface — patronage axis, PCS axis, signals, next-best-step',
+        color: 'amber'
+      }
+    },
+    {
       id: 'experience-dashboard',
       label: 'Experience',
       slug: 'experience-dashboard',
       enabled: true,
-      order: 8,
+      adminOnly: true,   // Sensitive admin data — hidden from all non-admin users
+      order: 9,
       type: 'static',
       config: {
         component: 'ExperienceDashboardTab',
@@ -272,6 +290,28 @@ export const KNYT_CODEX: CodexConfig = {
         icon: 'Layers',
         description: 'Experience journey dashboard — franchise health, cohorts, NBE, guardian',
         color: 'violet'
+      }
+    },
+    {
+      id: 'experience-pack',
+      label: 'Experience Pack',
+      slug: 'experience-pack',
+      enabled: true,
+      adminOnly: true,   // Internal stakeholder doc — hidden from end users
+      order: 10,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'knyt',
+          collectionId: 'col_experience_pack',
+          defaultPath: 'items/KNYT_EXPERIENCE_PACK_PRD.md'
+        }
+      },
+      metadata: {
+        icon: 'BookOpen',
+        description: 'KNYT Experience Pack — PRD, matrices, runtime surface spec and wireframe',
+        color: 'amber'
       }
     }
   ],
@@ -432,20 +472,28 @@ export const QRIPTO_CODEX: CodexConfig = {
 };
 
 export const AGENTIQ_CARTRIDGE: CodexConfig = {
-  id: 'aigentiq-codex',
+  // Canonical single definition for the AgentiQ Codex.
+  // id matches the aigency pack slug so the registry dedup keeps this config and
+  // skips the auto-generated version (packRegistry skips 'aigency' directory).
+  // Content sources:
+  //   packId 'aigency' → codexes/packs/aigency/  (rich engineering KB: arch, knowledge, PRs, commits)
+  //   packId 'agentiq' → codexes/packs/agentiq/  (build-layer docs: AgentiQ OS, Alpha Program)
+  //   static components → FactoryIntakeTab, RegistrySupplyTab
+  id: 'agentiq-codex',
   name: 'AgentiQ Codex',
-  slug: 'aigentiq',
+  slug: 'agentiq',
   enabled: true,
   version: '1.0.0',
   owner: 'aigent-z',
   metadata: {
-    description: 'AgentiQ engineering truth: docs, decisions, PR briefs, and system maps',
+    description: 'AgentiQ engineering KB: architecture, knowledge, decisions, PR history, OS builder docs, and registry tooling',
     icon: 'Brain',
     color: 'blue',
     category: 'cartridge',
-    tags: ['agentiq', 'cartridge', 'platform', 'decisions', 'pr-briefs']
+    tags: ['agentiq', 'cartridge', 'platform', 'decisions', 'pr-briefs', 'architecture', 'knowledge']
   },
   tabs: [
+    // ─── aigency pack — canonical engineering KB ──────────────────────────
     {
       id: 'start',
       label: 'Start Here',
@@ -456,35 +504,72 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       config: {
         component: 'AgentiqCartridgeTab',
         props: {
-          packId: 'agentiq',
+          packId: 'aigency',
           collectionId: 'col_start_here',
-          defaultPath: 'items/AGENTIQ_CARTRIDGE.md'
+          defaultPath: 'items/00_START_HERE.md'
         }
       },
       metadata: {
         icon: 'Home',
-        description: 'Cartridge overview and navigation',
+        description: 'Codex orientation and navigation guide',
         color: 'blue'
       }
     },
     {
-      id: 'system-map',
-      label: 'System Map',
-      slug: 'system-map',
+      id: 'architecture',
+      label: 'Architecture',
+      slug: 'architecture',
       enabled: true,
       order: 1,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
         props: {
-          packId: 'agentiq',
-          collectionId: 'col_start_here',
-          defaultPath: 'items/SYSTEM_MAP.md'
+          packId: 'aigency',
+          collectionId: 'col_architecture'
         }
       },
       metadata: {
-        icon: 'BookOpen',
-        description: 'Architecture and core flows'
+        icon: 'Layers',
+        description: 'System architecture: topology, data/identity, payments, protocols'
+      }
+    },
+    {
+      id: 'codebase',
+      label: 'Codebase',
+      slug: 'codebase',
+      enabled: true,
+      order: 2,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'aigency',
+          collectionId: 'col_codebase'
+        }
+      },
+      metadata: {
+        icon: 'Code',
+        description: 'Repo map, modules, conventions, release tracks'
+      }
+    },
+    {
+      id: 'knowledge',
+      label: 'Knowledge',
+      slug: 'knowledge',
+      enabled: true,
+      order: 3,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'aigency',
+          collectionId: 'col_knowledge'
+        }
+      },
+      metadata: {
+        icon: 'BookMarked',
+        description: 'API reference, schemas, docs, snippets, DVN, ICP, identity, operators manual'
       }
     },
     {
@@ -492,37 +577,37 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       label: 'Decisions',
       slug: 'decisions',
       enabled: true,
-      order: 2,
+      order: 4,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
         props: {
-          packId: 'agentiq',
+          packId: 'aigency',
           collectionId: 'col_decisions'
         }
       },
       metadata: {
-        icon: 'Code',
-        description: 'Decision briefs and rationale'
+        icon: 'GitBranch',
+        description: 'Decision briefs, backlog, work allocation'
       }
     },
     {
-      id: 'work-allocation',
-      label: 'Work Allocation',
-      slug: 'work-allocation',
+      id: 'changelog',
+      label: 'Changelog',
+      slug: 'changelog',
       enabled: true,
-      order: 3,
+      order: 5,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
         props: {
-          packId: 'agentiq',
-          collectionId: 'col_work_allocation'
+          packId: 'aigency',
+          collectionId: 'col_changelog'
         }
       },
       metadata: {
-        icon: 'Shield',
-        description: 'Ownership boundaries'
+        icon: 'GitCommit',
+        description: 'Release history and changelog'
       }
     },
     {
@@ -530,18 +615,80 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       label: 'PR Briefs',
       slug: 'pr-briefs',
       enabled: true,
-      order: 4,
+      order: 6,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
         props: {
-          packId: 'agentiq',
+          packId: 'aigency',
           collectionId: 'col_pr_briefs'
         }
       },
       metadata: {
         icon: 'FileText',
-        description: 'PR summaries and impact'
+        description: 'PR summaries and impact (PR-78 through PR-1)'
+      }
+    },
+    {
+      id: 'recent-commits',
+      label: 'Recent Commits',
+      slug: 'recent-commits',
+      enabled: true,
+      order: 7,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'aigency',
+          collectionId: 'col_recent_commits'
+        }
+      },
+      metadata: {
+        icon: 'GitBranch',
+        description: 'Latest direct-push commits with context'
+      }
+    },
+    // ─── agentiq pack — build-layer docs ─────────────────────────────────
+    {
+      id: 'agentiq-os',
+      label: 'AgentiQ OS',
+      slug: 'agentiq-os',
+      enabled: true,
+      order: 8,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'agentiq',
+          collectionId: 'col_agentiq_os',
+          defaultPath: 'items/OS_README.md'
+        }
+      },
+      metadata: {
+        icon: 'Code',
+        description: 'AgentiQ OS — builder onboarding, contribution categories, packaging, submission',
+        color: 'green'
+      }
+    },
+    {
+      id: 'alpha-program',
+      label: 'Alpha Program',
+      slug: 'alpha-program',
+      enabled: true,
+      order: 9,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'agentiq',
+          collectionId: 'col_alpha_program',
+          defaultPath: 'items/ALPHA_PROGRAM_OVERVIEW.md'
+        }
+      },
+      metadata: {
+        icon: 'Rocket',
+        description: 'Alpha launch program — architecture, build plan, asset map',
+        color: 'amber'
       }
     },
     {
@@ -549,7 +696,7 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       label: 'Updates',
       slug: 'updates',
       enabled: true,
-      order: 5,
+      order: 10,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
@@ -568,7 +715,7 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       label: 'Retrieval Index',
       slug: 'retrieval-index',
       enabled: true,
-      order: 6,
+      order: 11,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
@@ -580,6 +727,63 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       metadata: {
         icon: 'BookMarked',
         description: 'Index schema and lookup'
+      }
+    },
+    // ─── static component tabs — Phase C ─────────────────────────────────
+    {
+      id: 'factory-intake',
+      label: 'Factory',
+      slug: 'factory-intake',
+      enabled: true,
+      adminOnly: true,
+      order: 10,
+      type: 'static',
+      config: {
+        component: 'FactoryIntakeTab',
+        props: {}
+      },
+      metadata: {
+        icon: 'Factory',
+        description: 'Registry Ingestion Factory — track intake submissions through the full pipeline',
+        color: 'amber'
+      }
+    },
+    {
+      id: 'registry-supply',
+      label: 'Registry',
+      slug: 'registry-supply',
+      enabled: true,
+      order: 11,
+      type: 'static',
+      config: {
+        component: 'RegistrySupplyTab',
+        props: {}
+      },
+      metadata: {
+        icon: 'Database',
+        description: 'Registry supply — browse all published assets by trust band and class',
+        color: 'emerald'
+      }
+    },
+    {
+      id: 'operators-manual',
+      label: 'Operators',
+      slug: 'operators-manual',
+      enabled: true,
+      adminOnly: true,
+      order: 12,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'agentiq',
+          collectionId: 'col_operators'
+        }
+      },
+      metadata: {
+        icon: 'BookOpen',
+        description: 'Operators manual — trust scoring, pipeline reference, Aigent roster',
+        color: 'slate'
       }
     }
   ],
@@ -596,10 +800,79 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
   updatedAt: new Date().toISOString()
 };
 
+export const METAME_CODEX: CodexConfig = {
+  id: 'metame-codex',
+  name: 'metaMe Codex',
+  slug: 'metame',
+  enabled: true,
+  version: '1.0.0',
+  owner: 'metame-guardian',
+  metadata: {
+    description: 'metaMe sovereignty layer: experience framework, progression model, PCS ladder, and next-best-pathway logic',
+    icon: 'User',
+    color: 'violet',
+    category: 'sovereignty',
+    tags: ['metame', 'experience', 'pcs', 'sovereignty', 'progression', 'nbe']
+  },
+  tabs: [
+    {
+      id: 'experience-framework',
+      label: 'Experience Framework',
+      slug: 'experience-framework',
+      enabled: true,
+      adminOnly: true,
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'metame',
+          collectionId: 'col_experience_framework',
+          defaultPath: 'items/METAME_EXPERIENCE_FRAMEWORK.md'
+        }
+      },
+      metadata: {
+        icon: 'Layers',
+        description: 'Canonical experience framework — strategy, model, matrix, ladder, governance',
+        color: 'violet'
+      }
+    },
+    {
+      id: 'experience-dashboard',
+      label: 'Journey Dashboard',
+      slug: 'experience-dashboard',
+      enabled: true,
+      adminOnly: true,
+      order: 1,
+      type: 'static',
+      config: {
+        component: 'ExperienceDashboardTab',
+        props: { tenantId: 'metame' }
+      },
+      metadata: {
+        icon: 'BarChart',
+        description: 'User journey states, progression, NBE opportunities',
+        color: 'violet'
+      }
+    }
+  ],
+  permissions: {
+    view: ['*'],
+    edit: ['metame-guardian', 'aigent-z'],
+    admin: ['metame-guardian']
+  },
+  liquidUI: {
+    enabled: false
+  },
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString()
+};
+
 export const CODEX_DEFINITIONS: CodexConfig[] = [
   KNYT_CODEX,
   QRIPTO_CODEX,
-  AGENTIQ_CARTRIDGE
+  AGENTIQ_CARTRIDGE,
+  METAME_CODEX
 ];
 
 export function getCodexById(id: string): CodexConfig | undefined {

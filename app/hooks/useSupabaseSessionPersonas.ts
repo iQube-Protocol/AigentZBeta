@@ -97,6 +97,9 @@ function mapToPersonaState(record: Record<string, unknown>): PersonaState {
     isAgent: isAgentPersona(fioHandle, displayName),
     appOrigin: typeof record.appOrigin === "string" ? record.appOrigin : "",
     badges: Array.isArray(record.badges) ? (record.badges as string[]) : [],
+    evmAddress: typeof record.evmAddress === "string" && /^0x[0-9a-fA-F]{40}$/.test(record.evmAddress)
+      ? record.evmAddress as `0x${string}`
+      : undefined,
   };
 }
 

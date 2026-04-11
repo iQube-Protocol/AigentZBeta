@@ -19,7 +19,7 @@
       "id": "knyt-cards",
       "title": "Character Cards",
       "description": "Browse and collect KNYT character cards",
-      "type": "static", 
+      "type": "static",
       "order": 1,
       "enabled": true,
       "metadata": {
@@ -59,6 +59,16 @@
         "showBalance": true,
         "enablePurchase": false
       }
+    },
+    {
+      "id": "col_experience_pack",
+      "title": "Experience Pack",
+      "items": [
+        "items/KNYT_EXPERIENCE_PACK_PRD.md",
+        "items/KNYT_MATRIX_SHEET.md",
+        "items/KNYT_RUNTIME_SURFACE_SPEC.md",
+        "items/KNYT_RUNTIME_SURFACE_MAP.md"
+      ]
     }
   ]
 }

@@ -79,15 +79,26 @@ export function FeaturesTab({ theme = 'dark', issueSlug }: FeaturesTabProps) {
     const isLocked = isLockedContent(item, ({ id }) => actions.checkOwnership(id));
     await actions.loadContent(item.id);
     if (isLocked) {
-      actions.openWallet('full');
+      actions.openWallet('full', 'payments');
       await emitDvnReceipt(eventType, item.id);
       return;
     }
+    actions.setContentAccessGranted(true);
     actions.setViewerModality(
       eventType === 'content.watch' ? 'watch' : eventType === 'content.read' ? 'read' : null
     );
     actions.setActiveDrawer('contentViewer');
     await emitDvnReceipt(eventType, item.id);
+  };
+
+  const openShareModal = (item: ContentItem) => {
+    actions.openShare({
+      id: item.id,
+      title: item.title,
+      description: item.excerpt,
+      section: item.badge || item.section || 'Features',
+      type: item.modalities?.watch ? 'video' : 'text',
+    });
   };
 
   const issueParam = useMemo(() => {
@@ -180,6 +191,7 @@ export function FeaturesTab({ theme = 'dark', issueSlug }: FeaturesTabProps) {
         latestNews={latestNews}
         secondHeroArticles={secondHeroArticles}
         onOpen={openViaTriad}
+        onShare={openShareModal}
         isOwned={(id) => actions.checkOwnership(id)}
         onRefresh={() => {
           CacheManager.invalidate(cacheTag);

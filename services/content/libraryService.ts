@@ -915,7 +915,15 @@ export class LibraryService {
       rewardOutcomes: row.reward_outcomes || {},
       modalities: row.modalities || {},
       structure: row.structure_data,
-      pricingModel: row.pricing_model || {},
+      pricingModel: (() => {
+        const direct = row.pricing_model;
+        const fromMarketData = row.market_data?.pricing_model;
+        const base = (direct && Object.keys(direct).length > 0) ? direct : (fromMarketData || {});
+        if (fromMarketData?.tiers?.length && !base.tiers?.length) {
+          return { ...base, tiers: fromMarketData.tiers };
+        }
+        return base;
+      })(),
       accessPolicy: row.access_policy || {},
       layoutHints: row.layout_hints || {},
       menuIntegration: row.menu_integration || {},

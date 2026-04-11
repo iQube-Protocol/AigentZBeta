@@ -104,7 +104,8 @@ function toPositiveNumber(value: unknown): number | null {
 }
 
 function normalizePricing(item: any) {
-  const pricingModel = item.pricing_model || item.pricingModel || {};
+  const marketData = item.market_data || item.marketData || {};
+  const pricingModel = item.pricing_model || item.pricingModel || marketData.pricing_model || marketData.pricingModel || {};
   const metadata = item.metadata || {};
   const metadataPricing = metadata.pricing || {};
   const paymentMetadata = item.payment_metadata || item.paymentMetadata || metadata.payment || {};
@@ -189,6 +190,7 @@ function mapSectionItem(item: any, section: string) {
             video_url: modalities.watch.video_url,
             duration: modalities.watch.duration,
             type: 'hosted',
+            loop: modalities.watch.loop ?? modalities.watch.loop_video ?? false,
           }
         : undefined,
       listen: modalities.listen
