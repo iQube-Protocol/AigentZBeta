@@ -79,6 +79,28 @@ The UI should behave as though it is being *drawn into clarity*.
 
 ---
 
+## SmartTriad Copilot — universal light mode (deferred)
+
+**Status:** Deferred — stub CSS exists in `styles/mm-light.css` (`.smarttriad-*` selectors).
+
+### What the stub covers
+- Paragraph and bullet text readable on parchment (`color: #2E2923`)
+- Key-term and inline-code in deep teal (`color: #1E5E6B`)
+- Blockquote border warm teal wash
+
+### What still needs full treatment
+- SmartTriad panel background and surface colours (currently inheriting from general bg-slate overrides)
+- Typing indicator / pulse animation for light mode
+- SmartTriad header chrome, input bar, and action buttons
+- Pill and chip labels inside SmartTriad (text-cyan-400 converts via general rule, but needs review)
+- Trust-ring and score ring colours within copilot context
+- Any SmartTriad-specific glassmorphism usage — should become warm vellum glass
+
+### When to action
+Action as a single dedicated session once dark-mode regression tests are in place. Do not patch incrementally alongside other work.
+
+---
+
 ## Discovery reference
 
 The Star Trek: Discovery title sequence (Prologue, 2017) uses:
