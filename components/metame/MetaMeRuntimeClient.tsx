@@ -3139,7 +3139,7 @@ export default function MetaMeRuntimeClient() {
               const styleLabel = inferRuntimeExperienceStyle(content);
               // Content verb actions derived from the capsule's actual capabilities.
               // These drive the RIGHT side of the card (what you CAN DO).
-              const quickActions = deriveRuntimeExperienceQuickActions(content, intent);
+              const quickActions = deriveRuntimeExperienceQuickActions(content, lastIntent);
               // Non-verb modality hints drive the LEFT side type badge (what it IS).
               const verbHints = new Set(["read", "watch", "listen", "play", "share", "interact", "explore"]);
               const typeHint = content.runtimeModalityHints?.find((h) => !verbHints.has(h.toLowerCase()));
