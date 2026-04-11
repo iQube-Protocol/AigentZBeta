@@ -66,22 +66,67 @@ export async function GET(request: NextRequest) {
   const search = searchParams.get('search')?.trim().toLowerCase() ?? '';
   const limit = Math.min(parseInt(searchParams.get('limit') ?? '200', 10), 500);
   const offset = parseInt(searchParams.get('offset') ?? '0', 10);
-  const sort = searchParams.get('sort') ?? 'name';
+  const sort = searchParams.get('sort') ?? 'tier';
 
   const client = getCrmClient();
 
-  // ── Fetch all records — filter in-memory to avoid PostgREST OR syntax
-  //    issues with hyphenated column names
-  const { data: rawData, error } = await client
-    .from('nakamoto_knyt_personas')
-    .select('*')
-    .order('First-Name', { ascending: true });
+  // ── Fetch ALL records, paginating past Supabase's 1000-row default cap ──────
+  // For search queries: use per-column ilike (avoids PostgREST OR + hyphenated
+  // column name parsing issues) and merge unique results.
+  // For full list: paginate in 1000-row pages until exhausted.
+  const PAGE_SIZE = 1000;
+  let rawInvestors: Record<string, unknown>[] = [];
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (search) {
+    // Run one ilike query per searchable column and deduplicate by id
+    const seen = new Set<string>();
+    const [byFirst, byLast, byEmail, byKnytId] = await Promise.all([
+      client.from('nakamoto_knyt_personas').select('*').ilike('First-Name', `%${search}%`),
+      client.from('nakamoto_knyt_personas').select('*').ilike('Last-Name', `%${search}%`),
+      client.from('nakamoto_knyt_personas').select('*').ilike('Email', `%${search}%`),
+      client.from('nakamoto_knyt_personas').select('*').ilike('KNYT-ID', `%${search}%`),
+    ]);
+    for (const result of [byFirst, byLast, byEmail, byKnytId]) {
+      for (const row of (result.data ?? []) as Record<string, unknown>[]) {
+        const id = row['id'] as string;
+        if (id && !seen.has(id)) {
+          seen.add(id);
+          rawInvestors.push(row);
+        }
+      }
+    }
+    // Also search profession and city (these are simple columns)
+    const [byProf, byCity] = await Promise.all([
+      client.from('nakamoto_knyt_personas').select('*').ilike('Profession', `%${search}%`),
+      client.from('nakamoto_knyt_personas').select('*').ilike('Local-City', `%${search}%`),
+    ]);
+    for (const result of [byProf, byCity]) {
+      for (const row of (result.data ?? []) as Record<string, unknown>[]) {
+        const id = row['id'] as string;
+        if (id && !seen.has(id)) {
+          seen.add(id);
+          rawInvestors.push(row);
+        }
+      }
+    }
+  } else {
+    // Full list — paginate until all records are loaded
+    let page = 0;
+    while (true) {
+      const { data, error } = await client
+        .from('nakamoto_knyt_personas')
+        .select('*')
+        .order('First-Name', { ascending: true })
+        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+      if (!data || data.length === 0) break;
+      rawInvestors = rawInvestors.concat(data as Record<string, unknown>[]);
+      if (data.length < PAGE_SIZE) break;
+      page++;
+    }
   }
-
-  const rawInvestors = (rawData ?? []) as Record<string, unknown>[];
 
   // ── Step 1: filter to real investors only ──────────────────────────────────
   const investorRows = rawInvestors.filter(isRealInvestor);
@@ -94,18 +139,21 @@ export async function GET(request: NextRequest) {
   const crmByEmail: Record<string, { identity_persona_id: string | null }> = {};
 
   if (emails.length > 0) {
-    const { data: crmRows } = await client
-      .from('crm_personas')
-      .select('email, identity_persona_id')
-      .in('email', emails);
-
-    (crmRows ?? []).forEach((row) => {
-      if (row.email) {
-        crmByEmail[row.email.toLowerCase()] = {
-          identity_persona_id: row.identity_persona_id ?? null,
-        };
-      }
-    });
+    // Batch in chunks of 500 to avoid .in() limit issues
+    const CHUNK = 500;
+    for (let i = 0; i < emails.length; i += CHUNK) {
+      const { data: crmRows } = await client
+        .from('crm_personas')
+        .select('email, identity_persona_id')
+        .in('email', emails.slice(i, i + CHUNK));
+      (crmRows ?? []).forEach((row) => {
+        if (row.email) {
+          crmByEmail[row.email.toLowerCase()] = {
+            identity_persona_id: row.identity_persona_id ?? null,
+          };
+        }
+      });
+    }
   }
 
   // ── Step 3: build response objects ─────────────────────────────────────────
