@@ -4399,7 +4399,7 @@ export default function MetaMeRuntimeClient() {
   // sits on top of the scroll content in the z-axis, so the viewport "scrolls behind" them.
   const embedPreviewMode = embedMode && !!queryPreviewDisplayCapsule;
   const runtimeSurface = (
-    <div className={`metame-runtime-layer relative h-full w-full rounded-[5px] ${runtimeTheme === "light" ? "mm-light" : "bg-slate-950 text-white"} overflow-hidden flex flex-col`}>
+    <div className={`metame-runtime-layer relative h-full w-full ${runtimeTheme === "light" ? "mm-light" : "bg-slate-950 text-white"} overflow-hidden flex flex-col`}>
       <style jsx global>{`
         .copilotkit-launcher,
         .copilotkit-button,
