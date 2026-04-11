@@ -3170,10 +3170,10 @@ export default function MetaMeRuntimeClient() {
                 : null;
               const sourceBadgeClass =
                 content.runtimeSource === "codex"
-                  ? "border-cyan-300/45 bg-cyan-500/20 text-cyan-100"
+                  ? "border-cyan-300/70 bg-cyan-500/30 text-cyan-100 font-semibold"
                   : content.runtimeSource === "experience"
-                    ? "border-violet-300/45 bg-violet-500/20 text-violet-100"
-                    : "border-emerald-300/45 bg-emerald-500/20 text-emerald-100";
+                    ? "border-violet-300/70 bg-violet-500/30 text-violet-100 font-semibold"
+                    : "border-emerald-300/70 bg-emerald-500/30 text-emerald-100 font-semibold";
               const sourceLabel =
                 content.runtimeSource === "experience"
                   ? "ExperienceQube"
@@ -3304,13 +3304,13 @@ export default function MetaMeRuntimeClient() {
                     <div className="absolute inset-x-0 bottom-0 p-3 space-y-2">
                       <h4 className="line-clamp-1 text-sm font-semibold text-white">{content.title}</h4>
                       <p className="line-clamp-2 text-[11px] text-slate-200/85">{content.description}</p>
-                      <div className="flex items-center gap-2 text-[10px] text-slate-200/75">
-                        <span className="rounded-full border border-white/15 bg-white/10 px-2 py-0.5 uppercase tracking-wide">{modalityLabel}</span>
+                      <div className="flex items-center gap-2 text-[10px] font-medium text-slate-100">
+                        <span className="rounded-full border border-white/30 bg-white/18 px-2 py-0.5 uppercase tracking-wide">{modalityLabel}</span>
                         {content.runtimeDurationMinutes ? (
-                          <span className="rounded-full border border-white/15 bg-white/10 px-2 py-0.5">{content.runtimeDurationMinutes} min</span>
+                          <span className="rounded-full border border-white/25 bg-white/15 px-2 py-0.5">{content.runtimeDurationMinutes} min</span>
                         ) : null}
                         {content.runtimePriceLabel ? (
-                          <span className="rounded-full border border-white/15 bg-white/10 px-2 py-0.5">{content.runtimePriceLabel}</span>
+                          <span className="rounded-full border border-white/25 bg-white/15 px-2 py-0.5">{content.runtimePriceLabel}</span>
                         ) : null}
                         {content.runtimeAssetStatus === "missing" ? (
                           <span className="rounded-full border border-amber-300/35 bg-amber-500/20 px-2 py-0.5 text-amber-100">no asset</span>
