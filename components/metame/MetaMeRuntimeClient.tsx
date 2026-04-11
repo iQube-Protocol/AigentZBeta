@@ -698,6 +698,15 @@ function runtimeContentKindIcon(kind: RuntimeCapsule["runtimeContentKind"] | "im
   return <Hexagon className="h-3.5 w-3.5" />;
 }
 
+/** Maps a content action verb to its icon for the thumbnail card action bar.
+ *  LEFT = what it IS (badges).  RIGHT = what you CAN DO (these icons). */
+function quickActionIcon(kind: "watch" | "read" | "listen" | "share") {
+  if (kind === "watch") return <PlayCircle className="h-4 w-4" />;
+  if (kind === "read") return <BookOpen className="h-4 w-4" />;
+  if (kind === "listen") return <Headphones className="h-4 w-4" />;
+  return <Share2 className="h-4 w-4" />;
+}
+
 function deriveRuntimeExperienceKinds(content: RuntimeCapsule): Array<"image" | "video" | "article"> {
   const kinds: Array<"image" | "video" | "article"> = [];
   if (resolveRuntimeArticleDraft(content)) {
@@ -3127,9 +3136,26 @@ export default function MetaMeRuntimeClient() {
               const isSelected = content.id === activeCapsuleId;
               const progressValue = /awakenings|play|episode/i.test(content.title) ? 33 : 0;
               const heroImage = resolveCapsuleCoverImage(content);
-              const experienceKinds = content.runtimeSource === "experience" ? deriveRuntimeExperienceKinds(content) : [];
-              const modalityLabel = content.runtimeModalityHints?.slice(0, 2).join(" · ") || "details";
               const styleLabel = inferRuntimeExperienceStyle(content);
+              // Content verb actions derived from the capsule's actual capabilities.
+              // These drive the RIGHT side of the card (what you CAN DO).
+              const quickActions = deriveRuntimeExperienceQuickActions(content, intent);
+              // Non-verb modality hints drive the LEFT side type badge (what it IS).
+              const verbHints = new Set(["read", "watch", "listen", "play", "share", "interact", "explore"]);
+              const typeHint = content.runtimeModalityHints?.find((h) => !verbHints.has(h.toLowerCase()));
+              const contentTypeBadge = typeHint
+                ? typeHint.toUpperCase()
+                : content.runtimeSource === "experience" && styleLabel === "cinematic"
+                ? "FILM"
+                : null;
+              // Bottom row modality label: only non-verb hints (editorial positioning)
+              const modalityLabel =
+                content.runtimeModalityHints
+                  ?.filter((h) => !verbHints.has(h.toLowerCase()))
+                  .slice(0, 2)
+                  .join(" · ") ||
+                styleLabel ||
+                "details";
               const authoringExperienceHref = content.runtimeAuthoringHref
                 ? withQueryParam(withQueryParam(content.runtimeAuthoringHref, "device", activeDevice), "from", "runtime")
                 : null;
@@ -3191,40 +3217,59 @@ export default function MetaMeRuntimeClient() {
                     )}
                     <div className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-900/35 to-slate-900/20" />
                     <div className="absolute inset-x-0 top-0 p-3 flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide ${sourceBadgeClass}`}>
+                      {/* LEFT — what it IS: source label + optional content type badge */}
+                      <div className="flex items-center gap-1.5">
+                        <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${sourceBadgeClass}`}>
                           {sourceLabel}
                         </span>
-                        {experienceKinds.map((kind) => (
-                          <span
-                            key={`${content.id}-${kind}`}
-                            className="inline-flex items-center gap-1 rounded-full border border-white/20 bg-slate-900/60 px-2 py-0.5 text-[10px] text-white/80"
-                            title={kind}
-                          >
-                            {runtimeContentKindIcon(kind)}
-                            <span className={activeDevice === "mobile" ? "sr-only" : ""}>{kind}</span>
-                          </span>
-                        ))}
-                        {content.runtimeSource === "experience" ? (
-                          <span
-                            className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-slate-900/60 text-white/80"
-                            title={styleLabel}
-                          >
-                            <ExperienceStyleIcon style={styleLabel} className="h-5 w-5" />
+                        {contentTypeBadge ? (
+                          <span className="rounded-full border border-white/18 bg-white/8 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white/70">
+                            {contentTypeBadge}
                           </span>
                         ) : null}
                       </div>
+                      {/* RIGHT — what you CAN DO: icon-only action buttons */}
                       <div className="flex items-center gap-1">
+                        {quickActions.map((action) => (
+                          <button
+                            key={action.kind}
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              if (action.kind === "share") {
+                                setMessages((prev) => [
+                                  ...prev,
+                                  {
+                                    id: `share-panel-${Date.now()}`,
+                                    role: "assistant",
+                                    content: buildSharePanel(content.title),
+                                    timestamp: new Date(),
+                                    variant: "panel",
+                                  },
+                                ]);
+                              } else {
+                                launchCapsule(content);
+                              }
+                            }}
+                            className="rounded-full border border-white/20 bg-slate-900/60 p-1.5 text-white/80 hover:text-white"
+                            title={action.label}
+                          >
+                            {quickActionIcon(action.kind)}
+                          </button>
+                        ))}
+                        {embedMode && content.runtimeSource === "experience" && (receiptHref || regenerateHref) ? (
+                          <span className="mx-0.5 h-3 w-px bg-white/20" aria-hidden="true" />
+                        ) : null}
                         {embedMode && content.runtimeSource === "experience" && receiptHref ? (
                           <a
                             href={receiptHref}
                             target="_top"
                             rel="noopener noreferrer"
                             onClick={(event) => event.stopPropagation()}
-                            className="rounded-full border border-white/20 bg-slate-900/60 p-1.5 text-white/80 hover:text-white"
-                            title="Open receipt details"
+                            className="rounded-full border border-white/15 bg-slate-900/50 p-1.5 text-white/55 hover:text-white/80"
+                            title="View receipt"
                           >
-                            <FileText className="h-5 w-5" />
+                            <FileText className="h-3.5 w-3.5" />
                           </a>
                         ) : null}
                         {embedMode && content.runtimeSource === "experience" && regenerateHref ? (
@@ -3233,10 +3278,10 @@ export default function MetaMeRuntimeClient() {
                             target="_top"
                             rel="noopener noreferrer"
                             onClick={(event) => event.stopPropagation()}
-                            className="rounded-full border border-white/20 bg-slate-900/60 p-1.5 text-white/80 hover:text-white"
-                            title="Open source experience to regenerate"
+                            className="rounded-full border border-white/15 bg-slate-900/50 p-1.5 text-white/55 hover:text-white/80"
+                            title="Regenerate"
                           >
-                            <RefreshCw className="h-5 w-5" />
+                            <RefreshCw className="h-3.5 w-3.5" />
                           </a>
                         ) : null}
                         <button
@@ -3245,45 +3290,14 @@ export default function MetaMeRuntimeClient() {
                             event.stopPropagation();
                             if (consumerExperienceHref) {
                               window.open(consumerExperienceHref, "_blank", "noopener,noreferrer");
-                              return;
+                            } else {
+                              launchCapsule(content);
                             }
-                            launchCapsule(content);
                           }}
-                          className="rounded-full border border-white/20 bg-slate-900/60 p-1.5 text-white/80 hover:text-white"
-                          title="Pop out experience"
+                          className="rounded-full border border-white/15 bg-slate-900/50 p-1.5 text-white/55 hover:text-white/80"
+                          title="Open in new window"
                         >
-                          <Eye className="h-5 w-5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            launchCapsule(content);
-                          }}
-                          className="rounded-full border border-white/20 bg-slate-900/60 p-1.5 text-white/80 hover:text-white"
-                          title="Launch"
-                        >
-                          <PlayCircle className="h-5 w-5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            setMessages((prev) => [
-                              ...prev,
-                              {
-                                id: `share-panel-${Date.now()}`,
-                                role: "assistant",
-                                content: buildSharePanel(content.title),
-                                timestamp: new Date(),
-                                variant: "panel",
-                              },
-                            ]);
-                          }}
-                          className="rounded-full border border-white/20 bg-slate-900/60 p-1.5 text-white/80 hover:text-white"
-                          title="Share"
-                        >
-                          <Share2 className="h-5 w-5" />
+                          <SquareArrowOutUpRight className="h-3.5 w-3.5" />
                         </button>
                       </div>
                     </div>
