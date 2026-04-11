@@ -198,6 +198,25 @@
    Mid shades (300/400) are deepened well past 4.5:1 contrast on #F1EBDD.
    ═══════════════════════════════════════════════════════════════════ */
 
+/* ── text-white opacity variants ────────────────────────────── */
+/* Tailwind opacity modifiers generate separate classes (text-white/40 ≠ text-white).
+   Faint white at 40–60% reads as near-invisible on parchment → raise to ink-muted.
+   Mid-range 70–80% → ink-secondary. High 85–95% → ink-primary. */
+.mm-light .text-white\/40 { color: var(--mm-ink-faint) !important; }
+.mm-light .text-white\/45 { color: var(--mm-ink-faint) !important; }
+.mm-light .text-white\/50 { color: var(--mm-ink-muted) !important; }
+.mm-light .text-white\/55 { color: var(--mm-ink-muted) !important; }
+.mm-light .text-white\/60 { color: var(--mm-ink-muted) !important; }
+.mm-light .text-white\/70 { color: var(--mm-ink-secondary) !important; }
+.mm-light .text-white\/75 { color: var(--mm-ink-secondary) !important; }
+.mm-light .text-white\/80 { color: var(--mm-ink-secondary) !important; }
+.mm-light .text-white\/85 { color: var(--mm-ink-primary) !important; }
+.mm-light .text-white\/90 { color: var(--mm-ink-primary) !important; }
+.mm-light .text-white\/95 { color: var(--mm-ink-primary) !important; }
+
+/* ── slate-200 opacity variant (bottom row chip text on cards) */
+.mm-light .text-slate-200\/85 { color: var(--mm-ink-secondary) !important; }
+
 /* ── Cyan / Runtime ─────────────────────────────────────────── */
 .mm-light .text-cyan-100,
 .mm-light .text-cyan-200 {
@@ -205,6 +224,14 @@
 }
 .mm-light .text-cyan-300,
 .mm-light .text-cyan-400 {
+  color: var(--mm-accent-runtime) !important;
+}
+/* Opacity-modifier variants (e.g. text-cyan-300/80 used for section labels) */
+.mm-light .text-cyan-300\/60,
+.mm-light .text-cyan-300\/70,
+.mm-light .text-cyan-300\/80,
+.mm-light .text-cyan-400\/60,
+.mm-light .text-cyan-400\/80 {
   color: var(--mm-accent-runtime) !important;
 }
 
@@ -215,6 +242,14 @@
 }
 .mm-light .text-emerald-300,
 .mm-light .text-emerald-400 {
+  color: var(--mm-accent-earn) !important;
+}
+/* Opacity-modifier variants */
+.mm-light .text-emerald-300\/60,
+.mm-light .text-emerald-300\/70,
+.mm-light .text-emerald-300\/80,
+.mm-light .text-emerald-400\/60,
+.mm-light .text-emerald-400\/80 {
   color: var(--mm-accent-earn) !important;
 }
 
@@ -235,6 +270,14 @@
 .mm-light .text-purple-400 {
   color: var(--mm-accent-make) !important;
 }
+/* Opacity-modifier variants */
+.mm-light .text-violet-300\/60,
+.mm-light .text-violet-300\/70,
+.mm-light .text-violet-300\/80,
+.mm-light .text-fuchsia-300\/60,
+.mm-light .text-fuchsia-300\/80 {
+  color: var(--mm-accent-make) !important;
+}
 
 /* ── Amber / Codex ──────────────────────────────────────────── */
 .mm-light .text-amber-100,
@@ -243,6 +286,11 @@
 }
 .mm-light .text-amber-300,
 .mm-light .text-amber-400 {
+  color: var(--mm-accent-codex) !important;
+}
+/* Opacity-modifier variants */
+.mm-light .text-amber-300\/60,
+.mm-light .text-amber-300\/80 {
   color: var(--mm-accent-codex) !important;
 }
 
@@ -381,6 +429,19 @@
 .mm-light .snap-start .border-white\/5 {
   border-color: rgba(255, 255, 255, 0.10) !important;
 }
+/* Restore opacity-modified white text inside thumbnail cards */
+.mm-light .snap-start .text-white\/40 { color: rgba(255, 255, 255, 0.40) !important; }
+.mm-light .snap-start .text-white\/45 { color: rgba(255, 255, 255, 0.45) !important; }
+.mm-light .snap-start .text-white\/50 { color: rgba(255, 255, 255, 0.50) !important; }
+.mm-light .snap-start .text-white\/55 { color: rgba(255, 255, 255, 0.55) !important; }
+.mm-light .snap-start .text-white\/60 { color: rgba(255, 255, 255, 0.60) !important; }
+.mm-light .snap-start .text-white\/70 { color: rgba(255, 255, 255, 0.70) !important; }
+.mm-light .snap-start .text-white\/75 { color: rgba(255, 255, 255, 0.75) !important; }
+.mm-light .snap-start .text-white\/80 { color: rgba(255, 255, 255, 0.80) !important; }
+.mm-light .snap-start .text-white\/85 { color: rgba(255, 255, 255, 0.85) !important; }
+.mm-light .snap-start .text-white\/90 { color: rgba(255, 255, 255, 0.90) !important; }
+.mm-light .snap-start .text-white\/95 { color: rgba(255, 255, 255, 0.95) !important; }
+.mm-light .snap-start .text-slate-200\/85 { color: rgba(226, 232, 240, 0.85) !important; }
 /* Restore link colour inside thumbnail cards (they have dark bg) */
 .mm-light .snap-start a {
   color: inherit !important;
