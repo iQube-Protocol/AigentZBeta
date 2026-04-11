@@ -1,9 +1,9 @@
-# KNYT Campaign — Revision Log
+# KNYT Wheel — Revision Log
 
-This directory holds **revision snapshots** of the KNYT Campaign bundle.
-The genesis set lives in `codexes/packs/knyt/items/` and is the canonical
-starting point. Revisions are additive — they never overwrite or replace
-the genesis set.
+This directory holds **revision snapshots** of the KNYT Wheel bundle
+(formally the KNYT Activation Campaign). The genesis set lives in
+`codexes/packs/knyt/items/` and is the canonical starting point.
+Revisions are additive — they never overwrite or replace the genesis set.
 
 ## Purpose
 
@@ -12,7 +12,7 @@ the genesis set.
 > The revisions directory preserves the evolution.**
 
 The `items/` directory holds the live working bundle surfaced in the
-admin-gated **KNYT Campaign** tab. As the campaign evolves (new learning,
+admin-gated **KNYT Wheel** tab. As the campaign evolves (new learning,
 copy tweaks, dashboard refinements), **do not silently overwrite the
 genesis docs**. Instead, drop a revision snapshot here.
 

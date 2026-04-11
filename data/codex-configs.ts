@@ -315,9 +315,9 @@ export const KNYT_CODEX: CodexConfig = {
       }
     },
     {
-      id: 'campaign',
-      label: 'KNYT Campaign',
-      slug: 'campaign',
+      id: 'wheel',
+      label: 'KNYT Wheel',
+      slug: 'wheel',
       enabled: true,
       adminOnly: true,   // Live operator bundle — admin-gated working access
       order: 11,
@@ -332,7 +332,7 @@ export const KNYT_CODEX: CodexConfig = {
       },
       metadata: {
         icon: 'Megaphone',
-        description: 'KNYT Activation Campaign — operator brief, activation blueprint, copy packs, 30-day calendar, CRM schema, dashboard spec, and launch runbook (13-doc genesis bundle)',
+        description: 'KNYT Wheel — the KNYT Activation Campaign genesis bundle: operator brief, activation blueprint, copy packs, operations, deployment handoff, marketa plans, 30-day calendar, CRM schema, dashboard spec, partner/investor addenda, and launch runbook (13 core docs + AutoDrive canonicalization companion)',
         color: 'rose'
       }
     }
